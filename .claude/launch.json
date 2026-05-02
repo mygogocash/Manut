@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "affine-frontend",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["dev"],
+      "port": 8080
+    },
+    {
+      "name": "affine-server",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["affine", "server", "dev"],
+      "port": 3010
+    },
+    {
+      "name": "affine-prisma-studio",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["affine", "server", "prisma", "studio"],
+      "port": 5555
+    }
+  ]
+}
