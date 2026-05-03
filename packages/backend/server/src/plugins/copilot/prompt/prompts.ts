@@ -31,6 +31,7 @@ export const Scenario = {
     'Convert to Sketch style',
     'Convert to sticker',
     'Generate image',
+    'Generate image with Fal',
     'Remove background',
     'Upscale image',
   ],
@@ -1610,6 +1611,17 @@ const imageActions: Prompt[] = [
     name: 'Generate image',
     action: 'image',
     model: 'gpt-image-1',
+    messages: [
+      {
+        role: 'user',
+        content: '{{content}}',
+      },
+    ],
+  },
+  {
+    name: 'Generate image with Fal',
+    action: 'image:fal',
+    model: 'flux-1/schnell',
     messages: [
       {
         role: 'user',

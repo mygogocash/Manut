@@ -1,5 +1,6 @@
 export const HISTORY_IMAGE_ACTIONS = [
   'image',
+  'image:fal',
   'AI image filter clay style',
   'AI image filter sketch style',
   'AI image filter anime style',

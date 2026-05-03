@@ -4,6 +4,7 @@ export const EXCLUDING_COPY_ACTIONS = [
   'makeItReal',
   'createSlides',
   'createImage',
+  'createImageWithFal',
   'findActions',
   'filterImage',
   'processImage',
@@ -15,13 +16,19 @@ export const EXCLUDING_REPLACE_ACTIONS = [
   'makeItReal',
   'createSlides',
   'createImage',
+  'createImageWithFal',
   'filterImage',
   'processImage',
 ];
 
 export const EXCLUDING_INSERT_ACTIONS = ['generateCaption'];
 
-export const IMAGE_ACTIONS = ['createImage', 'processImage', 'filterImage'];
+export const IMAGE_ACTIONS = [
+  'createImage',
+  'createImageWithFal',
+  'processImage',
+  'filterImage',
+];
 
 const commonImageStages = ['Generating image', 'Rendering image'];
 
@@ -32,6 +39,7 @@ export const generatingStages: {
   brainstormMindmap: ['Thinking about this topic', 'Rendering mindmap'],
   createSlides: ['Thinking about this topic', 'Rendering slides'],
   createImage: commonImageStages,
+  createImageWithFal: commonImageStages,
   processImage: commonImageStages,
   filterImage: commonImageStages,
 };

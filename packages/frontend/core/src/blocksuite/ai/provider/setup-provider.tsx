@@ -509,6 +509,21 @@ Could you make a new website based on these notes and send back just the html fi
     });
   });
 
+  AIProvider.provide('createImageWithFal', async options => {
+    const sessionId = await createSession({
+      promptName: 'Generate image with Fal',
+      ...options,
+    });
+    return toImage({
+      ...options,
+      client,
+      sessionId,
+      content: options.input,
+      // 5 minutes
+      timeout: 300000,
+    });
+  });
+
   AIProvider.provide('filterImage', async options => {
     // test to image
     const promptName: PromptKey | undefined = filterStyleToPromptName.get(
