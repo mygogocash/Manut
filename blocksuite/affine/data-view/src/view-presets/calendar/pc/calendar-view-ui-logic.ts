@@ -1,3 +1,5 @@
+import './menu.js';
+
 import type { InsertToPosition } from '@blocksuite/affine-shared/utils';
 import { css } from '@emotion/css';
 import { computed, signal } from '@preact/signals-core';
@@ -15,6 +17,7 @@ import {
 } from '../../../core/view/data-view-base.js';
 import type { CalendarSingleView } from '../calendar-view-manager.js';
 import type { CalendarViewSelectionWithType } from '../selection.js';
+import { CalendarDragController } from './controller/drag.js';
 
 // ─── styles ───────────────────────────────────────────────────────────────
 
@@ -31,6 +34,26 @@ const calendarHeaderStyle = css`
   justify-content: space-between;
   padding: 8px 0;
   margin-bottom: 8px;
+  position: relative;
+`;
+
+const settingsButtonStyle = css`
+  appearance: none;
+  border: 1px solid var(--affine-border-color, #e3e3e3);
+  background: transparent;
+  color: inherit;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  &:hover {
+    background: var(--affine-hover-color, rgba(0, 0, 0, 0.04));
+  }
+`;
+
+const settingsWrapperStyle = css`
+  position: relative;
 `;
 
 const calendarHeaderTitleStyle = css`
@@ -41,6 +64,7 @@ const calendarHeaderTitleStyle = css`
 const calendarHeaderNavStyle = css`
   display: flex;
   gap: 8px;
+  align-items: center;
 
   button {
     appearance: none;
@@ -53,6 +77,35 @@ const calendarHeaderNavStyle = css`
   }
   button:hover {
     background: var(--affine-hover-color, rgba(0, 0, 0, 0.04));
+  }
+`;
+
+const modeToggleStyle = css`
+  display: flex;
+  border: 1px solid var(--affine-border-color, #e3e3e3);
+  border-radius: 6px;
+  overflow: hidden;
+
+  button {
+    appearance: none;
+    border: none;
+    border-right: 1px solid var(--affine-border-color, #e3e3e3);
+    background: transparent;
+    color: inherit;
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 0;
+    font-size: 12px;
+  }
+  button:last-child {
+    border-right: none;
+  }
+  button:hover {
+    background: var(--affine-hover-color, rgba(0, 0, 0, 0.04));
+  }
+  button.active {
+    background: var(--affine-hover-color, rgba(0, 0, 0, 0.08));
+    font-weight: 600;
   }
 `;
 
@@ -133,6 +186,76 @@ const noDateColumnHintStyle = css`
   text-align: center;
 `;
 
+// ─── Time grid styles ──────────────────────────────────────────────────────
+
+const timeGridStyle = css`
+  display: flex;
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--affine-border-color, #e3e3e3);
+`;
+
+const timeAxisStyle = css`
+  width: 48px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--affine-border-color, #e3e3e3);
+`;
+
+const timeSlotStyle = css`
+  height: 60px;
+  border-bottom: 1px solid var(--affine-border-color, #e3e3e3);
+  padding: 2px 4px;
+  font-size: 11px;
+  color: var(--affine-text-secondary-color, #888);
+`;
+
+const dayColumnStyle = css`
+  flex: 1;
+  position: relative;
+  border-right: 1px solid var(--affine-border-color, #e3e3e3);
+`;
+
+const dayColumnSlotStyle = css`
+  height: 60px;
+  border-bottom: 1px solid var(--affine-border-color, #e3e3e3);
+  box-sizing: border-box;
+`;
+
+const eventInTimeGridStyle = css`
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  background: var(--affine-tag-blue, #cfe6ff);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+  overflow: hidden;
+  cursor: pointer;
+  min-height: 30px;
+  box-sizing: border-box;
+  z-index: 1;
+`;
+
+const weekHeaderRowStyle = css`
+  display: flex;
+  border-bottom: 1px solid var(--affine-border-color, #e3e3e3);
+`;
+
+const weekHeaderCellStyle = css`
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 12px;
+  text-align: center;
+  border-right: 1px solid var(--affine-border-color, #e3e3e3);
+  color: var(--affine-text-secondary-color, #888);
+`;
+
+const weekHeaderAxisStyle = css`
+  width: 48px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--affine-border-color, #e3e3e3);
+`;
+
 // ─── UI logic ─────────────────────────────────────────────────────────────
 
 export class CalendarViewUILogic extends DataViewUILogicBase<
@@ -141,17 +264,67 @@ export class CalendarViewUILogic extends DataViewUILogicBase<
 > {
   ui$ = signal<CalendarViewUI | undefined>();
 
+  dragController = new CalendarDragController(this);
+
   /** First-day-of-month currently displayed. */
   visibleMonth$ = signal<Date>(startOfMonth(new Date()));
+
+  /** Anchor date for week/day views. */
+  visibleDate$ = signal<Date>(new Date());
 
   /** Computed visible window: includes leading/trailing days from neighbouring months to fill 6×7 grid. */
   visibleRange$ = computed(() => calendarGridRange(this.visibleMonth$.value));
 
   rowsByDay$ = computed(() => this.view.rowsByDay$.value);
 
+  /** Whether the settings dropdown is open. */
+  settingsOpen$ = signal(false);
+
+  toggleSettings = () => {
+    this.settingsOpen$.value = !this.settingsOpen$.value;
+  };
+
+  closeSettings = () => {
+    this.settingsOpen$.value = false;
+  };
+
   private get readonly() {
     return this.view.readonly$.value;
   }
+
+  goPrev = () => {
+    const mode = this.view.displayMode$.value;
+    if (mode === 'week') {
+      const cur = this.visibleDate$.value;
+      const prev = new Date(cur);
+      prev.setDate(prev.getDate() - 7);
+      this.visibleDate$.value = prev;
+    } else if (mode === 'day') {
+      const cur = this.visibleDate$.value;
+      const prev = new Date(cur);
+      prev.setDate(prev.getDate() - 1);
+      this.visibleDate$.value = prev;
+    } else {
+      this.goPrevMonth();
+    }
+  };
+
+  goNext = () => {
+    const mode = this.view.displayMode$.value;
+    if (mode === 'week') {
+      const cur = this.visibleDate$.value;
+      const next = new Date(cur);
+      next.setDate(next.getDate() + 7);
+      this.visibleDate$.value = next;
+    } else if (mode === 'day') {
+      const cur = this.visibleDate$.value;
+      const next = new Date(cur);
+      next.setDate(next.getDate() + 1);
+      this.visibleDate$.value = next;
+    } else {
+      this.goNextMonth();
+    }
+  };
 
   goPrevMonth = () => {
     const cur = this.visibleMonth$.value;
@@ -169,6 +342,7 @@ export class CalendarViewUILogic extends DataViewUILogicBase<
 
   goToday = () => {
     this.visibleMonth$.value = startOfMonth(new Date());
+    this.visibleDate$.value = new Date();
   };
 
   openRow = (rowId: string) => {
@@ -221,16 +395,17 @@ export class CalendarViewUILogic extends DataViewUILogicBase<
   };
 
   showIndicator = (_evt: MouseEvent) => {
-    // Drag-drop reschedule deferred to follow-up. No drop indicator.
+    // Indicator is managed directly by CalendarDragController during pointer drag.
     return false;
   };
 
   hideIndicator = () => {
-    // No-op (no indicator to hide).
+    this.dragController.hideDropIndicator();
   };
 
-  moveTo = (_id: string, _evt: MouseEvent) => {
-    // Drag-drop reschedule deferred to follow-up.
+  moveTo = (id: string, evt: MouseEvent) => {
+    if (this.view.readonly$.value) return;
+    this.dragController.dragStart(id, evt as unknown as PointerEvent);
   };
 
   renderer = createUniComponentFromWebComponent(CalendarViewUI);
@@ -242,19 +417,87 @@ export class CalendarViewUI extends DataViewUIBase<CalendarViewUILogic> {
   override connectedCallback(): void {
     super.connectedCallback();
     this.logic.ui$.value = this;
+    this.logic.dragController.hostConnected();
     this.classList.add(calendarViewStyle);
   }
 
   private renderHeader(): TemplateResult {
-    const month = this.logic.visibleMonth$.value;
-    const title = `${month.toLocaleString('default', { month: 'long' })} ${month.getFullYear()}`;
+    const mode = this.logic.view.displayMode$.value;
+    const settingsOpen = this.logic.settingsOpen$.value;
+    let title: string;
+
+    if (mode === 'week') {
+      const monday = getMondayOfWeek(this.logic.visibleDate$.value);
+      const sunday = new Date(monday);
+      sunday.setDate(sunday.getDate() + 6);
+      const startStr = monday.toLocaleString('default', {
+        month: 'short',
+        day: 'numeric',
+      });
+      const endStr = sunday.toLocaleString('default', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      title = `${startStr} – ${endStr}`;
+    } else if (mode === 'day') {
+      const d = this.logic.visibleDate$.value;
+      title = d.toLocaleString('default', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } else {
+      const month = this.logic.visibleMonth$.value;
+      title = `${month.toLocaleString('default', { month: 'long' })} ${month.getFullYear()}`;
+    }
+
     return html`
       <div class=${calendarHeaderStyle}>
         <div class=${calendarHeaderTitleStyle}>${title}</div>
         <div class=${calendarHeaderNavStyle}>
-          <button @click=${this.logic.goPrevMonth}>‹</button>
+          <button @click=${this.logic.goPrev}>‹</button>
           <button @click=${this.logic.goToday}>Today</button>
-          <button @click=${this.logic.goNextMonth}>›</button>
+          <button @click=${this.logic.goNext}>›</button>
+          <div class=${modeToggleStyle}>
+            <button
+              class=${mode === 'month' ? 'active' : ''}
+              @click=${() => this.logic.view.setDisplayMode('month')}
+            >
+              Mon
+            </button>
+            <button
+              class=${mode === 'week' ? 'active' : ''}
+              @click=${() => this.logic.view.setDisplayMode('week')}
+            >
+              Wk
+            </button>
+            <button
+              class=${mode === 'day' ? 'active' : ''}
+              @click=${() => this.logic.view.setDisplayMode('day')}
+            >
+              Day
+            </button>
+          </div>
+          <div class=${settingsWrapperStyle}>
+            <button
+              class=${settingsButtonStyle}
+              title="Calendar settings"
+              @click=${(e: MouseEvent) => {
+                e.stopPropagation();
+                this.logic.toggleSettings();
+              }}
+            >
+              ⚙
+            </button>
+            ${settingsOpen
+              ? html`<affine-data-view-calendar-settings-menu
+                  .view=${this.logic.view}
+                  @close=${() => this.logic.closeSettings()}
+                ></affine-data-view-calendar-settings-menu>`
+              : ''}
+          </div>
         </div>
       </div>
     `;
@@ -281,6 +524,7 @@ export class CalendarViewUI extends DataViewUIBase<CalendarViewUILogic> {
     return html`
       <div
         class=${classes.join(' ')}
+        data-date=${key}
         @click=${(e: MouseEvent) => {
           // only fire if the click landed on the cell itself, not an event chip
           if (e.target === e.currentTarget) {
@@ -300,6 +544,10 @@ export class CalendarViewUI extends DataViewUIBase<CalendarViewUILogic> {
             <div
               class=${eventChipStyle}
               title=${label}
+              @pointerdown=${(e: PointerEvent) => {
+                e.stopPropagation();
+                this.logic.dragController.dragStart(rowId, e);
+              }}
               @click=${(e: MouseEvent) => {
                 e.stopPropagation();
                 this.logic.openRow(rowId);
@@ -316,6 +564,109 @@ export class CalendarViewUI extends DataViewUIBase<CalendarViewUILogic> {
     `;
   }
 
+  private renderTimeGridColumn(date: Date): TemplateResult {
+    const key = dateKey(date);
+    const rowIds = this.logic.rowsByDay$.value.get(key) ?? [];
+    const slots = Array.from({ length: 24 }, (_, i) => i);
+
+    return html`
+      <div class=${dayColumnStyle}>
+        ${slots.map(() => html`<div class=${dayColumnSlotStyle}></div>`)}
+        ${rowIds.map(rowId => {
+          const label = this.logic.view.rowTitle(rowId);
+          const hour = getRowHour(this.logic, rowId);
+          return html`
+            <div
+              class=${eventInTimeGridStyle}
+              style=${styleMap({ top: `${hour * 60}px` })}
+              title=${label}
+              @click=${(e: MouseEvent) => {
+                e.stopPropagation();
+                this.logic.openRow(rowId);
+              }}
+            >
+              ${label || 'Untitled'}
+            </div>
+          `;
+        })}
+      </div>
+    `;
+  }
+
+  private renderMonthView(): TemplateResult {
+    const range = this.logic.visibleRange$.value;
+    return html`
+      ${this.renderHeader()}
+      <div class=${calendarGridStyle}>
+        ${this.renderDayHeaders()} ${range.map(d => this.renderCell(d))}
+      </div>
+    `;
+  }
+
+  private renderWeekView(): TemplateResult {
+    const anchor = this.logic.visibleDate$.value;
+    const monday = getMondayOfWeek(anchor);
+    const weekDays: Date[] = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return d;
+    });
+
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+
+    return html`
+      ${this.renderHeader()}
+      <div class=${weekHeaderRowStyle}>
+        <div class=${weekHeaderAxisStyle}></div>
+        ${weekDays.map(
+          (d, i) => html`
+            <div class=${weekHeaderCellStyle}>
+              ${dayNames[i]} ${d.getDate()}
+            </div>
+          `
+        )}
+      </div>
+      <div class=${timeGridStyle}>
+        <div class=${timeAxisStyle}>
+          ${hours.map(
+            h =>
+              html`<div class=${timeSlotStyle}>
+                ${h === 0 ? '' : `${String(h).padStart(2, '0')}:00`}
+              </div>`
+          )}
+        </div>
+        ${weekDays.map(d => this.renderTimeGridColumn(d))}
+      </div>
+    `;
+  }
+
+  private renderDayView(): TemplateResult {
+    const d = this.logic.visibleDate$.value;
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+
+    return html`
+      ${this.renderHeader()}
+      <div class=${weekHeaderRowStyle}>
+        <div class=${weekHeaderAxisStyle}></div>
+        <div class=${weekHeaderCellStyle}>
+          ${d.toLocaleString('default', { weekday: 'short' })} ${d.getDate()}
+        </div>
+      </div>
+      <div class=${timeGridStyle}>
+        <div class=${timeAxisStyle}>
+          ${hours.map(
+            h =>
+              html`<div class=${timeSlotStyle}>
+                ${h === 0 ? '' : `${String(h).padStart(2, '0')}:00`}
+              </div>`
+          )}
+        </div>
+        ${this.renderTimeGridColumn(d)}
+      </div>
+    `;
+  }
+
   override render(): TemplateResult {
     const dateColId = this.logic.view.dateColumnId$.value;
     if (!dateColId) {
@@ -323,25 +674,26 @@ export class CalendarViewUI extends DataViewUIBase<CalendarViewUILogic> {
         ${renderUniLit(this.logic.root.config.headerWidget, {
           dataViewLogic: this.logic,
         })}
+        ${this.renderHeader()}
         <div class=${noDateColumnHintStyle}>
           This calendar view has no date column configured.<br />
-          Add a property of type <strong>Date</strong> to this database, then
-          open view settings to pick it as the calendar axis.
+          Use the ⚙ settings button above to pick a date property, or add a
+          property of type <strong>Date</strong> to this database first.
         </div>
       `;
     }
 
-    const range = this.logic.visibleRange$.value;
+    const mode = this.logic.view.displayMode$.value;
 
     return html`
       ${renderUniLit(this.logic.root.config.headerWidget, {
         dataViewLogic: this.logic,
       })}
-      ${this.renderHeader()}
-      <div class=${calendarGridStyle}>
-        ${this.renderDayHeaders()}
-        ${range.map(d => this.renderCell(d))}
-      </div>
+      ${mode === 'week'
+        ? this.renderWeekView()
+        : mode === 'day'
+          ? this.renderDayView()
+          : this.renderMonthView()}
     `;
   }
 }
@@ -367,6 +719,17 @@ function dateKey(d: Date): string {
 }
 
 /**
+ * Returns the Monday of the week containing `d` (ISO 8601, week starts Monday).
+ */
+function getMondayOfWeek(d: Date): Date {
+  const result = new Date(d);
+  const dayOfWeek = (result.getDay() + 6) % 7; // Mon=0..Sun=6
+  result.setDate(result.getDate() - dayOfWeek);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
+
+/**
  * Returns 42 contiguous Date objects (6 weeks × 7 days) covering the visible month.
  * Week starts on Monday.
  */
@@ -379,10 +742,33 @@ function calendarGridRange(monthStart: Date): Date[] {
   const days: Date[] = [];
   for (let i = 0; i < 42; i++) {
     days.push(
-      new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + i)
+      new Date(
+        firstDay.getFullYear(),
+        firstDay.getMonth(),
+        firstDay.getDate() + i
+      )
     );
   }
   return days;
+}
+
+/**
+ * Read the hour (0-23) for a given row from the date column value.
+ * Falls back to 0 if the hour cannot be determined.
+ */
+function getRowHour(logic: CalendarViewUILogic, rowId: string): number {
+  const colId = logic.view.dateColumnId$.value;
+  if (!colId) return 0;
+  try {
+    const property = logic.view.propertyGetOrCreate(colId);
+    const raw = property.cellGetOrCreate(rowId).jsonValue$.value;
+    if (raw == null) return 0;
+    const ms = typeof raw === 'number' ? raw : Date.parse(String(raw));
+    if (Number.isNaN(ms)) return 0;
+    return new Date(ms).getHours();
+  } catch {
+    return 0;
+  }
 }
 
 declare global {
