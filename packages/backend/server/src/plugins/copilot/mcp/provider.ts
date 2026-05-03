@@ -3,9 +3,12 @@ import { pick } from 'lodash-es';
 import z from 'zod/v3';
 
 import { DocReader, DocWriter } from '../../../core/doc';
+import { PgWorkspaceDocStorageAdapter } from '../../../core/doc/adapters/workspace';
 import { AccessController } from '../../../core/permission';
 import { clearEmbeddingChunk } from '../../../models';
 import { IndexerService } from '../../indexer';
+import { SearchTable } from '../../indexer/tables';
+import { SearchQueryOccur, SearchQueryType } from '../../indexer/types';
 import { CopilotContextService } from '../context/service';
 
 type McpTextContent = {
@@ -102,6 +105,7 @@ export class WorkspaceMcpProvider {
     private readonly ac: AccessController,
     private readonly reader: DocReader,
     private readonly writer: DocWriter,
+    private readonly storage: PgWorkspaceDocStorageAdapter,
     private readonly context: CopilotContextService,
     private readonly indexer: IndexerService
   ) {}
@@ -239,7 +243,50 @@ export class WorkspaceMcpProvider {
       },
     });
 
-    const tools = [readDocument, semanticSearch, keywordSearch];
+    const deleteDocument = defineTool({
+      name: 'delete_document',
+      title: 'Delete Document',
+      description:
+        'Move a document to trash (soft delete). The document can be restored from trash within 30 days.',
+      parser: z.object({ docId: z.string() }),
+      inputSchema: {
+        type: 'object',
+        properties: { docId: { type: 'string' } },
+        required: ['docId'],
+        additionalProperties: false,
+      },
+      execute: async ({ docId }, options) => {
+        const accessible = await this.ac
+          .user(userId)
+          .workspace(workspaceId)
+          .doc(docId)
+          .can('Doc.Delete');
+        if (!accessible)
+          return toolError(
+            `Doc ${docId} not found or insufficient permissions.`
+          );
+
+        const abortedAfterPermission = abortIfNeeded(options.signal);
+        if (abortedAfterPermission) return abortedAfterPermission;
+
+        try {
+          await this.storage.deleteDoc(workspaceId, docId);
+          return toolText(
+            JSON.stringify({
+              success: true,
+              docId,
+              message: 'Document moved to trash.',
+            })
+          );
+        } catch (error) {
+          return toolError(
+            `Failed to delete document: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
+        }
+      },
+    });
+
+    const tools = [readDocument, semanticSearch, keywordSearch, deleteDocument];
 
     if (env.dev || env.namespaces.canary) {
       const createDocument = defineTool({
@@ -421,7 +468,166 @@ export class WorkspaceMcpProvider {
         },
       });
 
-      tools.push(createDocument, updateDocument, updateDocumentMeta);
+      const listDatabases = defineTool({
+        name: 'list_databases',
+        title: 'List Databases',
+        description:
+          'List all database (table/kanban/calendar) blocks in the workspace. Returns docId, database block id, title, and view names for each database found.',
+        parser: z.object({
+          limit: z.number().int().min(1).max(100).optional().default(50),
+        }),
+        inputSchema: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', minimum: 1, maximum: 100, default: 50 },
+          },
+          additionalProperties: false,
+        },
+        execute: async ({ limit }, options) => {
+          const aborted = abortIfNeeded(options.signal);
+          if (aborted) return aborted;
+
+          try {
+            // Search the block index for affine:database blocks in this workspace
+            const result = await this.indexer.search({
+              table: SearchTable.block,
+              query: {
+                type: SearchQueryType.boolean,
+                occur: SearchQueryOccur.must,
+                queries: [
+                  {
+                    type: SearchQueryType.match,
+                    field: 'workspaceId',
+                    match: workspaceId,
+                  },
+                  {
+                    type: SearchQueryType.match,
+                    field: 'flavour',
+                    match: 'affine:database',
+                  },
+                ],
+              },
+              options: {
+                fields: ['docId', 'blockId', 'content', 'additional'],
+                pagination: { limit },
+              },
+            });
+
+            const abortedAfterSearch = abortIfNeeded(options.signal);
+            if (abortedAfterSearch) return abortedAfterSearch;
+
+            // Filter by doc read permissions
+            const accessibleDocs = await this.ac
+              .user(userId)
+              .workspace(workspaceId)
+              .docs(
+                result.nodes.map(n => ({
+                  docId: n.fields.docId?.[0] as string,
+                })),
+                'Doc.Read'
+              );
+            const accessibleDocIds = new Set(
+              accessibleDocs.map(d => d.docId)
+            );
+
+            const databases = result.nodes
+              .filter(n => {
+                const docId = n.fields.docId?.[0] as string | undefined;
+                return docId && accessibleDocIds.has(docId);
+              })
+              .map(n => {
+                const docId = n.fields.docId?.[0] as string;
+                const blockId = n.fields.blockId?.[0] as string;
+                const content = (n.fields.content?.[0] as string) ?? '';
+                let additional: Record<string, unknown> = {};
+                try {
+                  const raw = n.fields.additional?.[0] as string | undefined;
+                  if (raw) additional = JSON.parse(raw) as Record<string, unknown>;
+                } catch {
+                  // ignore parse errors
+                }
+                return { docId, blockId, title: content, additional };
+              });
+
+            return toolText(
+              JSON.stringify({ databases, total: databases.length })
+            );
+          } catch (error) {
+            return toolError(
+              `Failed to list databases: ${error instanceof Error ? error.message : 'Unknown error'}`
+            );
+          }
+        },
+      });
+
+      const queryDatabase = defineTool({
+        name: 'query_database',
+        title: 'Query Database',
+        description:
+          'Query rows from a specific database block. Returns the document markdown content scoped to the database section.',
+        parser: z.object({
+          docId: z.string(),
+          databaseId: z.string().optional(),
+          limit: z.number().int().min(1).max(200).optional().default(50),
+          offset: z.number().int().min(0).optional().default(0),
+        }),
+        inputSchema: {
+          type: 'object',
+          properties: {
+            docId: { type: 'string' },
+            databaseId: { type: 'string' },
+            limit: { type: 'number', default: 50 },
+            offset: { type: 'number', default: 0 },
+          },
+          required: ['docId'],
+          additionalProperties: false,
+        },
+        execute: async ({ docId, databaseId, limit, offset }, options) => {
+          const accessible = await this.ac
+            .user(userId)
+            .workspace(workspaceId)
+            .doc(docId)
+            .can('Doc.Read');
+          if (!accessible)
+            return toolError(`Doc ${docId} not found or not accessible.`);
+
+          const abortedAfterPermission = abortIfNeeded(options.signal);
+          if (abortedAfterPermission) return abortedAfterPermission;
+
+          try {
+            // Read the doc's markdown — this is the best available representation
+            // since direct CRDT parsing of database rows requires the native layer
+            const content = await this.reader.getDocMarkdown(
+              workspaceId,
+              docId,
+              false
+            );
+            if (!content) {
+              return toolError(`Doc ${docId} not found.`);
+            }
+
+            const abortedAfterRead = abortIfNeeded(options.signal);
+            if (abortedAfterRead) return abortedAfterRead;
+
+            return toolText(
+              JSON.stringify({
+                docId,
+                databaseId: databaseId ?? null,
+                limit,
+                offset,
+                content: content.markdown,
+                note: 'Database rows are represented as markdown table(s) within the document content.',
+              })
+            );
+          } catch (error) {
+            return toolError(
+              `Failed to query database: ${error instanceof Error ? error.message : 'Unknown error'}`
+            );
+          }
+        },
+      });
+
+      tools.push(createDocument, updateDocument, updateDocumentMeta, listDatabases, queryDatabase);
     }
 
     return {

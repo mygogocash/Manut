@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  Optional,
   Param,
   Post,
   Req,
@@ -14,6 +15,8 @@ import type { Request, Response } from 'express';
 
 import { Throttle } from '../../../base';
 import { CurrentUser } from '../../../core/auth';
+import type { CurrentUser as CurrentUserType } from '../../../core/auth';
+import { McpApiKeyService } from './auth';
 import { WorkspaceMcpProvider, type WorkspaceMcpServer } from './provider';
 
 type JsonRpcId = string | number | null;
@@ -47,7 +50,10 @@ const SUPPORTED_PROTOCOL_VERSIONS = new Set([
 export class WorkspaceMcpController {
   private readonly logger = new Logger(WorkspaceMcpController.name);
 
-  constructor(private readonly provider: WorkspaceMcpProvider) {}
+  constructor(
+    private readonly provider: WorkspaceMcpProvider,
+    @Optional() private readonly apiKeyService: McpApiKeyService | null
+  ) {}
 
   @Get('/')
   @Delete('/')
@@ -61,14 +67,55 @@ export class WorkspaceMcpController {
   async mcp(
     @Req() req: Request,
     @Res() res: Response,
-    @CurrentUser() user: CurrentUser,
+    @CurrentUser() user: CurrentUserType | undefined,
     @Param('workspaceId') workspaceId: string
   ) {
     const abortController = new AbortController();
     req.on('close', () => abortController.abort());
 
     try {
-      const server = await this.provider.for(user.id, workspaceId);
+      // Resolve the user ID from session or Bearer API key
+      let resolvedUserId: string | undefined = user?.id;
+
+      if (!resolvedUserId) {
+        const authHeader = req.headers['authorization'];
+        if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+          const token = authHeader.slice(7);
+          if (this.apiKeyService) {
+            const result = await this.apiKeyService.validateApiKey(token);
+            if (!result) {
+              res
+                .status(HttpStatus.UNAUTHORIZED)
+                .json({ error: 'Invalid or expired API key.' });
+              return;
+            }
+            // If the key is scoped to a specific workspace, enforce it
+            if (result.workspaceId && result.workspaceId !== workspaceId) {
+              res
+                .status(HttpStatus.FORBIDDEN)
+                .json({
+                  error: 'API key is not authorized for this workspace.',
+                });
+              return;
+            }
+            resolvedUserId = result.userId;
+          } else {
+            res
+              .status(HttpStatus.UNAUTHORIZED)
+              .json({ error: 'API key authentication is not available.' });
+            return;
+          }
+        }
+      }
+
+      if (!resolvedUserId) {
+        res
+          .status(HttpStatus.UNAUTHORIZED)
+          .json({ error: 'Authentication required.' });
+        return;
+      }
+
+      const server = await this.provider.for(resolvedUserId, workspaceId);
       const body = req.body as unknown;
       const isBatch = Array.isArray(body);
       const messages = isBatch ? body : [body];

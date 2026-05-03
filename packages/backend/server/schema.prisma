@@ -51,6 +51,8 @@ model User {
   AccessToken                 AccessToken[]
   workspaceCalendars          WorkspaceCalendar[]
   workspaceMemberLastAccesses WorkspaceMemberLastAccess[]
+  mcpApiKeys                  McpApiKey[]
+  integrationConnections      IntegrationConnection[]
 
   @@index([email])
   @@map("users")
@@ -1144,4 +1146,42 @@ model CalendarEventInstance {
   @@unique([calendarEventId, recurrenceId])
   @@index([calendarEventId, startAtUtc])
   @@map("calendar_event_instances")
+}
+
+model IntegrationConnection {
+  id             String    @id @default(cuid()) @db.VarChar
+  userId         String    @map("user_id") @db.VarChar
+  workspaceId    String    @map("workspace_id") @db.VarChar
+  provider       String    @db.VarChar
+  externalId     String    @map("external_id") @db.VarChar
+  displayName    String    @map("display_name") @db.VarChar
+  accessToken    String    @map("access_token") @db.Text
+  refreshToken   String?   @map("refresh_token") @db.Text
+  tokenExpiresAt DateTime? @map("token_expires_at") @db.Timestamptz(3)
+  scopes         String    @db.Text
+  metadata       Json?     @db.JsonB
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId, provider])
+  @@index([userId, workspaceId])
+  @@map("integration_connections")
+}
+
+model McpApiKey {
+  id          String    @id @default(cuid()) @db.VarChar
+  userId      String    @map("user_id") @db.VarChar
+  workspaceId String?   @map("workspace_id") @db.VarChar
+  keyHash     String    @unique @map("key_hash") @db.VarChar
+  name        String    @db.VarChar
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mcp_api_keys")
 }

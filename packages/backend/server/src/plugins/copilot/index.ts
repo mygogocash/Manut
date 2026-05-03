@@ -19,6 +19,7 @@ import { CopilotController } from './controller';
 import { CopilotCronJobs } from './cron';
 import { CopilotEmbeddingJob } from './embedding';
 import { EmbeddingHealthService } from './embedding-health';
+import { McpApiKeyService } from './mcp/auth';
 import { WorkspaceMcpController } from './mcp/controller';
 import { WorkspaceMcpProvider } from './mcp/provider';
 import { ChatMessageCache } from './message';
@@ -88,6 +89,7 @@ import {
     CopilotContextRootResolver,
     // mcp
     WorkspaceMcpProvider,
+    McpApiKeyService,
   ],
   controllers: [CopilotController, WorkspaceMcpController, AdminIndexingController],
 })
