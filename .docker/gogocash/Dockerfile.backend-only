@@ -1,0 +1,20 @@
+# Backend-only update: take v1.4.0 image (with known-working frontend bundle)
+# and replace just the server's main.js with the new backend build.
+#
+# This ships:
+#   - Scenario classifier (Auto-router improvements)
+#   - PersonalizeService (per-user prompt addendum)
+#   - Mode/Web access backend (mode-addendum.ts; perplexity gate)
+#   - UserSettings.personalize zod field + GraphQL exposure
+#
+# It does NOT ship Round 2 frontend features (KG, FirstRun, etc.) — those
+# need a working frontend bundle build first.
+
+# syntax=docker/dockerfile:1.7
+
+FROM asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:v1.4.0
+
+# Replace only the backend bundle. Everything else (node_modules, prisma client,
+# native binaries, /app/static frontend) stays as-is from v1.4.0.
+COPY packages/backend/server/dist/main.js /app/dist/main.js
+COPY packages/backend/server/dist/main.js.map /app/dist/main.js.map

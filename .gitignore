@@ -97,7 +97,13 @@ storageState.json
 
 # AFFiNE-fork local artifacts
 .claude/worktrees/
-packages/frontend/core/src/blocksuite/ai/**/*.js
-packages/frontend/core/src/blocksuite/ai/**/*.js.map
-packages/frontend/core/src/blocksuite/ai/**/*.d.ts
-packages/frontend/core/src/blocksuite/ai/**/*.d.ts.map
+
+# Stale tsc emit shadows .css.ts/.tsx via rspack's resolve.extensions order
+# (.js comes before .tsx). One stray src/**/index.css.js makes vanilla-extract
+# silently skip the styles and React fails to mount. Keep these wiped.
+packages/**/src/**/*.js
+packages/**/src/**/*.js.map
+blocksuite/**/src/**/*.js
+blocksuite/**/src/**/*.js.map
+# Worker entrypoints and other intentional .js files in src (mostly under
+# apps/) are listed here as escape hatches if tsc-emit ever moves elsewhere.

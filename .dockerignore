@@ -24,3 +24,9 @@
 # Sourcemaps (keep server sourcemap for backend stacktraces)
 **/*.map
 !packages/backend/server/dist/main.js.map
+
+# Stale tsc emit in src/ shadows .css.ts/.tsx via rspack's resolve.extensions
+# order (.js before .tsx). Pollution from a host-side `tsc -b` run breaks the
+# in-container bundle build the same way it breaks local builds.
+packages/**/src/**/*.js
+blocksuite/**/src/**/*.js
