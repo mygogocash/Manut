@@ -36,6 +36,10 @@ export const Queue = lazy(
 export const AI = lazy(
   () => import(/* webpackChunkName: "ai" */ './modules/ai')
 );
+export const Indexing = lazy(
+  () =>
+    import(/* webpackChunkName: "indexing" */ './modules/indexing')
+);
 export const About = lazy(
   () => import(/* webpackChunkName: "about" */ './modules/about')
 );
@@ -132,6 +136,10 @@ export const App = () => {
                   />
                   <Route path={`${ROUTES.admin.queue}/*`} element={<Queue />} />
                   <Route path={ROUTES.admin.ai} element={<AI />} />
+                  <Route
+                    path={ROUTES.admin.indexing}
+                    element={<Indexing />}
+                  />
                   <Route path={ROUTES.admin.about} element={<About />} />
                   <Route
                     path={ROUTES.admin.settings.index}

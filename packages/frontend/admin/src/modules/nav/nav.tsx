@@ -3,6 +3,7 @@ import { ROUTES } from '@affine/routes';
 import { AccountIcon, SelfhostIcon } from '@blocksuite/icons/rc';
 import {
   BarChart3Icon,
+  DatabaseIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
 } from 'lucide-react';
@@ -64,6 +65,12 @@ export function Nav({ isCollapsed = false }: NavProps) {
           label="AI"
           isCollapsed={isCollapsed}
         /> */}
+        <NavItem
+          to={ROUTES.admin.indexing}
+          icon={<DatabaseIcon size={18} />}
+          label="Indexing"
+          isCollapsed={isCollapsed}
+        />
         <SettingsItem isCollapsed={isCollapsed} />
         <NavItem
           to={ROUTES.admin.about}

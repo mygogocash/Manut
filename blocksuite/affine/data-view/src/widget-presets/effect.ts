@@ -3,6 +3,7 @@ import { FilterGroupView } from './quick-setting-bar/filter/group-panel-view.js'
 import { FilterBar } from './quick-setting-bar/filter/list-view.js';
 import { FilterRootView } from './quick-setting-bar/filter/root-panel-view.js';
 import { SortRootView } from './quick-setting-bar/sort/root-panel.js';
+import { DataViewHeaderToolsAIAnalyze } from './tools/presets/ai-analyze/ai-analyze.js';
 import { DataViewHeaderToolsFilter } from './tools/presets/filter/filter.js';
 import { DataViewHeaderToolsSearch } from './tools/presets/search/search.js';
 import { DataViewHeaderToolsSort } from './tools/presets/sort/sort.js';
@@ -14,6 +15,10 @@ import { DataViewHeaderViews } from './views-bar/views-view.js';
 
 export function widgetPresetsEffects() {
   customElements.define('data-view-header-tools', DataViewHeaderTools);
+  customElements.define(
+    'data-view-header-tools-ai-analyze',
+    DataViewHeaderToolsAIAnalyze
+  );
   customElements.define('filter-bar', FilterBar);
   customElements.define('filter-condition-view', FilterConditionView);
   customElements.define(

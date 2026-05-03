@@ -4,6 +4,7 @@ import type {
   DataViewWidget,
   DataViewWidgetProps,
 } from '../../core/widget/types.js';
+import { DataViewHeaderToolsAIAnalyze } from './presets/ai-analyze/ai-analyze.js';
 import { DataViewHeaderToolsFilter } from './presets/filter/filter.js';
 import { DataViewHeaderToolsSearch } from './presets/search/search.js';
 import { DataViewHeaderToolsSort } from './presets/sort/sort.js';
@@ -19,6 +20,7 @@ export const toolsWidgetPresets = {
     DataViewHeaderToolsViewOptions
   ),
   tableAddRow: createUniComponentFromWebComponent(DataViewHeaderToolsAddRow),
+  aiAnalyze: createUniComponentFromWebComponent(DataViewHeaderToolsAIAnalyze),
 };
 export const createWidgetTools = (
   toolsMap: Record<string, DataViewWidget[]>
