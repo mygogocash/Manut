@@ -5,6 +5,7 @@ import { formEffects } from './form/effect.js';
 import { galleryEffects } from './gallery/effect.js';
 import { kanbanEffects } from './kanban/effect.js';
 import { listEffects } from './list/effect.js';
+import { mapEffects } from './map/effect.js';
 import { tableEffects } from './table/effect.js';
 import { timelineEffects } from './timeline/effect.js';
 
@@ -18,4 +19,5 @@ export function viewPresetsEffects() {
   listEffects();
   formEffects();
   timelineEffects();
+  mapEffects();
 }
