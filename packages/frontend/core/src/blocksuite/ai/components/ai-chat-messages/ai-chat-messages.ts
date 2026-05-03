@@ -286,14 +286,15 @@ export class AIChatMessages extends WithDisposable(ShadowlessElement) {
       ${repeat(
         SUGGESTED_PROMPTS,
         prompt => prompt.text,
-        prompt => html`<div
-          class="suggested-prompt-card"
-          data-testid="ai-suggested-prompt"
-          @click=${() => this._onSuggestedPromptClick(prompt.text)}
-        >
-          <div class="suggested-prompt-card-icon">${prompt.icon}</div>
-          <div class="suggested-prompt-card-text">${prompt.text}</div>
-        </div>`
+        prompt =>
+          html`<div
+            class="suggested-prompt-card"
+            data-testid="ai-suggested-prompt"
+            @click=${() => this._onSuggestedPromptClick(prompt.text)}
+          >
+            <div class="suggested-prompt-card-icon">${prompt.icon}</div>
+            <div class="suggested-prompt-card-text">${prompt.text}</div>
+          </div>`
       )}
     </div>`;
   }
@@ -400,7 +401,8 @@ export class AIChatMessages extends WithDisposable(ShadowlessElement) {
                       >What can I help you with?</span
                     >`}
               </div>
-              ${this._renderSuggestedPrompts()}
+              <!-- suggested prompts moved to ai-chat-content so they
+                   render BELOW the composer (Notion-style layout) -->
             </div> `
           : repeat(
               filteredItems,

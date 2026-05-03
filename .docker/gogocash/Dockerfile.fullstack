@@ -32,16 +32,20 @@ COPY packages ./packages
 COPY blocksuite ./blocksuite
 COPY tools ./tools
 
-RUN corepack enable && \
+# Strip @affine/server's postinstall hook from its package.json BEFORE
+# `yarn workspaces focus` runs. Workspace packages always run their own
+# postinstalls regardless of YARN_ENABLE_SCRIPTS, and the server's
+# `prisma generate` postinstall fails here because it executes before
+# @prisma/engines's own install scripts have downloaded the engine binary.
+# We run `prisma generate` explicitly afterward, when the engines are
+# fully installed. This mirrors what Dockerfile.full-build does for the
+# monorepo root postinstall.
+RUN node -e "const f='./packages/backend/server/package.json'; const p=require('./'+f); delete p.scripts.postinstall; require('fs').writeFileSync(f, JSON.stringify(p, null, 2));" && \
+    corepack enable && \
     yarn config set --json supportedArchitectures.cpu '["x64", "arm64", "arm"]' && \
     yarn config set --json supportedArchitectures.libc '["glibc"]' && \
     yarn workspaces focus @affine/server --production && \
     yarn workspace @affine/server prisma generate && \
-    # Move root node_modules into the server package so the next stage's
-    # COPY picks it up. Mirrors what AFFiNE CI does in the build-images job.
-    # Wipe any pre-existing node_modules under the server (left over from
-    # the source COPY — typically just a stale .cache dir) before mv,
-    # otherwise mv would nest the new dir inside the old one.
     rm -rf ./packages/backend/server/node_modules && \
     mv ./node_modules ./packages/backend/server/node_modules
 

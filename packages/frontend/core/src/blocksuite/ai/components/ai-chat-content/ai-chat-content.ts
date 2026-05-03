@@ -25,6 +25,7 @@ import { css, html, type PropertyValues, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { createRef, type Ref, ref } from 'lit/directives/ref.js';
+import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { pick } from 'lodash-es';
 
@@ -41,6 +42,7 @@ import {
   type HistoryMessage,
   isChatMessage,
 } from '../ai-chat-messages';
+import { SUGGESTED_PROMPTS } from '../ai-chat-messages/suggested-prompts-config';
 import type { ChatContextValue } from './type';
 
 const DEFAULT_CHAT_CONTEXT_VALUE: ChatContextValue = {
@@ -103,6 +105,59 @@ export class AIChatContent extends SignalWatcher(
 
     ai-chat-composer {
       padding: 0 var(--h-padding);
+    }
+
+    /* Suggested prompts grid — appears BELOW the composer when the chat
+       has no messages yet. Mirrors Notion's layout (input first, prompts
+       below). The cards reuse the visual treatment from
+       ai-chat-messages/suggested-prompts-config.ts. */
+    .ai-chat-suggestions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 16px;
+      padding: 0 var(--h-padding);
+    }
+    @container chat-panel-split-view (width < 540px) {
+      .ai-chat-suggestions {
+        grid-template-columns: 1fr;
+      }
+    }
+    .ai-chat-suggestion-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--affine-border-color, rgba(0, 0, 0, 0.08));
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 20px;
+      color: var(--affine-text-primary-color);
+      background: transparent;
+      transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+    }
+    .ai-chat-suggestion-card:hover {
+      background: var(--affine-hover-color, rgba(0, 0, 0, 0.04));
+      border-color: var(--affine-border-color-hover, rgba(0, 0, 0, 0.16));
+    }
+    .ai-chat-suggestion-card-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+      color: var(--affine-icon-color);
+    }
+    .ai-chat-suggestion-card-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     @container chat-panel-split-view (width < 540px) {
@@ -423,6 +478,28 @@ export class AIChatContent extends SignalWatcher(
     );
   }
 
+  /**
+   * Click handler for the suggested-prompt cards rendered below the composer.
+   * In editor mode dispatches via AIProvider; in independent (sidebar/page)
+   * mode walks down to the composer's textarea and fills it directly.
+   */
+  private _fillSuggestion(text: string) {
+    if (this.host) {
+      AIProvider.slots.requestOpenWithChat.next({
+        host: this.host,
+        input: text,
+      });
+      return;
+    }
+    const input = this.querySelector<HTMLTextAreaElement>(
+      '[data-testid="chat-panel-input"]'
+    );
+    if (!input) return;
+    input.value = text;
+    input.focus();
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+  }
+
   override render() {
     const left = html` <ai-chat-messages
         class=${classMap({
@@ -482,7 +559,28 @@ export class AIChatContent extends SignalWatcher(
           where: 'chat-panel',
           control: 'chat-send',
         }}
-      ></ai-chat-composer>`;
+      ></ai-chat-composer>
+      ${this.messages.length === 0
+        ? html`<div class="ai-chat-suggestions">
+            ${repeat(
+              SUGGESTED_PROMPTS,
+              prompt => prompt.text,
+              prompt =>
+                html`<button
+                  class="ai-chat-suggestion-card"
+                  data-testid="ai-suggested-prompt"
+                  @click=${() => this._fillSuggestion(prompt.text)}
+                >
+                  <span class="ai-chat-suggestion-card-icon"
+                    >${prompt.icon}</span
+                  >
+                  <span class="ai-chat-suggestion-card-text"
+                    >${prompt.text}</span
+                  >
+                </button>`
+            )}
+          </div>`
+        : null}`;
 
     const right = this.previewPanelContent;
 
