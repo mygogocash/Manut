@@ -1,4 +1,5 @@
-import { type MenuRef, PropertyValue } from '@affine/component';
+import { type MenuRef, notify, PropertyValue } from '@affine/component';
+import { EventSourceService, GraphQLService } from '@affine/core/modules/cloud';
 import type { FilterParams } from '@affine/core/modules/collection-rules';
 import { type DocRecord, DocService } from '@affine/core/modules/doc';
 import { type Tag, TagService } from '@affine/core/modules/tag';
@@ -9,6 +10,8 @@ import { useLiveData, useService } from '@toeverything/infra';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { CopilotClient } from '../../blocksuite/ai/provider/copilot-client';
+import { textToText } from '../../blocksuite/ai/provider/request';
 import { PlainTextDocGroupHeader } from '../explorer/docs-view/group-header';
 import { StackProperty } from '../explorer/docs-view/stack-property';
 import type { GroupHeaderProps } from '../explorer/types';
@@ -142,6 +145,9 @@ const TagsInlineEditor = ({
 }) => {
   const workspace = useService(WorkspaceService);
   const tagService = useService(TagService);
+  const docService = useService(DocService);
+  const graphqlService = useService(GraphQLService);
+  const eventSourceService = useService(EventSourceService);
   const tagIds$ = tagService.tagList.tagIdsByPageId$(pageId);
   const tagIds = useLiveData(tagIds$);
 
@@ -160,6 +166,123 @@ const TagsInlineEditor = ({
     },
     [onChange, pageId, tagIds$, tagService.tagList]
   );
+
+  // AI Auto Tag — asks copilot for 3-7 tag suggestions based on the doc's
+  // title (and the existing tag list, so it can reuse what's there).
+  // The response is a JSON array; for each name we either reuse an
+  // existing tag or create a new one.
+  const tagColorsList = tagService.tagColors;
+  const onAutoTag = useCallback(async () => {
+    const doc = docService.doc;
+    if (!doc || doc.id !== pageId) {
+      throw new Error('Doc not loaded');
+    }
+    const title = doc.title$.value || 'Untitled';
+    const allTagMetas = tagService.tagList.tagMetas$.value;
+    const existingTags = allTagMetas.map(t => t.name).filter(Boolean);
+
+    const client = new CopilotClient(
+      graphqlService.gql,
+      eventSourceService.eventSource
+    );
+    const sessionId = await client.createSession({
+      workspaceId: workspace.workspace.id,
+      docId: pageId,
+      promptName: 'Auto Tag',
+    });
+    if (!sessionId) {
+      throw new Error('Failed to create copilot session');
+    }
+
+    const result = await textToText({
+      client,
+      sessionId,
+      content: 'Generate tags now.',
+      params: {
+        title,
+        content: title,
+        existingTags: existingTags.length ? existingTags.join(', ') : '(none)',
+      },
+      stream: false,
+    });
+
+    const text = typeof result === 'string' ? result : '';
+    if (!text) {
+      throw new Error('Empty AI response');
+    }
+
+    // Be liberal: pull the first JSON array literal out of the text.
+    const match = /\[\s*"[\s\S]*?"\s*\]/.exec(text);
+    let suggested: string[] = [];
+    try {
+      suggested = JSON.parse(match ? match[0] : text);
+    } catch {
+      suggested = text
+        .split(/\r?\n|,/)
+        .map(s => s.replace(/^[\s\-*•"]+|[\s"]+$/g, ''))
+        .filter(Boolean);
+    }
+    if (!Array.isArray(suggested)) {
+      throw new Error('AI returned non-array');
+    }
+
+    const cleaned = Array.from(
+      new Set(
+        suggested
+          .map(s => String(s).trim().toLowerCase())
+          .filter(s => s.length > 0 && s.length <= 40)
+      )
+    ).slice(0, 7);
+
+    if (cleaned.length === 0) {
+      notify.warning({
+        title: 'AI Auto Tag',
+        message: 'No tags suggested for this document.',
+      });
+      return;
+    }
+
+    let createdCount = 0;
+    let appliedCount = 0;
+    for (const name of cleaned) {
+      const existing = allTagMetas.find(
+        t => t.name.toLowerCase() === name
+      );
+      if (existing) {
+        const tagInstance = tagService.tagList.tagByTagId$(existing.id).value;
+        if (tagInstance && !tagIds$.value.includes(existing.id)) {
+          tagInstance.tag(pageId);
+          appliedCount++;
+        }
+      } else {
+        const color =
+          tagColorsList[Math.floor(Math.random() * tagColorsList.length)][1];
+        const newTag = tagService.tagList.createTag(name, color);
+        newTag.tag(pageId);
+        createdCount++;
+        appliedCount++;
+      }
+    }
+
+    notify.success({
+      title: 'AI Auto Tag',
+      message:
+        createdCount > 0
+          ? `Applied ${appliedCount} tag${appliedCount === 1 ? '' : 's'} (${createdCount} new).`
+          : `Applied ${appliedCount} tag${appliedCount === 1 ? '' : 's'}.`,
+    });
+    onChange?.(tagIds$.value);
+  }, [
+    docService,
+    pageId,
+    tagService,
+    graphqlService,
+    eventSourceService,
+    workspace.workspace.id,
+    tagColorsList,
+    tagIds$,
+    onChange,
+  ]);
 
   const navigator = useNavigateHelper();
 
@@ -182,6 +305,7 @@ const TagsInlineEditor = ({
       selectedTags={tagIds}
       onSelectTag={onSelectTag}
       onDeselectTag={onDeselectTag}
+      onAutoTag={readonly ? undefined : onAutoTag}
       title={
         <>
           <TagsIcon />

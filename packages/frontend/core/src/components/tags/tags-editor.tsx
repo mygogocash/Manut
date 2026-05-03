@@ -9,7 +9,7 @@ import {
 } from '@affine/component';
 import { TagService, useDeleteTagConfirmModal } from '@affine/core/modules/tag';
 import { useI18n } from '@affine/i18n';
-import { DoneIcon, MoreHorizontalIcon } from '@blocksuite/icons/rc';
+import { AiIcon, DoneIcon, MoreHorizontalIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import clsx from 'clsx';
 import { clamp } from 'lodash-es';
@@ -43,6 +43,17 @@ export interface TagsEditorProps {
   jumpToTag?: (id: string) => void;
   tagMode: 'inline-tag' | 'db-label';
   style?: React.CSSProperties;
+  /**
+   * Optional handler for the "AI Auto Tag" button. When provided, the
+   * editor renders a button that calls this. The handler is responsible
+   * for fetching suggestions (typically via the copilot service) and
+   * applying them through onSelectTag / onCreateTag.
+   *
+   * Returning a Promise lets the editor show a loading state until the
+   * call resolves (or rejects). The editor doesn't peek at the result —
+   * the parent is responsible for actually applying tags.
+   */
+  onAutoTag?: () => Promise<void>;
 }
 
 export interface TagsInlineEditorProps extends TagsEditorProps {
@@ -77,6 +88,7 @@ export const TagsEditor = ({
   jumpToTag,
   tagMode,
   style,
+  onAutoTag,
 }: TagsEditorProps) => {
   const t = useI18n();
   const [inputValue, setInputValue] = useState('');
@@ -197,6 +209,23 @@ export const TagsEditor = ({
     [onToggleTag, focusInput]
   );
 
+  // AI Auto Tag — calls the parent's onAutoTag and tracks loading state so
+  // the button can show a spinner. Errors are swallowed at this layer; the
+  // parent should toast / log them.
+  const [autoTagLoading, setAutoTagLoading] = useState(false);
+  const handleAutoTag = useAsyncCallback(async () => {
+    if (!onAutoTag || autoTagLoading) return;
+    setAutoTagLoading(true);
+    try {
+      await onAutoTag();
+    } catch (err) {
+      // Parent owns user-facing error reporting; just log here.
+      console.error('Auto tag failed', err);
+    } finally {
+      setAutoTagLoading(false);
+    }
+  }, [autoTagLoading, onAutoTag]);
+
   const onInputKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Backspace') {
@@ -283,10 +312,23 @@ export const TagsEditor = ({
         </InlineTagList>
 
         {BUILD_CONFIG.isMobileEdition ? null : (
-          <MenuItem
-            className={styles.tagsEditorDoneButton}
-            prefixIcon={<DoneIcon />}
-          />
+          <>
+            {onAutoTag ? (
+              <MenuItem
+                onClick={handleAutoTag}
+                disabled={autoTagLoading}
+                prefixIcon={<AiIcon />}
+                data-testid="tags-editor-auto-tag-button"
+                title="AI Auto Tag — suggest tags based on this document"
+              >
+                {autoTagLoading ? 'Thinking…' : 'AI Auto Tag'}
+              </MenuItem>
+            ) : null}
+            <MenuItem
+              className={styles.tagsEditorDoneButton}
+              prefixIcon={<DoneIcon />}
+            />
+          </>
         )}
       </div>
       {BUILD_CONFIG.isMobileEdition ? null : (

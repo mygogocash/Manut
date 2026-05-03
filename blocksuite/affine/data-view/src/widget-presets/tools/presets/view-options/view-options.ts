@@ -377,7 +377,7 @@ export const popViewOptions = (
                 const buttonData: MenuButtonData = {
                   content: () => html`
                     <div
-                      style="width:100%;display: flex;flex-direction: column;align-items: center;justify-content: center;padding: 6px 16px;white-space: nowrap"
+                      style="width:100%;min-height:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 4px;text-align:center;"
                     >
                       <div style="${iconStyle}">
                         ${renderUniLit(meta.renderer.icon)}
@@ -445,7 +445,15 @@ export const popViewOptions = (
                 Layout
               </div>
             </div>
-            <div style="display:flex;gap:8px;margin-top:8px;">
+            <!--
+              Layout picker grid. Was a single flex row, which overflowed
+              the popup once there were 7+ view types (Table, Kanban,
+              Calendar, Timeline, List, Feed, Gallery, …). Grid wraps
+              cleanly into rows of 4.
+            -->
+            <div
+              style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px;"
+            >
               ${viewTypeItems}
             </div>
           `;

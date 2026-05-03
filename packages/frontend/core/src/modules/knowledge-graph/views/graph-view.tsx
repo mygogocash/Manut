@@ -19,6 +19,12 @@ interface GraphNode {
   y: number;
   vx: number;
   vy: number;
+  /** 0..2π — phase offset so each node twinkles at a different rhythm. */
+  twinklePhase: number;
+  /** 0.7..1.3 — per-node size multiplier (giant stars vs dwarf stars). */
+  scale: number;
+  /** 0..2π — slight color hue offset for the halo (warm ↔ cool stars). */
+  hueShift: number;
 }
 
 interface GraphEdge {
@@ -31,13 +37,45 @@ interface GraphData {
   edges: GraphEdge[];
 }
 
-const NODE_RADIUS = 6;
-const NODE_RADIUS_HOVER = 9;
-const REPULSION = 1800;
-const SPRING_LENGTH = 110;
-const SPRING_K = 0.02;
-const DAMPING = 0.85;
-const CENTER_PULL = 0.005;
+interface BgStar {
+  /** Normalized 0..1 — multiplied by canvas width at draw time. */
+  x: number;
+  y: number;
+  /** 0..1 base luminosity. */
+  brightness: number;
+  /** 0..2π — independent twinkle phase. */
+  phase: number;
+  /** Pixel size at peak twinkle. */
+  size: number;
+}
+
+// ─── Galaxy tuning ──────────────────────────────────────────────────────────
+// Forces are deliberately weak so motion settles into a slow drift rather than
+// the snappy "spring back" of a typical force-directed graph. High damping
+// preserves momentum so nodes keep coasting between updates.
+const NODE_RADIUS = 4.5;
+const NODE_RADIUS_HOVER = 7;
+const NODE_HALO_MULT = 4; // halo radius = NODE_RADIUS * this
+const REPULSION = 700;
+const SPRING_LENGTH = 130;
+const SPRING_K = 0.008;
+const DAMPING = 0.955;
+const CENTER_PULL = 0.0009;
+/**
+ * Tangential acceleration toward (perpendicular-to-radius). This is what gives
+ * the layout its galactic spiral — every node gets a tiny sideways nudge,
+ * which combined with low damping accumulates into slow orbital motion.
+ */
+const ORBIT_FORCE = 0.00018;
+const ORBIT_FORCE_MAX_R = 260; // beyond this, orbit force stops growing
+/** Cap on per-axis velocity so a wild burst can never spin nodes off-screen. */
+const MAX_VELOCITY = 1.4;
+
+const BG_STAR_FAR_COUNT = 90;
+const BG_STAR_NEAR_COUNT = 35;
+/** Drift speed (normalized x-units per second) for parallax starfield layers. */
+const BG_DRIFT_FAR = 0.0015;
+const BG_DRIFT_NEAR = 0.004;
 
 const emptyStateMessage =
   'Graph view is ready — link some docs together using @-mentions to see the connections appear here.';
@@ -80,6 +118,10 @@ const titleStyle: CSSProperties = {
   fontWeight: 600,
   color: 'var(--affine-text-primary-color, #111)',
   pointerEvents: 'none',
+  // Soft halo so the title stays legible over the starfield+nebula.
+  textShadow:
+    '0 0 8px var(--affine-background-primary-color, rgba(0,0,0,0.6))',
+  letterSpacing: '0.01em',
 };
 
 const subtitleStyle: CSSProperties = {
@@ -89,13 +131,64 @@ const subtitleStyle: CSSProperties = {
   fontSize: 12,
   color: 'var(--affine-text-secondary-color, #888)',
   pointerEvents: 'none',
+  textShadow:
+    '0 0 6px var(--affine-background-primary-color, rgba(0,0,0,0.5))',
 };
 
+// ─── Utilities ──────────────────────────────────────────────────────────────
+
+/** Deterministic small-state PRNG so the starfield is identical across renders. */
+function mulberry32(seed: number) {
+  let s = seed >>> 0;
+  return function () {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /**
- * Knowledge Graph view (Obsidian-style). Renders all non-trash docs as nodes
- * and the @-mention / linked-doc references between them as edges, using a
- * lightweight force-directed layout drawn directly on a 2D canvas (no extra
- * dependencies).
+ * Read the resolved background colour and return whether we're on a dark
+ * theme. Used to bias the galaxy palette — brighter accents on dark, paler
+ * accents on light — without having to hard-code a theme.
+ */
+function isDarkBackground(el: HTMLElement): boolean {
+  const bg = getComputedStyle(el).getPropertyValue(
+    '--affine-background-primary-color'
+  );
+  const rgbMatch = /rgb\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(bg);
+  const hexMatch = /#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(bg);
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (rgbMatch) {
+    r = +rgbMatch[1];
+    g = +rgbMatch[2];
+    b = +rgbMatch[3];
+  } else if (hexMatch) {
+    r = parseInt(hexMatch[1], 16);
+    g = parseInt(hexMatch[2], 16);
+    b = parseInt(hexMatch[3], 16);
+  } else {
+    return false;
+  }
+  // Rec. 709 luma.
+  const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luma < 128;
+}
+
+/**
+ * Knowledge Graph view (Obsidian-style, but more galactic). Renders all
+ * non-trash docs as star-like nodes and the @-mention / linked-doc references
+ * between them as faint constellation lines, drawn directly on a 2D canvas.
+ *
+ * The simulation is a force-directed layout with three forces — pairwise
+ * repulsion, edge spring, and a centring pull — plus a small tangential
+ * "orbit" force that makes the whole graph drift slowly around its centroid
+ * like a spiral galaxy. Damping is high (0.955) so nodes coast gracefully
+ * between updates rather than snapping to rest.
  */
 export const KnowledgeGraphView = () => {
   const docsService = useService(DocsService);
@@ -165,6 +258,24 @@ export const KnowledgeGraphView = () => {
     null
   );
 
+  // Background starfield — generated once, deterministic, drifts on render.
+  const bgStarsRef = useRef<{ far: BgStar[]; near: BgStar[] } | null>(null);
+  if (bgStarsRef.current === null) {
+    const rng = mulberry32(0xc0ffee);
+    const gen = (n: number, sizeMin: number, sizeMax: number): BgStar[] =>
+      Array.from({ length: n }, () => ({
+        x: rng(),
+        y: rng(),
+        brightness: 0.25 + rng() * 0.75,
+        phase: rng() * Math.PI * 2,
+        size: sizeMin + rng() * (sizeMax - sizeMin),
+      }));
+    bgStarsRef.current = {
+      far: gen(BG_STAR_FAR_COUNT, 0.6, 1.2),
+      near: gen(BG_STAR_NEAR_COUNT, 1.0, 1.8),
+    };
+  }
+
   // Rebuild nodes whenever the doc set changes (preserve positions for existing).
   useEffect(() => {
     const prev = new Map(stateRef.current.nodes.map(n => [n.id, n]));
@@ -174,6 +285,7 @@ export const KnowledgeGraphView = () => {
     const cx = width / 2;
     const cy = height / 2;
     const r = Math.min(width, height) * 0.35;
+    const rng = mulberry32(0x5eed);
 
     const nodes: GraphNode[] = ids.map((id, i) => {
       const existing = prev.get(id);
@@ -181,13 +293,18 @@ export const KnowledgeGraphView = () => {
         return { ...existing, title: docTitlesById.get(id) ?? 'Untitled' };
       }
       const angle = (i / Math.max(1, ids.length)) * Math.PI * 2;
+      // Slight radial jitter so the initial ring doesn't look mechanical.
+      const jitter = 1 + (rng() - 0.5) * 0.15;
       return {
         id,
         title: docTitlesById.get(id) ?? 'Untitled',
-        x: cx + Math.cos(angle) * r,
-        y: cy + Math.sin(angle) * r,
+        x: cx + Math.cos(angle) * r * jitter,
+        y: cy + Math.sin(angle) * r * jitter,
         vx: 0,
         vy: 0,
+        twinklePhase: rng() * Math.PI * 2,
+        scale: 0.7 + rng() * 0.6, // 0.7..1.3
+        hueShift: rng() * Math.PI * 2,
       };
     });
 
@@ -231,12 +348,15 @@ export const KnowledgeGraphView = () => {
     ro.observe(container);
 
     const step = () => {
+      const tSec = performance.now() / 1000;
+
       const { nodes, edges } = stateRef.current;
       const w = container.clientWidth;
       const h = container.clientHeight;
       const cx = w / 2;
       const cy = h / 2;
 
+      // ─── Physics ─────────────────────────────────────────────────────────
       // Repulsion (all pairs).
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
@@ -274,7 +394,7 @@ export const KnowledgeGraphView = () => {
         b.vy -= fy;
       }
 
-      // Center pull + integrate.
+      // Center pull + tangential orbit + integrate.
       const dragId = draggingRef.current?.id;
       for (const n of nodes) {
         if (n.id === dragId) {
@@ -282,23 +402,102 @@ export const KnowledgeGraphView = () => {
           n.vy = 0;
           continue;
         }
-        n.vx += (cx - n.x) * CENTER_PULL;
-        n.vy += (cy - n.y) * CENTER_PULL;
+        const rdx = n.x - cx;
+        const rdy = n.y - cy;
+        const r = Math.sqrt(rdx * rdx + rdy * rdy) + 0.01;
+
+        // Centring pull (gentle).
+        n.vx -= rdx * CENTER_PULL;
+        n.vy -= rdy * CENTER_PULL;
+
+        // Tangential orbit force — perpendicular to the radial vector.
+        // (-rdy, rdx) is the +90° rotation of the radial direction.
+        // Magnitude grows with radius up to ORBIT_FORCE_MAX_R, then plateaus.
+        const orbitMag = ORBIT_FORCE * Math.min(r, ORBIT_FORCE_MAX_R);
+        n.vx += (-rdy / r) * orbitMag;
+        n.vy += (rdx / r) * orbitMag;
+
         n.vx *= DAMPING;
         n.vy *= DAMPING;
+
+        // Velocity clamp — galaxies don't relativistic-jet.
+        if (n.vx > MAX_VELOCITY) n.vx = MAX_VELOCITY;
+        else if (n.vx < -MAX_VELOCITY) n.vx = -MAX_VELOCITY;
+        if (n.vy > MAX_VELOCITY) n.vy = MAX_VELOCITY;
+        else if (n.vy < -MAX_VELOCITY) n.vy = -MAX_VELOCITY;
+
         n.x += n.vx;
         n.y += n.vy;
       }
 
-      // Draw.
+      // ─── Render ──────────────────────────────────────────────────────────
       ctx.clearRect(0, 0, w, h);
 
-      // Edges.
+      const dark = isDarkBackground(container);
+
+      // 1. Nebula — a faint radial glow from the centre. Sells the "deep
+      //    space" feel without overwhelming the existing theme background.
+      const nebula = ctx.createRadialGradient(
+        cx,
+        cy,
+        0,
+        cx,
+        cy,
+        Math.max(w, h) * 0.7
+      );
+      if (dark) {
+        nebula.addColorStop(0, 'rgba(70, 50, 130, 0.18)');
+        nebula.addColorStop(0.45, 'rgba(30, 40, 90, 0.08)');
+        nebula.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      } else {
+        nebula.addColorStop(0, 'rgba(150, 170, 220, 0.12)');
+        nebula.addColorStop(0.5, 'rgba(180, 200, 230, 0.04)');
+        nebula.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      }
+      ctx.fillStyle = nebula;
+      ctx.fillRect(0, 0, w, h);
+
+      // 2. Background starfield — two parallax layers drifting in opposite
+      //    directions. Each star twinkles independently via its own phase.
+      const stars = bgStarsRef.current;
+      if (stars) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const drawBgLayer = (
+          layer: BgStar[],
+          drift: number,
+          baseAlpha: number,
+          color: string
+        ) => {
+          for (const s of layer) {
+            // Wrap horizontally so the layer scrolls forever.
+            const xn = (s.x + tSec * drift) % 1;
+            const x = xn * w;
+            const y = s.y * h;
+            const tw = 0.55 + 0.45 * Math.sin(tSec * 0.9 + s.phase);
+            ctx.globalAlpha = s.brightness * tw * baseAlpha;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, s.size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        };
+        if (dark) {
+          drawBgLayer(stars.far, BG_DRIFT_FAR, 0.32, '#a8b8ff');
+          drawBgLayer(stars.near, BG_DRIFT_NEAR, 0.55, '#ffffff');
+        } else {
+          drawBgLayer(stars.far, BG_DRIFT_FAR, 0.18, '#7080b0');
+          drawBgLayer(stars.near, BG_DRIFT_NEAR, 0.28, '#5060a0');
+        }
+        ctx.restore();
+      }
+
+      // 3. Edges — faint constellation lines.
+      ctx.save();
       ctx.lineWidth = 1;
-      ctx.strokeStyle =
-        getComputedStyle(container).getPropertyValue(
-          '--affine-border-color'
-        ) || 'rgba(120, 120, 120, 0.4)';
+      ctx.strokeStyle = dark
+        ? 'rgba(150, 170, 220, 0.18)'
+        : 'rgba(80, 100, 150, 0.20)';
       for (const e of edges) {
         const a = nodeMap.get(e.source);
         const b = nodeMap.get(e.target);
@@ -308,38 +507,77 @@ export const KnowledgeGraphView = () => {
         ctx.lineTo(b.x, b.y);
         ctx.stroke();
       }
+      ctx.restore();
 
-      // Nodes.
+      // 4. Nodes — each rendered as a halo + bright core, twinkling.
       const hoverId = hoverIdRef.current;
-      const accent =
-        getComputedStyle(container).getPropertyValue(
-          '--affine-primary-color'
-        ) || '#1e96eb';
-      const muted =
-        getComputedStyle(container).getPropertyValue(
-          '--affine-text-secondary-color'
-        ) || '#7f8a99';
-
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
       for (const n of nodes) {
         const isHover = n.id === hoverId;
-        ctx.beginPath();
-        ctx.arc(
-          n.x,
-          n.y,
-          isHover ? NODE_RADIUS_HOVER : NODE_RADIUS,
-          0,
-          Math.PI * 2
-        );
-        ctx.fillStyle = isHover ? accent : muted;
-        ctx.fill();
+        // Twinkle: 0.65..1.0 alpha, 0.85..1.15 size, sinusoidal at ~0.7Hz.
+        const tw = Math.sin(tSec * 0.7 + n.twinklePhase);
+        const twAlpha = 0.825 + 0.175 * tw;
+        const twSize = 1 + 0.15 * tw;
+
+        const baseR = (isHover ? NODE_RADIUS_HOVER : NODE_RADIUS) * n.scale;
+        const r = baseR * twSize;
+        const haloR = r * NODE_HALO_MULT;
+
+        // Slight hue tint per node — some warmer, some cooler.
+        const haloHue = Math.sin(n.hueShift); // -1..1
+        let haloColor: string;
         if (isHover) {
+          haloColor = dark ? 'rgba(255, 200, 110, 1)' : 'rgba(220, 130, 50, 1)';
+        } else if (haloHue > 0) {
+          // Warm — pale gold.
+          haloColor = dark ? 'rgba(220, 200, 170, 1)' : 'rgba(180, 150, 110, 1)';
+        } else {
+          // Cool — pale blue-white.
+          haloColor = dark ? 'rgba(170, 200, 240, 1)' : 'rgba(110, 140, 200, 1)';
+        }
+
+        // Halo (radial gradient → transparent). Parse the rgba once to
+        // inject per-stop alpha.
+        const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, haloR);
+        const colorMatch = /rgba\((\d+),\s*(\d+),\s*(\d+),/.exec(haloColor);
+        const hr = colorMatch ? +colorMatch[1] : 255;
+        const hg = colorMatch ? +colorMatch[2] : 255;
+        const hb = colorMatch ? +colorMatch[3] : 255;
+        grad.addColorStop(0, `rgba(${hr}, ${hg}, ${hb}, ${0.55 * twAlpha})`);
+        grad.addColorStop(0.4, `rgba(${hr}, ${hg}, ${hb}, ${0.22 * twAlpha})`);
+        grad.addColorStop(1, `rgba(${hr}, ${hg}, ${hb}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, haloR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Bright core.
+        ctx.globalAlpha = twAlpha;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+
+      // 5. Hover label — drawn last so it sits above everything.
+      if (hoverId) {
+        const n = nodes.find(x => x.id === hoverId);
+        if (n) {
+          ctx.save();
           ctx.font =
             '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-          ctx.fillStyle =
-            getComputedStyle(container).getPropertyValue(
-              '--affine-text-primary-color'
-            ) || '#111';
-          ctx.fillText(n.title, n.x + 12, n.y + 4);
+          ctx.shadowColor = dark
+            ? 'rgba(0, 0, 0, 0.85)'
+            : 'rgba(255, 255, 255, 0.85)';
+          ctx.shadowBlur = 4;
+          ctx.fillStyle = dark
+            ? 'rgba(255, 255, 255, 0.95)'
+            : 'rgba(20, 20, 30, 0.95)';
+          ctx.fillText(n.title, n.x + 14, n.y + 4);
+          ctx.restore();
         }
       }
 
@@ -365,7 +603,9 @@ export const KnowledgeGraphView = () => {
     for (const n of stateRef.current.nodes) {
       const dx = n.x - x;
       const dy = n.y - y;
-      if (dx * dx + dy * dy <= NODE_RADIUS_HOVER * NODE_RADIUS_HOVER * 2) {
+      // Hit-test against the visible halo so it feels generous.
+      const hitR = NODE_RADIUS_HOVER * n.scale * 1.6;
+      if (dx * dx + dy * dy <= hitR * hitR) {
         return { node: n, x, y };
       }
     }
