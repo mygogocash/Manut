@@ -32,6 +32,7 @@ export const promptKeys = [
   'Continue writing',
   // image actions
   'Generate image',
+  'Generate image with Fal',
   'Convert to Anime style',
   'Convert to Clay style',
   'Convert to Pixel style',

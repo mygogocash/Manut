@@ -265,6 +265,9 @@ declare global {
       createImage<T extends AIImageActionOptions>(
         options: T
       ): Promise<AIActionTextResponse<T>>;
+      createImageWithFal<T extends AIImageActionOptions>(
+        options: T
+      ): Promise<AIActionTextResponse<T>>;
       processImage<T extends ProcessImageOptions>(
         options: T
       ): Promise<AIActionTextResponse<T>>;

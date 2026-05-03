@@ -87,6 +87,22 @@ class DocType {
 
   @Field(() => String, { nullable: true })
   summary?: string | null;
+
+  @Field(() => Date, { nullable: true })
+  verifiedAt?: Date | null;
+
+  @Field(() => String, { nullable: true })
+  verifiedBy?: string | null;
+
+  @Field(() => Date, { nullable: true })
+  verificationExpiresAt?: Date | null;
+
+  @Field(() => Boolean)
+  get isVerified(): boolean {
+    if (!this.verifiedAt) return false;
+    if (!this.verificationExpiresAt) return true;
+    return this.verificationExpiresAt > new Date();
+  }
 }
 
 @InputType()
@@ -455,6 +471,48 @@ export class WorkspaceDocResolver {
     this.logger.log(`Revoke public doc ${docId} in workspace ${workspaceId}`);
 
     return doc;
+  }
+
+  @Mutation(() => Boolean)
+  async verifyDoc(
+    @CurrentUser() user: CurrentUser,
+    @Args('workspaceId') workspaceId: string,
+    @Args('docId') docId: string,
+    @Args('expiresAt', { nullable: true, type: () => Date })
+    expiresAt?: Date
+  ): Promise<boolean> {
+    // Only workspace admins (Admin/Owner role) may verify docs.
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Administrators.Manage');
+
+    await this.models.doc.verify(workspaceId, docId, user.id, expiresAt);
+
+    this.logger.log(
+      `Verified doc ${docId} in workspace ${workspaceId} by ${user.id}`
+    );
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  async unverifyDoc(
+    @CurrentUser() user: CurrentUser,
+    @Args('workspaceId') workspaceId: string,
+    @Args('docId') docId: string
+  ): Promise<boolean> {
+    // Workspace admins can unverify any doc; doc owners/managers can unverify their own.
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Administrators.Manage');
+
+    await this.models.doc.unverify(workspaceId, docId);
+
+    this.logger.log(
+      `Unverified doc ${docId} in workspace ${workspaceId} by ${user.id}`
+    );
+    return true;
   }
 
   private async tryFixDocOwner(workspaceId: string, docId: string) {

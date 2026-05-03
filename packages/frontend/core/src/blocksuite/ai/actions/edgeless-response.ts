@@ -178,6 +178,7 @@ async function edgelessResponseHandler<
       await responseToCreateSlides(host, ctx);
       break;
     case 'createImage':
+    case 'createImageWithFal':
     case 'filterImage':
     case 'processImage':
       responseToCreateImage(host);

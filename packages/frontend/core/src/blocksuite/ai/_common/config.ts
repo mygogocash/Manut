@@ -343,6 +343,14 @@ const GenerateFromTextAIGroup: AIItemGroupConfig = {
       handler: actionToHandler('createImage', AIImageIconWithAnimation),
     },
     {
+      name: 'Generate an image with Fal AI',
+      testId: 'action-generate-image-fal',
+      icon: ImageIcon(),
+      showWhen: textBlockShowWhen,
+      handler: actionToHandler('createImageWithFal', AIImageIconWithAnimation),
+      beta: true,
+    },
+    {
       name: 'Brainstorm ideas with mind map',
       testId: 'action-brainstorm-mindmap',
       icon: MindmapIcon(),
@@ -436,6 +444,19 @@ export function buildAIImageItemGroups(): AIItemGroupConfig[] {
           showWhen: () => true,
           handler: actionToHandler(
             'createImage',
+            AIImageIconWithAnimation,
+            undefined,
+            blockActionTrackerOptions
+          ),
+        },
+        {
+          name: 'Generate an image with Fal AI',
+          testId: 'action-generate-image-fal',
+          icon: ImageIcon(),
+          showWhen: () => true,
+          beta: true,
+          handler: actionToHandler(
+            'createImageWithFal',
             AIImageIconWithAnimation,
             undefined,
             blockActionTrackerOptions

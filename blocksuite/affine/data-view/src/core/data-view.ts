@@ -27,6 +27,24 @@ import type { DataViewUILogicBase } from './view/data-view-base.js';
 import type { SingleView } from './view-manager/single-view.js';
 import type { DataViewWidget } from './widget/index.js';
 
+/**
+ * Optional AI autofill callback supplied by the host application.
+ * If not provided, the AI autofill menu items are hidden.
+ *
+ * @param params.rowId       - Row being filled.
+ * @param params.propertyId  - Column to fill.
+ * @param params.propertyName - Human-readable column name.
+ * @param params.otherCells  - Sibling cell values keyed by column name.
+ * @returns A promise resolving to the suggested string value, or null/undefined
+ *          if the provider is unavailable.
+ */
+export type AiAutofillCallback = (params: {
+  rowId: string;
+  propertyId: string;
+  propertyName: string;
+  otherCells: Record<string, string>;
+}) => Promise<string | null | undefined>;
+
 export type DataViewRendererConfig = {
   clipboard: Clipboard;
   onDrag?: (evt: MouseEvent, id: string) => () => void;
@@ -50,6 +68,11 @@ export type DataViewRendererConfig = {
       }
     ) => Promise<void>;
   };
+  /**
+   * Optional: when provided, enables AI-powered cell autofill in the table view.
+   * The host application wires this to the copilot / AI service.
+   */
+  aiAutofill?: AiAutofillCallback;
 };
 
 export class DataViewRootUILogic {

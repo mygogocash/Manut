@@ -18,6 +18,9 @@ import {
   SearchResultObjectType,
 } from './types';
 
+/** Extra score added to verified pages in search results. */
+const VERIFIED_PAGES_SCORE_BOOST = 1.0;
+
 @Resolver(() => WorkspaceType)
 export class IndexerResolver {
   constructor(
@@ -44,8 +47,12 @@ export class IndexerResolver {
       me,
       result.nodes
     );
+
+    // Apply a score boost for verified pages and re-sort.
+    const boostedNodes = await this.#boostVerifiedNodes(workspace.id, nodes);
+
     return {
-      nodes,
+      nodes: boostedNodes,
       pagination: {
         count: result.total,
         hasMore: nodes.length > 0,
@@ -161,5 +168,49 @@ export class IndexerResolver {
         'Doc.Read'
       );
     return needs.map(node => node.node);
+  }
+
+  /**
+   * Boost score of verified pages and re-sort descending by score.
+   *
+   * Fetches verification state in a single batch query to avoid N+1.
+   */
+  async #boostVerifiedNodes(
+    workspaceId: string,
+    nodes: SearchNodeWithMeta[]
+  ): Promise<SearchNodeWithMeta[]> {
+    if (nodes.length === 0) return nodes;
+
+    // Collect unique docIds to check verification status.
+    const docIds = [...new Set(nodes.map(n => n._source.docId))];
+
+    const now = new Date();
+    const verifiedDocs = await this.models.doc.db.workspaceDoc.findMany({
+      where: {
+        workspaceId,
+        docId: { in: docIds },
+        verifiedAt: { not: null },
+        OR: [
+          { verificationExpiresAt: null },
+          { verificationExpiresAt: { gt: now } },
+        ],
+      },
+      select: { docId: true },
+    });
+
+    if (verifiedDocs.length === 0) return nodes;
+
+    const verifiedSet = new Set(verifiedDocs.map(d => d.docId));
+
+    const boosted = nodes.map(node => {
+      if (verifiedSet.has(node._source.docId)) {
+        return { ...node, _score: node._score + VERIFIED_PAGES_SCORE_BOOST };
+      }
+      return node;
+    });
+
+    // Re-sort by descending score after boosting.
+    boosted.sort((a, b) => b._score - a._score);
+    return boosted;
   }
 }

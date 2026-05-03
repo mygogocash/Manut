@@ -26,6 +26,7 @@ import type {
   FeatureFlagService,
   NotificationService,
 } from '@blocksuite/affine-shared/services';
+import { SearchIcon } from '@blocksuite/icons/lit';
 import { css, html, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 
@@ -72,6 +73,49 @@ export class AIChatComposer extends SignalWatcher(
       color: var(--affine-text-secondary-color);
       font-size: 12px;
       user-select: none;
+    }
+
+    .chat-quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .chat-quick-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 0.5px solid var(--affine-v2-layer-insideBorder-border, #e0e0e0);
+      background: var(--affine-v2-input-background, transparent);
+      color: var(--affine-text-secondary-color);
+      font-size: 13px;
+      font-family: var(--affine-font-family);
+      cursor: pointer;
+      user-select: none;
+      transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+
+      svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+      }
+
+      &:hover {
+        background: var(
+          --affine-v2-layer-background-hoverOverlay,
+          rgba(0, 0, 0, 0.04)
+        );
+        border-color: var(
+          --affine-v2-layer-insideBorder-primaryBorder,
+          #a0a0a0
+        );
+        color: var(--affine-text-primary-color);
+      }
     }
   `;
 
@@ -166,6 +210,26 @@ export class AIChatComposer extends SignalWatcher(
 
   private _pollEmbeddingStatusAbortController: AbortController | null = null;
 
+  private readonly _handleSearchWorkspace = () => {
+    const SEARCH_PROMPT = 'Search my workspace for: ';
+    if (this.host) {
+      AIProvider.slots.requestOpenWithChat.next({
+        host: this.host,
+        input: SEARCH_PROMPT,
+      });
+    } else {
+      // Independent mode: directly set textarea value
+      const textarea = this.querySelector<HTMLTextAreaElement>(
+        '[data-testid="chat-panel-input"]'
+      );
+      if (textarea) {
+        textarea.value = SEARCH_PROMPT;
+        textarea.focus();
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+  };
+
   override render() {
     return html`
       <chat-panel-chips
@@ -180,6 +244,16 @@ export class AIChatComposer extends SignalWatcher(
         .portalContainer=${this.portalContainer}
         .addImages=${this.addImages}
       ></chat-panel-chips>
+      <div class="chat-quick-actions">
+        <button
+          class="chat-quick-action-btn"
+          data-testid="search-workspace-quick-action"
+          @click=${this._handleSearchWorkspace}
+        >
+          ${SearchIcon()}
+          <span>Search workspace</span>
+        </button>
+      </div>
       <ai-chat-input
         .independentMode=${this.independentMode}
         .host=${this.host}

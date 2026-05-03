@@ -1,4 +1,5 @@
 import { IntegrationTypeIcon } from '@affine/core/modules/integration';
+import { ConnectionsSettingPanel } from '@affine/core/modules/connections';
 import type { I18nString } from '@affine/i18n';
 import { Logo1Icon, TodayIcon } from '@blocksuite/icons/rc';
 import type { ReactNode } from 'react';
@@ -53,6 +54,14 @@ const INTEGRATION_LIST = [
     desc: 'com.affine.integration.web-clipper.desc',
     icon: <Logo1Icon />,
     link: 'https://chromewebstore.google.com/detail/affine-web-clipper/mpbbkmbdpleomiogkbkkpfoljjpahmoi',
+  },
+  {
+    id: 'connections' as const,
+    name: 'com.affine.integration.connections.name',
+    desc: 'com.affine.integration.connections.desc',
+    icon: <span style={{ fontSize: '20px' }}>🔗</span>,
+    setting: <ConnectionsSettingPanel />,
+    cloud: true,
   },
 ] satisfies (IntegrationCard | false)[];
 

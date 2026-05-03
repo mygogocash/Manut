@@ -31,6 +31,7 @@ import {
   createBlobReadTool,
   createCodeArtifactTool,
   createConversationSummaryTool,
+  createDataViewFilterTool,
   createDocComposeTool,
   createDocCreateTool,
   createDocEditTool,
@@ -516,6 +517,13 @@ export abstract class CopilotProvider<C = any> {
           }
           case 'sectionEdit': {
             tools.section_edit = createSectionEditTool(prompt, this.factory);
+            break;
+          }
+          case 'dataViewFilter': {
+            tools.data_view_filter = createDataViewFilterTool(
+              prompt,
+              this.factory
+            );
             break;
           }
         }

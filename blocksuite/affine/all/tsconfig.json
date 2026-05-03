@@ -10,6 +10,7 @@
     { "path": "../blocks/attachment" },
     { "path": "../blocks/bookmark" },
     { "path": "../blocks/callout" },
+    { "path": "../blocks/chart" },
     { "path": "../blocks/code" },
     { "path": "../blocks/data-view" },
     { "path": "../blocks/database" },

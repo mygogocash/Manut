@@ -1,0 +1,3 @@
+mutation unverifyDoc($workspaceId: String!, $docId: String!) {
+  unverifyDoc(workspaceId: $workspaceId, docId: $docId)
+}

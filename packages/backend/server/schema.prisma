@@ -51,6 +51,8 @@ model User {
   AccessToken                 AccessToken[]
   workspaceCalendars          WorkspaceCalendar[]
   workspaceMemberLastAccesses WorkspaceMemberLastAccess[]
+  mcpApiKeys                  McpApiKey[]
+  integrationConnections      IntegrationConnection[]
 
   @@index([email])
   @@map("users")
@@ -167,24 +169,29 @@ model Workspace {
 //   Only the ones that have ever changed will have records here,
 //   and for others we will make sure it's has a default value return in our business logic.
 model WorkspaceDoc {
-  workspaceId String    @map("workspace_id") @db.VarChar
-  docId       String    @map("page_id") @db.VarChar
-  public      Boolean   @default(false)
+  workspaceId           String    @map("workspace_id") @db.VarChar
+  docId                 String    @map("page_id") @db.VarChar
+  public                Boolean   @default(false)
   // Workspace user's default role in this page, default is `Manager`
-  defaultRole Int       @default(30) @db.SmallInt
+  defaultRole           Int       @default(30) @db.SmallInt
   // Page/Edgeless
-  mode        Int       @default(0) @db.SmallInt
+  mode                  Int       @default(0) @db.SmallInt
   // Whether the doc is blocked
-  blocked     Boolean   @default(false)
-  title       String?   @db.VarChar
-  summary     String?   @db.VarChar
-  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  blocked               Boolean   @default(false)
+  title                 String?   @db.VarChar
+  summary               String?   @db.VarChar
+  publishedAt           DateTime? @map("published_at") @db.Timestamptz(3)
+  // Verified pages governance
+  verifiedAt            DateTime? @map("verified_at") @db.Timestamptz(3)
+  verifiedBy            String?   @map("verified_by") @db.VarChar
+  verificationExpiresAt DateTime? @map("verification_expires_at") @db.Timestamptz(3)
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@id([workspaceId, docId])
   @@index([workspaceId, public])
   @@index([public, publishedAt])
+  @@index([workspaceId, verifiedAt])
   @@map("workspace_pages")
 }
 
@@ -1139,4 +1146,42 @@ model CalendarEventInstance {
   @@unique([calendarEventId, recurrenceId])
   @@index([calendarEventId, startAtUtc])
   @@map("calendar_event_instances")
+}
+
+model IntegrationConnection {
+  id             String    @id @default(cuid()) @db.VarChar
+  userId         String    @map("user_id") @db.VarChar
+  workspaceId    String    @map("workspace_id") @db.VarChar
+  provider       String    @db.VarChar
+  externalId     String    @map("external_id") @db.VarChar
+  displayName    String    @map("display_name") @db.VarChar
+  accessToken    String    @map("access_token") @db.Text
+  refreshToken   String?   @map("refresh_token") @db.Text
+  tokenExpiresAt DateTime? @map("token_expires_at") @db.Timestamptz(3)
+  scopes         String    @db.Text
+  metadata       Json?     @db.JsonB
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId, provider])
+  @@index([userId, workspaceId])
+  @@map("integration_connections")
+}
+
+model McpApiKey {
+  id          String    @id @default(cuid()) @db.VarChar
+  userId      String    @map("user_id") @db.VarChar
+  workspaceId String?   @map("workspace_id") @db.VarChar
+  keyHash     String    @unique @map("key_hash") @db.VarChar
+  name        String    @db.VarChar
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mcp_api_keys")
 }

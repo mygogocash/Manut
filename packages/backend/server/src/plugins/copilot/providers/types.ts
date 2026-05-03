@@ -79,6 +79,8 @@ export const PromptToolsSchema = z
     'docCompose',
     // section editing
     'sectionEdit',
+    // data-view NL filter
+    'dataViewFilter',
   ])
   .array();
 

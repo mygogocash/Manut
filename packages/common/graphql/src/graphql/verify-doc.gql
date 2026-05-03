@@ -1,0 +1,7 @@
+mutation verifyDoc(
+  $workspaceId: String!
+  $docId: String!
+  $expiresAt: DateTime
+) {
+  verifyDoc(workspaceId: $workspaceId, docId: $docId, expiresAt: $expiresAt)
+}

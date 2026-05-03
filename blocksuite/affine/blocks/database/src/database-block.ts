@@ -285,6 +285,7 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
       widgetPresets.tools.search,
       widgetPresets.tools.viewOptions,
       widgetPresets.tools.tableAddRow,
+      widgetPresets.tools.aiAnalyze,
     ],
     kanban: [
       widgetPresets.tools.filter,
@@ -292,6 +293,7 @@ export class DatabaseBlockComponent extends CaptionedBlockComponent<DatabaseBloc
       widgetPresets.tools.search,
       widgetPresets.tools.viewOptions,
       widgetPresets.tools.tableAddRow,
+      widgetPresets.tools.aiAnalyze,
     ],
   });
 

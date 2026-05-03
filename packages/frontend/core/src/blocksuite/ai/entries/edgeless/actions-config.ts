@@ -318,6 +318,26 @@ const generateFromTextGroup: AIItemGroupConfig = {
       handler: actionToHandler('writeOutline', AIPenIconWithAnimation),
     },
     {
+      name: 'Generate an image with Fal AI',
+      icon: ImageIcon(),
+      testId: 'action-generate-image-fal',
+      showWhen: notAllAIChatBlockShowWhen,
+      beta: true,
+      handler: actionToHandler(
+        'createImageWithFal',
+        AIImageIconWithAnimation,
+        undefined,
+        async (host, _ctx) => {
+          const aiPanel = getAIPanelWidget(host);
+          const content = aiPanel.inputText?.trim();
+          if (!content) return;
+          return {
+            input: content,
+          };
+        }
+      ),
+    },
+    {
       name: 'Generate an image',
       icon: ImageIcon(),
       testId: 'action-generate-image',

@@ -54,6 +54,7 @@ import { Env } from './env';
 import { ModelsModule } from './models';
 import { CalendarModule } from './plugins/calendar';
 import { CaptchaModule } from './plugins/captcha';
+import { ConnectionsModule } from './plugins/connections';
 import { CopilotModule } from './plugins/copilot';
 import { CustomerIoModule } from './plugins/customerio';
 import { GCloudModule } from './plugins/gcloud';
@@ -199,6 +200,7 @@ export function buildAppModule(env: Env) {
       CaptchaModule,
       OAuthModule,
       CalendarModule,
+      ConnectionsModule,
       CustomerIoModule,
       TelemetryModule,
       CommentModule,

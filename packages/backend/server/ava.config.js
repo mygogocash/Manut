@@ -12,6 +12,8 @@ export default {
   extensions: {
     ts: 'module',
   },
+  nodeArguments: ['--import', 'tsx/esm'],
+  workerThreads: false,
   watchMode: {
     ignoreChanges: ['**/*.gen.*'],
   },
