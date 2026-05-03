@@ -7,6 +7,7 @@ import { AIIsland } from '@affine/core/desktop/components/ai-island';
 import { AppContainer } from '@affine/core/desktop/components/app-container';
 import { DocumentTitle } from '@affine/core/desktop/components/document-title';
 import { WorkspaceDialogs } from '@affine/core/desktop/dialogs';
+import { FirstRunExperience } from '@affine/core/modules/first-run';
 import { PeekViewManagerModal } from '@affine/core/modules/peek-view';
 import { QuotaCheck } from '@affine/core/modules/quota';
 import { WorkbenchService } from '@affine/core/modules/workbench';
@@ -35,6 +36,7 @@ export const WorkspaceLayout = function WorkspaceLayout({
       {/* should show after workspace loaded */}
       {/* FIXME: wait for better ai, <WorkspaceAIOnboarding /> */}
       <AIIsland />
+      <FirstRunExperience />
       <uniReactRoot.Root />
     </SWRConfigProvider>
   );

@@ -21,6 +21,7 @@ import type { Store } from '@blocksuite/affine/store';
 import {
   AiOutlineIcon,
   AllDocsIcon,
+  BlockIcon,
   ImportIcon,
   JournalIcon,
   SettingsIcon,
@@ -84,6 +85,22 @@ const AllDocsButton = () => {
       <span data-testid="all-pages">
         {t['com.affine.workspaceSubPath.all']()}
       </span>
+    </MenuLinkItem>
+  );
+};
+
+const GraphButton = () => {
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const graphActive = useLiveData(
+    workbench.location$.selector(location => location.pathname === '/graph')
+  );
+
+  return (
+    <MenuLinkItem icon={<BlockIcon />} active={graphActive} to={'/graph'}>
+      <span data-testid="knowledge-graph">Graph</span>
     </MenuLinkItem>
   );
 };
@@ -212,6 +229,7 @@ export const RootAppSidebar = memo((): ReactElement => {
           <AddPageButton />
         </div>
         <AllDocsButton />
+        <GraphButton />
         <AppSidebarJournalButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />

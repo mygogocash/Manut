@@ -94,3 +94,10 @@ af.cmd
 # playwright
 storageState.json
 .gstack/
+
+# AFFiNE-fork local artifacts
+.claude/worktrees/
+packages/frontend/core/src/blocksuite/ai/**/*.js
+packages/frontend/core/src/blocksuite/ai/**/*.js.map
+packages/frontend/core/src/blocksuite/ai/**/*.d.ts
+packages/frontend/core/src/blocksuite/ai/**/*.d.ts.map

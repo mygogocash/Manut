@@ -8,6 +8,7 @@ export const UserSettingsSchema = z.object({
   receiveInvitationEmail: z.boolean().default(true),
   receiveMentionEmail: z.boolean().default(true),
   receiveCommentEmail: z.boolean().default(true),
+  personalize: z.string().max(4000).default(''),
 });
 
 export type UserSettingsInput = z.input<typeof UserSettingsSchema>;

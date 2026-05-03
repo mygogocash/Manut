@@ -124,6 +124,9 @@ export class UserSettingsType implements UserSettings {
 
   @Field({ description: 'Receive comment email' })
   receiveCommentEmail!: boolean;
+
+  @Field({ description: 'Personalize text appended to AI prompts' })
+  personalize!: string;
 }
 
 @InputType()

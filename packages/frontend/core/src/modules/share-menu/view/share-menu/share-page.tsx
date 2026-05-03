@@ -11,7 +11,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 
 import { CloudSvg } from '../cloud-svg';
 import { CopyLinkButton } from './copy-link-button';
-import { MembersPermission, PublicDoc } from './general-access';
+import { GeneralAccess } from './general-access';
 import * as styles from './index.css';
 import { InviteInput } from './invite-member-editor';
 import { MembersRow } from './member-management';
@@ -100,12 +100,13 @@ export const AFFiNESharePage = (
         <div className={styles.generalAccessStyle}>
           {t['com.affine.share-menu.generalAccess']()}
         </div>
-        <MembersPermission
+        <GeneralAccess
+          workspaceMetadata={props.workspaceMetadata}
           openPaywallModal={props.openPaywallModal}
           hittingPaywall={!!props.hittingPaywall}
-          disabled={!canManageUsers}
+          canManageUsers={!!canManageUsers}
+          canPublish={!!canPublish}
         />
-        <PublicDoc disabled={!canPublish} />
       </div>
       <Divider className={styles.divider} />
       <CopyLinkButton workspaceId={workspaceId} />

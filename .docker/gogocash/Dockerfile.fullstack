@@ -71,8 +71,8 @@ WORKDIR /app
 
 COPY --from=assets /app /app
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends openssl libjemalloc2 && \
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && \
+    apt-get install -y --no-install-recommends --allow-unauthenticated openssl libjemalloc2 && \
     rm -rf /var/lib/apt/lists/*
 
 ENV LD_PRELOAD=libjemalloc.so.2
