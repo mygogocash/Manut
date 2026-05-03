@@ -14,6 +14,7 @@ export type SettingTab =
   | 'editor'
   | 'account'
   | 'meetings'
+  | 'personalize'
   | `workspace:${'preference' | 'properties' | 'members' | 'storage' | 'billing' | 'license' | 'integrations' | 'embedding' | 'search'}`;
 
 export type GLOBAL_DIALOG_SCHEMA = {

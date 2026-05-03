@@ -4,6 +4,7 @@ import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { MeetingSettingsService } from '@affine/core/modules/media/services/meeting-settings';
 import { useI18n } from '@affine/i18n';
 import {
+  AiOutlineIcon,
   AppearanceIcon,
   ExperimentIcon,
   FolderIcon,
@@ -27,6 +28,7 @@ import { ExperimentalFeatures } from './experimental-features';
 import { PaymentIcon, UpgradeIcon } from './icons';
 import { MeetingsSettings } from './meetings';
 import { NotificationSettings } from './notifications';
+import { PersonalizeSettings } from './personalize';
 import { AFFiNEPricingPlans } from './plans';
 import { Shortcuts } from './shortcuts';
 
@@ -75,6 +77,12 @@ export const useGeneralSettingList = (): GeneralSettingList => {
         title: t['com.affine.keyboardShortcuts.title'](),
         icon: <KeyboardIcon />,
         testId: 'shortcuts-panel-trigger',
+      },
+      {
+        key: 'personalize',
+        title: 'Personalize',
+        icon: <AiOutlineIcon />,
+        testId: 'personalize-panel-trigger',
       },
     ];
     if (loggedIn) {
@@ -176,6 +184,8 @@ export const GeneralSetting = ({
       return <EditorSettings />;
     case 'appearance':
       return <AppearanceSettings />;
+    case 'personalize':
+      return <PersonalizeSettings />;
     case 'meetings':
       return <MeetingsSettings />;
     case 'about':

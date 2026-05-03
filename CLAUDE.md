@@ -207,6 +207,42 @@ Document the surprises — saves the next session a discovery cycle.
 - **`feature-dev:code-architect` does not write files** — it returns a
   blueprint. Use `general-purpose` for write-capable agents, or apply
   blueprints from the parent turn.
+- **Stale `.js` / `.d.ts` in `packages/**/src/` poisons the bundle.**
+  Some host-side `tsc -b` (or `yarn affine init`) emits sibling `.js` /
+  `.css.js` next to `.tsx` / `.css.ts` source. Rspack's
+  `resolve.extensions` puts `.js` first, so the bundler picks the stale
+  `foo.css.js` over the `foo.css.ts` that vanilla-extract was going to
+  process — styles silently strip, React crashes at mount. Symptom:
+  `app` div has 0 children, no console errors, all chunks load 200 OK.
+  Fix: wipe before every bundle run:
+  ```
+  rtk proxy find packages/frontend/core/src packages/frontend/component/src \
+    packages/frontend/i18n/src blocksuite -type f \
+    \( -name "*.js" -o -name "*.js.map" \) -not -path "*/node_modules/*" -delete
+  ```
+  Hardened in `.gitignore` + `.dockerignore` (don't remove those rules).
+- **Sub-agent edits can vanish during multi-agent consolidation.** When
+  10 parallel agents touch overlapping baseline files (`workspace-layout.tsx`,
+  `setting/general-setting/index.tsx`, etc.), git-stash recoveries and
+  re-checkouts can drop one agent's wiring while keeping its component
+  files. Always `git diff HEAD~1 -- <wired-file>` to verify each agent's
+  registrations survived. We lost the integrations cleanup wiring this
+  way and shipped a half-feature in v1.5.4.
+
+## 5b. Settings dialog wiring (where new tabs live)
+
+Adding a new general settings panel needs THREE edits:
+
+1. `packages/frontend/core/src/modules/dialogs/constant.ts` — add the key
+   to the `SettingTab` union.
+2. `packages/frontend/core/src/desktop/dialogs/setting/general-setting/index.tsx`:
+   - import the new component,
+   - add the entry in `useGeneralSettingList` (with title, icon, testId),
+   - add a `case '<key>': return <Component />` in `GeneralSetting`.
+
+Forgetting any of these silently drops the tab. The component still
+exists, but the dialog never renders it. Confirm with `/browse` after
+deploy: open Settings → look for the tab in the sidebar.
 
 ## 6. Commit + PR conventions
 
