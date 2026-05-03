@@ -14,6 +14,8 @@ import { DetailPageHeaderPresentButton } from '@affine/core/blocksuite/block-sui
 import { BlocksuiteHeaderTitle } from '@affine/core/blocksuite/block-suite-header/title';
 import { EditorModeSwitch } from '@affine/core/blocksuite/block-suite-mode-switch';
 import { useRegisterCopyLinkCommands } from '@affine/core/components/hooks/affine/use-register-copy-link-commands';
+import { DocVerifiedBadge } from '@affine/core/components/doc-verified-badge';
+import { useDocVerification } from '@affine/core/components/doc-verified-badge/use-doc-verification';
 import { HeaderDivider } from '@affine/core/components/pure/header';
 import { DocService } from '@affine/core/modules/doc';
 import { DocDisplayMetaService } from '@affine/core/modules/doc-display-meta';
@@ -23,6 +25,7 @@ import { SharePageButton } from '@affine/core/modules/share-menu';
 import { TemplateDocService } from '@affine/core/modules/template-doc';
 import { ViewIcon, ViewTitle } from '@affine/core/modules/workbench';
 import type { Workspace } from '@affine/core/modules/workspace';
+import { WorkspaceService } from '@affine/core/modules/workspace';
 import type { AffineDNDData } from '@affine/core/types/dnd';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
@@ -75,6 +78,23 @@ const TemplateMark = memo(function TemplateMark({
       {t['Template']()}
     </div>
   );
+});
+
+/**
+ * Displays a "Verified" badge inline when the doc is verified.
+ * Wraps in a Suspense boundary so that the query doesn't block rendering.
+ */
+const VerifiedMark = memo(function VerifiedMark({
+  docId,
+}: {
+  docId: string;
+}) {
+  const workspaceService = useService(WorkspaceService);
+  const workspaceId = workspaceService.workspace.id;
+
+  const { isVerified } = useDocVerification({ workspaceId, docId });
+
+  return <DocVerifiedBadge isVerified={isVerified} />;
 });
 
 interface PageHeaderProps {
@@ -158,6 +178,7 @@ export function NormalPageHeader({ page, workspace }: PageHeaderProps) {
       <EditorModeSwitch />
       <BlocksuiteHeaderTitle inputHandleRef={titleInputHandleRef} />
       <TemplateMark />
+      <VerifiedMark docId={page.id} />
       <div className={styles.iconButtonContainer}>
         {hideCollect ? null : (
           <>

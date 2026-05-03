@@ -539,6 +539,51 @@ export class DocModel extends BaseModel {
   }
 
   /**
+   * Verify a doc as officially verified by an admin.
+   */
+  async verify(
+    workspaceId: string,
+    docId: string,
+    verifiedBy: string,
+    expiresAt?: Date
+  ) {
+    return await this.upsertMeta(workspaceId, docId, {
+      verifiedAt: new Date(),
+      verifiedBy,
+      verificationExpiresAt: expiresAt ?? null,
+    });
+  }
+
+  /**
+   * Remove verification from a doc.
+   */
+  async unverify(workspaceId: string, docId: string) {
+    return await this.upsertMeta(workspaceId, docId, {
+      verifiedAt: null,
+      verifiedBy: null,
+      verificationExpiresAt: null,
+    });
+  }
+
+  /**
+   * List verified docs in a workspace.
+   */
+  async findVerified(workspaceId: string) {
+    const now = new Date();
+    return await this.db.workspaceDoc.findMany({
+      where: {
+        workspaceId,
+        verifiedAt: { not: null },
+        OR: [
+          { verificationExpiresAt: null },
+          { verificationExpiresAt: { gt: now } },
+        ],
+      },
+      orderBy: { verifiedAt: 'desc' },
+    });
+  }
+
+  /**
    * Check if the doc is public.
    */
   async isPublic(workspaceId: string, docId: string) {

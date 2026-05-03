@@ -1,4 +1,5 @@
 import { Loading } from '@affine/component/ui/loading';
+import { DocVerifiedBadge } from '@affine/core/components/doc-verified-badge';
 import { i18nTime, isI18nString, useI18n } from '@affine/i18n';
 import clsx from 'clsx';
 import { Command } from 'cmdk';
@@ -264,6 +265,13 @@ export const CMDKGroup = ({
             >
               <div className={styles.itemTitle}>
                 <HighlightText text={title} start="<b>" end="</b>" />
+                {/* Show verified badge for doc search results that carry isVerified */}
+                <DocVerifiedBadge
+                  isVerified={
+                    !!(item.payload as { isVerified?: boolean } | undefined)
+                      ?.isVerified
+                  }
+                />
               </div>
               {subTitle && (
                 <div className={styles.itemSubtitle}>

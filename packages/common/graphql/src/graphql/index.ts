@@ -385,6 +385,20 @@ export const adminWorkspacesCountQuery = {
 }`,
 };
 
+export const adminVerifiedDocsQuery = {
+  id: 'adminVerifiedDocsQuery' as const,
+  op: 'adminVerifiedDocs',
+  query: `query adminVerifiedDocs($workspaceId: String) {
+  adminVerifiedDocs(workspaceId: $workspaceId) {
+    workspaceId
+    docId
+    verifiedAt
+    verifiedBy
+    verificationExpiresAt
+  }
+}`,
+};
+
 export const createChangePasswordUrlMutation = {
   id: 'createChangePasswordUrlMutation' as const,
   op: 'createChangePasswordUrl',
@@ -2972,6 +2986,22 @@ export const uploadAvatarMutation = {
   }
 }`,
   file: true,
+};
+
+export const verifyDocMutation = {
+  id: 'verifyDocMutation' as const,
+  op: 'verifyDoc',
+  query: `mutation verifyDoc($workspaceId: String!, $docId: String!, $expiresAt: DateTime) {
+  verifyDoc(workspaceId: $workspaceId, docId: $docId, expiresAt: $expiresAt)
+}`,
+};
+
+export const unverifyDocMutation = {
+  id: 'unverifyDocMutation' as const,
+  op: 'unverifyDoc',
+  query: `mutation unverifyDoc($workspaceId: String!, $docId: String!) {
+  unverifyDoc(workspaceId: $workspaceId, docId: $docId)
+}`,
 };
 
 export const verifyEmailMutation = {

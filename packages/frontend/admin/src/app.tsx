@@ -49,6 +49,12 @@ export const Settings = lazy(
 export const Auth = lazy(
   () => import(/* webpackChunkName: "auth" */ './modules/auth')
 );
+export const VerifiedPages = lazy(
+  () =>
+    import(
+      /* webpackChunkName: "verified-pages" */ './modules/verified-pages'
+    )
+);
 
 const Routes = window.SENTRY_RELEASE
   ? withSentryReactRouterV7Routing(ReactRouterRoutes)
@@ -139,6 +145,10 @@ export const App = () => {
                   <Route
                     path={ROUTES.admin.indexing}
                     element={<Indexing />}
+                  />
+                  <Route
+                    path={ROUTES.admin.verifiedPages}
+                    element={<VerifiedPages />}
                   />
                   <Route path={ROUTES.admin.about} element={<About />} />
                   <Route

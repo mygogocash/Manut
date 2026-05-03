@@ -410,6 +410,24 @@ export class AdminWorkspace {
   sharedLinks!: AdminWorkspaceSharedLink[];
 }
 
+@ObjectType()
+class AdminVerifiedDoc {
+  @Field()
+  workspaceId!: string;
+
+  @Field()
+  docId!: string;
+
+  @Field(() => Date)
+  verifiedAt!: Date;
+
+  @Field(() => String, { nullable: true })
+  verifiedBy?: string | null;
+
+  @Field(() => Date, { nullable: true })
+  verificationExpiresAt?: Date | null;
+}
+
 @InputType()
 class AdminUpdateWorkspaceInput extends PartialType(
   PickType(AdminWorkspace, [
@@ -695,6 +713,34 @@ export class AdminWorkspaceResolver {
       return null;
     }
     return row;
+  }
+
+  @Query(() => [AdminVerifiedDoc], {
+    description: 'List all currently-verified docs across workspaces',
+  })
+  async adminVerifiedDocs(
+    @Args('workspaceId', { nullable: true }) workspaceId?: string
+  ): Promise<AdminVerifiedDoc[]> {
+    const now = new Date();
+    const rows = await this.models.doc.db.workspaceDoc.findMany({
+      where: {
+        ...(workspaceId ? { workspaceId } : {}),
+        verifiedAt: { not: null },
+        OR: [
+          { verificationExpiresAt: null },
+          { verificationExpiresAt: { gt: now } },
+        ],
+      },
+      orderBy: { verifiedAt: 'desc' },
+      select: {
+        workspaceId: true,
+        docId: true,
+        verifiedAt: true,
+        verifiedBy: true,
+        verificationExpiresAt: true,
+      },
+    });
+    return rows as AdminVerifiedDoc[];
   }
 
   private mapSort(orderBy?: AdminWorkspaceSort) {

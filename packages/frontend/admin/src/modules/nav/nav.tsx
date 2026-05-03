@@ -3,6 +3,7 @@ import { ROUTES } from '@affine/routes';
 import { AccountIcon, SelfhostIcon } from '@blocksuite/icons/rc';
 import {
   BarChart3Icon,
+  BadgeCheckIcon,
   DatabaseIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
@@ -69,6 +70,12 @@ export function Nav({ isCollapsed = false }: NavProps) {
           to={ROUTES.admin.indexing}
           icon={<DatabaseIcon size={18} />}
           label="Indexing"
+          isCollapsed={isCollapsed}
+        />
+        <NavItem
+          to={ROUTES.admin.verifiedPages}
+          icon={<BadgeCheckIcon size={18} />}
+          label="Verified Pages"
           isCollapsed={isCollapsed}
         />
         <SettingsItem isCollapsed={isCollapsed} />

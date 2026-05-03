@@ -17,6 +17,7 @@ export const ROUTES = {
     queue: '/admin/queue',
     ai: '/admin/ai',
     indexing: '/admin/indexing',
+    verifiedPages: '/admin/verified-pages',
     settings: { index: '/admin/settings', module: '/admin/settings/:module' },
     about: '/admin/about',
     notFound: '/admin/404',
@@ -37,6 +38,7 @@ export const RELATIVE_ROUTES = {
     queue: 'queue',
     ai: 'ai',
     indexing: 'indexing',
+    verifiedPages: 'verified-pages',
     settings: { index: 'settings', module: ':module' },
     about: 'about',
     notFound: '404',
@@ -55,6 +57,7 @@ admin.workspaces = () => '/admin/workspaces';
 admin.queue = () => '/admin/queue';
 admin.ai = () => '/admin/ai';
 admin.indexing = () => '/admin/indexing';
+admin.verifiedPages = () => '/admin/verified-pages';
 const admin_settings = () => '/admin/settings';
 admin_settings.module = (params: { module: string }) =>
   `/admin/settings/${params.module}`;
