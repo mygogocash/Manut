@@ -201,7 +201,9 @@ export class ChatInputPreference extends SignalWatcher(
               `,
               postfix: html`
                 <div class="ai-model-postfix" @click=${this.onAISubscribe}>
-                  ${model.isPro && !isSubscribed ? LockIcon() : undefined}
+                  ${model.isPro && !isSelfHosted && !isSubscribed
+                    ? LockIcon()
+                    : undefined}
                 </div>
               `,
               select: () => {

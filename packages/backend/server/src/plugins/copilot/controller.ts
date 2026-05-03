@@ -45,9 +45,9 @@ import {
 import { ServerFeature, ServerService } from '../../core';
 import { CurrentUser, Public } from '../../core/auth';
 import { CopilotContextService } from './context/service';
+import { ScenarioClassifier } from './prompt/scenario-classifier';
 import { CopilotProviderFactory } from './providers/factory';
 import type { CopilotProvider } from './providers/provider';
-import { ScenarioClassifier } from './prompt/scenario-classifier';
 import {
   ModelInputType,
   ModelOutputType,

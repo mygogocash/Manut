@@ -53,13 +53,11 @@ export class AIModelService extends Service {
   };
 
   setModel = (modelId: string) => {
-    const isSubscribed =
-      this.subscriptionService.subscription.ai$.value?.status ===
-      SubscriptionStatus.Active;
-    const model = this.models.value.find(model => model.id === modelId);
-    if (!isSubscribed && model?.isPro) {
-      return;
-    }
+    // Selection gating lives in the picker UI (preference-popup.ts) which
+    // knows about self-hosted deployment status. Don't double-gate here —
+    // the previous Pro-vs-subscription guard caused setModel to silently
+    // reject selections on self-hosted servers, so the chat input kept
+    // reverting to Auto even after the user picked Gemini Pro / Claude.
     this.globalStateService.globalState.set(AI_MODEL_ID_KEY, modelId);
   };
 

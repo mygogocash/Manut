@@ -5,6 +5,7 @@ import { style } from '@vanilla-extract/css';
 import { spaceY } from './index.css';
 
 export const card = style({
+  position: 'relative',
   padding: '8px 12px 12px 12px',
   borderRadius: 8,
   border: '1px solid ' + cssVarV2.layer.insideBorder.border,
@@ -18,7 +19,32 @@ export const card = style({
     '&:visited': {
       color: 'unset',
     },
+    // When the card is gated behind a cloud workspace, mute the visual
+    // weight so users understand it's unavailable without us hiding it.
+    '&[data-cloud-only="true"]': {
+      opacity: 0.5,
+      cursor: 'not-allowed',
+    },
+    '&[data-cloud-only="true"]:hover': {
+      opacity: 0.65,
+    },
   },
+});
+export const cloudOnlyBadge = style({
+  position: 'absolute',
+  top: 8,
+  right: 8,
+  padding: '2px 6px',
+  borderRadius: 4,
+  fontSize: 10,
+  lineHeight: '14px',
+  fontWeight: 500,
+  letterSpacing: 0.2,
+  textTransform: 'uppercase',
+  background: cssVarV2.layer.background.secondary,
+  color: cssVarV2.text.secondary,
+  border: '1px solid ' + cssVarV2.layer.insideBorder.border,
+  pointerEvents: 'none',
 });
 export const cardHeader = style({
   display: 'flex',

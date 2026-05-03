@@ -5,8 +5,8 @@ import {
   isTourCompleted,
   markTourCompleted,
 } from '../tour-config';
-import * as styles from './tour-step.css';
 import { TourStep } from './tour-step';
+import * as styles from './tour-step.css';
 
 interface TourOverlayProps {
   /**

@@ -327,13 +327,13 @@ export class MapViewUI extends DataViewUIBase<MapViewUILogic> {
   private markerGroup: LeafletLayerGroup | null = null;
 
   /** Tracks the marker for each rowId so we can remove stale ones. */
-  private markerMap = new Map<string, LeafletMarker>();
+  private readonly markerMap = new Map<string, LeafletMarker>();
 
   /** Refs to disposers returned by effect(). */
   private effectDisposers: Array<() => void> = [];
 
   /** How many rows are currently pending geocoding. */
-  private geocodingPending$ = signal(0);
+  private readonly geocodingPending$ = signal(0);
 
   /** Container div for Leaflet. */
   private mapContainer: HTMLDivElement | null = null;

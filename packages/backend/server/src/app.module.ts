@@ -52,6 +52,7 @@ import { VersionModule } from './core/version';
 import { WorkspaceModule } from './core/workspaces';
 import { Env } from './env';
 import { ModelsModule } from './models';
+import { AgentsModule } from './plugins/agents';
 import { CalendarModule } from './plugins/calendar';
 import { CaptchaModule } from './plugins/captcha';
 import { ConnectionsModule } from './plugins/connections';
@@ -201,6 +202,7 @@ export function buildAppModule(env: Env) {
       OAuthModule,
       CalendarModule,
       ConnectionsModule,
+      AgentsModule,
       CustomerIoModule,
       TelemetryModule,
       CommentModule,

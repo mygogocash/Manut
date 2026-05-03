@@ -1,8 +1,7 @@
-import { BlockComponent } from '@blocksuite/std';
-import { html, css, nothing } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
-
 import type { AudioBlockModel } from '@blocksuite/affine-model';
+import { BlockComponent } from '@blocksuite/std';
+import { css, html, nothing } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
 
 type RecordingState = 'idle' | 'recording' | 'playback';
 

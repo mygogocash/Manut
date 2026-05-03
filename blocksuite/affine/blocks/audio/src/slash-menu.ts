@@ -1,5 +1,4 @@
 import { type SlashMenuConfig } from '@blocksuite/affine-widget-slash-menu';
-
 // Simple microphone SVG rendered as a Lit template result via html tag
 import { html } from 'lit';
 

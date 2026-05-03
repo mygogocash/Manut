@@ -9,12 +9,12 @@ import { PermissionModule } from '../../core/permission';
 import { QuotaModule } from '../../core/quota';
 import { WorkspaceModule } from '../../core/workspaces';
 import { IndexerModule } from '../indexer';
+import { AdminIndexingController } from './admin-indexing.controller';
 import {
   CopilotContextResolver,
   CopilotContextRootResolver,
   CopilotContextService,
 } from './context';
-import { AdminIndexingController } from './admin-indexing.controller';
 import { CopilotController } from './controller';
 import { CopilotCronJobs } from './cron';
 import { CopilotEmbeddingJob } from './embedding';

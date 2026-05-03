@@ -18,13 +18,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import {
+  Config,
   EventBus,
   JobQueue,
   OnEvent,
   OnJob,
   type StorageProvider,
   StorageProviderFactory,
-  Config,
 } from '../../base';
 import { Models } from '../../models';
 import { CopilotTranscriptionService } from './transcript';
@@ -179,7 +179,7 @@ export class AudioAutoTranscriptionService {
         mimetype: mimeType,
         encoding: 'binary',
         createReadStream: () => {
-          const { Readable } = require('stream') as typeof import('stream');
+          const { Readable } = require('node:stream') as typeof import('stream');
           return Readable.from(buffer);
         },
       };

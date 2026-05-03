@@ -220,11 +220,23 @@ const BlockSuiteEditorImpl = ({
       server.baseUrl
     ).toString();
 
-    editor.std.clipboard.use(customImageProxyMiddleware(imageProxyUrl));
     page.get(ImageProxyService).setImageProxyURL(imageProxyUrl);
 
+    // Install the clipboard image-proxy middleware once the editor's std
+    // is ready. Some bundle/build orderings make `editor.std` undefined at
+    // the moment this useEffect runs, which previously threw
+    // `Cannot read properties of undefined (reading 'clipboard')` and broke
+    // the entire doc render. Defer to updateComplete so std is guaranteed.
     editor.updateComplete
       .then(() => {
+        if (canceled) return;
+        if (editor.std?.clipboard) {
+          editor.std.clipboard.use(customImageProxyMiddleware(imageProxyUrl));
+        } else {
+          console.warn(
+            '[blocksuite-editor] editor.std.clipboard not available after updateComplete; skipping image-proxy middleware'
+          );
+        }
         if (onEditorReady && !canceled) {
           const dispose = onEditorReady(editor);
           if (dispose) {

@@ -1,13 +1,13 @@
 import {
-  AudioBlockSchema,
-  AudioBlockSchemaExtension,
-} from '@blocksuite/affine-model';
-import {
   type StoreExtensionContext,
   StoreExtensionProvider,
   type ViewExtensionContext,
   ViewExtensionProvider,
 } from '@blocksuite/affine-ext-loader';
+import {
+  AudioBlockSchema,
+  AudioBlockSchemaExtension,
+} from '@blocksuite/affine-model';
 import { SlashMenuConfigExtension } from '@blocksuite/affine-widget-slash-menu';
 import { BlockViewExtension, FlavourExtension } from '@blocksuite/std';
 import { literal } from 'lit/static-html.js';

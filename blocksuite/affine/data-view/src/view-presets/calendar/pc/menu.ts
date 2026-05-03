@@ -1,5 +1,5 @@
 import { css } from '@emotion/css';
-import { LitElement, html, type TemplateResult } from 'lit';
+import { html, LitElement, type TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 import type { CalendarSingleView } from '../calendar-view-manager.js';
@@ -108,7 +108,7 @@ export class CalendarViewSettingsMenu extends LitElement {
 
   // ─── outside-click close ──────────────────────────────────────────────
 
-  private _outsideClickHandler = (e: MouseEvent) => {
+  private readonly _outsideClickHandler = (e: MouseEvent) => {
     if (!this.contains(e.target as Node)) {
       this.dispatchEvent(new CustomEvent('close', { bubbles: true }));
     }

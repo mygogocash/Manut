@@ -18,12 +18,29 @@ export const root = style({
   fontSize: cssVar('fontSm'),
   marginTop: '4px',
   position: 'relative',
+  // 3px left bar indicator for the active route; transparent until activated.
+  '::before': {
+    content: '""',
+    position: 'absolute',
+    left: '-8px',
+    top: '4px',
+    bottom: '4px',
+    width: '3px',
+    borderRadius: '0 2px 2px 0',
+    background: 'transparent',
+    transition: 'background 120ms ease',
+  },
   selectors: {
     '&:hover': {
       background: cssVarV2.layer.background.hoverOverlay,
     },
     '&[data-active="true"]': {
       background: cssVarV2.layer.background.hoverOverlay,
+      color: cssVarV2('text/primary'),
+      fontWeight: 500,
+    },
+    '&[data-active="true"]::before': {
+      background: cssVarV2('icon/activated'),
     },
     '&[data-disabled="true"]': {
       cursor: 'default',

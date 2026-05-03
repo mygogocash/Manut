@@ -2,8 +2,8 @@ import { cn } from '@affine/admin/utils';
 import { ROUTES } from '@affine/routes';
 import { AccountIcon, SelfhostIcon } from '@blocksuite/icons/rc';
 import {
-  BarChart3Icon,
   BadgeCheckIcon,
+  BarChart3Icon,
   DatabaseIcon,
   LayoutDashboardIcon,
   ListChecksIcon,

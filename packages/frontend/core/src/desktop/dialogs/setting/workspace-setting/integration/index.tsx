@@ -42,18 +42,27 @@ export const IntegrationSetting = ({
     }
 
     const hasCalendarSetting = integrationList.some(
-      item => item.id === 'calendar' && 'setting' in item
+      item =>
+        item.id === 'calendar' &&
+        'setting' in item &&
+        // Only auto-open the calendar subpage when it's actually
+        // available — not when it's gated behind cloud signin.
+        !(item.requiresCloud && !isCloudWorkspace)
     );
     if (hasCalendarSetting) {
       setOpened('calendar');
     }
-  }, [integrationList, scrollAnchor]);
+  }, [integrationList, scrollAnchor, isCloudWorkspace]);
 
-  const handleCardClick = useCallback((card: IntegrationItem) => {
-    if ('setting' in card && card.setting) {
-      setOpened(card.id);
-    }
-  }, []);
+  const handleCardClick = useCallback(
+    (card: IntegrationItem, isCloudOnly: boolean) => {
+      if (isCloudOnly) return;
+      if ('setting' in card && card.setting) {
+        setOpened(card.id);
+      }
+    },
+    []
+  );
 
   return (
     <>
@@ -77,17 +86,21 @@ export const IntegrationSetting = ({
             typeof item.desc === 'string'
               ? t[item.desc]()
               : t[item.desc.i18nKey]();
+          const isCloudOnly = Boolean(item.requiresCloud) && !isCloudWorkspace;
           return (
             <li key={item.id}>
               <IntegrationCard
-                onClick={() => handleCardClick(item)}
+                onClick={() => handleCardClick(item, isCloudOnly)}
                 link={'link' in item ? item.link : undefined}
+                cloudOnly={isCloudOnly}
+                cloudOnlyLabel={t['com.affine.integration.cloudOnly']()}
+                cloudOnlyTooltip={t['com.affine.integration.cloudOnlyDesc']()}
               >
                 <IntegrationCardHeader icon={item.icon} title={title} />
                 <IntegrationCardContent desc={desc} />
               </IntegrationCard>
 
-              {'setting' in item && item.setting ? (
+              {'setting' in item && item.setting && !isCloudOnly ? (
                 <IntegrationSettingPage
                   open={opened === item.id}
                   onClose={() => setOpened(null)}

@@ -9,17 +9,17 @@
  * loaded and the sidebar / AI island are in the DOM.
  */
 export {
+  FIRST_RUN_WELCOME_DOC_TITLE,
+  seedWelcomeDoc,
+  workspaceIsEmpty,
+} from './seed-doc';
+export type { TourStep as TourStepConfig } from './tour-config';
+export {
   FIRST_RUN_TOUR_STEPS,
   FIRST_RUN_TOUR_STORAGE_KEY,
   isTourCompleted,
   markTourCompleted,
 } from './tour-config';
-export type { TourStep as TourStepConfig } from './tour-config';
-export {
-  FIRST_RUN_WELCOME_DOC_TITLE,
-  seedWelcomeDoc,
-  workspaceIsEmpty,
-} from './seed-doc';
 export { useFirstRunSeed } from './use-first-run-seed';
 export { FirstRunExperience } from './views/first-run-experience';
 export { TourOverlay } from './views/tour-overlay';

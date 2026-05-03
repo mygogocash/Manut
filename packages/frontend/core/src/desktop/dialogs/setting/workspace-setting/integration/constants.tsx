@@ -1,5 +1,5 @@
-import { IntegrationTypeIcon } from '@affine/core/modules/integration';
 import { ConnectionsSettingPanel } from '@affine/core/modules/connections';
+import { IntegrationTypeIcon } from '@affine/core/modules/integration';
 import type { I18nString } from '@affine/i18n';
 import { Logo1Icon, TodayIcon } from '@blocksuite/icons/rc';
 import type { ReactNode } from 'react';
@@ -14,7 +14,13 @@ type IntegrationCard = {
   name: I18nString;
   desc: I18nString;
   icon: ReactNode;
-  cloud?: boolean;
+  /**
+   * When true, the integration depends on a cloud workspace. On local
+   * workspaces the card is still rendered but appears muted with a
+   * "Cloud only" badge instead of being hidden — visibility of the
+   * full set helps users understand what's available.
+   */
+  requiresCloud?: boolean;
 } & (
   | {
       setting: ReactNode;
@@ -38,7 +44,7 @@ const INTEGRATION_LIST = [
     desc: 'com.affine.integration.calendar.desc',
     icon: <TodayIcon />,
     setting: <CalendarSettingPanel />,
-    cloud: true,
+    requiresCloud: true,
   },
   {
     id: 'mcp-server' as const,
@@ -46,7 +52,7 @@ const INTEGRATION_LIST = [
     desc: 'com.affine.integration.mcp-server.desc',
     icon: <img src={MCPIcon} />,
     setting: <McpServerSettingPanel />,
-    cloud: true,
+    requiresCloud: true,
   },
   {
     id: 'web-clipper' as const,
@@ -61,7 +67,7 @@ const INTEGRATION_LIST = [
     desc: 'com.affine.integration.connections.desc',
     icon: <span style={{ fontSize: '20px' }}>🔗</span>,
     setting: <ConnectionsSettingPanel />,
-    cloud: true,
+    requiresCloud: true,
   },
 ] satisfies (IntegrationCard | false)[];
 
@@ -74,11 +80,13 @@ export type IntegrationItem = Exclude<IntegrationCard, 'id'> & {
   id: IntegrationId;
 };
 
-export function getAllowedIntegrationList(isCloudWorkspace: boolean) {
-  return INTEGRATION_LIST.filter(item => {
-    if (!item) return false;
-    const requiredCloud = 'cloud' in item && item.cloud;
-    if (requiredCloud && !isCloudWorkspace) return false;
-    return true;
-  }) as IntegrationItem[];
+/**
+ * Returns the full integration list. Cards that need a cloud workspace
+ * are still returned on local workspaces — they're rendered in a
+ * muted "Cloud only" state by the card component instead of being
+ * filtered out. Hiding them caused users to think the integrations
+ * weren't available at all and bounce from the panel.
+ */
+export function getAllowedIntegrationList(_isCloudWorkspace: boolean) {
+  return INTEGRATION_LIST.filter(item => Boolean(item)) as IntegrationItem[];
 }

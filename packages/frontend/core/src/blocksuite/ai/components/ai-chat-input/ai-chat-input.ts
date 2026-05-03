@@ -771,7 +771,7 @@ export class AIChatInput extends SignalWatcher(
     const display = `@${member.name} `;
     this._replaceMentionSegment(display);
     // Track for prompt augmentation on send.
-    if (!this._mentionedMembers.find(m => m.id === member.id)) {
+    if (!this._mentionedMembers.some(m => m.id === member.id)) {
       this._mentionedMembers = [...this._mentionedMembers, member];
     }
     this._closeMentionPopup();

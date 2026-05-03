@@ -24,8 +24,6 @@ import { createRef, ref } from 'lit/directives/ref.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { html } from 'lit/static-html.js';
 
-import { autofillColumn } from '../ai-autofill.js';
-
 import {
   inputConfig,
   typeConfig,
@@ -48,6 +46,7 @@ import {
 } from '../../../../widget-presets/quick-setting-bar/context.js';
 import { DEFAULT_COLUMN_TITLE_HEIGHT } from '../../consts.js';
 import type { TableProperty } from '../../table-view-manager.js';
+import { autofillColumn } from '../ai-autofill.js';
 import type { TableViewUILogic } from '../table-view-ui-logic.js';
 import {
   getTableGroupRect,

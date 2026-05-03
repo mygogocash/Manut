@@ -1,5 +1,5 @@
-import { Text } from '@blocksuite/affine/store';
 import type { Workspace } from '@blocksuite/affine/store';
+import { Text } from '@blocksuite/affine/store';
 
 import type { DocsService } from '../doc';
 

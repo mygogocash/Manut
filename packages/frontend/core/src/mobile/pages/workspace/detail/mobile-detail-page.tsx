@@ -138,9 +138,13 @@ const DetailPageImpl = () => {
         server.baseUrl
       ).toString();
 
-      editorContainer.std.clipboard.use(
-        customImageProxyMiddleware(imageProxyUrl)
-      );
+      // editor.std may be undefined immediately after the container element
+      // is created; guard so a transient race doesn't kill the doc render.
+      if (editorContainer.std?.clipboard) {
+        editorContainer.std.clipboard.use(
+          customImageProxyMiddleware(imageProxyUrl)
+        );
+      }
       editorContainer.doc
         .get(ImageProxyService)
         .setImageProxyURL(imageProxyUrl);

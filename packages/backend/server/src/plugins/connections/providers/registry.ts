@@ -1,5 +1,5 @@
-import type { OAuthProvider } from './base.js';
 import { AsanaProvider } from './asana.js';
+import type { OAuthProvider } from './base.js';
 import { FigmaProvider } from './figma.js';
 import { GitHubProvider } from './github.js';
 import { GoogleProvider } from './google.js';

@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+
+import { Injectable, Logger } from '@nestjs/common';
 
 import { SessionCache } from '../../base';
 import { Models } from '../../models';

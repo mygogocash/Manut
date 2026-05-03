@@ -98,10 +98,14 @@ export class AuthSession extends Entity {
       const session = await this.store.fetchSession();
 
       if (session?.user) {
+        // Prefer display name for the avatar fallback char.
+        // When the user has not set a name yet, fall back to email so the
+        // avatar still shows a meaningful first letter (instead of the
+        // generic unknown-user silhouette).
         const account = {
           id: session.user.id,
           email: session.user.email,
-          label: session.user.name,
+          label: session.user.name || session.user.email,
           avatar: session.user.avatarUrl,
           info: session.user,
         };

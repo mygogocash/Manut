@@ -53,6 +53,7 @@ model User {
   workspaceMemberLastAccesses WorkspaceMemberLastAccess[]
   mcpApiKeys                  McpApiKey[]
   integrationConnections      IntegrationConnection[]
+  agents                      Agent[]
 
   @@index([email])
   @@map("users")
@@ -159,6 +160,7 @@ model Workspace {
   workspaceMemberLastAccess  WorkspaceMemberLastAccess[]
   integrationConnections     IntegrationConnection[]
   mcpApiKeys                 McpApiKey[]
+  agents                     Agent[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -1191,4 +1193,35 @@ model McpApiKey {
   @@index([userId])
   @@index([userId, workspaceId])
   @@map("mcp_api_keys")
+}
+
+// Agents (Perplexity Spaces / Notion Agents-style).
+// NOTE: Foreign-key columns are @db.VarChar to match the existing User.id and
+// Workspace.id types, even though the spec mentioned @db.Uuid — Prisma requires
+// FK column types to match the referenced columns exactly.
+model Agent {
+  id            String   @id @default(uuid()) @db.VarChar
+  workspaceId   String   @map("workspace_id") @db.VarChar
+  ownerId       String   @map("owner_id") @db.VarChar
+  parentAgentId String?  @map("parent_agent_id") @db.VarChar
+  name          String   @db.VarChar
+  description   String   @default("") @db.Text
+  instructions  String   @default("") @db.Text
+  // skill ids (free-form strings)
+  skills        String[] @default([]) @db.Text
+  // [{url:string,label?:string},...]
+  links         Json     @default("[]") @db.JsonB
+  // blob storage keys / file ids referenced by the agent
+  files         String[] @default([]) @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  parent    Agent?    @relation("AgentToSubAgents", fields: [parentAgentId], references: [id], onDelete: Cascade)
+  subAgents Agent[]   @relation("AgentToSubAgents")
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([parentAgentId])
+  @@map("agents")
 }

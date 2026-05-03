@@ -16,6 +16,7 @@ import { configureCloudModule } from './cloud';
 import { configureCodeBlockPreviewRendererModule } from './code-block-preview-renderer';
 import { configureCollectionModule } from './collection';
 import { configureCollectionRulesModule } from './collection-rules';
+import { configureAgentsModule } from './agents';
 import { configureCommentModule } from './comment';
 import { configureWorkspaceDBModule } from './db';
 import { configureDialogModule } from './dialogs';
@@ -131,6 +132,7 @@ export function configureCommonModules(framework: Framework) {
   configureCollectionRulesModule(framework);
   configureIndexerEmbeddingModule(framework);
   configureCommentModule(framework);
+  configureAgentsModule(framework);
   configureDocSummaryModule(framework);
   configurePaywallModule(framework);
   configureIconPickerModule(framework);

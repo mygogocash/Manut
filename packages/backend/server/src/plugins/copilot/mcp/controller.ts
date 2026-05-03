@@ -14,8 +14,8 @@ import {
 import type { Request, Response } from 'express';
 
 import { SpaceAccessDenied, Throttle } from '../../../base';
-import { CurrentUser } from '../../../core/auth';
 import type { CurrentUser as CurrentUserType } from '../../../core/auth';
+import { CurrentUser } from '../../../core/auth';
 import { McpApiKeyService } from './auth';
 import { WorkspaceMcpProvider, type WorkspaceMcpServer } from './provider';
 

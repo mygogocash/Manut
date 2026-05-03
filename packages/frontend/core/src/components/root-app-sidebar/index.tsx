@@ -40,6 +40,7 @@ import {
 } from '../../desktop/components/navigation-panel';
 import { WorkbenchService } from '../../modules/workbench';
 import { WorkspaceNavigator } from '../workspace-selector';
+import { AgentsSection } from './agents-section';
 import {
   bottomContainer,
   quickSearch,
@@ -233,6 +234,7 @@ export const RootAppSidebar = memo((): ReactElement => {
         <AppSidebarJournalButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />
+        <AgentsSection />
         <MenuItem
           data-testid="slider-bar-workspace-setting-button"
           icon={<SettingsIcon />}

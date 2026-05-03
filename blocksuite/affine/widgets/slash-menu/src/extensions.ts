@@ -45,7 +45,17 @@ export function SlashMenuConfigExtension(
 ): ExtensionType {
   return {
     setup: di => {
-      di.addImpl(SlashMenuConfigIdentifier(id), config);
+      // GoGoCash patch: some editor stacks (chat -> ai-specs path) end up
+      // registering the same SlashMenuConfigExtension twice on the same
+      // BlockStdScope DI container, which previously threw
+      // `Service [affine-slash-menu-widget-config](affine:note) already exists`
+      // and broke the entire chat / page render. Use addFactory with
+      // override:true so the second registration replaces the first instead
+      // of throwing. The replacement is benign because both registrations
+      // pass the same `config` object.
+      di.addFactory(SlashMenuConfigIdentifier(id), () => config, {
+        override: true,
+      });
     },
   };
 }

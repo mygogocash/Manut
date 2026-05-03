@@ -13,8 +13,8 @@ import {
   DataViewUIBase,
   DataViewUILogicBase,
 } from '../../../core/view/data-view-base.js';
-import type { TimelineSingleView } from '../timeline-view-manager.js';
 import type { TimelineViewSelectionWithType } from '../selection.js';
+import type { TimelineSingleView } from '../timeline-view-manager.js';
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 

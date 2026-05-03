@@ -252,7 +252,7 @@ export class ChatPanelAddPopover extends SignalWatcher(
         cleanup();
         resolve(null);
       });
-      document.body.appendChild(input);
+      document.body.append(input);
       input.click();
     });
   }

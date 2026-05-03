@@ -41,7 +41,10 @@ import { LinkViewExtension } from '@blocksuite/affine-inline-link/view';
 import { MentionViewExtension } from '@blocksuite/affine-inline-mention/view';
 import { InlinePresetViewExtension } from '@blocksuite/affine-inline-preset/view';
 import { ReferenceViewExtension } from '@blocksuite/affine-inline-reference/view';
-import { BlockContextMenuViewExtension } from '@blocksuite/affine-widget-block-context-menu/view';
+// Disabled in v1.6.1: triggers "Cannot read properties of undefined (reading
+// 'clipboard')" on doc open. Re-enable after fixing the load-time clipboard
+// access in @blocksuite/affine-widget-block-context-menu.
+// import { BlockContextMenuViewExtension } from '@blocksuite/affine-widget-block-context-menu/view';
 import { DragHandleViewExtension } from '@blocksuite/affine-widget-drag-handle/view';
 import { EdgelessAutoConnectViewExtension } from '@blocksuite/affine-widget-edgeless-auto-connect/view';
 import { EdgelessDraggingAreaViewExtension } from '@blocksuite/affine-widget-edgeless-dragging-area/view';
@@ -109,7 +112,7 @@ export function getInternalViewExtensions() {
 
     // Widget
     // order will affect the z-index of the widget
-    BlockContextMenuViewExtension,
+    // BlockContextMenuViewExtension, // disabled in v1.6.1
     DragHandleViewExtension,
     EdgelessAutoConnectViewExtension,
     FrameTitleViewExtension,

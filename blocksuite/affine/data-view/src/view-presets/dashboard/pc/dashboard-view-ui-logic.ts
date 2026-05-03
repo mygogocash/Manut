@@ -11,8 +11,8 @@ import {
   DataViewUIBase,
   DataViewUILogicBase,
 } from '../../../core/view/data-view-base.js';
-import type { DashboardCell } from '../define.js';
 import type { DashboardSingleView } from '../dashboard-view-manager.js';
+import type { DashboardCell } from '../define.js';
 import type { DashboardViewSelectionWithType } from '../selection.js';
 
 // ─── styles ───────────────────────────────────────────────────────────────

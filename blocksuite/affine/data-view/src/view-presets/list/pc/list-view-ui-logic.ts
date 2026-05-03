@@ -1,7 +1,7 @@
 import type { InsertToPosition } from '@blocksuite/affine-shared/utils';
 import { css } from '@emotion/css';
 import { signal } from '@preact/signals-core';
-import { type TemplateResult, html } from 'lit';
+import { html,type TemplateResult } from 'lit';
 
 import {
   createUniComponentFromWebComponent,
@@ -151,7 +151,7 @@ export class ListViewUILogic extends DataViewUILogicBase<
   ui$ = signal<ListViewUI | undefined>();
 
   /** Track which groups are collapsed by group-key. */
-  private collapsedGroups$ = signal<Set<string>>(new Set());
+  private readonly collapsedGroups$ = signal<Set<string>>(new Set());
 
   // ─── Abstract stubs ───────────────────────────────────────────────────
 
@@ -223,7 +223,7 @@ export class ListViewUI extends DataViewUIBase<ListViewUILogic> {
   /** Original y position when drag started. */
   private _dragStartY = 0;
   /** Row elements indexed by rowId for hit-testing during drag. */
-  private _rowElements = new Map<string, HTMLElement>();
+  private readonly _rowElements = new Map<string, HTMLElement>();
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -233,7 +233,7 @@ export class ListViewUI extends DataViewUIBase<ListViewUILogic> {
 
   // ─── α-LIST-1: Drag-reorder ──────────────────────────────────────────
 
-  private _onDragStart = (rowId: string, e: PointerEvent) => {
+  private readonly _onDragStart = (rowId: string, e: PointerEvent) => {
     if (this.logic.view.readonly$.value) return;
     e.preventDefault();
     this._draggingRowId = rowId;
@@ -332,7 +332,7 @@ export class ListViewUI extends DataViewUIBase<ListViewUILogic> {
     }
 
     const picker = document.createElement('div');
-    picker.setAttribute('data-list-group-picker', '');
+    picker.dataset.listGroupPicker = '';
     Object.assign(picker.style, {
       position: 'absolute',
       zIndex: '100',
@@ -352,7 +352,7 @@ export class ListViewUI extends DataViewUIBase<ListViewUILogic> {
       color: 'var(--affine-text-secondary-color, #888)',
       marginBottom: '6px',
     });
-    picker.appendChild(header);
+    picker.append(header);
 
     for (const prop of props) {
       const item = document.createElement('button');
@@ -372,14 +372,14 @@ export class ListViewUI extends DataViewUIBase<ListViewUILogic> {
         this.logic.view.setGroupBy(prop.id);
         picker.remove();
       });
-      picker.appendChild(item);
+      picker.append(item);
     }
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     picker.style.top = `${rect.bottom + 4}px`;
     picker.style.left = `${rect.left}px`;
     this.style.position = 'relative';
-    this.appendChild(picker);
+    this.append(picker);
 
     const close = (evt: MouseEvent) => {
       if (!picker.contains(evt.target as Node)) {

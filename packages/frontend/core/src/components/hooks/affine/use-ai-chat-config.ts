@@ -18,7 +18,7 @@ import { createSignalFromObservable } from '@blocksuite/affine/shared/utils';
 import { MemberIcon } from '@blocksuite/icons/lit';
 import { signal } from '@preact/signals-core';
 import { useFramework } from '@toeverything/infra';
-import { html } from 'lit';
+import type { html } from 'lit';
 
 import type {
   MentionMember,

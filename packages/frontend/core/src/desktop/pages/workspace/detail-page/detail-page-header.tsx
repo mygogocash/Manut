@@ -13,9 +13,9 @@ import { PageHeaderMenuButton } from '@affine/core/blocksuite/block-suite-header
 import { DetailPageHeaderPresentButton } from '@affine/core/blocksuite/block-suite-header/present/detail-header-present-button';
 import { BlocksuiteHeaderTitle } from '@affine/core/blocksuite/block-suite-header/title';
 import { EditorModeSwitch } from '@affine/core/blocksuite/block-suite-mode-switch';
-import { useRegisterCopyLinkCommands } from '@affine/core/components/hooks/affine/use-register-copy-link-commands';
 import { DocVerifiedBadge } from '@affine/core/components/doc-verified-badge';
 import { useDocVerification } from '@affine/core/components/doc-verified-badge/use-doc-verification';
+import { useRegisterCopyLinkCommands } from '@affine/core/components/hooks/affine/use-register-copy-link-commands';
 import { HeaderDivider } from '@affine/core/components/pure/header';
 import { DocService } from '@affine/core/modules/doc';
 import { DocDisplayMetaService } from '@affine/core/modules/doc-display-meta';

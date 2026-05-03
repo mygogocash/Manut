@@ -8156,6 +8156,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.integrations"](): string;
     /**
+      * `Cloud only`
+      */
+    ["com.affine.integration.cloudOnly"](): string;
+    /**
+      * `Sign in and switch to a cloud workspace to use this integration. Local workspaces don't support cloud-backed services.`
+      */
+    ["com.affine.integration.cloudOnlyDesc"](): string;
+    /**
       * `Web Clipper`
       */
     ["com.affine.integration.web-clipper.name"](): string;
