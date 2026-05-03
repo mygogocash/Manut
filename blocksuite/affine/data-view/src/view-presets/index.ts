@@ -1,5 +1,6 @@
 import { calendarViewMeta } from './calendar/index.js';
 import { chartViewMeta } from './chart/index.js';
+import { dashboardViewMeta } from './dashboard/index.js';
 import { feedViewMeta } from './feed/index.js';
 import { formViewMeta } from './form/index.js';
 import { galleryViewMeta } from './gallery/index.js';
@@ -12,6 +13,7 @@ import { timelineViewMeta } from './timeline/index.js';
 export * from './calendar/index.js';
 export * from './chart/index.js';
 export * from './convert.js';
+export * from './dashboard/index.js';
 export * from './feed/index.js';
 export * from './form/index.js';
 export * from './gallery/index.js';
@@ -25,6 +27,7 @@ export const viewPresets = {
   tableViewMeta: tableViewMeta,
   kanbanViewMeta: kanbanViewMeta,
   calendarViewMeta: calendarViewMeta,
+  dashboardViewMeta: dashboardViewMeta,
   chartViewMeta: chartViewMeta,
   galleryViewMeta: galleryViewMeta,
   feedViewMeta: feedViewMeta,

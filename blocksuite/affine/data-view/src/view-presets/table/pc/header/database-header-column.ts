@@ -24,6 +24,8 @@ import { createRef, ref } from 'lit/directives/ref.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { html } from 'lit/static-html.js';
 
+import { autofillColumn } from '../ai-autofill.js';
+
 import {
   inputConfig,
   typeConfig,
@@ -204,7 +206,29 @@ export class DatabaseHeaderColumn extends SignalWatcher(
     };
   }
 
+  // Inline sparkle SVG for the AI fill column menu item.
+  private readonly _aiSparkleIcon = () => html`<svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+  >
+    <path
+      d="M10 2.5L11.55 7.45L16.5 9L11.55 10.55L10 15.5L8.45 10.55L3.5 9L8.45 7.45L10 2.5Z"
+    />
+    <path
+      d="M15.5 14L16.25 16.25L18.5 17L16.25 17.75L15.5 20L14.75 17.75L12.5 17L14.75 16.25L15.5 14Z"
+    />
+    <path
+      d="M4.5 1L5.25 3.25L7.5 4L5.25 4.75L4.5 7L3.75 4.75L1.5 4L3.75 3.25L4.5 1Z"
+    />
+  </svg>`;
+
   private popMenu(ele?: HTMLElement) {
+    const aiAutofill = this.tableViewLogic.root.config.aiAutofill;
+    const notification = this.tableViewLogic.root.config.notification;
+
     popMenu(popupTargetFromElement(ele ?? this), {
       options: {
         items: [
@@ -247,6 +271,63 @@ export class DatabaseHeaderColumn extends SignalWatcher(
                 hide: () => !this.column.hideCanSet,
                 select: () => {
                   this.column.hideSet(true);
+                },
+              }),
+            ],
+          }),
+          // β-AI-7: Bulk fill all empty cells in this column with AI
+          menu.group({
+            items: [
+              menu.action({
+                name: '✨ Fill all empty cells with AI',
+                prefix: this._aiSparkleIcon(),
+                hide: () => aiAutofill == null || this.column.readonly$.value,
+                select: () => {
+                  if (!aiAutofill) return;
+                  const view = this.tableViewManager;
+                  const column = this.column;
+                  const totalEmptyCount = view.rows$.value.filter(row => {
+                    const val = column.stringValueGet(row.rowId);
+                    return val == null || val.trim() === '';
+                  }).length;
+
+                  if (totalEmptyCount === 0) {
+                    notification.toast(
+                      'No empty cells found in this column.'
+                    );
+                    return;
+                  }
+
+                  notification.toast(
+                    `Filling ${totalEmptyCount} empty cell${totalEmptyCount !== 1 ? 's' : ''} with AI…`
+                  );
+
+                  let lastProgress = 0;
+                  autofillColumn(
+                    view,
+                    column,
+                    aiAutofill,
+                    (filled, total) => {
+                      // Surface intermediate progress every 5 cells to avoid toast spam.
+                      if (filled - lastProgress >= 5 || filled === total) {
+                        lastProgress = filled;
+                        notification.toast(
+                          `Filling cells… ${filled}/${total} done`
+                        );
+                      }
+                    }
+                  )
+                    .then(filled => {
+                      notification.toast(
+                        `AI filled ${filled} cell${filled !== 1 ? 's' : ''} in "${column.name$.value}"`
+                      );
+                    })
+                    .catch((err: unknown) => {
+                      console.error('[AI autofill column] failed', err);
+                      notification.toast(
+                        'AI autofill failed. Please try again.'
+                      );
+                    });
                 },
               }),
             ],
