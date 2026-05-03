@@ -1213,6 +1213,9 @@ model Agent {
   links         Json     @default("[]") @db.JsonB
   // blob storage keys / file ids referenced by the agent
   files         String[] @default([]) @db.Text
+  // Picrew/Avataaars-style avatar configuration (free-form JSON object).
+  // Renderer falls back to defaults for unknown keys; server does not validate.
+  avatar        Json     @default("{}") @db.JsonB
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

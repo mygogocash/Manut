@@ -5,10 +5,11 @@ import {
 } from '@affine/core/modules/app-sidebar/views';
 import { AgentService } from '@affine/core/modules/agents';
 import { WorkbenchService } from '@affine/core/modules/workbench';
-import { AiOutlineIcon, PlusIcon } from '@blocksuite/icons/rc';
+import { PlusIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import { useCallback, useState } from 'react';
 
+import { AgentAvatar } from '../agent-avatar';
 import * as styles from './agents-section.css';
 
 interface AgentSummary {
@@ -41,7 +42,7 @@ const AgentRow = ({ agent }: { agent: AgentSummary }) => {
   return (
     <MenuLinkItem
       data-testid={`sidebar-agent-row-${agent.id}`}
-      icon={<AiOutlineIcon />}
+      icon={<AgentAvatar agent={agent} size={20} />}
       active={active}
       to={path}
     >

@@ -19,7 +19,12 @@ import {
 } from 'react';
 import { useParams } from 'react-router-dom';
 
+import {
+  AgentAvatar,
+  type AgentAvatarConfig,
+} from '../../../../components/agent-avatar';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
+import { AvatarSection } from './sections/avatar';
 import * as styles from './detail.css';
 import {
   type AgentFile,
@@ -45,6 +50,9 @@ interface AgentDetail {
   links?: AgentLink[];
   subAgents?: SubAgentSummary[];
   parentAgentId?: string | null;
+  // Avatar is owned by the backend agent; we accept it defensively here so
+  // the picker can read & write through `updateAgent({ avatar })`.
+  avatar?: AgentAvatarConfig | null;
 }
 
 interface UpdateAgentPatch {
@@ -54,6 +62,7 @@ interface UpdateAgentPatch {
   files?: AgentFile[];
   skills?: string[];
   links?: AgentLink[];
+  avatar?: AgentAvatarConfig;
 }
 
 interface CreateSubAgentInput {
@@ -224,6 +233,13 @@ const AgentDetailPage: FC = () => {
     [agent, updateAgent]
   );
 
+  const handleAvatarChange = useCallback(
+    (next: AgentAvatarConfig) => {
+      void updateAgent({ avatar: next });
+    },
+    [updateAgent]
+  );
+
   const handleCreateSubAgent = useCallback(async () => {
     if (!agentId) return;
     if (!agentService.createSubAgent) {
@@ -285,35 +301,46 @@ const AgentDetailPage: FC = () => {
             <div className={styles.scroll}>
               <div className={styles.inner}>
                 <header className={styles.header}>
-                  <input
-                    type="text"
-                    className={styles.nameInput}
-                    value={nameDraft}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                      setNameDraft(e.target.value)
-                    }
-                    onBlur={handleNameBlur}
-                    placeholder="Untitled agent"
-                    aria-label="Agent name"
-                    maxLength={120}
-                    data-testid="agent-detail-name-input"
-                  />
-                  <textarea
-                    className={styles.descriptionInput}
-                    value={descriptionDraft}
-                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-                      setDescriptionDraft(e.target.value)
-                    }
-                    onBlur={handleDescriptionBlur}
-                    placeholder="Add a description for this agent…"
-                    aria-label="Agent description"
-                    rows={2}
-                    maxLength={500}
-                    data-testid="agent-detail-description-input"
-                  />
+                  <div className={styles.headerTitleRow}>
+                    <AgentAvatar agent={agent} size={56} />
+                    <div className={styles.headerInputs}>
+                      <input
+                        type="text"
+                        className={styles.nameInput}
+                        value={nameDraft}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                          setNameDraft(e.target.value)
+                        }
+                        onBlur={handleNameBlur}
+                        placeholder="Untitled agent"
+                        aria-label="Agent name"
+                        maxLength={120}
+                        data-testid="agent-detail-name-input"
+                      />
+                      <textarea
+                        className={styles.descriptionInput}
+                        value={descriptionDraft}
+                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                          setDescriptionDraft(e.target.value)
+                        }
+                        onBlur={handleDescriptionBlur}
+                        placeholder="Add a description for this agent…"
+                        aria-label="Agent description"
+                        rows={2}
+                        maxLength={500}
+                        data-testid="agent-detail-description-input"
+                      />
+                    </div>
+                  </div>
                 </header>
 
                 <div className={styles.sections}>
+                  <AvatarSection
+                    agentId={agent.id}
+                    agentName={agent.name}
+                    value={agent.avatar ?? undefined}
+                    onChange={handleAvatarChange}
+                  />
                   <InstructionsSection
                     value={instructions}
                     onChange={handleInstructionsChange}

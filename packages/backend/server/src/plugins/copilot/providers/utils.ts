@@ -483,11 +483,21 @@ export async function getGoogleAuth(
   function getBaseUrl() {
     const normalizedBaseUrl = normalizeUrl(options.baseURL);
     if (normalizedBaseUrl) return normalizedBaseUrl;
-    const { location } = options;
-    if (location) {
-      return `https://${location}-aiplatform.googleapis.com/v1beta1/publishers/${publisher}`;
+    const { location, project } = options;
+    if (!location) return undefined;
+    // Vertex AI requires the project + location prefix in the URL for both
+    // Anthropic and Google publishers; without it Google rejects with
+    // RESOURCE_PROJECT_INVALID. The previous "/v1beta1/publishers/google"
+    // form omitted the project context and broke streamGenerateContent.
+    if (project) {
+      return (
+        `https://${location}-aiplatform.googleapis.com/v1` +
+        `/projects/${project}/locations/${location}/publishers/${publisher}`
+      );
     }
-    return undefined;
+    // Fallback for callers that didn't set `project` — keep the legacy URL
+    // shape so we don't change behavior for unconfigured providers.
+    return `https://${location}-aiplatform.googleapis.com/v1beta1/publishers/${publisher}`;
   }
 
   async function generateAuthToken() {

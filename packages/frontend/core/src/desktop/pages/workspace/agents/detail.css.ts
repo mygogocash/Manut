@@ -35,6 +35,20 @@ export const header = style({
   borderBottom: `1px solid ${cssVarV2.layer.insideBorder.border}`,
 });
 
+export const headerTitleRow = style({
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 16,
+});
+
+export const headerInputs = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
+  flex: 1,
+  minWidth: 0,
+});
+
 export const nameInput = style({
   width: '100%',
   fontSize: 24,

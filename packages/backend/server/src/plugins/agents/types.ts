@@ -47,6 +47,12 @@ export class AgentType {
   @Field(() => [String])
   files!: string[];
 
+  // Picrew/Avataaars-style avatar configuration. The shape is a free-form JSON
+  // object (topType, hairColor, eyeType, etc.) — the server does not validate
+  // keys/values; the avataaars renderer falls back to defaults for unknowns.
+  @Field(() => GraphQLJSONObject)
+  avatar!: Record<string, unknown>;
+
   @Field(() => GraphQLISODateTime)
   createdAt!: Date;
 
@@ -70,6 +76,19 @@ export class CreateAgentInput {
 
   @Field(() => String, { nullable: true })
   instructions?: string;
+
+  // Optional initial avatar; defaults to {} when omitted. See AgentType.avatar.
+  @Field(() => GraphQLJSONObject, { nullable: true })
+  avatar?: Record<string, unknown>;
+}
+
+@InputType('AgentLinkInput')
+export class AgentLinkInput {
+  @Field(() => String)
+  url!: string;
+
+  @Field(() => String, { nullable: true })
+  label?: string;
 }
 
 @InputType()
@@ -82,6 +101,22 @@ export class UpdateAgentInput {
 
   @Field(() => String, { nullable: true })
   instructions?: string;
+
+  // Bulk-replace fields used by the detail page Skills / Links / Files
+  // sections. Add/remove single-item mutations remain for callers that
+  // want optimistic single-item updates.
+  @Field(() => [String], { nullable: true })
+  skills?: string[];
+
+  @Field(() => [AgentLinkInput], { nullable: true })
+  links?: AgentLinkInput[];
+
+  @Field(() => [String], { nullable: true })
+  files?: string[];
+
+  // Free-form avatar config object. See AgentType.avatar.
+  @Field(() => GraphQLJSONObject, { nullable: true })
+  avatar?: Record<string, unknown>;
 }
 
 // Re-export so callers can write `import { GraphQLJSONObject } from './types'` if needed.

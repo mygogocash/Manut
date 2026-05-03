@@ -1,8 +1,8 @@
 import { AgentService } from '@affine/core/modules/agents';
 import { WorkbenchLink } from '@affine/core/modules/workbench';
-import { AiOutlineIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 
+import { AgentAvatar } from '../../../../components/agent-avatar';
 import * as styles from './list.css';
 
 interface AgentSummary {
@@ -48,7 +48,7 @@ export const AgentsList = () => {
               className={styles.listItem}
               data-testid={`agents-list-row-${agent.id}`}
             >
-              <AiOutlineIcon className={styles.itemIcon} />
+              <AgentAvatar agent={agent} size={28} className={styles.itemIcon} />
               <div className={styles.itemBody}>
                 <div className={styles.itemName}>
                   {agent.name || 'Untitled agent'}

@@ -16,9 +16,17 @@ import {
  * decoded back into typed objects. The Prisma row stores it as `Json`.
  */
 export interface AgentRecord
-  extends Omit<AgentRow, 'links' | 'parentAgentId'> {
+  extends Omit<AgentRow, 'links' | 'parentAgentId' | 'avatar'> {
   parentAgentId: string | null;
   links: AgentLink[];
+  avatar: Record<string, unknown>;
+}
+
+function parseAvatar(value: unknown): Record<string, unknown> {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
 }
 
 function rowToRecord(row: AgentRow): AgentRecord {
@@ -26,6 +34,7 @@ function rowToRecord(row: AgentRow): AgentRecord {
     ...row,
     parentAgentId: row.parentAgentId,
     links: parseLinks(row.links),
+    avatar: parseAvatar(row.avatar),
   };
 }
 
@@ -162,6 +171,9 @@ export class AgentsService {
         name: input.name,
         description: input.description ?? '',
         instructions: input.instructions ?? '',
+        // Avatar is free-form JSON. Default to empty object — the renderer
+        // falls back to defaults for missing keys.
+        avatar: (input.avatar ?? {}) as any,
       },
     });
     return rowToRecord(row);
@@ -185,6 +197,22 @@ export class AgentsService {
         }),
         ...(input.instructions !== undefined && {
           instructions: input.instructions,
+        }),
+        ...(input.skills !== undefined && { skills: input.skills }),
+        ...(input.links !== undefined && {
+          // Prisma's Json column accepts plain arrays; map to a clean
+          // shape so we don't store extra fields the GraphQL type doesn't
+          // expose (the frontend may attach a transient `id` for keying).
+          links: input.links.map(l => ({
+            url: l.url,
+            ...(l.label ? { label: l.label } : {}),
+          })),
+        }),
+        ...(input.files !== undefined && { files: input.files }),
+        // Avatar is replaced wholesale when provided. Server doesn't validate
+        // the shape — the avataaars renderer ignores unknown keys.
+        ...(input.avatar !== undefined && {
+          avatar: input.avatar as any,
         }),
       },
     });

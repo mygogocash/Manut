@@ -423,6 +423,7 @@ __metadata:
     "@vanilla-extract/css": "npm:^1.17.0"
     "@vanilla-extract/dynamic": "npm:^2.1.2"
     animejs: "npm:^4.0.0"
+    avataaars: "npm:^2.0.0"
     bytes: "npm:^3.1.2"
     clsx: "npm:^2.1.1"
     cmdk: "npm:^1.0.4"
@@ -19342,6 +19343,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"avataaars@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "avataaars@npm:2.0.0"
+  dependencies:
+    lodash: "npm:>=4.17.21"
+    prop-types: "npm:^15.7.2"
+  peerDependencies:
+    react: ^17.0.0
+  checksum: 10/7efd4262d722079bc5bc1e3349eb708d86efb91be3766459b51e19a73f9f7a64e8b99be3b96fb2a4d722127726700dbc80cef0a7ca10f9c938ebf14eb8f7b606
+  languageName: node
+  linkType: hard
+
 "aws4@npm:^1.13.2":
   version: 1.13.2
   resolution: "aws4@npm:1.13.2"
@@ -27854,7 +27867,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash@npm:4.18.1, lodash@npm:^4.17.11, lodash@npm:^4.17.15, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4, lodash@npm:^4.18.1":
+"lodash@npm:4.18.1, lodash@npm:>=4.17.21, lodash@npm:^4.17.11, lodash@npm:^4.17.15, lodash@npm:^4.17.20, lodash@npm:^4.17.21, lodash@npm:^4.17.4, lodash@npm:^4.18.1":
   version: 4.18.1
   resolution: "lodash@npm:4.18.1"
   checksum: 10/306fea53dfd39dad1f03d45ba654a2405aebd35797b673077f401edb7df2543623dc44b9effbb98f69b32152295fff725a4cec99c684098947430600c6af0c3f
@@ -31777,7 +31790,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prop-types@npm:^15, prop-types@npm:^15.6.2, prop-types@npm:^15.8.1":
+"prop-types@npm:^15, prop-types@npm:^15.6.2, prop-types@npm:^15.7.2, prop-types@npm:^15.8.1":
   version: 15.8.1
   resolution: "prop-types@npm:15.8.1"
   dependencies:
