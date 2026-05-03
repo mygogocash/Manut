@@ -1,6 +1,7 @@
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
-import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 
 export function generateApiKey(): { key: string; hash: string } {
   const raw = `affine_mcp_${randomBytes(32).toString('hex')}`;

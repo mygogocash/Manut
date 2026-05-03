@@ -99,7 +99,7 @@ export const ConnectionsSettingPanel = ({
       if (!isOAuthResultMessage(event.data)) return;
       if (event.data.ok) {
         setError(null);
-        void mutate();
+        mutate().catch(console.error);
       } else {
         setError(
           event.data.error
@@ -165,6 +165,7 @@ export const ConnectionsSettingPanel = ({
 
   const connectedProviders = useMemo(
     () => new Set(connections.map(c => c.provider)),
+    // oxlint-disable-next-line exhaustive-deps
     [connections]
   );
 

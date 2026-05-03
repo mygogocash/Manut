@@ -326,10 +326,7 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
           >
             ${props.map(
               p =>
-                html`<option
-                  value=${p.id}
-                  ?selected=${yColIds.includes(p.id)}
-                >
+                html`<option value=${p.id} ?selected=${yColIds.includes(p.id)}>
                   ${p.name}
                 </option>`
             )}
@@ -354,8 +351,7 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
   private renderBarChart(): TemplateResult {
     const data = this.logic.view.chartData$.value;
     const yColIds = this.logic.view.yAxisColumnIds$.value;
-    const seriesKeys =
-      yColIds.length > 0 ? yColIds : ['_count'];
+    const seriesKeys = yColIds.length > 0 ? yColIds : ['_count'];
     const activeFilter = this.logic.view.activeFilter$.value;
     const props = this.logic.propertyOptions$.value;
 
@@ -365,13 +361,14 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
       </div>`;
     }
 
-    const maxVal = data.reduce((m, d) => {
-      const total = seriesKeys.reduce(
-        (s, k) => Math.max(s, d.values[k] ?? 0),
-        0
-      );
-      return Math.max(m, total);
-    }, 0) || 1;
+    const maxVal =
+      data.reduce((m, d) => {
+        const total = seriesKeys.reduce(
+          (s, k) => Math.max(s, d.values[k] ?? 0),
+          0
+        );
+        return Math.max(m, total);
+      }, 0) || 1;
 
     const bandWidth = CHART_W / data.length;
     const seriesW = bandWidth / seriesKeys.length;
@@ -387,10 +384,11 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
     // Legend labels
     const legendItems = seriesKeys.map((k, i) => {
       const name =
-        k === '_count'
-          ? 'Count'
-          : (props.find(p => p.id === k)?.name ?? k);
-      return { name, color: SERIES_COLORS[i % SERIES_COLORS.length] ?? '#4f8ef7' };
+        k === '_count' ? 'Count' : (props.find(p => p.id === k)?.name ?? k);
+      return {
+        name,
+        color: SERIES_COLORS[i % SERIES_COLORS.length] ?? '#4f8ef7',
+      };
     });
 
     return html`
@@ -411,7 +409,7 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
                   y2=${gl.y}
                   stroke="var(--affine-border-color,#e3e3e3)"
                   stroke-dasharray="4 3"
-                />
+                ></line>
                 <text
                   x="-6"
                   y=${gl.y + 4}
@@ -444,42 +442,42 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
               const groupX = gi * bandWidth;
 
               return html`${seriesKeys.map((key, si) => {
-                const raw = point.values[key] ?? 0;
-                const barH = (raw / maxVal) * CHART_H;
-                const barX = groupX + si * seriesW + barPad / 2;
-                const barY = CHART_H - barH;
-                const color =
-                  SERIES_COLORS[si % SERIES_COLORS.length] ?? '#4f8ef7';
-                const fill = isSelected ? shadeColor(color, -30) : color;
-                const stroke = isSelected ? '#222' : 'none';
+                  const raw = point.values[key] ?? 0;
+                  const barH = (raw / maxVal) * CHART_H;
+                  const barX = groupX + si * seriesW + barPad / 2;
+                  const barY = CHART_H - barH;
+                  const color =
+                    SERIES_COLORS[si % SERIES_COLORS.length] ?? '#4f8ef7';
+                  const fill = isSelected ? shadeColor(color, -30) : color;
+                  const stroke = isSelected ? '#222' : 'none';
 
-                return html`
-                  <rect
-                    x=${barX}
-                    y=${barY}
-                    width=${Math.max(0, seriesW - barPad)}
-                    height=${barH}
-                    fill=${fill}
-                    stroke=${stroke}
-                    stroke-width="1.5"
-                    rx="2"
-                    style="transition: height 0.3s ease, y 0.3s ease; cursor: pointer;"
-                    @click=${() => this.logic.selectXValue(point.label)}
-                  >
-                    <title>${point.label}: ${raw}</title>
-                  </rect>
-                `;
-              })}
-              <!-- X label -->
-              <text
-                x=${groupX + bandWidth / 2}
-                y=${CHART_H + 16}
-                text-anchor="middle"
-                font-size="11"
-                fill="var(--affine-text-secondary-color,#888)"
-              >
-                ${truncate(point.label, 10)}
-              </text>`;
+                  return html`
+                    <rect
+                      x=${barX}
+                      y=${barY}
+                      width=${Math.max(0, seriesW - barPad)}
+                      height=${barH}
+                      fill=${fill}
+                      stroke=${stroke}
+                      stroke-width="1.5"
+                      rx="2"
+                      style="transition: height 0.3s ease, y 0.3s ease; cursor: pointer;"
+                      @click=${() => this.logic.selectXValue(point.label)}
+                    >
+                      <title>${point.label}: ${raw}</title>
+                    </rect>
+                  `;
+                })}
+                <!-- X label -->
+                <text
+                  x=${groupX + bandWidth / 2}
+                  y=${CHART_H + 16}
+                  text-anchor="middle"
+                  font-size="11"
+                  fill="var(--affine-text-secondary-color,#888)"
+                >
+                  ${truncate(point.label, 10)}
+                </text>`;
             })}
           </g>
         </svg>
@@ -509,18 +507,17 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
     const props = this.logic.propertyOptions$.value;
 
     if (data.length === 0) {
-      return html`<div class=${emptyHintStyle}>
-        No data to display.
-      </div>`;
+      return html`<div class=${emptyHintStyle}>No data to display.</div>`;
     }
 
-    const maxVal = data.reduce((m, d) => {
-      const total = seriesKeys.reduce(
-        (s, k) => Math.max(s, d.values[k] ?? 0),
-        0
-      );
-      return Math.max(m, total);
-    }, 0) || 1;
+    const maxVal =
+      data.reduce((m, d) => {
+        const total = seriesKeys.reduce(
+          (s, k) => Math.max(s, d.values[k] ?? 0),
+          0
+        );
+        return Math.max(m, total);
+      }, 0) || 1;
 
     const xStep = data.length > 1 ? CHART_W / (data.length - 1) : CHART_W / 2;
 
@@ -552,7 +549,7 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
                   y2=${gl.y}
                   stroke="var(--affine-border-color,#e3e3e3)"
                   stroke-dasharray="4 3"
-                />
+                ></line>
                 <text
                   x="-6"
                   y=${gl.y + 4}
@@ -583,8 +580,7 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
                 SERIES_COLORS[si % SERIES_COLORS.length] ?? '#4f8ef7';
               const points = data.map((point, gi) => {
                 const val = point.values[key] ?? 0;
-                const cx =
-                  data.length > 1 ? gi * xStep : CHART_W / 2;
+                const cx = data.length > 1 ? gi * xStep : CHART_W / 2;
                 const cy = CHART_H - (val / maxVal) * CHART_H;
                 return { cx, cy, label: point.label, val };
               });
@@ -599,7 +595,7 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
                   stroke=${color}
                   stroke-width="2.5"
                   stroke-linejoin="round"
-                />
+                ></polyline>
                 ${points.map(
                   p => html`
                     <circle
@@ -655,17 +651,15 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
   private renderPieChart(): TemplateResult {
     const data = this.logic.view.chartData$.value;
     const yColIds = this.logic.view.yAxisColumnIds$.value;
-    const primaryKey =
-      yColIds.length > 0 ? (yColIds[0] ?? '_count') : '_count';
+    const primaryKey = yColIds.length > 0 ? (yColIds[0] ?? '_count') : '_count';
     const activeFilter = this.logic.view.activeFilter$.value;
 
     if (data.length === 0) {
-      return html`<div class=${emptyHintStyle}>
-        No data to display.
-      </div>`;
+      return html`<div class=${emptyHintStyle}>No data to display.</div>`;
     }
 
-    const total = data.reduce((s, d) => s + (d.values[primaryKey] ?? 0), 0) || 1;
+    const total =
+      data.reduce((s, d) => s + (d.values[primaryKey] ?? 0), 0) || 1;
 
     const CX = 150;
     const CY = 150;
@@ -780,13 +774,16 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
           </button>
         </div>
         ${rowIds.length === 0
-          ? html`<div style="font-size:12px; color: var(--affine-text-secondary-color,#888);">No rows</div>`
+          ? html`<div
+              style="font-size:12px; color: var(--affine-text-secondary-color,#888);"
+            >
+              No rows
+            </div>`
           : rowIds.map(rowId => {
               const label = titleColId
-                ? (this.logic.view
+                ? this.logic.view
                     .propertyGetOrCreate(titleColId)
-                    .cellGetOrCreate(rowId)
-                    .stringValue$.value || 'Untitled')
+                    .cellGetOrCreate(rowId).stringValue$.value || 'Untitled'
                 : rowId;
               return html`
                 <div
@@ -827,8 +824,7 @@ export class ChartViewUI extends DataViewUIBase<ChartViewUILogic> {
       })}
       ${this.renderHeader()}
       <div class=${bodyStyle}>
-        ${chartContent}
-        ${hasDetailPanel ? this.renderDetailPanel() : ''}
+        ${chartContent} ${hasDetailPanel ? this.renderDetailPanel() : ''}
       </div>
     `;
   }

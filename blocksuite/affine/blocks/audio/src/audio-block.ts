@@ -73,8 +73,13 @@ export class AudioBlockComponent extends BlockComponent<AudioBlockModel> {
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.3;
+      }
     }
 
     .affine-audio-recording-bar {
@@ -134,13 +139,23 @@ export class AudioBlockComponent extends BlockComponent<AudioBlockModel> {
       animation: wave-anim 0.5s ease-in-out infinite alternate;
     }
 
-    .affine-audio-waveform-bar:nth-child(2n) { animation-delay: 0.1s; }
-    .affine-audio-waveform-bar:nth-child(3n) { animation-delay: 0.2s; }
-    .affine-audio-waveform-bar:nth-child(5n) { animation-delay: 0.3s; }
+    .affine-audio-waveform-bar:nth-child(2n) {
+      animation-delay: 0.1s;
+    }
+    .affine-audio-waveform-bar:nth-child(3n) {
+      animation-delay: 0.2s;
+    }
+    .affine-audio-waveform-bar:nth-child(5n) {
+      animation-delay: 0.3s;
+    }
 
     @keyframes wave-anim {
-      from { height: 4px; }
-      to   { height: 20px; }
+      from {
+        height: 4px;
+      }
+      to {
+        height: 20px;
+      }
     }
 
     .affine-audio-player {
@@ -186,7 +201,9 @@ export class AudioBlockComponent extends BlockComponent<AudioBlockModel> {
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     .affine-audio-error {
@@ -214,7 +231,7 @@ export class AudioBlockComponent extends BlockComponent<AudioBlockModel> {
     // If there's already a sourceId, resolve the blob URL for playback.
     const sourceId = this.model.props.sourceId;
     if (sourceId) {
-      this._loadBlobUrl(sourceId);
+      this._loadBlobUrl(sourceId).catch(console.error);
     }
   }
 
@@ -235,7 +252,7 @@ export class AudioBlockComponent extends BlockComponent<AudioBlockModel> {
         this._blobUrl = URL.createObjectURL(audioBlob);
         this._recordingState = 'playback';
       }
-    } catch (err) {
+    } catch {
       this._error = 'Failed to load audio.';
     }
   }
@@ -260,7 +277,7 @@ export class AudioBlockComponent extends BlockComponent<AudioBlockModel> {
       });
 
       this._mediaRecorder.addEventListener('stop', () => {
-        this._onRecordingStop(mimeType, stream);
+        this._onRecordingStop(mimeType, stream).catch(console.error);
       });
 
       this._mediaRecorder.start(100);
@@ -309,7 +326,7 @@ export class AudioBlockComponent extends BlockComponent<AudioBlockModel> {
           mimeType,
         });
       });
-    } catch (err) {
+    } catch {
       this._error = 'Failed to save audio recording.';
     } finally {
       this._saving = false;
@@ -334,10 +351,7 @@ export class AudioBlockComponent extends BlockComponent<AudioBlockModel> {
 
   private _renderIdle() {
     return html`
-      <button
-        class="affine-audio-record-btn"
-        @click=${this._startRecording}
-      >
+      <button class="affine-audio-record-btn" @click=${this._startRecording}>
         <span class="affine-audio-record-dot"></span>
         Record audio
       </button>
@@ -345,19 +359,24 @@ export class AudioBlockComponent extends BlockComponent<AudioBlockModel> {
   }
 
   private _renderRecording() {
-    const waveformBars = Array.from({ length: 12 }, (_, i) => html`
-      <div class="affine-audio-waveform-bar" style="animation-delay: ${i * 0.05}s"></div>
-    `);
+    const waveformBars = Array.from(
+      { length: 12 },
+      (_, i) => html`
+        <div
+          class="affine-audio-waveform-bar"
+          style="animation-delay: ${i * 0.05}s"
+        ></div>
+      `
+    );
 
     return html`
       <div class="affine-audio-recording-bar">
         <span class="affine-audio-record-dot pulsing"></span>
-        <span class="affine-audio-timer">${this._formatTime(this._elapsedMs)}</span>
-        <div class="affine-audio-waveform">${waveformBars}</div>
-        <button
-          class="affine-audio-stop-btn"
-          @click=${this._stopRecording}
+        <span class="affine-audio-timer"
+          >${this._formatTime(this._elapsedMs)}</span
         >
+        <div class="affine-audio-waveform">${waveformBars}</div>
+        <button class="affine-audio-stop-btn" @click=${this._stopRecording}>
           <span class="affine-audio-stop-icon"></span>
           Stop
         </button>
@@ -398,12 +417,19 @@ export class AudioBlockComponent extends BlockComponent<AudioBlockModel> {
     return html`
       <div class="affine-audio-container">
         <div class="affine-audio-header">
-          <svg class="affine-audio-icon" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-            <line x1="12" y1="19" x2="12" y2="23"/>
-            <line x1="8" y1="23" x2="16" y2="23"/>
+          <svg
+            class="affine-audio-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="8" y1="23" x2="16" y2="23" />
           </svg>
           Audio recording
         </div>

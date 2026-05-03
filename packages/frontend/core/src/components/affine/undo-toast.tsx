@@ -57,7 +57,7 @@ export function notifyWithUndo({
           onClick: () => {
             // Run the inverse. notify auto-closes the toast after this call
             // because we leave `autoClose` at its default (true).
-            void onUndo();
+            Promise.resolve(onUndo()).catch(console.error);
           },
         },
       ],

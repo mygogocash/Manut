@@ -10,11 +10,11 @@ import {
   UpdateAgentInput,
 } from './types';
 
-function toGraphQL(agent: Awaited<ReturnType<AgentsService['get']>>): AgentType;
 function toGraphQL(
-  agent: Awaited<ReturnType<AgentsService['list']>>[number]
-): AgentType;
-function toGraphQL(agent: any): any {
+  agent:
+    | Awaited<ReturnType<AgentsService['get']>>
+    | Awaited<ReturnType<AgentsService['list']>>[number]
+): AgentType {
   if (!agent) return agent;
   const links: AgentLinkType[] = (agent.links ?? []).map((l: any) => {
     const out: AgentLinkType = { url: l.url };

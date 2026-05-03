@@ -8,11 +8,11 @@
  * across renders / sessions.
  */
 
-import { type CSSProperties, type FC, useMemo } from 'react';
 // avataaars's runtime is a class component using legacy lifecycle hooks; we
 // import the default export. Types in the package are written for React 17 —
 // we cast at the call site so it's accepted by the React 19 typings here.
 import AvataaarsAvatar from 'avataaars';
+import { type CSSProperties, type FC, useMemo } from 'react';
 
 import * as styles from './index.css';
 
@@ -130,13 +130,7 @@ const DEFAULT_CLOTHE_COLORS = [
   'Black',
 ] as const;
 
-const DEFAULT_EYES = [
-  'Default',
-  'Happy',
-  'Side',
-  'Squint',
-  'Wink',
-] as const;
+const DEFAULT_EYES = ['Default', 'Happy', 'Side', 'Squint', 'Wink'] as const;
 
 const DEFAULT_EYEBROWS = [
   'Default',
@@ -146,12 +140,7 @@ const DEFAULT_EYEBROWS = [
   'FlatNatural',
 ] as const;
 
-const DEFAULT_MOUTHS = [
-  'Smile',
-  'Default',
-  'Twinkle',
-  'Serious',
-] as const;
+const DEFAULT_MOUTHS = ['Smile', 'Default', 'Twinkle', 'Serious'] as const;
 
 const DEFAULT_SKIN = [
   'Light',
@@ -219,7 +208,9 @@ export const AgentAvatar: FC<AgentAvatarProps> = ({
   // and letting the SVG fill 100% gives a crisp scaled circle.
   return (
     <span
-      className={[styles.wrapper, className].filter(Boolean).join(' ') || undefined}
+      className={
+        [styles.wrapper, className].filter(Boolean).join(' ') || undefined
+      }
       style={wrapperStyle}
       data-testid="agent-avatar"
       aria-label={agent.name ? `${agent.name} avatar` : 'Agent avatar'}

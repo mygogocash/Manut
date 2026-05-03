@@ -602,16 +602,15 @@ export class AIChatInput extends SignalWatcher(
   private readonly _handleKeyDown = async (evt: KeyboardEvent) => {
     // While the mention popup owns navigation/Enter, swallow those here so
     // we don't send the message or move the textarea cursor in conflict.
-    if (this._mentionAbort) {
-      if (
-        evt.key === 'ArrowDown' ||
+    if (
+      this._mentionAbort &&
+      (evt.key === 'ArrowDown' ||
         evt.key === 'ArrowUp' ||
         evt.key === 'Enter' ||
-        evt.key === 'Escape'
-      ) {
-        // Popup component handles these via its own document listener.
-        return;
-      }
+        evt.key === 'Escape')
+    ) {
+      // Popup component handles these via its own document listener.
+      return;
     }
 
     if (evt.key === 'Enter' && !evt.shiftKey && !evt.isComposing) {
@@ -684,9 +683,9 @@ export class AIChatInput extends SignalWatcher(
     query: string;
   } | null {
     const root = this.portalContainer ?? document.body;
-    const popup = root.querySelector(
-      'ai-chat-mention-popup'
-    ) as unknown as { query: string } | null;
+    const popup = root.querySelector('ai-chat-mention-popup') as unknown as {
+      query: string;
+    } | null;
     return popup;
   }
 
@@ -836,11 +835,7 @@ export class AIChatInput extends SignalWatcher(
     if (mentionedMembers.length > 0) {
       const lines = mentionedMembers
         .filter(m => value.includes(`@${m.name}`))
-        .map(m =>
-          m.email
-            ? `- ${m.name} (${m.email})`
-            : `- ${m.name}`
-        );
+        .map(m => (m.email ? `- ${m.name} (${m.email})` : `- ${m.name}`));
       if (lines.length > 0) {
         prompt = `${value}\n\n[Mentioned people]\n${lines.join('\n')}`;
       }

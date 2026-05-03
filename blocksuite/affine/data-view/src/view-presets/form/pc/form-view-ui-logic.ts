@@ -3,10 +3,7 @@ import { signal } from '@preact/signals-core';
 import { type TemplateResult } from 'lit';
 import { html } from 'lit/static-html.js';
 
-import {
-  createUniComponentFromWebComponent,
-  renderUniLit,
-} from '../../../core/index.js';
+import { createUniComponentFromWebComponent } from '../../../core/index.js';
 import {
   DataViewUIBase,
   DataViewUILogicBase,
@@ -567,7 +564,9 @@ export class FormViewUI extends DataViewUIBase<FormViewUILogic> {
           ? (currentValue as string[])
           : [];
         return html`
-          <div class=${`${checkboxListStyle}${hasError ? ' ' + fieldControlErrorStyle : ''}`}>
+          <div
+            class=${`${checkboxListStyle}${hasError ? ' ' + fieldControlErrorStyle : ''}`}
+          >
             ${options.map(
               (opt: { id: string; value: string }) => html`
                 <label class=${checkboxItemStyle}>

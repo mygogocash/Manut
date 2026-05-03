@@ -127,14 +127,17 @@ export const PersonalizeSettings = () => {
           trimmed !== lastSyncedRef.current.trim() &&
           trimmed.length <= PERSONALIZE_MAX_LENGTH
         ) {
-          void userSettingsService.updateUserSettings({
-            personalize: trimmed,
-          });
+          userSettingsService
+            .updateUserSettings({
+              personalize: trimmed,
+            })
+            .catch(console.error);
         }
       }
     };
     // We intentionally read draft from the closure on unmount only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
+    // oxlint-disable-next-line exhaustive-deps
   }, []);
 
   const length = draft.length;

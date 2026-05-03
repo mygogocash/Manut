@@ -1,7 +1,4 @@
-import {
-  insertPositionToIndex,
-  type InsertToPosition,
-} from '@blocksuite/affine-shared/utils';
+import { type InsertToPosition } from '@blocksuite/affine-shared/utils';
 import { computed } from '@preact/signals-core';
 
 import { evalFilter } from '../../core/filter/eval.js';

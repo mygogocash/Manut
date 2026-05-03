@@ -260,7 +260,14 @@ export class TimelineViewUILogic extends DataViewUILogicBase<
   /** Scroll the right panel left by ~1 viewport-width of days. */
   goPrev = () => {
     const zoom = this.view.zoomLevel$.value;
-    const daysToScroll = zoom === 'week' ? 7 : zoom === 'month' ? 30 : zoom === 'quarter' ? 90 : 365;
+    const daysToScroll =
+      zoom === 'week'
+        ? 7
+        : zoom === 'month'
+          ? 30
+          : zoom === 'quarter'
+            ? 90
+            : 365;
     const ms = daysToScroll * 86400000;
     this.view.setViewStartDate(this.view.viewStartDate$.value - ms);
   };
@@ -268,7 +275,14 @@ export class TimelineViewUILogic extends DataViewUILogicBase<
   /** Scroll the right panel right by ~1 viewport-width of days. */
   goNext = () => {
     const zoom = this.view.zoomLevel$.value;
-    const daysToScroll = zoom === 'week' ? 7 : zoom === 'month' ? 30 : zoom === 'quarter' ? 90 : 365;
+    const daysToScroll =
+      zoom === 'week'
+        ? 7
+        : zoom === 'month'
+          ? 30
+          : zoom === 'quarter'
+            ? 90
+            : 365;
     const ms = daysToScroll * 86400000;
     this.view.setViewStartDate(this.view.viewStartDate$.value + ms);
   };
@@ -310,7 +324,9 @@ export class TimelineViewUI extends DataViewUIBase<TimelineViewUILogic> {
         <div class=${timelineTitleStyle}>Timeline – ${title}</div>
         <div class=${timelineControlsStyle}>
           <button class=${navButtonStyle} @click=${this.logic.goPrev}>‹</button>
-          <button class=${navButtonStyle} @click=${this.logic.goToday}>Today</button>
+          <button class=${navButtonStyle} @click=${this.logic.goToday}>
+            Today
+          </button>
           <button class=${navButtonStyle} @click=${this.logic.goNext}>›</button>
           <div class=${zoomToggleStyle}>
             ${(['week', 'month', 'quarter', 'year'] as const).map(
@@ -329,15 +345,27 @@ export class TimelineViewUI extends DataViewUIBase<TimelineViewUILogic> {
     `;
   }
 
-  private buildDateHeaders(): Array<{ label: string; widthPx: number; startMs: number }> {
+  private buildDateHeaders(): Array<{
+    label: string;
+    widthPx: number;
+    startMs: number;
+  }> {
     const zoom = this.logic.view.zoomLevel$.value;
     const pixelsPerDay = this.logic.view.pixelsPerDay$.value;
     const viewStart = this.logic.view.viewStartDate$.value;
 
     // Determine how many days to show: enough to fill ~2000px + buffer
-    const totalDays = zoom === 'week' ? 56 : zoom === 'month' ? 120 : zoom === 'quarter' ? 365 : 730;
+    const totalDays =
+      zoom === 'week'
+        ? 56
+        : zoom === 'month'
+          ? 120
+          : zoom === 'quarter'
+            ? 365
+            : 730;
 
-    const headers: Array<{ label: string; widthPx: number; startMs: number }> = [];
+    const headers: Array<{ label: string; widthPx: number; startMs: number }> =
+      [];
 
     if (zoom === 'week' || zoom === 'month') {
       // Weekly headers
@@ -397,11 +425,17 @@ export class TimelineViewUI extends DataViewUIBase<TimelineViewUILogic> {
     return html`
       <div class=${dateAxisStyle}>
         ${headers.map(h => {
-          const offsetPx = (h.startMs - viewStart) / (86400000 / this.logic.view.pixelsPerDay$.value);
+          const offsetPx =
+            (h.startMs - viewStart) /
+            (86400000 / this.logic.view.pixelsPerDay$.value);
           return html`
             <div
               class=${dateHeaderCellStyle}
-              style=${styleMap({ width: `${h.widthPx}px`, position: 'absolute', left: `${offsetPx}px` })}
+              style=${styleMap({
+                width: `${h.widthPx}px`,
+                position: 'absolute',
+                left: `${offsetPx}px`,
+              })}
             >
               ${h.label}
             </div>
@@ -427,7 +461,7 @@ export class TimelineViewUI extends DataViewUIBase<TimelineViewUILogic> {
       this.requestUpdate();
     };
 
-    const onUp = (e: MouseEvent) => {
+    const onUp = (_e: MouseEvent) => {
       if (!this._dragState) return;
       const { rowId: id, startLeftPx, currentOffsetPx } = this._dragState;
       this._dragState = null;
@@ -475,10 +509,9 @@ export class TimelineViewUI extends DataViewUIBase<TimelineViewUILogic> {
 
     return html`
       <div class=${barsContainerStyle}>
-        ${rows.map((row, i) => {
+        ${rows.map((row, _i) => {
           const bar = barMap.get(row.rowId);
-          const isDragging =
-            this._dragState?.rowId === row.rowId;
+          const isDragging = this._dragState?.rowId === row.rowId;
           const dragOffset = isDragging ? this._dragState!.currentOffsetPx : 0;
           const effectiveLeft = bar ? bar.leftPx + dragOffset : 0;
 
@@ -503,7 +536,9 @@ export class TimelineViewUI extends DataViewUIBase<TimelineViewUILogic> {
                         this.logic.openRow(row.rowId);
                       }}
                     >
-                      ${bar.widthPx > 40 ? this.logic.view.rowTitle(row.rowId) : ''}
+                      ${bar.widthPx > 40
+                        ? this.logic.view.rowTitle(row.rowId)
+                        : ''}
                     </div>
                   `
                 : ''}
@@ -552,7 +587,7 @@ export class TimelineViewUI extends DataViewUIBase<TimelineViewUILogic> {
                       stroke-width="1.5"
                       stroke-dasharray="4 2"
                       marker-end="url(#tl-arrow)"
-                    />
+                    ></path>
                   `;
                 })}
                 <!-- Arrow marker definition -->

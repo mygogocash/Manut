@@ -13,9 +13,7 @@ import { EmbeddingHealthService } from './embedding-health';
 @Admin()
 @Controller('/api/copilot/admin/indexing')
 export class AdminIndexingController {
-  constructor(
-    private readonly embeddingHealth: EmbeddingHealthService
-  ) {}
+  constructor(private readonly embeddingHealth: EmbeddingHealthService) {}
 
   @Get('stats')
   async getStats() {
@@ -25,7 +23,7 @@ export class AdminIndexingController {
   @Post('reindex')
   async reindex() {
     // Fire-and-forget — the check will run in the background.
-    void this.embeddingHealth.checkEmbeddingHealth();
+    this.embeddingHealth.checkEmbeddingHealth().catch(console.error);
     return { triggered: true };
   }
 }

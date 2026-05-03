@@ -168,9 +168,9 @@ const TagsInlineEditor = ({
   );
 
   // AI Auto Tag — asks copilot for 3-7 tag suggestions based on the doc's
-  // title (and the existing tag list, so it can reuse what's there).
-  // The response is a JSON array; for each name we either reuse an
-  // existing tag or create a new one.
+  // title and body content (and the existing tag list, so it can reuse
+  // what's there). The response is a JSON array; for each name we either
+  // reuse an existing tag or create a new one.
   const tagColorsList = tagService.tagColors;
   const onAutoTag = useCallback(async () => {
     const doc = docService.doc;
@@ -180,6 +180,29 @@ const TagsInlineEditor = ({
     const title = doc.title$.value || 'Untitled';
     const allTagMetas = tagService.tagList.tagMetas$.value;
     const existingTags = allTagMetas.map(t => t.name).filter(Boolean);
+
+    // Extract markdown body for richer context. Fall back to title-only
+    // if the BlockSuite store/adapter is unavailable for any reason —
+    // we never want a missing-content path to break Auto Tag.
+    let bodyMarkdown = '';
+    try {
+      const store = doc.blockSuiteDoc.getStore();
+      if (store) {
+        const transformer = store.getTransformer();
+        const { MarkdownAdapter } =
+          await import('@blocksuite/affine/shared/adapters');
+        const adapter = new MarkdownAdapter(transformer, store.provider);
+        const extracted = await adapter.fromDoc(store);
+        bodyMarkdown = extracted?.file ?? '';
+      }
+    } catch (err) {
+      console.warn(
+        'Auto Tag: markdown extraction failed, falling back to title only',
+        err
+      );
+    }
+    // Cap at 3000 chars to keep the prompt under a reasonable token budget.
+    const content = (bodyMarkdown || title).slice(0, 3000);
 
     const client = new CopilotClient(
       graphqlService.gql,
@@ -200,7 +223,7 @@ const TagsInlineEditor = ({
       content: 'Generate tags now.',
       params: {
         title,
-        content: title,
+        content,
         existingTags: existingTags.length ? existingTags.join(', ') : '(none)',
       },
       stream: false,
@@ -244,19 +267,29 @@ const TagsInlineEditor = ({
 
     let createdCount = 0;
     let appliedCount = 0;
+    let alreadyAppliedCount = 0;
     for (const name of cleaned) {
-      const existing = allTagMetas.find(
-        t => t.name.toLowerCase() === name
-      );
+      const existing = allTagMetas.find(t => t.name.toLowerCase() === name);
       if (existing) {
+        if (tagIds$.value.includes(existing.id)) {
+          // Already on this doc — count it for the toast so the user
+          // understands why N suggestions ≠ N new tags.
+          alreadyAppliedCount++;
+          continue;
+        }
         const tagInstance = tagService.tagList.tagByTagId$(existing.id).value;
-        if (tagInstance && !tagIds$.value.includes(existing.id)) {
+        if (tagInstance) {
           tagInstance.tag(pageId);
           appliedCount++;
         }
       } else {
-        const color =
-          tagColorsList[Math.floor(Math.random() * tagColorsList.length)][1];
+        // Defensive index access — tagColorsList items are [name, value]
+        // tuples; if upstream changes the shape, fall back to the first
+        // entry's value rather than crashing the whole auto-tag run.
+        const tuple =
+          tagColorsList[Math.floor(Math.random() * tagColorsList.length)] ??
+          tagColorsList[0];
+        const color = tuple?.[1] ?? '#888';
         const newTag = tagService.tagList.createTag(name, color);
         newTag.tag(pageId);
         createdCount++;
@@ -264,12 +297,23 @@ const TagsInlineEditor = ({
       }
     }
 
+    // Build a toast that's honest about what happened. Three signals:
+    // - applied (newly tagged this run)
+    // - new (subset of applied — created from scratch)
+    // - already (suggested but already on the doc, skipped)
+    const parts: string[] = [];
+    if (appliedCount > 0) {
+      parts.push(`Applied ${appliedCount} tag${appliedCount === 1 ? '' : 's'}`);
+      if (createdCount > 0) parts.push(`(${createdCount} new)`);
+    }
+    if (alreadyAppliedCount > 0) {
+      parts.push(
+        `${alreadyAppliedCount} already on doc${appliedCount === 0 ? '' : ', skipped'}`
+      );
+    }
     notify.success({
       title: 'AI Auto Tag',
-      message:
-        createdCount > 0
-          ? `Applied ${appliedCount} tag${appliedCount === 1 ? '' : 's'} (${createdCount} new).`
-          : `Applied ${appliedCount} tag${appliedCount === 1 ? '' : 's'}.`,
+      message: parts.join(' ') + '.',
     });
     onChange?.(tagIds$.value);
   }, [

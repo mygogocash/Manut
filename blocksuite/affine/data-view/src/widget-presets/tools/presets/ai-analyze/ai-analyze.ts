@@ -1,4 +1,5 @@
 import { unsafeCSSVarV2 } from '@blocksuite/affine-shared/theme';
+import type { EditorHost } from '@blocksuite/std';
 import { css, html, svg } from 'lit';
 
 import { WidgetBase } from '../../../../core/widget/widget-base.js';
@@ -41,15 +42,16 @@ export class DataViewHeaderToolsAIAnalyze extends WidgetBase {
     // Dynamically import AIProvider to avoid a hard compile-time dependency
     // from the blocksuite data-view package onto the AFFiNE core AI package.
     // The host is resolved at runtime by walking up the shadow DOM to the
-    // nearest `editor-host` element.
+    // nearest `editor-host` element. The cross-package import is intentional
+    // (data-view ships inside @affine/core's bundle) so silence the
+    // dependency-graph rule.
+    // eslint-disable-next-line import-x/no-extraneous-dependencies
     import(
       /* webpackChunkName: "ai-provider" */
       '@affine/core/blocksuite/ai/provider'
     )
       .then(({ AIProvider }) => {
-        const host = this.closest('editor-host') as
-          | import('@blocksuite/std').EditorHost
-          | null;
+        const host = this.closest('editor-host') as EditorHost | null;
 
         if (!host) return;
 

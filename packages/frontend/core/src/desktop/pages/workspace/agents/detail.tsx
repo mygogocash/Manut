@@ -24,19 +24,13 @@ import {
   type AgentAvatarConfig,
 } from '../../../../components/agent-avatar';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
-import { AvatarSection } from './sections/avatar';
 import * as styles from './detail.css';
-import {
-  type AgentFile,
-  FilesSection,
-} from './sections/files';
+import { AvatarSection } from './sections/avatar';
+import { type AgentFile, FilesSection } from './sections/files';
 import { InstructionsSection } from './sections/instructions';
 import { type AgentLink, LinksSection } from './sections/links';
 import { SkillsSection } from './sections/skills';
-import {
-  type SubAgentSummary,
-  SubAgentsSection,
-} from './sections/sub-agents';
+import { SubAgentsSection, type SubAgentSummary } from './sections/sub-agents';
 
 // ----- Defensive shapes for AgentService (the agents module is owned by another agent) -----
 
@@ -74,7 +68,9 @@ interface AgentLikeService {
   // Top-level agents are always available per the sibling list/sidebar code.
   // Sub-agents are nested under `subAgents`. If the backing service exposes a
   // flat `allAgents$`, prefer that — otherwise we walk the tree from the top.
+  // eslint-disable-next-line rxjs/finnish
   topLevelAgents$: any;
+  // eslint-disable-next-line rxjs/finnish
   allAgents$?: any;
 
   updateAgent?: (id: string, patch: UpdateAgentPatch) => Promise<void>;
@@ -102,9 +98,7 @@ function findAgentInTree(
 
 const AgentDetailPage: FC = () => {
   const { agentId } = useParams<{ agentId: string }>();
-  const agentService = useService(
-    AgentService
-  ) as unknown as AgentLikeService;
+  const agentService = useService(AgentService) as unknown as AgentLikeService;
   const workbench = useService(WorkbenchService).workbench;
 
   // Subscribe to top-level agents and (when available) the flat aggregate list.
@@ -161,7 +155,7 @@ const AgentDetailPage: FC = () => {
     const trimmed = nameDraft.trim();
     if (!agent) return;
     if (trimmed && trimmed !== agent.name) {
-      void updateAgent({ name: trimmed });
+      updateAgent({ name: trimmed }).catch(console.error);
     } else if (!trimmed) {
       // Refuse empty: revert.
       setNameDraft(agent.name);
@@ -172,13 +166,13 @@ const AgentDetailPage: FC = () => {
     const trimmed = descriptionDraft.trim();
     if (!agent) return;
     if (trimmed !== (agent.description ?? '')) {
-      void updateAgent({ description: trimmed });
+      updateAgent({ description: trimmed }).catch(console.error);
     }
   }, [agent, descriptionDraft, updateAgent]);
 
   const handleInstructionsChange = useCallback(
     (next: string) => {
-      void updateAgent({ instructions: next });
+      updateAgent({ instructions: next }).catch(console.error);
     },
     [updateAgent]
   );
@@ -191,7 +185,9 @@ const AgentDetailPage: FC = () => {
         name: f.name,
         size: f.size,
       }));
-      void updateAgent({ files: [...(agent.files ?? []), ...additions] });
+      updateAgent({ files: [...(agent.files ?? []), ...additions] }).catch(
+        console.error
+      );
     },
     [agent, updateAgent]
   );
@@ -200,14 +196,14 @@ const AgentDetailPage: FC = () => {
     (fileId: string) => {
       if (!agent) return;
       const next = (agent.files ?? []).filter(f => f.id !== fileId);
-      void updateAgent({ files: next });
+      updateAgent({ files: next }).catch(console.error);
     },
     [agent, updateAgent]
   );
 
   const handleSkillsChange = useCallback(
     (skills: string[]) => {
-      void updateAgent({ skills });
+      updateAgent({ skills }).catch(console.error);
     },
     [updateAgent]
   );
@@ -219,7 +215,7 @@ const AgentDetailPage: FC = () => {
         ...(agent.links ?? []),
         { id: nanoid(), url, label },
       ];
-      void updateAgent({ links: next });
+      updateAgent({ links: next }).catch(console.error);
     },
     [agent, updateAgent]
   );
@@ -228,14 +224,14 @@ const AgentDetailPage: FC = () => {
     (linkId: string) => {
       if (!agent) return;
       const next = (agent.links ?? []).filter(l => l.id !== linkId);
-      void updateAgent({ links: next });
+      updateAgent({ links: next }).catch(console.error);
     },
     [agent, updateAgent]
   );
 
   const handleAvatarChange = useCallback(
     (next: AgentAvatarConfig) => {
-      void updateAgent({ avatar: next });
+      updateAgent({ avatar: next }).catch(console.error);
     },
     [updateAgent]
   );
@@ -361,7 +357,9 @@ const AgentDetailPage: FC = () => {
                   />
                   <SubAgentsSection
                     subAgents={subAgents}
-                    onCreate={handleCreateSubAgent}
+                    onCreate={() => {
+                      handleCreateSubAgent().catch(console.error);
+                    }}
                     onOpen={handleOpenSubAgent}
                   />
                 </div>

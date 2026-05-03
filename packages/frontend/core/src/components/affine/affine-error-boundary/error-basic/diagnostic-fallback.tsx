@@ -44,10 +44,15 @@ export const DiagnosticErrorFallback: FC<DiagnosticErrorFallbackProps> = ({
   );
 
   const onCopy = useCallback(() => {
-    void copyDiagnosticInfo(diagnosticText).then(ok => {
-      setCopyState(ok ? 'copied' : 'failed');
-      window.setTimeout(() => setCopyState('idle'), 2000);
-    });
+    copyDiagnosticInfo(diagnosticText)
+      .then(ok => {
+        setCopyState(ok ? 'copied' : 'failed');
+        window.setTimeout(() => setCopyState('idle'), 2000);
+      })
+      .catch(() => {
+        setCopyState('failed');
+        window.setTimeout(() => setCopyState('idle'), 2000);
+      });
   }, [diagnosticText]);
 
   const copyLabel =
@@ -63,7 +68,7 @@ export const DiagnosticErrorFallback: FC<DiagnosticErrorFallbackProps> = ({
         <div className={styles.container}>
           <h1 className={styles.title}>Check your connection</h1>
           <p className={styles.description}>
-            We couldn't reach the server. This usually means your device is
+            We couldn&apos;t reach the server. This usually means your device is
             offline or the network blocked the request. Check your connection
             and try again.
           </p>
@@ -87,11 +92,7 @@ export const DiagnosticErrorFallback: FC<DiagnosticErrorFallbackProps> = ({
             >
               Retry
             </Button>
-            <Button
-              size="large"
-              onClick={onCopy}
-              className={styles.button}
-            >
+            <Button size="large" onClick={onCopy} className={styles.button}>
               {copyLabel}
             </Button>
           </div>
@@ -105,8 +106,8 @@ export const DiagnosticErrorFallback: FC<DiagnosticErrorFallbackProps> = ({
       <div className={styles.container}>
         <h1 className={styles.title}>Something went wrong</h1>
         <p className={styles.description}>
-          AFFiNE ran into an unexpected error and couldn't continue. Reload the
-          page to recover. If the problem persists, copy the diagnostic info
+          AFFiNE ran into an unexpected error and couldn&apos;t continue. Reload
+          the page to recover. If the problem persists, copy the diagnostic info
           below and share it with support.
         </p>
         <pre className={styles.codeBlock}>{message}</pre>

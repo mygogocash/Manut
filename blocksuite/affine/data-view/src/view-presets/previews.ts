@@ -38,7 +38,7 @@ const line = (x1: number, y1: number, x2: number, y2: number, op = 0.4) => html`
     stroke="currentColor"
     stroke-opacity=${op}
     stroke-width="1"
-  />
+  ></line>
 `;
 const cell = (
   x: number,
@@ -56,7 +56,7 @@ const cell = (
     rx=${rx}
     fill="currentColor"
     fill-opacity=${op}
-  />
+  ></rect>
 `;
 
 // 5-column / 4-row grid.
@@ -212,7 +212,7 @@ export const mapPreview = () =>
       d="M 20 80 Q 50 40 80 60 T 150 50 Q 180 60 188 90 L 188 110 L 16 110 Z"
       fill="currentColor"
       fill-opacity="0.18"
-    />
+    ></path>
     ${line(8, 30, 192, 30, 0.12)} ${line(8, 60, 192, 60, 0.12)}
     ${line(8, 90, 192, 90, 0.12)} ${line(50, 8, 50, 118, 0.12)}
     ${line(100, 8, 100, 118, 0.12)} ${line(150, 8, 150, 118, 0.12)}
@@ -230,14 +230,14 @@ export const mapPreview = () =>
           r="4"
           fill="currentColor"
           fill-opacity="0.7"
-        />
+        ></circle>
         <circle
           cx=${cx}
           cy=${cy + 5}
           r="2"
           fill="currentColor"
           fill-opacity="0.4"
-        />
+        ></circle>
       `
     )}
   `);

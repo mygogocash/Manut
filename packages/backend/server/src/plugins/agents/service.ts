@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Agent as AgentRow, PrismaClient } from '@prisma/client';
 
 import { ActionForbidden, NotFound } from '../../base';
-import { Models, WorkspaceRole } from '../../models';
 import { AccessController } from '../../core/permission';
+import { Models, WorkspaceRole } from '../../models';
 import {
   type AgentLink,
   CreateAgentInput,
@@ -15,8 +15,10 @@ import {
  * Lightweight materialized view of an agent row with the JSON `links` column
  * decoded back into typed objects. The Prisma row stores it as `Json`.
  */
-export interface AgentRecord
-  extends Omit<AgentRow, 'links' | 'parentAgentId' | 'avatar'> {
+export interface AgentRecord extends Omit<
+  AgentRow,
+  'links' | 'parentAgentId' | 'avatar'
+> {
   parentAgentId: string | null;
   links: AgentLink[];
   avatar: Record<string, unknown>;
@@ -137,10 +139,7 @@ export class AgentsService {
     return rowToRecord(row);
   }
 
-  async create(
-    userId: string,
-    input: CreateAgentInput
-  ): Promise<AgentRecord> {
+  async create(userId: string, input: CreateAgentInput): Promise<AgentRecord> {
     await this.ac
       .user(userId)
       .workspace(input.workspaceId)

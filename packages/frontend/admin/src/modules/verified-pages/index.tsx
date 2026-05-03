@@ -68,7 +68,9 @@ function VerifiedPagesContent() {
               variant="destructive"
               size="sm"
               disabled={isMutating}
-              onClick={handleUnverifySelected}
+              onClick={() => {
+                handleUnverifySelected().catch(console.error);
+              }}
             >
               Unverify {selected.size} selected
             </Button>
@@ -103,7 +105,9 @@ function VerifiedPagesContent() {
             <tr>
               <th className="w-10 px-4 py-2 text-left">
                 <Checkbox
-                  checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                  checked={
+                    allSelected ? true : someSelected ? 'indeterminate' : false
+                  }
                   onCheckedChange={handleSelectAll}
                   aria-label="Select all"
                 />
@@ -229,7 +233,9 @@ function VerifiedDocRow({
           variant="ghost"
           size="sm"
           disabled={isMutating}
-          onClick={onUnverify}
+          onClick={() => {
+            onUnverify().catch(console.error);
+          }}
           className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 text-xs"
         >
           Unverify

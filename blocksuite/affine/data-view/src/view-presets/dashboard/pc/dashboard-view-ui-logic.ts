@@ -1,3 +1,4 @@
+import type { InsertToPosition } from '@blocksuite/affine-shared/utils';
 import { css } from '@emotion/css';
 import { effect, signal } from '@preact/signals-core';
 import { type TemplateResult } from 'lit';
@@ -298,9 +299,7 @@ export class DashboardViewUILogic extends DataViewUILogicBase<
     this.setSelection(undefined);
   };
 
-  addRow = (
-    _position: import('@blocksuite/affine-shared/utils').InsertToPosition
-  ) => {
+  addRow = (_position: InsertToPosition) => {
     if (this.view.readonly$.value) return undefined;
     return this.view.addRowWithDefaults('end');
   };
@@ -380,7 +379,9 @@ export class DashboardViewUI extends DataViewUIBase<DashboardViewUILogic> {
   private _startDrag(e: PointerEvent, cell: DashboardCell): void {
     if (this.logic.view.readonly$.value) return;
     e.preventDefault();
-    const grid = this.querySelector(`.${dashboardGridStyle}`) as HTMLElement | null;
+    const grid = this.querySelector(
+      `.${dashboardGridStyle}`
+    ) as HTMLElement | null;
     if (!grid) return;
 
     const gridRect = grid.getBoundingClientRect();
@@ -403,7 +404,9 @@ export class DashboardViewUI extends DataViewUIBase<DashboardViewUILogic> {
     if (this.logic.view.readonly$.value) return;
     e.preventDefault();
     e.stopPropagation();
-    const grid = this.querySelector(`.${dashboardGridStyle}`) as HTMLElement | null;
+    const grid = this.querySelector(
+      `.${dashboardGridStyle}`
+    ) as HTMLElement | null;
     if (!grid) return;
 
     const gridRect = grid.getBoundingClientRect();
@@ -493,11 +496,10 @@ export class DashboardViewUI extends DataViewUIBase<DashboardViewUILogic> {
         y: maxY,
         w: 6,
         h: 4,
-        chartType:
-          (data.get('chartType') as 'bar' | 'line' | 'pie') ?? 'bar',
+        chartType: (data.get('chartType') as 'bar' | 'line' | 'pie') ?? 'bar',
         xAxisColumnId: (data.get('xAxis') as string) || undefined,
         yAxisColumnIds: data.get('yAxis')
-          ? [(data.get('yAxis') as string)]
+          ? [data.get('yAxis') as string]
           : undefined,
         title,
       });
@@ -514,8 +516,7 @@ export class DashboardViewUI extends DataViewUIBase<DashboardViewUILogic> {
             | 'sum'
             | 'avg'
             | 'last-edited') ?? 'count',
-        summaryColumnId:
-          (data.get('summaryColumn') as string) || undefined,
+        summaryColumnId: (data.get('summaryColumn') as string) || undefined,
         title,
       });
     } else {
@@ -684,9 +685,7 @@ export class DashboardViewUI extends DataViewUIBase<DashboardViewUILogic> {
 
     const xProp = this.logic.view.propertyGetOrCreate(cell.xAxisColumnId);
     const yPropId = cell.yAxisColumnIds?.[0];
-    const yProp = yPropId
-      ? this.logic.view.propertyGetOrCreate(yPropId)
-      : null;
+    const yProp = yPropId ? this.logic.view.propertyGetOrCreate(yPropId) : null;
 
     const buckets = new Map<string, number>();
     for (const row of rows) {
@@ -749,7 +748,7 @@ export class DashboardViewUI extends DataViewUIBase<DashboardViewUILogic> {
               height=${barH}
               fill="var(--affine-primary-color, #1e90ff)"
               rx="2"
-            />
+            ></rect>
             <text
               x=${x + barW / 2}
               y=${svgH - pad.bottom + 12}
@@ -795,8 +794,7 @@ export class DashboardViewUI extends DataViewUIBase<DashboardViewUILogic> {
 
     const pathD = pts
       .map(
-        ([x, y], i) =>
-          `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+        ([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
       )
       .join(' ');
 
@@ -821,7 +819,7 @@ export class DashboardViewUI extends DataViewUIBase<DashboardViewUILogic> {
               cy=${y}
               r="3"
               fill="var(--affine-primary-color, #1e90ff)"
-            />`
+            ></circle>`
         )}
         ${entries.map(([label], i) => {
           const [x] = pts[i]!;
@@ -910,9 +908,7 @@ export class DashboardViewUI extends DataViewUIBase<DashboardViewUILogic> {
     } else if (summaryType === 'sum' && cell.summaryColumnId) {
       const prop = this.logic.view.propertyGetOrCreate(cell.summaryColumnId);
       const sum = rows.reduce((acc, row) => {
-        const v = Number(
-          prop.cellGetOrCreate(row.rowId).jsonValue$.value ?? 0
-        );
+        const v = Number(prop.cellGetOrCreate(row.rowId).jsonValue$.value ?? 0);
         return acc + (isNaN(v) ? 0 : v);
       }, 0);
       value = sum % 1 === 0 ? sum : sum.toFixed(2);
@@ -920,15 +916,11 @@ export class DashboardViewUI extends DataViewUIBase<DashboardViewUILogic> {
     } else if (summaryType === 'avg' && cell.summaryColumnId) {
       const prop = this.logic.view.propertyGetOrCreate(cell.summaryColumnId);
       const nums = rows.flatMap(row => {
-        const v = Number(
-          prop.cellGetOrCreate(row.rowId).jsonValue$.value ?? 0
-        );
+        const v = Number(prop.cellGetOrCreate(row.rowId).jsonValue$.value ?? 0);
         return isNaN(v) ? [] : [v];
       });
       const avg =
-        nums.length > 0
-          ? nums.reduce((a, b) => a + b, 0) / nums.length
-          : 0;
+        nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
       value = avg % 1 === 0 ? avg : avg.toFixed(2);
       label = `Avg of ${prop.name$.value || cell.summaryColumnId}`;
     } else if (summaryType === 'last-edited') {

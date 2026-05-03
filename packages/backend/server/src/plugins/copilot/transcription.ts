@@ -15,6 +15,8 @@
  * the `transcript` prop onto the model itself.
  */
 
+import { Readable } from 'node:stream';
+
 import { Injectable, Logger } from '@nestjs/common';
 
 import {
@@ -156,9 +158,7 @@ export class AudioAutoTranscriptionService {
 
     try {
       // Retrieve the raw audio buffer from blob storage.
-      const object = await this.blobProvider.get(
-        `${workspaceId}/${blobKey}`
-      );
+      const object = await this.blobProvider.get(`${workspaceId}/${blobKey}`);
       if (!object.body) {
         this.logger.warn(
           `Audio blob ${blobKey} not found in storage, skipping transcription`
@@ -179,7 +179,6 @@ export class AudioAutoTranscriptionService {
         mimetype: mimeType,
         encoding: 'binary',
         createReadStream: () => {
-          const { Readable } = require('node:stream') as typeof import('stream');
           return Readable.from(buffer);
         },
       };

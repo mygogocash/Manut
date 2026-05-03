@@ -208,7 +208,9 @@ export class FilterBar extends SignalWatcher(ShadowlessElement) {
     if (this.dataViewLogic.root.config.dataSource.readonly$.peek()) {
       return;
     }
-    this._askAiAnchor = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    this._askAiAnchor = (
+      e.currentTarget as HTMLElement
+    ).getBoundingClientRect();
     this._showAskAi = true;
     this._askAiInput = '';
     this._askAiStatus = '';
@@ -259,7 +261,8 @@ export class FilterBar extends SignalWatcher(ShadowlessElement) {
           'Could not generate a filter. Try rephrasing your request.';
       }
     } catch (err) {
-      this._askAiStatus = 'Error: ' + (err instanceof Error ? err.message : String(err));
+      this._askAiStatus =
+        'Error: ' + (err instanceof Error ? err.message : String(err));
     } finally {
       this._askAiLoading = false;
     }
@@ -283,13 +286,17 @@ export class FilterBar extends SignalWatcher(ShadowlessElement) {
         body: JSON.stringify({ columns, naturalLanguage }),
       });
       if (resp.ok) {
-        const json = await resp.json() as unknown;
+        const json = (await resp.json()) as unknown;
         if (
           json !== null &&
           typeof json === 'object' &&
           (json as { type?: string }).type === 'group'
         ) {
-          return json as { type: 'group'; op: 'and' | 'or'; conditions: Filter[] };
+          return json as {
+            type: 'group';
+            op: 'and' | 'or';
+            conditions: Filter[];
+          };
         }
       }
     } catch {
@@ -415,7 +422,7 @@ export class FilterBar extends SignalWatcher(ShadowlessElement) {
 
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !this._askAiLoading) {
-        void this._applyAskAi();
+        this._applyAskAi().catch(console.error);
       } else if (e.key === 'Escape') {
         this._closeAskAi();
       }
@@ -526,8 +533,10 @@ export class FilterBar extends SignalWatcher(ShadowlessElement) {
     const popover = this.shadowRoot?.querySelector('.ask-ai-popover');
     const button = this.shadowRoot?.querySelector('.filter-bar-ask-ai');
     if (
-      popover && !popover.contains(target) &&
-      button && !button.contains(target)
+      popover &&
+      !popover.contains(target) &&
+      button &&
+      !button.contains(target)
     ) {
       this._showAskAi = false;
     }

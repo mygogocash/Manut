@@ -104,7 +104,7 @@ export const copyDiagnosticInfo = async (text: string): Promise<boolean> => {
     document.body.append(textarea);
     textarea.select();
     const ok = document.execCommand('copy');
-    document.body.removeChild(textarea);
+    textarea.remove();
     return ok;
   } catch {
     return false;

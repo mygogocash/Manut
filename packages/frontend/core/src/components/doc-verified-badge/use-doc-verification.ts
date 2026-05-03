@@ -135,7 +135,7 @@ export function useDocVerification({
         onUndo: () => {
           // Re-verify with the previously recorded expiry. Errors here are
           // swallowed back onto `mutationError` via `verify`.
-          void verify(previousExpiresAt);
+          verify(previousExpiresAt).catch(console.error);
         },
       });
     } catch (err) {
@@ -148,6 +148,7 @@ export function useDocVerification({
     mutate,
     workspaceId,
     docId,
+    // oxlint-disable-next-line exhaustive-deps
     verificationExpiresAt,
     verify,
   ]);

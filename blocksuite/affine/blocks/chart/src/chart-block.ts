@@ -186,9 +186,10 @@ Keep the spec minimal and self-contained.`;
       );
     }
 
-    const data = (await resp.json().catch(() => null)) as
-      | { text?: string; result?: string }
-      | null;
+    const data = (await resp.json().catch(() => null)) as {
+      text?: string;
+      result?: string;
+    } | null;
     const raw = (data?.text ?? data?.result ?? '').trim();
     if (!raw) {
       throw new Error('AI service returned an empty response.');
@@ -306,7 +307,7 @@ Keep the spec minimal and self-contained.`;
               y2="${t.y}"
               stroke="#aaa"
               stroke-width="1"
-            />
+            ></line>
             <text
               x="${pad.left - 8}"
               y="${t.y + 4}"
@@ -323,7 +324,7 @@ Keep the spec minimal and self-contained.`;
               y2="${t.y}"
               stroke="#eee"
               stroke-width="1"
-            />
+            ></line>
           `
         )}
 
@@ -340,7 +341,7 @@ Keep the spec minimal and self-contained.`;
               height="${barH}"
               fill="var(--affine-primary-color, #1e96eb)"
               rx="2"
-            />
+            ></rect>
             <text
               x="${x + barW / 2}"
               y="${pad.top + chartH + 16}"

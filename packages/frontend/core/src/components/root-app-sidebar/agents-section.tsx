@@ -1,9 +1,6 @@
 import { Button, Input, Modal, notify } from '@affine/component';
-import {
-  MenuItem,
-  MenuLinkItem,
-} from '@affine/core/modules/app-sidebar/views';
 import { AgentService } from '@affine/core/modules/agents';
+import { MenuItem, MenuLinkItem } from '@affine/core/modules/app-sidebar/views';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { PlusIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
@@ -28,6 +25,7 @@ interface CreateAgentInput {
 // stream. `topLevelAgents$` is the real `LiveData<AgentSummary[]>` exported
 // by `@affine/core/modules/agents`; we widen to `any` here to accept it.
 interface AgentLikeService {
+  // eslint-disable-next-line rxjs/finnish
   topLevelAgents$: any;
   createAgent: (input: CreateAgentInput) => Promise<{ id: string }>;
   refresh?: () => void | Promise<void>;
@@ -132,7 +130,10 @@ const CreateAgentModal = ({
           />
         </div>
         <div className={styles.modalField}>
-          <label className={styles.modalLabel} htmlFor="agent-description-input">
+          <label
+            className={styles.modalLabel}
+            htmlFor="agent-description-input"
+          >
             Description (optional)
           </label>
           <textarea
@@ -145,9 +146,7 @@ const CreateAgentModal = ({
             className={styles.modalTextarea}
           />
         </div>
-        <div
-          style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button
             variant="secondary"
             onClick={() => handleClose(false)}
@@ -157,7 +156,9 @@ const CreateAgentModal = ({
           </Button>
           <Button
             variant="primary"
-            onClick={handleSubmit}
+            onClick={() => {
+              handleSubmit().catch(console.error);
+            }}
             disabled={submitting || name.trim().length === 0}
             data-testid="create-agent-confirm-button"
           >

@@ -1,5 +1,6 @@
 import { DocsService } from '@affine/core/modules/doc';
 import { DocsSearchService } from '@affine/core/modules/docs-search';
+import { PeekViewService } from '@affine/core/modules/peek-view';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { useLiveData, useService } from '@toeverything/infra';
 import {
@@ -119,8 +120,7 @@ const titleStyle: CSSProperties = {
   color: 'var(--affine-text-primary-color, #111)',
   pointerEvents: 'none',
   // Soft halo so the title stays legible over the starfield+nebula.
-  textShadow:
-    '0 0 8px var(--affine-background-primary-color, rgba(0,0,0,0.6))',
+  textShadow: '0 0 8px var(--affine-background-primary-color, rgba(0,0,0,0.6))',
   letterSpacing: '0.01em',
 };
 
@@ -131,8 +131,7 @@ const subtitleStyle: CSSProperties = {
   fontSize: 12,
   color: 'var(--affine-text-secondary-color, #888)',
   pointerEvents: 'none',
-  textShadow:
-    '0 0 6px var(--affine-background-primary-color, rgba(0,0,0,0.5))',
+  textShadow: '0 0 6px var(--affine-background-primary-color, rgba(0,0,0,0.5))',
 };
 
 // ─── Utilities ──────────────────────────────────────────────────────────────
@@ -194,9 +193,19 @@ export const KnowledgeGraphView = () => {
   const docsService = useService(DocsService);
   const docsSearchService = useService(DocsSearchService);
   const workbenchService = useService(WorkbenchService);
+  const peekViewService = useService(PeekViewService);
 
   const docs = useLiveData(docsService.list.docs$);
   const nonTrashIds = useLiveData(docsService.list.nonTrashDocsIds$);
+
+  // Selected node id for the right-side preview panel. `null` = panel hidden.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Mirror into a ref so the long-lived canvas draw loop (which only mounts
+  // once) can read the current selection without being re-bound every render.
+  const selectedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   const docTitlesById = useMemo(() => {
     const map = new Map<string, string>();
@@ -218,17 +227,21 @@ export const KnowledgeGraphView = () => {
     }
 
     // For each source doc, get its outgoing refs. Combine into a single edge list.
-    const perDoc$ = nonTrashIds.map(sourceId =>
-      docsSearchService.watchRefsFrom(sourceId).pipe(
-        map(refs =>
-          refs
-            .filter(r => docTitlesById.has(r.docId) && r.docId !== sourceId)
-            .map(r => ({ source: sourceId, target: r.docId }))
+    const perDocStreams = nonTrashIds.map(sourceId =>
+      docsSearchService
+        .watchRefsFrom(sourceId)
+        .pipe(
+          map(refs =>
+            refs
+              .filter(r => docTitlesById.has(r.docId) && r.docId !== sourceId)
+              .map(r => ({ source: sourceId, target: r.docId }))
+          )
         )
-      )
     );
 
-    const sub = (perDoc$.length > 0 ? combineLatest(perDoc$) : of([]))
+    const sub = (
+      perDocStreams.length > 0 ? combineLatest(perDocStreams) : of([])
+    )
       .pipe(switchMap(arrs => of(arrs.flat())))
       .subscribe(allEdges => {
         // De-duplicate (in case both directions exist).
@@ -254,9 +267,11 @@ export const KnowledgeGraphView = () => {
   const stateRef = useRef<GraphData>({ nodes: [], edges: [] });
   const animationRef = useRef<number | null>(null);
   const hoverIdRef = useRef<string | null>(null);
-  const draggingRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(
-    null
-  );
+  const draggingRef = useRef<{
+    id: string;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
 
   // Background starfield — generated once, deterministic, drifts on render.
   const bgStarsRef = useRef<{ far: BgStar[]; near: BgStar[] } | null>(null);
@@ -314,13 +329,6 @@ export const KnowledgeGraphView = () => {
   useEffect(() => {
     stateRef.current = { ...stateRef.current, edges };
   }, [edges]);
-
-  const navigateToDoc = useCallback(
-    (docId: string) => {
-      workbenchService.workbench.openDoc(docId);
-    },
-    [workbenchService]
-  );
 
   // Force-directed simulation + render loop.
   useEffect(() => {
@@ -511,10 +519,12 @@ export const KnowledgeGraphView = () => {
 
       // 4. Nodes — each rendered as a halo + bright core, twinkling.
       const hoverId = hoverIdRef.current;
+      const selId = selectedIdRef.current;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       for (const n of nodes) {
         const isHover = n.id === hoverId;
+        const isSelected = n.id === selId;
         // Twinkle: 0.65..1.0 alpha, 0.85..1.15 size, sinusoidal at ~0.7Hz.
         const tw = Math.sin(tSec * 0.7 + n.twinklePhase);
         const twAlpha = 0.825 + 0.175 * tw;
@@ -522,7 +532,11 @@ export const KnowledgeGraphView = () => {
 
         const baseR = (isHover ? NODE_RADIUS_HOVER : NODE_RADIUS) * n.scale;
         const r = baseR * twSize;
-        const haloR = r * NODE_HALO_MULT;
+        // Selected nodes get a slightly larger halo so they read as picked
+        // even when not hovered. Hover stays warm-amber, selected stays
+        // whatever cool/warm tint the node already has — the ring (drawn
+        // below) is what announces selection unambiguously.
+        const haloR = r * NODE_HALO_MULT * (isSelected ? 1.25 : 1);
 
         // Slight hue tint per node — some warmer, some cooler.
         const haloHue = Math.sin(n.hueShift); // -1..1
@@ -531,10 +545,14 @@ export const KnowledgeGraphView = () => {
           haloColor = dark ? 'rgba(255, 200, 110, 1)' : 'rgba(220, 130, 50, 1)';
         } else if (haloHue > 0) {
           // Warm — pale gold.
-          haloColor = dark ? 'rgba(220, 200, 170, 1)' : 'rgba(180, 150, 110, 1)';
+          haloColor = dark
+            ? 'rgba(220, 200, 170, 1)'
+            : 'rgba(180, 150, 110, 1)';
         } else {
           // Cool — pale blue-white.
-          haloColor = dark ? 'rgba(170, 200, 240, 1)' : 'rgba(110, 140, 200, 1)';
+          haloColor = dark
+            ? 'rgba(170, 200, 240, 1)'
+            : 'rgba(110, 140, 200, 1)';
         }
 
         // Halo (radial gradient → transparent). Parse the rgba once to
@@ -559,6 +577,21 @@ export const KnowledgeGraphView = () => {
         ctx.arc(n.x, n.y, r * 0.55, 0, Math.PI * 2);
         ctx.fill();
         ctx.globalAlpha = 1;
+
+        // Selection ring — drawn in normal compositing so it stays a crisp
+        // 1px white outline (under 'lighter' it would saturate / wash out).
+        if (isSelected) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = dark
+            ? 'rgba(255, 255, 255, 0.95)'
+            : 'rgba(20, 20, 30, 0.85)';
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, r * 1.4, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
       }
       ctx.restore();
 
@@ -592,6 +625,15 @@ export const KnowledgeGraphView = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
+  }, []);
+
+  // Esc closes the preview panel.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedId(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, []);
 
   const findHit = useCallback((clientX: number, clientY: number) => {
@@ -637,7 +679,11 @@ export const KnowledgeGraphView = () => {
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const hit = findHit(e.clientX, e.clientY);
-      if (!hit) return;
+      if (!hit) {
+        // Click on empty canvas — dismiss the preview panel.
+        setSelectedId(null);
+        return;
+      }
       const canvas = canvasRef.current;
       if (!canvas) return;
       canvas.setPointerCapture(e.pointerId);
@@ -657,7 +703,8 @@ export const KnowledgeGraphView = () => {
       const drag = draggingRef.current;
       draggingRef.current = null;
       if (canvas) canvas.releasePointerCapture(e.pointerId);
-      // Treat as a click if movement was tiny.
+      // Treat as a click if movement was tiny — open the preview panel for
+      // the clicked node rather than navigating directly.
       if (drag) {
         const node = stateRef.current.nodes.find(n => n.id === drag.id);
         if (!node) return;
@@ -666,14 +713,50 @@ export const KnowledgeGraphView = () => {
         const dx = node.x - (e.clientX - rect.left + drag.offsetX);
         const dy = node.y - (e.clientY - rect.top + drag.offsetY);
         if (dx * dx + dy * dy < 9) {
-          navigateToDoc(drag.id);
+          setSelectedId(drag.id);
         }
       }
     },
-    [navigateToDoc]
+    []
   );
 
   const isEmpty = docTitlesById.size === 0 || edges.length === 0;
+
+  // Preview-panel data. Title falls back to the reactive docTitlesById map so
+  // a rename re-renders the panel even though the underlying nodes array is
+  // a ref. Edge counts are computed off the reactive `edges` state.
+  const selectedTitle = selectedId
+    ? (docTitlesById.get(selectedId) ??
+      stateRef.current.nodes.find(n => n.id === selectedId)?.title ??
+      'Untitled')
+    : '';
+
+  // Memoized so the per-frame React re-renders triggered by the simulation's
+  // hover/selection updates don't re-walk all 200+ edges every paint.
+  const { outboundCount, inboundCount } = useMemo(() => {
+    if (!selectedId) return { outboundCount: 0, inboundCount: 0 };
+    let out = 0;
+    let inb = 0;
+    for (const e of edges) {
+      if (e.source === selectedId) out++;
+      else if (e.target === selectedId) inb++;
+    }
+    return { outboundCount: out, inboundCount: inb };
+  }, [edges, selectedId]);
+
+  const onOpenDoc = useCallback(() => {
+    if (!selectedId) return;
+    workbenchService.workbench.openDoc(selectedId);
+  }, [selectedId, workbenchService]);
+  const onOpenPeek = useCallback(() => {
+    if (!selectedId) return;
+    peekViewService.peekView
+      .open({
+        type: 'doc',
+        docRef: { docId: selectedId },
+      })
+      .catch(console.error);
+  }, [selectedId, peekViewService]);
 
   return (
     <div ref={containerRef} style={containerStyle}>
@@ -691,6 +774,130 @@ export const KnowledgeGraphView = () => {
         onPointerCancel={onPointerUp}
       />
       {isEmpty && <div style={emptyStateStyle}>{emptyStateMessage}</div>}
+      <div
+        // `inert` (HTML global, supported across modern browsers) takes the
+        // whole subtree out of the focus order, hides it from AT, and blocks
+        // pointer events when set. This matters because the panel is always
+        // mounted (so the slide-in animation can run) but invisible when
+        // collapsed — without inert, its buttons stay tab-focusable behind
+        // the offscreen translate, which is a real a11y trap.
+
+        inert={selectedId ? undefined : ''}
+        aria-hidden={selectedId ? undefined : true}
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 320,
+          background: 'rgba(20, 20, 30, 0.72)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+          padding: 20,
+          boxSizing: 'border-box',
+          color: 'rgba(255, 255, 255, 0.92)',
+          display: 'flex',
+          flexDirection: 'column',
+          // Keep the panel mounted so the slide animation can run; just push
+          // it offscreen + disable pointer events when nothing is selected.
+          transform: selectedId ? 'translateX(0)' : 'translateX(100%)',
+          transition: 'transform 240ms ease',
+          pointerEvents: selectedId ? 'auto' : 'none',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              color: '#fff',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
+            }}
+          >
+            {selectedTitle}
+          </div>
+          <button
+            type="button"
+            aria-label="Close preview"
+            onClick={() => setSelectedId(null)}
+            style={{
+              flex: '0 0 auto',
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              background: 'transparent',
+              border: 'none',
+              color: 'rgba(255, 255, 255, 0.7)',
+              fontSize: 18,
+              lineHeight: 1,
+              cursor: 'pointer',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            ×
+          </button>
+        </div>
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: 12,
+            color: 'rgba(255, 255, 255, 0.55)',
+          }}
+        >
+          {outboundCount === 0 && inboundCount === 0
+            ? 'No links — orphan doc'
+            : `${outboundCount} outbound · ${inboundCount} inbound`}
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button
+            type="button"
+            onClick={onOpenDoc}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#0b0b14',
+              background: 'rgba(255, 255, 255, 0.92)',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+            }}
+          >
+            Open document
+          </button>
+          <button
+            type="button"
+            onClick={onOpenPeek}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+              color: 'rgba(255, 255, 255, 0.92)',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.14)',
+              borderRadius: 8,
+              cursor: 'pointer',
+            }}
+          >
+            Open in peek
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

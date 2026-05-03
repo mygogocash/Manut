@@ -231,12 +231,11 @@ export class ChatPanelAddPopover extends SignalWatcher(
       const input = document.createElement('input');
       input.type = 'file';
       input.multiple = true;
-      input.accept =
-        'image/*,.pdf,.csv,application/pdf,text/csv';
+      input.accept = 'image/*,.pdf,.csv,application/pdf,text/csv';
       input.style.display = 'none';
       let settled = false;
       const cleanup = () => {
-        if (input.parentNode) input.parentNode.removeChild(input);
+        if (input.parentNode) input.remove();
       };
       input.addEventListener('change', () => {
         if (settled) return;

@@ -35,7 +35,10 @@ let leafletLoadPromise: Promise<LeafletStatic> | null = null;
 interface LeafletStatic {
   map(el: HTMLElement, opts?: Record<string, unknown>): LeafletMap;
   tileLayer(url: string, opts?: Record<string, unknown>): LeafletTileLayer;
-  marker(latLng: [number, number], opts?: Record<string, unknown>): LeafletMarker;
+  marker(
+    latLng: [number, number],
+    opts?: Record<string, unknown>
+  ): LeafletMarker;
   markerClusterGroup?: () => LeafletClusterGroup;
   layerGroup(): LeafletLayerGroup;
 }
@@ -44,7 +47,10 @@ interface LeafletMap {
   setView(latLng: [number, number], zoom: number): LeafletMap;
   addLayer(layer: LeafletLayer): LeafletMap;
   removeLayer(layer: LeafletLayer): LeafletMap;
-  fitBounds(bounds: [[number, number], [number, number]], opts?: Record<string, unknown>): LeafletMap;
+  fitBounds(
+    bounds: [[number, number], [number, number]],
+    opts?: Record<string, unknown>
+  ): LeafletMap;
   getZoom(): number;
   getCenter(): { lat: number; lng: number };
   on(event: string, handler: (...args: unknown[]) => void): LeafletMap;
@@ -159,9 +165,7 @@ async function geocodeAddress(
     );
   }
   if (!resp.ok) {
-    throw new GeocodingError(
-      `Geocoding service returned ${resp.status}.`
-    );
+    throw new GeocodingError(`Geocoding service returned ${resp.status}.`);
   }
   const data = await resp.json().catch(() => null);
   if (!Array.isArray(data) || data.length === 0) {
@@ -343,7 +347,7 @@ export class MapViewUI extends DataViewUIBase<MapViewUILogic> {
     this.logic.ui$.value = this;
     this.classList.add(mapViewStyle);
     // Map initialisation is deferred to firstUpdated / updateComplete
-    this.updateComplete.then(() => this.initMap());
+    this.updateComplete.then(() => this.initMap()).catch(console.error);
   }
 
   override disconnectedCallback(): void {
@@ -366,7 +370,9 @@ export class MapViewUI extends DataViewUIBase<MapViewUILogic> {
     // Find container rendered by Lit's template (identified via data attribute)
     const container =
       this.mapContainer ??
-      (this.renderRoot?.querySelector('[data-map-container]') as HTMLDivElement | null);
+      (this.renderRoot?.querySelector(
+        '[data-map-container]'
+      ) as HTMLDivElement | null);
     if (!container || !this.isConnected) return;
     this.mapContainer = container;
 
@@ -391,14 +397,14 @@ export class MapViewUI extends DataViewUIBase<MapViewUILogic> {
     // γ-MAP-3: Watch pins and update markers reactively
     const disposer = effect(() => {
       const pins = this.logic.view.rowPins$.value;
-      void this.updateMarkers(L, pins);
+      this.updateMarkers(L, pins).catch(console.error);
     });
     this.effectDisposers.push(disposer);
 
     // γ-MAP-4: Watch rows with addresses and geocode them
     const addressDisposer = effect(() => {
       const entries = this.logic.view.rowPinsWithAddresses$.value;
-      void this.geocodeAndUpdateAddressPins(L, entries);
+      this.geocodeAndUpdateAddressPins(L, entries).catch(console.error);
     });
     this.effectDisposers.push(addressDisposer);
 
@@ -431,7 +437,10 @@ export class MapViewUI extends DataViewUIBase<MapViewUILogic> {
 
     const useClustering = pins.length > 20;
 
-    if (useClustering && !this.markerGroup?.constructor?.name?.includes('Cluster')) {
+    if (
+      useClustering &&
+      !this.markerGroup?.constructor?.name?.includes('Cluster')
+    ) {
       // γ-MAP-5: Load marker cluster plugin
       try {
         await ensureMarkerCluster(L);
@@ -597,7 +606,8 @@ export class MapViewUI extends DataViewUIBase<MapViewUILogic> {
         <div style="display:flex;align-items:center;gap:8px;">
           ${pendingGeocode > 0
             ? html`<span class=${geocodingStatusStyle}
-                >Geocoding ${pendingGeocode} address${pendingGeocode > 1 ? 'es' : ''}…</span
+                >Geocoding ${pendingGeocode}
+                address${pendingGeocode > 1 ? 'es' : ''}…</span
               >`
             : ''}
           <div class=${settingsWrapperStyle}>
@@ -634,9 +644,7 @@ export class MapViewUI extends DataViewUIBase<MapViewUILogic> {
               <strong>"lat,lng"</strong> coordinates or an address string.
             </div>
           `
-        : html`
-            <div class=${mapContainerStyle} data-map-container></div>
-          `}
+        : html` <div class=${mapContainerStyle} data-map-container></div> `}
     `;
   }
 }
