@@ -14,9 +14,11 @@ import {
   CopilotContextRootResolver,
   CopilotContextService,
 } from './context';
+import { AdminIndexingController } from './admin-indexing.controller';
 import { CopilotController } from './controller';
 import { CopilotCronJobs } from './cron';
 import { CopilotEmbeddingJob } from './embedding';
+import { EmbeddingHealthService } from './embedding-health';
 import { WorkspaceMcpController } from './mcp/controller';
 import { WorkspaceMcpProvider } from './mcp/provider';
 import { ChatMessageCache } from './message';
@@ -33,6 +35,7 @@ import {
   CopilotTranscriptionResolver,
   CopilotTranscriptionService,
 } from './transcript';
+import { AudioAutoTranscriptionService } from './transcription';
 import { CopilotWorkflowExecutors, CopilotWorkflowService } from './workflow';
 import {
   CopilotWorkspaceEmbeddingConfigResolver,
@@ -69,9 +72,12 @@ import {
     // jobs
     CopilotEmbeddingJob,
     CopilotCronJobs,
+    EmbeddingHealthService,
     // transcription
     CopilotTranscriptionService,
     CopilotTranscriptionResolver,
+    // audio auto-transcription (β-AI-11)
+    AudioAutoTranscriptionService,
     // workspace embeddings
     CopilotWorkspaceService,
     CopilotWorkspaceEmbeddingResolver,
@@ -83,6 +89,6 @@ import {
     // mcp
     WorkspaceMcpProvider,
   ],
-  controllers: [CopilotController, WorkspaceMcpController],
+  controllers: [CopilotController, WorkspaceMcpController, AdminIndexingController],
 })
 export class CopilotModule {}
