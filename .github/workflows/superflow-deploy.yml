@@ -1,0 +1,136 @@
+name: Superflow Deploy
+
+# Manually triggered. Updates the GCE VM's compose.yml to a chosen image
+# tag, pulls + restarts the affine container, then smoke-tests the live
+# endpoint.
+#
+# A failed smoke-test does NOT auto-rollback — the VM keeps a backup at
+# /srv/affine/compose/compose.yml.pre-<tag>.bak that you can restore in
+# under 60s. We surface the rollback command in the run summary.
+#
+# Required secrets:
+#   - GCP_SA_KEY: service-account JSON with the following roles on
+#                 project affine-495114:
+#                   * roles/compute.instanceAdmin.v1 (for ssh)
+#                   * roles/iap.tunnelResourceAccessor (for IAP ssh)
+#                   * roles/artifactregistry.reader (the docker pull on the VM)
+# The affine-vm itself must already have a service account that can pull
+# from GAR — that's separate from the deploy-time auth.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to deploy (e.g. v1.9.0)'
+        required: true
+        type: string
+      skip_smoke:
+        description: 'Skip the post-deploy smoke test'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  GCP_PROJECT: affine-495114
+  GCE_ZONE: asia-southeast1-a
+  GCE_VM: affine-vm
+  PROD_HOST: affine.gogocash.co
+
+jobs:
+  deploy:
+    name: Update VM + restart container
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Validate tag exists in registry
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          gcloud artifacts docker tags list \
+            asia-southeast1-docker.pkg.dev/${GCP_PROJECT}/affine/affine-gogocash \
+            --filter="tag=$TAG" --format=json | grep -q "$TAG" \
+            || { echo "::error::tag $TAG not found in GAR"; exit 1; }
+
+      - name: Update compose + restart
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          gcloud compute ssh "$GCE_VM" \
+            --zone="$GCE_ZONE" --project="$GCP_PROJECT" \
+            --tunnel-through-iap \
+            --command="
+              set -e
+              sudo cp /srv/affine/compose/compose.yml /srv/affine/compose/compose.yml.pre-${TAG}.bak
+              sudo sed -i 's|affine-gogocash:v[0-9.]*|affine-gogocash:${TAG}|g' /srv/affine/compose/compose.yml
+              cd /srv/affine/compose
+              sudo docker compose pull affine
+              sudo docker compose up -d affine
+              echo 'deploy: containers up'
+            "
+
+      - name: Wait for /info to return 200
+        if: ${{ !inputs.skip_smoke }}
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://${PROD_HOST}/info" || true)
+            if [ "$code" = "200" ]; then
+              echo "smoke: HTTP 200 after ${i}x3s"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::smoke test failed — /info never returned 200"
+          exit 1
+
+      - name: Verify Auto Tag prompt is seeded
+        if: ${{ !inputs.skip_smoke }}
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          gcloud compute ssh "$GCE_VM" \
+            --zone="$GCE_ZONE" --project="$GCP_PROJECT" \
+            --tunnel-through-iap \
+            --command="
+              sudo docker exec affine_server node -e \"
+                const {PrismaClient}=require('./node_modules/@prisma/client');
+                const p=new PrismaClient();
+                (async()=>{
+                  const r=await p.aiPrompt.findFirst({where:{name:'Auto Tag'},select:{name:true,model:true}});
+                  if(!r){console.error('Auto Tag prompt missing'); process.exit(1)}
+                  console.log('Auto Tag prompt:', JSON.stringify(r));
+                  await p.\\\$disconnect();
+                })();
+              \"
+            "
+
+      - name: Summary
+        if: always()
+        env:
+          TAG: ${{ inputs.tag }}
+          PROD: ${{ env.PROD_HOST }}
+        run: |
+          {
+            echo "## Superflow Deploy"
+            echo ""
+            echo "- Deployed tag: \`$TAG\`"
+            echo "- Production: https://$PROD"
+            echo ""
+            echo "### Rollback (under 60s)"
+            echo '```bash'
+            echo "gcloud compute ssh affine-vm --zone=$GCE_ZONE --project=$GCP_PROJECT \\"
+            echo "  --tunnel-through-iap --command='cd /srv/affine/compose && \\"
+            echo "  sudo cp compose.yml.pre-${TAG}.bak compose.yml && \\"
+            echo "  sudo docker compose up -d affine'"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

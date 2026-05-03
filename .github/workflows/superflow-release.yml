@@ -1,0 +1,115 @@
+name: Superflow Release
+
+# Triggered when a `v*.*.*` tag is pushed.
+#
+# Builds all four bundles (web / admin / mobile / @affine/server) on a
+# linux/amd64 runner, then builds + pushes the multi-stage Docker image
+# to Google Artifact Registry, tagged with both the version and `latest`.
+#
+# Required GitHub repository secrets:
+#   - GCP_SA_KEY: service-account JSON with roles/artifactregistry.writer
+#                 on project affine-495114 (or whatever project hosts the
+#                 affine-gogocash repo).
+#
+# Deploy is intentionally a separate manual workflow (superflow-deploy.yml)
+# so a tag push doesn't auto-deploy to prod without explicit approval.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  YARN_ENABLE_HARDENED_MODE: 0
+  GAR_REGION: asia-southeast1
+  GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
+
+jobs:
+  build-and-push:
+    name: Build bundles + push image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: corepack enable
+
+      - name: Cache yarn
+        uses: actions/cache@v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/install-state.gz
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-${{ runner.os }}-
+
+      - run: yarn install --immutable
+
+      - name: Generate Prisma client
+        run: yarn workspace @affine/server prisma generate
+
+      - name: Build server bundle
+        run: yarn affine bundle -p @affine/server
+
+      - name: Build frontend bundles
+        run: |
+          yarn affine bundle -p web
+          yarn affine bundle -p admin
+          yarn affine bundle -p mobile
+
+      # native binary is committed to dist/, so no rebuild step here.
+
+      - name: Authenticate to GCP
+        id: gcp-auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GAR
+        run: gcloud auth configure-docker ${{ env.GAR_REGION }}-docker.pkg.dev --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Extract version
+        id: version
+        env:
+          REF: ${{ github.ref }}
+        run: echo "version=${REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Build + push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./.docker/gogocash/Dockerfile.fullstack
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.GAR_REPO }}:${{ steps.version.outputs.version }}
+            ${{ env.GAR_REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REPO: ${{ env.GAR_REPO }}
+        run: |
+          {
+            echo "## Superflow Release"
+            echo ""
+            echo "- Version: \`$VERSION\`"
+            echo "- Image: \`$REPO:$VERSION\`"
+            echo "- Also tagged: \`latest\`"
+            echo ""
+            echo "Run the **Superflow Deploy** workflow manually to roll this out to GCE."
+          } >> "$GITHUB_STEP_SUMMARY"

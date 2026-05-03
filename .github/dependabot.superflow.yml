@@ -1,0 +1,41 @@
+# Superflow-specific Dependabot config (additive to upstream's, if any).
+# Renamed from .github/dependabot.yml to .github/dependabot.superflow.yml
+# so it doesn't collide with whatever upstream AFFiNE keeps. The actual
+# active config is at .github/dependabot.yml — this file is documentation
+# only. Move into place if the user wants automated dep PRs.
+
+version: 2
+updates:
+  # Yarn workspace deps. Throttled hard so we don't drown in PRs.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Bangkok
+    open-pull-requests-limit: 3
+    labels: [dependencies]
+    groups:
+      patch-and-minor:
+        update-types: [patch, minor]
+    ignore:
+      # Pin major versions of these to upstream's choice — they're
+      # tightly coupled and we don't want a unilateral fork bump.
+      - dependency-name: 'react'
+        update-types: [version-update:semver-major]
+      - dependency-name: 'react-dom'
+        update-types: [version-update:semver-major]
+      - dependency-name: '@blocksuite/*'
+        update-types: [version-update:semver-major]
+      - dependency-name: '@prisma/*'
+        update-types: [version-update:semver-major]
+      - dependency-name: 'next'
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+    labels: [ci]

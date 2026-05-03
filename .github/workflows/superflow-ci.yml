@@ -1,0 +1,92 @@
+name: Superflow CI
+
+# Runs on every push to main and every PR targeting main. Catches lint /
+# type / build regressions before they reach the deploy track.
+#
+# Intentionally separate from the upstream AFFiNE workflows
+# (build-test.yml etc) which target canary/master and depend on
+# upstream-only secrets we don't have on this fork.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs when a fresher commit lands on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_ENABLE_HARDENED_MODE: 0
+
+jobs:
+  lint:
+    name: Lint (oxlint + prettier)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - name: Cache yarn
+        uses: actions/cache@v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/install-state.gz
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-${{ runner.os }}-
+      - run: yarn install --immutable
+      - name: oxlint --deny-warnings
+        run: yarn oxlint --deny-warnings
+      - name: prettier --check
+        run: yarn lint:prettier
+
+  build-web:
+    name: Build web bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - name: Cache yarn
+        uses: actions/cache@v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/install-state.gz
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-${{ runner.os }}-
+      - run: yarn install --immutable
+      - run: yarn affine bundle -p web
+      - run: yarn affine bundle -p admin
+      - run: yarn affine bundle -p mobile
+
+  build-server:
+    name: Build server bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - name: Cache yarn
+        uses: actions/cache@v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/install-state.gz
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-${{ runner.os }}-
+      - run: yarn install --immutable
+      - run: yarn workspace @affine/server prisma generate
+      - run: yarn affine bundle -p @affine/server
