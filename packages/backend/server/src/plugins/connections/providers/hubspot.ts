@@ -29,4 +29,39 @@ export class HubspotProvider extends OAuthProvider {
     const data = await response.json() as { user_id: number; user: string; hub_id: number };
     return { externalId: String(data.user_id), displayName: data.user };
   }
+
+  async listContacts(accessToken: string): Promise<{ id: string; name: string; email?: string }[]> {
+    interface HubSpotContact {
+      id: string;
+      properties: { firstname: string; lastname: string; email: string };
+    }
+    const response = await fetch(
+      'https://api.hubapi.com/crm/v3/objects/contacts?limit=100&properties=firstname,lastname,email',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const { results } = await response.json() as { results: HubSpotContact[] };
+    return results.map(c => ({
+      id: c.id,
+      name: [c.properties.firstname, c.properties.lastname].filter(Boolean).join(' '),
+      email: c.properties.email || undefined,
+    }));
+  }
+
+  async listDeals(accessToken: string): Promise<{ id: string; name: string; amount?: string; stage: string }[]> {
+    interface HubSpotDeal {
+      id: string;
+      properties: { dealname: string; amount?: string; closedate?: string; dealstage: string };
+    }
+    const response = await fetch(
+      'https://api.hubapi.com/crm/v3/objects/deals?limit=100&properties=dealname,amount,closedate,dealstage',
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const { results } = await response.json() as { results: HubSpotDeal[] };
+    return results.map(d => ({
+      id: d.id,
+      name: d.properties.dealname,
+      amount: d.properties.amount || undefined,
+      stage: d.properties.dealstage,
+    }));
+  }
 }

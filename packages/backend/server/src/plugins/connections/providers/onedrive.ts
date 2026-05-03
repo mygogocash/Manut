@@ -45,4 +45,35 @@ export class OneDriveProvider extends OAuthProvider {
     });
     return response.json();
   }
+
+  async searchFiles(accessToken: string, query: string): Promise<{ id: string; name: string; url: string; isFolder: boolean }[]> {
+    interface GraphDriveItem { id: string; name: string; webUrl: string; folder?: object; file?: object }
+    const encodedQuery = encodeURIComponent(query);
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/root/search(q='${encodedQuery}')?$top=50`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const { value } = await response.json() as { value: GraphDriveItem[] };
+    return value.map(item => ({
+      id: item.id,
+      name: item.name,
+      url: item.webUrl,
+      isFolder: item.folder !== undefined,
+    }));
+  }
+
+  async getFolderContents(accessToken: string, folderId: string): Promise<{ id: string; name: string; url: string; size?: number }[]> {
+    interface GraphDriveChild { id: string; name: string; webUrl: string; size?: number }
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/items/${folderId}/children`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const { value } = await response.json() as { value: GraphDriveChild[] };
+    return value.map(item => ({
+      id: item.id,
+      name: item.name,
+      url: item.webUrl,
+      size: item.size,
+    }));
+  }
 }

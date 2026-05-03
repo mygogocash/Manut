@@ -29,4 +29,23 @@ export class AsanaProvider extends OAuthProvider {
     const { data } = await response.json() as { data: { gid: string; name: string; email: string; photo?: { image_128x128?: string } } };
     return { externalId: data.gid, displayName: data.name, email: data.email, avatarUrl: data.photo?.image_128x128 };
   }
+
+  async listProjects(accessToken: string): Promise<{ id: string; name: string }[]> {
+    interface AsanaProject { gid: string; name: string; color: string }
+    const response = await fetch('https://app.asana.com/api/1.0/projects', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const { data } = await response.json() as { data: AsanaProject[] };
+    return data.map(p => ({ id: p.gid, name: p.name }));
+  }
+
+  async listTasks(accessToken: string, projectGid: string): Promise<{ id: string; name: string; completed: boolean; dueOn?: string }[]> {
+    interface AsanaTask { gid: string; name: string; completed: boolean; due_on?: string }
+    const params = new URLSearchParams({ project: projectGid, opt_fields: 'gid,name,completed,due_on' });
+    const response = await fetch(`https://app.asana.com/api/1.0/tasks?${params}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const { data } = await response.json() as { data: AsanaTask[] };
+    return data.map(t => ({ id: t.gid, name: t.name, completed: t.completed, dueOn: t.due_on }));
+  }
 }
