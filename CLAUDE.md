@@ -258,6 +258,32 @@ Document the surprises — saves the next session a discovery cycle.
   up mid-yarn-install with cryptic worker errors during the prep stage.
   Recovery: `docker buildx prune -af && docker image prune -af` (we
   recovered ~37GB this way once).
+- **vanilla-extract evaluates `.css.ts` files in a Node VM at build
+  time.** Anything imported transitively into a `.css.ts` runs in that
+  VM — there is no DOM. Importing `{ animationToken }` from
+  `@affine/component` (the package root) drags in sibling exports that
+  reference `HTMLElement` at module scope and crashes the build with
+  `ReferenceError: HTMLElement is not defined`. The error points at
+  the `.css.ts` file (with bogus line numbers like `21529:1125` from
+  vanilla-extract's bundled output), not at the offending dep. Fixes,
+  in order of preference:
+    1. From inside `@affine/component`, use the relative path
+       (`'../../theme/animation'`) — only the leaf module evaluates.
+    2. From `@affine/core` and other consumers, reference the raw CSS
+       variables directly: `transition: 'background-color
+       var(--affine-anim-duration-base) var(--affine-anim-curve-default)'`.
+       The `animationToken` TS object is only sugar over the same vars.
+    3. If both fail, add a sub-path export to the providing package's
+       `package.json` so the import path resolves to a leaf module.
+- **Sub-agents run in their own worktree by default.** When you launch
+  parallel agents from this session, they may write to a different
+  `.claude/worktrees/<slug>/` than the one you committed v1.8.x from.
+  Symptom: `git status` on main shows fewer files than the agents
+  reported. Diagnose with `git -C <worktree> status --untracked-files=all`.
+  Consolidate by `cp`-ing each agent file from the agent's worktree
+  to the main worktree before lint + commit. (The worktree branch is
+  off an older baseline and contains commits you don't want — don't
+  cherry-pick the branch wholesale.)
 
 ## 5b. Settings dialog wiring (where new tabs live)
 
@@ -348,6 +374,80 @@ extraction failure block the AI feature itself. Reference call sites:
 `packages/frontend/core/src/blocksuite/ai/utils/extract.ts`,
 `workspace-property-types/tags.tsx` (AI Auto Tag).
 
+## 5d. Vertex Model Garden providers + auto-routing
+
+Superflow exposes five model families on Vertex AI: Gemini + Anthropic
+(first-party publishers) and Llama + Mistral + DeepSeek (Model Garden
+publishers via the OpenAI-compatible MaaS endpoint). All flow through
+the same `getGoogleAuth` service-account path — no separate API keys.
+
+### Anatomy of a Vertex Model Garden provider
+
+Concrete subclasses extend `VertexOpenAICompatProvider`
+(`packages/backend/server/src/plugins/copilot/providers/vertex-openai-base.ts`)
+and only declare:
+- `publisher` — slug used as model-name prefix in MaaS chat requests
+  (`meta`, `mistralai`, `deepseek-ai`).
+- A static model list with input/output capability flags.
+- A `CopilotProviderType` enum entry.
+
+The base class wires:
+- Service-account auth via `getGoogleAuth(this.config, this.publisher)`.
+- The MaaS chat-completions URL via
+  `getVertexOpenAIBaseUrl({location, project})` →
+  `/v1beta1/projects/{project}/locations/{location}/endpoints/openapi/chat/completions`.
+- Rust native dispatch via `llmDispatchStream('openai_chat', ...)`.
+- `text` / `streamText` / `streamObject` overrides that prefix the
+  model id with the publisher slug before sending.
+
+### Adding a new family
+
+1. Pick a Vertex Model Garden publisher with an OpenAI-compat MaaS
+   endpoint. If it doesn't have one, you can't reuse this base —
+   you'd need a Gemini-style first-party provider.
+2. New file `providers/<family>/vertex.ts` extending
+   `VertexOpenAICompatProvider`.
+3. New file `providers/<family>/index.ts` registering the provider.
+4. Add the type to:
+   - `providers/types.ts` (`CopilotProviderType` enum)
+   - `providers/index.ts` (DI registration)
+   - `providers/provider-registry.ts` (legacy provider order)
+   - `providers/provider-middleware.ts` (default middleware)
+5. Add config block to `copilot/config.ts`:
+   `defineModuleConfig('providers.<family>Vertex', { project, location, googleAuthOptions })`.
+6. Add catalogue entries to `copilot/model-metadata.ts` with
+   `family` / `tier` / `pricePerKToken`.
+7. Rebuild server bundle, rebuild image, deploy.
+8. Populate `/srv/affine/data/affine-config/config.json` on the VM
+   with the new `providers.<family>Vertex.{project,location}` keys.
+   Default location: `us-central1` (matches Gemini).
+
+### Auto-routing
+
+`copilot/auto-router.ts` exports `pickModel(messages, options)` which
+inspects the request and returns a chosen model + explanation:
+- Image input → `gemini-2.5-flash` (cheapest multimodal).
+- Code-heavy task (regex match for triple-backtick blocks or
+  `code` / `function` keywords) → `claude-sonnet-4.5`.
+- Long context (>30k token estimate at ~4 chars/token) →
+  `gemini-2.5-pro` (1M context).
+- Short text + no images → `gemini-2.5-flash`.
+- Default fallback → `gemini-2.5-flash`.
+
+Wired into `ChatSession.resolveModel` via `model: 'auto'` /
+`promptName: 'auto'` sentinels. The picked-model explanation is
+exposed on `lastAutoRouteExplanation` so the frontend can render
+"Auto picked Gemini Flash because: short text, no images." Token
+heuristic is 4 chars/token — fine for routing, not for billing.
+
+### Auto prompt
+
+The `auto` promptName resolves through `prompt/service.ts`'s
+in-memory mirror of `Chat With AFFiNE AI` with `optionalModels`
+extended to include all five families' lead models. This keeps
+`prompts.ts` clean (no entry per-family) and avoids the
+`refreshPrompts` upsert-stickiness trap (§5c).
+
 ## 6. Commit + PR conventions
 
 - Commit message format: `<type>: <subject>` then optional body.
@@ -386,3 +486,51 @@ precedence over generic plan-mode behavior. Common skills used here:
 Skills are stored under `~/.claude/skills/`; their SKILL.md files are
 authoritative. Never use `mcp__claude-in-chrome__*` tools — always go
 through `/browse`.
+
+## 8. CI/CD (GitHub Actions)
+
+Three Superflow-specific workflows live alongside the upstream AFFiNE
+ones (which target `canary`/`master` and rely on upstream-only secrets,
+so they're effectively dormant on this fork):
+
+- `.github/workflows/superflow-ci.yml` — push/PR to `main`. Three
+  jobs: lint (oxlint + prettier), build-web (web/admin/mobile bundles),
+  build-server (with `prisma generate`). Concurrency-cancellation per
+  ref so a fast iteration doesn't pile up runs. Yarn 4 cache via
+  `actions/cache` keyed on `yarn.lock`.
+- `.github/workflows/superflow-release.yml` — fires on `v*.*.*` tag
+  push. Builds all four bundles + pushes the `Dockerfile.fullstack`
+  image to `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash`,
+  tagged with both the version and `latest`. GHA cache via
+  `cache-from/to: type=gha,mode=max`.
+- `.github/workflows/superflow-deploy.yml` — manual
+  `workflow_dispatch` with a `tag` input. Validates the tag exists
+  in GAR, IAP-tunnels into `affine-vm`, backs up `compose.yml` to
+  `compose.yml.pre-<tag>.bak`, swaps the image, restarts. Smoke-tests
+  `https://affine.gogocash.co/info` (30 retries × 3s) and verifies
+  the `Auto Tag` prompt is seeded. Always prints the rollback command
+  in the run summary.
+
+Required secret: `GCP_SA_KEY` — service account JSON with these
+roles on `affine-495114`:
+`roles/artifactregistry.{writer,reader}`,
+`roles/iap.tunnelResourceAccessor`,
+`roles/compute.instanceAdmin.v1`. Setup walk-through in
+`.github/SUPERFLOW_CI_SETUP.md`.
+
+The default branch on GitHub was changed from `canary` (inherited
+from upstream) to `main` so PRs target the correct place. Upstream
+workflows still trigger on `canary`/`master` — leave them alone unless
+they start firing on `main`.
+
+Tagging a release:
+
+```bash
+git tag v1.x.0 && git push origin v1.x.0
+# Wait ~15 min for superflow-release.yml to push the image.
+# Then: GitHub → Actions → Superflow Deploy → Run workflow.
+```
+
+Optional: rename `.github/dependabot.superflow.yml` →
+`.github/dependabot.yml` to enable weekly grouped dep PRs (3 npm + 2
+GH Actions per week, majors of react/blocksuite/prisma/next pinned).
