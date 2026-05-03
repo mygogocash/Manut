@@ -179,6 +179,59 @@ export class CalendarSingleView extends SingleViewBase<CalendarViewData> {
     return map;
   });
 
+  /** Property id of the optional end-date column for multi-day event spans. */
+  endDateColumnId$ = computed(() => this.data$.value?.endDateColumnId);
+
+  setEndDateColumnId(id: string | undefined) {
+    this.dataUpdate(() => ({ endDateColumnId: id }));
+  }
+
+  /**
+   * Computed list of multi-day event spans. Each entry has:
+   * - rowId: the row
+   * - startDay: YYYY-MM-DD (from the primary date column)
+   * - endDay: YYYY-MM-DD (from the end-date column, clamped to >= startDay)
+   *
+   * Only rows that have BOTH a valid start date AND a valid end date are included.
+   * Single-day rows (endDay === startDay) are still included here so they can be
+   * optionally styled as pills; callers filter them out if needed.
+   */
+  spans$ = computed(() => {
+    const startColId = this.dateColumnId$.value;
+    const endColId = this.endDateColumnId$.value;
+    if (!startColId || !endColId) return [];
+
+    const startProp = this.propertyGetOrCreate(startColId);
+    const endProp = this.propertyGetOrCreate(endColId);
+
+    const result: { rowId: string; startDay: string; endDay: string }[] = [];
+
+    for (const row of this.rows$.value) {
+      const rawStart = startProp.cellGetOrCreate(row.rowId).jsonValue$.value;
+      const rawEnd = endProp.cellGetOrCreate(row.rowId).jsonValue$.value;
+      if (rawStart == null || rawEnd == null) continue;
+
+      const msStart =
+        typeof rawStart === 'number' ? rawStart : Date.parse(String(rawStart));
+      const msEnd =
+        typeof rawEnd === 'number' ? rawEnd : Date.parse(String(rawEnd));
+      if (Number.isNaN(msStart) || Number.isNaN(msEnd)) continue;
+
+      const dStart = new Date(msStart);
+      const dEnd = new Date(Math.max(msStart, msEnd)); // clamp end >= start
+
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      result.push({
+        rowId: row.rowId,
+        startDay: fmt(dStart),
+        endDay: fmt(dEnd),
+      });
+    }
+    return result;
+  });
+
   /**
    * Set the date column's value for a row. Used when adding a row by clicking a day cell.
    * `epochMs` is local-time noon so the event shows on the clicked day across TZs.

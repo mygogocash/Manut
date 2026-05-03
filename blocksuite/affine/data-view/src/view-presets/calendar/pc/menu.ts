@@ -134,6 +134,11 @@ export class CalendarViewSettingsMenu extends LitElement {
     this.requestUpdate();
   }
 
+  private _selectEndDateColumn(id: string | undefined) {
+    this.view.setEndDateColumnId(id);
+    this.requestUpdate();
+  }
+
   private _selectMode(mode: 'month' | 'week' | 'day') {
     this.view.setDisplayMode(mode);
     this.requestUpdate();
@@ -146,6 +151,7 @@ export class CalendarViewSettingsMenu extends LitElement {
       p => p.type$.value === 'date'
     );
     const currentDateColId = this.view.dateColumnId$.value;
+    const currentEndDateColId = this.view.endDateColumnId$.value;
     const currentMode = this.view.displayMode$.value;
 
     const modes: { key: 'month' | 'week' | 'day'; label: string }[] = [
@@ -178,6 +184,42 @@ export class CalendarViewSettingsMenu extends LitElement {
                 ].join(' ')}
                 title=${p.name$.value}
                 @click=${() => this._selectDateColumn(p.id)}
+              >
+                ${p.name$.value}
+              </button>
+            `;
+          })}
+          ${dateProps.length === 0
+            ? html`<div
+                style="font-size:12px;color:var(--affine-text-secondary-color,#888);padding:4px 8px;"
+              >
+                No date properties
+              </div>`
+            : ''}
+        </div>
+
+        <!-- End date column section -->
+        <div class=${menuSectionStyle}>
+          <div class=${menuSectionLabelStyle}>End date column</div>
+          <button
+            class=${[
+              menuItemStyle,
+              currentEndDateColId == null ? menuItemActiveStyle : '',
+            ].join(' ')}
+            @click=${() => this._selectEndDateColumn(undefined)}
+          >
+            (none)
+          </button>
+          ${dateProps.map(p => {
+            const isActive = p.id === currentEndDateColId;
+            return html`
+              <button
+                class=${[
+                  menuItemStyle,
+                  isActive ? menuItemActiveStyle : '',
+                ].join(' ')}
+                title=${p.name$.value}
+                @click=${() => this._selectEndDateColumn(p.id)}
               >
                 ${p.name$.value}
               </button>

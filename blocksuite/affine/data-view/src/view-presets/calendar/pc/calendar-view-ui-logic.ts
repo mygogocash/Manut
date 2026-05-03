@@ -110,10 +110,38 @@ const modeToggleStyle = css`
 `;
 
 const calendarGridStyle = css`
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   border-top: 1px solid var(--affine-border-color, #e3e3e3);
   border-left: 1px solid var(--affine-border-color, #e3e3e3);
+`;
+
+const calendarDayHeaderRowStyle = css`
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+`;
+
+const calendarWeekRowStyle = css`
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  position: relative;
+`;
+
+const spanBarStyle = css`
+  position: absolute;
+  background: var(--affine-primary-color, #1e90ff);
+  border-radius: 4px;
+  height: 20px;
+  opacity: 0.85;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #fff;
+  line-height: 20px;
+  z-index: 2;
+  pointer-events: none;
+  box-sizing: border-box;
 `;
 
 const dayHeaderStyle = css`
@@ -505,7 +533,11 @@ export class CalendarViewUI extends DataViewUIBase<CalendarViewUILogic> {
 
   private renderDayHeaders(): TemplateResult {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return html`${days.map(d => html`<div class=${dayHeaderStyle}>${d}</div>`)}`;
+    return html`
+      <div class=${calendarDayHeaderRowStyle}>
+        ${days.map(d => html`<div class=${dayHeaderStyle}>${d}</div>`)}
+      </div>
+    `;
   }
 
   private renderCell(date: Date): TemplateResult {
@@ -593,12 +625,65 @@ export class CalendarViewUI extends DataViewUIBase<CalendarViewUILogic> {
     `;
   }
 
+  private renderWeekRow(weekDays: Date[]): TemplateResult {
+    // Collect spans that overlap this week row and render them as absolute bars.
+    const spans = this.logic.view.spans$.value;
+    const weekStart = dateKey(weekDays[0]);
+    const weekEnd = dateKey(weekDays[6]);
+
+    // For each span visible in this week, compute column positions (0-indexed).
+    const spanBars = spans
+      .map(span => {
+        // Clamp the span to this week
+        const clampedStart = span.startDay < weekStart ? weekStart : span.startDay;
+        const clampedEnd = span.endDay > weekEnd ? weekEnd : span.endDay;
+        if (clampedStart > weekEnd || clampedEnd < weekStart) return null;
+        // Find column indices
+        const startCol = weekDays.findIndex(d => dateKey(d) === clampedStart);
+        const endCol = weekDays.findIndex(d => dateKey(d) === clampedEnd);
+        if (startCol < 0 || endCol < 0) return null;
+        const colSpan = endCol - startCol + 1;
+        const label = this.logic.view.rowTitle(span.rowId);
+        return { startCol, colSpan, label };
+      })
+      .filter(Boolean) as { startCol: number; colSpan: number; label: string }[];
+
+    return html`
+      <div class=${calendarWeekRowStyle}>
+        ${weekDays.map(d => this.renderCell(d))}
+        ${spanBars.map(bar => {
+          const leftPct = (bar.startCol / 7) * 100;
+          const widthPct = (bar.colSpan / 7) * 100;
+          return html`
+            <div
+              class=${spanBarStyle}
+              style=${styleMap({
+                left: `${leftPct}%`,
+                width: `calc(${widthPct}% - 4px)`,
+                top: '28px',
+              })}
+              title=${bar.label}
+            >
+              ${bar.label || 'Untitled'}
+            </div>
+          `;
+        })}
+      </div>
+    `;
+  }
+
   private renderMonthView(): TemplateResult {
     const range = this.logic.visibleRange$.value;
+    // Split 42 days into 6 weeks of 7
+    const weeks: Date[][] = [];
+    for (let i = 0; i < 6; i++) {
+      weeks.push(range.slice(i * 7, i * 7 + 7));
+    }
     return html`
       ${this.renderHeader()}
       <div class=${calendarGridStyle}>
-        ${this.renderDayHeaders()} ${range.map(d => this.renderCell(d))}
+        ${this.renderDayHeaders()}
+        ${weeks.map(week => this.renderWeekRow(week))}
       </div>
     `;
   }

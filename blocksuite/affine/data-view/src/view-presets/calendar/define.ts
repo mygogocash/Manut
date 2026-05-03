@@ -32,6 +32,13 @@ type DataType = {
    * Display mode. MVP only ships `month`; week/day are placeholders for future work.
    */
   displayMode?: 'month' | 'week' | 'day';
+
+  /**
+   * Optional property id of a second date column used as the end date for multi-day event spans.
+   * When set, rows with both a start (dateColumnId) and an end date are rendered as
+   * horizontal bars spanning all day cells between startDay and endDay in month view.
+   */
+  endDateColumnId?: string;
 };
 
 export type CalendarViewData = BasicViewDataType<
