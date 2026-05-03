@@ -1,6 +1,6 @@
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { style } from '@vanilla-extract/css';
-import { CheckCircleIcon } from '@blocksuite/icons/rc';
+import { DoneIcon } from '@blocksuite/icons/rc';
 import clsx from 'clsx';
 import type { HTMLAttributes } from 'react';
 
@@ -43,7 +43,7 @@ export function DocVerifiedBadge({
       aria-label="Verified page"
       {...rest}
     >
-      <CheckCircleIcon fontSize={14} />
+      <DoneIcon fontSize={14} />
       Verified
     </span>
   );
