@@ -56,6 +56,7 @@
     { "path": "../model" },
     { "path": "../rich-text" },
     { "path": "../shared" },
+    { "path": "../widgets/block-context-menu" },
     { "path": "../widgets/drag-handle" },
     { "path": "../widgets/edgeless-auto-connect" },
     { "path": "../widgets/edgeless-dragging-area" },

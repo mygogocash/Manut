@@ -51,8 +51,10 @@
   "references": [
     { "path": "./blocksuite/affine/all" },
     { "path": "./blocksuite/affine/blocks/attachment" },
+    { "path": "./blocksuite/affine/blocks/audio" },
     { "path": "./blocksuite/affine/blocks/bookmark" },
     { "path": "./blocksuite/affine/blocks/callout" },
+    { "path": "./blocksuite/affine/blocks/chart" },
     { "path": "./blocksuite/affine/blocks/code" },
     { "path": "./blocksuite/affine/blocks/data-view" },
     { "path": "./blocksuite/affine/blocks/database" },
@@ -99,6 +101,7 @@
     { "path": "./blocksuite/affine/model" },
     { "path": "./blocksuite/affine/rich-text" },
     { "path": "./blocksuite/affine/shared" },
+    { "path": "./blocksuite/affine/widgets/block-context-menu" },
     { "path": "./blocksuite/affine/widgets/drag-handle" },
     { "path": "./blocksuite/affine/widgets/edgeless-auto-connect" },
     { "path": "./blocksuite/affine/widgets/edgeless-dragging-area" },

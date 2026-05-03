@@ -1,3 +1,4 @@
+import { notifyWithUndo } from '@affine/core/components/affine/undo-toast';
 import { useMutation } from '@affine/core/components/hooks/use-mutation';
 import { useQuery } from '@affine/core/components/hooks/use-query';
 import { unverifyDocMutation, verifyDocMutation } from '@affine/graphql';
@@ -120,18 +121,36 @@ export function useDocVerification({
 
   const unverify = useCallback(async () => {
     setMutationError(null);
+    // Capture the previous expiry before the mutation so Undo can restore
+    // the same end-date rather than verifying afresh.
+    const previousExpiresAt = verificationExpiresAt;
     try {
       await (triggerUnverify as (args: unknown) => Promise<unknown>)({
         workspaceId,
         docId,
       });
       await mutate();
+      notifyWithUndo({
+        message: 'Doc unverified',
+        onUndo: () => {
+          // Re-verify with the previously recorded expiry. Errors here are
+          // swallowed back onto `mutationError` via `verify`.
+          void verify(previousExpiresAt);
+        },
+      });
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
       setMutationError(e);
       throw e;
     }
-  }, [triggerUnverify, mutate, workspaceId, docId]);
+  }, [
+    triggerUnverify,
+    mutate,
+    workspaceId,
+    docId,
+    verificationExpiresAt,
+    verify,
+  ]);
 
   return {
     isVerified,

@@ -1,4 +1,5 @@
 import { Button } from '@affine/component';
+import { notifyWithUndo } from '@affine/core/components/affine/undo-toast';
 import { useMutation } from '@affine/core/components/hooks/use-mutation';
 import { useQuery } from '@affine/core/components/hooks/use-query';
 import { WorkspaceService } from '@affine/core/modules/workspace';
@@ -18,8 +19,7 @@ const ALL_PROVIDERS: ProviderInfo[] = [
   {
     name: 'github',
     displayName: 'GitHub',
-    description:
-      'Import repositories, issues, and pull requests from GitHub.',
+    description: 'Import repositories, issues, and pull requests from GitHub.',
     icon: '🐙',
   },
   {
@@ -82,9 +82,9 @@ export const ConnectionsSettingPanel = ({
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
   const { data, isLoading, mutate } = useQuery(queryArg);
 
-  const connections =
-    ((data as unknown as { listConnections?: ConnectedAccountDto[] } | undefined)
-      ?.listConnections ?? []) as ConnectedAccountDto[];
+  const connections = ((
+    data as unknown as { listConnections?: ConnectedAccountDto[] } | undefined
+  )?.listConnections ?? []) as ConnectedAccountDto[];
 
   const { trigger: triggerDisconnect } = useMutation({
     mutation: disconnectProviderMutation,
@@ -135,7 +135,7 @@ export const ConnectionsSettingPanel = ({
   );
 
   const handleDisconnect = useCallback(
-    async (providerName: string) => {
+    async (providerName: string, displayName: string) => {
       setActionLoading(providerName);
       setError(null);
       try {
@@ -144,6 +144,14 @@ export const ConnectionsSettingPanel = ({
           provider: providerName,
         });
         await mutate();
+        // Show "Disconnected — Undo" toast. Undo re-opens the OAuth start
+        // URL via the same `handleConnect` flow used by the Connect button,
+        // since OAuth requires a fresh user-initiated popup; we cannot
+        // restore tokens locally.
+        notifyWithUndo({
+          message: `${displayName} disconnected`,
+          onUndo: () => handleConnect(providerName),
+        });
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Failed to disconnect provider.'
@@ -152,7 +160,7 @@ export const ConnectionsSettingPanel = ({
         setActionLoading(null);
       }
     },
-    [workspaceId, triggerDisconnect, mutate]
+    [workspaceId, triggerDisconnect, mutate, handleConnect]
   );
 
   const connectedProviders = useMemo(
@@ -299,7 +307,12 @@ export const ConnectionsSettingPanel = ({
                   {isConnected ? (
                     <Button
                       size="default"
-                      onClick={() => void handleDisconnect(provider.name)}
+                      onClick={() =>
+                        void handleDisconnect(
+                          provider.name,
+                          provider.displayName
+                        )
+                      }
                       loading={isActioning}
                       disabled={isActioning}
                     >

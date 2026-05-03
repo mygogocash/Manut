@@ -1,4 +1,5 @@
 import { Avatar, notify } from '@affine/component';
+import { notifyWithUndo } from '@affine/core/components/affine/undo-toast';
 import {
   type ExistedUserInfo,
   type UserListService,
@@ -123,10 +124,25 @@ class MemberManager {
 
   removeMember = (memberId: string, e?: MouseEvent): void => {
     e?.stopPropagation();
+    // Snapshot the previous selection so Undo can restore the exact prior
+    // state — preserving order matters because chip ordering is meaningful
+    // in this UI.
     if (this.ops.multiple) {
-      this.ops.onChange(this.ops.value.value.filter(id => id !== memberId));
+      const previous = [...this.ops.value.value];
+      this.ops.onChange(previous.filter(id => id !== memberId));
+      const onChange = this.ops.onChange;
+      notifyWithUndo({
+        message: 'Member removed',
+        onUndo: () => onChange(previous),
+      });
     } else {
+      const previous = this.ops.value.value;
+      const onChange = this.ops.onChange;
       this.ops.onChange(undefined);
+      notifyWithUndo({
+        message: 'Member removed',
+        onUndo: () => onChange(previous),
+      });
     }
   };
 

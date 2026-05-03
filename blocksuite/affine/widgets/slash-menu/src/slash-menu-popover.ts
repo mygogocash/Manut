@@ -14,8 +14,6 @@ import {
   getCurrentNativeRange,
   getPopperPosition,
   isControlledKeyboardEvent,
-  isFuzzyMatch,
-  substringMatchScore,
 } from '@blocksuite/affine-shared/utils';
 import { WithDisposable } from '@blocksuite/global/lit';
 import { ArrowDownSmallIcon } from '@blocksuite/icons/lit';
@@ -41,9 +39,11 @@ import type {
   SlashMenuSubMenu,
 } from './types.js';
 import {
+  fuzzyScoreItem,
   isActionItem,
   isSubMenuItem,
   parseGroup,
+  recordSlashMenuPick,
   slashItemClassName,
 } from './utils.js';
 const isTextInputKey = (e: KeyboardEvent) => {
@@ -91,6 +91,8 @@ export class SlashMenu extends WithDisposable(LitElement) {
       .waitForUpdate()
       .then(() => {
         item.action(this.context);
+        // Record the pick BEFORE telemetry/abort so we don't lose it on errors.
+        recordSlashMenuPick(item.name);
         this._telemetry?.track('SelectSlashMenuItem', {
           page: this._editorMode ?? undefined,
           segment:
@@ -140,23 +142,27 @@ export class SlashMenu extends WithDisposable(LitElement) {
       return;
     }
 
-    // Layer order traversal
+    // Layer order traversal — search top-level, then descend into sub-menus
+    // until we have at least one match (capped at depth 2).
     let depth = 0;
     let queue = this.items;
+    const scored: Array<{
+      item: SlashMenuActionItem | SlashMenuSubMenu;
+      score: number;
+    }> = [];
     while (queue.length !== 0) {
       // remove the sub menu item from the previous layer result
-      this._filteredItems = this._filteredItems.filter(
-        item => !isSubMenuItem(item)
-      );
+      const sansSubMenus = scored.filter(({ item }) => !isSubMenuItem(item));
+      scored.length = 0;
+      scored.push(...sansSubMenus);
 
-      this._filteredItems = this._filteredItems.concat(
-        queue.filter(({ name, searchAlias = [] }) =>
-          [name, ...searchAlias].some(str => isFuzzyMatch(str, searchStr))
-        )
-      );
+      for (const item of queue) {
+        const score = fuzzyScoreItem(item, searchStr);
+        if (score > 0) scored.push({ item, score });
+      }
 
       // We search first and second layer
-      if (this._filteredItems.length !== 0 && depth >= 1) break;
+      if (scored.length !== 0 && depth >= 1) break;
 
       queue = queue.flatMap(item => {
         if (isSubMenuItem(item)) {
@@ -169,12 +175,9 @@ export class SlashMenu extends WithDisposable(LitElement) {
       depth++;
     }
 
-    this._filteredItems.sort((a, b) => {
-      return -(
-        substringMatchScore(a.name, searchStr) -
-        substringMatchScore(b.name, searchStr)
-      );
-    });
+    // Higher score wins; stable on ties.
+    scored.sort((a, b) => b.score - a.score);
+    this._filteredItems = scored.map(({ item }) => item);
 
     this._queryState = this._filteredItems.length === 0 ? 'no_result' : 'on';
     this._innerSlashMenuContext.searching = true;

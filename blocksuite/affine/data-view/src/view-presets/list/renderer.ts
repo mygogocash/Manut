@@ -1,9 +1,11 @@
 import { createIcon } from '../../core/utils/uni-icon.js';
+import { listPreview } from '../previews.js';
 import { listViewModel } from './define.js';
 import { ListViewUILogic } from './pc/list-view-ui-logic.js';
 
 export const listViewMeta = listViewModel.createMeta({
   icon: createIcon('BulletedListIcon'),
+  preview: listPreview,
   // @ts-expect-error fixme: typesafe
   pcLogic: () => ListViewUILogic,
   // @ts-expect-error fixme: typesafe

@@ -221,8 +221,20 @@ const WorkspaceSyncInfo = ({
     >
       <div className={styles.workspaceInfoSlide}>
         <div className={styles.workspaceInfo} data-type="normal">
-          <div className={styles.workspaceName} data-testid="workspace-name">
-            {workspaceProfile.name}
+          <div
+            className={styles.workspaceNameRow}
+            data-dense={dense}
+            data-testid="workspace-name-row"
+          >
+            <div className={styles.workspaceName} data-testid="workspace-name">
+              {workspaceProfile.name}
+            </div>
+            {dense ? (
+              <ArrowDownSmallIcon
+                className={styles.workspaceNameChevron}
+                aria-hidden="true"
+              />
+            ) : null}
           </div>
           {!dense ? (
             <div className={styles.workspaceStatus}>

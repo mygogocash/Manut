@@ -373,6 +373,7 @@ export const popViewOptions = (
                     ? 'var(--affine-text-emphasis-color)'
                     : 'var(--affine-text-secondary-color)',
                 });
+                const previewTpl = meta.renderer.preview?.();
                 const buttonData: MenuButtonData = {
                   content: () => html`
                     <div
@@ -382,6 +383,29 @@ export const popViewOptions = (
                         ${renderUniLit(meta.renderer.icon)}
                       </div>
                       <div style="${textStyle}">${meta.model.defaultName}</div>
+                      ${previewTpl
+                        ? html`<affine-tooltip
+                            tip-position="top"
+                            .offsetY=${10}
+                            .tooltipStyle=${css`
+                              .affine-tooltip {
+                                padding: 6px;
+                                max-width: none;
+                              }
+                            `}
+                          >
+                            <div
+                              style="display:flex;flex-direction:column;align-items:center;gap:4px;"
+                            >
+                              ${previewTpl}
+                              <div
+                                style="font-size:12px;line-height:16px;color:var(--affine-white);opacity:0.9;"
+                              >
+                                ${meta.model.defaultName}
+                              </div>
+                            </div>
+                          </affine-tooltip>`
+                        : ''}
                     </div>
                   `,
                   select: () => {

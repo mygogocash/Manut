@@ -8,6 +8,7 @@ import { AppContainer } from '@affine/core/desktop/components/app-container';
 import { DocumentTitle } from '@affine/core/desktop/components/document-title';
 import { WorkspaceDialogs } from '@affine/core/desktop/dialogs';
 import { FirstRunExperience } from '@affine/core/modules/first-run';
+import { KeyboardShortcutsOverlay } from '@affine/core/modules/keyboard-shortcuts-overlay';
 import { PeekViewManagerModal } from '@affine/core/modules/peek-view';
 import { QuotaCheck } from '@affine/core/modules/quota';
 import { WorkbenchService } from '@affine/core/modules/workbench';
@@ -37,6 +38,7 @@ export const WorkspaceLayout = function WorkspaceLayout({
       {/* FIXME: wait for better ai, <WorkspaceAIOnboarding /> */}
       <AIIsland />
       <FirstRunExperience />
+      <KeyboardShortcutsOverlay />
       <uniReactRoot.Root />
     </SWRConfigProvider>
   );

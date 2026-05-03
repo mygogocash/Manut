@@ -1,4 +1,5 @@
 import type { UniComponent } from '@blocksuite/affine-shared/types';
+import type { TemplateResult } from 'lit';
 
 import type { SingleView } from '../view-manager/single-view.js';
 import type { ViewManager } from '../view-manager/view-manager.js';
@@ -51,6 +52,11 @@ type DataViewComponent = UniComponent<
 export interface DataViewRendererConfig {
   mobileView?: DataViewComponent;
   icon: UniComponent;
+  /**
+   * Optional small inline-SVG wireframe of the layout, used by the layout
+   * picker's hover tooltip (Notion-style preview thumbnail).
+   */
+  preview?: () => TemplateResult;
   pcLogic: (view: SingleView) => DataViewUILogicBaseConstructor;
   mobileLogic?: (view: SingleView) => DataViewUILogicBaseConstructor;
 }

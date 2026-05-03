@@ -104,6 +104,37 @@ export const workspaceName = style({
   display: 'inline-block',
 });
 
+export const workspaceNameRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 2,
+  width: '100%',
+  minWidth: 0,
+});
+
+export const workspaceNameChevron = style({
+  flexShrink: 0,
+  width: 16,
+  height: 16,
+  color: cssVarV2('icon/secondary'),
+  opacity: 0.5,
+  transition: 'opacity 0.13s ease, transform 0.13s ease',
+  selectors: {
+    [`.${container}:hover &`]: {
+      opacity: 1,
+    },
+  },
+});
+
+globalStyle(
+  `.${container}:hover .${workspaceNameRow}[data-dense="true"] .${workspaceName}`,
+  {
+    textDecoration: 'underline',
+    textUnderlineOffset: '2px',
+    textDecorationColor: cssVarV2('text/secondary'),
+  }
+);
+
 export const workspaceStatus = style({
   display: 'flex',
   gap: 2,

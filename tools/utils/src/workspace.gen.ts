@@ -54,6 +54,7 @@ export const PackageList = [
       'blocksuite/affine/model',
       'blocksuite/affine/rich-text',
       'blocksuite/affine/shared',
+      'blocksuite/affine/widgets/block-context-menu',
       'blocksuite/affine/widgets/drag-handle',
       'blocksuite/affine/widgets/edgeless-auto-connect',
       'blocksuite/affine/widgets/edgeless-dragging-area',
@@ -88,6 +89,17 @@ export const PackageList = [
       'blocksuite/affine/shared',
       'blocksuite/affine/widgets/slash-menu',
       'blocksuite/framework/global',
+      'blocksuite/framework/std',
+      'blocksuite/framework/store',
+    ],
+  },
+  {
+    location: 'blocksuite/affine/blocks/audio',
+    name: '@blocksuite/affine-block-audio',
+    workspaceDependencies: [
+      'blocksuite/affine/ext-loader',
+      'blocksuite/affine/model',
+      'blocksuite/affine/widgets/slash-menu',
       'blocksuite/framework/std',
       'blocksuite/framework/store',
     ],
@@ -829,6 +841,18 @@ export const PackageList = [
     ],
   },
   {
+    location: 'blocksuite/affine/widgets/block-context-menu',
+    name: '@blocksuite/affine-widget-block-context-menu',
+    workspaceDependencies: [
+      'blocksuite/affine/components',
+      'blocksuite/affine/ext-loader',
+      'blocksuite/affine/shared',
+      'blocksuite/framework/global',
+      'blocksuite/framework/std',
+      'blocksuite/framework/store',
+    ],
+  },
+  {
     location: 'blocksuite/affine/widgets/drag-handle',
     name: '@blocksuite/affine-widget-drag-handle',
     workspaceDependencies: [
@@ -1456,8 +1480,10 @@ export const PackageList = [
 export type PackageName =
   | '@blocksuite/affine'
   | '@blocksuite/affine-block-attachment'
+  | '@blocksuite/affine-block-audio'
   | '@blocksuite/affine-block-bookmark'
   | '@blocksuite/affine-block-callout'
+  | '@blocksuite/affine-block-chart'
   | '@blocksuite/affine-block-code'
   | '@blocksuite/affine-block-data-view'
   | '@blocksuite/affine-block-database'
@@ -1504,6 +1530,7 @@ export type PackageName =
   | '@blocksuite/affine-model'
   | '@blocksuite/affine-rich-text'
   | '@blocksuite/affine-shared'
+  | '@blocksuite/affine-widget-block-context-menu'
   | '@blocksuite/affine-widget-drag-handle'
   | '@blocksuite/affine-widget-edgeless-auto-connect'
   | '@blocksuite/affine-widget-edgeless-dragging-area'
