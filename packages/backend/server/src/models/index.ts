@@ -9,6 +9,7 @@ import { ModuleRef } from '@nestjs/core';
 import { ApplyType } from '../base';
 import { AccessTokenModel } from './access-token';
 import { BlobModel } from './blob';
+import { IntegrationConnectionModel } from './integration-connection';
 import { CalendarAccountModel } from './calendar-account';
 import { CalendarEventModel } from './calendar-event';
 import { CalendarEventInstanceModel } from './calendar-event-instance';
@@ -65,6 +66,7 @@ const MODELS = {
   blob: BlobModel,
   accessToken: AccessTokenModel,
   calendarAccount: CalendarAccountModel,
+  integrationConnection: IntegrationConnectionModel,
   calendarSubscription: CalendarSubscriptionModel,
   calendarEvent: CalendarEventModel,
   calendarEventInstance: CalendarEventInstanceModel,
@@ -146,6 +148,7 @@ export * from './user-feature';
 export * from './user-settings';
 export * from './verification-token';
 export * from './workspace';
+export * from './integration-connection';
 export * from './workspace-analytics';
 export * from './workspace-calendar';
 export * from './workspace-feature';
