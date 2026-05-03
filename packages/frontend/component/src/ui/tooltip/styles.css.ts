@@ -2,14 +2,16 @@ import { cssVar } from '@toeverything/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { keyframes, style } from '@vanilla-extract/css';
 
-const tooltipScaleIn = keyframes({
+import { animationToken } from '../../theme/animation';
+
+const tooltipFadeIn = keyframes({
   from: {
     opacity: 0,
-    transform: 'scale(0.85)',
+    transform: 'translateY(4px)',
   },
   to: {
     opacity: 1,
-    transform: 'scale(1)',
+    transform: 'translateY(0)',
   },
 });
 
@@ -23,7 +25,8 @@ export const tooltipContent = style({
   maxWidth: '280px',
   wordBreak: 'break-word',
   transformOrigin: 'var(--radix-tooltip-content-transform-origin)',
-  animation: `${tooltipScaleIn} 0.2s cubic-bezier(0.2, 1, 0.3, 1)`,
+  animation: `${tooltipFadeIn} ${animationToken.durationBase} ${animationToken.curveDefault}`,
+  willChange: 'transform, opacity',
 });
 
 export const withShortcut = style({

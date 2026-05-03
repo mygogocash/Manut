@@ -160,6 +160,79 @@ export class AIChatContent extends SignalWatcher(
       white-space: nowrap;
     }
 
+    /* Recent chats strip — last 5 sessions, horizontally scrollable.
+       Shown only on the empty state (no messages). Hidden on small
+       viewports per spec. Click jumps to that session. */
+    .ai-chat-recents {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 20px;
+      padding: 0 var(--h-padding);
+    }
+    .ai-chat-recents-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--affine-text-secondary-color);
+      font-weight: 500;
+      padding-left: 2px;
+    }
+    .ai-chat-recents-row {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: thin;
+      padding-bottom: 4px;
+    }
+    .ai-chat-recents-row::-webkit-scrollbar {
+      height: 4px;
+    }
+    .ai-chat-recents-row::-webkit-scrollbar-thumb {
+      background: var(--affine-border-color, rgba(0, 0, 0, 0.12));
+      border-radius: 2px;
+    }
+    .ai-chat-recent-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border: 1px solid var(--affine-border-color, rgba(0, 0, 0, 0.08));
+      border-radius: 999px;
+      background: transparent;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-size: 12px;
+      line-height: 18px;
+      color: var(--affine-text-primary-color);
+      max-width: 220px;
+      transition:
+        background 0.15s ease,
+        border-color 0.15s ease;
+    }
+    .ai-chat-recent-item:hover {
+      background: var(--affine-hover-color, rgba(0, 0, 0, 0.04));
+      border-color: var(--affine-border-color-hover, rgba(0, 0, 0, 0.16));
+    }
+    .ai-chat-recent-item-icon {
+      display: inline-flex;
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      color: var(--affine-icon-color);
+    }
+    .ai-chat-recent-item-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 180px;
+    }
+    @container chat-panel-split-view (width < 640px) {
+      .ai-chat-recents {
+        display: none;
+      }
+    }
+
     @container chat-panel-split-view (width < 540px) {
       .chat-panel-main {
         padding: 8px calc(12px - var(--h-padding)) 0
@@ -238,6 +311,14 @@ export class AIChatContent extends SignalWatcher(
   @property({ attribute: false })
   accessor onOpenDoc!: (docId: string, sessionId?: string) => void;
 
+  /**
+   * Optional click handler for the inline "recent chats" strip rendered
+   * below the composer on the empty state. When omitted, the strip is
+   * hidden — keeps this component decoupled from the workspace router.
+   */
+  @property({ attribute: false })
+  accessor onOpenSession: ((sessionId: string) => void) | undefined;
+
   @property({ attribute: false })
   accessor width: Signal<number | undefined> | undefined;
 
@@ -261,6 +342,19 @@ export class AIChatContent extends SignalWatcher(
 
   @state()
   private accessor previewPanelContent: TemplateResult<1> | null = null;
+
+  /**
+   * Last 5 recent sessions for the inline strip. Only populated when
+   * `onOpenSession` is provided (Superflow's dedicated /chat page) and
+   * the chat is currently empty. Plain field shape keeps this lit-friendly
+   * — Lit only re-renders on @state property writes, so we replace the
+   * array reference rather than mutate.
+   */
+  @state()
+  private accessor recentSessions: Array<{
+    sessionId: string;
+    title: string | null;
+  }> = [];
 
   private readonly chatMessagesRef: Ref<AIChatMessages> =
     createRef<AIChatMessages>();
@@ -374,6 +468,43 @@ export class AIChatContent extends SignalWatcher(
     this.isHistoryLoading = false;
   };
 
+  /**
+   * Load up to 5 recent sessions for the empty-state strip. Excludes the
+   * current session if present so we don't show a "jump to where you
+   * already are" item. Failures are non-fatal (just logged) — the strip
+   * silently disappears on error.
+   */
+  private readonly _loadRecentSessions = async () => {
+    if (!this.onOpenSession) return;
+    if (!AIProvider.session) return;
+    if (!this.workspaceId) return;
+    try {
+      const sessions = await AIProvider.session.getRecentSessions(
+        this.workspaceId,
+        6 // request 6 so we can drop the current one and still show 5
+      );
+      if (!sessions) return;
+      const currentId = this.session?.sessionId;
+      this.recentSessions = sessions
+        .filter(s => s.sessionId !== currentId)
+        .slice(0, 5)
+        .map(s => ({
+          sessionId: s.sessionId,
+          // Normalise: API field is `title`. May be null while backend
+          // hasn't generated one yet — fall back to a placeholder.
+          title: (s as { title?: string | null }).title ?? null,
+        }));
+    } catch (err) {
+      console.warn('[ai-chat-content] failed to load recent sessions', err);
+    }
+  };
+
+  private static _truncateTitle(t: string | null) {
+    if (!t || !t.trim()) return 'Untitled chat';
+    const trimmed = t.trim();
+    return trimmed.length > 24 ? trimmed.slice(0, 23).trimEnd() + '…' : trimmed;
+  }
+
   protected override firstUpdated(): void {}
 
   private _scrollListenersInitialized = false;
@@ -426,6 +557,7 @@ export class AIChatContent extends SignalWatcher(
     super.connectedCallback();
 
     this.initChatContent().catch(console.error);
+    this._loadRecentSessions().catch(console.error);
 
     if (this.aiDraftService) {
       this.aiDraftService
@@ -579,6 +711,46 @@ export class AIChatContent extends SignalWatcher(
                   >
                 </button>`
             )}
+          </div>`
+        : null}
+      ${this.messages.length === 0 &&
+      this.onOpenSession &&
+      this.recentSessions.length > 0
+        ? html`<div class="ai-chat-recents" data-testid="ai-chat-recents">
+            <div class="ai-chat-recents-title">Recent chats</div>
+            <div class="ai-chat-recents-row">
+              ${repeat(
+                this.recentSessions,
+                s => s.sessionId,
+                s =>
+                  html`<button
+                    class="ai-chat-recent-item"
+                    data-testid="ai-chat-recent-item"
+                    @click=${() => this.onOpenSession?.(s.sessionId)}
+                    title=${s.title ?? 'Untitled chat'}
+                  >
+                    <span class="ai-chat-recent-item-icon">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 14 14"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M2 4.5C2 3.39543 2.89543 2.5 4 2.5H10C11.1046 2.5 12 3.39543 12 4.5V8C12 9.10457 11.1046 10 10 10H6.5L4 12V10H4C2.89543 10 2 9.10457 2 8V4.5Z"
+                          stroke="currentColor"
+                          stroke-width="1.2"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </span>
+                    <span class="ai-chat-recent-item-text"
+                      >${AIChatContent._truncateTitle(s.title)}</span
+                    >
+                  </button>`
+              )}
+            </div>
           </div>`
         : null}`;
 

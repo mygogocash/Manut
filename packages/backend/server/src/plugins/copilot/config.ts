@@ -11,8 +11,11 @@ import {
   AnthropicVertexConfig,
 } from './providers/anthropic';
 import { CloudflareWorkersAIConfig } from './providers/cloudflare';
+import { DeepSeekVertexConfig } from './providers/deepseek';
 import type { FalConfig } from './providers/fal';
 import { GeminiGenerativeConfig, GeminiVertexConfig } from './providers/gemini';
+import { LlamaVertexConfig } from './providers/llama';
+import { MistralVertexConfig } from './providers/mistral';
 import { MorphConfig } from './providers/morph';
 import { OpenAIConfig } from './providers/openai';
 import { PerplexityConfig } from './providers/perplexity';
@@ -32,6 +35,9 @@ export type CopilotProviderConfigMap = {
   [CopilotProviderType.Anthropic]: AnthropicOfficialConfig;
   [CopilotProviderType.AnthropicVertex]: AnthropicVertexConfig;
   [CopilotProviderType.Morph]: MorphConfig;
+  [CopilotProviderType.LlamaVertex]: LlamaVertexConfig;
+  [CopilotProviderType.MistralVertex]: MistralVertexConfig;
+  [CopilotProviderType.DeepSeekVertex]: DeepSeekVertexConfig;
 };
 
 export type ProviderSpecificConfig =
@@ -189,6 +195,18 @@ const CopilotProviderProfileShape = z.discriminatedUnion('type', [
     type: z.literal(CopilotProviderType.Morph),
     config: MorphConfigShape,
   }),
+  CopilotProviderProfileBaseShape.extend({
+    type: z.literal(CopilotProviderType.LlamaVertex),
+    config: VertexProviderConfigShape,
+  }),
+  CopilotProviderProfileBaseShape.extend({
+    type: z.literal(CopilotProviderType.MistralVertex),
+    config: VertexProviderConfigShape,
+  }),
+  CopilotProviderProfileBaseShape.extend({
+    type: z.literal(CopilotProviderType.DeepSeekVertex),
+    config: VertexProviderConfigShape,
+  }),
 ]);
 
 const CopilotProviderDefaultsShape = z.object({
@@ -225,6 +243,9 @@ declare global {
         anthropic: ConfigItem<AnthropicOfficialConfig>;
         anthropicVertex: ConfigItem<AnthropicVertexConfig>;
         morph: ConfigItem<MorphConfig>;
+        llamaVertex: ConfigItem<LlamaVertexConfig>;
+        mistralVertex: ConfigItem<MistralVertexConfig>;
+        deepseekVertex: ConfigItem<DeepSeekVertexConfig>;
       };
     };
   }
@@ -316,6 +337,21 @@ defineModuleConfig('copilot', {
   'providers.morph': {
     desc: 'The config for the morph provider.',
     default: {},
+  },
+  'providers.llamaVertex': {
+    desc: 'The config for the Llama provider in Google Vertex AI Model Garden (publisher: meta).',
+    default: { location: 'us-central1' },
+    schema: VertexSchema,
+  },
+  'providers.mistralVertex': {
+    desc: 'The config for the Mistral provider in Google Vertex AI Model Garden (publisher: mistralai).',
+    default: { location: 'us-central1' },
+    schema: VertexSchema,
+  },
+  'providers.deepseekVertex': {
+    desc: 'The config for the DeepSeek provider in Google Vertex AI Model Garden (publisher: deepseek-ai).',
+    default: { location: 'us-central1' },
+    schema: VertexSchema,
   },
   unsplash: {
     desc: 'The config for the unsplash key.',

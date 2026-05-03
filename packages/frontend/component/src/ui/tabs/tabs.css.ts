@@ -2,6 +2,8 @@ import { cssVar } from '@toeverything/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { style } from '@vanilla-extract/css';
 
+import { animationToken } from '../../theme/animation';
+
 export const tabsRoot = style({
   display: 'flex',
   flexDirection: 'column',
@@ -32,6 +34,7 @@ export const tabsTrigger = style({
   fontSize: cssVar('fontSm'),
   color: cssVarV2('text/secondary'),
   borderBottom: '2px solid transparent',
+  transition: `color ${animationToken.durationBase} ${animationToken.curveDefault}, border-color ${animationToken.durationBase} ${animationToken.curveDefault}`,
   selectors: {
     '&[data-state="active"]': {
       color: cssVarV2('text/primary'),

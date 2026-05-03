@@ -1,0 +1,27 @@
+/**
+ * Superflow animation tokens.
+ *
+ * Calibrated for a calm, fast, premium feel (Notion-like). Ranges sit between
+ * 100ms (instant feedback) and 240ms (panel slides). Default curve is
+ * ease-out-expo for entrances; an ease-in counterpart is provided for exits.
+ *
+ * GPU-friendly properties only: animate `transform` and `opacity`.
+ *
+ * Honour `prefers-reduced-motion: reduce` by collapsing all durations to 0ms.
+ */
+:root {
+  --affine-anim-duration-fast: 100ms;
+  --affine-anim-duration-base: 180ms;
+  --affine-anim-duration-slow: 240ms;
+  --affine-anim-curve-default: cubic-bezier(0.16, 1, 0.3, 1);
+  --affine-anim-curve-in: cubic-bezier(0.4, 0, 0.6, 1);
+  --affine-anim-curve-out: cubic-bezier(0, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --affine-anim-duration-fast: 0ms;
+    --affine-anim-duration-base: 0ms;
+    --affine-anim-duration-slow: 0ms;
+  }
+}

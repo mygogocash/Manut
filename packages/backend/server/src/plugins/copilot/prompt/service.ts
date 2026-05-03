@@ -293,6 +293,37 @@ export class PromptService implements OnApplicationBootstrap {
     for (const prompt of prompts) {
       this.inMemoryPrompts.set(prompt.name, this.clonePrompt(prompt));
     }
+    this.injectAutoPrompt();
+  }
+
+  /**
+   * Register the `auto` prompt in-memory. The session's auto-router
+   * (see `auto-router.ts`) re-routes the model on every chat-stream
+   * request, so the default `model` here is just a placeholder; the
+   * `optionalModels` list is intentionally generous so the picker can
+   * surface any model the auto-router might choose.
+   *
+   * Kept out of `prompts.ts` to avoid editing the static prompt catalogue.
+   */
+  private injectAutoPrompt() {
+    if (this.inMemoryPrompts.has('auto')) return;
+    const baseChat = this.inMemoryPrompts.get('Chat With AFFiNE AI');
+    if (!baseChat) return;
+    const autoPrompt = this.clonePrompt(baseChat);
+    autoPrompt.name = 'auto';
+    autoPrompt.optionalModels = [
+      ...(baseChat.optionalModels ?? []),
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'claude-sonnet-4-5@20250929',
+      'gpt-5-mini',
+      'llama-3.1-70b-instruct-maas',
+      'llama-3.1-405b-instruct-maas',
+      'mistral-large-2411',
+      'codestral-2501',
+      'deepseek-r1-0528-maas',
+    ].filter((id, idx, arr) => arr.indexOf(id) === idx);
+    this.inMemoryPrompts.set('auto', autoPrompt);
   }
 
   private ensureInMemoryPrompts() {

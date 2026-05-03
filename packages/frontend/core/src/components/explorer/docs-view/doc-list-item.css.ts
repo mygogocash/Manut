@@ -1,3 +1,8 @@
+// Animation tokens are referenced as raw CSS variables (not via the
+// `animationToken` TS export) so this `.css.ts` file evaluates inside
+// vanilla-extract's Node VM without dragging in the `@affine/component`
+// package's DOM-touching code (which references HTMLElement at module
+// level and would crash the build-time eval).
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { style } from '@vanilla-extract/css';
 
@@ -32,6 +37,7 @@ export const listViewRoot = style({
   overflow: 'hidden',
   containerName: 'list-view-root',
   containerType: 'size',
+  transition: `background-color var(--affine-anim-duration-base) var(--affine-anim-curve-default)`,
   selectors: {
     '&:hover': {
       backgroundColor: cssVarV2.layer.background.hoverOverlay,
@@ -51,6 +57,7 @@ export const listDragHandle = style([
     top: '50%',
     transform: 'translateY(-50%) translateX(-100%)',
     opacity: 0,
+    transition: `opacity var(--affine-anim-duration-base) var(--affine-anim-curve-default)`,
     selectors: {
       [`${listViewRoot}:hover &`]: {
         opacity: 1,
@@ -72,7 +79,7 @@ export const listSelect = style({
   overflow: 'hidden',
   alignItems: 'center',
   justifyContent: 'end',
-  transition: 'width 0.25s ease, margin-left 0.25s ease',
+  transition: `width var(--affine-anim-duration-slow) var(--affine-anim-curve-default), margin-left var(--affine-anim-duration-slow) var(--affine-anim-curve-default)`,
   // when select mode is on, the whole item can be clicked,
   // the selection will be handled by the parent, the checkbox here just for the visual effect
   pointerEvents: 'none',
@@ -194,7 +201,7 @@ export const cardViewRoot = style({
   // TODO: use variable
   boxShadow: '0px 0px 0px 1px var(--ring-color), 0px 0px 3px rgba(0,0,0,.05)',
   overflow: 'hidden',
-  transition: 'box-shadow 0.23s ease, border-color 0.23s ease',
+  transition: `box-shadow var(--affine-anim-duration-slow) var(--affine-anim-curve-default), border-color var(--affine-anim-duration-slow) var(--affine-anim-curve-default)`,
   selectors: {
     [`${root}[data-selected="true"] &`]: {
       vars: {
@@ -269,6 +276,7 @@ export const cardDragHandle = style([
     top: 0,
     transform: 'translateX(-100%)',
     opacity: 0,
+    transition: `opacity var(--affine-anim-duration-base) var(--affine-anim-curve-default)`,
     selectors: {
       [`${cardViewRoot}:hover &`]: {
         opacity: 1,

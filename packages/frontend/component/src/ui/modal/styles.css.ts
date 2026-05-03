@@ -8,6 +8,7 @@ import {
   style,
 } from '@vanilla-extract/css';
 
+import { animationToken } from '../../theme/animation';
 import { vtScopeSelector } from '../../utils/view-transition';
 export const widthVar = createVar('widthVar');
 export const heightVar = createVar('heightVar');
@@ -26,7 +27,7 @@ const overlayShow = keyframes({
 const contentShowFadeScaleTop = keyframes({
   from: {
     opacity: 0,
-    transform: 'translateY(-2%) scale(0.96)',
+    transform: 'translateY(8px) scale(0.98)',
   },
   to: {
     opacity: 1,
@@ -36,7 +37,7 @@ const contentShowFadeScaleTop = keyframes({
 const contentHideFadeScaleTop = keyframes({
   to: {
     opacity: 0,
-    transform: 'translateY(-2%) scale(0.96)',
+    transform: 'translateY(8px) scale(0.98)',
   },
   from: {
     opacity: 1,
@@ -73,7 +74,7 @@ export const modalOverlay = style({
   inset: 0,
   backgroundColor: cssVar('backgroundModalColor'),
   zIndex: cssVar('zIndexModal'),
-  animation: `${overlayShow} 150ms forwards`,
+  animation: `${overlayShow} ${animationToken.durationSlow} ${animationToken.curveDefault} forwards`,
   selectors: {
     '&.anim-none': {
       animation: 'none',
@@ -103,21 +104,21 @@ export const modalContentWrapper = style({
       animation: 'none',
     },
     '&.anim-fadeScaleTop': {
-      animation: `${contentShowFadeScaleTop} 150ms cubic-bezier(0.42, 0, 0.58, 1)`,
+      animation: `${contentShowFadeScaleTop} ${animationToken.durationSlow} ${animationToken.curveDefault}`,
       animationFillMode: 'forwards',
     },
     [`${vtScopeSelector(modalVTScope)} &.anim-fadeScaleTop.vt-active`]: {
       viewTransitionName: modalContentViewTransitionNameFadeScaleTop,
     },
     '&.anim-slideBottom': {
-      animation: `${contentShowSlideBottom} 0.23s ease`,
+      animation: `${contentShowSlideBottom} ${animationToken.durationSlow} ${animationToken.curveDefault}`,
       animationFillMode: 'forwards',
     },
     [`${vtScopeSelector(modalVTScope)} &.anim-slideBottom.vt-active`]: {
       viewTransitionName: modalContentViewTransitionNameSlideBottom,
     },
     '&.anim-slideRight': {
-      animation: `${contentShowSlideRight} 0.23s ease`,
+      animation: `${contentShowSlideRight} ${animationToken.durationSlow} ${animationToken.curveDefault}`,
       animationFillMode: 'forwards',
     },
     [`${vtScopeSelector(modalVTScope)} &.anim-slideRight.vt-active`]: {
@@ -128,21 +129,21 @@ export const modalContentWrapper = style({
 globalStyle(
   `::view-transition-old(${modalContentViewTransitionNameFadeScaleTop})`,
   {
-    animation: `${contentHideFadeScaleTop} 150ms cubic-bezier(0.42, 0, 0.58, 1)`,
+    animation: `${contentHideFadeScaleTop} ${animationToken.durationBase} ${animationToken.curveIn}`,
     animationFillMode: 'forwards',
   }
 );
 globalStyle(
   `::view-transition-old(${modalContentViewTransitionNameSlideBottom})`,
   {
-    animation: `${contentHideSlideBottom} 0.23s ease`,
+    animation: `${contentHideSlideBottom} ${animationToken.durationBase} ${animationToken.curveIn}`,
     animationFillMode: 'forwards',
   }
 );
 globalStyle(
   `::view-transition-old(${modalContentViewTransitionNameSlideRight})`,
   {
-    animation: `${contentHideSlideRight} 0.23s ease`,
+    animation: `${contentHideSlideRight} ${animationToken.durationBase} ${animationToken.curveIn}`,
     animationFillMode: 'forwards',
   }
 );

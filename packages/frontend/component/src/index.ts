@@ -1,6 +1,7 @@
 export * from './hooks';
 export * from './lit-react';
 export * from './styles';
+export { animationToken, type AnimationTokenKey } from './theme/animation';
 export * from './ui/audio-player';
 export * from './ui/avatar';
 export * from './ui/button';

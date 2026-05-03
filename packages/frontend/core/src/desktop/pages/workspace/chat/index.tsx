@@ -309,6 +309,13 @@ export const Component = () => {
 
     content.createSession = createSession;
     content.onOpenDoc = onOpenDoc;
+    // Wire the inline "recent chats" strip on the empty state to the
+    // existing onOpenSession handler. AIChatContent hides the strip when
+    // this prop is undefined, so passing it is what opts the dedicated
+    // /chat page in (the side-panel chat omits it).
+    content.onOpenSession = (sessionId: string) => {
+      onOpenSession(sessionId).catch(console.error);
+    };
 
     if (!chatContent) {
       // initial values that won't change
@@ -332,6 +339,7 @@ export const Component = () => {
     notificationService,
     specs,
     onOpenDoc,
+    onOpenSession,
     handleAISubscribe,
   ]);
 

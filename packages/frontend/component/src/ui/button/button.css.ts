@@ -2,6 +2,8 @@ import { cssVar } from '@toeverything/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { createVar, globalStyle, style } from '@vanilla-extract/css';
 
+import { animationToken } from '../../theme/animation';
+
 // Using variables can override externally, without considering the priority of selectors.
 // size vars
 export const hVar = createVar('height');
@@ -38,7 +40,15 @@ export const button = style({
   userSelect: 'none',
   outline: 0,
   borderRadius: 8,
-  transition: 'all .3s',
+  // Animate only GPU-friendly properties for hover/press feedback.
+  transition: [
+    `background-color ${animationToken.durationBase} ${animationToken.curveDefault}`,
+    `border-color ${animationToken.durationBase} ${animationToken.curveDefault}`,
+    `color ${animationToken.durationBase} ${animationToken.curveDefault}`,
+    `box-shadow ${animationToken.durationBase} ${animationToken.curveDefault}`,
+    `transform ${animationToken.durationFast} ${animationToken.curveDefault}`,
+    `opacity ${animationToken.durationBase} ${animationToken.curveDefault}`,
+  ].join(', '),
   ['WebkitAppRegion' as string]: 'no-drag',
 
   // hover layer
@@ -47,7 +57,7 @@ export const button = style({
     position: 'absolute',
     width: '100%',
     height: '100%',
-    transition: 'inherit',
+    transition: `opacity ${animationToken.durationBase} ${animationToken.curveDefault}`,
     borderRadius: 'inherit',
     opacity: 0,
     left: '50%',
@@ -83,6 +93,10 @@ export const button = style({
       display: 'none',
     },
     '&:hover:before': { opacity: 1 },
+    // Subtle press feedback: scale down briefly, then snap back.
+    '&:not([data-disabled]):not([data-no-press]):active': {
+      transform: 'scale(0.97)',
+    },
     '&[data-block]': { display: 'flex' },
 
     // size
@@ -182,6 +196,7 @@ export const button = style({
       left: 0,
       borderRadius: 'inherit',
       boxShadow: `0 0 0 1px ${cssVarV2('layer/insideBorder/primaryBorder')}`,
+      transition: `box-shadow ${animationToken.durationBase} ${animationToken.curveDefault}`,
     },
     '&[data-mobile=true]:focus-visible::after': {
       content: 'none',

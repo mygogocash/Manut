@@ -28,6 +28,7 @@ import {
 } from '../../models';
 import { SubscriptionService } from '../payment/service';
 import { SubscriptionPlan, SubscriptionStatus } from '../payment/types';
+import { isAutoModel, isAutoPromptName, routeAutoModel } from './auto-router';
 import { ChatMessageCache } from './message';
 import { ChatPrompt } from './prompt/chat-prompt';
 import { PromptService } from './prompt/service';
@@ -63,6 +64,7 @@ declare global {
 }
 
 export class ChatSession implements AsyncDisposable {
+  private readonly logger = new Logger(ChatSession.name);
   private stashMessageCount = 0;
   constructor(
     private readonly moduleRef: ModuleRef,
@@ -105,6 +107,17 @@ export class ChatSession implements AsyncDisposable {
     return this.state.messages.findLast(m => m.role === 'user');
   }
 
+  /**
+   * Auto-route decision recorded the last time `resolveModel` was invoked
+   * with an `auto` sentinel. Frontends can surface the explanation
+   * (e.g. "Auto picked Gemini Flash because: short text, no images") via
+   * the chat-history payload.
+   */
+  private _lastAutoRouteExplanation: string | null = null;
+  get lastAutoRouteExplanation() {
+    return this._lastAutoRouteExplanation;
+  }
+
   async resolveModel(
     hasPayment: boolean,
     requestedModelId?: string
@@ -134,6 +147,22 @@ export class ChatSession implements AsyncDisposable {
       return defaultModel;
     };
     const isPro = (m?: string) => inModelList(this.proModels, m);
+
+    // Auto-routing path: caller can pass `model: 'auto'` (or use a prompt
+    // named `auto`) and the server picks the best target based on a
+    // cheap classifier over the current message buffer. The decision is
+    // logged so it can be surfaced in the UI.
+    if (
+      isAutoModel(requestedModelId) ||
+      isAutoPromptName(this.state.prompt.name)
+    ) {
+      const decision = routeAutoModel(this.state.messages);
+      this._lastAutoRouteExplanation = decision.explanation;
+      this.logger.log(
+        `[session ${this.config.sessionId}] auto-router → ${decision.modelId} (${decision.reason})`
+      );
+      return decision.modelId;
+    }
 
     // try resolve payment subscription service lazily
     let paymentEnabled = hasPayment;
@@ -519,6 +548,12 @@ export class ChatSessionService {
 
     // validate prompt compatibility with session type
     this.models.copilotSession.checkSessionPrompt(options, prompt);
+
+    if (isAutoPromptName(options.promptName)) {
+      this.logger.log(
+        `[session ${sessionId}] auto prompt requested; auto-router will decide model per request.`
+      );
+    }
 
     return await this.models.copilotSession.createWithPrompt(
       {

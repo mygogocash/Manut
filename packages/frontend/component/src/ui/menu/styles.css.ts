@@ -1,10 +1,23 @@
 import { cssVar } from '@toeverything/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
-import { createVar, style } from '@vanilla-extract/css';
+import { createVar, keyframes, style } from '@vanilla-extract/css';
+
+import { animationToken } from '../../theme/animation';
 
 export const iconColor = createVar('iconColor');
 export const labelColor = createVar('labelColor');
 export const bgColor = createVar('bgColor');
+
+const menuShow = keyframes({
+  from: {
+    opacity: 0,
+    transform: 'translateY(-4px)',
+  },
+  to: {
+    opacity: 1,
+    transform: 'translateY(0)',
+  },
+});
 
 export const menuContent = style({
   minWidth: '180px',
@@ -19,6 +32,9 @@ export const menuContent = style({
   display: 'flex',
   flexDirection: 'column',
   gap: 4,
+  transformOrigin: 'var(--radix-popper-transform-origin, top center)',
+  animation: `${menuShow} ${animationToken.durationBase} ${animationToken.curveDefault}`,
+  willChange: 'transform, opacity',
   selectors: {
     '&.mobile': {
       padding: 0,
@@ -47,6 +63,7 @@ export const menuItem = style({
   outline: 'none',
   cursor: 'pointer',
   boxSizing: 'border-box',
+  transition: `background-color ${animationToken.durationBase} ${animationToken.curveDefault}, color ${animationToken.durationBase} ${animationToken.curveDefault}`,
   selectors: {
     '&.block': {
       maxWidth: '100%',

@@ -78,6 +78,33 @@ const DEFAULT_MIDDLEWARE_BY_TYPE: Record<
     },
   },
   [CopilotProviderType.FAL]: {},
+  [CopilotProviderType.LlamaVertex]: {
+    rust: {
+      request: ['normalize_messages'],
+      stream: ['stream_event_normalize', 'citation_indexing'],
+    },
+    node: {
+      text: ['citation_footnote', 'callout'],
+    },
+  },
+  [CopilotProviderType.MistralVertex]: {
+    rust: {
+      request: ['normalize_messages'],
+      stream: ['stream_event_normalize', 'citation_indexing'],
+    },
+    node: {
+      text: ['citation_footnote', 'callout'],
+    },
+  },
+  [CopilotProviderType.DeepSeekVertex]: {
+    rust: {
+      request: ['normalize_messages'],
+      stream: ['stream_event_normalize', 'citation_indexing'],
+    },
+    node: {
+      text: ['citation_footnote', 'callout'],
+    },
+  },
 };
 
 function unique<T>(items: T[]) {

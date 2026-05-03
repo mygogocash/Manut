@@ -1,6 +1,8 @@
 import { cssVar } from '@toeverything/theme';
 import { createVar, style } from '@vanilla-extract/css';
 
+import { animationToken } from '../../theme/animation';
+
 export const switchHeightVar = createVar('switchSize');
 export const switchPaddingVar = createVar('switchPadding');
 const switchWidthVar = createVar('switchWidth');
@@ -28,10 +30,10 @@ export const switchStyle = style({
   width: switchWidthVar,
   background: cssVar('toggleDisableBackgroundColor'),
   borderRadius: '37px',
-  transition: '200ms all',
+  transition: `background-color ${animationToken.durationBase} ${animationToken.curveDefault}`,
   selectors: {
     '&:before': {
-      transition: 'all .2s cubic-bezier(0.27, 0.2, 0.25, 1.51)',
+      transition: `transform ${animationToken.durationBase} ${animationToken.curveDefault}, border-color ${animationToken.durationBase} ${animationToken.curveDefault}`,
       content: '""',
       position: 'absolute',
       width: dotSizeVar,
@@ -40,6 +42,7 @@ export const switchStyle = style({
       top: '50%',
       background: cssVar('toggleCircleBackgroundColor'),
       transform: `translate(${switchPaddingVar}, -50%)`,
+      willChange: 'transform',
     },
   },
 });

@@ -1,3 +1,8 @@
+// Animation tokens are referenced as raw CSS variables (not via the
+// `animationToken` TS export) so this `.css.ts` file evaluates inside
+// vanilla-extract's Node VM without dragging in the `@affine/component`
+// package's DOM-touching code (which references HTMLElement at module
+// level and would crash the build-time eval).
 import { cssVar } from '@toeverything/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { style } from '@vanilla-extract/css';
@@ -18,29 +23,13 @@ export const root = style({
   fontSize: cssVar('fontSm'),
   marginTop: '4px',
   position: 'relative',
-  // 3px left bar indicator for the active route; transparent until activated.
-  '::before': {
-    content: '""',
-    position: 'absolute',
-    left: '-8px',
-    top: '4px',
-    bottom: '4px',
-    width: '3px',
-    borderRadius: '0 2px 2px 0',
-    background: 'transparent',
-    transition: 'background 120ms ease',
-  },
+  transition: `background-color var(--affine-anim-duration-base) var(--affine-anim-curve-default)`,
   selectors: {
     '&:hover': {
       background: cssVarV2.layer.background.hoverOverlay,
     },
     '&[data-active="true"]': {
       background: cssVarV2.layer.background.hoverOverlay,
-      color: cssVarV2('text/primary'),
-      fontWeight: 500,
-    },
-    '&[data-active="true"]::before': {
-      background: cssVarV2('icon/activated'),
     },
     '&[data-disabled="true"]': {
       cursor: 'default',
@@ -79,6 +68,7 @@ export const postfix = style({
   position: 'absolute',
   opacity: 0,
   pointerEvents: 'none',
+  transition: `opacity var(--affine-anim-duration-base) var(--affine-anim-curve-default)`,
   selectors: {
     [`${root}:hover &, &[data-postfix-display="always"]`]: {
       justifySelf: 'flex-end',
@@ -99,7 +89,7 @@ export const collapsedIconContainer = style({
   alignItems: 'center',
   justifyContent: 'center',
   borderRadius: '2px',
-  transition: 'transform 0.2s',
+  transition: `transform var(--affine-anim-duration-base) var(--affine-anim-curve-default), background-color var(--affine-anim-duration-base) var(--affine-anim-curve-default)`,
   color: 'inherit',
   selectors: {
     '&[data-collapsed="true"]': {
@@ -127,7 +117,7 @@ export const iconsContainer = style({
   },
 });
 export const collapsedIcon = style({
-  transition: 'transform 0.2s ease-in-out',
+  transition: `transform var(--affine-anim-duration-base) var(--affine-anim-curve-default)`,
   selectors: {
     '&[data-collapsed="true"]': {
       transform: 'rotate(-90deg)',

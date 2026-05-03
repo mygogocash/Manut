@@ -46,6 +46,11 @@ import { UserType } from '../../core/user';
 import type { ListSessionOptions, UpdateChatSession } from '../../models';
 import { processImage } from '../../native';
 import { CopilotCronJobs } from './cron';
+import {
+  getModelMetadata,
+  type ModelFamily,
+  type ModelTier,
+} from './model-metadata';
 import { PromptService } from './prompt/service';
 import { CopilotProviderFactory } from './providers/factory';
 import type { PromptMessage, StreamObject } from './providers/types';
@@ -166,6 +171,30 @@ enum ChatHistoryOrder {
 }
 
 registerEnumType(ChatHistoryOrder, { name: 'ChatHistoryOrder' });
+
+enum CopilotModelFamily {
+  gemini = 'gemini',
+  claude = 'claude',
+  gpt = 'gpt',
+  llama = 'llama',
+  mistral = 'mistral',
+  deepseek = 'deepseek',
+  perplexity = 'perplexity',
+  cloudflare = 'cloudflare',
+  morph = 'morph',
+  fal = 'fal',
+  other = 'other',
+}
+
+registerEnumType(CopilotModelFamily, { name: 'CopilotModelFamily' });
+
+enum CopilotModelTier {
+  fast = 'fast',
+  balanced = 'balanced',
+  max = 'max',
+}
+
+registerEnumType(CopilotModelTier, { name: 'CopilotModelTier' });
 
 @InputType()
 class QueryChatSessionsInput implements Partial<ListSessionOptions> {
@@ -325,6 +354,30 @@ class CopilotModelType {
 
   @Field(() => String)
   name!: string;
+
+  @Field(() => String, {
+    description:
+      'Human-readable display name. Falls back to `name` when no friendlier label is available.',
+  })
+  displayName!: string;
+
+  @Field(() => CopilotModelFamily, {
+    description:
+      'Model family (gemini / claude / gpt / llama / mistral / deepseek / ...) for picker badges.',
+  })
+  family!: ModelFamily;
+
+  @Field(() => CopilotModelTier, {
+    description:
+      'Coarse tier — fast / balanced / max — for the picker to group by speed-vs-quality.',
+  })
+  tier!: ModelTier;
+
+  @Field(() => Number, {
+    description:
+      'USD per 1k input tokens, list-price approximation. Used by the auto-router and surfaced in the UI for cost-awareness.',
+  })
+  pricePerKToken!: number;
 }
 
 @ObjectType()
@@ -436,10 +489,22 @@ export class CopilotResolver {
     if (!prompt) {
       throw new NotFoundException('Prompt not found');
     }
-    const convertModels = (ids: string[]) => {
+    const convertModels = (ids: string[]): CopilotModelType[] => {
       return ids
-        .map(id => ({ id, name: this.modelNames.get(id) }))
-        .filter(m => !!m.name) as CopilotModelType[];
+        .map(id => {
+          const name = this.modelNames.get(id);
+          if (!name) return null;
+          const meta = getModelMetadata(id);
+          return {
+            id,
+            name,
+            displayName: name,
+            family: meta.family,
+            tier: meta.tier,
+            pricePerKToken: meta.pricePerKToken,
+          } satisfies CopilotModelType;
+        })
+        .filter((m): m is CopilotModelType => !!m);
     };
     const proModels = prompt.config?.proModels || [];
     const missing = new Set(
