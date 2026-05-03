@@ -1,4 +1,5 @@
 import { calendarEffects } from './calendar/effect.js';
+import { chartEffects } from './chart/effect.js';
 import { feedEffects } from './feed/effect.js';
 import { formEffects } from './form/effect.js';
 import { galleryEffects } from './gallery/effect.js';
@@ -11,6 +12,7 @@ export function viewPresetsEffects() {
   kanbanEffects();
   tableEffects();
   calendarEffects();
+  chartEffects();
   galleryEffects();
   feedEffects();
   listEffects();
