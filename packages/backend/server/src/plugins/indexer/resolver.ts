@@ -184,18 +184,9 @@ export class IndexerResolver {
     // Collect unique docIds to check verification status.
     const docIds = [...new Set(nodes.map(n => n._source.docId))];
 
-    const now = new Date();
-    const verifiedDocs = await this.models.doc.db.workspaceDoc.findMany({
-      where: {
-        workspaceId,
-        docId: { in: docIds },
-        verifiedAt: { not: null },
-        OR: [
-          { verificationExpiresAt: null },
-          { verificationExpiresAt: { gt: now } },
-        ],
-      },
-      select: { docId: true },
+    const verifiedDocs = await this.models.doc.findActiveVerified({
+      workspaceId,
+      docIds,
     });
 
     if (verifiedDocs.length === 0) return nodes;

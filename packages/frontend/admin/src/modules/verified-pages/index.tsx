@@ -49,12 +49,14 @@ function VerifiedPagesContent() {
 
   const handleUnverifySelected = useCallback(async () => {
     try {
-      await unverifySelected();
-      toast.success(`Unverified ${selected.size} doc(s).`);
+      // Use the returned count — `selected.size` is stale after the call
+      // because `unverifySelected` clears the selection before resolving.
+      const count = await unverifySelected();
+      toast.success(`Unverified ${count} doc(s).`);
     } catch {
       toast.error('Failed to unverify some docs. Please try again.');
     }
-  }, [unverifySelected, selected.size]);
+  }, [unverifySelected]);
 
   return (
     <div className="h-dvh flex-1 flex-col flex">

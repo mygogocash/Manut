@@ -107,13 +107,18 @@ export class AudioAutoTranscriptionService {
 
       if (!blobMeta.mime?.startsWith(AUDIO_MIME_PREFIX)) return;
 
-      // Find any workspace member to act as the "requester" for the job.
-      // We prefer the user who last updated the workspace.
-      const workspace = await this.models.workspace.get(workspaceId);
-      if (!workspace) return;
-
-      const userId = workspace.ownerId;
-      if (!userId) return;
+      // The workspace owner acts as the "requester" for the auto-transcription
+      // job. The Workspace row has no owner column; ownership lives in the
+      // WorkspaceUserRole table and is resolved via WorkspaceUserModel.
+      // getOwner returns the public user shape ({id, name, email, avatarUrl}).
+      let userId: string;
+      try {
+        const owner = await this.models.workspaceUser.getOwner(workspaceId);
+        userId = owner.id;
+      } catch {
+        // Workspace has no owner (orphaned or just-deleted). Nothing to do.
+        return;
+      }
 
       // Check whether a job already exists for this blob to avoid duplicates.
       const existing = await this.models.copilotJob.has(

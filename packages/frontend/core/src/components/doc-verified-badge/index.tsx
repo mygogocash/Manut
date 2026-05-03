@@ -1,18 +1,20 @@
+import { DoneIcon } from '@blocksuite/icons/rc';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { style } from '@vanilla-extract/css';
-import { DoneIcon } from '@blocksuite/icons/rc';
 import clsx from 'clsx';
 import type { HTMLAttributes } from 'react';
 
+// Use design tokens so the badge respects theme switches (light / dark).
+// `button/primary` matches the rest of the workspace's primary-action surface.
 const verifiedBadgeStyle = style({
   display: 'inline-flex',
   alignItems: 'center',
   gap: 4,
-  color: '#1565c0',
+  color: cssVarV2('button/primary'),
   fontSize: 12,
   fontWeight: 500,
   lineHeight: '20px',
-  backgroundColor: 'rgba(21, 101, 192, 0.08)',
+  backgroundColor: cssVarV2('layer/background/primary'),
   borderRadius: 4,
   padding: '2px 8px',
   flexShrink: 0,

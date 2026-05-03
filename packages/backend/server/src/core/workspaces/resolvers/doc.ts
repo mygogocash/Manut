@@ -96,13 +96,6 @@ class DocType {
 
   @Field(() => Date, { nullable: true })
   verificationExpiresAt?: Date | null;
-
-  @Field(() => Boolean)
-  get isVerified(): boolean {
-    if (!this.verifiedAt) return false;
-    if (!this.verificationExpiresAt) return true;
-    return this.verificationExpiresAt > new Date();
-  }
 }
 
 @InputType()
@@ -300,6 +293,22 @@ class PaginatedDocMemberLastAccess {
 
   @Field(() => Int, { nullable: true })
   totalCount?: number;
+}
+
+/**
+ * Resolves the computed `isVerified` field on DocType. Lives as a ResolveField
+ * (rather than a class getter on DocType) so callers can return plain object
+ * literals from the existing resolver methods without TypeScript demanding the
+ * computed property at construction sites.
+ */
+@Resolver(() => DocType)
+export class DocTypeFieldResolver {
+  @ResolveField(() => Boolean)
+  isVerified(@Parent() doc: DocType): boolean {
+    if (!doc.verifiedAt) return false;
+    if (!doc.verificationExpiresAt) return true;
+    return doc.verificationExpiresAt > new Date();
+  }
 }
 
 @Resolver(() => WorkspaceType)

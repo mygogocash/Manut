@@ -12,12 +12,19 @@ export interface VerifiedDoc {
 }
 
 export function useVerifiedDocs(workspaceIdFilter?: string) {
-  const { data, mutate } = useQuery({
+  // adminVerifiedDocsQuery's variables aren't part of the codegen'd
+  // discriminated union yet, so the framework infers `variables: undefined`.
+  // Cast at the boundary; remove once codegen runs against the new schema.
+  const queryArg = {
     query: adminVerifiedDocsQuery,
     variables: { workspaceId: workspaceIdFilter ?? null },
-  });
+  } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
+  const { data, mutate } = useQuery(queryArg);
 
-  const docs: VerifiedDoc[] = (data?.adminVerifiedDocs ?? []) as VerifiedDoc[];
+  const docs: VerifiedDoc[] = (
+    (data as unknown as { adminVerifiedDocs?: VerifiedDoc[] } | undefined)
+      ?.adminVerifiedDocs ?? []
+  ) as VerifiedDoc[];
 
   return { docs, reload: mutate };
 }
@@ -29,7 +36,10 @@ export function useUnverifyDoc() {
 
   const unverify = useCallback(
     async (workspaceId: string, docId: string) => {
-      await trigger({ workspaceId, docId });
+      await (trigger as (args: unknown) => Promise<unknown>)({
+        workspaceId,
+        docId,
+      });
     },
     [trigger]
   );
@@ -65,15 +75,22 @@ export function useVerifiedDocsWithActions(workspaceIdFilter?: string) {
     setSelected(new Set());
   }, []);
 
-  const unverifySelected = useCallback(async () => {
+  /**
+   * Returns the number of docs that were unverified. The caller should use
+   * this — not `selected.size` after the call — because the selection state
+   * is cleared before `reload()` resolves.
+   */
+  const unverifySelected = useCallback(async (): Promise<number> => {
     const toUnverify = docs.filter(d =>
       selected.has(`${d.workspaceId}:${d.docId}`)
     );
+    const count = toUnverify.length;
     await Promise.all(
       toUnverify.map(d => unverify(d.workspaceId, d.docId))
     );
     clearSelection();
     await reload();
+    return count;
   }, [docs, selected, unverify, clearSelection, reload]);
 
   const unverifyOne = useCallback(

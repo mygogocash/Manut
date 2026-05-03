@@ -721,26 +721,14 @@ export class AdminWorkspaceResolver {
   async adminVerifiedDocs(
     @Args('workspaceId', { nullable: true }) workspaceId?: string
   ): Promise<AdminVerifiedDoc[]> {
-    const now = new Date();
-    const rows = await this.models.doc.db.workspaceDoc.findMany({
-      where: {
-        ...(workspaceId ? { workspaceId } : {}),
-        verifiedAt: { not: null },
-        OR: [
-          { verificationExpiresAt: null },
-          { verificationExpiresAt: { gt: now } },
-        ],
-      },
-      orderBy: { verifiedAt: 'desc' },
-      select: {
-        workspaceId: true,
-        docId: true,
-        verifiedAt: true,
-        verifiedBy: true,
-        verificationExpiresAt: true,
-      },
-    });
-    return rows as AdminVerifiedDoc[];
+    const rows = await this.models.doc.findActiveVerified({ workspaceId });
+    return rows.map(row => ({
+      workspaceId: row.workspaceId,
+      docId: row.docId,
+      verifiedAt: row.verifiedAt as Date,
+      verifiedBy: row.verifiedBy,
+      verificationExpiresAt: row.verificationExpiresAt,
+    }));
   }
 
   private mapSort(orderBy?: AdminWorkspaceSort) {

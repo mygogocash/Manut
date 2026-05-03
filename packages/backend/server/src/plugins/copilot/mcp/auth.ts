@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { createHash, randomBytes } from 'crypto';
+import { Injectable, Logger } from '@nestjs/common';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 export function generateApiKey(): { key: string; hash: string } {
@@ -10,6 +10,8 @@ export function generateApiKey(): { key: string; hash: string } {
 
 @Injectable()
 export class McpApiKeyService {
+  private readonly logger = new Logger(McpApiKeyService.name);
+
   constructor(private readonly db: PrismaClient) {}
 
   async createApiKey(
@@ -42,14 +44,29 @@ export class McpApiKeyService {
     if (!record) return null;
     if (record.expiresAt && record.expiresAt < new Date()) return null;
 
-    // Update lastUsedAt asynchronously — don't block the request
+    // Defense-in-depth: compare hashes with constant-time equality even though
+    // the DB lookup already keyed off the hash. Protects against any future
+    // refactor that drops the unique index or returns multiple candidates.
+    const stored = Buffer.from(record.keyHash);
+    const computed = Buffer.from(hash);
+    if (
+      stored.length !== computed.length ||
+      !timingSafeEqual(stored, computed)
+    ) {
+      return null;
+    }
+
+    // Update lastUsedAt asynchronously — don't block the request, but log
+    // failures so operators see DB-load-induced staleness in monitoring.
     this.db.mcpApiKey
       .update({
         where: { keyHash: hash },
         data: { lastUsedAt: new Date() },
       })
-      .catch(() => {
-        // best-effort; ignore errors
+      .catch(err => {
+        this.logger.warn(
+          `Failed to update lastUsedAt for MCP key ${record.id}: ${err instanceof Error ? err.message : String(err)}`
+        );
       });
 
     return { userId: record.userId, workspaceId: record.workspaceId };

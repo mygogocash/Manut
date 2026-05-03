@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
-import { Throttle } from '../../../base';
+import { SpaceAccessDenied, Throttle } from '../../../base';
 import { CurrentUser } from '../../../core/auth';
 import type { CurrentUser as CurrentUserType } from '../../../core/auth';
 import { McpApiKeyService } from './auth';
@@ -115,7 +115,22 @@ export class WorkspaceMcpController {
         return;
       }
 
-      const server = await this.provider.for(resolvedUserId, workspaceId);
+      // Resolve the workspace MCP server. `provider.for()` asserts the user
+      // is a member of the workspace via AccessController. Translate the
+      // resulting SpaceAccessDenied into a 403 so callers (including holders
+      // of stale or revoked-from-workspace API keys) don't see a generic 500.
+      let server: WorkspaceMcpServer;
+      try {
+        server = await this.provider.for(resolvedUserId, workspaceId);
+      } catch (err) {
+        if (err instanceof SpaceAccessDenied) {
+          res
+            .status(HttpStatus.FORBIDDEN)
+            .json({ error: 'Not authorized for this workspace.' });
+          return;
+        }
+        throw err;
+      }
       const body = req.body as unknown;
       const isBatch = Array.isArray(body);
       const messages = isBatch ? body : [body];

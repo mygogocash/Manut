@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
-import { EventBus, JobQueue } from '../../base';
+import { JobQueue } from '../../base';
 import { Models } from '../../models';
 
 export interface IndexingStats {
@@ -19,8 +19,7 @@ export class EmbeddingHealthService {
 
   constructor(
     private readonly models: Models,
-    private readonly queue: JobQueue,
-    private readonly event: EventBus
+    private readonly queue: JobQueue
   ) {}
 
   /**

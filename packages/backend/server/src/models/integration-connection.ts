@@ -105,6 +105,30 @@ export class IntegrationConnectionModel extends BaseModel {
     });
   }
 
+  async updateTokens(
+    userId: string,
+    workspaceId: string,
+    provider: string,
+    tokens: UpdateIntegrationConnectionTokensInput
+  ) {
+    const data: Prisma.IntegrationConnectionUncheckedUpdateInput = {};
+    if (tokens.accessToken !== undefined) {
+      data.accessToken = this.encryptToken(tokens.accessToken);
+    }
+    if (tokens.refreshToken !== undefined) {
+      data.refreshToken = this.encryptToken(tokens.refreshToken);
+    }
+    if (tokens.tokenExpiresAt !== undefined) {
+      data.tokenExpiresAt = tokens.tokenExpiresAt;
+    }
+    return this.db.integrationConnection.update({
+      where: {
+        userId_workspaceId_provider: { userId, workspaceId, provider },
+      },
+      data,
+    });
+  }
+
   decryptTokens(
     connection: Awaited<ReturnType<IntegrationConnectionModel['getByProvider']>>
   ) {

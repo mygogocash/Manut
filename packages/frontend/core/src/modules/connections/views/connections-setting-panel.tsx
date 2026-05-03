@@ -1,9 +1,18 @@
 import { Button } from '@affine/component';
+import { useMutation } from '@affine/core/components/hooks/use-mutation';
+import { useQuery } from '@affine/core/components/hooks/use-query';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useService } from '@toeverything/infra';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import type { ConnectedAccount, ProviderInfo } from './types';
+import {
+  type ConnectedAccountDto,
+  disconnectProviderMutation,
+  listConnectionsQuery,
+} from '../graphql';
+import type { ProviderInfo } from './types';
+
+const POSTMESSAGE_TYPE = 'affine:connection-oauth-result';
 
 const ALL_PROVIDERS: ProviderInfo[] = [
   {
@@ -37,82 +46,90 @@ interface ConnectionsSettingPanelProps {
   workspaceId?: string;
 }
 
+interface OAuthResultMessage {
+  type: typeof POSTMESSAGE_TYPE;
+  ok: boolean;
+  provider?: string;
+  displayName?: string;
+  error?: string;
+}
+
+function isOAuthResultMessage(value: unknown): value is OAuthResultMessage {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { type?: unknown }).type === POSTMESSAGE_TYPE
+  );
+}
+
 export const ConnectionsSettingPanel = ({
   workspaceId: propWorkspaceId,
 }: ConnectionsSettingPanelProps) => {
   const workspaceService = useService(WorkspaceService);
-  const workspaceId =
-    propWorkspaceId ?? workspaceService.workspace.id;
+  const workspaceId = propWorkspaceId ?? workspaceService.workspace.id;
 
-  const [connections, setConnections] = useState<ConnectedAccount[]>([]);
-  const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchConnections = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/graphql', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: `
-            query ListConnections($workspaceId: String!) {
-              listConnections(workspaceId: $workspaceId) {
-                id
-                provider
-                displayName
-                scopes
-                createdAt
-              }
-            }
-          `,
-          variables: { workspaceId },
-        }),
-      });
-      const { data, errors } = (await response.json()) as {
-        data?: { listConnections: ConnectedAccount[] };
-        errors?: { message: string }[];
-      };
-      if (errors?.length) {
-        setError(errors[0].message);
-      } else {
-        setConnections(data?.listConnections ?? []);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load connections');
-    } finally {
-      setLoading(false);
-    }
-  }, [workspaceId]);
+  // Local query objects aren't part of the codegen'd `Queries` /
+  // `Mutations` discriminated unions, so the framework infers
+  // `variables: undefined`. Cast at the boundary with a clear comment;
+  // remove these casts once `yarn build` in @affine/graphql picks up the
+  // listConnections / disconnectProvider operations.
+  const queryArg = {
+    query: listConnectionsQuery,
+    variables: { workspaceId },
+  } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
+  const { data, isLoading, mutate } = useQuery(queryArg);
 
+  const connections =
+    ((data as unknown as { listConnections?: ConnectedAccountDto[] } | undefined)
+      ?.listConnections ?? []) as ConnectedAccountDto[];
+
+  const { trigger: triggerDisconnect } = useMutation({
+    mutation: disconnectProviderMutation,
+  });
+
+  // Listen for OAuth callback postMessage from the popup. Strict origin check
+  // — only accept messages from this app's own origin (the callback HTML is
+  // served from the same origin).
   useEffect(() => {
-    void fetchConnections();
-    // Check URL params for OAuth callback result
-    const params = new URLSearchParams(window.location.search);
-    const connected = params.get('connected');
-    const oauthError = params.get('error');
-    if (connected || oauthError) {
-      // Clean up URL params without reload
-      const url = new URL(window.location.href);
-      url.searchParams.delete('connected');
-      url.searchParams.delete('name');
-      url.searchParams.delete('error');
-      window.history.replaceState({}, '', url.toString());
-      if (connected) {
-        void fetchConnections();
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (!isOAuthResultMessage(event.data)) return;
+      if (event.data.ok) {
+        setError(null);
+        void mutate();
+      } else {
+        setError(
+          event.data.error
+            ? `Connection failed: ${event.data.error}`
+            : 'Connection failed.'
+        );
       }
-      if (oauthError) {
-        setError(decodeURIComponent(oauthError));
-      }
-    }
-  }, [fetchConnections]);
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [mutate]);
 
   const handleConnect = useCallback(
     (providerName: string) => {
-      const startUrl = `/api/connections/oauth/${providerName}/start?workspaceId=${encodeURIComponent(workspaceId)}`;
-      window.location.href = startUrl;
+      const startUrl = `/api/connections/oauth/${encodeURIComponent(
+        providerName
+      )}/start?workspaceId=${encodeURIComponent(workspaceId)}`;
+      const popup = window.open(
+        startUrl,
+        '_blank',
+        'popup=yes,width=600,height=720,noopener=no'
+      );
+      if (!popup) {
+        // Popup blocked — fall back to full-page navigation. We accept the
+        // worse UX (leaving the settings dialog) when the browser refuses
+        // popups; the postMessage path handles the popup case.
+        window.location.href = startUrl;
+        return;
+      }
+      setError(null);
     },
     [workspaceId]
   );
@@ -122,38 +139,26 @@ export const ConnectionsSettingPanel = ({
       setActionLoading(providerName);
       setError(null);
       try {
-        const response = await fetch('/api/graphql', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query: `
-              mutation DisconnectProvider($workspaceId: String!, $provider: String!) {
-                disconnectProvider(workspaceId: $workspaceId, provider: $provider)
-              }
-            `,
-            variables: { workspaceId, provider: providerName },
-          }),
+        await (triggerDisconnect as (args: unknown) => Promise<unknown>)({
+          workspaceId,
+          provider: providerName,
         });
-        const { errors } = (await response.json()) as {
-          errors?: { message: string }[];
-        };
-        if (errors?.length) {
-          setError(errors[0].message);
-        } else {
-          await fetchConnections();
-        }
+        await mutate();
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : 'Failed to disconnect provider'
+          err instanceof Error ? err.message : 'Failed to disconnect provider.'
         );
       } finally {
         setActionLoading(null);
       }
     },
-    [workspaceId, fetchConnections]
+    [workspaceId, triggerDisconnect, mutate]
   );
 
-  const connectedProviders = new Set(connections.map(c => c.provider));
+  const connectedProviders = useMemo(
+    () => new Set(connections.map(c => c.provider)),
+    [connections]
+  );
 
   return (
     <div
@@ -199,7 +204,7 @@ export const ConnectionsSettingPanel = ({
         </div>
       ) : null}
 
-      {loading ? (
+      {isLoading ? (
         <div
           style={{
             fontSize: '13px',
@@ -247,7 +252,11 @@ export const ConnectionsSettingPanel = ({
                   }}
                 >
                   <span
-                    style={{ fontSize: '24px', width: '32px', textAlign: 'center' }}
+                    style={{
+                      fontSize: '24px',
+                      width: '32px',
+                      textAlign: 'center',
+                    }}
                     aria-hidden
                   >
                     {provider.icon}
@@ -289,7 +298,7 @@ export const ConnectionsSettingPanel = ({
                 <div>
                   {isConnected ? (
                     <Button
-                      size="small"
+                      size="default"
                       onClick={() => void handleDisconnect(provider.name)}
                       loading={isActioning}
                       disabled={isActioning}
@@ -298,7 +307,7 @@ export const ConnectionsSettingPanel = ({
                     </Button>
                   ) : (
                     <Button
-                      size="small"
+                      size="default"
                       variant="primary"
                       onClick={() => handleConnect(provider.name)}
                       disabled={isActioning}

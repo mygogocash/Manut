@@ -569,10 +569,27 @@ export class DocModel extends BaseModel {
    * List verified docs in a workspace.
    */
   async findVerified(workspaceId: string) {
+    return await this.findActiveVerified({ workspaceId });
+  }
+
+  /**
+   * List currently-active verified docs across all workspaces (admin) or
+   * scoped to a specific workspace and/or set of docIds.
+   *
+   * "Active" = `verifiedAt` is set AND (`verificationExpiresAt` is null OR
+   * still in the future). This is the canonical filter shape — keep all
+   * verified-doc queries going through this method so the freshness rule
+   * stays in one place.
+   */
+  async findActiveVerified(filter: {
+    workspaceId?: string;
+    docIds?: string[];
+  }) {
     const now = new Date();
     return await this.db.workspaceDoc.findMany({
       where: {
-        workspaceId,
+        ...(filter.workspaceId ? { workspaceId: filter.workspaceId } : {}),
+        ...(filter.docIds ? { docId: { in: filter.docIds } } : {}),
         verifiedAt: { not: null },
         OR: [
           { verificationExpiresAt: null },

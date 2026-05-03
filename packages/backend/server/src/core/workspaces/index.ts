@@ -14,6 +14,7 @@ import { WorkspaceEvents } from './event';
 import {
   DocHistoryResolver,
   DocResolver,
+  DocTypeFieldResolver,
   WorkspaceBlobResolver,
   WorkspaceDocResolver,
   WorkspaceMemberResolver,
@@ -41,6 +42,7 @@ import { WorkspaceStatsJob } from './stats.job';
     WorkspaceMemberResolver,
     WorkspaceDocResolver,
     DocResolver,
+    DocTypeFieldResolver,
     DocHistoryResolver,
     WorkspaceBlobResolver,
     WorkspaceService,
