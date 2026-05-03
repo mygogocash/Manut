@@ -15,8 +15,19 @@ import {
 import type { MapSingleView, RowPin } from '../map-view-manager.js';
 import type { MapViewSelectionWithType } from '../selection.js';
 
-// ─── Leaflet dynamic loader ────────────────────────────────────────────────
-// γ-MAP-2: Integrate map library via CDN dynamic loading (no bundler dependency)
+// ─── Leaflet (bundled) ─────────────────────────────────────────────────────
+// γ-MAP-2: Use the npm-installed `leaflet` and `leaflet.markercluster`
+// packages so the map view does not depend on the unpkg.com CDN at runtime.
+// Earlier revisions injected <script> / <link> tags pointing at
+// `https://unpkg.com/leaflet@1.9.4/...` — that made the entire map view a
+// single point of failure on the unpkg uptime / network reachability.
+//
+// `leaflet.markercluster` registers itself on the Leaflet `L` singleton as
+// a side-effect when imported, so the import order matters.
+//
+// We use a dynamic import wrapped in a cached promise so the (~150 KB)
+// Leaflet bundle is only loaded the first time a user opens a map view —
+// users who never open one don't pay the cost.
 
 /** Cached promise so we load Leaflet at most once. */
 let leafletLoadPromise: Promise<LeafletStatic> | null = null;
@@ -62,59 +73,68 @@ interface LeafletLayerGroup extends LeafletLayer {
 interface LeafletClusterGroup extends LeafletLayerGroup {}
 
 async function ensureLeaflet(): Promise<LeafletStatic> {
-  if ((window as any).L) return (window as any).L as LeafletStatic;
   if (leafletLoadPromise) return leafletLoadPromise;
 
-  leafletLoadPromise = new Promise<LeafletStatic>((resolve, reject) => {
-    // Add CSS
-    if (!document.querySelector('link[data-leaflet-css]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      link.dataset.leafletCss = '1';
-      document.head.appendChild(link);
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = () => resolve((window as any).L as LeafletStatic);
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
+  leafletLoadPromise = (async () => {
+    // Dynamic imports keep these out of the static bundle graph, so the
+    // worker target (which doesn't have a CSS loader configured) never
+    // tries to resolve them. The bundler creates a separate chunk loaded
+    // on demand the first time a user opens a map view.
+    const [leafletModule] = await Promise.all([
+      import('leaflet'),
+      import('leaflet/dist/leaflet.css'),
+      import('leaflet.markercluster/dist/MarkerCluster.css'),
+      import('leaflet.markercluster/dist/MarkerCluster.Default.css'),
+    ]);
+    // `leaflet.markercluster` extends the `L` singleton on import, so it
+    // must run after `leaflet` itself is loaded.
+    await import('leaflet.markercluster');
+    // The default export from `leaflet` is the `L` namespace; some bundlers
+    // expose it as `default`, others as the module namespace itself.
+    const L = (leafletModule as { default?: unknown }).default ?? leafletModule;
+    return L as unknown as LeafletStatic;
+  })();
 
   return leafletLoadPromise;
 }
 
-/** γ-MAP-5: Dynamically load leaflet.markercluster when there are many pins. */
-async function ensureMarkerCluster(L: LeafletStatic): Promise<void> {
-  if (L.markerClusterGroup) return;
-
-  if (!document.querySelector('link[data-markercluster-css]')) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href =
-      'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css';
-    link.dataset.markerclusterCss = '1';
-    document.head.appendChild(link);
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src =
-      'https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js';
-    script.onload = () => resolve();
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
+/**
+ * No-op kept for backwards-compatibility with call sites. The plugin is now
+ * loaded as a side-effect of `ensureLeaflet()` so this just resolves.
+ */
+async function ensureMarkerCluster(_L: LeafletStatic): Promise<void> {
+  return;
 }
 
 // ─── γ-MAP-4: Address geocoding via Nominatim ─────────────────────────────
-// Respects Nominatim usage policy: max 1 req/sec, results cached for the session.
+//
+// **Production note:** Nominatim is OpenStreetMap's free public geocoder. It
+// has strict usage limits (1 req/sec, no bulk use) and may be unavailable or
+// rate-limit users on production traffic. This implementation respects the
+// rate limit and caches results per session, but a high-traffic deployment
+// should swap in a paid provider (Mapbox, Google Geocoding, etc.) by
+// replacing the URL below — the rest of the file is provider-agnostic.
 
 const geocodeCache = new Map<string, [number, number] | null>();
 let lastGeocodeTime = 0;
 const GEOCODE_DELAY_MS = 1100; // >1 s to respect Nominatim policy
 
+export class GeocodingError extends Error {
+  constructor(
+    message: string,
+    public readonly cause?: unknown
+  ) {
+    super(message);
+    this.name = 'GeocodingError';
+  }
+}
+
+/**
+ * Geocode an address. Returns coordinates on success, `null` if the address
+ * was simply not found, and throws `GeocodingError` for transport failures
+ * (network down, rate-limit, 5xx) so the caller can surface a real error
+ * instead of silently dropping the pin.
+ */
 async function geocodeAddress(
   address: string
 ): Promise<[number, number] | null> {
@@ -126,28 +146,33 @@ async function geocodeAddress(
   if (wait > 0) await new Promise(r => setTimeout(r, wait));
   lastGeocodeTime = Date.now();
 
+  let resp: Response;
   try {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
-    const resp = await fetch(url, {
+    resp = await fetch(url, {
       headers: { 'Accept-Language': 'en' },
     });
-    if (!resp.ok) {
-      geocodeCache.set(address, null);
-      return null;
-    }
-    const data = await resp.json();
-    if (!Array.isArray(data) || data.length === 0) {
-      geocodeCache.set(address, null);
-      return null;
-    }
-    const { lat, lon } = data[0];
-    const coords: [number, number] = [parseFloat(lat), parseFloat(lon)];
-    geocodeCache.set(address, coords);
-    return coords;
-  } catch {
+  } catch (err) {
+    throw new GeocodingError(
+      'Could not reach the geocoding service. Check your network connection.',
+      err
+    );
+  }
+  if (!resp.ok) {
+    throw new GeocodingError(
+      `Geocoding service returned ${resp.status}.`
+    );
+  }
+  const data = await resp.json().catch(() => null);
+  if (!Array.isArray(data) || data.length === 0) {
+    // Genuinely "not found" — cache and return null.
     geocodeCache.set(address, null);
     return null;
   }
+  const { lat, lon } = data[0];
+  const coords: [number, number] = [parseFloat(lat), parseFloat(lon)];
+  geocodeCache.set(address, coords);
+  return coords;
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
@@ -479,7 +504,17 @@ export class MapViewUI extends DataViewUIBase<MapViewUILogic> {
     this.requestUpdate();
 
     for (const entry of addressEntries) {
-      const coords = await geocodeAddress(entry.address);
+      let coords: [number, number] | null;
+      try {
+        coords = await geocodeAddress(entry.address);
+      } catch (err) {
+        // Surface the error in the loading badge but keep going for other
+        // entries — one address failing should not block the rest.
+        console.warn(
+          `[map view] failed to geocode "${entry.address}": ${err instanceof Error ? err.message : String(err)}`
+        );
+        coords = null;
+      }
       this.geocodingPending$.value = Math.max(
         0,
         this.geocodingPending$.value - 1

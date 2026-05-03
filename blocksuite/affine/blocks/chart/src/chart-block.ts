@@ -150,8 +150,14 @@ export class ChartBlockComponent extends BlockComponent<ChartBlockModel> {
 
   /**
    * Calls the AFFiNE copilot service to produce a Vega-Lite v5 JSON spec.
-   * Falls back to a simple hardcoded demo spec on failure so the block
-   * remains useful even without a configured AI backend.
+   *
+   * Throws on any failure — network error, non-OK response, empty body, or
+   * malformed JSON. The caller surfaces the message in the block's error UI.
+   *
+   * Earlier versions silently substituted a hardcoded "Jan-May" demo dataset
+   * on any failure, which made AI failures indistinguishable from a real
+   * AI-generated chart and produced misleading charts in user docs. Now the
+   * user explicitly sees that AI generation failed and can retry.
    */
   private async _callAI(userPrompt: string): Promise<string> {
     const systemPrompt = `Generate a valid Vega-Lite v5 JSON specification for the following chart request.
@@ -161,47 +167,46 @@ Keep the spec minimal and self-contained.`;
 
     const fullPrompt = `${systemPrompt}\n\nChart request: ${userPrompt}`;
 
-    // Try to use the copilot text endpoint if available.
+    let resp: Response;
     try {
-      const resp = await fetch('/api/copilot/text', {
+      resp = await fetch('/api/copilot/text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: fullPrompt }),
       });
-      if (resp.ok) {
-        const data = (await resp.json()) as { text?: string; result?: string };
-        const raw = data.text ?? data.result ?? '';
-        // Strip optional markdown code fences
-        const cleaned = raw
-          .replace(/^```(?:json)?\s*/i, '')
-          .replace(/```$/, '')
-          .trim();
-        JSON.parse(cleaned); // Validate JSON — throws if invalid
-        return cleaned;
-      }
-    } catch {
-      // Fall through to demo spec
+    } catch (err) {
+      throw new Error(
+        `Could not reach the AI service: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
 
-    // Demo spec — matches the prompt loosely so something is visible immediately.
-    return JSON.stringify({
-      $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-      description: userPrompt,
-      data: {
-        values: [
-          { label: 'Jan', value: 30 },
-          { label: 'Feb', value: 45 },
-          { label: 'Mar', value: 28 },
-          { label: 'Apr', value: 60 },
-          { label: 'May', value: 38 },
-        ],
-      },
-      mark: 'bar',
-      encoding: {
-        x: { field: 'label', type: 'nominal', axis: { title: 'Category' } },
-        y: { field: 'value', type: 'quantitative', axis: { title: 'Value' } },
-      },
-    });
+    if (!resp.ok) {
+      throw new Error(
+        `AI service returned ${resp.status}. The chart could not be generated.`
+      );
+    }
+
+    const data = (await resp.json().catch(() => null)) as
+      | { text?: string; result?: string }
+      | null;
+    const raw = (data?.text ?? data?.result ?? '').trim();
+    if (!raw) {
+      throw new Error('AI service returned an empty response.');
+    }
+
+    // Strip optional markdown code fences before validating JSON.
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/```$/, '')
+      .trim();
+    try {
+      JSON.parse(cleaned);
+    } catch {
+      throw new Error(
+        'AI returned a response that is not valid JSON. Try a more specific prompt.'
+      );
+    }
+    return cleaned;
   }
 
   private _handleEdit() {

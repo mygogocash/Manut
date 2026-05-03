@@ -468,6 +468,13 @@ export function createWorkerTargetConfig(
           include: /@blocksuite/,
           use: ['source-map-loader'],
         },
+        // CSS imports can appear in modules that are statically reachable
+        // from the worker entry (e.g. `data-view`'s map preset imports
+        // leaflet styles). Workers can't use CSS, but we still need the
+        // bundler to resolve the import — load as an inert string so the
+        // worker bundle doesn't fail to compile. The web target has its
+        // own CSS rule that turns these into real stylesheets.
+        { test: /\.css$/, type: 'asset/source' },
         {
           oneOf: [
             {

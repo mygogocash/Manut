@@ -25,9 +25,9 @@ export const audioSlashMenuConfig: SlashMenuConfig = {
   items: [
     {
       name: 'Record audio',
-      description: 'Record audio with auto-transcription.',
+      description: 'Record an audio clip and embed it in the page.',
       icon: MicrophoneIcon(),
-      searchAlias: ['record', 'audio', 'microphone', 'voice', 'transcribe'],
+      searchAlias: ['record', 'audio', 'microphone', 'voice'],
       group: '4_Content & Media@5',
       when: ({ model }) =>
         model.store.schema.flavourSchemaMap.has('affine:audio'),

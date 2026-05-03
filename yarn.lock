@@ -1853,6 +1853,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@blocksuite/affine-block-audio@workspace:blocksuite/affine/blocks/audio":
+  version: 0.0.0-use.local
+  resolution: "@blocksuite/affine-block-audio@workspace:blocksuite/affine/blocks/audio"
+  dependencies:
+    "@blocksuite/affine-ext-loader": "workspace:*"
+    "@blocksuite/affine-model": "workspace:*"
+    "@blocksuite/affine-widget-slash-menu": "workspace:*"
+    "@blocksuite/std": "workspace:*"
+    "@blocksuite/store": "workspace:*"
+    lit: "npm:^3.2.0"
+  languageName: unknown
+  linkType: soft
+
 "@blocksuite/affine-block-bookmark@workspace:*, @blocksuite/affine-block-bookmark@workspace:blocksuite/affine/blocks/bookmark":
   version: 0.0.0-use.local
   resolution: "@blocksuite/affine-block-bookmark@workspace:blocksuite/affine/blocks/bookmark"
@@ -1897,6 +1910,21 @@ __metadata:
     "@emotion/css": "npm:^11.13.5"
     "@preact/signals-core": "npm:^1.8.0"
     "@toeverything/theme": "npm:^1.1.23"
+    lit: "npm:^3.2.0"
+  languageName: unknown
+  linkType: soft
+
+"@blocksuite/affine-block-chart@workspace:*, @blocksuite/affine-block-chart@workspace:blocksuite/affine/blocks/chart":
+  version: 0.0.0-use.local
+  resolution: "@blocksuite/affine-block-chart@workspace:blocksuite/affine/blocks/chart"
+  dependencies:
+    "@blocksuite/affine-components": "workspace:*"
+    "@blocksuite/affine-ext-loader": "workspace:*"
+    "@blocksuite/affine-model": "workspace:*"
+    "@blocksuite/affine-shared": "workspace:*"
+    "@blocksuite/affine-widget-slash-menu": "workspace:*"
+    "@blocksuite/std": "workspace:*"
+    "@blocksuite/store": "workspace:*"
     lit: "npm:^3.2.0"
   languageName: unknown
   linkType: soft
@@ -3227,6 +3255,7 @@ __metadata:
     "@blocksuite/affine-block-attachment": "workspace:*"
     "@blocksuite/affine-block-bookmark": "workspace:*"
     "@blocksuite/affine-block-callout": "workspace:*"
+    "@blocksuite/affine-block-chart": "workspace:*"
     "@blocksuite/affine-block-code": "workspace:*"
     "@blocksuite/affine-block-data-view": "workspace:*"
     "@blocksuite/affine-block-database": "workspace:*"
@@ -3323,9 +3352,13 @@ __metadata:
     "@floating-ui/dom": "npm:^1.6.13"
     "@preact/signals-core": "npm:^1.8.0"
     "@toeverything/theme": "npm:^1.1.23"
+    "@types/leaflet": "npm:^1.9.21"
+    "@types/leaflet.markercluster": "npm:^1.5.6"
     "@types/lodash-es": "npm:^4.17.12"
     clsx: "npm:^2.1.1"
     date-fns: "npm:^4.0.0"
+    leaflet: "npm:^1.9.4"
+    leaflet.markercluster: "npm:^1.5.3"
     lit: "npm:^3.2.0"
     lodash-es: "npm:^4.17.23"
     vitest: "npm:^4.0.18"
@@ -16953,6 +16986,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/leaflet.markercluster@npm:^1.5.6":
+  version: 1.5.6
+  resolution: "@types/leaflet.markercluster@npm:1.5.6"
+  dependencies:
+    "@types/leaflet": "npm:^1.9"
+  checksum: 10/6ddc628fa6d8a3735f154418115b8b0225fefc74d1d472d0aa987a945a92ed6e0dcc0bcaad5a65d104f38e7445cddbf91d75de97b970b6d173e43afa373d8761
+  languageName: node
+  linkType: hard
+
+"@types/leaflet@npm:^1.9, @types/leaflet@npm:^1.9.21":
+  version: 1.9.21
+  resolution: "@types/leaflet@npm:1.9.21"
+  dependencies:
+    "@types/geojson": "npm:*"
+  checksum: 10/a02eff00db3cbc374c67fa7c0df6c564918482fa00407146bfea19f92600a4009f39af7bb9e3face39845979c133bb67b5bd972472720beef1f285596f47a6d1
+  languageName: node
+  linkType: hard
+
 "@types/linkify-it@npm:^5":
   version: 5.0.0
   resolution: "@types/linkify-it@npm:5.0.0"
@@ -27228,6 +27279,22 @@ __metadata:
   version: 0.6.0
   resolution: "leac@npm:0.6.0"
   checksum: 10/bfe6aa128ca98664f124096f65584778194a8e1ddebf77d315fd9681be849c1619b0a9d9f4743e67aea0298808bd69ef25bd74320cad50a80be6852714627870
+  languageName: node
+  linkType: hard
+
+"leaflet.markercluster@npm:^1.5.3":
+  version: 1.5.3
+  resolution: "leaflet.markercluster@npm:1.5.3"
+  peerDependencies:
+    leaflet: ^1.3.1
+  checksum: 10/28dc441de7012b19628144407bde89576f758dbea31ecb86e3412d1fb3a46723fb47d2ba45d9b858c2e65592479a127474fb1cbf7ff33b3023c4d14f851e5fe4
+  languageName: node
+  linkType: hard
+
+"leaflet@npm:^1.9.4":
+  version: 1.9.4
+  resolution: "leaflet@npm:1.9.4"
+  checksum: 10/7b6a74d503980961a85bdabebf9d1162c26db0e88195800ceea311682b653d621718f2ada3c9aab903a735af9862c9ae278ba550d4429acbd954d43449cd0d77
   languageName: node
   linkType: hard
 

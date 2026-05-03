@@ -182,8 +182,9 @@ export class ListViewUILogic extends DataViewUILogicBase<
 
   moveTo = (id: string, _evt: MouseEvent) => {
     if (this.view.readonly$.value) return;
-    // Drag-reorder: move row to 'end' as a simple implementation.
-    // Full pointer-drag wiring is in the UI element's _onDragStart handler.
+    // Programmatic / keyboard fallback path. Always sends the row to the
+    // end of the list — mouse-drag reordering with proper drop-target
+    // insertion lives in the UI element's `_onDragStart` handler instead.
     this.view.rowMove(id, 'end');
   };
 
@@ -437,10 +438,11 @@ export class ListViewUI extends DataViewUIBase<ListViewUILogic> {
               <div
                 class=${chipStyle}
                 data-chip
-                title="${prop.name$.value}: ${value}"
+                title="${prop.name$.value}: ${value} — click to open"
                 @click=${(e: MouseEvent) => {
                   e.stopPropagation();
-                  // Open detail panel for inline editing.
+                  // Chip click opens the detail panel where the property
+                  // can be edited. There is no in-place chip editor.
                   this.logic.openRow(rowId);
                 }}
               >
