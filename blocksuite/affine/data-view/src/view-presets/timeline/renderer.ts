@@ -3,7 +3,7 @@ import { timelineViewModel } from './define.js';
 import { TimelineViewUILogic } from './pc/timeline-view-ui-logic.js';
 
 export const timelineViewMeta = timelineViewModel.createMeta({
-  icon: createIcon('FrameIcon'),
+  icon: createIcon('TimelineIcon'),
   // @ts-expect-error fixme: typesafe
   pcLogic: () => TimelineViewUILogic,
   // @ts-expect-error fixme: typesafe

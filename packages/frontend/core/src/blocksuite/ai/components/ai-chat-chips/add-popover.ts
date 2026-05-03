@@ -9,6 +9,7 @@ import { openFilesWith } from '@blocksuite/affine/shared/utils';
 import { ShadowlessElement } from '@blocksuite/affine/std';
 import type { DocMeta } from '@blocksuite/affine/store';
 import {
+  AttachmentIcon,
   CollectionsIcon,
   ImageIcon,
   MoreHorizontalIcon,
@@ -199,9 +200,73 @@ export class ChatPanelAddPopover extends SignalWatcher(
     this.addImages(images);
   };
 
+  private readonly _addImagesPdfsCsvsChip = async () => {
+    const files = await this._pickImagesPdfsCsvs();
+    if (!files || files.length === 0) return;
+
+    this.abortController.abort();
+
+    const images = files.filter(file => file.type.startsWith('image/'));
+    if (images.length > 0) {
+      this.addImages(images);
+    }
+
+    const others = files.filter(file => !file.type.startsWith('image/'));
+    const addChipPromises = others.map(async file => {
+      if (file.size > 50 * 1024 * 1024) {
+        toast(`${file.name} is too large, please upload a file less than 50MB`);
+        return;
+      }
+      await this.addChip({
+        file,
+        state: 'processing',
+      });
+    });
+    await Promise.all(addChipPromises);
+    this._track('file');
+  };
+
+  private _pickImagesPdfsCsvs(): Promise<File[] | null> {
+    return new Promise(resolve => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.accept =
+        'image/*,.pdf,.csv,application/pdf,text/csv';
+      input.style.display = 'none';
+      let settled = false;
+      const cleanup = () => {
+        if (input.parentNode) input.parentNode.removeChild(input);
+      };
+      input.addEventListener('change', () => {
+        if (settled) return;
+        settled = true;
+        const files = input.files ? Array.from(input.files) : [];
+        cleanup();
+        resolve(files.length > 0 ? files : null);
+      });
+      // Best-effort cancel detection: 'cancel' event is supported in newer browsers.
+      input.addEventListener('cancel', () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(null);
+      });
+      document.body.appendChild(input);
+      input.click();
+    });
+  }
+
   private readonly uploadGroup: MenuGroup = {
     name: 'Upload',
     items: [
+      {
+        key: 'images-pdfs-csvs',
+        name: 'Add images, PDFs, or CSVs',
+        testId: 'ai-chat-with-images-pdfs-csvs',
+        icon: AttachmentIcon(),
+        action: this._addImagesPdfsCsvsChip,
+      },
       {
         key: 'images',
         name: 'Upload images',

@@ -25,6 +25,7 @@ import { AIChatContent } from '../components/ai-chat-content';
 import { ChatPanelSplitView } from '../components/ai-chat-content/split-view';
 import { AIChatInput } from '../components/ai-chat-input';
 import { AIChatEmbeddingStatusTooltip } from '../components/ai-chat-input/embedding-status-tooltip';
+import { AIChatMentionPopup } from '../components/ai-chat-input/mention-popup';
 import { ChatInputPreference } from '../components/ai-chat-input/preference-popup';
 import { AIChatMessages } from '../components/ai-chat-messages/ai-chat-messages';
 import { AIChatToolbar, AISessionHistory } from '../components/ai-chat-toolbar';
@@ -79,6 +80,7 @@ const appElements = {
   'ai-chat-block-peek-view': AIChatBlockPeekView,
   'date-time': DateTime,
   'chat-panel-split-view': ChatPanelSplitView,
+  'ai-chat-mention-popup': AIChatMentionPopup,
 } satisfies Record<AppEffectElementTag, CustomElementConstructor>;
 
 export function registerAIAppEffects() {

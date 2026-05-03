@@ -3,7 +3,7 @@ import { feedViewModel } from './define.js';
 import { FeedViewUILogic } from './pc/feed-view-ui-logic.js';
 
 export const feedViewMeta = feedViewModel.createMeta({
-  icon: createIcon('ToggleDownIcon'),
+  icon: createIcon('BulletedListIcon'),
   // @ts-expect-error fixme: typesafe
   pcLogic: () => FeedViewUILogic,
   // @ts-expect-error fixme: typesafe

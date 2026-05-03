@@ -1610,7 +1610,8 @@ const imageActions: Prompt[] = [
   {
     name: 'Generate image',
     action: 'image',
-    model: 'gpt-image-1',
+    model: 'imagen-3.0-generate-002',
+    optionalModels: ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'],
     messages: [
       {
         role: 'user',
@@ -1632,7 +1633,8 @@ const imageActions: Prompt[] = [
   {
     name: 'Convert to Clay style',
     action: 'Convert to Clay style',
-    model: 'gpt-image-1',
+    model: 'imagen-3.0-generate-002',
+    optionalModels: ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'],
     messages: [
       {
         role: 'user',
@@ -1644,7 +1646,8 @@ const imageActions: Prompt[] = [
   {
     name: 'Convert to Sketch style',
     action: 'Convert to Sketch style',
-    model: 'gpt-image-1',
+    model: 'imagen-3.0-generate-002',
+    optionalModels: ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'],
     messages: [
       {
         role: 'user',
@@ -1655,7 +1658,8 @@ const imageActions: Prompt[] = [
   {
     name: 'Convert to Anime style',
     action: 'Convert to Anime style',
-    model: 'gpt-image-1',
+    model: 'imagen-3.0-generate-002',
+    optionalModels: ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'],
     messages: [
       {
         role: 'user',
@@ -1666,7 +1670,8 @@ const imageActions: Prompt[] = [
   {
     name: 'Convert to Pixel style',
     action: 'Convert to Pixel style',
-    model: 'gpt-image-1',
+    model: 'imagen-3.0-generate-002',
+    optionalModels: ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'],
     messages: [
       {
         role: 'user',
@@ -1677,7 +1682,8 @@ const imageActions: Prompt[] = [
   {
     name: 'Convert to sticker',
     action: 'Convert to sticker',
-    model: 'gpt-image-1',
+    model: 'imagen-3.0-generate-002',
+    optionalModels: ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'],
     messages: [
       {
         role: 'user',
@@ -1689,7 +1695,8 @@ const imageActions: Prompt[] = [
   {
     name: 'Upscale image',
     action: 'Upscale image',
-    model: 'gpt-image-1',
+    model: 'imagen-3.0-generate-002',
+    optionalModels: ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'],
     messages: [
       {
         role: 'user',
@@ -1700,7 +1707,8 @@ const imageActions: Prompt[] = [
   {
     name: 'Remove background',
     action: 'Remove background',
-    model: 'gpt-image-1',
+    model: 'imagen-3.0-generate-002',
+    optionalModels: ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001'],
     messages: [
       {
         role: 'user',

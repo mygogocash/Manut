@@ -24,6 +24,7 @@ import { WorkspaceMcpController } from './mcp/controller';
 import { WorkspaceMcpProvider } from './mcp/provider';
 import { ChatMessageCache } from './message';
 import { PromptService } from './prompt';
+import { ScenarioClassifier } from './prompt/scenario-classifier';
 import { CopilotProviderFactory, CopilotProviders } from './providers';
 import {
   CopilotResolver,
@@ -63,6 +64,7 @@ import {
     CopilotResolver,
     ChatMessageCache,
     PromptService,
+    ScenarioClassifier,
     CopilotStorage,
     // workflow
     CopilotWorkflowService,

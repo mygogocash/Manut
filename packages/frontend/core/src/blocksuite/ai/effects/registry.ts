@@ -101,6 +101,7 @@ export const appEffectElementTags = [
   'ai-chat-block-peek-view',
   'date-time',
   'chat-panel-split-view',
+  'ai-chat-mention-popup',
 ] as const;
 
 export type AppEffectElementTag = (typeof appEffectElementTags)[number];

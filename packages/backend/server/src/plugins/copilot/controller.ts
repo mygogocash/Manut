@@ -47,9 +47,11 @@ import { CurrentUser, Public } from '../../core/auth';
 import { CopilotContextService } from './context/service';
 import { CopilotProviderFactory } from './providers/factory';
 import type { CopilotProvider } from './providers/provider';
+import { ScenarioClassifier } from './prompt/scenario-classifier';
 import {
   ModelInputType,
   ModelOutputType,
+  type PromptAttachment,
   type StreamObject,
 } from './providers/types';
 import { StreamObjectParser } from './providers/utils';
@@ -79,7 +81,8 @@ export class CopilotController implements BeforeApplicationShutdown {
     private readonly context: CopilotContextService,
     private readonly provider: CopilotProviderFactory,
     private readonly workflow: CopilotWorkflowService,
-    private readonly storage: CopilotStorage
+    private readonly storage: CopilotStorage,
+    private readonly scenarioClassifier: ScenarioClassifier
   ) {}
 
   async beforeApplicationShutdown() {
@@ -184,6 +187,56 @@ export class CopilotController implements BeforeApplicationShutdown {
     return merge(source$.pipe(finalize(() => subject$.next(null))), ping$);
   }
 
+  /**
+   * For the synthetic "auto" model id, classify the user's latest message
+   * into a scenario and look up the scenario's mapped model from the
+   * copilot config. Returns `undefined` to fall back to the prompt's
+   * default model if classification fails or no scenario mapping is set.
+   */
+  private async resolveAutoModelId(
+    sessionId: string,
+    messageId?: string
+  ): Promise<string | undefined> {
+    try {
+      const session = await this.chatSession.get(sessionId);
+
+      let content = '';
+      let attachments: PromptAttachment[] | null | undefined;
+
+      if (session) {
+        if (messageId) {
+          try {
+            const msg = await session.getMessageById(messageId);
+            content = msg.content ?? '';
+            attachments = msg.attachments;
+          } catch {
+            const latest = session.latestUserMessage;
+            content = latest?.content ?? '';
+            attachments = latest?.attachments;
+          }
+        } else {
+          const latest = session.latestUserMessage;
+          content = latest?.content ?? '';
+          attachments = latest?.attachments;
+        }
+      }
+
+      const scenario = this.scenarioClassifier.classify({
+        content,
+        attachments,
+      });
+      const scenariosConfig = this.config.copilot.scenarios as
+        | { scenarios?: Record<string, string | undefined> }
+        | undefined;
+      return scenariosConfig?.scenarios?.[scenario] ?? undefined;
+    } catch (err) {
+      this.logger.warn(
+        `Auto model classification failed for session ${sessionId}: ${err instanceof Error ? err.message : String(err)}`
+      );
+      return undefined;
+    }
+  }
+
   private async prepareChatSession(
     user: CurrentUser,
     sessionId: string,
@@ -191,6 +244,10 @@ export class CopilotController implements BeforeApplicationShutdown {
     outputType: ModelOutputType
   ) {
     let { messageId, retry, modelId, params } = ChatQuerySchema.parse(query);
+
+    if (modelId === 'auto') {
+      modelId = await this.resolveAutoModelId(sessionId, messageId);
+    }
 
     const { provider, model } = await this.chooseProvider(
       outputType,

@@ -37,6 +37,21 @@ const modelSubMenuMiddleware = [
   shift({ crossAxis: true, padding: 8 }),
 ];
 
+// Hardcoded set of model IDs that should display a "Beta" badge in the
+// model picker. Kept here (rather than as a field on AIModel) so this file
+// can ship independently of any backend / models.ts change. When upstream
+// adds an `isBeta` field on the GraphQL CopilotModelType, switch to that.
+const BETA_MODEL_IDS = new Set<string>([
+  'claude-opus-4',
+  'claude-opus-4-7',
+  'claude-sonnet-4-5',
+  'claude-sonnet-4-5-20250929',
+  'gemini-3.1-pro-preview',
+  'gpt-5',
+  'gpt-5-mini',
+  'gpt-5-nano',
+]);
+
 export class ChatInputPreference extends SignalWatcher(
   WithDisposable(ShadowlessElement)
 ) {
@@ -90,6 +105,17 @@ export class ChatInputPreference extends SignalWatcher(
       color: ${unsafeCSSVarV2('text/tertiary')};
       line-height: 20px;
       margin-right: 40px;
+    }
+    .ai-model-beta-badge {
+      display: inline-block;
+      font-size: 10px;
+      text-transform: uppercase;
+      color: ${unsafeCSSVarV2('button/secondary')};
+      background: ${unsafeCSSVarV2('layer/insideBorder/border')};
+      padding: 1px 4px;
+      border-radius: 3px;
+      margin-left: 6px;
+      line-height: 14px;
     }
   `;
 
@@ -164,6 +190,9 @@ export class ChatInputPreference extends SignalWatcher(
               name: model.category,
               info: html`
                 <span class="ai-model-version">${model.version}</span>
+                ${BETA_MODEL_IDS.has(model.id)
+                  ? html`<span class="ai-model-beta-badge">Beta</span>`
+                  : ''}
               `,
               prefix: html`
                 <div class="ai-model-prefix">

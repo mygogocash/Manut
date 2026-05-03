@@ -3,7 +3,7 @@ import { chartViewModel } from './define.js';
 import { ChartViewUILogic } from './pc/chart-view-ui-logic.js';
 
 export const chartViewMeta = chartViewModel.createMeta({
-  icon: createIcon('DatabaseKanbanViewIcon'),
+  icon: createIcon('ChartPanelIcon'),
   // @ts-expect-error fixme: typesafe
   pcLogic: () => ChartViewUILogic,
   // @ts-expect-error fixme: typesafe

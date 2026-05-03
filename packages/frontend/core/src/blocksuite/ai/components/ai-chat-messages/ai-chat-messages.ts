@@ -29,7 +29,7 @@ import {
   AI_CHAT_AUTO_SCROLL_RESUME_THRESHOLD,
   AI_CHAT_SCROLL_DOWN_INDICATOR_THRESHOLD,
 } from './auto-scroll';
-import { AIPreloadConfig } from './preload-config';
+import { SUGGESTED_PROMPTS } from './suggested-prompts-config';
 import {
   type HistoryMessage,
   isChatAction,
@@ -143,6 +143,50 @@ export class AIChatMessages extends WithDisposable(ShadowlessElement) {
       align-items: center;
       cursor: pointer;
     }
+
+    .suggested-prompts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 16px 0 0;
+      width: 100%;
+    }
+
+    .suggested-prompt-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--affine-border-color);
+      background: var(--affine-background-primary-color);
+      cursor: pointer;
+      transition: background 0.15s ease;
+      overflow: hidden;
+    }
+
+    .suggested-prompt-card:hover {
+      background: var(--affine-hover-color);
+    }
+
+    .suggested-prompt-card-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      color: var(--affine-text-secondary-color);
+      margin-top: 2px;
+    }
+
+    .suggested-prompt-card-text {
+      font-size: var(--affine-font-xs);
+      font-weight: 500;
+      color: var(--affine-text-primary-color);
+      line-height: 1.4;
+      word-break: break-word;
+    }
   `;
 
   @state()
@@ -231,25 +275,48 @@ export class AIChatMessages extends WithDisposable(ShadowlessElement) {
     return !!this.reasoningConfig.enabled.value;
   }
 
-  private _renderAIOnboarding() {
-    return this.isHistoryLoading
-      ? nothing
-      : html`<div class="onboarding-wrapper" data-testid="ai-onboarding">
-          ${repeat(
-            AIPreloadConfig,
-            config => config.text,
-            config => {
-              return html`<div
-                data-testid=${config.testId}
-                @click=${() => config.handler()}
-                class="onboarding-item"
-              >
-                <div class="onboarding-item-icon">${config.icon}</div>
-                <div class="onboarding-item-text">${config.text}</div>
-              </div>`;
-            }
-          )}
-        </div>`;
+  private _renderSuggestedPrompts() {
+    if (this.isHistoryLoading) {
+      return nothing;
+    }
+    return html`<div
+      class="suggested-prompts-grid"
+      data-testid="ai-suggested-prompts"
+    >
+      ${repeat(
+        SUGGESTED_PROMPTS,
+        prompt => prompt.text,
+        prompt => html`<div
+          class="suggested-prompt-card"
+          data-testid="ai-suggested-prompt"
+          @click=${() => this._onSuggestedPromptClick(prompt.text)}
+        >
+          <div class="suggested-prompt-card-icon">${prompt.icon}</div>
+          <div class="suggested-prompt-card-text">${prompt.text}</div>
+        </div>`
+      )}
+    </div>`;
+  }
+
+  private _onSuggestedPromptClick(text: string) {
+    if (this.host) {
+      AIProvider.slots.requestOpenWithChat.next({
+        host: this.host,
+        input: text,
+      });
+      return;
+    }
+    // Independent mode (sidebar chat): there's no editor host to dispatch to.
+    // Walk up to the chat composer and fill its textarea directly.
+    const chatContent = this.closest('ai-chat-content');
+    if (!chatContent) return;
+    const input = chatContent.querySelector<HTMLTextAreaElement>(
+      '[data-testid="chat-panel-input"]'
+    );
+    if (!input) return;
+    input.value = text;
+    input.focus();
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
   }
 
   private _onScroll() {
@@ -333,7 +400,7 @@ export class AIChatMessages extends WithDisposable(ShadowlessElement) {
                       >What can I help you with?</span
                     >`}
               </div>
-              ${this.independentMode ? nothing : this._renderAIOnboarding()}
+              ${this._renderSuggestedPrompts()}
             </div> `
           : repeat(
               filteredItems,

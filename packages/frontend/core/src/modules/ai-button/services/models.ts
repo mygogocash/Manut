@@ -86,18 +86,37 @@ export class AIModelService extends Service {
     const models = await this.getModelsByPrompt(promptName);
     if (models) {
       const { defaultModel, optionalModels, proModels } = models;
-      this.models.value = optionalModels.map(model => {
-        const [category] = model.name.split(' ');
-        const version = model.name.slice(category.length + 1);
-        return {
-          name: model.name,
-          id: model.id,
-          version,
-          category,
-          isPro: proModels.some(proModel => proModel.id === model.id),
-          isDefault: model.id === defaultModel,
-        };
-      });
+      // Synthetic "Auto" entry — sent as modelId='auto' to the backend, where
+      // ScenarioClassifier picks the scenario-mapped model from copilot config.
+      // Marked default so first-time users land on Auto unless they pick a
+      // specific model. Not pro-gated.
+      const autoEntry: AIModel = {
+        id: 'auto',
+        name: 'Auto',
+        version: 'Smart routing',
+        category: 'Auto',
+        isPro: false,
+        isDefault: true,
+      };
+      this.models.value = [
+        autoEntry,
+        ...optionalModels.map(model => {
+          const [category] = model.name.split(' ');
+          const version = model.name.slice(category.length + 1);
+          return {
+            name: model.name,
+            id: model.id,
+            version,
+            category,
+            isPro: proModels.some(proModel => proModel.id === model.id),
+            // Server's defaultModel marker stays true on its native entry —
+            // both Auto and the server default carry isDefault=true. The UI
+            // resolves the active selection via stored modelId; if absent,
+            // Auto wins because it appears first in the array.
+            isDefault: model.id === defaultModel,
+          };
+        }),
+      ];
     }
   };
 

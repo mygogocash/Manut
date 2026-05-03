@@ -9,12 +9,14 @@ import type {
 } from '@affine/core/modules/cloud';
 import type { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import type { CopilotChatHistoryFragment } from '@affine/graphql';
+import { createLitPortal } from '@blocksuite/affine/components/portal';
 import { SignalWatcher, WithDisposable } from '@blocksuite/affine/global/lit';
 import { unsafeCSSVar, unsafeCSSVarV2 } from '@blocksuite/affine/shared/theme';
 import type { EditorHost } from '@blocksuite/affine/std';
 import { ShadowlessElement } from '@blocksuite/affine/std';
 import type { NotificationService } from '@blocksuite/affine-shared/services';
 import { ArrowUpBigIcon, CloseIcon } from '@blocksuite/icons/lit';
+import { flip, offset, shift } from '@floating-ui/dom';
 import { css, html, nothing, type PropertyValues } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
@@ -25,7 +27,7 @@ import { type AIError, AIProvider, type AISendParams } from '../../provider';
 import { reportResponse } from '../../utils/action-reporter';
 import { readBlobAsURL } from '../../utils/image';
 import { mergeStreamObjects } from '../../utils/stream-objects';
-import type { SearchMenuConfig } from '../ai-chat-add-context';
+import type { MentionMember, SearchMenuConfig } from '../ai-chat-add-context';
 import type { ChatChip, DocDisplayConfig } from '../ai-chat-chips/type';
 import { isDocChip } from '../ai-chat-chips/utils';
 import {
@@ -569,6 +571,10 @@ export class AIChatInput extends SignalWatcher(
     }
   };
 
+  // ---- @-mention state ----
+  private _mentionAbort: AbortController | null = null;
+  private _mentionedMembers: MentionMember[] = [];
+
   private readonly _handleInput = async () => {
     const { textarea } = this;
     const value = textarea.value.trim();
@@ -583,6 +589,9 @@ export class AIChatInput extends SignalWatcher(
       textarea.style.overflowY = 'scroll';
     }
 
+    // Update mention popup query if open.
+    this._syncMentionState();
+
     if (this.aiDraftService) {
       await this.aiDraftService.setDraft({
         input: value,
@@ -591,9 +600,182 @@ export class AIChatInput extends SignalWatcher(
   };
 
   private readonly _handleKeyDown = async (evt: KeyboardEvent) => {
+    // While the mention popup owns navigation/Enter, swallow those here so
+    // we don't send the message or move the textarea cursor in conflict.
+    if (this._mentionAbort) {
+      if (
+        evt.key === 'ArrowDown' ||
+        evt.key === 'ArrowUp' ||
+        evt.key === 'Enter' ||
+        evt.key === 'Escape'
+      ) {
+        // Popup component handles these via its own document listener.
+        return;
+      }
+    }
+
     if (evt.key === 'Enter' && !evt.shiftKey && !evt.isComposing) {
       await this._onTextareaSend(evt);
+      return;
     }
+
+    if (evt.key === '@' && !evt.isComposing) {
+      // Defer one tick so the '@' is in the textarea value.
+      requestAnimationFrame(() => {
+        this._openMentionPopup();
+      });
+    }
+  };
+
+  /**
+   * Compute the current `@query` segment (if any) at the cursor and either
+   * open the popup, update its query, or close it.
+   */
+  private _syncMentionState() {
+    const segment = this._currentMentionSegment();
+    if (!segment) {
+      this._closeMentionPopup();
+      return;
+    }
+    if (this._mentionAbort) {
+      // Popup is open — update its query attribute.
+      const popup = this._currentMentionPopup();
+      if (popup) {
+        popup.query = segment.query;
+      }
+    } else {
+      this._openMentionPopup();
+    }
+  }
+
+  /**
+   * Returns the active `@…` mention segment under the cursor, or null if
+   * cursor is not inside a valid mention trigger position.
+   */
+  private _currentMentionSegment(): {
+    start: number;
+    end: number;
+    query: string;
+  } | null {
+    const { textarea } = this;
+    if (!textarea) return null;
+    const cursor = textarea.selectionStart ?? 0;
+    const text = textarea.value;
+    // Walk back from cursor to find an unbroken non-whitespace token starting
+    // with '@'. Cancel if we encounter a whitespace/newline before '@'.
+    for (let i = cursor - 1; i >= 0; i--) {
+      const ch = text[i];
+      if (ch === '@') {
+        // Must be at start of input or preceded by whitespace.
+        const prev = i === 0 ? ' ' : text[i - 1];
+        if (!/\s/.test(prev)) return null;
+        return {
+          start: i,
+          end: cursor,
+          query: text.slice(i + 1, cursor),
+        };
+      }
+      if (ch === ' ' || ch === '\n' || ch === '\t') return null;
+    }
+    return null;
+  }
+
+  private _currentMentionPopup(): {
+    query: string;
+  } | null {
+    const root = this.portalContainer ?? document.body;
+    const popup = root.querySelector(
+      'ai-chat-mention-popup'
+    ) as unknown as { query: string } | null;
+    return popup;
+  }
+
+  private _openMentionPopup() {
+    const segment = this._currentMentionSegment();
+    if (!segment) return;
+    if (this._mentionAbort) {
+      // Already open — just sync.
+      const popup = this._currentMentionPopup();
+      if (popup) popup.query = segment.query;
+      return;
+    }
+
+    const abort = new AbortController();
+    this._mentionAbort = abort;
+    abort.signal.addEventListener('abort', () => {
+      if (this._mentionAbort === abort) {
+        this._mentionAbort = null;
+      }
+    });
+
+    createLitPortal({
+      template: html`
+        <ai-chat-mention-popup
+          .query=${segment.query}
+          .searchMenuConfig=${this.searchMenuConfig}
+          .abortController=${abort}
+          .onSelectDoc=${this._onMentionSelectDoc}
+          .onSelectMember=${this._onMentionSelectMember}
+          .onCancel=${() => abort.abort()}
+        ></ai-chat-mention-popup>
+      `,
+      portalStyles: {
+        zIndex: 'var(--affine-z-index-popover)',
+      },
+      container: this.portalContainer ?? document.body,
+      computePosition: {
+        referenceElement: this.textarea,
+        placement: 'top-start',
+        middleware: [offset({ mainAxis: 8 }), flip(), shift({ padding: 8 })],
+        autoUpdate: { animationFrame: true },
+      },
+      abortController: abort,
+      closeOnClickAway: true,
+    });
+  }
+
+  private _closeMentionPopup() {
+    this._mentionAbort?.abort();
+  }
+
+  /**
+   * Replace the active `@query` segment in the textarea with `replacement`.
+   * Returns the new cursor position.
+   */
+  private _replaceMentionSegment(replacement: string) {
+    const segment = this._currentMentionSegment();
+    if (!segment) return;
+    const { textarea } = this;
+    const before = textarea.value.slice(0, segment.start);
+    const after = textarea.value.slice(segment.end);
+    textarea.value = before + replacement + after;
+    const newCursor = before.length + replacement.length;
+    textarea.selectionStart = textarea.selectionEnd = newCursor;
+    this.isInputEmpty = !textarea.value.trim();
+  }
+
+  private readonly _onMentionSelectDoc = (docId: string, _title: string) => {
+    // Drop the @query trigger entirely — the page becomes a chip above the
+    // textarea via the existing chip pipeline.
+    this._replaceMentionSegment('');
+    this._closeMentionPopup();
+    this.addChip({
+      docId,
+      state: 'processing',
+    }).catch(console.error);
+    this.textarea.focus();
+  };
+
+  private readonly _onMentionSelectMember = (member: MentionMember) => {
+    // Replace `@query` with `@Name ` text inline.
+    const display = `@${member.name} `;
+    this._replaceMentionSegment(display);
+    // Track for prompt augmentation on send.
+    if (!this._mentionedMembers.find(m => m.id === member.id)) {
+      this._mentionedMembers = [...this._mentionedMembers, member];
+    }
+    this._closeMentionPopup();
+    this.textarea.focus();
   };
 
   private readonly _handlePaste = (event: ClipboardEvent) => {
@@ -634,6 +816,10 @@ export class AIChatInput extends SignalWatcher(
     const value = this.textarea.value.trim();
     if (value.length === 0) return;
 
+    // Snapshot and reset mention state for this message.
+    const mentionedMembers = this._mentionedMembers;
+    this._mentionedMembers = [];
+
     this.textarea.value = '';
     this.isInputEmpty = true;
     this.textarea.style.height = 'unset';
@@ -643,7 +829,24 @@ export class AIChatInput extends SignalWatcher(
         input: '',
       });
     }
-    await this.send(value);
+
+    // Append a context note for any @-mentioned people so the AI knows who
+    // is being referenced. v1: text-only, no profile resolution.
+    let prompt = value;
+    if (mentionedMembers.length > 0) {
+      const lines = mentionedMembers
+        .filter(m => value.includes(`@${m.name}`))
+        .map(m =>
+          m.email
+            ? `- ${m.name} (${m.email})`
+            : `- ${m.name}`
+        );
+      if (lines.length > 0) {
+        prompt = `${value}\n\n[Mentioned people]\n${lines.join('\n')}`;
+      }
+    }
+
+    await this.send(prompt);
   };
 
   send = async (text: string) => {
