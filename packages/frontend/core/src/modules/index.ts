@@ -2,7 +2,6 @@ import { configureQuotaModule } from '@affine/core/modules/quota';
 import { type Framework } from '@toeverything/infra';
 
 import { configureAgentsModule } from './agents';
-import { configureAnalyticsModule } from './analytics';
 import {
   configureAIButtonModule,
   configureAIDraftModule,
@@ -11,6 +10,7 @@ import {
   configureAIReasoningModule,
   configureAIToolsConfigModule,
 } from './ai-button';
+import { configureAnalyticsModule } from './analytics';
 import { configureAppSidebarModule } from './app-sidebar';
 import { configAtMenuConfigModule } from './at-menu-config';
 import { configureBlobManagementModule } from './blob-management';
