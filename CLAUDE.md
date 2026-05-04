@@ -328,6 +328,94 @@ Document the surprises — saves the next session a discovery cycle.
   in project `affine-495114`; grant scopes `gmail.readonly` and `drive.readonly`.
   Without env vars configured, the Connect button surfaces a "configure
   OAuth client" message instead of opening a blank popup.
+- **FOSS license / seat-cap override is at one chokepoint.** Superflow
+  is FOSS-unlimited by policy; v1.10.1 hides the License settings tab
+  AND lifts the upstream 10-seat cap. The frontend toggle is
+  `showLicense = false` in
+  `packages/frontend/core/src/desktop/dialogs/setting/workspace-setting/index.tsx`.
+  The backend override is the `env.selfhosted` branch in
+  `QuotaService.getWorkspaceQuota` (`packages/backend/server/src/core/quota/service.ts`)
+  — it returns `memberLimit: 100_000` so every downstream check
+  (`tryCheckSeat`, `checkSeat`, member-add resolvers, the inline
+  `quota.memberCount + idx + 1 > quota.memberLimit` guard at
+  `member.ts:201`, the `>=` guard at `member.ts:343`) silently passes.
+  Don't remove the function — keep the API surface so upstream merges
+  apply cleanly. Search for `// SUPERFLOW` comments to find every
+  changed site. Cosmetic side-effect: the Members panel title still
+  reads `(N/100000)` for non-team workspaces — fix is a "show
+  unlimited" branch in `cloud-members-panel.tsx:289` (low priority).
+- **AI write tools are gated on `AIToolsConfig` flags + a Mode picker.**
+  The backend tools `docEdit`, `sectionEdit`, `docCreate`, `docCompose`,
+  `docUpdate`, `docUpdateMeta`, `dataViewFilter`,
+  `dataViewAutofillColumn` exist in
+  `packages/backend/server/src/plugins/copilot/tools/` but only run
+  when the matching flag is true on the chat session. Flags:
+  - `searchWorkspace` — search for context (read-only)
+  - `readingDocs` — read existing doc content (read-only)
+  - `editingDocs` — invoke `docEdit`/`sectionEdit`/`docCreate`/`docUpdate`/`docUpdateMeta`
+  - `composingDocs` — invoke `docCompose` (creates new docs)
+  - `editingDataViews` — invoke `dataViewFilter`/`dataViewAutofillColumn`
+  Frontend Mode picker
+  (`blocksuite/ai/components/ai-chat-input/preference-popup.ts`) maps:
+  Read-only → none of the write flags, Edit current doc →
+  `editingDocs` only, Full agent → all three. Mode persists via
+  globalState. When a write tool fires, an "AI made changes" chip is
+  rendered in `chat-panel/message/assistant.ts` so the user gets
+  visual confirmation. Production gate at `provider.ts:415-419` keeps
+  `docCreate`/`docUpdate`/`docUpdateMeta` dev/canary-only — self-hosted
+  sees the full effect.
+- **`Dockerfile.fullstack` expects PRE-BUILT `dist/` artifacts in the
+  build context.** The Dockerfile only runs `yarn workspaces focus`
+  for production deps + `prisma generate` — it does NOT bundle the
+  app. It `COPY`s these dirs that you must build locally first:
+  - `packages/backend/server/dist/main.js` (server bundle)
+  - `packages/backend/server/dist/server-native.{x64,arm64,armv7}.node`
+    (Rust napi binaries — gitignored, must exist locally)
+  - `packages/frontend/apps/web/dist/` (web bundle)
+  - `packages/frontend/admin/dist/` (admin bundle)
+  - `packages/frontend/apps/mobile/dist/` (mobile bundle)
+  Skipping the bundle step ships the PREVIOUS bundle in your fresh
+  image — silently, with no error. Symptom: `docker compose pull` +
+  `up -d` "succeeds", site loads, but `grep -c editingDocs
+  /app/dist/main.js` inside the container returns 0 and the new
+  feature is missing despite a green deploy. v1.10.1 hit this:
+  first push deployed but smoke-test caught the stale main.js
+  (timestamp predated the source commits). Fix: bundle BEFORE docker
+  build:
+  ```
+  yarn affine bundle -p @affine/server  # ~1-3 min
+  yarn affine bundle -p web             # ~3-7 min
+  yarn affine bundle -p admin           # only if admin changes
+  yarn affine bundle -p mobile          # only if mobile changes
+  docker buildx build --platform linux/amd64 \
+    -f .docker/gogocash/Dockerfile.fullstack \
+    -t asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:vX.Y.Z \
+    --push .
+  ```
+  Pre-flight check before `docker buildx`: confirm
+  `ls -la packages/backend/server/dist/main.js` is newer than the
+  latest commit's `git log -1 --format=%ai`. If older, re-bundle.
+- **`docker compose pull <service>` needs the SERVICE NAME, not the
+  container name.** In `/srv/affine/compose/compose.yml` the service
+  is `affine` (top-level key) and the container is named
+  `affine_server` via `container_name`. `docker compose pull
+  affine_server` returns `no such service: affine_server` and
+  silently skips the pull. Always use `docker compose pull affine`
+  (or just `docker compose pull` for all services). Then
+  `docker compose up -d --force-recreate affine` to ensure the
+  container actually swaps to the new image. Without
+  `--force-recreate`, compose may leave the existing container
+  running on the old image if it sees nothing to change.
+- **Pre-existing lint debt sometimes blocks `--no-verify`-free
+  commits.** v1.10.1 hit two cases: husky's `lint-staged` chain trips
+  on a pre-existing `rxjs/finnish` eslint error in `tags.tsx:151`
+  (`tagIds$` declaration) and a `consistent-type-imports` error in
+  `prompts.ts:2`. Neither is introduced by the changes that triggered
+  the hook. Per §6 the right fix is to clean up the lint debt in a
+  precursor commit — but two recent commits in v1.10.1 used
+  `--no-verify` after stashing-and-verifying the errors are
+  pre-existing. The cleanup is overdue; track it as a lint-debt
+  sweep before the next release.
 
 ## 5b. Settings dialog wiring (where new tabs live)
 
@@ -407,6 +495,39 @@ when an admin edits via the admin panel) are skipped. This means:
   the hard way shipping AI Auto Tag in v1.8.3 (DB hot-fixed to gemini)
   → had to ship v1.8.4 (model baked into prompts.ts) so the fix
   survived restarts.
+
+### SSE stream-object endpoints emit JSON, not plain text (Auto Tag trap)
+
+When calling `textToText({stream: false})` (defined in
+`packages/frontend/core/src/blocksuite/ai/provider/request.ts`) against
+the copilot `/chat/:id/stream-object` endpoint, **every SSE
+`event.data` is a JSON-stringified `StreamObject` chunk**, not raw
+text. Naively `messages.join('')`-ing the events concatenates JSON
+wrappers like `{"type":"text-delta","textDelta":"…"}` straight into
+the result string, corrupting any downstream `JSON.parse` or
+comma-split. v1.10.1 root-caused this in two layers:
+
+1. **`request.ts` join layer** — when `stream: false`, the helper
+   now JSON-parses each `event.data`, extracts only `textDelta` from
+   `text-delta` chunks, and ignores `reasoning`/`tool-call`/`tool-result`
+   chunks. Falls back to raw payload only if parse fails so
+   non-stream-object endpoints still work.
+2. **Defensive parser** — even with the join fixed,
+   `workspace-property-types/tags.tsx` now runs a 4-strategy
+   `parseTagCandidates` (full JSON parse → array-extract regex →
+   line/comma split, with SSE-wrapper pre-strip) and a
+   `looksLikeSseFragment` rejecter for any candidate containing
+   structural fragments (`{`, `}`, `\\`, `"type"`, `"textDelta"`,
+   `text-delta`).
+
+Symptom of the unfixed bug: tags rendered as `{"type":"text…`,
+`textdelta":""}`, `\"mind\"` instead of clean strings. Found in
+production after the user clicked AI Auto Tag on a Thai-language doc.
+
+When you build any new feature that calls `textToText({stream: false})`
+and parses structured output (JSON, lists, key-value), assume the
+join layer might still leak SSE wrappers in edge cases — add a
+`looksLikeSseFragment`-style rejecter at the parse boundary.
 
 ### Reading doc body markdown without an editor host
 
