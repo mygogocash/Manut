@@ -92,7 +92,14 @@ export class DriveFileType implements DriveFile {
   @Field({ nullable: true })
   modifiedTime?: string;
 
-  @Field({ nullable: true })
+  // SUPERFLOW v1.10.2: explicit @Field(() => String) for the `string | null`
+  // union. NestJS metadata reflection cannot infer a GraphQL type from a
+  // union containing `null` and crashes the schema build with
+  // `UndefinedTypeError: ... explicit type for the "size" of "DriveFile"`.
+  // Same lesson as v1.7.0 — always pass an explicit type for nullable /
+  // optional / union @Field declarations. Drive returns `size` as a string
+  // (file sizes can exceed JS safe-integer range).
+  @Field(() => String, { nullable: true })
   size?: string | null;
 }
 
