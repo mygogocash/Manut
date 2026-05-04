@@ -1,28 +1,34 @@
-"use client";
+'use client';
 
-import { Check } from "lucide-react";
-import { useState } from "react";
+import { Check } from 'lucide-react';
+import { useState } from 'react';
 
-import { Reveal } from "@/components/reveal";
-import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
-import { plans, type Plan } from "@/lib/site";
-import { cn } from "@/lib/utils";
+import { Reveal } from '@/components/reveal';
+import { Badge } from '@/components/ui/badge';
+import { ButtonLink } from '@/components/ui/button';
+import { type Plan, plans } from '@/lib/site';
+import { cn } from '@/lib/utils';
 
-type Billing = "monthly" | "annual";
+type Billing = 'monthly' | 'annual';
 
-function priceLabel(plan: Plan, billing: Billing): { value: string; sub: string } {
-  if (plan.priceLabel) return { value: plan.priceLabel, sub: "Custom" };
-  const price = billing === "annual" ? plan.priceAnnual : plan.priceMonthly;
-  if (price === 0) return { value: "$0", sub: "Free forever" };
+function priceLabel(
+  plan: Plan,
+  billing: Billing
+): { value: string; sub: string } {
+  if (plan.priceLabel) return { value: plan.priceLabel, sub: 'Custom' };
+  const price = billing === 'annual' ? plan.priceAnnual : plan.priceMonthly;
+  if (price === 0) return { value: '$0', sub: 'Free forever' };
   return {
     value: `$${price}`,
-    sub: billing === "annual" ? "per user / month, billed annually" : "per user / month",
+    sub:
+      billing === 'annual'
+        ? 'per user / month, billed annually'
+        : 'per user / month',
   };
 }
 
 export function Pricing() {
-  const [billing, setBilling] = useState<Billing>("monthly");
+  const [billing, setBilling] = useState<Billing>('monthly');
 
   return (
     <section
@@ -49,20 +55,22 @@ export function Pricing() {
             aria-label="Billing period"
             className="mx-auto mt-8 inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 p-1"
           >
-            {(["monthly", "annual"] as Billing[]).map((b) => (
+            {(['monthly', 'annual'] as Billing[]).map(b => (
               <button
                 key={b}
                 role="tab"
                 aria-selected={billing === b}
                 onClick={() => setBilling(b)}
                 className={cn(
-                  "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                  'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
                   billing === b
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                {b === "monthly" ? "Monthly" : (
+                {b === 'monthly' ? (
+                  'Monthly'
+                ) : (
                   <span className="inline-flex items-center gap-2">
                     Annual
                     <Badge className="rounded-full bg-accent px-1.5 text-[10px] font-mono uppercase tracking-wider text-accent-foreground hover:bg-accent">
@@ -79,15 +87,15 @@ export function Pricing() {
           delay={120}
           className="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-px overflow-hidden rounded-3xl border border-border bg-border md:grid-cols-3"
         >
-          {plans.map((plan) => {
+          {plans.map(plan => {
             const { value, sub } = priceLabel(plan, billing);
             return (
               <article
                 key={plan.id}
                 aria-label={`${plan.name} plan`}
                 className={cn(
-                  "relative flex flex-col p-8 sm:p-9",
-                  plan.featured ? "bg-foreground text-background" : "bg-card"
+                  'relative flex flex-col p-8 sm:p-9',
+                  plan.featured ? 'bg-foreground text-background' : 'bg-card'
                 )}
               >
                 {plan.featured ? (
@@ -100,8 +108,10 @@ export function Pricing() {
 
                 <div
                   className={cn(
-                    "kicker",
-                    plan.featured ? "text-background/60" : "text-muted-foreground"
+                    'kicker',
+                    plan.featured
+                      ? 'text-background/60'
+                      : 'text-muted-foreground'
                   )}
                 >
                   {plan.name}
@@ -114,41 +124,47 @@ export function Pricing() {
                 </div>
                 <p
                   className={cn(
-                    "mt-2 text-[13px]",
-                    plan.featured ? "text-background/70" : "text-muted-foreground"
+                    'mt-2 text-[13px]',
+                    plan.featured
+                      ? 'text-background/70'
+                      : 'text-muted-foreground'
                   )}
                 >
                   {sub}
                 </p>
                 <p
                   className={cn(
-                    "mt-3 text-[14px] leading-relaxed",
-                    plan.featured ? "text-background/85" : "text-foreground/80"
+                    'mt-3 text-[14px] leading-relaxed',
+                    plan.featured ? 'text-background/85' : 'text-foreground/80'
                   )}
                 >
                   {plan.blurb}
                 </p>
 
                 <ul className="mt-7 flex flex-1 flex-col gap-3">
-                  {plan.features.map((f) => (
+                  {plan.features.map(f => (
                     <li
                       key={f}
                       className={cn(
-                        "flex items-start gap-2.5 text-[14px] leading-relaxed",
-                        plan.featured ? "text-background/90" : "text-foreground"
+                        'flex items-start gap-2.5 text-[14px] leading-relaxed',
+                        plan.featured ? 'text-background/90' : 'text-foreground'
                       )}
                     >
                       <span
                         aria-hidden
                         className={cn(
-                          "mt-0.5 grid size-4 shrink-0 place-items-center rounded-full",
-                          plan.featured ? "bg-accent text-accent-foreground" : "bg-foreground/10"
+                          'mt-0.5 grid size-4 shrink-0 place-items-center rounded-full',
+                          plan.featured
+                            ? 'bg-accent text-accent-foreground'
+                            : 'bg-foreground/10'
                         )}
                       >
                         <Check
                           className={cn(
-                            "size-3 stroke-[2.5]",
-                            plan.featured ? "text-accent-foreground" : "text-foreground"
+                            'size-3 stroke-[2.5]',
+                            plan.featured
+                              ? 'text-accent-foreground'
+                              : 'text-foreground'
                           )}
                           aria-hidden
                         />
@@ -162,10 +178,10 @@ export function Pricing() {
                   href={plan.cta.href}
                   size="lg"
                   className={cn(
-                    "mt-8 h-11 w-full rounded-full",
+                    'mt-8 h-11 w-full rounded-full',
                     plan.featured
-                      ? "bg-accent text-accent-foreground hover:bg-accent/90"
-                      : "bg-foreground text-background hover:bg-foreground/90"
+                      ? 'bg-accent text-accent-foreground hover:bg-accent/90'
+                      : 'bg-foreground text-background hover:bg-foreground/90'
                   )}
                 >
                   {plan.cta.label}
