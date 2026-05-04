@@ -6,10 +6,10 @@ import test from 'ava';
 
 import { createModule } from '../../../../__tests__/create-module';
 import { Mockers } from '../../../../__tests__/mocks';
+import { ConnectionService } from '../connection.service';
 import { LineOAuthService } from '../oauth/line.oauth';
 import { type MetaAccount, MetaOAuthService } from '../oauth/meta.oauth';
 import { TikTokOAuthService } from '../oauth/tiktok.oauth';
-import { ConnectionService } from '../connection.service';
 import { TokenStore } from '../token-store';
 
 /**

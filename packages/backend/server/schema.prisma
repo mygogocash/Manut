@@ -885,6 +885,7 @@ enum NotificationType {
   InvitationReviewDeclined
   Comment
   CommentMention
+  BudgetSoftCap
 }
 
 enum NotificationLevel {

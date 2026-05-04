@@ -1036,6 +1036,8 @@
   "com.affine.notification.comment": "<1>{{username}}</1> commented in <2>{{docTitle}}</2>",
   "com.affine.notification.comment-mention": "<1>{{username}}</1> mentioned you in a comment in <2>{{docTitle}}</2>",
   "com.affine.notification.comment-prompt": "What are your thoughts?",
+  "com.affine.notification.budget-soft-cap": "AI usage in <1>{{workspaceName}}</1> reached <3>{{spent}}</3> of the <4>{{cap}}</4> monthly cap. New AI requests will pause once the cap is hit.",
+  "com.affine.notification.budget-soft-cap.fallback-workspace-name": "your workspace",
   "com.affine.notification.delete-all": "Delete all notifications",
   "com.affine.notification.empty": "No new notifications",
   "com.affine.notification.empty.description": "Mentions, comments, and workspace activity will show up here.",

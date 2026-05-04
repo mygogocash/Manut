@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { SocialAiBudget } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 
+import { NotificationService } from '../../../core/notification';
+
 const DEFAULT_HARD_CAP_USD = 100;
 const DEFAULT_SOFT_CAP_USD = 80;
 const SOFT_CAP_RATIO = 0.8;
@@ -24,7 +26,10 @@ export class BudgetService {
   private readonly hardCapUsd: number;
   private readonly softCapUsd: number;
 
-  constructor(private readonly db: PrismaClient) {
+  constructor(
+    private readonly db: PrismaClient,
+    private readonly notificationService: NotificationService
+  ) {
     this.hardCapUsd = DEFAULT_HARD_CAP_USD;
     this.softCapUsd = DEFAULT_SOFT_CAP_USD;
     this.logger.debug(
@@ -131,25 +136,23 @@ export class BudgetService {
   /**
    * Notify the workspace owner that monthly AI spend has crossed the soft cap
    * and flip `alertSent` so we don't spam them. Idempotent at the row level —
-   * if `alertSent` is already true (set by a concurrent record() call) we no-op.
+   * if `alertSent` is already true (set by a concurrent record() call) we
+   * no-op without emitting another notification.
    *
-   * NOTE: AFFiNE's NotificationService is typed against a Prisma `NotificationType`
-   * enum (Mention | Invitation* | Comment*) — there is no generic in-app
-   * channel for arbitrary system alerts, and the Mailer requires a typed
-   * template name. Adding a `BudgetSoftCap` type would require a Prisma
-   * enum migration + mail template, both out of scope for this round.
+   * The notification flows through the regular in-app channel
+   * (NotificationService.createBudgetSoftCap → NotificationModel →
+   * `notifications` table) and renders alongside mentions and invitations
+   * in the user's notification feed. No email is sent: the analytics
+   * platform is opt-in and budget alerts shouldn't generate mailbox
+   * traffic before the broader analytics UX ships.
    *
-   * For now we (a) flip alertSent so the same workspace doesn't trigger
-   * repeatedly within the month, and (b) emit a structured logger.warn so
-   * the alert is visible in server logs and can be picked up by an external
-   * log-based alerting pipeline. When the notification surface lands, replace
-   * the logger.warn block below with the real call (the intended shape):
-   *
-   *   await this.notificationService.create({
-   *     userId: ownerUserId,
-   *     type: NotificationType.BudgetSoftCap,
-   *     body: { workspaceId, spentUsd, capUsd, monthYear },
-   *   });
+   * The structured `ANALYTICS_AI_BUDGET_SOFT_CAP` log line is kept alongside
+   * the notification so external log-based alerting (e.g. a Cloud Logging
+   * sink piped to PagerDuty) keeps working without depending on the
+   * in-app feed. Per the caller-level guard in `record()`, this method
+   * MUST NOT throw — wrap the notification call defensively so a backend
+   * outage in the notification path doesn't poison the spend-recording
+   * write.
    */
   private async fireSoftCapAlert(row: SocialAiBudget): Promise<void> {
     // Find the workspace owner. Schema: workspace_user_permissions.type is
@@ -185,12 +188,34 @@ export class BudgetService {
       return;
     }
 
-    // TODO(notification-surface): replace with NotificationService.create({
-    //   userId: owner.userId, type: NotificationType.BudgetSoftCap, body: {...}
-    // }) once a generic in-app channel exists. See header comment.
+    // Audit-log line (also picked up by external log-based alerting). Kept
+    // alongside the in-app notification so observability doesn't depend on
+    // the notification feed being healthy.
     this.logger.warn(
       `BudgetService: ANALYTICS_AI_BUDGET_SOFT_CAP workspace=${row.workspaceId} owner=${owner.userId} month=${row.monthYear} spent=$${row.spentUsd.toFixed(2)} cap=$${row.capUsd.toFixed(2)}`
     );
+
+    // In-app notification — best-effort. A failure here must NOT throw or
+    // abort the surrounding record() write. The log line above guarantees
+    // the alert is at least visible in server logs even if the notification
+    // path is degraded.
+    try {
+      await this.notificationService.createBudgetSoftCap({
+        userId: owner.userId,
+        body: {
+          workspaceId: row.workspaceId,
+          spentUsd: row.spentUsd,
+          capUsd: row.capUsd,
+          monthYear: row.monthYear,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `BudgetService: failed to deliver soft-cap notification for workspace ${row.workspaceId} owner ${owner.userId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    }
   }
 
   /**

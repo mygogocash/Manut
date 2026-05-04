@@ -19,6 +19,7 @@ import { WorkspacesService } from '@affine/core/modules/workspace';
 import { extractEmojiIcon } from '@affine/core/utils';
 import { UserFriendlyError } from '@affine/error';
 import type {
+  BudgetSoftCapNotificationBodyType,
   InvitationAcceptedNotificationBodyType,
   InvitationBlockedNotificationBodyType,
   InvitationNotificationBodyType,
@@ -200,6 +201,8 @@ const NotificationItem = ({ notification }: { notification: Notification }) => {
     <InvitationReviewDeclinedNotificationItem notification={notification} />
   ) : type === NotificationType.InvitationReviewApproved ? (
     <InvitationReviewApprovedNotificationItem notification={notification} />
+  ) : type === NotificationType.BudgetSoftCap ? (
+    <BudgetSoftCapNotificationItem notification={notification} />
   ) : (
     <div className={styles.itemContainer}>
       <Avatar size={22} />
@@ -703,6 +706,86 @@ const InvitationNotificationItem = ({
             {t['com.affine.notification.invitation.accept']()}
           </Button>
         )}
+        <div className={styles.itemDate}>
+          {i18nTime(notification.createdAt, {
+            relative: true,
+          })}
+        </div>
+      </div>
+      <DeleteButton notification={notification} />
+    </div>
+  );
+};
+
+const formatBudgetUsd = (value: number): string => {
+  // Currency-style formatting that matches the backend's "$X.XX" log lines
+  // and avoids the locale's currency symbol drift (the cap is always USD,
+  // even on a workspace whose users are reading the UI in another locale).
+  if (!Number.isFinite(value)) {
+    return '$0.00';
+  }
+  return `$${Math.max(0, value).toFixed(2)}`;
+};
+
+const BudgetSoftCapNotificationItem = ({
+  notification,
+}: {
+  notification: Notification;
+}) => {
+  const notificationListService = useService(NotificationListService);
+  const { jumpToWorkspaceSettings } = useNavigateHelper();
+  const t = useI18n();
+  const body = notification.body as BudgetSoftCapNotificationBodyType;
+  const workspaceInactived = !body.workspace;
+  const targetWorkspaceId = body.workspace?.id ?? body.workspaceId;
+
+  const handleClick = useCallback(() => {
+    track.$.sidebar.notifications.clickNotification({
+      type: notification.type,
+      item: 'read',
+    });
+    notificationListService
+      .readNotification(notification.id)
+      .catch((err: unknown) => {
+        console.error(err);
+      });
+    if (!targetWorkspaceId) {
+      return;
+    }
+    jumpToWorkspaceSettings(
+      targetWorkspaceId,
+      'workspace:analytics-connections'
+    );
+  }, [
+    jumpToWorkspaceSettings,
+    notification,
+    notificationListService,
+    targetWorkspaceId,
+  ]);
+
+  return (
+    <div className={styles.itemContainer} onClick={handleClick}>
+      <Avatar size={22} />
+      <div className={styles.itemMain}>
+        <span>
+          <Trans
+            i18nKey={'com.affine.notification.budget-soft-cap'}
+            components={{
+              1: <WorkspaceNameWithIcon data-inactived={workspaceInactived} />,
+              3: <b className={styles.itemNameLabel} />,
+              4: <b className={styles.itemNameLabel} />,
+            }}
+            values={{
+              workspaceName:
+                body.workspace?.name ??
+                t[
+                  'com.affine.notification.budget-soft-cap.fallback-workspace-name'
+                ](),
+              spent: formatBudgetUsd(body.spentUsd),
+              cap: formatBudgetUsd(body.capUsd),
+            }}
+          />
+        </span>
         <div className={styles.itemDate}>
           {i18nTime(notification.createdAt, {
             relative: true,

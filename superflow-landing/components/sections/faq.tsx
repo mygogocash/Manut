@@ -1,11 +1,11 @@
+import { Reveal } from '@/components/reveal';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Reveal } from "@/components/reveal";
-import { faqs, siteConfig } from "@/lib/site";
+} from '@/components/ui/accordion';
+import { faqs, siteConfig } from '@/lib/site';
 
 export function Faq() {
   return (
@@ -27,7 +27,7 @@ export function Faq() {
             Quick answers to common questions. Reach out if anything is missing.
           </p>
           <p className="mt-6 font-mono text-xs text-muted-foreground">
-            Need more?{" "}
+            Need more?{' '}
             <a
               href={`mailto:${siteConfig.email}`}
               className="underline underline-offset-4 hover:text-foreground"
@@ -38,7 +38,7 @@ export function Faq() {
         </Reveal>
 
         <Reveal delay={120}>
-          <Accordion className="w-full" defaultValue={["item-0"]}>
+          <Accordion className="w-full" defaultValue={['item-0']}>
             {faqs.map((f, i) => (
               <AccordionItem
                 key={f.question}
