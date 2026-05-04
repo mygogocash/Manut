@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-
-import { Config } from '../../../../base';
 // Analytics config (including `analytics.meta.*`) is declared and registered
 // in `../../config.ts` — single source of truth.
 import '../../config';
+
+import { Injectable, Logger } from '@nestjs/common';
+
+import { Config } from '../../../../base';
 
 /**
  * Single Meta OAuth surface for Facebook, Instagram (Business) and Threads —

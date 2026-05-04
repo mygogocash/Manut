@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { PrismaClient } from '@prisma/client';
 
-import { CopilotProviderFactory } from '../../copilot/providers/factory';
 import { PromptService } from '../../copilot/prompt/service';
+import { CopilotProviderFactory } from '../../copilot/providers/factory';
 import { BudgetService } from './budget.service';
 
 const ESTIMATED_COST_USD = 0.02; // gemini-2.5-flash, ~3K in / 0.5K out

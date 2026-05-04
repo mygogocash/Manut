@@ -1,8 +1,3 @@
-export {
-  AnalyticsService,
-  ConnectionService,
-  configureAnalyticsModule,
-} from './analytics.module';
 export type {
   ConnectionStatus,
   Insight,
@@ -13,4 +8,9 @@ export type {
   MetricSeries,
   PlatformConnection,
   SocialPlatform,
+} from './analytics.module';
+export {
+  AnalyticsService,
+  configureAnalyticsModule,
+  ConnectionService,
 } from './analytics.module';

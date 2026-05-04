@@ -1,9 +1,9 @@
 import { Service } from '@toeverything/infra';
 
-import { GraphQLService } from '../../cloud/services/graphql';
+import type { GraphQLService } from '../../cloud/services/graphql';
 import {
-  type AnalyticsOverview,
   AnalyticsDataEntity,
+  type AnalyticsOverview,
 } from '../entities/analytics-data.entity';
 import { type Insight, InsightEntity } from '../entities/insight.entity';
 

@@ -1,11 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { PrismaClient, SocialPlatform } from '@prisma/client';
-
-import { Config } from '../../../base';
 // Analytics config (including `analytics.kms`) is declared and registered in
 // `../config.ts` to avoid TypeScript declaration-merging conflicts that
 // previously forced runtime casts. See plugins/analytics/config.ts.
 import '../config';
+
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { PrismaClient, SocialPlatform } from '@prisma/client';
+
+import { Config } from '../../../base';
 
 /**
  * Public interface for the analytics token store.
@@ -88,10 +89,10 @@ export class TokenStore implements ITokenStore, OnModuleInit {
 
     try {
       // Dynamic import keeps the dependency optional at import time. The
-      // @ts-ignore is necessary because the package may not yet be installed
+      // @ts-expect-error is necessary because the package may not yet be installed
       // in every environment (CI typecheck without `yarn install`); it IS in
       // package.json and present in production images.
-      // @ts-ignore -- optional runtime dep declared in package.json
+      // @ts-expect-error -- optional runtime dep declared in package.json
       const mod = await import('@google-cloud/kms');
       const KeyManagementServiceClient =
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

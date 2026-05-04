@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-
-import { Config } from '../../../../base';
 // Analytics config (including `analytics.tiktok.*`) is declared and registered
 // in `../../config.ts` — single source of truth.
 import '../../config';
+
+import { Injectable, Logger } from '@nestjs/common';
+
+import { Config } from '../../../../base';
 import type { OAuthTokenResult } from './meta.oauth';
 
 /**

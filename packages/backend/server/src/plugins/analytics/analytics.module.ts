@@ -1,11 +1,12 @@
+// Side-effect import — registers the consolidated analytics config schema
+// (kms, meta, line, tiktok) before any DI consumer reads from `Config`.
+import './config';
+
 import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 
 import { PermissionModule } from '../../core/permission';
 import { CopilotModule } from '../copilot';
-// Side-effect import — registers the consolidated analytics config schema
-// (kms, meta, line, tiktok) before any DI consumer reads from `Config`.
-import './config';
 import { DailyRollupCron } from './aggregator/daily-rollup.cron';
 import { HourlyRollupCron } from './aggregator/hourly-rollup.cron';
 import { WeeklyRollupCron } from './aggregator/weekly-rollup.cron';
@@ -15,10 +16,10 @@ import { StrategistService } from './ai/strategist.service';
 import { TrendDetectorService } from './ai/trend-detector.service';
 import { ConnectionResolver } from './connections/connection.resolver';
 import { ConnectionService } from './connections/connection.service';
-import { OAuthCallbackController } from './connections/oauth-callback.controller';
 import { LineOAuthService } from './connections/oauth/line.oauth';
 import { MetaOAuthService } from './connections/oauth/meta.oauth';
 import { TikTokOAuthService } from './connections/oauth/tiktok.oauth';
+import { OAuthCallbackController } from './connections/oauth-callback.controller';
 import { TokenStore } from './connections/token-store';
 import { AnalyticsResolver } from './graphql/analytics.resolver';
 import { IngestionService } from './ingest/ingestion.service';

@@ -1,10 +1,10 @@
+import { AnalyticsOverview } from '@affine/core/modules/analytics/views/analytics-overview';
 import {
   ViewBody,
   ViewHeader,
   ViewIcon,
   ViewTitle,
 } from '@affine/core/modules/workbench';
-import { AnalyticsOverview } from '@affine/core/modules/analytics/views/analytics-overview';
 import { DataPanelIcon } from '@blocksuite/icons/rc';
 
 import { Header } from '../../../../components/pure/header';

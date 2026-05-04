@@ -225,7 +225,7 @@ export class TikTokPoller {
     for (const video of fresh) {
       const id = String(video.id);
       const metrics = metricsById.get(id);
-      const enriched = { ...video, ...(metrics ?? {}) };
+      const enriched = { ...video, ...metrics };
 
       const event = this.mapper.toSocialEvent(enriched, connection);
       try {

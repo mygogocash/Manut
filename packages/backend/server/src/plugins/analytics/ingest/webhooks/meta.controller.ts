@@ -68,24 +68,21 @@ export class MetaWebhookController {
   ): Promise<void> {
     const expected = this.config.analytics?.meta?.webhookVerifyToken ?? '';
 
+    // Meta sends an alphanumeric challenge string. Validate strictly
+    // before echoing it back — even with text/plain, reflecting an
+    // unconstrained query parameter is flagged by code scanning, and
+    // a malformed challenge has no legitimate use case.
     if (
       mode === 'subscribe' &&
       typeof token === 'string' &&
       token.length > 0 &&
       expected.length > 0 &&
-      this.constantTimeEqualString(token, expected)
+      this.constantTimeEqualString(token, expected) &&
+      typeof challenge === 'string' &&
+      /^[A-Za-z0-9_-]{1,256}$/.test(challenge)
     ) {
-      // Meta sends an alphanumeric challenge string. Validate strictly
-      // before echoing it back — even with text/plain, reflecting an
-      // unconstrained query parameter is flagged by code scanning, and
-      // a malformed challenge has no legitimate use case.
-      if (
-        typeof challenge === 'string' &&
-        /^[A-Za-z0-9_-]{1,256}$/.test(challenge)
-      ) {
-        res.status(HttpStatus.OK).type('text/plain').send(challenge);
-        return;
-      }
+      res.status(HttpStatus.OK).type('text/plain').send(challenge);
+      return;
     }
 
     res.status(HttpStatus.FORBIDDEN).send();

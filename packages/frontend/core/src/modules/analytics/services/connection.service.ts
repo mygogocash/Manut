@@ -1,6 +1,6 @@
 import { Service } from '@toeverything/infra';
 
-import { GraphQLService } from '../../cloud/services/graphql';
+import type { GraphQLService } from '../../cloud/services/graphql';
 import type { SocialPlatform } from '../entities/analytics-data.entity';
 import {
   type PlatformConnection,
@@ -190,7 +190,9 @@ export class ConnectionService extends Service {
         if (!isAnalyticsOAuthMessage(event.data)) return;
         if (event.data.type === 'analytics:oauth:done') {
           // Refresh on success so the new ACTIVE row appears.
-          void this.loadConnections(workspaceId);
+          this.loadConnections(workspaceId).catch(() => {
+            /* loadConnections handles its own errors; swallow here */
+          });
           settle({ ok: true });
         } else {
           // Backend posts `message`; tolerate `error` for backwards compat.
@@ -210,7 +212,9 @@ export class ConnectionService extends Service {
       // we still want to refresh + resolve.
       const closedTimer = window.setInterval(() => {
         if (popup.closed) {
-          void this.loadConnections(workspaceId);
+          this.loadConnections(workspaceId).catch(() => {
+            /* loadConnections handles its own errors; swallow here */
+          });
           settle({ ok: true });
         }
       }, 500);

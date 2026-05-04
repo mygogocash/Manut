@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-
-import { Config } from '../../../../base';
 // Analytics config (including `analytics.line.*`) is declared and registered
 // in `../../config.ts` — single source of truth.
 import '../../config';
+
+import { Injectable, Logger } from '@nestjs/common';
+
+import { Config } from '../../../../base';
 // keep in sync — re-exported from meta.oauth.ts (Round A scaffolding).
 import type { OAuthTokenResult } from './meta.oauth';
 

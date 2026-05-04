@@ -4703,6 +4703,34 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.peek-view-controls.copy-link"](): string;
     /**
+      * `Personalize`
+      */
+    ["com.affine.personalize.title"](): string;
+    /**
+      * `Customize how AFFiNE AI responds to you across this workspace.`
+      */
+    ["com.affine.personalize.subtitle"](): string;
+    /**
+      * `Custom instructions`
+      */
+    ["com.affine.personalize.section.title"](): string;
+    /**
+      * `e.g. Always respond in Thai. I run a fintech startup in Bangkok and prefer concise, action-oriented answers.`
+      */
+    ["com.affine.personalize.placeholder"](): string;
+    /**
+      * `Saving…`
+      */
+    ["com.affine.personalize.status.saving"](): string;
+    /**
+      * `Saved`
+      */
+    ["com.affine.personalize.status.saved"](): string;
+    /**
+      * `Couldn't save — try again`
+      */
+    ["com.affine.personalize.status.error"](): string;
+    /**
       * `Click or drag`
       */
     ["com.affine.split-view-drag-handle.tooltip"](): string;
@@ -8028,7 +8056,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.notification.loading-more"](): string;
     /**
-      * `You'll be notified here for @mentions and workspace invites.`
+      * `Mentions, comments, and workspace activity will show up here.`
       */
     ["com.affine.notification.empty.description"](): string;
     /**
@@ -8557,6 +8585,14 @@ export function useAFFiNEI18N(): {
       * `The MCP token is shown only once. Delete and recreate it to copy the JSON configuration.`
       */
     ["com.affine.integration.mcp-server.copy-json.disabled-hint"](): string;
+    /**
+      * `Connections`
+      */
+    ["com.affine.integration.connections.name"](): string;
+    /**
+      * `Connect GitHub, Slack, Linear, Figma and more to sync data into AFFiNE.`
+      */
+    ["com.affine.integration.connections.desc"](): string;
     /**
       * `Notes`
       */

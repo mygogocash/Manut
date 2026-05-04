@@ -14,6 +14,10 @@ import type { Insight } from '../../entities/insight.entity';
 import { AnalyticsService } from '../../services/analytics.service';
 import * as styles from './index.css';
 
+// Stable empty-array reference so `useMemo` deps don't re-trigger on every
+// render when LiveData returns nothing. Module-scoped const = same identity.
+const EMPTY_INSIGHTS: readonly Insight[] = Object.freeze([]);
+
 /* ------------------------------------------------------------------ */
 /* Lightweight markdown renderer.                                      */
 /* The codebase has BlockSuite's MarkdownAdapter for full doc text but  */
@@ -132,7 +136,8 @@ function groupInsights(insights: Insight[]): Map<Bucket, Insight[]> {
   const map = new Map<Bucket, Insight[]>();
   for (const b of BUCKET_ORDER) map.set(b, []);
   for (const insight of sorted) {
-    map.get(bucketFor(insight.createdAt))!.push(insight);
+    const bucket = map.get(bucketFor(insight.createdAt));
+    if (bucket) bucket.push(insight);
   }
   return map;
 }
@@ -144,7 +149,8 @@ export function AIStrategist() {
   const workspaceService = useService(WorkspaceService);
   const workspaceId = workspaceService.workspace.id;
 
-  const insights = useLiveData(analyticsService.insights.insights$) ?? [];
+  const insights =
+    useLiveData(analyticsService.insights.insights$) ?? EMPTY_INSIGHTS;
   const loading = useLiveData(analyticsService.insights.loading$) ?? false;
   const error = useLiveData(analyticsService.insights.error$);
 
@@ -197,12 +203,10 @@ export function AIStrategist() {
   const handleCopyLink = useCallback(
     (insightId: string) => {
       const url = `${window.location.origin}/workspace/${workspaceId}/analytics/ai-strategist#insight-${insightId}`;
-      try {
-        if (navigator.clipboard?.writeText) {
-          void navigator.clipboard.writeText(url);
-        }
-      } catch {
-        /* ignore */
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(url).catch(() => {
+          /* clipboard write can reject under permissions policy; ignore */
+        });
       }
     },
     [workspaceId]

@@ -143,7 +143,7 @@ export function ConnectionsSettings({
     <div className={styles.root} data-testid="analytics-connections-settings">
       <div className={styles.title}>Connections</div>
       <div className={styles.subtitle}>
-        Link your workspace's social accounts to start collecting metrics.
+        Link your workspace&apos;s social accounts to start collecting metrics.
       </div>
       {!canEdit ? (
         <div className={styles.lockedNotice}>

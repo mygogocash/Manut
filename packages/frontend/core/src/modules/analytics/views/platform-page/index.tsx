@@ -10,22 +10,28 @@ import type {
   AnalyticsKpi,
   SocialPlatform,
 } from '../../entities/analytics-data.entity';
+import type { Insight } from '../../entities/insight.entity';
+import type { PlatformConnection } from '../../entities/platform-connection.entity';
 import { AnalyticsService } from '../../services/analytics.service';
 import { ConnectionService } from '../../services/connection.service';
 import * as styles from './index.css';
 
-const KNOWN_PLATFORMS: SocialPlatform[] = [
+// Stable empty-array references for useMemo deps; see ai-strategist/index.tsx.
+const EMPTY_INSIGHTS: readonly Insight[] = Object.freeze([]);
+const EMPTY_CONNECTIONS: readonly PlatformConnection[] = Object.freeze([]);
+
+const KNOWN_PLATFORMS: SocialPlatform[] = new Set([
   'FACEBOOK',
   'INSTAGRAM',
   'THREADS',
   'TIKTOK',
   'LINE_VOOM',
   'GOGOCASH',
-];
+]);
 
 const isKnownPlatform = (slug: string | undefined): slug is SocialPlatform => {
   if (!slug) return false;
-  return KNOWN_PLATFORMS.includes(slug.toUpperCase() as SocialPlatform);
+  return KNOWN_PLATFORMS.has(slug.toUpperCase() as SocialPlatform);
 };
 
 interface PlatformPageProps {
@@ -81,8 +87,10 @@ export function PlatformPage({ platform }: PlatformPageProps) {
 
   const overview = useLiveData(analyticsService.data.overview$);
   const overviewLoading = useLiveData(analyticsService.data.loading$) ?? false;
-  const insights = useLiveData(analyticsService.insights.insights$) ?? [];
-  const connections = useLiveData(connectionService.entity.connections$) ?? [];
+  const insights =
+    useLiveData(analyticsService.insights.insights$) ?? EMPTY_INSIGHTS;
+  const connections =
+    useLiveData(connectionService.entity.connections$) ?? EMPTY_CONNECTIONS;
 
   useEffect(() => {
     analyticsService.loadOverview(workspaceId).catch(err => {
@@ -185,7 +193,7 @@ export function PlatformPage({ platform }: PlatformPageProps) {
 
       <div className={styles.sectionLabel}>Trends</div>
       <div className={styles.chartGrid}>
-        {platformKpis.filter(k => k.sparkline.length > 1).length > 0 ? (
+        {platformKpis.some(k => k.sparkline.length > 1) ? (
           platformKpis
             .filter(k => k.sparkline.length > 1)
             .map(kpi => (

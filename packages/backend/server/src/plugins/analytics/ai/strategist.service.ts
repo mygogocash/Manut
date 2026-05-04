@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { SocialInsight } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 
-import { CopilotProviderFactory } from '../../copilot/providers/factory';
 import { PromptService } from '../../copilot/prompt/service';
+import { CopilotProviderFactory } from '../../copilot/providers/factory';
 import { BudgetService } from './budget.service';
 
 /**

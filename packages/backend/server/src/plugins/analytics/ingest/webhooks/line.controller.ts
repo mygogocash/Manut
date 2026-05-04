@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+import type { RawBodyRequest } from '@nestjs/common';
 import {
   Controller,
   Headers,
@@ -10,7 +11,6 @@ import {
   Post,
   Req,
 } from '@nestjs/common';
-import type { RawBodyRequest } from '@nestjs/common';
 import type { SocialConnection } from '@prisma/client';
 import { PrismaClient, SocialPlatform } from '@prisma/client';
 import type { Request } from 'express';
