@@ -5,6 +5,11 @@ import { Logo1Icon, TodayIcon } from '@blocksuite/icons/rc';
 import type { ReactNode } from 'react';
 
 import { CalendarSettingPanel } from './calendar/setting-panel';
+import { GmailLogoIcon, GoogleDriveLogoIcon } from './google/icons';
+import {
+  GmailSettingPanel,
+  GoogleDriveSettingPanel,
+} from './google/setting-panel';
 import MCPIcon from './mcp-server/MCP.inline.svg';
 import { McpServerSettingPanel } from './mcp-server/setting-panel';
 import { ReadwiseSettingPanel } from './readwise/setting-panel';
@@ -67,6 +72,22 @@ const INTEGRATION_LIST = [
     desc: 'com.affine.integration.connections.desc',
     icon: <span style={{ fontSize: '20px' }}>🔗</span>,
     setting: <ConnectionsSettingPanel />,
+    requiresCloud: true,
+  },
+  {
+    id: 'gmail' as const,
+    name: 'com.affine.integration.gmail.name',
+    desc: 'com.affine.integration.gmail.description',
+    icon: <GmailLogoIcon />,
+    setting: <GmailSettingPanel />,
+    requiresCloud: true,
+  },
+  {
+    id: 'google-drive' as const,
+    name: 'com.affine.integration.google-drive.name',
+    desc: 'com.affine.integration.google-drive.description',
+    icon: <GoogleDriveLogoIcon />,
+    setting: <GoogleDriveSettingPanel />,
     requiresCloud: true,
   },
 ] satisfies (IntegrationCard | false)[];

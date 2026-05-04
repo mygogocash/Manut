@@ -315,6 +315,19 @@ Document the surprises — saves the next session a discovery cycle.
       `napi build --target x86_64-unknown-linux-gnu` BEFORE the
       server bundle step, so the binary exists when bundling.
   Cargo registry cache cuts ~3-5 min off warm runs.
+- **Google OAuth (Gmail / Drive integrations) — v1.10.1 is SCAFFOLD ONLY.**
+  The connect/disconnect plumbing in `packages/backend/server/src/plugins/google-oauth/`
+  is wired end-to-end: GraphQL `connectGoogle` returns a consent URL, the
+  callback at `/oauth/google/callback` exchanges the code and persists the
+  tokens (encrypted) into the existing `IntegrationConnection` table — no
+  Prisma migration needed. Live email reading / file picking is **not
+  shipped**; the cards show a "Live import is rolling out soon" footer.
+  Required env vars: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
+  optional `GOOGLE_OAUTH_REDIRECT_URI` (defaults to `${SERVER_URL}/oauth/google/callback`).
+  Create the OAuth client at https://console.cloud.google.com/apis/credentials
+  in project `affine-495114`; grant scopes `gmail.readonly` and `drive.readonly`.
+  Without env vars configured, the Connect button surfaces a "configure
+  OAuth client" message instead of opening a blank popup.
 
 ## 5b. Settings dialog wiring (where new tabs live)
 
@@ -352,7 +365,17 @@ silently doesn't take effect:
 
 ### Model selection on Superflow's Vertex stack
 
-**`gpt-5-mini` is poisonous.** Upstream defaults this for many prompts.
+**`gpt-5-mini` is poisonous — and we keep finding new prompts using
+it.** Upstream defaults this for many prompts. Each one breaks
+silently on a Vertex-only stack — no error in logs, the feature just
+doesn't work. We've now hit this in:
+- v1.8.4 — Auto Tag prompt (frontend tag picker)
+- v1.10.0 — `Summary as title` (auto-naming chat sessions; `New chat`
+  forever in the history dropdown until fixed)
+
+Whenever a feature that uses an LLM "silently does nothing", grep
+`prompts.ts` for `gpt-5-mini` first.
+
 Superflow's Vertex AI deployment (config at
 `/srv/affine/data/affine-config/config.json` on the VM) only routes:
 

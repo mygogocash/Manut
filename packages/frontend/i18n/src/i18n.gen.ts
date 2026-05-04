@@ -4703,6 +4703,34 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.peek-view-controls.copy-link"](): string;
     /**
+      * `Personalize`
+      */
+    ["com.affine.personalize.title"](): string;
+    /**
+      * `Customize how AFFiNE AI responds to you across this workspace.`
+      */
+    ["com.affine.personalize.subtitle"](): string;
+    /**
+      * `Custom instructions`
+      */
+    ["com.affine.personalize.section.title"](): string;
+    /**
+      * `e.g. Always respond in Thai. I run a fintech startup in Bangkok and prefer concise, action-oriented answers.`
+      */
+    ["com.affine.personalize.placeholder"](): string;
+    /**
+      * `Saving…`
+      */
+    ["com.affine.personalize.status.saving"](): string;
+    /**
+      * `Saved`
+      */
+    ["com.affine.personalize.status.saved"](): string;
+    /**
+      * `Couldn't save — try again`
+      */
+    ["com.affine.personalize.status.error"](): string;
+    /**
       * `Click or drag`
       */
     ["com.affine.split-view-drag-handle.tooltip"](): string;
@@ -8028,7 +8056,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.notification.loading-more"](): string;
     /**
-      * `You'll be notified here for @mentions and workspace invites.`
+      * `Mentions, comments, and workspace activity will show up here.`
       */
     ["com.affine.notification.empty.description"](): string;
     /**
@@ -8171,6 +8199,54 @@ export function useAFFiNEI18N(): {
       * `Import web pages to AFFiNE`
       */
     ["com.affine.integration.web-clipper.desc"](): string;
+    /**
+      * `Gmail`
+      */
+    ["com.affine.integration.gmail.name"](): string;
+    /**
+      * `Link your Gmail account to import emails as docs.`
+      */
+    ["com.affine.integration.gmail.description"](): string;
+    /**
+      * `Google Drive`
+      */
+    ["com.affine.integration.google-drive.name"](): string;
+    /**
+      * `Link your Google Drive to embed files in docs.`
+      */
+    ["com.affine.integration.google-drive.description"](): string;
+    /**
+      * `Connect Google account`
+      */
+    ["com.affine.integration.google.connect"](): string;
+    /**
+      * `Disconnect`
+      */
+    ["com.affine.integration.google.disconnect"](): string;
+    /**
+      * `Connected as {{email}}`
+      */
+    ["com.affine.integration.google.connected-as"](options: {
+        readonly email: string;
+    }): string;
+    /**
+      * `Live import is rolling out soon.`
+      */
+    ["com.affine.integration.google.coming-soon"](): string;
+    /**
+      * `Connection failed: {{error}}`
+      */
+    ["com.affine.integration.google.error"](options: {
+        readonly error: string;
+    }): string;
+    /**
+      * `Connection failed.`
+      */
+    ["com.affine.integration.google.error-generic"](): string;
+    /**
+      * `Google OAuth client is not configured. Ask an admin to set GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET.`
+      */
+    ["com.affine.integration.google.not-configured"](): string;
     /**
       * `Elevate your AFFiNE experience with diverse add-ons and seamless integrations.`
       */
@@ -8557,6 +8633,14 @@ export function useAFFiNEI18N(): {
       * `The MCP token is shown only once. Delete and recreate it to copy the JSON configuration.`
       */
     ["com.affine.integration.mcp-server.copy-json.disabled-hint"](): string;
+    /**
+      * `Connections`
+      */
+    ["com.affine.integration.connections.name"](): string;
+    /**
+      * `Connect GitHub, Slack, Linear, Figma and more to sync data into AFFiNE.`
+      */
+    ["com.affine.integration.connections.desc"](): string;
     /**
       * `Notes`
       */
