@@ -284,6 +284,37 @@ Document the surprises — saves the next session a discovery cycle.
   to the main worktree before lint + commit. (The worktree branch is
   off an older baseline and contains commits you don't want — don't
   cherry-pick the branch wholesale.)
+- **Backticks inside `css\`\`` and `html\`\`` Lit template literals
+  silently break the build.** Backticks are the template-literal
+  terminator. A comment that contains `\`<my-element>\`` will close
+  the outer template at the first backtick, then the rest is parsed as
+  JS expressions. Cost us a v1.9.0 production blank-page incident:
+  `<affine-table-block>` after the broken backtick parsed `affine` as
+  an undefined identifier → `ReferenceError: affine is not defined`
+  in a `<static_initializer>`, swallowed by React's bootstrap, no
+  console error visible to the browse skill. Diagnosed only by
+  running the dist locally with HTML rewritten from CDN to relative
+  paths (so the browser would actually surface the error). Always
+  scan agent-edited Lit components for stray backticks in any
+  `css\`...\`` / `html\`...\`` block — comments are the highest-risk
+  spot because nobody reviews them. Use plain words like
+  "the affine-table-block element" instead.
+- **napi-rs binaries are gitignored — CI cannot build the server
+  bundle without a Rust step.** `packages/backend/native/server-native.{
+  x64,arm64,armv7}.node` are products of `napi build --release` on a
+  Rust toolchain. They're in `.gitignore` (binary blobs, ~30MB each).
+  Locally we have them; GitHub-hosted runners do not. Any CI job that
+  runs `yarn affine bundle -p @affine/server` will fail with
+  `Module not found: Can't resolve './server-native.*.node'`. Fix
+  in two places:
+    - PR/push CI (`superflow-ci.yml`): use
+      `yarn workspace @affine/server tsc --noEmit` — typechecks
+      without linking the binary.
+    - Release CI (`superflow-release.yml`): install the Rust
+      toolchain (`dtolnay/rust-toolchain@stable`) and run
+      `napi build --target x86_64-unknown-linux-gnu` BEFORE the
+      server bundle step, so the binary exists when bundling.
+  Cargo registry cache cuts ~3-5 min off warm runs.
 
 ## 5b. Settings dialog wiring (where new tabs live)
 
