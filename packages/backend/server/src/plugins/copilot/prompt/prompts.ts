@@ -493,9 +493,18 @@ You are an assistant helping summarize a document. Use this format, replacing te
     ],
   },
   {
+    // Summary as title is invoked by `copilot.session.generateTitle` which
+    // fires on the first non-action assistant reply in a chat session
+    // (`session.ts:673`). This is what makes chat history entries auto-name
+    // themselves instead of staying as "New chat" forever.
+    //
+    // Model: gemini-2.5-flash. Upstream defaults to gpt-5-mini which is
+    // unavailable on Superflow's Vertex-only stack — title generation
+    // silently fails and every chat reads "New chat". Same fix as the
+    // Auto Tag prompt (§5c).
     name: 'Summary as title',
     action: 'Summary as title',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
