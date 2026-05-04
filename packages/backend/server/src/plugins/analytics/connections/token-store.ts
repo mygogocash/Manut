@@ -39,9 +39,17 @@ export interface AuditContext {
 }
 
 /**
- * Lazy import the GCP KMS SDK so the server boots even if the package is
- * missing at runtime (e.g. in a fresh dev install before `yarn install`).
- * Real production builds bundle `@google-cloud/kms` via package.json.
+ * Lazy import the GCP KMS SDK so the server boots without the package.
+ *
+ * The `@google-cloud/kms` dep is intentionally NOT in package.json — it adds
+ * ~5 MB of transitive deps that nothing else in the repo uses, and the
+ * Analytics module is feature-flagged off by default. When enabling Analytics
+ * for production, install the package first:
+ *
+ *   yarn workspace @affine/server add @google-cloud/kms
+ *
+ * Without it, calling `decrypt()` / `encrypt()` throws a clear error at the
+ * call site (the feature flag gates that code path).
  */
 type KmsClient = {
   encrypt(req: {
