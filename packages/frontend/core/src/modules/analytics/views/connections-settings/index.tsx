@@ -6,8 +6,18 @@ import { WorkspaceService } from '../../../workspace';
 import { ConnectionStatusBadge } from '../../components/connection-status-badge';
 import type { SocialPlatform } from '../../entities/analytics-data.entity';
 import type { PlatformConnection } from '../../entities/platform-connection.entity';
-import { ConnectionService } from '../../services/connection.service';
+import {
+  ConnectionService,
+  type PendingAccountChoice,
+} from '../../services/connection.service';
+import { AccountPickerModal } from './account-picker-modal';
 import * as styles from './index.css';
+
+interface PendingPickerState {
+  pendingId: string;
+  platform: SocialPlatform;
+  accounts: PendingAccountChoice[];
+}
 
 const ALL_PLATFORMS: SocialPlatform[] = [
   'FACEBOOK',
@@ -60,17 +70,19 @@ export function ConnectionsSettings({
   const workspaceId = workspaceService.workspace.id;
   const { openConfirmModal } = useConfirmModal();
 
-  const connections =
-    (useLiveData(connectionService.entity.connections$) ??
-      []) as PlatformConnection[];
+  const connections = (useLiveData(connectionService.entity.connections$) ??
+    []) as PlatformConnection[];
   const loading = useLiveData(connectionService.entity.loading$) ?? false;
 
   const [busyPlatform, setBusyPlatform] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingPicker, setPendingPicker] = useState<PendingPickerState | null>(
+    null
+  );
 
   useEffect(() => {
     connectionService.loadConnections(workspaceId).catch(err => {
-      // eslint-disable-next-line no-console
+       
       console.warn('[analytics] loadConnections failed', err);
     });
   }, [connectionService, workspaceId]);
@@ -85,11 +97,20 @@ export function ConnectionsSettings({
           workspaceId,
           platform
         );
-        if (!result.ok && result.error) {
+        if (result.ok === 'pick-account') {
+          // Multi-account Meta — defer to the picker modal. Don't surface
+          // an error and don't clear busyPlatform; the modal owns the
+          // pending state until the user confirms or cancels.
+          setPendingPicker({
+            pendingId: result.pendingId,
+            platform: result.platform,
+            accounts: result.accounts,
+          });
+        } else if (!result.ok && result.error) {
           setErrorMessage(result.error);
         }
       } catch (err) {
-        // eslint-disable-next-line no-console
+         
         console.warn(`[analytics] beginOAuth(${platform}) failed`, err);
         setErrorMessage(
           err instanceof Error ? err.message : 'Failed to start OAuth'
@@ -100,6 +121,32 @@ export function ConnectionsSettings({
     },
     [canEdit, connectionService, workspaceId]
   );
+
+  const handlePickerConfirm = useCallback(
+    async (externalAccountId: string) => {
+      if (!pendingPicker) return;
+      // Throws on failure → AccountPickerModal catches + displays inline.
+      await connectionService.finalizeConnection(
+        workspaceId,
+        pendingPicker.pendingId,
+        externalAccountId
+      );
+      setPendingPicker(null);
+      setErrorMessage(null);
+    },
+    [connectionService, pendingPicker, workspaceId]
+  );
+
+  const handlePickerCancel = useCallback(() => {
+    if (!pendingPicker) return;
+    const { pendingId } = pendingPicker;
+    setPendingPicker(null);
+    // Fire-and-forget. cancelPendingOAuth handles its own errors and the
+    // cache row will TTL-expire even if the mutation drops.
+    connectionService.cancelPendingOAuth(pendingId).catch(() => {
+      /* swallow — cache TTL is the safety net */
+    });
+  }, [connectionService, pendingPicker]);
 
   const handleDisconnect = useCallback(
     (connection: PlatformConnection) => {
@@ -120,7 +167,7 @@ export function ConnectionsSettings({
           try {
             await connectionService.disconnect(connection.id);
           } catch (err) {
-            // eslint-disable-next-line no-console
+             
             console.warn(
               `[analytics] disconnect(${connection.id}) failed`,
               err
@@ -141,6 +188,15 @@ export function ConnectionsSettings({
 
   return (
     <div className={styles.root} data-testid="analytics-connections-settings">
+      {pendingPicker ? (
+        <AccountPickerModal
+          open={true}
+          platform={pendingPicker.platform}
+          accounts={pendingPicker.accounts}
+          onConfirm={handlePickerConfirm}
+          onCancel={handlePickerCancel}
+        />
+      ) : null}
       <div className={styles.title}>Connections</div>
       <div className={styles.subtitle}>
         Link your workspace&apos;s social accounts to start collecting metrics.
@@ -171,7 +227,9 @@ export function ConnectionsSettings({
             const status = connection?.status ?? 'NOT_CONNECTED';
             const busy = busyPlatform === platform;
             const accountName =
-              connection?.externalAccountName ?? connection?.accountHandle ?? null;
+              connection?.externalAccountName ??
+              connection?.accountHandle ??
+              null;
             const lastSync = connection?.lastSyncAt ?? connection?.lastSyncedAt;
             const isBroken = status === 'EXPIRED' || status === 'ERROR';
             const bannerClass =

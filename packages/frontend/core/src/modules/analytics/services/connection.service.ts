@@ -42,6 +42,26 @@ const DISCONNECT_PLATFORM_MUTATION = /* GraphQL */ `
   }
 `;
 
+const FINALIZE_PLATFORM_CONNECT_MUTATION = /* GraphQL */ `
+  mutation finalizePlatformConnect($input: FinalizePlatformConnectInput!) {
+    finalizePlatformConnect(input: $input) {
+      id
+      workspaceId
+      platform
+      status
+      externalAccountName
+      lastSyncAt
+      lastError
+    }
+  }
+`;
+
+const CANCEL_PLATFORM_CONNECT_MUTATION = /* GraphQL */ `
+  mutation cancelPlatformConnect($input: CancelPlatformConnectInput!) {
+    cancelPlatformConnect(input: $input)
+  }
+`;
+
 interface ListConnectionsResponse {
   connections: PlatformConnection[];
 }
@@ -54,17 +74,37 @@ interface DisconnectPlatformResponse {
   disconnectPlatform: boolean;
 }
 
+interface FinalizePlatformConnectResponse {
+  finalizePlatformConnect: PlatformConnection;
+}
+
 const POPUP_FEATURES =
   'popup,width=520,height=720,menubar=no,toolbar=no,location=no,status=no';
+
+/**
+ * Pickable account in the multi-account Meta picker. Backend caps the
+ * list at 50 and sanitises both fields to printable ASCII before posting,
+ * so the frontend can trust the strings for direct rendering.
+ */
+export interface PendingAccountChoice {
+  externalAccountId: string;
+  externalAccountName: string;
+}
 
 /**
  * Message we expect the OAuth callback page to post back via
  * window.opener.postMessage. The shape is informal — any payload with
  * `type: 'analytics:oauth:done'` is treated as success and triggers a
- * `loadConnections` refresh.
+ * `loadConnections` refresh. `analytics:oauth:choose-account` is the
+ * Meta multi-account picker hop — the popup posts the pendingId + the
+ * eligible accounts, the frontend renders a modal, and a follow-up
+ * mutation finalises the binding.
  */
 interface AnalyticsOAuthMessage {
-  type: 'analytics:oauth:done' | 'analytics:oauth:error';
+  type:
+    | 'analytics:oauth:done'
+    | 'analytics:oauth:error'
+    | 'analytics:oauth:choose-account';
   platform?: SocialPlatform;
   /**
    * Human-readable error description. Backend (oauth-callback.controller.ts)
@@ -73,16 +113,39 @@ interface AnalyticsOAuthMessage {
    */
   message?: string;
   error?: string;
+  pendingId?: string;
+  accounts?: PendingAccountChoice[];
 }
 
 const isAnalyticsOAuthMessage = (
   data: unknown
-): data is AnalyticsOAuthMessage =>
-  typeof data === 'object' &&
-  data !== null &&
-  'type' in data &&
-  ((data as { type: string }).type === 'analytics:oauth:done' ||
-    (data as { type: string }).type === 'analytics:oauth:error');
+): data is AnalyticsOAuthMessage => {
+  if (typeof data !== 'object' || data === null || !('type' in data)) {
+    return false;
+  }
+  const type = (data as { type: string }).type;
+  return (
+    type === 'analytics:oauth:done' ||
+    type === 'analytics:oauth:error' ||
+    type === 'analytics:oauth:choose-account'
+  );
+};
+
+/**
+ * Resolved value of `beginOAuth`. The Meta multi-account branch returns
+ * `kind: 'pick-account'` so the caller can render a picker. All other
+ * branches resolve to the historical `{ ok, error? }` shape so no existing
+ * call sites need to change for LINE / TikTok / single-account Meta.
+ */
+export type BeginOAuthResult =
+  | { ok: true; error?: undefined }
+  | { ok: false; error?: string }
+  | {
+      ok: 'pick-account';
+      pendingId: string;
+      platform: SocialPlatform;
+      accounts: PendingAccountChoice[];
+    };
 
 /**
  * ConnectionService is the OAuth + connection management surface for the
@@ -121,7 +184,7 @@ export class ConnectionService extends Service {
       this.entity.setError(message);
       this.entity.setConnections([]);
       // Don't throw — empty connection list is the natural fallback.
-      // eslint-disable-next-line no-console
+       
       console.warn('[analytics] loadConnections failed', err);
     } finally {
       this.entity.setLoading(false);
@@ -141,7 +204,7 @@ export class ConnectionService extends Service {
   beginOAuth = async (
     workspaceId: string,
     platform: SocialPlatform
-  ): Promise<{ ok: boolean; error?: string }> => {
+  ): Promise<BeginOAuthResult> => {
     const result = await this.graphql.gql<{
       id: 'beginPlatformConnect';
       op: 'mutation';
@@ -175,9 +238,9 @@ export class ConnectionService extends Service {
       };
     }
 
-    return await new Promise<{ ok: boolean; error?: string }>(resolve => {
+    return await new Promise<BeginOAuthResult>(resolve => {
       let settled = false;
-      const settle = (value: { ok: boolean; error?: string }) => {
+      const settle = (value: BeginOAuthResult) => {
         if (settled) return;
         settled = true;
         window.removeEventListener('message', onMessage);
@@ -188,15 +251,37 @@ export class ConnectionService extends Service {
       const onMessage = (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return;
         if (!isAnalyticsOAuthMessage(event.data)) return;
-        if (event.data.type === 'analytics:oauth:done') {
+        const msg = event.data;
+        if (msg.type === 'analytics:oauth:done') {
           // Refresh on success so the new ACTIVE row appears.
           this.loadConnections(workspaceId).catch(() => {
             /* loadConnections handles its own errors; swallow here */
           });
           settle({ ok: true });
+        } else if (msg.type === 'analytics:oauth:choose-account') {
+          // Multi-account Meta — defer settle to a typed pick-account
+          // result; do NOT loadConnections here (no row exists yet) and do
+          // NOT close the popup before reading the message (Chrome closes
+          // it for us as part of the script in oauth-callback.controller).
+          const accounts = Array.isArray(msg.accounts) ? msg.accounts : [];
+          if (!msg.pendingId || accounts.length === 0) {
+            // Defensive: the backend already filters these but we don't
+            // want to land the user in a modal with no choices.
+            settle({
+              ok: false,
+              error: 'No selectable accounts returned from the provider.',
+            });
+          } else {
+            settle({
+              ok: 'pick-account',
+              pendingId: msg.pendingId,
+              platform,
+              accounts,
+            });
+          }
         } else {
           // Backend posts `message`; tolerate `error` for backwards compat.
-          const detail = event.data.message ?? event.data.error;
+          const detail = msg.message ?? msg.error;
           settle({ ok: false, error: detail });
         }
         try {
@@ -209,7 +294,10 @@ export class ConnectionService extends Service {
       window.addEventListener('message', onMessage);
 
       // Polling fallback: if the user closes the popup without postMessage,
-      // we still want to refresh + resolve.
+      // we still want to refresh + resolve. We don't know which branch the
+      // popup intended to take — refresh the connection list and resolve
+      // ok:true so the UI doesn't hang. If the popup was the choose-account
+      // path, the cached pending row will TTL-expire on its own.
       const closedTimer = window.setInterval(() => {
         if (popup.closed) {
           this.loadConnections(workspaceId).catch(() => {
@@ -219,6 +307,67 @@ export class ConnectionService extends Service {
         }
       }, 500);
     });
+  };
+
+  /**
+   * Bind the user-picked account to a SocialConnection. Called from the
+   * picker modal after `beginOAuth` resolved with `ok: 'pick-account'`.
+   */
+  finalizeConnection = async (
+    workspaceId: string,
+    pendingId: string,
+    externalAccountId: string
+  ): Promise<void> => {
+    const result = await this.graphql.gql<{
+      id: 'finalizePlatformConnect';
+      op: 'mutation';
+      query: typeof FINALIZE_PLATFORM_CONNECT_MUTATION;
+    }>({
+      query: {
+        id: 'finalizePlatformConnect',
+        op: 'mutation',
+        query: FINALIZE_PLATFORM_CONNECT_MUTATION,
+      } as any,
+      variables: {
+        input: { pendingId, externalAccountId },
+      } as any,
+    } as any);
+    const data = result as unknown as FinalizePlatformConnectResponse;
+    if (!data.finalizePlatformConnect?.id) {
+      throw new Error(
+        'finalizePlatformConnect did not return a connection row.'
+      );
+    }
+    // Re-fetch the workspace's connection list so the new ACTIVE row
+    // appears in the settings panel and any sibling views.
+    await this.loadConnections(workspaceId);
+  };
+
+  /**
+   * Discard a pending Meta OAuth picker session. Fire-and-forget — if the
+   * mutation fails (network drop, TTL race), the cache row will expire on
+   * its own; the user can retry by clicking Connect again.
+   */
+  cancelPendingOAuth = async (pendingId: string): Promise<void> => {
+    try {
+      await this.graphql.gql<{
+        id: 'cancelPlatformConnect';
+        op: 'mutation';
+        query: typeof CANCEL_PLATFORM_CONNECT_MUTATION;
+      }>({
+        query: {
+          id: 'cancelPlatformConnect',
+          op: 'mutation',
+          query: CANCEL_PLATFORM_CONNECT_MUTATION,
+        } as any,
+        variables: {
+          input: { pendingId },
+        } as any,
+      } as any);
+    } catch (err) {
+      // Best-effort. The cache row will TTL-expire either way.
+      console.warn(`[analytics] cancelPendingOAuth(${pendingId}) failed`, err);
+    }
   };
 
   disconnect = async (connectionId: string): Promise<void> => {
