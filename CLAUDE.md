@@ -343,6 +343,27 @@ Document the surprises — saves the next session a discovery cycle.
   in project `affine-495114`; grant scopes `gmail.readonly` and `drive.readonly`.
   Without env vars configured, the Connect button surfaces a "configure
   OAuth client" message instead of opening a blank popup.
+- **GraphQL `@Field` UndefinedTypeError — broken TWICE now.** NestJS
+  metadata reflection cannot infer a GraphQL type from a union containing
+  `null` (or any other ambiguous union). Symptom: backend crashes on
+  startup before listening, Caddy returns 502. Stack ends with
+  `UndefinedTypeError: Make sure you are providing an explicit type for
+  the "<field>" of "<class>"` from `@nestjs/graphql/utils/reflection.utilts.js`.
+  History:
+  - **v1.7.0** — first occurrence on a different field; fixed by adding
+    explicit `() => Type` parameter to all nullable `@Field`s.
+  - **v1.10.2** — agent shipped `@Field({ nullable: true }) size?: string | null;`
+    on `DriveFileType`. Backend crashed on startup. Caddy 502 in prod.
+    Rolled back to v1.10.1 (~30s downtime), fixed by adding explicit
+    `@Field(() => String, { nullable: true })`, re-pushed under the same
+    v1.10.2 tag, redeployed.
+  Rule: **always pass an explicit type to `@Field` for nullable / optional
+  / union declarations.** Even if it's "obviously" a string, write
+  `@Field(() => String, { nullable: true })`. The annotation is the source
+  of truth — TypeScript types alone aren't visible to NestJS at runtime.
+  Pre-deploy guard: smoke-test docker images locally with
+  `docker run --rm -e DATABASE_URL=… <image> node ./dist/main.js` and
+  watch for `UndefinedTypeError` in the first 5 seconds before pushing.
 - **v1.10.2 — Gmail / Drive integrations.** Token refresh lives in
   `GoogleOAuthService.getValidAccessToken(userId, workspaceId, scope)`
   — call it from any new Google service to get a non-expired bearer
