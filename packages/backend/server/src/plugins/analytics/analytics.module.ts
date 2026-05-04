@@ -20,6 +20,7 @@ import { LineOAuthService } from './connections/oauth/line.oauth';
 import { MetaOAuthService } from './connections/oauth/meta.oauth';
 import { TikTokOAuthService } from './connections/oauth/tiktok.oauth';
 import { OAuthCallbackController } from './connections/oauth-callback.controller';
+import { TokenRefreshCron } from './connections/refresh.cron';
 import { TokenStore } from './connections/token-store';
 import { AnalyticsResolver } from './graphql/analytics.resolver';
 import { IngestionService } from './ingest/ingestion.service';
@@ -70,6 +71,7 @@ export class AnalyticsModule {
         MetaOAuthService,
         LineOAuthService,
         TikTokOAuthService,
+        TokenRefreshCron,
         // ingest — IngestionService is still a stub (NOT_IMPLEMENTED at
         // runtime); registering it satisfies DI for the pollers + webhook
         // controllers that consume it. See ingestion.service.ts TODO.
