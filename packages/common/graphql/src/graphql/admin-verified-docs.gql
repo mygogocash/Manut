@@ -1,0 +1,9 @@
+query adminVerifiedDocs($workspaceId: String) {
+  adminVerifiedDocs(workspaceId: $workspaceId) {
+    workspaceId
+    docId
+    verifiedAt
+    verifiedBy
+    verificationExpiresAt
+  }
+}

@@ -141,6 +141,20 @@ export const revokeUserAccessTokenMutation = {
 }`,
 };
 
+export const adminVerifiedDocsQuery = {
+  id: 'adminVerifiedDocsQuery' as const,
+  op: 'adminVerifiedDocs',
+  query: `query adminVerifiedDocs($workspaceId: String) {
+  adminVerifiedDocs(workspaceId: $workspaceId) {
+    workspaceId
+    docId
+    verifiedAt
+    verifiedBy
+    verificationExpiresAt
+  }
+}`,
+};
+
 export const adminAllSharedLinksQuery = {
   id: 'adminAllSharedLinksQuery' as const,
   op: 'adminAllSharedLinks',

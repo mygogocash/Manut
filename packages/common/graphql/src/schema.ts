@@ -167,6 +167,15 @@ export interface AdminUpdateWorkspaceInput {
   public?: InputMaybe<Scalars['Boolean']['input']>;
 }
 
+export interface AdminVerifiedDoc {
+  __typename?: 'AdminVerifiedDoc';
+  docId: Scalars['String']['output'];
+  verificationExpiresAt: Maybe<Scalars['DateTime']['output']>;
+  verifiedAt: Scalars['DateTime']['output'];
+  verifiedBy: Maybe<Scalars['String']['output']>;
+  workspaceId: Scalars['String']['output'];
+}
+
 export interface AdminWorkspace {
   __typename?: 'AdminWorkspace';
   avatarKey: Maybe<Scalars['String']['output']>;
@@ -2702,6 +2711,8 @@ export interface Query {
   adminAllSharedLinks: PaginatedAdminAllSharedLink;
   /** Get aggregated dashboard metrics for admin panel */
   adminDashboard: AdminDashboard;
+  /** List all currently-verified docs across workspaces */
+  adminVerifiedDocs: Array<AdminVerifiedDoc>;
   /** Get workspace detail for admin */
   adminWorkspace: Maybe<AdminWorkspace>;
   /** List workspaces for admin */
@@ -2767,6 +2778,10 @@ export interface QueryAdminAllSharedLinksArgs {
 
 export interface QueryAdminDashboardArgs {
   input?: InputMaybe<AdminDashboardInput>;
+}
+
+export interface QueryAdminVerifiedDocsArgs {
+  workspaceId?: InputMaybe<Scalars['String']['input']>;
 }
 
 export interface QueryAdminWorkspaceArgs {
@@ -3877,6 +3892,22 @@ export type RevokeUserAccessTokenMutationVariables = Exact<{
 export type RevokeUserAccessTokenMutation = {
   __typename?: 'Mutation';
   revokeUserAccessToken: boolean;
+};
+
+export type AdminVerifiedDocsQueryVariables = Exact<{
+  workspaceId?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+export type AdminVerifiedDocsQuery = {
+  __typename?: 'Query';
+  adminVerifiedDocs: Array<{
+    __typename?: 'AdminVerifiedDoc';
+    workspaceId: string;
+    docId: string;
+    verifiedAt: string;
+    verifiedBy: string | null;
+    verificationExpiresAt: string | null;
+  }>;
 };
 
 export type AdminAllSharedLinksQueryVariables = Exact<{
@@ -8111,6 +8142,11 @@ export type Queries =
       name: 'listUserAccessTokensQuery';
       variables: ListUserAccessTokensQueryVariables;
       response: ListUserAccessTokensQuery;
+    }
+  | {
+      name: 'adminVerifiedDocsQuery';
+      variables: AdminVerifiedDocsQueryVariables;
+      response: AdminVerifiedDocsQuery;
     }
   | {
       name: 'adminAllSharedLinksQuery';

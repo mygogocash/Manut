@@ -125,6 +125,14 @@ input AdminUpdateWorkspaceInput {
   public: Boolean
 }
 
+type AdminVerifiedDoc {
+  docId: String!
+  verificationExpiresAt: DateTime
+  verifiedAt: DateTime!
+  verifiedBy: String
+  workspaceId: String!
+}
+
 type AdminWorkspace {
   avatarKey: String
   blobCount: Int!
@@ -2036,6 +2044,9 @@ type Query {
 
   """Get aggregated dashboard metrics for admin panel"""
   adminDashboard(input: AdminDashboardInput): AdminDashboard!
+
+  """List all currently-verified docs across workspaces"""
+  adminVerifiedDocs(workspaceId: String): [AdminVerifiedDoc!]!
 
   """Get workspace detail for admin"""
   adminWorkspace(id: String!): AdminWorkspace
