@@ -66,6 +66,12 @@ const POPUP_FEATURES =
 interface AnalyticsOAuthMessage {
   type: 'analytics:oauth:done' | 'analytics:oauth:error';
   platform?: SocialPlatform;
+  /**
+   * Human-readable error description. Backend (oauth-callback.controller.ts)
+   * posts this as `message`. Aliased to `error` for older call sites that
+   * read either field — both are populated by the message normalizer below.
+   */
+  message?: string;
   error?: string;
 }
 
@@ -187,7 +193,9 @@ export class ConnectionService extends Service {
           void this.loadConnections(workspaceId);
           settle({ ok: true });
         } else {
-          settle({ ok: false, error: event.data.error });
+          // Backend posts `message`; tolerate `error` for backwards compat.
+          const detail = event.data.message ?? event.data.error;
+          settle({ ok: false, error: detail });
         }
         try {
           popup.close();

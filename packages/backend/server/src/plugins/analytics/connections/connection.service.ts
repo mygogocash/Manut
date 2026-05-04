@@ -51,6 +51,23 @@ export class ConnectionService {
    *
    * Tokens are NEVER returned here — the caller never sees the encrypted blob.
    */
+  /**
+   * Resolve a connection's workspaceId, used by the resolver for ACL checks
+   * BEFORE invoking destructive mutations like `disconnect`. Throws if the
+   * connection does not exist (don't leak existence vs permission distinction
+   * — both surface the same `BadRequestException` to the caller).
+   */
+  async getConnectionWorkspaceId(connectionId: string): Promise<string> {
+    const row = await this.db.socialConnection.findUnique({
+      where: { id: connectionId },
+      select: { workspaceId: true },
+    });
+    if (!row) {
+      throw new BadRequestException('Connection not found');
+    }
+    return row.workspaceId;
+  }
+
   async listConnections(workspaceId: string): Promise<SocialConnection[]> {
     return await this.db.socialConnection.findMany({
       where: {
@@ -233,13 +250,17 @@ export class ConnectionService {
    * disconnect.
    */
   async disconnect(connectionId: string, userId: string): Promise<void> {
+    // ACL is enforced by the resolver via `getConnectionWorkspaceId` +
+    // `AccessController.assert('Workspace.Settings.Update')` BEFORE this
+    // method is called. We re-fetch the row here so the operation is atomic
+    // against the row's current state.
     const conn = await this.db.socialConnection.findUnique({
       where: { id: connectionId },
     });
     if (!conn) {
       throw new BadRequestException('Connection not found');
     }
-    void userId; // Caller (resolver) is responsible for ACL — see resolver.
+    void userId; // Reserved for future audit logging.
 
     // Best-effort revoke — try to decrypt + revoke against the provider.
     try {

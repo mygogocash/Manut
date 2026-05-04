@@ -48,10 +48,13 @@ export class ConnectionResolver {
     @Args('workspaceId', { type: () => String }) workspaceId: string,
     @Args('platform', { type: () => SocialPlatform }) platform: SocialPlatform
   ): Promise<BeginOAuthResultObjectType> {
+    // Beginning OAuth is a state-changing action — eventually upserts platform
+    // credentials at workspace scope. Restrict to settings-update tier (owner /
+    // admin), not the read tier.
     await this.ac
       .user(user.id)
       .workspace(workspaceId)
-      .assert('Workspace.Read');
+      .assert('Workspace.Settings.Update');
 
     return await this.connections.beginOAuth(
       workspaceId,
@@ -68,8 +71,17 @@ export class ConnectionResolver {
     @CurrentUser() user: CurrentUser,
     @Args('connectionId', { type: () => String }) connectionId: string
   ): Promise<boolean> {
-    // The service double-checks the row exists; resolver-level ACL is enforced
-    // inside the service after we look up the workspace.
+    // Look up the connection's workspace BEFORE the destructive mutation, then
+    // assert settings-update permission on it. Without this, any authenticated
+    // user could disconnect any workspace's integrations by guessing IDs.
+    const workspaceId =
+      await this.connections.getConnectionWorkspaceId(connectionId);
+
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
+
     await this.connections.disconnect(connectionId, user.id);
     return true;
   }
