@@ -131,9 +131,14 @@ jobs:
           mkdir -p packages/frontend/apps/mobile/dist
 
       - name: Authenticate to GCP
+        # Workload Identity Federation — no JSON key (org policy
+        # constraints/iam.disableServiceAccountKeyCreation forbids them).
+        # GitHub OIDC token impersonates the service account directly.
+        # No untrusted input — only literal WIF provider id and SA email.
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
+          service_account: 'affine-gha-deployer@affine-495114.iam.gserviceaccount.com'
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2

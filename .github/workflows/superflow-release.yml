@@ -121,9 +121,12 @@ jobs:
 
       - name: Authenticate to GCP
         id: gcp-auth
+        # Workload Identity Federation — see superflow-autodeploy.yml.
+        # No untrusted input.
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
+          service_account: 'affine-gha-deployer@affine-495114.iam.gserviceaccount.com'
 
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
