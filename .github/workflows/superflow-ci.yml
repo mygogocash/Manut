@@ -150,6 +150,7 @@ jobs:
           key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
           restore-keys: yarn-${{ runner.os }}-
       - run: yarn install --immutable
+      # Mobile bundle skipped — Superflow is website-first for now. See
+      # superflow-autodeploy.yml for the matching skip on the deploy track.
       - run: yarn affine bundle -p web
       - run: yarn affine bundle -p admin
-      - run: yarn affine bundle -p mobile

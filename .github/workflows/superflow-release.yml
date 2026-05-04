@@ -70,13 +70,22 @@ jobs:
 
       # napi binary first — server bundle imports it, so this must come
       # before yarn affine bundle -p @affine/server.
+      # napi build emits server-native.linux-x64-gnu.node (target-triple
+      # name). The wrapper at packages/backend/native/index.js requires
+      # ./server-native.node first, then falls back to arch-suffix names
+      # (x64 / arm64 / armv7) — and rspack statically resolves all three
+      # branches at compile time, even though only x64 runs in our
+      # linux/amd64 prod image. Rename to the bare + arch names; touch
+      # dummies for the unused arms so rspack resolution succeeds.
+      # No untrusted input — all literals.
       - name: Build napi native binary (server-native.x64.node)
         run: |
           cd packages/backend/native
           yarn build --target x86_64-unknown-linux-gnu
-          # napi build emits the binary at ./server-native.<target>.node;
-          # rename to the platform-suffix the dist expects.
-          ls -la server-native.*.node || true
+          mv server-native.linux-x64-gnu.node server-native.x64.node
+          cp server-native.x64.node server-native.node
+          touch server-native.arm64.node server-native.armv7.node
+          ls -la server-native.*.node
 
       - name: Generate Prisma client
         run: yarn workspace @affine/server prisma generate
@@ -84,11 +93,15 @@ jobs:
       - name: Build server bundle
         run: yarn affine bundle -p @affine/server
 
+      # Mobile bundle intentionally skipped — Superflow is website-first
+      # for now. Dockerfile.fullstack still COPYs mobile/dist so we make
+      # an empty placeholder directory; mobile-web routes will serve no
+      # assets but the website + admin are unaffected.
       - name: Build frontend bundles
         run: |
           yarn affine bundle -p web
           yarn affine bundle -p admin
-          yarn affine bundle -p mobile
+          mkdir -p packages/frontend/apps/mobile/dist
 
       - name: Authenticate to GCP
         id: gcp-auth
