@@ -7,8 +7,10 @@ import {
   type SocialPlatform as GqlSocialPlatform,
 } from '@affine/graphql';
 import { Service } from '@toeverything/infra';
+import { filter, firstValueFrom } from 'rxjs';
 
 import type { WorkspaceServerService } from '../../cloud';
+import type { Server } from '../../cloud/entities/server';
 import { GraphQLService } from '../../cloud/services/graphql';
 import type { SocialPlatform } from '../entities/analytics-data.entity';
 import {
@@ -98,13 +100,13 @@ export class ConnectionService extends Service {
     super();
   }
 
-  // GraphQLService lives in ServerScope; route through the workspace's
-  // bound server. See AnalyticsService for the explanation.
-  private get graphql(): GraphQLService {
-    const server = this.serverService.server;
-    if (!server) {
-      throw new Error('WorkspaceServerService.server not bound yet');
-    }
+  // GraphQLService lives in ServerScope; await the workspace's bound
+  // server before returning it. See AnalyticsService for the explanation
+  // — load-on-mount calls otherwise race the server binding.
+  private async graphql(): Promise<GraphQLService> {
+    const server = await firstValueFrom(
+      this.serverService.server$.pipe(filter((s): s is Server => s !== null))
+    );
     return server.scope.get(GraphQLService);
   }
 
@@ -112,7 +114,9 @@ export class ConnectionService extends Service {
     this.entity.setLoading(true);
     this.entity.setError(null);
     try {
-      const data = await this.graphql.gql({
+      const data = await (
+        await this.graphql()
+      ).gql({
         query: listConnectionsQuery,
         variables: { workspaceId },
       });
@@ -147,7 +151,9 @@ export class ConnectionService extends Service {
     workspaceId: string,
     platform: SocialPlatform
   ): Promise<BeginOAuthResult> => {
-    const data = await this.graphql.gql({
+    const data = await (
+      await this.graphql()
+    ).gql({
       query: beginPlatformConnectMutation,
       variables: {
         workspaceId,
@@ -253,7 +259,9 @@ export class ConnectionService extends Service {
     pendingId: string,
     externalAccountId: string
   ): Promise<void> => {
-    const data = await this.graphql.gql({
+    const data = await (
+      await this.graphql()
+    ).gql({
       query: finalizePlatformConnectMutation,
       variables: {
         input: { pendingId, externalAccountId },
@@ -276,7 +284,9 @@ export class ConnectionService extends Service {
    */
   cancelPendingOAuth = async (pendingId: string): Promise<void> => {
     try {
-      await this.graphql.gql({
+      await (
+        await this.graphql()
+      ).gql({
         query: cancelPlatformConnectMutation,
         variables: {
           input: { pendingId },
@@ -289,7 +299,9 @@ export class ConnectionService extends Service {
   };
 
   disconnect = async (connectionId: string): Promise<void> => {
-    const data = await this.graphql.gql({
+    const data = await (
+      await this.graphql()
+    ).gql({
       query: disconnectPlatformMutation,
       variables: { connectionId },
     });

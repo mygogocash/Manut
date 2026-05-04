@@ -7,8 +7,10 @@ import {
   type SocialPlatform as GqlSocialPlatform,
 } from '@affine/graphql';
 import { Service } from '@toeverything/infra';
+import { filter, firstValueFrom } from 'rxjs';
 
 import type { WorkspaceServerService } from '../../cloud';
+import type { Server } from '../../cloud/entities/server';
 import { GraphQLService } from '../../cloud/services/graphql';
 import { AnalyticsDataEntity } from '../entities/analytics-data.entity';
 import {
@@ -94,14 +96,14 @@ export class AnalyticsService extends Service {
   }
 
   // GraphQLService lives in ServerScope but this service runs in
-  // WorkspaceScope — route through the workspace's bound server (matches
-  // the agents/comments pattern). Keeping the field name as `graphql` so
-  // every existing `this.graphql.gql({...})` call site stays unchanged.
-  private get graphql(): GraphQLService {
-    const server = this.serverService.server;
-    if (!server) {
-      throw new Error('WorkspaceServerService.server not bound yet');
-    }
+  // WorkspaceScope — route through the workspace's bound server. Awaits
+  // the first non-null `server$` value so that load-on-mount calls don't
+  // race the workspace's server binding (which happens shortly after the
+  // service is constructed).
+  private async graphql(): Promise<GraphQLService> {
+    const server = await firstValueFrom(
+      this.serverService.server$.pipe(filter((s): s is Server => s !== null))
+    );
     return server.scope.get(GraphQLService);
   }
 
@@ -113,7 +115,9 @@ export class AnalyticsService extends Service {
     this.data.setLoading(true);
     this.data.setError(null);
     try {
-      const data = await this.graphql.gql({
+      const data = await (
+        await this.graphql()
+      ).gql({
         query: getAnalyticsOverviewQuery,
         variables: { workspaceId },
       });
@@ -143,7 +147,9 @@ export class AnalyticsService extends Service {
     this.insights.setLoading(true);
     this.insights.setError(null);
     try {
-      const data = await this.graphql.gql({
+      const data = await (
+        await this.graphql()
+      ).gql({
         query: listInsightsQuery,
         variables: {
           input: {
@@ -180,7 +186,9 @@ export class AnalyticsService extends Service {
     platform: GqlSocialPlatform,
     tone?: string
   ): Promise<Insight> => {
-    const data = await this.graphql.gql({
+    const data = await (
+      await this.graphql()
+    ).gql({
       query: runContentRecommendationMutation,
       variables: {
         input: {
@@ -205,7 +213,9 @@ export class AnalyticsService extends Service {
     const optimisticTimestamp = new Date().toISOString();
     this.insights.acknowledgeLocally(insightId, optimisticTimestamp);
     try {
-      const data = await this.graphql.gql({
+      const data = await (
+        await this.graphql()
+      ).gql({
         query: acknowledgeInsightMutation,
         variables: { input: { insightId } },
       });
@@ -233,54 +243,17 @@ export class AnalyticsService extends Service {
    * wire this through it. The subscription document is already shipped.
    */
   subscribeToInsights = (
-    workspaceId: string,
-    callback: (insight: Insight) => void
+    _workspaceId: string,
+    _callback: (insight: Insight) => void
   ): InsightSubscriptionUnsubscribe => {
-    const wsClient = (
-      this.graphql as unknown as {
-        subscribe?: (opts: {
-          query: string;
-          variables: Record<string, unknown>;
-          next: (value: unknown) => void;
-          error?: (err: unknown) => void;
-        }) => () => void;
-      }
-    ).subscribe;
-
-    if (typeof wsClient !== 'function') {
-      console.warn(
-        '[analytics] subscribeToInsights — no ws transport available; falling back to poll-on-mount only'
-      );
-      return () => {};
-    }
-
-    try {
-      const unsubscribe = wsClient.call(this.graphql, {
-        query: INSIGHT_CREATED_SUBSCRIPTION,
-        variables: { workspaceId },
-        next: (value: unknown) => {
-          const wire =
-            (
-              value as
-                | { data?: { insightCreated?: WireSocialInsight } }
-                | undefined
-            )?.data?.insightCreated ??
-            (value as { insightCreated?: WireSocialInsight } | undefined)
-              ?.insightCreated;
-          if (wire) {
-            const insight = toEntityInsight(wire, workspaceId);
-            this.insights.addInsightToTop(insight);
-            callback(insight);
-          }
-        },
-        error: err => {
-          console.warn('[analytics] insight subscription error', err);
-        },
-      });
-      return unsubscribe;
-    } catch (err) {
-      console.warn('[analytics] insight subscription failed to init', err);
-      return () => {};
-    }
+    // GraphQLService doesn't expose a graphql-ws transport yet, so this
+    // would always fall back to no-op anyway. Made explicit to avoid the
+    // type cast through `this.graphql` and keep the public surface stable.
+    // The view relies on the initial `loadInsights` call to populate.
+    // Re-instate the wire-through once the cloud module ships a
+    // subscription transport (INSIGHT_CREATED_SUBSCRIPTION already shipped).
+    void INSIGHT_CREATED_SUBSCRIPTION;
+    void toEntityInsight;
+    return () => {};
   };
 }
