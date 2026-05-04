@@ -6,9 +6,13 @@ import {
   SocialPlatform as PrismaSocialPlatform,
 } from '@prisma/client';
 
-import { CryptoHelper, URLHelper } from '../../../base';
+import { Cache, CryptoHelper, URLHelper } from '../../../base';
 import { LineOAuthService } from './oauth/line.oauth';
-import { MetaOAuthService, MetaPlatform } from './oauth/meta.oauth';
+import {
+  type MetaAccount,
+  MetaOAuthService,
+  MetaPlatform,
+} from './oauth/meta.oauth';
 import { TikTokOAuthService } from './oauth/tiktok.oauth';
 import { TokenStore } from './token-store';
 
@@ -31,6 +35,42 @@ interface OAuthStatePayload {
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 
+// Cache TTL for the pending Meta account-picker payload. Same window as the
+// signed state so the whole interactive flow has one consistent budget.
+const PENDING_TTL_MS = 10 * 60 * 1000;
+const PENDING_CACHE_PREFIX = 'analytics:oauth:pending:';
+
+/**
+ * Cached payload for a Meta OAuth flow that has exchanged the code but is
+ * waiting on the user to pick which page / IG biz account / Threads profile
+ * to bind. Tokens are stored AS THE KMS-ENCRYPTED CIPHERTEXT — `TokenStore`
+ * is invoked before we put anything in Redis so plaintext never sits in
+ * cache. PRD §6 forbids plaintext token storage anywhere outside the brief
+ * memory window during exchange.
+ */
+interface PendingOAuthPayload {
+  v: 1;
+  workspaceId: string;
+  userId: string;
+  platform: PrismaSocialPlatform;
+  accounts: MetaAccount[];
+  accessTokenEnc: string;
+  refreshTokenEnc: string | null;
+  scopes: string[];
+  // ISO string — Date doesn't survive JSON round-trips through Redis.
+  expiresAt: string | null;
+}
+
+/**
+ * Discriminated union returned by `completeOAuth`. Single-account /
+ * LINE / TikTok land directly on `completed`. Meta with ≥2 accessible
+ * accounts lands on `pending` so the OAuth callback controller can post a
+ * `choose-account` message back to the opener.
+ */
+export type OAuthCompletionResult =
+  | { kind: 'completed'; connection: SocialConnection }
+  | { kind: 'pending'; pendingId: string; accounts: MetaAccount[] };
+
 @Injectable()
 export class ConnectionService {
   private readonly logger = new Logger(ConnectionService.name);
@@ -40,6 +80,7 @@ export class ConnectionService {
     private readonly tokenStore: TokenStore,
     private readonly crypto: CryptoHelper,
     private readonly url: URLHelper,
+    private readonly cache: Cache,
     private readonly metaOAuth: MetaOAuthService,
     private readonly lineOAuth: LineOAuthService,
     private readonly tiktokOAuth: TikTokOAuthService
@@ -89,9 +130,7 @@ export class ConnectionService {
     requestingUserId: string
   ): Promise<{ url: string }> {
     if (platform === PrismaSocialPlatform.GOGOCASH) {
-      throw new BadRequestException(
-        'GoGoCash is internal — no OAuth needed'
-      );
+      throw new BadRequestException('GoGoCash is internal — no OAuth needed');
     }
 
     const state = this.signState({
@@ -134,22 +173,24 @@ export class ConnectionService {
   /**
    * Complete an OAuth flow — verify state, exchange code, encrypt + persist.
    *
-   * For Meta we additionally swap to a long-lived token and pick the FIRST
-   * accessible account (TODO: prompt user to pick in a future round).
+   * Returns a discriminated union:
+   *   - `completed` — single-account / LINE / TikTok land here. The
+   *     SocialConnection row is upserted in the same call.
+   *   - `pending` — Meta with ≥2 accessible accounts. Tokens are
+   *     KMS-encrypted and stashed in Redis under a UUID; the caller must
+   *     post `pendingId` + `accounts` to the opener so the user can pick.
+   *     Finalize via `finalizeConnection` to actually upsert the row.
+   *
+   * Throws `BadRequestException` if Meta returns zero accessible accounts —
+   * this surfaces in the OAuth callback as a user-visible error so they
+   * know to fix their Meta admin permissions.
    */
   async completeOAuth(
     state: string,
     code: string
-  ): Promise<SocialConnection> {
+  ): Promise<OAuthCompletionResult> {
     const payload = this.verifyState(state);
     const callbackUrl = this.callbackUrl(payload.platform);
-
-    let token;
-    let scopes: string[];
-    let externalAccountId: string;
-    let externalAccountName: string;
-    let expiresAt: Date | null;
-    let refreshTokenPlain: string | undefined;
 
     if (
       payload.platform === PrismaSocialPlatform.FACEBOOK ||
@@ -170,17 +211,72 @@ export class ConnectionService {
           `No ${metaPlatform} accounts accessible by this Meta user.`
         );
       }
-      // TODO: in a future round, return the account list to the client and
-      // let the user pick. For v1 we take the first one.
-      const account = accounts[0];
 
-      token = longLived.accessToken;
-      refreshTokenPlain = longLived.refreshToken;
-      scopes = longLived.scopes;
-      externalAccountId = account.id;
-      externalAccountName = account.name;
-      expiresAt = longLived.expiresAt ?? null;
-    } else if (payload.platform === PrismaSocialPlatform.LINE_VOOM) {
+      // Encrypt the long-lived token NOW so plaintext lives only in this
+      // call's local scope. Both the auto-finalize and the cache paths
+      // consume the ciphertext.
+      const accessTokenEnc = await this.tokenStore.encrypt(
+        longLived.accessToken
+      );
+      const refreshTokenEnc = longLived.refreshToken
+        ? await this.tokenStore.encrypt(longLived.refreshToken)
+        : null;
+
+      // Single-account → upsert immediately. The picker is unhelpful when
+      // there's only one option; matches the UX requirement that the
+      // frontend never opens a modal with a single radio button.
+      if (accounts.length === 1) {
+        const account = accounts[0];
+        const connection = await this.upsertConnection({
+          workspaceId: payload.workspaceId,
+          userId: payload.userId,
+          platform: payload.platform,
+          accessTokenEnc,
+          refreshTokenEnc,
+          scopes: longLived.scopes,
+          externalAccountId: account.id,
+          externalAccountName: account.name,
+          expiresAt: longLived.expiresAt ?? null,
+        });
+        return { kind: 'completed', connection };
+      }
+
+      // Multi-account → cache the encrypted tokens + account list, return
+      // the pending id. TTL is the same 10-minute window as the OAuth state.
+      const pendingId = this.crypto.randomBytes(16).toString('hex');
+      const cached: PendingOAuthPayload = {
+        v: 1,
+        workspaceId: payload.workspaceId,
+        userId: payload.userId,
+        platform: payload.platform,
+        accounts,
+        accessTokenEnc,
+        refreshTokenEnc,
+        scopes: longLived.scopes,
+        expiresAt: longLived.expiresAt
+          ? longLived.expiresAt.toISOString()
+          : null,
+      };
+      const ok = await this.cache.set(this.pendingKey(pendingId), cached, {
+        ttl: PENDING_TTL_MS,
+      });
+      if (!ok) {
+        throw new BadRequestException(
+          'Failed to persist pending OAuth state — Redis unavailable.'
+        );
+      }
+      return { kind: 'pending', pendingId, accounts };
+    }
+
+    // Single-account platforms (LINE / TikTok) keep the original direct path.
+    let token: string;
+    let scopes: string[];
+    let externalAccountId: string;
+    let externalAccountName: string;
+    let expiresAt: Date | null;
+    let refreshTokenPlain: string | undefined;
+
+    if (payload.platform === PrismaSocialPlatform.LINE_VOOM) {
       const result = await this.lineOAuth.exchangeCode(code, callbackUrl);
       token = result.accessToken;
       refreshTokenPlain = result.refreshToken;
@@ -207,40 +303,116 @@ export class ConnectionService {
       ? await this.tokenStore.encrypt(refreshTokenPlain)
       : null;
 
-    return await this.db.socialConnection.upsert({
-      where: {
-        workspaceId_platform_externalAccountId: {
-          workspaceId: payload.workspaceId,
-          platform: payload.platform,
-          externalAccountId,
-        },
-      },
-      create: {
-        workspaceId: payload.workspaceId,
-        platform: payload.platform,
-        status: PrismaConnectionStatus.ACTIVE,
-        accessTokenEnc,
-        refreshTokenEnc,
-        scopes,
-        externalAccountId,
-        externalAccountName,
-        connectedByUserId: payload.userId,
-        expiresAt,
-        lastErrorAt: null,
-        lastError: null,
-      },
-      update: {
-        status: PrismaConnectionStatus.ACTIVE,
-        accessTokenEnc,
-        refreshTokenEnc,
-        scopes,
-        externalAccountName,
-        connectedByUserId: payload.userId,
-        expiresAt,
-        lastErrorAt: null,
-        lastError: null,
-      },
+    const connection = await this.upsertConnection({
+      workspaceId: payload.workspaceId,
+      userId: payload.userId,
+      platform: payload.platform,
+      accessTokenEnc,
+      refreshTokenEnc,
+      scopes,
+      externalAccountId,
+      externalAccountName,
+      expiresAt,
     });
+    return { kind: 'completed', connection };
+  }
+
+  /**
+   * Resolve the workspaceId bound to a pending Meta picker payload, used by
+   * the resolver to assert ACL BEFORE consuming the cache row. Returns null
+   * if the row is missing or expired — the resolver should treat that as a
+   * user-visible error ("session expired, please reconnect").
+   */
+  async getPendingWorkspaceId(pendingId: string): Promise<string | null> {
+    const cached = await this.readPending(pendingId);
+    return cached?.workspaceId ?? null;
+  }
+
+  /**
+   * Finalize a multi-account Meta OAuth flow. Reads the cached encrypted
+   * tokens, validates the chosen externalAccountId is in the original list,
+   * upserts the SocialConnection, deletes the cache row, and writes an
+   * audit row.
+   *
+   * Idempotent only insofar as the first call wins — once the cache row is
+   * deleted, subsequent calls throw "session expired". The cache delete
+   * runs AFTER the upsert succeeds so a failed upsert can be retried by
+   * the user clicking Confirm again before TTL expiry.
+   */
+  async finalizeConnection(
+    pendingId: string,
+    externalAccountId: string,
+    requestingUserId: string
+  ): Promise<SocialConnection> {
+    const cached = await this.readPending(pendingId);
+    if (!cached) {
+      throw new BadRequestException(
+        'OAuth session expired or not found — please reconnect.'
+      );
+    }
+
+    const account = cached.accounts.find(a => a.id === externalAccountId);
+    if (!account) {
+      throw new BadRequestException(
+        'Selected account is not in the list of accounts that were available when this OAuth flow started.'
+      );
+    }
+
+    // Connection metadata uses the cached `userId` from the OAuth state,
+    // not the requesting user. The two are usually the same but the
+    // resolver passes both in case a different admin lands the picker.
+    void requestingUserId;
+
+    const connection = await this.upsertConnection({
+      workspaceId: cached.workspaceId,
+      userId: cached.userId,
+      platform: cached.platform,
+      accessTokenEnc: cached.accessTokenEnc,
+      refreshTokenEnc: cached.refreshTokenEnc,
+      scopes: cached.scopes,
+      externalAccountId: account.id,
+      externalAccountName: account.name,
+      expiresAt: cached.expiresAt ? new Date(cached.expiresAt) : null,
+    });
+
+    // Best-effort cache cleanup + audit. Failures here don't undo the
+    // upsert — at worst the row sits in Redis until TTL.
+    await this.cache.delete(this.pendingKey(pendingId)).catch(err => {
+      this.logger.warn(
+        `finalizeConnection: cache delete failed for ${pendingId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    });
+    await this.writePendingAudit(
+      cached,
+      requestingUserId,
+      'OAUTH_PENDING_FINALIZED'
+    );
+
+    return connection;
+  }
+
+  /**
+   * Cancel a pending Meta picker — the user dismissed the modal. Deletes
+   * the cache row and writes an audit log row. Idempotent: missing row is
+   * treated as success (the audit log is skipped because we have no
+   * platform / workspace context to record).
+   */
+  async cancelPendingOAuth(
+    pendingId: string,
+    requestingUserId: string
+  ): Promise<void> {
+    const cached = await this.readPending(pendingId);
+    if (!cached) {
+      return;
+    }
+    await this.cache.delete(this.pendingKey(pendingId));
+    await this.writePendingAudit(
+      cached,
+      requestingUserId,
+      'OAUTH_PENDING_ABANDONED'
+    );
   }
 
   /**
@@ -317,6 +489,103 @@ export class ConnectionService {
   // ---------------------------------------------------------------------------
   // private helpers
   // ---------------------------------------------------------------------------
+
+  private async upsertConnection(args: {
+    workspaceId: string;
+    userId: string;
+    platform: PrismaSocialPlatform;
+    accessTokenEnc: string;
+    refreshTokenEnc: string | null;
+    scopes: string[];
+    externalAccountId: string;
+    externalAccountName: string;
+    expiresAt: Date | null;
+  }): Promise<SocialConnection> {
+    return await this.db.socialConnection.upsert({
+      where: {
+        workspaceId_platform_externalAccountId: {
+          workspaceId: args.workspaceId,
+          platform: args.platform,
+          externalAccountId: args.externalAccountId,
+        },
+      },
+      create: {
+        workspaceId: args.workspaceId,
+        platform: args.platform,
+        status: PrismaConnectionStatus.ACTIVE,
+        accessTokenEnc: args.accessTokenEnc,
+        refreshTokenEnc: args.refreshTokenEnc,
+        scopes: args.scopes,
+        externalAccountId: args.externalAccountId,
+        externalAccountName: args.externalAccountName,
+        connectedByUserId: args.userId,
+        expiresAt: args.expiresAt,
+        lastErrorAt: null,
+        lastError: null,
+      },
+      update: {
+        status: PrismaConnectionStatus.ACTIVE,
+        accessTokenEnc: args.accessTokenEnc,
+        refreshTokenEnc: args.refreshTokenEnc,
+        scopes: args.scopes,
+        externalAccountName: args.externalAccountName,
+        connectedByUserId: args.userId,
+        expiresAt: args.expiresAt,
+        lastErrorAt: null,
+        lastError: null,
+      },
+    });
+  }
+
+  private pendingKey(pendingId: string): string {
+    return `${PENDING_CACHE_PREFIX}${pendingId}`;
+  }
+
+  private async readPending(
+    pendingId: string
+  ): Promise<PendingOAuthPayload | null> {
+    if (!pendingId || typeof pendingId !== 'string') {
+      return null;
+    }
+    const raw = await this.cache.get<PendingOAuthPayload | undefined>(
+      this.pendingKey(pendingId)
+    );
+    if (!raw || raw.v !== 1) return null;
+    if (
+      typeof raw.workspaceId !== 'string' ||
+      typeof raw.userId !== 'string' ||
+      typeof raw.platform !== 'string' ||
+      !Array.isArray(raw.accounts)
+    ) {
+      return null;
+    }
+    return raw;
+  }
+
+  private async writePendingAudit(
+    cached: PendingOAuthPayload,
+    requestingUserId: string,
+    action: 'OAUTH_PENDING_FINALIZED' | 'OAUTH_PENDING_ABANDONED'
+  ): Promise<void> {
+    await this.db.socialAuditLog
+      .create({
+        data: {
+          workspaceId: cached.workspaceId,
+          userId: requestingUserId || cached.userId,
+          platform: cached.platform,
+          action,
+          metadata: { accountCount: cached.accounts.length },
+        },
+      })
+      .catch(err => {
+        // Audit failures must not block the user-visible action.
+        this.logger.warn(
+          `writePendingAudit(${action}) failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+      });
+  }
 
   private signState(payload: OAuthStatePayload): string {
     const json = JSON.stringify(payload);

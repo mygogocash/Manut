@@ -234,3 +234,25 @@ export class BeginOAuthResultObjectType {
   })
   url!: string;
 }
+
+@InputType()
+export class FinalizePlatformConnectInput {
+  @Field(() => String, {
+    description:
+      'Pending OAuth id returned from the choose-account postMessage.',
+  })
+  pendingId!: string;
+
+  @Field(() => String, {
+    description: 'Provider account id the user picked from the picker modal.',
+  })
+  externalAccountId!: string;
+}
+
+@InputType()
+export class CancelPlatformConnectInput {
+  @Field(() => String, {
+    description: 'Pending OAuth id to discard.',
+  })
+  pendingId!: string;
+}

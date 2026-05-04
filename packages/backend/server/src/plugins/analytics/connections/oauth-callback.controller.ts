@@ -1,15 +1,30 @@
-import {
-  Controller,
-  Get,
-  Logger,
-  Param,
-  Query,
-  Res,
-} from '@nestjs/common';
+import { Controller, Get, Logger, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 
 import { Public } from '../../../core/auth';
 import { ConnectionService } from './connection.service';
+
+interface PendingAccountChoice {
+  externalAccountId: string;
+  externalAccountName: string;
+}
+
+type PostMessageType =
+  | 'analytics:oauth:done'
+  | 'analytics:oauth:error'
+  | 'analytics:oauth:choose-account';
+
+interface PostMessageBody {
+  type: PostMessageType;
+  message?: string;
+  pendingId?: string;
+  accounts?: PendingAccountChoice[];
+}
+
+const MAX_ACCOUNT_NAME_LEN = 100;
+const MAX_ACCOUNT_ID_LEN = 100;
+const MAX_ACCOUNTS_TO_SHOW = 50;
+const ASCII_PRINTABLE = /[^\x20-\x7e]/g;
 
 /**
  * REST controller for the analytics OAuth callback. The provider redirects
@@ -48,22 +63,54 @@ export class OAuthCallbackController {
           errorDescription ?? ''
         }`
       );
-      this.respondHtml(res, 'analytics:oauth:error', message);
+      this.respondHtml(res, { type: 'analytics:oauth:error', message });
       return;
     }
 
     if (!code || !state) {
-      this.respondHtml(
-        res,
-        'analytics:oauth:error',
-        'Missing code or state parameter'
-      );
+      this.respondHtml(res, {
+        type: 'analytics:oauth:error',
+        message: 'Missing code or state parameter',
+      });
       return;
     }
 
     try {
-      await this.connections.completeOAuth(state, code);
-      this.respondHtml(res, 'analytics:oauth:done');
+      const result = await this.connections.completeOAuth(state, code);
+      if (result.kind === 'completed') {
+        this.respondHtml(res, { type: 'analytics:oauth:done' });
+      } else {
+        // Multi-account Meta — surface the picker payload to the opener.
+        // Account names are user-controlled (Meta Page titles, IG usernames,
+        // Threads display names). Apply the same printable-ASCII allowlist
+        // we use elsewhere on this controller, drop empty entries, and cap
+        // the list so a hostile Meta response can't blow up the inline
+        // <script> JSON.
+        const safeAccounts = result.accounts
+          .map(a => ({
+            externalAccountId: this.sanitize(a.id, MAX_ACCOUNT_ID_LEN),
+            externalAccountName: this.sanitize(a.name, MAX_ACCOUNT_NAME_LEN),
+          }))
+          .filter(
+            a =>
+              a.externalAccountId.length > 0 && a.externalAccountName.length > 0
+          )
+          .slice(0, MAX_ACCOUNTS_TO_SHOW);
+        if (safeAccounts.length === 0) {
+          // All names failed sanitisation — degrade to a clear error rather
+          // than opening a picker with no rows.
+          this.respondHtml(res, {
+            type: 'analytics:oauth:error',
+            message: 'No selectable accounts returned',
+          });
+          return;
+        }
+        this.respondHtml(res, {
+          type: 'analytics:oauth:choose-account',
+          pendingId: this.sanitize(result.pendingId, MAX_ACCOUNT_ID_LEN),
+          accounts: safeAccounts,
+        });
+      }
     } catch (err) {
       // Log the full stack server-side; do NOT propagate the raw exception
       // text to the popup HTML — that text is reinterpreted as content and
@@ -73,28 +120,43 @@ export class OAuthCallbackController {
           err instanceof Error ? err.stack : String(err)
         }`
       );
-      this.respondHtml(res, 'analytics:oauth:error', 'OAuth completion failed');
+      this.respondHtml(res, {
+        type: 'analytics:oauth:error',
+        message: 'OAuth completion failed',
+      });
     }
   }
 
-  private respondHtml(
-    res: Response,
-    type: 'analytics:oauth:done' | 'analytics:oauth:error',
-    message?: string
-  ): void {
+  /**
+   * Strict printable-ASCII allowlist + length cap. Prevents injection via
+   * unicode line terminators, RTL marks, BOMs, etc. Used on every string
+   * that ends up in the inline <script> postMessage payload.
+   */
+  private sanitize(value: string | undefined, maxLen: number): string {
+    if (typeof value !== 'string') return '';
+    return value.replace(ASCII_PRINTABLE, '').slice(0, maxLen);
+  }
+
+  private respondHtml(res: Response, body: PostMessageBody): void {
     // Hard limit + character allowlist on the human-readable message.
     // Strict allowlist (printable ASCII + common punctuation) prevents
     // injection through unicode tricks (line/paragraph separators, BOMs,
     // RTL marks, etc).
     const safeMessage =
-      typeof message === 'string'
-        ? message.replace(/[^\x20-\x7e]/g, '').slice(0, 200)
+      typeof body.message === 'string'
+        ? this.sanitize(body.message, 200)
         : undefined;
 
-    const payload = JSON.stringify({
-      type,
-      ...(safeMessage ? { message: safeMessage } : {}),
-    });
+    const out: Record<string, unknown> = { type: body.type };
+    if (safeMessage) out.message = safeMessage;
+    if (typeof body.pendingId === 'string') {
+      out.pendingId = body.pendingId; // already sanitised by caller
+    }
+    if (Array.isArray(body.accounts)) {
+      out.accounts = body.accounts; // already sanitised + capped by caller
+    }
+
+    const payload = JSON.stringify(out);
 
     // JSON.stringify alone is NOT safe to embed in <script>: a `</script>`
     // inside the payload would terminate the script tag. Replace HTML and
