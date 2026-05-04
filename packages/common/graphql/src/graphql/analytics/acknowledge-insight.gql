@@ -1,0 +1,13 @@
+mutation acknowledgeInsight($input: AcknowledgeInsightInput!) {
+  acknowledgeInsight(input: $input) {
+    id
+    insightType
+    platforms
+    title
+    body
+    severity
+    modelUsed
+    createdAt
+    acknowledgedAt
+  }
+}

@@ -1,3 +1,4 @@
+import type { SocialPlatform as GqlSocialPlatform } from '@affine/graphql';
 import { useLiveData, useService } from '@toeverything/infra';
 import {
   type ReactNode,
@@ -10,9 +11,25 @@ import {
 
 import { WorkspaceService } from '../../../workspace';
 import { InsightCard } from '../../components/insight-card';
+import type { SocialPlatform } from '../../entities/analytics-data.entity';
 import type { Insight } from '../../entities/insight.entity';
 import { AnalyticsService } from '../../services/analytics.service';
 import * as styles from './index.css';
+
+// Platforms the recommendation prompt can target. Mirrors the GraphQL
+// `SocialPlatform` enum. GOGOCASH is internal/diagnostic so we omit it
+// from the UI picker — the recommendation prompt is a content/marketing
+// tool aimed at outward-facing social presences.
+const RECOMMENDATION_PLATFORMS: ReadonlyArray<{
+  value: SocialPlatform;
+  label: string;
+}> = [
+  { value: 'INSTAGRAM', label: 'Instagram' },
+  { value: 'FACEBOOK', label: 'Facebook' },
+  { value: 'TIKTOK', label: 'TikTok' },
+  { value: 'THREADS', label: 'Threads' },
+  { value: 'LINE_VOOM', label: 'LINE VOOM' },
+];
 
 // Stable empty-array reference so `useMemo` deps don't re-trigger on every
 // render when LiveData returns nothing. Module-scoped const = same identity.
@@ -54,12 +71,7 @@ function renderInline(text: string): ReactNode[] {
         // Only render http(s)/mailto — everything else falls back to '#'.
         const safe = /^(https?:|mailto:)/i.test(href) ? href : '#';
         out.push(
-          <a
-            key={key++}
-            href={safe}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <a key={key++} href={safe} target="_blank" rel="noopener noreferrer">
             {label}
           </a>
         );
@@ -120,8 +132,12 @@ function bucketFor(iso: string, now = new Date()): Bucket {
   if (Number.isNaN(ts.getTime())) return 'Older';
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
-  const startOfYesterday = new Date(startOfToday.getTime() - 24 * 60 * 60 * 1000);
-  const startOfWeek = new Date(startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000);
+  const startOfYesterday = new Date(
+    startOfToday.getTime() - 24 * 60 * 60 * 1000
+  );
+  const startOfWeek = new Date(
+    startOfToday.getTime() - 6 * 24 * 60 * 60 * 1000
+  );
   if (ts >= startOfToday) return 'Today';
   if (ts >= startOfYesterday) return 'Yesterday';
   if (ts >= startOfWeek) return 'This Week';
@@ -130,8 +146,7 @@ function bucketFor(iso: string, now = new Date()): Bucket {
 
 function groupInsights(insights: Insight[]): Map<Bucket, Insight[]> {
   const sorted = [...insights].sort(
-    (a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
   const map = new Map<Bucket, Insight[]>();
   for (const b of BUCKET_ORDER) map.set(b, []);
@@ -158,6 +173,9 @@ export function AIStrategist() {
     null
   );
   const [recModalOpen, setRecModalOpen] = useState(false);
+  const [recPlatform, setRecPlatform] = useState<SocialPlatform>(
+    RECOMMENDATION_PLATFORMS[0].value
+  );
   const [recTone, setRecTone] = useState('');
   const [recBusy, setRecBusy] = useState(false);
   const [recError, setRecError] = useState<string | null>(null);
@@ -165,15 +183,12 @@ export function AIStrategist() {
 
   useEffect(() => {
     analyticsService.loadInsights(workspaceId).catch(err => {
-      // eslint-disable-next-line no-console
+       
       console.warn('[analytics] loadInsights failed', err);
     });
-    const unsub = analyticsService.subscribeToInsights(
-      workspaceId,
-      insight => {
-        freshIdsRef.current.add(insight.id);
-      }
-    );
+    const unsub = analyticsService.subscribeToInsights(workspaceId, insight => {
+      freshIdsRef.current.add(insight.id);
+    });
     return () => {
       try {
         unsub();
@@ -191,7 +206,7 @@ export function AIStrategist() {
       try {
         await analyticsService.acknowledgeInsight(insightId);
       } catch (err) {
-        // eslint-disable-next-line no-console
+         
         console.warn('[analytics] acknowledgeInsight failed', err);
       } finally {
         setBusyAcknowledgeId(null);
@@ -216,8 +231,12 @@ export function AIStrategist() {
     setRecBusy(true);
     setRecError(null);
     try {
+      // Local `SocialPlatform` is a string-union (entity type), the
+      // wire/service expects the codegen `SocialPlatform` enum. Values
+      // are byte-identical, so the runtime conversion is a no-op cast.
       const insight = await analyticsService.runContentRecommendation(
         workspaceId,
+        recPlatform as unknown as GqlSocialPlatform,
         recTone
       );
       freshIdsRef.current.add(insight.id);
@@ -228,7 +247,7 @@ export function AIStrategist() {
     } finally {
       setRecBusy(false);
     }
-  }, [analyticsService, recTone, workspaceId]);
+  }, [analyticsService, recPlatform, recTone, workspaceId]);
 
   const renderBody = useCallback(
     (body: string) => <MarkdownText>{body}</MarkdownText>,
@@ -318,6 +337,23 @@ export function AIStrategist() {
               Generate Content Recommendation
             </div>
             <div className={styles.modalBody}>
+              <label className={styles.label} htmlFor="rec-platform">
+                Platform
+              </label>
+              <select
+                id="rec-platform"
+                className={styles.input}
+                value={recPlatform}
+                onChange={e => setRecPlatform(e.target.value as SocialPlatform)}
+                disabled={recBusy}
+                data-testid="analytics-content-recommendation-platform"
+              >
+                {RECOMMENDATION_PLATFORMS.map(p => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
               <label className={styles.label} htmlFor="rec-tone">
                 Tone (optional)
               </label>
@@ -330,9 +366,7 @@ export function AIStrategist() {
                 disabled={recBusy}
                 data-testid="analytics-content-recommendation-tone"
               />
-              {recError ? (
-                <div className={styles.error}>{recError}</div>
-              ) : null}
+              {recError ? <div className={styles.error}>{recError}</div> : null}
             </div>
             <div className={styles.modalActions}>
               <button

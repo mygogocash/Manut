@@ -45,6 +45,10 @@ export interface AccessToken {
   name: Scalars['String']['output'];
 }
 
+export interface AcknowledgeInsightInput {
+  insightId: Scalars['String']['input'];
+}
+
 export interface AddContextBlobInput {
   blobId: Scalars['String']['input'];
   contextId: Scalars['String']['input'];
@@ -275,6 +279,37 @@ export interface AlreadyInSpaceDataType {
   spaceId: Scalars['String']['output'];
 }
 
+export interface AnalyticsKpi {
+  __typename?: 'AnalyticsKpi';
+  deltaPct: Maybe<Scalars['Float']['output']>;
+  key: Scalars['String']['output'];
+  label: Scalars['String']['output'];
+  sparkline: Array<Scalars['Float']['output']>;
+  value: Scalars['Float']['output'];
+}
+
+export interface AnalyticsOverview {
+  __typename?: 'AnalyticsOverview';
+  capUsdThisMonth: Scalars['Float']['output'];
+  generatedAt: Scalars['DateTime']['output'];
+  insightsLast7Days: Scalars['Int']['output'];
+  kpis: Array<AnalyticsKpi>;
+  lastSyncAt: Maybe<Scalars['DateTime']['output']>;
+  platforms: Array<AnalyticsPlatformStatus>;
+  recentInsights: Array<SocialInsight>;
+  spendUsdThisMonth: Scalars['Float']['output'];
+  totalConnections: Scalars['Int']['output'];
+  workspaceId: Scalars['String']['output'];
+}
+
+export interface AnalyticsPlatformStatus {
+  __typename?: 'AnalyticsPlatformStatus';
+  isConnected: Scalars['Boolean']['output'];
+  lastSyncAt: Maybe<Scalars['DateTime']['output']>;
+  platform: SocialPlatform;
+  status: Scalars['String']['output'];
+}
+
 export interface AppConfigValidateResult {
   __typename?: 'AppConfigValidateResult';
   error: Maybe<Scalars['String']['output']>;
@@ -301,6 +336,12 @@ export interface AudioSliceManifestItemType {
   index: Scalars['Int']['output'];
   mimeType: Scalars['String']['output'];
   startSec: Scalars['Float']['output'];
+}
+
+export interface BeginOAuthResult {
+  __typename?: 'BeginOAuthResult';
+  /** Authorization URL the client must navigate to. */
+  url: Scalars['String']['output'];
 }
 
 export interface BlobNotFoundDataType {
@@ -411,6 +452,11 @@ export interface CalendarSubscriptionObjectType {
   timezone: Maybe<Scalars['String']['output']>;
 }
 
+export interface CancelPlatformConnectInput {
+  /** Pending OAuth id to discard. */
+  pendingId: Scalars['String']['input'];
+}
+
 export enum ChatHistoryOrder {
   asc = 'asc',
   desc = 'desc',
@@ -491,6 +537,13 @@ export interface CommentResolveInput {
 export interface CommentUpdateInput {
   content: Scalars['JSONObject']['input'];
   id: Scalars['ID']['input'];
+}
+
+export enum ConnectionStatus {
+  ACTIVE = 'ACTIVE',
+  ERROR = 'ERROR',
+  EXPIRED = 'EXPIRED',
+  PAUSED = 'PAUSED',
 }
 
 export enum ContextCategories {
@@ -1295,6 +1348,13 @@ export enum FeatureType {
   UnlimitedWorkspace = 'UnlimitedWorkspace',
 }
 
+export interface FinalizePlatformConnectInput {
+  /** Provider account id the user picked from the picker modal. */
+  externalAccountId: Scalars['String']['input'];
+  /** Pending OAuth id returned from the choose-account postMessage. */
+  pendingId: Scalars['String']['input'];
+}
+
 export interface ForkChatSessionInput {
   docId: Scalars['String']['input'];
   /** Identify a message in the array and keep it with all previous messages into a forked session. */
@@ -1345,6 +1405,19 @@ export interface ImageFormatNotSupportedDataType {
 
 export interface ImportUsersInput {
   users: Array<CreateUserInput>;
+}
+
+export enum InsightSeverity {
+  ACTION_REQUIRED = 'ACTION_REQUIRED',
+  INFO = 'INFO',
+  NOTABLE = 'NOTABLE',
+}
+
+export enum InsightType {
+  ANOMALY = 'ANOMALY',
+  RECOMMENDATION = 'RECOMMENDATION',
+  TREND = 'TREND',
+  WEEKLY_STRATEGY = 'WEEKLY_STRATEGY',
 }
 
 export interface InvalidAppConfigDataType {
@@ -1605,6 +1678,21 @@ export interface LinkCalendarAccountInput {
   redirectUri?: InputMaybe<Scalars['String']['input']>;
 }
 
+export interface ListInsightsInput {
+  insightType?: InputMaybe<InsightType>;
+  limit?: Scalars['Int']['input'];
+  types?: InputMaybe<Array<InsightType>>;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface ListMetricsInput {
+  bucket: MetricBucket;
+  from: Scalars['DateTime']['input'];
+  platform?: InputMaybe<SocialPlatform>;
+  to: Scalars['DateTime']['input'];
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface ListUserInput {
   features?: InputMaybe<Array<FeatureType>>;
   first?: InputMaybe<Scalars['Int']['input']>;
@@ -1704,6 +1792,12 @@ export interface MentionUserDocAccessDeniedDataType {
   docId: Scalars['String']['output'];
 }
 
+export enum MetricBucket {
+  DAY = 'DAY',
+  HOUR = 'HOUR',
+  WEEK = 'WEEK',
+}
+
 export interface MissingOauthQueryParameterDataType {
   __typename?: 'MissingOauthQueryParameterDataType';
   name: Scalars['String']['output'];
@@ -1713,6 +1807,8 @@ export interface Mutation {
   __typename?: 'Mutation';
   abortBlobUpload: Scalars['Boolean']['output'];
   acceptInviteById: Scalars['Boolean']['output'];
+  /** Mark an AI insight as acknowledged by the current user. */
+  acknowledgeInsight: SocialInsight;
   activateLicense: License;
   /** add a blob to context */
   addContextBlob: CopilotContextBlob;
@@ -1732,6 +1828,10 @@ export interface Mutation {
   approveMember: Scalars['Boolean']['output'];
   /** Ban an user */
   banUser: UserType;
+  /** Begin OAuth handshake for a platform. Returns the authorization URL the client must navigate to. */
+  beginPlatformConnect: BeginOAuthResult;
+  /** Discard a pending Meta OAuth picker session without binding any account. */
+  cancelPlatformConnect: Scalars['Boolean']['output'];
   cancelSubscription: SubscriptionType;
   changeEmail: UserType;
   changePassword: Scalars['Boolean']['output'];
@@ -1775,8 +1875,12 @@ export interface Mutation {
   /** Delete a user account */
   deleteUser: DeleteAccount;
   deleteWorkspace: Scalars['Boolean']['output'];
+  /** Disconnect a platform from the workspace (soft-delete). */
+  disconnectPlatform: Scalars['Boolean']['output'];
   /** Reenable an banned user */
   enableUser: UserType;
+  /** Complete a multi-account Meta OAuth flow by binding the chosen page / IG biz / Threads profile. */
+  finalizePlatformConnect: SocialConnection;
   /** Create a chat session */
   forkCopilotSession: Scalars['String']['output'];
   generateLicenseKey: Scalars['String']['output'];
@@ -1827,6 +1931,8 @@ export interface Mutation {
   revokeMember: Scalars['Boolean']['output'];
   revokePublicDoc: DocType;
   revokeUserAccessToken: Scalars['Boolean']['output'];
+  /** Run the on-demand Content Recommendation prompt — gemini-2.5-flash, ~3K in / 0.5K out. */
+  runContentRecommendation: SocialInsight;
   sendChangeEmail: Scalars['Boolean']['output'];
   sendChangePasswordEmail: Scalars['Boolean']['output'];
   sendSetPasswordEmail: Scalars['Boolean']['output'];
@@ -1840,6 +1946,7 @@ export interface Mutation {
   /** Trigger generate missing titles cron job */
   triggerGenerateTitleCron: Scalars['Boolean']['output'];
   unlinkCalendarAccount: Scalars['Boolean']['output'];
+  unverifyDoc: Scalars['Boolean']['output'];
   /** update app configuration */
   updateAppConfig: Scalars['JSONObject']['output'];
   updateCalendarAccount: Maybe<CalendarAccountObjectType>;
@@ -1868,6 +1975,7 @@ export interface Mutation {
   uploadAvatar: UserType;
   /** Upload a comment attachment and return the access url */
   uploadCommentAttachment: Scalars['String']['output'];
+  verifyDoc: Scalars['Boolean']['output'];
   verifyEmail: Scalars['Boolean']['output'];
 }
 
@@ -1881,6 +1989,10 @@ export interface MutationAcceptInviteByIdArgs {
   inviteId: Scalars['String']['input'];
   sendAcceptMail?: InputMaybe<Scalars['Boolean']['input']>;
   workspaceId?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface MutationAcknowledgeInsightArgs {
+  input: AcknowledgeInsightInput;
 }
 
 export interface MutationActivateLicenseArgs {
@@ -1933,6 +2045,15 @@ export interface MutationApproveMemberArgs {
 
 export interface MutationBanUserArgs {
   id: Scalars['String']['input'];
+}
+
+export interface MutationBeginPlatformConnectArgs {
+  platform: SocialPlatform;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationCancelPlatformConnectArgs {
+  input: CancelPlatformConnectInput;
 }
 
 export interface MutationCancelSubscriptionArgs {
@@ -2052,8 +2173,16 @@ export interface MutationDeleteWorkspaceArgs {
   id: Scalars['String']['input'];
 }
 
+export interface MutationDisconnectPlatformArgs {
+  connectionId: Scalars['String']['input'];
+}
+
 export interface MutationEnableUserArgs {
   id: Scalars['String']['input'];
+}
+
+export interface MutationFinalizePlatformConnectArgs {
+  input: FinalizePlatformConnectInput;
 }
 
 export interface MutationForkCopilotSessionArgs {
@@ -2202,6 +2331,10 @@ export interface MutationRevokeUserAccessTokenArgs {
   id: Scalars['String']['input'];
 }
 
+export interface MutationRunContentRecommendationArgs {
+  input: RunContentRecommendationInput;
+}
+
 export interface MutationSendChangeEmailArgs {
   callbackUrl: Scalars['String']['input'];
   email?: InputMaybe<Scalars['String']['input']>;
@@ -2246,6 +2379,11 @@ export interface MutationSubmitAudioTranscriptionArgs {
 
 export interface MutationUnlinkCalendarAccountArgs {
   accountId: Scalars['String']['input'];
+}
+
+export interface MutationUnverifyDocArgs {
+  docId: Scalars['String']['input'];
+  workspaceId: Scalars['String']['input'];
 }
 
 export interface MutationUpdateAppConfigArgs {
@@ -2323,6 +2461,12 @@ export interface MutationUploadAvatarArgs {
 export interface MutationUploadCommentAttachmentArgs {
   attachment: Scalars['Upload']['input'];
   docId: Scalars['String']['input'];
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationVerifyDocArgs {
+  docId: Scalars['String']['input'];
+  expiresAt?: InputMaybe<Scalars['DateTime']['input']>;
   workspaceId: Scalars['String']['input'];
 }
 
@@ -2553,11 +2697,19 @@ export interface Query {
    * @deprecated use Mutation.applyDocUpdates
    */
   applyDocUpdates: Scalars['String']['output'];
+  /** List analytics platform connections for a workspace. */
+  connections: Array<SocialConnection>;
   /** Get current user */
   currentUser: Maybe<UserType>;
   error: ErrorDataUnion;
   /** get workspace invitation info */
   getInviteInfo: InvitationType;
+  /** Overview tile for the Analytics landing page: totals, recent insights, current AI spend. */
+  getOverview: AnalyticsOverview;
+  /** AI insights timeline filtered by type. */
+  listInsights: Array<SocialInsight>;
+  /** Aggregated metrics for the dashboard charts. */
+  listMetrics: Array<SocialMetric>;
   prices: Array<SubscriptionPrice>;
   /** Get public user by id */
   publicUserById: Maybe<PublicUserType>;
@@ -2618,12 +2770,28 @@ export interface QueryApplyDocUpdatesArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface QueryConnectionsArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface QueryErrorArgs {
   name: ErrorNames;
 }
 
 export interface QueryGetInviteInfoArgs {
   inviteId: Scalars['String']['input'];
+}
+
+export interface QueryGetOverviewArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryListInsightsArgs {
+  input: ListInsightsInput;
+}
+
+export interface QueryListMetricsArgs {
+  input: ListMetricsInput;
 }
 
 export interface QueryPublicUserByIdArgs {
@@ -2775,6 +2943,13 @@ export interface RevokeDocUserRoleInput {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface RunContentRecommendationInput {
+  platform: SocialPlatform;
+  tone?: InputMaybe<Scalars['String']['input']>;
+  topic?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface RuntimeConfigNotFoundDataType {
   __typename?: 'RuntimeConfigNotFoundDataType';
   key: Scalars['String']['output'];
@@ -2921,6 +3096,57 @@ export enum ServerFeature {
   LocalWorkspace = 'LocalWorkspace',
   OAuth = 'OAuth',
   Payment = 'Payment',
+}
+
+export interface SocialConnection {
+  __typename?: 'SocialConnection';
+  connectedByUserId: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  expiresAt: Maybe<Scalars['DateTime']['output']>;
+  externalAccountId: Scalars['String']['output'];
+  externalAccountName: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  lastError: Maybe<Scalars['String']['output']>;
+  lastErrorAt: Maybe<Scalars['DateTime']['output']>;
+  lastSyncAt: Maybe<Scalars['DateTime']['output']>;
+  platform: SocialPlatform;
+  scopes: Array<Scalars['String']['output']>;
+  status: ConnectionStatus;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['String']['output'];
+}
+
+export interface SocialInsight {
+  __typename?: 'SocialInsight';
+  acknowledgedAt: Maybe<Scalars['DateTime']['output']>;
+  body: Scalars['String']['output'];
+  costUsd: Scalars['Float']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  insightType: InsightType;
+  modelUsed: Scalars['String']['output'];
+  platforms: Array<SocialPlatform>;
+  severity: InsightSeverity;
+  title: Scalars['String']['output'];
+}
+
+export interface SocialMetric {
+  __typename?: 'SocialMetric';
+  bucket: MetricBucket;
+  bucketStart: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  metricKey: Scalars['String']['output'];
+  platform: SocialPlatform;
+  value: Scalars['Float']['output'];
+}
+
+export enum SocialPlatform {
+  FACEBOOK = 'FACEBOOK',
+  GOGOCASH = 'GOGOCASH',
+  INSTAGRAM = 'INSTAGRAM',
+  LINE_VOOM = 'LINE_VOOM',
+  THREADS = 'THREADS',
+  TIKTOK = 'TIKTOK',
 }
 
 export interface SpaceAccessDeniedDataType {
@@ -4076,6 +4302,159 @@ export type ValidateConfigQuery = {
     valid: boolean;
     error: string | null;
   }>;
+};
+
+export type AcknowledgeInsightMutationVariables = Exact<{
+  input: AcknowledgeInsightInput;
+}>;
+
+export type AcknowledgeInsightMutation = {
+  __typename?: 'Mutation';
+  acknowledgeInsight: {
+    __typename?: 'SocialInsight';
+    id: string;
+    insightType: InsightType;
+    platforms: Array<SocialPlatform>;
+    title: string;
+    body: string;
+    severity: InsightSeverity;
+    modelUsed: string;
+    createdAt: string;
+    acknowledgedAt: string | null;
+  };
+};
+
+export type BeginPlatformConnectMutationVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+  platform: SocialPlatform;
+}>;
+
+export type BeginPlatformConnectMutation = {
+  __typename?: 'Mutation';
+  beginPlatformConnect: { __typename?: 'BeginOAuthResult'; url: string };
+};
+
+export type CancelPlatformConnectMutationVariables = Exact<{
+  input: CancelPlatformConnectInput;
+}>;
+
+export type CancelPlatformConnectMutation = {
+  __typename?: 'Mutation';
+  cancelPlatformConnect: boolean;
+};
+
+export type DisconnectPlatformMutationVariables = Exact<{
+  connectionId: Scalars['String']['input'];
+}>;
+
+export type DisconnectPlatformMutation = {
+  __typename?: 'Mutation';
+  disconnectPlatform: boolean;
+};
+
+export type FinalizePlatformConnectMutationVariables = Exact<{
+  input: FinalizePlatformConnectInput;
+}>;
+
+export type FinalizePlatformConnectMutation = {
+  __typename?: 'Mutation';
+  finalizePlatformConnect: {
+    __typename?: 'SocialConnection';
+    id: string;
+    workspaceId: string;
+    platform: SocialPlatform;
+    status: ConnectionStatus;
+    externalAccountName: string;
+    lastSyncAt: string | null;
+    lastError: string | null;
+  };
+};
+
+export type GetAnalyticsOverviewQueryVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+}>;
+
+export type GetAnalyticsOverviewQuery = {
+  __typename?: 'Query';
+  getOverview: {
+    __typename?: 'AnalyticsOverview';
+    workspaceId: string;
+    generatedAt: string;
+    lastSyncAt: string | null;
+    platforms: Array<{
+      __typename?: 'AnalyticsPlatformStatus';
+      platform: SocialPlatform;
+      status: string;
+      lastSyncAt: string | null;
+      isConnected: boolean;
+    }>;
+    kpis: Array<{
+      __typename?: 'AnalyticsKpi';
+      key: string;
+      label: string;
+      value: number;
+      deltaPct: number | null;
+      sparkline: Array<number>;
+    }>;
+  };
+};
+
+export type ListConnectionsQueryVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+}>;
+
+export type ListConnectionsQuery = {
+  __typename?: 'Query';
+  connections: Array<{
+    __typename?: 'SocialConnection';
+    id: string;
+    workspaceId: string;
+    platform: SocialPlatform;
+    status: ConnectionStatus;
+    externalAccountName: string;
+    lastSyncAt: string | null;
+    lastError: string | null;
+  }>;
+};
+
+export type ListInsightsQueryVariables = Exact<{
+  input: ListInsightsInput;
+}>;
+
+export type ListInsightsQuery = {
+  __typename?: 'Query';
+  listInsights: Array<{
+    __typename?: 'SocialInsight';
+    id: string;
+    insightType: InsightType;
+    platforms: Array<SocialPlatform>;
+    title: string;
+    body: string;
+    severity: InsightSeverity;
+    modelUsed: string;
+    createdAt: string;
+    acknowledgedAt: string | null;
+  }>;
+};
+
+export type RunContentRecommendationMutationVariables = Exact<{
+  input: RunContentRecommendationInput;
+}>;
+
+export type RunContentRecommendationMutation = {
+  __typename?: 'Mutation';
+  runContentRecommendation: {
+    __typename?: 'SocialInsight';
+    id: string;
+    insightType: InsightType;
+    platforms: Array<SocialPlatform>;
+    title: string;
+    body: string;
+    severity: InsightSeverity;
+    modelUsed: string;
+    createdAt: string;
+    acknowledgedAt: string | null;
+  };
 };
 
 export type DeleteBlobMutationVariables = Exact<{
@@ -7374,6 +7753,16 @@ export type SubscriptionQuery = {
   } | null;
 };
 
+export type UnverifyDocMutationVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+  docId: Scalars['String']['input'];
+}>;
+
+export type UnverifyDocMutation = {
+  __typename?: 'Mutation';
+  unverifyDoc: boolean;
+};
+
 export type UpdateDocDefaultRoleMutationVariables = Exact<{
   input: UpdateDocDefaultRoleInput;
 }>;
@@ -7441,6 +7830,14 @@ export type UploadAvatarMutation = {
     email: string;
   };
 };
+
+export type VerifyDocMutationVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+  docId: Scalars['String']['input'];
+  expiresAt?: InputMaybe<Scalars['DateTime']['input']>;
+}>;
+
+export type VerifyDocMutation = { __typename?: 'Mutation'; verifyDoc: boolean };
 
 export type VerifyEmailMutationVariables = Exact<{
   token: Scalars['String']['input'];
@@ -7745,6 +8142,21 @@ export type Queries =
       name: 'validateConfigQuery';
       variables: ValidateConfigQueryVariables;
       response: ValidateConfigQuery;
+    }
+  | {
+      name: 'getAnalyticsOverviewQuery';
+      variables: GetAnalyticsOverviewQueryVariables;
+      response: GetAnalyticsOverviewQuery;
+    }
+  | {
+      name: 'listConnectionsQuery';
+      variables: ListConnectionsQueryVariables;
+      response: ListConnectionsQuery;
+    }
+  | {
+      name: 'listInsightsQuery';
+      variables: ListInsightsQueryVariables;
+      response: ListInsightsQuery;
     }
   | {
       name: 'listBlobsQuery';
@@ -8184,6 +8596,36 @@ export type Mutations =
       response: UpdateAppConfigMutation;
     }
   | {
+      name: 'acknowledgeInsightMutation';
+      variables: AcknowledgeInsightMutationVariables;
+      response: AcknowledgeInsightMutation;
+    }
+  | {
+      name: 'beginPlatformConnectMutation';
+      variables: BeginPlatformConnectMutationVariables;
+      response: BeginPlatformConnectMutation;
+    }
+  | {
+      name: 'cancelPlatformConnectMutation';
+      variables: CancelPlatformConnectMutationVariables;
+      response: CancelPlatformConnectMutation;
+    }
+  | {
+      name: 'disconnectPlatformMutation';
+      variables: DisconnectPlatformMutationVariables;
+      response: DisconnectPlatformMutation;
+    }
+  | {
+      name: 'finalizePlatformConnectMutation';
+      variables: FinalizePlatformConnectMutationVariables;
+      response: FinalizePlatformConnectMutation;
+    }
+  | {
+      name: 'runContentRecommendationMutation';
+      variables: RunContentRecommendationMutationVariables;
+      response: RunContentRecommendationMutation;
+    }
+  | {
       name: 'deleteBlobMutation';
       variables: DeleteBlobMutationVariables;
       response: DeleteBlobMutation;
@@ -8564,6 +9006,11 @@ export type Mutations =
       response: RequestApplySubscriptionMutation;
     }
   | {
+      name: 'unverifyDocMutation';
+      variables: UnverifyDocMutationVariables;
+      response: UnverifyDocMutation;
+    }
+  | {
       name: 'updateDocDefaultRoleMutation';
       variables: UpdateDocDefaultRoleMutationVariables;
       response: UpdateDocDefaultRoleMutation;
@@ -8592,6 +9039,11 @@ export type Mutations =
       name: 'uploadAvatarMutation';
       variables: UploadAvatarMutationVariables;
       response: UploadAvatarMutation;
+    }
+  | {
+      name: 'verifyDocMutation';
+      variables: VerifyDocMutationVariables;
+      response: VerifyDocMutation;
     }
   | {
       name: 'verifyEmailMutation';

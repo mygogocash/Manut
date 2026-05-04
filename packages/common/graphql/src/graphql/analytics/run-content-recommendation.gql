@@ -1,0 +1,13 @@
+mutation runContentRecommendation($input: RunContentRecommendationInput!) {
+  runContentRecommendation(input: $input) {
+    id
+    insightType
+    platforms
+    title
+    body
+    severity
+    modelUsed
+    createdAt
+    acknowledgedAt
+  }
+}

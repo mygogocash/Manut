@@ -1,0 +1,13 @@
+query listInsights($input: ListInsightsInput!) {
+  listInsights(input: $input) {
+    id
+    insightType
+    platforms
+    title
+    body
+    severity
+    modelUsed
+    createdAt
+    acknowledgedAt
+  }
+}

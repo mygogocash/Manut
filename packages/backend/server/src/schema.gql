@@ -9,6 +9,10 @@ type AccessToken {
   name: String!
 }
 
+input AcknowledgeInsightInput {
+  insightId: String!
+}
+
 input AddContextBlobInput {
   blobId: String!
   contextId: String!
@@ -222,6 +226,34 @@ type AlreadyInSpaceDataType {
   spaceId: String!
 }
 
+type AnalyticsKpi {
+  deltaPct: Float
+  key: String!
+  label: String!
+  sparkline: [Float!]!
+  value: Float!
+}
+
+type AnalyticsOverview {
+  capUsdThisMonth: Float!
+  generatedAt: DateTime!
+  insightsLast7Days: Int!
+  kpis: [AnalyticsKpi!]!
+  lastSyncAt: DateTime
+  platforms: [AnalyticsPlatformStatus!]!
+  recentInsights: [SocialInsight!]!
+  spendUsdThisMonth: Float!
+  totalConnections: Int!
+  workspaceId: String!
+}
+
+type AnalyticsPlatformStatus {
+  isConnected: Boolean!
+  lastSyncAt: DateTime
+  platform: SocialPlatform!
+  status: String!
+}
+
 type AppConfigValidateResult {
   error: String
   key: String!
@@ -246,6 +278,11 @@ type AudioSliceManifestItemType {
   index: Int!
   mimeType: String!
   startSec: Float!
+}
+
+type BeginOAuthResult {
+  """Authorization URL the client must navigate to."""
+  url: String!
 }
 
 type BlobNotFoundDataType {
@@ -385,6 +422,11 @@ type CommentChangeObjectTypeEdge {
   node: CommentChangeObjectType!
 }
 
+input CancelPlatformConnectInput {
+  """Pending OAuth id to discard."""
+  pendingId: String!
+}
+
 input CommentCreateInput {
   content: JSONObject!
   docId: ID!
@@ -434,6 +476,13 @@ input CommentResolveInput {
 input CommentUpdateInput {
   content: JSONObject!
   id: ID!
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  ERROR
+  EXPIRED
+  PAUSED
 }
 
 enum ContextCategories {
@@ -1073,6 +1122,14 @@ enum FeatureType {
   UnlimitedWorkspace
 }
 
+input FinalizePlatformConnectInput {
+  """Provider account id the user picked from the picker modal."""
+  externalAccountId: String!
+
+  """Pending OAuth id returned from the choose-account postMessage."""
+  pendingId: String!
+}
+
 input ForkChatSessionInput {
   docId: String!
 
@@ -1121,6 +1178,19 @@ type ImageFormatNotSupportedDataType {
 
 input ImportUsersInput {
   users: [CreateUserInput!]!
+}
+
+enum InsightSeverity {
+  ACTION_REQUIRED
+  INFO
+  NOTABLE
+}
+
+enum InsightType {
+  ANOMALY
+  RECOMMENDATION
+  TREND
+  WEEKLY_STRATEGY
 }
 
 type InvalidAppConfigDataType {
@@ -1390,6 +1460,21 @@ input LinkCalendarAccountInput {
   redirectUri: String
 }
 
+input ListInsightsInput {
+  insightType: InsightType
+  limit: Int! = 50
+  types: [InsightType!]
+  workspaceId: String!
+}
+
+input ListMetricsInput {
+  bucket: MetricBucket!
+  from: DateTime!
+  platform: SocialPlatform
+  to: DateTime!
+  workspaceId: String!
+}
+
 input ListUserInput {
   features: [FeatureType!]
   first: Int = 20
@@ -1487,6 +1572,12 @@ type MentionUserDocAccessDeniedDataType {
   docId: String!
 }
 
+enum MetricBucket {
+  DAY
+  HOUR
+  WEEK
+}
+
 type MissingOauthQueryParameterDataType {
   name: String!
 }
@@ -1494,6 +1585,9 @@ type MissingOauthQueryParameterDataType {
 type Mutation {
   abortBlobUpload(key: String!, uploadId: String!, workspaceId: String!): Boolean!
   acceptInviteById(inviteId: String!, sendAcceptMail: Boolean @deprecated(reason: "never used"), workspaceId: String @deprecated(reason: "never used")): Boolean!
+
+  """Mark an AI insight as acknowledged by the current user."""
+  acknowledgeInsight(input: AcknowledgeInsightInput!): SocialInsight!
   activateLicense(license: String!, workspaceId: String!): License!
 
   """add a blob to context"""
@@ -1521,6 +1615,11 @@ type Mutation {
 
   """Ban an user"""
   banUser(id: String!): UserType!
+
+  """Begin OAuth handshake for a platform. Returns the authorization URL the client must navigate to."""
+  beginPlatformConnect(platform: SocialPlatform!, workspaceId: String!): BeginOAuthResult!
+  """Discard a pending Meta OAuth picker session without binding any account."""
+  cancelPlatformConnect(input: CancelPlatformConnectInput!): Boolean!
   cancelSubscription(idempotencyKey: String @deprecated(reason: "use header `Idempotency-Key`"), plan: SubscriptionPlan = Pro, workspaceId: String): SubscriptionType!
   changeEmail(email: String!, token: String!): UserType!
   changePassword(newPassword: String!, token: String!, userId: String): Boolean!
@@ -1575,8 +1674,14 @@ type Mutation {
   deleteUser(id: String!): DeleteAccount!
   deleteWorkspace(id: String!): Boolean!
 
+  """Disconnect a platform from the workspace (soft-delete)."""
+  disconnectPlatform(connectionId: String!): Boolean!
+
   """Reenable an banned user"""
   enableUser(id: String!): UserType!
+
+  """Complete a multi-account Meta OAuth flow by binding the chosen page / IG biz / Threads profile."""
+  finalizePlatformConnect(input: FinalizePlatformConnectInput!): SocialConnection!
 
   """Create a chat session"""
   forkCopilotSession(options: ForkChatSessionInput!): String!
@@ -1642,6 +1747,9 @@ type Mutation {
   revokeMember(userId: String!, workspaceId: String!): Boolean!
   revokePublicDoc(docId: String!, workspaceId: String!): DocType!
   revokeUserAccessToken(id: String!): Boolean!
+
+  """Run the on-demand Content Recommendation prompt — gemini-2.5-flash, ~3K in / 0.5K out."""
+  runContentRecommendation(input: RunContentRecommendationInput!): SocialInsight!
   sendChangeEmail(callbackUrl: String!, email: String): Boolean!
   sendChangePasswordEmail(callbackUrl: String!, email: String @deprecated(reason: "fetched from signed in user")): Boolean!
   sendSetPasswordEmail(callbackUrl: String!, email: String @deprecated(reason: "fetched from signed in user")): Boolean!
@@ -1657,6 +1765,7 @@ type Mutation {
   """Trigger generate missing titles cron job"""
   triggerGenerateTitleCron: Boolean!
   unlinkCalendarAccount(accountId: String!): Boolean!
+  unverifyDoc(docId: String!, workspaceId: String!): Boolean!
 
   """update app configuration"""
   updateAppConfig(updates: [UpdateAppConfigInput!]!): JSONObject!
@@ -1696,6 +1805,7 @@ type Mutation {
 
   """Upload a comment attachment and return the access url"""
   uploadCommentAttachment(attachment: Upload!, docId: String!, workspaceId: String!): String!
+  verifyDoc(docId: String!, expiresAt: DateTime, workspaceId: String!): Boolean!
   verifyEmail(token: String!): Boolean!
 }
 
@@ -1916,12 +2026,24 @@ type Query {
   """Apply updates to a doc using LLM and return the merged markdown."""
   applyDocUpdates(docId: String!, op: String!, updates: String!, workspaceId: String!): String! @deprecated(reason: "use Mutation.applyDocUpdates")
 
+  """List analytics platform connections for a workspace."""
+  connections(workspaceId: String!): [SocialConnection!]!
+
   """Get current user"""
   currentUser: UserType
   error(name: ErrorNames!): ErrorDataUnion!
 
   """get workspace invitation info"""
   getInviteInfo(inviteId: String!): InvitationType!
+
+  """Overview tile for the Analytics landing page: totals, recent insights, current AI spend."""
+  getOverview(workspaceId: String!): AnalyticsOverview!
+
+  """AI insights timeline filtered by type."""
+  listInsights(input: ListInsightsInput!): [SocialInsight!]!
+
+  """Aggregated metrics for the dashboard charts."""
+  listMetrics(input: ListMetricsInput!): [SocialMetric!]!
   prices: [SubscriptionPrice!]!
 
   """Get public user by id"""
@@ -2069,6 +2191,13 @@ type RevealedAccessToken {
 input RevokeDocUserRoleInput {
   docId: String!
   userId: String!
+  workspaceId: String!
+}
+
+input RunContentRecommendationInput {
+  platform: SocialPlatform!
+  tone: String
+  topic: String
   workspaceId: String!
 }
 
@@ -2227,6 +2356,54 @@ enum ServerFeature {
   LocalWorkspace
   OAuth
   Payment
+}
+
+type SocialConnection {
+  connectedByUserId: String!
+  createdAt: DateTime!
+  expiresAt: DateTime
+  externalAccountId: String!
+  externalAccountName: String!
+  id: ID!
+  lastError: String
+  lastErrorAt: DateTime
+  lastSyncAt: DateTime
+  platform: SocialPlatform!
+  scopes: [String!]!
+  status: ConnectionStatus!
+  updatedAt: DateTime!
+  workspaceId: String!
+}
+
+type SocialInsight {
+  acknowledgedAt: DateTime
+  body: String!
+  costUsd: Float!
+  createdAt: DateTime!
+  id: ID!
+  insightType: InsightType!
+  modelUsed: String!
+  platforms: [SocialPlatform!]!
+  severity: InsightSeverity!
+  title: String!
+}
+
+type SocialMetric {
+  bucket: MetricBucket!
+  bucketStart: DateTime!
+  id: ID!
+  metricKey: String!
+  platform: SocialPlatform!
+  value: Float!
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  GOGOCASH
+  INSTAGRAM
+  LINE_VOOM
+  THREADS
+  TIKTOK
 }
 
 type SpaceAccessDeniedDataType {

@@ -1,3 +1,11 @@
+import {
+  beginPlatformConnectMutation,
+  cancelPlatformConnectMutation,
+  disconnectPlatformMutation,
+  finalizePlatformConnectMutation,
+  listConnectionsQuery,
+  type SocialPlatform as GqlSocialPlatform,
+} from '@affine/graphql';
 import { Service } from '@toeverything/infra';
 
 import type { GraphQLService } from '../../cloud/services/graphql';
@@ -6,77 +14,6 @@ import {
   type PlatformConnection,
   PlatformConnectionEntity,
 } from '../entities/platform-connection.entity';
-
-// Round-C wiring. See AnalyticsService for the same hand-rolled pattern.
-// TODO: regenerate codegen types — these operations may not exist on
-// backend Round C yet (BeginPlatformConnect / ListConnections). Calls fall
-// back to a clear NOT_IMPLEMENTED error so the dev sees the gap.
-const LIST_CONNECTIONS_QUERY = /* GraphQL */ `
-  query listConnections($workspaceId: String!) {
-    connections(workspaceId: $workspaceId) {
-      id
-      workspaceId
-      platform
-      status
-      externalAccountName
-      lastSyncAt
-      lastError
-    }
-  }
-`;
-
-const BEGIN_PLATFORM_CONNECT_MUTATION = /* GraphQL */ `
-  mutation beginPlatformConnect(
-    $workspaceId: String!
-    $platform: SocialPlatform!
-  ) {
-    beginPlatformConnect(workspaceId: $workspaceId, platform: $platform) {
-      url
-    }
-  }
-`;
-
-const DISCONNECT_PLATFORM_MUTATION = /* GraphQL */ `
-  mutation disconnectPlatform($connectionId: String!) {
-    disconnectPlatform(connectionId: $connectionId)
-  }
-`;
-
-const FINALIZE_PLATFORM_CONNECT_MUTATION = /* GraphQL */ `
-  mutation finalizePlatformConnect($input: FinalizePlatformConnectInput!) {
-    finalizePlatformConnect(input: $input) {
-      id
-      workspaceId
-      platform
-      status
-      externalAccountName
-      lastSyncAt
-      lastError
-    }
-  }
-`;
-
-const CANCEL_PLATFORM_CONNECT_MUTATION = /* GraphQL */ `
-  mutation cancelPlatformConnect($input: CancelPlatformConnectInput!) {
-    cancelPlatformConnect(input: $input)
-  }
-`;
-
-interface ListConnectionsResponse {
-  connections: PlatformConnection[];
-}
-
-interface BeginPlatformConnectResponse {
-  beginPlatformConnect: { url: string };
-}
-
-interface DisconnectPlatformResponse {
-  disconnectPlatform: boolean;
-}
-
-interface FinalizePlatformConnectResponse {
-  finalizePlatformConnect: PlatformConnection;
-}
 
 const POPUP_FEATURES =
   'popup,width=520,height=720,menubar=no,toolbar=no,location=no,status=no';
@@ -164,27 +101,21 @@ export class ConnectionService extends Service {
     this.entity.setLoading(true);
     this.entity.setError(null);
     try {
-      const result = await this.graphql.gql<{
-        id: 'listConnections';
-        op: 'query';
-        query: typeof LIST_CONNECTIONS_QUERY;
-      }>({
-        query: {
-          id: 'listConnections',
-          op: 'query',
-          query: LIST_CONNECTIONS_QUERY,
-        } as any,
-        variables: { workspaceId } as any,
-      } as any);
-
-      const data = result as unknown as ListConnectionsResponse;
-      this.entity.setConnections(data.connections ?? []);
+      const data = await this.graphql.gql({
+        query: listConnectionsQuery,
+        variables: { workspaceId },
+      });
+      // The wire shape from `connections(...)` is a strict subset of
+      // `PlatformConnection` — same field names, same types — so the
+      // generated type is structurally assignable.
+      this.entity.setConnections(
+        (data.connections ?? []) as PlatformConnection[]
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       this.entity.setError(message);
       this.entity.setConnections([]);
       // Don't throw — empty connection list is the natural fallback.
-       
       console.warn('[analytics] loadConnections failed', err);
     } finally {
       this.entity.setLoading(false);
@@ -205,21 +136,14 @@ export class ConnectionService extends Service {
     workspaceId: string,
     platform: SocialPlatform
   ): Promise<BeginOAuthResult> => {
-    const result = await this.graphql.gql<{
-      id: 'beginPlatformConnect';
-      op: 'mutation';
-      query: typeof BEGIN_PLATFORM_CONNECT_MUTATION;
-    }>({
-      query: {
-        id: 'beginPlatformConnect',
-        op: 'mutation',
-        query: BEGIN_PLATFORM_CONNECT_MUTATION,
-      } as any,
-      variables: { workspaceId, platform } as any,
-    } as any);
-
-    const data = result as unknown as BeginPlatformConnectResponse;
-    const url = data.beginPlatformConnect?.url;
+    const data = await this.graphql.gql({
+      query: beginPlatformConnectMutation,
+      variables: {
+        workspaceId,
+        platform: platform as GqlSocialPlatform,
+      },
+    });
+    const url = data.beginPlatformConnect.url;
     if (!url) {
       throw new Error(
         `beginPlatformConnect did not return a redirect URL for ${platform}`
@@ -318,21 +242,12 @@ export class ConnectionService extends Service {
     pendingId: string,
     externalAccountId: string
   ): Promise<void> => {
-    const result = await this.graphql.gql<{
-      id: 'finalizePlatformConnect';
-      op: 'mutation';
-      query: typeof FINALIZE_PLATFORM_CONNECT_MUTATION;
-    }>({
-      query: {
-        id: 'finalizePlatformConnect',
-        op: 'mutation',
-        query: FINALIZE_PLATFORM_CONNECT_MUTATION,
-      } as any,
+    const data = await this.graphql.gql({
+      query: finalizePlatformConnectMutation,
       variables: {
         input: { pendingId, externalAccountId },
-      } as any,
-    } as any);
-    const data = result as unknown as FinalizePlatformConnectResponse;
+      },
+    });
     if (!data.finalizePlatformConnect?.id) {
       throw new Error(
         'finalizePlatformConnect did not return a connection row.'
@@ -350,20 +265,12 @@ export class ConnectionService extends Service {
    */
   cancelPendingOAuth = async (pendingId: string): Promise<void> => {
     try {
-      await this.graphql.gql<{
-        id: 'cancelPlatformConnect';
-        op: 'mutation';
-        query: typeof CANCEL_PLATFORM_CONNECT_MUTATION;
-      }>({
-        query: {
-          id: 'cancelPlatformConnect',
-          op: 'mutation',
-          query: CANCEL_PLATFORM_CONNECT_MUTATION,
-        } as any,
+      await this.graphql.gql({
+        query: cancelPlatformConnectMutation,
         variables: {
           input: { pendingId },
-        } as any,
-      } as any);
+        },
+      });
     } catch (err) {
       // Best-effort. The cache row will TTL-expire either way.
       console.warn(`[analytics] cancelPendingOAuth(${pendingId}) failed`, err);
@@ -371,19 +278,10 @@ export class ConnectionService extends Service {
   };
 
   disconnect = async (connectionId: string): Promise<void> => {
-    const result = await this.graphql.gql<{
-      id: 'disconnectPlatform';
-      op: 'mutation';
-      query: typeof DISCONNECT_PLATFORM_MUTATION;
-    }>({
-      query: {
-        id: 'disconnectPlatform',
-        op: 'mutation',
-        query: DISCONNECT_PLATFORM_MUTATION,
-      } as any,
-      variables: { connectionId } as any,
-    } as any);
-    const data = result as unknown as DisconnectPlatformResponse;
+    const data = await this.graphql.gql({
+      query: disconnectPlatformMutation,
+      variables: { connectionId },
+    });
     if (data.disconnectPlatform === false) {
       throw new Error('Server refused to disconnect the platform');
     }
