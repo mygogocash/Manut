@@ -1,6 +1,7 @@
 import {
   Args,
   Field,
+  Int,
   Mutation,
   ObjectType,
   Query,
@@ -10,7 +11,14 @@ import {
 
 import { AuthenticationRequired, URLHelper } from '../../base';
 import { CurrentUser } from '../../core/auth';
-import { GoogleOAuthService } from './google-oauth.service';
+import { type DriveFile, DriveService } from './drive.service';
+import { type GmailMessageSummary, GmailService } from './gmail.service';
+import {
+  GoogleOAuthNotConfiguredError,
+  GoogleOAuthNotConnectedError,
+  GoogleOAuthRefreshFailedError,
+  GoogleOAuthService,
+} from './google-oauth.service';
 import type { GoogleScope } from './types';
 
 /**
@@ -44,6 +52,73 @@ export class GoogleConnectionType {
 
   @Field({ nullable: true })
   email?: string;
+}
+
+@ObjectType()
+export class GmailMessageSummaryType implements GmailMessageSummary {
+  @Field()
+  messageId!: string;
+
+  @Field()
+  from!: string;
+
+  @Field()
+  subject!: string;
+
+  @Field()
+  date!: string;
+
+  @Field()
+  snippet!: string;
+}
+
+@ObjectType()
+export class DriveFileType implements DriveFile {
+  @Field()
+  id!: string;
+
+  @Field()
+  name!: string;
+
+  @Field()
+  mimeType!: string;
+
+  @Field({ nullable: true })
+  iconLink?: string;
+
+  @Field({ nullable: true })
+  webViewLink?: string;
+
+  @Field({ nullable: true })
+  modifiedTime?: string;
+
+  @Field({ nullable: true })
+  size?: string | null;
+}
+
+/**
+ * Map the typed errors out of the service into messages the frontend
+ * can render directly. We deliberately don't pass the raw upstream
+ * Google error text through — those messages occasionally include
+ * tokens or internal IDs.
+ */
+function rethrowFriendly(err: unknown): never {
+  if (err instanceof GoogleOAuthNotConnectedError) {
+    throw new Error(
+      'Google account is not connected for this workspace. Connect it in Settings → Integrations.'
+    );
+  }
+  if (err instanceof GoogleOAuthNotConfiguredError) {
+    throw new Error(
+      'Google OAuth client is not configured on this server. Ask an admin to set GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET.'
+    );
+  }
+  if (err instanceof GoogleOAuthRefreshFailedError) {
+    throw new Error(
+      'Could not refresh Google access — please reconnect your Google account in Settings → Integrations.'
+    );
+  }
+  throw err;
 }
 
 @Resolver()
@@ -120,5 +195,89 @@ export class GoogleOAuthResolver {
       connected: status.connected,
       email: status.email,
     };
+  }
+}
+
+/**
+ * v1.10.2 Gmail / Drive resolvers. Kept in their own resolver class so
+ * the auth-only `GoogleOAuthResolver` doesn't need the GmailService or
+ * DriveService injected — keeps the connect/disconnect flow runnable
+ * even if the live importers are mis-wired.
+ */
+@Resolver()
+export class GoogleIntegrationResolver {
+  constructor(
+    private readonly gmail: GmailService,
+    private readonly drive: DriveService
+  ) {}
+
+  @Query(() => [GmailMessageSummaryType])
+  async gmailMessages(
+    @CurrentUser() user: CurrentUser | null,
+    @Args('workspaceId') workspaceId: string,
+    @Args('query', { nullable: true }) query?: string,
+    @Args('maxResults', { type: () => Int, defaultValue: 25 })
+    maxResults?: number
+  ): Promise<GmailMessageSummaryType[]> {
+    if (!user) {
+      throw new AuthenticationRequired();
+    }
+    try {
+      return await this.gmail.listMessages(
+        user.id,
+        workspaceId,
+        query,
+        maxResults ?? 25
+      );
+    } catch (err) {
+      rethrowFriendly(err);
+    }
+  }
+
+  @Mutation(() => String, {
+    description:
+      'Imports a Gmail message as a new doc. Returns the new doc ID.',
+  })
+  async importGmailMessage(
+    @CurrentUser() user: CurrentUser | null,
+    @Args('workspaceId') workspaceId: string,
+    @Args('messageId') messageId: string
+  ): Promise<string> {
+    if (!user) {
+      throw new AuthenticationRequired();
+    }
+    try {
+      const result = await this.gmail.importMessage(
+        user.id,
+        workspaceId,
+        messageId
+      );
+      return result.docId;
+    } catch (err) {
+      rethrowFriendly(err);
+    }
+  }
+
+  @Query(() => [DriveFileType])
+  async driveFiles(
+    @CurrentUser() user: CurrentUser | null,
+    @Args('workspaceId') workspaceId: string,
+    @Args('query', { nullable: true }) query?: string,
+    @Args('pageSize', { type: () => Int, defaultValue: 25 })
+    pageSize?: number
+  ): Promise<DriveFileType[]> {
+    if (!user) {
+      throw new AuthenticationRequired();
+    }
+    try {
+      return await this.drive.listFiles(
+        user.id,
+        workspaceId,
+        query,
+        pageSize ?? 25
+      );
+    } catch (err) {
+      rethrowFriendly(err);
+    }
   }
 }

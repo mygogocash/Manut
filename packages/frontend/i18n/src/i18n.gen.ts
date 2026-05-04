@@ -3183,9 +3183,35 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.gmail.description"](): string;
     /**
+      * `Import emails as docs`
+      */
+    ["com.affine.integration.gmail.import.dialog-title"](): string;
+    /**
+      * `Search your Gmail to import messages as docs.`
+      */
+    ["com.affine.integration.gmail.import.empty-state"](): string;
+    /**
+      * `Import`
+      */
+    ["com.affine.integration.gmail.import.import-button"](): string;
+    /**
+      * `Search your Gmail…`
+      */
+    ["com.affine.integration.gmail.import.search-placeholder"](): string;
+    /**
+      * `Imported '{{subject}}' as a new doc`
+      */
+    ["com.affine.integration.gmail.import.success"](options: {
+        readonly subject: string;
+    }): string;
+    /**
       * `Gmail`
       */
     ["com.affine.integration.gmail.name"](): string;
+    /**
+      * `Open import…`
+      */
+    ["com.affine.integration.gmail.open-button"](): string;
     /**
       * `Link your Google Drive to embed files in docs.`
       */
@@ -3194,6 +3220,34 @@ export function useAFFiNEI18N(): {
       * `Google Drive`
       */
     ["com.affine.integration.google-drive.name"](): string;
+    /**
+      * `Open Drive…`
+      */
+    ["com.affine.integration.google-drive.open-button"](): string;
+    /**
+      * `Link copied — paste it into a doc`
+      */
+    ["com.affine.integration.google-drive.picker.copied-toast"](): string;
+    /**
+      * `Copy link`
+      */
+    ["com.affine.integration.google-drive.picker.copy-link"](): string;
+    /**
+      * `Browse Google Drive`
+      */
+    ["com.affine.integration.google-drive.picker.dialog-title"](): string;
+    /**
+      * `Search your Drive to find files.`
+      */
+    ["com.affine.integration.google-drive.picker.empty-state"](): string;
+    /**
+      * `Open in Drive`
+      */
+    ["com.affine.integration.google-drive.picker.open-in-drive"](): string;
+    /**
+      * `Search your Drive…`
+      */
+    ["com.affine.integration.google-drive.picker.search-placeholder"](): string;
     /**
       * `Live import is rolling out soon.`
       */

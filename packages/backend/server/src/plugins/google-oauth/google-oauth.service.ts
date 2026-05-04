@@ -18,6 +18,11 @@ const STATE_KEY_PREFIX = 'GOOGLE_OAUTH_STATE';
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes — same as the existing connections plugin
 const REFRESH_SKEW_MS = 60 * 1000;
 
+// 5-minute proactive-refresh window. If the stored access token expires
+// within 5 minutes we refresh it before issuing API calls — the caller's
+// upstream Google request would otherwise race the expiry and 401.
+const REFRESH_LEEWAY_MS = 5 * 60 * 1000;
+
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
@@ -34,6 +39,31 @@ export class GoogleOAuthNotConfiguredError extends Error {
       'Google OAuth client is not configured. Set GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET.'
     );
     this.name = 'GoogleOAuthNotConfiguredError';
+  }
+}
+
+/**
+ * Thrown when no `IntegrationConnection` row exists for the given
+ * user+workspace+scope. The Gmail / Drive resolvers translate this into
+ * "Connect Gmail to import emails" UI copy rather than a 500.
+ */
+export class GoogleOAuthNotConnectedError extends Error {
+  constructor(scope: GoogleScope) {
+    super(`Google ${scope} is not connected for this workspace`);
+    this.name = 'GoogleOAuthNotConnectedError';
+  }
+}
+
+/**
+ * Thrown when Google's token endpoint rejects our refresh attempt. Most
+ * commonly: the user revoked access from their Google account settings,
+ * or the refresh token was never issued (which can happen if `prompt=consent`
+ * was missing on the consent URL — but we always set it, so this is rare).
+ */
+export class GoogleOAuthRefreshFailedError extends Error {
+  constructor(detail: string) {
+    super(`Failed to refresh Google access token: ${detail}`);
+    this.name = 'GoogleOAuthRefreshFailedError';
   }
 }
 
@@ -235,6 +265,119 @@ export class GoogleOAuthService {
       );
       throw err;
     }
+  }
+
+  /**
+   * Returns a non-expired access token for the given user+scope.
+   *
+   * If the stored access token is within {@link REFRESH_LEEWAY_MS} (5
+   * minutes) of expiry — or already expired — refreshes it via Google's
+   * OAuth token endpoint, persists the new tokens, and returns the new
+   * access token. The refresh token may or may not rotate; if Google
+   * returns a new one we store it, otherwise the existing one is kept.
+   *
+   * Failure modes (each typed so callers can produce friendly UI copy):
+   *  - {@link GoogleOAuthNotConfiguredError} — server lacks client_id/secret
+   *  - {@link GoogleOAuthNotConnectedError} — no row in IntegrationConnection
+   *  - {@link GoogleOAuthRefreshFailedError} — Google rejected the refresh
+   *    or refresh_token is missing on the stored row
+   */
+  async getValidAccessToken(
+    userId: string,
+    workspaceId: string,
+    scope: GoogleScope
+  ): Promise<string> {
+    if (!this.isConfigured()) {
+      throw new GoogleOAuthNotConfiguredError();
+    }
+
+    const provider = GOOGLE_PROVIDER_NAME[scope];
+    const conn = await this.models.integrationConnection.getByProvider(
+      userId,
+      workspaceId,
+      provider
+    );
+
+    if (!conn) {
+      throw new GoogleOAuthNotConnectedError(scope);
+    }
+
+    const decrypted = this.models.integrationConnection.decryptTokens(conn);
+    if (!decrypted) {
+      throw new GoogleOAuthNotConnectedError(scope);
+    }
+
+    const now = Date.now();
+    const expiresAt = decrypted.tokenExpiresAt
+      ? decrypted.tokenExpiresAt.getTime()
+      : 0;
+    const stillFresh = expiresAt > now + REFRESH_LEEWAY_MS;
+
+    if (stillFresh) {
+      return decrypted.accessToken;
+    }
+
+    const refreshToken = decrypted.refreshToken;
+    if (!refreshToken) {
+      throw new GoogleOAuthRefreshFailedError(
+        'no refresh token on file — please reconnect Google'
+      );
+    }
+
+    const refreshed = await this.refreshAccessToken(refreshToken);
+
+    const newExpiresAt = refreshed.expires_in
+      ? new Date(Date.now() + refreshed.expires_in * 1000)
+      : undefined;
+
+    await this.models.integrationConnection.updateTokens(
+      userId,
+      workspaceId,
+      provider,
+      {
+        accessToken: refreshed.access_token,
+        // Only persist a new refresh token if Google rotated one. Most
+        // refresh-grant responses omit `refresh_token` and we want to
+        // keep the long-lived original on file.
+        refreshToken: refreshed.refresh_token,
+        tokenExpiresAt: newExpiresAt,
+      }
+    );
+
+    return refreshed.access_token;
+  }
+
+  private async refreshAccessToken(
+    refreshToken: string
+  ): Promise<GoogleOAuthTokenResponse> {
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
+      client_secret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
+    });
+
+    let response: Response;
+    try {
+      response = await fetch(GOOGLE_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body,
+      });
+    } catch (err) {
+      throw new GoogleOAuthRefreshFailedError(
+        err instanceof Error ? err.message : String(err)
+      );
+    }
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new GoogleOAuthRefreshFailedError(
+        `${response.status} ${text.slice(0, 200)}`
+      );
+    }
+
+    return (await response.json()) as GoogleOAuthTokenResponse;
   }
 
   private async exchangeCode(

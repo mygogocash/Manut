@@ -48,6 +48,14 @@ export const comingSoonNote = style({
   border: `0.5px solid ${cssVarV2.layer.insideBorder.border}`,
 });
 
+export const launcherRow = style({
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 8,
+  paddingTop: 4,
+});
+
 export const notConfiguredNote = style({
   fontSize: 12,
   color: cssVarV2.text.secondary,

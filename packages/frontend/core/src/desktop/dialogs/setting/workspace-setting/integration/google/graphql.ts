@@ -1,5 +1,6 @@
 /**
- * GraphQL operations for the Google OAuth scaffold (v1.10.1).
+ * GraphQL operations for the Google OAuth scaffold (v1.10.1) + Gmail/Drive
+ * importers (v1.10.2).
  *
  * Co-located with the integration UI for the same reason the connections
  * module does it: the backend resolvers are part of the same release and
@@ -17,6 +18,24 @@ export interface GoogleConnectionDto {
   scope: GoogleScope;
   connected: boolean;
   email?: string;
+}
+
+export interface GmailMessageSummaryDto {
+  messageId: string;
+  from: string;
+  subject: string;
+  date: string;
+  snippet: string;
+}
+
+export interface DriveFileDto {
+  id: string;
+  name: string;
+  mimeType: string;
+  iconLink?: string | null;
+  webViewLink?: string | null;
+  modifiedTime?: string | null;
+  size?: string | null;
 }
 
 export const googleConnectionQuery = {
@@ -46,5 +65,43 @@ export const disconnectGoogleMutation = {
   op: 'disconnectGoogle',
   query: `mutation disconnectGoogle($workspaceId: String!, $scope: GoogleScope!) {
   disconnectGoogle(workspaceId: $workspaceId, scope: $scope)
+}`,
+};
+
+export const gmailMessagesQuery = {
+  id: 'gmailMessagesQuery' as const,
+  op: 'gmailMessages',
+  query: `query gmailMessages($workspaceId: String!, $query: String, $maxResults: Int) {
+  gmailMessages(workspaceId: $workspaceId, query: $query, maxResults: $maxResults) {
+    messageId
+    from
+    subject
+    date
+    snippet
+  }
+}`,
+};
+
+export const importGmailMessageMutation = {
+  id: 'importGmailMessageMutation' as const,
+  op: 'importGmailMessage',
+  query: `mutation importGmailMessage($workspaceId: String!, $messageId: String!) {
+  importGmailMessage(workspaceId: $workspaceId, messageId: $messageId)
+}`,
+};
+
+export const driveFilesQuery = {
+  id: 'driveFilesQuery' as const,
+  op: 'driveFiles',
+  query: `query driveFiles($workspaceId: String!, $query: String, $pageSize: Int) {
+  driveFiles(workspaceId: $workspaceId, query: $query, pageSize: $pageSize) {
+    id
+    name
+    mimeType
+    iconLink
+    webViewLink
+    modifiedTime
+    size
+  }
 }`,
 };

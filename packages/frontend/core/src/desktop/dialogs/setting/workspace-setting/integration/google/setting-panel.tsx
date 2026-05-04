@@ -8,6 +8,8 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { IntegrationSettingHeader } from '../setting';
+import { DrivePickerDialog } from './drive-picker-dialog';
+import { GmailImportDialog } from './gmail-import-dialog';
 import {
   connectGoogleMutation,
   disconnectGoogleMutation,
@@ -44,6 +46,12 @@ interface GoogleSettingPanelProps {
   desc: string;
   /** Brand mark for the integration. */
   icon: ReactNode;
+  /**
+   * Connected-state footer: shown only when the integration has live tokens.
+   * For v1.10.2 this is the "Open import…" / "Open Drive…" launcher.
+   * Receives no props — the dialog reads the workspace from `WorkspaceService`.
+   */
+  renderConnectedFooter?: () => ReactNode;
 }
 
 /**
@@ -60,6 +68,7 @@ const GoogleSettingPanel = ({
   title,
   desc,
   icon,
+  renderConnectedFooter,
 }: GoogleSettingPanelProps) => {
   const t = useI18n();
   const workspaceService = useService(WorkspaceService);
@@ -228,10 +237,45 @@ const GoogleSettingPanel = ({
         </div>
       ) : null}
 
-      <div className={styles.comingSoonNote}>
-        {t['com.affine.integration.google.coming-soon']()}
-      </div>
+      {isConnected && renderConnectedFooter ? renderConnectedFooter() : null}
     </div>
+  );
+};
+
+/**
+ * Per-scope launcher buttons. These render inside the panel ONLY when
+ * the integration is connected; the parent panel hides them otherwise.
+ *
+ * Kept as components (not props) so they can hold their own dialog-open
+ * state without bubbling it up to the shared panel.
+ */
+const GmailImportLauncher = () => {
+  const t = useI18n();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div className={styles.launcherRow}>
+        <Button onClick={() => setOpen(true)}>
+          {t['com.affine.integration.gmail.open-button']()}
+        </Button>
+      </div>
+      {open ? <GmailImportDialog onClose={() => setOpen(false)} /> : null}
+    </>
+  );
+};
+
+const DrivePickerLauncher = () => {
+  const t = useI18n();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <div className={styles.launcherRow}>
+        <Button onClick={() => setOpen(true)}>
+          {t['com.affine.integration.google-drive.open-button']()}
+        </Button>
+      </div>
+      {open ? <DrivePickerDialog onClose={() => setOpen(false)} /> : null}
+    </>
   );
 };
 
@@ -243,6 +287,7 @@ export const GmailSettingPanel = () => {
       title={t['com.affine.integration.gmail.name']()}
       desc={t['com.affine.integration.gmail.description']()}
       icon={<GmailLogoIcon />}
+      renderConnectedFooter={() => <GmailImportLauncher />}
     />
   );
 };
@@ -255,6 +300,7 @@ export const GoogleDriveSettingPanel = () => {
       title={t['com.affine.integration.google-drive.name']()}
       desc={t['com.affine.integration.google-drive.description']()}
       icon={<GoogleDriveLogoIcon />}
+      renderConnectedFooter={() => <DrivePickerLauncher />}
     />
   );
 };
