@@ -101,12 +101,20 @@ export class OAuthCallbackController {
     // line-terminator chars with JS unicode escapes — the result is still
     // valid JSON parsed identically by JSON.parse / postMessage, but cannot
     // break out of the script context.
+    // Match the LITERAL U+2028 / U+2029 codepoints (line / paragraph
+    // separators) and rewrite them to the textual JS escape sequences
+    // ` ` / ` `. These bytes are valid inside JSON strings but
+    // ARE line terminators in JavaScript — without escaping, they would
+    // close the surrounding `<script>` line and break parsing.
+    // Using `new RegExp('\\u2028', 'g')` so the source is unambiguous —
+    // a regex literal `/ /g` would render as a literal U+2028 char
+    // in the source file and is fragile under tooling round-trips.
     const safePayload = payload
       .replace(/</g, '\\u003c')
       .replace(/>/g, '\\u003e')
       .replace(/&/g, '\\u0026')
-      .replace(/\\u2028/g, '\\u2028')
-      .replace(/\\u2029/g, '\\u2029');
+      .replace(new RegExp('\\u2028', 'g'), '\\u2028')
+      .replace(new RegExp('\\u2029', 'g'), '\\u2029');
 
     const html = `<!doctype html><meta charset="utf-8"><title>OAuth complete</title><script>(function(){try{window.opener&&window.opener.postMessage(${safePayload},window.location.origin);}catch(e){}window.close();})();</script><p>You can close this window.</p>`;
     res.status(200).type('text/html').send(html);
