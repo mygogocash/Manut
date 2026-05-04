@@ -8,10 +8,17 @@
  * across renders / sessions.
  */
 
-// avataaars's runtime is a class component using legacy lifecycle hooks; we
-// import the default export. Types in the package are written for React 17 —
-// we cast at the call site so it's accepted by the React 19 typings here.
-import AvataaarsAvatar from 'avataaars';
+// avataaars's wrapper component uses the LEGACY React context API
+// (`childContextTypes` / `getChildContext`), which was removed in React 19.
+// On modern React the inner SVG can't read its `optionContext`, so calling
+// `optionContext.addStateChangeListener(...)` crashes the page with
+// "Cannot read properties of undefined". Reproduces 100% on agent create.
+//
+// We render a deterministic letter+color avatar instead — same visual slot,
+// same prop surface, no React-19 incompatibilities. Backend AgentAvatarConfig
+// is preserved so the wire contract doesn't change; we just don't generate
+// or consume it on the client. If we want cartoon avatars back, swap to a
+// modern lib (e.g. @dicebear/core) that uses props or hooks.
 import { type CSSProperties, type FC, useMemo } from 'react';
 
 import * as styles from './index.css';
@@ -178,7 +185,29 @@ export function defaultAvatarForId(agentId: string): AgentAvatarConfig {
 
 // ---- Component --------------------------------------------------------------
 
-const AvataaarsAny = AvataaarsAvatar as unknown as FC<Record<string, unknown>>;
+// Hand-picked palette — accessible contrast against white text, broadly
+// pleasant. Order matters: hashed agent ids index into this directly.
+const LETTER_AVATAR_COLORS = [
+  '#3478F6', // blue
+  '#34C759', // green
+  '#FF9500', // orange
+  '#AF52DE', // purple
+  '#FF3B30', // red
+  '#5AC8FA', // cyan
+  '#FFCC00', // yellow
+  '#FF2D55', // pink
+  '#5856D6', // indigo
+  '#A2845E', // brown
+];
+
+function letterFor(name?: string): string {
+  const trimmed = name?.trim();
+  if (!trimmed) return '?';
+  // Use the first non-whitespace code point — handles emoji + non-Latin.
+  const cp = trimmed.codePointAt(0);
+  if (cp === undefined) return '?';
+  return String.fromCodePoint(cp).toUpperCase();
+}
 
 export const AgentAvatar: FC<AgentAvatarProps> = ({
   agent,
@@ -187,25 +216,33 @@ export const AgentAvatar: FC<AgentAvatarProps> = ({
   style,
   bare,
 }) => {
-  // Resolve the avatar config: explicit > deterministic default.
-  const config = useMemo(() => {
-    const explicit = agent.avatar;
-    if (explicit && Object.keys(explicit).length > 0) {
-      // Merge explicit on top of defaults so partially-saved avatars look ok.
-      return { ...defaultAvatarForId(agent.id), ...explicit };
-    }
-    return defaultAvatarForId(agent.id);
-  }, [agent.id, agent.avatar]);
+  const { letter, color } = useMemo(() => {
+    const seed = hashString(agent.id);
+    return {
+      letter: letterFor(agent.name),
+      color: LETTER_AVATAR_COLORS[seed % LETTER_AVATAR_COLORS.length],
+    };
+  }, [agent.id, agent.name]);
 
   const wrapperStyle: CSSProperties = {
     width: size,
     height: size,
-    ...(bare ? { background: 'transparent' } : {}),
+    background: bare ? 'transparent' : color,
+    color: '#ffffff',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
+    fontWeight: 600,
+    // Letter scales with avatar — 0.45 keeps it visually balanced inside
+    // the circle from 16px (sidebar) to 96px (detail page header).
+    fontSize: Math.round(size * 0.45),
+    lineHeight: 1,
+    overflow: 'hidden',
+    userSelect: 'none',
     ...style,
   };
 
-  // The avataaars SVG has its own viewBox. Sizing the wrapper to size×size
-  // and letting the SVG fill 100% gives a crisp scaled circle.
   return (
     <span
       className={
@@ -215,22 +252,7 @@ export const AgentAvatar: FC<AgentAvatarProps> = ({
       data-testid="agent-avatar"
       aria-label={agent.name ? `${agent.name} avatar` : 'Agent avatar'}
     >
-      <AvataaarsAny
-        avatarStyle="Transparent"
-        className={styles.svg}
-        topType={config.topType}
-        accessoriesType={config.accessoriesType}
-        hairColor={config.hairColor}
-        facialHairType={config.facialHairType}
-        facialHairColor={config.facialHairColor}
-        clotheType={config.clotheType}
-        clotheColor={config.clotheColor}
-        graphicType={config.graphicType}
-        eyeType={config.eyeType}
-        eyebrowType={config.eyebrowType}
-        mouthType={config.mouthType}
-        skinColor={config.skinColor}
-      />
+      {letter}
     </span>
   );
 };
