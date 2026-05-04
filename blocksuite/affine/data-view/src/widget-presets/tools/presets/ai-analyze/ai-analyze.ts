@@ -47,6 +47,7 @@ export class DataViewHeaderToolsAIAnalyze extends WidgetBase {
     // dependency-graph rule.
     // eslint-disable-next-line import-x/no-extraneous-dependencies
     import(
+      /* @vite-ignore */
       /* webpackChunkName: "ai-provider" */
       '@affine/core/blocksuite/ai/provider'
     )

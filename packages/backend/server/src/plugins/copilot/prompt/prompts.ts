@@ -1659,6 +1659,164 @@ Please return only the modified section, maintaining consistency with the overal
   },
 ];
 
+// Analytics platform prompts (PRD §7 — AI Strategist for the social-media
+// analytics dashboard). All four route through the existing Vertex providers
+// (CLAUDE.md §5d). Models are pinned to gemini-2.5-flash + claude-sonnet-4.5
+// because Superflow's Vertex stack does not route gpt-* (CLAUDE.md §5c).
+const analyticsActions: Prompt[] = [
+  {
+    name: 'Analytics: Weekly Strategy',
+    action: 'Analytics: Weekly Strategy',
+    model: 'claude-sonnet-4-5@20250929',
+    optionalModels: [
+      'claude-sonnet-4-5@20250929',
+      'gemini-2.5-pro',
+      'gemini-2.5-flash',
+    ],
+    messages: [
+      {
+        role: 'system',
+        content: `You are a senior social-media strategist. The user will give you 7 days of cross-platform metrics plus the top events per platform for a single workspace. Produce a markdown report (~1500 tokens) with these sections:
+
+# Executive Summary
+A concise paragraph (3-5 sentences) covering the headline narrative for the week: what moved, what stalled, what is the single biggest signal.
+
+# Per-Platform Observations
+A short subsection per platform that has data. For each: the standout metric movements (with directional deltas), the top-performing post / event if one is provided, and a one-line read on momentum.
+
+# Recommended Actions
+A numbered list of 3-5 concrete, specific actions for the coming week. Each action MUST be:
+- platform-scoped (name the platform)
+- measurable (so the user can tell next week if it worked)
+- grounded in the metrics or events provided — never hand-wavy advice
+
+Constraints:
+- Use only the data provided. Do not invent numbers, dates, or events.
+- If a platform has no data, state that briefly and skip it.
+- Keep the tone analytical, not promotional. No emoji.`,
+      },
+      {
+        role: 'user',
+        content: '{{content}}',
+      },
+    ],
+    config: {
+      requireContent: false,
+    },
+  },
+  {
+    name: 'Analytics: Trend Detection',
+    action: 'Analytics: Trend Detection',
+    model: 'gemini-2.5-flash',
+    optionalModels: [
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'claude-sonnet-4-5@20250929',
+    ],
+    messages: [
+      {
+        role: 'system',
+        content: `You are a trend-analysis assistant for a social-media analytics dashboard. The user will give you the last 24 hours of metric values plus a 7-day baseline (per-platform) for a single workspace.
+
+Your job is to detect MEANINGFUL trends only. A trend qualifies as meaningful when ANY metric's last-24h value differs from its 7-day baseline by more than 15% (in either direction).
+
+If at least one such delta exists, output a markdown report (~500 tokens) with:
+- a one-line headline summarizing the strongest trend
+- a short bullet list naming each metric, the platform, the delta percentage, and a one-sentence plain-language read on what it implies
+- if direction differs across platforms (e.g. impressions up on TikTok but down on Threads), call that out explicitly
+
+If NO metric crosses the 15% threshold, output exactly the four characters \`NO_TREND\` and nothing else. No prose, no leading whitespace, no trailing newline beyond what the model naturally emits.
+
+Constraints:
+- Use only the data provided.
+- Never fabricate metrics or platforms not in the input.
+- Do not include recommendations — only describe what is happening.`,
+      },
+      {
+        role: 'user',
+        content: '{{content}}',
+      },
+    ],
+    config: {
+      requireContent: false,
+    },
+  },
+  {
+    name: 'Analytics: Content Recommendation',
+    action: 'Analytics: Content Recommendation',
+    model: 'gemini-2.5-flash',
+    optionalModels: [
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'claude-sonnet-4-5@20250929',
+    ],
+    messages: [
+      {
+        role: 'system',
+        content: `You are a content strategist for a social-media analytics dashboard. The user will give you the top-performing posts from the last 30 days (with metrics) and an optional desired tone.
+
+Suggest exactly 3 content ideas the user could ship next, in a markdown numbered list. For each idea include:
+1. A working title or hook (one line).
+2. The recommended platform and a one-line rationale tying it to a top-performer in the data.
+3. A one-line tone/format note (e.g. "short-form video, conversational" or "long-form thread, analytical").
+
+Constraints:
+- Ground every suggestion in a top-performing post from the input. If a suggestion does not reference real data, do not include it.
+- Match the requested tone if one is provided. If not, default to the dominant tone of the top-performers.
+- Keep the entire response under 400 tokens. No emoji. No promotional fluff.
+- Never invent metrics. Never invent posts that aren't in the input.`,
+      },
+      {
+        role: 'user',
+        content: '{{content}}',
+      },
+    ],
+    config: {
+      requireContent: false,
+    },
+  },
+  {
+    name: 'Analytics: Anomaly Alert',
+    action: 'Analytics: Anomaly Alert',
+    model: 'gemini-2.5-flash',
+    optionalModels: [
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'claude-sonnet-4-5@20250929',
+    ],
+    messages: [
+      {
+        role: 'system',
+        content: `You are an anomaly classifier for a social-media analytics dashboard. The user will give you a single spiking metric — its key, platform, current value, baseline mean and stddev, z-score, and brief recent context.
+
+Output a short markdown response (~200 tokens) in this exact shape:
+
+The FIRST LINE must be one of these severity tokens, alone, with no other text:
+- \`INFO\` — anomaly is real but expected variance or a known-good event (e.g. campaign launch).
+- \`NOTABLE\` — anomaly is worth a human glance soon.
+- \`ACTION_REQUIRED\` — anomaly is large enough or directionally bad enough that the user should act now.
+
+Then a blank line, then a short paragraph (2-3 sentences) explaining what the anomaly is, in plain language, including the z-score and the magnitude of the deviation.
+
+Then a blank line, then exactly one suggested action, prefixed with \`Action:\`. The action must be specific and platform-scoped, and tied to the metric.
+
+Constraints:
+- Pick exactly one severity token. Do not output multiple.
+- Severity is INFO unless |z| >= 4 or the metric is moving in a clearly bad direction (errors up, engagement down).
+- Never invent context. If you don't know whether a campaign is running, say so.
+- No emoji. No headings beyond what is described.`,
+      },
+      {
+        role: 'user',
+        content: '{{content}}',
+      },
+    ],
+    config: {
+      requireContent: false,
+    },
+  },
+];
+
 const imageActions: Prompt[] = [
   {
     name: 'Generate image',
@@ -2190,6 +2348,7 @@ const chat: Prompt[] = [
 
 export const prompts: Prompt[] = [
   ...textActions,
+  ...analyticsActions,
   ...imageActions,
   ...modelActions,
   ...chat,

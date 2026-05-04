@@ -10,6 +10,7 @@ import {
   configureAIReasoningModule,
   configureAIToolsConfigModule,
 } from './ai-button';
+import { configureAnalyticsModule } from './analytics';
 import { configureAppSidebarModule } from './app-sidebar';
 import { configAtMenuConfigModule } from './at-menu-config';
 import { configureBlobManagementModule } from './blob-management';
@@ -133,6 +134,7 @@ export function configureCommonModules(framework: Framework) {
   configureIndexerEmbeddingModule(framework);
   configureCommentModule(framework);
   configureAgentsModule(framework);
+  configureAnalyticsModule(framework);
   configureDocSummaryModule(framework);
   configurePaywallModule(framework);
   configureIconPickerModule(framework);

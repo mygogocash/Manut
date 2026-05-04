@@ -54,6 +54,14 @@ export const workbenchRoutes = [
     lazy: () => import('./pages/workspace/agents/detail'),
   },
   {
+    path: '/analytics',
+    lazy: () => import('./pages/workspace/analytics/index'),
+  },
+  {
+    path: '/analytics/:platform',
+    lazy: () => import('./pages/workspace/analytics/platform'),
+  },
+  {
     path: '/settings',
     lazy: () => import('./pages/workspace/settings'),
   },

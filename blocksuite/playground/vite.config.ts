@@ -95,6 +95,20 @@ export default defineConfig(({ mode }) => {
             return;
           }
 
+          // Cross-package dynamic import from data-view → @affine/core/ai
+          // (see blocksuite/affine/data-view/.../ai-analyze.ts). data-view
+          // ships inside @affine/core in the AFFiNE app bundle, but the
+          // standalone playground build doesn't have @affine/core on its
+          // module graph. The import is wrapped in `.catch(() => {})` so
+          // runtime failure is silent in the playground context.
+          if (
+            warning.code === 'UNRESOLVED_IMPORT' &&
+            typeof warning.exporter === 'string' &&
+            warning.exporter.startsWith('@affine/core/')
+          ) {
+            return;
+          }
+
           defaultHandler(warning);
         },
         input: {

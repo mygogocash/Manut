@@ -53,6 +53,10 @@ import { WorkspaceModule } from './core/workspaces';
 import { Env } from './env';
 import { ModelsModule } from './models';
 import { AgentsModule } from './plugins/agents';
+import {
+  AnalyticsModule,
+  isAnalyticsModuleEnabled,
+} from './plugins/analytics/analytics.module';
 import { CalendarModule } from './plugins/calendar';
 import { CaptchaModule } from './plugins/captcha';
 import { ConnectionsModule } from './plugins/connections';
@@ -210,6 +214,11 @@ export function buildAppModule(env: Env) {
       CommentModule,
       AccessTokenModule,
       QueueDashboardModule
+    )
+    // analytics platform — feature-flagged via ENABLE_ANALYTICS_MODULE
+    .useIf(
+      () => env.flavors.graphql && isAnalyticsModuleEnabled(),
+      AnalyticsModule.forRoot()
     )
     // doc service and front service
     .useIf(() => env.flavors.doc || env.flavors.front, DocServiceModule)

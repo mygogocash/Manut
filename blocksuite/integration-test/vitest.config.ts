@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
 import { playwright } from '@vitest/browser-playwright';
 import { defineConfig } from 'vitest/config';
@@ -11,6 +13,18 @@ export default defineConfig(_configEnv =>
         // Vitest hardcodes the esbuild target to es2020,
         // override it to es2022 for top level await.
         target: 'es2022',
+      },
+    },
+    resolve: {
+      alias: {
+        // data-view's analyze-with-AI dynamic import targets the AFFiNE
+        // app's AIProvider, which isn't on this workspace's module graph.
+        // optimizeDeps.force: true scans the import statically and fails
+        // resolution; alias it to a local noop stub so the scan succeeds.
+        // Runtime never exercises this path in integration tests.
+        '@affine/core/blocksuite/ai/provider': fileURLToPath(
+          new URL('./ai-provider-stub.ts', import.meta.url)
+        ),
       },
     },
     plugins: [vanillaExtractPlugin()],
