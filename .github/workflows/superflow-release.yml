@@ -79,13 +79,28 @@ jobs:
       # dummies for the unused arms so rspack resolution succeeds.
       # No untrusted input — all literals.
       - name: Build napi native binary (server-native.x64.node)
+        # See superflow-autodeploy.yml for explanation. Don't guess
+        # the napi filename — detect after build.
         run: |
           cd packages/backend/native
           yarn build --target x86_64-unknown-linux-gnu
-          mv server-native.linux-x64-gnu.node server-native.x64.node
-          cp server-native.x64.node server-native.node
+          echo "--- files after napi build ---"
+          ls -la *.node 2>&1 || true
+          PRODUCED=$(ls server-native*.node 2>/dev/null | grep -v -E '^server-native(\.node|\.(x64|arm64|armv7)\.node)$' | head -1)
+          if [ -z "$PRODUCED" ]; then
+            if [ -f server-native.node ]; then PRODUCED=server-native.node; fi
+          fi
+          if [ -z "$PRODUCED" ]; then
+            echo "ERROR: napi build produced no server-native*.node file" >&2
+            ls -la 2>&1
+            exit 1
+          fi
+          echo "napi produced: $PRODUCED"
+          cp "$PRODUCED" server-native.x64.node
+          cp "$PRODUCED" server-native.node
           touch server-native.arm64.node server-native.armv7.node
-          ls -la server-native.*.node
+          echo "--- files after rename ---"
+          ls -la server-native.*.node server-native.node 2>&1 | head -10
 
       - name: Generate Prisma client
         run: yarn workspace @affine/server prisma generate
