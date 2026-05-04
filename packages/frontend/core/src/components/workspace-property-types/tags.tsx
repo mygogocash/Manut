@@ -23,6 +23,96 @@ import {
 } from '../tags';
 import * as styles from './tags.css';
 
+// SSE-stream parser trap — see onAutoTag below for context.
+// A candidate tag is treated as garbage if it contains any structural
+// fragment from the underlying SSE stream-object payload, e.g.
+// the JSON wrappers around text-delta chunks. We reject conservatively;
+// false positives (a tag containing a literal brace or backslash) are
+// far less harmful than a wall of stream chunks rendered as tags.
+const SSE_FRAGMENT_PATTERNS: RegExp[] = [
+  /\{/,
+  /\}/,
+  /[\\]/,
+  /"type"\s*:/i,
+  /"textDelta"\s*:/i,
+  /text-delta/i,
+  /text_delta/i,
+  /finishReason/i,
+  /:\s*"/,
+];
+
+function looksLikeSseFragment(candidate: string): boolean {
+  if (!candidate) return true;
+  if (/^[\s\\"'`]*$/.test(candidate)) return true;
+  return SSE_FRAGMENT_PATTERNS.some(re => re.test(candidate));
+}
+
+// Strip stray escaped quotes / whitespace that survive JSON.parse on
+// imperfect inputs. A name like \"mind\" becomes mind.
+function trimQuoteArtifacts(s: string): string {
+  return s
+    .trim()
+    .replace(/^[\s"'`\\]+/, '')
+    .replace(/[\s"'`\\]+$/, '')
+    .trim();
+}
+
+// Pull tag candidates out of an AI response that should be a JSON array
+// of strings but might be: (a) a clean array, (b) array embedded in prose,
+// (c) prose with newlines or commas between tags, (d) raw SSE chunks
+// concatenated together. Try strategies in increasing aggressiveness.
+function parseTagCandidates(raw: string): string[] {
+  // Strategy 0: defensive pre-strip. Remove obvious SSE chunk wrappers
+  // before JSON.parse so a single rogue chunk does not poison the whole array.
+  const cleaned = raw
+    .replace(
+      /\{"type"\s*:\s*"text-delta"\s*,\s*"textDelta"\s*:\s*"/g,
+      ''
+    )
+    .replace(/\{"type"\s*:\s*"finish"[^}]*\}/g, '')
+    .replace(/\{"type"\s*:\s*"[^"]*"\s*,\s*"textDelta"\s*:\s*"/g, '');
+
+  const tryParseArray = (text: string): string[] | null => {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        return parsed.map(x => trimQuoteArtifacts(String(x)));
+      }
+    } catch {
+      // fall through
+    }
+    return null;
+  };
+
+  // Strategy 1: full JSON parse on cleaned text.
+  const direct = tryParseArray(cleaned);
+  if (direct && direct.length > 0) return direct;
+
+  // Strategy 2: extract first JSON array literal substring.
+  const arrayMatch = cleaned.match(/\[[\s\S]*?\]/);
+  if (arrayMatch) {
+    const fromMatch = tryParseArray(arrayMatch[0]);
+    if (fromMatch && fromMatch.length > 0) return fromMatch;
+  }
+
+  // Strategy 3: split on newlines or commas. Strip bullet/quote prefixes.
+  const linesplit = cleaned
+    .split(/\r?\n|,/)
+    .map(s => trimQuoteArtifacts(s.replace(/^[\s\-*•]+/, '')))
+    .filter(s => s.length > 0);
+  if (linesplit.length > 0) return linesplit;
+
+  return [];
+}
+
+// Friendly preview list capped at 3 names + "and N more" overflow tail.
+function formatTagListForDisplay(names: string[]): string {
+  const max = 3;
+  if (names.length <= max) return names.join(', ');
+  const head = names.slice(0, max).join(', ');
+  return `${head} and ${names.length - max} more`;
+}
+
 export const TagsValue = ({ readonly }: PropertyValueProps) => {
   const t = useI18n();
 
@@ -171,6 +261,14 @@ const TagsInlineEditor = ({
   // title and body content (and the existing tag list, so it can reuse
   // what's there). The response is a JSON array; for each name we either
   // reuse an existing tag or create a new one.
+  //
+  // SSE-stream parser trap: the copilot stream-object endpoint emits
+  // {"type":"text-delta","textDelta":"..."} JSON chunks per SSE event.
+  // textToText({stream: false}) joins those into a single text string,
+  // but if a chunk slips through unparsed (or the model interleaves
+  // commentary with the array), the candidate text can still contain
+  // SSE wrappers. parseTagCandidates below defensively rejects any
+  // candidate that smells like an SSE chunk fragment.
   const tagColorsList = tagService.tagColors;
   const onAutoTag = useCallback(async () => {
     const doc = docService.doc;
@@ -204,118 +302,140 @@ const TagsInlineEditor = ({
     // Cap at 3000 chars to keep the prompt under a reasonable token budget.
     const content = (bodyMarkdown || title).slice(0, 3000);
 
-    const client = new CopilotClient(
-      graphqlService.gql,
-      eventSourceService.eventSource
-    );
-    const sessionId = await client.createSession({
-      workspaceId: workspace.workspace.id,
-      docId: pageId,
-      promptName: 'Auto Tag',
-    });
-    if (!sessionId) {
-      throw new Error('Failed to create copilot session');
-    }
-
-    const result = await textToText({
-      client,
-      sessionId,
-      content: 'Generate tags now.',
-      params: {
-        title,
-        content,
-        existingTags: existingTags.length ? existingTags.join(', ') : '(none)',
-      },
-      stream: false,
-    });
-
-    const text = typeof result === 'string' ? result : '';
-    if (!text) {
-      throw new Error('Empty AI response');
-    }
-
-    // Be liberal: pull the first JSON array literal out of the text.
-    const match = /\[\s*"[\s\S]*?"\s*\]/.exec(text);
-    let suggested: string[] = [];
-    try {
-      suggested = JSON.parse(match ? match[0] : text);
-    } catch {
-      suggested = text
-        .split(/\r?\n|,/)
-        .map(s => s.replace(/^[\s\-*•"]+|[\s"]+$/g, ''))
-        .filter(Boolean);
-    }
-    if (!Array.isArray(suggested)) {
-      throw new Error('AI returned non-array');
-    }
-
-    const cleaned = Array.from(
-      new Set(
-        suggested
-          .map(s => String(s).trim().toLowerCase())
-          .filter(s => s.length > 0 && s.length <= 40)
-      )
-    ).slice(0, 7);
-
-    if (cleaned.length === 0) {
-      notify.warning({
-        title: 'AI Auto Tag',
-        message: 'No tags suggested for this document.',
-      });
-      return;
-    }
-
-    let createdCount = 0;
-    let appliedCount = 0;
-    let alreadyAppliedCount = 0;
-    for (const name of cleaned) {
-      const existing = allTagMetas.find(t => t.name.toLowerCase() === name);
-      if (existing) {
-        if (tagIds$.value.includes(existing.id)) {
-          // Already on this doc — count it for the toast so the user
-          // understands why N suggestions ≠ N new tags.
-          alreadyAppliedCount++;
-          continue;
-        }
-        const tagInstance = tagService.tagList.tagByTagId$(existing.id).value;
-        if (tagInstance) {
-          tagInstance.tag(pageId);
-          appliedCount++;
-        }
-      } else {
-        // Defensive index access — tagColorsList items are [name, value]
-        // tuples; if upstream changes the shape, fall back to the first
-        // entry's value rather than crashing the whole auto-tag run.
-        const tuple =
-          tagColorsList[Math.floor(Math.random() * tagColorsList.length)] ??
-          tagColorsList[0];
-        const color = tuple?.[1] ?? '#888';
-        const newTag = tagService.tagList.createTag(name, color);
-        newTag.tag(pageId);
-        createdCount++;
-        appliedCount++;
-      }
-    }
-
-    // Build a toast that's honest about what happened. Three signals:
-    // - applied (newly tagged this run)
-    // - new (subset of applied — created from scratch)
-    // - already (suggested but already on the doc, skipped)
-    const parts: string[] = [];
-    if (appliedCount > 0) {
-      parts.push(`Applied ${appliedCount} tag${appliedCount === 1 ? '' : 's'}`);
-      if (createdCount > 0) parts.push(`(${createdCount} new)`);
-    }
-    if (alreadyAppliedCount > 0) {
-      parts.push(
-        `${alreadyAppliedCount} already on doc${appliedCount === 0 ? '' : ', skipped'}`
-      );
-    }
-    notify.success({
+    // Show a loading toast while the AI generates tags. Dismiss before
+    // showing the result toast so the user sees a clean transition.
+    const loadingToastId = notify({
       title: 'AI Auto Tag',
-      message: parts.join(' ') + '.',
+      message: 'Generating tags…',
     });
-    onChange?.(tagIds$.value);
+
+    try {
+      const client = new CopilotClient(
+        graphqlService.gql,
+        eventSourceService.eventSource
+      );
+      const sessionId = await client.createSession({
+        workspaceId: workspace.workspace.id,
+        docId: pageId,
+        promptName: 'Auto Tag',
+      });
+      if (!sessionId) {
+        throw new Error('Failed to create copilot session');
+      }
+
+      const result = await textToText({
+        client,
+        sessionId,
+        content: 'Generate tags now.',
+        params: {
+          title,
+          content,
+          existingTags: existingTags.length
+            ? existingTags.join(', ')
+            : '(none)',
+        },
+        stream: false,
+      });
+
+      const text = typeof result === 'string' ? result : '';
+      if (!text) {
+        throw new Error('Empty AI response');
+      }
+
+      const suggested = parseTagCandidates(text);
+      const cleaned = Array.from(
+        new Set(
+          suggested
+            .map(s => String(s).trim().toLowerCase())
+            .filter(s => s.length >= 2 && s.length <= 40)
+            .filter(s => !looksLikeSseFragment(s))
+        )
+      ).slice(0, 7);
+
+      notify.dismiss(loadingToastId);
+
+      if (cleaned.length === 0) {
+        notify.warning({
+          title: 'AI Auto Tag',
+          message:
+            'No new tags suggested — your doc is already well-tagged.',
+        });
+        return;
+      }
+
+      const createdNames: string[] = [];
+      const appliedNames: string[] = [];
+      const alreadyOnDoc: string[] = [];
+      for (const name of cleaned) {
+        const existing = allTagMetas.find(t => t.name.toLowerCase() === name);
+        if (existing) {
+          if (tagIds$.value.includes(existing.id)) {
+            alreadyOnDoc.push(existing.name);
+            continue;
+          }
+          const tagInstance = tagService.tagList.tagByTagId$(existing.id)
+            .value;
+          if (tagInstance) {
+            tagInstance.tag(pageId);
+            appliedNames.push(existing.name);
+          }
+        } else {
+          // Defensive index access — tagColorsList items are [name, value]
+          // tuples; if upstream changes the shape, fall back to the first
+          // entry's value rather than crashing the whole auto-tag run.
+          const tuple =
+            tagColorsList[
+              Math.floor(Math.random() * tagColorsList.length)
+            ] ?? tagColorsList[0];
+          const color = tuple?.[1] ?? '#888';
+          const newTag = tagService.tagList.createTag(name, color);
+          newTag.tag(pageId);
+          createdNames.push(name);
+          appliedNames.push(name);
+        }
+      }
+
+      if (appliedNames.length === 0 && alreadyOnDoc.length === 0) {
+        notify.warning({
+          title: 'AI Auto Tag',
+          message:
+            'No new tags suggested — your doc is already well-tagged.',
+        });
+        return;
+      }
+
+      // Build a friendly toast showing actual tag names. Cap display at
+      // first 3 names + "and N more" so the toast stays scannable.
+      const namesPreview = formatTagListForDisplay(appliedNames);
+      const parts: string[] = [];
+      if (appliedNames.length > 0) {
+        const noun = appliedNames.length === 1 ? 'tag' : 'tags';
+        const newSuffix =
+          createdNames.length > 0
+            ? ` (${createdNames.length} new)`
+            : '';
+        parts.push(
+          `Added ${appliedNames.length} ${noun}: ${namesPreview}${newSuffix}`
+        );
+      }
+      if (alreadyOnDoc.length > 0) {
+        parts.push(
+          `(${alreadyOnDoc.length} already on doc)`
+        );
+      }
+      notify.success({
+        title: 'AI Auto Tag',
+        message: parts.join(' '),
+      });
+      onChange?.(tagIds$.value);
+    } catch (err) {
+      notify.dismiss(loadingToastId);
+      console.error('AI Auto Tag failed', err);
+      notify.error({
+        title: 'AI Auto Tag',
+        message: "Couldn't generate tags right now. Try again.",
+      });
+    }
   }, [
     docService,
     pageId,

@@ -233,13 +233,35 @@ export function textToText({
           signal.addEventListener('abort', onAbort, { once: true });
         }
 
+        // Each SSE 'message' event carries a JSON-serialized StreamObject
+        // (e.g. {"type":"text-delta","textDelta":"..."}). Naively joining the
+        // raw `event.data` strings concatenates JSON wrappers into the output
+        // and produces garbage like `{"type":"text...` in downstream parsers.
+        // Extract `textDelta` from each chunk and ignore non-text chunks
+        // (tool-call, tool-result, reasoning); join only text. Fall back to
+        // the raw payload if parsing fails so we don't silently lose data.
         const messages: string[] = [];
         for await (const event of toTextStream(eventSource, {
           timeout,
           signal,
         })) {
-          if (event.type === 'message') {
-            messages.push(event.data);
+          if (event.type !== 'message') continue;
+          const data = event.data;
+          try {
+            const parsed = JSON.parse(data);
+            if (
+              parsed &&
+              typeof parsed === 'object' &&
+              parsed.type === 'text-delta' &&
+              typeof parsed.textDelta === 'string'
+            ) {
+              messages.push(parsed.textDelta);
+            }
+            // Skip reasoning/tool-call/tool-result; non-text chunks are not
+            // part of the user-visible reply for stream:false consumers.
+          } catch {
+            // Not JSON — must be plain text from a non-stream-object endpoint.
+            messages.push(data);
           }
         }
 

@@ -53,6 +53,41 @@ export function getSignal(req: Request): SignalReturnType {
   };
 }
 
+// ε-AI-INTEL v1.10: tool name groups for the new permission-mode flags.
+// Each toolsConfig flag opts the chat session into the matching group.
+// When a flag is `true`, missing tools are added; when `false`, present
+// tools are removed. This is symmetric so the user's mode picker fully
+// controls which write tools are active for the request, regardless of
+// what the prompt template declared.
+const EDITING_DOCS_TOOLS: PromptTools = [
+  'docEdit',
+  'sectionEdit',
+  // doc-write tool file exports the doc Create/Update/UpdateMeta tools.
+  'docCreate',
+  'docUpdate',
+  'docUpdateMeta',
+];
+const COMPOSING_DOCS_TOOLS: PromptTools = ['docCompose'];
+const EDITING_DATA_VIEW_TOOLS: PromptTools = [
+  'dataViewFilter',
+  'dataViewAutofillColumn',
+];
+
+function addTools(current: PromptTools, additions: PromptTools): PromptTools {
+  const next = [...current];
+  for (const t of additions) {
+    if (!next.includes(t)) {
+      next.push(t);
+    }
+  }
+  return next;
+}
+
+function removeTools(current: PromptTools, removals: PromptTools): PromptTools {
+  const removalSet = new Set<PromptTools[number]>(removals);
+  return current.filter(t => !removalSet.has(t));
+}
+
 export function getTools(
   tools?: PromptTools | null,
   toolsConfig?: ToolsConfig
@@ -77,6 +112,28 @@ export function getTools(
             return tool !== 'docRead';
           });
         }
+        break;
+      // ε-AI-INTEL v1.10: write-tool groups. When `true`, opt the session
+      // into all tools in the group (adding any not already present).
+      // When `false`, remove the entire group from the request, even if
+      // the prompt template would otherwise have included them.
+      case 'editingDocs':
+        result =
+          value === true
+            ? addTools(result, EDITING_DOCS_TOOLS)
+            : removeTools(result, EDITING_DOCS_TOOLS);
+        break;
+      case 'composingDocs':
+        result =
+          value === true
+            ? addTools(result, COMPOSING_DOCS_TOOLS)
+            : removeTools(result, COMPOSING_DOCS_TOOLS);
+        break;
+      case 'editingDataViews':
+        result =
+          value === true
+            ? addTools(result, EDITING_DATA_VIEW_TOOLS)
+            : removeTools(result, EDITING_DATA_VIEW_TOOLS);
         break;
     }
   });

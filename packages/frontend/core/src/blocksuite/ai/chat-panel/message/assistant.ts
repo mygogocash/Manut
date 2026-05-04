@@ -2,6 +2,7 @@ import type { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import type { PeekViewService } from '@affine/core/modules/peek-view';
 import type { AppThemeService } from '@affine/core/modules/theme';
 import type { CopilotChatHistoryFragment } from '@affine/graphql';
+import { I18n } from '@affine/i18n';
 import { WithDisposable } from '@blocksuite/affine/global/lit';
 import { isInsidePageEditor } from '@blocksuite/affine/shared/utils';
 import {
@@ -36,6 +37,22 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       color: var(--affine-placeholder-color);
       font-size: var(--affine-font-xs);
       font-weight: 400;
+    }
+    /* ε-AI-INTEL v1.10: chip surfaced when the assistant's stream contains
+       a tool-call for a write tool. Lets the user see at-a-glance that AI
+       made a change in this turn. */
+    .ai-write-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: var(--affine-font-xs);
+      line-height: 16px;
+      font-weight: 500;
+      color: var(--affine-text-secondary-color);
+      background: var(--affine-hover-color);
     }
   `;
 
@@ -128,8 +145,40 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
         ? this.renderStreamObjects(streamObjects)
         : this.renderRichText(content)}
       ${shouldRenderError ? AIChatErrorRenderer(error, host) : nothing}
+      ${this.renderWriteChip()}
       ${this.renderEditorActions()}
     `;
+  }
+
+  // ε-AI-INTEL v1.10: render a "AI made changes" chip whenever the
+  // assistant's stream contains a tool-call for a write tool. Backend
+  // tool keys use snake_case (doc_edit, section_edit, doc_create, ...),
+  // so we match against that set. Counting tool-results would over-count
+  // when the model retries, so we count tool-calls.
+  private renderWriteChip() {
+    const streamObjects = this.item.streamObjects;
+    if (!streamObjects?.length) return nothing;
+    const writeToolNames = new Set([
+      'doc_edit',
+      'section_edit',
+      'doc_create',
+      'doc_update',
+      'doc_update_meta',
+      'doc_compose',
+      'data_view_filter',
+      'data_view_autofill_column',
+    ]);
+    const hasWriteCall = streamObjects.some(
+      obj => obj.type === 'tool-call' && writeToolNames.has(obj.toolName)
+    );
+    if (!hasWriteCall) return nothing;
+    return html`<div
+      class="ai-write-chip"
+      data-testid="ai-write-tool-chip"
+      aria-label=${I18n.t('com.affine.ai.intelligence.tool-call.changes-made')}
+    >
+      ${I18n.t('com.affine.ai.intelligence.tool-call.changes-made')}
+    </div>`;
   }
 
   private renderImages() {

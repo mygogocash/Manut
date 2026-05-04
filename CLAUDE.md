@@ -221,6 +221,21 @@ Document the surprises — saves the next session a discovery cycle.
     \( -name "*.js" -o -name "*.js.map" \) -not -path "*/node_modules/*" -delete
   ```
   Hardened in `.gitignore` + `.dockerignore` (don't remove those rules).
+  **DO NOT widen this glob to include `*.d.ts` / `*.d.ts.map`.** Several
+  paths legitimately ship hand-authored declaration files in `src/`:
+  - `packages/frontend/core/src/types/types.d.ts` — global types
+    referenced from `bootstrap/env.ts` via `import '../types/types.d.ts'`
+  - `packages/frontend/component/src/type.d.ts`
+  - `blocksuite/playground/apps/{env,vite-env}.d.ts`
+  - `blocksuite/affine/shared/src/commands/index.d.ts`
+  Wiping these mid-bundle produces:
+  ```
+  Module not found: Can't resolve '../types/types.d.ts'
+  ```
+  in the web rspack output and the entire bundle aborts (no
+  `dist/index.html` written). v1.10.2 hit this with a too-eager wipe
+  that included `.d.ts`; fix was `git restore -- '*.d.ts'` paths and
+  re-bundle. Stick to `.js` / `.js.map` only.
 - **Sub-agent edits can vanish during multi-agent consolidation.** When
   10 parallel agents touch overlapping baseline files (`workspace-layout.tsx`,
   `setting/general-setting/index.tsx`, etc.), git-stash recoveries and
@@ -315,6 +330,155 @@ Document the surprises — saves the next session a discovery cycle.
       `napi build --target x86_64-unknown-linux-gnu` BEFORE the
       server bundle step, so the binary exists when bundling.
   Cargo registry cache cuts ~3-5 min off warm runs.
+- **Google OAuth (Gmail / Drive integrations) — v1.10.1 is SCAFFOLD ONLY.**
+  The connect/disconnect plumbing in `packages/backend/server/src/plugins/google-oauth/`
+  is wired end-to-end: GraphQL `connectGoogle` returns a consent URL, the
+  callback at `/oauth/google/callback` exchanges the code and persists the
+  tokens (encrypted) into the existing `IntegrationConnection` table — no
+  Prisma migration needed. Live email reading / file picking is **not
+  shipped**; the cards show a "Live import is rolling out soon" footer.
+  Required env vars: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
+  optional `GOOGLE_OAUTH_REDIRECT_URI` (defaults to `${SERVER_URL}/oauth/google/callback`).
+  Create the OAuth client at https://console.cloud.google.com/apis/credentials
+  in project `affine-495114`; grant scopes `gmail.readonly` and `drive.readonly`.
+  Without env vars configured, the Connect button surfaces a "configure
+  OAuth client" message instead of opening a blank popup.
+- **GraphQL `@Field` UndefinedTypeError — broken TWICE now.** NestJS
+  metadata reflection cannot infer a GraphQL type from a union containing
+  `null` (or any other ambiguous union). Symptom: backend crashes on
+  startup before listening, Caddy returns 502. Stack ends with
+  `UndefinedTypeError: Make sure you are providing an explicit type for
+  the "<field>" of "<class>"` from `@nestjs/graphql/utils/reflection.utilts.js`.
+  History:
+  - **v1.7.0** — first occurrence on a different field; fixed by adding
+    explicit `() => Type` parameter to all nullable `@Field`s.
+  - **v1.10.2** — agent shipped `@Field({ nullable: true }) size?: string | null;`
+    on `DriveFileType`. Backend crashed on startup. Caddy 502 in prod.
+    Rolled back to v1.10.1 (~30s downtime), fixed by adding explicit
+    `@Field(() => String, { nullable: true })`, re-pushed under the same
+    v1.10.2 tag, redeployed.
+  Rule: **always pass an explicit type to `@Field` for nullable / optional
+  / union declarations.** Even if it's "obviously" a string, write
+  `@Field(() => String, { nullable: true })`. The annotation is the source
+  of truth — TypeScript types alone aren't visible to NestJS at runtime.
+  Pre-deploy guard: smoke-test docker images locally with
+  `docker run --rm -e DATABASE_URL=… <image> node ./dist/main.js` and
+  watch for `UndefinedTypeError` in the first 5 seconds before pushing.
+- **v1.10.2 — Gmail / Drive integrations.** Token refresh lives in
+  `GoogleOAuthService.getValidAccessToken(userId, workspaceId, scope)`
+  — call it from any new Google service to get a non-expired bearer
+  token; it refreshes against `oauth2.googleapis.com/token` whenever
+  the stored token is within 5 minutes of expiry and persists rotated
+  tokens via `IntegrationConnectionModel.updateTokens`. New GraphQL
+  surface in `google-oauth.resolver.ts` (split into a separate
+  `GoogleIntegrationResolver` class to keep the connect/disconnect
+  surface clean): `gmailMessages(workspaceId, query?, maxResults=25)`,
+  `importGmailMessage(workspaceId, messageId)` returns the new docId,
+  `driveFiles(workspaceId, query?, pageSize=25)` returns
+  `{id, name, mimeType, iconLink, webViewLink, modifiedTime, size}`.
+  All gated on connected state — typed errors mapped to friendly UI
+  copy by `rethrowFriendly` in the resolver. Doc creation reuses
+  `DocWriter.createDoc(workspaceId, title, markdown, editorId)` from
+  `core/doc/writer.ts` — same path the AI `doc-write` tool uses. HTML
+  → plaintext is a 5-step regex stripper (no `sanitize-html` /
+  `turndown` deps). Drive list capped at 100 server-side; UI doesn't
+  yet expose `nextPageToken` for pagination — follow-up if users
+  hit the cap.
+- **FOSS license / seat-cap override is at one chokepoint.** Superflow
+  is FOSS-unlimited by policy; v1.10.1 hides the License settings tab
+  AND lifts the upstream 10-seat cap. The frontend toggle is
+  `showLicense = false` in
+  `packages/frontend/core/src/desktop/dialogs/setting/workspace-setting/index.tsx`.
+  The backend override is the `env.selfhosted` branch in
+  `QuotaService.getWorkspaceQuota` (`packages/backend/server/src/core/quota/service.ts`)
+  — it returns `memberLimit: 100_000` so every downstream check
+  (`tryCheckSeat`, `checkSeat`, member-add resolvers, the inline
+  `quota.memberCount + idx + 1 > quota.memberLimit` guard at
+  `member.ts:201`, the `>=` guard at `member.ts:343`) silently passes.
+  Don't remove the function — keep the API surface so upstream merges
+  apply cleanly. Search for `// SUPERFLOW` comments to find every
+  changed site. Cosmetic side-effect: the Members panel title still
+  reads `(N/100000)` for non-team workspaces — fix is a "show
+  unlimited" branch in `cloud-members-panel.tsx:289` (low priority).
+- **AI write tools are gated on `AIToolsConfig` flags + a Mode picker.**
+  The backend tools `docEdit`, `sectionEdit`, `docCreate`, `docCompose`,
+  `docUpdate`, `docUpdateMeta`, `dataViewFilter`,
+  `dataViewAutofillColumn` exist in
+  `packages/backend/server/src/plugins/copilot/tools/` but only run
+  when the matching flag is true on the chat session. Flags:
+  - `searchWorkspace` — search for context (read-only)
+  - `readingDocs` — read existing doc content (read-only)
+  - `editingDocs` — invoke `docEdit`/`sectionEdit`/`docCreate`/`docUpdate`/`docUpdateMeta`
+  - `composingDocs` — invoke `docCompose` (creates new docs)
+  - `editingDataViews` — invoke `dataViewFilter`/`dataViewAutofillColumn`
+  Frontend Mode picker
+  (`blocksuite/ai/components/ai-chat-input/preference-popup.ts`) maps:
+  Read-only → none of the write flags, Edit current doc →
+  `editingDocs` only, Full agent → all three. Mode persists via
+  globalState. When a write tool fires, an "AI made changes" chip is
+  rendered in `chat-panel/message/assistant.ts` so the user gets
+  visual confirmation. Production gate at `provider.ts:415-419` keeps
+  `docCreate`/`docUpdate`/`docUpdateMeta` dev/canary-only — self-hosted
+  sees the full effect.
+- **`Dockerfile.fullstack` expects PRE-BUILT `dist/` artifacts in the
+  build context.** The Dockerfile only runs `yarn workspaces focus`
+  for production deps + `prisma generate` — it does NOT bundle the
+  app. It `COPY`s these dirs that you must build locally first:
+  - `packages/backend/server/dist/main.js` (server bundle)
+  - `packages/backend/server/dist/server-native.{x64,arm64,armv7}.node`
+    (Rust napi binaries — gitignored, must exist locally)
+  - `packages/frontend/apps/web/dist/` (web bundle)
+  - `packages/frontend/admin/dist/` (admin bundle)
+  - `packages/frontend/apps/mobile/dist/` (mobile bundle)
+  Skipping the bundle step ships the PREVIOUS bundle in your fresh
+  image — silently, with no error. Symptom: `docker compose pull` +
+  `up -d` "succeeds", site loads, but `grep -c editingDocs
+  /app/dist/main.js` inside the container returns 0 and the new
+  feature is missing despite a green deploy. v1.10.1 hit this:
+  first push deployed but smoke-test caught the stale main.js
+  (timestamp predated the source commits). Fix: bundle BEFORE docker
+  build:
+  ```
+  yarn affine bundle -p @affine/server  # ~1-3 min
+  yarn affine bundle -p web             # ~3-7 min
+  yarn affine bundle -p admin           # only if admin changes
+  yarn affine bundle -p mobile          # only if mobile changes
+  docker buildx build --platform linux/amd64 \
+    -f .docker/gogocash/Dockerfile.fullstack \
+    -t asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:vX.Y.Z \
+    --push .
+  ```
+  Pre-flight check before `docker buildx`: confirm
+  `ls -la packages/backend/server/dist/main.js` is newer than the
+  latest commit's `git log -1 --format=%ai`. If older, re-bundle.
+- **`docker compose pull <service>` needs the SERVICE NAME, not the
+  container name.** In `/srv/affine/compose/compose.yml` the service
+  is `affine` (top-level key) and the container is named
+  `affine_server` via `container_name`. `docker compose pull
+  affine_server` returns `no such service: affine_server` and
+  silently skips the pull. Always use `docker compose pull affine`
+  (or just `docker compose pull` for all services). Then
+  `docker compose up -d --force-recreate affine` to ensure the
+  container actually swaps to the new image. Without
+  `--force-recreate`, compose may leave the existing container
+  running on the old image if it sees nothing to change.
+- **Pre-existing lint debt sometimes blocks `--no-verify`-free
+  commits.** v1.10.1 hit two cases: husky's `lint-staged` chain trips
+  on a pre-existing `rxjs/finnish` eslint error in `tags.tsx:151`
+  (`tagIds$` declaration) and a `consistent-type-imports` error in
+  `prompts.ts:2`. Neither is introduced by the changes that triggered
+  the hook. Per §6 the right fix is to clean up the lint debt in a
+  precursor commit — but two recent commits in v1.10.1 used
+  `--no-verify` after stashing-and-verifying the errors are
+  pre-existing. The cleanup is overdue; track it as a lint-debt
+  sweep before the next release.
+  - **UPDATE (post-2900714c2):** husky pre-commit hook now passes
+    clean on `main` (verified by a real test commit + revert). The
+    rxjs/finnish + consistent-type-imports errors the auto-tag agent
+    reported existed in its OLDER worktree base, not in current main.
+    No --no-verify needed for new commits. If it bites again later,
+    `yarn eslint --no-cache <file>` is the source of truth — exit 0
+    means the hook will pass.
 
 ## 5b. Settings dialog wiring (where new tabs live)
 
@@ -352,7 +516,17 @@ silently doesn't take effect:
 
 ### Model selection on Superflow's Vertex stack
 
-**`gpt-5-mini` is poisonous.** Upstream defaults this for many prompts.
+**`gpt-5-mini` is poisonous — and we keep finding new prompts using
+it.** Upstream defaults this for many prompts. Each one breaks
+silently on a Vertex-only stack — no error in logs, the feature just
+doesn't work. We've now hit this in:
+- v1.8.4 — Auto Tag prompt (frontend tag picker)
+- v1.10.0 — `Summary as title` (auto-naming chat sessions; `New chat`
+  forever in the history dropdown until fixed)
+
+Whenever a feature that uses an LLM "silently does nothing", grep
+`prompts.ts` for `gpt-5-mini` first.
+
 Superflow's Vertex AI deployment (config at
 `/srv/affine/data/affine-config/config.json` on the VM) only routes:
 
@@ -384,6 +558,39 @@ when an admin edits via the admin panel) are skipped. This means:
   the hard way shipping AI Auto Tag in v1.8.3 (DB hot-fixed to gemini)
   → had to ship v1.8.4 (model baked into prompts.ts) so the fix
   survived restarts.
+
+### SSE stream-object endpoints emit JSON, not plain text (Auto Tag trap)
+
+When calling `textToText({stream: false})` (defined in
+`packages/frontend/core/src/blocksuite/ai/provider/request.ts`) against
+the copilot `/chat/:id/stream-object` endpoint, **every SSE
+`event.data` is a JSON-stringified `StreamObject` chunk**, not raw
+text. Naively `messages.join('')`-ing the events concatenates JSON
+wrappers like `{"type":"text-delta","textDelta":"…"}` straight into
+the result string, corrupting any downstream `JSON.parse` or
+comma-split. v1.10.1 root-caused this in two layers:
+
+1. **`request.ts` join layer** — when `stream: false`, the helper
+   now JSON-parses each `event.data`, extracts only `textDelta` from
+   `text-delta` chunks, and ignores `reasoning`/`tool-call`/`tool-result`
+   chunks. Falls back to raw payload only if parse fails so
+   non-stream-object endpoints still work.
+2. **Defensive parser** — even with the join fixed,
+   `workspace-property-types/tags.tsx` now runs a 4-strategy
+   `parseTagCandidates` (full JSON parse → array-extract regex →
+   line/comma split, with SSE-wrapper pre-strip) and a
+   `looksLikeSseFragment` rejecter for any candidate containing
+   structural fragments (`{`, `}`, `\\`, `"type"`, `"textDelta"`,
+   `text-delta`).
+
+Symptom of the unfixed bug: tags rendered as `{"type":"text…`,
+`textdelta":""}`, `\"mind\"` instead of clean strings. Found in
+production after the user clicked AI Auto Tag on a Thai-language doc.
+
+When you build any new feature that calls `textToText({stream: false})`
+and parses structured output (JSON, lists, key-value), assume the
+join layer might still leak SSE wrappers in edge cases — add a
+`looksLikeSseFragment`-style rejecter at the parse boundary.
 
 ### Reading doc body markdown without an editor host
 
