@@ -1,89 +1,63 @@
+import {
+  acknowledgeInsightMutation,
+  getAnalyticsOverviewQuery,
+  type InsightType as GqlInsightType,
+  listInsightsQuery,
+  runContentRecommendationMutation,
+  type SocialPlatform as GqlSocialPlatform,
+} from '@affine/graphql';
 import { Service } from '@toeverything/infra';
 
 import type { GraphQLService } from '../../cloud/services/graphql';
+import { AnalyticsDataEntity } from '../entities/analytics-data.entity';
 import {
-  AnalyticsDataEntity,
-  type AnalyticsOverview,
-} from '../entities/analytics-data.entity';
-import { type Insight, InsightEntity } from '../entities/insight.entity';
+  type Insight,
+  InsightEntity,
+  type InsightSeverity,
+  type InsightType,
+} from '../entities/insight.entity';
 
-// TODO: regenerate codegen types — for now we hand-write the operations and
-// inline response shapes. The DTOs live in
-// `packages/backend/server/src/plugins/analytics/graphql/*.dto.ts`.
-// Keep the inline response shapes in sync until codegen regenerates
-// `@affine/graphql`.
-const GET_OVERVIEW_QUERY = /* GraphQL */ `
-  query getAnalyticsOverview($workspaceId: String!) {
-    getOverview(workspaceId: $workspaceId) {
-      workspaceId
-      generatedAt
-      lastSyncAt
-      platforms {
-        platform
-        status
-        lastSyncAt
-        isConnected
-      }
-      kpis {
-        key
-        label
-        value
-        deltaPct
-        sparkline
-      }
-    }
-  }
-`;
+// SocialInsight on the wire (from `SocialInsightObjectType` in the backend
+// DTO) does NOT include `workspaceId`. The entity-level `Insight` type does
+// — the UI uses it for routing/copy-link. We inject the workspaceId from
+// the call context when mapping wire shape → entity shape.
+type WireSocialInsight = {
+  id: string;
+  insightType: GqlInsightType;
+  platforms: GqlSocialPlatform[];
+  title: string;
+  body: string;
+  severity: string;
+  modelUsed: string;
+  createdAt: string;
+  acknowledgedAt: string | null;
+};
 
-const LIST_INSIGHTS_QUERY = /* GraphQL */ `
-  query listInsights(
-    $workspaceId: String!
-    $limit: Int
-    $types: [InsightType!]
-  ) {
-    insights(workspaceId: $workspaceId, limit: $limit, types: $types) {
-      id
-      workspaceId
-      insightType
-      platforms
-      title
-      body
-      severity
-      modelUsed
-      createdAt
-      acknowledgedAt
-    }
-  }
-`;
+function toEntityInsight(
+  wire: WireSocialInsight,
+  workspaceId: string
+): Insight {
+  return {
+    id: wire.id,
+    workspaceId,
+    insightType: wire.insightType as InsightType,
+    severity: wire.severity as InsightSeverity,
+    title: wire.title,
+    body: wire.body,
+    platforms: wire.platforms,
+    modelUsed: wire.modelUsed,
+    createdAt: wire.createdAt,
+    acknowledgedAt: wire.acknowledgedAt,
+  };
+}
 
-const RUN_CONTENT_RECOMMENDATION_MUTATION = /* GraphQL */ `
-  mutation runContentRecommendation($workspaceId: String!, $tone: String) {
-    runContentRecommendation(workspaceId: $workspaceId, tone: $tone) {
-      id
-      workspaceId
-      insightType
-      platforms
-      title
-      body
-      severity
-      modelUsed
-      createdAt
-      acknowledgedAt
-    }
-  }
-`;
-
-const ACKNOWLEDGE_INSIGHT_MUTATION = /* GraphQL */ `
-  mutation acknowledgeInsight($insightId: String!) {
-    acknowledgeInsight(insightId: $insightId)
-  }
-`;
-
+// Subscription document — kept inline because no graphql-ws transport is
+// wired on the GraphQLService yet. Once codegen learns subscriptions, swap
+// this for a generated doc and route via the new transport.
 const INSIGHT_CREATED_SUBSCRIPTION = /* GraphQL */ `
   subscription insightCreated($workspaceId: String!) {
     insightCreated(workspaceId: $workspaceId) {
       id
-      workspaceId
       insightType
       platforms
       title
@@ -96,25 +70,9 @@ const INSIGHT_CREATED_SUBSCRIPTION = /* GraphQL */ `
   }
 `;
 
-interface AnalyticsOverviewResponse {
-  getOverview: AnalyticsOverview;
-}
-
-interface ListInsightsResponse {
-  insights: Insight[];
-}
-
-interface RunContentRecommendationResponse {
-  runContentRecommendation: Insight;
-}
-
-interface AcknowledgeInsightResponse {
-  acknowledgeInsight: boolean;
-}
-
 export interface ListInsightsOptions {
   limit?: number;
-  types?: string[];
+  types?: InsightType[];
 }
 
 export type InsightSubscriptionUnsubscribe = () => void;
@@ -142,21 +100,15 @@ export class AnalyticsService extends Service {
     this.data.setLoading(true);
     this.data.setError(null);
     try {
-      const result = await this.graphql.gql<{
-        id: 'getAnalyticsOverview';
-        op: 'query';
-        query: typeof GET_OVERVIEW_QUERY;
-      }>({
-        query: {
-          id: 'getAnalyticsOverview',
-          op: 'query',
-          query: GET_OVERVIEW_QUERY,
-        } as any,
-        variables: { workspaceId } as any,
-      } as any);
-
-      const data = result as unknown as AnalyticsOverviewResponse;
-      this.data.setOverview(data.getOverview);
+      const data = await this.graphql.gql({
+        query: getAnalyticsOverviewQuery,
+        variables: { workspaceId },
+      });
+      // The query asks for the GoGoCash overview slice (no recentInsights);
+      // the entity-level `AnalyticsOverview` requires `recentInsights`, so
+      // we fill it with an empty array. Re-add to the .gql doc if/when the
+      // overview tile starts surfacing recentInsights again.
+      this.data.setOverview({ ...data.getOverview, recentInsights: [] });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       this.data.setError(message);
@@ -178,25 +130,20 @@ export class AnalyticsService extends Service {
     this.insights.setLoading(true);
     this.insights.setError(null);
     try {
-      const result = await this.graphql.gql<{
-        id: 'listInsights';
-        op: 'query';
-        query: typeof LIST_INSIGHTS_QUERY;
-      }>({
-        query: {
-          id: 'listInsights',
-          op: 'query',
-          query: LIST_INSIGHTS_QUERY,
-        } as any,
+      const data = await this.graphql.gql({
+        query: listInsightsQuery,
         variables: {
-          workspaceId,
-          limit: opts?.limit,
-          types: opts?.types,
-        } as any,
-      } as any);
-
-      const data = result as unknown as ListInsightsResponse;
-      this.insights.setInsights(data.insights ?? []);
+          input: {
+            workspaceId,
+            limit: opts?.limit ?? 50,
+            types: opts?.types as GqlInsightType[] | undefined,
+          },
+        },
+      });
+      const mapped = (data.listInsights ?? []).map(insight =>
+        toEntityInsight(insight, workspaceId)
+      );
+      this.insights.setInsights(mapped);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       this.insights.setError(message);
@@ -211,58 +158,50 @@ export class AnalyticsService extends Service {
    * Trigger the AI content-recommendation prompt on the backend. Returns the
    * newly created insight; also pushes it to the top of the insights list
    * so the UI surfaces it immediately.
+   *
+   * The backend requires a `platform` — pick the platform you want the
+   * recommendation tailored to. `tone` is optional copy-direction hint.
    */
   runContentRecommendation = async (
     workspaceId: string,
+    platform: GqlSocialPlatform,
     tone?: string
   ): Promise<Insight> => {
-    const result = await this.graphql.gql<{
-      id: 'runContentRecommendation';
-      op: 'mutation';
-      query: typeof RUN_CONTENT_RECOMMENDATION_MUTATION;
-    }>({
-      query: {
-        id: 'runContentRecommendation',
-        op: 'mutation',
-        query: RUN_CONTENT_RECOMMENDATION_MUTATION,
-      } as any,
+    const data = await this.graphql.gql({
+      query: runContentRecommendationMutation,
       variables: {
-        workspaceId,
-        tone: tone && tone.trim().length > 0 ? tone : null,
-      } as any,
-    } as any);
-
-    const data = result as unknown as RunContentRecommendationResponse;
-    const insight = data.runContentRecommendation;
+        input: {
+          workspaceId,
+          platform,
+          tone: tone && tone.trim().length > 0 ? tone : null,
+        },
+      },
+    });
+    const insight = toEntityInsight(data.runContentRecommendation, workspaceId);
     this.insights.addInsightToTop(insight);
     return insight;
   };
 
   /**
-   * Mark an insight as acknowledged. Updates local state optimistically.
+   * Mark an insight as acknowledged. Updates local state optimistically and
+   * reconciles with the server's authoritative `acknowledgedAt` on success.
    */
   acknowledgeInsight = async (insightId: string): Promise<void> => {
     // Optimistic local update, rollback on error.
     const prevList = this.insights.insights$.value;
-    const now = new Date().toISOString();
-    this.insights.acknowledgeLocally(insightId, now);
+    const optimisticTimestamp = new Date().toISOString();
+    this.insights.acknowledgeLocally(insightId, optimisticTimestamp);
     try {
-      const result = await this.graphql.gql<{
-        id: 'acknowledgeInsight';
-        op: 'mutation';
-        query: typeof ACKNOWLEDGE_INSIGHT_MUTATION;
-      }>({
-        query: {
-          id: 'acknowledgeInsight',
-          op: 'mutation',
-          query: ACKNOWLEDGE_INSIGHT_MUTATION,
-        } as any,
-        variables: { insightId } as any,
-      } as any);
-      const data = result as unknown as AcknowledgeInsightResponse;
-      if (data.acknowledgeInsight === false) {
-        // server rejected — rollback
-        this.insights.setInsights(prevList);
+      const data = await this.graphql.gql({
+        query: acknowledgeInsightMutation,
+        variables: { input: { insightId } },
+      });
+      // Server returns the updated SocialInsight — reconcile the
+      // authoritative `acknowledgedAt` so optimistic timestamps don't
+      // diverge from server state.
+      const serverTimestamp = data.acknowledgeInsight.acknowledgedAt;
+      if (serverTimestamp && serverTimestamp !== optimisticTimestamp) {
+        this.insights.acknowledgeLocally(insightId, serverTimestamp);
       }
     } catch (err) {
       this.insights.setInsights(prevList);
@@ -284,17 +223,19 @@ export class AnalyticsService extends Service {
     workspaceId: string,
     callback: (insight: Insight) => void
   ): InsightSubscriptionUnsubscribe => {
-    const wsClient = (this.graphql as unknown as {
-      subscribe?: (opts: {
-        query: string;
-        variables: Record<string, unknown>;
-        next: (value: unknown) => void;
-        error?: (err: unknown) => void;
-      }) => () => void;
-    }).subscribe;
+    const wsClient = (
+      this.graphql as unknown as {
+        subscribe?: (opts: {
+          query: string;
+          variables: Record<string, unknown>;
+          next: (value: unknown) => void;
+          error?: (err: unknown) => void;
+        }) => () => void;
+      }
+    ).subscribe;
 
     if (typeof wsClient !== 'function') {
-      // eslint-disable-next-line no-console
+       
       console.warn(
         '[analytics] subscribeToInsights — no ws transport available; falling back to poll-on-mount only'
       );
@@ -306,23 +247,28 @@ export class AnalyticsService extends Service {
         query: INSIGHT_CREATED_SUBSCRIPTION,
         variables: { workspaceId },
         next: (value: unknown) => {
-          const data =
-            (value as { data?: { insightCreated?: Insight } } | undefined)
-              ?.data?.insightCreated ??
-            (value as { insightCreated?: Insight } | undefined)?.insightCreated;
-          if (data) {
-            this.insights.addInsightToTop(data);
-            callback(data);
+          const wire =
+            (
+              value as
+                | { data?: { insightCreated?: WireSocialInsight } }
+                | undefined
+            )?.data?.insightCreated ??
+            (value as { insightCreated?: WireSocialInsight } | undefined)
+              ?.insightCreated;
+          if (wire) {
+            const insight = toEntityInsight(wire, workspaceId);
+            this.insights.addInsightToTop(insight);
+            callback(insight);
           }
         },
         error: err => {
-          // eslint-disable-next-line no-console
+           
           console.warn('[analytics] insight subscription error', err);
         },
       });
       return unsubscribe;
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.warn('[analytics] insight subscription failed to init', err);
       return () => {};
     }

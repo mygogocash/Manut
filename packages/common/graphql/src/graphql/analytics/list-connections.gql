@@ -1,0 +1,11 @@
+query listConnections($workspaceId: String!) {
+  connections(workspaceId: $workspaceId) {
+    id
+    workspaceId
+    platform
+    status
+    externalAccountName
+    lastSyncAt
+    lastError
+  }
+}

@@ -1,0 +1,11 @@
+mutation finalizePlatformConnect($input: FinalizePlatformConnectInput!) {
+  finalizePlatformConnect(input: $input) {
+    id
+    workspaceId
+    platform
+    status
+    externalAccountName
+    lastSyncAt
+    lastError
+  }
+}

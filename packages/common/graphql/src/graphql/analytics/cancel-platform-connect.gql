@@ -1,0 +1,3 @@
+mutation cancelPlatformConnect($input: CancelPlatformConnectInput!) {
+  cancelPlatformConnect(input: $input)
+}

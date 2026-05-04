@@ -1,0 +1,20 @@
+query getAnalyticsOverview($workspaceId: String!) {
+  getOverview(workspaceId: $workspaceId) {
+    workspaceId
+    generatedAt
+    lastSyncAt
+    platforms {
+      platform
+      status
+      lastSyncAt
+      isConnected
+    }
+    kpis {
+      key
+      label
+      value
+      deltaPct
+      sparkline
+    }
+  }
+}

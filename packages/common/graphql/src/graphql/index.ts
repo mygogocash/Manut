@@ -385,20 +385,6 @@ export const adminWorkspacesCountQuery = {
 }`,
 };
 
-export const adminVerifiedDocsQuery = {
-  id: 'adminVerifiedDocsQuery' as const,
-  op: 'adminVerifiedDocs',
-  query: `query adminVerifiedDocs($workspaceId: String) {
-  adminVerifiedDocs(workspaceId: $workspaceId) {
-    workspaceId
-    docId
-    verifiedAt
-    verifiedBy
-    verificationExpiresAt
-  }
-}`,
-};
-
 export const createChangePasswordUrlMutation = {
   id: 'createChangePasswordUrlMutation' as const,
   op: 'createChangePasswordUrl',
@@ -559,6 +545,143 @@ export const validateConfigQuery = {
     value
     valid
     error
+  }
+}`,
+};
+
+export const acknowledgeInsightMutation = {
+  id: 'acknowledgeInsightMutation' as const,
+  op: 'acknowledgeInsight',
+  query: `mutation acknowledgeInsight($input: AcknowledgeInsightInput!) {
+  acknowledgeInsight(input: $input) {
+    id
+    insightType
+    platforms
+    title
+    body
+    severity
+    modelUsed
+    createdAt
+    acknowledgedAt
+  }
+}`,
+};
+
+export const beginPlatformConnectMutation = {
+  id: 'beginPlatformConnectMutation' as const,
+  op: 'beginPlatformConnect',
+  query: `mutation beginPlatformConnect($workspaceId: String!, $platform: SocialPlatform!) {
+  beginPlatformConnect(workspaceId: $workspaceId, platform: $platform) {
+    url
+  }
+}`,
+};
+
+export const cancelPlatformConnectMutation = {
+  id: 'cancelPlatformConnectMutation' as const,
+  op: 'cancelPlatformConnect',
+  query: `mutation cancelPlatformConnect($input: CancelPlatformConnectInput!) {
+  cancelPlatformConnect(input: $input)
+}`,
+};
+
+export const disconnectPlatformMutation = {
+  id: 'disconnectPlatformMutation' as const,
+  op: 'disconnectPlatform',
+  query: `mutation disconnectPlatform($connectionId: String!) {
+  disconnectPlatform(connectionId: $connectionId)
+}`,
+};
+
+export const finalizePlatformConnectMutation = {
+  id: 'finalizePlatformConnectMutation' as const,
+  op: 'finalizePlatformConnect',
+  query: `mutation finalizePlatformConnect($input: FinalizePlatformConnectInput!) {
+  finalizePlatformConnect(input: $input) {
+    id
+    workspaceId
+    platform
+    status
+    externalAccountName
+    lastSyncAt
+    lastError
+  }
+}`,
+};
+
+export const getAnalyticsOverviewQuery = {
+  id: 'getAnalyticsOverviewQuery' as const,
+  op: 'getAnalyticsOverview',
+  query: `query getAnalyticsOverview($workspaceId: String!) {
+  getOverview(workspaceId: $workspaceId) {
+    workspaceId
+    generatedAt
+    lastSyncAt
+    platforms {
+      platform
+      status
+      lastSyncAt
+      isConnected
+    }
+    kpis {
+      key
+      label
+      value
+      deltaPct
+      sparkline
+    }
+  }
+}`,
+};
+
+export const listConnectionsQuery = {
+  id: 'listConnectionsQuery' as const,
+  op: 'listConnections',
+  query: `query listConnections($workspaceId: String!) {
+  connections(workspaceId: $workspaceId) {
+    id
+    workspaceId
+    platform
+    status
+    externalAccountName
+    lastSyncAt
+    lastError
+  }
+}`,
+};
+
+export const listInsightsQuery = {
+  id: 'listInsightsQuery' as const,
+  op: 'listInsights',
+  query: `query listInsights($input: ListInsightsInput!) {
+  listInsights(input: $input) {
+    id
+    insightType
+    platforms
+    title
+    body
+    severity
+    modelUsed
+    createdAt
+    acknowledgedAt
+  }
+}`,
+};
+
+export const runContentRecommendationMutation = {
+  id: 'runContentRecommendationMutation' as const,
+  op: 'runContentRecommendation',
+  query: `mutation runContentRecommendation($input: RunContentRecommendationInput!) {
+  runContentRecommendation(input: $input) {
+    id
+    insightType
+    platforms
+    title
+    body
+    severity
+    modelUsed
+    createdAt
+    acknowledgedAt
   }
 }`,
 };
@@ -2921,6 +3044,14 @@ export const subscriptionQuery = {
   deprecations: ["'id' is deprecated: removed"],
 };
 
+export const unverifyDocMutation = {
+  id: 'unverifyDocMutation' as const,
+  op: 'unverifyDoc',
+  query: `mutation unverifyDoc($workspaceId: String!, $docId: String!) {
+  unverifyDoc(workspaceId: $workspaceId, docId: $docId)
+}`,
+};
+
 export const updateDocDefaultRoleMutation = {
   id: 'updateDocDefaultRoleMutation' as const,
   op: 'updateDocDefaultRole',
@@ -2993,14 +3124,6 @@ export const verifyDocMutation = {
   op: 'verifyDoc',
   query: `mutation verifyDoc($workspaceId: String!, $docId: String!, $expiresAt: DateTime) {
   verifyDoc(workspaceId: $workspaceId, docId: $docId, expiresAt: $expiresAt)
-}`,
-};
-
-export const unverifyDocMutation = {
-  id: 'unverifyDocMutation' as const,
-  op: 'unverifyDoc',
-  query: `mutation unverifyDoc($workspaceId: String!, $docId: String!) {
-  unverifyDoc(workspaceId: $workspaceId, docId: $docId)
 }`,
 };
 
