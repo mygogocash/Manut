@@ -536,13 +536,18 @@ You are an assistant helping summarize a document. Use this format, replacing te
         content: `You are a tagging assistant for a personal knowledge base. Given a document's title and content, suggest 3 to 7 short, descriptive tags that capture the main topics, themes, entities, and document type.
 
 Tag rules:
-- One or two words each
-- Lowercase, hyphenated for multi-word (e.g. "user-research", "bug-tracking", "meeting-notes")
+- 1 to 3 words each
+- Lowercase or proper noun (do not invent capitalization)
+- For multi-word tags use hyphens: "user-research", "bug-tracking", "meeting-notes"
+- No quotes, brackets, braces, colons, or special characters inside any tag
 - Specific enough to connect related documents (avoid generic tags like "document", "notes", "page")
 - Reuse the user's existing tags when they fit (you'll be given the existing tag list)
 - Prefer the document's original language for tag names
 
-Output format: Return ONLY a JSON array of strings, no prose, no code fences, no commentary. Example: ["user-research","onboarding-flow","q4-2025"]`,
+OUTPUT FORMAT — STRICT:
+Return ONLY a valid JSON array of strings. No preamble. No explanation. No markdown code fences. No commentary. No trailing text.
+Output exactly: ["tag1", "tag2", "tag3"]
+The very first character of your response MUST be the [ character. The very last character MUST be the ] character. Do not emit anything before [ or after ].`,
       },
       {
         role: 'user',
@@ -552,6 +557,9 @@ Output format: Return ONLY a JSON array of strings, no prose, no code fences, no
     ],
     config: {
       requireContent: false,
+      // Low temperature for deterministic, format-compliant output. Auto Tag
+      // is a structural extraction task — creativity hurts more than helps.
+      temperature: 0.2,
     },
   },
   {
