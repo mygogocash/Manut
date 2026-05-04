@@ -73,7 +73,9 @@ function UserForm({
       name: value.name ?? '',
       email: value.email ?? '',
       password: value.password ?? '',
-      features: [...(value.features ?? [])].sort(),
+      features: [...(value.features ?? [])].sort((a, b) =>
+        a < b ? -1 : a > b ? 1 : 0
+      ),
     });
     const current = normalize(changes);
     const baseline = normalize(defaultUser);

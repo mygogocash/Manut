@@ -14,7 +14,7 @@ export const useUserList = (filter?: {
   const filterKey = useMemo(
     () =>
       `${filter?.keyword ?? ''}-${[...(filter?.features ?? [])]
-        .sort()
+        .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
         .join(',')}`,
     [filter?.features, filter?.keyword]
   );

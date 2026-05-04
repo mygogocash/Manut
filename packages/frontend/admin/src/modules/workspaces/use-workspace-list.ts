@@ -22,7 +22,7 @@ export const useWorkspaceList = (filter?: {
   const filterKey = useMemo(
     () =>
       `${filter?.keyword ?? ''}-${[...(filter?.features ?? [])]
-        .sort()
+        .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
         .join(',')}-${filter?.orderBy ?? ''}-${JSON.stringify(
         filter?.flags ?? {}
       )}`,
