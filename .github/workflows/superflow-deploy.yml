@@ -58,7 +58,7 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           gcloud artifacts docker tags list \
-            asia-southeast1-docker.pkg.dev/${GCP_PROJECT}/affine/affine-gogocash \
+            "asia-southeast1-docker.pkg.dev/${GCP_PROJECT}/affine/affine-gogocash" \
             --filter="tag=$TAG" --format=json | grep -q "$TAG" \
             || { echo "::error::tag $TAG not found in GAR"; exit 1; }
 
