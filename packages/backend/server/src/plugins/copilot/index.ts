@@ -94,5 +94,11 @@ import {
     McpApiKeyService,
   ],
   controllers: [CopilotController, WorkspaceMcpController, AdminIndexingController],
+  // Re-export the providers other plugins need to inject. The analytics
+  // plugin (plugins/analytics) consumes PromptService + CopilotProviderFactory
+  // for Strategist / TrendDetector / AnomalyDetector services — exporting
+  // here keeps the DI graph honest without forcing analytics to import the
+  // full CopilotModule internals.
+  exports: [PromptService, CopilotProviderFactory],
 })
 export class CopilotModule {}
