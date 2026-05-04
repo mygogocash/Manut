@@ -221,6 +221,21 @@ Document the surprises — saves the next session a discovery cycle.
     \( -name "*.js" -o -name "*.js.map" \) -not -path "*/node_modules/*" -delete
   ```
   Hardened in `.gitignore` + `.dockerignore` (don't remove those rules).
+  **DO NOT widen this glob to include `*.d.ts` / `*.d.ts.map`.** Several
+  paths legitimately ship hand-authored declaration files in `src/`:
+  - `packages/frontend/core/src/types/types.d.ts` — global types
+    referenced from `bootstrap/env.ts` via `import '../types/types.d.ts'`
+  - `packages/frontend/component/src/type.d.ts`
+  - `blocksuite/playground/apps/{env,vite-env}.d.ts`
+  - `blocksuite/affine/shared/src/commands/index.d.ts`
+  Wiping these mid-bundle produces:
+  ```
+  Module not found: Can't resolve '../types/types.d.ts'
+  ```
+  in the web rspack output and the entire bundle aborts (no
+  `dist/index.html` written). v1.10.2 hit this with a too-eager wipe
+  that included `.d.ts`; fix was `git restore -- '*.d.ts'` paths and
+  re-bundle. Stick to `.js` / `.js.map` only.
 - **Sub-agent edits can vanish during multi-agent consolidation.** When
   10 parallel agents touch overlapping baseline files (`workspace-layout.tsx`,
   `setting/general-setting/index.tsx`, etc.), git-stash recoveries and
@@ -328,6 +343,26 @@ Document the surprises — saves the next session a discovery cycle.
   in project `affine-495114`; grant scopes `gmail.readonly` and `drive.readonly`.
   Without env vars configured, the Connect button surfaces a "configure
   OAuth client" message instead of opening a blank popup.
+- **v1.10.2 — Gmail / Drive integrations.** Token refresh lives in
+  `GoogleOAuthService.getValidAccessToken(userId, workspaceId, scope)`
+  — call it from any new Google service to get a non-expired bearer
+  token; it refreshes against `oauth2.googleapis.com/token` whenever
+  the stored token is within 5 minutes of expiry and persists rotated
+  tokens via `IntegrationConnectionModel.updateTokens`. New GraphQL
+  surface in `google-oauth.resolver.ts` (split into a separate
+  `GoogleIntegrationResolver` class to keep the connect/disconnect
+  surface clean): `gmailMessages(workspaceId, query?, maxResults=25)`,
+  `importGmailMessage(workspaceId, messageId)` returns the new docId,
+  `driveFiles(workspaceId, query?, pageSize=25)` returns
+  `{id, name, mimeType, iconLink, webViewLink, modifiedTime, size}`.
+  All gated on connected state — typed errors mapped to friendly UI
+  copy by `rethrowFriendly` in the resolver. Doc creation reuses
+  `DocWriter.createDoc(workspaceId, title, markdown, editorId)` from
+  `core/doc/writer.ts` — same path the AI `doc-write` tool uses. HTML
+  → plaintext is a 5-step regex stripper (no `sanitize-html` /
+  `turndown` deps). Drive list capped at 100 server-side; UI doesn't
+  yet expose `nextPageToken` for pagination — follow-up if users
+  hit the cap.
 - **FOSS license / seat-cap override is at one chokepoint.** Superflow
   is FOSS-unlimited by policy; v1.10.1 hides the License settings tab
   AND lifts the upstream 10-seat cap. The frontend toggle is
