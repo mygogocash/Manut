@@ -1,6 +1,6 @@
 import type { Framework } from '@toeverything/infra';
 
-import { GraphQLService } from '../cloud';
+import { WorkspaceServerService } from '../cloud';
 import { WorkspaceScope } from '../workspace';
 import { AnalyticsDataEntity } from './entities/analytics-data.entity';
 import { InsightEntity } from './entities/insight.entity';
@@ -35,6 +35,6 @@ export function configureAnalyticsModule(framework: Framework) {
     .entity(AnalyticsDataEntity)
     .entity(InsightEntity)
     .entity(PlatformConnectionEntity)
-    .service(AnalyticsService, [GraphQLService])
-    .service(ConnectionService, [GraphQLService]);
+    .service(AnalyticsService, [WorkspaceServerService])
+    .service(ConnectionService, [WorkspaceServerService]);
 }

@@ -8,7 +8,8 @@ import {
 } from '@affine/graphql';
 import { Service } from '@toeverything/infra';
 
-import type { GraphQLService } from '../../cloud/services/graphql';
+import type { WorkspaceServerService } from '../../cloud';
+import { GraphQLService } from '../../cloud/services/graphql';
 import { AnalyticsDataEntity } from '../entities/analytics-data.entity';
 import {
   type Insight,
@@ -88,8 +89,20 @@ export class AnalyticsService extends Service {
   readonly data = this.framework.createEntity(AnalyticsDataEntity);
   readonly insights = this.framework.createEntity(InsightEntity);
 
-  constructor(private readonly graphql: GraphQLService) {
+  constructor(private readonly serverService: WorkspaceServerService) {
     super();
+  }
+
+  // GraphQLService lives in ServerScope but this service runs in
+  // WorkspaceScope — route through the workspace's bound server (matches
+  // the agents/comments pattern). Keeping the field name as `graphql` so
+  // every existing `this.graphql.gql({...})` call site stays unchanged.
+  private get graphql(): GraphQLService {
+    const server = this.serverService.server;
+    if (!server) {
+      throw new Error('WorkspaceServerService.server not bound yet');
+    }
+    return server.scope.get(GraphQLService);
   }
 
   /**
@@ -235,7 +248,6 @@ export class AnalyticsService extends Service {
     ).subscribe;
 
     if (typeof wsClient !== 'function') {
-       
       console.warn(
         '[analytics] subscribeToInsights — no ws transport available; falling back to poll-on-mount only'
       );
@@ -262,13 +274,11 @@ export class AnalyticsService extends Service {
           }
         },
         error: err => {
-           
           console.warn('[analytics] insight subscription error', err);
         },
       });
       return unsubscribe;
     } catch (err) {
-       
       console.warn('[analytics] insight subscription failed to init', err);
       return () => {};
     }

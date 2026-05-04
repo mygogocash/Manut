@@ -8,7 +8,8 @@ import {
 } from '@affine/graphql';
 import { Service } from '@toeverything/infra';
 
-import type { GraphQLService } from '../../cloud/services/graphql';
+import type { WorkspaceServerService } from '../../cloud';
+import { GraphQLService } from '../../cloud/services/graphql';
 import type { SocialPlatform } from '../entities/analytics-data.entity';
 import {
   type PlatformConnection,
@@ -93,8 +94,18 @@ export type BeginOAuthResult =
 export class ConnectionService extends Service {
   readonly entity = this.framework.createEntity(PlatformConnectionEntity);
 
-  constructor(private readonly graphql: GraphQLService) {
+  constructor(private readonly serverService: WorkspaceServerService) {
     super();
+  }
+
+  // GraphQLService lives in ServerScope; route through the workspace's
+  // bound server. See AnalyticsService for the explanation.
+  private get graphql(): GraphQLService {
+    const server = this.serverService.server;
+    if (!server) {
+      throw new Error('WorkspaceServerService.server not bound yet');
+    }
+    return server.scope.get(GraphQLService);
   }
 
   loadConnections = async (workspaceId: string): Promise<void> => {
