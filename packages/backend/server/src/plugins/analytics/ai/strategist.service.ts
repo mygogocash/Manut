@@ -15,7 +15,10 @@ import { BudgetService } from './budget.service';
  * gpt-* is intentionally excluded — Superflow's Vertex stack doesn't route it
  * (CLAUDE.md §5d) and we'd rather see an error than a silent fallback.
  */
-const PRICING: Record<string, { inputPerMTokens: number; outputPerMTokens: number }> = {
+const PRICING: Record<
+  string,
+  { inputPerMTokens: number; outputPerMTokens: number }
+> = {
   'claude-sonnet-4-5@20250929': { inputPerMTokens: 3, outputPerMTokens: 15 },
   'gemini-2.5-flash': { inputPerMTokens: 0.075, outputPerMTokens: 0.3 },
   'gemini-2.5-pro': { inputPerMTokens: 1.25, outputPerMTokens: 10 },
@@ -38,7 +41,10 @@ const MAX_INPUT_CHARS = 30_000 * 4; // ~30K tokens at 4 chars/token
  * to a user-facing error.
  */
 export class BudgetExceededError extends Error {
-  constructor(workspaceId: string, public readonly model: string) {
+  constructor(
+    workspaceId: string,
+    public readonly model: string
+  ) {
     super(
       `Analytics AI budget exceeded for workspace ${workspaceId} — refusing ${model} call`
     );
@@ -92,7 +98,7 @@ export class StrategistService {
   ): Promise<SocialInsight> {
     return await this.runPrompt({
       workspaceId,
-      promptName: 'Analytics: Content Recommendation',
+      promptName: 'Analytics: Recommendation',
       insightType: 'RECOMMENDATION',
       title: 'Content recommendations',
       estimatedCostUsd: ESTIMATED_COST_USD.contentRecommendation,
@@ -124,7 +130,9 @@ export class StrategistService {
     if (!prompt) {
       throw new Error(`Prompt not found: ${promptName}`);
     }
-    const provider = await this.providerFactory.getProviderByModel(prompt.model);
+    const provider = await this.providerFactory.getProviderByModel(
+      prompt.model
+    );
     if (!provider) {
       throw new Error(
         `No provider available for model ${prompt.model} (prompt ${promptName})`
@@ -141,9 +149,7 @@ export class StrategistService {
     // We don't get usage tokens back from provider.text(), so we estimate
     // cost from char counts at 4 chars/token. Tightening this later means
     // threading usage through the provider abstraction — out of scope here.
-    const inputTokens = estimateTokens(
-      messages.map(m => m.content).join('\n')
-    );
+    const inputTokens = estimateTokens(messages.map(m => m.content).join('\n'));
     const outputTokens = estimateTokens(body);
     const costUsd = computeCost(prompt.model, inputTokens, outputTokens);
 
@@ -268,9 +274,7 @@ function computeCost(
   if (!rate) {
     // Unknown model — record a conservative estimate so the budget still
     // moves. Default to gemini-2.5-flash pricing (cheapest catalogued).
-    return (
-      (inputTokens * 0.075 + outputTokens * 0.3) / 1_000_000
-    );
+    return (inputTokens * 0.075 + outputTokens * 0.3) / 1_000_000;
   }
   return (
     (inputTokens * rate.inputPerMTokens +

@@ -1742,8 +1742,8 @@ Constraints:
     },
   },
   {
-    name: 'Analytics: Content Recommendation',
-    action: 'Analytics: Content Recommendation',
+    name: 'Analytics: Recommendation',
+    action: 'Analytics: Recommendation',
     model: 'gemini-2.5-flash',
     optionalModels: [
       'gemini-2.5-flash',
