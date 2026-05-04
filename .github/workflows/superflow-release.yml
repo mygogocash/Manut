@@ -96,8 +96,9 @@ jobs:
             exit 1
           fi
           echo "napi produced: $PRODUCED"
-          cp "$PRODUCED" server-native.x64.node
-          cp "$PRODUCED" server-native.node
+          # Skip self-copy if napi already produced the canonical name.
+          [ "$PRODUCED" != "server-native.x64.node" ] && cp "$PRODUCED" server-native.x64.node
+          [ "$PRODUCED" != "server-native.node" ]     && cp "$PRODUCED" server-native.node
           touch server-native.arm64.node server-native.armv7.node
           echo "--- files after rename ---"
           ls -la server-native.*.node server-native.node 2>&1 | head -10
