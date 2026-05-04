@@ -412,6 +412,48 @@ Superflow exposes five model families on Vertex AI: Gemini + Anthropic
 publishers via the OpenAI-compatible MaaS endpoint). All flow through
 the same `getGoogleAuth` service-account path — no separate API keys.
 
+### ⚠️ The Vertex URL prefix has been broken TWICE — read this first
+
+The `getGoogleAuth.getBaseUrl()` helper in
+`packages/backend/server/src/plugins/copilot/providers/utils.ts` MUST
+include the `projects/{project}/locations/{location}/` segment when
+project is set, otherwise Google Vertex rejects with:
+
+```
+400 INVALID_ARGUMENT — RESOURCE_PROJECT_INVALID
+"Invalid resource field value in the request."
+```
+
+History:
+- **v1.7.3** — first added the project-prefix branch to fix the bug.
+- **v1.9.0** — Agent A's refactor (adding the new `publisher` parameter
+  for Llama/Mistral/DeepSeek) silently dropped the prefix branch.
+  Production AI chat broke. Diagnosed only when a user tried it.
+- **v1.9.2** — restored the prefix branch with an explicit comment
+  warning future refactors not to drop it.
+
+The minimal correct shape:
+
+```ts
+function getBaseUrl() {
+  const { location, project } = options;
+  if (!location) return undefined;
+  if (project) {
+    return (
+      `https://${location}-aiplatform.googleapis.com/v1` +
+      `/projects/${project}/locations/${location}/publishers/${publisher}`
+    );
+  }
+  // legacy fallback — only valid for callers that haven't configured project
+  return `https://${location}-aiplatform.googleapis.com/v1beta1/publishers/${publisher}`;
+}
+```
+
+Any future change to `utils.ts`, especially refactors that add
+parameters or split the function, MUST preserve both branches. Add a
+test in `__tests__/copilot/utils.spec.ts` if you find this gets
+re-broken.
+
 ### Anatomy of a Vertex Model Garden provider
 
 Concrete subclasses extend `VertexOpenAICompatProvider`

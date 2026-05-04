@@ -499,11 +499,27 @@ export async function getGoogleAuth(
   function getBaseUrl() {
     const normalizedBaseUrl = normalizeUrl(options.baseURL);
     if (normalizedBaseUrl) return normalizedBaseUrl;
-    const { location } = options;
-    if (location) {
-      return `https://${location}-aiplatform.googleapis.com/v1beta1/publishers/${publisher}`;
+    const { location, project } = options;
+    if (!location) return undefined;
+    // Vertex AI requires the project + location prefix in the URL for both
+    // Anthropic and Google publishers (and the new Model Garden ones —
+    // meta / mistralai / deepseek-ai). Without it, Google rejects with
+    //   400 INVALID_ARGUMENT — RESOURCE_PROJECT_INVALID
+    // The previous "/v1beta1/publishers/{publisher}" form omitted the
+    // project context and broke streamGenerateContent.
+    //
+    // First fixed in v1.7.3, regressed in v1.9.0 when this function was
+    // refactored to take a publisher parameter (the project-prefix branch
+    // got dropped). Restoring + adding a comment so it stays restored.
+    if (project) {
+      return (
+        `https://${location}-aiplatform.googleapis.com/v1` +
+        `/projects/${project}/locations/${location}/publishers/${publisher}`
+      );
     }
-    return undefined;
+    // Fallback for callers that didn't set `project` — keep the legacy URL
+    // shape so we don't change behavior for unconfigured providers.
+    return `https://${location}-aiplatform.googleapis.com/v1beta1/publishers/${publisher}`;
   }
 
   async function generateAuthToken() {
