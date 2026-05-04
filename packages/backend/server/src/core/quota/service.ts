@@ -25,6 +25,14 @@ export type WorkspaceQuotaWithUsage = Omit<
   'humanReadable'
 > & { ownerQuota?: string };
 
+// SUPERFLOW: effectively-unlimited seat count returned for self-hosted
+// deployments. We deliberately keep this finite (rather than
+// `Number.MAX_SAFE_INTEGER`) because the value is serialised to GraphQL Int
+// in places (e.g. `WorkspaceQuotaHumanReadableType.memberLimit` via
+// `quota.memberLimit.toString()`), and a 32-bit-safe value is friendlier to
+// any client formatting.
+const SUPERFLOW_UNLIMITED_SEATS = 100_000;
+
 @Injectable()
 export class QuotaService {
   protected logger = new Logger(QuotaService.name);
@@ -124,18 +132,34 @@ export class QuotaService {
   async getWorkspaceQuota(workspaceId: string): Promise<WorkspaceQuota> {
     const quota = await this.models.workspaceFeature.getQuota(workspaceId);
 
+    let resolved: WorkspaceQuota;
     if (!quota) {
       // get and convert to workspace quota from owner's quota
       const owner = await this.models.workspaceUser.getOwner(workspaceId);
       const ownerQuota = await this.getUserQuota(owner.id);
 
-      return {
+      resolved = {
         ...ownerQuota,
         ownerQuota: owner.id,
       };
+    } else {
+      resolved = quota.configs;
     }
 
-    return quota.configs;
+    // SUPERFLOW: lift the seat limit on self-hosted deployments so the FOSS
+    // build does not enforce the upstream 10-seat cap. We keep the field
+    // populated (rather than removing it) so all downstream call sites
+    // (`tryCheckSeat`, `getWorkspaceSeatQuota`, `getWorkspaceQuotaWithUsage`,
+    // resolver inline checks, etc.) continue to work unchanged. If upstream
+    // ever changes the comparison shape, the override still applies.
+    if (env.selfhosted) {
+      return {
+        ...resolved,
+        memberLimit: SUPERFLOW_UNLIMITED_SEATS,
+      };
+    }
+
+    return resolved;
   }
 
   async getWorkspaceQuotaWithUsage(

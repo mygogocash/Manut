@@ -79,7 +79,14 @@ export const useWorkspaceSettingList = (): SettingSidebarItem[] => {
 
   const showBilling =
     !isSelfhosted && information?.isTeam && information?.isOwner;
-  const showLicense = information?.isOwner && isSelfhosted;
+  // SUPERFLOW: hide the License tab on self-hosted. The Superflow fork ships
+  // FOSS with no seat cap and no upgrade prompts, so the entire License /
+  // "Get teams plan" surface is removed from the workspace settings sidebar.
+  // The route case `'workspace:license'` in the switch above is kept (and the
+  // panel renders a "all features enabled" notice) so direct-URL deep-links
+  // and other call sites that still reference the tab remain non-broken.
+  const showLicense = false;
+  // Original upstream: const showLicense = information?.isOwner && isSelfhosted;
   const items = useMemo<SettingSidebarItem[]>(() => {
     return [
       {
