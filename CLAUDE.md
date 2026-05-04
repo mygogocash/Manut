@@ -416,6 +416,13 @@ Document the surprises — saves the next session a discovery cycle.
   `--no-verify` after stashing-and-verifying the errors are
   pre-existing. The cleanup is overdue; track it as a lint-debt
   sweep before the next release.
+  - **UPDATE (post-2900714c2):** husky pre-commit hook now passes
+    clean on `main` (verified by a real test commit + revert). The
+    rxjs/finnish + consistent-type-imports errors the auto-tag agent
+    reported existed in its OLDER worktree base, not in current main.
+    No --no-verify needed for new commits. If it bites again later,
+    `yarn eslint --no-cache <file>` is the source of truth — exit 0
+    means the hook will pass.
 
 ## 5b. Settings dialog wiring (where new tabs live)
 
