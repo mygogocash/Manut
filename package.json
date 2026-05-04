@@ -26,7 +26,7 @@
     "lint:eslint:fix": "yarn lint:eslint --fix --fix-type problem,suggestion,layout",
     "lint:prettier": "prettier --ignore-unknown --cache --check .",
     "lint:prettier:fix": "prettier --ignore-unknown --cache --write .",
-    "lint:ox": "oxlint --deny-warnings",
+    "lint:ox": "oxlint -c .oxlintrc.json --deny-warnings",
     "lint:ox:fix": "yarn lint:ox --fix",
     "lint": "yarn lint:ox && yarn lint:eslint && yarn lint:prettier",
     "lint:fix": "yarn lint:ox:fix && yarn lint:eslint:fix && yarn lint:prettier:fix",
