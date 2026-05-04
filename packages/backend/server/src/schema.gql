@@ -1237,6 +1237,31 @@ type InvitationReviewDeclinedNotificationBodyType {
   workspace: NotificationWorkspaceType
 }
 
+type BudgetSoftCapNotificationBodyType {
+  """
+  The user who created the notification, maybe null when user is deleted or sent by system
+  """
+  createdByUser: PublicUserType
+
+  """The type of the notification"""
+  type: NotificationType!
+  workspace: NotificationWorkspaceType
+
+  """Workspace whose AI budget crossed the soft cap"""
+  workspaceId: String!
+
+  """
+  Total AI spend in USD for the calendar month at the time the soft cap was crossed
+  """
+  spentUsd: Float!
+
+  """Hard cap in USD for the workspace; soft cap is 80% of this"""
+  capUsd: Float!
+
+  """Calendar month the spend belongs to, formatted as YYYY-MM"""
+  monthYear: String!
+}
+
 type InvitationReviewRequestNotificationBodyType {
   """
   The user who created the notification, maybe null when user is deleted or sent by system
@@ -1762,6 +1787,7 @@ type NotificationObjectTypeEdge {
 
 """Notification type"""
 enum NotificationType {
+  BudgetSoftCap
   Comment
   CommentMention
   Invitation
@@ -2410,7 +2436,7 @@ type TranscriptionSourceAudioType {
   sampleRate: Int
 }
 
-union UnionNotificationBodyType = InvitationAcceptedNotificationBodyType | InvitationBlockedNotificationBodyType | InvitationNotificationBodyType | InvitationReviewApprovedNotificationBodyType | InvitationReviewDeclinedNotificationBodyType | InvitationReviewRequestNotificationBodyType | MentionNotificationBodyType
+union UnionNotificationBodyType = BudgetSoftCapNotificationBodyType | InvitationAcceptedNotificationBodyType | InvitationBlockedNotificationBodyType | InvitationNotificationBodyType | InvitationReviewApprovedNotificationBodyType | InvitationReviewDeclinedNotificationBodyType | InvitationReviewRequestNotificationBodyType | MentionNotificationBodyType
 
 type UnknownOauthProviderDataType {
   name: String!

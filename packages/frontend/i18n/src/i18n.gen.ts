@@ -4193,6 +4193,10 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.notification.comment-prompt"](): string;
     /**
+      * `your workspace`
+      */
+    ["com.affine.notification.budget-soft-cap.fallback-workspace-name"](): string;
+    /**
       * `Delete all notifications`
       */
     ["com.affine.notification.delete-all"](): string;
@@ -9904,6 +9908,18 @@ export const TypedTrans: {
     }>, {
         ["1"]: JSX.Element;
         ["2"]: JSX.Element;
+    }>>;
+    /**
+      * `AI usage in <1>{{workspaceName}}</1> reached <3>{{spent}}</3> of the <4>{{cap}}</4> monthly cap. New AI requests will pause once the cap is hit.`
+      */
+    ["com.affine.notification.budget-soft-cap"]: ComponentType<TypedTransProps<Readonly<{
+        workspaceName: string;
+        spent: string;
+        cap: string;
+    }>, {
+        ["1"]: JSX.Element;
+        ["3"]: JSX.Element;
+        ["4"]: JSX.Element;
     }>>;
     /**
       * `<1>{{username}}</1> invited you to join <2>{{workspaceName}}</2>`

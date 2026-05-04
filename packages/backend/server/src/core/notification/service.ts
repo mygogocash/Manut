@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 
 import { NotificationNotFound, PaginationInput, URLHelper } from '../../base';
 import {
+  BudgetSoftCapNotification,
+  BudgetSoftCapNotificationCreate,
   CommentNotification,
   CommentNotificationCreate,
   DEFAULT_WORKSPACE_NAME,
@@ -22,6 +24,18 @@ import {
   generateWorkspaceSettingsPath,
   WorkspaceSettingsTab,
 } from '../utils/workspace';
+
+/**
+ * Some notification body shapes (mention, comment, invitation) carry a
+ * `createdByUserId` while system-generated bodies (budget soft-cap) do not.
+ * Returning undefined for the latter lets the caller skip user-info
+ * enrichment without a hard-coded type list.
+ */
+function getBodyCreatedByUserId(
+  body: UnionNotificationBody
+): string | undefined {
+  return 'createdByUserId' in body ? body.createdByUserId : undefined;
+}
 
 @Injectable()
 export class NotificationService {
@@ -380,6 +394,18 @@ export class NotificationService {
     );
   }
 
+  /**
+   * Surface the analytics-platform soft-cap alert in the user's in-app
+   * notification feed. No email is sent: the analytics module is opt-in
+   * (ENABLE_ANALYTICS_MODULE) and budget alerts should not generate
+   * mailbox traffic before the broader analytics UX ships.
+   */
+  async createBudgetSoftCap(
+    input: BudgetSoftCapNotificationCreate
+  ): Promise<BudgetSoftCapNotification> {
+    return await this.models.notification.createBudgetSoftCap(input);
+  }
+
   private async ensureWorkspaceContentExists(workspaceId: string) {
     await this.docReader.getWorkspaceContent(workspaceId);
   }
@@ -412,8 +438,14 @@ export class NotificationService {
       options
     );
 
-    // fill user info
-    const userIds = new Set(notifications.map(n => n.body.createdByUserId));
+    // fill user info — only mention/comment/invitation bodies carry a
+    // `createdByUserId`; system-generated bodies (e.g. budget soft-cap)
+    // have no creator and are skipped.
+    const userIds = new Set(
+      notifications
+        .map(n => getBodyCreatedByUserId(n.body))
+        .filter((id): id is string => Boolean(id))
+    );
     const users = await this.models.user.getPublicUsers(Array.from(userIds));
     const userInfos = new Map(users.map(u => [u.id, u]));
 
@@ -447,16 +479,21 @@ export class NotificationService {
       }
     }
 
-    return notifications.map(n => ({
-      ...n,
-      body: {
-        ...(n.body as UnionNotificationBody),
-        // set type to body.type to improve type inference on frontend
-        type: n.type,
-        workspace: workspaceInfos.get(n.body.workspaceId),
-        createdByUser: userInfos.get(n.body.createdByUserId),
-      },
-    }));
+    return notifications.map(n => {
+      const createdByUserId = getBodyCreatedByUserId(n.body);
+      return {
+        ...n,
+        body: {
+          ...(n.body as UnionNotificationBody),
+          // set type to body.type to improve type inference on frontend
+          type: n.type,
+          workspace: workspaceInfos.get(n.body.workspaceId),
+          createdByUser: createdByUserId
+            ? userInfos.get(createdByUserId)
+            : undefined,
+        },
+      };
+    });
   }
 
   async countByUserId(userId: string) {

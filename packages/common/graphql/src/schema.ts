@@ -347,6 +347,23 @@ export interface BlobUploadedPart {
   partNumber: Scalars['Int']['output'];
 }
 
+export interface BudgetSoftCapNotificationBodyType {
+  __typename?: 'BudgetSoftCapNotificationBodyType';
+  /** Hard cap in USD for the workspace; soft cap is 80% of this */
+  capUsd: Scalars['Float']['output'];
+  /** The user who created the notification, maybe null when user is deleted or sent by system */
+  createdByUser: Maybe<PublicUserType>;
+  /** Calendar month the spend belongs to, formatted as YYYY-MM */
+  monthYear: Scalars['String']['output'];
+  /** Total AI spend in USD for the calendar month at the time the soft cap was crossed */
+  spentUsd: Scalars['Float']['output'];
+  /** The type of the notification */
+  type: NotificationType;
+  workspace: Maybe<NotificationWorkspaceType>;
+  /** Workspace whose AI budget crossed the soft cap */
+  workspaceId: Scalars['String']['output'];
+}
+
 export interface CalendarAccountObjectType {
   __typename?: 'CalendarAccountObjectType';
   calendars: Array<CalendarSubscriptionObjectType>;
@@ -2391,6 +2408,7 @@ export interface NotificationObjectTypeEdge {
 
 /** Notification type */
 export enum NotificationType {
+  BudgetSoftCap = 'BudgetSoftCap',
   Comment = 'Comment',
   CommentMention = 'CommentMention',
   Invitation = 'Invitation',
@@ -3115,6 +3133,7 @@ export interface TranscriptionSourceAudioType {
 }
 
 export type UnionNotificationBodyType =
+  | BudgetSoftCapNotificationBodyType
   | InvitationAcceptedNotificationBodyType
   | InvitationBlockedNotificationBodyType
   | InvitationNotificationBodyType

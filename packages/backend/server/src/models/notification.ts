@@ -122,11 +122,36 @@ export const CommentMentionNotificationCreateSchema =
     body: CommentNotificationBodySchema,
   });
 
+const BudgetSoftCapNotificationBodySchema = z.object({
+  workspaceId: IdSchema,
+  // Decimal cents at the wire level would be cleaner, but keeping this in
+  // dollars matches the SocialAiBudget table (Decimal) and the @prisma type
+  // is already a number after Prisma's runtime coercion.
+  spentUsd: z.number().nonnegative().finite(),
+  capUsd: z.number().positive().finite(),
+  // "YYYY-MM" UTC — same key shape used by BudgetService.currentMonthKey.
+  monthYear: z.string().regex(/^\d{4}-\d{2}$/),
+});
+
+export type BudgetSoftCapNotificationBody = z.infer<
+  typeof BudgetSoftCapNotificationBodySchema
+>;
+
+export const BudgetSoftCapNotificationCreateSchema =
+  BaseNotificationCreateSchema.extend({
+    body: BudgetSoftCapNotificationBodySchema,
+  });
+
+export type BudgetSoftCapNotificationCreate = z.input<
+  typeof BudgetSoftCapNotificationCreateSchema
+>;
+
 export type UnionNotificationBody =
   | MentionNotificationBody
   | InvitationNotificationBody
   | InvitationReviewDeclinedNotificationBody
-  | CommentNotificationBody;
+  | CommentNotificationBody
+  | BudgetSoftCapNotificationBody;
 
 // #endregion
 
@@ -144,11 +169,15 @@ export type InvitationReviewDeclinedNotification = Notification &
 export type CommentNotification = Notification &
   z.infer<typeof CommentNotificationCreateSchema>;
 
+export type BudgetSoftCapNotification = Notification &
+  z.infer<typeof BudgetSoftCapNotificationCreateSchema>;
+
 export type UnionNotification =
   | MentionNotification
   | InvitationNotification
   | InvitationReviewDeclinedNotification
-  | CommentNotification;
+  | CommentNotification
+  | BudgetSoftCapNotification;
 
 // #endregion
 
@@ -240,6 +269,25 @@ export class NotificationModel extends BaseModel {
       `Created ${type} notification ${row.id} to user ${data.userId} in workspace ${data.body.workspaceId}`
     );
     return row as CommentNotification;
+  }
+
+  // #endregion
+
+  // #region budget
+
+  async createBudgetSoftCap(input: BudgetSoftCapNotificationCreate) {
+    const data = BudgetSoftCapNotificationCreateSchema.parse(input);
+    const type = NotificationType.BudgetSoftCap;
+    const row = await this.create({
+      userId: data.userId,
+      level: data.level,
+      type,
+      body: data.body,
+    });
+    this.logger.debug(
+      `Created ${type} notification ${row.id} to user ${data.userId} in workspace ${data.body.workspaceId} (spent=$${data.body.spentUsd.toFixed(2)} cap=$${data.body.capUsd.toFixed(2)} month=${data.body.monthYear})`
+    );
+    return row as BudgetSoftCapNotification;
   }
 
   // #endregion

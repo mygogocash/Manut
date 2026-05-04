@@ -1,6 +1,7 @@
 import {
   createUnionType,
   Field,
+  Float,
   ID,
   InputType,
   ObjectType,
@@ -133,6 +134,30 @@ export class InvitationReviewApprovedNotificationBodyType
 @ObjectType()
 export class InvitationReviewDeclinedNotificationBodyType extends BaseNotificationBodyType {}
 
+@ObjectType()
+export class BudgetSoftCapNotificationBodyType extends BaseNotificationBodyType {
+  @Field(() => String, {
+    description: 'Workspace whose AI budget crossed the soft cap',
+  })
+  workspaceId!: string;
+
+  @Field(() => Float, {
+    description:
+      'Total AI spend in USD for the calendar month at the time the soft cap was crossed',
+  })
+  spentUsd!: number;
+
+  @Field(() => Float, {
+    description: 'Hard cap in USD for the workspace; soft cap is 80% of this',
+  })
+  capUsd!: number;
+
+  @Field(() => String, {
+    description: 'Calendar month the spend belongs to, formatted as YYYY-MM',
+  })
+  monthYear!: string;
+}
+
 export const UnionNotificationBodyType = createUnionType({
   name: 'UnionNotificationBodyType',
   types: () =>
@@ -144,6 +169,7 @@ export const UnionNotificationBodyType = createUnionType({
       InvitationReviewRequestNotificationBodyType,
       InvitationReviewApprovedNotificationBodyType,
       InvitationReviewDeclinedNotificationBodyType,
+      BudgetSoftCapNotificationBodyType,
     ] as const,
 });
 

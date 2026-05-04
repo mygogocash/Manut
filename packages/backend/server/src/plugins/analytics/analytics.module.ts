@@ -5,6 +5,7 @@ import './config';
 import type { DynamicModule } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 
+import { NotificationModule } from '../../core/notification';
 import { PermissionModule } from '../../core/permission';
 import { CopilotModule } from '../copilot';
 import { DailyRollupCron } from './aggregator/daily-rollup.cron';
@@ -59,9 +60,12 @@ export class AnalyticsModule {
       imports: [
         // Analytics depends on CopilotModule for PromptService +
         // CopilotProviderFactory (consumed by the AI services). Permission
-        // module backs Workspace.Read ACL on every resolver.
+        // module backs Workspace.Read ACL on every resolver. Notification
+        // module exposes NotificationService used by the budget soft-cap
+        // alert (BudgetService.fireSoftCapAlert).
         CopilotModule,
         PermissionModule,
+        NotificationModule,
       ],
       providers: [
         // connections
