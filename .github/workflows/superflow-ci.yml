@@ -71,6 +71,66 @@ jobs:
       - name: oxlint --deny-warnings
         run: yarn oxlint --deny-warnings
 
+  codegen-drift:
+    name: GraphQL codegen drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Catches two failure modes from the same root cause:
+    #   1. Hand-rolled exports added directly to packages/common/graphql/src/
+    #      graphql/index.ts without a backing .gql file. Next codegen run
+    #      silently drops them — see commit 49a92ec38 dropping
+    #      adminVerifiedDocsQuery and breaking the admin bundle for ~11
+    #      commits before anyone noticed.
+    #   2. .gql / schema.gql edits committed without re-running codegen, so
+    #      schema.ts and graphql/index.ts go stale and drift.
+    # Either way: regen and fail if `git diff` is non-empty. The error
+    # message tells the dev exactly which command to run.
+    #
+    # No untrusted input — only `runner.os` and `hashFiles()` in expressions,
+    # both deterministic and safe per GitHub Actions security guidance.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable
+      - name: Cache yarn
+        uses: actions/cache@v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/install-state.gz
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-${{ runner.os }}-
+      - run: yarn install --immutable
+      - name: Re-run gql codegen
+        run: yarn workspace @affine/graphql build
+      - name: Fail if codegen produced a diff
+        run: |
+          if ! git diff --exit-code -- \
+              packages/common/graphql/src/schema.ts \
+              packages/common/graphql/src/graphql/index.ts; then
+            echo ""
+            echo "::error::GraphQL codegen drift detected."
+            echo ""
+            echo "The committed schema.ts / graphql/index.ts do not match what"
+            echo "'yarn workspace @affine/graphql build' produces against the"
+            echo "current schema.gql + .gql files. Most likely causes:"
+            echo ""
+            echo "  - You edited a .gql file (or schema.gql) without re-running"
+            echo "    codegen and committing the regenerated outputs."
+            echo "  - You added a hand-rolled export to graphql/index.ts without"
+            echo "    a backing .gql operation doc — the next codegen run will"
+            echo "    drop it (this is what broke v1.10.2 -> main for ~11 commits)."
+            echo ""
+            echo "Fix locally:"
+            echo "  yarn workspace @affine/graphql build"
+            echo "  git add packages/common/graphql/src/schema.ts \\"
+            echo "          packages/common/graphql/src/graphql/index.ts"
+            echo "  git commit --amend --no-edit"
+            exit 1
+          fi
+
   build-web:
     name: Build web bundle
     runs-on: ubuntu-latest
