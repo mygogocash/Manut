@@ -54,6 +54,7 @@ model User {
   mcpApiKeys                  McpApiKey[]
   integrationConnections      IntegrationConnection[]
   agents                      Agent[]
+  socialConnections           SocialConnection[]
 
   @@index([email])
   @@map("users")
@@ -161,6 +162,7 @@ model Workspace {
   integrationConnections     IntegrationConnection[]
   mcpApiKeys                 McpApiKey[]
   agents                     Agent[]
+  socialConnections          SocialConnection[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -1227,4 +1229,165 @@ model Agent {
   @@index([workspaceId])
   @@index([parentAgentId])
   @@map("agents")
+}
+
+// =============================================================================
+// Analytics Platform — Phase 1 schema (docs/analytics-platform.md §5)
+// =============================================================================
+//
+// Tables introduced:
+//   social_connections  — workspace-level OAuth connections (KMS-encrypted tokens)
+//   social_events       — normalized event store from webhooks/pollers
+//   social_metrics      — pre-aggregated metric rollups (hour/day/week)
+//   social_insights     — AI-generated insights with cost tracking
+//   social_ai_budget    — monthly per-workspace AI spend cap
+//   social_audit_logs   — audit trail for token decryption events (PRD §6)
+//
+// All tables are additive; nothing in the upstream schema is touched besides
+// adding back-relations on User and Workspace. See migration
+// `<timestamp>-analytics-platform.ts` for the idempotent SQL.
+
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  THREADS
+  TIKTOK
+  LINE_VOOM
+  GOGOCASH
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  PAUSED
+  EXPIRED
+  ERROR
+}
+
+enum MetricBucket {
+  HOUR
+  DAY
+  WEEK
+}
+
+enum InsightType {
+  WEEKLY_STRATEGY
+  TREND
+  ANOMALY
+  RECOMMENDATION
+}
+
+enum InsightSeverity {
+  INFO
+  NOTABLE
+  ACTION_REQUIRED
+}
+
+model SocialConnection {
+  id                  String           @id @default(uuid()) @db.VarChar
+  workspaceId         String           @map("workspace_id") @db.VarChar
+  platform            SocialPlatform
+  status              ConnectionStatus @default(ACTIVE)
+  // KMS-encrypted ciphertext. Never log or expose. See token-store.ts.
+  accessTokenEnc      String           @map("access_token_enc") @db.Text
+  refreshTokenEnc     String?          @map("refresh_token_enc") @db.Text
+  scopes              String[]         @default([])
+  externalAccountId   String           @map("external_account_id") @db.VarChar
+  externalAccountName String           @map("external_account_name") @db.VarChar
+  connectedByUserId   String           @map("connected_by_user_id") @db.VarChar
+  expiresAt           DateTime?        @map("expires_at") @db.Timestamptz(3)
+  lastSyncAt          DateTime?        @map("last_sync_at") @db.Timestamptz(3)
+  lastErrorAt         DateTime?        @map("last_error_at") @db.Timestamptz(3)
+  lastError           String?          @map("last_error") @db.Text
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connectedBy User      @relation(fields: [connectedByUserId], references: [id])
+
+  @@unique([workspaceId, platform, externalAccountId])
+  @@index([workspaceId])
+  @@index([status, expiresAt])
+  @@map("social_connections")
+}
+
+model SocialEvent {
+  id           String         @id @default(uuid()) @db.VarChar
+  workspaceId  String         @map("workspace_id") @db.VarChar
+  connectionId String         @map("connection_id") @db.VarChar
+  platform     SocialPlatform
+  eventType    String         @map("event_type") @db.VarChar
+  externalId   String         @map("external_id") @db.VarChar
+  occurredAt   DateTime       @map("occurred_at") @db.Timestamptz(3)
+  receivedAt   DateTime       @default(now()) @map("received_at") @db.Timestamptz(3)
+  payload      Json           @default("{}") @db.JsonB
+  raw          Json           @default("{}") @db.JsonB
+
+  @@unique([connectionId, externalId, eventType])
+  @@index([workspaceId, occurredAt])
+  @@index([workspaceId, platform, eventType, occurredAt])
+  @@map("social_events")
+}
+
+model SocialMetric {
+  id          String         @id @default(uuid()) @db.VarChar
+  workspaceId String         @map("workspace_id") @db.VarChar
+  platform    SocialPlatform
+  metricKey   String         @map("metric_key") @db.VarChar
+  bucket      MetricBucket
+  bucketStart DateTime       @map("bucket_start") @db.Timestamptz(3)
+  value       Float
+  metadata    Json?          @db.JsonB
+
+  @@unique([workspaceId, platform, metricKey, bucket, bucketStart])
+  @@index([workspaceId, platform, bucket, bucketStart])
+  @@map("social_metrics")
+}
+
+model SocialInsight {
+  id               String           @id @default(uuid()) @db.VarChar
+  workspaceId      String           @map("workspace_id") @db.VarChar
+  insightType      InsightType      @map("insight_type")
+  platforms        SocialPlatform[]
+  title            String           @db.VarChar
+  body             String           @db.Text
+  severity         InsightSeverity
+  modelUsed        String           @map("model_used") @db.VarChar
+  costUsd          Float            @map("cost_usd")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  acknowledgedAt   DateTime?        @map("acknowledged_at") @db.Timestamptz(3)
+  acknowledgedById String?          @map("acknowledged_by_id") @db.VarChar
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, insightType, createdAt])
+  @@map("social_insights")
+}
+
+model SocialAiBudget {
+  id          String  @id @default(uuid()) @db.VarChar
+  workspaceId String  @map("workspace_id") @db.VarChar
+  monthYear   String  @map("month_year") @db.VarChar
+  spentUsd    Float   @default(0) @map("spent_usd")
+  capUsd      Float   @default(100) @map("cap_usd")
+  alertSent   Boolean @default(false) @map("alert_sent")
+
+  @@unique([workspaceId, monthYear])
+  @@map("social_ai_budget")
+}
+
+// Audit trail for token decryption events. PRD §6 mandates a row per decrypt.
+// We expose this as its own table because there is no existing audit_log
+// facility in the upstream schema; agent 2 reads/writes via TokenStore only.
+model SocialAuditLog {
+  id          String         @id @default(uuid()) @db.VarChar
+  workspaceId String         @map("workspace_id") @db.VarChar
+  userId      String?        @map("user_id") @db.VarChar
+  platform    SocialPlatform
+  action      String         @db.VarChar
+  requestId   String?        @map("request_id") @db.VarChar
+  metadata    Json?          @db.JsonB
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([workspaceId, createdAt])
+  @@index([userId, createdAt])
+  @@map("social_audit_logs")
 }
