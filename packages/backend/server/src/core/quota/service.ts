@@ -33,6 +33,16 @@ export type WorkspaceQuotaWithUsage = Omit<
 // any client formatting.
 const SUPERFLOW_UNLIMITED_SEATS = 100_000;
 
+// SUPERFLOW: effectively-unlimited byte count for blob/storage quotas on
+// self-hosted. 1 PB stays well below Number.MAX_SAFE_INTEGER (~9 PB) and
+// formats cleanly in formatSize(). Self-hosted operators control their own
+// disk; we don't enforce caps that matter only for upstream's hosted plans.
+const SUPERFLOW_UNLIMITED_BYTES = 1_000_000_000_000_000;
+
+// SUPERFLOW: effectively-unlimited history retention period in milliseconds.
+// 100 years × 365 days × 24h × 3600s × 1000ms — safe int, formats cleanly.
+const SUPERFLOW_UNLIMITED_HISTORY_MS = 100 * 365 * 24 * 3600 * 1000;
+
 @Injectable()
 export class QuotaService {
   protected logger = new Logger(QuotaService.name);
@@ -65,6 +75,24 @@ export class QuotaService {
       throw new InternalServerError(
         'User quota not found and can not be created.'
       );
+    }
+
+    // SUPERFLOW: lift every per-user limit on self-hosted deployments. The
+    // FOSS build is unlimited by policy — operators control their own
+    // infrastructure, so caps that exist only to gate upstream's hosted
+    // tiers don't apply. `copilotActionLimit: undefined` matches the
+    // existing `unlimited_copilot` feature path; the rest set effectively-
+    // infinite finite values to keep downstream checks (size formatters,
+    // comparisons, GraphQL serialisation) working unchanged.
+    if (env.selfhosted) {
+      return {
+        ...quota.configs,
+        copilotActionLimit: undefined,
+        blobLimit: SUPERFLOW_UNLIMITED_BYTES,
+        storageQuota: SUPERFLOW_UNLIMITED_BYTES,
+        historyPeriod: SUPERFLOW_UNLIMITED_HISTORY_MS,
+        memberLimit: SUPERFLOW_UNLIMITED_SEATS,
+      } as UserQuotaWithUsage;
     }
 
     return {
@@ -146,15 +174,20 @@ export class QuotaService {
       resolved = quota.configs;
     }
 
-    // SUPERFLOW: lift the seat limit on self-hosted deployments so the FOSS
-    // build does not enforce the upstream 10-seat cap. We keep the field
-    // populated (rather than removing it) so all downstream call sites
-    // (`tryCheckSeat`, `getWorkspaceSeatQuota`, `getWorkspaceQuotaWithUsage`,
-    // resolver inline checks, etc.) continue to work unchanged. If upstream
-    // ever changes the comparison shape, the override still applies.
+    // SUPERFLOW: lift every per-workspace limit on self-hosted deployments.
+    // The FOSS build is unlimited by policy. Workspace quota mostly inherits
+    // from owner's user quota (which we already lifted in getUserQuota), but
+    // workspaces with their own stored config bypass that path — so we apply
+    // the same overrides here. Keeps fields populated so downstream call
+    // sites (`tryCheckSeat`, `getWorkspaceSeatQuota`, member-cap resolvers,
+    // etc.) continue to work unchanged.
     if (env.selfhosted) {
       return {
         ...resolved,
+        copilotActionLimit: undefined,
+        blobLimit: SUPERFLOW_UNLIMITED_BYTES,
+        storageQuota: SUPERFLOW_UNLIMITED_BYTES,
+        historyPeriod: SUPERFLOW_UNLIMITED_HISTORY_MS,
         memberLimit: SUPERFLOW_UNLIMITED_SEATS,
       };
     }
