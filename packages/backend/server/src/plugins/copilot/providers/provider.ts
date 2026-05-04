@@ -31,6 +31,7 @@ import {
   createBlobReadTool,
   createCodeArtifactTool,
   createConversationSummaryTool,
+  createDataViewAutofillColumnTool,
   createDataViewFilterTool,
   createDocComposeTool,
   createDocCreateTool,
@@ -521,6 +522,15 @@ export abstract class CopilotProvider<C = any> {
           }
           case 'dataViewFilter': {
             tools.data_view_filter = createDataViewFilterTool(
+              prompt,
+              this.factory
+            );
+            break;
+          }
+          case 'dataViewAutofillColumn': {
+            // ε-AI-INTEL v1.10: register the data-view cell autofill tool
+            // so the editingDataViews mode flag can opt sessions into it.
+            tools.data_view_autofill_column = createDataViewAutofillColumnTool(
               prompt,
               this.factory
             );

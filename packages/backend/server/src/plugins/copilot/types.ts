@@ -27,7 +27,22 @@ const ToolsConfigSchema = z.preprocess(
     }
     return val || {};
   },
-  z.record(z.enum(['searchWorkspace', 'readingDocs']), z.boolean()).default({})
+  // ε-AI-INTEL v1.10: extended with write-tool flags so chat sessions can
+  // opt into AI making changes (editingDocs/composingDocs/editingDataViews).
+  // Each flag corresponds to a group of backend tools — see
+  // `getTools()` in ./utils.ts for the actual mapping.
+  z
+    .record(
+      z.enum([
+        'searchWorkspace',
+        'readingDocs',
+        'editingDocs',
+        'composingDocs',
+        'editingDataViews',
+      ]),
+      z.boolean()
+    )
+    .default({})
 );
 
 export type ToolsConfig = z.infer<typeof ToolsConfigSchema>;

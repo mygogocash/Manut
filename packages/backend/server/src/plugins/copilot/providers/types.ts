@@ -84,6 +84,8 @@ export const PromptToolsSchema = z
     'sectionEdit',
     // data-view NL filter
     'dataViewFilter',
+    // data-view cell autofill (ε-AI-INTEL v1.10)
+    'dataViewAutofillColumn',
   ])
   .array();
 

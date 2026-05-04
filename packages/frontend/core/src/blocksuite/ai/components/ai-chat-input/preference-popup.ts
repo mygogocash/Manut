@@ -9,6 +9,7 @@ import {
   ServerDeploymentType,
   SubscriptionStatus,
 } from '@affine/graphql';
+import { I18n } from '@affine/i18n';
 import {
   menu,
   popMenu,
@@ -22,6 +23,7 @@ import {
   ArrowDownSmallIcon,
   CloudWorkspaceIcon,
   DoneIcon,
+  EditIcon,
   LockIcon,
   ThinkingIcon,
 } from '@blocksuite/icons/lit';
@@ -52,113 +54,72 @@ const BETA_MODEL_IDS = new Set<string>([
   'gpt-5-nano',
 ]);
 
-/**
- * Family inference from model id/name. Defensive — falls back to 'Other'
- * for anything we don't recognise. The new providers Agent A is wiring
- * (Llama, Mistral, DeepSeek) will surface here automatically as long as
- * their id contains the family slug. When the backend exposes a `family`
- * field directly, we should prefer that and treat this as a fallback.
- */
-type ModelFamily =
-  | 'Auto'
-  | 'Gemini'
-  | 'Claude'
-  | 'GPT'
-  | 'Llama'
-  | 'Mistral'
-  | 'DeepSeek'
-  | 'Other';
-
-const FAMILY_ORDER: ModelFamily[] = [
-  'Auto',
-  'Gemini',
-  'Claude',
-  'GPT',
-  'Llama',
-  'Mistral',
-  'DeepSeek',
-  'Other',
-];
-
-function inferFamily(model: {
-  id: string;
-  name?: string;
-  category?: string;
-  family?: ModelFamily;
-}): ModelFamily {
-  // Prefer explicit field if present (defensive — Agent A may add this).
-  if (model.family && FAMILY_ORDER.includes(model.family)) return model.family;
-  if (model.id === 'auto') return 'Auto';
-  const idLower = (model.id || '').toLowerCase();
-  const nameLower = (
-    (model.name || '') +
-    ' ' +
-    (model.category || '')
-  ).toLowerCase();
-  const haystack = `${idLower} ${nameLower}`;
-  if (haystack.includes('gemini')) return 'Gemini';
-  if (haystack.includes('claude')) return 'Claude';
-  if (haystack.includes('gpt') || haystack.includes('openai')) return 'GPT';
-  if (haystack.includes('llama') || haystack.includes('meta-')) return 'Llama';
-  if (haystack.includes('mistral') || haystack.includes('mixtral'))
-    return 'Mistral';
-  if (haystack.includes('deepseek')) return 'DeepSeek';
-  return 'Other';
+// Best-effort mapping from model.category (the human-facing brand prefix the
+// service derives from model.name) to a display "provider" string used in the
+// Beta tooltip. Falls back to the category itself if not in the map.
+function getProviderLabel(category: string | undefined): string {
+  if (!category) return 'the model provider';
+  const c = category.toLowerCase();
+  if (c.startsWith('claude')) return 'Anthropic';
+  if (c.startsWith('gpt') || c.startsWith('openai') || c === 'o1' || c === 'o3')
+    return 'OpenAI';
+  if (c.startsWith('gemini')) return 'Google';
+  return category;
 }
 
-/**
- * A small colored dot per family — simpler and theme-friendlier than
- * shipping per-vendor SVG logos (and avoids any logo licensing concerns).
- * The hex values are picked to be roughly recognisable but neutral.
- */
-const FAMILY_DOT: Record<ModelFamily, string> = {
-  Auto: '#888888',
-  Gemini: '#4285f4',
-  Claude: '#cc7c5e',
-  GPT: '#10a37f',
-  Llama: '#1877f2',
-  Mistral: '#ff7000',
-  DeepSeek: '#1e88e5',
-  Other: '#999999',
+// ε-AI-INTEL v1.10: permission modes for AI write tools. Each mode maps
+// to a fixed combination of write-flag values on AIToolsConfig. We treat
+// the tuple of (editingDocs, composingDocs, editingDataViews) as the mode
+// identity, so flipping any individual flag falls back to the matching
+// preset (or "custom" when no preset matches — currently the picker
+// always sets one of the three presets).
+type ChatPermissionMode = 'read-only' | 'edit-doc' | 'full-agent';
+
+interface ChatPermissionModeFlags {
+  editingDocs: boolean;
+  composingDocs: boolean;
+  editingDataViews: boolean;
+}
+
+const CHAT_PERMISSION_MODE_FLAGS: Record<
+  ChatPermissionMode,
+  ChatPermissionModeFlags
+> = {
+  // Default. No write tools — AI can search and read but not change anything.
+  'read-only': {
+    editingDocs: false,
+    composingDocs: false,
+    editingDataViews: false,
+  },
+  // Edit current doc — AI can modify the doc the user is working in
+  // (doc-edit, section-edit, doc-write) but cannot create new docs or
+  // touch data views.
+  'edit-doc': {
+    editingDocs: true,
+    composingDocs: false,
+    editingDataViews: false,
+  },
+  // Full agent — all write groups enabled.
+  'full-agent': {
+    editingDocs: true,
+    composingDocs: true,
+    editingDataViews: true,
+  },
 };
 
-/**
- * Tier inference. The new model shape will eventually surface a `tier`
- * field directly; until then we can guess from name/id. Returns null
- * when we can't tell — caller hides the badge in that case.
- */
-function inferTier(model: {
-  id: string;
-  name?: string;
-  tier?: 'Fast' | 'Balanced' | 'Max';
-}): 'Fast' | 'Balanced' | 'Max' | null {
-  if (model.tier) return model.tier;
-  const haystack = `${model.id} ${model.name ?? ''}`.toLowerCase();
-  if (
-    haystack.includes('opus') ||
-    haystack.includes('ultra') ||
-    haystack.includes('max') ||
-    haystack.includes('-pro')
-  ) {
-    return 'Max';
-  }
-  if (
-    haystack.includes('haiku') ||
-    haystack.includes('flash') ||
-    haystack.includes('mini') ||
-    haystack.includes('nano') ||
-    haystack.includes('lite')
-  ) {
-    return 'Fast';
-  }
-  if (
-    haystack.includes('sonnet') ||
-    haystack.includes('balanced') ||
-    haystack.includes('medium')
-  ) {
-    return 'Balanced';
-  }
-  return null;
+function deriveMode(flags: {
+  editingDocs?: boolean;
+  composingDocs?: boolean;
+  editingDataViews?: boolean;
+}): ChatPermissionMode {
+  const editing = !!flags.editingDocs;
+  const composing = !!flags.composingDocs;
+  const dataView = !!flags.editingDataViews;
+  if (editing && composing && dataView) return 'full-agent';
+  if (editing && !composing && !dataView) return 'edit-doc';
+  // Anything else collapses to read-only — including the default
+  // (all false) and any unexpected partial states.
+  return 'read-only';
 }
 
 export class ChatInputPreference extends SignalWatcher(
@@ -225,49 +186,34 @@ export class ChatInputPreference extends SignalWatcher(
       border-radius: 3px;
       margin-left: 6px;
       line-height: 14px;
+      cursor: help;
     }
-    /* Tier badge — sits next to the version string. Three tiers, three
-       muted background tones so the eye can scan a list quickly without
-       any single badge overpowering the model name. */
-    .ai-model-tier-badge {
-      display: inline-block;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      padding: 1px 5px;
-      border-radius: 3px;
-      margin-left: 6px;
-      line-height: 14px;
-      font-weight: 600;
+    .ai-pref-toggle-label {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
     }
-    .ai-model-tier-badge[data-tier='Fast'] {
-      background: rgba(16, 163, 127, 0.12);
-      color: #10a37f;
+    .ai-pref-toggle-label-title {
+      font-size: 14px;
+      line-height: 20px;
+      color: inherit;
     }
-    .ai-model-tier-badge[data-tier='Balanced'] {
-      background: rgba(66, 133, 244, 0.12);
-      color: #4285f4;
-    }
-    .ai-model-tier-badge[data-tier='Max'] {
-      background: rgba(204, 124, 94, 0.16);
-      color: #b86844;
-    }
-    /* Family dot — replaces vendor logos for a clean, neutral marker.
-       Sized to match the existing prefix slot so layout stays tidy. */
-    .ai-family-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      margin-right: 8px;
-    }
-    .ai-auto-sublabel {
-      display: block;
-      font-size: 11px;
+    .ai-pref-toggle-label-sub {
+      font-size: 12px;
+      line-height: 16px;
       color: ${unsafeCSSVarV2('text/tertiary')};
-      line-height: 14px;
-      margin-top: 1px;
+      white-space: normal;
+    }
+    /* ε-AI-INTEL v1.10: sub-label styling for the Mode picker rows. */
+    .ai-pref-mode-sublabel {
+      display: block;
+      font-size: 12px;
+      line-height: 16px;
+      color: ${unsafeCSSVarV2('text/tertiary')};
+      white-space: normal;
+      max-width: 280px;
+      margin-right: 12px;
     }
   `;
 
@@ -314,117 +260,83 @@ export class ChatInputPreference extends SignalWatcher(
     return activeModel || defaultModel;
   });
 
+  // ε-AI-INTEL v1.10: derive the current mode from the live tools-config
+  // signal so the menu re-renders the right "Mode → <Name>" label and the
+  // sub-menu's check-marks track external updates.
+  currentMode = computed<ChatPermissionMode>(() => {
+    const cfg = this.toolsConfigService.config.value;
+    return deriveMode({
+      editingDocs: cfg.editingDocs,
+      composingDocs: cfg.composingDocs,
+      editingDataViews: cfg.editingDataViews,
+    });
+  });
+
   openPreference(e: Event) {
     const element = e.currentTarget;
     if (!(element instanceof HTMLElement)) return;
+    const modeItems = [];
     const modelItems = [];
     const searchItems = [];
 
-    // Group all available models by family for the picker. The Auto entry
-    // appears as its own group at the top with a sublabel explaining what
-    // it does — matching the pattern in ChatGPT/Claude.
-    const isSelfHosted =
-      this.serverService.server.config$.value?.type ===
-      ServerDeploymentType.Selfhosted;
-    const status = this.subscriptionService.subscription.ai$.value?.status;
-    const isSubscribed = status === SubscriptionStatus.Active;
-
-    const buildAction = (
-      model: ReturnType<typeof this.aiModelService.models.value.at>
-    ) => {
-      if (!model) return null;
-      const isSelected = model.id === this.model.value?.id;
-      const tier = inferTier(model as { id: string; name?: string });
-      const family = inferFamily(
-        model as {
-          id: string;
-          name?: string;
-          category?: string;
-        }
-      );
-      const isAuto = model.id === 'auto';
-      return menu.action({
-        name: isAuto ? 'Auto' : model.category,
-        info: html`
-          ${isAuto
-            ? html`<span class="ai-auto-sublabel">
-                Smart routing — picks the best model for each task
-              </span>`
-            : html`<span class="ai-model-version">${model.version}</span> ${tier
-                  ? html`<span class="ai-model-tier-badge" data-tier=${tier}>
-                      ${tier}
-                    </span>`
-                  : ''}
-                ${BETA_MODEL_IDS.has(model.id)
-                  ? html`<span class="ai-model-beta-badge">Beta</span>`
-                  : ''}`}
-        `,
-        prefix: html`
-          <div class="ai-model-prefix">
-            ${isSelected
-              ? DoneIcon()
-              : html`<span
-                  class="ai-family-dot"
-                  style="background:${FAMILY_DOT[family]}"
-                ></span>`}
-          </div>
-        `,
-        postfix: html`
-          <div class="ai-model-postfix" @click=${this.onAISubscribe}>
-            ${model.isPro && !isSelfHosted && !isSubscribed
-              ? LockIcon()
-              : undefined}
-          </div>
-        `,
-        select: () => {
-          if (model.isPro && !isSelfHosted && !isSubscribed) {
-            this.notificationService.toast(
-              `Pro models require an AFFiNE AI subscription.`
-            );
-            return;
-          }
-          this.aiModelService.setModel(model.id);
-        },
-      });
+    // ε-AI-INTEL v1.10: Mode picker. Sits above the Model group so the
+    // user picks "what AI is allowed to do" before "which model does it".
+    const activeMode = this.currentMode.value;
+    const setMode = (mode: ChatPermissionMode) => {
+      this.toolsConfigService.setConfig(CHAT_PERMISSION_MODE_FLAGS[mode]);
     };
+    const modeOptions: Array<{
+      mode: ChatPermissionMode;
+      label: string;
+      sublabel: string;
+    }> = [
+      {
+        mode: 'read-only',
+        label: I18n.t('com.affine.ai.preference.mode.read-only.label'),
+        sublabel: I18n.t('com.affine.ai.preference.mode.read-only.sublabel'),
+      },
+      {
+        mode: 'edit-doc',
+        label: I18n.t('com.affine.ai.preference.mode.edit-doc.label'),
+        sublabel: I18n.t('com.affine.ai.preference.mode.edit-doc.sublabel'),
+      },
+      {
+        mode: 'full-agent',
+        label: I18n.t('com.affine.ai.preference.mode.full-agent.label'),
+        sublabel: I18n.t('com.affine.ai.preference.mode.full-agent.sublabel'),
+      },
+    ];
+    const activeModeLabel =
+      modeOptions.find(option => option.mode === activeMode)?.label ?? '';
+    modeItems.push(
+      menu.subMenu({
+        name: I18n.t('com.affine.ai.preference.mode.label'),
+        prefix: EditIcon(),
+        middleware: modelSubMenuMiddleware,
+        postfix: html`
+          <span class="ai-active-model-name">${activeModeLabel}</span>
+        `,
+        options: {
+          items: modeOptions.map(option => {
+            const isSelected = option.mode === activeMode;
+            return menu.action({
+              name: option.label,
+              info: html`
+                <span class="ai-pref-mode-sublabel">${option.sublabel}</span>
+              `,
+              prefix: html`
+                <div class="ai-model-prefix">
+                  ${isSelected ? DoneIcon() : undefined}
+                </div>
+              `,
+              select: () => setMode(option.mode),
+            });
+          }),
+        },
+      })
+    );
 
-    // Build family → models mapping in the canonical order so the picker
-    // is stable across renders even if the backend returns models in a
-    // different order each call.
-    const grouped = new Map<
-      ModelFamily,
-      typeof this.aiModelService.models.value
-    >();
-    for (const m of this.aiModelService.models.value) {
-      const fam = inferFamily(
-        m as {
-          id: string;
-          name?: string;
-          category?: string;
-        }
-      );
-      const bucket = grouped.get(fam);
-      if (bucket) {
-        bucket.push(m);
-      } else {
-        grouped.set(fam, [m]);
-      }
-    }
-
-    const groupedItems: Array<ReturnType<typeof menu.group>> = [];
-    for (const fam of FAMILY_ORDER) {
-      const list = grouped.get(fam);
-      if (!list || list.length === 0) continue;
-      groupedItems.push(
-        menu.group({
-          name: fam,
-          items: list.map(buildAction).filter(Boolean) as ReturnType<
-            typeof menu.action
-          >[],
-        })
-      );
-    }
-
+    // model switch
     modelItems.push(
       menu.subMenu({
         name: 'Model',
@@ -434,7 +346,85 @@ export class ChatInputPreference extends SignalWatcher(
           <span class="ai-active-model-name"> ${this.model.value?.name} </span>
         `,
         options: {
-          items: groupedItems,
+          items: this.aiModelService.models.value.map(model => {
+            const isSelected = model.id === this.model.value?.id;
+            const isSelfHosted =
+              this.serverService.server.config$.value?.type ===
+              ServerDeploymentType.Selfhosted;
+            const status =
+              this.subscriptionService.subscription.ai$.value?.status;
+            const isSubscribed = status === SubscriptionStatus.Active;
+            const isBeta = BETA_MODEL_IDS.has(model.id);
+            const betaTooltip = isBeta
+              ? I18n.t('com.affine.ai.model.beta-tooltip', {
+                  provider: getProviderLabel(model.category),
+                })
+              : '';
+            const handleLockClick = (ev: Event) => {
+              // Stop the row's select handler from also firing
+              ev.stopPropagation();
+              ev.preventDefault();
+              const proLockedTitle = I18n.t(
+                'com.affine.payment.ai.pro-locked.title'
+              );
+              const upgradeLabel = I18n.t(
+                'com.affine.payment.ai.pro-locked.upgrade'
+              );
+              // Surface a confirm dialog acting as the popover: clear copy +
+              // an explicit "Upgrade" CTA that triggers the existing
+              // subscription flow.
+              this.notificationService
+                .confirm({
+                  title: proLockedTitle,
+                  message: '',
+                  confirmText: upgradeLabel,
+                  cancelText: 'Cancel',
+                })
+                .then(confirmed => {
+                  if (confirmed) {
+                    return this.onAISubscribe();
+                  }
+                  return undefined;
+                })
+                .catch(() => {
+                  // Surfacing failures here would double-toast on top of the
+                  // subscribe flow's own error handling.
+                });
+            };
+            return menu.action({
+              name: model.category,
+              info: html`
+                <span class="ai-model-version">${model.version}</span>
+                ${isBeta
+                  ? html`<span
+                      class="ai-model-beta-badge"
+                      title=${betaTooltip}
+                      aria-label=${betaTooltip}
+                      >Beta</span
+                    >`
+                  : ''}
+              `,
+              prefix: html`
+                <div class="ai-model-prefix">
+                  ${isSelected ? DoneIcon() : undefined}
+                </div>
+              `,
+              postfix: html`
+                <div class="ai-model-postfix" @click=${handleLockClick}>
+                  ${model.isPro && !isSubscribed ? LockIcon() : undefined}
+                </div>
+              `,
+              select: () => {
+                if (model.isPro && !isSelfHosted && !isSubscribed) {
+                  this.notificationService.toast(
+                    I18n.t('com.affine.payment.ai.pro-locked.title')
+                  );
+                  return;
+                }
+                this.aiModelService.setModel(model.id);
+              },
+            });
+          }),
         },
       })
     );
@@ -451,7 +441,17 @@ export class ChatInputPreference extends SignalWatcher(
 
     searchItems.push(
       menu.toggleSwitch({
-        name: 'Workspace All Docs',
+        name: 'Search workspace docs',
+        label: () => html`
+          <div class="ai-pref-toggle-label">
+            <span class="ai-pref-toggle-label-title">
+              ${I18n.t('com.affine.ai.preference.search-workspace.label')}
+            </span>
+            <span class="ai-pref-toggle-label-sub">
+              ${I18n.t('com.affine.ai.preference.search-workspace.sublabel')}
+            </span>
+          </div>
+        `,
         prefix: CloudWorkspaceIcon(),
         on:
           !!this.toolsConfigService.config.value.searchWorkspace &&
@@ -468,6 +468,11 @@ export class ChatInputPreference extends SignalWatcher(
     popMenu(popupTargetFromElement(element), {
       options: {
         items: [
+          // ε-AI-INTEL v1.10: Mode group first so it's the most prominent
+          // control. Picking a mode rewrites the editing flags atomically.
+          menu.group({
+            items: [...modeItems],
+          }),
           menu.group({
             items: [...modelItems],
           }),
