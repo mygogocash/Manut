@@ -2,9 +2,10 @@ name: Superflow Release
 
 # Triggered when a `v*.*.*` tag is pushed.
 #
-# Builds all four bundles (web / admin / mobile / @affine/server) on a
-# linux/amd64 runner, then builds + pushes the multi-stage Docker image
-# to Google Artifact Registry, tagged with both the version and `latest`.
+# Builds the napi-rs native binary (linux/amd64) via Rust, then all four
+# bundles (web / admin / mobile / @affine/server), then builds + pushes
+# the multi-stage Docker image to Google Artifact Registry, tagged with
+# both the version and `latest`.
 #
 # Required GitHub repository secrets:
 #   - GCP_SA_KEY: service-account JSON with roles/artifactregistry.writer
@@ -26,9 +27,9 @@ env:
 
 jobs:
   build-and-push:
-    name: Build bundles + push image
+    name: Build bundles + image
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       contents: read
       id-token: write
@@ -41,6 +42,11 @@ jobs:
 
       - run: corepack enable
 
+      - name: Setup Rust (stable, x86_64-unknown-linux-gnu)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
       - name: Cache yarn
         uses: actions/cache@v4
         with:
@@ -50,7 +56,27 @@ jobs:
           key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
           restore-keys: yarn-${{ runner.os }}-
 
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/backend/native/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('packages/backend/native/Cargo.lock', 'packages/backend/native/Cargo.toml') }}
+          restore-keys: cargo-${{ runner.os }}-
+
       - run: yarn install --immutable
+
+      # napi binary first — server bundle imports it, so this must come
+      # before yarn affine bundle -p @affine/server.
+      - name: Build napi native binary (server-native.x64.node)
+        run: |
+          cd packages/backend/native
+          yarn build --target x86_64-unknown-linux-gnu
+          # napi build emits the binary at ./server-native.<target>.node;
+          # rename to the platform-suffix the dist expects.
+          ls -la server-native.*.node || true
 
       - name: Generate Prisma client
         run: yarn workspace @affine/server prisma generate
@@ -63,8 +89,6 @@ jobs:
           yarn affine bundle -p web
           yarn affine bundle -p admin
           yarn affine bundle -p mobile
-
-      # native binary is committed to dist/, so no rebuild step here.
 
       - name: Authenticate to GCP
         id: gcp-auth

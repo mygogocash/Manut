@@ -18,15 +18,22 @@ export class ChatContentRichText extends WithDisposable(ShadowlessElement) {
        - tables → `affine-table-block` containers — borders + zebra rows.
      Styles are scoped to `chat-content-rich-text` to avoid bleeding into
      the document editor when we share the same renderer. */
-  static override styles =
-    css`
+  static override styles = css`
     chat-content-rich-text {
       /* Inline code (markdown backticks) — match Claude.ai's subtle pill. */
       .ai-answer-text-editor code {
-        background: var(--affine-background-secondary-color, rgba(0, 0, 0, 0.04));
+        background: var(
+          --affine-background-secondary-color,
+          rgba(0, 0, 0, 0.04)
+        );
         padding: 1px 5px;
         border-radius: 4px;
-        font-family: var(--affine-font-code-family, 'SFMono-Regular', Menlo, monospace);
+        font-family: var(
+          --affine-font-code-family,
+          'SFMono-Regular',
+          Menlo,
+          monospace
+        );
         font-size: 0.92em;
         border: 0.5px solid var(--affine-border-color, rgba(0, 0, 0, 0.06));
       }
@@ -42,9 +49,10 @@ export class ChatContentRichText extends WithDisposable(ShadowlessElement) {
       }
 
       /* Tables — borders and zebra striping. AFFiNE's table renders as
-         ` <
-    affine - table - block >
-    ` with `<table>` inside in display mode. */
+         an affine-table-block element with a regular table inside in
+         display mode. (Avoid backticks here — this comment lives inside
+         a lit css template literal, so any backtick would close it and
+         the rest would be parsed as JS expressions.) */
       .ai-answer-text-editor affine-table-block table,
       .ai-answer-text-editor table {
         border-collapse: collapse;
@@ -62,12 +70,18 @@ export class ChatContentRichText extends WithDisposable(ShadowlessElement) {
       }
       .ai-answer-text-editor affine-table-block th,
       .ai-answer-text-editor table th {
-        background: var(--affine-background-secondary-color, rgba(0, 0, 0, 0.04));
+        background: var(
+          --affine-background-secondary-color,
+          rgba(0, 0, 0, 0.04)
+        );
         font-weight: 600;
       }
       .ai-answer-text-editor affine-table-block tbody tr:nth-child(even) td,
       .ai-answer-text-editor table tbody tr:nth-child(even) td {
-        background: var(--affine-background-secondary-color, rgba(0, 0, 0, 0.02));
+        background: var(
+          --affine-background-secondary-color,
+          rgba(0, 0, 0, 0.02)
+        );
       }
     }
   `;

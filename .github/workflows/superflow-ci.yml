@@ -1,7 +1,13 @@
 name: Superflow CI
 
 # Runs on every push to main and every PR targeting main. Catches lint /
-# type / build regressions before they reach the deploy track.
+# type / web-bundle regressions before they reach the deploy track.
+#
+# Server bundle is intentionally NOT built here: it depends on the
+# Rust-compiled napi binary (`packages/backend/native/server-native.*.node`)
+# which is gitignored and only produced by `napi build --release` on a
+# Rust toolchain. CI does a typecheck on the server source instead;
+# the full server bundle is built locally before the release flow.
 #
 # Intentionally separate from the upstream AFFiNE workflows
 # (build-test.yml etc) which target canary/master and depend on
@@ -69,8 +75,8 @@ jobs:
       - run: yarn affine bundle -p admin
       - run: yarn affine bundle -p mobile
 
-  build-server:
-    name: Build server bundle
+  typecheck-server:
+    name: Typecheck server (no bundle — native binary unavailable in CI)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -88,5 +94,9 @@ jobs:
           key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
           restore-keys: yarn-${{ runner.os }}-
       - run: yarn install --immutable
-      - run: yarn workspace @affine/server prisma generate
-      - run: yarn affine bundle -p @affine/server
+      - name: Generate Prisma client
+        run: yarn workspace @affine/server prisma generate
+      # `tsc --noEmit` validates the source compiles, without trying to
+      # link in the napi binary that isn't on disk in CI.
+      - name: Typecheck @affine/server
+        run: yarn workspace @affine/server tsc --noEmit
