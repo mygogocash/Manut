@@ -15,7 +15,7 @@ export type SettingTab =
   | 'account'
   | 'meetings'
   | 'personalize'
-  | `workspace:${'preference' | 'properties' | 'members' | 'storage' | 'billing' | 'license' | 'integrations' | 'embedding' | 'search'}`;
+  | `workspace:${'preference' | 'properties' | 'members' | 'storage' | 'billing' | 'license' | 'integrations' | 'embedding' | 'search' | 'analytics-connections'}`;
 
 export type GLOBAL_DIALOG_SCHEMA = {
   'create-workspace': (props: { serverId?: string }) => {

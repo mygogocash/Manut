@@ -2,6 +2,7 @@ import { configureQuotaModule } from '@affine/core/modules/quota';
 import { type Framework } from '@toeverything/infra';
 
 import { configureAgentsModule } from './agents';
+import { configureAnalyticsModule } from './analytics';
 import {
   configureAIButtonModule,
   configureAIDraftModule,
@@ -133,6 +134,7 @@ export function configureCommonModules(framework: Framework) {
   configureIndexerEmbeddingModule(framework);
   configureCommentModule(framework);
   configureAgentsModule(framework);
+  configureAnalyticsModule(framework);
   configureDocSummaryModule(framework);
   configurePaywallModule(framework);
   configureIconPickerModule(framework);

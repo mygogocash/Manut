@@ -22,6 +22,7 @@ import {
   AiOutlineIcon,
   AllDocsIcon,
   BlockIcon,
+  DataPanelIcon,
   ImportIcon,
   JournalIcon,
   SettingsIcon,
@@ -102,6 +103,28 @@ const GraphButton = () => {
   return (
     <MenuLinkItem icon={<BlockIcon />} active={graphActive} to={'/graph'}>
       <span data-testid="knowledge-graph">Graph</span>
+    </MenuLinkItem>
+  );
+};
+
+const AnalyticsButton = () => {
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const analyticsActive = useLiveData(
+    workbench.location$.selector(location =>
+      location.pathname.startsWith('/analytics')
+    )
+  );
+
+  return (
+    <MenuLinkItem
+      icon={<DataPanelIcon />}
+      active={analyticsActive}
+      to={'/analytics'}
+    >
+      <span data-testid="analytics-nav">Analytics</span>
     </MenuLinkItem>
   );
 };
@@ -231,6 +254,7 @@ export const RootAppSidebar = memo((): ReactElement => {
         </div>
         <AllDocsButton />
         <GraphButton />
+        <AnalyticsButton />
         <AppSidebarJournalButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />

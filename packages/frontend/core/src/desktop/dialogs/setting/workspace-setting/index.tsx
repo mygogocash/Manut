@@ -1,6 +1,7 @@
 import { useWorkspaceInfo } from '@affine/core/components/hooks/use-workspace-info';
 import { ServerService } from '@affine/core/modules/cloud';
 import type { SettingTab } from '@affine/core/modules/dialogs/constant';
+import { WorkspacePermissionService } from '@affine/core/modules/permissions';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { EmbeddingSettings } from '@affine/core/modules/workspace-indexer-embedding';
 import { ServerDeploymentType } from '@affine/graphql';
@@ -8,6 +9,7 @@ import { useI18n } from '@affine/i18n';
 import {
   AiEmbeddingIcon,
   CollaborationIcon,
+  DataPanelIcon,
   IntegrationsIcon,
   PaymentIcon,
   PropertyIcon,
@@ -18,6 +20,7 @@ import { useLiveData, useService } from '@toeverything/infra';
 import { useMemo } from 'react';
 
 import type { SettingSidebarItem, SettingState } from '../types';
+import { WorkspaceAnalyticsConnections } from './analytics-connections';
 import { WorkspaceSettingBilling } from './billing';
 import { IntegrationSetting } from './integration';
 import { WorkspaceSettingLicense } from './license';
@@ -59,6 +62,8 @@ export const WorkspaceSetting = ({
       return <IntegrationSetting scrollAnchor={scrollAnchor} />;
     case 'workspace:embedding':
       return <EmbeddingSettings />;
+    case 'workspace:analytics-connections':
+      return <WorkspaceAnalyticsConnections />;
     default:
       return null;
   }
@@ -68,6 +73,11 @@ export const useWorkspaceSettingList = (): SettingSidebarItem[] => {
   const workspaceService = useService(WorkspaceService);
   const information = useWorkspaceInfo(workspaceService.workspace);
   const serverService = useService(ServerService);
+  const workspacePermissionService = useService(WorkspacePermissionService)
+    .permission;
+  const isOwner = useLiveData(workspacePermissionService.isOwner$);
+  const isAdmin = useLiveData(workspacePermissionService.isAdmin$);
+  const canManageConnections = Boolean(isOwner || isAdmin);
 
   const isSelfhosted = useLiveData(
     serverService.server.config$.selector(
@@ -113,6 +123,12 @@ export const useWorkspaceSettingList = (): SettingSidebarItem[] => {
         icon: <IntegrationsIcon />,
         testId: 'workspace-setting:integrations',
       },
+      canManageConnections && {
+        key: 'workspace:analytics-connections' as SettingTab,
+        title: 'Analytics · Connections',
+        icon: <DataPanelIcon />,
+        testId: 'workspace-setting:analytics-connections',
+      },
       {
         key: 'workspace:storage',
         title: t['Storage'](),
@@ -141,7 +157,7 @@ export const useWorkspaceSettingList = (): SettingSidebarItem[] => {
         testId: 'workspace-setting:license',
       },
     ].filter((item): item is SettingSidebarItem => !!item);
-  }, [showBilling, showLicense, t]);
+  }, [canManageConnections, showBilling, showLicense, t]);
 
   return items;
 };
