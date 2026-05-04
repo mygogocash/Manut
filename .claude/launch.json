@@ -18,6 +18,12 @@
       "runtimeExecutable": "yarn",
       "runtimeArgs": ["affine", "server", "prisma", "studio"],
       "port": 5555
+    },
+    {
+      "name": "superflow-landing",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd superflow-landing && exec npm run dev"],
+      "port": 3000
     }
   ]
 }
