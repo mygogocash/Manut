@@ -108,8 +108,12 @@ export class StaticFilesResolver implements OnModuleInit {
 
     // fallback all unknown routes
     app.get([basePath, basePath + '/*path'], this.check.use, (req, res) => {
+      // SUPERFLOW: also serve the mobile SPA shell on selfhosted. See the
+      // matching change in doc-renderer/controller.ts. Without this,
+      // mobile browsers got the desktop SPA shell which doesn't fit
+      // phone viewports.
       const mobile =
-        env.namespaces.canary &&
+        (env.namespaces.canary || env.selfhosted) &&
         isMobile({
           ua: req.headers['user-agent'] ?? undefined,
         });

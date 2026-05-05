@@ -79,8 +79,12 @@ export class DocRendererController {
   @Public()
   @Get('/*path')
   async render(@Req() req: Request, @Res() res: Response) {
+    // SUPERFLOW: also serve mobile assets on selfhosted. Upstream gates
+    // mobile delivery on `canary` only; we ship the mobile bundle in
+    // every Superflow image, so route mobile UAs to it on selfhosted too.
+    // Fixes phone-viewport rendering of workspace pages.
     const assets: HtmlAssets =
-      env.namespaces.canary &&
+      (env.namespaces.canary || env.selfhosted) &&
       isMobile({
         ua: req.headers['user-agent'] ?? undefined,
       })
