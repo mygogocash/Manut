@@ -109,15 +109,14 @@ jobs:
       - name: Build server bundle
         run: yarn affine bundle -p @affine/server
 
-      # Mobile bundle intentionally skipped — Superflow is website-first
-      # for now. Dockerfile.fullstack still COPYs mobile/dist so we make
-      # an empty placeholder directory; mobile-web routes will serve no
-      # assets but the website + admin are unaffected.
+      # Mobile bundle is required: backend's DocRendererController reads
+      # assets-manifest.json from /app/static/mobile at boot. Empty dir
+      # crashes the server with ENOENT. See superflow-autodeploy.yml.
       - name: Build frontend bundles
         run: |
           yarn affine bundle -p web
           yarn affine bundle -p admin
-          mkdir -p packages/frontend/apps/mobile/dist
+          yarn affine bundle -p mobile
 
       - name: Authenticate to GCP
         id: gcp-auth

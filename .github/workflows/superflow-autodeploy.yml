@@ -121,14 +121,16 @@ jobs:
         run: yarn affine bundle -p @affine/server
 
       - name: Build frontend bundles
-        # Mobile bundle intentionally skipped — Superflow is website-first
-        # for now. Dockerfile.fullstack still COPYs mobile/dist so we make
-        # an empty placeholder directory; mobile-web routes will serve no
-        # assets but the website + admin are unaffected.
+        # All three bundles built — mobile rebuild is required because
+        # Dockerfile copies mobile/dist into /app/static/mobile, and
+        # backend's DocRendererController.readHtmlAssets reads the
+        # assets-manifest.json from there at boot. An empty dir crashes
+        # the server with ENOENT before it can bind port 3010. The earlier
+        # `mkdir -p` "skip mobile" shortcut took prod down — don't do it.
         run: |
           yarn affine bundle -p web
           yarn affine bundle -p admin
-          mkdir -p packages/frontend/apps/mobile/dist
+          yarn affine bundle -p mobile
 
       - name: Authenticate to GCP
         # Workload Identity Federation — no JSON key (org policy
