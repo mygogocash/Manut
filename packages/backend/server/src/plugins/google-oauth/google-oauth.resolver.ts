@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
   Args,
   Field,
@@ -130,6 +131,8 @@ function rethrowFriendly(err: unknown): never {
 
 @Resolver()
 export class GoogleOAuthResolver {
+  private readonly logger = new Logger(GoogleOAuthResolver.name);
+
   constructor(
     private readonly googleOAuth: GoogleOAuthService,
     private readonly url: URLHelper
@@ -183,6 +186,14 @@ export class GoogleOAuthResolver {
     );
   }
 
+  // SUPERFLOW: this is a read-only status probe fired on Settings →
+  // Integrations panel mount. There is no useful client action when the
+  // status lookup itself fails (DB hiccup, model resolution miss, transient
+  // Prisma issue), and an unhandled throw here surfaces as a generic
+  // INTERNAL_SERVER_ERROR toast on every panel open. Swallow unexpected
+  // errors with a server-side log and report `connected: false` so the
+  // panel renders the Connect button instead of crashing the dialog.
+  // Auth errors still propagate — a missing user is the client's problem.
   @Query(() => GoogleConnectionType)
   async googleConnection(
     @CurrentUser() user: CurrentUser | null,
@@ -192,16 +203,24 @@ export class GoogleOAuthResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
-    const status = await this.googleOAuth.getStatus(
-      user.id,
-      workspaceId,
-      scope as GoogleScope
-    );
-    return {
-      scope,
-      connected: status.connected,
-      email: status.email,
-    };
+    try {
+      const status = await this.googleOAuth.getStatus(
+        user.id,
+        workspaceId,
+        scope as GoogleScope
+      );
+      return {
+        scope,
+        connected: status.connected,
+        email: status.email,
+      };
+    } catch (err) {
+      this.logger.error(
+        `googleConnection lookup failed for user=${user.id} workspace=${workspaceId} scope=${scope}: ${err instanceof Error ? err.message : String(err)}`,
+        err instanceof Error ? err.stack : undefined
+      );
+      return { scope, connected: false };
+    }
   }
 }
 
