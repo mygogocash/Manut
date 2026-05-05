@@ -26,6 +26,17 @@ import * as styles from './index.css';
 // ---- Avatar shape (matches the backend contract) ----------------------------
 
 export interface AgentAvatarConfig {
+  // SUPERFLOW: hex color used by the letter+color renderer. When present,
+  // the avatar component uses this value directly instead of the
+  // id-hash-derived default. Stored as part of the free-form JSON avatar
+  // config — backend doesn't validate, frontend just reads if it's a
+  // string starting with `#`.
+  color?: string;
+
+  // Avataaars-era fields, retained for wire compatibility (backend stores
+  // them, the customizer used to write them). Currently unread by the
+  // letter+color renderer; kept so older saved configs don't break the
+  // GraphQL shape.
   topType?: string;
   accessoriesType?: string;
   hairColor?: string;
@@ -187,7 +198,9 @@ export function defaultAvatarForId(agentId: string): AgentAvatarConfig {
 
 // Hand-picked palette — accessible contrast against white text, broadly
 // pleasant. Order matters: hashed agent ids index into this directly.
-const LETTER_AVATAR_COLORS = [
+// Exported so the customizer can render the same swatches the renderer
+// chooses from.
+export const LETTER_AVATAR_COLORS: readonly string[] = [
   '#3478F6', // blue
   '#34C759', // green
   '#FF9500', // orange
@@ -199,6 +212,14 @@ const LETTER_AVATAR_COLORS = [
   '#5856D6', // indigo
   '#A2845E', // brown
 ];
+
+// Loose check: only treat saved values as override if they're a hex color
+// string. Anything else falls back to the deterministic default so old
+// avataaars-style saved configs (with non-hex `clotheColor` etc.) don't
+// accidentally render as a button background.
+function isHexColor(value: unknown): value is string {
+  return typeof value === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(value);
+}
 
 function letterFor(name?: string): string {
   const trimmed = name?.trim();
@@ -217,12 +238,15 @@ export const AgentAvatar: FC<AgentAvatarProps> = ({
   bare,
 }) => {
   const { letter, color } = useMemo(() => {
+    const override = agent.avatar?.color;
     const seed = hashString(agent.id);
     return {
       letter: letterFor(agent.name),
-      color: LETTER_AVATAR_COLORS[seed % LETTER_AVATAR_COLORS.length],
+      color: isHexColor(override)
+        ? override
+        : LETTER_AVATAR_COLORS[seed % LETTER_AVATAR_COLORS.length],
     };
-  }, [agent.id, agent.name]);
+  }, [agent.id, agent.name, agent.avatar?.color]);
 
   const wrapperStyle: CSSProperties = {
     width: size,

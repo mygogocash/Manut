@@ -69,6 +69,13 @@ export const preview = style({
   justifyContent: 'center',
 });
 
+export const previewActions = style({
+  display: 'flex',
+  gap: 6,
+  flexWrap: 'wrap',
+  justifyContent: 'center',
+});
+
 export const resetButton = style({
   fontSize: cssVar('fontXs'),
   color: cssVarV2.text.secondary,
@@ -81,6 +88,33 @@ export const resetButton = style({
   selectors: {
     '&:hover': {
       background: cssVarV2.layer.background.tertiary,
+    },
+    '&:disabled': {
+      opacity: 0.45,
+      cursor: 'not-allowed',
+    },
+  },
+});
+
+// Primary-styled button for the shuffle action — subtle accent so it
+// reads as the recommended/quick path next to the secondary "Reset".
+export const shuffleButton = style({
+  fontSize: cssVar('fontXs'),
+  color: cssVarV2.button.primary,
+  background: 'transparent',
+  border: `1px solid ${cssVarV2.button.primary}`,
+  borderRadius: 6,
+  padding: '4px 10px',
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+  fontWeight: 500,
+  selectors: {
+    '&:hover': {
+      background: cssVarV2.layer.background.tertiary,
+    },
+    '&:disabled': {
+      opacity: 0.45,
+      cursor: 'not-allowed',
     },
   },
 });
