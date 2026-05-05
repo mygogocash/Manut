@@ -1,4 +1,5 @@
 import { useConfirmModal } from '@affine/component';
+import { CloseIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -73,6 +74,7 @@ export function ConnectionsSettings({
   const connections = (useLiveData(connectionService.entity.connections$) ??
     []) as PlatformConnection[];
   const loading = useLiveData(connectionService.entity.loading$) ?? false;
+  const entityError = useLiveData(connectionService.entity.error$) ?? null;
 
   const [busyPlatform, setBusyPlatform] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -80,9 +82,15 @@ export function ConnectionsSettings({
     null
   );
 
+  const displayedError = errorMessage ?? entityError;
+
+  const dismissError = useCallback(() => {
+    setErrorMessage(null);
+    connectionService.entity.setError(null);
+  }, [connectionService]);
+
   useEffect(() => {
     connectionService.loadConnections(workspaceId).catch(err => {
-       
       console.warn('[analytics] loadConnections failed', err);
     });
   }, [connectionService, workspaceId]);
@@ -92,6 +100,7 @@ export function ConnectionsSettings({
       if (!canEdit) return;
       setBusyPlatform(platform);
       setErrorMessage(null);
+      connectionService.entity.setError(null);
       try {
         const result = await connectionService.beginOAuth(
           workspaceId,
@@ -110,7 +119,6 @@ export function ConnectionsSettings({
           setErrorMessage(result.error);
         }
       } catch (err) {
-         
         console.warn(`[analytics] beginOAuth(${platform}) failed`, err);
         setErrorMessage(
           err instanceof Error ? err.message : 'Failed to start OAuth'
@@ -164,10 +172,10 @@ export function ConnectionsSettings({
         onConfirm: async () => {
           setBusyPlatform(connection.platform);
           setErrorMessage(null);
+          connectionService.entity.setError(null);
           try {
             await connectionService.disconnect(connection.id);
           } catch (err) {
-             
             console.warn(
               `[analytics] disconnect(${connection.id}) failed`,
               err
@@ -206,9 +214,18 @@ export function ConnectionsSettings({
           Only workspace owners and admins can change connections.
         </div>
       ) : null}
-      {errorMessage ? (
+      {displayedError ? (
         <div className={styles.bannerError} role="alert">
-          {errorMessage}
+          <span className={styles.bannerErrorText}>{displayedError}</span>
+          <button
+            type="button"
+            className={styles.bannerErrorDismiss}
+            onClick={dismissError}
+            aria-label="Dismiss error"
+            data-testid="analytics-connections-error-dismiss"
+          >
+            <CloseIcon />
+          </button>
         </div>
       ) : null}
       {loading && connections.length === 0 ? (

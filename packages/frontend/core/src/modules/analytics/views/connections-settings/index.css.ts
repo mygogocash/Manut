@@ -123,11 +123,49 @@ export const lockedNotice = style({
 });
 
 export const bannerError = style({
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 8,
   padding: '12px 14px',
   borderRadius: 8,
   background: cssVar('errorColor'),
   color: cssVar('pureWhite'),
   fontSize: 12,
+});
+
+export const bannerErrorText = style({
+  flex: 1,
+  minWidth: 0,
+  wordBreak: 'break-word',
+});
+
+export const bannerErrorDismiss = style({
+  flexShrink: 0,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 20,
+  height: 20,
+  marginTop: -2,
+  borderRadius: 4,
+  border: 'none',
+  background: 'transparent',
+  color: cssVar('pureWhite'),
+  cursor: 'pointer',
+  padding: 0,
+  fontSize: 14,
+  lineHeight: 1,
+  transition:
+    'background-color var(--affine-anim-duration-base) var(--affine-anim-curve-default)',
+  selectors: {
+    '&:hover': {
+      background: 'rgba(255, 255, 255, 0.18)',
+    },
+    '&:focus-visible': {
+      outline: '2px solid rgba(255, 255, 255, 0.6)',
+      outlineOffset: 1,
+    },
+  },
 });
 
 export const rowBanner = style({
