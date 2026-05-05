@@ -1,0 +1,187 @@
+name: Superflow Rollback
+
+# Manually triggered. Rolls production back to a known-good image tag,
+# either an explicitly chosen one or whatever is recorded in
+# /srv/affine/compose/compose.yml.previous.bak (the snapshot deploy.sh
+# writes before every swap).
+#
+# Use this when:
+#   - Auto-rollback inside deploy.sh failed (autodeploy returned exit 3)
+#     and you've confirmed prod is broken
+#   - A previously deployed tag passed validation but is misbehaving in
+#     the wild and you want to revert without rebuilding
+#   - You need to revert by hand for any reason
+#
+# The actual rollback logic lives in /srv/affine/scripts/rollback.sh on
+# the VM. This workflow is a trigger that authenticates and SSHes in.
+#
+# Exit-code contract from /srv/affine/scripts/rollback.sh:
+#   0 = rolled back successfully
+#   1 = no rollback target available (no previous.bak found AND no tag
+#       provided)
+#   2 = rollback step itself failed (compose.yml updated but
+#       `docker compose up -d` did not bring the container healthy)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Optional: image tag to roll back to. Leave empty to use compose.yml.previous.bak.'
+        required: false
+        type: string
+        default: ''
+
+env:
+  GCP_PROJECT: affine-495114
+  GCE_ZONE: asia-southeast1-a
+  GCE_VM: affine-vm
+  PROD_HOST: affine.gogocash.co
+  GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
+
+jobs:
+  rollback:
+    name: Rollback production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        # WIF — see superflow-autodeploy.yml. No untrusted input.
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
+          service_account: 'affine-gha-deployer@affine-495114.iam.gserviceaccount.com'
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Tag is optional. If provided, validate charset + existence in GAR
+      # before sending it to the VM. If empty, rollback.sh will read
+      # /srv/affine/compose/compose.yml.previous.bak.
+      # User-supplied input — passed via env, NEVER inlined into shell.
+      - name: Validate tag (if provided)
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [ -z "${TAG}" ]; then
+            echo "No tag provided — rollback.sh will read compose.yml.previous.bak"
+            exit 0
+          fi
+          if ! printf '%s' "${TAG}" | grep -Eq '^[A-Za-z0-9._-]+$'; then
+            echo "::error::Tag contains characters outside [A-Za-z0-9._-]"
+            exit 1
+          fi
+          if [ "${#TAG}" -gt 128 ]; then
+            echo "::error::Tag exceeds 128 characters"
+            exit 1
+          fi
+          gcloud artifacts docker tags list \
+            "${GAR_REPO}" \
+            --filter="tag=${TAG}" --format=json | grep -q "${TAG}" \
+            || { echo "::error::tag not found in GAR"; exit 1; }
+          echo "Tag verified in GAR"
+
+      # rollback.sh accepts an optional positional tag argument. Pass via
+      # env to keep the SSH command shell-safe; charset already validated.
+      - name: Run rollback.sh on VM
+        id: rollback
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set +e
+          gcloud compute ssh "$GCE_VM" \
+            --zone="$GCE_ZONE" --project="$GCP_PROJECT" \
+            --tunnel-through-iap \
+            --command="sudo /srv/affine/scripts/rollback.sh '${TAG}'"
+          ROLLBACK_RC=$?
+          set -e
+          echo "rollback_rc=${ROLLBACK_RC}" >> "$GITHUB_OUTPUT"
+          echo "rollback.sh exit code: ${ROLLBACK_RC}"
+          exit 0
+
+      # rollback.sh prints the actual tag it rolled back to as the LAST
+      # line of stdout (per its contract). We don't capture stdout from
+      # the SSH step above; instead we re-query the VM for the current
+      # image tag in compose.yml so the summary is grounded in reality.
+      - name: Read current production image tag
+        id: current
+        if: success()
+        env:
+          ROLLBACK_RC: ${{ steps.rollback.outputs.rollback_rc }}
+        run: |
+          if [ "${ROLLBACK_RC}" != "0" ]; then
+            echo "current_tag=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CURRENT_TAG=$(gcloud compute ssh "$GCE_VM" \
+            --zone="$GCE_ZONE" --project="$GCP_PROJECT" \
+            --tunnel-through-iap \
+            --command="grep -Eo 'affine-gogocash:[A-Za-z0-9._-]+' /srv/affine/compose/compose.yml | head -1 | cut -d: -f2" \
+            2>/dev/null || echo "")
+          echo "current_tag=${CURRENT_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        if: always()
+        env:
+          TAG: ${{ inputs.tag }}
+          ROLLBACK_RC: ${{ steps.rollback.outputs.rollback_rc }}
+          CURRENT_TAG: ${{ steps.current.outputs.current_tag }}
+        run: |
+          {
+            echo "## Superflow Rollback"
+            echo ""
+            echo "- Requested tag: \`${TAG:-<from compose.yml.previous.bak>}\`"
+            echo "- Production: https://${PROD_HOST}"
+            echo "- rollback.sh exit code: \`${ROLLBACK_RC}\`"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          case "${ROLLBACK_RC}" in
+            0)
+              {
+                echo "### Status: ROLLED BACK"
+                echo ""
+                echo "Production is now on \`${CURRENT_TAG:-<unknown>}\`."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            1)
+              {
+                echo "### Status: NO ROLLBACK TARGET"
+                echo ""
+                echo "rollback.sh found no compose.yml.previous.bak and no"
+                echo "tag was provided. Re-run with an explicit \`tag\`"
+                echo "input pointing to a known-good image."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              {
+                echo "### Status: ROLLBACK FAILED"
+                echo ""
+                echo "rollback.sh updated compose.yml but the container"
+                echo "did not come up healthy. Production may be DOWN."
+                echo "SSH to the VM and investigate immediately:"
+                echo ""
+                echo '```bash'
+                echo "gcloud compute ssh ${GCE_VM} --zone=${GCE_ZONE} --project=${GCP_PROJECT} --tunnel-through-iap"
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              {
+                echo "### Status: UNKNOWN EXIT CODE"
+                echo ""
+                echo "rollback.sh exited with code \`${ROLLBACK_RC}\`."
+                echo "SSH to the VM and investigate."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+
+          if [ "${ROLLBACK_RC}" = "0" ]; then
+            exit 0
+          else
+            exit 1
+          fi

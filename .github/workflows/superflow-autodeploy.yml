@@ -1,23 +1,60 @@
 name: Superflow Auto Deploy
 
-# Fires automatically when Superflow CI completes successfully on a push
-# to main. Skipped on CI failures, PR runs, or any other branch.
+# Tier 1 reliability fix: smoke-then-swap with sidecar validation +
+# auto-rollback. Replaces the prior "swap-then-smoke" pattern that took
+# production down 4+ times in one day.
 #
-# Flow: CI passes on main → build full Docker image (napi + all bundles)
-# → push to GAR tagged main-<sha> + latest → SSH-deploy to GCE VM
-# → smoke-test the live endpoint.
+# Design:
+#   Build  -> push image with an immutable, run-unique tag
+#                (main-<short-sha>-<run-id>) — never reuses a tag, so no
+#                clobber risk.
+#   Deploy -> hand off to /srv/affine/scripts/deploy.sh on the VM. That
+#                script:
+#                  1. pulls the new image
+#                  2. boots it as a SIDECAR container with health-checks
+#                  3. only swaps prod onto the new image after the sidecar
+#                     is healthy (smoke-then-swap)
+#                  4. runs a post-swap smoke; if that fails, the script
+#                     auto-rolls back to the prior image.
 #
-# Required secrets (same as superflow-release + superflow-deploy):
-#   GCP_SA_KEY: service-account JSON with these roles on affine-495114:
-#     - roles/artifactregistry.writer  (push image to GAR)
-#     - roles/compute.instanceAdmin.v1 (SSH into VM)
-#     - roles/iap.tunnelResourceAccessor (IAP tunnel)
+# Exit-code contract from /srv/affine/scripts/deploy.sh (CRITICAL):
+#   0 = success — prod is on the new image
+#   1 = sidecar validation failed — prod was NEVER touched, still on prior
+#       image. No rollback needed.
+#   2 = post-swap smoke failed — auto-rolled back, prod is on prior image.
+#   3 = rollback itself failed — prod may be DOWN. Manual intervention.
+#   *  = anything else — treated as 3.
+#
+# Tags pushed to GAR:
+#   :<run-unique-tag>   (immutable; this is the only tag we deploy with)
+# We intentionally do NOT push :latest or a plain :main-<sha> here. Those
+# floating tags are what enabled the clobber-then-redeploy regressions
+# that took prod down. If you need a "current main" pointer, query GAR
+# tags by image creation timestamp or the deploy script's metadata.
+#
+# WIF auth (no JSON key — org policy forbids them):
+#   provider: projects/602860445793/.../providers/github
+#   service account: affine-gha-deployer@affine-495114.iam.gserviceaccount.com
+# That SA has iam.serviceAccountUser on the affine-vm runtime SA, which
+# is what makes `gcloud compute ssh` work over IAP.
 
 on:
   workflow_run:
     workflows: ['Superflow CI']
     types: [completed]
     branches: [main]
+
+# Cancel an older in-flight build if a fresher commit lands on main.
+# CAVEAT: `cancel-in-progress` only kills the GitHub runner. If the
+# cancel happens while the runner is mid-`gcloud compute ssh`, the
+# remote `deploy.sh` on the VM keeps running to completion (it's an
+# independent process under sudo). That's actually what we want: the
+# VM-side script is the unit of work, not the Action runner. Worst
+# case: GitHub shows the older run as "cancelled" while the VM still
+# completes the deploy and the next workflow_run kicks off fresh.
+concurrency:
+  group: superflow-autodeploy
+  cancel-in-progress: true
 
 env:
   YARN_ENABLE_HARDENED_MODE: 0
@@ -27,11 +64,13 @@ env:
   GCE_ZONE: asia-southeast1-a
   GCE_VM: affine-vm
   PROD_HOST: affine.gogocash.co
+  SMOKE_TIMEOUT_SECS: '90'
 
 jobs:
   build-and-deploy:
-    name: Build image + deploy to production
-    # Only run when CI succeeded on a push event (not a PR merge check).
+    name: Build image + safe-deploy
+    # Only run when CI succeeded on a push event to main (not a PR
+    # merge-queue check, not a workflow_run from a fork).
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push'
@@ -150,14 +189,24 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      # head_sha is a hex SHA — safe to use via env var in shell.
+      # head_sha is a hex SHA. RUN_ID is a numeric ID from GitHub.
+      # Concatenated tag is shell-safe.
       - name: Compute image tag
         id: tag
         env:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: echo "tag=main-${HEAD_SHA:0:7}" >> "$GITHUB_OUTPUT"
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          SHORT_SHA=$(echo "$HEAD_SHA" | cut -c1-9)
+          IMAGE_TAG="main-${SHORT_SHA}-${RUN_ID}"
+          echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Computed image tag: ${IMAGE_TAG}"
 
       - name: Build + push image
+        # ONE tag only: the run-unique immutable tag. We deliberately do
+        # NOT push :latest or :main-<sha> here — those floating tags were
+        # what made the clobber-then-redeploy regression possible.
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -166,59 +215,108 @@ jobs:
           push: true
           tags: |
             ${{ env.GAR_REPO }}:${{ steps.tag.outputs.tag }}
-            ${{ env.GAR_REPO }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # TAG is main-<7hex> — cannot contain shell metacharacters.
-      - name: Deploy to GCE VM
+      # IMAGE_TAG is `main-<9hex>-<numeric>` — cannot contain shell
+      # metacharacters. Pass via env to keep the SSH command shell-safe.
+      - name: Safe-deploy to GCE VM (smoke-then-swap)
+        id: deploy
         env:
-          TAG: ${{ steps.tag.outputs.tag }}
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
+          set +e
           gcloud compute ssh "$GCE_VM" \
             --zone="$GCE_ZONE" --project="$GCP_PROJECT" \
             --tunnel-through-iap \
-            --command="
-              set -e
-              sudo cp /srv/affine/compose/compose.yml /srv/affine/compose/compose.yml.pre-${TAG}.bak
-              sudo sed -i -E 's|(affine-gogocash:)[^ \"]+|\1${TAG}|g' /srv/affine/compose/compose.yml
-              cd /srv/affine/compose
-              sudo docker compose pull affine
-              sudo docker compose up -d --force-recreate affine
-              echo 'deploy: containers up'
-            "
-
-      - name: Smoke test (/info returns 200)
-        run: |
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "https://${PROD_HOST}/info" || true)
-            if [ "$code" = "200" ]; then
-              echo "smoke: HTTP 200 after ${i}x3s"
-              exit 0
-            fi
-            sleep 3
-          done
-          echo "::error::smoke test failed — /info never returned 200"
-          exit 1
+            --command="sudo /srv/affine/scripts/deploy.sh \
+              --image-tag '${IMAGE_TAG}' \
+              --smoke-timeout-secs ${SMOKE_TIMEOUT_SECS} \
+              --rollback-on-failure"
+          DEPLOY_RC=$?
+          set -e
+          echo "deploy_rc=${DEPLOY_RC}" >> "$GITHUB_OUTPUT"
+          echo "deploy.sh exit code: ${DEPLOY_RC}"
+          # Defer the actual job-fail to the Summary step so we can emit
+          # a useful job-summary first.
+          exit 0
 
       - name: Summary
+        # Always run — the job-summary should be written even if deploy
+        # failed. Final `exit` honors deploy.sh exit code so the workflow
+        # status reflects reality.
         if: always()
         env:
-          TAG: ${{ steps.tag.outputs.tag }}
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          SHORT_SHA: ${{ steps.tag.outputs.short_sha }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_RC: ${{ steps.deploy.outputs.deploy_rc }}
         run: |
           {
             echo "## Superflow Auto Deploy"
             echo ""
-            echo "- Commit: \`${HEAD_SHA:0:7}\`"
-            echo "- Image tag: \`$TAG\`"
+            echo "- Commit: \`${SHORT_SHA}\` (\`${HEAD_SHA}\`)"
+            echo "- Image tag: \`${IMAGE_TAG}\`"
             echo "- Production: https://${PROD_HOST}"
+            echo "- deploy.sh exit code: \`${DEPLOY_RC}\`"
             echo ""
-            echo "### Rollback (under 60s)"
-            echo '```bash'
-            echo "gcloud compute ssh $GCE_VM --zone=$GCE_ZONE --project=$GCP_PROJECT \\"
-            echo "  --tunnel-through-iap --command='cd /srv/affine/compose && \\"
-            echo "  sudo cp compose.yml.pre-${TAG}.bak compose.yml && \\"
-            echo "  sudo docker compose up -d --force-recreate affine'"
-            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+          case "${DEPLOY_RC}" in
+            0)
+              {
+                echo "### Status: SUCCESS"
+                echo ""
+                echo "Deployed \`${IMAGE_TAG}\`. Prod is on the new image."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            1)
+              {
+                echo "### Status: VALIDATION FAILED (prod untouched)"
+                echo ""
+                echo "The new image failed pre-deploy sidecar validation."
+                echo "Production is still on the previous image — nothing"
+                echo "was swapped. Investigate the new image, then either"
+                echo "re-deploy a fixed build or roll forward."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              {
+                echo "### Status: AUTO-ROLLED BACK"
+                echo ""
+                echo "The new image passed sidecar validation but failed"
+                echo "the post-swap smoke test. deploy.sh auto-rolled back"
+                echo "to the previous image. Production is on the previous"
+                echo "image."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            3)
+              {
+                echo "### Status: CRITICAL — ROLLBACK FAILED"
+                echo ""
+                echo "The new image failed AND the rollback step itself"
+                echo "failed. Production may be DOWN. SSH to the VM and"
+                echo "investigate immediately:"
+                echo ""
+                echo '```bash'
+                echo "gcloud compute ssh ${GCE_VM} --zone=${GCE_ZONE} --project=${GCP_PROJECT} --tunnel-through-iap"
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              {
+                echo "### Status: UNKNOWN EXIT CODE (treated as critical)"
+                echo ""
+                echo "deploy.sh exited with code \`${DEPLOY_RC}\`. Treating"
+                echo "as a possible production outage. SSH to the VM and"
+                echo "investigate immediately."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+
+          # Honor exit code: 0 means success, anything else fails the job.
+          if [ "${DEPLOY_RC}" = "0" ]; then
+            exit 0
+          else
+            exit 1
+          fi

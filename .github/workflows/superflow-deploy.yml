@@ -1,53 +1,70 @@
 name: Superflow Deploy
 
-# Manually triggered. Updates the GCE VM's compose.yml to a chosen image
-# tag, pulls + restarts the affine container, then smoke-tests the live
-# endpoint.
+# Manually triggered. Deploys a chosen image tag to production using the
+# Tier 1 safe-deploy contract (smoke-then-swap with sidecar validation +
+# auto-rollback). The actual deploy logic lives in
+# /srv/affine/scripts/deploy.sh on the VM — this workflow is just a
+# trigger that authenticates to GCP, SSHes in, and interprets the
+# script's exit code.
 #
-# A failed smoke-test does NOT auto-rollback — the VM keeps a backup at
-# /srv/affine/compose/compose.yml.pre-<tag>.bak that you can restore in
-# under 60s. We surface the rollback command in the run summary.
+# Use this for:
+#   - Deploying a specific tagged release (e.g. main-<sha>-<run-id>,
+#     or a v*.*.* release tag)
+#   - Re-deploying after fixing an image that failed validation in
+#     the auto-deploy path (exit code 1)
 #
-# Required secrets:
-#   - GCP_SA_KEY: service-account JSON with the following roles on
-#                 project affine-495114:
-#                   * roles/compute.instanceAdmin.v1 (for ssh)
-#                   * roles/iap.tunnelResourceAccessor (for IAP ssh)
-#                   * roles/artifactregistry.reader (the docker pull on the VM)
-# The affine-vm itself must already have a service account that can pull
-# from GAR — that's separate from the deploy-time auth.
+# Exit-code contract (matches superflow-autodeploy.yml):
+#   0 = success — prod is on the new image
+#   1 = sidecar validation failed — prod NEVER touched, still on prior image
+#   2 = post-swap smoke failed — auto-rolled back, prod is on prior image
+#   3 = rollback itself failed — prod may be DOWN, manual intervention
+#   * = unknown — treated as 3
+#
+# To manually roll back to a known-good tag, use the
+# `Superflow Rollback` workflow instead — it's a one-click revert that
+# reads /srv/affine/compose/compose.yml.previous.bak.
+#
+# Required GCP roles on affine-495114 (granted to
+# affine-gha-deployer@affine-495114.iam.gserviceaccount.com via WIF):
+#   - roles/iap.tunnelResourceAccessor (IAP SSH)
+#   - roles/compute.instanceAdmin.v1   (compute ssh)
+#   - roles/iam.serviceAccountUser     (impersonate the VM's runtime SA)
+#   - roles/artifactregistry.reader    (validate tag exists in GAR)
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Image tag to deploy (e.g. v1.9.0)'
+        description: 'Image tag to deploy (e.g. main-839e398a-25346091234, or v1.10.2)'
         required: true
         type: string
-      skip_smoke:
-        description: 'Skip the post-deploy smoke test'
+      smoke_timeout_secs:
+        description: 'Sidecar validation timeout in seconds (default 90)'
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: '90'
 
 env:
   GCP_PROJECT: affine-495114
   GCE_ZONE: asia-southeast1-a
   GCE_VM: affine-vm
   PROD_HOST: affine.gogocash.co
+  GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
 
 jobs:
   deploy:
-    name: Update VM + restart container
+    name: Safe-deploy chosen tag
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
     steps:
+      - uses: actions/checkout@v4
+
       - name: Authenticate to GCP
         # Workload Identity Federation — see superflow-autodeploy.yml.
-        # No untrusted input.
+        # No untrusted input; literal WIF provider id and SA email.
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
@@ -56,84 +73,134 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      # TAG is user-supplied input. Charset-validate FIRST so we can pass
+      # it safely to subsequent shell + SSH commands.
+      - name: Validate tag charset (defense-in-depth)
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          # GAR docker tag: alnum, dot, underscore, hyphen, max 128 chars.
+          # We're stricter: require [A-Za-z0-9._-] only.
+          if ! printf '%s' "${TAG}" | grep -Eq '^[A-Za-z0-9._-]+$'; then
+            echo "::error::Tag contains characters outside [A-Za-z0-9._-]"
+            exit 1
+          fi
+          if [ "${#TAG}" -gt 128 ]; then
+            echo "::error::Tag exceeds 128 characters"
+            exit 1
+          fi
+
+      - name: Validate smoke_timeout_secs
+        env:
+          SMOKE_TIMEOUT_SECS: ${{ inputs.smoke_timeout_secs }}
+        run: |
+          if ! printf '%s' "${SMOKE_TIMEOUT_SECS}" | grep -Eq '^[0-9]+$'; then
+            echo "::error::smoke_timeout_secs must be a positive integer"
+            exit 1
+          fi
+          if [ "${SMOKE_TIMEOUT_SECS}" -lt 10 ] || [ "${SMOKE_TIMEOUT_SECS}" -gt 600 ]; then
+            echo "::error::smoke_timeout_secs out of range [10, 600]"
+            exit 1
+          fi
+
       - name: Validate tag exists in registry
         env:
           TAG: ${{ inputs.tag }}
         run: |
           gcloud artifacts docker tags list \
-            "asia-southeast1-docker.pkg.dev/${GCP_PROJECT}/affine/affine-gogocash" \
-            --filter="tag=$TAG" --format=json | grep -q "$TAG" \
-            || { echo "::error::tag $TAG not found in GAR"; exit 1; }
+            "${GAR_REPO}" \
+            --filter="tag=${TAG}" --format=json | grep -q "${TAG}" \
+            || { echo "::error::tag not found in GAR"; exit 1; }
+          echo "Tag verified in GAR"
 
-      - name: Update compose + restart
+      - name: Safe-deploy to GCE VM (smoke-then-swap)
+        id: deploy
         env:
           TAG: ${{ inputs.tag }}
+          SMOKE_TIMEOUT_SECS: ${{ inputs.smoke_timeout_secs }}
         run: |
+          set +e
           gcloud compute ssh "$GCE_VM" \
             --zone="$GCE_ZONE" --project="$GCP_PROJECT" \
             --tunnel-through-iap \
-            --command="
-              set -e
-              sudo cp /srv/affine/compose/compose.yml /srv/affine/compose/compose.yml.pre-${TAG}.bak
-              sudo sed -i 's|affine-gogocash:v[0-9.]*|affine-gogocash:${TAG}|g' /srv/affine/compose/compose.yml
-              cd /srv/affine/compose
-              sudo docker compose pull affine
-              sudo docker compose up -d affine
-              echo 'deploy: containers up'
-            "
-
-      - name: Wait for /info to return 200
-        if: ${{ !inputs.skip_smoke }}
-        run: |
-          for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "https://${PROD_HOST}/info" || true)
-            if [ "$code" = "200" ]; then
-              echo "smoke: HTTP 200 after ${i}x3s"
-              exit 0
-            fi
-            sleep 3
-          done
-          echo "::error::smoke test failed — /info never returned 200"
-          exit 1
-
-      - name: Verify Auto Tag prompt is seeded
-        if: ${{ !inputs.skip_smoke }}
-        env:
-          TAG: ${{ inputs.tag }}
-        run: |
-          gcloud compute ssh "$GCE_VM" \
-            --zone="$GCE_ZONE" --project="$GCP_PROJECT" \
-            --tunnel-through-iap \
-            --command="
-              sudo docker exec affine_server node -e \"
-                const {PrismaClient}=require('./node_modules/@prisma/client');
-                const p=new PrismaClient();
-                (async()=>{
-                  const r=await p.aiPrompt.findFirst({where:{name:'Auto Tag'},select:{name:true,model:true}});
-                  if(!r){console.error('Auto Tag prompt missing'); process.exit(1)}
-                  console.log('Auto Tag prompt:', JSON.stringify(r));
-                  await p.\\\$disconnect();
-                })();
-              \"
-            "
+            --command="sudo /srv/affine/scripts/deploy.sh \
+              --image-tag '${TAG}' \
+              --smoke-timeout-secs ${SMOKE_TIMEOUT_SECS} \
+              --rollback-on-failure"
+          DEPLOY_RC=$?
+          set -e
+          echo "deploy_rc=${DEPLOY_RC}" >> "$GITHUB_OUTPUT"
+          echo "deploy.sh exit code: ${DEPLOY_RC}"
+          exit 0
 
       - name: Summary
         if: always()
         env:
           TAG: ${{ inputs.tag }}
-          PROD: ${{ env.PROD_HOST }}
+          DEPLOY_RC: ${{ steps.deploy.outputs.deploy_rc }}
         run: |
           {
             echo "## Superflow Deploy"
             echo ""
-            echo "- Deployed tag: \`$TAG\`"
-            echo "- Production: https://$PROD"
+            echo "- Tag: \`${TAG}\`"
+            echo "- Production: https://${PROD_HOST}"
+            echo "- deploy.sh exit code: \`${DEPLOY_RC}\`"
             echo ""
-            echo "### Rollback (under 60s)"
-            echo '```bash'
-            echo "gcloud compute ssh affine-vm --zone=$GCE_ZONE --project=$GCP_PROJECT \\"
-            echo "  --tunnel-through-iap --command='cd /srv/affine/compose && \\"
-            echo "  sudo cp compose.yml.pre-${TAG}.bak compose.yml && \\"
-            echo "  sudo docker compose up -d affine'"
-            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+          case "${DEPLOY_RC}" in
+            0)
+              {
+                echo "### Status: SUCCESS"
+                echo ""
+                echo "Deployed \`${TAG}\`. Prod is on the new image."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            1)
+              {
+                echo "### Status: VALIDATION FAILED (prod untouched)"
+                echo ""
+                echo "The new image failed pre-deploy sidecar validation."
+                echo "Production is still on the previous image — nothing"
+                echo "was swapped. Investigate the new image then either"
+                echo "fix and rebuild, or roll forward."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              {
+                echo "### Status: AUTO-ROLLED BACK"
+                echo ""
+                echo "The new image passed sidecar validation but failed"
+                echo "the post-swap smoke test. deploy.sh auto-rolled back."
+                echo "Production is on the previous image."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            3)
+              {
+                echo "### Status: CRITICAL — ROLLBACK FAILED"
+                echo ""
+                echo "The new image failed AND the rollback step itself"
+                echo "failed. Production may be DOWN. SSH to the VM and"
+                echo "investigate immediately:"
+                echo ""
+                echo '```bash'
+                echo "gcloud compute ssh ${GCE_VM} --zone=${GCE_ZONE} --project=${GCP_PROJECT} --tunnel-through-iap"
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              {
+                echo "### Status: UNKNOWN EXIT CODE (treated as critical)"
+                echo ""
+                echo "deploy.sh exited with code \`${DEPLOY_RC}\`. Treating"
+                echo "as a possible production outage. SSH to the VM and"
+                echo "investigate immediately."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+
+          if [ "${DEPLOY_RC}" = "0" ]; then
+            exit 0
+          else
+            exit 1
+          fi

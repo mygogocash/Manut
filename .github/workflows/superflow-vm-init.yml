@@ -1,0 +1,167 @@
+name: Superflow VM Init
+
+# One-time bootstrap (idempotent — safe to re-run). Installs the Tier 1
+# safe-deploy scripts and the new compose template onto the GCE VM.
+#
+# Run this AFTER:
+#   1. Agent B has committed scripts/vm/{deploy.sh,rollback.sh,compose-template.yml}
+#      to main, and CI is green.
+#   2. You're ready to switch the VM from the legacy "swap-then-smoke"
+#      autodeploy onto the smoke-then-swap workflow.
+#
+# What this workflow does (in order, all idempotent):
+#   1. Validate the three source files exist in the repo at HEAD.
+#   2. WIF-auth to GCP.
+#   3. scp the three files to /tmp/ on the VM.
+#   4. SSH in and:
+#      a. mkdir -p /srv/affine/scripts
+#      b. install -m 755 the deploy + rollback scripts
+#      c. one-time backup the existing compose.yml to
+#         compose.yml.before-tier1.bak (only if that backup doesn't
+#         already exist — preserves the very first pre-Tier-1 snapshot)
+#      d. extract the current image tag from compose.yml so we can
+#         preserve it through the template substitution
+#      e. apply the new compose template, with the current tag
+#         substituted in, to /srv/affine/compose/compose.yml
+#      f. validate `docker compose config` succeeds against the new
+#         compose.yml
+#   5. Job summary listing what was installed and which tag the new
+#      compose targets.
+#
+# This workflow is INTENTIONALLY workflow_dispatch-only (no auto-trigger).
+# Bootstrapping is a deliberate one-shot decision per VM.
+
+on:
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT: affine-495114
+  GCE_ZONE: asia-southeast1-a
+  GCE_VM: affine-vm
+
+jobs:
+  init:
+    name: Install scripts + compose template on VM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate source files exist in repo
+        run: |
+          missing=0
+          for f in scripts/vm/deploy.sh scripts/vm/rollback.sh scripts/vm/compose-template.yml; do
+            if [ ! -f "$f" ]; then
+              echo "::error::$f missing from repo — Agent B's scripts have not been committed yet"
+              missing=1
+            fi
+          done
+          if [ "$missing" = "1" ]; then exit 1; fi
+          echo "All three source files present"
+          ls -la scripts/vm/
+
+      - name: Authenticate to GCP
+        # WIF — see superflow-autodeploy.yml. No untrusted input.
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
+          service_account: 'affine-gha-deployer@affine-495114.iam.gserviceaccount.com'
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: scp scripts + compose template to /tmp on VM
+        run: |
+          gcloud compute scp \
+            scripts/vm/deploy.sh \
+            scripts/vm/rollback.sh \
+            scripts/vm/compose-template.yml \
+            "$GCE_VM":/tmp/ \
+            --zone="$GCE_ZONE" --project="$GCP_PROJECT" \
+            --tunnel-through-iap
+
+      # All commands are literals — no untrusted input is interpolated.
+      - name: Install scripts + apply compose template
+        id: install
+        run: |
+          gcloud compute ssh "$GCE_VM" \
+            --zone="$GCE_ZONE" --project="$GCP_PROJECT" \
+            --tunnel-through-iap \
+            --command='set -e
+              echo "--- Installing deploy + rollback scripts ---"
+              sudo mkdir -p /srv/affine/scripts
+              sudo install -m 755 /tmp/deploy.sh   /srv/affine/scripts/deploy.sh
+              sudo install -m 755 /tmp/rollback.sh /srv/affine/scripts/rollback.sh
+              ls -la /srv/affine/scripts/
+
+              echo "--- One-time pre-Tier-1 backup (preserves first snapshot) ---"
+              if [ -f /srv/affine/compose/compose.yml ] && [ ! -f /srv/affine/compose/compose.yml.before-tier1.bak ]; then
+                sudo cp /srv/affine/compose/compose.yml /srv/affine/compose/compose.yml.before-tier1.bak
+                echo "Backed up original compose.yml -> compose.yml.before-tier1.bak"
+              else
+                if [ -f /srv/affine/compose/compose.yml.before-tier1.bak ]; then
+                  echo "compose.yml.before-tier1.bak already exists — preserving original"
+                else
+                  echo "No /srv/affine/compose/compose.yml found to back up"
+                fi
+              fi
+
+              echo "--- Extracting current image tag from compose.yml ---"
+              CURRENT_TAG=""
+              if [ -f /srv/affine/compose/compose.yml ]; then
+                CURRENT_TAG=$(grep -Eo "affine-gogocash:[A-Za-z0-9._-]+" /srv/affine/compose/compose.yml | head -1 | cut -d: -f2 || true)
+              fi
+              if [ -z "$CURRENT_TAG" ]; then
+                echo "::error::Could not extract current image tag from /srv/affine/compose/compose.yml"
+                echo "Aborting — refusing to install template without a known tag to substitute."
+                exit 1
+              fi
+              echo "Current image tag: $CURRENT_TAG"
+
+              echo "--- Applying compose template (substituting __IMAGE_TAG__ with $CURRENT_TAG) ---"
+              # Template uses literal sentinel __IMAGE_TAG__ for the image tag.
+              # Charset is restricted (alnum, dot, hyphen, underscore) so sed
+              # delimiter / is safe.
+              sudo sed "s|__IMAGE_TAG__|$CURRENT_TAG|g" /tmp/compose-template.yml > /tmp/compose.yml.new
+              sudo cp /tmp/compose.yml.new /srv/affine/compose/compose.yml
+              echo "compose.yml updated"
+
+              echo "--- Validating new compose.yml ---"
+              cd /srv/affine/compose
+              sudo docker compose config > /dev/null
+              echo "docker compose config: OK"
+
+              echo "--- Final state ---"
+              echo "scripts:"
+              ls -la /srv/affine/scripts/
+              echo ""
+              echo "compose dir:"
+              ls -la /srv/affine/compose/
+              echo ""
+              echo "current image tag in compose.yml:"
+              grep -E "affine-gogocash:" /srv/affine/compose/compose.yml || true
+            '
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Superflow VM Init"
+            echo ""
+            echo "Installed on \`${GCE_VM}\` in \`${GCE_ZONE}\`:"
+            echo ""
+            echo "- /srv/affine/scripts/deploy.sh    (mode 755)"
+            echo "- /srv/affine/scripts/rollback.sh  (mode 755)"
+            echo "- /srv/affine/compose/compose.yml  (replaced from template, current tag preserved)"
+            echo ""
+            echo "Backups (kept on the VM, never overwritten by re-runs):"
+            echo "- /srv/affine/compose/compose.yml.before-tier1.bak (one-time pre-Tier-1 snapshot)"
+            echo ""
+            echo "Next steps:"
+            echo "1. Trigger Superflow CI on a fresh main commit"
+            echo "2. Confirm Superflow Auto Deploy uses /srv/affine/scripts/deploy.sh"
+            echo "3. Watch for the smoke-then-swap pattern in the run logs"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -135,11 +135,22 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Extract version
+      - name: Extract version + compute unique image tag
         id: version
         env:
           REF: ${{ github.ref }}
-        run: echo "version=${REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          VERSION="${REF#refs/tags/}"
+          # Tier 1 reliability: every pushed image gets a run-unique tag
+          # so a re-run of the same release tag never clobbers a previously
+          # deployed image. The plain :v<X.Y.Z> tag is ALSO pushed so users
+          # can deploy by version, but the run-unique tag is what
+          # `Superflow Deploy` should target for redeployment safety.
+          IMAGE_TAG="${VERSION}-${RUN_ID}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Computed image tag: ${IMAGE_TAG} (version: ${VERSION}, run: ${RUN_ID})"
 
       - name: Build + push image
         uses: docker/build-push-action@v5
@@ -148,23 +159,31 @@ jobs:
           file: ./.docker/gogocash/Dockerfile.fullstack
           platforms: linux/amd64
           push: true
+          # We push the run-unique tag AND the plain version tag. We do
+          # NOT push :latest — floating tags are how the swap-then-smoke
+          # incidents went undetected. Use the unique tag for actual
+          # deploys; the version tag is for human-readable references.
           tags: |
+            ${{ env.GAR_REPO }}:${{ steps.version.outputs.image_tag }}
             ${{ env.GAR_REPO }}:${{ steps.version.outputs.version }}
-            ${{ env.GAR_REPO }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Summary
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
           REPO: ${{ env.GAR_REPO }}
         run: |
           {
             echo "## Superflow Release"
             echo ""
             echo "- Version: \`$VERSION\`"
-            echo "- Image: \`$REPO:$VERSION\`"
-            echo "- Also tagged: \`latest\`"
+            echo "- Run-unique image tag (use this for deploy): \`$IMAGE_TAG\`"
+            echo "- Plain version tag (human reference): \`$VERSION\`"
+            echo "- Image: \`$REPO:$IMAGE_TAG\`"
             echo ""
-            echo "Run the **Superflow Deploy** workflow manually to roll this out to GCE."
+            echo "Run the **Superflow Deploy** workflow manually with"
+            echo "\`tag: $IMAGE_TAG\` to roll this out to GCE under the"
+            echo "Tier 1 smoke-then-swap contract."
           } >> "$GITHUB_STEP_SUMMARY"
