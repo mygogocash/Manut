@@ -116,7 +116,19 @@ export class AnalyticsModule {
 /**
  * Feature-flag predicate. Exported so app.module.ts can mirror this in its
  * `useIf(...)` call — keeping the source of truth in one place.
+ *
+ * Default-on for Superflow self-hosted (DEPLOYMENT_TYPE=selfhosted): the
+ * Analytics · Connections settings panel is the user-visible feature shipped
+ * here, and forcing every selfhosted operator to set an env var would mean
+ * every fresh boot surfaces "Unhandled error raised" on the panel because
+ * the GraphQL schema is missing `connections` / `beginPlatformConnect`.
+ *
+ * Explicit `ENABLE_ANALYTICS_MODULE=true` / `=false` always wins; only the
+ * empty / unset case falls through to the selfhosted default.
  */
 export function isAnalyticsModuleEnabled(): boolean {
-  return process.env.ENABLE_ANALYTICS_MODULE === 'true';
+  const flag = process.env.ENABLE_ANALYTICS_MODULE;
+  if (flag === 'true') return true;
+  if (flag === 'false') return false;
+  return process.env.DEPLOYMENT_TYPE === 'selfhosted';
 }
