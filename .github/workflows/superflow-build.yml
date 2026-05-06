@@ -31,6 +31,19 @@ on:
     workflows: ['Superflow CI']
     types: [completed]
     branches: [main]
+  # Manual trigger exists primarily as the buildx-cache nuke escape
+  # hatch (Tier 2). Tick `nuke_cache` to wipe the registry cache image
+  # before this run starts; that forces a cold build on this run AND
+  # repopulates a fresh cache for subsequent runs. Useful when a poisoned
+  # layer is suspected — see the mobile/dist-empty incident that
+  # motivated this hatch.
+  workflow_dispatch:
+    inputs:
+      nuke_cache:
+        description: 'Wipe the registry buildx cache before this build (cold cache, full rebuild).'
+        type: boolean
+        required: false
+        default: false
 
 # One build at a time per branch. cancel-in-progress kills the runner
 # but the docker buildx push to GAR is the slow part; cancelling in the
@@ -44,16 +57,26 @@ env:
   YARN_ENABLE_HARDENED_MODE: 0
   GAR_REGION: asia-southeast1
   GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
+  # Tier 2: dedicated registry image for buildx layer cache. Sibling of
+  # the deploy image in the same GAR repo so a single push permission
+  # covers both. Single tag :buildx accumulates all layers; the
+  # nuke_cache workflow input deletes this tag entirely to force a cold
+  # build. See docs/CICD.md "Buildx cache (registry-backed)".
+  GAR_CACHE_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash-cache
   GCP_PROJECT: affine-495114
 
 jobs:
   build:
     name: Build + push image
-    # Only run when CI succeeded on a push event to main (not a PR
-    # merge-queue check, not a workflow_run from a fork).
+    # Run when CI succeeded on a push event to main (not a PR merge-queue
+    # check, not a workflow_run from a fork) OR when manually dispatched
+    # (e.g., to nuke the registry buildx cache via the workflow_dispatch
+    # input). Manual dispatch always passes the gate; the workflow_run
+    # path retains the conclusion + event guard.
     if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push'
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -74,13 +97,23 @@ jobs:
           # workflow_run events points at the workflow file's HEAD on the
           # default branch — which can drift from the commit that passed
           # CI if the workflow file itself was edited mid-flight.
-          ref: ${{ github.event.workflow_run.head_sha }}
+          # Fallback to github.sha for the workflow_dispatch (cache-nuke)
+          # path which lacks workflow_run.head_sha.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - run: corepack enable
+
+      # Tier 2 (build determinism): pin yarn to the exact version recorded
+      # in package.json:packageManager. corepack defaults to "whatever's
+      # bundled with the runner image" which can drift between hosted
+      # runners and laptop. Pinning eliminates a class of build-output
+      # variance that contributed to the layer-cache poisoning saga.
+      - name: Pin corepack yarn version
+        run: corepack prepare yarn@4.13.0 --activate
 
       - name: Setup Rust (stable, x86_64-unknown-linux-gnu)
         uses: dtolnay/rust-toolchain@stable
@@ -147,6 +180,18 @@ jobs:
       - name: Generate Prisma client
         run: yarn workspace @affine/server prisma generate
 
+      # Tier 2 (build determinism): wipe stale dist directories before
+      # bundling. CI runners are ephemeral so this is usually a no-op,
+      # but yarn install can leave behind generated dist trees from
+      # workspace postinstalls in some configurations. A stale dist
+      # tree is exactly what got cached in the layer-poisoning incident
+      # — start each bundle from a known-clean slate.
+      - name: Prune stale dist artifacts
+        run: |
+          find packages/frontend -path '*/dist' -type d -exec rm -rf {} + 2>/dev/null || true
+          find packages/backend -path '*/dist' -type d -exec rm -rf {} + 2>/dev/null || true
+          echo "Pruned dist directories"
+
       - name: Build server bundle
         run: yarn affine bundle -p @affine/server
 
@@ -161,6 +206,29 @@ jobs:
           yarn affine bundle -p web
           yarn affine bundle -p admin
           yarn affine bundle -p mobile
+
+      # Tier 2 (build determinism): catches the class of bugs where the
+      # build process writes BACK into the source tree. Stale .js files
+      # next to .css.ts source poison subsequent builds (CLAUDE.md §5
+      # "Stale .js / .d.ts in packages/**/src/"). git-status respects
+      # .gitignore, so the existing dist/ + *.js gitignore rules keep
+      # legitimate untracked artifacts from triggering this. Run AFTER
+      # all bundles complete — some shared codegen may legitimately
+      # update files mid-build but should converge before the final
+      # bundle step.
+      - name: Check no source files drifted during build
+        run: |
+          if [ -n "$(git status --porcelain packages/ blocksuite/ tools/)" ]; then
+            echo "::error::source tree drifted during build:"
+            git status --short packages/ blocksuite/ tools/ | head -50
+            echo ""
+            echo "rspack/tsc wrote back into the source tree. The bundle"
+            echo "may have picked up stale .js next to .ts/.tsx and"
+            echo "produced a different output than a clean tree would."
+            echo "See CLAUDE.md §5 'Stale .js / .d.ts in packages/**/src/'."
+            exit 1
+          fi
+          echo "No source drift detected"
 
       - name: Authenticate to GCP
         # Workload Identity Federation — no JSON key (org policy
@@ -180,14 +248,44 @@ jobs:
           GAR_REGION: ${{ env.GAR_REGION }}
         run: gcloud auth configure-docker "${GAR_REGION}-docker.pkg.dev" --quiet
 
+      # Tier 2 (cache poisoning escape hatch): operator can wipe the
+      # registry buildx cache image before the build by ticking
+      # `nuke_cache` in the workflow_dispatch input. This forces a cold
+      # cache miss on this run and repopulates a fresh cache for
+      # subsequent runs — the only reliable way to recover from a
+      # poisoned layer (the mobile/dist-empty incident took prod down
+      # twice via this exact failure mode).
+      #
+      # `|| true` is intentional: the cache image may not yet exist on
+      # the very first run, and the deployer SA only has
+      # roles/artifactregistry.writer (not repoAdmin) so the delete may
+      # 403. Either way, the next buildx step will simply cache-miss
+      # and repopulate. Document the permission shortcoming in
+      # docs/CICD.md so an operator who needs reliable nuking can
+      # request roles/artifactregistry.repoAdmin.
+      - name: Nuke buildx cache image (escape hatch)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.nuke_cache == 'true'
+        env:
+          CACHE_IMAGE: ${{ env.GAR_CACHE_REPO }}:buildx
+        run: |
+          echo "Wiping buildx cache: ${CACHE_IMAGE}"
+          gcloud artifacts docker images delete "${CACHE_IMAGE}" --quiet --delete-tags || true
+          echo "Cache nuked (or never existed). The next docker build will"
+          echo "be slow (no cache hits) and will repopulate a fresh cache."
+
       - uses: docker/setup-buildx-action@v3
 
       # head_sha is a hex SHA. RUN_ID is a numeric ID from GitHub.
       # Concatenated tag is shell-safe.
+      #
+      # workflow_run carries the SHA on workflow_run.head_sha;
+      # workflow_dispatch (the cache-nuke escape hatch) does not. Fall
+      # back to github.sha (the ref the dispatch resolved to) so
+      # nuke-mode runs still produce a proper main-<sha>-<run> tag.
       - name: Compute image tag
         id: tag
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
           RUN_ID: ${{ github.run_id }}
         run: |
           SHORT_SHA=$(echo "$HEAD_SHA" | cut -c1-9)
@@ -205,6 +303,40 @@ jobs:
         # what enabled the clobber-then-redeploy regressions in v1.x.
         # If you need a "current main" pointer, query GAR by image
         # creation timestamp, not by tag.
+        #
+        # Tier 2 (cache poisoning fix): registry-backed buildx cache
+        # instead of GHA cache. Three reasons:
+        #   1. Visible. `docker manifest inspect` on the cache image
+        #      shows what's there. GHA cache is opaque.
+        #   2. Selectively invalidable. `gcloud artifacts docker images
+        #      delete` (the workflow_dispatch nuke_cache input above)
+        #      wipes a single bad cache without nuking everything else.
+        #      With GHA cache the only knob was "delete the entire
+        #      Actions cache for the repo".
+        #   3. Cross-runner reuse. Every CI run hits the same registry
+        #      cache regardless of which hosted runner picks up the job.
+        #      GHA cache is partitioned per ref/branch and tends to
+        #      cold-miss across runs.
+        #
+        # `mode=max` exports cache for ALL stages (default `min` only
+        # exports the final stage). We need this because the `prep`
+        # stage's `yarn workspaces focus` is the slowest single step.
+        #
+        # `no-cache-filters: assets` forces the `assets` stage in
+        # Dockerfile.fullstack to rebuild every time, even on a cache
+        # hit. That stage is the COPY layer that brings in the dist
+        # directories — the EXACT layer that got poisoned in the
+        # mobile/dist-empty incident. Defense-in-depth: even if the
+        # registry cache somehow ships a stale dist layer, the
+        # bypassed cache forces a rebuild from the current working
+        # tree. Cost: ~30s per build. Worth it.
+        #
+        # FIRST-RUN BEHAVIOR: on the first build after this change
+        # lands, the cache image at GAR_CACHE_REPO:buildx does not yet
+        # exist. cache-from will quietly miss; cache-to will create
+        # the image at the end of the build. Subsequent builds are
+        # fast. The job summary calls this out so an operator who
+        # sees a slow first build doesn't panic.
         id: build_push
         uses: docker/build-push-action@v5
         with:
@@ -214,8 +346,9 @@ jobs:
           push: true
           tags: |
             ${{ env.GAR_REPO }}:${{ steps.tag.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.GAR_CACHE_REPO }}:buildx
+          cache-to: type=registry,ref=${{ env.GAR_CACHE_REPO }}:buildx,mode=max
+          no-cache-filters: assets
 
       - name: Write image-tag artifact (cross-workflow handoff)
         # Why an artifact, not job outputs?
@@ -261,6 +394,8 @@ jobs:
           HEAD_SHA: ${{ steps.tag.outputs.head_sha }}
           IMAGE_DIGEST: ${{ steps.build_push.outputs.digest }}
           GAR_REPO_VAR: ${{ env.GAR_REPO }}
+          NUKE_CACHE: ${{ github.event.inputs.nuke_cache }}
+          CACHE_IMAGE: ${{ env.GAR_CACHE_REPO }}:buildx
         run: |
           {
             echo "## Superflow Build"
@@ -269,6 +404,7 @@ jobs:
             echo "- Image tag: \`${IMAGE_TAG}\`"
             echo "- Image digest: \`${IMAGE_DIGEST:-unknown}\`"
             echo "- Registry: \`${GAR_REPO_VAR}\`"
+            echo "- Buildx cache: \`${CACHE_IMAGE}\`"
             echo ""
             echo "**Machine-readable**: \`IMAGE_TAG=${IMAGE_TAG}\`"
             echo ""
@@ -280,3 +416,16 @@ jobs:
             echo "gh workflow run superflow-deploy.yml -f tag=${IMAGE_TAG}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+          # Tier 2: surface cache-related expectations to the operator.
+          if [ "${NUKE_CACHE}" = "true" ]; then
+            {
+              echo ""
+              echo "### Buildx cache: NUKED"
+              echo ""
+              echo "The registry cache image was deleted before this build."
+              echo "This run took the cold-cache penalty (~5-10 min slower)"
+              echo "and has now repopulated a fresh \`${CACHE_IMAGE}\`."
+              echo "Subsequent runs will be fast again."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi

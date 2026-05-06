@@ -24,6 +24,9 @@ env:
   YARN_ENABLE_HARDENED_MODE: 0
   GAR_REGION: asia-southeast1
   GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
+  # Tier 2: shared with superflow-autodeploy.yml so a single warm cache
+  # serves both pipelines. See docs/CICD.md "Buildx cache (registry-backed)".
+  GAR_CACHE_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash-cache
 
 jobs:
   build-and-push:
@@ -41,6 +44,13 @@ jobs:
           node-version: 22
 
       - run: corepack enable
+
+      # Tier 2 (build determinism): pin yarn to the exact version in
+      # package.json:packageManager so the release image bundle matches
+      # what laptop builds produce. corepack's default ("whatever's
+      # bundled with the runner") drifts between hosted runners.
+      - name: Pin corepack yarn version
+        run: corepack prepare yarn@4.13.0 --activate
 
       - name: Setup Rust (stable, x86_64-unknown-linux-gnu)
         uses: dtolnay/rust-toolchain@stable
@@ -106,6 +116,16 @@ jobs:
       - name: Generate Prisma client
         run: yarn workspace @affine/server prisma generate
 
+      # Tier 2 (build determinism): wipe stale dist directories before
+      # bundling. Same rationale as superflow-autodeploy.yml — the
+      # empty-mobile-dist incident that took prod down twice was a
+      # cached stale dist tree slipping into the docker build context.
+      - name: Prune stale dist artifacts
+        run: |
+          find packages/frontend -path '*/dist' -type d -exec rm -rf {} + 2>/dev/null || true
+          find packages/backend -path '*/dist' -type d -exec rm -rf {} + 2>/dev/null || true
+          echo "Pruned dist directories"
+
       - name: Build server bundle
         run: yarn affine bundle -p @affine/server
 
@@ -117,6 +137,24 @@ jobs:
           yarn affine bundle -p web
           yarn affine bundle -p admin
           yarn affine bundle -p mobile
+
+      # Tier 2 (build determinism): same source-drift guard as
+      # superflow-autodeploy.yml. Catches the class of bugs where the
+      # build process writes back into the source tree (CLAUDE.md §5
+      # "Stale .js / .d.ts in packages/**/src/").
+      - name: Check no source files drifted during build
+        run: |
+          if [ -n "$(git status --porcelain packages/ blocksuite/ tools/)" ]; then
+            echo "::error::source tree drifted during build:"
+            git status --short packages/ blocksuite/ tools/ | head -50
+            echo ""
+            echo "rspack/tsc wrote back into the source tree. The bundle"
+            echo "may have picked up stale .js next to .ts/.tsx and"
+            echo "produced a different output than a clean tree would."
+            echo "See CLAUDE.md §5 'Stale .js / .d.ts in packages/**/src/'."
+            exit 1
+          fi
+          echo "No source drift detected"
 
       - name: Authenticate to GCP
         id: gcp-auth
@@ -153,6 +191,17 @@ jobs:
           echo "Computed image tag: ${IMAGE_TAG} (version: ${VERSION}, run: ${RUN_ID})"
 
       - name: Build + push image
+        # Tier 2 (cache poisoning fix): registry-backed buildx cache
+        # shared with superflow-autodeploy.yml. See that file's longer
+        # comment block for rationale; the short version:
+        #   - GHA cache was opaque, partitioned per-runner, not
+        #     selectively invalidable. Switched to a registry image
+        #     in GAR alongside the deploy image.
+        #   - `no-cache-filters: assets` forces the dist-COPY stage to
+        #     rebuild every time. That's the layer that got poisoned
+        #     in the mobile/dist-empty incident — defense-in-depth.
+        # FIRST RELEASE AFTER THIS CHANGE: cold cache, slow build.
+        # Subsequent releases hit the warm cache.
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -166,14 +215,16 @@ jobs:
           tags: |
             ${{ env.GAR_REPO }}:${{ steps.version.outputs.image_tag }}
             ${{ env.GAR_REPO }}:${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.GAR_CACHE_REPO }}:buildx
+          cache-to: type=registry,ref=${{ env.GAR_CACHE_REPO }}:buildx,mode=max
+          no-cache-filters: assets
 
       - name: Summary
         env:
           VERSION: ${{ steps.version.outputs.version }}
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
           REPO: ${{ env.GAR_REPO }}
+          CACHE_IMAGE: ${{ env.GAR_CACHE_REPO }}:buildx
         run: |
           {
             echo "## Superflow Release"
@@ -182,6 +233,7 @@ jobs:
             echo "- Run-unique image tag (use this for deploy): \`$IMAGE_TAG\`"
             echo "- Plain version tag (human reference): \`$VERSION\`"
             echo "- Image: \`$REPO:$IMAGE_TAG\`"
+            echo "- Buildx cache: \`$CACHE_IMAGE\`"
             echo ""
             echo "Run the **Superflow Deploy** workflow manually with"
             echo "\`tag: $IMAGE_TAG\` to roll this out to GCE under the"
