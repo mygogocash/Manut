@@ -1,13 +1,18 @@
 name: Superflow VM Init
 
 # One-time bootstrap (idempotent — safe to re-run). Installs the Tier 1
-# safe-deploy scripts and the new compose template onto the GCE VM.
+# safe-deploy scripts AND the canary overlay file onto the GCE VM.
 #
-# Run this AFTER:
-#   1. Agent B has committed scripts/vm/{deploy.sh,rollback.sh,compose-template.yml}
-#      to main, and CI is green.
-#   2. You're ready to switch the VM from the legacy "swap-then-smoke"
-#      autodeploy onto the smoke-then-swap workflow.
+# IMPORTANT: this workflow does NOT modify the existing
+# /srv/affine/compose/compose.yml. The canary service is added via a
+# SEPARATE file (compose.canary.yml) that's loaded only at deploy time
+# via `docker compose -f compose.yml -f compose.canary.yml`. Production
+# compose.yml carries operator-specific config (env_file paths,
+# external-managed Postgres + Redis topology, secrets) that we don't
+# want to lose by templating.
+#
+# Run this once after Tier 1 ships, then any future deploy is
+# automatically smoke-validated via the canary overlay.
 #
 # What this workflow does (in order, all idempotent):
 #   1. Validate the three source files exist in the repo at HEAD.
@@ -16,17 +21,12 @@ name: Superflow VM Init
 #   4. SSH in and:
 #      a. mkdir -p /srv/affine/scripts
 #      b. install -m 755 the deploy + rollback scripts
-#      c. one-time backup the existing compose.yml to
-#         compose.yml.before-tier1.bak (only if that backup doesn't
-#         already exist — preserves the very first pre-Tier-1 snapshot)
-#      d. extract the current image tag from compose.yml so we can
-#         preserve it through the template substitution
-#      e. apply the new compose template, with the current tag
-#         substituted in, to /srv/affine/compose/compose.yml
-#      f. validate `docker compose config` succeeds against the new
-#         compose.yml
-#   5. Job summary listing what was installed and which tag the new
-#      compose targets.
+#      c. install -m 644 the canary overlay file at
+#         /srv/affine/compose/compose.canary.yml (NEW file, additive)
+#      d. validate `docker compose -f compose.yml -f compose.canary.yml
+#         config` succeeds — this confirms the overlay is compatible
+#         with the live compose.yml
+#   5. Job summary listing what was installed.
 #
 # This workflow is INTENTIONALLY workflow_dispatch-only (no auto-trigger).
 # Bootstrapping is a deliberate one-shot decision per VM.
@@ -41,7 +41,7 @@ env:
 
 jobs:
   init:
-    name: Install scripts + compose template on VM
+    name: Install scripts + canary overlay on VM
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -53,9 +53,9 @@ jobs:
       - name: Validate source files exist in repo
         run: |
           missing=0
-          for f in scripts/vm/deploy.sh scripts/vm/rollback.sh scripts/vm/compose-template.yml; do
+          for f in scripts/vm/deploy.sh scripts/vm/rollback.sh scripts/vm/compose.canary.yml; do
             if [ ! -f "$f" ]; then
-              echo "::error::$f missing from repo — Agent B's scripts have not been committed yet"
+              echo "::error::$f missing from repo"
               missing=1
             fi
           done
@@ -73,18 +73,25 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: scp scripts + compose template to /tmp on VM
+      - name: scp scripts + canary overlay to /tmp on VM
         run: |
           gcloud compute scp \
             scripts/vm/deploy.sh \
             scripts/vm/rollback.sh \
-            scripts/vm/compose-template.yml \
+            scripts/vm/compose.canary.yml \
             "$GCE_VM":/tmp/ \
             --zone="$GCE_ZONE" --project="$GCP_PROJECT" \
             --tunnel-through-iap
 
       # All commands are literals — no untrusted input is interpolated.
-      - name: Install scripts + apply compose template
+      # SAFE bootstrap: installs scripts + the canary overlay file as a
+      # SEPARATE companion to the existing compose.yml. Production
+      # compose.yml is NEVER modified by this workflow — that would risk
+      # losing operator-specific env_file paths, secrets, and the
+      # external-managed-services topology (Postgres + Redis on Cloud SQL
+      # / GCE VPC IPs). The canary service is added via compose's `-f`
+      # overlay pattern at deploy time only.
+      - name: Install scripts + canary overlay
         id: install
         run: |
           gcloud compute ssh "$GCE_VM" \
@@ -97,42 +104,16 @@ jobs:
               sudo install -m 755 /tmp/rollback.sh /srv/affine/scripts/rollback.sh
               ls -la /srv/affine/scripts/
 
-              echo "--- One-time pre-Tier-1 backup (preserves first snapshot) ---"
-              if [ -f /srv/affine/compose/compose.yml ] && [ ! -f /srv/affine/compose/compose.yml.before-tier1.bak ]; then
-                sudo cp /srv/affine/compose/compose.yml /srv/affine/compose/compose.yml.before-tier1.bak
-                echo "Backed up original compose.yml -> compose.yml.before-tier1.bak"
-              else
-                if [ -f /srv/affine/compose/compose.yml.before-tier1.bak ]; then
-                  echo "compose.yml.before-tier1.bak already exists — preserving original"
-                else
-                  echo "No /srv/affine/compose/compose.yml found to back up"
-                fi
-              fi
+              echo "--- Installing canary overlay (separate file, does NOT replace compose.yml) ---"
+              sudo install -m 644 /tmp/compose.canary.yml /srv/affine/compose/compose.canary.yml
+              ls -la /srv/affine/compose/compose.canary.yml
 
-              echo "--- Extracting current image tag from compose.yml ---"
-              CURRENT_TAG=""
-              if [ -f /srv/affine/compose/compose.yml ]; then
-                CURRENT_TAG=$(grep -Eo "affine-gogocash:[A-Za-z0-9._-]+" /srv/affine/compose/compose.yml | head -1 | cut -d: -f2 || true)
-              fi
-              if [ -z "$CURRENT_TAG" ]; then
-                echo "::error::Could not extract current image tag from /srv/affine/compose/compose.yml"
-                echo "Aborting — refusing to install template without a known tag to substitute."
-                exit 1
-              fi
-              echo "Current image tag: $CURRENT_TAG"
-
-              echo "--- Applying compose template (substituting __IMAGE_TAG__ with $CURRENT_TAG) ---"
-              # Template uses literal sentinel __IMAGE_TAG__ for the image tag.
-              # Charset is restricted (alnum, dot, hyphen, underscore) so sed
-              # delimiter / is safe.
-              sudo sed "s|__IMAGE_TAG__|$CURRENT_TAG|g" /tmp/compose-template.yml > /tmp/compose.yml.new
-              sudo cp /tmp/compose.yml.new /srv/affine/compose/compose.yml
-              echo "compose.yml updated"
-
-              echo "--- Validating new compose.yml ---"
+              echo "--- Validating overlay against existing compose.yml ---"
+              # Validate that compose.yml + compose.canary.yml together
+              # parse into a coherent project. Does NOT start anything.
               cd /srv/affine/compose
-              sudo docker compose config > /dev/null
-              echo "docker compose config: OK"
+              sudo docker compose -f compose.yml -f compose.canary.yml config > /dev/null
+              echo "docker compose -f compose.yml -f compose.canary.yml config: OK"
 
               echo "--- Final state ---"
               echo "scripts:"
@@ -141,7 +122,7 @@ jobs:
               echo "compose dir:"
               ls -la /srv/affine/compose/
               echo ""
-              echo "current image tag in compose.yml:"
+              echo "production image tag (from compose.yml — UNCHANGED by this workflow):"
               grep -E "affine-gogocash:" /srv/affine/compose/compose.yml || true
             '
 
@@ -153,15 +134,16 @@ jobs:
             echo ""
             echo "Installed on \`${GCE_VM}\` in \`${GCE_ZONE}\`:"
             echo ""
-            echo "- /srv/affine/scripts/deploy.sh    (mode 755)"
-            echo "- /srv/affine/scripts/rollback.sh  (mode 755)"
-            echo "- /srv/affine/compose/compose.yml  (replaced from template, current tag preserved)"
+            echo "- /srv/affine/scripts/deploy.sh         (mode 755)"
+            echo "- /srv/affine/scripts/rollback.sh       (mode 755)"
+            echo "- /srv/affine/compose/compose.canary.yml (NEW overlay file, mode 644)"
             echo ""
-            echo "Backups (kept on the VM, never overwritten by re-runs):"
-            echo "- /srv/affine/compose/compose.yml.before-tier1.bak (one-time pre-Tier-1 snapshot)"
+            echo "Production compose.yml: NOT MODIFIED. Canary is loaded only"
+            echo "at deploy time via \`docker compose -f compose.yml -f compose.canary.yml\`."
             echo ""
             echo "Next steps:"
-            echo "1. Trigger Superflow CI on a fresh main commit"
-            echo "2. Confirm Superflow Auto Deploy uses /srv/affine/scripts/deploy.sh"
-            echo "3. Watch for the smoke-then-swap pattern in the run logs"
+            echo "1. Trigger Superflow Auto Deploy via any push to main, OR"
+            echo "2. Manually deploy any pushed image: \`gh workflow run superflow-deploy.yml -f tag=<tag>\`"
+            echo "3. Deploys now use the smoke-then-swap pattern. Pre-validation"
+            echo "   failures leave production untouched."
           } >> "$GITHUB_STEP_SUMMARY"

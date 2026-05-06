@@ -1,0 +1,62 @@
+# Canary overlay file — applied on top of compose.yml during the smoke
+# validation phase of deploy.sh. Defines a single sidecar service
+# `affine_canary` with `profiles: [validation]` so it does NOT auto-start
+# with `docker compose up -d`.
+#
+# Usage:
+#   IMAGE_TAG_OVERRIDE=main-<sha>-<run> docker compose \
+#     -f compose.yml -f compose.canary.yml \
+#     --profile validation up -d affine_canary
+#
+# When the smoke phase ends, deploy.sh tears the canary down with the
+# same `-f` overlay pattern. compose.yml itself is never touched.
+#
+# The canary shares the same external Postgres + Redis + storage volumes
+# as production. It does NOT run migrations (no depends_on:
+# affine_migration) — we only exercise the new image's boot path against
+# the current DB schema. Schema-changing migrations get applied during
+# the post-swap production boot via the existing affine_migration job.
+
+services:
+  affine_canary:
+    image: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:${IMAGE_TAG_OVERRIDE}
+    container_name: affine_canary
+    # `validation` profile keeps this out of the default `up -d` set —
+    # only deploy.sh ever spins it up, only during the smoke phase.
+    profiles:
+      - validation
+    # Map host port 3011 -> container 3010. Caddy stays bound to
+    # production's 3010 via the `affine` service's `expose` directive
+    # and the docker network; canary is reachable from VM-localhost only.
+    ports:
+      - '3011:3010'
+    # Read-only mounts of the same config + storage as production. Read
+    # access only — canary doesn't write anything we care about during
+    # the ~30s boot check, but reusing the same paths keeps the boot
+    # path identical to production.
+    volumes:
+      - /srv/affine/data/affine-config:/root/.affine/config
+      - /srv/affine/data/storage:/root/.affine/storage
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}
+      - REDIS_SERVER_HOST=${REDIS_HOST}
+      - REDIS_SERVER_PORT=${REDIS_PORT}
+      - AFFINE_INDEXER_ENABLED=false
+      - AFFINE_SERVER_HTTPS=true
+      - AFFINE_SERVER_HOST=${AFFINE_DOMAIN}
+      - AFFINE_SERVER_EXTERNAL_URL=https://${AFFINE_DOMAIN}
+    # Don't auto-restart on crash — if the canary boot fails we want
+    # docker to leave the container in failed state so deploy.sh can
+    # capture logs from it.
+    restart: 'no'
+    networks:
+      - affine_net
+
+# We only reference `affine_net` here; the actual network is declared in
+# compose.yml and gets re-used via the `-f` overlay.
+networks:
+  affine_net:
+    name: affine_affine_net
+    external: true

@@ -43,6 +43,10 @@ REGISTRY="${REGISTRY:-asia-southeast1-docker.pkg.dev/affine-495114/affine}"
 IMAGE_NAME="${IMAGE_NAME:-affine-gogocash}"
 COMPOSE_DIR="${COMPOSE_DIR:-/srv/affine/compose}"
 COMPOSE_FILE="${COMPOSE_DIR}/compose.yml"
+# Canary overlay file installed by superflow-vm-init.yml. Used ONLY when
+# starting/stopping the validation sidecar — production swap (lines 380+)
+# uses compose.yml alone so we never accidentally couple the two paths.
+CANARY_COMPOSE_FILE="${COMPOSE_DIR}/compose.canary.yml"
 COMPOSE_BACKUP="${COMPOSE_DIR}/compose.yml.previous.bak"
 COMPOSE_ENV_FILE="${COMPOSE_DIR}/.env"
 LOCK_FILE="${LOCK_FILE:-/tmp/affine-deploy.lock}"
@@ -215,6 +219,7 @@ cleanup_sidecar() {
   # Best-effort sidecar cleanup. Never throws — used in EXIT trap.
   log "cleanup: stopping sidecar (if any)"
   $SUDO docker compose --project-directory "$COMPOSE_DIR" \
+    -f "$COMPOSE_FILE" -f "$CANARY_COMPOSE_FILE" \
     --profile validation rm -fsv "$SIDECAR_NAME" >/dev/null 2>&1 || true
   # Belt-and-braces — kill by container name in case the compose service
   # name diverged.
@@ -323,7 +328,12 @@ log "writing compose env (live=${PREVIOUS_TAG:-?}, override=${IMAGE_TAG})"
 write_compose_env "$REGISTRY" "${PREVIOUS_TAG:-${IMAGE_TAG}}" "$IMAGE_TAG"
 
 log "starting sidecar ${SIDECAR_NAME} on host port ${SIDECAR_HOST_PORT}"
+# Canary is defined in the OVERLAY file (compose.canary.yml). Both -f
+# files together: compose.yml carries production (and the affine_net
+# network); compose.canary.yml adds the affine_canary service.
+# Production compose.yml is never modified by this command.
 if ! $SUDO docker compose --project-directory "$COMPOSE_DIR" \
+       -f "$COMPOSE_FILE" -f "$CANARY_COMPOSE_FILE" \
        --profile validation up -d "$SIDECAR_NAME" >&2; then
   log "sidecar failed to start"
   dump_logs "$SIDECAR_NAME" 50
