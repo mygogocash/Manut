@@ -104,14 +104,19 @@ jobs:
           fi
 
       - name: Validate tag exists in registry
+        # Use `images describe` instead of `tags list --filter` — the
+        # filter syntax for tags list is finicky (false negatives on
+        # known-existing tags). `describe` is a strict existence check.
         env:
           TAG: ${{ inputs.tag }}
         run: |
-          gcloud artifacts docker tags list \
-            "${GAR_REPO}" \
-            --filter="tag=${TAG}" --format=json | grep -q "${TAG}" \
-            || { echo "::error::tag not found in GAR"; exit 1; }
-          echo "Tag verified in GAR"
+          if gcloud artifacts docker images describe \
+               "${GAR_REPO}:${TAG}" >/dev/null 2>&1; then
+            echo "Tag verified in GAR: ${GAR_REPO}:${TAG}"
+          else
+            echo "::error::tag '${TAG}' not found in GAR (${GAR_REPO})"
+            exit 1
+          fi
 
       - name: Safe-deploy to GCE VM (smoke-then-swap)
         id: deploy
