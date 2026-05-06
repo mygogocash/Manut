@@ -393,6 +393,26 @@ validate_prompts_seeded() {
 
   log "validating seeded prompts (expected=${expected_count}: ${EXPECTED_PROMPTS[*]})"
 
+  # Pre-pull the psql container OUTSIDE the timeout window. On a VM that
+  # has never run this gate before, the postgres:16-alpine image is not
+  # locally cached and an implicit pull happens inside `docker run`. That
+  # pull alone can exceed PSQL_QUERY_TIMEOUT_SECS (10s default) on a cold
+  # VM, which makes the wrapped `timeout` kill the run with rc=124 and
+  # the gate exits 3 (manual intervention) on a perfectly healthy deploy.
+  # That's exactly what happened on the first Tier 2 deploy after the
+  # prompt-seed gate landed (run 25412952845 / image
+  # main-40fadf8b6-25412518581 — prod was healthy on the new image, but
+  # the gate timed out on the postgres:16-alpine pull).
+  #
+  # `|| true` because:
+  #   - on subsequent runs the image is cached, pull is a quick no-op.
+  #   - if the registry is briefly unreachable, the run-step that
+  #     follows will surface the error with proper context.
+  log "ensuring ${PSQL_IMAGE} is locally cached"
+  $SUDO docker image inspect "$PSQL_IMAGE" >/dev/null 2>&1 \
+    || $SUDO docker pull "$PSQL_IMAGE" >/dev/null 2>&1 \
+    || true
+
   # Run psql inside a transient container on the same docker network so
   # we don't need psql installed on the VM AND credentials never leave
   # this host. The container is auto-removed via --rm. We feed the SQL
