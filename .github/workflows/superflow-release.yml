@@ -117,14 +117,22 @@ jobs:
         run: yarn workspace @affine/server prisma generate
 
       # Tier 2 (build determinism): wipe stale dist directories before
-      # bundling. Same rationale as superflow-autodeploy.yml — the
+      # bundling. Same rationale as superflow-build.yml — the
       # empty-mobile-dist incident that took prod down twice was a
       # cached stale dist tree slipping into the docker build context.
+      #
+      # CRITICAL: explicit paths only. A `find -path '*/dist'` glob
+      # also matches vendored library dist dirs inside node_modules
+      # (e.g. node_modules/react-router-dom/dist) and silently destroys
+      # them. Build 25412101434 hit this on superflow-build.yml; same
+      # rule applies here.
       - name: Prune stale dist artifacts
         run: |
-          find packages/frontend -path '*/dist' -type d -exec rm -rf {} + 2>/dev/null || true
-          find packages/backend -path '*/dist' -type d -exec rm -rf {} + 2>/dev/null || true
-          echo "Pruned dist directories"
+          rm -rf packages/frontend/apps/web/dist
+          rm -rf packages/frontend/apps/mobile/dist
+          rm -rf packages/frontend/admin/dist
+          rm -rf packages/backend/server/dist
+          echo "Pruned package-owned dist directories (not node_modules)"
 
       - name: Build server bundle
         run: yarn affine bundle -p @affine/server

@@ -186,11 +186,22 @@ jobs:
       # workspace postinstalls in some configurations. A stale dist
       # tree is exactly what got cached in the layer-poisoning incident
       # — start each bundle from a known-clean slate.
+      #
+      # CRITICAL: explicit paths only. The first version of this step
+      # used `find packages/frontend -path '*/dist' -type d` which
+      # matched `packages/frontend/admin/node_modules/react-router-dom/dist`
+      # — i.e., it wiped vendored library `dist/` directories inside
+      # `node_modules`, killing react-router-dom (and every other lib
+      # that ships compiled output that way). Build 25412101434 hit this
+      # and failed with `Module not found: Can't resolve 'react-router-dom'`.
+      # Don't reintroduce a -path glob here.
       - name: Prune stale dist artifacts
         run: |
-          find packages/frontend -path '*/dist' -type d -exec rm -rf {} + 2>/dev/null || true
-          find packages/backend -path '*/dist' -type d -exec rm -rf {} + 2>/dev/null || true
-          echo "Pruned dist directories"
+          rm -rf packages/frontend/apps/web/dist
+          rm -rf packages/frontend/apps/mobile/dist
+          rm -rf packages/frontend/admin/dist
+          rm -rf packages/backend/server/dist
+          echo "Pruned package-owned dist directories (not node_modules)"
 
       - name: Build server bundle
         run: yarn affine bundle -p @affine/server
