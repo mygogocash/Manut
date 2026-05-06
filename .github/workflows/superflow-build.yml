@@ -1,0 +1,282 @@
+name: Superflow Build
+
+# Tier 2 split: this workflow ONLY builds + pushes the image. Deploy is
+# now a separate workflow (`Superflow Auto Deploy`) that watches THIS
+# workflow's success and SSHes deploy.sh on the VM with the resulting
+# tag. Splitting build from deploy:
+#   - lets us re-deploy an existing image without re-bundling
+#   - keeps the build job cacheable & idempotent
+#   - makes the deploy job small (~2-3 min) and easy to reason about
+#
+# Trigger:
+#   workflow_run on `Superflow CI` success on `main` (same trigger that
+#   lived inside the previous monolithic autodeploy workflow).
+#
+# Outputs:
+#   - GAR image: ${GAR_REPO}:main-<short-sha>-<github_run_id>
+#   - Artifact `image-tag` containing the tag name (consumed by the
+#     downstream autodeploy workflow). Artifacts are the only reliable
+#     cross-workflow handoff: GitHub's `workflow_run` event payload does
+#     NOT propagate downstream `outputs.<key>`. The autodeploy workflow
+#     also has a fallback path that reads this same artifact via
+#     `gh api`/`gh run download`.
+#   - Job summary line `IMAGE_TAG=<tag>` for human readability.
+#
+# WIF auth (no JSON key — org policy forbids them):
+#   provider: projects/602860445793/.../providers/github
+#   service account: affine-gha-deployer@affine-495114.iam.gserviceaccount.com
+
+on:
+  workflow_run:
+    workflows: ['Superflow CI']
+    types: [completed]
+    branches: [main]
+
+# One build at a time per branch. cancel-in-progress kills the runner
+# but the docker buildx push to GAR is the slow part; cancelling in the
+# middle of `docker buildx build --push` leaves no partial tag in GAR
+# (buildx publishes the manifest atomically at the end).
+concurrency:
+  group: superflow-build
+  cancel-in-progress: true
+
+env:
+  YARN_ENABLE_HARDENED_MODE: 0
+  GAR_REGION: asia-southeast1
+  GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
+  GCP_PROJECT: affine-495114
+
+jobs:
+  build:
+    name: Build + push image
+    # Only run when CI succeeded on a push event to main (not a PR
+    # merge-queue check, not a workflow_run from a fork).
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      id-token: write
+    # Expose the computed tag as a job output. NOTE: this is consumable
+    # by other JOBS within the same workflow, but is NOT propagated
+    # through the `workflow_run` event payload to downstream workflows.
+    # Downstream workflows must use the `image-tag` artifact instead.
+    outputs:
+      image_tag: ${{ steps.tag.outputs.tag }}
+      short_sha: ${{ steps.tag.outputs.short_sha }}
+      head_sha: ${{ steps.tag.outputs.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Build the IMAGE the CI run actually validated. github.sha on
+          # workflow_run events points at the workflow file's HEAD on the
+          # default branch — which can drift from the commit that passed
+          # CI if the workflow file itself was edited mid-flight.
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: corepack enable
+
+      - name: Setup Rust (stable, x86_64-unknown-linux-gnu)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Cache yarn
+        uses: actions/cache@v4
+        with:
+          path: |
+            .yarn/cache
+            .yarn/install-state.gz
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-${{ runner.os }}-
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            packages/backend/native/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('packages/backend/native/Cargo.lock', 'packages/backend/native/Cargo.toml') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - run: yarn install --immutable
+
+      - name: Build napi native binary (server-native.x64.node)
+        # napi-rs CLI's filename convention varies by version (v2 uses
+        # target-triple suffix `linux-x64-gnu`, v3 sometimes drops it).
+        # Don't guess — list whatever napi produced, then rename.
+        # The wrapper at packages/backend/native/index.js tries:
+        #   ./server-native.node       (first try)
+        #   ./server-native.x64.node   (fallback x64)
+        #   ./server-native.arm64.node (fallback arm64 — unused on amd64)
+        #   ./server-native.armv7.node (fallback armv7 — unused on amd64)
+        # rspack statically resolves all four at compile time. Materialize
+        # the real binary at the bare + x64 names; touch dummies for arm.
+        # No untrusted input — all literals.
+        run: |
+          cd packages/backend/native
+          yarn build --target x86_64-unknown-linux-gnu
+          echo "--- files after napi build ---"
+          ls -la *.node 2>&1 || true
+          PRODUCED=$(ls server-native*.node 2>/dev/null | grep -v -E '^server-native(\.node|\.(x64|arm64|armv7)\.node)$' | head -1)
+          if [ -z "$PRODUCED" ]; then
+            # Maybe napi already wrote it as the bare name
+            if [ -f server-native.node ]; then PRODUCED=server-native.node; fi
+          fi
+          if [ -z "$PRODUCED" ]; then
+            echo "ERROR: napi build produced no server-native*.node file" >&2
+            ls -la 2>&1
+            exit 1
+          fi
+          echo "napi produced: $PRODUCED"
+          # Materialize the real binary at both names rspack/index.js need.
+          # If napi already wrote it as the bare name, only copy to x64.
+          [ "$PRODUCED" != "server-native.x64.node" ] && cp "$PRODUCED" server-native.x64.node
+          [ "$PRODUCED" != "server-native.node" ]     && cp "$PRODUCED" server-native.node
+          touch server-native.arm64.node server-native.armv7.node
+          echo "--- files after rename ---"
+          ls -la server-native.*.node server-native.node 2>&1 | head -10
+
+      - name: Generate Prisma client
+        run: yarn workspace @affine/server prisma generate
+
+      - name: Build server bundle
+        run: yarn affine bundle -p @affine/server
+
+      - name: Build frontend bundles
+        # All four bundles built — mobile rebuild is required because
+        # Dockerfile copies mobile/dist into /app/static/mobile, and
+        # backend's DocRendererController.readHtmlAssets reads the
+        # assets-manifest.json from there at boot. An empty dir crashes
+        # the server with ENOENT before it can bind port 3010. CLAUDE.md
+        # §5 documents the prior outage from skipping this.
+        run: |
+          yarn affine bundle -p web
+          yarn affine bundle -p admin
+          yarn affine bundle -p mobile
+
+      - name: Authenticate to GCP
+        # Workload Identity Federation — no JSON key (org policy
+        # constraints/iam.disableServiceAccountKeyCreation forbids them).
+        # GitHub OIDC token impersonates the service account directly.
+        # No untrusted input — only literal WIF provider id and SA email.
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
+          service_account: 'affine-gha-deployer@affine-495114.iam.gserviceaccount.com'
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GAR
+        env:
+          GAR_REGION: ${{ env.GAR_REGION }}
+        run: gcloud auth configure-docker "${GAR_REGION}-docker.pkg.dev" --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      # head_sha is a hex SHA. RUN_ID is a numeric ID from GitHub.
+      # Concatenated tag is shell-safe.
+      - name: Compute image tag
+        id: tag
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          SHORT_SHA=$(echo "$HEAD_SHA" | cut -c1-9)
+          IMAGE_TAG="main-${SHORT_SHA}-${RUN_ID}"
+          {
+            echo "tag=${IMAGE_TAG}"
+            echo "short_sha=${SHORT_SHA}"
+            echo "head_sha=${HEAD_SHA}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Computed image tag: ${IMAGE_TAG}"
+
+      - name: Build + push image
+        # ONE tag only: the run-unique immutable tag. We deliberately do
+        # NOT push :latest or :main-<sha> here — those floating tags are
+        # what enabled the clobber-then-redeploy regressions in v1.x.
+        # If you need a "current main" pointer, query GAR by image
+        # creation timestamp, not by tag.
+        id: build_push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./.docker/gogocash/Dockerfile.fullstack
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.GAR_REPO }}:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Write image-tag artifact (cross-workflow handoff)
+        # Why an artifact, not job outputs?
+        # GitHub's `workflow_run` event payload does NOT expose the
+        # upstream workflow's job outputs to the downstream workflow.
+        # `${{ github.event.workflow_run.outputs.* }}` is empty even
+        # when `jobs.<id>.outputs.*` is populated upstream. The two
+        # supported handoff mechanisms are:
+        #   1. Artifacts (this approach) — works in every GHA version,
+        #      simple to consume via `actions/download-artifact` or
+        #      `gh run download`.
+        #   2. Repository dispatch / commit status — heavier, less
+        #      ergonomic.
+        # We pick (1).
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          SHORT_SHA: ${{ steps.tag.outputs.short_sha }}
+          HEAD_SHA: ${{ steps.tag.outputs.head_sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p artifact
+          {
+            echo "image_tag=${IMAGE_TAG}"
+            echo "short_sha=${SHORT_SHA}"
+            echo "head_sha=${HEAD_SHA}"
+            echo "build_run_id=${BUILD_RUN_ID}"
+          } > artifact/image-tag.txt
+          echo "--- image-tag.txt ---"
+          cat artifact/image-tag.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-tag
+          path: artifact/image-tag.txt
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Summary
+        if: always()
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          SHORT_SHA: ${{ steps.tag.outputs.short_sha }}
+          HEAD_SHA: ${{ steps.tag.outputs.head_sha }}
+          IMAGE_DIGEST: ${{ steps.build_push.outputs.digest }}
+          GAR_REPO_VAR: ${{ env.GAR_REPO }}
+        run: |
+          {
+            echo "## Superflow Build"
+            echo ""
+            echo "- Commit: \`${SHORT_SHA}\` (\`${HEAD_SHA}\`)"
+            echo "- Image tag: \`${IMAGE_TAG}\`"
+            echo "- Image digest: \`${IMAGE_DIGEST:-unknown}\`"
+            echo "- Registry: \`${GAR_REPO_VAR}\`"
+            echo ""
+            echo "**Machine-readable**: \`IMAGE_TAG=${IMAGE_TAG}\`"
+            echo ""
+            echo "Downstream \`Superflow Auto Deploy\` will pick this tag"
+            echo "up via the \`image-tag\` artifact and SSH deploy.sh on"
+            echo "the VM. To deploy manually instead, run:"
+            echo ""
+            echo '```bash'
+            echo "gh workflow run superflow-deploy.yml -f tag=${IMAGE_TAG}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

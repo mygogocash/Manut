@@ -1,21 +1,37 @@
 name: Superflow Auto Deploy
 
-# Tier 1 reliability fix: smoke-then-swap with sidecar validation +
-# auto-rollback. Replaces the prior "swap-then-smoke" pattern that took
-# production down 4+ times in one day.
+# Tier 2 split: this workflow ONLY deploys an already-built image. It
+# fires when `Superflow Build` succeeds, fetches the resulting tag from
+# the build run's `image-tag` artifact, and SSHes /srv/affine/scripts/
+# deploy.sh on the VM. No bundling, no docker build — it should run in
+# ~2-3 min including cold gcloud auth.
 #
-# Design:
-#   Build  -> push image with an immutable, run-unique tag
-#                (main-<short-sha>-<run-id>) — never reuses a tag, so no
-#                clobber risk.
-#   Deploy -> hand off to /srv/affine/scripts/deploy.sh on the VM. That
-#                script:
-#                  1. pulls the new image
-#                  2. boots it as a SIDECAR container with health-checks
-#                  3. only swaps prod onto the new image after the sidecar
-#                     is healthy (smoke-then-swap)
-#                  4. runs a post-swap smoke; if that fails, the script
-#                     auto-rolls back to the prior image.
+# Pipeline:
+#   push → Superflow CI → Superflow Build (this workflow's trigger) →
+#     Superflow Auto Deploy → deploy.sh on VM (smoke-then-swap)
+#
+# Trigger:
+#   workflow_run on `Superflow Build` success on `main`.
+#
+# Image-tag handoff (the gh-api fallback story):
+#   The intuitive approach would be to read the build's job outputs via
+#   `${{ github.event.workflow_run.outputs.* }}`. This DOES NOT WORK —
+#   the `workflow_run` event payload does not expose downstream job
+#   outputs, even when the upstream workflow declares them. This is a
+#   well-known and intentional limitation of the GHA event model.
+#
+#   The supported pattern is to fetch the artifact uploaded by the
+#   build run. We use `gh run download` (which calls the same `gh api`
+#   endpoint internally) keyed on the build run id from
+#   `github.event.workflow_run.id`. The artifact is named `image-tag`
+#   and contains a single key=value file we parse here.
+#
+# Tier 2 supersession (concurrency lock fix):
+#   This workflow passes `--supersede-run-id ${{ github.run_id }}` to
+#   deploy.sh. Two deploy runs landing seconds apart no longer queue
+#   on flock — the newer run preempts the older one (kills the older
+#   deploy.sh process, takes the lock). The older deploy.sh exits 4
+#   (status=superseded) which we treat as a warning, not a failure.
 #
 # Exit-code contract from /srv/affine/scripts/deploy.sh (CRITICAL):
 #   0 = success — prod is on the new image
@@ -23,14 +39,9 @@ name: Superflow Auto Deploy
 #       image. No rollback needed.
 #   2 = post-swap smoke failed — auto-rolled back, prod is on prior image.
 #   3 = rollback itself failed — prod may be DOWN. Manual intervention.
+#   4 = superseded — this deploy bowed out because a newer one took over;
+#       NOT a failure (the newer deploy is what runs).
 #   *  = anything else — treated as 3.
-#
-# Tags pushed to GAR:
-#   :<run-unique-tag>   (immutable; this is the only tag we deploy with)
-# We intentionally do NOT push :latest or a plain :main-<sha> here. Those
-# floating tags are what enabled the clobber-then-redeploy regressions
-# that took prod down. If you need a "current main" pointer, query GAR
-# tags by image creation timestamp or the deploy script's metadata.
 #
 # WIF auth (no JSON key — org policy forbids them):
 #   provider: projects/602860445793/.../providers/github
@@ -40,24 +51,22 @@ name: Superflow Auto Deploy
 
 on:
   workflow_run:
-    workflows: ['Superflow CI']
+    workflows: ['Superflow Build']
     types: [completed]
     branches: [main]
 
-# Cancel an older in-flight build if a fresher commit lands on main.
-# CAVEAT: `cancel-in-progress` only kills the GitHub runner. If the
-# cancel happens while the runner is mid-`gcloud compute ssh`, the
-# remote `deploy.sh` on the VM keeps running to completion (it's an
-# independent process under sudo). That's actually what we want: the
-# VM-side script is the unit of work, not the Action runner. Worst
-# case: GitHub shows the older run as "cancelled" while the VM still
-# completes the deploy and the next workflow_run kicks off fresh.
+# We INTENTIONALLY remove cancel-in-progress here. With Tier 2's
+# in-script supersession, if two deploys race we want both runners to
+# run far enough to call deploy.sh — the older deploy.sh will exit 4
+# (status=superseded) and the newer one will run end-to-end. Cancelling
+# at the GHA level would just kill the runner mid-SSH, leaving the
+# remote deploy.sh still going (it's an independent process under sudo)
+# without any signalling back. The supersession lives on the VM, not in
+# GHA's concurrency engine.
 concurrency:
   group: superflow-autodeploy
-  cancel-in-progress: true
 
 env:
-  YARN_ENABLE_HARDENED_MODE: 0
   GAR_REGION: asia-southeast1
   GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
   GCP_PROJECT: affine-495114
@@ -67,114 +76,88 @@ env:
   SMOKE_TIMEOUT_SECS: '90'
 
 jobs:
-  build-and-deploy:
-    name: Build image + safe-deploy
-    # Only run when CI succeeded on a push event to main (not a PR
-    # merge-queue check, not a workflow_run from a fork).
+  deploy:
+    name: Resolve tag + safe-deploy
+    # Only run when the build succeeded on a push event to main (not a
+    # workflow_run from a fork or a re-run of a failed build).
     if: >
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push'
+      github.event.workflow_run.event == 'workflow_run'
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
+      actions: read
 
     steps:
       - uses: actions/checkout@v4
         with:
+          # Match the SHA the build was run against — keeps any local
+          # tooling (e.g. tag validators if we add them later) consistent
+          # with what was actually shipped.
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - run: corepack enable
-
-      - name: Setup Rust (stable, x86_64-unknown-linux-gnu)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu
-
-      - name: Cache yarn
-        uses: actions/cache@v4
-        with:
-          path: |
-            .yarn/cache
-            .yarn/install-state.gz
-          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: yarn-${{ runner.os }}-
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            packages/backend/native/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('packages/backend/native/Cargo.lock', 'packages/backend/native/Cargo.toml') }}
-          restore-keys: cargo-${{ runner.os }}-
-
-      - run: yarn install --immutable
-
-      - name: Build napi native binary (server-native.x64.node)
-        # napi-rs CLI's filename convention varies by version (v2 uses
-        # target-triple suffix `linux-x64-gnu`, v3 sometimes drops it).
-        # Don't guess — list whatever napi produced, then rename.
-        # The wrapper at packages/backend/native/index.js tries:
-        #   ./server-native.node       (first try)
-        #   ./server-native.x64.node   (fallback x64)
-        #   ./server-native.arm64.node (fallback arm64 — unused on amd64)
-        #   ./server-native.armv7.node (fallback armv7 — unused on amd64)
-        # rspack statically resolves all four at compile time. Materialize
-        # the real binary at the bare + x64 names; touch dummies for arm.
-        # No untrusted input — all literals.
+      - name: Resolve image tag (artifact + gh-api fallback)
+        id: resolve_tag
+        # Two-step resolution. We prefer downloading the upstream artifact
+        # via `gh run download`; if it's missing we abort with a useful
+        # error rather than silently deploying nothing.
+        #
+        # NOTE on workflow_run.outputs: GitHub does NOT propagate the
+        # upstream `jobs.<id>.outputs.*` map through the workflow_run
+        # event payload. `github.event.workflow_run.outputs` is always
+        # empty. Don't be tempted to read it — the artifact below is the
+        # source of truth.
+        env:
+          BUILD_RUN_ID: ${{ github.event.workflow_run.id }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          cd packages/backend/native
-          yarn build --target x86_64-unknown-linux-gnu
-          echo "--- files after napi build ---"
-          ls -la *.node 2>&1 || true
-          PRODUCED=$(ls server-native*.node 2>/dev/null | grep -v -E '^server-native(\.node|\.(x64|arm64|armv7)\.node)$' | head -1)
-          if [ -z "$PRODUCED" ]; then
-            # Maybe napi already wrote it as the bare name
-            if [ -f server-native.node ]; then PRODUCED=server-native.node; fi
-          fi
-          if [ -z "$PRODUCED" ]; then
-            echo "ERROR: napi build produced no server-native*.node file" >&2
-            ls -la 2>&1
+          set -euo pipefail
+          mkdir -p ./_artifact
+          echo "Fetching image-tag artifact from build run ${BUILD_RUN_ID}"
+          # gh run download writes the artifact contents into the named
+          # output dir. With --name image-tag, the file image-tag.txt
+          # ends up at ./_artifact/image-tag.txt.
+          if ! gh run download "${BUILD_RUN_ID}" \
+                 --repo "${GH_REPO}" \
+                 --name image-tag \
+                 --dir ./_artifact; then
+            echo "::error::Failed to download image-tag artifact from build run ${BUILD_RUN_ID}."
+            echo "::error::This usually means the build job did not upload the artifact (e.g. it failed before the upload step)."
+            echo "::error::Check: gh run view ${BUILD_RUN_ID} --repo ${GH_REPO}"
             exit 1
           fi
-          echo "napi produced: $PRODUCED"
-          # Materialize the real binary at both names rspack/index.js need.
-          # If napi already wrote it as the bare name, only copy to x64.
-          [ "$PRODUCED" != "server-native.x64.node" ] && cp "$PRODUCED" server-native.x64.node
-          [ "$PRODUCED" != "server-native.node" ]     && cp "$PRODUCED" server-native.node
-          touch server-native.arm64.node server-native.armv7.node
-          echo "--- files after rename ---"
-          ls -la server-native.*.node server-native.node 2>&1 | head -10
-
-      - name: Generate Prisma client
-        run: yarn workspace @affine/server prisma generate
-
-      - name: Build server bundle
-        run: yarn affine bundle -p @affine/server
-
-      - name: Build frontend bundles
-        # All three bundles built — mobile rebuild is required because
-        # Dockerfile copies mobile/dist into /app/static/mobile, and
-        # backend's DocRendererController.readHtmlAssets reads the
-        # assets-manifest.json from there at boot. An empty dir crashes
-        # the server with ENOENT before it can bind port 3010. The earlier
-        # `mkdir -p` "skip mobile" shortcut took prod down — don't do it.
-        run: |
-          yarn affine bundle -p web
-          yarn affine bundle -p admin
-          yarn affine bundle -p mobile
+          if [ ! -f ./_artifact/image-tag.txt ]; then
+            echo "::error::Artifact downloaded but image-tag.txt not present at expected path"
+            ls -la ./_artifact/ || true
+            exit 1
+          fi
+          echo "--- image-tag.txt ---"
+          cat ./_artifact/image-tag.txt
+          # Parse key=value lines. Ignore anything that doesn't match.
+          IMAGE_TAG=$(grep -E '^image_tag=' ./_artifact/image-tag.txt | head -1 | cut -d= -f2-)
+          SHORT_SHA=$(grep -E '^short_sha=' ./_artifact/image-tag.txt | head -1 | cut -d= -f2-)
+          HEAD_SHA=$(grep -E '^head_sha=' ./_artifact/image-tag.txt | head -1 | cut -d= -f2-)
+          if [ -z "${IMAGE_TAG}" ]; then
+            echo "::error::image_tag missing from artifact"
+            exit 1
+          fi
+          # Defensive charset check — same rule as superflow-deploy.yml.
+          if ! printf '%s' "${IMAGE_TAG}" | grep -Eq '^[A-Za-z0-9._-]+$'; then
+            echo "::error::Resolved image tag contains characters outside [A-Za-z0-9._-]: ${IMAGE_TAG}"
+            exit 1
+          fi
+          {
+            echo "tag=${IMAGE_TAG}"
+            echo "short_sha=${SHORT_SHA}"
+            echo "head_sha=${HEAD_SHA}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved image tag: ${IMAGE_TAG}"
 
       - name: Authenticate to GCP
-        # Workload Identity Federation — no JSON key (org policy
-        # constraints/iam.disableServiceAccountKeyCreation forbids them).
-        # GitHub OIDC token impersonates the service account directly.
+        # Workload Identity Federation — see superflow-build.yml.
         # No untrusted input — only literal WIF provider id and SA email.
         uses: google-github-actions/auth@v2
         with:
@@ -184,46 +167,37 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Configure Docker for GAR
-        run: gcloud auth configure-docker ${{ env.GAR_REGION }}-docker.pkg.dev --quiet
-
-      - uses: docker/setup-buildx-action@v3
-
-      # head_sha is a hex SHA. RUN_ID is a numeric ID from GitHub.
-      # Concatenated tag is shell-safe.
-      - name: Compute image tag
-        id: tag
+      - name: Verify image exists in GAR
+        # Cheap defense-in-depth: confirm the build did push the tag we
+        # resolved. If the artifact promised a tag the build never
+        # actually pushed (e.g. push-step failed silently), bail before
+        # SSHing anything.
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          RUN_ID: ${{ github.run_id }}
+          GAR_REPO_VAR: ${{ env.GAR_REPO }}
+          IMAGE_TAG: ${{ steps.resolve_tag.outputs.tag }}
         run: |
-          SHORT_SHA=$(echo "$HEAD_SHA" | cut -c1-9)
-          IMAGE_TAG="main-${SHORT_SHA}-${RUN_ID}"
-          echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "Computed image tag: ${IMAGE_TAG}"
+          if gcloud artifacts docker images describe \
+               "${GAR_REPO_VAR}:${IMAGE_TAG}" >/dev/null 2>&1; then
+            echo "Tag verified in GAR: ${GAR_REPO_VAR}:${IMAGE_TAG}"
+          else
+            echo "::error::Tag '${IMAGE_TAG}' not found in GAR (${GAR_REPO_VAR})"
+            echo "::error::Build run pushed this tag in its summary but GAR does not have it."
+            exit 1
+          fi
 
-      - name: Build + push image
-        # ONE tag only: the run-unique immutable tag. We deliberately do
-        # NOT push :latest or :main-<sha> here — those floating tags were
-        # what made the clobber-then-redeploy regression possible.
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./.docker/gogocash/Dockerfile.fullstack
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ env.GAR_REPO }}:${{ steps.tag.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      # IMAGE_TAG is `main-<9hex>-<numeric>` — cannot contain shell
-      # metacharacters. Pass via env to keep the SSH command shell-safe.
-      - name: Safe-deploy to GCE VM (smoke-then-swap)
+      # IMAGE_TAG is `main-<9hex>-<numeric>` — charset-validated above,
+      # cannot contain shell metacharacters. Pass via env to keep the
+      # SSH command shell-safe. RUN_ID is the numeric GHA run id, used
+      # for deploy.sh's --supersede-run-id supersession (Tier 2).
+      - name: Safe-deploy to GCE VM (smoke-then-swap, with supersede)
         id: deploy
         env:
-          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          GCE_VM: ${{ env.GCE_VM }}
+          GCE_ZONE: ${{ env.GCE_ZONE }}
+          GCP_PROJECT: ${{ env.GCP_PROJECT }}
+          IMAGE_TAG: ${{ steps.resolve_tag.outputs.tag }}
+          SMOKE_TIMEOUT_SECS: ${{ env.SMOKE_TIMEOUT_SECS }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           set +e
           gcloud compute ssh "$GCE_VM" \
@@ -232,7 +206,8 @@ jobs:
             --command="sudo /srv/affine/scripts/deploy.sh \
               --image-tag '${IMAGE_TAG}' \
               --smoke-timeout-secs ${SMOKE_TIMEOUT_SECS} \
-              --rollback-on-failure"
+              --rollback-on-failure \
+              --supersede-run-id ${RUN_ID}"
           DEPLOY_RC=$?
           set -e
           echo "deploy_rc=${DEPLOY_RC}" >> "$GITHUB_OUTPUT"
@@ -244,25 +219,31 @@ jobs:
       - name: Summary
         # Always run — the job-summary should be written even if deploy
         # failed. Final `exit` honors deploy.sh exit code so the workflow
-        # status reflects reality.
+        # status reflects reality (with exit code 4 treated as a warning).
         if: always()
         env:
-          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
-          SHORT_SHA: ${{ steps.tag.outputs.short_sha }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          IMAGE_TAG: ${{ steps.resolve_tag.outputs.tag }}
+          SHORT_SHA: ${{ steps.resolve_tag.outputs.short_sha }}
+          HEAD_SHA: ${{ steps.resolve_tag.outputs.head_sha }}
           DEPLOY_RC: ${{ steps.deploy.outputs.deploy_rc }}
+          PROD_HOST_VAR: ${{ env.PROD_HOST }}
+          GCE_VM: ${{ env.GCE_VM }}
+          GCE_ZONE: ${{ env.GCE_ZONE }}
+          GCP_PROJECT: ${{ env.GCP_PROJECT }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           {
             echo "## Superflow Auto Deploy"
             echo ""
-            echo "- Commit: \`${SHORT_SHA}\` (\`${HEAD_SHA}\`)"
-            echo "- Image tag: \`${IMAGE_TAG}\`"
-            echo "- Production: https://${PROD_HOST}"
-            echo "- deploy.sh exit code: \`${DEPLOY_RC}\`"
+            echo "- Commit: \`${SHORT_SHA:-unknown}\` (\`${HEAD_SHA:-unknown}\`)"
+            echo "- Image tag: \`${IMAGE_TAG:-unknown}\`"
+            echo "- Production: https://${PROD_HOST_VAR}"
+            echo "- This run id: \`${RUN_ID}\` (passed as --supersede-run-id)"
+            echo "- deploy.sh exit code: \`${DEPLOY_RC:-?}\`"
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
-          case "${DEPLOY_RC}" in
+          case "${DEPLOY_RC:-}" in
             0)
               {
                 echo "### Status: SUCCESS"
@@ -303,20 +284,34 @@ jobs:
                 echo '```'
               } >> "$GITHUB_STEP_SUMMARY"
               ;;
+            4)
+              {
+                echo "### Status: SUPERSEDED (warning, not a failure)"
+                echo ""
+                echo "This deploy was preempted by a newer deploy that"
+                echo "started while this one was running. The newer deploy"
+                echo "is the one whose result reflects production state —"
+                echo "look at the next \`Superflow Auto Deploy\` run."
+                echo ""
+                echo "If no newer run exists, something is wrong: SSH the"
+                echo "VM and inspect /tmp/affine-deploy.runid + the live"
+                echo "container."
+              } >> "$GITHUB_STEP_SUMMARY"
+              ;;
             *)
               {
                 echo "### Status: UNKNOWN EXIT CODE (treated as critical)"
                 echo ""
-                echo "deploy.sh exited with code \`${DEPLOY_RC}\`. Treating"
+                echo "deploy.sh exited with code \`${DEPLOY_RC:-empty}\`. Treating"
                 echo "as a possible production outage. SSH to the VM and"
                 echo "investigate immediately."
               } >> "$GITHUB_STEP_SUMMARY"
               ;;
           esac
 
-          # Honor exit code: 0 means success, anything else fails the job.
-          if [ "${DEPLOY_RC}" = "0" ]; then
-            exit 0
-          else
-            exit 1
-          fi
+          # Honor exit code: 0 = success (job green), 4 = superseded
+          # (job green with warning), anything else = job red.
+          case "${DEPLOY_RC:-}" in
+            0|4) exit 0 ;;
+            *)   exit 1 ;;
+          esac

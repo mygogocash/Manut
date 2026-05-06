@@ -6,6 +6,11 @@ see also `CLAUDE.md` §4 (testing checklist).
 
 ## Pipeline shape
 
+Tier 2 splits the previous monolithic autodeploy into **build** and
+**deploy** workflows. Re-deploying an existing image no longer requires
+a rebuild. The same VM-side deploy.sh is used by all three deploy
+paths (autodeploy / manual deploy / vm-init smoke).
+
 ```
 push to main
    │
@@ -14,46 +19,85 @@ push to main
    │  - oxlint --deny-warnings
    │  - codegen-drift guard
    │  - bundle web + admin + mobile
-   ▼
-[Superflow Auto Deploy]       .github/workflows/superflow-autodeploy.yml
+   ▼ workflow_run on success
+[Superflow Build]             .github/workflows/superflow-build.yml  (Tier 2 NEW)
    │  - WIF auth → GCP
    │  - napi build (server-native.x64.node — see CLAUDE.md §5 for the
    │    rename trap)
    │  - bundle @affine/server, web, admin, mobile
    │  - docker buildx build + push
    │      tag = main-<short-sha>-<github_run_id>   ← immutable per build
-   │  - SSH to affine-vm, exec /srv/affine/scripts/deploy.sh
+   │  - upload `image-tag` artifact (cross-workflow handoff;
+   │    workflow_run.outputs are NOT propagated by GHA — see "Tag
+   │    handoff" section below)
+   ▼ workflow_run on success
+[Superflow Auto Deploy]       .github/workflows/superflow-autodeploy.yml  (Tier 2 REWRITE)
+   │  - download image-tag artifact via `gh run download`
+   │  - verify tag exists in GAR
+   │  - SSH affine-vm, exec /srv/affine/scripts/deploy.sh
+   │      --image-tag <tag> --supersede-run-id <github_run_id>
    ▼
 [deploy.sh on VM]             scripts/vm/deploy.sh
-   │  1. flock /tmp/affine-deploy.lock     ← single-flight per VM
-   │  2. snapshot compose.yml → compose.yml.previous.bak
-   │  3. docker pull <new image>
-   │  4. spin up SIDECAR via overlay:
+   │  1. supersede check (Tier 2): if /tmp/affine-deploy.runid names a
+   │     newer run, exit 4; else if older run, kill its pid, take over.
+   │     Manual invocations (no --supersede-run-id) keep the legacy
+   │     "block-fast on flock" behavior.
+   │  2. flock /tmp/affine-deploy.lock + write our <run_id, pid> to
+   │     /tmp/affine-deploy.runid (atomic).
+   │  3. snapshot compose.yml → compose.yml.previous.bak
+   │  4. docker pull <new image>
+   │  5. spin up SIDECAR via overlay:
    │       docker compose
    │         -f compose.yml -f compose.canary.yml
    │         --profile validation up -d affine_canary
    │     Sidecar listens on host 3011, same DB + Redis as prod.
-   │  5. poll http://localhost:3011/info for SMOKE_TIMEOUT (default 90s)
+   │  6. poll http://localhost:3011/info for SMOKE_TIMEOUT (default 90s)
    │       FAIL → stop sidecar, exit 1 (PROD UNTOUCHED)
    │       OK   → continue
-   │  6. stop sidecar
-   │  7. ATOMIC SWAP: sed prod image tag in compose.yml,
+   │  7. stop sidecar
+   │  8. ATOMIC SWAP: sed prod image tag in compose.yml,
    │       docker compose up -d --force-recreate affine
-   │  8. poll https://affine.gogocash.co/info for POST_SWAP_TIMEOUT (60s)
+   │  9. poll https://affine.gogocash.co/info for POST_SWAP_TIMEOUT (60s)
    │       FAIL + --rollback-on-failure → restore compose.yml.previous.bak,
    │                                       recreate, re-poll → exit 2
    │       FAIL + --no-rollback → exit 1
    │       OK → exit 0
    ▼
-exit 0 / 1 / 2 / 3 from deploy.sh
+exit 0 / 1 / 2 / 3 / 4 from deploy.sh
    │  Workflow maps each code to a job-summary message:
    │    0 = ✅ deployed
    │    1 = 🔴 sidecar validation failed (prod still on prior image)
    │    2 = 🔴 post-swap rolled back (prod still on prior image)
    │    3 = 🚨 rollback itself failed (manual intervention)
+   │    4 = ⚠️  superseded — preempted by a newer deploy (Tier 2);
+   │           NOT a failure, the newer deploy is what runs
    ▼
 done
 ```
+
+## Tag handoff (build → deploy)
+
+GitHub's `workflow_run` event payload does **not** propagate downstream
+job outputs. `${{ github.event.workflow_run.outputs.* }}` is always
+empty even when the upstream workflow declares `outputs:` on its
+jobs. This is a documented and intentional limitation, not a bug.
+
+The supported handoff is via **artifacts**. `superflow-build.yml`
+uploads an artifact named `image-tag` containing a single
+`image-tag.txt` file with key=value lines (`image_tag=`,
+`short_sha=`, `head_sha=`, `build_run_id=`). `superflow-autodeploy.yml`
+downloads that artifact via `gh run download <build_run_id> --name
+image-tag` (which uses the GH API under the hood) and parses the
+file before SSHing the VM. Defensive checks at every step:
+
+- Artifact missing → fail loudly with `::error::`, hint at running
+  `gh run view <build_run_id>` to inspect the upstream run.
+- `image_tag=` line missing → fail before SSH.
+- Resolved tag fails charset (`[A-Za-z0-9._-]+`) → fail before SSH.
+- Resolved tag not present in GAR → fail before SSH.
+
+This keeps the deploy job small and makes the handoff debuggable from
+the GHA UI without needing VM SSH.
 
 ## Image tagging
 
@@ -138,26 +182,25 @@ to re-install the scripts (e.g., after a VM rebuild). Production
 `compose.yml` is **never** modified by `vm-init` — only
 `compose.canary.yml` is added alongside.
 
-## Failure modes Tier 1 catches
+## Failure modes the pipeline catches
 
-| Failure mode                                                        | What used to happen                                       | What happens now                                                     |
-| ------------------------------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
-| New image bootloops (e.g., missing static asset manifest)           | Container swapped, prod 502 for ~90s, no recovery         | Sidecar fails to boot, deploy fails, prod untouched                  |
-| Migration introduces a schema change the old image doesn't tolerate | After rollback, prod can't run on old image either        | Migration deferred to post-swap; sidecar runs against current schema |
-| Layer cache poisoning produces a broken image at build time         | Same broken image deployed via swap-then-smoke, prod 502  | Sidecar exposes the problem in 90s, prod stays up                    |
-| Image tag collision (laptop + CI both push `:main-<sha>`)           | One overwrites the other; prod runs whichever pushed last | `<run_id>` suffix makes every build immutable                        |
+| Failure mode                                                        | What used to happen                                       | What happens now                                                     | First introduced |
+| ------------------------------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------- | ---------------- |
+| New image bootloops (e.g., missing static asset manifest)           | Container swapped, prod 502 for ~90s, no recovery         | Sidecar fails to boot, deploy fails, prod untouched (exit 1)         | Tier 1           |
+| Migration introduces a schema change the old image doesn't tolerate | After rollback, prod can't run on old image either        | Migration deferred to post-swap; sidecar runs against current schema | Tier 1           |
+| Layer cache poisoning produces a broken image at build time         | Same broken image deployed via swap-then-smoke, prod 502  | Sidecar exposes the problem in 90s, prod stays up (exit 1)           | Tier 1           |
+| Image tag collision (laptop + CI both push `:main-<sha>`)           | One overwrites the other; prod runs whichever pushed last | `<run_id>` suffix makes every build immutable                        | Tier 1           |
+| Two pushes within seconds: deploys queue on flock                   | GHA cancels the older runner; older deploy.sh keeps going on the VM (no signalling); newer waits on flock; prod ends up on whichever lost the race. UI is misleading | The newer deploy.sh kills the older one's pid + takes the lock. Older deploy.sh exits 4 (status=superseded). UI marks it as a warning, not a failure. The newer one runs end-to-end. | Tier 2 (exit 4)  |
 
-## What Tier 1 does NOT catch (Tier 2/3 territory)
+## What the pipeline does NOT catch (Tier 3 territory)
 
 - **Slow-degradation bugs.** A new image that boots clean but has a
   perf regression isn't detected; the sidecar smoke is binary
-  (200 vs not). Tier 2 should add a few synthetic queries to the
+  (200 vs not). Future tier should add a few synthetic queries to the
   smoke check.
-- **GHA runner cancel-in-progress vs VM-side flock.** If two pushes
-  land within seconds, the second cancels the first runner but the
-  first runner's deploy.sh keeps going. The second runner waits on
-  flock. Result: the second deploy may overwrite the first one
-  cleanly, but the GHA UI shows the first as "cancelled" (misleading).
-  Tier 2 should pass run IDs through and have deploy.sh self-supersede.
-- **Cross-region / multi-VM rollouts.** Tier 1 assumes a single
-  VM. Blue-green or canary-percent rollouts are Tier 3.
+- **Cross-region / multi-VM rollouts.** Single-VM only. Blue-green or
+  canary-percent rollouts across VMs are Tier 3.
+- **Build-time secret rotation.** A leaked GAR push cred or
+  compromised WIF would silently push poisoned images. Add image
+  signing (cosign / sigstore) and require deploy.sh to verify the
+  signature before the swap.

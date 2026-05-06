@@ -29,6 +29,27 @@
 #   2  rolled_back (production failed post-swap; previous image is back)
 #   3  rollback_failed (production failed post-swap AND the rollback
 #      attempt also failed — manual intervention needed)
+#   4  superseded (this deploy bowed out because a NEWER deploy with a
+#      higher --supersede-run-id was already in progress; the newer one
+#      will run instead — treat as a warning, not a failure)
+#
+# Concurrency model (Tier 2 update):
+#   By default deploy.sh blocks on flock for single-flight per-VM
+#   semantics — two deploys started seconds apart will queue up. When
+#   GitHub Actions invokes deploy.sh it passes --supersede-run-id <id>
+#   so the NEWER deploy preempts the older one instead of queueing
+#   behind it. Logic:
+#     - This deploy writes "<run_id> <pid>" atomically to
+#       /tmp/affine-deploy.runid (mv from a temp file in the same dir).
+#     - Before acquiring flock, if an existing runid file is found:
+#         existing_run_id < our id  → kill the holder PID, take over
+#         existing_run_id > our id  → exit 4 (we've been superseded)
+#         existing_run_id == our id → exit 4 (race / re-entry)
+#     - On exit, the runid file is cleared ONLY if it still matches our
+#       <run_id, pid> pair (don't trample whoever superseded us).
+#   Without --supersede-run-id, the script falls back to the original
+#   "block on flock" behavior — manual operators don't need to be
+#   superseded.
 #
 # All `docker` / `docker compose` calls go through `sudo` because the
 # script is typically invoked by `affine-gha-deployer` (no docker group
@@ -50,6 +71,10 @@ CANARY_COMPOSE_FILE="${COMPOSE_DIR}/compose.canary.yml"
 COMPOSE_BACKUP="${COMPOSE_DIR}/compose.yml.previous.bak"
 COMPOSE_ENV_FILE="${COMPOSE_DIR}/.env"
 LOCK_FILE="${LOCK_FILE:-/tmp/affine-deploy.lock}"
+# Runid registry — read by NEW deploys to detect an in-flight OLDER deploy
+# they should preempt. Format on disk: "<run_id> <pid>" on a single line.
+# Same dir as LOCK_FILE so atomic-rename across mv works.
+RUNID_FILE="${RUNID_FILE:-/tmp/affine-deploy.runid}"
 PROD_HOST="${PROD_HOST:-affine.gogocash.co}"
 SIDECAR_NAME="${SIDECAR_NAME:-affine_canary}"
 SIDECAR_HOST_PORT="${SIDECAR_HOST_PORT:-3011}"
@@ -60,6 +85,17 @@ IMAGE_TAG=""
 SMOKE_TIMEOUT=90
 POST_SWAP_TIMEOUT=60
 ROLLBACK_ON_FAIL=1
+# Numeric (e.g. GitHub Actions run id) — when set, enables the
+# preempt-older / yield-to-newer semantics described in the header.
+SUPERSEDE_RUN_ID=""
+# Tracks the run_id we successfully wrote to RUNID_FILE — used by the
+# EXIT trap so we only clean up our own entry, not someone who
+# superseded us.
+OUR_RUN_ID_WRITTEN=""
+# When set to a non-empty string, the run_id of an existing in-flight
+# deploy that THIS invocation has been superseded by. Stored so the
+# emit_json contract can include it.
+SUPERSEDED_BY_RUN_ID=""
 
 START_TS=$(date +%s)
 
@@ -84,6 +120,11 @@ Options:
   --post-swap-timeout-secs <n> Post-swap smoke timeout    (default: 60)
   --rollback-on-failure        Auto-rollback on post-swap failure (default)
   --no-rollback-on-failure     Disable auto-rollback (testing only)
+  --supersede-run-id <id>      Numeric run id (e.g. GitHub Actions run id).
+                               Enables newer-wins preemption: this deploy
+                               kills any in-flight older deploy, or exits 4
+                               if a newer deploy is already in flight.
+                               Without this flag, deploy.sh blocks on flock.
   -h | --help                  Show this help and exit 0
 EOF
 }
@@ -112,6 +153,10 @@ while [[ $# -gt 0 ]]; do
       ROLLBACK_ON_FAIL=0
       shift
       ;;
+    --supersede-run-id)
+      SUPERSEDE_RUN_ID="${2:-}"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -135,18 +180,22 @@ emit_json() {
   duration=$((end_ts - START_TS))
 
   local prev_tag="${PREVIOUS_TAG:-}"
+  local superseded_by="${SUPERSEDED_BY_RUN_ID:-}"
   jq -nc \
     --arg status "$status" \
     --arg image_tag "$IMAGE_TAG" \
     --arg previous_image_tag "$prev_tag" \
     --argjson duration_secs "$duration" \
     --arg error "$err" \
+    --arg superseded_by_run_id "$superseded_by" \
     '{
       status: $status,
       image_tag: $image_tag,
       previous_image_tag: $previous_image_tag,
       duration_secs: $duration_secs
-    } + (if $error == "" then {} else {error: $error} end)'
+    }
+    + (if $error == "" then {} else {error: $error} end)
+    + (if $superseded_by_run_id == "" then {} else {superseded_by_run_id: $superseded_by_run_id} end)'
 }
 
 extract_current_tag() {
@@ -273,17 +322,152 @@ if ! [[ "$SMOKE_TIMEOUT" =~ ^[0-9]+$ ]] || ! [[ "$POST_SWAP_TIMEOUT" =~ ^[0-9]+$
   exit 1
 fi
 
+# Validate --supersede-run-id if provided. Empty is valid (= disabled).
+if [[ -n "$SUPERSEDE_RUN_ID" ]] && ! [[ "$SUPERSEDE_RUN_ID" =~ ^[0-9]+$ ]]; then
+  printf 'error: --supersede-run-id must be a positive integer\n' >&2
+  emit_json validation_failed "invalid --supersede-run-id"
+  exit 1
+fi
+
 # ---- Concurrent-deploy lock ----------------------------------------------
+
+# Helper: read the runid file. Outputs `<run_id> <pid>` on stdout if the
+# file exists and parses; nothing otherwise. Quiet on missing file.
+read_runid_file() {
+  if [[ ! -f "$RUNID_FILE" ]]; then
+    return 0
+  fi
+  # Defensive: only treat the line as valid if it matches "<digits> <digits>"
+  local line
+  line=$(head -1 "$RUNID_FILE" 2>/dev/null || true)
+  if [[ "$line" =~ ^[0-9]+[[:space:]]+[0-9]+$ ]]; then
+    printf '%s\n' "$line"
+  fi
+}
+
+# Helper: atomically claim the runid file with our run_id + pid. We write
+# to a sibling temp path then `mv` (rename(2) is atomic on the same fs).
+# Caller MUST already hold flock so concurrent claimants are serialized.
+write_runid_file() {
+  local run_id="$1"
+  local pid="$2"
+  local tmp
+  tmp=$(mktemp -p "$(dirname "$RUNID_FILE")" .deploy-runid.XXXXXX)
+  printf '%s %s\n' "$run_id" "$pid" > "$tmp"
+  mv -f "$tmp" "$RUNID_FILE"
+  OUR_RUN_ID_WRITTEN="$run_id"
+}
+
+# Helper: clear the runid file iff it still names us. Don't trample
+# whoever superseded us. Best-effort — used in EXIT trap.
+clear_our_runid_file() {
+  if [[ -z "$OUR_RUN_ID_WRITTEN" ]]; then
+    return 0
+  fi
+  if [[ ! -f "$RUNID_FILE" ]]; then
+    return 0
+  fi
+  local existing
+  existing=$(read_runid_file)
+  # Only clear if the run_id (first field) still equals ours.
+  local existing_run_id="${existing%% *}"
+  if [[ "$existing_run_id" == "$OUR_RUN_ID_WRITTEN" ]]; then
+    rm -f "$RUNID_FILE" 2>/dev/null || true
+  fi
+}
 
 # `flock -n` returns 1 immediately if the lock is held. We wrap the rest
 # of the script body inside a flocked subshell so the lock is released
 # automatically on exit. If we can't acquire it, surface an immediate
-# validation_failed.
+# validation_failed (legacy behavior, when --supersede-run-id is unset).
 exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  log "another deploy is in progress (lock $LOCK_FILE held)"
-  emit_json validation_failed "another deploy in progress"
-  exit 1
+
+if [[ -z "$SUPERSEDE_RUN_ID" ]]; then
+  # Legacy path: just block-fast on flock and bail if held.
+  if ! flock -n 9; then
+    log "another deploy is in progress (lock $LOCK_FILE held); --supersede-run-id was not provided"
+    emit_json validation_failed "another deploy in progress"
+    exit 1
+  fi
+  log "lock acquired (no supersede semantics — manual invocation)"
+else
+  # Supersession path. Order of operations matters:
+  #   1) Inspect runid file (no lock held — best-effort read).
+  #   2) If we're newer, signal the holder PID; loop until lock yields.
+  #   3) If we're older or same, exit 4 immediately.
+  #   4) Once we hold the lock, atomically write our runid+pid.
+  log "supersede mode: our run_id=${SUPERSEDE_RUN_ID}, pid=$$"
+
+  EXISTING_LINE=$(read_runid_file)
+  if [[ -n "$EXISTING_LINE" ]]; then
+    EXISTING_RUN_ID="${EXISTING_LINE%% *}"
+    EXISTING_PID="${EXISTING_LINE##* }"
+    log "found in-flight deploy: run_id=${EXISTING_RUN_ID}, pid=${EXISTING_PID}"
+
+    if (( EXISTING_RUN_ID > SUPERSEDE_RUN_ID )); then
+      log "we are OLDER than ${EXISTING_RUN_ID}; bowing out"
+      SUPERSEDED_BY_RUN_ID="$EXISTING_RUN_ID"
+      emit_json superseded "preempted by newer deploy run_id=${EXISTING_RUN_ID}"
+      exit 4
+    fi
+
+    if (( EXISTING_RUN_ID == SUPERSEDE_RUN_ID )); then
+      # Same run id. Either a re-entry of ourselves, or a freak collision.
+      # Either way, refusing is safer than racing.
+      log "existing deploy has the SAME run_id (${EXISTING_RUN_ID}); refusing to race"
+      SUPERSEDED_BY_RUN_ID="$EXISTING_RUN_ID"
+      emit_json superseded "another instance with same run_id is already deploying"
+      exit 4
+    fi
+
+    # We're newer — preempt the older deploy by signalling its PID.
+    # Don't `pkill -f deploy.sh` — that could match a deploy script in
+    # another tree (or this shell's own argv). Target the specific PID.
+    log "we are NEWER than ${EXISTING_RUN_ID}; signalling pid=${EXISTING_PID} to bow out"
+    if [[ "$EXISTING_PID" =~ ^[0-9]+$ ]] && [[ "$EXISTING_PID" != "$$" ]]; then
+      # Only send if the pid still exists; otherwise it's a stale runid file.
+      if kill -0 "$EXISTING_PID" 2>/dev/null; then
+        kill -TERM "$EXISTING_PID" 2>/dev/null || true
+        # Give the older deploy ~5s to exit cleanly (its EXIT trap runs
+        # cleanup_sidecar). flock auto-releases on process death.
+        for _ in 1 2 3 4 5; do
+          if ! kill -0 "$EXISTING_PID" 2>/dev/null; then break; fi
+          sleep 1
+        done
+        if kill -0 "$EXISTING_PID" 2>/dev/null; then
+          log "pid=${EXISTING_PID} still alive after SIGTERM; sending SIGKILL"
+          kill -KILL "$EXISTING_PID" 2>/dev/null || true
+          sleep 1
+        fi
+      else
+        log "pid=${EXISTING_PID} already gone (stale runid file)"
+      fi
+    fi
+  fi
+
+  # Acquire flock. If the older holder is dying we may need to wait a
+  # moment for fcntl to release the lock; bound that wait at 30s before
+  # giving up.
+  if ! flock -w 30 9; then
+    log "could not acquire flock within 30s after supersede attempt"
+    emit_json validation_failed "flock acquisition timed out after supersede"
+    exit 1
+  fi
+  log "lock acquired (after supersede)"
+
+  # Now that we hold the lock, claim the runid file. (Re-check that we
+  # haven't been superseded by a runner that beat us to it.)
+  POST_LOCK_LINE=$(read_runid_file)
+  if [[ -n "$POST_LOCK_LINE" ]]; then
+    POST_LOCK_RUN_ID="${POST_LOCK_LINE%% *}"
+    if (( POST_LOCK_RUN_ID > SUPERSEDE_RUN_ID )); then
+      log "raced: a NEWER deploy (run_id=${POST_LOCK_RUN_ID}) claimed the lock between our checks"
+      SUPERSEDED_BY_RUN_ID="$POST_LOCK_RUN_ID"
+      emit_json superseded "preempted by newer deploy run_id=${POST_LOCK_RUN_ID}"
+      exit 4
+    fi
+  fi
+  write_runid_file "$SUPERSEDE_RUN_ID" "$$"
 fi
 
 # ---- Plan --------------------------------------------------------------
@@ -305,9 +489,10 @@ log "current image tag: ${PREVIOUS_TAG:-<unknown>}"
 log "snapshotting compose.yml -> $(basename "$COMPOSE_BACKUP")"
 $SUDO cp "$COMPOSE_FILE" "$COMPOSE_BACKUP"
 
-# Trap EXIT for sidecar cleanup. Re-set after each major phase if needed,
-# but this single trap covers all early-exit paths.
-trap 'cleanup_sidecar' EXIT
+# Trap EXIT for sidecar cleanup AND runid-file release. Re-set after each
+# major phase if needed, but this single trap covers all early-exit paths.
+# clear_our_runid_file is no-op if we never wrote a runid (legacy mode).
+trap 'cleanup_sidecar; clear_our_runid_file' EXIT
 
 # ---- Step 1: pull image ---------------------------------------------------
 
