@@ -79,7 +79,24 @@ PROD_HOST="${PROD_HOST:-affine.gogocash.co}"
 SIDECAR_NAME="${SIDECAR_NAME:-affine_canary}"
 SIDECAR_HOST_PORT="${SIDECAR_HOST_PORT:-3011}"
 PROD_SERVICE="${PROD_SERVICE:-affine}"
+PROD_CONTAINER="${PROD_CONTAINER:-affine_server}"
+DOCKER_NETWORK="${DOCKER_NETWORK:-affine_affine_net}"
+PSQL_IMAGE="${PSQL_IMAGE:-postgres:16-alpine}"
+PSQL_QUERY_TIMEOUT_SECS="${PSQL_QUERY_TIMEOUT_SECS:-10}"
 SUDO="${DEPLOY_SUDO-sudo}"
+
+# Canonical seed prompts that MUST be upserted by PromptService at boot.
+# If any of these are missing post-swap, PromptService.onApplicationBootstrap
+# silently failed (e.g. name > 32 chars, duplicate-key violation, schema
+# drift, JSON-config syntax error) and AI features will break in subtle
+# ways. Each name comes straight from packages/backend/server/src/plugins/
+# copilot/prompt/prompts.ts. To add or remove a checked prompt, edit the
+# array below — this is the single source of truth for the gate.
+EXPECTED_PROMPTS=(
+  'Chat With AFFiNE AI'
+  'Auto Tag'
+  'Summary as title'
+)
 
 IMAGE_TAG=""
 SMOKE_TIMEOUT=90
@@ -304,6 +321,128 @@ rollback() {
   $SUDO docker compose --project-directory "$COMPOSE_DIR" pull "$PROD_SERVICE" >&2 || true
   $SUDO docker compose --project-directory "$COMPOSE_DIR" \
     up -d --force-recreate "$PROD_SERVICE" >&2 || true
+}
+
+read_db_env_from_container() {
+  # Pull DATABASE_USER / DATABASE_PASSWORD / DATABASE_HOST / DATABASE_PORT
+  # / DATABASE_NAME from the live affine_server container's environment.
+  # We do NOT read /srv/affine/compose/.env directly — the container is
+  # the source of truth for what's actually running, and `.env` may carry
+  # overrides that compose did not pick up.
+  #
+  # All variables are exported into the calling shell. Returns 0 on full
+  # success, 1 if any required var is missing/empty.
+  local kv user pass host port db
+  if ! kv=$($SUDO docker exec "$PROD_CONTAINER" env 2>/dev/null); then
+    log "could not exec env in $PROD_CONTAINER (container down or no permission)"
+    return 1
+  fi
+  user=$(printf '%s\n' "$kv" | awk -F= '$1=="DATABASE_USER"{print substr($0, index($0,"=")+1); exit}')
+  pass=$(printf '%s\n' "$kv" | awk -F= '$1=="DATABASE_PASSWORD"{print substr($0, index($0,"=")+1); exit}')
+  host=$(printf '%s\n' "$kv" | awk -F= '$1=="DATABASE_HOST"{print substr($0, index($0,"=")+1); exit}')
+  port=$(printf '%s\n' "$kv" | awk -F= '$1=="DATABASE_PORT"{print substr($0, index($0,"=")+1); exit}')
+  db=$(printf '%s\n'   "$kv" | awk -F= '$1=="DATABASE_NAME"{print substr($0, index($0,"=")+1); exit}')
+
+  if [[ -z "$user" || -z "$host" || -z "$port" || -z "$db" ]]; then
+    log "missing required DATABASE_* env vars in $PROD_CONTAINER (user=${user:+set}, host=${host:+set}, port=${port:+set}, db=${db:+set})"
+    return 1
+  fi
+  # Empty password is technically valid for a localhost trust auth setup
+  # — don't reject it, but warn so the operator notices in CI logs.
+  if [[ -z "$pass" ]]; then
+    log "warning: DATABASE_PASSWORD is empty in $PROD_CONTAINER env (assuming trust auth)"
+  fi
+  export DB_USER="$user" DB_PASS="$pass" DB_HOST="$host" DB_PORT="$port" DB_NAME="$db"
+  return 0
+}
+
+validate_prompts_seeded() {
+  # Run a transient psql container on the same docker network as the
+  # production server, count how many of the canonical seed prompts
+  # (EXPECTED_PROMPTS) are present in ai_prompts_metadata.
+  #
+  # Returns:
+  #   0  all expected prompts found
+  #   1  count mismatch (some prompts missing — seeding silently failed)
+  #   3  infrastructure error (couldn't read DB env, couldn't connect,
+  #      psql query timed out / errored — unable to determine state)
+  #
+  # The caller maps these to deploy outcomes. We deliberately DO NOT
+  # silently skip on infra error — that would let real seed failures slip
+  # through if the check itself ever broke.
+  if ! read_db_env_from_container; then
+    return 3
+  fi
+
+  # Build the IN-clause from the bash array safely. Each element is
+  # SQL-quoted (single quotes doubled). The list is bounded by our own
+  # array so there is no untrusted input here.
+  local in_list="" first=1
+  local p quoted
+  for p in "${EXPECTED_PROMPTS[@]}"; do
+    quoted=${p//\'/\'\'}
+    if (( first )); then
+      in_list="'$quoted'"
+      first=0
+    else
+      in_list="${in_list}, '$quoted'"
+    fi
+  done
+  local expected_count="${#EXPECTED_PROMPTS[@]}"
+  local query="SELECT COUNT(*) FROM ai_prompts_metadata WHERE name IN (${in_list})"
+
+  log "validating seeded prompts (expected=${expected_count}: ${EXPECTED_PROMPTS[*]})"
+
+  # Run psql inside a transient container on the same docker network so
+  # we don't need psql installed on the VM AND credentials never leave
+  # this host. The container is auto-removed via --rm. We feed the SQL
+  # via stdin so the password and the query never share a process arg
+  # list (no `ps`-visible secrets either way, but stdin is cleaner).
+  #
+  # The 10s `timeout` wraps the whole exec — any hang (DNS, network,
+  # query) trips it and we fall through to the infra-error branch.
+  local out rc
+  set +e
+  out=$(
+    printf '%s' "$query" | timeout "${PSQL_QUERY_TIMEOUT_SECS}s" \
+      $SUDO docker run --rm -i \
+        --network "$DOCKER_NETWORK" \
+        -e PGHOST="$DB_HOST" \
+        -e PGPORT="$DB_PORT" \
+        -e PGUSER="$DB_USER" \
+        -e PGPASSWORD="$DB_PASS" \
+        -e PGDATABASE="$DB_NAME" \
+        "$PSQL_IMAGE" \
+        psql --no-psqlrc --quiet --tuples-only --no-align \
+             --set ON_ERROR_STOP=1 \
+             --command="$query" \
+        2>&1
+  )
+  rc=$?
+  set -e
+  unset DB_PASS
+
+  if (( rc != 0 )); then
+    log "psql check failed (rc=${rc}): ${out}"
+    return 3
+  fi
+
+  # psql -tA emits one count on its own line. Strip whitespace and
+  # validate it's an integer.
+  local actual
+  actual=$(printf '%s' "$out" | tr -d '[:space:]')
+  if ! [[ "$actual" =~ ^[0-9]+$ ]]; then
+    log "psql returned non-numeric output: ${out}"
+    return 3
+  fi
+
+  if (( actual == expected_count )); then
+    log "PROMPT-SEED OK — ${actual}/${expected_count} canonical prompts present"
+    return 0
+  fi
+
+  log "PROMPT-SEED MISMATCH — found ${actual}/${expected_count} canonical prompts"
+  return 1
 }
 
 # ---- Validate args --------------------------------------------------------
@@ -589,8 +728,51 @@ fi
 log "polling https://${PROD_HOST}/info (timeout ${POST_SWAP_TIMEOUT}s)"
 if poll_url "https://${PROD_HOST}/info" "$POST_SWAP_TIMEOUT" '"compatibility":"'; then
   log "PRODUCTION HEALTHY on ${IMAGE_TAG}"
-  emit_json success ""
-  exit 0
+
+  # ---- Step 6b: Tier 2 prompt-seed gate ---------------------------------
+  # /info is binary: did the server bind a port. PromptService runs in
+  # onApplicationBootstrap AFTER the listener is up, so /info=200 does
+  # NOT mean prompts upserted successfully. Verify the canonical seed
+  # set is in the DB before declaring success. If it isn't, the new
+  # image is broken even though /info passed → auto-rollback.
+  set +e
+  validate_prompts_seeded
+  PROMPT_RC=$?
+  set -e
+
+  case "$PROMPT_RC" in
+    0)
+      emit_json success ""
+      exit 0
+      ;;
+    1)
+      log "POST-SWAP PROMPT-SEED FAILED — initiating rollback"
+      dump_logs "$PROD_CONTAINER" 80
+      if (( ROLLBACK_ON_FAIL == 0 )); then
+        log "auto-rollback disabled; leaving the broken image in place"
+        emit_json validation_failed "post-swap prompts not seeded (auto-rollback disabled)"
+        exit 1
+      fi
+      rollback
+      log "polling https://${PROD_HOST}/info post-rollback (timeout 60s)"
+      if poll_url "https://${PROD_HOST}/info" 60 '"compatibility":"'; then
+        log "ROLLBACK SUCCEEDED — production is back on ${PREVIOUS_TAG:-previous tag}"
+        emit_json rolled_back "prompts not seeded post-swap; rolled back successfully"
+        exit 2
+      fi
+      log "ROLLBACK FAILED — manual intervention required"
+      emit_json rollback_failed "prompts not seeded post-swap; rollback also failed"
+      exit 3
+      ;;
+    *)
+      # Could not determine prompt-seed state. Don't auto-rollback
+      # blindly — we don't actually know if the deploy is broken. Surface
+      # this as a critical condition so a human looks at it.
+      log "PROMPT-SEED CHECK FAILED — could not run psql; manual intervention required"
+      emit_json rollback_failed "post-swap prompt-seed check itself failed (rc=${PROMPT_RC})"
+      exit 3
+      ;;
+  esac
 fi
 
 log "POST-SWAP SMOKE FAILED — production /info did not return 200"

@@ -185,3 +185,63 @@ jobs:
           else
             exit 1
           fi
+
+      - name: Notify Slack
+        # See superflow-autodeploy.yml for the full design rationale.
+        # Rollback messages have a slightly different shape — they
+        # report which tag prod is now on (read from the previous step)
+        # plus the operator who triggered the rollback. Webhook URL
+        # never appears in any shell command string. All ${{ }} flows
+        # through env: per workflow-injection hardening.
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          OUTCOME: ${{ job.status }}
+          ROLLBACK_RC: ${{ steps.rollback.outputs.rollback_rc }}
+          REQUESTED_TAG: ${{ inputs.tag }}
+          CURRENT_TAG: ${{ steps.current.outputs.current_tag }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK_URL not configured — skipping notification"
+            exit 0
+          fi
+
+          target_tag="${CURRENT_TAG:-${REQUESTED_TAG:-<from compose backup>}}"
+          case "${ROLLBACK_RC:-}" in
+            0)
+              msg=$(printf '%s\n%s\n%s' \
+                "↩️ ${REPO}: rolled back to ${target_tag}" \
+                "Triggered by ${ACTOR}" \
+                "Run: ${RUN_URL}")
+              ;;
+            1)
+              msg=$(printf '%s\n%s\n%s' \
+                "🔴 ${REPO}: rollback FAILED via ${WORKFLOW_NAME}" \
+                "Reason: no rollback target (no compose.yml.previous.bak; no tag input)" \
+                "Run: ${RUN_URL}")
+              ;;
+            2)
+              msg=$(printf '%s\n%s\n%s\n%s' \
+                "🚨 ${REPO}: rollback FAILED via ${WORKFLOW_NAME}" \
+                "Reason: compose updated but container did not become healthy" \
+                "Run: ${RUN_URL}" \
+                "Production: manually intervene")
+              ;;
+            *)
+              msg=$(printf '%s\n%s\n%s' \
+                "🔴 ${REPO}: rollback FAILED via ${WORKFLOW_NAME}" \
+                "Reason: workflow failed before rollback ran (status=${OUTCOME})" \
+                "Run: ${RUN_URL}")
+              ;;
+          esac
+
+          payload=$(jq -nc --arg t "$msg" '{text:$t}')
+          curl --silent --show-error --max-time 10 \
+            -X POST -H 'Content-Type: application/json' \
+            --data "$payload" "$SLACK_WEBHOOK_URL" \
+            >/dev/null 2>&1 || true
+          echo "Slack notification dispatched."

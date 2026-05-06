@@ -514,6 +514,12 @@ silently doesn't take effect:
    `dist/main.js`, so the image is a snapshot of `prompts.ts` at build
    time. A code change without a deploy = no behavior change in prod.
 
+> Tier 2 `deploy.sh` runs a post-swap psql count to verify the
+> canonical seed prompts (`Chat With AFFiNE AI`, `Auto Tag`,
+> `Summary as title`) upserted successfully — if any are missing,
+> deploys auto-rollback. See `docs/CICD.md` "Prompt-seed verification"
+> for the full flow + how to add new prompts to the gate.
+
 ### Model selection on Superflow's Vertex stack
 
 **`gpt-5-mini` is poisonous — and we keep finding new prompts using

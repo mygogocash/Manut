@@ -366,3 +366,147 @@ The drift check uses plain `git status --porcelain`, which honors
 `.gitignore`, so the forbidden patterns trigger the failure ONLY
 if someone has unignored them or staged them — exactly the
 scenario the check exists to catch.
+
+## Slack notifications
+
+Every deploy / rollback workflow ends with a "Notify Slack" step that
+posts a single-message summary to an incoming webhook. The step is
+**opt-in** — when no `SLACK_WEBHOOK_URL` repo secret is configured the
+step prints `SLACK_WEBHOOK_URL not configured — skipping notification`
+and exits 0 without failing the workflow.
+
+### What you get
+
+| Outcome                   | Message shape                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------ |
+| Auto / manual deploy OK   | `✅ <repo>@<sha>: deployed via <workflow>` + image tag + run URL               |
+| Sidecar validation failed | `🔴 <repo>@<sha>: deploy FAILED ...` + `Production: still on prior tag`        |
+| Auto-rolled back          | `🔴 <repo>@<sha>: deploy FAILED ...` + `post-swap smoke or prompt-seed failed` |
+| Rollback itself failed    | `🚨 <repo>@<sha>: deploy FAILED ...` + `Production: manually intervene`        |
+| Manual rollback succeeded | `↩️ <repo>: rolled back to <tag>` + triggered-by + run URL                     |
+| Manual rollback failed    | `🔴`/`🚨 ...` with the specific failure reason                                 |
+
+The workflow status (success / failure) reflects the underlying
+operation; the Slack message reflects the same plus a one-line reason
+so the channel readers do not have to click through to the run page
+every time.
+
+### Setup
+
+1. In your Slack workspace, create an incoming webhook
+   (`https://slackbot.example.com/services/...`). Slack docs:
+   <https://api.slack.com/messaging/webhooks>.
+2. Add it as a repo secret:
+
+   ```bash
+   gh secret set SLACK_WEBHOOK_URL --body 'https://hooks.slack.com/services/T.../B.../...'
+   ```
+
+3. The next deploy will post to the channel the webhook is bound to.
+   No code or workflow changes needed — the secret takes effect on the
+   next workflow run.
+
+### Disabling
+
+```bash
+gh secret remove SLACK_WEBHOOK_URL
+```
+
+The workflows then skip the notification silently. There is no kill-
+switch env var or `if:` toggle besides the secret itself.
+
+### Safety properties
+
+- The webhook URL is routed through `env:` only — never inlined into
+  shell command strings, never echoed, never `printf`-ed. Job logs
+  cannot leak it via `set -x` or accidental output redirection.
+- The message body is built with `jq -nc --arg t ...` so any quotes,
+  backslashes, newlines, or Unicode in `${IMAGE_TAG}`, `${ACTOR}`,
+  etc. are JSON-escaped safely.
+- `curl --silent --show-error --max-time 10 ... || true` ensures a
+  Slack 5xx, network blip, or 10-second hang never fails the
+  workflow. The deploy outcome is the source of truth; Slack is best-
+  effort notification, not a gate.
+
+## Prompt-seed verification
+
+The `/info` smoke check is binary: did the server bind a port. AFFiNE's
+`PromptService.onApplicationBootstrap` runs **after** the listener is
+up, so a green `/info=200` does NOT prove that the canonical AI
+prompts upserted successfully. If the seed silently fails (e.g. a new
+prompt name exceeds the `VarChar(32)` limit, a duplicate-key violation
+on the unique index, a JSON-config syntax error in `prompts.ts`), AI
+features break in subtle ways: chat returns 5xx, auto-tag returns
+empty, `Summary as title` produces `New chat` forever.
+
+Tier 2's prompt-seed gate runs INSIDE `scripts/vm/deploy.sh` after the
+post-swap smoke succeeds, before the script declares `success`. It:
+
+1. Reads `DATABASE_USER` / `DATABASE_PASSWORD` / `DATABASE_HOST` /
+   `DATABASE_PORT` / `DATABASE_NAME` from the live `affine_server`
+   container's environment via `docker exec ... env`. The DB password
+   never leaves the VM — `deploy.sh` runs locally on the GCE VM, the
+   GHA runner only SSHes in to invoke it.
+2. Spins up a transient `postgres:16-alpine` container on the
+   `affine_affine_net` docker network and runs:
+
+   ```sql
+   SELECT COUNT(*) FROM ai_prompts_metadata
+   WHERE name IN ('Chat With AFFiNE AI', 'Auto Tag', 'Summary as title');
+   ```
+
+3. Wraps the whole psql exec in `timeout 10s` so a hung connection,
+   DNS resolution issue, or runaway query trips the gate quickly.
+
+### Outcomes
+
+| Result                          | deploy.sh exit | Workflow outcome | Slack message                                       |
+| ------------------------------- | -------------- | ---------------- | --------------------------------------------------- |
+| Count = 3 (all seeded)          | 0              | success          | `✅ deployed`                                       |
+| Count < 3 (silent seed failure) | 2              | rolled back      | `🔴 deploy FAILED ... post-swap prompt-seed failed` |
+| Count < 3 + rollback fails      | 3              | manual           | `🚨 rollback itself failed`                         |
+| psql infra error / timeout      | 3              | manual           | `🚨 post-swap prompt-seed check itself failed`      |
+
+The infra-error branch deliberately does NOT auto-rollback. We don't
+actually know whether the new image is broken — the check just
+couldn't run. Surfacing it as "manual intervention" lets a human
+inspect the VM rather than rolling back a healthy deploy.
+
+### Adding new prompts to the gate
+
+The list of canonical names lives at the top of
+`scripts/vm/deploy.sh`:
+
+```bash
+EXPECTED_PROMPTS=(
+  'Chat With AFFiNE AI'
+  'Auto Tag'
+  'Summary as title'
+)
+```
+
+This is the single source of truth. To add a prompt, add the exact
+name (must match the `name:` field in
+`packages/backend/server/src/plugins/copilot/prompt/prompts.ts`) and
+re-deploy `deploy.sh` to the VM via
+`gh workflow run superflow-vm-init.yml`. Pick names that should
+ALWAYS be seeded (don't add experimental prompts that may be removed
+later — that would auto-rollback any PR removing them).
+
+### Why v1.10.2 motivated this
+
+In v1.10.2 a new `DriveFileType.size` GraphQL `@Field` declaration
+crashed `PromptService.onApplicationBootstrap` indirectly via a
+different upstream guard. The smoke check passed because the listener
+was up briefly before the crash propagated, but the prompt-seed never
+ran. AI features broke for ~10 minutes until manually rolled back.
+With the prompt-seed gate that incident would have auto-rolled back
+inside the same deploy run, no manual intervention.
+
+For the threat model around routing the DB password: the password
+lives in the VM's docker container environment and is read locally
+on the VM by `deploy.sh`. The GHA runner's SSH session never reads,
+sees, or transmits the password — only the deploy script's exit code
+and stdout JSON come back across the IAP tunnel. This is strictly
+safer than any approach that sets `DATABASE_PASSWORD` as a GitHub
+secret on the runner.

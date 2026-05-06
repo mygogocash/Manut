@@ -315,3 +315,94 @@ jobs:
             0|4) exit 0 ;;
             *)   exit 1 ;;
           esac
+
+      - name: Notify Slack
+        # Tier 2: opt-in Slack notification on every deploy outcome.
+        # Skipped silently when SLACK_WEBHOOK_URL is unset — workflows
+        # never fail because Slack is unconfigured. The webhook URL is
+        # routed through env: ONLY (never inlined into shell command
+        # strings or echoed) so it can't leak via job logs. All other
+        # ${{ }} values also flow through env: per the workflow-injection
+        # hardening pattern.
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          OUTCOME: ${{ job.status }}
+          DEPLOY_RC: ${{ steps.deploy.outputs.deploy_rc }}
+          IMAGE_TAG: ${{ steps.resolve_tag.outputs.tag }}
+          SHORT_SHA: ${{ steps.resolve_tag.outputs.short_sha }}
+          FULL_SHA: ${{ steps.resolve_tag.outputs.head_sha }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK_URL not configured — skipping notification"
+            exit 0
+          fi
+
+          # Pick a status line based on deploy.sh's exit-code contract.
+          # OUTCOME alone is not enough: a green job might still mean
+          # "rolled back successfully" depending on DEPLOY_RC.
+          case "${DEPLOY_RC:-}" in
+            0)
+              msg=$(printf '%s\n%s\n%s' \
+                "✅ ${REPO}@${SHORT_SHA:-unknown}: deployed via ${WORKFLOW_NAME}" \
+                "Image: ${IMAGE_TAG}" \
+                "Run: ${RUN_URL}")
+              ;;
+            1)
+              msg=$(printf '%s\n%s\n%s\n%s' \
+                "🔴 ${REPO}@${SHORT_SHA:-unknown}: deploy FAILED via ${WORKFLOW_NAME}" \
+                "Reason: sidecar validation failed (prod untouched, still on prior tag)" \
+                "Run: ${RUN_URL}" \
+                "Production: still on prior tag")
+              ;;
+            2)
+              msg=$(printf '%s\n%s\n%s\n%s' \
+                "🔴 ${REPO}@${SHORT_SHA:-unknown}: deploy FAILED via ${WORKFLOW_NAME}" \
+                "Reason: post-swap smoke or prompt-seed failed; auto-rolled back" \
+                "Run: ${RUN_URL}" \
+                "Production: still on prior tag")
+              ;;
+            3)
+              msg=$(printf '%s\n%s\n%s\n%s' \
+                "🚨 ${REPO}@${SHORT_SHA:-unknown}: deploy FAILED via ${WORKFLOW_NAME}" \
+                "Reason: rollback itself failed — production may be DOWN" \
+                "Run: ${RUN_URL}" \
+                "Production: manually intervene")
+              ;;
+            4)
+              msg=$(printf '%s\n%s\n%s' \
+                "⚠️ ${REPO}@${SHORT_SHA:-unknown}: ${WORKFLOW_NAME} superseded" \
+                "Reason: a newer deploy preempted this one (Tier 2 supersession)" \
+                "Run: ${RUN_URL}")
+              ;;
+            *)
+              # No DEPLOY_RC — the deploy step never ran (e.g. earlier
+              # build step failed). Fall back on job.status.
+              if [ "${OUTCOME}" = "success" ]; then
+                msg=$(printf '%s\n%s' \
+                  "✅ ${REPO}@${SHORT_SHA:-unknown}: ${WORKFLOW_NAME} succeeded" \
+                  "Run: ${RUN_URL}")
+              else
+                msg=$(printf '%s\n%s\n%s\n%s' \
+                  "🔴 ${REPO}@${SHORT_SHA:-unknown}: deploy FAILED via ${WORKFLOW_NAME}" \
+                  "Reason: workflow failed before deploy ran (build / auth / setup)" \
+                  "Run: ${RUN_URL}" \
+                  "Production: still on prior tag")
+              fi
+              ;;
+          esac
+
+          # jq builds the JSON envelope safely — `--arg t` JSON-escapes
+          # quotes, backslashes, newlines, etc. so the body always parses.
+          # `curl --silent --show-error` keeps a redacted-friendly log
+          # (no `-v`); `|| true` ensures a 5xx from Slack never breaks
+          # the workflow.
+          payload=$(jq -nc --arg t "$msg" '{text:$t}')
+          curl --silent --show-error --max-time 10 \
+            -X POST -H 'Content-Type: application/json' \
+            --data "$payload" "$SLACK_WEBHOOK_URL" \
+            >/dev/null 2>&1 || true
+          echo "Slack notification dispatched."

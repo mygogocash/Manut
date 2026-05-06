@@ -209,3 +209,78 @@ jobs:
           else
             exit 1
           fi
+
+      - name: Notify Slack
+        # See superflow-autodeploy.yml for the full design rationale. This
+        # is the same step trimmed for the manual-deploy context: TAG
+        # comes from the workflow_dispatch input rather than a computed
+        # tag step, and there is no head_sha / short_sha to report. All
+        # ${{ }} interpolations flow through env: per workflow-injection
+        # hardening; the webhook URL never appears in shell command
+        # strings.
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          OUTCOME: ${{ job.status }}
+          DEPLOY_RC: ${{ steps.deploy.outputs.deploy_rc }}
+          IMAGE_TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK_URL not configured — skipping notification"
+            exit 0
+          fi
+
+          case "${DEPLOY_RC:-}" in
+            0)
+              msg=$(printf '%s\n%s\n%s\n%s' \
+                "✅ ${REPO}: deployed via ${WORKFLOW_NAME}" \
+                "Image: ${IMAGE_TAG}" \
+                "Triggered by ${ACTOR}" \
+                "Run: ${RUN_URL}")
+              ;;
+            1)
+              msg=$(printf '%s\n%s\n%s\n%s' \
+                "🔴 ${REPO}: deploy FAILED via ${WORKFLOW_NAME}" \
+                "Reason: sidecar validation failed (prod untouched, still on prior tag)" \
+                "Run: ${RUN_URL}" \
+                "Production: still on prior tag")
+              ;;
+            2)
+              msg=$(printf '%s\n%s\n%s\n%s' \
+                "🔴 ${REPO}: deploy FAILED via ${WORKFLOW_NAME}" \
+                "Reason: post-swap smoke or prompt-seed failed; auto-rolled back" \
+                "Run: ${RUN_URL}" \
+                "Production: still on prior tag")
+              ;;
+            3)
+              msg=$(printf '%s\n%s\n%s\n%s' \
+                "🚨 ${REPO}: deploy FAILED via ${WORKFLOW_NAME}" \
+                "Reason: rollback itself failed — production may be DOWN" \
+                "Run: ${RUN_URL}" \
+                "Production: manually intervene")
+              ;;
+            *)
+              if [ "${OUTCOME}" = "success" ]; then
+                msg=$(printf '%s\n%s' \
+                  "✅ ${REPO}: ${WORKFLOW_NAME} succeeded" \
+                  "Run: ${RUN_URL}")
+              else
+                msg=$(printf '%s\n%s\n%s\n%s' \
+                  "🔴 ${REPO}: deploy FAILED via ${WORKFLOW_NAME}" \
+                  "Reason: workflow failed before deploy ran (validation / auth)" \
+                  "Run: ${RUN_URL}" \
+                  "Production: still on prior tag")
+              fi
+              ;;
+          esac
+
+          payload=$(jq -nc --arg t "$msg" '{text:$t}')
+          curl --silent --show-error --max-time 10 \
+            -X POST -H 'Content-Type: application/json' \
+            --data "$payload" "$SLACK_WEBHOOK_URL" \
+            >/dev/null 2>&1 || true
+          echo "Slack notification dispatched."
