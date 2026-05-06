@@ -510,3 +510,142 @@ sees, or transmits the password — only the deploy script's exit code
 and stdout JSON come back across the IAP tunnel. This is strictly
 safer than any approach that sets `DATABASE_PASSWORD` as a GitHub
 secret on the runner.
+
+## Chaos test (validating the safety net)
+
+The whole point of the smoke-then-swap pipeline is to catch a broken
+image BEFORE it reaches production. That promise needs periodic
+validation — a synthetic "broken image" deploy that proves the
+sidecar smoke check actually exits 1 and production stays up.
+
+### How to run it
+
+1. Build a minimal "broken AFFiNE" image. It must bind port 3010 (so
+   the sidecar container itself starts), but must NOT serve a 200 on
+   `/info`. The simplest version is:
+
+   ```dockerfile
+   FROM busybox:1.36
+   EXPOSE 3010
+   CMD ["sh", "-c", "while true; do printf 'HTTP/1.1 503 Service Unavailable\\r\\nContent-Length: 18\\r\\n\\r\\nchaos test image\\n' | nc -l -p 3010; done"]
+   ```
+
+2. Tag and push it to GAR with a name that's clearly identifiable as
+   chaos so an operator never confuses it with a real release. The
+   tag must match `^[A-Za-z0-9._-]+$` (the deploy workflow's charset
+   guard) AND it must look enough like a normal tag that
+   `superflow-deploy.yml`'s validation passes:
+
+   ```bash
+   CHAOS_TAG="main-chaostest$(date +%s)"
+   docker buildx build --platform linux/amd64 \
+     -t "asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:${CHAOS_TAG}" \
+     --push /tmp/chaos-image/
+   ```
+
+3. Capture pre-deploy production state (so you can verify "untouched"):
+
+   ```bash
+   curl -fsS https://affine.gogocash.co/info
+   gcloud compute ssh affine-vm --project=affine-495114 \
+     --zone=asia-southeast1-a --tunnel-through-iap \
+     --command='sudo docker ps --filter name=affine_server --format "{{.Image}}"'
+   ```
+
+4. Trigger the deploy with a SHORT smoke timeout (60s is plenty —
+   the chaos image will never return 200 anyway):
+
+   ```bash
+   gh workflow run superflow-deploy.yml \
+     -f tag="${CHAOS_TAG}" -f smoke_timeout_secs=60
+   ```
+
+5. While the deploy runs, probe production every ~20s in another
+   shell. It MUST return 200 the entire time:
+
+   ```bash
+   while true; do
+     printf '%s  /info → HTTP %s\n' "$(date '+%H:%M:%S')" \
+       "$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 5 https://affine.gogocash.co/info)"
+     sleep 20
+   done
+   ```
+
+6. After ~80s the deploy run will complete. Verify each pass
+   condition:
+
+   ```bash
+   RUN_ID=$(gh run list --workflow=superflow-deploy.yml --limit=1 \
+     --json databaseId --jq '.[0].databaseId')
+   gh run view "$RUN_ID" --log | grep "deploy.sh exit code"
+   # Expected: deploy.sh exit code: 1
+   ```
+
+7. Verify production tag is the SAME as before:
+
+   ```bash
+   gcloud compute ssh affine-vm --project=affine-495114 \
+     --zone=asia-southeast1-a --tunnel-through-iap \
+     --command='sudo docker ps --filter name=affine_server --format "{{.Image}}"'
+   # Must match what you captured in step 3.
+   ```
+
+8. Clean up the chaos image from GAR (don't leave it sitting there
+   tempting an accidental redeploy):
+
+   ```bash
+   gcloud artifacts docker images delete \
+     "asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:${CHAOS_TAG}" \
+     --quiet --delete-tags
+   ```
+
+### Pass criteria
+
+| Check                             | Required           |
+| --------------------------------- | ------------------ |
+| `deploy.sh` exit code             | `1` (sidecar fail) |
+| Workflow conclusion               | `failure`          |
+| Production `/info` during deploy  | `200` throughout   |
+| Production image tag after deploy | Unchanged          |
+| Slack message (if webhook is set) | `🔴 deploy FAILED` |
+
+If any of these don't hold, the safety net is broken. File a P1
+issue and roll Tier 2 changes back via `git revert` until the
+contract holds again.
+
+### What this test does NOT cover
+
+The chaos test exercises the **exit 1** path (sidecar smoke fails).
+It does NOT exercise:
+
+- **Exit 2** (post-swap auto-rollback). Hard to engineer
+  synthetically — the sidecar runs against the same DB+Redis as
+  prod, so anything that 200s on the sidecar should 200 on prod.
+  Triggered organically by transient infrastructure issues.
+- **Exit 3** (rollback itself fails). Even harder. Triggered by
+  bugs in `compose.yml.previous.bak` or the rollback recreate step
+  failing. Test by manually corrupting the backup mid-deploy in a
+  staging environment, NOT in prod.
+- **Exit 4** (supersession). Tested by triggering two
+  `superflow-build.yml` runs back-to-back (push two commits within
+  ~30s of each other). The older deploy.sh should exit 4 when the
+  newer one's run_id arrives at the lock file.
+- **Prompt-seed verification** (added by Tier 2 Item 5). Engineer
+  by removing `Auto Tag` from `prompts.ts` in a feature branch,
+  bundle, push, deploy. The post-swap prompt-seed gate should fire,
+  return count=2 (instead of 3), and auto-rollback (exit 2).
+
+Running the exit-1 chaos test quarterly is sufficient regression
+coverage. It exercises the full pipeline (artifact handoff, GAR
+tag validation, sidecar boot, smoke poll, exit-code mapping, Slack
+notify, summary writer) end-to-end.
+
+### Last validated
+
+The exit-1 chaos test was run on 2026-05-06 against a busybox-based
+chaos image (`main-chaostest1-25412016315`). Result: deploy.sh exit
+1, workflow conclusion failure, production `/info` returned 200
+throughout (4 probes over 80s), production image tag unchanged at
+`main-8e7c462b2-25410849595`. The Tier 2 pipeline preserved the
+production safety contract under a fully synthetic broken-image
+attack.
