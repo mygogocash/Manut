@@ -108,7 +108,7 @@ const workflows: Prompt[] = [
   {
     name: 'workflow:presentation:step1',
     action: 'workflow:presentation:step1',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     config: { temperature: 0.7 },
     messages: [
       {
@@ -125,7 +125,7 @@ const workflows: Prompt[] = [
   {
     name: 'workflow:presentation:step2',
     action: 'workflow:presentation:step2',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -144,7 +144,7 @@ const workflows: Prompt[] = [
   {
     name: 'workflow:presentation:step4',
     action: 'workflow:presentation:step4',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -171,7 +171,7 @@ const workflows: Prompt[] = [
   {
     name: 'workflow:brainstorm:step1',
     action: 'workflow:brainstorm:step1',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     config: { temperature: 0.7 },
     messages: [
       {
@@ -188,7 +188,7 @@ const workflows: Prompt[] = [
   {
     name: 'workflow:brainstorm:step2',
     action: 'workflow:brainstorm:step2',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     config: {
       frequencyPenalty: 0.5,
       presencePenalty: 0.5,
@@ -223,7 +223,7 @@ const workflows: Prompt[] = [
   {
     name: 'workflow:image-sketch:step2',
     action: 'workflow:image-sketch:step2',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -264,7 +264,7 @@ const workflows: Prompt[] = [
   {
     name: 'workflow:image-clay:step2',
     action: 'workflow:image-clay:step2',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -305,7 +305,7 @@ const workflows: Prompt[] = [
   {
     name: 'workflow:image-anime:step2',
     action: 'workflow:image-anime:step2',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -346,7 +346,7 @@ const workflows: Prompt[] = [
   {
     name: 'workflow:image-pixel:step2',
     action: 'workflow:image-pixel:step2',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -439,7 +439,7 @@ Convert a multi-speaker audio recording into a structured JSON format by transcr
   {
     name: 'Conversation Summary',
     action: 'Conversation Summary',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -464,7 +464,7 @@ Return only the summary text—no headings, labels, or commentary.`,
   {
     name: 'Summary',
     action: 'Summary',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -565,7 +565,7 @@ The very first character of your response MUST be the [ character. The very last
   {
     name: 'Summary the webpage',
     action: 'Summary the webpage',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'user',
@@ -577,7 +577,7 @@ The very first character of your response MUST be the [ character. The very last
   {
     name: 'Explain this',
     action: 'Explain this',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -771,7 +771,7 @@ You are a highly accomplished professional translator, demonstrating profound pr
   {
     name: 'Summarize the meeting structured',
     action: 'Summarize the meeting structured',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -806,7 +806,7 @@ Rules:
   {
     name: 'Summarize the meeting',
     action: 'Summarize the meeting',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -831,7 +831,7 @@ You are an assistant helping summarize a document. Use this format, replacing te
   {
     name: 'Find action for summary',
     action: 'Find action for summary',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -1175,7 +1175,7 @@ You are an assistant helping find actions of meeting summary. Use this format, r
   {
     name: 'Brainstorm mindmap',
     action: 'Brainstorm mindmap',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -1192,7 +1192,7 @@ You are an assistant helping find actions of meeting summary. Use this format, r
   {
     name: 'Expand mind map',
     action: 'Expand mind map',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -1269,7 +1269,7 @@ The output must be perfect. Adherence to every detail of these instructions is n
   {
     name: 'Improve grammar for it',
     action: 'Improve grammar for it',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -1338,7 +1338,7 @@ The output must be perfect. Adherence to every detail of these instructions is n
   {
     name: 'Find action items from it',
     action: 'Find action items from it',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -1362,7 +1362,7 @@ If there are items in the content that can be used as to-do tasks, please refer 
   {
     name: 'Check code error',
     action: 'Check code error',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',
@@ -1422,7 +1422,7 @@ If there are items in the content that can be used as to-do tasks, please refer 
   {
     name: 'Create a presentation',
     action: 'Create a presentation',
-    model: 'gpt-5-mini',
+    model: 'gemini-2.5-flash',
     messages: [
       {
         role: 'system',

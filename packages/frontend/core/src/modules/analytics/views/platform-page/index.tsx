@@ -20,7 +20,7 @@ import * as styles from './index.css';
 const EMPTY_INSIGHTS: readonly Insight[] = Object.freeze([]);
 const EMPTY_CONNECTIONS: readonly PlatformConnection[] = Object.freeze([]);
 
-const KNOWN_PLATFORMS: SocialPlatform[] = new Set([
+const KNOWN_PLATFORMS = new Set<SocialPlatform>([
   'FACEBOOK',
   'INSTAGRAM',
   'THREADS',
@@ -74,8 +74,7 @@ function filterKpisForPlatform(
   const slug = platform.toLowerCase();
   return kpis.filter(
     k =>
-      k.key.toLowerCase().includes(slug) ||
-      k.label.toLowerCase().includes(slug)
+      k.key.toLowerCase().includes(slug) || k.label.toLowerCase().includes(slug)
   );
 }
 
@@ -94,15 +93,12 @@ export function PlatformPage({ platform }: PlatformPageProps) {
 
   useEffect(() => {
     analyticsService.loadOverview(workspaceId).catch(err => {
-      // eslint-disable-next-line no-console
       console.warn('[analytics] loadOverview failed', err);
     });
     analyticsService.loadInsights(workspaceId).catch(err => {
-      // eslint-disable-next-line no-console
       console.warn('[analytics] loadInsights failed', err);
     });
     connectionService.loadConnections(workspaceId).catch(err => {
-      // eslint-disable-next-line no-console
       console.warn('[analytics] loadConnections failed', err);
     });
   }, [analyticsService, connectionService, workspaceId]);
@@ -117,16 +113,16 @@ export function PlatformPage({ platform }: PlatformPageProps) {
 
   const platformKpis = useMemo(
     () =>
-      platformKey ? filterKpisForPlatform(overview?.kpis ?? [], platformKey) : [],
+      platformKey
+        ? filterKpisForPlatform(overview?.kpis ?? [], platformKey)
+        : [],
     [overview, platformKey]
   );
 
   const platformInsights = useMemo(
     () =>
       platformKey
-        ? insights.filter(i =>
-            (i.platforms ?? []).includes(platformKey)
-          )
+        ? insights.filter(i => (i.platforms ?? []).includes(platformKey))
         : [],
     [insights, platformKey]
   );
@@ -156,9 +152,7 @@ export function PlatformPage({ platform }: PlatformPageProps) {
               'No account linked'}
           </div>
         </div>
-        <ConnectionStatusBadge
-          status={connection?.status ?? 'NOT_CONNECTED'}
-        />
+        <ConnectionStatusBadge status={connection?.status ?? 'NOT_CONNECTED'} />
       </div>
 
       <div className={styles.sectionLabel}>Performance</div>

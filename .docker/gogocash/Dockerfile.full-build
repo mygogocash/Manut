@@ -1,26 +1,27 @@
 # Fully-containerized gogocash AFFiNE image.
 #
 # Unlike Dockerfile.fullstack (which assumes pre-built artifacts), this
-# Dockerfile builds the frontend bundle INSIDE the container so the build
-# is reproducible and isolated from the host's node_modules / yarn state.
+# Dockerfile builds the server and frontend bundles INSIDE the container so
+# the build is reproducible and isolated from the host's node_modules / yarn
+# state.
 #
 # The backend native binary (server-native.x64.node) is still pre-built
 # on the host because compiling it requires the Rust toolchain.
 #
 # Stages:
-#   1. fe-builder — install full deps, run tsc, run `yarn affine bundle`
-#                   for web/admin/mobile, drop dist trees in /app/static.
+#   1. app-builder — install full deps, run `yarn affine bundle`
+#                    for @affine/server/web/admin/mobile.
 #   2. prep — same as before (yarn workspaces focus @affine/server --prod
 #             + prisma generate + move node_modules into server pkg).
-#   3. assets — assemble runtime layout from prep + fe-builder output.
+#   3. assets — assemble runtime layout from prep + app-builder output.
 #   4. runtime — minimal node:22-bookworm-slim + jemalloc.
 
 # syntax=docker/dockerfile:1.7
 
 # ----------------------------------------------------------------------
-# Stage 1: frontend builder (full yarn install + bundle inside container)
+# Stage 1: app builder (full yarn install + bundle inside container)
 # ----------------------------------------------------------------------
-FROM node:22-bookworm AS fe-builder
+FROM node:22-bookworm AS app-builder
 WORKDIR /workspace
 
 # Build deps for native modules (canvas, sharp via deps, etc.)
@@ -47,12 +48,14 @@ RUN node -e "var p=require('./package.json'); delete p.scripts.postinstall; requ
 # Build the CLI tools first (yarn affine needs the compiled bin).
 RUN yarn workspace @affine-tools/cli run prepare 2>/dev/null || true
 
-# Build the frontend bundles inside this clean container.
+# Build the server and frontend bundles inside this clean container.
 # GITHUB_SHA is read by html-plugin.ts to stamp the bundle's data-version
 # attribute (no .git is available inside the container).
 ARG GITHUB_SHA=container-build
 ENV GITHUB_SHA=${GITHUB_SHA}
-RUN yarn affine bundle -p web && \
+RUN yarn workspace @affine/server prisma generate && \
+    yarn affine bundle -p @affine/server && \
+    yarn affine bundle -p web && \
     yarn affine bundle -p mobile && \
     yarn affine bundle -p admin
 
@@ -83,9 +86,10 @@ FROM node:22-bookworm-slim AS assets
 WORKDIR /app
 
 COPY --from=prep /workspace/packages/backend/server /app
-COPY --from=fe-builder /workspace/packages/frontend/apps/web/dist /app/static
-COPY --from=fe-builder /workspace/packages/frontend/admin/dist /app/static/admin
-COPY --from=fe-builder /workspace/packages/frontend/apps/mobile/dist /app/static/mobile
+COPY --from=app-builder /workspace/packages/backend/server/dist /app/dist
+COPY --from=app-builder /workspace/packages/frontend/apps/web/dist /app/static
+COPY --from=app-builder /workspace/packages/frontend/admin/dist /app/static/admin
+COPY --from=app-builder /workspace/packages/frontend/apps/mobile/dist /app/static/mobile
 
 ARG TARGETARCH
 ARG TARGETVARIANT

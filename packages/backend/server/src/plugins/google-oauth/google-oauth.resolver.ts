@@ -51,7 +51,7 @@ export class GoogleConnectionType {
   @Field()
   connected!: boolean;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   email?: string;
 }
 
@@ -84,13 +84,13 @@ export class DriveFileType implements DriveFile {
   @Field()
   mimeType!: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   iconLink?: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   webViewLink?: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   modifiedTime?: string;
 
   // SUPERFLOW v1.10.2: explicit @Field(() => String) for the `string | null`
