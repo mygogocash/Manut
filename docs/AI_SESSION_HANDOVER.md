@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-08 20:55:08 +07
+Last updated: 2026-05-08 21:06:34 +07
 
 This file is the fast-resume handover for AI sessions in the Superflow
 AFFiNE fork. Update it whenever meaningful work finishes, before long builds
@@ -10,13 +10,16 @@ or human should be able to continue without relying on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `main`
-- Upstream: `origin/main`
-- Current HEAD: `8767c95e5 feat: add Superflow control-plane handover (#13)`
+- Branch: `codex/vm-disk-prepull-cleanup`
+- Upstream: `origin/codex/vm-disk-prepull-cleanup`
+- Current HEAD: `e51657c89 fix: prune unused docker data before VM image pull`
+- Main HEAD: `8767c95e5 feat: add Superflow control-plane handover (#13)`
 - Pull request: https://github.com/mygogocash/Superflow/pull/13 merged at
   `2026-05-08T13:35:32Z`
 - Production branch: `main`
 - Production app: https://affine.gogocash.co
+- Production image: `main-8767c95e5-25558739931`
+- Production deploy run: `25559646582` succeeded at `2026-05-08T14:05:34Z`
 
 ## Latest Completed Work
 
@@ -53,6 +56,22 @@ or human should be able to continue without relying on chat memory.
 - Started remediation branch `codex/vm-disk-prepull-cleanup` with a
   `deploy.sh` pre-pull cleanup that prunes stopped containers, unused images,
   and Docker build cache while preserving volumes.
+- Committed remediation as
+  `e51657c89 fix: prune unused docker data before VM image pull` and pushed
+  `origin/codex/vm-disk-prepull-cleanup`.
+- Installed the patched VM scripts with `superflow-vm-init.yml` run
+  `25559581702`; run completed successfully.
+- Reran `superflow-deploy.yml` manually for image tag
+  `main-8767c95e5-25558739931`; run `25559646582` completed successfully.
+- Pre-pull cleanup on the VM reclaimed `6.269GB`; root disk moved from
+  `100%` used (`224MB` free) to `18%` used (`24GB` free).
+- Sidecar smoke passed on `http://localhost:3011/info`, production swapped to
+  `main-8767c95e5-25558739931`, post-swap `/info` passed, and the prompt-seed
+  gate passed `3/3`.
+- External production probe after deploy returned HTTP 200 for
+  `https://affine.gogocash.co/info`.
+- Browser smoke loaded `https://affine.gogocash.co/sign-in`; React mounted on
+  `#app` with children present and no `console.error` entries.
 
 ## Verification Already Run
 
@@ -66,15 +85,25 @@ or human should be able to continue without relying on chat memory.
 - `yarn oxlint -c .oxlintrc.json --disable-nested-config --deny-warnings scripts/superflow-release-handover.mjs`
 - Pre-commit hook passed during commit: prettier, eslint on staged JS/MJS,
   and repo oxlint hook.
+- `bash -n scripts/vm/deploy.sh`
+- `git diff --check`
+- `yarn prettier --check docs/AI_SESSION_HANDOVER.md`
+- `superflow-vm-init.yml` run `25559581702` succeeded.
+- `superflow-deploy.yml` run `25559646582` succeeded with
+  `deploy.sh exit code: 0`.
+- `curl -fsS -D - https://affine.gogocash.co/info` returned HTTP 200 after
+  deploy.
+- Playwright production smoke: sign-in page rendered, `#app` had 3 children,
+  React keys were present, and browser console had 0 errors.
 
 ## Open Threads
 
-- Need install the patched `scripts/vm/deploy.sh` on the VM via
-  `superflow-vm-init.yml` from branch `codex/vm-disk-prepull-cleanup`.
-- Need rerun `superflow-deploy.yml` for image
-  `main-8767c95e5-25558739931`.
-- No successful production smoke has been recorded yet for the merged
-  control-plane handover slice.
+- Need open and merge the remediation PR from
+  `codex/vm-disk-prepull-cleanup` so the pre-pull disk cleanup is preserved in
+  `main` for future deploys. The VM is already patched, but `main` does not
+  yet contain the script hardening.
+- The merged control-plane handover slice is now deployed and smoke-tested in
+  production on image `main-8767c95e5-25558739931`.
 - Next product slice after this PR should be the AFFiNE-facing handover inbox:
   ingest `superflow-handover.json` and create/update a workspace doc through
   existing doc writer paths.
@@ -111,6 +140,9 @@ gh pr view 13 --json state,mergeStateStatus,statusCheckRollup,url
 gh run view 25558581821 --json status,conclusion,jobs,url
 gh run view 25558739931 --json status,conclusion,jobs,url
 gh run view 25559360466 --json status,conclusion,jobs,url
+gh run view 25559581702 --json status,conclusion,jobs,url
+gh run view 25559646582 --json status,conclusion,jobs,url
 gh run list --branch main --limit 10 --json databaseId,workflowName,status,conclusion,headSha,url
+curl -fsS https://affine.gogocash.co/info
 sed -n '1,240p' docs/AI_SESSION_HANDOVER.md
 ```
