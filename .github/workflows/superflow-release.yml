@@ -210,6 +210,7 @@ jobs:
         #     in the mobile/dist-empty incident — defense-in-depth.
         # FIRST RELEASE AFTER THIS CHANGE: cold cache, slow build.
         # Subsequent releases hit the warm cache.
+        id: build_push
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -227,6 +228,33 @@ jobs:
           cache-to: type=registry,ref=${{ env.GAR_CACHE_REPO }}:buildx,mode=max
           no-cache-filters: assets
 
+      - name: Write Superflow handover artifact
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ steps.build_push.outputs.digest }}
+          GAR_REPO: ${{ env.GAR_REPO }}
+        run: |
+          mkdir -p artifact
+          node scripts/superflow-release-handover.mjs \
+            --mode release \
+            --status "release image built" \
+            --version "${VERSION}" \
+            --image-tag "${IMAGE_TAG}" \
+            --image-digest "${IMAGE_DIGEST}" \
+            --gar-repo "${GAR_REPO}" \
+            --output artifact/superflow-handover.md \
+            --json-output artifact/superflow-handover.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: superflow-handover
+          path: |
+            artifact/superflow-handover.md
+            artifact/superflow-handover.json
+          retention-days: 30
+          if-no-files-found: error
+
       - name: Summary
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -242,6 +270,7 @@ jobs:
             echo "- Plain version tag (human reference): \`$VERSION\`"
             echo "- Image: \`$REPO:$IMAGE_TAG\`"
             echo "- Buildx cache: \`$CACHE_IMAGE\`"
+            echo "- Handover artifact: \`superflow-handover\`"
             echo ""
             echo "Run the **Superflow Deploy** workflow manually with"
             echo "\`tag: $IMAGE_TAG\` to roll this out to GCE under the"

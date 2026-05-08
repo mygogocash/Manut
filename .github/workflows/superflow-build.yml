@@ -397,6 +397,34 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+      - name: Write Superflow handover artifact
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          IMAGE_DIGEST: ${{ steps.build_push.outputs.digest }}
+          GAR_REPO: ${{ env.GAR_REPO }}
+          SHORT_SHA: ${{ steps.tag.outputs.short_sha }}
+          HEAD_SHA: ${{ steps.tag.outputs.head_sha }}
+        run: |
+          node scripts/superflow-release-handover.mjs \
+            --mode build \
+            --status "build image produced" \
+            --image-tag "${IMAGE_TAG}" \
+            --image-digest "${IMAGE_DIGEST}" \
+            --gar-repo "${GAR_REPO}" \
+            --short-sha "${SHORT_SHA}" \
+            --head-sha "${HEAD_SHA}" \
+            --output artifact/superflow-handover.md \
+            --json-output artifact/superflow-handover.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: superflow-handover
+          path: |
+            artifact/superflow-handover.md
+            artifact/superflow-handover.json
+          retention-days: 30
+          if-no-files-found: error
+
       - name: Summary
         if: always()
         env:
@@ -416,6 +444,7 @@ jobs:
             echo "- Image digest: \`${IMAGE_DIGEST:-unknown}\`"
             echo "- Registry: \`${GAR_REPO_VAR}\`"
             echo "- Buildx cache: \`${CACHE_IMAGE}\`"
+            echo "- Handover artifact: \`superflow-handover\`"
             echo ""
             echo "**Machine-readable**: \`IMAGE_TAG=${IMAGE_TAG}\`"
             echo ""
