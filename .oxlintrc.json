@@ -26,7 +26,6 @@
     ".context/**/*.js",
     ".yarnrc.yml",
     ".docker",
-    ".claude/worktrees/**",
     "**/.storybook",
     ".coverage",
     ".nx/**",
@@ -57,7 +56,8 @@
     "blocksuite/docs-site/api/**",
     "packages/frontend/admin/src/config.json",
     "**/test-docs.json",
-    "**/test-blocks.json"
+    "**/test-blocks.json",
+    ".claude/worktrees/**"
   ],
   "rules": {
     "no-empty-static-block": "error",
