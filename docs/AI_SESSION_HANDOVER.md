@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-08 21:06:34 +07
+Last updated: 2026-05-08 21:08:35 +07
 
 This file is the fast-resume handover for AI sessions in the Superflow
 AFFiNE fork. Update it whenever meaningful work finishes, before long builds
@@ -16,6 +16,8 @@ or human should be able to continue without relying on chat memory.
 - Main HEAD: `8767c95e5 feat: add Superflow control-plane handover (#13)`
 - Pull request: https://github.com/mygogocash/Superflow/pull/13 merged at
   `2026-05-08T13:35:32Z`
+- Follow-up PR: https://github.com/mygogocash/Superflow/pull/14 tracks the
+  VM disk cleanup hardening.
 - Production branch: `main`
 - Production app: https://affine.gogocash.co
 - Production image: `main-8767c95e5-25558739931`
@@ -72,6 +74,8 @@ or human should be able to continue without relying on chat memory.
   `https://affine.gogocash.co/info`.
 - Browser smoke loaded `https://affine.gogocash.co/sign-in`; React mounted on
   `#app` with children present and no `console.error` entries.
+- Opened follow-up PR #14 to preserve the VM disk cleanup hardening in
+  `main`: https://github.com/mygogocash/Superflow/pull/14.
 
 ## Verification Already Run
 
@@ -98,10 +102,9 @@ or human should be able to continue without relying on chat memory.
 
 ## Open Threads
 
-- Need open and merge the remediation PR from
-  `codex/vm-disk-prepull-cleanup` so the pre-pull disk cleanup is preserved in
-  `main` for future deploys. The VM is already patched, but `main` does not
-  yet contain the script hardening.
+- Need merge PR #14 so the pre-pull disk cleanup is preserved in `main` for
+  future deploys. The VM is already patched, but `main` does not yet contain
+  the script hardening.
 - The merged control-plane handover slice is now deployed and smoke-tested in
   production on image `main-8767c95e5-25558739931`.
 - Next product slice after this PR should be the AFFiNE-facing handover inbox:
@@ -137,6 +140,7 @@ cd /Users/kunanonjarat/Developer/AFFiNE-canary
 git status --short --branch
 git log -5 --oneline
 gh pr view 13 --json state,mergeStateStatus,statusCheckRollup,url
+gh pr view 14 --json state,mergeStateStatus,statusCheckRollup,url
 gh run view 25558581821 --json status,conclusion,jobs,url
 gh run view 25558739931 --json status,conclusion,jobs,url
 gh run view 25559360466 --json status,conclusion,jobs,url
