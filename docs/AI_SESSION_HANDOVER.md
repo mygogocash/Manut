@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-08 20:34:01 +07
+Last updated: 2026-05-08 20:55:08 +07
 
 This file is the fast-resume handover for AI sessions in the Superflow
 AFFiNE fork. Update it whenever meaningful work finishes, before long builds
@@ -10,11 +10,11 @@ or human should be able to continue without relying on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/superflow-control-plane`
-- Upstream: `origin/codex/superflow-control-plane`
-- Latest feature commit captured:
-  `5f7587dc8b feat: add Superflow control-plane handover`
-- Pull request: https://github.com/mygogocash/Superflow/pull/13
+- Branch: `main`
+- Upstream: `origin/main`
+- Current HEAD: `8767c95e5 feat: add Superflow control-plane handover (#13)`
+- Pull request: https://github.com/mygogocash/Superflow/pull/13 merged at
+  `2026-05-08T13:35:32Z`
 - Production branch: `main`
 - Production app: https://affine.gogocash.co
 
@@ -34,6 +34,25 @@ or human should be able to continue without relying on chat memory.
   `5f7587dc8 feat: add Superflow control-plane handover`.
 - Added this tracked session handover file and a 30-minute heartbeat
   reminder to keep it refreshed during active work.
+- PR #13 merged into `main` as merge commit `8767c95e5`.
+- Local checkout fast-forwarded to `origin/main`.
+- Superflow CI run `25558581821` completed successfully for merge commit
+  `8767c95e5`.
+- Superflow Build run `25558739931` completed successfully.
+- Build produced image tag `main-8767c95e5-25558739931` with digest
+  `sha256:05d660d1258d60da67c4d4d9d17a07c479e3d04978ef2482c764113226eeb444`.
+- Verified the new `superflow-handover` artifact by downloading
+  `superflow-handover.md` and `superflow-handover.json` from run
+  `25558739931`; JSON includes the expected image tag, digest, role board,
+  task tree, verification gates, and rollback pointer.
+- Superflow Auto Deploy run `25559360466` failed before sidecar validation:
+  VM disk filled while extracting the new image layer under
+  `/var/lib/containerd/.../main.js.map` (`no space left on device`).
+- Production was not swapped; live `/info` stayed HTTP 200 on previous tag
+  `main-2d4288b13-25502136233`.
+- Started remediation branch `codex/vm-disk-prepull-cleanup` with a
+  `deploy.sh` pre-pull cleanup that prunes stopped containers, unused images,
+  and Docker build cache while preserving volumes.
 
 ## Verification Already Run
 
@@ -50,9 +69,12 @@ or human should be able to continue without relying on chat memory.
 
 ## Open Threads
 
-- PR #13 needs review and merge when approved.
-- No production deploy has been run for PR #13. Merge to `main` would trigger
-  the normal Superflow CI -> Build -> Auto Deploy path.
+- Need install the patched `scripts/vm/deploy.sh` on the VM via
+  `superflow-vm-init.yml` from branch `codex/vm-disk-prepull-cleanup`.
+- Need rerun `superflow-deploy.yml` for image
+  `main-8767c95e5-25558739931`.
+- No successful production smoke has been recorded yet for the merged
+  control-plane handover slice.
 - Next product slice after this PR should be the AFFiNE-facing handover inbox:
   ingest `superflow-handover.json` and create/update a workspace doc through
   existing doc writer paths.
@@ -86,5 +108,9 @@ cd /Users/kunanonjarat/Developer/AFFiNE-canary
 git status --short --branch
 git log -5 --oneline
 gh pr view 13 --json state,mergeStateStatus,statusCheckRollup,url
+gh run view 25558581821 --json status,conclusion,jobs,url
+gh run view 25558739931 --json status,conclusion,jobs,url
+gh run view 25559360466 --json status,conclusion,jobs,url
+gh run list --branch main --limit 10 --json databaseId,workflowName,status,conclusion,headSha,url
 sed -n '1,240p' docs/AI_SESSION_HANDOVER.md
 ```

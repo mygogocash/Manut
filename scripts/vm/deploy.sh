@@ -84,6 +84,10 @@ DOCKER_NETWORK="${DOCKER_NETWORK:-affine_affine_net}"
 PSQL_IMAGE="${PSQL_IMAGE:-postgres:16-alpine}"
 PSQL_QUERY_TIMEOUT_SECS="${PSQL_QUERY_TIMEOUT_SECS:-10}"
 SUDO="${DEPLOY_SUDO-sudo}"
+# The VM keeps only production/runtime Docker state. Before pulling a new
+# image, prune disposable Docker data so a stale image layer cannot block
+# deploys with ENOSPC. Volumes are intentionally preserved.
+DEPLOY_PRUNE_BEFORE_PULL="${DEPLOY_PRUNE_BEFORE_PULL:-1}"
 
 # Canonical seed prompts that MUST be upserted by PromptService at boot.
 # If any of these are missing post-swap, PromptService.onApplicationBootstrap
@@ -290,6 +294,33 @@ cleanup_sidecar() {
   # Belt-and-braces — kill by container name in case the compose service
   # name diverged.
   $SUDO docker rm -f "$SIDECAR_NAME" >/dev/null 2>&1 || true
+}
+
+docker_disk_report() {
+  # docker_disk_report <label>
+  # Best-effort disk snapshot for deploy logs. Never throws.
+  local label="${1:-snapshot}"
+  log "docker disk report (${label})"
+  df -h / /var/lib/docker /var/lib/containerd >&2 2>/dev/null || df -h >&2 || true
+  $SUDO docker system df >&2 || true
+}
+
+pre_pull_cleanup() {
+  # Free space before pulling the next image. This intentionally avoids
+  # docker system prune --volumes because AFFiNE data must never be removed
+  # by deploy automation. The running production image is still referenced
+  # by affine_server, so docker image prune -a will not delete it.
+  if [[ "$DEPLOY_PRUNE_BEFORE_PULL" != "1" ]]; then
+    log "pre-pull docker cleanup disabled (DEPLOY_PRUNE_BEFORE_PULL=${DEPLOY_PRUNE_BEFORE_PULL})"
+    return
+  fi
+
+  log "pre-pull docker cleanup: pruning stopped containers, unused images, and build cache (volumes preserved)"
+  docker_disk_report "before pre-pull cleanup"
+  $SUDO docker container prune -f >&2 || true
+  $SUDO docker builder prune -af >&2 || true
+  $SUDO docker image prune -af >&2 || true
+  docker_disk_report "after pre-pull cleanup"
 }
 
 dump_logs() {
@@ -656,6 +687,7 @@ trap 'cleanup_sidecar; clear_our_runid_file' EXIT
 # ---- Step 1: pull image ---------------------------------------------------
 
 NEW_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+pre_pull_cleanup
 log "pulling ${NEW_IMAGE}"
 if ! $SUDO docker pull "$NEW_IMAGE" >&2; then
   log "docker pull failed"
