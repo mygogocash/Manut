@@ -30,9 +30,14 @@ before changing, building, or deploying the project.
 - `docs/CICD.md` - deploy architecture and operator commands.
 - `docs/CICD_ROADMAP.md` - current pipeline status, shipped tiers, backlog,
   and last validation notes.
+- `docs/SUPERFLOW_CONTROL_PLANE.md` - Superflow-native operating model for
+  agent/company-style coordination, release handover artifacts, and future
+  AFFiNE-facing control-plane work.
 - `docs/RELEASES/v1.10.2.md` - latest feature release narrative.
 - `docs/analytics-platform.md` and `docs/analytics-approvals.md` - analytics
   product plan and external approval checklist.
+- `scripts/superflow-release-handover.mjs` - generates human and JSON
+  control-plane handovers for CI build/release artifacts.
 - `scripts/vm/deploy.sh`, `scripts/vm/rollback.sh`,
   `scripts/vm/compose.canary.yml` - executable VM runbook.
 - `.github/workflows/superflow-*.yml` - CI, build, deploy, rollback,
@@ -72,8 +77,10 @@ Normal path:
 1. Push to `main`.
 2. `superflow-ci.yml` validates lint/codegen/bundles.
 3. `superflow-build.yml` builds and pushes an immutable GAR image tag.
-4. `superflow-autodeploy.yml` runs VM-side `deploy.sh`.
-5. `deploy.sh` sidecar-smokes the new image on port 3011 before swapping
+4. The build workflow uploads `image-tag` and `superflow-handover`
+   artifacts so the image handoff has both machine and operator context.
+5. `superflow-autodeploy.yml` runs VM-side `deploy.sh`.
+6. `deploy.sh` sidecar-smokes the new image on port 3011 before swapping
    production, then runs post-swap `/info` and prompt-seed checks.
 
 Manual deploy of an existing image:
@@ -173,5 +180,9 @@ GitHub workflows rather than hand-editing the VM whenever possible.
   together.
 - When a release ships, add a `docs/RELEASES/vX.Y.Z.md` entry and note the
   operational traps in `AGENTS.md` / `CLAUDE.md`.
+- When the control-plane contract changes, update
+  `docs/SUPERFLOW_CONTROL_PLANE.md` and verify
+  `scripts/superflow-release-handover.mjs --help` still documents the
+  emitted fields.
 - When a code review finds a real blocker, either fix it immediately or add it
   to the High-Risk Findings section with an owner and verification command.

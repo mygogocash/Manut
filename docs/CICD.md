@@ -99,6 +99,25 @@ file before SSHing the VM. Defensive checks at every step:
 This keeps the deploy job small and makes the handoff debuggable from
 the GHA UI without needing VM SSH.
 
+## Control-plane handover artifacts
+
+Superflow now treats each image build as a small control-plane handover.
+`superflow-build.yml` and `superflow-release.yml` run
+`scripts/superflow-release-handover.mjs` after the image push and upload a
+`superflow-handover` artifact containing:
+
+- `superflow-handover.md` for human operators.
+- `superflow-handover.json` for future AFFiNE-native import or dashboards.
+
+The artifact records the operating company goal, workflow mode, commit,
+image tag, digest, run URL, current role board, verification gates, and
+rollback pointer. The source model lives in
+`docs/SUPERFLOW_CONTROL_PLANE.md`.
+
+This does not change deploy behavior. `image-tag` remains the deploy
+handoff consumed by `superflow-autodeploy.yml`; `superflow-handover` is the
+evidence layer around that handoff.
+
 ## Image tagging
 
 Every CI build pushes a unique tag: `main-<short-sha>-<run_id>`. The
