@@ -184,7 +184,6 @@ export class QuotaService {
     if (env.selfhosted) {
       return {
         ...resolved,
-        copilotActionLimit: undefined,
         blobLimit: SUPERFLOW_UNLIMITED_BYTES,
         storageQuota: SUPERFLOW_UNLIMITED_BYTES,
         historyPeriod: SUPERFLOW_UNLIMITED_HISTORY_MS,

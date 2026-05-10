@@ -13,6 +13,10 @@ import {
 import MCPIcon from './mcp-server/MCP.inline.svg';
 import { McpServerSettingPanel } from './mcp-server/setting-panel';
 import { ReadwiseSettingPanel } from './readwise/setting-panel';
+import {
+  SuperflowHandoverIcon,
+  SuperflowHandoverSettingPanel,
+} from './superflow-handover/setting-panel';
 
 type IntegrationCard = {
   id: string;
@@ -57,6 +61,14 @@ const INTEGRATION_LIST = [
     desc: 'com.affine.integration.mcp-server.desc',
     icon: <img src={MCPIcon} />,
     setting: <McpServerSettingPanel />,
+    requiresCloud: true,
+  },
+  {
+    id: 'superflow-handover' as const,
+    name: 'Superflow Handover',
+    desc: 'Import release handover JSON into a workspace doc.',
+    icon: <SuperflowHandoverIcon />,
+    setting: <SuperflowHandoverSettingPanel />,
     requiresCloud: true,
   },
   {

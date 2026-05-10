@@ -1,0 +1,159 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { BadRequestException } from '@nestjs/common';
+import test from 'ava';
+
+import { parseAndRenderSuperflowHandover } from '../../plugins/superflow/superflow-handover.service';
+
+const superflowDir = join(process.cwd(), 'src/plugins/superflow');
+const repoRoot = join(process.cwd(), '../../..');
+const dtoFiles = [
+  'superflow.dto.ts',
+  'superflow-pm.dto.ts',
+  'superflow-crm.dto.ts',
+  'superflow-reminder.dto.ts',
+  'superflow-handover.resolver.ts',
+];
+
+function handover(overrides: Record<string, unknown> = {}) {
+  return JSON.stringify({
+    schemaVersion: 1,
+    generatedAt: '2026-05-09T12:00:00.000Z',
+    controlPlane: {
+      source: 'docs/SUPERFLOW_CONTROL_PLANE.md',
+      company: 'GoGoCash Superflow',
+      goal: 'Ship verified AI-assisted AFFiNE work.',
+    },
+    workflow: {
+      mode: 'release',
+      status: 'release image built',
+      repository: 'mygogocash/Superflow',
+      ref: 'v1.2.3',
+      actor: 'codex',
+      runId: '12345',
+      runUrl: 'https://github.com/mygogocash/Superflow/actions/runs/12345',
+    },
+    release: {
+      version: 'v1.2.3',
+      shortSha: 'abc123',
+      headSha: 'abc123def456',
+      imageTag: 'v1.2.3',
+      imageDigest: 'sha256:abc',
+      image:
+        'asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:v1.2.3',
+      registry:
+        'asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash',
+      deployUrl: 'https://affine.gogocash.co',
+    },
+    agents: [
+      {
+        role: 'Verifier',
+        adapter: 'CI checks',
+        responsibility: 'Attach evidence before release.',
+      },
+    ],
+    taskTree: ['Build fresh artifacts.', 'Package immutable image tag.'],
+    verificationGates: ['server bundle rebuilt', 'post-swap /info passes'],
+    rollback: {
+      workflow: 'superflow-rollback.yml',
+      vmSnapshot: '/srv/affine/compose/compose.yml.previous.bak',
+    },
+    ...overrides,
+  });
+}
+
+test('Superflow handover JSON renders title and markdown', t => {
+  const result = parseAndRenderSuperflowHandover(handover());
+
+  t.is(result.title, 'Superflow Release Handover - v1.2.3');
+  t.true(result.markdown.includes('Status: release image built'));
+  t.true(result.markdown.includes('| Version | v1.2.3 |'));
+  t.true(result.markdown.includes('| Verifier | CI checks |'));
+  t.true(result.markdown.includes('1. Build fresh artifacts.'));
+  t.true(result.markdown.includes('- Workflow: superflow-rollback.yml'));
+});
+
+test('Superflow handover parser accepts generated CI JSON contract', t => {
+  const tmp = mkdtempSync(join(tmpdir(), 'superflow-handover-'));
+
+  try {
+    const jsonPath = join(tmp, 'handover.json');
+    const markdownPath = join(tmp, 'handover.md');
+
+    execFileSync(
+      process.execPath,
+      [
+        join(repoRoot, 'scripts/superflow-release-handover.mjs'),
+        '--mode',
+        'release',
+        '--status',
+        'release image built',
+        '--version',
+        'v9.9.9',
+        '--image-tag',
+        'v9.9.9',
+        '--short-sha',
+        'abc123',
+        '--head-sha',
+        'abc123def456',
+        '--json-output',
+        jsonPath,
+        '--output',
+        markdownPath,
+        '--generated-at',
+        '2026-05-09T12:00:00.000Z',
+      ],
+      { stdio: 'ignore' }
+    );
+
+    const result = parseAndRenderSuperflowHandover(
+      readFileSync(jsonPath, 'utf8')
+    );
+
+    t.is(result.title, 'Superflow Release Handover - v9.9.9');
+    t.true(result.markdown.includes('Status: release image built'));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('Superflow handover rejects unsupported schemaVersion', t => {
+  const error = t.throws(() =>
+    parseAndRenderSuperflowHandover(handover({ schemaVersion: 2 }))
+  );
+
+  t.true(error instanceof BadRequestException);
+  t.regex(error.message, /schemaVersion/);
+});
+
+test('Superflow handover rejects malformed JSON', t => {
+  const error = t.throws(() => parseAndRenderSuperflowHandover('{nope'));
+
+  t.true(error instanceof BadRequestException);
+  t.regex(error.message, /valid JSON/);
+});
+
+test('Superflow handover caps high-cardinality arrays', t => {
+  const error = t.throws(() =>
+    parseAndRenderSuperflowHandover(
+      handover({ verificationGates: Array.from({ length: 51 }, () => 'gate') })
+    )
+  );
+
+  t.true(error instanceof BadRequestException);
+  t.regex(error.message, /too many items/);
+});
+
+test('Superflow handover GraphQL nullable DTO fields use explicit types', t => {
+  for (const file of dtoFiles) {
+    const source = readFileSync(join(superflowDir, file), 'utf8');
+
+    t.false(
+      /@Field\(\{\s*nullable:\s*true/.test(source),
+      `${file}: nullable @Field decorators must use @Field(() => Type, { nullable: true })`
+    );
+  }
+});

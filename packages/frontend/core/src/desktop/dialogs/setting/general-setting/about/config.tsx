@@ -10,26 +10,26 @@ export const relatedLinks = [
   {
     icon: <GithubIcon />,
     title: 'GitHub',
-    link: 'https://github.com/toeverything/AFFiNE',
+    link: 'https://github.com/mygogocash/Superflow',
   },
   {
     icon: <TwitterIcon />,
     title: 'X',
-    link: 'https://twitter.com/AffineOfficial',
+    link: 'https://x.com',
   },
   {
     icon: <DiscordIcon />,
-    title: 'Discord',
-    link: BUILD_CONFIG.discordUrl,
+    title: 'Support',
+    link: 'mailto:support@gogocash.ai',
   },
   {
     icon: <YouTubeIcon />,
-    title: 'YouTube',
-    link: 'https://www.youtube.com/@affinepro',
+    title: 'Product Updates',
+    link: 'https://www.youtube.com',
   },
   {
     icon: <RedditIcon />,
-    title: 'Reddit',
-    link: 'https://www.reddit.com/r/Affine/',
+    title: 'Community',
+    link: 'https://www.reddit.com',
   },
 ];

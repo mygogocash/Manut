@@ -87,6 +87,14 @@ defineModuleConfig('job', {
     schema,
   },
 
+  'queues.superflow': {
+    desc: 'The config for superflow job queue',
+    default: {
+      concurrency: 4,
+    },
+    schema,
+  },
+
   'queues.nightly': {
     desc: 'The config for nightly job queue',
     default: {

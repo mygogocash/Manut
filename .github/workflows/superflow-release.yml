@@ -95,8 +95,18 @@ jobs:
           cd packages/backend/native
           yarn build --target x86_64-unknown-linux-gnu
           echo "--- files after napi build ---"
-          ls -la *.node 2>&1 || true
-          PRODUCED=$(ls server-native*.node 2>/dev/null | grep -v -E '^server-native(\.node|\.(x64|arm64|armv7)\.node)$' | head -1)
+          find . -maxdepth 1 -name '*.node' -print
+          PRODUCED=""
+          for candidate in server-native*.node; do
+            [ -e "$candidate" ] || continue
+            case "$candidate" in
+              server-native.node|server-native.x64.node|server-native.arm64.node|server-native.armv7.node)
+                continue
+                ;;
+            esac
+            PRODUCED="$candidate"
+            break
+          done
           if [ -z "$PRODUCED" ]; then
             if [ -f server-native.node ]; then PRODUCED=server-native.node; fi
           fi
@@ -111,7 +121,7 @@ jobs:
           [ "$PRODUCED" != "server-native.node" ]     && cp "$PRODUCED" server-native.node
           touch server-native.arm64.node server-native.armv7.node
           echo "--- files after rename ---"
-          ls -la server-native.*.node server-native.node 2>&1 | head -10
+          find . -maxdepth 1 \( -name 'server-native.*.node' -o -name 'server-native.node' \) -print | head -10
 
       - name: Generate Prisma client
         run: yarn workspace @affine/server prisma generate

@@ -68,6 +68,10 @@ import { IndexerModule } from './plugins/indexer';
 import { LicenseModule } from './plugins/license';
 import { OAuthModule } from './plugins/oauth';
 import { PaymentModule } from './plugins/payment';
+import {
+  isSuperflowModuleEnabled,
+  SuperflowModule,
+} from './plugins/superflow/superflow.module';
 import { WorkerModule } from './plugins/worker';
 
 export const FunctionalityModules = [
@@ -219,6 +223,11 @@ export function buildAppModule(env: Env) {
     .useIf(
       () => env.flavors.graphql && isAnalyticsModuleEnabled(),
       AnalyticsModule.forRoot()
+    )
+    // Superflow PM / CRM / reminders — feature-flagged via ENABLE_SUPERFLOW_MODULE
+    .useIf(
+      () => env.flavors.graphql && isSuperflowModuleEnabled(),
+      SuperflowModule.forRoot()
     )
     // doc service and front service
     .useIf(() => env.flavors.doc || env.flavors.front, DocServiceModule)

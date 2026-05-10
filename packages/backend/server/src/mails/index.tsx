@@ -2,6 +2,7 @@ import { render as rawRender } from '@react-email/components';
 import { type ComponentType, createElement, type ReactElement } from 'react';
 
 import { Comment, CommentMention, Mention } from './docs';
+import SuperflowReminder from './superflow-reminder';
 import {
   TeamBecomeAdmin,
   TeamBecomeCollaborator,
@@ -178,6 +179,13 @@ export const Renderers = {
   TeamLicense: make(
     TeamLicense,
     'Your AFFiNE Self-Hosted Team Workspace license is ready'
+  ),
+  //#endregion
+
+  //#region Superflow
+  SuperflowReminder: make(
+    SuperflowReminder,
+    props => `Reminder: ${props.title}`
   ),
   //#endregion
 } as const;
