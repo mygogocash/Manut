@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-10 14:38:18 +07
+Last updated: 2026-05-10 15:01:17 +07
 
 This file is the fast-resume handover for AI sessions in the Superflow
 AFFiNE fork. Update it whenever meaningful work finishes, before long builds
@@ -12,11 +12,12 @@ or human should be able to continue without relying on chat memory.
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
 - Branch: `codex/superflow-backlog-pm-crm`
 - Upstream: `origin/main`
-- Local HEAD: `09289bcf1 fix(security): force patched transitive versions for Dependabot alerts`
+- Local HEAD: `de7b49388 feat(superflow): add PM CRM reminders and handover inbox`
 - Origin HEAD: `788a0e0b0 chore(deps): bump fast-xml-builder (#16)`
-- Branch state: local branch is behind `origin/main` by 1 commit.
-- Dirty state: 43 paths are staged with no unstaged diff. Do not merge/rebase
-  until this WIP is reviewed, committed, or stashed.
+- Branch state: local branch is 1 commit ahead of and 1 commit behind
+  `origin/main`.
+- Dirty state: feature WIP was committed; this handover refresh is the only
+  expected local change. No source diff is pending.
 - Pull request: https://github.com/mygogocash/Superflow/pull/13 merged at
   `2026-05-08T13:35:32Z`
 - Follow-up pull request: https://github.com/mygogocash/Superflow/pull/14
@@ -170,6 +171,13 @@ or human should be able to continue without relying on chat memory.
   React mounted on `#app` with 4 children; remaining console errors were from
   expected missing backend endpoints on the static server (`/graphql` 501 and
   `/api/auth/session` 404).
+- Final staged sanity pass found no whitespace errors, no generated dist/source
+  map junk staged, no new nullable GraphQL `@Field({ nullable: true })`
+  pattern, and no `gpt-5-mini` additions.
+- First commit attempt exposed two mechanical import-order issues in
+  `app.module.ts` and `mails/index.tsx`; fixed with targeted `oxlint --fix`.
+- Committed the Superflow PM/CRM/reminders + Handover Inbox WIP as
+  `de7b49388 feat(superflow): add PM CRM reminders and handover inbox`.
 
 ## Verification Already Run
 
@@ -241,18 +249,25 @@ or human should be able to continue without relying on chat memory.
   `All docs · AFFiNE`, `#app` child count `4`, and React keys present. Console
   errors were limited to expected frontend-only static-server misses:
   `/graphql` POST `501` and `/api/auth/session` `404`.
-- Heartbeat state check at `2026-05-10 14:38:18 +07`: branch
-  `codex/superflow-backlog-pm-crm`, local HEAD `09289bcf1`, origin/main
-  `788a0e0b0`, still `0 1` behind; 43 staged paths and no unstaged source
-  diff.
+- Final pre-commit checks passed: `git diff --cached --check`, generated
+  artifact staging check, nullable GraphQL decorator grep, and `gpt-5-mini`
+  staged-diff grep.
+- Targeted `yarn oxlint -c .oxlintrc.json --disable-nested-config --fix
+packages/backend/server/src/app.module.ts
+packages/backend/server/src/mails/index.tsx` fixed import order.
+- Commit hook passed on retry: `lint-staged` prettier/eslint tasks and
+  repo-wide `yarn lint:ox` finished with 0 warnings and 0 errors.
+- Post-commit state check at `2026-05-10 15:01:17 +07`: branch
+  `codex/superflow-backlog-pm-crm`, local HEAD `de7b49388`, origin/main
+  `788a0e0b0`, `1 1` ahead/behind.
 
 ## Open Threads
 
 - The merged control-plane handover slice is now deployed and smoke-tested in
   production; latest production image is `main-788a0e0b0-25585897582`.
-- Local staged WIP now includes PM/CRM/reminders backend APIs, reminder delivery
-  pipeline, Superflow Handover Inbox backend/frontend, About/settings branding,
-  and first-pass workspace routes/pages.
+- Local commit `de7b49388` now includes PM/CRM/reminders backend APIs,
+  reminder delivery pipeline, Superflow Handover Inbox backend/frontend,
+  About/settings branding, and first-pass workspace routes/pages.
 - Remaining PM/CRM risk: CRM cross-workspace integrity is guarded in resolver
   code but not enforced by composite foreign keys; keep service-level checks
   before exposing richer mutation surfaces.
@@ -265,15 +280,14 @@ or human should be able to continue without relying on chat memory.
   of the workspace integration panel and no live doc-create probe against a
   running backend.
 - Review risk: the attempted final focused sub-agent review did not run because
-  the account hit the usage limit; do a local manual pass before committing if
-  credits are still unavailable.
+  the account hit the usage limit; keep PR review focused on reminder lifecycle,
+  Handover Inbox gating, and the import panel.
 - Keep `docs/SUPERFLOW_CONTROL_PLANE.md` and this file in sync whenever the
   handover JSON contract changes.
-- Next concrete step: do a final local diff pass, then commit the staged WIP on
-  `codex/superflow-backlog-pm-crm`. After that, update the branch against
-  `origin/main` only with user approval, open/push a PR, and run a full
-  backend-backed browser smoke for the Handover Inbox panel before any
-  production deploy.
+- Next concrete step: decide whether to rebase or merge `origin/main`
+  (`788a0e0b0`) into `codex/superflow-backlog-pm-crm`, then push the branch and
+  open a PR. Before any production deploy, run a full backend-backed browser
+  smoke for the Handover Inbox panel.
 
 ## Frequent Update Protocol
 
