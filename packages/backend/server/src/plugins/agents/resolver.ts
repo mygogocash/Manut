@@ -12,10 +12,9 @@ import {
 
 function toGraphQL(
   agent:
-    | Awaited<ReturnType<AgentsService['get']>>
+    | NonNullable<Awaited<ReturnType<AgentsService['get']>>>
     | Awaited<ReturnType<AgentsService['list']>>[number]
 ): AgentType {
-  if (!agent) return agent;
   const links: AgentLinkType[] = (agent.links ?? []).map((l: any) => {
     const out: AgentLinkType = { url: l.url };
     if (l.label !== undefined) out.label = l.label;

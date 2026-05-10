@@ -51,14 +51,19 @@ export const AboutAffine = () => {
     [updateSettings]
   );
 
+  const currentOrigin =
+    typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://gogocash.ai';
+
   return (
     <>
       <SettingHeader
-        title={t['com.affine.aboutAFFiNE.title']()}
-        subtitle={t['com.affine.aboutAFFiNE.subtitle']()}
+        title="About Superflow"
+        subtitle="Built for focused execution, fast collaboration, and reliable delivery."
         data-testid="about-title"
       />
-      <SettingWrapper title={t['com.affine.aboutAFFiNE.version.title']()}>
+      <SettingWrapper title="Version">
         <SettingRow
           name={appName}
           desc={BUILD_CONFIG.appVersion}
@@ -66,10 +71,7 @@ export const AboutAffine = () => {
         >
           <img src={appIcon} alt={appName} width={56} height={56} />
         </SettingRow>
-        <SettingRow
-          name={t['com.affine.aboutAFFiNE.version.editor.title']()}
-          desc={BUILD_CONFIG.editorVersion}
-        />
+        <SettingRow name="Editor version" desc={BUILD_CONFIG.editorVersion} />
         {BUILD_CONFIG.isElectron ? (
           <>
             <UpdateCheckSection />
@@ -106,8 +108,8 @@ export const AboutAffine = () => {
           </>
         ) : null}
         <SettingRow
-          name={t['com.affine.telemetry.enable']()}
-          desc={t['com.affine.telemetry.enable.desc']()}
+          name="Improve Superflow with telemetry"
+          desc="Help us improve speed and reliability by sharing anonymous usage signals."
         >
           <Switch
             checked={appSettings.enableTelemetry !== false}
@@ -115,33 +117,37 @@ export const AboutAffine = () => {
           />
         </SettingRow>
       </SettingWrapper>
-      <SettingWrapper title={t['com.affine.aboutAFFiNE.contact.title']()}>
+      <SettingWrapper title="Contact">
         <a
           className={styles.link}
           rel="noreferrer"
-          href="https://affine.pro"
+          href={currentOrigin}
           target="_blank"
         >
-          {t['com.affine.aboutAFFiNE.contact.website']()}
+          Official website
           <OpenInNewIcon className="icon" />
         </a>
         <a
           className={styles.link}
           rel="noreferrer"
-          href="https://affine.pro/redirect/discord"
+          href="https://github.com/mygogocash/Superflow/discussions"
           target="_blank"
         >
-          {t['com.affine.aboutAFFiNE.contact.community']()}
+          Superflow community
           <OpenInNewIcon className="icon" />
         </a>
       </SettingWrapper>
-      <SettingWrapper title={t['com.affine.aboutAFFiNE.community.title']()}>
+      <SettingWrapper title="Communities">
         <div className={styles.communityWrapper}>
           {relatedLinks.map(({ icon, title, link }) => {
             return (
               <div
                 className={styles.communityItem}
                 onClick={() => {
+                  if (link.startsWith('mailto:')) {
+                    window.location.href = link;
+                    return;
+                  }
                   urlService.openPopupWindow(link);
                 }}
                 key={title}
@@ -153,23 +159,23 @@ export const AboutAffine = () => {
           })}
         </div>
       </SettingWrapper>
-      <SettingWrapper title={t['com.affine.aboutAFFiNE.legal.title']()}>
+      <SettingWrapper title="Legal info">
         <a
           className={styles.link}
           rel="noreferrer"
-          href="https://affine.pro/privacy"
+          href="https://gogocash.ai/privacy"
           target="_blank"
         >
-          {t['com.affine.aboutAFFiNE.legal.privacy']()}
+          Privacy
           <OpenInNewIcon className="icon" />
         </a>
         <a
           className={styles.link}
           rel="noreferrer"
-          href="https://affine.pro/terms"
+          href="https://gogocash.ai/terms"
           target="_blank"
         >
-          {t['com.affine.aboutAFFiNE.legal.tos']()}
+          Terms of service
           <OpenInNewIcon className="icon" />
         </a>
       </SettingWrapper>

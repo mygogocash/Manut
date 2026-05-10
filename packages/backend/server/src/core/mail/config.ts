@@ -25,6 +25,13 @@ declare global {
         ignoreTLS: boolean;
         sender: string;
       };
+
+      /** `smtp` (default) or `resend` */
+      provider: string;
+      resend: {
+        apiKey: string;
+        from: string;
+      };
     };
   }
 }
@@ -98,5 +105,21 @@ defineModuleConfig('mailer', {
   'fallbackSMTP.ignoreTLS': {
     desc: "Whether ignore email server's TLS certificate verification. Enable it for self-signed certificates.",
     default: false,
+  },
+
+  provider: {
+    desc: 'Mail transport: `smtp` (default) or `resend`.',
+    default: 'smtp',
+    env: 'MAIL_PROVIDER',
+  },
+  'resend.apiKey': {
+    desc: 'Resend API key when MAIL_PROVIDER=resend. Never commit this value.',
+    default: '',
+    env: 'RESEND_API_KEY',
+  },
+  'resend.from': {
+    desc: 'Verified sender for Resend. Falls back to MAILER_SENDER if empty.',
+    default: '',
+    env: 'RESEND_FROM',
   },
 });

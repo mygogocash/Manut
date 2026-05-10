@@ -50,8 +50,12 @@ export class MailSender {
   }
 
   get configured() {
+    const mail = this.config.mailer;
+    const useResend =
+      (mail.provider ?? 'smtp').toLowerCase() === 'resend' &&
+      Boolean(mail.resend?.apiKey);
     // NOTE: testing environment will use mock queue, so we need to return true
-    return this.smtp !== null || env.testing;
+    return this.smtp !== null || useResend || env.testing;
   }
 
   @OnEvent('config.init')
@@ -67,8 +71,19 @@ export class MailSender {
   }
 
   private setup() {
-    const { SMTP, fallbackDomains, fallbackSMTP } = this.config.mailer;
+    const mail = this.config.mailer;
+    const { SMTP, fallbackDomains, fallbackSMTP } = mail;
     const opts = configToSMTPOptions(SMTP);
+
+    if (
+      (mail.provider ?? 'smtp').toLowerCase() === 'resend' &&
+      mail.resend?.apiKey
+    ) {
+      this.smtp = null;
+      this.fallbackSMTP = null;
+      this.logger.log('Mailer using Resend API (MAIL_PROVIDER=resend).');
+      return;
+    }
 
     if (SMTP.host) {
       this.smtp = createTransport(opts);
@@ -108,6 +123,22 @@ export class MailSender {
   }
 
   async send(name: string, options: SendOptions) {
+    const mail = this.config.mailer;
+    if (
+      (mail.provider ?? 'smtp').toLowerCase() === 'resend' &&
+      mail.resend?.apiKey
+    ) {
+      const from = mail.resend.from?.trim() || mail.SMTP.sender?.trim();
+      if (!from) {
+        metrics.mail.counter('failed_total').add(1, { name });
+        this.logger.error(
+          'Resend mail provider is configured, but no sender address is set.'
+        );
+        return false;
+      }
+      return this.sendViaResend(name, from, options, mail.resend.apiKey);
+    }
+
     const [, domain, ...rest] = options.to.split('@');
     if (rest.length || !domain) {
       this.logger.error(`Invalid email address: ${options.to}`);
@@ -144,6 +175,53 @@ export class MailSender {
     } catch (e) {
       metrics.mail.counter('failed_total').add(1, { name });
       this.logger.error(`Failed to send mail [${name}].`, e);
+      return false;
+    }
+  }
+
+  private async sendViaResend(
+    name: string,
+    from: string,
+    options: SendOptions,
+    apiKey: string
+  ): Promise<boolean | null> {
+    metrics.mail.counter('send_total').add(1, { name });
+    if (options.attachments?.length) {
+      metrics.mail.counter('failed_total').add(1, { name });
+      this.logger.error(
+        `Resend mail [${name}] has attachments; attachment delivery is not supported by this transport yet.`
+      );
+      return false;
+    }
+
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from,
+          to: [options.to],
+          subject: options.subject,
+          html: options.html,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        this.logger.error(
+          `Resend mail [${name}] failed: HTTP ${res.status} ${text.slice(0, 500)}`
+        );
+        metrics.mail.counter('failed_total').add(1, { name });
+        return false;
+      }
+      metrics.mail.counter('accepted_total').add(1, { name });
+      this.logger.debug(`Mail [${name}] sent successfully via Resend.`);
+      return true;
+    } catch (e) {
+      metrics.mail.counter('failed_total').add(1, { name });
+      this.logger.error(`Failed to send mail [${name}] via Resend.`, e);
       return false;
     }
   }

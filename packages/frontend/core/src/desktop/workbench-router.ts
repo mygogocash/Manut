@@ -62,6 +62,18 @@ export const workbenchRoutes = [
     lazy: () => import('./pages/workspace/analytics/platform'),
   },
   {
+    path: '/projects',
+    lazy: () => import('./pages/workspace/projects/index'),
+  },
+  {
+    path: '/crm',
+    lazy: () => import('./pages/workspace/crm/index'),
+  },
+  {
+    path: '/reminders',
+    lazy: () => import('./pages/workspace/reminders/index'),
+  },
+  {
     path: '/settings',
     lazy: () => import('./pages/workspace/settings'),
   },

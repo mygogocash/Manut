@@ -89,16 +89,15 @@ export class TokenStore implements ITokenStore, OnModuleInit {
 
     try {
       // Dynamic import keeps the dependency optional at import time. The
-      // @ts-expect-error is necessary because the package may not yet be installed
-      // in every environment (CI typecheck without `yarn install`); it IS in
-      // package.json and present in production images.
-      // @ts-expect-error -- optional runtime dep declared in package.json
-      const mod = await import('@google-cloud/kms');
+      // package is declared in package.json and present in production images.
+      const kmsPackage = '@google-cloud/kms';
+      const mod = (await import(kmsPackage)) as {
+        KeyManagementServiceClient?: new () => KmsClient;
+        default?: { KeyManagementServiceClient?: new () => KmsClient };
+      };
       const KeyManagementServiceClient =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (mod as any).KeyManagementServiceClient ??
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (mod as any).default?.KeyManagementServiceClient;
+        mod.KeyManagementServiceClient ??
+        mod.default?.KeyManagementServiceClient;
 
       if (!KeyManagementServiceClient) {
         throw new Error(
@@ -106,7 +105,7 @@ export class TokenStore implements ITokenStore, OnModuleInit {
         );
       }
 
-      this.client = new KeyManagementServiceClient() as KmsClient;
+      this.client = new KeyManagementServiceClient();
       this.logger.log(
         `TokenStore initialized with KMS key ${this.redactKeyName(this.keyName)}`
       );
@@ -120,7 +119,9 @@ export class TokenStore implements ITokenStore, OnModuleInit {
 
   async encrypt(plaintext: string): Promise<string> {
     if (typeof plaintext !== 'string' || plaintext.length === 0) {
-      throw new Error('TokenStore.encrypt: plaintext must be a non-empty string');
+      throw new Error(
+        'TokenStore.encrypt: plaintext must be a non-empty string'
+      );
     }
 
     const client = this.requireClient();
@@ -174,14 +175,20 @@ export class TokenStore implements ITokenStore, OnModuleInit {
       // Audit even on failure so a forensic trail exists for repeated
       // failures (could indicate tampering or rotated keys).
       await this.writeAuditRow(context, 'TOKEN_DECRYPT_FAILED').catch(err =>
-        this.logger.error('Audit write failed', err instanceof Error ? err.stack : String(err))
+        this.logger.error(
+          'Audit write failed',
+          err instanceof Error ? err.stack : String(err)
+        )
       );
       throw error;
     }
 
     // Audit only on success path runs to here; failure path audited above.
     await this.writeAuditRow(context, 'TOKEN_DECRYPT').catch(err =>
-      this.logger.error('Audit write failed', err instanceof Error ? err.stack : String(err))
+      this.logger.error(
+        'Audit write failed',
+        err instanceof Error ? err.stack : String(err)
+      )
     );
 
     return plaintext;
@@ -198,9 +205,7 @@ export class TokenStore implements ITokenStore, OnModuleInit {
       );
     }
     if (!this.keyName) {
-      throw new Error(
-        'TokenStore: analytics.kms.keyName is not configured.'
-      );
+      throw new Error('TokenStore: analytics.kms.keyName is not configured.');
     }
     return this.client;
   }

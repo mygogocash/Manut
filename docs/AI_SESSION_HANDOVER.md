@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-08 21:10:25 +07
+Last updated: 2026-05-10 14:38:18 +07
 
 This file is the fast-resume handover for AI sessions in the Superflow
 AFFiNE fork. Update it whenever meaningful work finishes, before long builds
@@ -10,17 +10,23 @@ or human should be able to continue without relying on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `main`
+- Branch: `codex/superflow-backlog-pm-crm`
 - Upstream: `origin/main`
-- Current HEAD: `2b30bc0d6 fix: prune unused Docker data before VM image pull (#14)`
+- Local HEAD: `09289bcf1 fix(security): force patched transitive versions for Dependabot alerts`
+- Origin HEAD: `788a0e0b0 chore(deps): bump fast-xml-builder (#16)`
+- Branch state: local branch is behind `origin/main` by 1 commit.
+- Dirty state: 43 paths are staged with no unstaged diff. Do not merge/rebase
+  until this WIP is reviewed, committed, or stashed.
 - Pull request: https://github.com/mygogocash/Superflow/pull/13 merged at
   `2026-05-08T13:35:32Z`
 - Follow-up pull request: https://github.com/mygogocash/Superflow/pull/14
   merged at `2026-05-08T14:09:04Z`
+- Dependabot pull requests: #15 merged at `2026-05-08T14:55:26Z`; #16
+  merged at `2026-05-09T00:12:29Z`.
 - Production branch: `main`
 - Production app: https://affine.gogocash.co
-- Production image: `main-8767c95e5-25558739931`
-- Production deploy run: `25559646582` succeeded at `2026-05-08T14:05:34Z`
+- Production image: `main-788a0e0b0-25585897582`
+- Production deploy run: `25586178501` succeeded at `2026-05-09T00:29:21Z`
 
 ## Latest Completed Work
 
@@ -75,6 +81,95 @@ or human should be able to continue without relying on chat memory.
   `#app` with children present and no `console.error` entries.
 - PR #14 merged into `main` as merge commit `2b30bc0d6`, preserving the VM
   pre-pull disk cleanup in GitHub for future deploys.
+- PR #15 merged Dependabot npm/yarn updates, then security hardening commits
+  `054b804b7` and `09289bcf1` landed on `main`.
+- PR #16 merged `fast-xml-builder` to `1.2.0`; CI, build, and auto-deploy all
+  completed successfully.
+- Latest production deploy swapped from `main-09289bcf1-25563768233` to
+  `main-788a0e0b0-25585897582`; post-swap `/info` and prompt-seed checks
+  passed.
+- Local uncommitted WIP touches `schema.prisma`, `app.module.ts`, About
+  settings UI, `superflow-landing/AGENTS.md`, and new backend
+  `plugins/superflow`, `__tests__/superflow`, and
+  `20260509120000_superflow_pm_crm_reminders` migration paths. This handover
+  file is also modified by heartbeat refreshes.
+- Created local work branch `codex/superflow-backlog-pm-crm` to protect the
+  dirty Superflow PM/CRM/reminders WIP before continuing.
+- Spawned parallel sub-agents for frontend About/settings review, backend
+  schema/resolver review, handover-inbox discovery, and a backend Superflow
+  read-slice implementation.
+- Frontend About/settings cleanup now points Superflow links at GoGoCash /
+  Superflow destinations, handles `mailto:` support links without the popup
+  URL service, changes visible About labels to Superflow, and fixes the
+  community grid to adapt to five links.
+- Backend Superflow GraphQL read slice now exposes read-only workspace-scoped
+  queries for projects, tasks, CRM accounts/contacts/deal stages/deals/
+  activities, reminders/rules/runs, and notification deliveries. All queries
+  are guarded by `Workspace.Read`, and nullable GraphQL fields use explicit
+  types.
+- Added `graphql-read-slice.spec.ts` beside the existing Prisma delegate smoke
+  test to guard query registration/workspace scoping and nullable GraphQL
+  decorator style.
+- Handover-inbox discovery confirmed Phase 2 should import
+  `superflow-handover.json` into an AFFiNE doc through `DocWriter`, not a
+  parallel storage model. The recommended first slice is a backend validator,
+  markdown renderer, `importSuperflowHandover` mutation, and a small workspace
+  integrations panel.
+- Expanded the Superflow backend from read-only scaffold into a staged PM/CRM/
+  reminders slice: project/task resolvers, CRM account/contact/deal/activity
+  resolvers, reminder resolver, reminder cron/job pipeline, reminder email
+  template, job queue config, mail sender support, Prisma migration, and AVA
+  coverage are now staged.
+- Added the Phase 2 Handover Inbox backend: `SuperflowHandoverService`,
+  `importSuperflowHandover` GraphQL mutation, explicit input/result DTOs,
+  `DocWriter.createDoc` / `updateDoc` / `updateDocMeta` wiring, and module
+  registration through the existing `ENABLE_SUPERFLOW_MODULE` gate.
+- Added the Phase 2 Handover Inbox frontend: a cloud-gated workspace
+  integration card, paste/upload JSON panel, parsed release preview, local
+  GraphQL operation object, and Create Doc action.
+- Added first-pass frontend workspace pages/routes for Superflow Projects, CRM,
+  and Reminders.
+- Cleared three server typecheck blockers while reviewing the staged work:
+  removed a user-only quota field from workspace quota override, tightened the
+  agents GraphQL mapper null type, and made the optional Google KMS dynamic
+  import typecheck without a stale `@ts-expect-error`.
+- Addressed the latest backend review blockers in the unstaged WIP:
+  reminder cron now atomically claims due reminders before queueing, stale or
+  mismatched reminder-delivery jobs are ignored, queued email handoff is stored
+  as `SfNotificationDeliveryStatus.QUEUED` instead of `SENT`, and owner/
+  assignee user IDs are checked against workspace membership before PM/CRM
+  writes.
+- Tightened Resend mail transport behavior: no implicit `noreply@localhost`
+  fallback when Resend is selected, and attachment-bearing mail now fails
+  explicitly instead of silently dropping unsupported options.
+- Kept the Handover Inbox mutation available when the gated PM/CRM/reminder
+  module is disabled, because handover import writes normal AFFiNE docs and
+  does not require the Superflow migration.
+- Tightened the Handover Inbox frontend preview to require schema version 1,
+  required sections, and bounded arrays; the import success state now includes
+  an Open Doc action.
+- Added handover contract coverage that runs
+  `scripts/superflow-release-handover.mjs` and feeds the generated JSON into
+  the backend parser, reducing fixture drift.
+- Staged all review fixes into one coherent WIP snapshot. No unstaged source
+  diff remains.
+- Rebuilt the backend server bundle locally with the staged Superflow changes;
+  `packages/backend/server/dist/main.js` is now fresh for a later image build
+  path that copies prebuilt artifacts.
+- A final focused sub-agent review was attempted for reminder lifecycle,
+  handover gating, and the import panel, but it failed before producing output
+  because the account hit the Codex usage limit.
+- Cleared `5,280` generated source `.js` / `.js.map` files from frontend
+  source directories before bundling, using the project-required cleanup
+  command. No tracked diff was introduced by the cleanup.
+- Rebuilt the web bundle locally with the staged Superflow frontend changes;
+  `packages/frontend/apps/web/dist` is fresh for later image builds that copy
+  prebuilt artifacts.
+- Ran a limited local static browser smoke against the rebuilt web dist with
+  `https://dev.affineassets.com` asset requests routed back to local files.
+  React mounted on `#app` with 4 children; remaining console errors were from
+  expected missing backend endpoints on the static server (`/graphql` 501 and
+  `/api/auth/session` 404).
 
 ## Verification Already Run
 
@@ -98,16 +193,87 @@ or human should be able to continue without relying on chat memory.
   deploy.
 - Playwright production smoke: sign-in page rendered, `#app` had 3 children,
   React keys were present, and browser console had 0 errors.
+- Superflow CI run `25585821594` for PR #16 succeeded.
+- CodeQL run `25585821199` for PR #16 succeeded.
+- Superflow Build run `25585897582` succeeded and pushed
+  `main-788a0e0b0-25585897582`.
+- Superflow Auto Deploy run `25586178501` succeeded; deploy script exit code
+  was `0`, with `PRODUCTION HEALTHY` and `PROMPT-SEED OK — 3/3`.
+- Latest Dependabot Updates run `25589669434` on head `788a0e0b0` succeeded.
+- Latest heartbeat probe: `curl -fsS -D - https://affine.gogocash.co/info`
+  returned HTTP 200 on `2026-05-09 10:14:23 +07`.
+- `DATABASE_URL='postgresql://user:pass@localhost:5432/affine' yarn workspace @affine/server prisma format`
+  passed.
+- `DATABASE_URL='postgresql://user:pass@localhost:5432/affine' yarn workspace @affine/server prisma validate`
+  passed.
+- `DATABASE_URL='postgresql://user:pass@localhost:5432/affine' yarn workspace @affine/server prisma generate`
+  passed and regenerated Prisma Client with `SfNotificationDeliveryStatus.QUEUED`.
+- `yarn prettier --check` passed for touched Superflow backend files, About
+  settings files, and `packages/frontend/i18n/src/resources/en.json`.
+- `yarn workspace @affine/server ava 'src/__tests__/superflow/*.spec.ts'`
+  passed before the review fixes: `14 tests passed`.
+- `yarn workspace @affine/server ava 'src/__tests__/superflow/*.spec.ts'`
+  passed after the review fixes: `18 tests passed`.
+- `yarn workspace @affine/server tsc --noEmit --pretty false` passed.
+- `yarn eslint --no-cache` passed for touched backend/frontend TS/TSX files.
+- `yarn tsc -b packages/frontend/core/tsconfig.json --pretty false` was
+  attempted for the handover panel but stopped after the repo emitted thousands
+  of existing project-reference `TS6305` errors from missing/stale Blocksuite
+  `dist/*.d.ts` outputs. Generated untracked declaration files from that failed
+  check were cleaned up.
+- `yarn prettier --check` passed for touched TS/TSX/JSON/MD files. Note:
+  `schema.prisma` is formatted with Prisma, not this Prettier command.
+- `git diff --check` and `git diff --cached --check` passed.
+- `git diff --cached --check` passed again after staging review fixes.
+- `git diff --cached --name-only --diff-filter=ACM | rg '\.(ts|tsx|json|md)$' | xargs yarn prettier --check`
+  passed for staged TS/TSX/JSON/MD files.
+- `yarn affine bundle -p @affine/server` passed; rspack compiled
+  `packages/backend/server/src/index.ts` successfully in 731ms.
+- Required stale source cleanup removed `5,280` generated `.js` / `.js.map`
+  files from `packages/frontend/core/src`, `packages/frontend/component/src`,
+  `packages/frontend/i18n/src`, and `blocksuite`; follow-up count was `0`, and
+  `git status` showed no tracked changes from the cleanup.
+- `yarn affine bundle -p web` passed. Rspack compiled the web entry and all
+  workers successfully with the usual asset-size / entrypoint-size warnings.
+- Local static smoke: Python served
+  `packages/frontend/apps/web/dist` on `127.0.0.1:4173`; Playwright routed
+  `dev.affineassets.com` assets to local files, loaded the app, confirmed title
+  `All docs · AFFiNE`, `#app` child count `4`, and React keys present. Console
+  errors were limited to expected frontend-only static-server misses:
+  `/graphql` POST `501` and `/api/auth/session` `404`.
+- Heartbeat state check at `2026-05-10 14:38:18 +07`: branch
+  `codex/superflow-backlog-pm-crm`, local HEAD `09289bcf1`, origin/main
+  `788a0e0b0`, still `0 1` behind; 43 staged paths and no unstaged source
+  diff.
 
 ## Open Threads
 
 - The merged control-plane handover slice is now deployed and smoke-tested in
-  production on image `main-8767c95e5-25558739931`.
-- Next product slice after this PR should be the AFFiNE-facing handover inbox:
-  ingest `superflow-handover.json` and create/update a workspace doc through
-  existing doc writer paths.
+  production; latest production image is `main-788a0e0b0-25585897582`.
+- Local staged WIP now includes PM/CRM/reminders backend APIs, reminder delivery
+  pipeline, Superflow Handover Inbox backend/frontend, About/settings branding,
+  and first-pass workspace routes/pages.
+- Remaining PM/CRM risk: CRM cross-workspace integrity is guarded in resolver
+  code but not enforced by composite foreign keys; keep service-level checks
+  before exposing richer mutation surfaces.
+- Remaining reminder risk: Superflow reminder handoff is now honest about
+  queueing, but there is still no provider-level delivery receipt path that
+  moves `QUEUED` deliveries to `SENT`/`COMPLETED`.
+- Remaining handover-inbox risk: backend unit tests cover parse/render/GraphQL
+  shape and generated CI JSON compatibility, and the rebuilt web bundle mounts
+  in a frontend-only static smoke. There is still no authenticated browser smoke
+  of the workspace integration panel and no live doc-create probe against a
+  running backend.
+- Review risk: the attempted final focused sub-agent review did not run because
+  the account hit the usage limit; do a local manual pass before committing if
+  credits are still unavailable.
 - Keep `docs/SUPERFLOW_CONTROL_PLANE.md` and this file in sync whenever the
   handover JSON contract changes.
+- Next concrete step: do a final local diff pass, then commit the staged WIP on
+  `codex/superflow-backlog-pm-crm`. After that, update the branch against
+  `origin/main` only with user approval, open/push a PR, and run a full
+  backend-backed browser smoke for the Handover Inbox panel before any
+  production deploy.
 
 ## Frequent Update Protocol
 
@@ -135,13 +301,18 @@ immediately after a commit, push, PR, merge, or production smoke test.
 cd /Users/kunanonjarat/Developer/AFFiNE-canary
 git status --short --branch
 git log -5 --oneline
+git log -5 --oneline origin/main
 gh pr view 13 --json state,mergeStateStatus,statusCheckRollup,url
 gh pr view 14 --json state,mergeStateStatus,statusCheckRollup,url
+gh pr view 15 --json state,mergedAt,mergeCommit,url
+gh pr view 16 --json state,mergedAt,mergeCommit,url
 gh run view 25558581821 --json status,conclusion,jobs,url
 gh run view 25558739931 --json status,conclusion,jobs,url
 gh run view 25559360466 --json status,conclusion,jobs,url
 gh run view 25559581702 --json status,conclusion,jobs,url
 gh run view 25559646582 --json status,conclusion,jobs,url
+gh run view 25585897582 --json status,conclusion,jobs,url
+gh run view 25586178501 --json status,conclusion,jobs,url
 gh run list --branch main --limit 10 --json databaseId,workflowName,status,conclusion,headSha,url
 curl -fsS https://affine.gogocash.co/info
 sed -n '1,240p' docs/AI_SESSION_HANDOVER.md

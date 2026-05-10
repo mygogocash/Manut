@@ -55,6 +55,18 @@ model User {
   integrationConnections      IntegrationConnection[]
   agents                      Agent[]
   socialConnections           SocialConnection[]
+  sfProjectsCreated           SfProject[]                 @relation("SfProjectCreator")
+  sfProjectMemberships        SfProjectMember[]
+  sfTasksAssigned             SfTask[]                    @relation("SfTaskAssignee")
+  sfTasksCreated              SfTask[]                    @relation("SfTaskCreator")
+  sfTaskComments              SfTaskComment[]             @relation("SfTaskCommentAuthor")
+  sfTaskActivities            SfTaskActivity[]            @relation("SfTaskActivityActor")
+  sfCrmAccountsOwned          SfCrmAccount[]              @relation("SfCrmAccountOwner")
+  sfCrmContactsOwned          SfCrmContact[]              @relation("SfCrmContactOwner")
+  sfCrmDealsOwned             SfCrmDeal[]                 @relation("SfCrmDealOwner")
+  sfCrmActivitiesCreated      SfCrmActivity[]             @relation("SfCrmActivityCreatedBy")
+  sfReminders                 SfReminder[]
+  sfReminderRulesCreated      SfReminderRule[]            @relation("SfReminderRuleCreator")
 
   @@index([email])
   @@map("users")
@@ -163,6 +175,15 @@ model Workspace {
   mcpApiKeys                 McpApiKey[]
   agents                     Agent[]
   socialConnections          SocialConnection[]
+  sfProjects                 SfProject[]
+  sfCrmAccounts              SfCrmAccount[]
+  sfCrmContacts              SfCrmContact[]
+  sfCrmDeals                 SfCrmDeal[]
+  sfCrmDealStages            SfCrmDealStage[]
+  sfCrmActivities            SfCrmActivity[]
+  sfReminders                SfReminder[]
+  sfReminderRules            SfReminderRule[]
+  sfNotificationDeliveries   SfNotificationDelivery[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -1391,4 +1412,365 @@ model SocialAuditLog {
   @@index([workspaceId, createdAt])
   @@index([userId, createdAt])
   @@map("social_audit_logs")
+}
+
+// --- Superflow: PM, CRM, reminders, notifications (workspace-scoped) ---
+
+enum SfProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum SfTaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum SfTaskPriority {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SfCrmActivityType {
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+  OTHER
+}
+
+enum SfReminderStatus {
+  SCHEDULED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum SfReminderRuleTrigger {
+  DATETIME
+  OVERDUE_TASK
+  INACTIVITY
+  UPCOMING_DEADLINE
+}
+
+enum SfNotificationChannel {
+  EMAIL
+}
+
+enum SfNotificationDeliveryStatus {
+  PENDING
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model SfProject {
+  id              String          @id @default(uuid()) @db.VarChar
+  workspaceId     String          @map("workspace_id") @db.VarChar
+  name            String          @db.VarChar
+  description     String?         @db.Text
+  status          SfProjectStatus @default(ACTIVE)
+  sortOrder       Int             @default(0) @map("sort_order")
+  createdByUserId String?         @map("created_by_user_id") @db.VarChar
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User?             @relation("SfProjectCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  members   SfProjectMember[]
+  tasks     SfTask[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, sortOrder])
+  @@map("sf_projects")
+}
+
+model SfProjectMember {
+  id        String   @id @default(uuid()) @db.VarChar
+  projectId String   @map("project_id") @db.VarChar
+  userId    String   @map("user_id") @db.VarChar
+  roleLabel String?  @map("role_label") @db.VarChar
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  project SfProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("sf_project_members")
+}
+
+model SfTask {
+  id              String         @id @default(uuid()) @db.VarChar
+  projectId       String         @map("project_id") @db.VarChar
+  title           String         @db.VarChar
+  description     String?        @db.Text
+  status          SfTaskStatus   @default(TODO)
+  priority        SfTaskPriority @default(NONE)
+  dueAt           DateTime?      @map("due_at") @db.Timestamptz(3)
+  listSortOrder   Int            @default(0) @map("list_sort_order")
+  assigneeUserId  String?        @map("assignee_user_id") @db.VarChar
+  createdByUserId String?        @map("created_by_user_id") @db.VarChar
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  project    SfProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee   User?            @relation("SfTaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  createdBy  User?            @relation("SfTaskCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  comments   SfTaskComment[]
+  activities SfTaskActivity[]
+
+  @@index([projectId, status])
+  @@index([projectId, listSortOrder])
+  @@index([assigneeUserId])
+  @@index([dueAt])
+  @@map("sf_tasks")
+}
+
+model SfTaskComment {
+  id        String   @id @default(uuid()) @db.VarChar
+  taskId    String   @map("task_id") @db.VarChar
+  authorId  String   @map("author_id") @db.VarChar
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  task   SfTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User   @relation("SfTaskCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("sf_task_comments")
+}
+
+model SfTaskActivity {
+  id        String   @id @default(uuid()) @db.VarChar
+  taskId    String   @map("task_id") @db.VarChar
+  actorId   String?  @map("actor_id") @db.VarChar
+  action    String   @db.VarChar
+  metadata  Json     @default("{}") @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  task  SfTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor User?  @relation("SfTaskActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+  @@map("sf_task_activities")
+}
+
+model SfCrmAccount {
+  id          String   @id @default(uuid()) @db.VarChar
+  workspaceId String   @map("workspace_id") @db.VarChar
+  name        String   @db.VarChar
+  website     String?  @db.VarChar
+  industry    String?  @db.VarChar
+  notes       String?  @db.Text
+  ownerUserId String?  @map("owner_user_id") @db.VarChar
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner      User?           @relation("SfCrmAccountOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  contacts   SfCrmContact[]
+  deals      SfCrmDeal[]
+  activities SfCrmActivity[]
+
+  @@index([workspaceId, name])
+  @@index([ownerUserId])
+  @@map("sf_crm_accounts")
+}
+
+model SfCrmContact {
+  id          String   @id @default(uuid()) @db.VarChar
+  workspaceId String   @map("workspace_id") @db.VarChar
+  accountId   String?  @map("account_id") @db.VarChar
+  firstName   String   @map("first_name") @db.VarChar
+  lastName    String?  @map("last_name") @db.VarChar
+  email       String?  @db.VarChar
+  phone       String?  @db.VarChar
+  title       String?  @db.VarChar
+  ownerUserId String?  @map("owner_user_id") @db.VarChar
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account    SfCrmAccount?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  owner      User?           @relation("SfCrmContactOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  deals      SfCrmDeal[]
+  activities SfCrmActivity[]
+
+  @@index([workspaceId, lastName, firstName])
+  @@index([accountId])
+  @@index([email])
+  @@map("sf_crm_contacts")
+}
+
+model SfCrmDealStage {
+  id          String   @id @default(uuid()) @db.VarChar
+  workspaceId String   @map("workspace_id") @db.VarChar
+  pipelineKey String   @default("default") @map("pipeline_key") @db.VarChar
+  name        String   @db.VarChar
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  deals     SfCrmDeal[]
+
+  @@unique([workspaceId, pipelineKey, name])
+  @@index([workspaceId, pipelineKey, sortOrder])
+  @@map("sf_crm_deal_stages")
+}
+
+model SfCrmDeal {
+  id              String    @id @default(uuid()) @db.VarChar
+  workspaceId     String    @map("workspace_id") @db.VarChar
+  accountId       String?   @map("account_id") @db.VarChar
+  contactId       String?   @map("contact_id") @db.VarChar
+  stageId         String    @map("stage_id") @db.VarChar
+  name            String    @db.VarChar
+  value           Decimal?  @db.Decimal(18, 2)
+  currency        String?   @default("USD") @db.VarChar(8)
+  probability     Int?      @db.SmallInt
+  expectedCloseAt DateTime? @map("expected_close_at") @db.Timestamptz(3)
+  ownerUserId     String?   @map("owner_user_id") @db.VarChar
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace  Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account    SfCrmAccount?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  contact    SfCrmContact?   @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  stage      SfCrmDealStage  @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  owner      User?           @relation("SfCrmDealOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  activities SfCrmActivity[]
+
+  @@index([workspaceId, stageId])
+  @@index([accountId])
+  @@index([contactId])
+  @@index([ownerUserId])
+  @@map("sf_crm_deals")
+}
+
+model SfCrmActivity {
+  id              String            @id @default(uuid()) @db.VarChar
+  workspaceId     String            @map("workspace_id") @db.VarChar
+  accountId       String?           @map("account_id") @db.VarChar
+  contactId       String?           @map("contact_id") @db.VarChar
+  dealId          String?           @map("deal_id") @db.VarChar
+  type            SfCrmActivityType
+  subject         String?           @db.VarChar
+  body            String?           @db.Text
+  dueAt           DateTime?         @map("due_at") @db.Timestamptz(3)
+  completedAt     DateTime?         @map("completed_at") @db.Timestamptz(3)
+  createdByUserId String            @map("created_by_user_id") @db.VarChar
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account   SfCrmAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  contact   SfCrmContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal      SfCrmDeal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  createdBy User          @relation("SfCrmActivityCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, dueAt])
+  @@index([dealId])
+  @@index([contactId])
+  @@map("sf_crm_activities")
+}
+
+model SfReminder {
+  id                String                @id @default(uuid()) @db.VarChar
+  workspaceId       String                @map("workspace_id") @db.VarChar
+  userId            String                @map("user_id") @db.VarChar
+  title             String                @db.VarChar
+  body              String?               @db.Text
+  fireAt            DateTime              @map("fire_at") @db.Timestamptz(3)
+  channel           SfNotificationChannel @default(EMAIL)
+  status            SfReminderStatus      @default(SCHEDULED)
+  relatedEntityType String?               @map("related_entity_type") @db.VarChar
+  relatedEntityId   String?               @map("related_entity_id") @db.VarChar
+  ruleId            String?               @map("rule_id") @db.VarChar
+  completedAt       DateTime?             @map("completed_at") @db.Timestamptz(3)
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace  Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rule       SfReminderRule?          @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  deliveries SfNotificationDelivery[]
+
+  @@index([workspaceId, fireAt, status])
+  @@index([userId, fireAt])
+  @@index([ruleId])
+  @@map("sf_reminders")
+}
+
+model SfReminderRule {
+  id              String                @id @default(uuid()) @db.VarChar
+  workspaceId     String                @map("workspace_id") @db.VarChar
+  name            String                @db.VarChar
+  enabled         Boolean               @default(true)
+  trigger         SfReminderRuleTrigger
+  cronExpression  String?               @map("cron_expression") @db.VarChar
+  timezone        String?               @db.VarChar(64)
+  /// JSON: thresholds, entity filters, template keys, etc.
+  config          Json                  @default("{}") @db.JsonB
+  lastEvaluatedAt DateTime?             @map("last_evaluated_at") @db.Timestamptz(3)
+  createdByUserId String                @map("created_by_user_id") @db.VarChar
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User            @relation("SfReminderRuleCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  reminders SfReminder[]
+  runs      SfReminderRun[]
+
+  @@index([workspaceId, enabled])
+  @@map("sf_reminder_rules")
+}
+
+model SfReminderRun {
+  id           String    @id @default(uuid()) @db.VarChar
+  ruleId       String    @map("rule_id") @db.VarChar
+  dedupeKey    String    @map("dedupe_key") @db.VarChar
+  scheduledFor DateTime  @map("scheduled_for") @db.Timestamptz(3)
+  startedAt    DateTime? @map("started_at") @db.Timestamptz(3)
+  finishedAt   DateTime? @map("finished_at") @db.Timestamptz(3)
+  success      Boolean   @default(false)
+  error        String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  rule SfReminderRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleId, dedupeKey])
+  @@index([ruleId, scheduledFor])
+  @@map("sf_reminder_runs")
+}
+
+model SfNotificationDelivery {
+  id                String                       @id @default(uuid()) @db.VarChar
+  workspaceId       String                       @map("workspace_id") @db.VarChar
+  reminderId        String?                      @map("reminder_id") @db.VarChar
+  channel           SfNotificationChannel        @default(EMAIL)
+  status            SfNotificationDeliveryStatus @default(PENDING)
+  providerMessageId String?                      @map("provider_message_id") @db.VarChar
+  attempts          Int                          @default(0)
+  lastAttemptAt     DateTime?                    @map("last_attempt_at") @db.Timestamptz(3)
+  error             String?                      @db.Text
+  payload           Json                         @default("{}") @db.JsonB
+  createdAt         DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reminder  SfReminder? @relation(fields: [reminderId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status, createdAt])
+  @@index([reminderId])
+  @@map("sf_notification_deliveries")
 }

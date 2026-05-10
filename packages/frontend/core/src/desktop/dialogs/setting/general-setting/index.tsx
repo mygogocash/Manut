@@ -151,7 +151,7 @@ export const useGeneralSettingList = (): GeneralSettingList => {
       },
       {
         key: 'about',
-        title: t['com.affine.aboutAFFiNE.title'](),
+        title: 'About Superflow',
         icon: <InformationIcon />,
         testId: 'about-panel-trigger',
       }
