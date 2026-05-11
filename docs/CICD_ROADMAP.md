@@ -279,43 +279,46 @@ budget so the actual psql query gets the full 10s.
 
 ### Operational follow-ups (before any new feature work)
 
-| Item                                                                  | Status     | Effort | Reason                                                                                                                                                                                                                                                                                                                     |
-| --------------------------------------------------------------------- | ---------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rotate DB password                                                    | DEFERRED   | 30m    | The current password was visible in the chat transcript during Tier 1 debugging. Even though we routed through env-only on the VM going forward, the historical exposure means it should be rotated. Owner accepted residual risk on 2026-05-11; storing in GitHub Secrets without rotating does NOT address the exposure. |
-| Grant `roles/artifactregistry.repoAdmin` to deployer SA on cache repo | PENDING    | 15m    | Without it, `nuke_cache=true` 403s and falls back to `\|\| true`. Works today, but the escape hatch only actually works when ops grants the role. Exact gcloud command staged in CICD_ROADMAP §"Cache repo admin grant" below.                                                                                             |
-| Worktree cleanup                                                      | DONE 05-11 | 5m     | ~~Three consumed agent worktrees still locked at `.claude/worktrees/agent-{ae3bf954e4078386d, aedc7c59a3c00776f, a2e240fb645ca30ae}`.~~ Removed 2026-05-11. Verified commit messages match merged commits on main (`d4e7ea05a`, `a66b90bfd`, `e580cf4a7`). Orphan branches also deleted.                                   |
-| Pre-existing lint debt sweep                                          | DONE       | ~1h    | Verified clean 2026-05-11: `yarn oxlint --deny-warnings` (0 warnings/errors across 7110 files) and `yarn eslint --no-cache` on both files. Per CLAUDE.md §5 the debt was already cleared post-`2900714c2`; the roadmap entry was stale.                                                                                    |
+| Item                                                                  | Status     | Effort | Reason                                                                                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------- | ---------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rotate DB password                                                    | DEFERRED   | 30m    | The current password was visible in the chat transcript during Tier 1 debugging. Even though we routed through env-only on the VM going forward, the historical exposure means it should be rotated. Owner accepted residual risk on 2026-05-11; storing in GitHub Secrets without rotating does NOT address the exposure.       |
+| Grant `roles/artifactregistry.repoAdmin` to deployer SA on cache repo | DONE 05-11 | 15m    | Granted 2026-05-11 on the `affine` GAR repo (asia-southeast1). The buildx cache is a sibling image (`affine-gogocash-cache:buildx`) inside the same repo, not a separate repo. Verified policy lists `affine-gha-deployer@…` with `roles/artifactregistry.repoAdmin`. `nuke_cache=true` will no longer fall back to `\|\| true`. |
+| Worktree cleanup                                                      | DONE 05-11 | 5m     | ~~Three consumed agent worktrees still locked at `.claude/worktrees/agent-{ae3bf954e4078386d, aedc7c59a3c00776f, a2e240fb645ca30ae}`.~~ Removed 2026-05-11. Verified commit messages match merged commits on main (`d4e7ea05a`, `a66b90bfd`, `e580cf4a7`). Orphan branches also deleted.                                         |
+| Pre-existing lint debt sweep                                          | DONE       | ~1h    | Verified clean 2026-05-11: `yarn oxlint --deny-warnings` (0 warnings/errors across 7110 files) and `yarn eslint --no-cache` on both files. Per CLAUDE.md §5 the debt was already cleared post-`2900714c2`; the roadmap entry was stale.                                                                                          |
 
-### Cache repo admin grant (runbook)
+### Cache repo admin grant (runbook — historical, completed 2026-05-11)
 
-To enable `nuke_cache=true` to actually wipe the registry buildx cache
-instead of silently 403'ing into the `|| true` fallback, grant
-`roles/artifactregistry.repoAdmin` on the cache repo to the deployer SA.
+The buildx layer cache lives as a sibling image
+`affine-gogocash-cache:buildx` **inside** the `affine` GAR repo —
+not in a separate repo (the path
+`asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash-cache`
+is `<host>/<project>/<repo>/<image>`). To enable `nuke_cache=true` to
+actually delete that image instead of silently 403'ing into the
+`|| true` fallback, the deployer SA needs
+`roles/artifactregistry.repoAdmin` on the `affine` repo.
 
-Requires an account with `roles/owner` or
-`roles/artifactregistry.admin` on project `affine-495114`.
+Granted 2026-05-11 with:
 
 ```bash
-gcloud auth login   # interactive — required, current SA can't grant itself
-
-gcloud artifacts repositories add-iam-policy-binding affine-gogocash-cache \
+gcloud artifacts repositories add-iam-policy-binding affine \
   --location=asia-southeast1 \
   --project=affine-495114 \
   --member='serviceAccount:affine-gha-deployer@affine-495114.iam.gserviceaccount.com' \
   --role='roles/artifactregistry.repoAdmin'
 ```
 
-Verify:
+Verify (still useful for audits):
 
 ```bash
-gcloud artifacts repositories get-iam-policy affine-gogocash-cache \
+gcloud artifacts repositories get-iam-policy affine \
   --location=asia-southeast1 --project=affine-495114 \
   --format='value(bindings.role,bindings.members)' \
   | grep -E 'repoAdmin|affine-gha-deployer'
 ```
 
-Smoke test by running `gh workflow run superflow-build.yml -f nuke_cache=true`
-and confirming the cache image deletion step does NOT fall back to `|| true`.
+Smoke test (not yet run): `gh workflow run superflow-build.yml
+-f nuke_cache=true` should now delete the cache image cleanly without
+the `|| true` fallback triggering.
 
 ### Tier 3 — multi-region / production-grade backlog
 
