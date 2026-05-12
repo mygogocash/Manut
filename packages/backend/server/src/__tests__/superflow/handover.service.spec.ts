@@ -46,7 +46,7 @@ function handover(overrides: Record<string, unknown> = {}) {
         'asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:v1.2.3',
       registry:
         'asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash',
-      deployUrl: 'https://affine.gogocash.co',
+      deployUrl: 'https://manut.gogocash.co',
     },
     agents: [
       {
@@ -86,7 +86,7 @@ test('Superflow handover parser accepts generated CI JSON contract', t => {
     execFileSync(
       process.execPath,
       [
-        join(repoRoot, 'scripts/superflow-release-handover.mjs'),
+        join(repoRoot, 'scripts/manut-release-handover.mjs'),
         '--mode',
         'release',
         '--status',

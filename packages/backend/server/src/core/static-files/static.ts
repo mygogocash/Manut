@@ -37,7 +37,7 @@ export class StaticFilesResolver implements OnModuleInit {
     const rootPath = basePath || '/';
     const staticPath = join(env.projectRoot, 'static');
     const adminPath = join(staticPath, 'admin');
-    // SUPERFLOW: also route mobile UAs to the dedicated mobile bundle
+    // MANUT: also route mobile UAs to the dedicated mobile bundle
     // on self-hosted deployments. Upstream gates this on `canary` only
     // (because their non-canary CDN didn't ship the mobile dist), but
     // we DO ship `packages/frontend/apps/mobile/dist` in our image at

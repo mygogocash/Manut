@@ -20,7 +20,7 @@
   "scripts": {
     "affine": "r affine.ts",
     "af": "r affine.ts",
-    "superflow:handover": "node scripts/superflow-release-handover.mjs",
+    "manut:handover": "node scripts/manut-release-handover.mjs",
     "dev": "yarn affine dev",
     "build": "yarn affine build",
     "lint:eslint": "cross-env NODE_OPTIONS=\"--max-old-space-size=16384\" eslint --report-unused-disable-directives-severity=off . --cache",

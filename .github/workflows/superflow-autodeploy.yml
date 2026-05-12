@@ -1,17 +1,17 @@
-name: Superflow Auto Deploy
+name: Manut Auto Deploy
 
 # Tier 2 split: this workflow ONLY deploys an already-built image. It
-# fires when `Superflow Build` succeeds, fetches the resulting tag from
+# fires when `Manut Build` succeeds, fetches the resulting tag from
 # the build run's `image-tag` artifact, and SSHes /srv/affine/scripts/
 # deploy.sh on the VM. No bundling, no docker build — it should run in
 # ~2-3 min including cold gcloud auth.
 #
 # Pipeline:
-#   push → Superflow CI → Superflow Build (this workflow's trigger) →
-#     Superflow Auto Deploy → deploy.sh on VM (smoke-then-swap)
+#   push → Manut CI → Manut Build (this workflow's trigger) →
+#     Manut Auto Deploy → deploy.sh on VM (smoke-then-swap)
 #
 # Trigger:
-#   workflow_run on `Superflow Build` success on `main`.
+#   workflow_run on `Manut Build` success on `main`.
 #
 # Image-tag handoff (the gh-api fallback story):
 #   The intuitive approach would be to read the build's job outputs via
@@ -51,7 +51,7 @@ name: Superflow Auto Deploy
 
 on:
   workflow_run:
-    workflows: ['Superflow Build']
+    workflows: ['Manut Build']
     types: [completed]
     branches: [main]
 
@@ -72,7 +72,7 @@ env:
   GCP_PROJECT: affine-495114
   GCE_ZONE: asia-southeast1-a
   GCE_VM: affine-vm
-  PROD_HOST: affine.gogocash.co
+  PROD_HOST: manut.gogocash.co
   SMOKE_TIMEOUT_SECS: '90'
 
 jobs:
@@ -233,7 +233,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           {
-            echo "## Superflow Auto Deploy"
+            echo "## Manut Auto Deploy"
             echo ""
             echo "- Commit: \`${SHORT_SHA:-unknown}\` (\`${HEAD_SHA:-unknown}\`)"
             echo "- Image tag: \`${IMAGE_TAG:-unknown}\`"
@@ -291,7 +291,7 @@ jobs:
                 echo "This deploy was preempted by a newer deploy that"
                 echo "started while this one was running. The newer deploy"
                 echo "is the one whose result reflects production state —"
-                echo "look at the next \`Superflow Auto Deploy\` run."
+                echo "look at the next \`Manut Auto Deploy\` run."
                 echo ""
                 echo "If no newer run exists, something is wrong: SSH the"
                 echo "VM and inspect /tmp/affine-deploy.runid + the live"

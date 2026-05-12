@@ -1,5 +1,5 @@
 /**
- * Superflow animation tokens (TypeScript bindings).
+ * Manut animation tokens (TypeScript bindings).
  *
  * These constants reference the CSS custom properties declared in
  * `animation.css`. Use them inside vanilla-extract `.css.ts` files when

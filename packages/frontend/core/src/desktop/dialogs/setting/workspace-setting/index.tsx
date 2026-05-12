@@ -73,8 +73,9 @@ export const useWorkspaceSettingList = (): SettingSidebarItem[] => {
   const workspaceService = useService(WorkspaceService);
   const information = useWorkspaceInfo(workspaceService.workspace);
   const serverService = useService(ServerService);
-  const workspacePermissionService = useService(WorkspacePermissionService)
-    .permission;
+  const workspacePermissionService = useService(
+    WorkspacePermissionService
+  ).permission;
   const isOwner = useLiveData(workspacePermissionService.isOwner$);
   const isAdmin = useLiveData(workspacePermissionService.isAdmin$);
   const canManageConnections = Boolean(isOwner || isAdmin);
@@ -89,7 +90,7 @@ export const useWorkspaceSettingList = (): SettingSidebarItem[] => {
 
   const showBilling =
     !isSelfhosted && information?.isTeam && information?.isOwner;
-  // SUPERFLOW: hide the License tab on self-hosted. The Superflow fork ships
+  // MANUT: hide the License tab on self-hosted. The Manut fork ships
   // FOSS with no seat cap and no upgrade prompts, so the entire License /
   // "Get teams plan" surface is removed from the workspace settings sidebar.
   // The route case `'workspace:license'` in the switch above is kept (and the

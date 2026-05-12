@@ -1,7 +1,7 @@
-name: Superflow Build
+name: Manut Build
 
 # Tier 2 split: this workflow ONLY builds + pushes the image. Deploy is
-# now a separate workflow (`Superflow Auto Deploy`) that watches THIS
+# now a separate workflow (`Manut Auto Deploy`) that watches THIS
 # workflow's success and SSHes deploy.sh on the VM with the resulting
 # tag. Splitting build from deploy:
 #   - lets us re-deploy an existing image without re-bundling
@@ -9,7 +9,7 @@ name: Superflow Build
 #   - makes the deploy job small (~2-3 min) and easy to reason about
 #
 # Trigger:
-#   workflow_run on `Superflow CI` success on `main` (same trigger that
+#   workflow_run on `Manut CI` success on `main` (same trigger that
 #   lived inside the previous monolithic autodeploy workflow).
 #
 # Outputs:
@@ -28,7 +28,7 @@ name: Superflow Build
 
 on:
   workflow_run:
-    workflows: ['Superflow CI']
+    workflows: ['Manut CI']
     types: [completed]
     branches: [main]
   # Manual trigger exists primarily as the buildx-cache nuke escape
@@ -407,7 +407,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-      - name: Write Superflow handover artifact
+      - name: Write Manut handover artifact
         env:
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}
           IMAGE_DIGEST: ${{ steps.build_push.outputs.digest }}
@@ -415,7 +415,7 @@ jobs:
           SHORT_SHA: ${{ steps.tag.outputs.short_sha }}
           HEAD_SHA: ${{ steps.tag.outputs.head_sha }}
         run: |
-          node scripts/superflow-release-handover.mjs \
+          node scripts/manut-release-handover.mjs \
             --mode build \
             --status "build image produced" \
             --image-tag "${IMAGE_TAG}" \
@@ -447,7 +447,7 @@ jobs:
           CACHE_IMAGE: ${{ env.GAR_CACHE_REPO }}:buildx
         run: |
           {
-            echo "## Superflow Build"
+            echo "## Manut Build"
             echo ""
             echo "- Commit: \`${SHORT_SHA}\` (\`${HEAD_SHA}\`)"
             echo "- Image tag: \`${IMAGE_TAG}\`"
@@ -458,7 +458,7 @@ jobs:
             echo ""
             echo "**Machine-readable**: \`IMAGE_TAG=${IMAGE_TAG}\`"
             echo ""
-            echo "Downstream \`Superflow Auto Deploy\` will pick this tag"
+            echo "Downstream \`Manut Auto Deploy\` will pick this tag"
             echo "up via the \`image-tag\` artifact and SSH deploy.sh on"
             echo "the VM. To deploy manually instead, run:"
             echo ""

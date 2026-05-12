@@ -12,7 +12,7 @@ import { BudgetService } from './budget.service';
  * completes. Numbers track Vertex AI's published rates for the on-demand
  * tier; revisit if Google changes them.
  *
- * gpt-* is intentionally excluded — Superflow's Vertex stack doesn't route it
+ * gpt-* is intentionally excluded — Manut's Vertex stack doesn't route it
  * (CLAUDE.md §5d) and we'd rather see an error than a silent fallback.
  */
 const PRICING: Record<

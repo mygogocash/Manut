@@ -10,7 +10,7 @@ export const relatedLinks = [
   {
     icon: <GithubIcon />,
     title: 'GitHub',
-    link: 'https://github.com/mygogocash/Superflow',
+    link: 'https://github.com/mygogocash/Manut',
   },
   {
     icon: <TwitterIcon />,

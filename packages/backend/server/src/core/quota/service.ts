@@ -25,23 +25,23 @@ export type WorkspaceQuotaWithUsage = Omit<
   'humanReadable'
 > & { ownerQuota?: string };
 
-// SUPERFLOW: effectively-unlimited seat count returned for self-hosted
+// MANUT: effectively-unlimited seat count returned for self-hosted
 // deployments. We deliberately keep this finite (rather than
 // `Number.MAX_SAFE_INTEGER`) because the value is serialised to GraphQL Int
 // in places (e.g. `WorkspaceQuotaHumanReadableType.memberLimit` via
 // `quota.memberLimit.toString()`), and a 32-bit-safe value is friendlier to
 // any client formatting.
-const SUPERFLOW_UNLIMITED_SEATS = 100_000;
+const MANUT_UNLIMITED_SEATS = 100_000;
 
-// SUPERFLOW: effectively-unlimited byte count for blob/storage quotas on
+// MANUT: effectively-unlimited byte count for blob/storage quotas on
 // self-hosted. 1 PB stays well below Number.MAX_SAFE_INTEGER (~9 PB) and
 // formats cleanly in formatSize(). Self-hosted operators control their own
 // disk; we don't enforce caps that matter only for upstream's hosted plans.
-const SUPERFLOW_UNLIMITED_BYTES = 1_000_000_000_000_000;
+const MANUT_UNLIMITED_BYTES = 1_000_000_000_000_000;
 
-// SUPERFLOW: effectively-unlimited history retention period in milliseconds.
+// MANUT: effectively-unlimited history retention period in milliseconds.
 // 100 years × 365 days × 24h × 3600s × 1000ms — safe int, formats cleanly.
-const SUPERFLOW_UNLIMITED_HISTORY_MS = 100 * 365 * 24 * 3600 * 1000;
+const MANUT_UNLIMITED_HISTORY_MS = 100 * 365 * 24 * 3600 * 1000;
 
 @Injectable()
 export class QuotaService {
@@ -77,7 +77,7 @@ export class QuotaService {
       );
     }
 
-    // SUPERFLOW: lift every per-user limit on self-hosted deployments. The
+    // MANUT: lift every per-user limit on self-hosted deployments. The
     // FOSS build is unlimited by policy — operators control their own
     // infrastructure, so caps that exist only to gate upstream's hosted
     // tiers don't apply. `copilotActionLimit: undefined` matches the
@@ -88,10 +88,10 @@ export class QuotaService {
       return {
         ...quota.configs,
         copilotActionLimit: undefined,
-        blobLimit: SUPERFLOW_UNLIMITED_BYTES,
-        storageQuota: SUPERFLOW_UNLIMITED_BYTES,
-        historyPeriod: SUPERFLOW_UNLIMITED_HISTORY_MS,
-        memberLimit: SUPERFLOW_UNLIMITED_SEATS,
+        blobLimit: MANUT_UNLIMITED_BYTES,
+        storageQuota: MANUT_UNLIMITED_BYTES,
+        historyPeriod: MANUT_UNLIMITED_HISTORY_MS,
+        memberLimit: MANUT_UNLIMITED_SEATS,
       } as UserQuotaWithUsage;
     }
 
@@ -174,7 +174,7 @@ export class QuotaService {
       resolved = quota.configs;
     }
 
-    // SUPERFLOW: lift every per-workspace limit on self-hosted deployments.
+    // MANUT: lift every per-workspace limit on self-hosted deployments.
     // The FOSS build is unlimited by policy. Workspace quota mostly inherits
     // from owner's user quota (which we already lifted in getUserQuota), but
     // workspaces with their own stored config bypass that path — so we apply
@@ -184,10 +184,10 @@ export class QuotaService {
     if (env.selfhosted) {
       return {
         ...resolved,
-        blobLimit: SUPERFLOW_UNLIMITED_BYTES,
-        storageQuota: SUPERFLOW_UNLIMITED_BYTES,
-        historyPeriod: SUPERFLOW_UNLIMITED_HISTORY_MS,
-        memberLimit: SUPERFLOW_UNLIMITED_SEATS,
+        blobLimit: MANUT_UNLIMITED_BYTES,
+        storageQuota: MANUT_UNLIMITED_BYTES,
+        historyPeriod: MANUT_UNLIMITED_HISTORY_MS,
+        memberLimit: MANUT_UNLIMITED_SEATS,
       };
     }
 

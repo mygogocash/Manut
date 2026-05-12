@@ -32,7 +32,7 @@ COMPOSE_DIR="${COMPOSE_DIR:-/srv/affine/compose}"
 COMPOSE_FILE="${COMPOSE_DIR}/compose.yml"
 COMPOSE_BACKUP="${COMPOSE_DIR}/compose.yml.previous.bak"
 COMPOSE_ENV_FILE="${COMPOSE_DIR}/.env"
-PROD_HOST="${PROD_HOST:-affine.gogocash.co}"
+PROD_HOST="${PROD_HOST:-manut.gogocash.co}"
 PROD_SERVICE="${PROD_SERVICE:-affine}"
 SUDO="${DEPLOY_SUDO-sudo}"
 

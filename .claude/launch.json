@@ -20,9 +20,9 @@
       "port": 5555
     },
     {
-      "name": "superflow-landing",
+      "name": "manut-landing",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "cd superflow-landing && exec npm run dev"],
+      "runtimeArgs": ["-c", "cd manut-landing && exec npm run dev"],
       "port": 3000
     }
   ]

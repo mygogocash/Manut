@@ -25,7 +25,7 @@ or human should be able to continue without relying on chat memory.
 - Dependabot pull requests: #15 merged at `2026-05-08T14:55:26Z`; #16
   merged at `2026-05-09T00:12:29Z`.
 - Production branch: `main`
-- Production app: https://affine.gogocash.co
+- Production app: https://manut.gogocash.co
 - Production image: `main-788a0e0b0-25585897582`
 - Production deploy run: `25586178501` succeeded at `2026-05-09T00:29:21Z`
 
@@ -36,7 +36,7 @@ or human should be able to continue without relying on chat memory.
   and durable handover evidence.
 - Built the Superflow-owned version instead of depending on Paperclip:
   `docs/SUPERFLOW_CONTROL_PLANE.md`.
-- Added `scripts/superflow-release-handover.mjs`, a no-dependency generator
+- Added `scripts/manut-release-handover.mjs`, a no-dependency generator
   that emits `superflow-handover.md` and `superflow-handover.json`.
 - Wired `superflow-build.yml` and `superflow-release.yml` to upload a
   `superflow-handover` artifact after image push.
@@ -77,8 +77,8 @@ or human should be able to continue without relying on chat memory.
   `main-8767c95e5-25558739931`, post-swap `/info` passed, and the prompt-seed
   gate passed `3/3`.
 - External production probe after deploy returned HTTP 200 for
-  `https://affine.gogocash.co/info`.
-- Browser smoke loaded `https://affine.gogocash.co/sign-in`; React mounted on
+  `https://manut.gogocash.co/info`.
+- Browser smoke loaded `https://manut.gogocash.co/sign-in`; React mounted on
   `#app` with children present and no `console.error` entries.
 - PR #14 merged into `main` as merge commit `2b30bc0d6`, preserving the VM
   pre-pull disk cleanup in GitHub for future deploys.
@@ -90,7 +90,7 @@ or human should be able to continue without relying on chat memory.
   `main-788a0e0b0-25585897582`; post-swap `/info` and prompt-seed checks
   passed.
 - Local uncommitted WIP touches `schema.prisma`, `app.module.ts`, About
-  settings UI, `superflow-landing/AGENTS.md`, and new backend
+  settings UI, `manut-landing/AGENTS.md`, and new backend
   `plugins/superflow`, `__tests__/superflow`, and
   `20260509120000_superflow_pm_crm_reminders` migration paths. This handover
   file is also modified by heartbeat refreshes.
@@ -150,7 +150,7 @@ or human should be able to continue without relying on chat memory.
   required sections, and bounded arrays; the import success state now includes
   an Open Doc action.
 - Added handover contract coverage that runs
-  `scripts/superflow-release-handover.mjs` and feeds the generated JSON into
+  `scripts/manut-release-handover.mjs` and feeds the generated JSON into
   the backend parser, reducing fixture drift.
 - Staged all review fixes into one coherent WIP snapshot. No unstaged source
   diff remains.
@@ -181,14 +181,14 @@ or human should be able to continue without relying on chat memory.
 
 ## Verification Already Run
 
-- `node --check scripts/superflow-release-handover.mjs`
-- `node scripts/superflow-release-handover.mjs --help`
+- `node --check scripts/manut-release-handover.mjs`
+- `node scripts/manut-release-handover.mjs --help`
 - Generator smoke with Markdown and JSON output under `/tmp/superflow-handover-test`
 - JSON parse check for generated handover
-- `yarn prettier --check docs/SUPERFLOW_CONTROL_PLANE.md docs/HANDOVER.md docs/CICD.md package.json scripts/superflow-release-handover.mjs .github/workflows/superflow-build.yml .github/workflows/superflow-release.yml`
+- `yarn prettier --check docs/SUPERFLOW_CONTROL_PLANE.md docs/HANDOVER.md docs/CICD.md package.json scripts/manut-release-handover.mjs .github/workflows/superflow-build.yml .github/workflows/superflow-release.yml`
 - Ruby YAML parse for `.github/workflows/superflow-build.yml` and
   `.github/workflows/superflow-release.yml`
-- `yarn oxlint -c .oxlintrc.json --disable-nested-config --deny-warnings scripts/superflow-release-handover.mjs`
+- `yarn oxlint -c .oxlintrc.json --disable-nested-config --deny-warnings scripts/manut-release-handover.mjs`
 - Pre-commit hook passed during commit: prettier, eslint on staged JS/MJS,
   and repo oxlint hook.
 - `bash -n scripts/vm/deploy.sh`
@@ -197,7 +197,7 @@ or human should be able to continue without relying on chat memory.
 - `superflow-vm-init.yml` run `25559581702` succeeded.
 - `superflow-deploy.yml` run `25559646582` succeeded with
   `deploy.sh exit code: 0`.
-- `curl -fsS -D - https://affine.gogocash.co/info` returned HTTP 200 after
+- `curl -fsS -D - https://manut.gogocash.co/info` returned HTTP 200 after
   deploy.
 - Playwright production smoke: sign-in page rendered, `#app` had 3 children,
   React keys were present, and browser console had 0 errors.
@@ -208,7 +208,7 @@ or human should be able to continue without relying on chat memory.
 - Superflow Auto Deploy run `25586178501` succeeded; deploy script exit code
   was `0`, with `PRODUCTION HEALTHY` and `PROMPT-SEED OK — 3/3`.
 - Latest Dependabot Updates run `25589669434` on head `788a0e0b0` succeeded.
-- Latest heartbeat probe: `curl -fsS -D - https://affine.gogocash.co/info`
+- Latest heartbeat probe: `curl -fsS -D - https://manut.gogocash.co/info`
   returned HTTP 200 on `2026-05-09 10:14:23 +07`.
 - `DATABASE_URL='postgresql://user:pass@localhost:5432/affine' yarn workspace @affine/server prisma format`
   passed.
@@ -328,6 +328,6 @@ gh run view 25559646582 --json status,conclusion,jobs,url
 gh run view 25585897582 --json status,conclusion,jobs,url
 gh run view 25586178501 --json status,conclusion,jobs,url
 gh run list --branch main --limit 10 --json databaseId,workflowName,status,conclusion,headSha,url
-curl -fsS https://affine.gogocash.co/info
+curl -fsS https://manut.gogocash.co/info
 sed -n '1,240p' docs/AI_SESSION_HANDOVER.md
 ```

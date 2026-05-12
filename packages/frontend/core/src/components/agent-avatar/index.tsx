@@ -26,7 +26,7 @@ import * as styles from './index.css';
 // ---- Avatar shape (matches the backend contract) ----------------------------
 
 export interface AgentAvatarConfig {
-  // SUPERFLOW: hex color used by the letter+color renderer. When present,
+  // MANUT: hex color used by the letter+color renderer. When present,
   // the avatar component uses this value directly instead of the
   // id-hash-derived default. Stored as part of the free-form JSON avatar
   // config — backend doesn't validate, frontend just reads if it's a
