@@ -22,7 +22,10 @@ import {
   AiOutlineIcon,
   AllDocsIcon,
   BlockIcon,
+  CollaborationIcon,
   DataPanelIcon,
+  DateTimeIcon,
+  FolderIcon,
   ImportIcon,
   JournalIcon,
   SettingsIcon,
@@ -125,6 +128,84 @@ const AnalyticsButton = () => {
       to={'/analytics'}
     >
       <span data-testid="analytics-nav">Analytics</span>
+    </MenuLinkItem>
+  );
+};
+
+/**
+ * Returns true when the backend has `ServerFeature.Superflow` enabled
+ * (i.e., `ENABLE_SUPERFLOW_MODULE=true` on the server). The sidebar entries
+ * and routes for Projects / CRM / Reminders are hidden otherwise so users
+ * don't see broken navigation.
+ *
+ * Reads from `ServerService.server.features$` which the Superflow plugin
+ * populates on module init.
+ */
+const useSuperflowEnabled = (): boolean => {
+  const serverService = useService(ServerService);
+  const serverFeatures = useLiveData(serverService.server.features$);
+  return !!serverFeatures?.includes('superflow');
+};
+
+const ProjectsButton = () => {
+  const enabled = useSuperflowEnabled();
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const active = useLiveData(
+    workbench.location$.selector(location =>
+      location.pathname.startsWith('/projects')
+    )
+  );
+
+  if (!enabled) return null;
+
+  return (
+    <MenuLinkItem icon={<FolderIcon />} active={active} to={'/projects'}>
+      <span data-testid="projects-nav">Projects</span>
+    </MenuLinkItem>
+  );
+};
+
+const CrmButton = () => {
+  const enabled = useSuperflowEnabled();
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const active = useLiveData(
+    workbench.location$.selector(location =>
+      location.pathname.startsWith('/crm')
+    )
+  );
+
+  if (!enabled) return null;
+
+  return (
+    <MenuLinkItem icon={<CollaborationIcon />} active={active} to={'/crm'}>
+      <span data-testid="crm-nav">CRM</span>
+    </MenuLinkItem>
+  );
+};
+
+const RemindersButton = () => {
+  const enabled = useSuperflowEnabled();
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const active = useLiveData(
+    workbench.location$.selector(location =>
+      location.pathname.startsWith('/reminders')
+    )
+  );
+
+  if (!enabled) return null;
+
+  return (
+    <MenuLinkItem icon={<DateTimeIcon />} active={active} to={'/reminders'}>
+      <span data-testid="reminders-nav">Reminders</span>
     </MenuLinkItem>
   );
 };
@@ -255,6 +336,9 @@ export const RootAppSidebar = memo((): ReactElement => {
         <AllDocsButton />
         <GraphButton />
         <AnalyticsButton />
+        <ProjectsButton />
+        <CrmButton />
+        <RemindersButton />
         <AppSidebarJournalButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />

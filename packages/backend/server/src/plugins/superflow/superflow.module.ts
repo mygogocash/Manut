@@ -1,6 +1,8 @@
-import type { DynamicModule } from '@nestjs/common';
+import type { DynamicModule, OnModuleInit } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 
+import { ServerConfigModule, ServerService } from '../../core/config';
+import { ServerFeature } from '../../core/config/types';
 import { DocStorageModule } from '../../core/doc';
 import { MailModule } from '../../core/mail';
 import { PermissionModule } from '../../core/permission';
@@ -11,6 +13,23 @@ import { SuperflowPmResolver } from './superflow-pm.resolver';
 import { SuperflowReminderCron } from './superflow-reminder.cron';
 import { SuperflowReminderJob } from './superflow-reminder.job';
 import { SuperflowReminderResolver } from './superflow-reminder.resolver';
+
+/**
+ * Toggles `ServerFeature.Superflow` so the frontend can show/hide the
+ * Projects / CRM / Reminders nav entries based on whether the backend
+ * has the gated APIs loaded.
+ */
+class SuperflowFeatureRegistrar implements OnModuleInit {
+  constructor(private readonly server: ServerService) {}
+
+  onModuleInit(): void {
+    if (isSuperflowModuleEnabled()) {
+      this.server.enableFeature(ServerFeature.Superflow);
+    } else {
+      this.server.disableFeature(ServerFeature.Superflow);
+    }
+  }
+}
 
 /**
  * Superflow product suite (PM, CRM, reminders, notifications).
@@ -25,14 +44,23 @@ export class SuperflowModule {
     if (!isSuperflowModuleEnabled()) {
       return {
         module: SuperflowModule,
-        imports: [PermissionModule, DocStorageModule],
-        providers: [SuperflowHandoverResolver, SuperflowHandoverService],
+        imports: [PermissionModule, DocStorageModule, ServerConfigModule],
+        providers: [
+          SuperflowHandoverResolver,
+          SuperflowHandoverService,
+          SuperflowFeatureRegistrar,
+        ],
       };
     }
 
     return {
       module: SuperflowModule,
-      imports: [PermissionModule, MailModule, DocStorageModule],
+      imports: [
+        PermissionModule,
+        MailModule,
+        DocStorageModule,
+        ServerConfigModule,
+      ],
       providers: [
         SuperflowPmResolver,
         SuperflowCrmResolver,
@@ -41,6 +69,7 @@ export class SuperflowModule {
         SuperflowReminderResolver,
         SuperflowReminderJob,
         SuperflowReminderCron,
+        SuperflowFeatureRegistrar,
       ],
     };
   }
