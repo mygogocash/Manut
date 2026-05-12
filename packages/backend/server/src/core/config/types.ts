@@ -11,6 +11,11 @@ export enum ServerFeature {
   Indexer = 'indexer',
   Comment = 'comment',
   LocalWorkspace = 'local_workspace',
+  // Superflow PM + CRM + Reminders modules are gated by
+  // `ENABLE_SUPERFLOW_MODULE=true`. The frontend reads this flag from
+  // `ServerService.server.features` to decide whether to surface the
+  // Projects / CRM / Reminders nav entries and pages.
+  Superflow = 'superflow',
 }
 
 registerEnumType(ServerFeature, {
