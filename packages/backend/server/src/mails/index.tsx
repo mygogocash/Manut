@@ -182,7 +182,7 @@ export const Renderers = {
   ),
   //#endregion
 
-  //#region Superflow
+  //#region Manut
   SuperflowReminder: make(
     SuperflowReminder,
     props => `Reminder: ${props.title}`

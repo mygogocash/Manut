@@ -32,23 +32,23 @@ app, against the same screencast bundle.
       or "Threads" — Meta auto-rejects branding violations).
 - [ ] Switch to **Live mode** only AFTER review approval. Build & screencast
       in **Development mode** (Standard Access scopes only).
-- [ ] Set **Privacy Policy URL** to `https://affine.gogocash.co/legal/privacy`.
+- [ ] Set **Privacy Policy URL** to `https://manut.gogocash.co/legal/privacy`.
       Page must explicitly cover ingestion of FB/IG/Threads data —
       generic privacy boilerplate fails review.
-- [ ] Set **Terms of Service URL**: `https://affine.gogocash.co/legal/terms`.
+- [ ] Set **Terms of Service URL**: `https://manut.gogocash.co/legal/terms`.
 - [ ] Set **Data Deletion**: pick ONE of (a) Data Deletion Callback URL —
-      `https://affine.gogocash.co/api/integrations/meta/data-deletion`,
+      `https://manut.gogocash.co/api/integrations/meta/data-deletion`,
       HMAC-SHA256 signed POST handler, returns `{url, confirmation_code}`,
       or (b) Data Deletion Instructions URL —
-      `https://affine.gogocash.co/legal/data-deletion-instructions`.
+      `https://manut.gogocash.co/legal/data-deletion-instructions`.
       Recommendation: ship **(b) instructions** for v1, upgrade to (a)
       callback in Phase 5 (PRD §9). Source:
       https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback/
 - [ ] App Icon: 1024×1024 PNG, no Meta brand assets, no "Login with FB"
       buttons, no minor faces.
 - [ ] Category: **Business and Pages**.
-- [ ] Add app domain `affine.gogocash.co` and OAuth redirect URI
-      `https://affine.gogocash.co/api/integrations/meta/callback`.
+- [ ] Add app domain `manut.gogocash.co` and OAuth redirect URI
+      `https://manut.gogocash.co/api/integrations/meta/callback`.
 
 ### 1.2 Business Verification
 
@@ -76,7 +76,7 @@ For a **Thai-registered** company (GoGoCash):
   - Bank statement on bank letterhead showing legal name + registered
     address (last 90 days).
 - [ ] Domain verification: add the Meta-provided TXT record to
-      `affine.gogocash.co` DNS. Verify in Business Suite → **Brand Safety
+      `manut.gogocash.co` DNS. Verify in Business Suite → **Brand Safety
       → Domains**.
 - [ ] Choose verification contact method: **email at @gogocash.co**
       (Meta strongly prefers domain-matched email over phone).
@@ -100,16 +100,16 @@ behalf of users outside your business). All Advanced Access scopes
 require: app screencast + at least 1 successful API call within
 30 days of submission + Business Verification.
 
-| Scope | Platform | Why we need it (reviewer-facing) | Tier | Proof Meta requires |
-|---|---|---|---|---|
-| `pages_show_list` | Facebook | Render the workspace owner's list of Pages so they can pick which Page to connect for analytics. | Advanced | Screencast: open Connections → click Connect Facebook → OAuth dialog → see Page picker populated → select Page → see status badge "Connected" |
-| `pages_read_engagement` | Facebook | Read posts/comments/reactions on the connected Page so the AI Strategist can summarize engagement trends. No write access used or requested. | Advanced | Screencast: after Page connect, navigate to Analytics → Facebook deep-dive → see post-level engagement metrics (likes, comments, shares) sourced from the API |
-| `pages_manage_metadata` | Facebook | Subscribe the Page to our webhook (`feed`, `mention`) so engagement events arrive in real-time without polling. We do NOT modify Page metadata. | Advanced | Screencast: connect Page → POST a test comment from a separate test account → see event surface in Analytics within 60 s |
-| `read_insights` | Facebook | Read Page-level insight metrics (`page_impressions`, `page_fan_adds`, etc.) used in the Overview dashboard and Weekly Strategy AI prompt. | Advanced | Screencast: open FB deep-dive → show daily impressions chart + the underlying `/insights` call in DevTools network tab |
-| `instagram_basic` | Instagram | Identify the IG Business/Creator account linked to the connected FB Page. Required for any IG Graph API call. | Advanced | Screencast: pick Page with IG attached → see IG handle resolved + media count |
-| `instagram_manage_insights` | Instagram | Read IG follower count, reach, impressions, and per-media insights for the dashboard + AI prompts. Same justification pattern as `read_insights` for FB. | Advanced | Screencast: open IG deep-dive → show reach/impressions chart with timestamps matching the IG API response |
-| `threads_basic` | Threads | Identify the connected Threads account. Required for any Threads API call. Source: https://developers.facebook.com/docs/threads/get-started/get-access-tokens-and-permissions/ | Advanced | Screencast: connect Threads → see handle + recent post list |
-| `threads_manage_insights` | Threads | Read post-level + account-level Threads metrics. PRD specifies this as the Threads metric source. | Advanced | Screencast: open Threads deep-dive → show post insight values (views, likes, replies) reconciling with Threads native UI |
+| Scope                       | Platform  | Why we need it (reviewer-facing)                                                                                                                                               | Tier     | Proof Meta requires                                                                                                                                           |
+| --------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pages_show_list`           | Facebook  | Render the workspace owner's list of Pages so they can pick which Page to connect for analytics.                                                                               | Advanced | Screencast: open Connections → click Connect Facebook → OAuth dialog → see Page picker populated → select Page → see status badge "Connected"                 |
+| `pages_read_engagement`     | Facebook  | Read posts/comments/reactions on the connected Page so the AI Strategist can summarize engagement trends. No write access used or requested.                                   | Advanced | Screencast: after Page connect, navigate to Analytics → Facebook deep-dive → see post-level engagement metrics (likes, comments, shares) sourced from the API |
+| `pages_manage_metadata`     | Facebook  | Subscribe the Page to our webhook (`feed`, `mention`) so engagement events arrive in real-time without polling. We do NOT modify Page metadata.                                | Advanced | Screencast: connect Page → POST a test comment from a separate test account → see event surface in Analytics within 60 s                                      |
+| `read_insights`             | Facebook  | Read Page-level insight metrics (`page_impressions`, `page_fan_adds`, etc.) used in the Overview dashboard and Weekly Strategy AI prompt.                                      | Advanced | Screencast: open FB deep-dive → show daily impressions chart + the underlying `/insights` call in DevTools network tab                                        |
+| `instagram_basic`           | Instagram | Identify the IG Business/Creator account linked to the connected FB Page. Required for any IG Graph API call.                                                                  | Advanced | Screencast: pick Page with IG attached → see IG handle resolved + media count                                                                                 |
+| `instagram_manage_insights` | Instagram | Read IG follower count, reach, impressions, and per-media insights for the dashboard + AI prompts. Same justification pattern as `read_insights` for FB.                       | Advanced | Screencast: open IG deep-dive → show reach/impressions chart with timestamps matching the IG API response                                                     |
+| `threads_basic`             | Threads   | Identify the connected Threads account. Required for any Threads API call. Source: https://developers.facebook.com/docs/threads/get-started/get-access-tokens-and-permissions/ | Advanced | Screencast: connect Threads → see handle + recent post list                                                                                                   |
+| `threads_manage_insights`   | Threads   | Read post-level + account-level Threads metrics. PRD specifies this as the Threads metric source.                                                                              | Advanced | Screencast: open Threads deep-dive → show post insight values (views, likes, replies) reconciling with Threads native UI                                      |
 
 **Scopes we are NOT requesting** (anti-pattern check — least privilege):
 
@@ -125,7 +125,7 @@ require: app screencast + at least 1 successful API call within
 
 - [ ] **Screencast bundle** — one `.mp4` per scope, ≤ 4 min each, 1080p.
       Each video must show:
-  - Cold-start: log out, open `https://affine.gogocash.co`, sign in fresh
+  - Cold-start: log out, open `https://manut.gogocash.co`, sign in fresh
   - Navigate Settings → Analytics → Connections
   - Click **Connect Facebook** → OAuth dialog → grant the specific scope
   - Show the data flow: where the scope is exercised in the product UI
@@ -183,26 +183,26 @@ require: app screencast + at least 1 successful API call within
 
 ### 2.1 App tiers (what we get at each)
 
-| Tier | Cost | What's available | What's blocked |
-|---|---|---|---|
-| **Login Kit (default)** | Free, no review | OAuth, `user.info.basic` (open_id, union_id, avatar, display_name). User signs in. | Anything beyond identity. |
-| **Display API** | Free, app review only | `user.info.profile`, `user.info.stats` (follower count, video count, likes count), `video.list`, `video.publish`, `video.upload`. ~100 requests/day per user. | Per-video analytics, audience demographics, hashtag trends, comment-level data. |
-| **Content Posting API** | Free, app review only | Programmatic upload + publish. Adds `video.publish`, `video.upload` scopes. | Same analytics gaps as Display API. |
-| **Research API** | Partner-status review (high bar — typically university researchers, news organizations, NGOs) | Public-video search, comment search, user search, full per-video insights. Source: https://developers.tiktok.com/products/research-api/ | Restricted to "academic and market research". Commercial product use cases routinely rejected. |
+| Tier                    | Cost                                                                                          | What's available                                                                                                                                              | What's blocked                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Login Kit (default)** | Free, no review                                                                               | OAuth, `user.info.basic` (open_id, union_id, avatar, display_name). User signs in.                                                                            | Anything beyond identity.                                                                      |
+| **Display API**         | Free, app review only                                                                         | `user.info.profile`, `user.info.stats` (follower count, video count, likes count), `video.list`, `video.publish`, `video.upload`. ~100 requests/day per user. | Per-video analytics, audience demographics, hashtag trends, comment-level data.                |
+| **Content Posting API** | Free, app review only                                                                         | Programmatic upload + publish. Adds `video.publish`, `video.upload` scopes.                                                                                   | Same analytics gaps as Display API.                                                            |
+| **Research API**        | Partner-status review (high bar — typically university researchers, news organizations, NGOs) | Public-video search, comment search, user search, full per-video insights. Source: https://developers.tiktok.com/products/research-api/                       | Restricted to "academic and market research". Commercial product use cases routinely rejected. |
 
 **Mapping to PRD §8 ("TikTok"):**
 
-| PRD requirement | Tier needed |
-|---|---|
-| Video posting events via webhook | Display API + Content Posting API + webhook config |
-| Public video metadata for the connected user | Display API |
+| PRD requirement                                             | Tier needed                                            |
+| ----------------------------------------------------------- | ------------------------------------------------------ |
+| Video posting events via webhook                            | Display API + Content Posting API + webhook config     |
+| Public video metadata for the connected user                | Display API                                            |
 | Per-video deep analytics (views, completion rate, audience) | Research API only — **likely unavailable to GoGoCash** |
-| Hashtag trend detection | Research API only |
+| Hashtag trend detection                                     | Research API only                                      |
 
 **Honest assessment:** GoGoCash will **not qualify for the Research API**
 in v1. The PRD §2 already calls this out: "TikTok features that require
 Research API access — fall back to Display API if partner status is
-delayed." This section formalizes that fallback as the *expected* path,
+delayed." This section formalizes that fallback as the _expected_ path,
 not the contingency.
 
 ### 2.2 Application steps (Display API + Content Posting + webhooks)
@@ -219,8 +219,8 @@ not the contingency.
   - Category: **Productivity**
   - Logo: 240×240 PNG
   - Terms URL, Privacy URL: same as Meta app
-  - Redirect URI: `https://affine.gogocash.co/api/integrations/tiktok/callback`
-  - **Webhook URL**: `https://affine.gogocash.co/api/integrations/tiktok/webhook`
+  - Redirect URI: `https://manut.gogocash.co/api/integrations/tiktok/callback`
+  - **Webhook URL**: `https://manut.gogocash.co/api/integrations/tiktok/webhook`
     (must be HTTPS, must be reachable before submission so TikTok's
     verification ping succeeds). Source:
     https://developers.tiktok.com/doc/webhooks-overview/
@@ -257,15 +257,16 @@ This is the expected path. Build to it.
 
 **Available with Display API only** (Phase 4 of PRD §9):
 
-| Endpoint | Field | Use in our UI |
-|---|---|---|
-| `/v2/user/info/` | `display_name`, `avatar_url`, `bio_description` | Connection status card |
-| `/v2/user/info/` | `follower_count`, `following_count`, `likes_count`, `video_count` | Overview metrics |
-| `/v2/video/list/` | `id`, `create_time`, `cover_image_url`, `share_url`, `video_description`, `duration`, `height`, `width` | Recent videos card |
-| `/v2/video/list/` (each video) | `like_count`, `comment_count`, `share_count`, `view_count` | Per-video stats |
-| Webhook `video.upload.failed` | upload error event | Error toast in UI |
+| Endpoint                       | Field                                                                                                   | Use in our UI          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `/v2/user/info/`               | `display_name`, `avatar_url`, `bio_description`                                                         | Connection status card |
+| `/v2/user/info/`               | `follower_count`, `following_count`, `likes_count`, `video_count`                                       | Overview metrics       |
+| `/v2/video/list/`              | `id`, `create_time`, `cover_image_url`, `share_url`, `video_description`, `duration`, `height`, `width` | Recent videos card     |
+| `/v2/video/list/` (each video) | `like_count`, `comment_count`, `share_count`, `view_count`                                              | Per-video stats        |
+| Webhook `video.upload.failed`  | upload error event                                                                                      | Error toast in UI      |
 
 **Gaps that show as "Coming soon — pending API access" in UI:**
+
 - Audience demographics (age/gender/country breakdown)
 - Hashtag-level analytics
 - Reach vs impressions split
@@ -323,13 +324,13 @@ Documentation is contradictory:
 
 **What this means for v1 — honest summary:**
 
-| Metric | Available via API? | Source |
-|---|---|---|
-| Total followers (LINE OA) | ✅ Yes — `/v2/bot/insight/followers` | Messaging API |
-| Number of message deliveries | ✅ Yes — `/v2/bot/insight/message/delivery` | Messaging API |
-| Per-event aggregation (clicks etc.) | ✅ Yes — `/v2/bot/insight/message/event/aggregation` | Messaging API |
-| Voom post views, likes, comments | ❓ **Unknown — no public API endpoint as of May 2026** | VOOM Studio web UI shows it; no documented programmatic surface |
-| Voom audience demographics | ❌ Not via Messaging API. Only in VOOM Studio UI. | — |
+| Metric                              | Available via API?                                     | Source                                                          |
+| ----------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------- |
+| Total followers (LINE OA)           | ✅ Yes — `/v2/bot/insight/followers`                   | Messaging API                                                   |
+| Number of message deliveries        | ✅ Yes — `/v2/bot/insight/message/delivery`            | Messaging API                                                   |
+| Per-event aggregation (clicks etc.) | ✅ Yes — `/v2/bot/insight/message/event/aggregation`   | Messaging API                                                   |
+| Voom post views, likes, comments    | ❓ **Unknown — no public API endpoint as of May 2026** | VOOM Studio web UI shows it; no documented programmatic surface |
+| Voom audience demographics          | ❌ Not via Messaging API. Only in VOOM Studio UI.      | —                                                               |
 
 - [ ] **ACTION (recommended owner: GoGoCash BD lead)**: contact LINE
       Thailand BD/partnership team (`partner@linecorp.com.th` or via
@@ -350,7 +351,7 @@ Documentation is contradictory:
 ### 3.3 Webhook setup
 
 - [ ] In the Messaging API channel, set **Webhook URL** to
-      `https://affine.gogocash.co/api/integrations/line/webhook`.
+      `https://manut.gogocash.co/api/integrations/line/webhook`.
 - [ ] Toggle **Use webhook** to ON.
 - [ ] Toggle **Auto-reply messages** OFF (we're not a chatbot).
 - [ ] Toggle **Greeting messages** OFF.
@@ -370,8 +371,7 @@ Documentation is contradictory:
   - `unfollow` — user blocked/removed the OA
   - `postback` — rich-menu / quick-reply interactions
   - **VERIFY**: Voom post events (post-published, post-commented) are
-    **not in the Messaging API webhook event catalog** as of May
-    2026. Confirm with LINE Thailand (item 3.2 above).
+    **not in the Messaging API webhook event catalog** as of May 2026. Confirm with LINE Thailand (item 3.2 above).
 
 ### 3.4 Required scopes / permissions
 
@@ -522,8 +522,8 @@ Negligible.
 // /srv/affine/data/affine-config/config.json
 {
   "analytics": {
-    "kmsKey": "projects/affine-495114/locations/global/keyRings/gogocash-keyring/cryptoKeys/analytics-tokens"
-  }
+    "kmsKey": "projects/affine-495114/locations/global/keyRings/gogocash-keyring/cryptoKeys/analytics-tokens",
+  },
 }
 ```
 
@@ -540,19 +540,20 @@ with engineering; engineering work on Phase 1 is unblocked from Day 0
 because it depends only on KMS + GoGoCash internal data (no external
 approvals needed).
 
-| Day | Approvals work | Engineering work (PRD §9) |
-|---|---|---|
-| **Day 0** | Run all `gcloud kms` commands in §4. Create+verify keyring + key. Bind IAM. Enable audit logs. (R1 — coordinate with whoever owns GCP project IAM.) Open LINE Developers console, create provider + Messaging API channel. Document channel secret + access token in 1Password. | Phase 1 kickoff: Prisma schema + migration; backend module scaffold; frontend module + nav. |
-| **Day 1** | Submit Meta Business Verification documents. Create the Meta App in Development mode; configure URLs, app icon, redirect URI. | Continue Phase 1: KMS-backed token store (using key from §4); GoGoCash internal poller. |
-| **Day 2** | Submit TikTok Developer app for review (Display API + Content Posting tier). Send LINE Thailand BD outreach (§3.2 ACTION). | Phase 1 finishing: cost meter + first dashboard cards. |
-| **Day 3–7** | Wait on Meta Business Verification (~2–10 business days). Wait on TikTok review (~1–4 weeks). Build Meta screencasts in advance using Development-mode app + test users. | Phase 1 E2E + sign-off; Phase 2 starts: LINE OAuth + webhook; AI prompts (four-step dance per CLAUDE.md §5c). |
-| **Week 2** | Once Meta Business Verification clears, submit App Review with all 8 scopes + screencasts + use case statements. | Phase 2 finishing: AI insight UI; weekly strategy E2E test against GoGoCash + LINE data. |
-| **Week 3** | Handle Meta review responses (almost always: at least 1 scope rejected on first pass, fix screencast or copy, resubmit within 48 h to keep momentum). Get LINE Thailand response on Voom API. | Phase 3 starts: implement Meta OAuth + webhook controller (works in Development mode against test users — no Meta approval blocker for dev work). |
-| **Week 4** | Meta scopes start clearing 1-by-1. Each clearance unblocks Phase 3 features in production. | Phase 3 finishing: per-platform deep-dive views; webhook signature verification tests. |
-| **Week 5** | TikTok approval expected this week. If denied, file appeal + ship Display API fallback path. | Phase 4: TikTok integration (in fallback shape — Display API only). |
-| **Week 6** | All approvals settled (or fallback paths confirmed for any rejections). | Phase 5 polish + production deploy. |
+| Day         | Approvals work                                                                                                                                                                                                                                                                  | Engineering work (PRD §9)                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Day 0**   | Run all `gcloud kms` commands in §4. Create+verify keyring + key. Bind IAM. Enable audit logs. (R1 — coordinate with whoever owns GCP project IAM.) Open LINE Developers console, create provider + Messaging API channel. Document channel secret + access token in 1Password. | Phase 1 kickoff: Prisma schema + migration; backend module scaffold; frontend module + nav.                                                       |
+| **Day 1**   | Submit Meta Business Verification documents. Create the Meta App in Development mode; configure URLs, app icon, redirect URI.                                                                                                                                                   | Continue Phase 1: KMS-backed token store (using key from §4); GoGoCash internal poller.                                                           |
+| **Day 2**   | Submit TikTok Developer app for review (Display API + Content Posting tier). Send LINE Thailand BD outreach (§3.2 ACTION).                                                                                                                                                      | Phase 1 finishing: cost meter + first dashboard cards.                                                                                            |
+| **Day 3–7** | Wait on Meta Business Verification (~2–10 business days). Wait on TikTok review (~1–4 weeks). Build Meta screencasts in advance using Development-mode app + test users.                                                                                                        | Phase 1 E2E + sign-off; Phase 2 starts: LINE OAuth + webhook; AI prompts (four-step dance per CLAUDE.md §5c).                                     |
+| **Week 2**  | Once Meta Business Verification clears, submit App Review with all 8 scopes + screencasts + use case statements.                                                                                                                                                                | Phase 2 finishing: AI insight UI; weekly strategy E2E test against GoGoCash + LINE data.                                                          |
+| **Week 3**  | Handle Meta review responses (almost always: at least 1 scope rejected on first pass, fix screencast or copy, resubmit within 48 h to keep momentum). Get LINE Thailand response on Voom API.                                                                                   | Phase 3 starts: implement Meta OAuth + webhook controller (works in Development mode against test users — no Meta approval blocker for dev work). |
+| **Week 4**  | Meta scopes start clearing 1-by-1. Each clearance unblocks Phase 3 features in production.                                                                                                                                                                                      | Phase 3 finishing: per-platform deep-dive views; webhook signature verification tests.                                                            |
+| **Week 5**  | TikTok approval expected this week. If denied, file appeal + ship Display API fallback path.                                                                                                                                                                                    | Phase 4: TikTok integration (in fallback shape — Display API only).                                                                               |
+| **Week 6**  | All approvals settled (or fallback paths confirmed for any rejections).                                                                                                                                                                                                         | Phase 5 polish + production deploy.                                                                                                               |
 
 **Critical-path dependencies:**
+
 - Meta App Review can take longer than 4 weeks if the first submission
   has issues. Build the screencast bundle on **Day 1**, do not wait
   for Business Verification (you can record screencasts in dev mode
@@ -567,15 +568,15 @@ approvals needed).
 
 ## 6. Open contact items / "who to ping"
 
-| Owner | Action | Notes |
-|---|---|---|
-| **GoGoCash BD lead** | Contact LINE Thailand (`partner@linecorp.com.th` or via the LINE for Business Thailand portal) for VOOM analytics API confirmation (§3.2) | Highest-uncertainty item in the whole stack. Send before Day 1. |
-| **GoGoCash legal / compliance** | Confirm Thailand-specific document set for Meta Business Verification (§1.2 VERIFY). Confirm DBD Affidavit copies are < 90 days old. | Block on first attempt; fall back to Meta support if rejected. |
-| **GoGoCash GCP admin** | Run §4 `gcloud kms` commands. R1 — ask before granting IAM bindings. | One-time, < 1 hour total work. |
-| **GoGoCash design/marketing** | Produce the 1024×1024 Meta app icon, the 240×240 TikTok logo, the 512×512 LINE channel icon. None can contain platform brand assets. | Day 0–1. |
-| **GoGoCash legal** | Author the data-deletion-instructions page at `/legal/data-deletion-instructions` (§1.1) and update privacy policy to name FB/IG/Threads/TikTok/LINE explicitly (§1.4). | Day 0–1. Required before Meta submission. |
-| **AFFiNE engineering** | Build the data-deletion callback endpoint as Phase 5 polish (§1.1 option a), so that v2.1 can move from instructions URL to callback URL without a Meta re-review. | Phase 5 — not blocking v1. |
-| **Anthropic-style honesty check** | If LINE Voom API turns out not to exist, **update PRD §8** to remove the "real-time webhooks for Voom posts" claim and replace with "Messaging API insights only; Voom analytics deep-link to LINE Studio". Don't ship a UI that promises data we can't fetch. | Whoever lands the LINE response. |
+| Owner                             | Action                                                                                                                                                                                                                                                         | Notes                                                           |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **GoGoCash BD lead**              | Contact LINE Thailand (`partner@linecorp.com.th` or via the LINE for Business Thailand portal) for VOOM analytics API confirmation (§3.2)                                                                                                                      | Highest-uncertainty item in the whole stack. Send before Day 1. |
+| **GoGoCash legal / compliance**   | Confirm Thailand-specific document set for Meta Business Verification (§1.2 VERIFY). Confirm DBD Affidavit copies are < 90 days old.                                                                                                                           | Block on first attempt; fall back to Meta support if rejected.  |
+| **GoGoCash GCP admin**            | Run §4 `gcloud kms` commands. R1 — ask before granting IAM bindings.                                                                                                                                                                                           | One-time, < 1 hour total work.                                  |
+| **GoGoCash design/marketing**     | Produce the 1024×1024 Meta app icon, the 240×240 TikTok logo, the 512×512 LINE channel icon. None can contain platform brand assets.                                                                                                                           | Day 0–1.                                                        |
+| **GoGoCash legal**                | Author the data-deletion-instructions page at `/legal/data-deletion-instructions` (§1.1) and update privacy policy to name FB/IG/Threads/TikTok/LINE explicitly (§1.4).                                                                                        | Day 0–1. Required before Meta submission.                       |
+| **AFFiNE engineering**            | Build the data-deletion callback endpoint as Phase 5 polish (§1.1 option a), so that v2.1 can move from instructions URL to callback URL without a Meta re-review.                                                                                             | Phase 5 — not blocking v1.                                      |
+| **Anthropic-style honesty check** | If LINE Voom API turns out not to exist, **update PRD §8** to remove the "real-time webhooks for Voom posts" claim and replace with "Messaging API insights only; Voom analytics deep-link to LINE Studio". Don't ship a UI that promises data we can't fetch. | Whoever lands the LINE response.                                |
 
 ---
 

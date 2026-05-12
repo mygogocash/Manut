@@ -1,6 +1,6 @@
-// SUPERFLOW: this file used to render the FOSS-vs-Teams upgrade prompt and
+// MANUT: this file used to render the FOSS-vs-Teams upgrade prompt and
 // the "Selfhosted workspace - Seats N/10" card with "Upload license file" /
-// "Use purchased key" buttons. The Superflow fork removes the License tab
+// "Use purchased key" buttons. The Manut fork removes the License tab
 // from the settings sidebar entirely (see `../index.tsx`'s `showLicense`
 // flag) and lifts the seat cap on the backend. This module is kept as a
 // defensive fallback so any deep-link or stale code path that still routes
@@ -21,7 +21,7 @@ export const WorkspaceSettingLicense = ({
     <>
       <SettingHeader
         title={t['com.affine.settings.workspace.license']()}
-        subtitle="Superflow self-hosted edition"
+        subtitle="Manut self-hosted edition"
       />
       <div
         style={{
@@ -35,10 +35,10 @@ export const WorkspaceSettingLicense = ({
         }}
       >
         <p style={{ margin: 0, fontWeight: 600 }}>
-          All features enabled - Superflow self-hosted
+          All features enabled - Manut self-hosted
         </p>
         <p style={{ marginTop: '8px', marginBottom: 0 }}>
-          This is the Superflow fork of AFFiNE. There are no seat limits and no
+          This is the Manut fork of AFFiNE. There are no seat limits and no
           license required. Invite as many members as you need.
         </p>
       </div>

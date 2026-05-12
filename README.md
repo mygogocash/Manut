@@ -1,10 +1,10 @@
 <div align="center">
 
-# Superflow
+# Manut
 
 **AI-powered knowledge base. Agents, avatars, and Vertex AI on top of AFFiNE.**
 
-[Live demo](https://affine.gogocash.co) · [Issues](https://github.com/mygogocash/Superflow/issues) · [Upstream AFFiNE](https://github.com/toeverything/AFFiNE)
+[Live demo](https://manut.gogocash.co) · [Issues](https://github.com/mygogocash/Manut/issues) · [Upstream AFFiNE](https://github.com/toeverything/AFFiNE)
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Rust](https://img.shields.io/badge/Rust-1.94+-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
@@ -15,31 +15,31 @@
 
 ---
 
-## What is Superflow
+## What is Manut
 
-Superflow is GoGoCash's fork of [AFFiNE](https://github.com/toeverything/AFFiNE) 0.26.3 — a privacy-first, open-source workspace where docs, whiteboards, and tables hyper-merge into one canvas. On top of upstream AFFiNE, Superflow adds:
+Manut is GoGoCash's fork of [AFFiNE](https://github.com/toeverything/AFFiNE) 0.26.3 — a privacy-first, open-source workspace where docs, whiteboards, and tables hyper-merge into one canvas. On top of upstream AFFiNE, Manut adds:
 
 - **Agents (Beta)** — Notion-style agents in the sidebar, Perplexity-style agent detail page. Per-agent description, instructions, files, skills, links, and sub-agents that report up.
 - **Picrew-style avatars** — 8-tab 2D character builder (Hair · Accessory · Eyes · Brow · Mouth · Facial Hair · Clothes · Skin) for AI agents, persisted as JSONB.
 - **Vertex AI integration** — Anthropic Claude + Google Gemini through one service account. The URL builder now includes the `/projects/{project}/locations/{location}` prefix (fixes `RESOURCE_PROJECT_INVALID`).
 - **Self-host AI unlock** — model picker no longer locks Pro models on self-hosted instances. No subscription gate on `setModel`.
-- **Notion-style chat composer** — suggested prompts render in a grid *below* the chat input, not stacked above.
+- **Notion-style chat composer** — suggested prompts render in a grid _below_ the chat input, not stacked above.
 - **Slash menu fix** — `affine:note` no longer crashes the slash menu with a duplicate-id error (`addFactory({ override: true })`).
 - **Native binary rebuild** — `server-native.x64.node` rebuilt with full LLM dispatch (`llm_dispatch_stream`) for AI streaming.
 
 ## Live demo
 
-[https://affine.gogocash.co](https://affine.gogocash.co)
+[https://manut.gogocash.co](https://manut.gogocash.co)
 
 ## Tech stack
 
-| Layer | Tech |
-|---|---|
-| **Frontend** | React 19 · BlockSuite · Lit · vanilla-extract · rspack |
-| **Backend** | NestJS · GraphQL · Prisma · PostgreSQL · Redis |
-| **AI** | Vertex AI (Anthropic Claude + Google Gemini) · Manticore search |
-| **Native** | Rust 1.94 + napi-rs (`server-native.{x64,arm64}.node`) |
-| **Infra** | Docker buildx (linux/amd64) · GCE · Caddy · Cloudflare |
+| Layer        | Tech                                                            |
+| ------------ | --------------------------------------------------------------- |
+| **Frontend** | React 19 · BlockSuite · Lit · vanilla-extract · rspack          |
+| **Backend**  | NestJS · GraphQL · Prisma · PostgreSQL · Redis                  |
+| **AI**       | Vertex AI (Anthropic Claude + Google Gemini) · Manticore search |
+| **Native**   | Rust 1.94 + napi-rs (`server-native.{x64,arm64}.node`)          |
+| **Infra**    | Docker buildx (linux/amd64) · GCE · Caddy · Cloudflare          |
 
 ## Self-host with Docker
 
@@ -56,7 +56,7 @@ services:
     volumes:
       - ./config:/root/.affine/config
     ports:
-      - "3010:3010"
+      - '3010:3010'
 
   postgres:
     image: postgres:16
@@ -81,8 +81,8 @@ Drop a service-account JSON at `./config/affine-config/google-auth.json` and set
 {
   "copilot": {
     "providers": {
-      "geminiVertex":   { "project": "your-gcp-project", "location": "us-central1" },
-      "anthropicVertex":{ "project": "your-gcp-project", "location": "us-east5" }
+      "geminiVertex": { "project": "your-gcp-project", "location": "us-central1" },
+      "anthropicVertex": { "project": "your-gcp-project", "location": "us-east5" }
     }
   }
 }
@@ -92,8 +92,8 @@ Drop a service-account JSON at `./config/affine-config/google-auth.json` and set
 
 ```bash
 # Prereqs: Node 22, Yarn 4.13, Rust 1.94+, Docker, pkg-config, openssl
-git clone https://github.com/mygogocash/Superflow.git
-cd Superflow
+git clone https://github.com/mygogocash/Manut.git
+cd Manut
 
 corepack enable
 yarn install
@@ -104,7 +104,7 @@ yarn build
 docker buildx build --platform linux/amd64 \
   --no-cache \
   -f .docker/gogocash/Dockerfile.fullstack \
-  -t superflow:local .
+  -t manut:local .
 ```
 
 The Dockerfile expects pre-built artifacts:
@@ -119,7 +119,7 @@ Run `yarn build` (or the relevant per-package build) to produce these before `do
 
 ## What's NOT changed from upstream
 
-Superflow tracks upstream AFFiNE closely. Untouched areas include:
+Manut tracks upstream AFFiNE closely. Untouched areas include:
 
 - BlockSuite editor + whiteboard core
 - Workspace sync (Y.js / WebRTC)
@@ -144,7 +144,7 @@ Superflow tracks upstream AFFiNE closely. Untouched areas include:
 │       └── core/          ← Shared modules (agents/, ai-button/, blocksuite/...)
 ├── blocksuite/            ← BlockSuite editor (vendored, modified)
 ├── tools/                 ← Build / CI / dev scripts
-└── .docker/gogocash/      ← Superflow Docker recipes
+└── .docker/gogocash/      ← Manut Docker recipes
 ```
 
 ## Roadmap
@@ -157,7 +157,7 @@ Superflow tracks upstream AFFiNE closely. Untouched areas include:
 
 ## Credits
 
-Superflow stands on the shoulders of [AFFiNE](https://github.com/toeverything/AFFiNE) by [toeverything](https://github.com/toeverything). All upstream features and contributors are credited there. We rebase on upstream regularly and keep the diff minimal.
+Manut stands on the shoulders of [AFFiNE](https://github.com/toeverything/AFFiNE) by [toeverything](https://github.com/toeverything). All upstream features and contributors are credited there. We rebase on upstream regularly and keep the diff minimal.
 
 Avatar rendering uses [`avataaars@2.0.0`](https://github.com/fangpenlin/avataaars) (MIT).
 

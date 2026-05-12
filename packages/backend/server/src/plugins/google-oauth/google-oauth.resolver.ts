@@ -93,7 +93,7 @@ export class DriveFileType implements DriveFile {
   @Field(() => String, { nullable: true })
   modifiedTime?: string;
 
-  // SUPERFLOW v1.10.2: explicit @Field(() => String) for the `string | null`
+  // MANUT v1.10.2: explicit @Field(() => String) for the `string | null`
   // union. NestJS metadata reflection cannot infer a GraphQL type from a
   // union containing `null` and crashes the schema build with
   // `UndefinedTypeError: ... explicit type for the "size" of "DriveFile"`.
@@ -186,7 +186,7 @@ export class GoogleOAuthResolver {
     );
   }
 
-  // SUPERFLOW: this is a read-only status probe fired on Settings →
+  // MANUT: this is a read-only status probe fired on Settings →
   // Integrations panel mount. There is no useful client action when the
   // status lookup itself fails (DB hiccup, model resolution miss, transient
   // Prisma issue), and an unhandled throw here surfaces as a generic

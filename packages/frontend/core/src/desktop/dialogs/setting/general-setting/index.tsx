@@ -151,7 +151,7 @@ export const useGeneralSettingList = (): GeneralSettingList => {
       },
       {
         key: 'about',
-        title: 'About Superflow',
+        title: 'About Manut',
         icon: <InformationIcon />,
         testId: 'about-panel-trigger',
       }

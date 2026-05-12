@@ -1,4 +1,4 @@
-name: Superflow VM Init
+name: Manut VM Init
 
 # One-time bootstrap (idempotent — safe to re-run). Installs the Tier 1
 # safe-deploy scripts AND the canary overlay file onto the GCE VM.
@@ -130,7 +130,7 @@ jobs:
         if: always()
         run: |
           {
-            echo "## Superflow VM Init"
+            echo "## Manut VM Init"
             echo ""
             echo "Installed on \`${GCE_VM}\` in \`${GCE_ZONE}\`:"
             echo ""
@@ -142,7 +142,7 @@ jobs:
             echo "at deploy time via \`docker compose -f compose.yml -f compose.canary.yml\`."
             echo ""
             echo "Next steps:"
-            echo "1. Trigger Superflow Auto Deploy via any push to main, OR"
+            echo "1. Trigger Manut Auto Deploy via any push to main, OR"
             echo "2. Manually deploy any pushed image: \`gh workflow run superflow-deploy.yml -f tag=<tag>\`"
             echo "3. Deploys now use the smoke-then-swap pattern. Pre-validation"
             echo "   failures leave production untouched."

@@ -59,7 +59,7 @@ export const AboutAffine = () => {
   return (
     <>
       <SettingHeader
-        title="About Superflow"
+        title="About Manut"
         subtitle="Built for focused execution, fast collaboration, and reliable delivery."
         data-testid="about-title"
       />
@@ -108,7 +108,7 @@ export const AboutAffine = () => {
           </>
         ) : null}
         <SettingRow
-          name="Improve Superflow with telemetry"
+          name="Improve Manut with telemetry"
           desc="Help us improve speed and reliability by sharing anonymous usage signals."
         >
           <Switch
@@ -130,10 +130,10 @@ export const AboutAffine = () => {
         <a
           className={styles.link}
           rel="noreferrer"
-          href="https://github.com/mygogocash/Superflow/discussions"
+          href="https://github.com/mygogocash/Manut/discussions"
           target="_blank"
         >
-          Superflow community
+          Manut community
           <OpenInNewIcon className="icon" />
         </a>
       </SettingWrapper>

@@ -345,7 +345,7 @@ export class AIChatContent extends SignalWatcher(
 
   /**
    * Last 5 recent sessions for the inline strip. Only populated when
-   * `onOpenSession` is provided (Superflow's dedicated /chat page) and
+   * `onOpenSession` is provided (Manut's dedicated /chat page) and
    * the chat is currently empty. Plain field shape keeps this lit-friendly
    * — Lit only re-renders on @state property writes, so we replace the
    * array reference rather than mutate.

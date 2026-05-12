@@ -1,4 +1,4 @@
-name: Superflow CI
+name: Manut CI
 
 # Runs on every push to main and every PR targeting main. Catches lint
 # and web-bundle regressions before they reach the deploy track.

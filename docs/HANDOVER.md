@@ -13,7 +13,7 @@ before changing, building, or deploying the project.
 - Product: GoGoCash Superflow, a fork of AFFiNE with AI agents, Vertex AI,
   self-host AI unlocks, Gmail/Drive integration, analytics work, and
   Superflow-specific deployment automation.
-- Live app: `https://affine.gogocash.co`.
+- Live app: `https://manut.gogocash.co`.
 - Production status source: `docs/CICD_ROADMAP.md` says the latest
   validated production image was `main-393950532-25413249523`, deployed
   through the full CI -> Build -> Auto Deploy chain with `/info` HTTP 200.
@@ -36,7 +36,7 @@ before changing, building, or deploying the project.
 - `docs/RELEASES/v1.10.2.md` - latest feature release narrative.
 - `docs/analytics-platform.md` and `docs/analytics-approvals.md` - analytics
   product plan and external approval checklist.
-- `scripts/superflow-release-handover.mjs` - generates human and JSON
+- `scripts/manut-release-handover.mjs` - generates human and JSON
   control-plane handovers for CI build/release artifacts.
 - `scripts/vm/deploy.sh`, `scripts/vm/rollback.sh`,
   `scripts/vm/compose.canary.yml` - executable VM runbook.
@@ -147,7 +147,7 @@ live VM state.
 - VM: `affine-vm`, zone `asia-southeast1-a`.
 - GAR image path:
   `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash`.
-- Domain: `affine.gogocash.co`.
+- Domain: `manut.gogocash.co`.
 - Optional Slack secret: `SLACK_WEBHOOK_URL`.
 - Google OAuth APIs: Gmail and Drive APIs must be enabled in the GCP project.
 
@@ -182,7 +182,7 @@ GitHub workflows rather than hand-editing the VM whenever possible.
   operational traps in `AGENTS.md` / `CLAUDE.md`.
 - When the control-plane contract changes, update
   `docs/SUPERFLOW_CONTROL_PLANE.md` and verify
-  `scripts/superflow-release-handover.mjs --help` still documents the
+  `scripts/manut-release-handover.mjs --help` still documents the
   emitted fields.
 - When a code review finds a real blocker, either fix it immediately or add it
   to the High-Risk Findings section with an owner and verification command.

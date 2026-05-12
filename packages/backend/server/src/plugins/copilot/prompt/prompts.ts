@@ -499,7 +499,7 @@ You are an assistant helping summarize a document. Use this format, replacing te
     // themselves instead of staying as "New chat" forever.
     //
     // Model: gemini-2.5-flash. Upstream defaults to gpt-5-mini which is
-    // unavailable on Superflow's Vertex-only stack — title generation
+    // unavailable on Manut's Vertex-only stack — title generation
     // silently fails and every chat reads "New chat". Same fix as the
     // Auto Tag prompt (§5c).
     name: 'Summary as title',
@@ -519,11 +519,11 @@ You are an assistant helping summarize a document. Use this format, replacing te
     ],
   },
   {
-    // Superflow custom: AI Auto Tag — generates 3-7 tag suggestions from
+    // Manut custom: AI Auto Tag — generates 3-7 tag suggestions from
     // a doc's title + content so users can build relationships between
     // notes in the knowledge graph without manually picking tags.
     //
-    // Model: gemini-2.5-flash (same as Chat With AFFiNE AI). Superflow's
+    // Model: gemini-2.5-flash (same as Chat With AFFiNE AI). Manut's
     // Vertex AI deployment only routes Gemini and Anthropic models;
     // gpt-5-mini (the default in upstream prompts) would fall back to an
     // unconfigured OpenAI provider on this stack and 500.
@@ -1662,7 +1662,7 @@ Please return only the modified section, maintaining consistency with the overal
 // Analytics platform prompts (PRD §7 — AI Strategist for the social-media
 // analytics dashboard). All four route through the existing Vertex providers
 // (CLAUDE.md §5d). Models are pinned to gemini-2.5-flash + claude-sonnet-4.5
-// because Superflow's Vertex stack does not route gpt-* (CLAUDE.md §5c).
+// because Manut's Vertex stack does not route gpt-* (CLAUDE.md §5c).
 const analyticsActions: Prompt[] = [
   {
     name: 'Analytics: Weekly Strategy',

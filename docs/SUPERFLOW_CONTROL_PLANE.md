@@ -36,7 +36,7 @@ The first implementation is release handover generation:
 ```
 main or v* tag
   -> Superflow Build or Superflow Release
-  -> scripts/superflow-release-handover.mjs
+  -> scripts/manut-release-handover.mjs
   -> superflow-handover.md and superflow-handover.json artifacts
   -> operator, deploy workflow, or future AFFiNE UI reads the same contract
 ```

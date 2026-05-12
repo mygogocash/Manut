@@ -1,7 +1,10 @@
-# GoGoCash AFFiNE — Project Work Rules
+# Manut — Project Work Rules
 
 This file is loaded automatically into every Claude Code session in this repo.
-It encodes the playbook we've converged on through the gogocash-fork work.
+It encodes the playbook we've converged on through the gogocash-fork work
+(historically codenamed "Superflow"; many internal identifiers — workflow
+filenames, backend module paths, docker image — still carry the old name and
+are intentionally left unchanged until a planned migration).
 Treat it as the project's Definition-of-Done; deviations need a reason.
 
 ## 1. Spawn sub-agents to speed up development
@@ -793,7 +796,7 @@ so they're effectively dormant on this fork):
   `workflow_dispatch` with a `tag` input. Validates the tag exists
   in GAR, IAP-tunnels into `affine-vm`, backs up `compose.yml` to
   `compose.yml.pre-<tag>.bak`, swaps the image, restarts. Smoke-tests
-  `https://affine.gogocash.co/info` (30 retries × 3s) and verifies
+  `https://manut.gogocash.co/info` (30 retries × 3s) and verifies
   the `Auto Tag` prompt is seeded. Always prints the rollback command
   in the run summary.
 

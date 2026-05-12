@@ -1,4 +1,4 @@
-name: Superflow Deploy
+name: Manut Deploy
 
 # Manually triggered. Deploys a chosen image tag to production using the
 # Tier 1 safe-deploy contract (smoke-then-swap with sidecar validation +
@@ -21,7 +21,7 @@ name: Superflow Deploy
 #   * = unknown — treated as 3
 #
 # To manually roll back to a known-good tag, use the
-# `Superflow Rollback` workflow instead — it's a one-click revert that
+# `Manut Rollback` workflow instead — it's a one-click revert that
 # reads /srv/affine/compose/compose.yml.previous.bak.
 #
 # Required GCP roles on affine-495114 (granted to
@@ -48,7 +48,7 @@ env:
   GCP_PROJECT: affine-495114
   GCE_ZONE: asia-southeast1-a
   GCE_VM: affine-vm
-  PROD_HOST: affine.gogocash.co
+  PROD_HOST: manut.gogocash.co
   GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
 
 jobs:
@@ -145,7 +145,7 @@ jobs:
           DEPLOY_RC: ${{ steps.deploy.outputs.deploy_rc }}
         run: |
           {
-            echo "## Superflow Deploy"
+            echo "## Manut Deploy"
             echo ""
             echo "- Tag: \`${TAG}\`"
             echo "- Production: https://${PROD_HOST}"

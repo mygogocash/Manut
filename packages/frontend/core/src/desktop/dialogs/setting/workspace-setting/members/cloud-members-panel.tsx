@@ -286,7 +286,7 @@ export const CloudWorkspaceMembersPanel = ({
     if (isTeam) {
       return `${t['Members']()} (${workspaceQuota?.memberCount})`;
     }
-    // SUPERFLOW: seat cap is lifted to 100k via QuotaService.getWorkspaceQuota
+    // MANUT: seat cap is lifted to 100k via QuotaService.getWorkspaceQuota
     // for self-hosted (see CLAUDE.md §5). Showing "(N/100000)" looks bad.
     // Treat any limit ≥ 10000 as effectively unlimited and hide the ratio.
     // Threshold is above every real plan (FOSS = 10, upstream Team plans cap

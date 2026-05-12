@@ -1,4 +1,4 @@
-name: Superflow Release
+name: Manut Release
 
 # Triggered when a `v*.*.*` tag is pushed.
 #
@@ -202,7 +202,7 @@ jobs:
           # so a re-run of the same release tag never clobbers a previously
           # deployed image. The plain :v<X.Y.Z> tag is ALSO pushed so users
           # can deploy by version, but the run-unique tag is what
-          # `Superflow Deploy` should target for redeployment safety.
+          # `Manut Deploy` should target for redeployment safety.
           IMAGE_TAG="${VERSION}-${RUN_ID}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
@@ -238,7 +238,7 @@ jobs:
           cache-to: type=registry,ref=${{ env.GAR_CACHE_REPO }}:buildx,mode=max
           no-cache-filters: assets
 
-      - name: Write Superflow handover artifact
+      - name: Write Manut handover artifact
         env:
           VERSION: ${{ steps.version.outputs.version }}
           IMAGE_TAG: ${{ steps.version.outputs.image_tag }}
@@ -246,7 +246,7 @@ jobs:
           GAR_REPO: ${{ env.GAR_REPO }}
         run: |
           mkdir -p artifact
-          node scripts/superflow-release-handover.mjs \
+          node scripts/manut-release-handover.mjs \
             --mode release \
             --status "release image built" \
             --version "${VERSION}" \
@@ -273,7 +273,7 @@ jobs:
           CACHE_IMAGE: ${{ env.GAR_CACHE_REPO }}:buildx
         run: |
           {
-            echo "## Superflow Release"
+            echo "## Manut Release"
             echo ""
             echo "- Version: \`$VERSION\`"
             echo "- Run-unique image tag (use this for deploy): \`$IMAGE_TAG\`"
@@ -282,7 +282,7 @@ jobs:
             echo "- Buildx cache: \`$CACHE_IMAGE\`"
             echo "- Handover artifact: \`superflow-handover\`"
             echo ""
-            echo "Run the **Superflow Deploy** workflow manually with"
+            echo "Run the **Manut Deploy** workflow manually with"
             echo "\`tag: $IMAGE_TAG\` to roll this out to GCE under the"
             echo "Tier 1 smoke-then-swap contract."
           } >> "$GITHUB_STEP_SUMMARY"

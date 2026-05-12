@@ -1,0 +1,240 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-display: var(--font-display);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ── Light theme: warm cream + ink + lime ── */
+:root {
+  --radius: 0.5rem;
+
+  --background: oklch(0.985 0.008 85);
+  --foreground: oklch(0.18 0.01 260);
+
+  --surface: oklch(1 0 0);
+  --surface-elevated: oklch(0.995 0.005 85);
+  --ink: oklch(0.18 0.01 260);
+  --ink-soft: oklch(0.32 0.01 260);
+  --line: oklch(0.88 0.01 85);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.01 260);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.01 260);
+
+  --primary: oklch(0.18 0.01 260);
+  --primary-foreground: oklch(0.985 0.008 85);
+
+  --secondary: oklch(0.95 0.008 85);
+  --secondary-foreground: oklch(0.18 0.01 260);
+
+  --muted: oklch(0.95 0.008 85);
+  --muted-foreground: oklch(0.5 0.01 260);
+
+  --accent: oklch(0.88 0.18 130);
+  --accent-foreground: oklch(0.18 0.01 260);
+
+  --destructive: oklch(0.577 0.245 27.325);
+
+  --border: oklch(0.88 0.01 85);
+  --input: oklch(0.92 0.01 85);
+  --ring: oklch(0.5 0.01 260);
+}
+
+/* ── Dark theme: deep ink + paper + lime ── */
+.dark {
+  --background: oklch(0.16 0.008 270);
+  --foreground: oklch(0.96 0.005 85);
+
+  --surface: oklch(0.2 0.008 270);
+  --surface-elevated: oklch(0.23 0.008 270);
+  --ink: oklch(0.96 0.005 85);
+  --ink-soft: oklch(0.78 0.008 85);
+  --line: oklch(1 0 0 / 10%);
+
+  --card: oklch(0.2 0.008 270);
+  --card-foreground: oklch(0.96 0.005 85);
+
+  --popover: oklch(0.22 0.008 270);
+  --popover-foreground: oklch(0.96 0.005 85);
+
+  --primary: oklch(0.96 0.005 85);
+  --primary-foreground: oklch(0.18 0.01 260);
+
+  --secondary: oklch(0.27 0.008 270);
+  --secondary-foreground: oklch(0.96 0.005 85);
+
+  --muted: oklch(0.27 0.008 270);
+  --muted-foreground: oklch(0.7 0.008 85);
+
+  --accent: oklch(0.85 0.19 132);
+  --accent-foreground: oklch(0.16 0.008 270);
+
+  --destructive: oklch(0.704 0.191 22.216);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.65 0.008 85);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: 'ss01', 'cv01', 'cv02', 'cv11';
+  }
+
+  ::selection {
+    background-color: oklch(0.88 0.18 130);
+    color: oklch(0.18 0.01 260);
+  }
+
+  /* Subtle grain on the page-level background only */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.4;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    mix-blend-mode: multiply;
+  }
+
+  .dark body::before {
+    opacity: 0.5;
+    mix-blend-mode: screen;
+  }
+}
+
+@layer utilities {
+  /* Editorial italic accent */
+  .display-italic {
+    font-family: var(--font-display, ui-serif, Georgia, serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  /* Mono kicker label */
+  .kicker {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+
+  .kicker-line::before {
+    content: '';
+    display: inline-block;
+    width: 1.5rem;
+    height: 1px;
+    background: currentColor;
+    margin-right: 0.625rem;
+    vertical-align: middle;
+    transform: translateY(-1px);
+  }
+
+  /* Reveal-on-scroll */
+  .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition:
+      opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+
+  /* Container with editorial gutters */
+  .container-prose {
+    max-width: 1240px;
+    margin-inline: auto;
+    padding-inline: clamp(1.25rem, 4vw, 2rem);
+  }
+
+  /* Numbered tabular figures for stats */
+  .nums-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Lime ring used on focused/active interactive surfaces */
+  .ring-accent-glow:focus-visible {
+    outline: 2px solid oklch(0.88 0.18 130);
+    outline-offset: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,19 +1,19 @@
 # Production Readiness Audit — `affine-gogocash:latest`
 
 **Diff scope:** commit `648903b` → `HEAD` on `main`
-**Target deployment:** GCE VM `affine-vm` (asia-southeast1-a) serving `https://affine.gogocash.co`
+**Target deployment:** GCE VM `affine-vm` (asia-southeast1-a) serving `https://manut.gogocash.co`
 **Verdict:** **BLOCK — do not deploy until the MUST-FIX list below is resolved.**
 
 ---
 
 ## 1. Severity summary
 
-| Severity | Count | Areas |
-| --- | --- | --- |
-| CRITICAL | 5 | OAuth (state replay, auth bypass, popup), DB FK, plaintext-named token columns |
-| HIGH | 11 | token refresh, dual migrations, error-swallowing, MCP timing+membership, raw GQL fetch, mutation rejections, stale toast, double `any` |
-| MEDIUM | 7 | encryption-key rotation, HubSpot URL-token, hook-at-module-parse, theming, etc. |
-| LOW | 4 | OAuth state TTL, error-message provider oracle, ava glob, dead code |
+| Severity | Count | Areas                                                                                                                                  |
+| -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| CRITICAL | 5     | OAuth (state replay, auth bypass, popup), DB FK, plaintext-named token columns                                                         |
+| HIGH     | 11    | token refresh, dual migrations, error-swallowing, MCP timing+membership, raw GQL fetch, mutation rejections, stale toast, double `any` |
+| MEDIUM   | 7     | encryption-key rotation, HubSpot URL-token, hook-at-module-parse, theming, etc.                                                        |
+| LOW      | 4     | OAuth state TTL, error-message provider oracle, ava glob, dead code                                                                    |
 
 Plus **4 feature deceptions** (advertised behaviour ≠ actual behaviour) that will erode user trust faster than any of the above.
 
@@ -61,12 +61,12 @@ Plus **4 feature deceptions** (advertised behaviour ≠ actual behaviour) that w
 
 ## 3. Feature truth-in-advertising (must address)
 
-| Feature | What's shipped | What's claimed | Action |
-| --- | --- | --- | --- |
-| Audio block | Recording works (MediaRecorder, blob upload) | "auto-transcription" in slash menu | **Hide transcription label** until pipeline exists |
-| Chart block | Bar chart only; AI prompt → `/api/copilot/text` | "bar/line/pie + AI generation"; on any failure silently substitutes Jan–May demo data | **Show explicit error on AI failure**; remove demo fallback or label it "example" |
-| List view | Drag-reorder always drops at end-of-list; "inline edit" opens detail panel | "drag-reorder, inline edit" | **Either implement or rename UI labels** |
-| Map view | Leaflet + markercluster loaded from unpkg.com at runtime; geocoding via Nominatim public endpoint | "production map view" | **Self-host Leaflet bundle**, add Nominatim fallback or paid geocoder. CDN/rate-limit = single point of failure |
+| Feature     | What's shipped                                                                                    | What's claimed                                                                        | Action                                                                                                          |
+| ----------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Audio block | Recording works (MediaRecorder, blob upload)                                                      | "auto-transcription" in slash menu                                                    | **Hide transcription label** until pipeline exists                                                              |
+| Chart block | Bar chart only; AI prompt → `/api/copilot/text`                                                   | "bar/line/pie + AI generation"; on any failure silently substitutes Jan–May demo data | **Show explicit error on AI failure**; remove demo fallback or label it "example"                               |
+| List view   | Drag-reorder always drops at end-of-list; "inline edit" opens detail panel                        | "drag-reorder, inline edit"                                                           | **Either implement or rename UI labels**                                                                        |
+| Map view    | Leaflet + markercluster loaded from unpkg.com at runtime; geocoding via Nominatim public endpoint | "production map view"                                                                 | **Self-host Leaflet bundle**, add Nominatim fallback or paid geocoder. CDN/rate-limit = single point of failure |
 
 All view presets are **desktop-only** (every `effect.ts` has `TODO: mobile`). Confirm rollout audience or hide on mobile.
 
