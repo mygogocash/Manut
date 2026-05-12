@@ -606,7 +606,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.aboutAFFiNE.autoDownloadUpdate.title"](): string;
     /**
-      * `View the AFFiNE Changelog.`
+      * `View the Superflow changelog.`
       */
     ["com.affine.aboutAFFiNE.changelog.description"](): string;
     /**
@@ -650,7 +650,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.aboutAFFiNE.checkUpdate.subtitle.error"](): string;
     /**
-      * `You've got the latest version of AFFiNE.`
+      * `You've got the latest version of Superflow.`
       */
     ["com.affine.aboutAFFiNE.checkUpdate.subtitle.latest"](): string;
     /**
@@ -672,7 +672,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.aboutAFFiNE.community.title"](): string;
     /**
-      * `AFFiNE community`
+      * `Superflow community`
       */
     ["com.affine.aboutAFFiNE.contact.community"](): string;
     /**
@@ -696,11 +696,11 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.aboutAFFiNE.legal.tos"](): string;
     /**
-      * `Information about AFFiNE`
+      * `Information about Superflow`
       */
     ["com.affine.aboutAFFiNE.subtitle"](): string;
     /**
-      * `About AFFiNE`
+      * `About Superflow`
       */
     ["com.affine.aboutAFFiNE.title"](): string;
     /**
@@ -8883,6 +8883,502 @@ export function useAFFiNEI18N(): {
       * `Yesterday`
       */
     ["com.affine.yesterday"](): string;
+    /**
+      * `New account`
+      */
+    ["com.superflow.crm.accounts.create"](): string;
+    /**
+      * `Could not create account`
+      */
+    ["com.superflow.crm.accounts.create.error"](): string;
+    /**
+      * `Account created`
+      */
+    ["com.superflow.crm.accounts.created"](): string;
+    /**
+      * `No accounts yet. Create one to get started.`
+      */
+    ["com.superflow.crm.accounts.empty"](): string;
+    /**
+      * `Companies and organizations you sell to or partner with.`
+      */
+    ["com.superflow.crm.accounts.subtitle"](): string;
+    /**
+      * `Cancel`
+      */
+    ["com.superflow.crm.action.cancel"](): string;
+    /**
+      * `Create`
+      */
+    ["com.superflow.crm.action.create"](): string;
+    /**
+      * `New activity`
+      */
+    ["com.superflow.crm.activities.create"](): string;
+    /**
+      * `Could not create activity`
+      */
+    ["com.superflow.crm.activities.create.error"](): string;
+    /**
+      * `Activity logged`
+      */
+    ["com.superflow.crm.activities.created"](): string;
+    /**
+      * `No activities yet. Log a call, email, or note to keep track.`
+      */
+    ["com.superflow.crm.activities.empty"](): string;
+    /**
+      * `Calls, meetings, emails, and notes attached to your CRM records.`
+      */
+    ["com.superflow.crm.activities.subtitle"](): string;
+    /**
+      * `New contact`
+      */
+    ["com.superflow.crm.contacts.create"](): string;
+    /**
+      * `Could not create contact`
+      */
+    ["com.superflow.crm.contacts.create.error"](): string;
+    /**
+      * `Contact created`
+      */
+    ["com.superflow.crm.contacts.created"](): string;
+    /**
+      * `No contacts yet. Add one to start tracking conversations.`
+      */
+    ["com.superflow.crm.contacts.empty"](): string;
+    /**
+      * `People you talk to. Link them to an account to keep context together.`
+      */
+    ["com.superflow.crm.contacts.subtitle"](): string;
+    /**
+      * `Add a stage`
+      */
+    ["com.superflow.crm.deals.addStage"](): string;
+    /**
+      * `New deal`
+      */
+    ["com.superflow.crm.deals.create"](): string;
+    /**
+      * `Could not create deal`
+      */
+    ["com.superflow.crm.deals.create.error"](): string;
+    /**
+      * `Deal created`
+      */
+    ["com.superflow.crm.deals.created"](): string;
+    /**
+      * `No deals yet. Create one to start tracking your pipeline.`
+      */
+    ["com.superflow.crm.deals.empty"](): string;
+    /**
+      * `Add a deal stage before you can create deals.`
+      */
+    ["com.superflow.crm.deals.noStages"](): string;
+    /**
+      * `Could not create stage`
+      */
+    ["com.superflow.crm.deals.stage.create.error"](): string;
+    /**
+      * `Stage created`
+      */
+    ["com.superflow.crm.deals.stage.created"](): string;
+    /**
+      * `Open opportunities grouped by pipeline stage.`
+      */
+    ["com.superflow.crm.deals.subtitle"](): string;
+    /**
+      * `Something went wrong loading CRM data`
+      */
+    ["com.superflow.crm.error.message"](): string;
+    /**
+      * `Try again`
+      */
+    ["com.superflow.crm.error.retry"](): string;
+    /**
+      * `Unknown error`
+      */
+    ["com.superflow.crm.error.unknown"](): string;
+    /**
+      * `Account`
+      */
+    ["com.superflow.crm.fields.account"](): string;
+    /**
+      * `No account`
+      */
+    ["com.superflow.crm.fields.account.none"](): string;
+    /**
+      * `Body`
+      */
+    ["com.superflow.crm.fields.body"](): string;
+    /**
+      * `Email`
+      */
+    ["com.superflow.crm.fields.email"](): string;
+    /**
+      * `First name`
+      */
+    ["com.superflow.crm.fields.firstName"](): string;
+    /**
+      * `Industry`
+      */
+    ["com.superflow.crm.fields.industry"](): string;
+    /**
+      * `Last name`
+      */
+    ["com.superflow.crm.fields.lastName"](): string;
+    /**
+      * `Name`
+      */
+    ["com.superflow.crm.fields.name"](): string;
+    /**
+      * `Acme Inc.`
+      */
+    ["com.superflow.crm.fields.name.placeholder"](): string;
+    /**
+      * `Phone`
+      */
+    ["com.superflow.crm.fields.phone"](): string;
+    /**
+      * `Stage`
+      */
+    ["com.superflow.crm.fields.stage"](): string;
+    /**
+      * `Stage name`
+      */
+    ["com.superflow.crm.fields.stage.name"](): string;
+    /**
+      * `Pick a stage`
+      */
+    ["com.superflow.crm.fields.stage.placeholder"](): string;
+    /**
+      * `Subject`
+      */
+    ["com.superflow.crm.fields.subject"](): string;
+    /**
+      * `Type`
+      */
+    ["com.superflow.crm.fields.type"](): string;
+    /**
+      * `Value`
+      */
+    ["com.superflow.crm.fields.value"](): string;
+    /**
+      * `Website`
+      */
+    ["com.superflow.crm.fields.website"](): string;
+    /**
+      * `Accounts`
+      */
+    ["com.superflow.crm.tab.accounts"](): string;
+    /**
+      * `Activities`
+      */
+    ["com.superflow.crm.tab.activities"](): string;
+    /**
+      * `Contacts`
+      */
+    ["com.superflow.crm.tab.contacts"](): string;
+    /**
+      * `Deals`
+      */
+    ["com.superflow.crm.tab.deals"](): string;
+    /**
+      * `CRM`
+      */
+    ["com.superflow.crm.title"](): string;
+    /**
+      * `Add task`
+      */
+    ["com.superflow.pm.action.addTask"](): string;
+    /**
+      * `Cancel`
+      */
+    ["com.superflow.pm.action.cancel"](): string;
+    /**
+      * `Create project`
+      */
+    ["com.superflow.pm.action.createProject"](): string;
+    /**
+      * `New project`
+      */
+    ["com.superflow.pm.action.newProject"](): string;
+    /**
+      * `Retry`
+      */
+    ["com.superflow.pm.action.retry"](): string;
+    /**
+      * `Create your first project to organize tasks.`
+      */
+    ["com.superflow.pm.empty.body"](): string;
+    /**
+      * `No projects yet`
+      */
+    ["com.superflow.pm.empty.title"](): string;
+    /**
+      * `Could not create project`
+      */
+    ["com.superflow.pm.error.createProject"](): string;
+    /**
+      * `Could not add task`
+      */
+    ["com.superflow.pm.error.createTask"](): string;
+    /**
+      * `Failed to delete task`
+      */
+    ["com.superflow.pm.error.deleteTask"](): string;
+    /**
+      * `Failed to load projects`
+      */
+    ["com.superflow.pm.error.loadProjects"](): string;
+    /**
+      * `Failed to load tasks`
+      */
+    ["com.superflow.pm.error.loadTasks"](): string;
+    /**
+      * `Failed to update task`
+      */
+    ["com.superflow.pm.error.updateTask"](): string;
+    /**
+      * `Description (optional)`
+      */
+    ["com.superflow.pm.field.description"](): string;
+    /**
+      * `Due date (optional)`
+      */
+    ["com.superflow.pm.field.dueDate"](): string;
+    /**
+      * `Name`
+      */
+    ["com.superflow.pm.field.name"](): string;
+    /**
+      * `Priority`
+      */
+    ["com.superflow.pm.field.priority"](): string;
+    /**
+      * `Status`
+      */
+    ["com.superflow.pm.field.status"](): string;
+    /**
+      * `Title`
+      */
+    ["com.superflow.pm.field.title"](): string;
+    /**
+      * `New project`
+      */
+    ["com.superflow.pm.modal.newProject"](): string;
+    /**
+      * `Group tasks under a project.`
+      */
+    ["com.superflow.pm.modal.newProject.description"](): string;
+    /**
+      * `Add task`
+      */
+    ["com.superflow.pm.modal.newTask"](): string;
+    /**
+      * `Create a new task in this project.`
+      */
+    ["com.superflow.pm.modal.newTask.description"](): string;
+    /**
+      * `High`
+      */
+    ["com.superflow.pm.priority.high"](): string;
+    /**
+      * `Low`
+      */
+    ["com.superflow.pm.priority.low"](): string;
+    /**
+      * `Medium`
+      */
+    ["com.superflow.pm.priority.medium"](): string;
+    /**
+      * `No priority`
+      */
+    ["com.superflow.pm.priority.none"](): string;
+    /**
+      * `Urgent`
+      */
+    ["com.superflow.pm.priority.urgent"](): string;
+    /**
+      * `Active`
+      */
+    ["com.superflow.pm.project.status.active"](): string;
+    /**
+      * `Archived`
+      */
+    ["com.superflow.pm.project.status.archived"](): string;
+    /**
+      * `Track work for this workspace. Tasks live under projects you create.`
+      */
+    ["com.superflow.pm.section.subtitle"](): string;
+    /**
+      * `Projects & tasks`
+      */
+    ["com.superflow.pm.section.title"](): string;
+    /**
+      * `No tasks yet. Add the first one.`
+      */
+    ["com.superflow.pm.task.empty"](): string;
+    /**
+      * `Hide tasks`
+      */
+    ["com.superflow.pm.task.hide"](): string;
+    /**
+      * `Show tasks`
+      */
+    ["com.superflow.pm.task.show"](): string;
+    /**
+      * `Backlog`
+      */
+    ["com.superflow.pm.task.status.backlog"](): string;
+    /**
+      * `Cancelled`
+      */
+    ["com.superflow.pm.task.status.cancelled"](): string;
+    /**
+      * `Done`
+      */
+    ["com.superflow.pm.task.status.done"](): string;
+    /**
+      * `In progress`
+      */
+    ["com.superflow.pm.task.status.inProgress"](): string;
+    /**
+      * `To do`
+      */
+    ["com.superflow.pm.task.status.todo"](): string;
+    /**
+      * `Projects`
+      */
+    ["com.superflow.pm.title"](): string;
+    /**
+      * `Mark done`
+      */
+    ["com.superflow.reminders.action.markDone"](): string;
+    /**
+      * `New reminder`
+      */
+    ["com.superflow.reminders.action.new"](): string;
+    /**
+      * `Due`
+      */
+    ["com.superflow.reminders.card.dueAt"](): string;
+    /**
+      * `Nothing has been completed or cancelled yet.`
+      */
+    ["com.superflow.reminders.empty.done"](): string;
+    /**
+      * `Nothing is due right now.`
+      */
+    ["com.superflow.reminders.empty.due"](): string;
+    /**
+      * `No upcoming reminders. Create one to plan ahead.`
+      */
+    ["com.superflow.reminders.empty.upcoming"](): string;
+    /**
+      * `Failed to cancel reminder.`
+      */
+    ["com.superflow.reminders.error.cancel"](): string;
+    /**
+      * `Pick a valid due date and time.`
+      */
+    ["com.superflow.reminders.error.invalidDate"](): string;
+    /**
+      * `Try again`
+      */
+    ["com.superflow.reminders.error.retry"](): string;
+    /**
+      * `Body (optional)`
+      */
+    ["com.superflow.reminders.field.body.label"](): string;
+    /**
+      * `Add context, links, or a checklist.`
+      */
+    ["com.superflow.reminders.field.body.placeholder"](): string;
+    /**
+      * `We send the reminder at this time in your local timezone.`
+      */
+    ["com.superflow.reminders.field.dueAt.hint"](): string;
+    /**
+      * `Due at`
+      */
+    ["com.superflow.reminders.field.dueAt.label"](): string;
+    /**
+      * `Title`
+      */
+    ["com.superflow.reminders.field.title.label"](): string;
+    /**
+      * `What should we remind you about?`
+      */
+    ["com.superflow.reminders.field.title.placeholder"](): string;
+    /**
+      * `Cancel`
+      */
+    ["com.superflow.reminders.modal.cancel"](): string;
+    /**
+      * `Email reminders fire at the due time you pick.`
+      */
+    ["com.superflow.reminders.modal.description"](): string;
+    /**
+      * `Create reminder`
+      */
+    ["com.superflow.reminders.modal.submit"](): string;
+    /**
+      * `New reminder`
+      */
+    ["com.superflow.reminders.modal.title"](): string;
+    /**
+      * `Could not cancel reminder`
+      */
+    ["com.superflow.reminders.notify.cancelled.error"](): string;
+    /**
+      * `Reminder cancelled`
+      */
+    ["com.superflow.reminders.notify.cancelled.title"](): string;
+    /**
+      * `Reminder created`
+      */
+    ["com.superflow.reminders.notify.created.title"](): string;
+    /**
+      * `Cancelled`
+      */
+    ["com.superflow.reminders.status.cancelled"](): string;
+    /**
+      * `Done`
+      */
+    ["com.superflow.reminders.status.completed"](): string;
+    /**
+      * `Due now`
+      */
+    ["com.superflow.reminders.status.due"](): string;
+    /**
+      * `Failed`
+      */
+    ["com.superflow.reminders.status.failed"](): string;
+    /**
+      * `Scheduled`
+      */
+    ["com.superflow.reminders.status.scheduled"](): string;
+    /**
+      * `Done & Cancelled`
+      */
+    ["com.superflow.reminders.tab.done"](): string;
+    /**
+      * `Due now`
+      */
+    ["com.superflow.reminders.tab.due"](): string;
+    /**
+      * `Upcoming`
+      */
+    ["com.superflow.reminders.tab.upcoming"](): string;
+    /**
+      * `Reminder filters`
+      */
+    ["com.superflow.reminders.tabs.label"](): string;
+    /**
+      * `Reminders`
+      */
+    ["com.superflow.reminders.title"](): string;
     /**
       * `core`
       */

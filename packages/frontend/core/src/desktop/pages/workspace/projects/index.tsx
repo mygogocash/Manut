@@ -1,15 +1,48 @@
+import { Button, Input, Modal, notify } from '@affine/component';
+import { useMutation } from '@affine/core/components/hooks/use-mutation';
+import { useQuery } from '@affine/core/components/hooks/use-query';
+import {
+  type CreateSfProjectInput,
+  createSfProjectMutation,
+  type CreateSfTaskInput,
+  createSfTaskMutation,
+  deleteSfTaskMutation,
+  SF_TASK_PRIORITIES,
+  SF_TASK_STATUSES,
+  type SfProjectDto,
+  sfProjectsQuery,
+  type SfTaskDto,
+  type SfTaskPriority,
+  sfTasksQuery,
+  type SfTaskStatus,
+  updateSfTaskStatusMutation,
+} from '@affine/core/modules/superflow-pm';
 import {
   ViewBody,
   ViewHeader,
   ViewIcon,
   ViewTitle,
 } from '@affine/core/modules/workbench';
-import { FolderIcon } from '@blocksuite/icons/rc';
+import { WorkspaceService } from '@affine/core/modules/workspace';
+import { DeleteIcon, FolderIcon, PlusIcon } from '@blocksuite/icons/rc';
+import { useService } from '@toeverything/infra';
+import {
+  type ChangeEvent,
+  Suspense,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 
 import { Header } from '../../../../components/pure/header';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
+import * as styles from './projects.css';
 
-const ProjectsHeader = () => (
+interface ProjectsHeaderProps {
+  onCreate: () => void;
+}
+
+const ProjectsHeader = ({ onCreate }: ProjectsHeaderProps) => (
   <Header
     left={
       <span
@@ -24,25 +57,793 @@ const ProjectsHeader = () => (
         <FolderIcon /> Projects
       </span>
     }
+    right={
+      <Button variant="primary" prefix={<PlusIcon />} onClick={onCreate}>
+        New project
+      </Button>
+    }
   />
 );
 
-const ProjectsPage = () => (
-  <>
-    <ViewTitle title="Projects" />
-    <ViewIcon icon="allDocs" />
-    <ViewHeader>
-      <ProjectsHeader />
-    </ViewHeader>
-    <ViewBody>
-      <p style={{ padding: 16, opacity: 0.8 }}>
-        Superflow project management will appear here. Enable the server with{' '}
-        <code>ENABLE_SUPERFLOW_MODULE=true</code> and run migrations to use the
-        GraphQL API.
-      </p>
-    </ViewBody>
-    <AllDocSidebarTabs />
-  </>
+const SkeletonList = () => (
+  <div className={styles.skeletonGroup}>
+    <div className={styles.skeletonRow} />
+    <div className={styles.skeletonRow} />
+    <div className={styles.skeletonRow} />
+  </div>
 );
+
+interface EmptyStateProps {
+  onCreate: () => void;
+}
+
+const EmptyState = ({ onCreate }: EmptyStateProps) => (
+  <div className={styles.emptyState} data-testid="superflow-pm-empty">
+    <div className={styles.emptyStateTitle}>No projects yet</div>
+    <div className={styles.emptyStateBody}>
+      Create your first project to organize tasks.
+    </div>
+    <div>
+      <Button variant="primary" prefix={<PlusIcon />} onClick={onCreate}>
+        New project
+      </Button>
+    </div>
+  </div>
+);
+
+interface ErrorBoxProps {
+  message: string;
+  onRetry: () => void;
+}
+
+const ErrorBox = ({ message, onRetry }: ErrorBoxProps) => (
+  <div className={styles.errorBox} role="alert">
+    <span>Failed to load projects: {message}</span>
+    <Button onClick={onRetry}>Retry</Button>
+  </div>
+);
+
+function formatDueDate(value: string | null): string {
+  if (!value) return '';
+  const t = Date.parse(value);
+  if (isNaN(t)) return '';
+  const d = new Date(t);
+  const now = new Date();
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric',
+  });
+}
+
+function priorityClass(priority: SfTaskPriority): string {
+  switch (priority) {
+    case 'URGENT':
+      return styles.priorityUrgent;
+    case 'HIGH':
+      return styles.priorityHigh;
+    case 'MEDIUM':
+      return styles.priorityMedium;
+    case 'LOW':
+      return styles.priorityLow;
+    case 'NONE':
+    default:
+      return styles.priorityNone;
+  }
+}
+
+function readableStatus(value: SfTaskStatus): string {
+  switch (value) {
+    case 'IN_PROGRESS':
+      return 'In progress';
+    case 'BACKLOG':
+      return 'Backlog';
+    case 'TODO':
+      return 'To do';
+    case 'DONE':
+      return 'Done';
+    case 'CANCELLED':
+      return 'Cancelled';
+    default:
+      return value;
+  }
+}
+
+function readablePriority(value: SfTaskPriority): string {
+  switch (value) {
+    case 'NONE':
+      return 'No priority';
+    case 'LOW':
+      return 'Low';
+    case 'MEDIUM':
+      return 'Medium';
+    case 'HIGH':
+      return 'High';
+    case 'URGENT':
+      return 'Urgent';
+    default:
+      return value;
+  }
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Unexpected error';
+}
+
+interface NewProjectModalProps {
+  open: boolean;
+  workspaceId: string;
+  onClose: () => void;
+  onCreated: (project: SfProjectDto) => void;
+}
+
+const NewProjectModal = ({
+  open,
+  workspaceId,
+  onClose,
+  onCreated,
+}: NewProjectModalProps) => {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { trigger } = useMutation({ mutation: createSfProjectMutation });
+
+  const reset = useCallback(() => {
+    setName('');
+    setDescription('');
+    setError(null);
+    setSubmitting(false);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (submitting) return;
+    reset();
+    onClose();
+  }, [onClose, reset, submitting]);
+
+  const handleSubmit = useCallback(
+    async (event: { preventDefault: () => void }) => {
+      event.preventDefault();
+      const trimmed = name.trim();
+      if (!trimmed) {
+        setError('Project name is required.');
+        return;
+      }
+      setError(null);
+      setSubmitting(true);
+      try {
+        const input: CreateSfProjectInput = {
+          name: trimmed,
+          description: description.trim() ? description.trim() : null,
+        };
+        const response = (await (
+          trigger as (args: unknown) => Promise<unknown>
+        )({ workspaceId, input })) as
+          | { createSfProject?: SfProjectDto }
+          | undefined;
+        const created = response?.createSfProject;
+        if (!created) {
+          throw new Error('Server did not return the created project.');
+        }
+        notify.success({ title: `Created project "${created.name}"` });
+        onCreated(created);
+        reset();
+        onClose();
+      } catch (err) {
+        const message = errorMessage(err);
+        setError(message);
+        notify.error({ title: 'Could not create project', message });
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [description, name, onClose, onCreated, reset, trigger, workspaceId]
+  );
+
+  return (
+    <Modal
+      open={open}
+      onOpenChange={value => {
+        if (!value) handleClose();
+      }}
+      title="New project"
+      description="Group tasks under a project."
+    >
+      <form
+        className={styles.formGrid}
+        onSubmit={event => void handleSubmit(event)}
+      >
+        <div className={styles.fieldRow}>
+          <label className={styles.fieldLabel} htmlFor="sf-project-name">
+            Name
+          </label>
+          <Input
+            id="sf-project-name"
+            value={name}
+            placeholder="e.g. Launch checklist"
+            autoFocus
+            onChange={setName}
+          />
+        </div>
+        <div className={styles.fieldRow}>
+          <label className={styles.fieldLabel} htmlFor="sf-project-desc">
+            Description (optional)
+          </label>
+          <textarea
+            id="sf-project-desc"
+            className={styles.textarea}
+            value={description}
+            placeholder="What is this project for?"
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+              setDescription(event.target.value)
+            }
+          />
+        </div>
+        {error ? <div className={styles.formError}>{error}</div> : null}
+        <div className={styles.formActions}>
+          <Button onClick={handleClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            loading={submitting}
+            disabled={submitting || !name.trim()}
+            onClick={event => void handleSubmit(event)}
+          >
+            Create project
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+interface NewTaskModalProps {
+  open: boolean;
+  projectId: string;
+  onClose: () => void;
+  onCreated: (task: SfTaskDto) => void;
+}
+
+const NewTaskModal = ({
+  open,
+  projectId,
+  onClose,
+  onCreated,
+}: NewTaskModalProps) => {
+  const [title, setTitle] = useState('');
+  const [status, setStatus] = useState<SfTaskStatus>('TODO');
+  const [priority, setPriority] = useState<SfTaskPriority>('MEDIUM');
+  const [dueAt, setDueAt] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { trigger } = useMutation({ mutation: createSfTaskMutation });
+
+  const reset = useCallback(() => {
+    setTitle('');
+    setStatus('TODO');
+    setPriority('MEDIUM');
+    setDueAt('');
+    setError(null);
+    setSubmitting(false);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (submitting) return;
+    reset();
+    onClose();
+  }, [onClose, reset, submitting]);
+
+  const handleSubmit = useCallback(
+    async (event: { preventDefault: () => void }) => {
+      event.preventDefault();
+      const trimmed = title.trim();
+      if (!trimmed) {
+        setError('Task title is required.');
+        return;
+      }
+      setError(null);
+      setSubmitting(true);
+      try {
+        const dueIso = dueAt ? new Date(dueAt).toISOString() : null;
+        const input: CreateSfTaskInput = {
+          title: trimmed,
+          status,
+          priority,
+          dueAt: dueIso,
+        };
+        const response = (await (
+          trigger as (args: unknown) => Promise<unknown>
+        )({ projectId, input })) as { createSfTask?: SfTaskDto } | undefined;
+        const created = response?.createSfTask;
+        if (!created) {
+          throw new Error('Server did not return the created task.');
+        }
+        notify.success({ title: `Added task "${created.title}"` });
+        onCreated(created);
+        reset();
+        onClose();
+      } catch (err) {
+        const message = errorMessage(err);
+        setError(message);
+        notify.error({ title: 'Could not add task', message });
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [
+      dueAt,
+      onClose,
+      onCreated,
+      priority,
+      projectId,
+      reset,
+      status,
+      title,
+      trigger,
+    ]
+  );
+
+  return (
+    <Modal
+      open={open}
+      onOpenChange={value => {
+        if (!value) handleClose();
+      }}
+      title="Add task"
+      description="Create a new task in this project."
+    >
+      <form
+        className={styles.formGrid}
+        onSubmit={event => void handleSubmit(event)}
+      >
+        <div className={styles.fieldRow}>
+          <label className={styles.fieldLabel} htmlFor="sf-task-title">
+            Title
+          </label>
+          <Input
+            id="sf-task-title"
+            value={title}
+            placeholder="What needs doing?"
+            autoFocus
+            onChange={setTitle}
+          />
+        </div>
+        <div className={styles.fieldHorizontal}>
+          <div className={styles.fieldRow}>
+            <label className={styles.fieldLabel} htmlFor="sf-task-status">
+              Status
+            </label>
+            <select
+              id="sf-task-status"
+              className={styles.select}
+              value={status}
+              onChange={event => setStatus(event.target.value as SfTaskStatus)}
+            >
+              {SF_TASK_STATUSES.map(option => (
+                <option key={option} value={option}>
+                  {readableStatus(option)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.fieldRow}>
+            <label className={styles.fieldLabel} htmlFor="sf-task-priority">
+              Priority
+            </label>
+            <select
+              id="sf-task-priority"
+              className={styles.select}
+              value={priority}
+              onChange={event =>
+                setPriority(event.target.value as SfTaskPriority)
+              }
+            >
+              {SF_TASK_PRIORITIES.map(option => (
+                <option key={option} value={option}>
+                  {readablePriority(option)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className={styles.fieldRow}>
+          <label className={styles.fieldLabel} htmlFor="sf-task-due">
+            Due date (optional)
+          </label>
+          <Input
+            id="sf-task-due"
+            type="date"
+            value={dueAt}
+            onChange={setDueAt}
+          />
+        </div>
+        {error ? <div className={styles.formError}>{error}</div> : null}
+        <div className={styles.formActions}>
+          <Button onClick={handleClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            loading={submitting}
+            disabled={submitting || !title.trim()}
+            onClick={event => void handleSubmit(event)}
+          >
+            Add task
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+interface TaskRowProps {
+  task: SfTaskDto;
+  onStatusChange: (taskId: string, status: SfTaskStatus) => Promise<void>;
+  onDelete: (taskId: string) => Promise<void>;
+}
+
+const TaskRow = ({ task, onStatusChange, onDelete }: TaskRowProps) => {
+  const [pending, setPending] = useState(false);
+
+  const handleStatusChange = useCallback(
+    async (event: ChangeEvent<HTMLSelectElement>) => {
+      const next = event.target.value as SfTaskStatus;
+      if (next === task.status) return;
+      setPending(true);
+      try {
+        await onStatusChange(task.id, next);
+      } finally {
+        setPending(false);
+      }
+    },
+    [onStatusChange, task.id, task.status]
+  );
+
+  const handleDelete = useCallback(async () => {
+    setPending(true);
+    try {
+      await onDelete(task.id);
+    } finally {
+      setPending(false);
+    }
+  }, [onDelete, task.id]);
+
+  const done = task.status === 'DONE' || task.status === 'CANCELLED';
+  const due = formatDueDate(task.dueAt);
+
+  return (
+    <div className={styles.taskRow} data-testid="superflow-pm-task-row">
+      <span className={done ? styles.taskTitleDone : styles.taskTitle}>
+        {task.title}
+      </span>
+      <span className={`${styles.taskMeta} ${priorityClass(task.priority)}`}>
+        {readablePriority(task.priority)}
+      </span>
+      <span className={styles.taskMeta}>{due || '-'}</span>
+      <select
+        className={styles.inlineSelect}
+        value={task.status}
+        disabled={pending}
+        onChange={event => void handleStatusChange(event)}
+        aria-label="Task status"
+      >
+        {SF_TASK_STATUSES.map(option => (
+          <option key={option} value={option}>
+            {readableStatus(option)}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className={styles.iconButton}
+        onClick={() => void handleDelete()}
+        disabled={pending}
+        aria-label="Delete task"
+        title="Delete task"
+      >
+        <DeleteIcon />
+      </button>
+    </div>
+  );
+};
+
+interface ProjectCardProps {
+  project: SfProjectDto;
+  expanded: boolean;
+  onToggle: (projectId: string) => void;
+  onAddTaskClick: (projectId: string) => void;
+  workspaceId: string;
+}
+
+const ProjectCard = ({
+  project,
+  expanded,
+  onToggle,
+  onAddTaskClick,
+}: ProjectCardProps) => {
+  return (
+    <div className={styles.card} data-testid="superflow-pm-project-card">
+      <button
+        type="button"
+        className={styles.cardHeader}
+        onClick={() => onToggle(project.id)}
+        aria-expanded={expanded}
+      >
+        <div className={styles.cardHeaderInfo}>
+          <div className={styles.cardHeaderTitleRow}>
+            <span className={styles.cardName}>{project.name}</span>
+            <span
+              className={
+                project.status === 'ACTIVE'
+                  ? `${styles.statusBadge} ${styles.statusBadgeActive}`
+                  : styles.statusBadge
+              }
+            >
+              {project.status === 'ACTIVE' ? 'Active' : 'Archived'}
+            </span>
+          </div>
+          {project.description ? (
+            <div className={styles.cardDescription}>{project.description}</div>
+          ) : null}
+        </div>
+        <div className={styles.cardActions}>
+          <span className={styles.taskCount} data-testid="task-count">
+            {expanded ? 'Hide tasks' : 'Show tasks'}
+          </span>
+        </div>
+      </button>
+      {expanded ? (
+        <div className={styles.cardBody}>
+          <Suspense fallback={<SkeletonList />}>
+            <ProjectTasksSection
+              projectId={project.id}
+              onAddTaskClick={() => onAddTaskClick(project.id)}
+            />
+          </Suspense>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+interface ProjectTasksSectionProps {
+  projectId: string;
+  onAddTaskClick: () => void;
+}
+
+const ProjectTasksSection = ({
+  projectId,
+  onAddTaskClick,
+}: ProjectTasksSectionProps) => {
+  const queryArg = {
+    query: sfTasksQuery,
+    variables: { projectId },
+  } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
+
+  const { data, error, mutate } = useQuery(queryArg);
+
+  const tasks = (data as unknown as { sfTasks?: SfTaskDto[] } | undefined)
+    ?.sfTasks;
+
+  const { trigger: triggerStatus } = useMutation({
+    mutation: updateSfTaskStatusMutation,
+  });
+  const { trigger: triggerDelete } = useMutation({
+    mutation: deleteSfTaskMutation,
+  });
+
+  const handleStatusChange = useCallback(
+    async (taskId: string, next: SfTaskStatus) => {
+      try {
+        await (triggerStatus as (args: unknown) => Promise<unknown>)({
+          taskId,
+          status: next,
+        });
+        await mutate();
+      } catch (err) {
+        notify.error({
+          title: 'Failed to update task',
+          message: errorMessage(err),
+        });
+      }
+    },
+    [mutate, triggerStatus]
+  );
+
+  const handleDelete = useCallback(
+    async (taskId: string) => {
+      try {
+        await (triggerDelete as (args: unknown) => Promise<unknown>)({
+          taskId,
+        });
+        await mutate();
+      } catch (err) {
+        notify.error({
+          title: 'Failed to delete task',
+          message: errorMessage(err),
+        });
+      }
+    },
+    [mutate, triggerDelete]
+  );
+
+  if (error) {
+    return (
+      <div className={styles.errorBox} role="alert">
+        <span>Failed to load tasks: {error.message}</span>
+        <Button onClick={() => void mutate()}>Retry</Button>
+      </div>
+    );
+  }
+
+  if (!tasks || tasks.length === 0) {
+    return (
+      <>
+        <div className={styles.emptyStateBody}>
+          No tasks yet. Add the first one.
+        </div>
+        <div className={styles.taskFooterRow}>
+          <span />
+          <Button prefix={<PlusIcon />} onClick={onAddTaskClick}>
+            Add task
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className={styles.taskList}>
+        {tasks.map(task => (
+          <TaskRow
+            key={task.id}
+            task={task}
+            onStatusChange={handleStatusChange}
+            onDelete={handleDelete}
+          />
+        ))}
+      </div>
+      <div className={styles.taskFooterRow}>
+        <span className={styles.taskMeta}>
+          {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
+        </span>
+        <Button prefix={<PlusIcon />} onClick={onAddTaskClick}>
+          Add task
+        </Button>
+      </div>
+    </>
+  );
+};
+
+interface ProjectsListProps {
+  workspaceId: string;
+  expandedProjectId: string | null;
+  onToggleExpand: (projectId: string) => void;
+  onCreateProject: () => void;
+  onAddTaskTo: (projectId: string) => void;
+}
+
+const ProjectsList = ({
+  workspaceId,
+  expandedProjectId,
+  onToggleExpand,
+  onCreateProject,
+  onAddTaskTo,
+}: ProjectsListProps) => {
+  const queryArg = {
+    query: sfProjectsQuery,
+    variables: { workspaceId },
+  } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
+
+  const { data, error, mutate } = useQuery(queryArg);
+
+  const projects = (
+    data as unknown as { sfProjects?: SfProjectDto[] } | undefined
+  )?.sfProjects;
+
+  if (error) {
+    return <ErrorBox message={error.message} onRetry={() => void mutate()} />;
+  }
+
+  if (!projects || projects.length === 0) {
+    return <EmptyState onCreate={onCreateProject} />;
+  }
+
+  return (
+    <div className={styles.list}>
+      {projects.map(project => (
+        <ProjectCard
+          key={project.id}
+          project={project}
+          expanded={expandedProjectId === project.id}
+          onToggle={onToggleExpand}
+          onAddTaskClick={onAddTaskTo}
+          workspaceId={workspaceId}
+        />
+      ))}
+    </div>
+  );
+};
+
+const ProjectsPage = () => {
+  const workspaceService = useService(WorkspaceService);
+  const workspaceId = workspaceService.workspace.id;
+
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [addingTaskFor, setAddingTaskFor] = useState<string | null>(null);
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(
+    null
+  );
+
+  const handleToggleExpand = useCallback((projectId: string) => {
+    setExpandedProjectId(prev => (prev === projectId ? null : projectId));
+  }, []);
+
+  const handleAddTaskTo = useCallback((projectId: string) => {
+    setAddingTaskFor(projectId);
+  }, []);
+
+  const handleCreatedProject = useCallback((project: SfProjectDto) => {
+    // Auto-expand the freshly created project so the user can add tasks
+    // immediately. The SWR query refreshes itself on next render.
+    setExpandedProjectId(project.id);
+  }, []);
+
+  const handleCreatedTask = useCallback(() => {
+    // Tasks list re-fetches on its own SWR cycle.
+  }, []);
+
+  const fallback = useMemo(() => <SkeletonList />, []);
+
+  return (
+    <>
+      <ViewTitle title="Projects" />
+      <ViewIcon icon="allDocs" />
+      <ViewHeader>
+        <ProjectsHeader onCreate={() => setCreatingProject(true)} />
+      </ViewHeader>
+      <ViewBody>
+        <div className={styles.root} data-testid="superflow-pm-page">
+          <div className={styles.titleBlock}>
+            <div className={styles.title}>Projects &amp; tasks</div>
+            <div className={styles.subtitle}>
+              Track work for this workspace. Tasks live under projects you
+              create.
+            </div>
+          </div>
+          <Suspense fallback={fallback}>
+            <ProjectsList
+              workspaceId={workspaceId}
+              expandedProjectId={expandedProjectId}
+              onToggleExpand={handleToggleExpand}
+              onCreateProject={() => setCreatingProject(true)}
+              onAddTaskTo={handleAddTaskTo}
+            />
+          </Suspense>
+        </div>
+        <NewProjectModal
+          open={creatingProject}
+          workspaceId={workspaceId}
+          onClose={() => setCreatingProject(false)}
+          onCreated={handleCreatedProject}
+        />
+        {addingTaskFor ? (
+          <NewTaskModal
+            open={true}
+            projectId={addingTaskFor}
+            onClose={() => setAddingTaskFor(null)}
+            onCreated={handleCreatedTask}
+          />
+        ) : null}
+      </ViewBody>
+      <AllDocSidebarTabs />
+    </>
+  );
+};
 
 export const Component = () => <ProjectsPage />;
