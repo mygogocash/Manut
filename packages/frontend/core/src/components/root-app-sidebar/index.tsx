@@ -144,7 +144,14 @@ const AnalyticsButton = () => {
 const useSuperflowEnabled = (): boolean => {
   const serverService = useService(ServerService);
   const serverFeatures = useLiveData(serverService.server.features$);
-  return !!serverFeatures?.includes('superflow');
+  // `features$` maps each ServerFeature into a lowercase keyed object
+  // (`{ superflow: true, copilot: true, ... }`) — NOT an array. See
+  // `cloud/entities/server.ts`'s `features$` map. Calling `.includes()`
+  // on an object throws `TypeError: t?.includes is not a function`,
+  // which crashed the workspace render in production. Use property
+  // access — matches the existing `serverFeatures?.copilot` usage
+  // below.
+  return !!serverFeatures?.superflow;
 };
 
 const ProjectsButton = () => {
