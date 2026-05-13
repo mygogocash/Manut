@@ -8,7 +8,10 @@ import {
   type WorkspaceMetadata,
   WorkspaceService,
 } from '@affine/core/modules/workspace';
-import { UserFriendlyError } from '@affine/error';
+import {
+  isGraphQLSchemaValidationError,
+  UserFriendlyError,
+} from '@affine/error';
 import { DocRole, PublicDocMode } from '@affine/graphql';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
@@ -108,6 +111,13 @@ export const GeneralAccess = ({
         await docGrantedUsersService.updateDocDefaultRole(role);
         shareInfoService.shareInfo.revalidate();
       } catch (error) {
+        if (isGraphQLSchemaValidationError(error)) {
+          notify.error({
+            title: 'Sharing is temporarily unavailable',
+            message: 'The server is being upgraded. Please try again shortly.',
+          });
+          return;
+        }
         const err = UserFriendlyError.fromAny(error);
         notify.error({ title: err.name, message: err.message });
       }
@@ -155,6 +165,13 @@ export const GeneralAccess = ({
       };
 
       transition().catch(error => {
+        if (isGraphQLSchemaValidationError(error)) {
+          notify.error({
+            title: 'Sharing is temporarily unavailable',
+            message: 'The server is being upgraded. Please try again shortly.',
+          });
+          return;
+        }
         const err = UserFriendlyError.fromAny(error);
         notify.error({ title: err.name, message: err.message });
       });

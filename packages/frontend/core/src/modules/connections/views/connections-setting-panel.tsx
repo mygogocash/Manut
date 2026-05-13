@@ -3,6 +3,7 @@ import { notifyWithUndo } from '@affine/core/components/affine/undo-toast';
 import { useMutation } from '@affine/core/components/hooks/use-mutation';
 import { useQuery } from '@affine/core/components/hooks/use-query';
 import { WorkspaceService } from '@affine/core/modules/workspace';
+import { isGraphQLSchemaValidationError } from '@affine/error';
 import { useService } from '@toeverything/infra';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -14,6 +15,10 @@ import {
 import type { ProviderInfo } from './types';
 
 const POSTMESSAGE_TYPE = 'affine:connection-oauth-result';
+
+// en-only copy; follow-up to thread through i18n.
+const CONNECTIONS_UNAVAILABLE_MESSAGE =
+  'Connections panel is being upgraded. Please try again shortly.';
 
 const ALL_PROVIDERS: ProviderInfo[] = [
   {
@@ -80,7 +85,13 @@ export const ConnectionsSettingPanel = ({
     query: listConnectionsQuery,
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
-  const { data, isLoading, mutate } = useQuery(queryArg);
+  const { data, isLoading, mutate, error: queryError } = useQuery(queryArg);
+
+  // If the server doesn't expose `listConnections`, surface a friendly
+  // upgrading-soon notice instead of letting the panel stall in
+  // "Loading…" forever (useQuery keeps `isLoading=false` once the error
+  // resolves but `data` remains undefined).
+  const schemaUnavailable = isGraphQLSchemaValidationError(queryError);
 
   const connections = ((
     data as unknown as { listConnections?: ConnectedAccountDto[] } | undefined
@@ -153,9 +164,13 @@ export const ConnectionsSettingPanel = ({
           onUndo: () => handleConnect(providerName),
         });
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to disconnect provider.'
-        );
+        if (isGraphQLSchemaValidationError(err)) {
+          setError(CONNECTIONS_UNAVAILABLE_MESSAGE);
+        } else {
+          setError(
+            err instanceof Error ? err.message : 'Failed to disconnect provider.'
+          );
+        }
       } finally {
         setActionLoading(null);
       }
@@ -199,7 +214,7 @@ export const ConnectionsSettingPanel = ({
         </p>
       </div>
 
-      {error ? (
+      {error || schemaUnavailable ? (
         <div
           style={{
             padding: '8px 12px',
@@ -209,7 +224,7 @@ export const ConnectionsSettingPanel = ({
             fontSize: '13px',
           }}
         >
-          {error}
+          {schemaUnavailable && !error ? CONNECTIONS_UNAVAILABLE_MESSAGE : error}
         </div>
       ) : null}
 

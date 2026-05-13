@@ -107,3 +107,43 @@ export class UserFriendlyError
     return UserFriendlyError.notNetworkError(this);
   }
 }
+
+/**
+ * True when `err` looks like a GraphQL schema-validation failure —
+ * i.e. the server doesn't have the field/type the client queried.
+ * Signatures we recognise:
+ *   1. UserFriendlyError-shaped: name === 'GRAPHQL_BAD_REQUEST' and
+ *      data?.code === 'GRAPHQL_VALIDATION_FAILED'.
+ *   2. Bare message: contains 'GRAPHQL_VALIDATION_FAILED' or
+ *      'Cannot query field' or 'Unknown argument' (the three sentinels
+ *      Apollo emits for schema mismatches).
+ * Use this in catch blocks to differentiate "feature not available on
+ * this server" (degrade gracefully) from "actual runtime error"
+ * (surface to user). Modelled on the analytics module's local
+ * `isAnalyticsFeatureUnavailableError` (see
+ * `packages/frontend/core/src/modules/analytics/services/connection.service.ts`);
+ * promoted here so every consumer that calls a potentially-missing
+ * GraphQL field can branch on the same classifier instead of inventing
+ * its own substring check.
+ */
+export function isGraphQLSchemaValidationError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const candidate = err as {
+    name?: string;
+    message?: string;
+    data?: { code?: string };
+  };
+  if (
+    candidate.name === 'GRAPHQL_BAD_REQUEST' &&
+    candidate.data?.code === 'GRAPHQL_VALIDATION_FAILED'
+  ) {
+    return true;
+  }
+  const message =
+    typeof candidate.message === 'string' ? candidate.message : '';
+  return (
+    message.includes('GRAPHQL_VALIDATION_FAILED') ||
+    message.includes('Cannot query field') ||
+    message.includes('Unknown argument')
+  );
+}
