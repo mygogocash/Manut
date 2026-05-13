@@ -178,6 +178,21 @@ or human should be able to continue without relying on chat memory.
   `app.module.ts` and `mails/index.tsx`; fixed with targeted `oxlint --fix`.
 - Committed the Superflow PM/CRM/reminders + Handover Inbox WIP as
   `de7b49388 feat(superflow): add PM CRM reminders and handover inbox`.
+- **2026-05-13 — Manut brand rename complete.** Production now answers
+  on `https://manut.gogocash.co`; the old `affine.gogocash.co` host
+  301-redirects. The GitHub repository was renamed
+  `mygogocash/Superflow` → `mygogocash/Manut` (the old URL redirects).
+  Prisma `Sf*` models were renamed to `Mn*` and the DB migration ran
+  in production (PR #26). Backend
+  `packages/backend/server/src/plugins/superflow/` is now `plugins/manut/`
+  (PR #29). Frontend `modules/superflow-*` is now `modules/manut-*`
+  and i18n keys moved from `com.superflow.*` to `com.manut.*` (PR #30).
+  Documentation was brought into line in this commit. A handful of
+  internal identifiers — workflow filenames `superflow-*.yml`, the
+  GAR Docker image name `affine-gogocash`, and legacy
+  `@ObjectType('Superflow*')` GraphQL decorators — were deliberately
+  left at their old names with a tracked migration plan; see
+  `CLAUDE.md` §9.
 
 ## Verification Already Run
 
@@ -282,7 +297,7 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
 - Review risk: the attempted final focused sub-agent review did not run because
   the account hit the usage limit; keep PR review focused on reminder lifecycle,
   Handover Inbox gating, and the import panel.
-- Keep `docs/SUPERFLOW_CONTROL_PLANE.md` and this file in sync whenever the
+- Keep `docs/MANUT_CONTROL_PLANE.md` and this file in sync whenever the
   handover JSON contract changes.
 - Next concrete step: decide whether to rebase or merge `origin/main`
   (`788a0e0b0`) into `codex/superflow-backlog-pm-crm`, then push the branch and
