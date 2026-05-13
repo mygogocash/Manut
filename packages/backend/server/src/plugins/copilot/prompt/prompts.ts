@@ -2174,6 +2174,11 @@ const CHAT_PROMPT: Omit<Prompt, 'name'> = {
     // Meta Llama 4 (Vertex Model Garden)
     'llama-4-scout-17b-16e-instruct-maas',
     'llama-4-maverick-17b-128e-instruct-maas',
+    // Direct OpenAI-compatible vendors (gated by configured()=false when
+    // apiKey is empty, so they silently drop out on instances without keys).
+    'kimi-k2-thinking',
+    'grok-4',
+    'qwen3-max',
   ],
   messages: [
     {

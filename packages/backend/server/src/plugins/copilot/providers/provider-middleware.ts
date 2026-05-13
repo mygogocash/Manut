@@ -105,6 +105,33 @@ const DEFAULT_MIDDLEWARE_BY_TYPE: Record<
       text: ['citation_footnote', 'callout'],
     },
   },
+  [CopilotProviderType.Moonshot]: {
+    rust: {
+      request: ['normalize_messages'],
+      stream: ['stream_event_normalize', 'citation_indexing'],
+    },
+    node: {
+      text: ['citation_footnote', 'callout'],
+    },
+  },
+  [CopilotProviderType.XAI]: {
+    rust: {
+      request: ['normalize_messages'],
+      stream: ['stream_event_normalize', 'citation_indexing'],
+    },
+    node: {
+      text: ['citation_footnote', 'callout'],
+    },
+  },
+  [CopilotProviderType.Alibaba]: {
+    rust: {
+      request: ['normalize_messages'],
+      stream: ['stream_event_normalize', 'citation_indexing'],
+    },
+    node: {
+      text: ['citation_footnote', 'callout'],
+    },
+  },
 };
 
 function unique<T>(items: T[]) {

@@ -18,6 +18,9 @@ export enum CopilotProviderType {
   LlamaVertex = 'llamaVertex',
   MistralVertex = 'mistralVertex',
   DeepSeekVertex = 'deepseekVertex',
+  Moonshot = 'moonshot',
+  XAI = 'xai',
+  Alibaba = 'alibaba',
 }
 
 export const CopilotProviderSchema = z.object({
