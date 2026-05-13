@@ -19,7 +19,11 @@ export class SuperflowReminderCron {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async enqueueDueReminders() {
-    if (process.env.ENABLE_SUPERFLOW_MODULE !== 'true') {
+    // BC: ENABLE_MANUT_MODULE is the new flag; ENABLE_SUPERFLOW_MODULE
+    // is honored for environments that haven't been updated yet.
+    const enabled =
+      process.env.ENABLE_MANUT_MODULE ?? process.env.ENABLE_SUPERFLOW_MODULE;
+    if (enabled !== 'true') {
       return;
     }
 

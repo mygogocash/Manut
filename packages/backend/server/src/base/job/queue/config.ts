@@ -88,7 +88,7 @@ defineModuleConfig('job', {
   },
 
   'queues.superflow': {
-    desc: 'The config for superflow job queue',
+    desc: 'The config for manut job queue',
     default: {
       concurrency: 4,
     },

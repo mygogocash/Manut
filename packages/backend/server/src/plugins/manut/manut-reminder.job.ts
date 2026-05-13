@@ -92,7 +92,7 @@ export class SuperflowReminderJob {
     });
 
     const queued = await this.mailer.trySend({
-      name: 'SuperflowReminder',
+      name: 'ManutReminder',
       to: reminder.user.email,
       props: {
         title: reminder.title,

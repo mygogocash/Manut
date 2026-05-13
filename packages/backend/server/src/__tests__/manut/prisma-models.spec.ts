@@ -2,10 +2,10 @@ import { PrismaClient } from '@prisma/client';
 import test from 'ava';
 
 /**
- * Smoke test: Superflow tables are registered on the generated client.
+ * Smoke test: Manut tables are registered on the generated client.
  * Catches missing migrations / failed prisma generate in CI.
  */
-test('Prisma client exposes Superflow Sf* model delegates', t => {
+test('Prisma client exposes Manut Mn* model delegates', t => {
   const prisma = new PrismaClient();
   t.truthy(prisma.mnProject);
   t.truthy(prisma.mnProjectMember);

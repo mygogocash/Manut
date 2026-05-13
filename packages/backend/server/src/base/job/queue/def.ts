@@ -29,7 +29,9 @@ export enum Queue {
   COPILOT = 'copilot',
   INDEXER = 'indexer',
   CALENDAR = 'calendar',
-  SUPERFLOW = 'superflow',
+  // String value remains 'superflow' because it's persisted in Redis BullMQ
+  // queue names — renaming it would orphan in-flight jobs.
+  MANUT = 'superflow',
 }
 
 export const QUEUES = Object.values(Queue);

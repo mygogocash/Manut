@@ -11,10 +11,15 @@ export enum ServerFeature {
   Indexer = 'indexer',
   Comment = 'comment',
   LocalWorkspace = 'local_workspace',
-  // Superflow PM + CRM + Reminders modules are gated by
-  // `ENABLE_SUPERFLOW_MODULE=true`. The frontend reads this flag from
+  // Manut PM + CRM + Reminders modules are gated by
+  // `ENABLE_MANUT_MODULE=true` (legacy `ENABLE_SUPERFLOW_MODULE` is also
+  // honored for BC). The frontend reads this flag from
   // `ServerService.server.features` to decide whether to surface the
   // Projects / CRM / Reminders nav entries and pages.
+  //
+  // The enum identifier and string value remain `Superflow` / 'superflow'
+  // because this enum is part of the public GraphQL ServerFeature
+  // contract — frontend clients compare against these names.
   Superflow = 'superflow',
 }
 

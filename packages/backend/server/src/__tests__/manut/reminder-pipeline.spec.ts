@@ -5,10 +5,10 @@ import {
 } from '@prisma/client';
 import test from 'ava';
 
-import { SuperflowReminderCron } from '../../plugins/superflow/superflow-reminder.cron';
-import { SuperflowReminderJob } from '../../plugins/superflow/superflow-reminder.job';
+import { SuperflowReminderCron } from '../../plugins/manut/manut-reminder.cron';
+import { SuperflowReminderJob } from '../../plugins/manut/manut-reminder.job';
 
-test('Superflow reminder cron creates a delivery and enqueues due reminders', async t => {
+test('Manut reminder cron creates a delivery and enqueues due reminders', async t => {
   const fireAt = new Date('2026-05-09T00:00:00.000Z');
   const reminder = {
     id: 'reminder-1',
@@ -69,7 +69,7 @@ test('Superflow reminder cron creates a delivery and enqueues due reminders', as
   ]);
 });
 
-test('Superflow reminder cron reuses pending delivery and skips terminal delivery states', async t => {
+test('Manut reminder cron reuses pending delivery and skips terminal delivery states', async t => {
   const reminder = {
     id: 'reminder-1',
     workspaceId: 'workspace-1',
@@ -148,7 +148,7 @@ test('Superflow reminder cron reuses pending delivery and skips terminal deliver
   t.true(reminderUpdates[0].data.completedAt instanceof Date);
 });
 
-test('Superflow reminder cron skips reminders claimed by another worker', async t => {
+test('Manut reminder cron skips reminders claimed by another worker', async t => {
   const queue = {
     add: async () => t.fail('unclaimed reminders must not be enqueued'),
   };
@@ -179,7 +179,7 @@ test('Superflow reminder cron skips reminders claimed by another worker', async 
   t.pass();
 });
 
-test('Superflow reminder job queues mail and marks delivery queued', async t => {
+test('Manut reminder job queues mail and marks delivery queued', async t => {
   const reminderId = 'reminder-1';
   const deliveryId = 'delivery-1';
   const reminderUpdates: any[] = [];
@@ -234,7 +234,7 @@ test('Superflow reminder job queues mail and marks delivery queued', async t => 
 
   t.deepEqual(sentMail, [
     {
-      name: 'SuperflowReminder',
+      name: 'ManutReminder',
       to: 'owner@example.com',
       props: {
         title: 'Renew contract',
@@ -272,7 +272,7 @@ test('Superflow reminder job queues mail and marks delivery queued', async t => 
   );
 });
 
-test('Superflow reminder job ignores stale or mismatched delivery jobs', async t => {
+test('Manut reminder job ignores stale or mismatched delivery jobs', async t => {
   let updateCount = 0;
   let sendCount = 0;
   const db = {
@@ -306,7 +306,7 @@ test('Superflow reminder job ignores stale or mismatched delivery jobs', async t
   t.is(sendCount, 0);
 });
 
-test('Superflow reminder job marks delivery failed when mail cannot queue', async t => {
+test('Manut reminder job marks delivery failed when mail cannot queue', async t => {
   const reminderId = 'reminder-1';
   const deliveryId = 'delivery-1';
   const reminderUpdates: any[] = [];

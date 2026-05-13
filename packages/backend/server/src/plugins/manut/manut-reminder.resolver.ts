@@ -13,7 +13,7 @@ import { AccessController } from '../../core/permission';
 import {
   CreateMnReminderInput,
   MnReminderObjectType,
-} from './superflow-reminder.dto';
+} from './manut-reminder.dto';
 
 @Resolver()
 export class SuperflowReminderResolver {
