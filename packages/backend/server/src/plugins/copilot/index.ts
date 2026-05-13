@@ -17,6 +17,8 @@ import {
 } from './context';
 import { CopilotController } from './controller';
 import { CopilotCronJobs } from './cron';
+import { DocReadEventBus } from './doc-read/doc-read-event-bus.service';
+import { DocReadStreamController } from './doc-read/doc-read-stream.controller';
 import { CopilotEmbeddingJob } from './embedding';
 import { EmbeddingHealthService } from './embedding-health';
 import { McpApiKeyService } from './mcp/auth';
@@ -92,8 +94,18 @@ import {
     // mcp
     WorkspaceMcpProvider,
     McpApiKeyService,
+    // Knowledge Graph activation pulses — bus is in-memory pub/sub
+    // consumed by the SSE controller below and emitted from copilot
+    // tools (doc_read, doc_keyword_search, doc_semantic_search,
+    // doc_edit).
+    DocReadEventBus,
   ],
-  controllers: [CopilotController, WorkspaceMcpController, AdminIndexingController],
+  controllers: [
+    CopilotController,
+    WorkspaceMcpController,
+    AdminIndexingController,
+    DocReadStreamController,
+  ],
   // Re-export the providers other plugins need to inject. The analytics
   // plugin (plugins/analytics) consumes PromptService + CopilotProviderFactory
   // for Strategist / TrendDetector / AnomalyDetector services — exporting

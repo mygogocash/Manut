@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { omit } from 'lodash-es';
 import { z } from 'zod';
 
@@ -7,6 +9,7 @@ import {
   clearEmbeddingChunk,
   type Models,
 } from '../../../models';
+import type { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
 import { workspaceSyncRequiredError } from './doc-sync';
 import { toolError } from './error';
 import { defineTool } from './tool';
@@ -20,7 +23,8 @@ export const buildDocSearchGetter = (
   ac: AccessController,
   context: CopilotContextService,
   docContext: ContextSession | null,
-  models: Models
+  models: Models,
+  bus?: DocReadEventBus
 ) => {
   const searchDocs = async (
     options: CopilotChatOptions,
@@ -65,6 +69,26 @@ export const buildDocSearchGetter = (
     }
     if (!blobChunks.length && !docChunks.length && !fileChunks.length) {
       return [];
+    }
+
+    // Emit one activation pulse per unique doc the semantic search
+    // touched. Semantic search returns chunks (multiple per doc), so
+    // we collapse to docId to avoid spamming the graph view.
+    if (bus && docChunks.length) {
+      const ts = Date.now();
+      const seenDocIds = new Set<string>();
+      for (const chunk of docChunks) {
+        if (seenDocIds.has(chunk.docId)) continue;
+        seenDocIds.add(chunk.docId);
+        bus.emit(options.workspace, {
+          workspaceId: options.workspace,
+          docId: chunk.docId,
+          sourceId: randomUUID(),
+          op: 'searchWorkspace',
+          agentId: options.session,
+          ts,
+        });
+      }
     }
 
     const docIds = docChunks.map(c => ({

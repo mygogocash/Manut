@@ -1,7 +1,10 @@
+import { randomUUID } from 'node:crypto';
+
 import { z } from 'zod';
 
 import { DocReader } from '../../../core/doc';
 import { AccessController } from '../../../core/permission';
+import type { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
 import { defineTool } from './tool';
 import type {
   CopilotChatOptions,
@@ -28,7 +31,11 @@ const CodeEditSchema = z
     'An array of independent semantic changes to apply to the document.'
   );
 
-export const buildContentGetter = (ac: AccessController, doc: DocReader) => {
+export const buildContentGetter = (
+  ac: AccessController,
+  doc: DocReader,
+  bus?: DocReadEventBus
+) => {
   const getDocContent = async (options: CopilotChatOptions, docId?: string) => {
     if (!options || !docId || !options.user || !options.workspace) {
       return undefined;
@@ -40,7 +47,23 @@ export const buildContentGetter = (ac: AccessController, doc: DocReader) => {
       .can('Doc.Read');
     if (!canAccess) return undefined;
     const content = await doc.getDocMarkdown(options.workspace, docId, true);
-    return content?.markdown.trim() || undefined;
+    const trimmed = content?.markdown.trim() || undefined;
+    if (trimmed && bus) {
+      // Emit a docEdit pulse so the graph view can color the
+      // upcoming-edit differently from a plain read. We emit on the
+      // read step (rather than after the model returns) because the
+      // read is where graph activation actually happens — the LLM
+      // round-trip can take many seconds.
+      bus.emit(options.workspace, {
+        workspaceId: options.workspace,
+        docId,
+        sourceId: randomUUID(),
+        op: 'docEdit',
+        agentId: options.session,
+        ts: Date.now(),
+      });
+    }
+    return trimmed;
   };
   return getDocContent;
 };

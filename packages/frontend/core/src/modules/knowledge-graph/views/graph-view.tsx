@@ -2,6 +2,7 @@ import { DocsService } from '@affine/core/modules/doc';
 import { DocsSearchService } from '@affine/core/modules/docs-search';
 import { PeekViewService } from '@affine/core/modules/peek-view';
 import { WorkbenchService } from '@affine/core/modules/workbench';
+import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useLiveData, useService } from '@toeverything/infra';
 import {
   type CSSProperties,
@@ -12,6 +13,14 @@ import {
   useState,
 } from 'react';
 import { combineLatest, map, of, switchMap } from 'rxjs';
+
+import { getActivationBus } from '../services/activation-bus';
+import { subscribeDocReadStream } from '../services/doc-read-stream';
+import {
+  curveOffsetFor,
+  labelPropagation,
+  lobeColour,
+} from '../utils/graph-math';
 
 interface GraphNode {
   id: string;
@@ -50,125 +59,9 @@ interface GraphData {
   clusterCentroids: Map<number, { x: number; y: number; size: number }>;
 }
 
-/**
- * Perceptually-uniform lobe palette — five low-saturation hues tuned to
- * read clearly on both light and dark backgrounds. Each "lobe" of the
- * brain gets a different one; nodes inherit their lobe colour for the
- * halo, edges blend the colours of their endpoints.
- */
-interface LobeColour {
-  /** [r, g, b] for the halo and edge tint. */
-  dark: [number, number, number];
-  light: [number, number, number];
-}
-
-const LOBE_PALETTE: LobeColour[] = [
-  { dark: [255, 138, 128], light: [200, 80, 70] }, // cinnabar
-  { dark: [255, 196, 120], light: [205, 140, 60] }, // amber
-  { dark: [120, 220, 200], light: [40, 140, 130] }, // teal
-  { dark: [160, 168, 255], light: [90, 100, 200] }, // iris
-  { dark: [232, 150, 220], light: [170, 80, 160] }, // magenta
-];
-
-const FALLBACK_LOBE: LobeColour = {
-  dark: [200, 210, 230],
-  light: [110, 130, 170],
-};
-
-function lobeColour(cluster: number): LobeColour {
-  if (cluster < 0) return FALLBACK_LOBE;
-  return LOBE_PALETTE[cluster % LOBE_PALETTE.length];
-}
-
-/**
- * Single-pass synchronous label propagation. Each node adopts the most
- * common label among its neighbours; ties broken by the lowest neighbour
- * id (deterministic). Converges fast on sparse graphs; we cap at 8 iters
- * because the canvas re-runs this whenever edges change anyway.
- *
- * Pure function — exported only for unit testing.
- */
-export function labelPropagation(
-  nodeIds: readonly string[],
-  edges: readonly { source: string; target: string }[],
-  maxIters = 8
-): Map<string, number> {
-  // Adjacency lists.
-  const adj = new Map<string, string[]>();
-  for (const id of nodeIds) adj.set(id, []);
-  for (const e of edges) {
-    adj.get(e.source)?.push(e.target);
-    adj.get(e.target)?.push(e.source);
-  }
-
-  // Initial labels: deterministic — use the node's own index. Stable across
-  // re-renders so the cluster colouring doesn't dance around on reload.
-  const indexOf = new Map<string, number>();
-  nodeIds.forEach((id, i) => indexOf.set(id, i));
-  const labels = new Map<string, number>(
-    nodeIds.map(id => [id, indexOf.get(id) ?? 0])
-  );
-
-  for (let iter = 0; iter < maxIters; iter++) {
-    let changed = false;
-    for (const id of nodeIds) {
-      const neighbours = adj.get(id);
-      if (!neighbours || neighbours.length === 0) continue;
-      // Tally neighbour labels.
-      const tally = new Map<number, number>();
-      for (const nb of neighbours) {
-        const lbl = labels.get(nb);
-        if (lbl === undefined) continue;
-        tally.set(lbl, (tally.get(lbl) ?? 0) + 1);
-      }
-      // Pick the most common; tie-break on lowest label id.
-      let bestLbl = labels.get(id) ?? 0;
-      let bestCount = -1;
-      for (const [lbl, count] of tally) {
-        if (count > bestCount || (count === bestCount && lbl < bestLbl)) {
-          bestLbl = lbl;
-          bestCount = count;
-        }
-      }
-      if (bestLbl !== labels.get(id)) {
-        labels.set(id, bestLbl);
-        changed = true;
-      }
-    }
-    if (!changed) break;
-  }
-
-  // Compact: re-number labels so the largest cluster becomes 0, next 1, etc.
-  // Caps the visible palette index modulo to feel balanced.
-  const counts = new Map<number, number>();
-  for (const lbl of labels.values()) {
-    counts.set(lbl, (counts.get(lbl) ?? 0) + 1);
-  }
-  const ranked = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-  const remap = new Map(ranked.map(([lbl], i) => [lbl, i]));
-  for (const [id, lbl] of labels) {
-    labels.set(id, remap.get(lbl) ?? 0);
-  }
-  return labels;
-}
-
-/**
- * Deterministic curvature offset per edge — same edge always gets the same
- * curve direction and magnitude across re-renders. Sign is derived from the
- * hash so curves alternate naturally; magnitude is bounded so adjacent
- * edges don't intersect.
- */
-function curveOffsetFor(source: string, target: string): number {
-  const key = source < target ? `${source}|${target}` : `${target}|${source}`;
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = (hash * 31 + key.charCodeAt(i)) | 0;
-  }
-  // Magnitude in pixels — bounded to keep the visual coherent. Sign from
-  // the low bit so half the edges bow one way, half the other.
-  const magnitude = 18 + (Math.abs(hash) % 22); // 18..40 px
-  return (hash & 1) === 0 ? magnitude : -magnitude;
-}
+// Pure helpers (label propagation, curvature, lobe colour palette) live in
+// `../utils/graph-math` so they can be unit-tested without pulling in the
+// React + RxJS import chain.
 
 interface BgStar {
   /** Normalized 0..1 — multiplied by canvas width at draw time. */
@@ -216,6 +109,33 @@ const BG_STAR_NEAR_COUNT = 35;
 /** Drift speed (normalized x-units per second) for parallax background layers. */
 const BG_DRIFT_FAR = 0.0015;
 const BG_DRIFT_NEAR = 0.004;
+
+/** Duration of one synaptic pulse along an edge, in milliseconds. */
+const PULSE_DURATION_MS = 800;
+/**
+ * Maximum number of concurrent in-flight pulses. Bursts beyond this (e.g.
+ * an AI tool that hits 50 docs at once) are clamped — the oldest pulse is
+ * dropped to make room. Cheap protection against runaway render cost.
+ */
+const PULSE_MAX_CONCURRENT = 200;
+
+/**
+ * A single light traveling along one edge, born from a doc-read activation
+ * on the edge's source endpoint. Drawn as a bright moving dot with a short
+ * trailing glow that fades from full at birth to invisible at death.
+ */
+interface ActivePulse {
+  /** Source node id (the doc the AI just read). */
+  sourceId: string;
+  /** Target node id (one of the source's neighbours). */
+  targetId: string;
+  /** Deterministic curvature so the pulse rides the same Bezier as the edge. */
+  curveOffset: number;
+  /** Lobe colour at birth — cached so the pulse colour stays consistent. */
+  rgb: readonly [number, number, number];
+  /** performance.now() at spawn time. */
+  startedAt: number;
+}
 
 const emptyStateMessage =
   'Graph view is ready — link some docs together using @-mentions to see the connections appear here.';
@@ -414,6 +334,10 @@ export const KnowledgeGraphView = () => {
     edges: [],
     clusterCentroids: new Map(),
   });
+  /** Active synaptic pulses. Read + written by the render loop only. */
+  const pulsesRef = useRef<ActivePulse[]>([]);
+  const workspaceService = useService(WorkspaceService);
+  const workspaceId = workspaceService.workspace.id;
   const animationRef = useRef<number | null>(null);
   const hoverIdRef = useRef<string | null>(null);
   const draggingRef = useRef<{
@@ -522,6 +446,62 @@ export const KnowledgeGraphView = () => {
       clusterCentroids: new Map(),
     };
   }, [edges]);
+
+  // Subscribe to AI doc-read activations and spawn pulses from each event.
+  // The bus is shared with the chat panel (which emits optimistically) and
+  // the backend SSE stream (which emits authoritatively, deduped by the bus).
+  useEffect(() => {
+    const bus = getActivationBus();
+    const disposeSse = subscribeDocReadStream(workspaceId, bus);
+    const sub = bus.asObservable().subscribe(event => {
+      if (event.workspaceId !== workspaceId) return;
+      const { nodes, edges } = stateRef.current;
+      const source = nodes.find(n => n.id === event.docId);
+      if (!source) return;
+      // Snapshot the source's lobe colour at spawn time so changes to the
+      // cluster after spawn don't recolour an in-flight pulse mid-travel.
+      const palette = lobeColour(source.cluster);
+      const dark = isDarkBackground(containerRef.current ?? document.body);
+      const rgb: readonly [number, number, number] = dark
+        ? palette.dark
+        : palette.light;
+      const now = performance.now();
+      // For every edge incident to the source, fire one pulse. Outgoing or
+      // incoming — graph is undirected — both surface the same activation.
+      const outgoing: ActivePulse[] = [];
+      for (const e of edges) {
+        if (e.source === event.docId) {
+          outgoing.push({
+            sourceId: e.source,
+            targetId: e.target,
+            curveOffset: e.curveOffset,
+            rgb,
+            startedAt: now,
+          });
+        } else if (e.target === event.docId) {
+          outgoing.push({
+            sourceId: e.target,
+            targetId: e.source,
+            // Flip the curve sign so the pulse rides the edge from the OTHER
+            // end and still bows the same physical way.
+            curveOffset: -e.curveOffset,
+            rgb,
+            startedAt: now,
+          });
+        }
+      }
+      // Cap concurrent pulses — drop the oldest if the new batch overflows.
+      const merged = [...pulsesRef.current, ...outgoing];
+      if (merged.length > PULSE_MAX_CONCURRENT) {
+        merged.splice(0, merged.length - PULSE_MAX_CONCURRENT);
+      }
+      pulsesRef.current = merged;
+    });
+    return () => {
+      sub.unsubscribe();
+      disposeSse();
+    };
+  }, [workspaceId]);
 
   // Force-directed simulation + render loop.
   useEffect(() => {
@@ -778,6 +758,76 @@ export const KnowledgeGraphView = () => {
         ctx.stroke();
       }
       ctx.restore();
+
+      // 3b. Synaptic pulses — bright lights racing along edges, born from
+      //     AI doc-read activations. Each pulse traces its edge's Bezier
+      //     curve from source to target over PULSE_DURATION_MS, fading out
+      //     as it goes. Done in 'lighter' compositing so multiple pulses
+      //     on overlapping edges accumulate into a brighter flare.
+      if (pulsesRef.current.length > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const nowMs = performance.now();
+        const survivors: ActivePulse[] = [];
+        for (const p of pulsesRef.current) {
+          const t = (nowMs - p.startedAt) / PULSE_DURATION_MS;
+          if (t >= 1) continue; // expired
+          survivors.push(p);
+
+          const src = nodeMap.get(p.sourceId);
+          const tgt = nodeMap.get(p.targetId);
+          if (!src || !tgt) continue;
+
+          // Bezier curve same shape as the edge that spawned it.
+          const dx = tgt.x - src.x;
+          const dy = tgt.y - src.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) + 0.01;
+          const perpScale = Math.min(1, dist / 200);
+          const px = (-dy / dist) * p.curveOffset * perpScale;
+          const py = (dx / dist) * p.curveOffset * perpScale;
+          const cp1x = src.x + dx * 0.33 + px;
+          const cp1y = src.y + dy * 0.33 + py;
+          const cp2x = src.x + dx * 0.66 + px;
+          const cp2y = src.y + dy * 0.66 + py;
+
+          // Position along the cubic Bezier at parameter t.
+          const it = 1 - t;
+          const it2 = it * it;
+          const it3 = it2 * it;
+          const t2 = t * t;
+          const t3 = t2 * t;
+          const x =
+            it3 * src.x + 3 * it2 * t * cp1x + 3 * it * t2 * cp2x + t3 * tgt.x;
+          const y =
+            it3 * src.y + 3 * it2 * t * cp1y + 3 * it * t2 * cp2y + t3 * tgt.y;
+
+          // Eased fade: bright at start, soft at end. Quadratic out.
+          const alpha = (1 - t) * (1 - t);
+          const [r, g, b] = p.rgb;
+
+          // Trailing glow — radial gradient. Size depends on remaining
+          // life so the pulse "shrinks" as it dies.
+          const glowR = 9 + 6 * (1 - t);
+          const glow = ctx.createRadialGradient(x, y, 0, x, y, glowR);
+          glow.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.85 * alpha})`);
+          glow.addColorStop(0.4, `rgba(${r}, ${g}, ${b}, ${0.35 * alpha})`);
+          glow.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(x, y, glowR, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Bright white core dot, smaller. Reads as the "spark".
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(x, y, 1.4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        pulsesRef.current = survivors;
+        ctx.restore();
+      }
 
       // 4. Nodes — each rendered as a halo + bright core, twinkling.
       const hoverId = hoverIdRef.current;
