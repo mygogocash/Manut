@@ -2,8 +2,8 @@
  * @vitest-environment happy-dom
  */
 
-import { render, screen } from '@testing-library/react';
-import { describe, expect, test, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 const WorkspaceServiceToken = vi.hoisted(() => class WorkspaceService {});
 const WorkbenchServiceToken = vi.hoisted(() => class WorkbenchService {});
@@ -82,6 +82,8 @@ vi.mock('@toeverything/infra', () => ({
 import { Component } from '../index';
 
 describe('Superflow projects page', () => {
+  afterEach(() => cleanup());
+
   test('renders the empty state when there are no projects', () => {
     render(<Component />);
 
@@ -89,5 +91,33 @@ describe('Superflow projects page', () => {
     expect(empty).toBeTruthy();
     expect(empty.textContent).toContain('No projects yet');
     expect(empty.textContent).toContain('Create your first project');
+  });
+
+  test('renders the list/kanban view toggle in the header', () => {
+    render(<Component />);
+
+    expect(screen.getByTestId('manut-pm-view-list')).toBeTruthy();
+    expect(screen.getByTestId('manut-pm-view-kanban')).toBeTruthy();
+    // Default is the list view so the kanban container shouldn't be in the DOM.
+    expect(screen.queryByTestId('manut-pm-kanban')).toBeNull();
+  });
+
+  test('switches to the Kanban view when the toggle is clicked', () => {
+    render(<Component />);
+
+    fireEvent.click(screen.getByTestId('manut-pm-view-kanban'));
+
+    // We still see the empty state because no projects exist, but the
+    // toggle reflects the active mode via `data-active`.
+    expect(
+      (screen.getByTestId('manut-pm-view-kanban') as HTMLElement).dataset[
+        'active'
+      ]
+    ).toBe('true');
+    expect(
+      (screen.getByTestId('manut-pm-view-list') as HTMLElement).dataset[
+        'active'
+      ]
+    ).toBe('false');
   });
 });

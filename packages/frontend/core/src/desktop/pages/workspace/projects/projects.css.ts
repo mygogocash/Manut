@@ -359,3 +359,69 @@ export const iconButton = style({
     },
   },
 });
+
+export const viewToggleGroup = style({
+  display: 'inline-flex',
+  gap: 4,
+  padding: 2,
+  borderRadius: 6,
+  border: `1px solid ${cssVarV2.layer.insideBorder.border}`,
+  background: cssVarV2.layer.background.secondary,
+});
+
+export const viewToggleButton = style({
+  padding: '4px 10px',
+  fontSize: 12,
+  lineHeight: '18px',
+  border: 'none',
+  borderRadius: 4,
+  background: 'transparent',
+  color: cssVarV2.text.secondary,
+  cursor: 'pointer',
+  selectors: {
+    '&[data-active="true"]': {
+      background: cssVarV2.layer.background.primary,
+      color: cssVarV2.text.primary,
+      fontWeight: 600,
+    },
+  },
+});
+
+export const kanbanCardTitle = style({
+  fontSize: 13,
+  lineHeight: '18px',
+  fontWeight: 500,
+  color: cssVarV2.text.primary,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+});
+
+export const kanbanCardMetaRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: 6,
+  marginTop: 6,
+});
+
+export const kanbanCardMeta = style({
+  fontSize: 11,
+  lineHeight: '14px',
+  color: cssVarV2.text.secondary,
+});
+
+export const kanbanCardProject = style({
+  fontSize: 11,
+  lineHeight: '14px',
+  color: cssVarV2.text.secondary,
+  background: cssVarV2.layer.background.secondary,
+  borderRadius: 4,
+  padding: '1px 6px',
+});
+
+export const kanbanWrapper = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 12,
+});

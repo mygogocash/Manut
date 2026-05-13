@@ -22,7 +22,7 @@ import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
 import { CollaborationIcon } from '@blocksuite/icons/rc';
 import { useService } from '@toeverything/infra';
-import { Suspense, useCallback, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { FallbackProps } from 'react-error-boundary';
 
 import { Header } from '../../../../components/pure/header';
@@ -59,7 +59,14 @@ import {
   type MnCrmDealStage,
   mnCrmDealStagesQuery,
   type MnCrmDealStagesResponse,
+  type UpdateMnCrmDealInput,
+  updateMnCrmDealMutation,
 } from '../../../../modules/manut-crm';
+import {
+  KanbanBoard,
+  type KanbanColumn,
+  type KanbanOnMoveArgs,
+} from '../../../../modules/manut-shared';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
 import * as styles from './styles.css';
 
@@ -737,9 +744,21 @@ interface DealsTabProps {
   workspaceId: string;
 }
 
+interface DealKanbanCard extends MnCrmDeal {
+  accountName: string | null;
+}
+
 const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   const t = useI18n();
   const [creating, setCreating] = useState(false);
+  /**
+   * Optimistic overrides keyed by deal id. We apply these on top of the
+   * SWR-fetched data so drag-drop feels instant; SWR's eventual revalidate
+   * supersedes them once the server confirms the move.
+   */
+  const [dealOverrides, setDealOverrides] = useState<
+    Record<string, { stageId: string }>
+  >({});
 
   const { data: dealsData, mutate } = useQuery(
     toQueryArg(mnCrmDealsQuery, { workspaceId })
@@ -750,6 +769,10 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   const { data: accountsData } = useQuery(
     toQueryArg(mnCrmAccountsQuery, { workspaceId })
   );
+
+  const { trigger: triggerUpdate } = useMutation({
+    mutation: updateMnCrmDealMutation,
+  });
 
   const deals = useMemo(
     () =>
@@ -775,22 +798,61 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
     [stages]
   );
 
-  const dealsByStage = useMemo(() => {
-    const map = new Map<string, MnCrmDeal[]>();
-    for (const stage of stagesSorted) {
-      map.set(stage.id, []);
-    }
-    for (const deal of deals) {
-      const bucket = map.get(deal.stageId);
-      if (bucket) bucket.push(deal);
-    }
-    return map;
-  }, [deals, stagesSorted]);
-
   const accountById = useMemo(
     () => new Map(accounts.map(account => [account.id, account])),
     [accounts]
   );
+
+  const dealsWithOverrides = useMemo<DealKanbanCard[]>(() => {
+    return deals.map(deal => {
+      const override = dealOverrides[deal.id];
+      const account = deal.accountId
+        ? (accountById.get(deal.accountId) ?? null)
+        : null;
+      const merged: DealKanbanCard = {
+        ...deal,
+        accountName: account ? account.name : null,
+      };
+      if (override) {
+        merged.stageId = override.stageId;
+      }
+      return merged;
+    });
+  }, [accountById, dealOverrides, deals]);
+
+  const columns = useMemo<KanbanColumn<DealKanbanCard>[]>(() => {
+    return stagesSorted.map(stage => {
+      const cards = dealsWithOverrides
+        .filter(deal => deal.stageId === stage.id)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      const sum = cards.reduce((acc, deal) => acc + (deal.value ?? 0), 0);
+      const summary = `${cards.length} • ${formatCurrency(sum, cards[0]?.currency ?? null)}`;
+      return {
+        id: stage.id,
+        label: stage.name,
+        cards,
+        meta: cards.length > 0 ? summary : `${cards.length}`,
+      };
+    });
+  }, [dealsWithOverrides, stagesSorted]);
+
+  // When the underlying deal's stage matches its override, drop the
+  // override so we stop double-applying the same change.
+  useEffect(() => {
+    setDealOverrides(prev => {
+      let changed = false;
+      const next: Record<string, { stageId: string }> = {};
+      for (const [dealId, override] of Object.entries(prev)) {
+        const live = deals.find(d => d.id === dealId);
+        if (live && live.stageId === override.stageId) {
+          changed = true;
+          continue;
+        }
+        next[dealId] = override;
+      }
+      return changed ? next : prev;
+    });
+  }, [deals]);
 
   const handleCreated = useCallback(async () => {
     setCreating(false);
@@ -800,6 +862,38 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   const handleStageCreated = useCallback(async () => {
     await mutateStages();
   }, [mutateStages]);
+
+  const handleMove = useCallback(
+    async ({ cardId, fromColumn, toColumn }: KanbanOnMoveArgs) => {
+      if (fromColumn === toColumn) return;
+      setDealOverrides(prev => ({
+        ...prev,
+        [cardId]: { stageId: toColumn },
+      }));
+      try {
+        const input: UpdateMnCrmDealInput = { stageId: toColumn };
+        await (triggerUpdate as (args: unknown) => Promise<unknown>)({
+          dealId: cardId,
+          input,
+        });
+        await mutate();
+      } catch (err) {
+        notify.error({
+          title: t['com.manut.crm.kanban.error.move'](),
+          message:
+            err instanceof Error && err.message
+              ? err.message
+              : t['com.manut.crm.error.unknown'](),
+        });
+        // Revert the override on failure.
+        setDealOverrides(prev => {
+          const { [cardId]: _omit, ...rest } = prev;
+          return rest;
+        });
+      }
+    },
+    [mutate, t, triggerUpdate]
+  );
 
   return (
     <>
@@ -822,43 +916,25 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
             {t['com.manut.crm.deals.addStage']()}
           </Button>
         </div>
-      ) : deals.length === 0 ? (
-        <div className={styles.emptyState} data-testid="crm-deals-empty">
-          {t['com.manut.crm.deals.empty']()}
-        </div>
       ) : (
-        <div className={styles.groupedList} data-testid="crm-deals-list">
-          {stagesSorted.map(stage => {
-            const bucket = dealsByStage.get(stage.id) ?? [];
-            if (bucket.length === 0) return null;
-            return (
-              <div key={stage.id}>
-                <div className={styles.sectionLabel}>{stage.name}</div>
-                <div className={styles.listWrapper}>
-                  {bucket.map(deal => {
-                    const account = deal.accountId
-                      ? accountById.get(deal.accountId)
-                      : null;
-                    return (
-                      <div key={deal.id} className={styles.listRow}>
-                        <div>
-                          <div className={styles.rowTitle}>{deal.name}</div>
-                          {account ? (
-                            <div className={styles.rowSubtitle}>
-                              {account.name}
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className={styles.rowMeta}>
-                          {formatCurrency(deal.value, deal.currency)}
-                        </div>
-                      </div>
-                    );
-                  })}
+        <div data-testid="crm-deals-list">
+          <KanbanBoard<DealKanbanCard>
+            columns={columns}
+            onMove={handleMove}
+            testIdPrefix="crm-deals-kanban"
+            emptyText={t['com.manut.crm.kanban.column.empty']()}
+            renderCard={card => (
+              <div>
+                <div className={styles.rowTitle}>{card.name}</div>
+                {card.accountName ? (
+                  <div className={styles.rowSubtitle}>{card.accountName}</div>
+                ) : null}
+                <div className={styles.rowSubtitle}>
+                  {formatCurrency(card.value, card.currency)}
                 </div>
               </div>
-            );
-          })}
+            )}
+          />
         </div>
       )}
       {creating ? (

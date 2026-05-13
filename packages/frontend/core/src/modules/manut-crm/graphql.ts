@@ -16,6 +16,7 @@ import type {
   MnCrmContact,
   MnCrmDeal,
   MnCrmDealStage,
+  UpdateMnCrmDealInput,
 } from './types';
 
 const ACCOUNT_FIELDS = `
@@ -161,6 +162,14 @@ export const createMnCrmDealMutation = {
 }`,
 };
 
+export const updateMnCrmDealMutation = {
+  id: 'updateMnCrmDealMutation' as const,
+  op: 'updateMnCrmDeal',
+  query: `mutation updateMnCrmDeal($dealId: ID!, $input: UpdateMnCrmDealInput!) {
+  updateMnCrmDeal(dealId: $dealId, input: $input) {${DEAL_FIELDS}}
+}`,
+};
+
 export const createMnCrmActivityMutation = {
   id: 'createMnCrmActivityMutation' as const,
   op: 'createMnCrmActivity',
@@ -207,6 +216,10 @@ export interface CreateMnCrmDealResponse {
   createMnCrmDeal: MnCrmDeal;
 }
 
+export interface UpdateMnCrmDealResponse {
+  updateMnCrmDeal: MnCrmDeal;
+}
+
 export interface CreateMnCrmActivityResponse {
   createMnCrmActivity: MnCrmActivity;
 }
@@ -235,6 +248,11 @@ export interface CreateMnCrmDealStageVars {
 export interface CreateMnCrmDealVars {
   workspaceId: string;
   input: CreateMnCrmDealInput;
+}
+
+export interface UpdateMnCrmDealVars {
+  dealId: string;
+  input: UpdateMnCrmDealInput;
 }
 
 export interface CreateMnCrmActivityVars {
