@@ -762,6 +762,48 @@ if ! $SUDO docker compose --project-directory "$COMPOSE_DIR" pull "$PROD_SERVICE
   exit 1
 fi
 
+# ---- Step 5b: Run migrations BEFORE swapping the server -------------------
+# affine_migration is a one-shot job (restart: 'no'). The affine server
+# depends_on it with `service_completed_successfully`, but on subsequent
+# deploys that dependency is satisfied by the PRIOR completed run — so
+# compose will NOT re-run affine_migration even though its image tag
+# (now sed-rewritten above) has changed. Force-recreate it explicitly
+# so `yarn predeploy` (Prisma + data-migrations from
+# packages/backend/server/src/data/migrations/index.ts) actually runs
+# against the new image. If migrations fail, the affine server is NOT
+# touched — production stays on the previous image. Mirrors the
+# pull-failure rollback path above.
+log "docker compose pull affine_migration"
+if ! $SUDO docker compose --project-directory "$COMPOSE_DIR" pull affine_migration >&2; then
+  log "affine_migration image pull failed; rolling back compose.yml"
+  $SUDO cp "$COMPOSE_BACKUP" "$COMPOSE_FILE"
+  write_compose_env "$REGISTRY" "${PREVIOUS_TAG:-${IMAGE_TAG}}" ""
+  emit_json validation_failed "affine_migration image pull failed"
+  exit 1
+fi
+
+log "recreating affine_migration container (will run yarn predeploy)"
+if ! $SUDO docker compose --project-directory "$COMPOSE_DIR" \
+       up -d --force-recreate affine_migration >&2; then
+  log "affine_migration up failed; rolling back compose.yml"
+  $SUDO cp "$COMPOSE_BACKUP" "$COMPOSE_FILE"
+  write_compose_env "$REGISTRY" "${PREVIOUS_TAG:-${IMAGE_TAG}}" ""
+  emit_json validation_failed "affine_migration up failed"
+  exit 1
+fi
+
+log "waiting for affine_migration_job to exit"
+MIGRATION_RC=$($SUDO docker wait affine_migration_job 2>/dev/null || echo "999")
+if [[ "$MIGRATION_RC" != "0" ]]; then
+  log "affine_migration_job exited with rc=${MIGRATION_RC}; capturing logs + rolling back"
+  dump_logs affine_migration_job 200
+  $SUDO cp "$COMPOSE_BACKUP" "$COMPOSE_FILE"
+  write_compose_env "$REGISTRY" "${PREVIOUS_TAG:-${IMAGE_TAG}}" ""
+  emit_json validation_failed "affine_migration exited rc=${MIGRATION_RC}"
+  exit 1
+fi
+log "migrations complete; proceeding to swap affine server"
+
 log "docker compose up -d --force-recreate ${PROD_SERVICE}"
 if ! $SUDO docker compose --project-directory "$COMPOSE_DIR" \
        up -d --force-recreate "$PROD_SERVICE" >&2; then
