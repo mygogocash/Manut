@@ -316,7 +316,10 @@ export class PromptService implements OnApplicationBootstrap {
       'gemini-2.5-flash',
       'gemini-2.5-pro',
       'claude-sonnet-4-5@20250929',
-      'gpt-5-mini',
+      // gpt-5-mini intentionally omitted: Manut's Vertex stack has no
+      // OpenAI provider, so exposing this option silently breaks chat
+      // for any user who picks it (CLAUDE.md §5c). Re-add only after
+      // wiring an OpenAI provider.
       'llama-3.1-70b-instruct-maas',
       'llama-3.1-405b-instruct-maas',
       'mistral-large-2411',
