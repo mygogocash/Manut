@@ -16,6 +16,7 @@ import { Models } from '../../../models';
 import { IndexerService } from '../../indexer';
 import type { ProviderMiddlewareConfig } from '../config';
 import { CopilotContextService } from '../context/service';
+import { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
 import { PromptService } from '../prompt/service';
 import {
   buildBlobContentGetter,
@@ -402,6 +403,12 @@ export abstract class CopilotProvider<C = any> {
       const prompt = this.moduleRef.get(PromptService, {
         strict: false,
       });
+      // Knowledge Graph activation pulse bus. Always registered by
+      // CopilotModule; passed into the read-side tool builders so each
+      // successful read emits a pulse on the workspace stream.
+      const docReadBus = this.moduleRef.get(DocReadEventBus, {
+        strict: false,
+      });
 
       for (const tool of options.tools) {
         const toolDef = this.getProviderSpecificTools(tool, model);
@@ -442,7 +449,7 @@ export abstract class CopilotProvider<C = any> {
             break;
           }
           case 'docEdit': {
-            const getDocContent = buildContentGetter(ac, docReader);
+            const getDocContent = buildContentGetter(ac, docReader, docReadBus);
             tools.doc_edit = createDocEditTool(
               this.factory,
               prompt,
@@ -458,7 +465,8 @@ export abstract class CopilotProvider<C = any> {
               ac,
               context,
               docContext,
-              models
+              models,
+              docReadBus
             );
             tools.doc_semantic_search = createDocSemanticSearchTool(
               searchDocs.bind(null, options)
@@ -473,7 +481,8 @@ export abstract class CopilotProvider<C = any> {
               const searchDocs = buildDocKeywordSearchGetter(
                 ac,
                 indexerService,
-                models
+                models,
+                docReadBus
               );
               tools.doc_keyword_search = createDocKeywordSearchTool(
                 searchDocs.bind(null, options)
@@ -482,7 +491,12 @@ export abstract class CopilotProvider<C = any> {
             break;
           }
           case 'docRead': {
-            const getDoc = buildDocContentGetter(ac, docReader, models);
+            const getDoc = buildDocContentGetter(
+              ac,
+              docReader,
+              models,
+              docReadBus
+            );
             tools.doc_read = createDocReadTool(getDoc.bind(null, options));
             break;
           }
