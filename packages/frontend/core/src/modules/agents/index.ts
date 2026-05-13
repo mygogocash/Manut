@@ -61,7 +61,10 @@ export class AgentService extends Service {
   topLevelAgents$ = new LiveData<AgentSummary[]>([]);
   allAgents$ = new LiveData<AgentDetail[]>([]);
 
-  private readonly agentSignals = new Map<string, LiveData<AgentDetail | null>>();
+  private readonly agentSignals = new Map<
+    string,
+    LiveData<AgentDetail | null>
+  >();
 
   constructor(
     private readonly workspaceService: WorkspaceService,
@@ -117,16 +120,16 @@ export class AgentService extends Service {
    */
   agent$(id: string | undefined): LiveData<AgentDetail | null> {
     if (!id) return new LiveData<AgentDetail | null>(null);
-    let live = this.agentSignals.get(id);
-    if (!live) {
-      live = new LiveData<AgentDetail | null>(null);
-      this.agentSignals.set(id, live);
+    let live$ = this.agentSignals.get(id);
+    if (!live$) {
+      live$ = new LiveData<AgentDetail | null>(null);
+      this.agentSignals.set(id, live$);
       // Fetch in background.
       this.fetchAgent(id).catch(err => {
         console.warn(`[agents] failed to fetch ${id}`, err);
       });
     }
-    return live;
+    return live$;
   }
 
   private async fetchAgent(id: string): Promise<void> {
@@ -134,8 +137,8 @@ export class AgentService extends Service {
       query: getAgentQuery,
       variables: { id },
     } as any)) as unknown as { agent?: AgentDetail | null };
-    const live = this.agentSignals.get(id);
-    if (live) live.next(result.agent ?? null);
+    const live$ = this.agentSignals.get(id);
+    if (live$) live$.next(result.agent ?? null);
   }
 
   async createAgent(input: {

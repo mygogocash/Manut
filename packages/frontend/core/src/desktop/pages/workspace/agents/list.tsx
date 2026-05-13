@@ -1,6 +1,6 @@
 import { AgentService } from '@affine/core/modules/agents';
 import { WorkbenchLink } from '@affine/core/modules/workbench';
-import { useLiveData, useService } from '@toeverything/infra';
+import { type LiveData, useLiveData, useService } from '@toeverything/infra';
 
 import { AgentAvatar } from '../../../../components/agent-avatar';
 import * as styles from './list.css';
@@ -13,16 +13,14 @@ interface AgentSummary {
 }
 
 interface AgentLikeService {
-  // Real type: LiveData<AgentSummary[]>; widened to `any` so this file stays
-  // decoupled from the AgentService implementation while it's being landed.
-  topLevelAgents$: any;
+  topLevelAgents$: LiveData<AgentSummary[]>;
   refresh?: () => void | Promise<void>;
 }
 
 export const AgentsList = () => {
   const agentService = useService(AgentService) as unknown as AgentLikeService;
-  const agents = (useLiveData(agentService.topLevelAgents$) ??
-    []) as AgentSummary[];
+  const agents: AgentSummary[] =
+    useLiveData(agentService.topLevelAgents$) ?? [];
 
   return (
     <div className={styles.body} data-testid="agents-list-page-body">
@@ -48,7 +46,11 @@ export const AgentsList = () => {
               className={styles.listItem}
               data-testid={`agents-list-row-${agent.id}`}
             >
-              <AgentAvatar agent={agent} size={28} className={styles.itemIcon} />
+              <AgentAvatar
+                agent={agent}
+                size={28}
+                className={styles.itemIcon}
+              />
               <div className={styles.itemBody}>
                 <div className={styles.itemName}>
                   {agent.name || 'Untitled agent'}
