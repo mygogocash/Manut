@@ -71,7 +71,7 @@ services:
     image: redis:7-alpine
 ```
 
-For the full reference compose (with Caddy reverse proxy + Vertex config), see [`.docker/gogocash/`](.docker/gogocash/).
+For the full reference compose (with Caddy reverse proxy + Vertex config), see [`.docker/manut/`](.docker/manut/).
 
 ### Vertex AI configuration
 
@@ -103,7 +103,7 @@ yarn build
 # Build the linux/amd64 image
 docker buildx build --platform linux/amd64 \
   --no-cache \
-  -f .docker/gogocash/Dockerfile.fullstack \
+  -f .docker/manut/Dockerfile.fullstack \
   -t manut:local .
 ```
 
@@ -144,7 +144,7 @@ Manut tracks upstream AFFiNE closely. Untouched areas include:
 │       └── core/          ← Shared modules (agents/, ai-button/, blocksuite/...)
 ├── blocksuite/            ← BlockSuite editor (vendored, modified)
 ├── tools/                 ← Build / CI / dev scripts
-└── .docker/gogocash/      ← Manut Docker recipes
+└── .docker/manut/         ← Manut Docker recipes
 ```
 
 ## Roadmap

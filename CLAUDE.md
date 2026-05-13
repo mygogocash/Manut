@@ -325,10 +325,10 @@ Document the surprises — saves the next session a discovery cycle.
   runs `yarn affine bundle -p @affine/server` will fail with
   `Module not found: Can't resolve './server-native.*.node'`. Fix
   in two places:
-    - PR/push CI (`superflow-ci.yml`): use
+    - PR/push CI (`manut-ci.yml`): use
       `yarn workspace @affine/server tsc --noEmit` — typechecks
       without linking the binary.
-    - Release CI (`superflow-release.yml`): install the Rust
+    - Release CI (`manut-release.yml`): install the Rust
       toolchain (`dtolnay/rust-toolchain@stable`) and run
       `napi build --target x86_64-unknown-linux-gnu` BEFORE the
       server bundle step, so the binary exists when bundling.
@@ -447,7 +447,7 @@ Document the surprises — saves the next session a discovery cycle.
   yarn affine bundle -p admin           # only if admin changes
   yarn affine bundle -p mobile          # only if mobile changes
   docker buildx build --platform linux/amd64 \
-    -f .docker/gogocash/Dockerfile.fullstack \
+    -f .docker/manut/Dockerfile.fullstack \
     -t asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:vX.Y.Z \
     --push .
   ```
@@ -782,17 +782,17 @@ Three Superflow-specific workflows live alongside the upstream AFFiNE
 ones (which target `canary`/`master` and rely on upstream-only secrets,
 so they're effectively dormant on this fork):
 
-- `.github/workflows/superflow-ci.yml` — push/PR to `main`. Three
+- `.github/workflows/manut-ci.yml` — push/PR to `main`. Three
   jobs: lint (oxlint + prettier), build-web (web/admin/mobile bundles),
   build-server (with `prisma generate`). Concurrency-cancellation per
   ref so a fast iteration doesn't pile up runs. Yarn 4 cache via
   `actions/cache` keyed on `yarn.lock`.
-- `.github/workflows/superflow-release.yml` — fires on `v*.*.*` tag
+- `.github/workflows/manut-release.yml` — fires on `v*.*.*` tag
   push. Builds all four bundles + pushes the `Dockerfile.fullstack`
   image to `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash`,
   tagged with both the version and `latest`. GHA cache via
   `cache-from/to: type=gha,mode=max`.
-- `.github/workflows/superflow-deploy.yml` — manual
+- `.github/workflows/manut-deploy.yml` — manual
   `workflow_dispatch` with a `tag` input. Validates the tag exists
   in GAR, IAP-tunnels into `affine-vm`, backs up `compose.yml` to
   `compose.yml.pre-<tag>.bak`, swaps the image, restarts. Smoke-tests
@@ -805,7 +805,7 @@ roles on `affine-495114`:
 `roles/artifactregistry.{writer,reader}`,
 `roles/iap.tunnelResourceAccessor`,
 `roles/compute.instanceAdmin.v1`. Setup walk-through in
-`.github/SUPERFLOW_CI_SETUP.md`.
+`.github/MANUT_CI_SETUP.md`.
 
 The default branch on GitHub was changed from `canary` (inherited
 from upstream) to `main` so PRs target the correct place. Upstream
@@ -816,10 +816,10 @@ Tagging a release:
 
 ```bash
 git tag v1.x.0 && git push origin v1.x.0
-# Wait ~15 min for superflow-release.yml to push the image.
+# Wait ~15 min for manut-release.yml to push the image.
 # Then: GitHub → Actions → Superflow Deploy → Run workflow.
 ```
 
-Optional: rename `.github/dependabot.superflow.yml` →
+Optional: rename `.github/dependabot.manut.yml` →
 `.github/dependabot.yml` to enable weekly grouped dep PRs (3 npm + 2
 GH Actions per week, majors of react/blocksuite/prisma/next pinned).
