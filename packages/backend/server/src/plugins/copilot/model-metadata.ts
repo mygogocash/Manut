@@ -16,6 +16,9 @@ export type ModelFamily =
   | 'cloudflare'
   | 'morph'
   | 'fal'
+  | 'moonshot'
+  | 'grok'
+  | 'qwen'
   | 'other';
 
 export type ModelTier = 'fast' | 'balanced' | 'max';
@@ -150,6 +153,82 @@ const METADATA: Record<string, ModelMetadata> = {
     tier: 'max',
     pricePerKToken: 0.00055,
   },
+
+  // Moonshot (Kimi)
+  'kimi-k2-thinking': {
+    family: 'moonshot',
+    tier: 'max',
+    pricePerKToken: 0.0006,
+  },
+  'kimi-k2-thinking-turbo': {
+    family: 'moonshot',
+    tier: 'balanced',
+    pricePerKToken: 0.0004,
+  },
+  'kimi-k2-0905-preview': {
+    family: 'moonshot',
+    tier: 'balanced',
+    pricePerKToken: 0.0006,
+  },
+  'kimi-k2-turbo-preview': {
+    family: 'moonshot',
+    tier: 'balanced',
+    pricePerKToken: 0.0004,
+  },
+  'moonshot-v1-128k': {
+    family: 'moonshot',
+    tier: 'balanced',
+    pricePerKToken: 0.0012,
+  },
+  'moonshot-v1-auto': {
+    family: 'moonshot',
+    tier: 'balanced',
+    pricePerKToken: 0.0006,
+  },
+
+  // xAI Grok
+  'grok-4': { family: 'grok', tier: 'max', pricePerKToken: 0.003 },
+  'grok-4-fast-reasoning': {
+    family: 'grok',
+    tier: 'balanced',
+    pricePerKToken: 0.0002,
+  },
+  'grok-4-fast-non-reasoning': {
+    family: 'grok',
+    tier: 'fast',
+    pricePerKToken: 0.0002,
+  },
+  'grok-4-1-fast-reasoning': {
+    family: 'grok',
+    tier: 'balanced',
+    pricePerKToken: 0.0002,
+  },
+  'grok-4-1-fast-non-reasoning': {
+    family: 'grok',
+    tier: 'fast',
+    pricePerKToken: 0.0002,
+  },
+  'grok-code-fast-1': {
+    family: 'grok',
+    tier: 'fast',
+    pricePerKToken: 0.0002,
+  },
+
+  // Alibaba Qwen (DashScope international)
+  'qwen3-max': { family: 'qwen', tier: 'max', pricePerKToken: 0.0024 },
+  'qwen-plus': { family: 'qwen', tier: 'balanced', pricePerKToken: 0.0004 },
+  'qwen-flash': { family: 'qwen', tier: 'fast', pricePerKToken: 0.00005 },
+  'qwen3-coder-plus': {
+    family: 'qwen',
+    tier: 'balanced',
+    pricePerKToken: 0.001,
+  },
+  'qwen3-coder-flash': {
+    family: 'qwen',
+    tier: 'fast',
+    pricePerKToken: 0.0003,
+  },
+  'qwen3-vl-plus': { family: 'qwen', tier: 'balanced', pricePerKToken: 0.001 },
 };
 
 export function getModelMetadata(modelId: string): ModelMetadata {

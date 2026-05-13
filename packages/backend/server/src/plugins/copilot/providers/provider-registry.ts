@@ -22,6 +22,9 @@ const LEGACY_PROVIDER_ORDER: CopilotProviderType[] = [
   CopilotProviderType.LlamaVertex,
   CopilotProviderType.MistralVertex,
   CopilotProviderType.DeepSeekVertex,
+  CopilotProviderType.Moonshot,
+  CopilotProviderType.XAI,
+  CopilotProviderType.Alibaba,
 ];
 
 const LEGACY_PROVIDER_PRIORITY = LEGACY_PROVIDER_ORDER.reduce(

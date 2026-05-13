@@ -6,6 +6,7 @@ import {
   StorageProviderConfig,
 } from '../../base';
 import { CopilotPromptScenario } from './prompt/prompts';
+import { AlibabaConfig } from './providers/alibaba';
 import {
   AnthropicOfficialConfig,
   AnthropicVertexConfig,
@@ -16,6 +17,7 @@ import type { FalConfig } from './providers/fal';
 import { GeminiGenerativeConfig, GeminiVertexConfig } from './providers/gemini';
 import { LlamaVertexConfig } from './providers/llama';
 import { MistralVertexConfig } from './providers/mistral';
+import { MoonshotConfig } from './providers/moonshot';
 import { MorphConfig } from './providers/morph';
 import { OpenAIConfig } from './providers/openai';
 import { PerplexityConfig } from './providers/perplexity';
@@ -24,6 +26,7 @@ import {
   ModelOutputType,
   VertexSchema,
 } from './providers/types';
+import { XAIConfig } from './providers/xai';
 
 export type CopilotProviderConfigMap = {
   [CopilotProviderType.OpenAI]: OpenAIConfig;
@@ -38,6 +41,9 @@ export type CopilotProviderConfigMap = {
   [CopilotProviderType.LlamaVertex]: LlamaVertexConfig;
   [CopilotProviderType.MistralVertex]: MistralVertexConfig;
   [CopilotProviderType.DeepSeekVertex]: DeepSeekVertexConfig;
+  [CopilotProviderType.Moonshot]: MoonshotConfig;
+  [CopilotProviderType.XAI]: XAIConfig;
+  [CopilotProviderType.Alibaba]: AlibabaConfig;
 };
 
 export type ProviderSpecificConfig =
@@ -158,6 +164,21 @@ const MorphConfigShape = z.object({
   apiKey: z.string().optional(),
 });
 
+const MoonshotConfigShape = z.object({
+  apiKey: z.string(),
+  baseURL: z.string().optional(),
+});
+
+const XAIConfigShape = z.object({
+  apiKey: z.string(),
+  baseURL: z.string().optional(),
+});
+
+const AlibabaConfigShape = z.object({
+  apiKey: z.string(),
+  baseURL: z.string().optional(),
+});
+
 const CopilotProviderProfileShape = z.discriminatedUnion('type', [
   CopilotProviderProfileBaseShape.extend({
     type: z.literal(CopilotProviderType.OpenAI),
@@ -207,6 +228,18 @@ const CopilotProviderProfileShape = z.discriminatedUnion('type', [
     type: z.literal(CopilotProviderType.DeepSeekVertex),
     config: VertexProviderConfigShape,
   }),
+  CopilotProviderProfileBaseShape.extend({
+    type: z.literal(CopilotProviderType.Moonshot),
+    config: MoonshotConfigShape,
+  }),
+  CopilotProviderProfileBaseShape.extend({
+    type: z.literal(CopilotProviderType.XAI),
+    config: XAIConfigShape,
+  }),
+  CopilotProviderProfileBaseShape.extend({
+    type: z.literal(CopilotProviderType.Alibaba),
+    config: AlibabaConfigShape,
+  }),
 ]);
 
 const CopilotProviderDefaultsShape = z.object({
@@ -246,6 +279,9 @@ declare global {
         llamaVertex: ConfigItem<LlamaVertexConfig>;
         mistralVertex: ConfigItem<MistralVertexConfig>;
         deepseekVertex: ConfigItem<DeepSeekVertexConfig>;
+        moonshot: ConfigItem<MoonshotConfig>;
+        xai: ConfigItem<XAIConfig>;
+        alibaba: ConfigItem<AlibabaConfig>;
       };
     };
   }
@@ -352,6 +388,30 @@ defineModuleConfig('copilot', {
     desc: 'The config for the DeepSeek provider in Google Vertex AI Model Garden (publisher: deepseek-ai).',
     default: { location: 'us-central1' },
     schema: VertexSchema,
+  },
+  'providers.moonshot': {
+    desc: 'The config for the Moonshot (Kimi) provider. OpenAI-compatible API at https://api.moonshot.ai/v1.',
+    default: {
+      apiKey: '',
+      baseURL: 'https://api.moonshot.ai/v1',
+    },
+    link: 'https://platform.moonshot.ai/docs/api/chat',
+  },
+  'providers.xai': {
+    desc: 'The config for the xAI (Grok) provider. OpenAI-compatible API at https://api.x.ai/v1.',
+    default: {
+      apiKey: '',
+      baseURL: 'https://api.x.ai/v1',
+    },
+    link: 'https://docs.x.ai/docs/models',
+  },
+  'providers.alibaba': {
+    desc: 'The config for the Alibaba DashScope (Qwen) provider. OpenAI-compatible mode on the international endpoint.',
+    default: {
+      apiKey: '',
+      baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    },
+    link: 'https://www.alibabacloud.com/help/en/model-studio/use-qwen-by-calling-api',
   },
   unsplash: {
     desc: 'The config for the unsplash key.',

@@ -2162,6 +2162,11 @@ const CHAT_PROMPT: Omit<Prompt, 'name'> = {
     'gemini-2.5-pro',
     'gemini-3.1-pro-preview',
     'claude-sonnet-4-5@20250929',
+    // Direct OpenAI-compatible vendors (gated by configured()=false when
+    // apiKey is empty, so they silently drop out on instances without keys).
+    'kimi-k2-thinking',
+    'grok-4',
+    'qwen3-max',
   ],
   messages: [
     {
