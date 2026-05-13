@@ -75,6 +75,8 @@ export function ConnectionsSettings({
     []) as PlatformConnection[];
   const loading = useLiveData(connectionService.entity.loading$) ?? false;
   const entityError = useLiveData(connectionService.entity.error$) ?? null;
+  const unavailable =
+    useLiveData(connectionService.entity.unavailable$) ?? false;
 
   const [busyPlatform, setBusyPlatform] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -209,12 +211,22 @@ export function ConnectionsSettings({
       <div className={styles.subtitle}>
         Link your workspace&apos;s social accounts to start collecting metrics.
       </div>
+      {unavailable ? (
+        <div
+          className={styles.lockedNotice}
+          data-testid="analytics-connections-unavailable"
+        >
+          Analytics integrations are not enabled on this server. Ask your
+          administrator to enable the analytics module (
+          <code>ENABLE_ANALYTICS_MODULE=true</code>) and redeploy.
+        </div>
+      ) : null}
       {!canEdit ? (
         <div className={styles.lockedNotice}>
           Only workspace owners and admins can change connections.
         </div>
       ) : null}
-      {displayedError ? (
+      {!unavailable && displayedError ? (
         <div className={styles.bannerError} role="alert">
           <span className={styles.bannerErrorText}>{displayedError}</span>
           <button
@@ -228,7 +240,7 @@ export function ConnectionsSettings({
           </button>
         </div>
       ) : null}
-      {loading && connections.length === 0 ? (
+      {unavailable ? null : loading && connections.length === 0 ? (
         <div
           className={styles.list}
           data-testid="analytics-connections-loading"

@@ -22,6 +22,43 @@ const POPUP_FEATURES =
   'popup,width=520,height=720,menubar=no,toolbar=no,location=no,status=no';
 
 /**
+ * True when the GraphQL error indicates the server's schema has no
+ * `connections` field — i.e. the analytics module is not loaded. We
+ * recognise two signatures emitted by the server:
+ *   1. `name === 'GRAPHQL_BAD_REQUEST'` with `data.code ===
+ *      'GRAPHQL_VALIDATION_FAILED'` (the canonical extension shape
+ *      surfaced through `UserFriendlyError`).
+ *   2. A bare GraphQL validation message — fallback for cases where
+ *      the error fell through the `fromAny` classifier and only the
+ *      `.message` survived.
+ *
+ * Used by `loadConnections` to flip an `unavailable` flag instead of
+ * showing the generic "Unhandled error raised" banner. Public so the
+ * settings view can also classify the synchronous `beginOAuth` error
+ * path identically.
+ */
+export function isAnalyticsFeatureUnavailableError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const candidate = err as {
+    name?: string;
+    message?: string;
+    data?: { code?: string };
+  };
+  if (
+    candidate.name === 'GRAPHQL_BAD_REQUEST' &&
+    candidate.data?.code === 'GRAPHQL_VALIDATION_FAILED'
+  ) {
+    return true;
+  }
+  const message =
+    typeof candidate.message === 'string' ? candidate.message : '';
+  return (
+    message.includes('Cannot query field "connections"') ||
+    message.includes('GRAPHQL_VALIDATION_FAILED')
+  );
+}
+
+/**
  * Pickable account in the multi-account Meta picker. Backend caps the
  * list at 50 and sanitises both fields to printable ASCII before posting,
  * so the frontend can trust the strings for direct rendering.
@@ -113,6 +150,7 @@ export class ConnectionService extends Service {
   loadConnections = async (workspaceId: string): Promise<void> => {
     this.entity.setLoading(true);
     this.entity.setError(null);
+    this.entity.setUnavailable(false);
     try {
       const data = await (
         await this.graphql()
@@ -127,11 +165,22 @@ export class ConnectionService extends Service {
         (data.connections ?? []) as PlatformConnection[]
       );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      this.entity.setError(message);
       this.entity.setConnections([]);
+      if (isAnalyticsFeatureUnavailableError(err)) {
+        // Backend missing the analytics resolver — surface a typed flag
+        // so the view renders a friendly notice instead of the generic
+        // "Unhandled error raised" banner.
+        this.entity.setUnavailable(true);
+        console.warn(
+          '[analytics] connections schema not available on this server',
+          err
+        );
+      } else {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        this.entity.setError(message);
+        console.warn('[analytics] loadConnections failed', err);
+      }
       // Don't throw — empty connection list is the natural fallback.
-      console.warn('[analytics] loadConnections failed', err);
     } finally {
       this.entity.setLoading(false);
     }
