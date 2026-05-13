@@ -10,13 +10,13 @@ import {
   GmailSettingPanel,
   GoogleDriveSettingPanel,
 } from './google/setting-panel';
-import MCPIcon from './mcp-server/MCP.inline.svg';
-import { McpServerSettingPanel } from './mcp-server/setting-panel';
-import { ReadwiseSettingPanel } from './readwise/setting-panel';
 import {
   SuperflowHandoverIcon,
   SuperflowHandoverSettingPanel,
-} from './superflow-handover/setting-panel';
+} from './manut-handover/setting-panel';
+import MCPIcon from './mcp-server/MCP.inline.svg';
+import { McpServerSettingPanel } from './mcp-server/setting-panel';
+import { ReadwiseSettingPanel } from './readwise/setting-panel';
 
 type IntegrationCard = {
   id: string;

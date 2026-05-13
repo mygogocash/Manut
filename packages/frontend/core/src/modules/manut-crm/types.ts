@@ -8,7 +8,7 @@
 
 export type MnCrmActivityType = 'NOTE' | 'CALL' | 'EMAIL' | 'MEETING' | 'OTHER';
 
-export const SF_CRM_ACTIVITY_TYPES: readonly MnCrmActivityType[] = [
+export const MN_CRM_ACTIVITY_TYPES: readonly MnCrmActivityType[] = [
   'NOTE',
   'CALL',
   'EMAIL',

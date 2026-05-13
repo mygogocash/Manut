@@ -181,10 +181,10 @@ describe('CrmPage', () => {
   test('renders tab triggers for accounts, contacts, deals, and activities', () => {
     render(<Component />);
 
-    expect(screen.getByText('com.superflow.crm.tab.accounts')).toBeTruthy();
-    expect(screen.getByText('com.superflow.crm.tab.contacts')).toBeTruthy();
-    expect(screen.getByText('com.superflow.crm.tab.deals')).toBeTruthy();
-    expect(screen.getByText('com.superflow.crm.tab.activities')).toBeTruthy();
+    expect(screen.getByText('com.manut.crm.tab.accounts')).toBeTruthy();
+    expect(screen.getByText('com.manut.crm.tab.contacts')).toBeTruthy();
+    expect(screen.getByText('com.manut.crm.tab.deals')).toBeTruthy();
+    expect(screen.getByText('com.manut.crm.tab.activities')).toBeTruthy();
   });
 
   test('shows the accounts empty state when no accounts exist', () => {

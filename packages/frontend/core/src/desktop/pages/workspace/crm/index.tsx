@@ -42,6 +42,7 @@ import {
   type CreateMnCrmDealStageInput,
   createMnCrmDealStageMutation,
   type CreateMnCrmDealStageResponse,
+  MN_CRM_ACTIVITY_TYPES,
   type MnCrmAccount,
   mnCrmAccountsQuery,
   type MnCrmAccountsResponse,
@@ -58,8 +59,7 @@ import {
   type MnCrmDealStage,
   mnCrmDealStagesQuery,
   type MnCrmDealStagesResponse,
-  SF_CRM_ACTIVITY_TYPES,
-} from '../../../../modules/superflow-crm';
+} from '../../../../modules/manut-crm';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
 import * as styles from './styles.css';
 
@@ -84,17 +84,17 @@ const TAB_KEYS: readonly TabKey[] = [
 interface TabDef {
   key: TabKey;
   i18nKey:
-    | 'com.superflow.crm.tab.accounts'
-    | 'com.superflow.crm.tab.contacts'
-    | 'com.superflow.crm.tab.deals'
-    | 'com.superflow.crm.tab.activities';
+    | 'com.manut.crm.tab.accounts'
+    | 'com.manut.crm.tab.contacts'
+    | 'com.manut.crm.tab.deals'
+    | 'com.manut.crm.tab.activities';
 }
 
 const TABS: readonly TabDef[] = [
-  { key: 'accounts', i18nKey: 'com.superflow.crm.tab.accounts' },
-  { key: 'contacts', i18nKey: 'com.superflow.crm.tab.contacts' },
-  { key: 'deals', i18nKey: 'com.superflow.crm.tab.deals' },
-  { key: 'activities', i18nKey: 'com.superflow.crm.tab.activities' },
+  { key: 'accounts', i18nKey: 'com.manut.crm.tab.accounts' },
+  { key: 'contacts', i18nKey: 'com.manut.crm.tab.contacts' },
+  { key: 'deals', i18nKey: 'com.manut.crm.tab.deals' },
+  { key: 'activities', i18nKey: 'com.manut.crm.tab.activities' },
 ] as const;
 
 function formatDate(value: string | null): string {
@@ -143,7 +143,7 @@ const CrmHeader = () => {
             fontWeight: 500,
           }}
         >
-          <CollaborationIcon /> {t['com.superflow.crm.title']()}
+          <CollaborationIcon /> {t['com.manut.crm.title']()}
         </span>
       }
     />
@@ -286,7 +286,7 @@ const ActivityTypePicker = ({ value, onChange }: ActivityTypePickerProps) => {
     <Menu
       items={
         <>
-          {SF_CRM_ACTIVITY_TYPES.map(type => (
+          {MN_CRM_ACTIVITY_TYPES.map(type => (
             <MenuItem key={type} onSelect={() => onChange(type)}>
               {type}
             </MenuItem>
@@ -326,15 +326,15 @@ const AccountsTabInner = ({ workspaceId }: AccountsTabProps) => {
     <>
       <div className={styles.actionRow}>
         <div className={styles.placeholderText}>
-          {t['com.superflow.crm.accounts.subtitle']()}
+          {t['com.manut.crm.accounts.subtitle']()}
         </div>
         <Button variant="primary" onClick={() => setCreating(true)}>
-          {t['com.superflow.crm.accounts.create']()}
+          {t['com.manut.crm.accounts.create']()}
         </Button>
       </div>
       {accounts.length === 0 ? (
         <div className={styles.emptyState} data-testid="crm-accounts-empty">
-          {t['com.superflow.crm.accounts.empty']()}
+          {t['com.manut.crm.accounts.empty']()}
         </div>
       ) : (
         <div className={styles.listWrapper} data-testid="crm-accounts-list">
@@ -374,9 +374,9 @@ const AccountsTab = ({ workspaceId }: AccountsTabProps) => {
       fallbackRender={fallbackProps =>
         renderListErrorFallback(
           fallbackProps,
-          { retryLabel: t['com.superflow.crm.error.retry']() },
-          t['com.superflow.crm.error.unknown'](),
-          t['com.superflow.crm.error.message']()
+          { retryLabel: t['com.manut.crm.error.retry']() },
+          t['com.manut.crm.error.unknown'](),
+          t['com.manut.crm.error.message']()
         )
       }
     >
@@ -428,12 +428,12 @@ const AccountCreateModal = ({
       if (!response?.createMnCrmAccount) {
         throw new Error('Account creation returned no record');
       }
-      notify.success({ title: t['com.superflow.crm.accounts.created']() });
+      notify.success({ title: t['com.manut.crm.accounts.created']() });
       await onCreated();
     } catch (err) {
       notify.error({
-        title: t['com.superflow.crm.accounts.create.error'](),
-        message: getErrorMessage(err, t['com.superflow.crm.error.unknown']()),
+        title: t['com.manut.crm.accounts.create.error'](),
+        message: getErrorMessage(err, t['com.manut.crm.error.unknown']()),
       });
     } finally {
       setSubmitting(false);
@@ -446,34 +446,34 @@ const AccountCreateModal = ({
       onOpenChange={open => {
         if (!open) onClose();
       }}
-      title={t['com.superflow.crm.accounts.create']()}
+      title={t['com.manut.crm.accounts.create']()}
       width={420}
     >
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.name']()}
+          {t['com.manut.crm.fields.name']()}
         </label>
         <Input
           value={name}
           onChange={setName}
-          placeholder={t['com.superflow.crm.fields.name.placeholder']()}
+          placeholder={t['com.manut.crm.fields.name.placeholder']()}
         />
       </div>
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.industry']()}
+          {t['com.manut.crm.fields.industry']()}
         </label>
         <Input value={industry} onChange={setIndustry} />
       </div>
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.website']()}
+          {t['com.manut.crm.fields.website']()}
         </label>
         <Input value={website} onChange={setWebsite} placeholder="https://" />
       </div>
       <div className={styles.formActions}>
         <Button onClick={onClose} disabled={submitting}>
-          {t['com.superflow.crm.action.cancel']()}
+          {t['com.manut.crm.action.cancel']()}
         </Button>
         <Button
           variant="primary"
@@ -481,7 +481,7 @@ const AccountCreateModal = ({
           disabled={!canSubmit}
           loading={submitting}
         >
-          {t['com.superflow.crm.action.create']()}
+          {t['com.manut.crm.action.create']()}
         </Button>
       </div>
     </Modal>
@@ -534,15 +534,15 @@ const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
     <>
       <div className={styles.actionRow}>
         <div className={styles.placeholderText}>
-          {t['com.superflow.crm.contacts.subtitle']()}
+          {t['com.manut.crm.contacts.subtitle']()}
         </div>
         <Button variant="primary" onClick={() => setCreating(true)}>
-          {t['com.superflow.crm.contacts.create']()}
+          {t['com.manut.crm.contacts.create']()}
         </Button>
       </div>
       {contacts.length === 0 ? (
         <div className={styles.emptyState} data-testid="crm-contacts-empty">
-          {t['com.superflow.crm.contacts.empty']()}
+          {t['com.manut.crm.contacts.empty']()}
         </div>
       ) : (
         <div className={styles.listWrapper} data-testid="crm-contacts-list">
@@ -590,9 +590,9 @@ const ContactsTab = ({ workspaceId }: ContactsTabProps) => {
       fallbackRender={fallbackProps =>
         renderListErrorFallback(
           fallbackProps,
-          { retryLabel: t['com.superflow.crm.error.retry']() },
-          t['com.superflow.crm.error.unknown'](),
-          t['com.superflow.crm.error.message']()
+          { retryLabel: t['com.manut.crm.error.retry']() },
+          t['com.manut.crm.error.unknown'](),
+          t['com.manut.crm.error.message']()
         )
       }
     >
@@ -645,12 +645,12 @@ const ContactCreateModal = ({
       if (!response?.createMnCrmContact) {
         throw new Error('Contact creation returned no record');
       }
-      notify.success({ title: t['com.superflow.crm.contacts.created']() });
+      notify.success({ title: t['com.manut.crm.contacts.created']() });
       await onCreated();
     } catch (err) {
       notify.error({
-        title: t['com.superflow.crm.contacts.create.error'](),
-        message: getErrorMessage(err, t['com.superflow.crm.error.unknown']()),
+        title: t['com.manut.crm.contacts.create.error'](),
+        message: getErrorMessage(err, t['com.manut.crm.error.unknown']()),
       });
     } finally {
       setSubmitting(false);
@@ -674,47 +674,47 @@ const ContactCreateModal = ({
       onOpenChange={open => {
         if (!open) onClose();
       }}
-      title={t['com.superflow.crm.contacts.create']()}
+      title={t['com.manut.crm.contacts.create']()}
       width={420}
     >
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.firstName']()}
+          {t['com.manut.crm.fields.firstName']()}
         </label>
         <Input value={firstName} onChange={setFirstName} />
       </div>
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.lastName']()}
+          {t['com.manut.crm.fields.lastName']()}
         </label>
         <Input value={lastName} onChange={setLastName} />
       </div>
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.email']()}
+          {t['com.manut.crm.fields.email']()}
         </label>
         <Input value={email} onChange={setEmail} type="email" />
       </div>
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.phone']()}
+          {t['com.manut.crm.fields.phone']()}
         </label>
         <Input value={phone} onChange={setPhone} type="tel" />
       </div>
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.account']()}
+          {t['com.manut.crm.fields.account']()}
         </label>
         <AccountPicker
           accounts={accounts}
           value={accountId}
           onChange={setAccountId}
-          noneLabel={t['com.superflow.crm.fields.account.none']()}
+          noneLabel={t['com.manut.crm.fields.account.none']()}
         />
       </div>
       <div className={styles.formActions}>
         <Button onClick={onClose} disabled={submitting}>
-          {t['com.superflow.crm.action.cancel']()}
+          {t['com.manut.crm.action.cancel']()}
         </Button>
         <Button
           variant="primary"
@@ -722,7 +722,7 @@ const ContactCreateModal = ({
           disabled={!canSubmit}
           loading={submitting}
         >
-          {t['com.superflow.crm.action.create']()}
+          {t['com.manut.crm.action.create']()}
         </Button>
       </div>
     </Modal>
@@ -805,26 +805,26 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
     <>
       <div className={styles.actionRow}>
         <div className={styles.placeholderText}>
-          {t['com.superflow.crm.deals.subtitle']()}
+          {t['com.manut.crm.deals.subtitle']()}
         </div>
         <Button
           variant="primary"
           onClick={() => setCreating(true)}
           disabled={stagesSorted.length === 0}
         >
-          {t['com.superflow.crm.deals.create']()}
+          {t['com.manut.crm.deals.create']()}
         </Button>
       </div>
       {stagesSorted.length === 0 ? (
         <div className={styles.emptyState} data-testid="crm-deals-empty">
-          {t['com.superflow.crm.deals.noStages']()}
+          {t['com.manut.crm.deals.noStages']()}
           <Button onClick={() => setCreating(true)}>
-            {t['com.superflow.crm.deals.addStage']()}
+            {t['com.manut.crm.deals.addStage']()}
           </Button>
         </div>
       ) : deals.length === 0 ? (
         <div className={styles.emptyState} data-testid="crm-deals-empty">
-          {t['com.superflow.crm.deals.empty']()}
+          {t['com.manut.crm.deals.empty']()}
         </div>
       ) : (
         <div className={styles.groupedList} data-testid="crm-deals-list">
@@ -882,9 +882,9 @@ const DealsTab = ({ workspaceId }: DealsTabProps) => {
       fallbackRender={fallbackProps =>
         renderListErrorFallback(
           fallbackProps,
-          { retryLabel: t['com.superflow.crm.error.retry']() },
-          t['com.superflow.crm.error.unknown'](),
-          t['com.superflow.crm.error.message']()
+          { retryLabel: t['com.manut.crm.error.retry']() },
+          t['com.manut.crm.error.unknown'](),
+          t['com.manut.crm.error.message']()
         )
       }
     >
@@ -951,12 +951,12 @@ const DealCreateModal = ({
       if (!response?.createMnCrmDeal) {
         throw new Error('Deal creation returned no record');
       }
-      notify.success({ title: t['com.superflow.crm.deals.created']() });
+      notify.success({ title: t['com.manut.crm.deals.created']() });
       await onCreated();
     } catch (err) {
       notify.error({
-        title: t['com.superflow.crm.deals.create.error'](),
-        message: getErrorMessage(err, t['com.superflow.crm.error.unknown']()),
+        title: t['com.manut.crm.deals.create.error'](),
+        message: getErrorMessage(err, t['com.manut.crm.error.unknown']()),
       });
     } finally {
       setSubmitting(false);
@@ -989,18 +989,18 @@ const DealCreateModal = ({
         onOpenChange={open => {
           if (!open) onClose();
         }}
-        title={t['com.superflow.crm.deals.create']()}
+        title={t['com.manut.crm.deals.create']()}
         width={420}
       >
         <div className={styles.formRow}>
           <label className={styles.formLabel}>
-            {t['com.superflow.crm.fields.name']()}
+            {t['com.manut.crm.fields.name']()}
           </label>
           <Input value={name} onChange={setName} />
         </div>
         <div className={styles.formRow}>
           <label className={styles.formLabel}>
-            {t['com.superflow.crm.fields.value']()}
+            {t['com.manut.crm.fields.value']()}
           </label>
           <Input
             value={valueText}
@@ -1012,31 +1012,31 @@ const DealCreateModal = ({
         </div>
         <div className={styles.formRow}>
           <label className={styles.formLabel}>
-            {t['com.superflow.crm.fields.stage']()}
+            {t['com.manut.crm.fields.stage']()}
           </label>
           <StagePicker
             stages={stages}
             value={stageId}
             onChange={setStageId}
             onCreateStage={() => setStageDialogOpen(true)}
-            placeholder={t['com.superflow.crm.fields.stage.placeholder']()}
-            createLabel={t['com.superflow.crm.deals.addStage']()}
+            placeholder={t['com.manut.crm.fields.stage.placeholder']()}
+            createLabel={t['com.manut.crm.deals.addStage']()}
           />
         </div>
         <div className={styles.formRow}>
           <label className={styles.formLabel}>
-            {t['com.superflow.crm.fields.account']()}
+            {t['com.manut.crm.fields.account']()}
           </label>
           <AccountPicker
             accounts={accounts}
             value={accountId}
             onChange={setAccountId}
-            noneLabel={t['com.superflow.crm.fields.account.none']()}
+            noneLabel={t['com.manut.crm.fields.account.none']()}
           />
         </div>
         <div className={styles.formActions}>
           <Button onClick={onClose} disabled={submitting}>
-            {t['com.superflow.crm.action.cancel']()}
+            {t['com.manut.crm.action.cancel']()}
           </Button>
           <Button
             variant="primary"
@@ -1044,7 +1044,7 @@ const DealCreateModal = ({
             disabled={!canSubmit}
             loading={submitting}
           >
-            {t['com.superflow.crm.action.create']()}
+            {t['com.manut.crm.action.create']()}
           </Button>
         </div>
       </Modal>
@@ -1098,12 +1098,12 @@ const DealStageCreateModal = ({
       if (!response?.createMnCrmDealStage) {
         throw new Error('No stage returned');
       }
-      notify.success({ title: t['com.superflow.crm.deals.stage.created']() });
+      notify.success({ title: t['com.manut.crm.deals.stage.created']() });
       await onCreated(response.createMnCrmDealStage);
     } catch (err) {
       notify.error({
-        title: t['com.superflow.crm.deals.stage.create.error'](),
-        message: getErrorMessage(err, t['com.superflow.crm.error.unknown']()),
+        title: t['com.manut.crm.deals.stage.create.error'](),
+        message: getErrorMessage(err, t['com.manut.crm.error.unknown']()),
       });
     } finally {
       setSubmitting(false);
@@ -1116,18 +1116,18 @@ const DealStageCreateModal = ({
       onOpenChange={open => {
         if (!open) onClose();
       }}
-      title={t['com.superflow.crm.deals.addStage']()}
+      title={t['com.manut.crm.deals.addStage']()}
       width={360}
     >
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.stage.name']()}
+          {t['com.manut.crm.fields.stage.name']()}
         </label>
         <Input value={name} onChange={setName} />
       </div>
       <div className={styles.formActions}>
         <Button onClick={onClose} disabled={submitting}>
-          {t['com.superflow.crm.action.cancel']()}
+          {t['com.manut.crm.action.cancel']()}
         </Button>
         <Button
           variant="primary"
@@ -1135,7 +1135,7 @@ const DealStageCreateModal = ({
           disabled={!canSubmit}
           loading={submitting}
         >
-          {t['com.superflow.crm.action.create']()}
+          {t['com.manut.crm.action.create']()}
         </Button>
       </div>
     </Modal>
@@ -1190,15 +1190,15 @@ const ActivitiesTabInner = ({ workspaceId }: ActivitiesTabProps) => {
     <>
       <div className={styles.actionRow}>
         <div className={styles.placeholderText}>
-          {t['com.superflow.crm.activities.subtitle']()}
+          {t['com.manut.crm.activities.subtitle']()}
         </div>
         <Button variant="primary" onClick={() => setCreating(true)}>
-          {t['com.superflow.crm.activities.create']()}
+          {t['com.manut.crm.activities.create']()}
         </Button>
       </div>
       {sorted.length === 0 ? (
         <div className={styles.emptyState} data-testid="crm-activities-empty">
-          {t['com.superflow.crm.activities.empty']()}
+          {t['com.manut.crm.activities.empty']()}
         </div>
       ) : (
         <div className={styles.listWrapper} data-testid="crm-activities-list">
@@ -1242,9 +1242,9 @@ const ActivitiesTab = ({ workspaceId }: ActivitiesTabProps) => {
       fallbackRender={fallbackProps =>
         renderListErrorFallback(
           fallbackProps,
-          { retryLabel: t['com.superflow.crm.error.retry']() },
-          t['com.superflow.crm.error.unknown'](),
-          t['com.superflow.crm.error.message']()
+          { retryLabel: t['com.manut.crm.error.retry']() },
+          t['com.manut.crm.error.unknown'](),
+          t['com.manut.crm.error.message']()
         )
       }
     >
@@ -1292,12 +1292,12 @@ const ActivityCreateModal = ({
       if (!response?.createMnCrmActivity) {
         throw new Error('Activity creation returned no record');
       }
-      notify.success({ title: t['com.superflow.crm.activities.created']() });
+      notify.success({ title: t['com.manut.crm.activities.created']() });
       await onCreated();
     } catch (err) {
       notify.error({
-        title: t['com.superflow.crm.activities.create.error'](),
-        message: getErrorMessage(err, t['com.superflow.crm.error.unknown']()),
+        title: t['com.manut.crm.activities.create.error'](),
+        message: getErrorMessage(err, t['com.manut.crm.error.unknown']()),
       });
     } finally {
       setSubmitting(false);
@@ -1310,24 +1310,24 @@ const ActivityCreateModal = ({
       onOpenChange={open => {
         if (!open) onClose();
       }}
-      title={t['com.superflow.crm.activities.create']()}
+      title={t['com.manut.crm.activities.create']()}
       width={420}
     >
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.type']()}
+          {t['com.manut.crm.fields.type']()}
         </label>
         <ActivityTypePicker value={type} onChange={setType} />
       </div>
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.subject']()}
+          {t['com.manut.crm.fields.subject']()}
         </label>
         <Input value={subject} onChange={setSubject} />
       </div>
       <div className={styles.formRow}>
         <label className={styles.formLabel}>
-          {t['com.superflow.crm.fields.body']()}
+          {t['com.manut.crm.fields.body']()}
         </label>
         <textarea
           className={styles.textarea}
@@ -1337,7 +1337,7 @@ const ActivityCreateModal = ({
       </div>
       <div className={styles.formActions}>
         <Button onClick={onClose} disabled={submitting}>
-          {t['com.superflow.crm.action.cancel']()}
+          {t['com.manut.crm.action.cancel']()}
         </Button>
         <Button
           variant="primary"
@@ -1345,7 +1345,7 @@ const ActivityCreateModal = ({
           disabled={!canSubmit}
           loading={submitting}
         >
-          {t['com.superflow.crm.action.create']()}
+          {t['com.manut.crm.action.create']()}
         </Button>
       </div>
     </Modal>
@@ -1370,7 +1370,7 @@ const CrmPage = () => {
 
   return (
     <>
-      <ViewTitle title={t['com.superflow.crm.title']()} />
+      <ViewTitle title={t['com.manut.crm.title']()} />
       <ViewIcon icon="allDocs" />
       <ViewHeader>
         <CrmHeader />
