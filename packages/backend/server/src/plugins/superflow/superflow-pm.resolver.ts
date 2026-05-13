@@ -2,17 +2,17 @@ import { randomUUID } from 'node:crypto';
 
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { PrismaClient, SfProjectStatus, SfTaskStatus } from '@prisma/client';
+import { MnProjectStatus, MnTaskStatus, PrismaClient } from '@prisma/client';
 
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
-import { SfProjectObjectType } from './superflow.dto';
+import { MnProjectObjectType } from './superflow.dto';
 import {
-  CreateSfProjectInput,
-  CreateSfTaskInput,
-  SfTaskObjectType,
-  UpdateSfProjectInput,
-  UpdateSfTaskInput,
+  CreateMnProjectInput,
+  CreateMnTaskInput,
+  MnTaskObjectType,
+  UpdateMnProjectInput,
+  UpdateMnTaskInput,
 } from './superflow-pm.dto';
 
 @Resolver()
@@ -38,32 +38,32 @@ export class SuperflowPmResolver {
     }
   }
 
-  @Query(() => [SfProjectObjectType])
-  async sfProjects(
+  @Query(() => [MnProjectObjectType])
+  async mnProjects(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string
-  ): Promise<SfProjectObjectType[]> {
+  ): Promise<MnProjectObjectType[]> {
     await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
 
-    return this.db.sfProject.findMany({
+    return this.db.mnProject.findMany({
       where: { workspaceId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
   }
 
-  @Mutation(() => SfProjectObjectType)
-  async createSfProject(
+  @Mutation(() => MnProjectObjectType)
+  async createMnProject(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string,
-    @Args('input', { type: () => CreateSfProjectInput })
-    input: CreateSfProjectInput
-  ): Promise<SfProjectObjectType> {
+    @Args('input', { type: () => CreateMnProjectInput })
+    input: CreateMnProjectInput
+  ): Promise<MnProjectObjectType> {
     await this.ac
       .user(user.id)
       .workspace(workspaceId)
       .assert('Workspace.Settings.Update');
 
-    return this.db.sfProject.create({
+    return this.db.mnProject.create({
       data: {
         id: randomUUID(),
         workspaceId,
@@ -75,14 +75,14 @@ export class SuperflowPmResolver {
     });
   }
 
-  @Mutation(() => SfProjectObjectType)
-  async updateSfProject(
+  @Mutation(() => MnProjectObjectType)
+  async updateMnProject(
     @CurrentUser() user: CurrentUser,
     @Args('projectId', { type: () => ID }) projectId: string,
-    @Args('input', { type: () => UpdateSfProjectInput })
-    input: UpdateSfProjectInput
-  ): Promise<SfProjectObjectType> {
-    const project = await this.db.sfProject.findUnique({
+    @Args('input', { type: () => UpdateMnProjectInput })
+    input: UpdateMnProjectInput
+  ): Promise<MnProjectObjectType> {
+    const project = await this.db.mnProject.findUnique({
       where: { id: projectId },
     });
     if (!project) {
@@ -93,7 +93,7 @@ export class SuperflowPmResolver {
       .workspace(project.workspaceId)
       .assert('Workspace.Settings.Update');
 
-    return this.db.sfProject.update({
+    return this.db.mnProject.update({
       where: { id: projectId },
       data: {
         ...(input.name !== undefined && input.name !== null
@@ -103,7 +103,7 @@ export class SuperflowPmResolver {
           ? { description: input.description }
           : {}),
         ...(input.status !== undefined && input.status !== null
-          ? { status: input.status as SfProjectStatus }
+          ? { status: input.status as MnProjectStatus }
           : {}),
         ...(input.sortOrder !== undefined && input.sortOrder !== null
           ? { sortOrder: input.sortOrder }
@@ -112,12 +112,12 @@ export class SuperflowPmResolver {
     });
   }
 
-  @Mutation(() => SfProjectObjectType)
-  async archiveSfProject(
+  @Mutation(() => MnProjectObjectType)
+  async archiveMnProject(
     @CurrentUser() user: CurrentUser,
     @Args('projectId', { type: () => ID }) projectId: string
-  ): Promise<SfProjectObjectType> {
-    const project = await this.db.sfProject.findUnique({
+  ): Promise<MnProjectObjectType> {
+    const project = await this.db.mnProject.findUnique({
       where: { id: projectId },
     });
     if (!project) {
@@ -128,18 +128,18 @@ export class SuperflowPmResolver {
       .workspace(project.workspaceId)
       .assert('Workspace.Settings.Update');
 
-    return this.db.sfProject.update({
+    return this.db.mnProject.update({
       where: { id: projectId },
-      data: { status: SfProjectStatus.ARCHIVED },
+      data: { status: MnProjectStatus.ARCHIVED },
     });
   }
 
-  @Query(() => [SfTaskObjectType])
-  async sfTasks(
+  @Query(() => [MnTaskObjectType])
+  async mnTasks(
     @CurrentUser() user: CurrentUser,
     @Args('projectId', { type: () => ID }) projectId: string
-  ): Promise<SfTaskObjectType[]> {
-    const project = await this.db.sfProject.findUnique({
+  ): Promise<MnTaskObjectType[]> {
+    const project = await this.db.mnProject.findUnique({
       where: { id: projectId },
     });
     if (!project) {
@@ -150,19 +150,19 @@ export class SuperflowPmResolver {
       .workspace(project.workspaceId)
       .assert('Workspace.Read');
 
-    return this.db.sfTask.findMany({
+    return this.db.mnTask.findMany({
       where: { projectId },
       orderBy: [{ listSortOrder: 'asc' }, { createdAt: 'asc' }],
     });
   }
 
-  @Mutation(() => SfTaskObjectType)
-  async createSfTask(
+  @Mutation(() => MnTaskObjectType)
+  async createMnTask(
     @CurrentUser() user: CurrentUser,
     @Args('projectId', { type: () => ID }) projectId: string,
-    @Args('input', { type: () => CreateSfTaskInput }) input: CreateSfTaskInput
-  ): Promise<SfTaskObjectType> {
-    const project = await this.db.sfProject.findUnique({
+    @Args('input', { type: () => CreateMnTaskInput }) input: CreateMnTaskInput
+  ): Promise<MnTaskObjectType> {
+    const project = await this.db.mnProject.findUnique({
       where: { id: projectId },
     });
     if (!project) {
@@ -174,7 +174,7 @@ export class SuperflowPmResolver {
       .assert('Workspace.Settings.Update');
     await this.assertWorkspaceMember(project.workspaceId, input.assigneeUserId);
 
-    return this.db.sfTask.create({
+    return this.db.mnTask.create({
       data: {
         id: randomUUID(),
         projectId,
@@ -190,13 +190,13 @@ export class SuperflowPmResolver {
     });
   }
 
-  @Mutation(() => SfTaskObjectType)
-  async updateSfTask(
+  @Mutation(() => MnTaskObjectType)
+  async updateMnTask(
     @CurrentUser() user: CurrentUser,
     @Args('taskId', { type: () => ID }) taskId: string,
-    @Args('input', { type: () => UpdateSfTaskInput }) input: UpdateSfTaskInput
-  ): Promise<SfTaskObjectType> {
-    const task = await this.db.sfTask.findUnique({
+    @Args('input', { type: () => UpdateMnTaskInput }) input: UpdateMnTaskInput
+  ): Promise<MnTaskObjectType> {
+    const task = await this.db.mnTask.findUnique({
       where: { id: taskId },
       include: { project: true },
     });
@@ -213,7 +213,7 @@ export class SuperflowPmResolver {
       input.assigneeUserId
     );
 
-    return this.db.sfTask.update({
+    return this.db.mnTask.update({
       where: { id: taskId },
       data: {
         ...(input.title !== undefined && input.title !== null
@@ -235,13 +235,13 @@ export class SuperflowPmResolver {
     });
   }
 
-  @Mutation(() => SfTaskObjectType)
-  async updateSfTaskStatus(
+  @Mutation(() => MnTaskObjectType)
+  async updateMnTaskStatus(
     @CurrentUser() user: CurrentUser,
     @Args('taskId', { type: () => ID }) taskId: string,
-    @Args('status', { type: () => SfTaskStatus }) status: SfTaskStatus
-  ): Promise<SfTaskObjectType> {
-    const task = await this.db.sfTask.findUnique({
+    @Args('status', { type: () => MnTaskStatus }) status: MnTaskStatus
+  ): Promise<MnTaskObjectType> {
+    const task = await this.db.mnTask.findUnique({
       where: { id: taskId },
       include: { project: true },
     });
@@ -253,18 +253,18 @@ export class SuperflowPmResolver {
       .workspace(task.project.workspaceId)
       .assert('Workspace.Settings.Update');
 
-    return this.db.sfTask.update({
+    return this.db.mnTask.update({
       where: { id: taskId },
       data: { status },
     });
   }
 
   @Mutation(() => Boolean)
-  async deleteSfTask(
+  async deleteMnTask(
     @CurrentUser() user: CurrentUser,
     @Args('taskId', { type: () => ID }) taskId: string
   ): Promise<boolean> {
-    const task = await this.db.sfTask.findUnique({
+    const task = await this.db.mnTask.findUnique({
       where: { id: taskId },
       include: { project: true },
     });
@@ -276,7 +276,7 @@ export class SuperflowPmResolver {
       .workspace(task.project.workspaceId)
       .assert('Workspace.Settings.Update');
 
-    await this.db.sfTask.delete({ where: { id: taskId } });
+    await this.db.mnTask.delete({ where: { id: taskId } });
     return true;
   }
 }

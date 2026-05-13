@@ -45,12 +45,12 @@ vi.mock('../../../../../components/pure/header', () => ({
 
 vi.mock('@affine/core/components/hooks/use-query', () => ({
   useQuery: () => ({
-    data: { sfProjects: [] },
+    data: { mnProjects: [] },
     error: undefined,
     mutate: vi.fn(),
   }),
   useQueryImmutable: () => ({
-    data: { sfProjects: [] },
+    data: { mnProjects: [] },
     error: undefined,
     mutate: vi.fn(),
   }),

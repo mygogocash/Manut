@@ -19,19 +19,19 @@ function readSource(file: string) {
 test('Superflow PM read queries assert Workspace.Read', t => {
   const source = readSource('superflow-pm.resolver.ts');
   t.true(source.includes("assert('Workspace.Read')"));
-  t.regex(source, /async sfProjects\(/);
-  t.regex(source, /async sfTasks\(/);
+  t.regex(source, /async mnProjects\(/);
+  t.regex(source, /async mnTasks\(/);
 });
 
 test('Superflow CRM read queries assert Workspace.Read', t => {
   const source = readSource('superflow-crm.resolver.ts');
   t.true(source.includes("assert('Workspace.Read')"));
   for (const method of [
-    'sfCrmAccounts',
-    'sfCrmContacts',
-    'sfCrmDealStages',
-    'sfCrmDeals',
-    'sfCrmActivities',
+    'mnCrmAccounts',
+    'mnCrmContacts',
+    'mnCrmDealStages',
+    'mnCrmDeals',
+    'mnCrmActivities',
   ]) {
     t.regex(source, new RegExp(`async ${method}\\(`));
   }

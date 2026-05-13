@@ -6,9 +6,9 @@
  * `packages/backend/server/src/plugins/superflow/superflow-crm.dto.ts`.
  */
 
-export type SfCrmActivityType = 'NOTE' | 'CALL' | 'EMAIL' | 'MEETING' | 'OTHER';
+export type MnCrmActivityType = 'NOTE' | 'CALL' | 'EMAIL' | 'MEETING' | 'OTHER';
 
-export const SF_CRM_ACTIVITY_TYPES: readonly SfCrmActivityType[] = [
+export const SF_CRM_ACTIVITY_TYPES: readonly MnCrmActivityType[] = [
   'NOTE',
   'CALL',
   'EMAIL',
@@ -16,7 +16,7 @@ export const SF_CRM_ACTIVITY_TYPES: readonly SfCrmActivityType[] = [
   'OTHER',
 ] as const;
 
-export interface SfCrmAccount {
+export interface MnCrmAccount {
   id: string;
   workspaceId: string;
   name: string;
@@ -28,7 +28,7 @@ export interface SfCrmAccount {
   updatedAt: string;
 }
 
-export interface SfCrmContact {
+export interface MnCrmContact {
   id: string;
   workspaceId: string;
   accountId: string | null;
@@ -42,7 +42,7 @@ export interface SfCrmContact {
   updatedAt: string;
 }
 
-export interface SfCrmDealStage {
+export interface MnCrmDealStage {
   id: string;
   workspaceId: string;
   pipelineKey: string;
@@ -51,7 +51,7 @@ export interface SfCrmDealStage {
   createdAt: string;
 }
 
-export interface SfCrmDeal {
+export interface MnCrmDeal {
   id: string;
   workspaceId: string;
   accountId: string | null;
@@ -67,13 +67,13 @@ export interface SfCrmDeal {
   updatedAt: string;
 }
 
-export interface SfCrmActivity {
+export interface MnCrmActivity {
   id: string;
   workspaceId: string;
   accountId: string | null;
   contactId: string | null;
   dealId: string | null;
-  type: SfCrmActivityType;
+  type: MnCrmActivityType;
   subject: string | null;
   body: string | null;
   dueAt: string | null;
@@ -83,14 +83,14 @@ export interface SfCrmActivity {
   updatedAt: string;
 }
 
-export interface CreateSfCrmAccountInput {
+export interface CreateMnCrmAccountInput {
   name: string;
   website?: string | null;
   industry?: string | null;
   notes?: string | null;
 }
 
-export interface CreateSfCrmContactInput {
+export interface CreateMnCrmContactInput {
   accountId?: string | null;
   firstName: string;
   lastName?: string | null;
@@ -99,13 +99,13 @@ export interface CreateSfCrmContactInput {
   title?: string | null;
 }
 
-export interface CreateSfCrmDealStageInput {
+export interface CreateMnCrmDealStageInput {
   pipelineKey?: string | null;
   name: string;
   sortOrder?: number | null;
 }
 
-export interface CreateSfCrmDealInput {
+export interface CreateMnCrmDealInput {
   accountId?: string | null;
   contactId?: string | null;
   stageId: string;
@@ -115,11 +115,11 @@ export interface CreateSfCrmDealInput {
   probability?: number | null;
 }
 
-export interface CreateSfCrmActivityInput {
+export interface CreateMnCrmActivityInput {
   accountId?: string | null;
   contactId?: string | null;
   dealId?: string | null;
-  type: SfCrmActivityType;
+  type: MnCrmActivityType;
   subject?: string | null;
   body?: string | null;
 }

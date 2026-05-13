@@ -7,15 +7,15 @@ import {
   ObjectType,
   registerEnumType,
 } from '@nestjs/graphql';
-import { SfProjectStatus } from '@prisma/client';
+import { MnProjectStatus } from '@prisma/client';
 
-registerEnumType(SfProjectStatus, {
-  name: 'SfProjectStatus',
+registerEnumType(MnProjectStatus, {
+  name: 'MnProjectStatus',
   description: 'Lifecycle state of a Superflow project.',
 });
 
-@ObjectType('SfProject')
-export class SfProjectObjectType {
+@ObjectType('MnProject')
+export class MnProjectObjectType {
   @Field(() => ID)
   id!: string;
 
@@ -28,8 +28,8 @@ export class SfProjectObjectType {
   @Field(() => String, { nullable: true })
   description!: string | null;
 
-  @Field(() => SfProjectStatus)
-  status!: SfProjectStatus;
+  @Field(() => MnProjectStatus)
+  status!: MnProjectStatus;
 
   @Field(() => Int)
   sortOrder!: number;

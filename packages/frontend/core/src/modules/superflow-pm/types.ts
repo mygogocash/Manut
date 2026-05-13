@@ -8,18 +8,18 @@
  * for these operations.
  */
 
-export type SfProjectStatus = 'ACTIVE' | 'ARCHIVED';
+export type MnProjectStatus = 'ACTIVE' | 'ARCHIVED';
 
-export type SfTaskStatus =
+export type MnTaskStatus =
   | 'BACKLOG'
   | 'TODO'
   | 'IN_PROGRESS'
   | 'DONE'
   | 'CANCELLED';
 
-export type SfTaskPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type MnTaskPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
-export const SF_TASK_STATUSES: readonly SfTaskStatus[] = [
+export const SF_TASK_STATUSES: readonly MnTaskStatus[] = [
   'BACKLOG',
   'TODO',
   'IN_PROGRESS',
@@ -27,7 +27,7 @@ export const SF_TASK_STATUSES: readonly SfTaskStatus[] = [
   'CANCELLED',
 ];
 
-export const SF_TASK_PRIORITIES: readonly SfTaskPriority[] = [
+export const SF_TASK_PRIORITIES: readonly MnTaskPriority[] = [
   'NONE',
   'LOW',
   'MEDIUM',
@@ -35,24 +35,24 @@ export const SF_TASK_PRIORITIES: readonly SfTaskPriority[] = [
   'URGENT',
 ];
 
-export interface SfProjectDto {
+export interface MnProjectDto {
   id: string;
   workspaceId: string;
   name: string;
   description: string | null;
-  status: SfProjectStatus;
+  status: MnProjectStatus;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface SfTaskDto {
+export interface MnTaskDto {
   id: string;
   projectId: string;
   title: string;
   description: string | null;
-  status: SfTaskStatus;
-  priority: SfTaskPriority;
+  status: MnTaskStatus;
+  priority: MnTaskPriority;
   dueAt: string | null;
   listSortOrder: number;
   assigneeUserId: string | null;
@@ -61,17 +61,17 @@ export interface SfTaskDto {
   updatedAt: string;
 }
 
-export interface CreateSfProjectInput {
+export interface CreateMnProjectInput {
   name: string;
   description?: string | null;
   sortOrder?: number | null;
 }
 
-export interface CreateSfTaskInput {
+export interface CreateMnTaskInput {
   title: string;
   description?: string | null;
-  status?: SfTaskStatus;
-  priority?: SfTaskPriority;
+  status?: MnTaskStatus;
+  priority?: MnTaskPriority;
   dueAt?: string | null;
   listSortOrder?: number | null;
   assigneeUserId?: string | null;

@@ -8,11 +8,11 @@
  * codegen run.
  */
 
-export const sfProjectsQuery = {
-  id: 'sfProjectsQuery' as const,
-  op: 'sfProjects',
-  query: `query sfProjects($workspaceId: String!) {
-  sfProjects(workspaceId: $workspaceId) {
+export const mnProjectsQuery = {
+  id: 'mnProjectsQuery' as const,
+  op: 'mnProjects',
+  query: `query mnProjects($workspaceId: String!) {
+  mnProjects(workspaceId: $workspaceId) {
     id
     workspaceId
     name
@@ -25,11 +25,11 @@ export const sfProjectsQuery = {
 }`,
 };
 
-export const sfTasksQuery = {
-  id: 'sfTasksQuery' as const,
-  op: 'sfTasks',
-  query: `query sfTasks($projectId: ID!) {
-  sfTasks(projectId: $projectId) {
+export const mnTasksQuery = {
+  id: 'mnTasksQuery' as const,
+  op: 'mnTasks',
+  query: `query mnTasks($projectId: ID!) {
+  mnTasks(projectId: $projectId) {
     id
     projectId
     title
@@ -46,11 +46,11 @@ export const sfTasksQuery = {
 }`,
 };
 
-export const createSfProjectMutation = {
-  id: 'createSfProjectMutation' as const,
-  op: 'createSfProject',
-  query: `mutation createSfProject($workspaceId: String!, $input: CreateSfProjectInput!) {
-  createSfProject(workspaceId: $workspaceId, input: $input) {
+export const createMnProjectMutation = {
+  id: 'createMnProjectMutation' as const,
+  op: 'createMnProject',
+  query: `mutation createMnProject($workspaceId: String!, $input: CreateMnProjectInput!) {
+  createMnProject(workspaceId: $workspaceId, input: $input) {
     id
     workspaceId
     name
@@ -63,11 +63,11 @@ export const createSfProjectMutation = {
 }`,
 };
 
-export const createSfTaskMutation = {
-  id: 'createSfTaskMutation' as const,
-  op: 'createSfTask',
-  query: `mutation createSfTask($projectId: ID!, $input: CreateSfTaskInput!) {
-  createSfTask(projectId: $projectId, input: $input) {
+export const createMnTaskMutation = {
+  id: 'createMnTaskMutation' as const,
+  op: 'createMnTask',
+  query: `mutation createMnTask($projectId: ID!, $input: CreateMnTaskInput!) {
+  createMnTask(projectId: $projectId, input: $input) {
     id
     projectId
     title
@@ -84,11 +84,11 @@ export const createSfTaskMutation = {
 }`,
 };
 
-export const updateSfTaskStatusMutation = {
-  id: 'updateSfTaskStatusMutation' as const,
-  op: 'updateSfTaskStatus',
-  query: `mutation updateSfTaskStatus($taskId: ID!, $status: SfTaskStatus!) {
-  updateSfTaskStatus(taskId: $taskId, status: $status) {
+export const updateMnTaskStatusMutation = {
+  id: 'updateMnTaskStatusMutation' as const,
+  op: 'updateMnTaskStatus',
+  query: `mutation updateMnTaskStatus($taskId: ID!, $status: MnTaskStatus!) {
+  updateMnTaskStatus(taskId: $taskId, status: $status) {
     id
     projectId
     title
@@ -100,10 +100,10 @@ export const updateSfTaskStatusMutation = {
 }`,
 };
 
-export const deleteSfTaskMutation = {
-  id: 'deleteSfTaskMutation' as const,
-  op: 'deleteSfTask',
-  query: `mutation deleteSfTask($taskId: ID!) {
-  deleteSfTask(taskId: $taskId)
+export const deleteMnTaskMutation = {
+  id: 'deleteMnTaskMutation' as const,
+  op: 'deleteMnTask',
+  query: `mutation deleteMnTask($taskId: ID!) {
+  deleteMnTask(taskId: $taskId)
 }`,
 };

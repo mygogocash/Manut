@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  MnNotificationChannel,
+  MnNotificationDeliveryStatus,
+  MnReminderStatus,
   PrismaClient,
-  SfNotificationChannel,
-  SfNotificationDeliveryStatus,
-  SfReminderStatus,
 } from '@prisma/client';
 
 import { OnJob } from '../../base/job';
@@ -29,11 +29,11 @@ export class SuperflowReminderJob {
 
   @OnJob('superflow.deliverReminder')
   async deliverReminder(job: Jobs['superflow.deliverReminder']) {
-    const delivery = await this.db.sfNotificationDelivery.findFirst({
+    const delivery = await this.db.mnNotificationDelivery.findFirst({
       where: {
         id: job.deliveryId,
         reminderId: job.reminderId,
-        status: SfNotificationDeliveryStatus.PENDING,
+        status: MnNotificationDeliveryStatus.PENDING,
       },
       include: { reminder: { include: { user: true } } },
     });
@@ -45,10 +45,10 @@ export class SuperflowReminderJob {
       return;
     }
     if (!delivery.reminder) {
-      await this.db.sfNotificationDelivery.update({
+      await this.db.mnNotificationDelivery.update({
         where: { id: job.deliveryId },
         data: {
-          status: SfNotificationDeliveryStatus.FAILED,
+          status: MnNotificationDeliveryStatus.FAILED,
           error: 'Reminder was not found',
           lastAttemptAt: new Date(),
         },
@@ -57,11 +57,11 @@ export class SuperflowReminderJob {
     }
     const { reminder } = delivery;
 
-    if (reminder.status === SfReminderStatus.CANCELLED) {
-      await this.db.sfNotificationDelivery.update({
+    if (reminder.status === MnReminderStatus.CANCELLED) {
+      await this.db.mnNotificationDelivery.update({
         where: { id: job.deliveryId },
         data: {
-          status: SfNotificationDeliveryStatus.SKIPPED,
+          status: MnNotificationDeliveryStatus.SKIPPED,
           error: 'Reminder was cancelled before delivery',
           lastAttemptAt: new Date(),
         },
@@ -69,7 +69,7 @@ export class SuperflowReminderJob {
       return;
     }
 
-    if (reminder.channel !== SfNotificationChannel.EMAIL) {
+    if (reminder.channel !== MnNotificationChannel.EMAIL) {
       await this.failDelivery(
         job.deliveryId,
         job.reminderId,
@@ -78,11 +78,11 @@ export class SuperflowReminderJob {
       return;
     }
 
-    await this.db.sfReminder.update({
+    await this.db.mnReminder.update({
       where: { id: job.reminderId },
-      data: { status: SfReminderStatus.PROCESSING },
+      data: { status: MnReminderStatus.PROCESSING },
     });
-    await this.db.sfNotificationDelivery.update({
+    await this.db.mnNotificationDelivery.update({
       where: { id: job.deliveryId },
       data: {
         attempts: { increment: 1 },
@@ -112,10 +112,10 @@ export class SuperflowReminderJob {
       return;
     }
 
-    await this.db.sfNotificationDelivery.update({
+    await this.db.mnNotificationDelivery.update({
       where: { id: job.deliveryId },
       data: {
-        status: SfNotificationDeliveryStatus.QUEUED,
+        status: MnNotificationDeliveryStatus.QUEUED,
         error: null,
         lastAttemptAt: new Date(),
       },
@@ -127,17 +127,17 @@ export class SuperflowReminderJob {
     reminderId: string,
     error: string
   ) {
-    await this.db.sfNotificationDelivery.update({
+    await this.db.mnNotificationDelivery.update({
       where: { id: deliveryId },
       data: {
-        status: SfNotificationDeliveryStatus.FAILED,
+        status: MnNotificationDeliveryStatus.FAILED,
         error,
         lastAttemptAt: new Date(),
       },
     });
-    await this.db.sfReminder.update({
+    await this.db.mnReminder.update({
       where: { id: reminderId },
-      data: { status: SfReminderStatus.FAILED },
+      data: { status: MnReminderStatus.FAILED },
     });
   }
 }

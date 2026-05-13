@@ -8,15 +8,15 @@ import {
   ObjectType,
   registerEnumType,
 } from '@nestjs/graphql';
-import { SfCrmActivityType } from '@prisma/client';
+import { MnCrmActivityType } from '@prisma/client';
 
-registerEnumType(SfCrmActivityType, {
-  name: 'SfCrmActivityType',
+registerEnumType(MnCrmActivityType, {
+  name: 'MnCrmActivityType',
   description: 'CRM activity category.',
 });
 
-@ObjectType('SfCrmAccount')
-export class SfCrmAccountObjectType {
+@ObjectType('MnCrmAccount')
+export class MnCrmAccountObjectType {
   @Field(() => ID)
   id!: string;
 
@@ -45,8 +45,8 @@ export class SfCrmAccountObjectType {
   updatedAt!: Date;
 }
 
-@ObjectType('SfCrmContact')
-export class SfCrmContactObjectType {
+@ObjectType('MnCrmContact')
+export class MnCrmContactObjectType {
   @Field(() => ID)
   id!: string;
 
@@ -81,8 +81,8 @@ export class SfCrmContactObjectType {
   updatedAt!: Date;
 }
 
-@ObjectType('SfCrmDealStage')
-export class SfCrmDealStageObjectType {
+@ObjectType('MnCrmDealStage')
+export class MnCrmDealStageObjectType {
   @Field(() => ID)
   id!: string;
 
@@ -102,8 +102,8 @@ export class SfCrmDealStageObjectType {
   createdAt!: Date;
 }
 
-@ObjectType('SfCrmDeal')
-export class SfCrmDealObjectType {
+@ObjectType('MnCrmDeal')
+export class MnCrmDealObjectType {
   @Field(() => ID)
   id!: string;
 
@@ -144,8 +144,8 @@ export class SfCrmDealObjectType {
   updatedAt!: Date;
 }
 
-@ObjectType('SfCrmActivity')
-export class SfCrmActivityObjectType {
+@ObjectType('MnCrmActivity')
+export class MnCrmActivityObjectType {
   @Field(() => ID)
   id!: string;
 
@@ -161,8 +161,8 @@ export class SfCrmActivityObjectType {
   @Field(() => ID, { nullable: true })
   dealId!: string | null;
 
-  @Field(() => SfCrmActivityType)
-  type!: SfCrmActivityType;
+  @Field(() => MnCrmActivityType)
+  type!: MnCrmActivityType;
 
   @Field(() => String, { nullable: true })
   subject!: string | null;
@@ -187,7 +187,7 @@ export class SfCrmActivityObjectType {
 }
 
 @InputType()
-export class CreateSfCrmAccountInput {
+export class CreateMnCrmAccountInput {
   @Field(() => String) name!: string;
   @Field(() => String, { nullable: true }) website?: string | null;
   @Field(() => String, { nullable: true }) industry?: string | null;
@@ -196,7 +196,7 @@ export class CreateSfCrmAccountInput {
 }
 
 @InputType()
-export class UpdateSfCrmAccountInput {
+export class UpdateMnCrmAccountInput {
   @Field(() => String, { nullable: true }) name?: string | null;
   @Field(() => String, { nullable: true }) website?: string | null;
   @Field(() => String, { nullable: true }) industry?: string | null;
@@ -205,7 +205,7 @@ export class UpdateSfCrmAccountInput {
 }
 
 @InputType()
-export class CreateSfCrmContactInput {
+export class CreateMnCrmContactInput {
   @Field(() => ID, { nullable: true }) accountId?: string | null;
   @Field(() => String) firstName!: string;
   @Field(() => String, { nullable: true }) lastName?: string | null;
@@ -216,7 +216,7 @@ export class CreateSfCrmContactInput {
 }
 
 @InputType()
-export class UpdateSfCrmContactInput {
+export class UpdateMnCrmContactInput {
   @Field(() => ID, { nullable: true }) accountId?: string | null;
   @Field(() => String, { nullable: true }) firstName?: string | null;
   @Field(() => String, { nullable: true }) lastName?: string | null;
@@ -227,20 +227,20 @@ export class UpdateSfCrmContactInput {
 }
 
 @InputType()
-export class CreateSfCrmDealStageInput {
+export class CreateMnCrmDealStageInput {
   @Field(() => String, { nullable: true }) pipelineKey?: string | null;
   @Field(() => String) name!: string;
   @Field(() => Int, { nullable: true }) sortOrder?: number | null;
 }
 
 @InputType()
-export class UpdateSfCrmDealStageInput {
+export class UpdateMnCrmDealStageInput {
   @Field(() => String, { nullable: true }) name?: string | null;
   @Field(() => Int, { nullable: true }) sortOrder?: number | null;
 }
 
 @InputType()
-export class CreateSfCrmDealInput {
+export class CreateMnCrmDealInput {
   @Field(() => ID, { nullable: true }) accountId?: string | null;
   @Field(() => ID, { nullable: true }) contactId?: string | null;
   @Field(() => ID) stageId!: string;
@@ -254,7 +254,7 @@ export class CreateSfCrmDealInput {
 }
 
 @InputType()
-export class UpdateSfCrmDealInput {
+export class UpdateMnCrmDealInput {
   @Field(() => ID, { nullable: true }) accountId?: string | null;
   @Field(() => ID, { nullable: true }) contactId?: string | null;
   @Field(() => ID, { nullable: true }) stageId?: string | null;
@@ -268,19 +268,19 @@ export class UpdateSfCrmDealInput {
 }
 
 @InputType()
-export class CreateSfCrmActivityInput {
+export class CreateMnCrmActivityInput {
   @Field(() => ID, { nullable: true }) accountId?: string | null;
   @Field(() => ID, { nullable: true }) contactId?: string | null;
   @Field(() => ID, { nullable: true }) dealId?: string | null;
-  @Field(() => SfCrmActivityType) type!: SfCrmActivityType;
+  @Field(() => MnCrmActivityType) type!: MnCrmActivityType;
   @Field(() => String, { nullable: true }) subject?: string | null;
   @Field(() => String, { nullable: true }) body?: string | null;
   @Field(() => GraphQLISODateTime, { nullable: true }) dueAt?: Date | null;
 }
 
 @InputType()
-export class UpdateSfCrmActivityInput {
-  @Field(() => SfCrmActivityType, { nullable: true }) type?: SfCrmActivityType;
+export class UpdateMnCrmActivityInput {
+  @Field(() => MnCrmActivityType, { nullable: true }) type?: MnCrmActivityType;
   @Field(() => String, { nullable: true }) subject?: string | null;
   @Field(() => String, { nullable: true }) body?: string | null;
   @Field(() => GraphQLISODateTime, { nullable: true }) dueAt?: Date | null;
