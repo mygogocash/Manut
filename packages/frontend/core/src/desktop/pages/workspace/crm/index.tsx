@@ -22,6 +22,7 @@ import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
 import { CollaborationIcon } from '@blocksuite/icons/rc';
 import { useService } from '@toeverything/infra';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
 import type { FallbackProps } from 'react-error-boundary';
 
@@ -59,8 +60,20 @@ import {
   type MnCrmDealStage,
   mnCrmDealStagesQuery,
   type MnCrmDealStagesResponse,
+  type UpdateMnCrmDealInput,
+  updateMnCrmDealMutation,
+  type UpdateMnCrmDealResponse,
 } from '../../../../modules/manut-crm';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
+import { AccountDetailBody } from './account-detail';
+import { AccountEditModal } from './account-edit-modal';
+import { ActivityDetailBody } from './activity-detail';
+import { ActivityEditModal } from './activity-edit-modal';
+import { ContactDetailBody } from './contact-detail';
+import { ContactEditModal } from './contact-edit-modal';
+import { DealDetailBody } from './deal-detail';
+import { DealEditModal } from './deal-edit-modal';
+import { DetailPanel } from './detail-panel';
 import * as styles from './styles.css';
 
 // The Superflow CRM operations are not part of the codegen'd
@@ -310,17 +323,68 @@ interface AccountsTabProps {
 const AccountsTabInner = ({ workspaceId }: AccountsTabProps) => {
   const t = useI18n();
   const [creating, setCreating] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
+  // The detail panel needs linked contacts + deals to render its sub-lists,
+  // so we co-load those queries in the accounts tab too. Each is small;
+  // we also use the SWR cache so contacts/deals tabs hit the same fetch.
   const { data, mutate } = useQuery(
     toQueryArg(mnCrmAccountsQuery, { workspaceId })
   );
-  const accounts = ((data as unknown as MnCrmAccountsResponse | undefined)
-    ?.mnCrmAccounts ?? []) as readonly MnCrmAccount[];
+  const { data: contactsData, mutate: mutateContacts } = useQuery(
+    toQueryArg(mnCrmContactsQuery, { workspaceId })
+  );
+  const { data: dealsData, mutate: mutateDeals } = useQuery(
+    toQueryArg(mnCrmDealsQuery, { workspaceId })
+  );
+
+  const accounts = useMemo(
+    () =>
+      ((data as unknown as MnCrmAccountsResponse | undefined)?.mnCrmAccounts ??
+        []) as readonly MnCrmAccount[],
+    [data]
+  );
+  const contacts = useMemo(
+    () =>
+      ((contactsData as unknown as MnCrmContactsResponse | undefined)
+        ?.mnCrmContacts ?? []) as readonly MnCrmContact[],
+    [contactsData]
+  );
+  const deals = useMemo(
+    () =>
+      ((dealsData as unknown as MnCrmDealsResponse | undefined)?.mnCrmDeals ??
+        []) as readonly MnCrmDeal[],
+    [dealsData]
+  );
+
+  const selected = useMemo(
+    () =>
+      selectedId ? (accounts.find(a => a.id === selectedId) ?? null) : null,
+    [accounts, selectedId]
+  );
 
   const handleCreated = useCallback(async () => {
     setCreating(false);
     await mutate();
   }, [mutate]);
+
+  const handleSaved = useCallback(async () => {
+    setEditing(false);
+    // Refresh accounts + linked-record lists so the detail panel reflects
+    // any cascade effect (e.g. industry rename surfaces in contacts list).
+    await Promise.all([mutate(), mutateContacts(), mutateDeals()]);
+  }, [mutate, mutateContacts, mutateDeals]);
+
+  const handleRowKey = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>, accountId: string) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        setSelectedId(accountId);
+      }
+    },
+    []
+  );
 
   return (
     <>
@@ -339,7 +403,15 @@ const AccountsTabInner = ({ workspaceId }: AccountsTabProps) => {
       ) : (
         <div className={styles.listWrapper} data-testid="crm-accounts-list">
           {accounts.map(account => (
-            <div key={account.id} className={styles.listRow}>
+            <div
+              key={account.id}
+              className={`${styles.listRow} ${styles.clickableRow}`}
+              role="button"
+              tabIndex={0}
+              data-testid={`crm-account-row-${account.id}`}
+              onClick={() => setSelectedId(account.id)}
+              onKeyDown={event => handleRowKey(event, account.id)}
+            >
               <div>
                 <div className={styles.rowTitle}>{account.name}</div>
                 {account.industry ? (
@@ -361,6 +433,29 @@ const AccountsTabInner = ({ workspaceId }: AccountsTabProps) => {
           workspaceId={workspaceId}
           onClose={() => setCreating(false)}
           onCreated={handleCreated}
+        />
+      ) : null}
+      {selected ? (
+        <DetailPanel
+          open={!editing}
+          onClose={() => setSelectedId(null)}
+          title={selected.name}
+          subtitle={selected.industry}
+          onEdit={() => setEditing(true)}
+          testId="crm-account-detail"
+        >
+          <AccountDetailBody
+            account={selected}
+            contacts={contacts}
+            deals={deals}
+          />
+        </DetailPanel>
+      ) : null}
+      {selected && editing ? (
+        <AccountEditModal
+          account={selected}
+          onClose={() => setEditing(false)}
+          onSaved={handleSaved}
         />
       ) : null}
     </>
@@ -443,7 +538,7 @@ const AccountCreateModal = ({
   return (
     <Modal
       open
-      onOpenChange={open => {
+      onOpenChange={(open: boolean) => {
         if (!open) onClose();
       }}
       title={t['com.manut.crm.accounts.create']()}
@@ -499,6 +594,8 @@ interface ContactsTabProps {
 const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
   const t = useI18n();
   const [creating, setCreating] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const { data: contactsData, mutate } = useQuery(
     toQueryArg(mnCrmContactsQuery, { workspaceId })
@@ -525,10 +622,38 @@ const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
     [accounts]
   );
 
+  const selected = useMemo(
+    () =>
+      selectedId ? (contacts.find(c => c.id === selectedId) ?? null) : null,
+    [contacts, selectedId]
+  );
+  const selectedAccount = useMemo(
+    () =>
+      selected && selected.accountId
+        ? (accountById.get(selected.accountId) ?? null)
+        : null,
+    [accountById, selected]
+  );
+
   const handleCreated = useCallback(async () => {
     setCreating(false);
     await mutate();
   }, [mutate]);
+
+  const handleSaved = useCallback(async () => {
+    setEditing(false);
+    await mutate();
+  }, [mutate]);
+
+  const handleRowKey = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>, contactId: string) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        setSelectedId(contactId);
+      }
+    },
+    []
+  );
 
   return (
     <>
@@ -551,7 +676,15 @@ const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
               ? accountById.get(contact.accountId)
               : null;
             return (
-              <div key={contact.id} className={styles.listRow}>
+              <div
+                key={contact.id}
+                className={`${styles.listRow} ${styles.clickableRow}`}
+                role="button"
+                tabIndex={0}
+                data-testid={`crm-contact-row-${contact.id}`}
+                onClick={() => setSelectedId(contact.id)}
+                onKeyDown={event => handleRowKey(event, contact.id)}
+              >
                 <div>
                   <div className={styles.rowTitle}>
                     {contactFullName(contact)}
@@ -577,6 +710,26 @@ const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
           accounts={accounts}
           onClose={() => setCreating(false)}
           onCreated={handleCreated}
+        />
+      ) : null}
+      {selected ? (
+        <DetailPanel
+          open={!editing}
+          onClose={() => setSelectedId(null)}
+          title={contactFullName(selected)}
+          subtitle={selected.email}
+          onEdit={() => setEditing(true)}
+          testId="crm-contact-detail"
+        >
+          <ContactDetailBody contact={selected} account={selectedAccount} />
+        </DetailPanel>
+      ) : null}
+      {selected && editing ? (
+        <ContactEditModal
+          contact={selected}
+          accounts={accounts}
+          onClose={() => setEditing(false)}
+          onSaved={handleSaved}
         />
       ) : null}
     </>
@@ -671,7 +824,7 @@ const ContactCreateModal = ({
   return (
     <Modal
       open
-      onOpenChange={open => {
+      onOpenChange={(open: boolean) => {
         if (!open) onClose();
       }}
       title={t['com.manut.crm.contacts.create']()}
@@ -740,6 +893,9 @@ interface DealsTabProps {
 const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   const t = useI18n();
   const [creating, setCreating] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [moving, setMoving] = useState(false);
 
   const { data: dealsData, mutate } = useQuery(
     toQueryArg(mnCrmDealsQuery, { workspaceId })
@@ -750,6 +906,17 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   const { data: accountsData } = useQuery(
     toQueryArg(mnCrmAccountsQuery, { workspaceId })
   );
+  // Activity history is rendered inline in the detail panel.
+  const { data: activitiesData } = useQuery(
+    toQueryArg(mnCrmActivitiesQuery, { workspaceId })
+  );
+
+  // Quick-action: move stage from the detail panel without opening
+  // the edit modal. The picker is rendered inside DealDetailBody;
+  // we own the mutation here so refetch flows through the same path.
+  const { trigger: triggerUpdate } = useMutation({
+    mutation: updateMnCrmDealMutation,
+  });
 
   const deals = useMemo(
     () =>
@@ -768,6 +935,12 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
       ((accountsData as unknown as MnCrmAccountsResponse | undefined)
         ?.mnCrmAccounts ?? []) as readonly MnCrmAccount[],
     [accountsData]
+  );
+  const activities = useMemo(
+    () =>
+      ((activitiesData as unknown as MnCrmActivitiesResponse | undefined)
+        ?.mnCrmActivities ?? []) as readonly MnCrmActivity[],
+    [activitiesData]
   );
 
   const stagesSorted = useMemo(
@@ -792,6 +965,18 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
     [accounts]
   );
 
+  const selected = useMemo(
+    () => (selectedId ? (deals.find(d => d.id === selectedId) ?? null) : null),
+    [deals, selectedId]
+  );
+  const selectedAccount = useMemo(
+    () =>
+      selected && selected.accountId
+        ? (accountById.get(selected.accountId) ?? null)
+        : null,
+    [accountById, selected]
+  );
+
   const handleCreated = useCallback(async () => {
     setCreating(false);
     await mutate();
@@ -800,6 +985,53 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   const handleStageCreated = useCallback(async () => {
     await mutateStages();
   }, [mutateStages]);
+
+  const handleSaved = useCallback(async () => {
+    setEditing(false);
+    await mutate();
+  }, [mutate]);
+
+  const handleMoveStage = useCallback(
+    async (stageId: string) => {
+      if (!selected || stageId === selected.stageId) return;
+      setMoving(true);
+      try {
+        const input: UpdateMnCrmDealInput = { stageId };
+        const response = (await (
+          triggerUpdate as (args: unknown) => Promise<unknown>
+        )({
+          dealId: selected.id,
+          input,
+        })) as UpdateMnCrmDealResponse;
+        if (!response?.updateMnCrmDeal) {
+          throw new Error('Deal stage move returned no record');
+        }
+        notify.success({ title: t['com.manut.crm.deals.stage.moved']() });
+        await mutate();
+      } catch (err) {
+        notify.error({
+          title: t['com.manut.crm.deals.stage.move.error'](),
+          message:
+            err instanceof Error && err.message
+              ? err.message
+              : t['com.manut.crm.error.unknown'](),
+        });
+      } finally {
+        setMoving(false);
+      }
+    },
+    [mutate, selected, t, triggerUpdate]
+  );
+
+  const handleRowKey = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>, dealId: string) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        setSelectedId(dealId);
+      }
+    },
+    []
+  );
 
   return (
     <>
@@ -840,7 +1072,15 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
                       ? accountById.get(deal.accountId)
                       : null;
                     return (
-                      <div key={deal.id} className={styles.listRow}>
+                      <div
+                        key={deal.id}
+                        className={`${styles.listRow} ${styles.clickableRow}`}
+                        role="button"
+                        tabIndex={0}
+                        data-testid={`crm-deal-row-${deal.id}`}
+                        onClick={() => setSelectedId(deal.id)}
+                        onKeyDown={event => handleRowKey(event, deal.id)}
+                      >
                         <div>
                           <div className={styles.rowTitle}>{deal.name}</div>
                           {account ? (
@@ -869,6 +1109,35 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
           onClose={() => setCreating(false)}
           onCreated={handleCreated}
           onStageCreated={handleStageCreated}
+        />
+      ) : null}
+      {selected ? (
+        <DetailPanel
+          open={!editing}
+          onClose={() => setSelectedId(null)}
+          title={selected.name}
+          subtitle={selectedAccount?.name ?? null}
+          onEdit={() => setEditing(true)}
+          busy={moving}
+          testId="crm-deal-detail"
+        >
+          <DealDetailBody
+            deal={selected}
+            account={selectedAccount}
+            stages={stagesSorted}
+            activities={activities}
+            onMoveStage={handleMoveStage}
+            moving={moving}
+          />
+        </DetailPanel>
+      ) : null}
+      {selected && editing ? (
+        <DealEditModal
+          deal={selected}
+          accounts={accounts}
+          stages={stagesSorted}
+          onClose={() => setEditing(false)}
+          onSaved={handleSaved}
         />
       ) : null}
     </>
@@ -986,7 +1255,7 @@ const DealCreateModal = ({
     <>
       <Modal
         open
-        onOpenChange={open => {
+        onOpenChange={(open: boolean) => {
           if (!open) onClose();
         }}
         title={t['com.manut.crm.deals.create']()}
@@ -1113,7 +1382,7 @@ const DealStageCreateModal = ({
   return (
     <Modal
       open
-      onOpenChange={open => {
+      onOpenChange={(open: boolean) => {
         if (!open) onClose();
       }}
       title={t['com.manut.crm.deals.addStage']()}
@@ -1161,15 +1430,48 @@ const ACTIVITY_ICONS: Record<MnCrmActivityType, string> = {
 const ActivitiesTabInner = ({ workspaceId }: ActivitiesTabProps) => {
   const t = useI18n();
   const [creating, setCreating] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const { data, mutate } = useQuery(
     toQueryArg(mnCrmActivitiesQuery, { workspaceId })
   );
+  // Co-load the link-resolution sources. The list of activities is bounded
+  // at 200 server-side; accounts/contacts/deals are typically smaller and
+  // already cached by the other tabs, so this is essentially free.
+  const { data: accountsData } = useQuery(
+    toQueryArg(mnCrmAccountsQuery, { workspaceId })
+  );
+  const { data: contactsData } = useQuery(
+    toQueryArg(mnCrmContactsQuery, { workspaceId })
+  );
+  const { data: dealsData } = useQuery(
+    toQueryArg(mnCrmDealsQuery, { workspaceId })
+  );
+
   const activities = useMemo(
     () =>
       ((data as unknown as MnCrmActivitiesResponse | undefined)
         ?.mnCrmActivities ?? []) as readonly MnCrmActivity[],
     [data]
+  );
+  const accounts = useMemo(
+    () =>
+      ((accountsData as unknown as MnCrmAccountsResponse | undefined)
+        ?.mnCrmAccounts ?? []) as readonly MnCrmAccount[],
+    [accountsData]
+  );
+  const contacts = useMemo(
+    () =>
+      ((contactsData as unknown as MnCrmContactsResponse | undefined)
+        ?.mnCrmContacts ?? []) as readonly MnCrmContact[],
+    [contactsData]
+  );
+  const deals = useMemo(
+    () =>
+      ((dealsData as unknown as MnCrmDealsResponse | undefined)?.mnCrmDeals ??
+        []) as readonly MnCrmDeal[],
+    [dealsData]
   );
 
   const sorted = useMemo(
@@ -1181,10 +1483,62 @@ const ActivitiesTabInner = ({ workspaceId }: ActivitiesTabProps) => {
     [activities]
   );
 
+  const accountById = useMemo(
+    () => new Map(accounts.map(a => [a.id, a])),
+    [accounts]
+  );
+  const contactById = useMemo(
+    () => new Map(contacts.map(c => [c.id, c])),
+    [contacts]
+  );
+  const dealById = useMemo(() => new Map(deals.map(d => [d.id, d])), [deals]);
+
+  const selected = useMemo(
+    () =>
+      selectedId ? (activities.find(a => a.id === selectedId) ?? null) : null,
+    [activities, selectedId]
+  );
+  const selectedAccount = useMemo(
+    () =>
+      selected && selected.accountId
+        ? (accountById.get(selected.accountId) ?? null)
+        : null,
+    [accountById, selected]
+  );
+  const selectedContact = useMemo(
+    () =>
+      selected && selected.contactId
+        ? (contactById.get(selected.contactId) ?? null)
+        : null,
+    [contactById, selected]
+  );
+  const selectedDeal = useMemo(
+    () =>
+      selected && selected.dealId
+        ? (dealById.get(selected.dealId) ?? null)
+        : null,
+    [dealById, selected]
+  );
+
   const handleCreated = useCallback(async () => {
     setCreating(false);
     await mutate();
   }, [mutate]);
+
+  const handleSaved = useCallback(async () => {
+    setEditing(false);
+    await mutate();
+  }, [mutate]);
+
+  const handleRowKey = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>, activityId: string) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        setSelectedId(activityId);
+      }
+    },
+    []
+  );
 
   return (
     <>
@@ -1203,7 +1557,15 @@ const ActivitiesTabInner = ({ workspaceId }: ActivitiesTabProps) => {
       ) : (
         <div className={styles.listWrapper} data-testid="crm-activities-list">
           {sorted.map(activity => (
-            <div key={activity.id} className={styles.listRow}>
+            <div
+              key={activity.id}
+              className={`${styles.listRow} ${styles.clickableRow}`}
+              role="button"
+              tabIndex={0}
+              data-testid={`crm-activity-row-${activity.id}`}
+              onClick={() => setSelectedId(activity.id)}
+              onKeyDown={event => handleRowKey(event, activity.id)}
+            >
               <div>
                 <div className={styles.rowTitle}>
                   [{ACTIVITY_ICONS[activity.type]}]{' '}
@@ -1229,6 +1591,30 @@ const ActivitiesTabInner = ({ workspaceId }: ActivitiesTabProps) => {
           workspaceId={workspaceId}
           onClose={() => setCreating(false)}
           onCreated={handleCreated}
+        />
+      ) : null}
+      {selected ? (
+        <DetailPanel
+          open={!editing}
+          onClose={() => setSelectedId(null)}
+          title={selected.subject ?? selected.type}
+          subtitle={selected.type}
+          onEdit={() => setEditing(true)}
+          testId="crm-activity-detail"
+        >
+          <ActivityDetailBody
+            activity={selected}
+            account={selectedAccount}
+            contact={selectedContact}
+            deal={selectedDeal}
+          />
+        </DetailPanel>
+      ) : null}
+      {selected && editing ? (
+        <ActivityEditModal
+          activity={selected}
+          onClose={() => setEditing(false)}
+          onSaved={handleSaved}
         />
       ) : null}
     </>
@@ -1307,7 +1693,7 @@ const ActivityCreateModal = ({
   return (
     <Modal
       open
-      onOpenChange={open => {
+      onOpenChange={(open: boolean) => {
         if (!open) onClose();
       }}
       title={t['com.manut.crm.activities.create']()}
