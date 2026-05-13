@@ -1,3 +1,4 @@
+import { EventSourceService } from '@affine/core/modules/cloud';
 import { DocsService } from '@affine/core/modules/doc';
 import { DocsSearchService } from '@affine/core/modules/docs-search';
 import { PeekViewService } from '@affine/core/modules/peek-view';
@@ -338,6 +339,10 @@ export const KnowledgeGraphView = () => {
   const pulsesRef = useRef<ActivePulse[]>([]);
   const workspaceService = useService(WorkspaceService);
   const workspaceId = workspaceService.workspace.id;
+  // Resolves SSE URLs against `ServerService.server.baseUrl` so the stream
+  // connects to the correct API origin in desktop / custom-server contexts,
+  // not the frontend origin.
+  const eventSourceService = useService(EventSourceService);
   const animationRef = useRef<number | null>(null);
   const hoverIdRef = useRef<string | null>(null);
   const draggingRef = useRef<{
@@ -448,11 +453,17 @@ export const KnowledgeGraphView = () => {
   }, [edges]);
 
   // Subscribe to AI doc-read activations and spawn pulses from each event.
-  // The bus is shared with the chat panel (which emits optimistically) and
-  // the backend SSE stream (which emits authoritatively, deduped by the bus).
+  // The backend SSE stream is the single source of truth (the frontend
+  // optimistic-emit path was removed per the PR #44 Codex review — it
+  // double-pulsed because backend used `randomUUID()` for sourceId and the
+  // frontend used the toolCallId, so dedup never matched).
   useEffect(() => {
     const bus = getActivationBus();
-    const disposeSse = subscribeDocReadStream(workspaceId, bus);
+    const disposeSse = subscribeDocReadStream(
+      eventSourceService,
+      workspaceId,
+      bus
+    );
     const sub = bus.asObservable().subscribe(event => {
       if (event.workspaceId !== workspaceId) return;
       const { nodes, edges } = stateRef.current;
@@ -501,7 +512,7 @@ export const KnowledgeGraphView = () => {
       sub.unsubscribe();
       disposeSse();
     };
-  }, [workspaceId]);
+  }, [eventSourceService, workspaceId]);
 
   // Force-directed simulation + render loop.
   useEffect(() => {

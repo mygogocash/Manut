@@ -1,5 +1,4 @@
 import type { FeatureFlagService } from '@affine/core/modules/feature-flag';
-import { getActivationBus } from '@affine/core/modules/knowledge-graph/services/activation-bus';
 import type { PeekViewService } from '@affine/core/modules/peek-view';
 import type { AppThemeService } from '@affine/core/modules/theme';
 import type { CopilotChatHistoryFragment } from '@affine/graphql';
@@ -150,112 +149,18 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
     `;
   }
 
-  /**
-   * Knowledge-graph activation pulses: when the assistant's stream surfaces
-   * a doc-touching tool call (read, search, edit), emit a `DocReadActivation`
-   * on the local activation bus. The /graph view subscribes and animates a
-   * synaptic pulse from the affected node along its edges.
-   *
-   * We emit OPTIMISTICALLY here (before the backend acknowledges) so the
-   * pulse fires the moment the user sees the tool-call card appear. The
-   * backend ALSO emits the same logical event via SSE for cross-session
-   * coverage (cron jobs, other users); the activation bus dedupes by
-   * `sourceId` so the pulse never doubles.
-   *
-   * `sourceId` is the toolCallId — guaranteed unique per tool invocation by
-   * the backend. The frontend prefix `'frontend:'` namespaces away from the
-   * backend's own `sourceId` shape so the dedup window only collapses
-   * genuinely-paired frontend/backend events.
-   */
-  private readonly emittedToolCalls = new Set<string>();
-  private static readonly DOC_READ_TOOL_NAMES = new Set([
-    'doc_read',
-    'doc_edit',
-    'section_edit',
-    // doc_create / doc_update / doc_update_meta are writes, not reads — skip
-  ]);
-  private static readonly DOC_SEARCH_TOOL_NAMES = new Set([
-    'doc_semantic_search',
-    'doc_keyword_search',
-  ]);
-
-  private emitGraphActivations() {
-    const workspaceId = this.session?.workspaceId;
-    if (!workspaceId) return;
-    const streamObjects = this.item.streamObjects;
-    if (!streamObjects?.length) return;
-
-    const bus = getActivationBus();
-    const now = Date.now();
-
-    for (const obj of streamObjects) {
-      // Single-doc tool calls — args.doc_id is the read target. Emit on
-      // tool-call (don't wait for tool-result) so the pulse is instant.
-      if (
-        obj.type === 'tool-call' &&
-        ChatMessageAssistant.DOC_READ_TOOL_NAMES.has(obj.toolName)
-      ) {
-        const key = `tool-call:${obj.toolCallId}`;
-        if (this.emittedToolCalls.has(key)) continue;
-        const args = obj.args as { doc_id?: string } | undefined;
-        const docId = args?.doc_id;
-        if (!docId) continue;
-        this.emittedToolCalls.add(key);
-        bus.emit({
-          docId,
-          workspaceId,
-          sourceId: `frontend:${obj.toolCallId}`,
-          op: obj.toolName === 'doc_read' ? 'docRead' : 'docEdit',
-          agentId: this.session?.sessionId,
-          ts: now,
-        });
-        continue;
-      }
-
-      // Search tools return multiple docIds — emit on tool-result so we
-      // know which docs matched.
-      if (
-        obj.type === 'tool-result' &&
-        ChatMessageAssistant.DOC_SEARCH_TOOL_NAMES.has(obj.toolName)
-      ) {
-        const key = `tool-result:${obj.toolCallId}`;
-        if (this.emittedToolCalls.has(key)) continue;
-        const result = obj.result as
-          | { results?: Array<{ docId?: string }> }
-          | { docs?: Array<{ docId?: string }> }
-          | Array<{ docId?: string }>
-          | null
-          | undefined;
-        const items: Array<{ docId?: string }> = Array.isArray(result)
-          ? result
-          : (result &&
-              (('results' in result && result.results) ||
-                ('docs' in result && result.docs))) ||
-            [];
-        if (!items.length) continue;
-        this.emittedToolCalls.add(key);
-        for (let i = 0; i < items.length; i++) {
-          const docId = items[i].docId;
-          if (!docId) continue;
-          bus.emit({
-            docId,
-            workspaceId,
-            sourceId: `frontend:${obj.toolCallId}:${i}`,
-            op: 'searchWorkspace',
-            agentId: this.session?.sessionId,
-            ts: now,
-          });
-        }
-      }
-    }
-  }
-
-  override updated(changed: Map<string, unknown>) {
-    super.updated(changed);
-    // Fire-and-forget: emit any newly-arrived doc-touching tool calls. Cheap
-    // — bails out fast on already-emitted ids and on missing workspaceId.
-    this.emitGraphActivations();
-  }
+  // Knowledge-graph activation pulses: the optimistic frontend emit
+  // path (which used to live here) was removed because the backend emits
+  // its own `sourceId` via `crypto.randomUUID()` per tool call — there
+  // was no shared key to dedupe against, so every doc read produced two
+  // pulses (Codex PR review on #44). The /graph view now subscribes to
+  // the backend SSE stream as the single source of truth; the ~100ms
+  // round-trip is imperceptible against the 800ms pulse animation.
+  //
+  // If you need instant feedback again, plumb the AI SDK's `toolCallId`
+  // through `CopilotToolExecuteOptions` so the backend can use it as
+  // `sourceId`, then re-introduce the optimistic emit here with the
+  // same id. Until then, do not emit from the frontend.
 
   // ε-AI-INTEL v1.10: render a "AI made changes" chip whenever the
   // assistant's stream contains a tool-call for a write tool. Backend

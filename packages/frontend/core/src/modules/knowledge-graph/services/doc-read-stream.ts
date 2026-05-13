@@ -1,3 +1,5 @@
+import type { EventSourceService } from '@affine/core/modules/cloud';
+
 import type { ActivationBus, DocReadActivation } from './activation-bus';
 
 /**
@@ -32,12 +34,19 @@ function parseEvent(raw: unknown): DocReadActivation | null {
  * and pushes every event into the given `bus`. Caller is responsible for
  * dedup (the bus handles it via `sourceId`).
  *
+ * The URL is resolved against `ServerService.server.baseUrl` (via the passed
+ * `eventSourceService`), so it works in desktop / custom-server contexts
+ * where the API origin differs from `window.location.origin`. A plain
+ * `new EventSource('/api/...')` would silently connect to the frontend
+ * origin and the pulses would never arrive (Codex PR review on #44).
+ *
  * Returns a disposer that closes the EventSource. Will auto-reconnect via
  * the EventSource native retry logic; if the endpoint 404s (backend doesn't
- * have the stream yet), we silently swallow — Phase 2 backend may ship after
- * the frontend in dev environments and that's fine for a v0.
+ * have the stream yet), we silently swallow — the graph view degrades
+ * gracefully to a non-pulsing brain.
  */
 export function subscribeDocReadStream(
+  eventSourceService: EventSourceService,
   workspaceId: string,
   bus: Pick<ActivationBus, 'emit'>
 ): () => void {
@@ -49,10 +58,11 @@ export function subscribeDocReadStream(
   const url = `/api/workspace/${encodeURIComponent(workspaceId)}/doc-read-stream`;
   let source: EventSource | null;
   try {
-    source = new EventSource(url, { withCredentials: true });
+    source = eventSourceService.eventSource(url, { withCredentials: true });
   } catch {
-    // EventSource construction can throw on some browsers in privacy modes
-    // — fail soft, the graph still works without pulses.
+    // EventSource construction can throw on some browsers in privacy modes,
+    // or on bad baseUrl resolution — fail soft, the graph still works
+    // without pulses.
     return () => {};
   }
 
