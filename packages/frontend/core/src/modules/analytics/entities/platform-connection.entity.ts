@@ -42,6 +42,15 @@ export class PlatformConnectionEntity extends Entity {
   readonly connections$ = new LiveData<PlatformConnection[]>([]);
   readonly loading$ = new LiveData<boolean>(false);
   readonly error$ = new LiveData<string | null>(null);
+  /**
+   * True when the backend GraphQL schema does not expose `connections`.
+   * That happens when the analytics module is disabled on the server
+   * (e.g. `ENABLE_ANALYTICS_MODULE=false`, or an old image that pre-dates
+   * the resolver). The settings view renders a friendly notice instead
+   * of the generic "Unhandled error raised" banner so operators get a
+   * useful message and the panel doesn't look broken.
+   */
+  readonly unavailable$ = new LiveData<boolean>(false);
 
   setLoading(loading: boolean): void {
     this.loading$.next(loading);
@@ -49,6 +58,10 @@ export class PlatformConnectionEntity extends Entity {
 
   setError(error: string | null): void {
     this.error$.next(error);
+  }
+
+  setUnavailable(unavailable: boolean): void {
+    this.unavailable$.next(unavailable);
   }
 
   setConnections(connections: PlatformConnection[]): void {
