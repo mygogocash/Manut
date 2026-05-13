@@ -2,29 +2,29 @@ import { randomUUID } from 'node:crypto';
 
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { PrismaClient, type SfCrmDeal } from '@prisma/client';
+import { type MnCrmDeal, PrismaClient } from '@prisma/client';
 
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
 import {
-  CreateSfCrmAccountInput,
-  CreateSfCrmActivityInput,
-  CreateSfCrmContactInput,
-  CreateSfCrmDealInput,
-  CreateSfCrmDealStageInput,
-  SfCrmAccountObjectType,
-  SfCrmActivityObjectType,
-  SfCrmContactObjectType,
-  SfCrmDealObjectType,
-  SfCrmDealStageObjectType,
-  UpdateSfCrmAccountInput,
-  UpdateSfCrmActivityInput,
-  UpdateSfCrmContactInput,
-  UpdateSfCrmDealInput,
-  UpdateSfCrmDealStageInput,
+  CreateMnCrmAccountInput,
+  CreateMnCrmActivityInput,
+  CreateMnCrmContactInput,
+  CreateMnCrmDealInput,
+  CreateMnCrmDealStageInput,
+  MnCrmAccountObjectType,
+  MnCrmActivityObjectType,
+  MnCrmContactObjectType,
+  MnCrmDealObjectType,
+  MnCrmDealStageObjectType,
+  UpdateMnCrmAccountInput,
+  UpdateMnCrmActivityInput,
+  UpdateMnCrmContactInput,
+  UpdateMnCrmDealInput,
+  UpdateMnCrmDealStageInput,
 } from './superflow-crm.dto';
 
-function mapDeal(row: SfCrmDeal): SfCrmDealObjectType {
+function mapDeal(row: MnCrmDeal): MnCrmDealObjectType {
   const v = row.value;
   const num =
     v === null || v === undefined
@@ -82,7 +82,7 @@ export class SuperflowCrmResolver {
     }
   ) {
     if (input.accountId) {
-      const row = await this.db.sfCrmAccount.findUnique({
+      const row = await this.db.mnCrmAccount.findUnique({
         where: { id: input.accountId },
       });
       if (!row || row.workspaceId !== workspaceId) {
@@ -90,7 +90,7 @@ export class SuperflowCrmResolver {
       }
     }
     if (input.contactId) {
-      const row = await this.db.sfCrmContact.findUnique({
+      const row = await this.db.mnCrmContact.findUnique({
         where: { id: input.contactId },
       });
       if (!row || row.workspaceId !== workspaceId) {
@@ -98,7 +98,7 @@ export class SuperflowCrmResolver {
       }
     }
     if (input.dealId) {
-      const row = await this.db.sfCrmDeal.findUnique({
+      const row = await this.db.mnCrmDeal.findUnique({
         where: { id: input.dealId },
       });
       if (!row || row.workspaceId !== workspaceId) {
@@ -106,7 +106,7 @@ export class SuperflowCrmResolver {
       }
     }
     if (input.stageId) {
-      const row = await this.db.sfCrmDealStage.findUnique({
+      const row = await this.db.mnCrmDealStage.findUnique({
         where: { id: input.stageId },
       });
       if (!row || row.workspaceId !== workspaceId) {
@@ -115,87 +115,87 @@ export class SuperflowCrmResolver {
     }
   }
 
-  @Query(() => [SfCrmAccountObjectType])
-  async sfCrmAccounts(
+  @Query(() => [MnCrmAccountObjectType])
+  async mnCrmAccounts(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string
-  ): Promise<SfCrmAccountObjectType[]> {
+  ): Promise<MnCrmAccountObjectType[]> {
     await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
 
-    return this.db.sfCrmAccount.findMany({
+    return this.db.mnCrmAccount.findMany({
       where: { workspaceId },
       orderBy: { name: 'asc' },
     });
   }
 
-  @Query(() => [SfCrmContactObjectType])
-  async sfCrmContacts(
+  @Query(() => [MnCrmContactObjectType])
+  async mnCrmContacts(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string
-  ): Promise<SfCrmContactObjectType[]> {
+  ): Promise<MnCrmContactObjectType[]> {
     await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
 
-    return this.db.sfCrmContact.findMany({
+    return this.db.mnCrmContact.findMany({
       where: { workspaceId },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
   }
 
-  @Query(() => [SfCrmDealStageObjectType])
-  async sfCrmDealStages(
+  @Query(() => [MnCrmDealStageObjectType])
+  async mnCrmDealStages(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string
-  ): Promise<SfCrmDealStageObjectType[]> {
+  ): Promise<MnCrmDealStageObjectType[]> {
     await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
 
-    return this.db.sfCrmDealStage.findMany({
+    return this.db.mnCrmDealStage.findMany({
       where: { workspaceId },
       orderBy: [{ pipelineKey: 'asc' }, { sortOrder: 'asc' }],
     });
   }
 
-  @Query(() => [SfCrmDealObjectType])
-  async sfCrmDeals(
+  @Query(() => [MnCrmDealObjectType])
+  async mnCrmDeals(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string
-  ): Promise<SfCrmDealObjectType[]> {
+  ): Promise<MnCrmDealObjectType[]> {
     await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
 
-    const rows = await this.db.sfCrmDeal.findMany({
+    const rows = await this.db.mnCrmDeal.findMany({
       where: { workspaceId },
       orderBy: { updatedAt: 'desc' },
     });
     return rows.map(mapDeal);
   }
 
-  @Query(() => [SfCrmActivityObjectType])
-  async sfCrmActivities(
+  @Query(() => [MnCrmActivityObjectType])
+  async mnCrmActivities(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string
-  ): Promise<SfCrmActivityObjectType[]> {
+  ): Promise<MnCrmActivityObjectType[]> {
     await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
 
-    return this.db.sfCrmActivity.findMany({
+    return this.db.mnCrmActivity.findMany({
       where: { workspaceId },
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
   }
 
-  @Mutation(() => SfCrmAccountObjectType)
-  async createSfCrmAccount(
+  @Mutation(() => MnCrmAccountObjectType)
+  async createMnCrmAccount(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string,
-    @Args('input', { type: () => CreateSfCrmAccountInput })
-    input: CreateSfCrmAccountInput
-  ): Promise<SfCrmAccountObjectType> {
+    @Args('input', { type: () => CreateMnCrmAccountInput })
+    input: CreateMnCrmAccountInput
+  ): Promise<MnCrmAccountObjectType> {
     await this.ac
       .user(user.id)
       .workspace(workspaceId)
       .assert('Workspace.Settings.Update');
     await this.assertWorkspaceMember(workspaceId, input.ownerUserId);
 
-    return this.db.sfCrmAccount.create({
+    return this.db.mnCrmAccount.create({
       data: {
         id: randomUUID(),
         workspaceId,
@@ -208,14 +208,14 @@ export class SuperflowCrmResolver {
     });
   }
 
-  @Mutation(() => SfCrmAccountObjectType)
-  async updateSfCrmAccount(
+  @Mutation(() => MnCrmAccountObjectType)
+  async updateMnCrmAccount(
     @CurrentUser() user: CurrentUser,
     @Args('accountId', { type: () => ID }) accountId: string,
-    @Args('input', { type: () => UpdateSfCrmAccountInput })
-    input: UpdateSfCrmAccountInput
-  ): Promise<SfCrmAccountObjectType> {
-    const row = await this.db.sfCrmAccount.findUnique({
+    @Args('input', { type: () => UpdateMnCrmAccountInput })
+    input: UpdateMnCrmAccountInput
+  ): Promise<MnCrmAccountObjectType> {
+    const row = await this.db.mnCrmAccount.findUnique({
       where: { id: accountId },
     });
     if (!row) {
@@ -227,7 +227,7 @@ export class SuperflowCrmResolver {
       .assert('Workspace.Settings.Update');
     await this.assertWorkspaceMember(row.workspaceId, input.ownerUserId);
 
-    return this.db.sfCrmAccount.update({
+    return this.db.mnCrmAccount.update({
       where: { id: accountId },
       data: {
         ...(input.name !== undefined && input.name !== null
@@ -243,13 +243,13 @@ export class SuperflowCrmResolver {
     });
   }
 
-  @Mutation(() => SfCrmContactObjectType)
-  async createSfCrmContact(
+  @Mutation(() => MnCrmContactObjectType)
+  async createMnCrmContact(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string,
-    @Args('input', { type: () => CreateSfCrmContactInput })
-    input: CreateSfCrmContactInput
-  ): Promise<SfCrmContactObjectType> {
+    @Args('input', { type: () => CreateMnCrmContactInput })
+    input: CreateMnCrmContactInput
+  ): Promise<MnCrmContactObjectType> {
     await this.ac
       .user(user.id)
       .workspace(workspaceId)
@@ -260,7 +260,7 @@ export class SuperflowCrmResolver {
     });
     await this.assertWorkspaceMember(workspaceId, input.ownerUserId);
 
-    return this.db.sfCrmContact.create({
+    return this.db.mnCrmContact.create({
       data: {
         id: randomUUID(),
         workspaceId,
@@ -275,14 +275,14 @@ export class SuperflowCrmResolver {
     });
   }
 
-  @Mutation(() => SfCrmContactObjectType)
-  async updateSfCrmContact(
+  @Mutation(() => MnCrmContactObjectType)
+  async updateMnCrmContact(
     @CurrentUser() user: CurrentUser,
     @Args('contactId', { type: () => ID }) contactId: string,
-    @Args('input', { type: () => UpdateSfCrmContactInput })
-    input: UpdateSfCrmContactInput
-  ): Promise<SfCrmContactObjectType> {
-    const row = await this.db.sfCrmContact.findUnique({
+    @Args('input', { type: () => UpdateMnCrmContactInput })
+    input: UpdateMnCrmContactInput
+  ): Promise<MnCrmContactObjectType> {
+    const row = await this.db.mnCrmContact.findUnique({
       where: { id: contactId },
     });
     if (!row) {
@@ -300,7 +300,7 @@ export class SuperflowCrmResolver {
     }
     await this.assertWorkspaceMember(row.workspaceId, input.ownerUserId);
 
-    return this.db.sfCrmContact.update({
+    return this.db.mnCrmContact.update({
       where: { id: contactId },
       data: {
         ...(input.accountId !== undefined
@@ -320,19 +320,19 @@ export class SuperflowCrmResolver {
     });
   }
 
-  @Mutation(() => SfCrmDealStageObjectType)
-  async createSfCrmDealStage(
+  @Mutation(() => MnCrmDealStageObjectType)
+  async createMnCrmDealStage(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string,
-    @Args('input', { type: () => CreateSfCrmDealStageInput })
-    input: CreateSfCrmDealStageInput
-  ): Promise<SfCrmDealStageObjectType> {
+    @Args('input', { type: () => CreateMnCrmDealStageInput })
+    input: CreateMnCrmDealStageInput
+  ): Promise<MnCrmDealStageObjectType> {
     await this.ac
       .user(user.id)
       .workspace(workspaceId)
       .assert('Workspace.Settings.Update');
 
-    return this.db.sfCrmDealStage.create({
+    return this.db.mnCrmDealStage.create({
       data: {
         id: randomUUID(),
         workspaceId,
@@ -343,14 +343,14 @@ export class SuperflowCrmResolver {
     });
   }
 
-  @Mutation(() => SfCrmDealStageObjectType)
-  async updateSfCrmDealStage(
+  @Mutation(() => MnCrmDealStageObjectType)
+  async updateMnCrmDealStage(
     @CurrentUser() user: CurrentUser,
     @Args('stageId', { type: () => ID }) stageId: string,
-    @Args('input', { type: () => UpdateSfCrmDealStageInput })
-    input: UpdateSfCrmDealStageInput
-  ): Promise<SfCrmDealStageObjectType> {
-    const row = await this.db.sfCrmDealStage.findUnique({
+    @Args('input', { type: () => UpdateMnCrmDealStageInput })
+    input: UpdateMnCrmDealStageInput
+  ): Promise<MnCrmDealStageObjectType> {
+    const row = await this.db.mnCrmDealStage.findUnique({
       where: { id: stageId },
     });
     if (!row) {
@@ -361,7 +361,7 @@ export class SuperflowCrmResolver {
       .workspace(row.workspaceId)
       .assert('Workspace.Settings.Update');
 
-    return this.db.sfCrmDealStage.update({
+    return this.db.mnCrmDealStage.update({
       where: { id: stageId },
       data: {
         ...(input.name !== undefined && input.name !== null
@@ -374,13 +374,13 @@ export class SuperflowCrmResolver {
     });
   }
 
-  @Mutation(() => SfCrmDealObjectType)
-  async createSfCrmDeal(
+  @Mutation(() => MnCrmDealObjectType)
+  async createMnCrmDeal(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string,
-    @Args('input', { type: () => CreateSfCrmDealInput })
-    input: CreateSfCrmDealInput
-  ): Promise<SfCrmDealObjectType> {
+    @Args('input', { type: () => CreateMnCrmDealInput })
+    input: CreateMnCrmDealInput
+  ): Promise<MnCrmDealObjectType> {
     await this.ac
       .user(user.id)
       .workspace(workspaceId)
@@ -393,7 +393,7 @@ export class SuperflowCrmResolver {
     });
     await this.assertWorkspaceMember(workspaceId, input.ownerUserId);
 
-    const created = await this.db.sfCrmDeal.create({
+    const created = await this.db.mnCrmDeal.create({
       data: {
         id: randomUUID(),
         workspaceId,
@@ -411,14 +411,14 @@ export class SuperflowCrmResolver {
     return mapDeal(created);
   }
 
-  @Mutation(() => SfCrmDealObjectType)
-  async updateSfCrmDeal(
+  @Mutation(() => MnCrmDealObjectType)
+  async updateMnCrmDeal(
     @CurrentUser() user: CurrentUser,
     @Args('dealId', { type: () => ID }) dealId: string,
-    @Args('input', { type: () => UpdateSfCrmDealInput })
-    input: UpdateSfCrmDealInput
-  ): Promise<SfCrmDealObjectType> {
-    const row = await this.db.sfCrmDeal.findUnique({ where: { id: dealId } });
+    @Args('input', { type: () => UpdateMnCrmDealInput })
+    input: UpdateMnCrmDealInput
+  ): Promise<MnCrmDealObjectType> {
+    const row = await this.db.mnCrmDeal.findUnique({ where: { id: dealId } });
     if (!row) {
       throw new NotFoundException('Deal not found');
     }
@@ -434,7 +434,7 @@ export class SuperflowCrmResolver {
     });
     await this.assertWorkspaceMember(row.workspaceId, input.ownerUserId);
 
-    const updated = await this.db.sfCrmDeal.update({
+    const updated = await this.db.mnCrmDeal.update({
       where: { id: dealId },
       data: {
         ...(input.accountId !== undefined
@@ -465,13 +465,13 @@ export class SuperflowCrmResolver {
     return mapDeal(updated);
   }
 
-  @Mutation(() => SfCrmActivityObjectType)
-  async createSfCrmActivity(
+  @Mutation(() => MnCrmActivityObjectType)
+  async createMnCrmActivity(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string,
-    @Args('input', { type: () => CreateSfCrmActivityInput })
-    input: CreateSfCrmActivityInput
-  ): Promise<SfCrmActivityObjectType> {
+    @Args('input', { type: () => CreateMnCrmActivityInput })
+    input: CreateMnCrmActivityInput
+  ): Promise<MnCrmActivityObjectType> {
     await this.ac
       .user(user.id)
       .workspace(workspaceId)
@@ -483,7 +483,7 @@ export class SuperflowCrmResolver {
       dealId: input.dealId,
     });
 
-    return this.db.sfCrmActivity.create({
+    return this.db.mnCrmActivity.create({
       data: {
         id: randomUUID(),
         workspaceId,
@@ -499,14 +499,14 @@ export class SuperflowCrmResolver {
     });
   }
 
-  @Mutation(() => SfCrmActivityObjectType)
-  async updateSfCrmActivity(
+  @Mutation(() => MnCrmActivityObjectType)
+  async updateMnCrmActivity(
     @CurrentUser() user: CurrentUser,
     @Args('activityId', { type: () => ID }) activityId: string,
-    @Args('input', { type: () => UpdateSfCrmActivityInput })
-    input: UpdateSfCrmActivityInput
-  ): Promise<SfCrmActivityObjectType> {
-    const row = await this.db.sfCrmActivity.findUnique({
+    @Args('input', { type: () => UpdateMnCrmActivityInput })
+    input: UpdateMnCrmActivityInput
+  ): Promise<MnCrmActivityObjectType> {
+    const row = await this.db.mnCrmActivity.findUnique({
       where: { id: activityId },
     });
     if (!row) {
@@ -517,7 +517,7 @@ export class SuperflowCrmResolver {
       .workspace(row.workspaceId)
       .assert('Workspace.Settings.Update');
 
-    return this.db.sfCrmActivity.update({
+    return this.db.mnCrmActivity.update({
       where: { id: activityId },
       data: {
         ...(input.type !== undefined ? { type: input.type } : {}),

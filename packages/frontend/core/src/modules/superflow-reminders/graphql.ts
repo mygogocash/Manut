@@ -8,11 +8,11 @@
  * Resolver: `packages/backend/server/src/plugins/superflow/superflow-reminder.resolver.ts`.
  */
 
-export const sfRemindersQuery = {
-  id: 'sfRemindersQuery' as const,
-  op: 'sfReminders',
-  query: `query sfReminders($workspaceId: String!) {
-  sfReminders(workspaceId: $workspaceId) {
+export const mnRemindersQuery = {
+  id: 'mnRemindersQuery' as const,
+  op: 'mnReminders',
+  query: `query mnReminders($workspaceId: String!) {
+  mnReminders(workspaceId: $workspaceId) {
     id
     workspaceId
     userId
@@ -31,11 +31,11 @@ export const sfRemindersQuery = {
 }`,
 };
 
-export const createSfReminderMutation = {
-  id: 'createSfReminderMutation' as const,
-  op: 'createSfReminder',
-  query: `mutation createSfReminder($workspaceId: String!, $input: CreateSfReminderInput!) {
-  createSfReminder(workspaceId: $workspaceId, input: $input) {
+export const createMnReminderMutation = {
+  id: 'createMnReminderMutation' as const,
+  op: 'createMnReminder',
+  query: `mutation createMnReminder($workspaceId: String!, $input: CreateMnReminderInput!) {
+  createMnReminder(workspaceId: $workspaceId, input: $input) {
     id
     workspaceId
     userId
@@ -54,11 +54,11 @@ export const createSfReminderMutation = {
 }`,
 };
 
-export const cancelSfReminderMutation = {
-  id: 'cancelSfReminderMutation' as const,
-  op: 'cancelSfReminder',
-  query: `mutation cancelSfReminder($reminderId: ID!) {
-  cancelSfReminder(reminderId: $reminderId) {
+export const cancelMnReminderMutation = {
+  id: 'cancelMnReminderMutation' as const,
+  op: 'cancelMnReminder',
+  query: `mutation cancelMnReminder($reminderId: ID!) {
+  cancelMnReminder(reminderId: $reminderId) {
     id
     status
     completedAt

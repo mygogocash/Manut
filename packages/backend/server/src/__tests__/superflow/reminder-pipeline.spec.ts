@@ -1,7 +1,7 @@
 import {
-  SfNotificationChannel,
-  SfNotificationDeliveryStatus,
-  SfReminderStatus,
+  MnNotificationChannel,
+  MnNotificationDeliveryStatus,
+  MnReminderStatus,
 } from '@prisma/client';
 import test from 'ava';
 
@@ -13,25 +13,25 @@ test('Superflow reminder cron creates a delivery and enqueues due reminders', as
   const reminder = {
     id: 'reminder-1',
     workspaceId: 'workspace-1',
-    channel: SfNotificationChannel.EMAIL,
+    channel: MnNotificationChannel.EMAIL,
     fireAt,
   };
   const createdDelivery = { id: 'delivery-1' };
   const queued: any[] = [];
 
   const db = {
-    sfReminder: {
+    mnReminder: {
       findMany: async () => [reminder],
       updateMany: async (args: any) => {
         t.deepEqual(args, {
-          where: { id: reminder.id, status: SfReminderStatus.SCHEDULED },
-          data: { status: SfReminderStatus.PROCESSING },
+          where: { id: reminder.id, status: MnReminderStatus.SCHEDULED },
+          data: { status: MnReminderStatus.PROCESSING },
         });
         return { count: 1 };
       },
       update: async () => t.fail('created reminders should not be completed'),
     },
-    sfNotificationDelivery: {
+    mnNotificationDelivery: {
       findFirst: async () => null,
       create: async (args: any) => {
         t.like(args, {
@@ -39,7 +39,7 @@ test('Superflow reminder cron creates a delivery and enqueues due reminders', as
             workspaceId: reminder.workspaceId,
             reminderId: reminder.id,
             channel: reminder.channel,
-            status: SfNotificationDeliveryStatus.PENDING,
+            status: MnNotificationDeliveryStatus.PENDING,
           },
         });
         t.deepEqual(args.data.payload, {
@@ -73,7 +73,7 @@ test('Superflow reminder cron reuses pending delivery and skips terminal deliver
   const reminder = {
     id: 'reminder-1',
     workspaceId: 'workspace-1',
-    channel: SfNotificationChannel.EMAIL,
+    channel: MnNotificationChannel.EMAIL,
     fireAt: new Date('2026-05-09T00:00:00.000Z'),
   };
   const queued: any[] = [];
@@ -81,7 +81,7 @@ test('Superflow reminder cron reuses pending delivery and skips terminal deliver
   let createCount = 0;
 
   const db = {
-    sfReminder: {
+    mnReminder: {
       findMany: async () => [
         reminder,
         { ...reminder, id: 'reminder-2' },
@@ -92,25 +92,25 @@ test('Superflow reminder cron reuses pending delivery and skips terminal deliver
         reminderUpdates.push(args);
       },
     },
-    sfNotificationDelivery: {
+    mnNotificationDelivery: {
       findFirst: async ({ where }: any) => {
         if (where.reminderId === 'reminder-1') {
           return {
             id: 'delivery-pending',
-            status: SfNotificationDeliveryStatus.PENDING,
+            status: MnNotificationDeliveryStatus.PENDING,
           };
         }
 
         if (where.reminderId === 'reminder-2') {
           return {
             id: 'delivery-sent',
-            status: SfNotificationDeliveryStatus.SENT,
+            status: MnNotificationDeliveryStatus.SENT,
           };
         }
 
         return {
           id: 'delivery-queued',
-          status: SfNotificationDeliveryStatus.QUEUED,
+          status: MnNotificationDeliveryStatus.QUEUED,
         };
       },
       create: async () => {
@@ -140,7 +140,7 @@ test('Superflow reminder cron reuses pending delivery and skips terminal deliver
     {
       where: { id: 'reminder-2' },
       data: {
-        status: SfReminderStatus.COMPLETED,
+        status: MnReminderStatus.COMPLETED,
         completedAt: reminderUpdates[0].data.completedAt,
       },
     },
@@ -153,19 +153,19 @@ test('Superflow reminder cron skips reminders claimed by another worker', async 
     add: async () => t.fail('unclaimed reminders must not be enqueued'),
   };
   const db = {
-    sfReminder: {
+    mnReminder: {
       findMany: async () => [
         {
           id: 'reminder-1',
           workspaceId: 'workspace-1',
-          channel: SfNotificationChannel.EMAIL,
+          channel: MnNotificationChannel.EMAIL,
           fireAt: new Date('2026-05-09T00:00:00.000Z'),
         },
       ],
       updateMany: async () => ({ count: 0 }),
       update: async () => t.fail('unclaimed reminders must not be updated'),
     },
-    sfNotificationDelivery: {
+    mnNotificationDelivery: {
       findFirst: async () =>
         t.fail('unclaimed reminders must not load deliveries'),
       create: async () =>
@@ -187,26 +187,26 @@ test('Superflow reminder job queues mail and marks delivery queued', async t => 
   const sentMail: any[] = [];
 
   const db = {
-    sfNotificationDelivery: {
+    mnNotificationDelivery: {
       findFirst: async (args: any) => {
         t.like(args, {
           where: {
             id: deliveryId,
             reminderId,
-            status: SfNotificationDeliveryStatus.PENDING,
+            status: MnNotificationDeliveryStatus.PENDING,
           },
         });
         return {
           id: deliveryId,
           reminderId,
-          status: SfNotificationDeliveryStatus.PENDING,
+          status: MnNotificationDeliveryStatus.PENDING,
           reminder: {
             id: reminderId,
             workspaceId: 'workspace-1',
             title: 'Renew contract',
             body: 'Follow up with the customer today.',
-            channel: SfNotificationChannel.EMAIL,
-            status: SfReminderStatus.PROCESSING,
+            channel: MnNotificationChannel.EMAIL,
+            status: MnReminderStatus.PROCESSING,
             user: { email: 'owner@example.com' },
           },
         };
@@ -215,7 +215,7 @@ test('Superflow reminder job queues mail and marks delivery queued', async t => 
         deliveryUpdates.push(args);
       },
     },
-    sfReminder: {
+    mnReminder: {
       update: async (args: any) => {
         reminderUpdates.push(args);
       },
@@ -247,12 +247,12 @@ test('Superflow reminder job queues mail and marks delivery queued', async t => 
   ]);
   t.true(
     reminderUpdates.some(
-      update => update.data.status === SfReminderStatus.PROCESSING
+      update => update.data.status === MnReminderStatus.PROCESSING
     )
   );
   t.false(
     reminderUpdates.some(
-      update => update.data.status === SfReminderStatus.COMPLETED
+      update => update.data.status === MnReminderStatus.COMPLETED
     )
   );
   t.true(
@@ -266,7 +266,7 @@ test('Superflow reminder job queues mail and marks delivery queued', async t => 
   t.true(
     deliveryUpdates.some(
       update =>
-        update.data.status === SfNotificationDeliveryStatus.QUEUED &&
+        update.data.status === MnNotificationDeliveryStatus.QUEUED &&
         update.data.lastAttemptAt instanceof Date
     )
   );
@@ -276,13 +276,13 @@ test('Superflow reminder job ignores stale or mismatched delivery jobs', async t
   let updateCount = 0;
   let sendCount = 0;
   const db = {
-    sfNotificationDelivery: {
+    mnNotificationDelivery: {
       findFirst: async () => null,
       update: async () => {
         updateCount += 1;
       },
     },
-    sfReminder: {
+    mnReminder: {
       update: async () => {
         updateCount += 1;
       },
@@ -313,18 +313,18 @@ test('Superflow reminder job marks delivery failed when mail cannot queue', asyn
   const deliveryUpdates: any[] = [];
 
   const db = {
-    sfNotificationDelivery: {
+    mnNotificationDelivery: {
       findFirst: async () => ({
         id: deliveryId,
         reminderId,
-        status: SfNotificationDeliveryStatus.PENDING,
+        status: MnNotificationDeliveryStatus.PENDING,
         reminder: {
           id: reminderId,
           workspaceId: 'workspace-1',
           title: 'Renew contract',
           body: null,
-          channel: SfNotificationChannel.EMAIL,
-          status: SfReminderStatus.PROCESSING,
+          channel: MnNotificationChannel.EMAIL,
+          status: MnReminderStatus.PROCESSING,
           user: { email: 'owner@example.com' },
         },
       }),
@@ -332,7 +332,7 @@ test('Superflow reminder job marks delivery failed when mail cannot queue', asyn
         deliveryUpdates.push(args);
       },
     },
-    sfReminder: {
+    mnReminder: {
       update: async (args: any) => {
         reminderUpdates.push(args);
       },
@@ -349,13 +349,13 @@ test('Superflow reminder job marks delivery failed when mail cannot queue', asyn
   t.true(
     deliveryUpdates.some(
       update =>
-        update.data.status === SfNotificationDeliveryStatus.FAILED &&
+        update.data.status === MnNotificationDeliveryStatus.FAILED &&
         update.data.error === 'Failed to queue reminder email'
     )
   );
   t.true(
     reminderUpdates.some(
-      update => update.data.status === SfReminderStatus.FAILED
+      update => update.data.status === MnReminderStatus.FAILED
     )
   );
 });

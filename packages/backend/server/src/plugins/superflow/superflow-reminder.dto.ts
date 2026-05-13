@@ -6,20 +6,20 @@ import {
   ObjectType,
   registerEnumType,
 } from '@nestjs/graphql';
-import { SfNotificationChannel, SfReminderStatus } from '@prisma/client';
+import { MnNotificationChannel, MnReminderStatus } from '@prisma/client';
 
-registerEnumType(SfReminderStatus, {
-  name: 'SfReminderStatus',
+registerEnumType(MnReminderStatus, {
+  name: 'MnReminderStatus',
   description: 'Superflow reminder lifecycle.',
 });
 
-registerEnumType(SfNotificationChannel, {
-  name: 'SfNotificationChannel',
+registerEnumType(MnNotificationChannel, {
+  name: 'MnNotificationChannel',
   description: 'Outbound notification channel for a reminder.',
 });
 
-@ObjectType('SfReminder')
-export class SfReminderObjectType {
+@ObjectType('MnReminder')
+export class MnReminderObjectType {
   @Field(() => ID)
   id!: string;
 
@@ -38,11 +38,11 @@ export class SfReminderObjectType {
   @Field(() => GraphQLISODateTime)
   fireAt!: Date;
 
-  @Field(() => SfNotificationChannel)
-  channel!: SfNotificationChannel;
+  @Field(() => MnNotificationChannel)
+  channel!: MnNotificationChannel;
 
-  @Field(() => SfReminderStatus)
-  status!: SfReminderStatus;
+  @Field(() => MnReminderStatus)
+  status!: MnReminderStatus;
 
   @Field(() => String, { nullable: true })
   relatedEntityType!: string | null;
@@ -64,7 +64,7 @@ export class SfReminderObjectType {
 }
 
 @InputType()
-export class CreateSfReminderInput {
+export class CreateMnReminderInput {
   @Field(() => String)
   title!: string;
 
@@ -74,6 +74,6 @@ export class CreateSfReminderInput {
   @Field(() => GraphQLISODateTime)
   fireAt!: Date;
 
-  @Field(() => SfNotificationChannel, { nullable: true })
-  channel?: SfNotificationChannel;
+  @Field(() => MnNotificationChannel, { nullable: true })
+  channel?: MnNotificationChannel;
 }

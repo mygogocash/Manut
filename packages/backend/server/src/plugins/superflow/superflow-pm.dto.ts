@@ -7,20 +7,20 @@ import {
   ObjectType,
   registerEnumType,
 } from '@nestjs/graphql';
-import { SfProjectStatus, SfTaskPriority, SfTaskStatus } from '@prisma/client';
+import { MnProjectStatus, MnTaskPriority, MnTaskStatus } from '@prisma/client';
 
-registerEnumType(SfTaskStatus, {
-  name: 'SfTaskStatus',
+registerEnumType(MnTaskStatus, {
+  name: 'MnTaskStatus',
   description: 'Superflow task workflow state.',
 });
 
-registerEnumType(SfTaskPriority, {
-  name: 'SfTaskPriority',
+registerEnumType(MnTaskPriority, {
+  name: 'MnTaskPriority',
   description: 'Superflow task priority.',
 });
 
 @InputType()
-export class CreateSfProjectInput {
+export class CreateMnProjectInput {
   @Field(() => String)
   name!: string;
 
@@ -32,33 +32,33 @@ export class CreateSfProjectInput {
 }
 
 @InputType()
-export class UpdateSfProjectInput {
+export class UpdateMnProjectInput {
   @Field(() => String, { nullable: true })
   name?: string | null;
 
   @Field(() => String, { nullable: true })
   description?: string | null;
 
-  @Field(() => SfProjectStatus, { nullable: true })
-  status?: SfProjectStatus | null;
+  @Field(() => MnProjectStatus, { nullable: true })
+  status?: MnProjectStatus | null;
 
   @Field(() => Int, { nullable: true })
   sortOrder?: number | null;
 }
 
 @InputType()
-export class CreateSfTaskInput {
+export class CreateMnTaskInput {
   @Field(() => String)
   title!: string;
 
   @Field(() => String, { nullable: true })
   description?: string | null;
 
-  @Field(() => SfTaskStatus, { nullable: true })
-  status?: SfTaskStatus;
+  @Field(() => MnTaskStatus, { nullable: true })
+  status?: MnTaskStatus;
 
-  @Field(() => SfTaskPriority, { nullable: true })
-  priority?: SfTaskPriority;
+  @Field(() => MnTaskPriority, { nullable: true })
+  priority?: MnTaskPriority;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   dueAt?: Date | null;
@@ -71,18 +71,18 @@ export class CreateSfTaskInput {
 }
 
 @InputType()
-export class UpdateSfTaskInput {
+export class UpdateMnTaskInput {
   @Field(() => String, { nullable: true })
   title?: string | null;
 
   @Field(() => String, { nullable: true })
   description?: string | null;
 
-  @Field(() => SfTaskStatus, { nullable: true })
-  status?: SfTaskStatus;
+  @Field(() => MnTaskStatus, { nullable: true })
+  status?: MnTaskStatus;
 
-  @Field(() => SfTaskPriority, { nullable: true })
-  priority?: SfTaskPriority;
+  @Field(() => MnTaskPriority, { nullable: true })
+  priority?: MnTaskPriority;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   dueAt?: Date | null;
@@ -94,8 +94,8 @@ export class UpdateSfTaskInput {
   assigneeUserId?: string | null;
 }
 
-@ObjectType('SfTask')
-export class SfTaskObjectType {
+@ObjectType('MnTask')
+export class MnTaskObjectType {
   @Field(() => ID)
   id!: string;
 
@@ -108,11 +108,11 @@ export class SfTaskObjectType {
   @Field(() => String, { nullable: true })
   description!: string | null;
 
-  @Field(() => SfTaskStatus)
-  status!: SfTaskStatus;
+  @Field(() => MnTaskStatus)
+  status!: MnTaskStatus;
 
-  @Field(() => SfTaskPriority)
-  priority!: SfTaskPriority;
+  @Field(() => MnTaskPriority)
+  priority!: MnTaskPriority;
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   dueAt!: Date | null;

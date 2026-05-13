@@ -75,29 +75,29 @@ vi.mock('@affine/component', () => ({
 vi.mock('@affine/core/components/hooks/use-query', () => ({
   useQuery: ({ query }: { query: { id: string } }) => {
     switch (query.id) {
-      case 'sfCrmAccountsQuery':
+      case 'mnCrmAccountsQuery':
         return {
-          data: { sfCrmAccounts: queryState.accounts },
+          data: { mnCrmAccounts: queryState.accounts },
           mutate: vi.fn(async () => undefined),
         };
-      case 'sfCrmContactsQuery':
+      case 'mnCrmContactsQuery':
         return {
-          data: { sfCrmContacts: queryState.contacts },
+          data: { mnCrmContacts: queryState.contacts },
           mutate: vi.fn(async () => undefined),
         };
-      case 'sfCrmDealStagesQuery':
+      case 'mnCrmDealStagesQuery':
         return {
-          data: { sfCrmDealStages: queryState.stages },
+          data: { mnCrmDealStages: queryState.stages },
           mutate: vi.fn(async () => undefined),
         };
-      case 'sfCrmDealsQuery':
+      case 'mnCrmDealsQuery':
         return {
-          data: { sfCrmDeals: queryState.deals },
+          data: { mnCrmDeals: queryState.deals },
           mutate: vi.fn(async () => undefined),
         };
-      case 'sfCrmActivitiesQuery':
+      case 'mnCrmActivitiesQuery':
         return {
-          data: { sfCrmActivities: queryState.activities },
+          data: { mnCrmActivities: queryState.activities },
           mutate: vi.fn(async () => undefined),
         };
       default:

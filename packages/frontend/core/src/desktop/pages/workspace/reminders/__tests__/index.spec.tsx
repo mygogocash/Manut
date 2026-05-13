@@ -85,16 +85,16 @@ vi.mock('@affine/core/components/hooks/use-query', () => ({
 vi.mock('@affine/core/components/hooks/use-mutation', () => ({
   useMutation: ({ mutation }: { mutation: { id: string } }) => ({
     trigger:
-      mutation.id === 'createSfReminderMutation'
+      mutation.id === 'createMnReminderMutation'
         ? triggerCreate
         : triggerCancel,
   }),
 }));
 
 vi.mock('@affine/core/modules/superflow-reminders', () => ({
-  sfRemindersQuery: { id: 'sfRemindersQuery' },
-  createSfReminderMutation: { id: 'createSfReminderMutation' },
-  cancelSfReminderMutation: { id: 'cancelSfReminderMutation' },
+  mnRemindersQuery: { id: 'mnRemindersQuery' },
+  createMnReminderMutation: { id: 'createMnReminderMutation' },
+  cancelMnReminderMutation: { id: 'cancelMnReminderMutation' },
 }));
 
 vi.mock('@affine/core/modules/workbench', () => ({
@@ -149,7 +149,7 @@ import { classifyReminder, Component } from '../index';
 
 describe('RemindersPage', () => {
   beforeEach(() => {
-    useQueryState.data = { sfReminders: [] };
+    useQueryState.data = { mnReminders: [] };
     useQueryState.isLoading = false;
     useQueryState.error = null;
     triggerCreate.mockClear();

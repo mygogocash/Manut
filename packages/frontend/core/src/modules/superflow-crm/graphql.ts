@@ -6,16 +6,16 @@
  */
 
 import type {
-  CreateSfCrmAccountInput,
-  CreateSfCrmActivityInput,
-  CreateSfCrmContactInput,
-  CreateSfCrmDealInput,
-  CreateSfCrmDealStageInput,
-  SfCrmAccount,
-  SfCrmActivity,
-  SfCrmContact,
-  SfCrmDeal,
-  SfCrmDealStage,
+  CreateMnCrmAccountInput,
+  CreateMnCrmActivityInput,
+  CreateMnCrmContactInput,
+  CreateMnCrmDealInput,
+  CreateMnCrmDealStageInput,
+  MnCrmAccount,
+  MnCrmActivity,
+  MnCrmContact,
+  MnCrmDeal,
+  MnCrmDealStage,
 } from './types';
 
 const ACCOUNT_FIELDS = `
@@ -87,157 +87,157 @@ const ACTIVITY_FIELDS = `
 
 // Queries -------------------------------------------------------------------
 
-export const sfCrmAccountsQuery = {
-  id: 'sfCrmAccountsQuery' as const,
-  op: 'sfCrmAccounts',
-  query: `query sfCrmAccounts($workspaceId: String!) {
-  sfCrmAccounts(workspaceId: $workspaceId) {${ACCOUNT_FIELDS}}
+export const mnCrmAccountsQuery = {
+  id: 'mnCrmAccountsQuery' as const,
+  op: 'mnCrmAccounts',
+  query: `query mnCrmAccounts($workspaceId: String!) {
+  mnCrmAccounts(workspaceId: $workspaceId) {${ACCOUNT_FIELDS}}
 }`,
 };
 
-export const sfCrmContactsQuery = {
-  id: 'sfCrmContactsQuery' as const,
-  op: 'sfCrmContacts',
-  query: `query sfCrmContacts($workspaceId: String!) {
-  sfCrmContacts(workspaceId: $workspaceId) {${CONTACT_FIELDS}}
+export const mnCrmContactsQuery = {
+  id: 'mnCrmContactsQuery' as const,
+  op: 'mnCrmContacts',
+  query: `query mnCrmContacts($workspaceId: String!) {
+  mnCrmContacts(workspaceId: $workspaceId) {${CONTACT_FIELDS}}
 }`,
 };
 
-export const sfCrmDealStagesQuery = {
-  id: 'sfCrmDealStagesQuery' as const,
-  op: 'sfCrmDealStages',
-  query: `query sfCrmDealStages($workspaceId: String!) {
-  sfCrmDealStages(workspaceId: $workspaceId) {${DEAL_STAGE_FIELDS}}
+export const mnCrmDealStagesQuery = {
+  id: 'mnCrmDealStagesQuery' as const,
+  op: 'mnCrmDealStages',
+  query: `query mnCrmDealStages($workspaceId: String!) {
+  mnCrmDealStages(workspaceId: $workspaceId) {${DEAL_STAGE_FIELDS}}
 }`,
 };
 
-export const sfCrmDealsQuery = {
-  id: 'sfCrmDealsQuery' as const,
-  op: 'sfCrmDeals',
-  query: `query sfCrmDeals($workspaceId: String!) {
-  sfCrmDeals(workspaceId: $workspaceId) {${DEAL_FIELDS}}
+export const mnCrmDealsQuery = {
+  id: 'mnCrmDealsQuery' as const,
+  op: 'mnCrmDeals',
+  query: `query mnCrmDeals($workspaceId: String!) {
+  mnCrmDeals(workspaceId: $workspaceId) {${DEAL_FIELDS}}
 }`,
 };
 
-export const sfCrmActivitiesQuery = {
-  id: 'sfCrmActivitiesQuery' as const,
-  op: 'sfCrmActivities',
-  query: `query sfCrmActivities($workspaceId: String!) {
-  sfCrmActivities(workspaceId: $workspaceId) {${ACTIVITY_FIELDS}}
+export const mnCrmActivitiesQuery = {
+  id: 'mnCrmActivitiesQuery' as const,
+  op: 'mnCrmActivities',
+  query: `query mnCrmActivities($workspaceId: String!) {
+  mnCrmActivities(workspaceId: $workspaceId) {${ACTIVITY_FIELDS}}
 }`,
 };
 
 // Mutations ----------------------------------------------------------------
 
-export const createSfCrmAccountMutation = {
-  id: 'createSfCrmAccountMutation' as const,
-  op: 'createSfCrmAccount',
-  query: `mutation createSfCrmAccount($workspaceId: String!, $input: CreateSfCrmAccountInput!) {
-  createSfCrmAccount(workspaceId: $workspaceId, input: $input) {${ACCOUNT_FIELDS}}
+export const createMnCrmAccountMutation = {
+  id: 'createMnCrmAccountMutation' as const,
+  op: 'createMnCrmAccount',
+  query: `mutation createMnCrmAccount($workspaceId: String!, $input: CreateMnCrmAccountInput!) {
+  createMnCrmAccount(workspaceId: $workspaceId, input: $input) {${ACCOUNT_FIELDS}}
 }`,
 };
 
-export const createSfCrmContactMutation = {
-  id: 'createSfCrmContactMutation' as const,
-  op: 'createSfCrmContact',
-  query: `mutation createSfCrmContact($workspaceId: String!, $input: CreateSfCrmContactInput!) {
-  createSfCrmContact(workspaceId: $workspaceId, input: $input) {${CONTACT_FIELDS}}
+export const createMnCrmContactMutation = {
+  id: 'createMnCrmContactMutation' as const,
+  op: 'createMnCrmContact',
+  query: `mutation createMnCrmContact($workspaceId: String!, $input: CreateMnCrmContactInput!) {
+  createMnCrmContact(workspaceId: $workspaceId, input: $input) {${CONTACT_FIELDS}}
 }`,
 };
 
-export const createSfCrmDealStageMutation = {
-  id: 'createSfCrmDealStageMutation' as const,
-  op: 'createSfCrmDealStage',
-  query: `mutation createSfCrmDealStage($workspaceId: String!, $input: CreateSfCrmDealStageInput!) {
-  createSfCrmDealStage(workspaceId: $workspaceId, input: $input) {${DEAL_STAGE_FIELDS}}
+export const createMnCrmDealStageMutation = {
+  id: 'createMnCrmDealStageMutation' as const,
+  op: 'createMnCrmDealStage',
+  query: `mutation createMnCrmDealStage($workspaceId: String!, $input: CreateMnCrmDealStageInput!) {
+  createMnCrmDealStage(workspaceId: $workspaceId, input: $input) {${DEAL_STAGE_FIELDS}}
 }`,
 };
 
-export const createSfCrmDealMutation = {
-  id: 'createSfCrmDealMutation' as const,
-  op: 'createSfCrmDeal',
-  query: `mutation createSfCrmDeal($workspaceId: String!, $input: CreateSfCrmDealInput!) {
-  createSfCrmDeal(workspaceId: $workspaceId, input: $input) {${DEAL_FIELDS}}
+export const createMnCrmDealMutation = {
+  id: 'createMnCrmDealMutation' as const,
+  op: 'createMnCrmDeal',
+  query: `mutation createMnCrmDeal($workspaceId: String!, $input: CreateMnCrmDealInput!) {
+  createMnCrmDeal(workspaceId: $workspaceId, input: $input) {${DEAL_FIELDS}}
 }`,
 };
 
-export const createSfCrmActivityMutation = {
-  id: 'createSfCrmActivityMutation' as const,
-  op: 'createSfCrmActivity',
-  query: `mutation createSfCrmActivity($workspaceId: String!, $input: CreateSfCrmActivityInput!) {
-  createSfCrmActivity(workspaceId: $workspaceId, input: $input) {${ACTIVITY_FIELDS}}
+export const createMnCrmActivityMutation = {
+  id: 'createMnCrmActivityMutation' as const,
+  op: 'createMnCrmActivity',
+  query: `mutation createMnCrmActivity($workspaceId: String!, $input: CreateMnCrmActivityInput!) {
+  createMnCrmActivity(workspaceId: $workspaceId, input: $input) {${ACTIVITY_FIELDS}}
 }`,
 };
 
 // Response shapes ----------------------------------------------------------
 
-export interface SfCrmAccountsResponse {
-  sfCrmAccounts: SfCrmAccount[];
+export interface MnCrmAccountsResponse {
+  mnCrmAccounts: MnCrmAccount[];
 }
 
-export interface SfCrmContactsResponse {
-  sfCrmContacts: SfCrmContact[];
+export interface MnCrmContactsResponse {
+  mnCrmContacts: MnCrmContact[];
 }
 
-export interface SfCrmDealStagesResponse {
-  sfCrmDealStages: SfCrmDealStage[];
+export interface MnCrmDealStagesResponse {
+  mnCrmDealStages: MnCrmDealStage[];
 }
 
-export interface SfCrmDealsResponse {
-  sfCrmDeals: SfCrmDeal[];
+export interface MnCrmDealsResponse {
+  mnCrmDeals: MnCrmDeal[];
 }
 
-export interface SfCrmActivitiesResponse {
-  sfCrmActivities: SfCrmActivity[];
+export interface MnCrmActivitiesResponse {
+  mnCrmActivities: MnCrmActivity[];
 }
 
-export interface CreateSfCrmAccountResponse {
-  createSfCrmAccount: SfCrmAccount;
+export interface CreateMnCrmAccountResponse {
+  createMnCrmAccount: MnCrmAccount;
 }
 
-export interface CreateSfCrmContactResponse {
-  createSfCrmContact: SfCrmContact;
+export interface CreateMnCrmContactResponse {
+  createMnCrmContact: MnCrmContact;
 }
 
-export interface CreateSfCrmDealStageResponse {
-  createSfCrmDealStage: SfCrmDealStage;
+export interface CreateMnCrmDealStageResponse {
+  createMnCrmDealStage: MnCrmDealStage;
 }
 
-export interface CreateSfCrmDealResponse {
-  createSfCrmDeal: SfCrmDeal;
+export interface CreateMnCrmDealResponse {
+  createMnCrmDeal: MnCrmDeal;
 }
 
-export interface CreateSfCrmActivityResponse {
-  createSfCrmActivity: SfCrmActivity;
+export interface CreateMnCrmActivityResponse {
+  createMnCrmActivity: MnCrmActivity;
 }
 
 // Variable shapes ----------------------------------------------------------
 
-export interface SfCrmListQueryVars {
+export interface MnCrmListQueryVars {
   workspaceId: string;
 }
 
-export interface CreateSfCrmAccountVars {
+export interface CreateMnCrmAccountVars {
   workspaceId: string;
-  input: CreateSfCrmAccountInput;
+  input: CreateMnCrmAccountInput;
 }
 
-export interface CreateSfCrmContactVars {
+export interface CreateMnCrmContactVars {
   workspaceId: string;
-  input: CreateSfCrmContactInput;
+  input: CreateMnCrmContactInput;
 }
 
-export interface CreateSfCrmDealStageVars {
+export interface CreateMnCrmDealStageVars {
   workspaceId: string;
-  input: CreateSfCrmDealStageInput;
+  input: CreateMnCrmDealStageInput;
 }
 
-export interface CreateSfCrmDealVars {
+export interface CreateMnCrmDealVars {
   workspaceId: string;
-  input: CreateSfCrmDealInput;
+  input: CreateMnCrmDealInput;
 }
 
-export interface CreateSfCrmActivityVars {
+export interface CreateMnCrmActivityVars {
   workspaceId: string;
-  input: CreateSfCrmActivityInput;
+  input: CreateMnCrmActivityInput;
 }

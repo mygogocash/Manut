@@ -27,38 +27,38 @@ import type { FallbackProps } from 'react-error-boundary';
 
 import { Header } from '../../../../components/pure/header';
 import {
-  type CreateSfCrmAccountInput,
-  createSfCrmAccountMutation,
-  type CreateSfCrmAccountResponse,
-  type CreateSfCrmActivityInput,
-  createSfCrmActivityMutation,
-  type CreateSfCrmActivityResponse,
-  type CreateSfCrmContactInput,
-  createSfCrmContactMutation,
-  type CreateSfCrmContactResponse,
-  type CreateSfCrmDealInput,
-  createSfCrmDealMutation,
-  type CreateSfCrmDealResponse,
-  type CreateSfCrmDealStageInput,
-  createSfCrmDealStageMutation,
-  type CreateSfCrmDealStageResponse,
+  type CreateMnCrmAccountInput,
+  createMnCrmAccountMutation,
+  type CreateMnCrmAccountResponse,
+  type CreateMnCrmActivityInput,
+  createMnCrmActivityMutation,
+  type CreateMnCrmActivityResponse,
+  type CreateMnCrmContactInput,
+  createMnCrmContactMutation,
+  type CreateMnCrmContactResponse,
+  type CreateMnCrmDealInput,
+  createMnCrmDealMutation,
+  type CreateMnCrmDealResponse,
+  type CreateMnCrmDealStageInput,
+  createMnCrmDealStageMutation,
+  type CreateMnCrmDealStageResponse,
+  type MnCrmAccount,
+  mnCrmAccountsQuery,
+  type MnCrmAccountsResponse,
+  mnCrmActivitiesQuery,
+  type MnCrmActivitiesResponse,
+  type MnCrmActivity,
+  type MnCrmActivityType,
+  type MnCrmContact,
+  mnCrmContactsQuery,
+  type MnCrmContactsResponse,
+  type MnCrmDeal,
+  mnCrmDealsQuery,
+  type MnCrmDealsResponse,
+  type MnCrmDealStage,
+  mnCrmDealStagesQuery,
+  type MnCrmDealStagesResponse,
   SF_CRM_ACTIVITY_TYPES,
-  type SfCrmAccount,
-  sfCrmAccountsQuery,
-  type SfCrmAccountsResponse,
-  sfCrmActivitiesQuery,
-  type SfCrmActivitiesResponse,
-  type SfCrmActivity,
-  type SfCrmActivityType,
-  type SfCrmContact,
-  sfCrmContactsQuery,
-  type SfCrmContactsResponse,
-  type SfCrmDeal,
-  sfCrmDealsQuery,
-  type SfCrmDealsResponse,
-  type SfCrmDealStage,
-  sfCrmDealStagesQuery,
-  type SfCrmDealStagesResponse,
 } from '../../../../modules/superflow-crm';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
 import * as styles from './styles.css';
@@ -118,7 +118,7 @@ function formatCurrency(value: number | null, currency: string | null): string {
   }
 }
 
-function contactFullName(contact: SfCrmContact): string {
+function contactFullName(contact: MnCrmContact): string {
   return contact.lastName
     ? `${contact.firstName} ${contact.lastName}`
     : contact.firstName;
@@ -191,7 +191,7 @@ const renderListErrorFallback = (
 // ---------------------------------------------------------------------------
 
 interface AccountPickerProps {
-  accounts: readonly SfCrmAccount[];
+  accounts: readonly MnCrmAccount[];
   value: string | null;
   onChange: (id: string | null) => void;
   noneLabel: string;
@@ -232,7 +232,7 @@ const AccountPicker = ({
 // ---------------------------------------------------------------------------
 
 interface StagePickerProps {
-  stages: readonly SfCrmDealStage[];
+  stages: readonly MnCrmDealStage[];
   value: string | null;
   onChange: (id: string) => void;
   onCreateStage: () => void;
@@ -277,8 +277,8 @@ const StagePicker = ({
 // ---------------------------------------------------------------------------
 
 interface ActivityTypePickerProps {
-  value: SfCrmActivityType;
-  onChange: (value: SfCrmActivityType) => void;
+  value: MnCrmActivityType;
+  onChange: (value: MnCrmActivityType) => void;
 }
 
 const ActivityTypePicker = ({ value, onChange }: ActivityTypePickerProps) => {
@@ -312,10 +312,10 @@ const AccountsTabInner = ({ workspaceId }: AccountsTabProps) => {
   const [creating, setCreating] = useState(false);
 
   const { data, mutate } = useQuery(
-    toQueryArg(sfCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId })
   );
-  const accounts = ((data as unknown as SfCrmAccountsResponse | undefined)
-    ?.sfCrmAccounts ?? []) as readonly SfCrmAccount[];
+  const accounts = ((data as unknown as MnCrmAccountsResponse | undefined)
+    ?.mnCrmAccounts ?? []) as readonly MnCrmAccount[];
 
   const handleCreated = useCallback(async () => {
     setCreating(false);
@@ -408,7 +408,7 @@ const AccountCreateModal = ({
   const [website, setWebsite] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { trigger } = useMutation({ mutation: createSfCrmAccountMutation });
+  const { trigger } = useMutation({ mutation: createMnCrmAccountMutation });
 
   const canSubmit = name.trim().length > 0 && !submitting;
 
@@ -416,7 +416,7 @@ const AccountCreateModal = ({
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      const input: CreateSfCrmAccountInput = {
+      const input: CreateMnCrmAccountInput = {
         name: name.trim(),
         industry: industry.trim() ? industry.trim() : null,
         website: website.trim() ? website.trim() : null,
@@ -424,8 +424,8 @@ const AccountCreateModal = ({
       const response = (await (trigger as (args: unknown) => Promise<unknown>)({
         workspaceId,
         input,
-      })) as CreateSfCrmAccountResponse;
-      if (!response?.createSfCrmAccount) {
+      })) as CreateMnCrmAccountResponse;
+      if (!response?.createMnCrmAccount) {
         throw new Error('Account creation returned no record');
       }
       notify.success({ title: t['com.superflow.crm.accounts.created']() });
@@ -501,22 +501,22 @@ const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
   const [creating, setCreating] = useState(false);
 
   const { data: contactsData, mutate } = useQuery(
-    toQueryArg(sfCrmContactsQuery, { workspaceId })
+    toQueryArg(mnCrmContactsQuery, { workspaceId })
   );
   const { data: accountsData } = useQuery(
-    toQueryArg(sfCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId })
   );
 
   const contacts = useMemo(
     () =>
-      ((contactsData as unknown as SfCrmContactsResponse | undefined)
-        ?.sfCrmContacts ?? []) as readonly SfCrmContact[],
+      ((contactsData as unknown as MnCrmContactsResponse | undefined)
+        ?.mnCrmContacts ?? []) as readonly MnCrmContact[],
     [contactsData]
   );
   const accounts = useMemo(
     () =>
-      ((accountsData as unknown as SfCrmAccountsResponse | undefined)
-        ?.sfCrmAccounts ?? []) as readonly SfCrmAccount[],
+      ((accountsData as unknown as MnCrmAccountsResponse | undefined)
+        ?.mnCrmAccounts ?? []) as readonly MnCrmAccount[],
     [accountsData]
   );
 
@@ -605,7 +605,7 @@ const ContactsTab = ({ workspaceId }: ContactsTabProps) => {
 
 interface ContactCreateModalProps {
   workspaceId: string;
-  accounts: readonly SfCrmAccount[];
+  accounts: readonly MnCrmAccount[];
   onClose: () => void;
   onCreated: () => Promise<void> | void;
 }
@@ -624,14 +624,14 @@ const ContactCreateModal = ({
   const [accountId, setAccountId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const { trigger } = useMutation({ mutation: createSfCrmContactMutation });
+  const { trigger } = useMutation({ mutation: createMnCrmContactMutation });
   const canSubmit = firstName.trim().length > 0 && !submitting;
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      const input: CreateSfCrmContactInput = {
+      const input: CreateMnCrmContactInput = {
         firstName: firstName.trim(),
         lastName: lastName.trim() ? lastName.trim() : null,
         email: email.trim() ? email.trim() : null,
@@ -641,8 +641,8 @@ const ContactCreateModal = ({
       const response = (await (trigger as (args: unknown) => Promise<unknown>)({
         workspaceId,
         input,
-      })) as CreateSfCrmContactResponse;
-      if (!response?.createSfCrmContact) {
+      })) as CreateMnCrmContactResponse;
+      if (!response?.createMnCrmContact) {
         throw new Error('Contact creation returned no record');
       }
       notify.success({ title: t['com.superflow.crm.contacts.created']() });
@@ -742,31 +742,31 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   const [creating, setCreating] = useState(false);
 
   const { data: dealsData, mutate } = useQuery(
-    toQueryArg(sfCrmDealsQuery, { workspaceId })
+    toQueryArg(mnCrmDealsQuery, { workspaceId })
   );
   const { data: stagesData, mutate: mutateStages } = useQuery(
-    toQueryArg(sfCrmDealStagesQuery, { workspaceId })
+    toQueryArg(mnCrmDealStagesQuery, { workspaceId })
   );
   const { data: accountsData } = useQuery(
-    toQueryArg(sfCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId })
   );
 
   const deals = useMemo(
     () =>
-      ((dealsData as unknown as SfCrmDealsResponse | undefined)?.sfCrmDeals ??
-        []) as readonly SfCrmDeal[],
+      ((dealsData as unknown as MnCrmDealsResponse | undefined)?.mnCrmDeals ??
+        []) as readonly MnCrmDeal[],
     [dealsData]
   );
   const stages = useMemo(
     () =>
-      ((stagesData as unknown as SfCrmDealStagesResponse | undefined)
-        ?.sfCrmDealStages ?? []) as readonly SfCrmDealStage[],
+      ((stagesData as unknown as MnCrmDealStagesResponse | undefined)
+        ?.mnCrmDealStages ?? []) as readonly MnCrmDealStage[],
     [stagesData]
   );
   const accounts = useMemo(
     () =>
-      ((accountsData as unknown as SfCrmAccountsResponse | undefined)
-        ?.sfCrmAccounts ?? []) as readonly SfCrmAccount[],
+      ((accountsData as unknown as MnCrmAccountsResponse | undefined)
+        ?.mnCrmAccounts ?? []) as readonly MnCrmAccount[],
     [accountsData]
   );
 
@@ -776,7 +776,7 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   );
 
   const dealsByStage = useMemo(() => {
-    const map = new Map<string, SfCrmDeal[]>();
+    const map = new Map<string, MnCrmDeal[]>();
     for (const stage of stagesSorted) {
       map.set(stage.id, []);
     }
@@ -897,8 +897,8 @@ const DealsTab = ({ workspaceId }: DealsTabProps) => {
 
 interface DealCreateModalProps {
   workspaceId: string;
-  stages: readonly SfCrmDealStage[];
-  accounts: readonly SfCrmAccount[];
+  stages: readonly MnCrmDealStage[];
+  accounts: readonly MnCrmAccount[];
   onClose: () => void;
   onCreated: () => Promise<void> | void;
   onStageCreated: () => Promise<void> | void;
@@ -920,7 +920,7 @@ const DealCreateModal = ({
   const [stageDialogOpen, setStageDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const { trigger } = useMutation({ mutation: createSfCrmDealMutation });
+  const { trigger } = useMutation({ mutation: createMnCrmDealMutation });
 
   const numericValue = useMemo(() => {
     if (!valueText.trim()) return null;
@@ -938,7 +938,7 @@ const DealCreateModal = ({
     if (!canSubmit || stageId === null) return;
     setSubmitting(true);
     try {
-      const input: CreateSfCrmDealInput = {
+      const input: CreateMnCrmDealInput = {
         name: name.trim(),
         stageId,
         value: numericValue,
@@ -947,8 +947,8 @@ const DealCreateModal = ({
       const response = (await (trigger as (args: unknown) => Promise<unknown>)({
         workspaceId,
         input,
-      })) as CreateSfCrmDealResponse;
-      if (!response?.createSfCrmDeal) {
+      })) as CreateMnCrmDealResponse;
+      if (!response?.createMnCrmDeal) {
         throw new Error('Deal creation returned no record');
       }
       notify.success({ title: t['com.superflow.crm.deals.created']() });
@@ -974,7 +974,7 @@ const DealCreateModal = ({
   ]);
 
   const handleStageCreated = useCallback(
-    async (stage: SfCrmDealStage) => {
+    async (stage: MnCrmDealStage) => {
       setStageId(stage.id);
       setStageDialogOpen(false);
       await onStageCreated();
@@ -1066,7 +1066,7 @@ const DealCreateModal = ({
 interface DealStageCreateModalProps {
   workspaceId: string;
   onClose: () => void;
-  onCreated: (stage: SfCrmDealStage) => Promise<void> | void;
+  onCreated: (stage: MnCrmDealStage) => Promise<void> | void;
 }
 
 const DealStageCreateModal = ({
@@ -1078,7 +1078,7 @@ const DealStageCreateModal = ({
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { trigger } = useMutation({
-    mutation: createSfCrmDealStageMutation,
+    mutation: createMnCrmDealStageMutation,
   });
 
   const canSubmit = name.trim().length > 0 && !submitting;
@@ -1087,19 +1087,19 @@ const DealStageCreateModal = ({
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      const input: CreateSfCrmDealStageInput = { name: name.trim() };
+      const input: CreateMnCrmDealStageInput = { name: name.trim() };
       const response = (await (trigger as (args: unknown) => Promise<unknown>)({
         workspaceId,
         input,
       } as {
         workspaceId: string;
-        input: CreateSfCrmDealStageInput;
-      })) as CreateSfCrmDealStageResponse;
-      if (!response?.createSfCrmDealStage) {
+        input: CreateMnCrmDealStageInput;
+      })) as CreateMnCrmDealStageResponse;
+      if (!response?.createMnCrmDealStage) {
         throw new Error('No stage returned');
       }
       notify.success({ title: t['com.superflow.crm.deals.stage.created']() });
-      await onCreated(response.createSfCrmDealStage);
+      await onCreated(response.createMnCrmDealStage);
     } catch (err) {
       notify.error({
         title: t['com.superflow.crm.deals.stage.create.error'](),
@@ -1150,7 +1150,7 @@ interface ActivitiesTabProps {
   workspaceId: string;
 }
 
-const ACTIVITY_ICONS: Record<SfCrmActivityType, string> = {
+const ACTIVITY_ICONS: Record<MnCrmActivityType, string> = {
   CALL: 'C',
   MEETING: 'M',
   EMAIL: 'E',
@@ -1163,12 +1163,12 @@ const ActivitiesTabInner = ({ workspaceId }: ActivitiesTabProps) => {
   const [creating, setCreating] = useState(false);
 
   const { data, mutate } = useQuery(
-    toQueryArg(sfCrmActivitiesQuery, { workspaceId })
+    toQueryArg(mnCrmActivitiesQuery, { workspaceId })
   );
   const activities = useMemo(
     () =>
-      ((data as unknown as SfCrmActivitiesResponse | undefined)
-        ?.sfCrmActivities ?? []) as readonly SfCrmActivity[],
+      ((data as unknown as MnCrmActivitiesResponse | undefined)
+        ?.mnCrmActivities ?? []) as readonly MnCrmActivity[],
     [data]
   );
 
@@ -1267,12 +1267,12 @@ const ActivityCreateModal = ({
   onCreated,
 }: ActivityCreateModalProps) => {
   const t = useI18n();
-  const [type, setType] = useState<SfCrmActivityType>('NOTE');
+  const [type, setType] = useState<MnCrmActivityType>('NOTE');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { trigger } = useMutation({ mutation: createSfCrmActivityMutation });
+  const { trigger } = useMutation({ mutation: createMnCrmActivityMutation });
 
   const canSubmit = subject.trim().length > 0 && !submitting;
 
@@ -1280,7 +1280,7 @@ const ActivityCreateModal = ({
     if (!canSubmit) return;
     setSubmitting(true);
     try {
-      const input: CreateSfCrmActivityInput = {
+      const input: CreateMnCrmActivityInput = {
         type,
         subject: subject.trim(),
         body: body.trim() ? body.trim() : null,
@@ -1288,8 +1288,8 @@ const ActivityCreateModal = ({
       const response = (await (trigger as (args: unknown) => Promise<unknown>)({
         workspaceId,
         input,
-      })) as CreateSfCrmActivityResponse;
-      if (!response?.createSfCrmActivity) {
+      })) as CreateMnCrmActivityResponse;
+      if (!response?.createMnCrmActivity) {
         throw new Error('Activity creation returned no record');
       }
       notify.success({ title: t['com.superflow.crm.activities.created']() });

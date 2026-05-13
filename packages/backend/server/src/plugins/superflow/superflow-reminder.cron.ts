@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
+  MnNotificationDeliveryStatus,
+  MnReminderStatus,
   PrismaClient,
-  SfNotificationDeliveryStatus,
-  SfReminderStatus,
 } from '@prisma/client';
 
 import { JobQueue } from '../../base';
@@ -27,9 +27,9 @@ export class SuperflowReminderCron {
   }
 
   async runOnce(now = new Date()) {
-    const reminders = await this.db.sfReminder.findMany({
+    const reminders = await this.db.mnReminder.findMany({
       where: {
-        status: SfReminderStatus.SCHEDULED,
+        status: MnReminderStatus.SCHEDULED,
         fireAt: { lte: now },
       },
       orderBy: { fireAt: 'asc' },
@@ -37,48 +37,48 @@ export class SuperflowReminderCron {
     });
 
     for (const reminder of reminders) {
-      const claimed = await this.db.sfReminder.updateMany({
-        where: { id: reminder.id, status: SfReminderStatus.SCHEDULED },
-        data: { status: SfReminderStatus.PROCESSING },
+      const claimed = await this.db.mnReminder.updateMany({
+        where: { id: reminder.id, status: MnReminderStatus.SCHEDULED },
+        data: { status: MnReminderStatus.PROCESSING },
       });
       if (claimed.count !== 1) {
         continue;
       }
 
-      const existingDelivery = await this.db.sfNotificationDelivery.findFirst({
+      const existingDelivery = await this.db.mnNotificationDelivery.findFirst({
         where: {
           reminderId: reminder.id,
           status: {
             in: [
-              SfNotificationDeliveryStatus.PENDING,
-              SfNotificationDeliveryStatus.QUEUED,
-              SfNotificationDeliveryStatus.SENT,
+              MnNotificationDeliveryStatus.PENDING,
+              MnNotificationDeliveryStatus.QUEUED,
+              MnNotificationDeliveryStatus.SENT,
             ],
           },
         },
         orderBy: { createdAt: 'desc' },
       });
 
-      if (existingDelivery?.status === SfNotificationDeliveryStatus.SENT) {
-        await this.db.sfReminder.update({
+      if (existingDelivery?.status === MnNotificationDeliveryStatus.SENT) {
+        await this.db.mnReminder.update({
           where: { id: reminder.id },
-          data: { status: SfReminderStatus.COMPLETED, completedAt: new Date() },
+          data: { status: MnReminderStatus.COMPLETED, completedAt: new Date() },
         });
         continue;
       }
-      if (existingDelivery?.status === SfNotificationDeliveryStatus.QUEUED) {
+      if (existingDelivery?.status === MnNotificationDeliveryStatus.QUEUED) {
         continue;
       }
 
       try {
         const delivery =
           existingDelivery ??
-          (await this.db.sfNotificationDelivery.create({
+          (await this.db.mnNotificationDelivery.create({
             data: {
               workspaceId: reminder.workspaceId,
               reminderId: reminder.id,
               channel: reminder.channel,
-              status: SfNotificationDeliveryStatus.PENDING,
+              status: MnNotificationDeliveryStatus.PENDING,
               payload: {
                 reminderId: reminder.id,
                 fireAt: reminder.fireAt.toISOString(),
@@ -92,10 +92,10 @@ export class SuperflowReminderCron {
           { jobId: `superflow-deliver-reminder-${delivery.id}` }
         );
       } catch (error) {
-        await this.db.sfReminder.update({
+        await this.db.mnReminder.update({
           where: { id: reminder.id },
           data: {
-            status: SfReminderStatus.FAILED,
+            status: MnReminderStatus.FAILED,
           },
         });
         throw error;

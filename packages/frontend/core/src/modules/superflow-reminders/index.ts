@@ -1,11 +1,11 @@
 export {
-  cancelSfReminderMutation,
-  createSfReminderMutation,
-  sfRemindersQuery,
+  cancelMnReminderMutation,
+  createMnReminderMutation,
+  mnRemindersQuery,
 } from './graphql';
 export type {
-  CreateSfReminderInput,
-  SfNotificationChannel,
-  SfReminderDto,
-  SfReminderStatus,
+  CreateMnReminderInput,
+  MnNotificationChannel,
+  MnReminderDto,
+  MnReminderStatus,
 } from './types';

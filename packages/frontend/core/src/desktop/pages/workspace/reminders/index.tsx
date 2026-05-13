@@ -2,11 +2,11 @@ import { Button, Input, Modal, notify } from '@affine/component';
 import { useMutation } from '@affine/core/components/hooks/use-mutation';
 import { useQuery } from '@affine/core/components/hooks/use-query';
 import {
-  cancelSfReminderMutation,
-  createSfReminderMutation,
-  type SfReminderDto,
-  sfRemindersQuery,
-  type SfReminderStatus,
+  cancelMnReminderMutation,
+  createMnReminderMutation,
+  type MnReminderDto,
+  mnRemindersQuery,
+  type MnReminderStatus,
 } from '@affine/core/modules/superflow-reminders';
 import {
   ViewBody,
@@ -39,12 +39,12 @@ const EMPTY_FORM: NewReminderFormState = {
   fireAtLocal: '',
 };
 
-const ACTIVE_STATUSES: ReadonlySet<SfReminderStatus> = new Set([
+const ACTIVE_STATUSES: ReadonlySet<MnReminderStatus> = new Set([
   'SCHEDULED',
   'PROCESSING',
 ]);
 
-function classifyReminder(reminder: SfReminderDto, now: number): TabKey {
+function classifyReminder(reminder: MnReminderDto, now: number): TabKey {
   if (!ACTIVE_STATUSES.has(reminder.status)) {
     return 'done';
   }
@@ -55,7 +55,7 @@ function classifyReminder(reminder: SfReminderDto, now: number): TabKey {
   return 'upcoming';
 }
 
-function statusBadgeClass(status: SfReminderStatus, isDue: boolean): string {
+function statusBadgeClass(status: MnReminderStatus, isDue: boolean): string {
   if (status === 'COMPLETED') return styles.badgeDone;
   if (status === 'CANCELLED') return styles.badgeScheduled;
   if (status === 'FAILED') return styles.badgeFailed;
@@ -247,7 +247,7 @@ const NewReminderModal = ({
 };
 
 interface ReminderCardProps {
-  reminder: SfReminderDto;
+  reminder: MnReminderDto;
   isDue: boolean;
   cancelling: boolean;
   onCancel: (reminderId: string) => Promise<void>;
@@ -359,7 +359,7 @@ const ErrorState = ({ message, onRetry }: ErrorStateProps) => {
 };
 
 interface RemindersResponse {
-  sfReminders?: SfReminderDto[];
+  mnReminders?: MnReminderDto[];
 }
 
 const RemindersPage = () => {
@@ -372,34 +372,34 @@ const RemindersPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  // The local sfReminders operation is not part of the codegen'd
+  // The local mnReminders operation is not part of the codegen'd
   // discriminated union, so we cast at the boundary — same trick the
   // Gmail/Drive panels use.
   const queryArg = {
-    query: sfRemindersQuery,
+    query: mnRemindersQuery,
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
   const { data, isLoading, error, mutate } = useQuery(queryArg, {
     suspense: false,
   });
 
-  const reminders = useMemo<SfReminderDto[]>(() => {
+  const reminders = useMemo<MnReminderDto[]>(() => {
     const typed = data as unknown as RemindersResponse | undefined;
-    return typed?.sfReminders ?? [];
+    return typed?.mnReminders ?? [];
   }, [data]);
 
   const { trigger: triggerCreate } = useMutation({
-    mutation: createSfReminderMutation,
+    mutation: createMnReminderMutation,
   });
   const { trigger: triggerCancel } = useMutation({
-    mutation: cancelSfReminderMutation,
+    mutation: cancelMnReminderMutation,
   });
 
   const bucketed = useMemo(() => {
     const now = Date.now();
-    const due: SfReminderDto[] = [];
-    const upcoming: SfReminderDto[] = [];
-    const done: SfReminderDto[] = [];
+    const due: MnReminderDto[] = [];
+    const upcoming: MnReminderDto[] = [];
+    const done: MnReminderDto[] = [];
     for (const reminder of reminders) {
       const bucket = classifyReminder(reminder, now);
       if (bucket === 'due') due.push(reminder);
@@ -478,7 +478,7 @@ const RemindersPage = () => {
     if (!submitting) setModalOpen(false);
   }, [submitting]);
 
-  const renderList = (list: SfReminderDto[], tab: TabKey) => {
+  const renderList = (list: MnReminderDto[], tab: TabKey) => {
     if (list.length === 0) return <EmptyState tab={tab} />;
     return (
       <div className={styles.list}>

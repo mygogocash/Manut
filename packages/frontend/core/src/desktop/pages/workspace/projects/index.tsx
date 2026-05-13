@@ -2,20 +2,20 @@ import { Button, Input, Modal, notify } from '@affine/component';
 import { useMutation } from '@affine/core/components/hooks/use-mutation';
 import { useQuery } from '@affine/core/components/hooks/use-query';
 import {
-  type CreateSfProjectInput,
-  createSfProjectMutation,
-  type CreateSfTaskInput,
-  createSfTaskMutation,
-  deleteSfTaskMutation,
+  type CreateMnProjectInput,
+  createMnProjectMutation,
+  type CreateMnTaskInput,
+  createMnTaskMutation,
+  deleteMnTaskMutation,
+  type MnProjectDto,
+  mnProjectsQuery,
+  type MnTaskDto,
+  type MnTaskPriority,
+  mnTasksQuery,
+  type MnTaskStatus,
   SF_TASK_PRIORITIES,
   SF_TASK_STATUSES,
-  type SfProjectDto,
-  sfProjectsQuery,
-  type SfTaskDto,
-  type SfTaskPriority,
-  sfTasksQuery,
-  type SfTaskStatus,
-  updateSfTaskStatusMutation,
+  updateMnTaskStatusMutation,
 } from '@affine/core/modules/superflow-pm';
 import {
   ViewBody,
@@ -116,7 +116,7 @@ function formatDueDate(value: string | null): string {
   });
 }
 
-function priorityClass(priority: SfTaskPriority): string {
+function priorityClass(priority: MnTaskPriority): string {
   switch (priority) {
     case 'URGENT':
       return styles.priorityUrgent;
@@ -132,7 +132,7 @@ function priorityClass(priority: SfTaskPriority): string {
   }
 }
 
-function readableStatus(value: SfTaskStatus): string {
+function readableStatus(value: MnTaskStatus): string {
   switch (value) {
     case 'IN_PROGRESS':
       return 'In progress';
@@ -149,7 +149,7 @@ function readableStatus(value: SfTaskStatus): string {
   }
 }
 
-function readablePriority(value: SfTaskPriority): string {
+function readablePriority(value: MnTaskPriority): string {
   switch (value) {
     case 'NONE':
       return 'No priority';
@@ -174,7 +174,7 @@ interface NewProjectModalProps {
   open: boolean;
   workspaceId: string;
   onClose: () => void;
-  onCreated: (project: SfProjectDto) => void;
+  onCreated: (project: MnProjectDto) => void;
 }
 
 const NewProjectModal = ({
@@ -188,7 +188,7 @@ const NewProjectModal = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { trigger } = useMutation({ mutation: createSfProjectMutation });
+  const { trigger } = useMutation({ mutation: createMnProjectMutation });
 
   const reset = useCallback(() => {
     setName('');
@@ -214,16 +214,16 @@ const NewProjectModal = ({
       setError(null);
       setSubmitting(true);
       try {
-        const input: CreateSfProjectInput = {
+        const input: CreateMnProjectInput = {
           name: trimmed,
           description: description.trim() ? description.trim() : null,
         };
         const response = (await (
           trigger as (args: unknown) => Promise<unknown>
         )({ workspaceId, input })) as
-          | { createSfProject?: SfProjectDto }
+          | { createMnProject?: MnProjectDto }
           | undefined;
-        const created = response?.createSfProject;
+        const created = response?.createMnProject;
         if (!created) {
           throw new Error('Server did not return the created project.');
         }
@@ -304,7 +304,7 @@ interface NewTaskModalProps {
   open: boolean;
   projectId: string;
   onClose: () => void;
-  onCreated: (task: SfTaskDto) => void;
+  onCreated: (task: MnTaskDto) => void;
 }
 
 const NewTaskModal = ({
@@ -314,13 +314,13 @@ const NewTaskModal = ({
   onCreated,
 }: NewTaskModalProps) => {
   const [title, setTitle] = useState('');
-  const [status, setStatus] = useState<SfTaskStatus>('TODO');
-  const [priority, setPriority] = useState<SfTaskPriority>('MEDIUM');
+  const [status, setStatus] = useState<MnTaskStatus>('TODO');
+  const [priority, setPriority] = useState<MnTaskPriority>('MEDIUM');
   const [dueAt, setDueAt] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { trigger } = useMutation({ mutation: createSfTaskMutation });
+  const { trigger } = useMutation({ mutation: createMnTaskMutation });
 
   const reset = useCallback(() => {
     setTitle('');
@@ -349,7 +349,7 @@ const NewTaskModal = ({
       setSubmitting(true);
       try {
         const dueIso = dueAt ? new Date(dueAt).toISOString() : null;
-        const input: CreateSfTaskInput = {
+        const input: CreateMnTaskInput = {
           title: trimmed,
           status,
           priority,
@@ -357,8 +357,8 @@ const NewTaskModal = ({
         };
         const response = (await (
           trigger as (args: unknown) => Promise<unknown>
-        )({ projectId, input })) as { createSfTask?: SfTaskDto } | undefined;
-        const created = response?.createSfTask;
+        )({ projectId, input })) as { createMnTask?: MnTaskDto } | undefined;
+        const created = response?.createMnTask;
         if (!created) {
           throw new Error('Server did not return the created task.');
         }
@@ -421,7 +421,7 @@ const NewTaskModal = ({
               id="sf-task-status"
               className={styles.select}
               value={status}
-              onChange={event => setStatus(event.target.value as SfTaskStatus)}
+              onChange={event => setStatus(event.target.value as MnTaskStatus)}
             >
               {SF_TASK_STATUSES.map(option => (
                 <option key={option} value={option}>
@@ -439,7 +439,7 @@ const NewTaskModal = ({
               className={styles.select}
               value={priority}
               onChange={event =>
-                setPriority(event.target.value as SfTaskPriority)
+                setPriority(event.target.value as MnTaskPriority)
               }
             >
               {SF_TASK_PRIORITIES.map(option => (
@@ -481,8 +481,8 @@ const NewTaskModal = ({
 };
 
 interface TaskRowProps {
-  task: SfTaskDto;
-  onStatusChange: (taskId: string, status: SfTaskStatus) => Promise<void>;
+  task: MnTaskDto;
+  onStatusChange: (taskId: string, status: MnTaskStatus) => Promise<void>;
   onDelete: (taskId: string) => Promise<void>;
 }
 
@@ -491,7 +491,7 @@ const TaskRow = ({ task, onStatusChange, onDelete }: TaskRowProps) => {
 
   const handleStatusChange = useCallback(
     async (event: ChangeEvent<HTMLSelectElement>) => {
-      const next = event.target.value as SfTaskStatus;
+      const next = event.target.value as MnTaskStatus;
       if (next === task.status) return;
       setPending(true);
       try {
@@ -552,7 +552,7 @@ const TaskRow = ({ task, onStatusChange, onDelete }: TaskRowProps) => {
 };
 
 interface ProjectCardProps {
-  project: SfProjectDto;
+  project: MnProjectDto;
   expanded: boolean;
   onToggle: (projectId: string) => void;
   onAddTaskClick: (projectId: string) => void;
@@ -620,24 +620,24 @@ const ProjectTasksSection = ({
   onAddTaskClick,
 }: ProjectTasksSectionProps) => {
   const queryArg = {
-    query: sfTasksQuery,
+    query: mnTasksQuery,
     variables: { projectId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
   const { data, error, mutate } = useQuery(queryArg);
 
-  const tasks = (data as unknown as { sfTasks?: SfTaskDto[] } | undefined)
-    ?.sfTasks;
+  const tasks = (data as unknown as { mnTasks?: MnTaskDto[] } | undefined)
+    ?.mnTasks;
 
   const { trigger: triggerStatus } = useMutation({
-    mutation: updateSfTaskStatusMutation,
+    mutation: updateMnTaskStatusMutation,
   });
   const { trigger: triggerDelete } = useMutation({
-    mutation: deleteSfTaskMutation,
+    mutation: deleteMnTaskMutation,
   });
 
   const handleStatusChange = useCallback(
-    async (taskId: string, next: SfTaskStatus) => {
+    async (taskId: string, next: MnTaskStatus) => {
       try {
         await (triggerStatus as (args: unknown) => Promise<unknown>)({
           taskId,
@@ -736,15 +736,15 @@ const ProjectsList = ({
   onAddTaskTo,
 }: ProjectsListProps) => {
   const queryArg = {
-    query: sfProjectsQuery,
+    query: mnProjectsQuery,
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
   const { data, error, mutate } = useQuery(queryArg);
 
   const projects = (
-    data as unknown as { sfProjects?: SfProjectDto[] } | undefined
-  )?.sfProjects;
+    data as unknown as { mnProjects?: MnProjectDto[] } | undefined
+  )?.mnProjects;
 
   if (error) {
     return <ErrorBox message={error.message} onRetry={() => void mutate()} />;
@@ -788,7 +788,7 @@ const ProjectsPage = () => {
     setAddingTaskFor(projectId);
   }, []);
 
-  const handleCreatedProject = useCallback((project: SfProjectDto) => {
+  const handleCreatedProject = useCallback((project: MnProjectDto) => {
     // Auto-expand the freshly created project so the user can add tasks
     // immediately. The SWR query refreshes itself on next render.
     setExpandedProjectId(project.id);

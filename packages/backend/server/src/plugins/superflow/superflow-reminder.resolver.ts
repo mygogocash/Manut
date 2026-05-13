@@ -3,16 +3,16 @@ import { randomUUID } from 'node:crypto';
 import { NotFoundException } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import {
+  MnNotificationChannel,
+  MnReminderStatus,
   PrismaClient,
-  SfNotificationChannel,
-  SfReminderStatus,
 } from '@prisma/client';
 
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
 import {
-  CreateSfReminderInput,
-  SfReminderObjectType,
+  CreateMnReminderInput,
+  MnReminderObjectType,
 } from './superflow-reminder.dto';
 
 @Resolver()
@@ -22,14 +22,14 @@ export class SuperflowReminderResolver {
     private readonly ac: AccessController
   ) {}
 
-  @Query(() => [SfReminderObjectType], {
+  @Query(() => [MnReminderObjectType], {
     description:
       'List reminders in a workspace: own reminders for all members; admins see all when they have Workspace.Settings.Update.',
   })
-  async sfReminders(
+  async mnReminders(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string
-  ): Promise<SfReminderObjectType[]> {
+  ): Promise<MnReminderObjectType[]> {
     await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
 
     let canSeeAll = false;
@@ -43,7 +43,7 @@ export class SuperflowReminderResolver {
       canSeeAll = false;
     }
 
-    return this.db.sfReminder.findMany({
+    return this.db.mnReminder.findMany({
       where: {
         workspaceId,
         ...(canSeeAll ? {} : { userId: user.id }),
@@ -53,16 +53,16 @@ export class SuperflowReminderResolver {
     });
   }
 
-  @Mutation(() => SfReminderObjectType)
-  async createSfReminder(
+  @Mutation(() => MnReminderObjectType)
+  async createMnReminder(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => String }) workspaceId: string,
-    @Args('input', { type: () => CreateSfReminderInput })
-    input: CreateSfReminderInput
-  ): Promise<SfReminderObjectType> {
+    @Args('input', { type: () => CreateMnReminderInput })
+    input: CreateMnReminderInput
+  ): Promise<MnReminderObjectType> {
     await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
 
-    return this.db.sfReminder.create({
+    return this.db.mnReminder.create({
       data: {
         id: randomUUID(),
         workspaceId,
@@ -70,18 +70,18 @@ export class SuperflowReminderResolver {
         title: input.title,
         body: input.body ?? null,
         fireAt: input.fireAt,
-        channel: input.channel ?? SfNotificationChannel.EMAIL,
-        status: SfReminderStatus.SCHEDULED,
+        channel: input.channel ?? MnNotificationChannel.EMAIL,
+        status: MnReminderStatus.SCHEDULED,
       },
     });
   }
 
-  @Mutation(() => SfReminderObjectType)
-  async cancelSfReminder(
+  @Mutation(() => MnReminderObjectType)
+  async cancelMnReminder(
     @CurrentUser() user: CurrentUser,
     @Args('reminderId', { type: () => ID }) reminderId: string
-  ): Promise<SfReminderObjectType> {
-    const reminder = await this.db.sfReminder.findUnique({
+  ): Promise<MnReminderObjectType> {
+    const reminder = await this.db.mnReminder.findUnique({
       where: { id: reminderId },
     });
     if (!reminder) {
@@ -100,9 +100,9 @@ export class SuperflowReminderResolver {
         .assert('Workspace.Read');
     }
 
-    return this.db.sfReminder.update({
+    return this.db.mnReminder.update({
       where: { id: reminderId },
-      data: { status: SfReminderStatus.CANCELLED },
+      data: { status: MnReminderStatus.CANCELLED },
     });
   }
 }
