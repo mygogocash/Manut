@@ -2158,10 +2158,27 @@ Now apply the \`updates\` to the \`content\`, following the intent in \`op\`, an
 const CHAT_PROMPT: Omit<Prompt, 'name'> = {
   model: 'gemini-2.5-flash',
   optionalModels: [
+    // Google Gemini (Vertex)
     'gemini-2.5-flash',
     'gemini-2.5-pro',
+    'gemini-3.1-flash-lite-preview',
     'gemini-3.1-pro-preview',
+    // Anthropic Claude (Vertex). IDs without `@<date>` use publisher
+    // versionId='default' — see anthropic/vertex.ts.
     'claude-sonnet-4-5@20250929',
+    'claude-sonnet-4-6',
+    'claude-opus-4@20250514',
+    'claude-opus-4-1@20250805',
+    'claude-opus-4-6',
+    'claude-opus-4-7',
+    // Meta Llama 4 (Vertex Model Garden)
+    'llama-4-scout-17b-16e-instruct-maas',
+    'llama-4-maverick-17b-128e-instruct-maas',
+    // Direct OpenAI-compatible vendors (gated by configured()=false when
+    // apiKey is empty, so they silently drop out on instances without keys).
+    'kimi-k2-thinking',
+    'grok-4',
+    'qwen3-max',
   ],
   messages: [
     {

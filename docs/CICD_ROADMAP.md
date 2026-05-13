@@ -1,10 +1,12 @@
-# Superflow CI/CD — Status & Roadmap
+# Manut CI/CD — Status & Roadmap
 
 Where the deploy pipeline is, what's shipping, and what's queued. For
 the architecture reference (how it works), see [`CICD.md`](./CICD.md).
 For daily commands, see [`CLAUDE.md`](../CLAUDE.md) §4.
 
-Last updated: 2026-05-06.
+Last updated: 2026-05-13 (brand-rename release wave PRs #24-#32 landed
+on `main`; pipeline status itself is unchanged — Tier 1+2 still done,
+Tier 3 still backlog).
 
 ---
 
@@ -323,7 +325,7 @@ the `|| true` fallback triggering.
 ### Tier 3 — multi-region / production-grade backlog
 
 These are the items the Tier 1+2 pipeline does NOT cover. Pick the
-ones whose risk-vs-cost actually matters for Superflow's traffic
+ones whose risk-vs-cost actually matters for Manut's traffic
 profile (currently single-VM, single-region). Some of these may
 never need to ship.
 

@@ -1,8 +1,14 @@
-# Superflow CI/CD
+# Manut CI/CD
 
 How code gets from `main` to `https://manut.gogocash.co`. This doc is
 the architecture reference for the deploy pipeline; for daily commands
 see also `CLAUDE.md` §4 (testing checklist).
+
+Workflow display names ("Manut CI", "Manut Build", "Manut Auto Deploy",
+"Manut Deploy", "Manut Release", "Manut Rollback", "Manut VM Init")
+match the new brand. The underlying `.github/workflows/superflow-*.yml`
+filenames have not been renamed yet — see `CLAUDE.md` §9 for why and
+the migration plan.
 
 ## Pipeline shape
 
@@ -15,12 +21,12 @@ paths (autodeploy / manual deploy / vm-init smoke).
 push to main
    │
    ▼
-[Superflow CI]                .github/workflows/superflow-ci.yml
+[Manut CI]                    .github/workflows/superflow-ci.yml
    │  - oxlint --deny-warnings
    │  - codegen-drift guard
    │  - bundle web + admin + mobile
    ▼ workflow_run on success
-[Superflow Build]             .github/workflows/superflow-build.yml  (Tier 2 NEW)
+[Manut Build]                 .github/workflows/superflow-build.yml  (Tier 2 NEW)
    │  - WIF auth → GCP
    │  - napi build (server-native.x64.node — see CLAUDE.md §5 for the
    │    rename trap)
@@ -31,7 +37,7 @@ push to main
    │    workflow_run.outputs are NOT propagated by GHA — see "Tag
    │    handoff" section below)
    ▼ workflow_run on success
-[Superflow Auto Deploy]       .github/workflows/superflow-autodeploy.yml  (Tier 2 REWRITE)
+[Manut Auto Deploy]           .github/workflows/superflow-autodeploy.yml  (Tier 2 REWRITE)
    │  - download image-tag artifact via `gh run download`
    │  - verify tag exists in GAR
    │  - SSH affine-vm, exec /srv/affine/scripts/deploy.sh
@@ -101,7 +107,7 @@ the GHA UI without needing VM SSH.
 
 ## Control-plane handover artifacts
 
-Superflow now treats each image build as a small control-plane handover.
+Manut now treats each image build as a small control-plane handover.
 `superflow-build.yml` and `superflow-release.yml` run
 `scripts/manut-release-handover.mjs` after the image push and upload a
 `superflow-handover` artifact containing:
@@ -112,7 +118,9 @@ Superflow now treats each image build as a small control-plane handover.
 The artifact records the operating company goal, workflow mode, commit,
 image tag, digest, run URL, current role board, verification gates, and
 rollback pointer. The source model lives in
-`docs/SUPERFLOW_CONTROL_PLANE.md`.
+`docs/MANUT_CONTROL_PLANE.md`. (Artifact filenames retain the
+`superflow-` prefix until the workflow-filename migration in
+`CLAUDE.md` §9.)
 
 This does not change deploy behavior. `image-tag` remains the deploy
 handoff consumed by `superflow-autodeploy.yml`; `superflow-handover` is the

@@ -89,7 +89,7 @@ const handover = {
   generatedAt,
   controlPlane: {
     name: 'Manut Control Plane',
-    source: 'docs/SUPERFLOW_CONTROL_PLANE.md',
+    source: 'docs/MANUT_CONTROL_PLANE.md',
     company: 'GoGoCash Manut',
     goal: 'Ship verified AI-assisted AFFiNE work with durable handover evidence.',
   },
@@ -121,7 +121,7 @@ const handover = {
     },
     {
       role: 'Builder',
-      adapter: 'superflow-build.yml or superflow-release.yml',
+      adapter: 'manut-build.yml or manut-release.yml',
       responsibility: 'Create a fresh linux/amd64 image from rebuilt bundles.',
     },
     {
@@ -131,7 +131,7 @@ const handover = {
     },
     {
       role: 'Deployer',
-      adapter: 'superflow-autodeploy.yml, superflow-deploy.yml, deploy.sh',
+      adapter: 'manut-autodeploy.yml, manut-deploy.yml, deploy.sh',
       responsibility:
         'Run sidecar validation before production swap and preserve rollback.',
     },
@@ -157,7 +157,7 @@ const handover = {
     'post-swap /info and prompt-seed checks pass after deploy.',
   ],
   rollback: {
-    workflow: 'superflow-rollback.yml',
+    workflow: 'manut-rollback.yml',
     vmSnapshot: '/srv/affine/compose/compose.yml.previous.bak',
   },
 };
