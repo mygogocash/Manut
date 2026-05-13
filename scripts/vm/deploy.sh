@@ -64,7 +64,7 @@ REGISTRY="${REGISTRY:-asia-southeast1-docker.pkg.dev/affine-495114/affine}"
 IMAGE_NAME="${IMAGE_NAME:-affine-gogocash}"
 COMPOSE_DIR="${COMPOSE_DIR:-/srv/affine/compose}"
 COMPOSE_FILE="${COMPOSE_DIR}/compose.yml"
-# Canary overlay file installed by superflow-vm-init.yml. Used ONLY when
+# Canary overlay file installed by manut-vm-init.yml. Used ONLY when
 # starting/stopping the validation sidecar — production swap (lines 380+)
 # uses compose.yml alone so we never accidentally couple the two paths.
 CANARY_COMPOSE_FILE="${COMPOSE_DIR}/compose.canary.yml"
