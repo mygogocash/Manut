@@ -1,3 +1,4 @@
+import { UserFriendlyError } from '@affine/error';
 import {
   catchErrorInto,
   effect,
@@ -103,8 +104,10 @@ export class NotificationListService extends Service {
       this.reset();
       this.loadMore();
 
-      // rethrow the error to the caller, to notify the user
-      throw err;
+      // Re-throw as UserFriendlyError so upstream callers can branch on
+      // `.name` (e.g. notify.error patterns that read err.name +
+      // err.message). Already-classified errors pass through unchanged.
+      throw UserFriendlyError.fromAny(err);
     }
   }
 }

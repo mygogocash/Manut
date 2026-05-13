@@ -8,7 +8,10 @@ import {
 import { useAsyncCallback } from '@affine/core/components/hooks/affine-async-hooks';
 import { DocGrantedUsersService } from '@affine/core/modules/permissions';
 import { ShareInfoService } from '@affine/core/modules/share-doc';
-import { UserFriendlyError } from '@affine/error';
+import {
+  isGraphQLSchemaValidationError,
+  UserFriendlyError,
+} from '@affine/error';
 import { DocRole } from '@affine/graphql';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
@@ -67,6 +70,13 @@ export const MembersPermission = ({
         await docGrantedUsersService.updateDocDefaultRole(docRole);
         shareInfoService.shareInfo.revalidate();
       } catch (error) {
+        if (isGraphQLSchemaValidationError(error)) {
+          notify.error({
+            title: 'Sharing is temporarily unavailable',
+            message: 'The server is being upgraded. Please try again shortly.',
+          });
+          return;
+        }
         const err = UserFriendlyError.fromAny(error);
         notify.error({
           title: err.name,

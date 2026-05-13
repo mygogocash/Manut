@@ -24,6 +24,7 @@ import {
   ViewTitle,
 } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
+import { isGraphQLSchemaValidationError } from '@affine/error';
 import { DeleteIcon, FolderIcon, PlusIcon } from '@blocksuite/icons/rc';
 import { useService } from '@toeverything/infra';
 import {
@@ -166,7 +167,12 @@ function readablePriority(value: MnTaskPriority): string {
   }
 }
 
+// en-only copy; follow-up to thread through i18n once we open that can.
+const PROJECTS_UNAVAILABLE_MESSAGE =
+  'Projects is not enabled on this workspace. Ask your administrator to enable the Manut module.';
+
 function errorMessage(err: unknown): string {
+  if (isGraphQLSchemaValidationError(err)) return PROJECTS_UNAVAILABLE_MESSAGE;
   return err instanceof Error ? err.message : 'Unexpected error';
 }
 
@@ -674,7 +680,11 @@ const ProjectTasksSection = ({
   if (error) {
     return (
       <div className={styles.errorBox} role="alert">
-        <span>Failed to load tasks: {error.message}</span>
+        <span>
+          {isGraphQLSchemaValidationError(error)
+            ? PROJECTS_UNAVAILABLE_MESSAGE
+            : `Failed to load tasks: ${error.message}`}
+        </span>
         <Button onClick={() => void mutate()}>Retry</Button>
       </div>
     );
@@ -747,7 +757,16 @@ const ProjectsList = ({
   )?.mnProjects;
 
   if (error) {
-    return <ErrorBox message={error.message} onRetry={() => void mutate()} />;
+    return (
+      <ErrorBox
+        message={
+          isGraphQLSchemaValidationError(error)
+            ? PROJECTS_UNAVAILABLE_MESSAGE
+            : error.message
+        }
+        onRetry={() => void mutate()}
+      />
+    );
   }
 
   if (!projects || projects.length === 0) {
