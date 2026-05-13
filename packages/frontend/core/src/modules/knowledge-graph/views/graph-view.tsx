@@ -20,22 +20,154 @@ interface GraphNode {
   y: number;
   vx: number;
   vy: number;
-  /** 0..2π — phase offset so each node twinkles at a different rhythm. */
+  /** 0..2π — phase offset so each node breathes at a different rhythm. */
   twinklePhase: number;
-  /** 0.7..1.3 — per-node size multiplier (giant stars vs dwarf stars). */
+  /** 0.7..1.3 — per-node size multiplier; degree-weighted at layout time. */
   scale: number;
-  /** 0..2π — slight color hue offset for the halo (warm ↔ cool stars). */
+  /** 0..2π — preserved for back-compat; not used in lobe colouring. */
   hueShift: number;
+  /** Lobe / community index assigned by label propagation (-1 = unassigned). */
+  cluster: number;
+  /** Outgoing edge degree — used to size hub nodes ("ganglia"). */
+  degree: number;
 }
 
 interface GraphEdge {
   source: string;
   target: string;
+  /**
+   * Deterministic per-edge curvature offset in pixels. Positive = curve right,
+   * negative = curve left. Computed from the (source, target) pair so curves
+   * stay stable across re-renders.
+   */
+  curveOffset: number;
 }
 
 interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  /** Centroid for each cluster — recomputed each tick from member nodes. */
+  clusterCentroids: Map<number, { x: number; y: number; size: number }>;
+}
+
+/**
+ * Perceptually-uniform lobe palette — five low-saturation hues tuned to
+ * read clearly on both light and dark backgrounds. Each "lobe" of the
+ * brain gets a different one; nodes inherit their lobe colour for the
+ * halo, edges blend the colours of their endpoints.
+ */
+interface LobeColour {
+  /** [r, g, b] for the halo and edge tint. */
+  dark: [number, number, number];
+  light: [number, number, number];
+}
+
+const LOBE_PALETTE: LobeColour[] = [
+  { dark: [255, 138, 128], light: [200, 80, 70] }, // cinnabar
+  { dark: [255, 196, 120], light: [205, 140, 60] }, // amber
+  { dark: [120, 220, 200], light: [40, 140, 130] }, // teal
+  { dark: [160, 168, 255], light: [90, 100, 200] }, // iris
+  { dark: [232, 150, 220], light: [170, 80, 160] }, // magenta
+];
+
+const FALLBACK_LOBE: LobeColour = {
+  dark: [200, 210, 230],
+  light: [110, 130, 170],
+};
+
+function lobeColour(cluster: number): LobeColour {
+  if (cluster < 0) return FALLBACK_LOBE;
+  return LOBE_PALETTE[cluster % LOBE_PALETTE.length];
+}
+
+/**
+ * Single-pass synchronous label propagation. Each node adopts the most
+ * common label among its neighbours; ties broken by the lowest neighbour
+ * id (deterministic). Converges fast on sparse graphs; we cap at 8 iters
+ * because the canvas re-runs this whenever edges change anyway.
+ *
+ * Pure function — exported only for unit testing.
+ */
+export function labelPropagation(
+  nodeIds: readonly string[],
+  edges: readonly { source: string; target: string }[],
+  maxIters = 8
+): Map<string, number> {
+  // Adjacency lists.
+  const adj = new Map<string, string[]>();
+  for (const id of nodeIds) adj.set(id, []);
+  for (const e of edges) {
+    adj.get(e.source)?.push(e.target);
+    adj.get(e.target)?.push(e.source);
+  }
+
+  // Initial labels: deterministic — use the node's own index. Stable across
+  // re-renders so the cluster colouring doesn't dance around on reload.
+  const indexOf = new Map<string, number>();
+  nodeIds.forEach((id, i) => indexOf.set(id, i));
+  const labels = new Map<string, number>(
+    nodeIds.map(id => [id, indexOf.get(id) ?? 0])
+  );
+
+  for (let iter = 0; iter < maxIters; iter++) {
+    let changed = false;
+    for (const id of nodeIds) {
+      const neighbours = adj.get(id);
+      if (!neighbours || neighbours.length === 0) continue;
+      // Tally neighbour labels.
+      const tally = new Map<number, number>();
+      for (const nb of neighbours) {
+        const lbl = labels.get(nb);
+        if (lbl === undefined) continue;
+        tally.set(lbl, (tally.get(lbl) ?? 0) + 1);
+      }
+      // Pick the most common; tie-break on lowest label id.
+      let bestLbl = labels.get(id) ?? 0;
+      let bestCount = -1;
+      for (const [lbl, count] of tally) {
+        if (count > bestCount || (count === bestCount && lbl < bestLbl)) {
+          bestLbl = lbl;
+          bestCount = count;
+        }
+      }
+      if (bestLbl !== labels.get(id)) {
+        labels.set(id, bestLbl);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  // Compact: re-number labels so the largest cluster becomes 0, next 1, etc.
+  // Caps the visible palette index modulo to feel balanced.
+  const counts = new Map<number, number>();
+  for (const lbl of labels.values()) {
+    counts.set(lbl, (counts.get(lbl) ?? 0) + 1);
+  }
+  const ranked = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  const remap = new Map(ranked.map(([lbl], i) => [lbl, i]));
+  for (const [id, lbl] of labels) {
+    labels.set(id, remap.get(lbl) ?? 0);
+  }
+  return labels;
+}
+
+/**
+ * Deterministic curvature offset per edge — same edge always gets the same
+ * curve direction and magnitude across re-renders. Sign is derived from the
+ * hash so curves alternate naturally; magnitude is bounded so adjacent
+ * edges don't intersect.
+ */
+function curveOffsetFor(source: string, target: string): number {
+  const key = source < target ? `${source}|${target}` : `${target}|${source}`;
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  }
+  // Magnitude in pixels — bounded to keep the visual coherent. Sign from
+  // the low bit so half the edges bow one way, half the other.
+  const magnitude = 18 + (Math.abs(hash) % 22); // 18..40 px
+  return (hash & 1) === 0 ? magnitude : -magnitude;
 }
 
 interface BgStar {
@@ -50,31 +182,38 @@ interface BgStar {
   size: number;
 }
 
-// ─── Galaxy tuning ──────────────────────────────────────────────────────────
-// Forces are deliberately weak so motion settles into a slow drift rather than
-// the snappy "spring back" of a typical force-directed graph. High damping
-// preserves momentum so nodes keep coasting between updates.
+// ─── Brain tuning ───────────────────────────────────────────────────────────
+// The layout used to be a single galactic spiral with one centre of mass.
+// We now want a NEURAL feel: multiple "lobes" of densely-connected docs
+// that hold their shape, organic curves between them, and gentle breathing
+// motion instead of orbital drift. Forces are tuned to settle quickly into
+// stable clusters rather than coast forever.
 const NODE_RADIUS = 4.5;
 const NODE_RADIUS_HOVER = 7;
 const NODE_HALO_MULT = 4; // halo radius = NODE_RADIUS * this
-const REPULSION = 700;
-const SPRING_LENGTH = 130;
-const SPRING_K = 0.008;
-const DAMPING = 0.955;
-const CENTER_PULL = 0.0009;
+/** Pairwise repulsion strength — lighter than the galaxy era so clusters don't fly apart. */
+const REPULSION = 520;
+/** Rest length of an edge spring. Slightly longer = more breathing room. */
+const SPRING_LENGTH = 150;
+/** Edge spring stiffness. Higher = clusters pull tighter, look more like ganglia. */
+const SPRING_K = 0.012;
+/** Velocity decay per step. Higher = more drift; lower = settles faster. */
+const DAMPING = 0.92;
+/** Gentle pull toward the canvas centre so far-flung nodes don't wander off. */
+const CENTER_PULL = 0.0006;
 /**
- * Tangential acceleration toward (perpendicular-to-radius). This is what gives
- * the layout its galactic spiral — every node gets a tiny sideways nudge,
- * which combined with low damping accumulates into slow orbital motion.
+ * Per-cluster cohesion strength — each lobe's centroid pulls its own nodes
+ * inward, giving the layout its multi-lobe organic shape (the thing that
+ * makes it "feel like a brain" instead of "feel like a galaxy"). Replaces
+ * the old galaxy ORBIT_FORCE.
  */
-const ORBIT_FORCE = 0.00018;
-const ORBIT_FORCE_MAX_R = 260; // beyond this, orbit force stops growing
-/** Cap on per-axis velocity so a wild burst can never spin nodes off-screen. */
+const CLUSTER_COHESION = 0.0035;
+/** Cap on per-axis velocity to prevent runaway. */
 const MAX_VELOCITY = 1.4;
 
 const BG_STAR_FAR_COUNT = 90;
 const BG_STAR_NEAR_COUNT = 35;
-/** Drift speed (normalized x-units per second) for parallax starfield layers. */
+/** Drift speed (normalized x-units per second) for parallax background layers. */
 const BG_DRIFT_FAR = 0.0015;
 const BG_DRIFT_NEAR = 0.004;
 
@@ -244,7 +383,9 @@ export const KnowledgeGraphView = () => {
     )
       .pipe(switchMap(arrs => of(arrs.flat())))
       .subscribe(allEdges => {
-        // De-duplicate (in case both directions exist).
+        // De-duplicate (in case both directions exist) and tag each surviving
+        // edge with its deterministic curvature so the dendrite layout stays
+        // stable across re-renders.
         const seen = new Set<string>();
         const deduped: GraphEdge[] = [];
         for (const e of allEdges) {
@@ -254,7 +395,11 @@ export const KnowledgeGraphView = () => {
               : `${e.target}|${e.source}`;
           if (seen.has(key)) continue;
           seen.add(key);
-          deduped.push(e);
+          deduped.push({
+            source: e.source,
+            target: e.target,
+            curveOffset: curveOffsetFor(e.source, e.target),
+          });
         }
         setEdges(deduped);
       });
@@ -264,7 +409,11 @@ export const KnowledgeGraphView = () => {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef<GraphData>({ nodes: [], edges: [] });
+  const stateRef = useRef<GraphData>({
+    nodes: [],
+    edges: [],
+    clusterCentroids: new Map(),
+  });
   const animationRef = useRef<number | null>(null);
   const hoverIdRef = useRef<string | null>(null);
   const draggingRef = useRef<{
@@ -318,16 +467,60 @@ export const KnowledgeGraphView = () => {
         vx: 0,
         vy: 0,
         twinklePhase: rng() * Math.PI * 2,
-        scale: 0.7 + rng() * 0.6, // 0.7..1.3
+        scale: 0.7 + rng() * 0.6, // 0.7..1.3 — refined below by degree weighting
         hueShift: rng() * Math.PI * 2,
+        cluster: existing?.cluster ?? -1,
+        degree: existing?.degree ?? 0,
       };
     });
 
-    stateRef.current = { nodes, edges: stateRef.current.edges };
+    stateRef.current = {
+      ...stateRef.current,
+      nodes,
+      edges: stateRef.current.edges,
+    };
   }, [docTitlesById]);
 
+  // When edges change: run label propagation, compute per-node degree, and
+  // size nodes by their degree (hub docs render larger — they become the
+  // "ganglia" of the lobe).
   useEffect(() => {
-    stateRef.current = { ...stateRef.current, edges };
+    const nodes = stateRef.current.nodes;
+    if (nodes.length === 0) {
+      stateRef.current = {
+        ...stateRef.current,
+        edges,
+        clusterCentroids: new Map(),
+      };
+      return;
+    }
+
+    const ids = nodes.map(n => n.id);
+    const labels = labelPropagation(ids, edges);
+
+    // Degree per node, used both for layout (cluster cohesion weighting)
+    // and rendering (hub scale).
+    const degree = new Map<string, number>();
+    for (const e of edges) {
+      degree.set(e.source, (degree.get(e.source) ?? 0) + 1);
+      degree.set(e.target, (degree.get(e.target) ?? 0) + 1);
+    }
+    const maxDeg = Math.max(1, ...Array.from(degree.values()));
+
+    for (const n of nodes) {
+      n.cluster = labels.get(n.id) ?? -1;
+      n.degree = degree.get(n.id) ?? 0;
+      // Scale: low-degree leaf nodes ~0.8, hub nodes ~1.6. Smooth, capped.
+      const degRatio = n.degree / maxDeg;
+      n.scale = 0.8 + degRatio * 0.8;
+    }
+
+    stateRef.current = {
+      ...stateRef.current,
+      nodes,
+      edges,
+      clusterCentroids: new Map(),
+    };
   }, [edges]);
 
   // Force-directed simulation + render loop.
@@ -402,7 +595,36 @@ export const KnowledgeGraphView = () => {
         b.vy -= fy;
       }
 
-      // Center pull + tangential orbit + integrate.
+      // Cluster cohesion — replaces the old galactic orbit force. Each lobe
+      // (cluster) gets its own centroid, computed from the current node
+      // positions, and every member node is pulled toward its centroid. This
+      // is what gives the layout its multi-lobe organic feel.
+      const centroids = new Map<
+        number,
+        { sx: number; sy: number; count: number }
+      >();
+      for (const n of nodes) {
+        if (n.cluster < 0) continue;
+        const acc = centroids.get(n.cluster) ?? { sx: 0, sy: 0, count: 0 };
+        acc.sx += n.x;
+        acc.sy += n.y;
+        acc.count += 1;
+        centroids.set(n.cluster, acc);
+      }
+      const clusterCenters = new Map<
+        number,
+        { x: number; y: number; size: number }
+      >();
+      for (const [cluster, acc] of centroids) {
+        clusterCenters.set(cluster, {
+          x: acc.sx / acc.count,
+          y: acc.sy / acc.count,
+          size: acc.count,
+        });
+      }
+      stateRef.current.clusterCentroids = clusterCenters;
+
+      // Center pull + cluster cohesion + integrate.
       const dragId = draggingRef.current?.id;
       for (const n of nodes) {
         if (n.id === dragId) {
@@ -410,25 +632,21 @@ export const KnowledgeGraphView = () => {
           n.vy = 0;
           continue;
         }
-        const rdx = n.x - cx;
-        const rdy = n.y - cy;
-        const r = Math.sqrt(rdx * rdx + rdy * rdy) + 0.01;
+        // Gentle pull toward canvas centre so far-flung lobes don't drift off.
+        n.vx -= (n.x - cx) * CENTER_PULL;
+        n.vy -= (n.y - cy) * CENTER_PULL;
 
-        // Centring pull (gentle).
-        n.vx -= rdx * CENTER_PULL;
-        n.vy -= rdy * CENTER_PULL;
-
-        // Tangential orbit force — perpendicular to the radial vector.
-        // (-rdy, rdx) is the +90° rotation of the radial direction.
-        // Magnitude grows with radius up to ORBIT_FORCE_MAX_R, then plateaus.
-        const orbitMag = ORBIT_FORCE * Math.min(r, ORBIT_FORCE_MAX_R);
-        n.vx += (-rdy / r) * orbitMag;
-        n.vy += (rdx / r) * orbitMag;
+        // Pull toward this node's cluster centroid (the lobe centre).
+        const lobeCentre = clusterCenters.get(n.cluster);
+        if (lobeCentre) {
+          n.vx -= (n.x - lobeCentre.x) * CLUSTER_COHESION;
+          n.vy -= (n.y - lobeCentre.y) * CLUSTER_COHESION;
+        }
 
         n.vx *= DAMPING;
         n.vy *= DAMPING;
 
-        // Velocity clamp — galaxies don't relativistic-jet.
+        // Velocity clamp — keep things bounded.
         if (n.vx > MAX_VELOCITY) n.vx = MAX_VELOCITY;
         else if (n.vx < -MAX_VELOCITY) n.vx = -MAX_VELOCITY;
         if (n.vy > MAX_VELOCITY) n.vy = MAX_VELOCITY;
@@ -500,19 +718,63 @@ export const KnowledgeGraphView = () => {
         ctx.restore();
       }
 
-      // 3. Edges — faint constellation lines.
+      // 3. Edges — curved Bezier "dendrites" coloured by the lobe blend
+      //    of their two endpoints. Curves give the layout its synaptic,
+      //    organic feel; same edge always curves the same direction
+      //    thanks to the deterministic curveOffset.
       ctx.save();
       ctx.lineWidth = 1;
-      ctx.strokeStyle = dark
-        ? 'rgba(150, 170, 220, 0.18)'
-        : 'rgba(80, 100, 150, 0.20)';
+      const edgeBaseAlpha = dark ? 0.32 : 0.34;
       for (const e of edges) {
         const a = nodeMap.get(e.source);
         const b = nodeMap.get(e.target);
         if (!a || !b) continue;
+
+        // Blend the two endpoint lobe colours so cross-lobe edges read as
+        // mixed (purple between red and blue lobes, etc.).
+        const ca = lobeColour(a.cluster);
+        const cb = lobeColour(b.cluster);
+        const palette = dark ? [ca.dark, cb.dark] : [ca.light, cb.light];
+        const r = Math.round((palette[0][0] + palette[1][0]) / 2);
+        const g = Math.round((palette[0][1] + palette[1][1]) / 2);
+        const bl = Math.round((palette[0][2] + palette[1][2]) / 2);
+
+        // Linear gradient along the edge so each end inherits its node's
+        // own colour rather than the blended midpoint. Reads as dendrite
+        // termination at the cell body.
+        const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+        grad.addColorStop(
+          0,
+          `rgba(${palette[0][0]}, ${palette[0][1]}, ${palette[0][2]}, ${edgeBaseAlpha})`
+        );
+        grad.addColorStop(
+          0.5,
+          `rgba(${r}, ${g}, ${bl}, ${edgeBaseAlpha * 0.7})`
+        );
+        grad.addColorStop(
+          1,
+          `rgba(${palette[1][0]}, ${palette[1][1]}, ${palette[1][2]}, ${edgeBaseAlpha})`
+        );
+        ctx.strokeStyle = grad;
+
+        // Cubic Bezier with two control points offset perpendicular to AB.
+        // Both control points get the SAME perpendicular sign so the curve
+        // bows consistently (single arc, not S-curve).
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) + 0.01;
+        // Perpendicular unit vector (rotate 90°). Magnitude scaled gently
+        // with edge length so short edges stay nearly straight.
+        const perpScale = Math.min(1, dist / 200);
+        const px = (-dy / dist) * e.curveOffset * perpScale;
+        const py = (dx / dist) * e.curveOffset * perpScale;
+        const cp1x = a.x + dx * 0.33 + px;
+        const cp1y = a.y + dy * 0.33 + py;
+        const cp2x = a.x + dx * 0.66 + px;
+        const cp2y = a.y + dy * 0.66 + py;
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, b.x, b.y);
         ctx.stroke();
       }
       ctx.restore();
@@ -538,30 +800,27 @@ export const KnowledgeGraphView = () => {
         // below) is what announces selection unambiguously.
         const haloR = r * NODE_HALO_MULT * (isSelected ? 1.25 : 1);
 
-        // Slight hue tint per node — some warmer, some cooler.
-        const haloHue = Math.sin(n.hueShift); // -1..1
-        let haloColor: string;
+        // Halo colour = the node's lobe colour. Hover overrides with a warm
+        // amber accent so the active node always reads clearly regardless
+        // of which lobe it lives in.
+        let hr: number;
+        let hg: number;
+        let hb: number;
         if (isHover) {
-          haloColor = dark ? 'rgba(255, 200, 110, 1)' : 'rgba(220, 130, 50, 1)';
-        } else if (haloHue > 0) {
-          // Warm — pale gold.
-          haloColor = dark
-            ? 'rgba(220, 200, 170, 1)'
-            : 'rgba(180, 150, 110, 1)';
+          hr = dark ? 255 : 220;
+          hg = dark ? 200 : 130;
+          hb = dark ? 110 : 50;
         } else {
-          // Cool — pale blue-white.
-          haloColor = dark
-            ? 'rgba(170, 200, 240, 1)'
-            : 'rgba(110, 140, 200, 1)';
+          const palette = lobeColour(n.cluster);
+          const rgb = dark ? palette.dark : palette.light;
+          hr = rgb[0];
+          hg = rgb[1];
+          hb = rgb[2];
         }
 
-        // Halo (radial gradient → transparent). Parse the rgba once to
-        // inject per-stop alpha.
+        // Halo (radial gradient → transparent). Lobe colour at the core,
+        // fading out so cross-lobe halos blend rather than collide.
         const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, haloR);
-        const colorMatch = /rgba\((\d+),\s*(\d+),\s*(\d+),/.exec(haloColor);
-        const hr = colorMatch ? +colorMatch[1] : 255;
-        const hg = colorMatch ? +colorMatch[2] : 255;
-        const hb = colorMatch ? +colorMatch[3] : 255;
         grad.addColorStop(0, `rgba(${hr}, ${hg}, ${hb}, ${0.55 * twAlpha})`);
         grad.addColorStop(0.4, `rgba(${hr}, ${hg}, ${hb}, ${0.22 * twAlpha})`);
         grad.addColorStop(1, `rgba(${hr}, ${hg}, ${hb}, 0)`);
