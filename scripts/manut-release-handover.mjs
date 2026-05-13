@@ -89,7 +89,7 @@ const handover = {
   generatedAt,
   controlPlane: {
     name: 'Manut Control Plane',
-    source: 'docs/SUPERFLOW_CONTROL_PLANE.md',
+    source: 'docs/MANUT_CONTROL_PLANE.md',
     company: 'GoGoCash Manut',
     goal: 'Ship verified AI-assisted AFFiNE work with durable handover evidence.',
   },

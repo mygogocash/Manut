@@ -1,25 +1,30 @@
-# Superflow Handover
+# Manut Handover
 
-Last reviewed: 2026-05-07 from local checkout
-`8b2bd1c17 docs(cicd): roadmap - Tier 1+2 done, Tier 3 backlog, validation log`.
-The worktree was clean on `main...origin/main` during this review.
+Last reviewed: 2026-05-13 after the brand-rename release wave (PRs #24-#32).
+The brand → Manut rename is complete in code, database, and user-facing
+copy. A handful of internal identifiers — workflow filenames, the GAR
+Docker image name, and legacy GraphQL `@ObjectType('Superflow*')`
+decorators — are intentionally left at their old names with a documented
+migration plan; see `CLAUDE.md` §9.
 
-This document is the tracked handover entry point for the GoGoCash
-Superflow fork of AFFiNE 0.26.3. It summarizes what a successor needs
-before changing, building, or deploying the project.
+This document is the tracked handover entry point for the GoGoCash Manut
+fork of AFFiNE 0.26.3. It summarizes what a successor needs before
+changing, building, or deploying the project.
 
 ## Current State
 
-- Product: GoGoCash Superflow, a fork of AFFiNE with AI agents, Vertex AI,
+- Product: GoGoCash Manut, a fork of AFFiNE with AI agents, Vertex AI,
   self-host AI unlocks, Gmail/Drive integration, analytics work, and
-  Superflow-specific deployment automation.
-- Live app: `https://manut.gogocash.co`.
-- Production status source: `docs/CICD_ROADMAP.md` says the latest
-  validated production image was `main-393950532-25413249523`, deployed
-  through the full CI -> Build -> Auto Deploy chain with `/info` HTTP 200.
-  That value was not live-refreshed during this handover review.
-- Branch model: Superflow work lands on `main`; upstream AFFiNE workflows
-  for `canary`/`master` are not the Superflow deploy path.
+  Manut-specific deployment automation.
+- Live app: `https://manut.gogocash.co`. The legacy
+  `https://affine.gogocash.co` host 301-redirects to the new domain.
+- Repository: `https://github.com/mygogocash/Manut` (renamed from
+  `mygogocash/Superflow`; GitHub redirects the old URL).
+- Production status source: `docs/CICD_ROADMAP.md` records the latest
+  validated production image and deploy chain; refresh it before
+  trusting numbers from a stale handover.
+- Branch model: Manut work lands on `main`; upstream AFFiNE workflows
+  for `canary`/`master` are not the Manut deploy path.
 
 ## Source Of Truth
 
@@ -30,18 +35,36 @@ before changing, building, or deploying the project.
 - `docs/CICD.md` - deploy architecture and operator commands.
 - `docs/CICD_ROADMAP.md` - current pipeline status, shipped tiers, backlog,
   and last validation notes.
-- `docs/SUPERFLOW_CONTROL_PLANE.md` - Superflow-native operating model for
+- `docs/MANUT_CONTROL_PLANE.md` - Manut-native operating model for
   agent/company-style coordination, release handover artifacts, and future
   AFFiNE-facing control-plane work.
-- `docs/RELEASES/v1.10.2.md` - latest feature release narrative.
+- `docs/RELEASES/v1.11.0.md` - latest release narrative (brand rename
+  wave). `docs/RELEASES/v1.10.2.md` is the previous release.
 - `docs/analytics-platform.md` and `docs/analytics-approvals.md` - analytics
   product plan and external approval checklist.
 - `scripts/manut-release-handover.mjs` - generates human and JSON
-  control-plane handovers for CI build/release artifacts.
+  control-plane handovers for CI build/release artifacts. Still emits
+  filenames `superflow-handover.{md,json}` until the workflow-filename
+  migration in `CLAUDE.md` §9.
 - `scripts/vm/deploy.sh`, `scripts/vm/rollback.sh`,
   `scripts/vm/compose.canary.yml` - executable VM runbook.
 - `.github/workflows/superflow-*.yml` - CI, build, deploy, rollback,
-  VM init, and release automation.
+  VM init, and release automation. Workflow filenames retain the old
+  prefix; the display names ("Manut CI", "Manut Build", etc.) were
+  updated during the rebrand.
+
+## Code Layout After Rebrand
+
+The brand rename touched concrete code paths. When grepping the codebase:
+
+- Backend plugin: `packages/backend/server/src/plugins/manut/` (was
+  `plugins/superflow/`). The historical
+  `packages/backend/server/src/__tests__/manut/` test directory matches.
+- Frontend modules: `packages/frontend/core/src/modules/manut-*` (was
+  `modules/superflow-*`).
+- i18n keys: `com.manut.*` (was `com.superflow.*`).
+- Prisma models: `Mn*` (was `Sf*`). The DB migration ran in production in
+  PR #26 — do not roll back the schema without coordinating.
 
 Avoid using `DEPLOY_STATUS.md` as the main handover artifact. It is
 root-local, ignored by `.gitignore`, and contains older timeline entries
@@ -75,11 +98,13 @@ incident notes.
 Normal path:
 
 1. Push to `main`.
-2. `superflow-ci.yml` validates lint/codegen/bundles.
-3. `superflow-build.yml` builds and pushes an immutable GAR image tag.
+2. `superflow-ci.yml` (display name "Manut CI") validates lint/codegen/bundles.
+3. `superflow-build.yml` (display name "Manut Build") builds and pushes an
+   immutable GAR image tag.
 4. The build workflow uploads `image-tag` and `superflow-handover`
    artifacts so the image handoff has both machine and operator context.
-5. `superflow-autodeploy.yml` runs VM-side `deploy.sh`.
+5. `superflow-autodeploy.yml` (display name "Manut Auto Deploy") runs
+   VM-side `deploy.sh`.
 6. `deploy.sh` sidecar-smokes the new image on port 3011 before swapping
    production, then runs post-swap `/info` and prompt-seed checks.
 
@@ -109,10 +134,20 @@ live VM state.
 
 2. Documentation drift remains:
    - `.github/SUPERFLOW_CI_SETUP.md` still centers `GCP_SA_KEY`, while the
-     current pipeline docs describe WIF.
-   - README still shows an old `v1.8.0` sample image and generic `yarn build`
-     guidance that is less precise than the current bundle commands.
+     current pipeline docs describe WIF. (Filename retained pending the
+     workflow-filename rename in `CLAUDE.md` §9.)
    - Some rollback examples still mention `compose.yml.pre-*`.
+
+## Closed During 2026-05-13 Review
+
+- Manut brand rename completed: user-facing copy in PR #24, web/electron
+  icons in PR #27, Prisma `Sf*` → `Mn*` models in PR #26 (DB migration ran
+  in production), backend `plugins/superflow/` → `plugins/manut/` in
+  PR #29, frontend `modules/superflow-*` → `manut-*` plus i18n
+  `com.superflow.*` → `com.manut.*` in PR #30.
+- Production now answers on `manut.gogocash.co`; the old
+  `affine.gogocash.co` host 301-redirects.
+- Documentation updated to match (this commit).
 
 ## Closed During 2026-05-07 Review
 
@@ -136,7 +171,7 @@ live VM state.
 - AI write tools: gated by `AIToolsConfig` flags and the chat Mode picker.
   Backend production gates should be checked before assuming all write tools
   are available in every environment.
-- FOSS/self-host limits: Superflow hides the license tab and lifts self-host
+- FOSS/self-host limits: Manut hides the license tab and lifts self-host
   seat limits through `QuotaService.getWorkspaceQuota`.
 - Analytics: GoGoCash overview and AI insight pieces exist, but multi-platform
   ingestion/rollups are not complete.
@@ -147,7 +182,8 @@ live VM state.
 - VM: `affine-vm`, zone `asia-southeast1-a`.
 - GAR image path:
   `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash`.
-- Domain: `manut.gogocash.co`.
+  (Image-name rename is tracked in `CLAUDE.md` §9 as its own R1 operation.)
+- Domain: `manut.gogocash.co` (with 301 redirect from `affine.gogocash.co`).
 - Optional Slack secret: `SLACK_WEBHOOK_URL`.
 - Google OAuth APIs: Gmail and Drive APIs must be enabled in the GCP project.
 
@@ -181,7 +217,7 @@ GitHub workflows rather than hand-editing the VM whenever possible.
 - When a release ships, add a `docs/RELEASES/vX.Y.Z.md` entry and note the
   operational traps in `AGENTS.md` / `CLAUDE.md`.
 - When the control-plane contract changes, update
-  `docs/SUPERFLOW_CONTROL_PLANE.md` and verify
+  `docs/MANUT_CONTROL_PLANE.md` and verify
   `scripts/manut-release-handover.mjs --help` still documents the
   emitted fields.
 - When a code review finds a real blocker, either fix it immediately or add it

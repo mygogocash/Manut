@@ -1,19 +1,26 @@
-# Superflow Control Plane
+# Manut Control Plane
 
-Superflow needs its own operating model for AI-assisted work. Paperclip's
+Manut needs its own operating model for AI-assisted work. Paperclip's
 useful idea is not the implementation details; it is the product shape:
 a company-level control plane where goals, workers, tasks, adapters, and
 handover evidence stay connected.
 
-This document defines the Superflow-native version. It is intentionally
+This document defines the Manut-native version. It is intentionally
 grounded in the AFFiNE fork, GitHub Actions, GCE deploy scripts, Vertex AI,
 and the handover docs that already exist here.
 
+> **Note on historical names.** Manut was historically codenamed
+> "Superflow" — many CI workflow filenames, the GAR Docker image name
+> (`affine-gogocash`), and the generated handover artifact filenames
+> (`superflow-handover.{md,json}`) still carry the old name and are
+> tracked for migration in `CLAUDE.md` §9. Anything user-facing uses
+> Manut.
+
 ## Concept
 
-Superflow treats each major initiative as an operating company:
+Manut treats each major initiative as an operating company:
 
-- **Company**: the workspace or product unit, currently GoGoCash Superflow.
+- **Company**: the workspace or product unit, currently GoGoCash Manut.
 - **Goal**: the outcome that justifies work, such as "ship a verified
   production release" or "import Google content into AFFiNE docs".
 - **Employees**: human operators and AI agents with named responsibilities.
@@ -35,11 +42,15 @@ The first implementation is release handover generation:
 
 ```
 main or v* tag
-  -> Superflow Build or Superflow Release
+  -> Manut Build or Manut Release
   -> scripts/manut-release-handover.mjs
   -> superflow-handover.md and superflow-handover.json artifacts
   -> operator, deploy workflow, or future AFFiNE UI reads the same contract
 ```
+
+The generated artifacts keep the `superflow-handover.*` filenames for now
+to avoid breaking downstream consumers; the filename rename ships
+alongside the workflow-filename rename tracked in `CLAUDE.md` §9.
 
 This gives every build a machine-readable and human-readable control-plane
 handover without adding runtime risk to the AFFiNE server.
@@ -75,7 +86,7 @@ future AFFiNE-native board or doc importer.
 
 ## Why Build Our Own
 
-Paperclip's concept is intentionally broad and runtime-neutral. Superflow
+Paperclip's concept is intentionally broad and runtime-neutral. Manut
 already has strong opinions:
 
 - AFFiNE docs are the durable workspace.
@@ -95,7 +106,8 @@ product rules instead of wrapping them in a generic external adapter.
 Ship the generator and emit artifacts from build/release workflows.
 
 Done when every CI image build has `superflow-handover.md` and
-`superflow-handover.json` alongside `image-tag.txt`.
+`superflow-handover.json` alongside `image-tag.txt`. (Artifact filenames
+will be renamed alongside the workflow-filename migration in §9.)
 
 ### Phase 2 - Handover Inbox
 
@@ -105,7 +117,7 @@ paths instead of adding a parallel storage model.
 
 ### Phase 3 - Agent Registry
 
-Represent operating roles as editable Superflow records: owner, adapter,
+Represent operating roles as editable Manut records: owner, adapter,
 permissions, escalation notes, and last successful task. Start read-only.
 
 ### Phase 4 - Task Board

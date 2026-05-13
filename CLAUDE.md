@@ -2,10 +2,12 @@
 
 This file is loaded automatically into every Claude Code session in this repo.
 It encodes the playbook we've converged on through the gogocash-fork work
-(historically codenamed "Superflow"; many internal identifiers — workflow
-filenames, backend module paths, docker image — still carry the old name and
-are intentionally left unchanged until a planned migration).
-Treat it as the project's Definition-of-Done; deviations need a reason.
+(historically codenamed "Superflow"; the brand rename to Manut completed in
+v1.11.0). A few surviving infra identifiers — workflow filenames, docker
+image name in GAR, the historical GraphQL `Superflow*` `@ObjectType`
+decorators — are intentionally left unchanged because each is its own R1
+operation, tracked in §9 below. Treat this file as the project's
+Definition-of-Done; deviations need a reason.
 
 ## 1. Spawn sub-agents to speed up development
 
@@ -387,7 +389,7 @@ Document the surprises — saves the next session a discovery cycle.
   `turndown` deps). Drive list capped at 100 server-side; UI doesn't
   yet expose `nextPageToken` for pagination — follow-up if users
   hit the cap.
-- **FOSS license / seat-cap override is at one chokepoint.** Superflow
+- **FOSS license / seat-cap override is at one chokepoint.** Manut
   is FOSS-unlimited by policy; v1.10.1 hides the License settings tab
   AND lifts the upstream 10-seat cap. The frontend toggle is
   `showLicense = false` in
@@ -399,10 +401,11 @@ Document the surprises — saves the next session a discovery cycle.
   `quota.memberCount + idx + 1 > quota.memberLimit` guard at
   `member.ts:201`, the `>=` guard at `member.ts:343`) silently passes.
   Don't remove the function — keep the API surface so upstream merges
-  apply cleanly. Search for `// SUPERFLOW` comments to find every
-  changed site. Cosmetic side-effect: the Members panel title still
-  reads `(N/100000)` for non-team workspaces — fix is a "show
-  unlimited" branch in `cloud-members-panel.tsx:289` (low priority).
+  apply cleanly. Search for `// MANUT` (and any remaining `// SUPERFLOW`
+  in older code paths) comments to find every changed site. Cosmetic
+  side-effect: the Members panel title still reads `(N/100000)` for
+  non-team workspaces — fix is a "show unlimited" branch in
+  `cloud-members-panel.tsx:289` (low priority).
 - **AI write tools are gated on `AIToolsConfig` flags + a Mode picker.**
   The backend tools `docEdit`, `sectionEdit`, `docCreate`, `docCompose`,
   `docUpdate`, `docUpdateMeta`, `dataViewFilter`,
@@ -523,7 +526,7 @@ silently doesn't take effect:
 > deploys auto-rollback. See `docs/CICD.md` "Prompt-seed verification"
 > for the full flow + how to add new prompts to the gate.
 
-### Model selection on Superflow's Vertex stack
+### Model selection on Manut's Vertex stack
 
 **`gpt-5-mini` is poisonous — and we keep finding new prompts using
 it.** Upstream defaults this for many prompts. Each one breaks
@@ -536,7 +539,7 @@ doesn't work. We've now hit this in:
 Whenever a feature that uses an LLM "silently does nothing", grep
 `prompts.ts` for `gpt-5-mini` first.
 
-Superflow's Vertex AI deployment (config at
+Manut's Vertex AI deployment (config at
 `/srv/affine/data/affine-config/config.json` on the VM) only routes:
 
 - `geminiVertex` (project: `affine-495114`, location: `us-central1`)
@@ -623,10 +626,39 @@ extraction failure block the AI feature itself. Reference call sites:
 
 ## 5d. Vertex Model Garden providers + auto-routing
 
-Superflow exposes five model families on Vertex AI: Gemini + Anthropic
+Manut exposes five model families on Vertex AI: Gemini + Anthropic
 (first-party publishers) and Llama + Mistral + DeepSeek (Model Garden
 publishers via the OpenAI-compatible MaaS endpoint). All flow through
 the same `getGoogleAuth` service-account path — no separate API keys.
+
+### Models exposed in the chat picker (source of truth: `prompts.ts`)
+
+The `optionalModels` array on `CHAT_PROMPT` in
+`packages/backend/server/src/plugins/copilot/prompt/prompts.ts` is the
+authoritative list. As of v1.11.0 the chat picker shows:
+
+- **Gemini family** (publisher `google`, location `us-central1`):
+  - `gemini-2.5-flash` — default; fast multimodal; backs Auto Tag and
+    `Summary as title`.
+  - `gemini-2.5-pro` — long-context (1M token) workhorse.
+  - `gemini-3.1-pro-preview` — newest Pro tier preview.
+  - `gemini-3.1-flash-lite-preview` — fastest tier (provider list only,
+    not in the picker by default).
+- **Anthropic family** (publisher `anthropic`, location `us-east5`):
+  - `claude-sonnet-4@20250514`
+  - `claude-sonnet-4-5@20250929` — current default for code-heavy
+    auto-routing.
+  - `claude-opus-4@20250514` — heaviest reasoning, slowest.
+- **Llama family** (publisher `meta`, MaaS via vertex-openai-base):
+  - `llama-3.1-70b-instruct-maas`
+  - `llama-3.1-405b-instruct-maas`
+  - `llama-4-scout-17b-16e-instruct-maas`
+  - `llama-4-maverick-17b-128e-instruct-maas`
+
+When upgrading the picker (e.g. adding Claude Opus 4.1+ once Vertex
+publishes them, or pinning newer Sonnet/Opus IDs), also remember to
+update `proModels` on `CHAT_PROMPT` (the "Pro" lock badge) and the
+auto-router fallback in `copilot/auto-router.ts`.
 
 ### ⚠️ The Vertex URL prefix has been broken TWICE — read this first
 
@@ -778,9 +810,12 @@ through `/browse`.
 
 ## 8. CI/CD (GitHub Actions)
 
-Three Superflow-specific workflows live alongside the upstream AFFiNE
-ones (which target `canary`/`master` and rely on upstream-only secrets,
-so they're effectively dormant on this fork):
+The Manut-specific workflows live alongside the upstream AFFiNE ones
+(which target `canary`/`master` and rely on upstream-only secrets, so
+they're effectively dormant on this fork). Workflow filenames still
+carry the `superflow-` prefix — see §9 for why, and tracked rename
+plan. Workflow display names ("Manut CI", "Manut Build", etc.) were
+updated during the rebrand:
 
 - `.github/workflows/superflow-ci.yml` — push/PR to `main`. Three
   jobs: lint (oxlint + prettier), build-web (web/admin/mobile bundles),
@@ -805,7 +840,7 @@ roles on `affine-495114`:
 `roles/artifactregistry.{writer,reader}`,
 `roles/iap.tunnelResourceAccessor`,
 `roles/compute.instanceAdmin.v1`. Setup walk-through in
-`.github/SUPERFLOW_CI_SETUP.md`.
+`.github/SUPERFLOW_CI_SETUP.md` (file still carries the old name).
 
 The default branch on GitHub was changed from `canary` (inherited
 from upstream) to `main` so PRs target the correct place. Upstream
@@ -817,9 +852,39 @@ Tagging a release:
 ```bash
 git tag v1.x.0 && git push origin v1.x.0
 # Wait ~15 min for superflow-release.yml to push the image.
-# Then: GitHub → Actions → Superflow Deploy → Run workflow.
+# Then: GitHub → Actions → Manut Deploy → Run workflow.
 ```
 
 Optional: rename `.github/dependabot.superflow.yml` →
 `.github/dependabot.yml` to enable weekly grouped dep PRs (3 npm + 2
 GH Actions per week, majors of react/blocksuite/prisma/next pinned).
+
+## 9. Deferred rename items (post-rebrand)
+
+The brand → Manut rename landed across user-facing strings, frontend
+modules (`modules/manut-*`), backend plugin paths (`plugins/manut/`),
+i18n keys (`com.manut.*`), and Prisma models (`Mn*` after DB migration
+in PR #26). These items were deliberately left at their old names
+because each is its own R1 operation with a separate rollback path:
+
+- **Docker image name** — `affine-gogocash` in GAR. Renaming requires
+  pushing the new tag, updating compose.yml on the VM, retagging cache
+  image (`affine-gogocash-cache:buildx`), and updating every workflow
+  reference. Track as a separate R1 release.
+- **CI workflow filenames** — `.github/workflows/superflow-*.yml`.
+  Renaming changes the GHA URL slugs, breaks any external bookmarks /
+  links to specific runs, and must be coordinated with the
+  `workflow_run` chain (CI → Build → Auto Deploy). The infra
+  sub-agent is tracking the rename in a separate worktree.
+- **GraphQL `@ObjectType('Superflow*')` decorators** — backend types
+  in `plugins/manut/resolver*.ts`. Renaming the decorator string is a
+  contract change for any client that queries those object types by
+  name (currently only the Manut frontend, but third-party API
+  consumers are possible). Plan: introduce `@ObjectType('Manut*')`
+  aliases alongside, deprecate `Superflow*` over a release, then
+  remove. R1 from a contract-stability perspective.
+
+If you find a deferred-rename surface that's NOT on this list, flag it
+in the PR description rather than renaming inline — every one of these
+has surprising blast radius. The full plan lives in
+`docs/MANUT_CONTROL_PLANE.md`.
