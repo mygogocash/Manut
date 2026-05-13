@@ -14,6 +14,52 @@ export class AnthropicVertexProvider extends AnthropicProvider<AnthropicVertexCo
   override readonly type = CopilotProviderType.AnthropicVertex;
 
   override readonly models = [
+    // Latest Claude on Vertex (versionId='default' on the publisher API,
+    // so no `@<date>` suffix — matches the refreshOnlineModels logic below).
+    {
+      name: 'Claude Opus 4.7',
+      id: 'claude-opus-4-7',
+      capabilities: [
+        {
+          input: [ModelInputType.Text, ModelInputType.Image],
+          output: [ModelOutputType.Text, ModelOutputType.Object],
+          attachments: IMAGE_ATTACHMENT_CAPABILITY,
+        },
+      ],
+    },
+    {
+      name: 'Claude Opus 4.6',
+      id: 'claude-opus-4-6',
+      capabilities: [
+        {
+          input: [ModelInputType.Text, ModelInputType.Image],
+          output: [ModelOutputType.Text, ModelOutputType.Object],
+          attachments: IMAGE_ATTACHMENT_CAPABILITY,
+        },
+      ],
+    },
+    {
+      name: 'Claude Sonnet 4.6',
+      id: 'claude-sonnet-4-6',
+      capabilities: [
+        {
+          input: [ModelInputType.Text, ModelInputType.Image],
+          output: [ModelOutputType.Text, ModelOutputType.Object],
+          attachments: IMAGE_ATTACHMENT_CAPABILITY,
+        },
+      ],
+    },
+    {
+      name: 'Claude Opus 4.1',
+      id: 'claude-opus-4-1@20250805',
+      capabilities: [
+        {
+          input: [ModelInputType.Text, ModelInputType.Image],
+          output: [ModelOutputType.Text, ModelOutputType.Object],
+          attachments: IMAGE_ATTACHMENT_CAPABILITY,
+        },
+      ],
+    },
     {
       name: 'Claude Opus 4',
       id: 'claude-opus-4@20250514',
