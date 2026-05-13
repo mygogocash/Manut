@@ -3,28 +3,28 @@ import { join } from 'node:path';
 
 import test from 'ava';
 
-const superflowDir = join(process.cwd(), 'src/plugins/superflow');
+const manutDir = join(process.cwd(), 'src/plugins/manut');
 const dtoFiles = [
-  'superflow.dto.ts',
-  'superflow-pm.dto.ts',
-  'superflow-crm.dto.ts',
-  'superflow-reminder.dto.ts',
-  'superflow-handover.resolver.ts',
+  'manut.dto.ts',
+  'manut-pm.dto.ts',
+  'manut-crm.dto.ts',
+  'manut-reminder.dto.ts',
+  'manut-handover.resolver.ts',
 ];
 
 function readSource(file: string) {
-  return readFileSync(join(superflowDir, file), 'utf8');
+  return readFileSync(join(manutDir, file), 'utf8');
 }
 
-test('Superflow PM read queries assert Workspace.Read', t => {
-  const source = readSource('superflow-pm.resolver.ts');
+test('Manut PM read queries assert Workspace.Read', t => {
+  const source = readSource('manut-pm.resolver.ts');
   t.true(source.includes("assert('Workspace.Read')"));
   t.regex(source, /async mnProjects\(/);
   t.regex(source, /async mnTasks\(/);
 });
 
-test('Superflow CRM read queries assert Workspace.Read', t => {
-  const source = readSource('superflow-crm.resolver.ts');
+test('Manut CRM read queries assert Workspace.Read', t => {
+  const source = readSource('manut-crm.resolver.ts');
   t.true(source.includes("assert('Workspace.Read')"));
   for (const method of [
     'mnCrmAccounts',
@@ -37,16 +37,16 @@ test('Superflow CRM read queries assert Workspace.Read', t => {
   }
 });
 
-test('Superflow mutations assert Workspace.Settings.Update for PM and CRM', t => {
-  const pm = readSource('superflow-pm.resolver.ts');
-  const crm = readSource('superflow-crm.resolver.ts');
+test('Manut mutations assert Workspace.Settings.Update for PM and CRM', t => {
+  const pm = readSource('manut-pm.resolver.ts');
+  const crm = readSource('manut-crm.resolver.ts');
   t.true(pm.includes("assert('Workspace.Settings.Update')"));
   t.true(crm.includes("assert('Workspace.Settings.Update')"));
 });
 
-test('Superflow mutable user references require workspace membership checks', t => {
-  const pm = readSource('superflow-pm.resolver.ts');
-  const crm = readSource('superflow-crm.resolver.ts');
+test('Manut mutable user references require workspace membership checks', t => {
+  const pm = readSource('manut-pm.resolver.ts');
+  const crm = readSource('manut-crm.resolver.ts');
 
   t.true(pm.includes('assertWorkspaceMember'));
   t.true(crm.includes('assertWorkspaceMember'));
@@ -54,7 +54,7 @@ test('Superflow mutable user references require workspace membership checks', t 
   t.true(crm.includes('input.ownerUserId'));
 });
 
-test('Superflow nullable DTO fields use explicit GraphQL types', t => {
+test('Manut nullable DTO fields use explicit GraphQL types', t => {
   for (const file of dtoFiles) {
     const source = readSource(file);
 

@@ -6,14 +6,14 @@ import { MnProjectStatus, MnTaskStatus, PrismaClient } from '@prisma/client';
 
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
-import { MnProjectObjectType } from './superflow.dto';
+import { MnProjectObjectType } from './manut.dto';
 import {
   CreateMnProjectInput,
   CreateMnTaskInput,
   MnTaskObjectType,
   UpdateMnProjectInput,
   UpdateMnTaskInput,
-} from './superflow-pm.dto';
+} from './manut-pm.dto';
 
 @Resolver()
 export class SuperflowPmResolver {

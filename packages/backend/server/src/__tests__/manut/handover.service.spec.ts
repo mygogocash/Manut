@@ -6,16 +6,16 @@ import { join } from 'node:path';
 import { BadRequestException } from '@nestjs/common';
 import test from 'ava';
 
-import { parseAndRenderSuperflowHandover } from '../../plugins/superflow/superflow-handover.service';
+import { parseAndRenderSuperflowHandover } from '../../plugins/manut/manut-handover.service';
 
-const superflowDir = join(process.cwd(), 'src/plugins/superflow');
+const manutDir = join(process.cwd(), 'src/plugins/manut');
 const repoRoot = join(process.cwd(), '../../..');
 const dtoFiles = [
-  'superflow.dto.ts',
-  'superflow-pm.dto.ts',
-  'superflow-crm.dto.ts',
-  'superflow-reminder.dto.ts',
-  'superflow-handover.resolver.ts',
+  'manut.dto.ts',
+  'manut-pm.dto.ts',
+  'manut-crm.dto.ts',
+  'manut-reminder.dto.ts',
+  'manut-handover.resolver.ts',
 ];
 
 function handover(overrides: Record<string, unknown> = {}) {
@@ -65,7 +65,7 @@ function handover(overrides: Record<string, unknown> = {}) {
   });
 }
 
-test('Superflow handover JSON renders title and markdown', t => {
+test('Manut handover JSON renders title and markdown', t => {
   const result = parseAndRenderSuperflowHandover(handover());
 
   t.is(result.title, 'Superflow Release Handover - v1.2.3');
@@ -76,7 +76,7 @@ test('Superflow handover JSON renders title and markdown', t => {
   t.true(result.markdown.includes('- Workflow: superflow-rollback.yml'));
 });
 
-test('Superflow handover parser accepts generated CI JSON contract', t => {
+test('Manut handover parser accepts generated CI JSON contract', t => {
   const tmp = mkdtempSync(join(tmpdir(), 'superflow-handover-'));
 
   try {
@@ -120,7 +120,7 @@ test('Superflow handover parser accepts generated CI JSON contract', t => {
   }
 });
 
-test('Superflow handover rejects unsupported schemaVersion', t => {
+test('Manut handover rejects unsupported schemaVersion', t => {
   const error = t.throws(() =>
     parseAndRenderSuperflowHandover(handover({ schemaVersion: 2 }))
   );
@@ -129,14 +129,14 @@ test('Superflow handover rejects unsupported schemaVersion', t => {
   t.regex(error.message, /schemaVersion/);
 });
 
-test('Superflow handover rejects malformed JSON', t => {
+test('Manut handover rejects malformed JSON', t => {
   const error = t.throws(() => parseAndRenderSuperflowHandover('{nope'));
 
   t.true(error instanceof BadRequestException);
   t.regex(error.message, /valid JSON/);
 });
 
-test('Superflow handover caps high-cardinality arrays', t => {
+test('Manut handover caps high-cardinality arrays', t => {
   const error = t.throws(() =>
     parseAndRenderSuperflowHandover(
       handover({ verificationGates: Array.from({ length: 51 }, () => 'gate') })
@@ -147,9 +147,9 @@ test('Superflow handover caps high-cardinality arrays', t => {
   t.regex(error.message, /too many items/);
 });
 
-test('Superflow handover GraphQL nullable DTO fields use explicit types', t => {
+test('Manut handover GraphQL nullable DTO fields use explicit types', t => {
   for (const file of dtoFiles) {
-    const source = readFileSync(join(superflowDir, file), 'utf8');
+    const source = readFileSync(join(manutDir, file), 'utf8');
 
     t.false(
       /@Field\(\{\s*nullable:\s*true/.test(source),

@@ -2,7 +2,7 @@ import { render as rawRender } from '@react-email/components';
 import { type ComponentType, createElement, type ReactElement } from 'react';
 
 import { Comment, CommentMention, Mention } from './docs';
-import SuperflowReminder from './superflow-reminder';
+import ManutReminder from './manut-reminder';
 import {
   TeamBecomeAdmin,
   TeamBecomeCollaborator,
@@ -183,10 +183,7 @@ export const Renderers = {
   //#endregion
 
   //#region Manut
-  SuperflowReminder: make(
-    SuperflowReminder,
-    props => `Reminder: ${props.title}`
-  ),
+  ManutReminder: make(ManutReminder, props => `Reminder: ${props.title}`),
   //#endregion
 } as const;
 

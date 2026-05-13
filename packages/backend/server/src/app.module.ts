@@ -66,12 +66,12 @@ import { GCloudModule } from './plugins/gcloud';
 import { GoogleOAuthModule } from './plugins/google-oauth';
 import { IndexerModule } from './plugins/indexer';
 import { LicenseModule } from './plugins/license';
+import {
+  isManutModuleEnabled,
+  ManutModule,
+} from './plugins/manut/manut.module';
 import { OAuthModule } from './plugins/oauth';
 import { PaymentModule } from './plugins/payment';
-import {
-  isSuperflowModuleEnabled,
-  SuperflowModule,
-} from './plugins/superflow/superflow.module';
 import { WorkerModule } from './plugins/worker';
 
 export const FunctionalityModules = [
@@ -224,10 +224,11 @@ export function buildAppModule(env: Env) {
       () => env.flavors.graphql && isAnalyticsModuleEnabled(),
       AnalyticsModule.forRoot()
     )
-    // Superflow PM / CRM / reminders — feature-flagged via ENABLE_SUPERFLOW_MODULE
+    // Manut PM / CRM / reminders — feature-flagged via ENABLE_MANUT_MODULE
+    // (legacy ENABLE_SUPERFLOW_MODULE is also honored for BC)
     .useIf(
-      () => env.flavors.graphql && isSuperflowModuleEnabled(),
-      SuperflowModule.forRoot()
+      () => env.flavors.graphql && isManutModuleEnabled(),
+      ManutModule.forRoot()
     )
     // doc service and front service
     .useIf(() => env.flavors.doc || env.flavors.front, DocServiceModule)

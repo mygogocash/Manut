@@ -8,13 +8,13 @@ import {
   type WorkspaceProps,
 } from './components';
 
-export type SuperflowReminderProps = {
+export type ManutReminderProps = {
   title: string;
   body?: string;
   workspace: WorkspaceProps;
 };
 
-export default function SuperflowReminder(props: SuperflowReminderProps) {
+export default function ManutReminder(props: ManutReminderProps) {
   return (
     <Template>
       <Title>{props.title}</Title>
@@ -28,7 +28,7 @@ export default function SuperflowReminder(props: SuperflowReminderProps) {
   );
 }
 
-SuperflowReminder.PreviewProps = {
+ManutReminder.PreviewProps = {
   title: 'Follow up with Acme',
   body: 'Review the proposal and send the next-step note.',
   workspace: TEST_WORKSPACE,

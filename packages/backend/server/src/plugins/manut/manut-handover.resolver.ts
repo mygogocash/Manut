@@ -7,8 +7,8 @@ import { AccessController } from '../../core/permission';
 import {
   ImportSuperflowHandoverInput,
   ImportSuperflowHandoverResult,
-} from './superflow.dto';
-import { SuperflowHandoverService } from './superflow-handover.service';
+} from './manut.dto';
+import { SuperflowHandoverService } from './manut-handover.service';
 
 @Resolver()
 export class SuperflowHandoverResolver {

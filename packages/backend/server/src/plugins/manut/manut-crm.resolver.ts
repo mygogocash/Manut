@@ -22,7 +22,7 @@ import {
   UpdateMnCrmContactInput,
   UpdateMnCrmDealInput,
   UpdateMnCrmDealStageInput,
-} from './superflow-crm.dto';
+} from './manut-crm.dto';
 
 function mapDeal(row: MnCrmDeal): MnCrmDealObjectType {
   const v = row.value;
