@@ -85,7 +85,7 @@ describe('Superflow projects page', () => {
   test('renders the empty state when there are no projects', () => {
     render(<Component />);
 
-    const empty = screen.getByTestId('superflow-pm-empty');
+    const empty = screen.getByTestId('manut-pm-empty');
     expect(empty).toBeTruthy();
     expect(empty.textContent).toContain('No projects yet');
     expect(empty.textContent).toContain('Create your first project');

@@ -19,7 +19,7 @@ export type MnTaskStatus =
 
 export type MnTaskPriority = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
-export const SF_TASK_STATUSES: readonly MnTaskStatus[] = [
+export const MN_TASK_STATUSES: readonly MnTaskStatus[] = [
   'BACKLOG',
   'TODO',
   'IN_PROGRESS',
@@ -27,7 +27,7 @@ export const SF_TASK_STATUSES: readonly MnTaskStatus[] = [
   'CANCELLED',
 ];
 
-export const SF_TASK_PRIORITIES: readonly MnTaskPriority[] = [
+export const MN_TASK_PRIORITIES: readonly MnTaskPriority[] = [
   'NONE',
   'LOW',
   'MEDIUM',

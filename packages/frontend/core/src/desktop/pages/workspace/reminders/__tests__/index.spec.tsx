@@ -91,7 +91,7 @@ vi.mock('@affine/core/components/hooks/use-mutation', () => ({
   }),
 }));
 
-vi.mock('@affine/core/modules/superflow-reminders', () => ({
+vi.mock('@affine/core/modules/manut-reminders', () => ({
   mnRemindersQuery: { id: 'mnRemindersQuery' },
   createMnReminderMutation: { id: 'createMnReminderMutation' },
   cancelMnReminderMutation: { id: 'cancelMnReminderMutation' },

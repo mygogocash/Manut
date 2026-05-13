@@ -7,16 +7,16 @@ import {
   type CreateMnTaskInput,
   createMnTaskMutation,
   deleteMnTaskMutation,
+  MN_TASK_PRIORITIES,
+  MN_TASK_STATUSES,
   type MnProjectDto,
   mnProjectsQuery,
   type MnTaskDto,
   type MnTaskPriority,
   mnTasksQuery,
   type MnTaskStatus,
-  SF_TASK_PRIORITIES,
-  SF_TASK_STATUSES,
   updateMnTaskStatusMutation,
-} from '@affine/core/modules/superflow-pm';
+} from '@affine/core/modules/manut-pm';
 import {
   ViewBody,
   ViewHeader,
@@ -78,7 +78,7 @@ interface EmptyStateProps {
 }
 
 const EmptyState = ({ onCreate }: EmptyStateProps) => (
-  <div className={styles.emptyState} data-testid="superflow-pm-empty">
+  <div className={styles.emptyState} data-testid="manut-pm-empty">
     <div className={styles.emptyStateTitle}>No projects yet</div>
     <div className={styles.emptyStateBody}>
       Create your first project to organize tasks.
@@ -423,7 +423,7 @@ const NewTaskModal = ({
               value={status}
               onChange={event => setStatus(event.target.value as MnTaskStatus)}
             >
-              {SF_TASK_STATUSES.map(option => (
+              {MN_TASK_STATUSES.map(option => (
                 <option key={option} value={option}>
                   {readableStatus(option)}
                 </option>
@@ -442,7 +442,7 @@ const NewTaskModal = ({
                 setPriority(event.target.value as MnTaskPriority)
               }
             >
-              {SF_TASK_PRIORITIES.map(option => (
+              {MN_TASK_PRIORITIES.map(option => (
                 <option key={option} value={option}>
                   {readablePriority(option)}
                 </option>
@@ -516,7 +516,7 @@ const TaskRow = ({ task, onStatusChange, onDelete }: TaskRowProps) => {
   const due = formatDueDate(task.dueAt);
 
   return (
-    <div className={styles.taskRow} data-testid="superflow-pm-task-row">
+    <div className={styles.taskRow} data-testid="manut-pm-task-row">
       <span className={done ? styles.taskTitleDone : styles.taskTitle}>
         {task.title}
       </span>
@@ -531,7 +531,7 @@ const TaskRow = ({ task, onStatusChange, onDelete }: TaskRowProps) => {
         onChange={event => void handleStatusChange(event)}
         aria-label="Task status"
       >
-        {SF_TASK_STATUSES.map(option => (
+        {MN_TASK_STATUSES.map(option => (
           <option key={option} value={option}>
             {readableStatus(option)}
           </option>
@@ -566,7 +566,7 @@ const ProjectCard = ({
   onAddTaskClick,
 }: ProjectCardProps) => {
   return (
-    <div className={styles.card} data-testid="superflow-pm-project-card">
+    <div className={styles.card} data-testid="manut-pm-project-card">
       <button
         type="button"
         className={styles.cardHeader}
@@ -808,7 +808,7 @@ const ProjectsPage = () => {
         <ProjectsHeader onCreate={() => setCreatingProject(true)} />
       </ViewHeader>
       <ViewBody>
-        <div className={styles.root} data-testid="superflow-pm-page">
+        <div className={styles.root} data-testid="manut-pm-page">
           <div className={styles.titleBlock}>
             <div className={styles.title}>Projects &amp; tasks</div>
             <div className={styles.subtitle}>

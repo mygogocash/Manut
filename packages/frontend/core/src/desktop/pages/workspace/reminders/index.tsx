@@ -7,7 +7,7 @@ import {
   type MnReminderDto,
   mnRemindersQuery,
   type MnReminderStatus,
-} from '@affine/core/modules/superflow-reminders';
+} from '@affine/core/modules/manut-reminders';
 import {
   ViewBody,
   ViewHeader,
@@ -164,20 +164,20 @@ const NewReminderModal = ({
     <Modal
       open={open}
       onOpenChange={handleOpenChange}
-      title={t['com.superflow.reminders.modal.title']()}
-      description={t['com.superflow.reminders.modal.description']()}
+      title={t['com.manut.reminders.modal.title']()}
+      description={t['com.manut.reminders.modal.description']()}
       width={480}
       persistent={submitting}
     >
       <div className={styles.modalBody}>
         <div className={styles.fieldGroup}>
           <label className={styles.fieldLabel} htmlFor="sf-reminder-title">
-            {t['com.superflow.reminders.field.title.label']()}
+            {t['com.manut.reminders.field.title.label']()}
           </label>
           <Input
             id="sf-reminder-title"
             value={form.title}
-            placeholder={t['com.superflow.reminders.field.title.placeholder']()}
+            placeholder={t['com.manut.reminders.field.title.placeholder']()}
             onChange={value => setForm(prev => ({ ...prev, title: value }))}
             disabled={submitting}
             autoFocus
@@ -185,7 +185,7 @@ const NewReminderModal = ({
         </div>
         <div className={styles.fieldGroup}>
           <label className={styles.fieldLabel} htmlFor="sf-reminder-fire-at">
-            {t['com.superflow.reminders.field.dueAt.label']()}
+            {t['com.manut.reminders.field.dueAt.label']()}
           </label>
           <input
             id="sf-reminder-fire-at"
@@ -201,18 +201,18 @@ const NewReminderModal = ({
             disabled={submitting}
           />
           <div className={styles.fieldHint}>
-            {t['com.superflow.reminders.field.dueAt.hint']()}
+            {t['com.manut.reminders.field.dueAt.hint']()}
           </div>
         </div>
         <div className={styles.fieldGroup}>
           <label className={styles.fieldLabel} htmlFor="sf-reminder-body">
-            {t['com.superflow.reminders.field.body.label']()}
+            {t['com.manut.reminders.field.body.label']()}
           </label>
           <textarea
             id="sf-reminder-body"
             className={styles.textarea}
             value={form.body}
-            placeholder={t['com.superflow.reminders.field.body.placeholder']()}
+            placeholder={t['com.manut.reminders.field.body.placeholder']()}
             onChange={event =>
               setForm(prev => ({ ...prev, body: event.target.value }))
             }
@@ -231,7 +231,7 @@ const NewReminderModal = ({
           disabled={submitting}
           onClick={() => handleOpenChange(false)}
         >
-          {t['com.superflow.reminders.modal.cancel']()}
+          {t['com.manut.reminders.modal.cancel']()}
         </Button>
         <Button
           variant="primary"
@@ -239,7 +239,7 @@ const NewReminderModal = ({
           loading={submitting}
           onClick={() => void handleSubmit()}
         >
-          {t['com.superflow.reminders.modal.submit']()}
+          {t['com.manut.reminders.modal.submit']()}
         </Button>
       </div>
     </Modal>
@@ -263,13 +263,13 @@ const ReminderCard = ({
   const isActive = ACTIVE_STATUSES.has(reminder.status);
   const badgeLabel: string = (() => {
     if (reminder.status === 'COMPLETED')
-      return t['com.superflow.reminders.status.completed']();
+      return t['com.manut.reminders.status.completed']();
     if (reminder.status === 'CANCELLED')
-      return t['com.superflow.reminders.status.cancelled']();
+      return t['com.manut.reminders.status.cancelled']();
     if (reminder.status === 'FAILED')
-      return t['com.superflow.reminders.status.failed']();
-    if (isDue) return t['com.superflow.reminders.status.due']();
-    return t['com.superflow.reminders.status.scheduled']();
+      return t['com.manut.reminders.status.failed']();
+    if (isDue) return t['com.manut.reminders.status.due']();
+    return t['com.manut.reminders.status.scheduled']();
   })();
 
   return (
@@ -290,7 +290,7 @@ const ReminderCard = ({
       ) : null}
       <div className={styles.cardMeta}>
         <span>
-          {t['com.superflow.reminders.card.dueAt']()}{' '}
+          {t['com.manut.reminders.card.dueAt']()}{' '}
           {formatFireAt(reminder.fireAt)}
         </span>
         <span>·</span>
@@ -306,7 +306,7 @@ const ReminderCard = ({
             onClick={() => void onCancel(reminder.id)}
             data-testid="reminder-mark-done"
           >
-            {t['com.superflow.reminders.action.markDone']()}
+            {t['com.manut.reminders.action.markDone']()}
           </Button>
         </div>
       ) : null}
@@ -330,10 +330,10 @@ const EmptyState = ({ tab }: EmptyStateProps) => {
   const t = useI18n();
   const message =
     tab === 'due'
-      ? t['com.superflow.reminders.empty.due']()
+      ? t['com.manut.reminders.empty.due']()
       : tab === 'upcoming'
-        ? t['com.superflow.reminders.empty.upcoming']()
-        : t['com.superflow.reminders.empty.done']();
+        ? t['com.manut.reminders.empty.upcoming']()
+        : t['com.manut.reminders.empty.done']();
   return (
     <div className={styles.emptyState} data-testid="reminders-empty">
       {message}
@@ -352,7 +352,7 @@ const ErrorState = ({ message, onRetry }: ErrorStateProps) => {
     <div className={styles.errorState} data-testid="reminders-error">
       <div>{message}</div>
       <Button variant="secondary" onClick={onRetry}>
-        {t['com.superflow.reminders.error.retry']()}
+        {t['com.manut.reminders.error.retry']()}
       </Button>
     </div>
   );
@@ -413,7 +413,7 @@ const RemindersPage = () => {
     async (form: NewReminderFormState) => {
       const isoFireAt = localInputValueToIsoString(form.fireAtLocal);
       if (!isoFireAt) {
-        throw new Error(t['com.superflow.reminders.error.invalidDate']());
+        throw new Error(t['com.manut.reminders.error.invalidDate']());
       }
       setSubmitting(true);
       try {
@@ -426,7 +426,7 @@ const RemindersPage = () => {
           },
         });
         notify.success({
-          title: t['com.superflow.reminders.notify.created.title'](),
+          title: t['com.manut.reminders.notify.created.title'](),
           message: form.title,
         });
         await mutate();
@@ -446,16 +446,16 @@ const RemindersPage = () => {
           reminderId,
         });
         notify.success({
-          title: t['com.superflow.reminders.notify.cancelled.title'](),
+          title: t['com.manut.reminders.notify.cancelled.title'](),
         });
         await mutate();
       } catch (err) {
         const message =
           err instanceof Error
             ? err.message
-            : t['com.superflow.reminders.error.cancel']();
+            : t['com.manut.reminders.error.cancel']();
         notify.error({
-          title: t['com.superflow.reminders.notify.cancelled.error'](),
+          title: t['com.manut.reminders.notify.cancelled.error'](),
           message,
         });
       } finally {
@@ -502,7 +502,7 @@ const RemindersPage = () => {
         ? bucketed.upcoming
         : bucketed.done;
 
-  const headerTitle = t['com.superflow.reminders.title']();
+  const headerTitle = t['com.manut.reminders.title']();
 
   return (
     <>
@@ -516,7 +516,7 @@ const RemindersPage = () => {
           <div className={styles.toolbar}>
             <div
               role="tablist"
-              aria-label={t['com.superflow.reminders.tabs.label']()}
+              aria-label={t['com.manut.reminders.tabs.label']()}
               className={styles.tabsList}
             >
               <button
@@ -528,7 +528,7 @@ const RemindersPage = () => {
                 onClick={() => setActiveTab('due')}
                 data-testid="reminders-tab-due"
               >
-                {t['com.superflow.reminders.tab.due']()}
+                {t['com.manut.reminders.tab.due']()}
                 <span className={styles.tabCount}>{bucketed.due.length}</span>
               </button>
               <button
@@ -540,7 +540,7 @@ const RemindersPage = () => {
                 onClick={() => setActiveTab('upcoming')}
                 data-testid="reminders-tab-upcoming"
               >
-                {t['com.superflow.reminders.tab.upcoming']()}
+                {t['com.manut.reminders.tab.upcoming']()}
                 <span className={styles.tabCount}>
                   {bucketed.upcoming.length}
                 </span>
@@ -554,7 +554,7 @@ const RemindersPage = () => {
                 onClick={() => setActiveTab('done')}
                 data-testid="reminders-tab-done"
               >
-                {t['com.superflow.reminders.tab.done']()}
+                {t['com.manut.reminders.tab.done']()}
                 <span className={styles.tabCount}>{bucketed.done.length}</span>
               </button>
             </div>
@@ -563,7 +563,7 @@ const RemindersPage = () => {
               onClick={handleNewClick}
               data-testid="reminders-new"
             >
-              {t['com.superflow.reminders.action.new']()}
+              {t['com.manut.reminders.action.new']()}
             </Button>
           </div>
           {error ? (
