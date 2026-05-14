@@ -224,7 +224,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./.docker/gogocash/Dockerfile.fullstack
+          file: ./.docker/manut/Dockerfile.fullstack
           platforms: linux/amd64
           push: true
           # We push the run-unique tag AND the plain version tag. We do
