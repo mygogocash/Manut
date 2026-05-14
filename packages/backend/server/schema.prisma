@@ -184,6 +184,8 @@ model Workspace {
   mnReminders                MnReminder[]
   mnReminderRules            MnReminderRule[]
   mnNotificationDeliveries   MnNotificationDelivery[]
+  mnAgentRoles               MnAgentRole[]
+  mnReleaseRuns              MnReleaseRun[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -1773,4 +1775,74 @@ model MnNotificationDelivery {
   @@index([workspaceId, status, createdAt])
   @@index([reminderId])
   @@map("mn_notification_deliveries")
+}
+
+/// Manut Agent Registry — the 5 canonical operating roles per workspace.
+/// See docs/SUPERFLOW_CONTROL_PLANE.md §47-58 for the spec; seeds live
+/// in plugins/manut/manut-agent-registry.service.ts. `slug` is the stable
+/// identifier used by automation and must be unique per workspace.
+model MnAgentRole {
+  id                  String    @id @default(uuid()) @db.VarChar
+  workspaceId         String    @map("workspace_id") @db.VarChar
+  slug                String    @db.VarChar
+  displayName         String    @map("display_name") @db.VarChar
+  adapter             String    @db.Text
+  responsibility      String    @db.Text
+  escalation          String?   @db.Text
+  lastSuccessfulRunId String?   @map("last_successful_run_id") @db.VarChar
+  lastSeenAt          DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId])
+  @@map("mn_agent_roles")
+}
+
+/// Manut Release Runs — immutable record of each CI build/release/deploy
+/// run, ingested from the handover JSON via manut-handover.service.ts.
+/// See docs/SUPERFLOW_CONTROL_PLANE.md Phase 4. Idempotency key is
+/// (workspaceId, ghRunId) so re-importing the same JSON is a no-op.
+model MnReleaseRun {
+  id          String    @id @default(uuid()) @db.VarChar
+  workspaceId String    @map("workspace_id") @db.VarChar
+  ghRunId     String    @map("gh_run_id") @db.VarChar
+  ghRunUrl    String?   @map("gh_run_url") @db.Text
+  mode        String    @db.VarChar
+  status      String    @db.VarChar
+  version     String?   @db.VarChar
+  shortSha    String?   @map("short_sha") @db.VarChar
+  headSha     String?   @map("head_sha") @db.VarChar
+  imageTag    String?   @map("image_tag") @db.VarChar
+  imageDigest String?   @map("image_digest") @db.VarChar
+  registry    String?   @db.Text
+  deployUrl   String?   @map("deploy_url") @db.Text
+  actor       String?   @db.VarChar
+  generatedAt DateTime? @map("generated_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tasks     MnReleaseTask[]
+
+  @@unique([workspaceId, ghRunId])
+  @@index([workspaceId, generatedAt])
+  @@index([workspaceId, createdAt])
+  @@map("mn_release_runs")
+}
+
+model MnReleaseTask {
+  id        String @id @default(uuid()) @db.VarChar
+  runId     String @map("run_id") @db.VarChar
+  slug      String @db.VarChar
+  label     String @db.Text
+  sortOrder Int    @default(0) @map("sort_order")
+
+  run MnReleaseRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, slug])
+  @@index([runId, sortOrder])
+  @@map("mn_release_tasks")
 }

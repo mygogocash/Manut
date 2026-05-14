@@ -10,6 +10,7 @@ const dtoFiles = [
   'manut-crm.dto.ts',
   'manut-reminder.dto.ts',
   'manut-handover.resolver.ts',
+  'manut-agent-registry.dto.ts',
 ];
 
 function readSource(file: string) {
@@ -63,4 +64,12 @@ test('Manut nullable DTO fields use explicit GraphQL types', t => {
       `${file}: nullable @Field decorators must use @Field(() => Type, { nullable: true })`
     );
   }
+});
+
+test('Manut Agent Registry query asserts Workspace.Read and mutation asserts Workspace.Settings.Update', t => {
+  const source = readSource('manut-agent-registry.resolver.ts');
+  t.true(source.includes("assert('Workspace.Read')"));
+  t.true(source.includes("assert('Workspace.Settings.Update')"));
+  t.regex(source, /async agentRoles\(/);
+  t.regex(source, /async updateAgentRole\(/);
 });
