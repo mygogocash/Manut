@@ -1,5 +1,5 @@
 name: 🏗️ Manut Build
-run-name: 🏗️ Build • ${{ github.event.workflow_run.head_sha && format('{0}@{1}', github.event.workflow_run.head_branch, github.event.workflow_run.head_sha) || github.sha }} • ${{ github.event_name }} • ${{ github.actor }}
+run-name: '🏗️ Build #${{ github.run_number }} • ${{ github.event.workflow_run.display_title || github.event.head_commit.message || github.event_name }} • by ${{ github.actor }}'
 
 # Tier 2 split: this workflow ONLY builds + pushes the image. Deploy is
 # now a separate workflow (`Manut Auto Deploy`) that watches THIS
