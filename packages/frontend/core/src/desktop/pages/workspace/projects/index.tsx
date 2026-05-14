@@ -15,6 +15,7 @@ import {
   WorkbenchService,
 } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
+import { isGraphQLSchemaValidationError } from '@affine/error';
 import { FolderIcon, PlusIcon } from '@blocksuite/icons/rc';
 import { useService } from '@toeverything/infra';
 import {
@@ -95,7 +96,12 @@ const ErrorBox = ({ message, onRetry }: ErrorBoxProps) => (
   </div>
 );
 
+// en-only copy; follow-up to thread through i18n once we open that can.
+const PROJECTS_UNAVAILABLE_MESSAGE =
+  'Projects is not enabled on this workspace. Ask your administrator to enable the Manut module.';
+
 function errorMessage(err: unknown): string {
+  if (isGraphQLSchemaValidationError(err)) return PROJECTS_UNAVAILABLE_MESSAGE;
   return err instanceof Error ? err.message : 'Unexpected error';
 }
 
@@ -315,7 +321,16 @@ const ProjectsList = ({
   )?.mnProjects;
 
   if (error) {
-    return <ErrorBox message={error.message} onRetry={() => void mutate()} />;
+    return (
+      <ErrorBox
+        message={
+          isGraphQLSchemaValidationError(error)
+            ? PROJECTS_UNAVAILABLE_MESSAGE
+            : error.message
+        }
+        onRetry={() => void mutate()}
+      />
+    );
   }
 
   if (!projects || projects.length === 0) {

@@ -9,68 +9,213 @@ decorators — are intentionally left unchanged because each is its own R1
 operation, tracked in §9 below. Treat this file as the project's
 Definition-of-Done; deviations need a reason.
 
-## 1. Spawn sub-agents to speed up development
+## 1. TDD Loop & Test Standards
 
-Sub-agents run in parallel and protect the main context window from large
-file reads. Use them aggressively, but with discipline.
+This codebase does NOT yet uniformly follow TDD — prompts ship without
+unit tests, OAuth refresh got patched twice in production before a spec
+existed, the SSE-parser fix in v1.10.1 was caught by a user, not a test.
+This section is forward-looking: where strict TDD applies, do it; where
+it doesn't, lean on the deploy smoke-test checklist (§4) and be honest
+about which side a change falls on.
 
-### When to spawn
+### 1.1 The TDD loop
 
-- **Research / mapping:** any time you'd need to read more than ~3 files to
-  answer a question. Use `feature-dev:code-explorer` (read-only research).
-- **Audits:** before any deploy, before any architectural change, when the
-  user asks "is this safe?" or "is this production-ready?". Use
-  `code-reviewer`, `security-reviewer`, or a `general-purpose` agent.
-- **Independent work streams:** if two features touch non-overlapping files,
-  do them in parallel with two `feature-dev:code-architect` agents.
-- **Long deploys, builds, or tests** that block the main session — run
-  in the background via `run_in_background: true`.
+RED → GREEN → REFACTOR. One test at a time. Minutes per cycle, not hours.
 
-### When NOT to spawn
+- **RED** — pick the smallest next behavior, write ONE test, run it,
+  watch it fail FOR THE RIGHT REASON. Failure must be an assertion —
+  not an import error, typo, or missing setup. If you can't fail it for
+  the right reason, the test is wrong; fix the test before touching
+  production code.
+- **GREEN** — write the simplest possible code to pass. Hardcoded
+  constants, fakes, shortcuts are fine — we're racing to green. Then
+  run the FULL suite, not just the new test:
+  ```bash
+  # backend
+  yarn workspace @affine/server ava <spec>
+  yarn tsc --noEmit
+  # frontend
+  yarn workspace @affine/core test
+  ```
+- **REFACTOR** — clean up under green. Improve naming, dedupe, extract.
+  Refactor production AND test code; both rot. NEVER refactor and add
+  behavior in the same step — two separate cycles. Commit at green;
+  never commit red. If a cycle drags past 30 min, the test is too big —
+  split it.
 
-- Trivial single-file edits.
-- Anything where the answer is faster to find with one `grep`.
-- Sequential work that depends on the previous step's output.
-- Plan-mode reasoning the user wants to see live.
+### 1.2 Test standards (FIRST)
 
-### How to spawn well
+- **Fast** — milliseconds for unit, seconds for integration. Slow tests
+  get skipped, then rot. ava parallelises by default; keep it that way.
+- **Independent** — any test runs alone, in any order. No shared
+  Postgres rows leaking between specs.
+- **Repeatable** — no flakes. A flaky test is a broken test; quarantine
+  or fix, don't tolerate.
+- **Self-validating** — pass or fail. Never "check the log to see if
+  it worked."
+- **Timely** — before or alongside the code, never after.
 
-- **Brief like a smart colleague:** explain the goal, what's already known,
-  what to avoid touching. Sub-agents have NO conversation memory — every
-  prompt must stand alone.
-- **Hand over file paths and line numbers**, not vague descriptions.
-- **Cap output length** — `cap report at ~500 words`.
-- **Declare ownership** — tell each parallel agent which files it owns and
-  which other agents own. Prevents merge conflicts.
-- **Pick the right agent type:**
-  - `feature-dev:code-explorer` → read-only research, returns a design report
-  - `feature-dev:code-architect` → produces a blueprint (does NOT write files
-    unless given explicit Edit/Write tools — verify before assuming)
-  - `feature-dev:code-reviewer` → reviews diffs / branches
-  - `general-purpose` → tasks that need write access + multi-step execution
-  - `code-reviewer`, `security-reviewer`, `typescript-reviewer` → audits
-  - `Explore` → fast file-finding, much cheaper than agents
-- **For CODE changes:** verify the agent type can write. The
-  `feature-dev:code-architect` agents only have read tools and produce
-  blueprints — the parent must apply them. Use `general-purpose` if you
-  want the agent to actually edit files.
-- **Run agents concurrently:** spawn multiple agents in a SINGLE message
-  with multiple Agent tool blocks. Sequential spawn = wasted clock time.
+Test BEHAVIOR, not implementation. Don't assert on private functions,
+internal state, or call order. Heuristic: if a behavior-preserving
+refactor breaks your test, the test is wrong.
 
-### Coordination rules
+Pyramid: **~70% unit / ~20% integration / ~10% e2e**. Push tests down
+the pyramid when you can; e2e via `/browse` is expensive and flaky.
 
-- After spawning N agents, do not start more on overlapping files. Wait,
-  consolidate, then spawn the next round.
-- Never spawn an agent to do something the main turn could finish in 30s.
-- When an agent returns, immediately apply or discard — don't let blueprints
-  rot. The longer they sit, the more context decays around them.
+Naming: `subject > given X > then Y`. Example:
+`parseTagCandidates > given SSE-wrapped JSON > strips wrappers and returns clean strings`.
 
-## 2. Plan before you build
+Coverage: chase BEHAVIOR coverage on critical paths — money, auth,
+user data, public GraphQL surface, copilot tool dispatch, prompt
+parsing, OAuth token refresh. An untested branch on a critical path
+is unfinished work. Don't chase 100% line coverage on glue code.
 
-Every non-trivial change starts with a written plan. The bigger the change,
-the more it pays off.
+Mocks: prefer real over mocked when fast and reliable (in-memory
+Postgres, local HTTP fixtures, fake clock). Mock at architecture seams
+— Google OAuth, Vertex AI MaaS, `Date.now()`, randomness. Don't mock
+code you own; wrap it and mock the wrapper.
 
-### Plan template
+**The scar that proves the point:** v1.10.1's SSE-stream-object bug
+shipped tags rendered as `{"type":"text-delta","textDelta":"…"}`
+because `request.ts`'s join layer didn't strip SSE wrappers. A
+20-line unit test on `parseTagCandidates` with a JSON-wrapper input
+would have caught it before users did. That test now exists.
+
+### 1.3 When TDD applies (and when smoke-only is fine)
+
+**Strict TDD — always** (critical paths from §1.2 coverage rule):
+- New parsers, validators, transformers (`parseTagCandidates`,
+  markdown-adapter wrappers, SSE join layers).
+- GraphQL resolvers — happy path + every typed error case.
+- Copilot tool dispatch (`docEdit`, `dataViewFilter`, etc.) — flag
+  gating, mode-picker routing, error mapping.
+- OAuth token refresh logic, encryption/decryption helpers, anything
+  touching `IntegrationConnectionModel`.
+- Auto-router model selection (`pickModel`) — every branch.
+- Anything with `@Field(() => …)` annotations: write a startup test
+  that boots the GraphQL schema. We've shipped `UndefinedTypeError`
+  to production TWICE (§6); a 1-line smoke spec ends that streak.
+
+**Smoke-test-only is fine** (verify via §4 deploy checklist):
+- UI tweaks, copy edits, icon swaps.
+- vanilla-extract `.css.ts` style changes — tested via bundle
+  compilation, not unit tests.
+- Dockerfile / compose.yml / Caddy config changes.
+- One-shot migration scripts that run once and never again.
+- Prompt-text edits to `prompts.ts` — the upsert is integration-tested
+  by server startup; the prompt content is editorial, not logic.
+
+**Grey zone** (write a test if cheap, don't block on it if not):
+- Wiring an existing component into a new menu or settings tab.
+- Renaming a route, file, or i18n key.
+- Adding a `case` to an existing union switch.
+
+Snapshot tests on JSX usually rot faster than they add value here —
+prefer a behavioral assertion ("the menu contains an item with
+testId=foo") over a serialised tree.
+
+> When in doubt, write the test first.
+
+## 2. Honesty Rules (guardrails for the loop)
+
+These rules exist because confidently-wrong claims have shipped to production
+on this fork. Each has a trigger and a required behavior — none of them are
+optional, and "the user told me to go fast" is not an exemption.
+
+### 2.1 NO MAGIC — never invent context
+
+**Trigger:** anything you don't have evidence for in this repo, this
+conversation, or a tool result.
+
+State assumptions explicitly (`Assumption: backend is ava, frontend is
+Vitest — confirmed via package.json`). If the assumption is load-bearing,
+STOP AND ASK before writing code. Never invent file paths, env vars, test
+framework APIs, fixtures, or library behavior — read/verify them, or label
+`unverified`. The `@nestjs/graphql` reflection API is the canonical example:
+nullable `@Field` declarations do **not** auto-infer types from TypeScript;
+assuming they do is what shipped the v1.7.0 and v1.10.2 `UndefinedTypeError`
+crashes (see §6). If you haven't grep'd it, you don't know it.
+
+### 2.2 VERIFY BEFORE DONE — evidence before assertions
+
+**Trigger:** about to say "done", "should work", "fixed", or "ready".
+
+"I made the change" ≠ done. Done is `yarn ava` green, `yarn tsc --noEmit`
+clean, bundle rebuilt, `/browse` confirmation against the live preview, AND
+the smoke-test items in §4 that touch your area — output pasted, not paraphrased.
+Never claim a bug fix without showing the previously-failing case now passing.
+Example: "AI Auto Tag is fixed" requires (a) `yarn ava` green for
+`parseTagCandidates`, (b) `yarn affine bundle -p web` clean, (c) `/browse`
+on a real doc showing clean tags (not `{"type":"text-delta","textDelta":…}`
+fragments — that's the v1.10.1 scar).
+
+**Sub-agent claims do not count as verification.** When a sub-agent reports
+"done" on a multi-file change, the parent must `git diff HEAD~1 -- <file>`
+each wiring point — `workspace-layout.tsx`,
+`setting/general-setting/index.tsx`, GraphQL schema entries, the
+`SettingTab` union in `constant.ts` (see §6b). v1.5.4 shipped a half-feature
+because git-stash recoveries during consolidation dropped one agent's
+registration while keeping its component files. The agent reported success.
+The user got a missing tab.
+
+### 2.3 DISSENT — push back before you build
+
+**Trigger:** any non-trivial change, especially R1+ work.
+
+Before writing code, surface (1) blast radius — what breaks if this is
+wrong, (2) hidden assumptions, (3) reversibility — rollback path,
+(4) what momentum is hiding. Say it even if the user already said
+"go ahead." The v1.10.2 ship-twice would have been caught by one
+sentence of dissent: "Every nullable `@Field` in this branch is missing
+the explicit `() => Type` parameter — that's exactly the v1.7.0 crash
+class, blast radius is server-wide startup failure → Caddy 502." Five
+seconds of dissent beats thirty minutes of rollback under pressure.
+
+### 2.4 SCOPE DRIFT — every change traces to a test
+
+**Trigger:** code being written that no test or ticket demanded.
+
+Every line of new production code maps to a failing test (or, for UI
+glue, a concrete acceptance criterion in the plan). Refactor commits add
+no behavior. Spot a needed fix outside scope? **Note it for a follow-up,
+don't smuggle it in.** Example: while fixing the v1.10.1 SSE-stream-object
+parser, you notice the prompt-seed verification gate doesn't cover a new
+prompt. That is its own R1 change — file it as a follow-up PR, do not
+co-mingle it with the parser fix. Mixed PRs are harder to revert and
+hide the actual root cause from the next incident responder.
+
+### 2.5 R0 / R1 / R2 — reversibility gates
+
+| Tier | Definition | Required behavior |
+|---|---|---|
+| **R0** | Irreversible / catastrophic | **STOP. ASK. WAIT FOR EXPLICIT YES.** |
+| **R1** | Costly to reverse | **Do, but announce + log + note rollback path.** |
+| **R2** | Easily reversed | **Just do it.** |
+
+**R0 examples (project-specific):** force-pushing `main`; dropping a
+Prisma migration that's already applied in prod; sending a workspace-wide
+email blast; rotating `GOOGLE_OAUTH_CLIENT_SECRET` without coordination;
+removing `IF NOT EXISTS` from a migration that already ran; shipping an
+AI prompt that routes to `gpt-5-mini` on the Vertex-only stack (silent
+no-op feature — v1.8.4 / v1.10.0 scar); any production code on a
+critical path without test coverage.
+
+**R1 examples:** Prisma migration adding a column; GraphQL schema change
+(see v1.10.2 — nominally R1, escalates to R0 if `@Field` types are sloppy);
+`Dockerfile.fullstack` rebuild + push; deploying a release tag;
+editing `/srv/affine/data/affine-config/config.json` on the VM; changing
+the prompt-seed verification gate.
+
+**R2 examples:** vanilla-extract `.css.ts` tweak with `affine bundle -p web`
+green; eslint-clean comment fix; worktree-local refactor with `yarn ava` +
+`yarn tsc --noEmit` green; copy edit on a Settings panel.
+
+**When in doubt, treat as one tier higher.** Untested code on a
+critical path is automatically R0 — no exceptions.
+
+### 2.6 Plan First — the template
+
+For any R1+ change, post the plan before writing code. Skip if R2.
 
 ```
 GOAL: <one sentence — what success looks like>
@@ -88,28 +233,138 @@ ROLLBACK:
   - <one command if it goes wrong>
 ```
 
-### Sizing
+If the user keeps adding features mid-stream, push back: complete one
+vertical slice and ship before piling on more horizontal scope.
 
-- **R0 (irreversible)**: dropping data, force-pushing, sending email blasts,
-  rotating production secrets without coordination. STOP and ask.
-- **R1 (costly to reverse)**: schema migrations, public API contracts,
-  dependency upgrades, deploys. Do, but explain the plan first.
-- **R2 (easily reversed)**: UI tweaks, comments, local refactors, formatting.
-  Just do it.
+## 3. Spawn the sub-agent army
 
-When uncertain about the tier, treat it as one level higher (more cautious).
+**Default to parallel. Sequential is the exception you justify.** Discipline
+exists to make the army shippable, not to slow it down. If you find
+yourself doing a 4-file research read in the main turn, you've already
+lost — that should have been four `feature-dev:code-explorer` agents
+firing in one message.
 
-### Honesty rules
+> **Speed math:** 5 agents × 4 min parallel = 4 min wall clock. Sequential
+> = 20 min. Spawn the army.
 
-- Don't claim "done" without verification (build output, test results,
-  preview screenshot, or live probe). "Should work" is not a status.
-- State assumptions explicitly. "I'm assuming X — flag if wrong."
-- Surface dissent BEFORE committing to a major change. Blast radius,
-  reversibility, hidden assumptions — name them out loud.
-- If the user keeps adding features mid-stream, push back: complete one
-  vertical slice and ship before piling on more horizontal scope.
+### When to spawn
 
-## 3. Testing checklist (run before every deploy)
+- **Research / mapping:** any time you'd need to read more than ~3 files to
+  answer a question. Use `feature-dev:code-explorer` (read-only research).
+- **Audits:** before any deploy, before any architectural change, when the
+  user asks "is this safe?" or "is this production-ready?". Use
+  `code-reviewer`, `security-reviewer`, or a `general-purpose` agent.
+- **Pre-deploy audit (mandatory for R1):** fan out 5 agents — one per
+  concern. Security review of the diff; schema migration safety
+  (idempotent? `IF NOT EXISTS`? rollback path?); bundle size delta
+  (`du -sh packages/frontend/apps/web/dist` before/after, watch for the
+  50MB chunk explosion in §4 "Frontend changes"); prompt-seed verification
+  (does the deploy gate's psql check still pass?); Caddy/Compose
+  hygiene (service vs container name §6, env vars present, image tag
+  pinned to semver not `:latest`).
+- **Independent work streams:** two features touching non-overlapping
+  files → two `general-purpose` agents in parallel.
+- **Any task touching 3+ unrelated files:** split by file ownership before
+  starting. Don't serialize across the file tree.
+- **"Help me ship X":** assume army mode unless proven otherwise. Plan the
+  fan-out before writing a single line.
+- **Long deploys, builds, or tests** that block the main session — run
+  in the background via `run_in_background: true`.
+
+### When NOT to spawn
+
+- Trivial single-file edits.
+- Anything where the answer is faster to find with one `grep`.
+- Sequential work that depends on the previous step's output.
+- Plan-mode reasoning the user wants to see live.
+
+### Fan-out matrix (worked example)
+
+Shipping a new Settings panel "Connected accounts" — backend resolver +
+GraphQL type + frontend component + dialog wiring + ava spec + scar
+notes update. Five agents, one message, ~4 min wall clock:
+
+| Agent | Owns (file paths) | Produces | Word cap | Depends on |
+|---|---|---|---|---|
+| A — `general-purpose` | `packages/backend/server/src/plugins/connected-accounts/{module,resolver,service}.ts` + register in `plugins/index.ts` | Edits (NestJS module + resolver with explicit `@Field(() => Type)` on every nullable field — see §6 scar) | 400 | nothing |
+| B — `general-purpose` | `packages/frontend/core/src/desktop/dialogs/setting/account-setting/connected-accounts.tsx` + `.css.ts` sibling | Edits (component + vanilla-extract styles — `.css.ts` ONLY, never style({}) from .tsx, §6 scar) | 400 | nothing |
+| C — `general-purpose` | `packages/frontend/core/src/desktop/dialogs/setting/general-setting/index.tsx` + `modules/dialogs/constant.ts` SettingTab union | Edits (three-step dialog wiring — §6b) | 300 | B's component name |
+| D — `general-purpose` | `packages/backend/server/src/plugins/connected-accounts/__tests__/connected-accounts.spec.ts` | Edits (ava spec, schema + resolver coverage, the catch path) | 400 | A's resolver shape |
+| E — `feature-dev:code-explorer` | read-only sweep of `plugins/google-oauth/` + `IntegrationConnection` model | Report on token-refresh pattern + any reuse opportunities | 500 | nothing |
+
+C and D get told who their upstream agents are AND that they must not
+touch A/B files. E is read-only so it never collides.
+
+### Agent type cheat sheet
+
+| Agent | Writes files? | Best for |
+|---|---|---|
+| `feature-dev:code-explorer` | No | Read-only research; returns a design report |
+| `feature-dev:code-architect` | **NO — produces a blueprint only. The parent must apply it.** Trips people up constantly. | Designing a feature you'll then implement in the main turn |
+| `feature-dev:code-reviewer` | No | Reviewing diffs / branches |
+| `general-purpose` | **Yes** | Multi-step execution with edits — the workhorse |
+| `code-reviewer`, `security-reviewer`, `typescript-reviewer` | No | Audits with specialised lenses |
+| `Explore` | No | Fast file-finding; much cheaper than spawning a full agent |
+
+### How to spawn well
+
+- **Brief like a smart colleague:** explain the goal, what's already known,
+  what to avoid touching. Sub-agents have NO conversation memory — every
+  prompt must stand alone.
+- **Hand over file paths and line numbers**, not vague descriptions.
+- **Cap output length** — `cap report at ~500 words`. Without a cap,
+  expect 5000-word essays.
+- **Declare ownership** — tell each parallel agent which files it owns
+  AND which other agents own what. Prevents merge collisions at
+  consolidation time.
+- **Pick the right agent type** — see cheat sheet above. For code
+  changes, verify the agent type can write. `feature-dev:code-architect`
+  only has read tools.
+- **Run agents concurrently:** spawn multiple agents in a SINGLE message
+  with multiple Agent tool blocks. Sequential spawn = wasted clock time.
+
+### Consolidation protocol
+
+When N agents return, do NOT immediately trust the "done" claims. Run:
+
+1. `git status --untracked-files=all` — see ALL new files. Sub-agents
+   sometimes write to their OWN `.claude/worktrees/<slug>/` rather than
+   the main worktree. If files are missing, `git -C
+   .claude/worktrees/<slug> status --untracked-files=all` to find them,
+   then `cp` over. **Don't cherry-pick the agent's branch wholesale** —
+   it's off an older baseline.
+2. `git diff HEAD -- <wired-file>` for every registration point each
+   agent claimed (`workspace-layout.tsx`, `setting/general-setting/index.tsx`,
+   GraphQL schema entry, `plugins/index.ts`, the `SettingTab` union).
+   v1.5.4 shipped a half-feature because an agent's component files
+   landed but its wiring did not — verified only by re-diffing each
+   registration site.
+3. Resolve conflicts on overlapping baseline files BEFORE applying any
+   agent's edits. Two agents that both modified
+   `setting/general-setting/index.tsx` will silently overwrite each
+   other if applied sequentially.
+4. Apply atomically. If consolidation fails, revert all and re-fan out
+   with tighter ownership boundaries.
+
+After spawning N agents, do NOT start more on overlapping files. Wait,
+consolidate, then spawn the next round. When an agent returns, apply
+or discard immediately — don't let blueprints rot.
+
+### Anti-patterns
+
+- Spawning agents for tasks the main turn could finish in 30s.
+- Spawning sequentially when parallel would work — that's 5× the clock time.
+- Forgetting to declare file ownership → merge collisions on consolidation.
+- Not capping agent output → 5000-word reports that drain context.
+- **Reading `.output` JSONL transcripts via `cat` / `tail` / `Read`** —
+  they're full conversation transcripts and will overflow context.
+  Trust the structured result and the completion notification.
+- Trusting an agent's "done" without a `git diff` of every wired-in file.
+- Using `feature-dev:code-architect` and expecting written edits — it
+  produces blueprints only. Use `general-purpose` when you want changes
+  applied on the spot.
+
+## 4. Testing checklist (run before every deploy)
 
 Adapt to the change. Skip what doesn't apply, but be deliberate about it.
 
@@ -173,7 +428,7 @@ gcloud compute ssh affine-vm --project=affine-495114 --zone=asia-southeast1-a \
   --command='cd /srv/affine/compose && sudo cp compose.yml.pre-gogocash.bak compose.yml && sudo docker compose up -d'
 ```
 
-## 4. Live deploy hygiene
+## 5. Live deploy hygiene
 
 - Pin image tags to semver (e.g. `:v1.3.0`), never `:latest`.
 - Build for `linux/amd64` (the GCE host) — Mac default is arm64.
@@ -183,7 +438,7 @@ gcloud compute ssh affine-vm --project=affine-495114 --zone=asia-southeast1-a \
   in the compose. Idempotent migrations (`IF NOT EXISTS`, `ADD COLUMN`)
   are safe to re-apply.
 
-## 5. Things this project has been bitten by
+## 6. Things this project has been bitten by
 
 Document the surprises — saves the next session a discovery cycle.
 
@@ -473,7 +728,7 @@ Document the surprises — saves the next session a discovery cycle.
   on a pre-existing `rxjs/finnish` eslint error in `tags.tsx:151`
   (`tagIds$` declaration) and a `consistent-type-imports` error in
   `prompts.ts:2`. Neither is introduced by the changes that triggered
-  the hook. Per §6 the right fix is to clean up the lint debt in a
+  the hook. Per §7 the right fix is to clean up the lint debt in a
   precursor commit — but two recent commits in v1.10.1 used
   `--no-verify` after stashing-and-verifying the errors are
   pre-existing. The cleanup is overdue; track it as a lint-debt
@@ -486,7 +741,7 @@ Document the surprises — saves the next session a discovery cycle.
     `yarn eslint --no-cache <file>` is the source of truth — exit 0
     means the hook will pass.
 
-## 5b. Settings dialog wiring (where new tabs live)
+## 6b. Settings dialog wiring (where new tabs live)
 
 Adding a new general settings panel needs THREE edits:
 
@@ -501,7 +756,7 @@ Forgetting any of these silently drops the tab. The component still
 exists, but the dialog never renders it. Confirm with `/browse` after
 deploy: open Settings → look for the tab in the sidebar.
 
-## 5c. AI / Copilot prompts (custom prompts + Vertex AI gotchas)
+## 6c. AI / Copilot prompts (custom prompts + Vertex AI gotchas)
 
 Custom AI prompts live in
 `packages/backend/server/src/plugins/copilot/prompt/prompts.ts`. Adding
@@ -624,7 +879,7 @@ extraction failure block the AI feature itself. Reference call sites:
 `packages/frontend/core/src/blocksuite/ai/utils/extract.ts`,
 `workspace-property-types/tags.tsx` (AI Auto Tag).
 
-## 5d. Vertex Model Garden providers + auto-routing
+## 6d. Vertex Model Garden providers + auto-routing
 
 Manut exposes five model families on Vertex AI: Gemini + Anthropic
 (first-party publishers) and Llama + Mistral + DeepSeek (Model Garden
@@ -767,9 +1022,9 @@ The `auto` promptName resolves through `prompt/service.ts`'s
 in-memory mirror of `Chat With AFFiNE AI` with `optionalModels`
 extended to include all five families' lead models. This keeps
 `prompts.ts` clean (no entry per-family) and avoids the
-`refreshPrompts` upsert-stickiness trap (§5c).
+`refreshPrompts` upsert-stickiness trap (§6c).
 
-## 6. Commit + PR conventions
+## 7. Commit + PR conventions
 
 - Commit message format: `<type>: <subject>` then optional body.
   `type` ∈ `feat | fix | refactor | docs | test | chore | perf | ci`.
@@ -792,7 +1047,7 @@ extended to include all five families' lead models. This keeps
     document the reason in the commit body.
 - Never `--amend` a published commit unless the user explicitly says so.
 
-## 7. Skill routing (gstack)
+## 8. Skill routing (gstack)
 
 When the user invokes a slash command from gstack, the skill takes
 precedence over generic plan-mode behavior. Common skills used here:
@@ -808,7 +1063,7 @@ Skills are stored under `~/.claude/skills/`; their SKILL.md files are
 authoritative. Never use `mcp__claude-in-chrome__*` tools — always go
 through `/browse`.
 
-## 8. CI/CD (GitHub Actions)
+## 9. CI/CD (GitHub Actions)
 
 The Manut-specific workflows live alongside the upstream AFFiNE ones
 (which target `canary`/`master` and rely on upstream-only secrets, so

@@ -123,3 +123,45 @@ export interface CreateMnCrmActivityInput {
   subject?: string | null;
   body?: string | null;
 }
+
+// Update inputs. Every field is optional — undefined leaves the column
+// alone, an explicit `null` clears it. Matches the DTO shape in
+// packages/backend/server/src/plugins/manut/manut-crm.dto.ts.
+
+export interface UpdateMnCrmAccountInput {
+  name?: string | null;
+  website?: string | null;
+  industry?: string | null;
+  notes?: string | null;
+  ownerUserId?: string | null;
+}
+
+export interface UpdateMnCrmContactInput {
+  accountId?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  title?: string | null;
+  ownerUserId?: string | null;
+}
+
+export interface UpdateMnCrmDealInput {
+  accountId?: string | null;
+  contactId?: string | null;
+  stageId?: string | null;
+  name?: string | null;
+  value?: number | null;
+  currency?: string | null;
+  probability?: number | null;
+  expectedCloseAt?: string | null;
+  ownerUserId?: string | null;
+}
+
+export interface UpdateMnCrmActivityInput {
+  type?: MnCrmActivityType;
+  subject?: string | null;
+  body?: string | null;
+  dueAt?: string | null;
+  completedAt?: string | null;
+}

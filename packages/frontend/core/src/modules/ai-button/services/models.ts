@@ -1,3 +1,4 @@
+import { isGraphQLSchemaValidationError } from '@affine/error';
 import { getPromptModelsQuery, SubscriptionStatus } from '@affine/graphql';
 import {
   createSignalFromObservable,
@@ -44,6 +45,24 @@ export class AIModelService extends Service {
     this.disposables.push(cleanup);
 
     this.init().catch(err => {
+      if (isGraphQLSchemaValidationError(err)) {
+        // Backend missing the copilot prompt-models field (module disabled
+        // or version skew). Surface a synthetic Auto entry so the picker
+        // doesn't render an empty dropdown — selecting Auto sends
+        // modelId='auto' which the backend resolves server-side.
+        console.warn('[ai] models query unavailable — using fallback');
+        this.models.value = [
+          {
+            id: 'auto',
+            name: 'Auto',
+            version: 'Smart routing',
+            category: 'Auto',
+            isPro: false,
+            isDefault: true,
+          },
+        ];
+        return;
+      }
       console.error(err);
     });
   }
