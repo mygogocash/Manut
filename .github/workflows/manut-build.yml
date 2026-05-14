@@ -29,7 +29,7 @@ run-name: '🏗️ Build #${{ github.run_number }} • ${{ github.event.workflow
 
 on:
   workflow_run:
-    workflows: ['Manut CI']
+    workflows: ['✅ Manut CI']
     types: [completed]
     branches: [main]
   # Manual trigger exists primarily as the buildx-cache nuke escape
