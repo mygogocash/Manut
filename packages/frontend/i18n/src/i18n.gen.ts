@@ -9116,6 +9116,62 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.title"](): string;
     /**
+      * `Part of a cluster of {{size}} docs`
+      */
+    ["com.manut.knowledgeGraph.detail.cluster"](options: {
+        readonly size: string;
+    }): string;
+    /**
+      * `Close panel`
+      */
+    ["com.manut.knowledgeGraph.detail.close"](): string;
+    /**
+      * `Incoming links ({{count}})`
+      */
+    ["com.manut.knowledgeGraph.detail.incoming"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `No recent activity`
+      */
+    ["com.manut.knowledgeGraph.detail.noActivity"](): string;
+    /**
+      * `No incoming links`
+      */
+    ["com.manut.knowledgeGraph.detail.noIncoming"](): string;
+    /**
+      * `No outgoing links`
+      */
+    ["com.manut.knowledgeGraph.detail.noOutgoing"](): string;
+    /**
+      * `Open {{title}}`
+      */
+    ["com.manut.knowledgeGraph.detail.openDoc"](options: {
+        readonly title: string;
+    }): string;
+    /**
+      * `Open document`
+      */
+    ["com.manut.knowledgeGraph.detail.openDocumentButton"](): string;
+    /**
+      * `Open in peek`
+      */
+    ["com.manut.knowledgeGraph.detail.openPeekButton"](): string;
+    /**
+      * `Orphan doc`
+      */
+    ["com.manut.knowledgeGraph.detail.orphan"](): string;
+    /**
+      * `Outgoing links ({{count}})`
+      */
+    ["com.manut.knowledgeGraph.detail.outgoing"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `Recent AI activity`
+      */
+    ["com.manut.knowledgeGraph.detail.recentActivity"](): string;
+    /**
       * `Add task`
       */
     ["com.manut.pm.action.addTask"](): string;

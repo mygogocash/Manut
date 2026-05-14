@@ -4,6 +4,7 @@ import { DocsSearchService } from '@affine/core/modules/docs-search';
 import { PeekViewService } from '@affine/core/modules/peek-view';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
+import { DebugLogger } from '@affine/debug';
 import { useLiveData, useService } from '@toeverything/infra';
 import {
   type CSSProperties,
@@ -16,12 +17,19 @@ import {
 import { combineLatest, map, of, switchMap } from 'rxjs';
 
 import { getActivationBus } from '../services/activation-bus';
+import {
+  type ActivityBuffer,
+  createActivityBuffer,
+} from '../services/activity-buffer';
 import { subscribeDocReadStream } from '../services/doc-read-stream';
 import {
   curveOffsetFor,
   labelPropagation,
   lobeColour,
 } from '../utils/graph-math';
+import { NodeDetailPanel } from './node-detail-panel';
+
+const logger = new DebugLogger('knowledge-graph');
 
 interface GraphNode {
   id: string;
@@ -469,6 +477,14 @@ export const KnowledgeGraphView = () => {
       const { nodes, edges } = stateRef.current;
       const source = nodes.find(n => n.id === event.docId);
       if (!source) return;
+      // Feed the per-doc activity ring buffer so the detail panel's
+      // "Recent activity" list reflects AI doc-reads in real time.
+      activityBufferRef.current?.push({
+        docId: event.docId,
+        timestamp: Date.now(),
+        toolName: event.op,
+        agentLabel: event.agentId,
+      });
       // Snapshot the source's lobe colour at spawn time so changes to the
       // cluster after spawn don't recolour an in-flight pulse mid-travel.
       const palette = lobeColour(source.cluster);
@@ -1042,41 +1058,74 @@ export const KnowledgeGraphView = () => {
 
   const isEmpty = docTitlesById.size === 0 || edges.length === 0;
 
-  // Preview-panel data. Title falls back to the reactive docTitlesById map so
-  // a rename re-renders the panel even though the underlying nodes array is
-  // a ref. Edge counts are computed off the reactive `edges` state.
-  const selectedTitle = selectedId
-    ? (docTitlesById.get(selectedId) ??
-      stateRef.current.nodes.find(n => n.id === selectedId)?.title ??
-      'Untitled')
-    : '';
+  // Snapshot of nodes for the panel — only the fields it actually consumes
+  // (id/title/hueShift). Re-derived whenever the simulation node set changes
+  // by way of docTitlesById; this avoids handing the panel the live mutating
+  // physics array.
+  const panelNodes = useMemo(() => {
+    return stateRef.current.nodes.map(n => ({
+      id: n.id,
+      title: docTitlesById.get(n.id) ?? n.title,
+      hueShift: n.hueShift,
+    }));
+    // stateRef.current.nodes is updated synchronously when docTitlesById
+    // changes (see the rebuild effect above), so docTitlesById is a safe
+    // proxy for "node set changed". Edges aren't needed here.
+     
+  }, [docTitlesById]);
 
-  // Memoized so the per-frame React re-renders triggered by the simulation's
-  // hover/selection updates don't re-walk all 200+ edges every paint.
-  const { outboundCount, inboundCount } = useMemo(() => {
-    if (!selectedId) return { outboundCount: 0, inboundCount: 0 };
-    let out = 0;
-    let inb = 0;
-    for (const e of edges) {
-      if (e.source === selectedId) out++;
-      else if (e.target === selectedId) inb++;
+  // Per-doc recent-activity ring buffer. Wired here so future code that
+  // subscribes to an activation bus only needs to call `activityBuffer.push`;
+  // the panel re-reads via `selectedActivity` below.
+  const activityBufferRef = useRef<ActivityBuffer | null>(null);
+  if (activityBufferRef.current === null) {
+    activityBufferRef.current = createActivityBuffer();
+  }
+
+  // Recent-activity list for the currently-selected doc. Driven by an
+  // effect rather than a useMemo so we can poll the wall-clock (Date.now)
+  // without violating react-hooks/purity. We re-read on a 1s tick while
+  // a node is selected so the relative timestamps stay fresh and any
+  // pulses that landed since the last render show up.
+  const [selectedActivity, setSelectedActivity] = useState<
+    ReturnType<ActivityBuffer['recent']>
+  >([]);
+  useEffect(() => {
+    if (!selectedId || !activityBufferRef.current) {
+      setSelectedActivity([]);
+      return undefined;
     }
-    return { outboundCount: out, inboundCount: inb };
-  }, [edges, selectedId]);
+    const refresh = () => {
+      const buf = activityBufferRef.current;
+      if (!buf) return;
+      setSelectedActivity(buf.recent(selectedId, Date.now()));
+    };
+    refresh();
+    const id = window.setInterval(refresh, 1000);
+    return () => window.clearInterval(id);
+  }, [selectedId, edges]);
 
-  const onOpenDoc = useCallback(() => {
-    if (!selectedId) return;
-    workbenchService.workbench.openDoc(selectedId);
-  }, [selectedId, workbenchService]);
-  const onOpenPeek = useCallback(() => {
-    if (!selectedId) return;
-    peekViewService.peekView
-      .open({
-        type: 'doc',
-        docRef: { docId: selectedId },
-      })
-      .catch(console.error);
-  }, [selectedId, peekViewService]);
+  const onOpenDoc = useCallback(
+    (docId: string) => {
+      workbenchService.workbench.openDoc(docId);
+    },
+    [workbenchService]
+  );
+  const onOpenPeek = useCallback(
+    (docId: string) => {
+      peekViewService.peekView
+        .open({
+          type: 'doc',
+          docRef: { docId },
+        })
+        .catch((err: unknown) => {
+          // Sentry-backed logger — never console.* per module rules.
+          logger.error('failed to open peek view', err);
+        });
+    },
+    [peekViewService]
+  );
+  const onPanelClose = useCallback(() => setSelectedId(null), []);
 
   return (
     <div ref={containerRef} style={containerStyle}>
@@ -1094,130 +1143,16 @@ export const KnowledgeGraphView = () => {
         onPointerCancel={onPointerUp}
       />
       {isEmpty && <div style={emptyStateStyle}>{emptyStateMessage}</div>}
-      <div
-        // `inert` (HTML global, supported across modern browsers) takes the
-        // whole subtree out of the focus order, hides it from AT, and blocks
-        // pointer events when set. This matters because the panel is always
-        // mounted (so the slide-in animation can run) but invisible when
-        // collapsed — without inert, its buttons stay tab-focusable behind
-        // the offscreen translate, which is a real a11y trap.
-
-        inert={selectedId ? undefined : ''}
-        aria-hidden={selectedId ? undefined : true}
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 320,
-          background: 'rgba(20, 20, 30, 0.72)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
-          padding: 20,
-          boxSizing: 'border-box',
-          color: 'rgba(255, 255, 255, 0.92)',
-          display: 'flex',
-          flexDirection: 'column',
-          // Keep the panel mounted so the slide animation can run; just push
-          // it offscreen + disable pointer events when nothing is selected.
-          transform: selectedId ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 240ms ease',
-          pointerEvents: selectedId ? 'auto' : 'none',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: 12,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 18,
-              fontWeight: 700,
-              color: '#fff',
-              lineHeight: 1.3,
-              wordBreak: 'break-word',
-            }}
-          >
-            {selectedTitle}
-          </div>
-          <button
-            type="button"
-            aria-label="Close preview"
-            onClick={() => setSelectedId(null)}
-            style={{
-              flex: '0 0 auto',
-              width: 28,
-              height: 28,
-              borderRadius: 6,
-              background: 'transparent',
-              border: 'none',
-              color: 'rgba(255, 255, 255, 0.7)',
-              fontSize: 18,
-              lineHeight: 1,
-              cursor: 'pointer',
-              padding: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            ×
-          </button>
-        </div>
-        <div
-          style={{
-            marginTop: 10,
-            fontSize: 12,
-            color: 'rgba(255, 255, 255, 0.55)',
-          }}
-        >
-          {outboundCount === 0 && inboundCount === 0
-            ? 'No links — orphan doc'
-            : `${outboundCount} outbound · ${inboundCount} inbound`}
-        </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button
-            type="button"
-            onClick={onOpenDoc}
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              fontSize: 13,
-              fontWeight: 600,
-              color: '#0b0b14',
-              background: 'rgba(255, 255, 255, 0.92)',
-              border: 'none',
-              borderRadius: 8,
-              cursor: 'pointer',
-            }}
-          >
-            Open document
-          </button>
-          <button
-            type="button"
-            onClick={onOpenPeek}
-            style={{
-              width: '100%',
-              padding: '10px 14px',
-              fontSize: 13,
-              fontWeight: 500,
-              color: 'rgba(255, 255, 255, 0.92)',
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.14)',
-              borderRadius: 8,
-              cursor: 'pointer',
-            }}
-          >
-            Open in peek
-          </button>
-        </div>
-      </div>
+      <NodeDetailPanel
+        selectedId={selectedId}
+        nodes={panelNodes}
+        edges={edges}
+        docTitlesById={docTitlesById}
+        recentActivity={selectedActivity}
+        onOpenDoc={onOpenDoc}
+        onOpenPeek={onOpenPeek}
+        onClose={onPanelClose}
+      />
     </div>
   );
 };
