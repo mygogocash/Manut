@@ -1,8 +1,11 @@
+import { randomUUID } from 'node:crypto';
+
 import { z } from 'zod';
 
 import type { AccessController } from '../../../core/permission';
 import type { Models } from '../../../models';
 import type { IndexerService, SearchDoc } from '../../indexer';
+import type { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
 import { workspaceSyncRequiredError } from './doc-sync';
 import { toolError } from './error';
 import { defineTool } from './tool';
@@ -11,7 +14,8 @@ import type { CopilotChatOptions } from './types';
 export const buildDocKeywordSearchGetter = (
   ac: AccessController,
   indexerService: IndexerService,
-  models: Models
+  models: Models,
+  bus?: DocReadEventBus
 ) => {
   const searchDocs = async (options: CopilotChatOptions, query?: string) => {
     const queryTrimmed = query?.trim();
@@ -45,6 +49,24 @@ export const buildDocKeywordSearchGetter = (
       .user(options.user)
       .workspace(options.workspace)
       .docs(docs, 'Doc.Read');
+
+    // Emit one activation pulse per readable doc the search returned.
+    // The graph view dedups via sourceId so a workspace owner with
+    // multiple search calls sees a single pulse per docId per call.
+    if (bus && readableDocs?.length) {
+      const ts = Date.now();
+      for (const doc of readableDocs) {
+        bus.emit(options.workspace, {
+          workspaceId: options.workspace,
+          docId: doc.docId,
+          sourceId: randomUUID(),
+          op: 'searchWorkspace',
+          agentId: options.session,
+          ts,
+        });
+      }
+    }
+
     return readableDocs ?? [];
   };
   return searchDocs;
