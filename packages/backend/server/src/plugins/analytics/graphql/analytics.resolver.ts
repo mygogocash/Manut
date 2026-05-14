@@ -8,13 +8,9 @@ import {
   BudgetExceededError,
   StrategistService,
 } from '../ai/strategist.service';
-import { SocialPlatform } from '../connections/connection.entity';
 import {
   AcknowledgeInsightInput,
-  AnalyticsKpiObjectType,
   AnalyticsOverviewObjectType,
-  AnalyticsPlatformStatusObjectType,
-  InsightSeverity,
   InsightType,
   ListInsightsInput,
   ListMetricsInput,
@@ -22,14 +18,7 @@ import {
   SocialInsightObjectType,
   SocialMetricObjectType,
 } from './analytics.dto';
-
-const GOGOCASH_KPI_DEFS: Array<{ key: string; label: string }> = [
-  { key: 'total_users', label: 'Total users' },
-  { key: 'signups_7d', label: 'Signups (7d)' },
-  { key: 'dau', label: 'DAU' },
-  { key: 'mau', label: 'MAU' },
-  { key: 'total_workspaces', label: 'Total workspaces' },
-];
+import { buildOverview, toInsightDto } from './overview';
 
 /**
  * Top-level Analytics GraphQL surface (PRD §4 dashboard contract).
@@ -55,109 +44,13 @@ export class AnalyticsResolver {
     @Args('workspaceId', { type: () => String }) workspaceId: string
   ): Promise<AnalyticsOverviewObjectType> {
     // Workspace ACL: only members can read overview.
-    await this.ac
-      .user(user.id)
-      .workspace(workspaceId)
-      .assert('Workspace.Read');
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
 
-    return await this.buildOverview(workspaceId);
-  }
-
-  private async buildOverview(
-    workspaceId: string
-  ): Promise<AnalyticsOverviewObjectType> {
-    const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
-
-    // Pull last 24h of hourly metrics for the GoGoCash KPIs we care about.
-    // We also fetch the prior 24h window so we can compute deltaPct.
-    const recentRows = await this.db.socialMetric.findMany({
-      where: {
-        workspaceId,
-        platform: 'GOGOCASH',
-        bucket: 'HOUR',
-        bucketStart: { gte: twoDaysAgo },
-        metricKey: { in: GOGOCASH_KPI_DEFS.map(k => k.key) },
-      },
-      orderBy: { bucketStart: 'asc' },
-    });
-
-    // Most recent timestamp across any metric — used for lastSyncAt.
-    const lastSyncAt =
-      recentRows.length > 0
-        ? recentRows.reduce<Date>(
-            (max, r) => (r.bucketStart > max ? r.bucketStart : max),
-            recentRows[0].bucketStart
-          )
-        : null;
-
-    const kpis: AnalyticsKpiObjectType[] = GOGOCASH_KPI_DEFS.map(def => {
-      const rowsForKey = recentRows.filter(r => r.metricKey === def.key);
-
-      // Sparkline = last 24 hourly values (chronological).
-      const last24h = rowsForKey
-        .filter(r => r.bucketStart >= oneDayAgo)
-        .map(r => r.value);
-
-      const prev24h = rowsForKey
-        .filter(
-          r => r.bucketStart < oneDayAgo && r.bucketStart >= twoDaysAgo
-        )
-        .map(r => r.value);
-
-      const currentValue = last24h.length > 0 ? last24h[last24h.length - 1] : 0;
-
-      const lastAvg = avg(last24h);
-      const prevAvg = avg(prev24h);
-      const deltaPct = computeDeltaPct(lastAvg, prevAvg);
-
-      return {
-        key: def.key,
-        label: def.label,
-        value: currentValue,
-        deltaPct,
-        sparkline: last24h,
-      };
-    });
-
-    // Connections summary (per platform). For now we only surface the
-    // GOGOCASH source — other platforms remain Round-A stubs.
-    const gogocashConn = await this.db.socialConnection.findFirst({
-      where: { workspaceId, platform: 'GOGOCASH' },
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    const platforms: AnalyticsPlatformStatusObjectType[] = [
-      {
-        platform: SocialPlatform.GOGOCASH,
-        status: gogocashConn?.status ?? 'NOT_CONNECTED',
-        lastSyncAt: gogocashConn?.lastSyncAt ?? lastSyncAt,
-        isConnected: !!gogocashConn,
-      },
-    ];
-
-    // Pull the 5 most recent insights for the overview tile. Cheap — one
-    // index hit on (workspaceId, createdAt).
-    const recentInsights = await this.db.socialInsight.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-    });
-
-    return {
-      workspaceId,
-      generatedAt: now,
-      lastSyncAt,
-      platforms,
-      kpis,
-      recentInsights: recentInsights.map(toInsightDto),
-      // Round-A legacy fields. Kept zeroed for now.
-      totalConnections: gogocashConn ? 1 : 0,
-      insightsLast7Days: 0,
-      spendUsdThisMonth: 0,
-      capUsdThisMonth: 0,
-    };
+    // Delegates to the pure overview builder in `./overview.ts`. The split
+    // exists so unit tests can exercise the overview logic without booting
+    // Nest / pulling in the napi-bound `@affine/server-native` graph
+    // through this resolver's decorators.
+    return await buildOverview(this.db, workspaceId);
   }
 
   @Query(() => [SocialInsightObjectType], {
@@ -296,40 +189,4 @@ export class AnalyticsResolver {
       // Never let event publishing failures break the mutation.
     }
   }
-}
-
-function avg(values: number[]): number {
-  if (values.length === 0) return 0;
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
-}
-
-function computeDeltaPct(current: number, prior: number): number | null {
-  if (prior === 0) return null;
-  return ((current - prior) / prior) * 100;
-}
-
-function toInsightDto(row: {
-  id: string;
-  insightType: string;
-  platforms: string[];
-  title: string;
-  body: string;
-  severity: string;
-  modelUsed: string;
-  costUsd: number;
-  createdAt: Date;
-  acknowledgedAt: Date | null;
-}): SocialInsightObjectType {
-  return {
-    id: row.id,
-    insightType: row.insightType as InsightType,
-    platforms: row.platforms as SocialPlatform[],
-    title: row.title,
-    body: row.body,
-    severity: row.severity as InsightSeverity,
-    modelUsed: row.modelUsed,
-    costUsd: row.costUsd,
-    createdAt: row.createdAt,
-    acknowledgedAt: row.acknowledgedAt,
-  };
 }

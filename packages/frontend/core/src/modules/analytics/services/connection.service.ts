@@ -22,9 +22,9 @@ const POPUP_FEATURES =
   'popup,width=520,height=720,menubar=no,toolbar=no,location=no,status=no';
 
 /**
- * True when the GraphQL error indicates the server's schema has no
- * `connections` field — i.e. the analytics module is not loaded. We
- * recognise two signatures emitted by the server:
+ * True when the GraphQL error indicates the server's schema is missing an
+ * analytics field — i.e. the analytics module is not loaded. We recognise
+ * two signatures emitted by the server:
  *   1. `name === 'GRAPHQL_BAD_REQUEST'` with `data.code ===
  *      'GRAPHQL_VALIDATION_FAILED'` (the canonical extension shape
  *      surfaced through `UserFriendlyError`).
@@ -32,10 +32,17 @@ const POPUP_FEATURES =
  *      the error fell through the `fromAny` classifier and only the
  *      `.message` survived.
  *
- * Used by `loadConnections` to flip an `unavailable` flag instead of
- * showing the generic "Unhandled error raised" banner. Public so the
- * settings view can also classify the synchronous `beginOAuth` error
- * path identically.
+ * The fallback matchers are deliberately schema-field-agnostic: both the
+ * `connections` (settings panel) and `getOverview` (analytics dashboard)
+ * loaders consume this classifier, and adding a new analytics resolver
+ * MUST NOT require a parallel edit here. We match the generic Apollo
+ * validation phrase plus the structured error code so future fields are
+ * covered automatically.
+ *
+ * Used by `loadConnections` / `loadOverview` to flip an `unavailable` flag
+ * instead of showing the generic "Unhandled error raised" banner. Public
+ * so the settings view can also classify the synchronous `beginOAuth`
+ * error path identically.
  */
 export function isAnalyticsFeatureUnavailableError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
@@ -52,8 +59,10 @@ export function isAnalyticsFeatureUnavailableError(err: unknown): boolean {
   }
   const message =
     typeof candidate.message === 'string' ? candidate.message : '';
+  // Match the generic Apollo validation phrase rather than a specific
+  // field name so new analytics resolvers are covered without an edit.
   return (
-    message.includes('Cannot query field "connections"') ||
+    /Cannot query field ".+?"/.test(message) ||
     message.includes('GRAPHQL_VALIDATION_FAILED')
   );
 }

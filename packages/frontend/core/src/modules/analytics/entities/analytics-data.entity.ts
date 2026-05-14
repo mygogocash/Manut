@@ -123,6 +123,20 @@ export class AnalyticsDataEntity extends Entity {
   readonly series$ = new LiveData<MetricSeries[]>([]);
   readonly loading$ = new LiveData<boolean>(false);
   readonly error$ = new LiveData<string | null>(null);
+  /**
+   * True when the backend GraphQL schema does not expose `getOverview`.
+   * That happens when the analytics module is disabled on the server
+   * (e.g. an older image that pre-dates the resolver, or
+   * `ENABLE_ANALYTICS_MODULE=false` on a non-selfhosted deployment).
+   * The view renders a friendly notice instead of the generic
+   * "Unhandled error raised" banner that `UserFriendlyError.fromAny()`
+   * falls back to when the GraphQL response has no useful error message.
+   *
+   * Mirrors `PlatformConnectionEntity.unavailable$` — same pattern, same
+   * UX — so operators get the same actionable copy from both panels on a
+   * version-skewed deployment.
+   */
+  readonly unavailable$ = new LiveData<boolean>(false);
 
   setOverview(overview: AnalyticsOverview | null): void {
     this.overview$.next(overview);
@@ -136,6 +150,10 @@ export class AnalyticsDataEntity extends Entity {
     this.error$.next(error);
   }
 
+  setUnavailable(unavailable: boolean): void {
+    this.unavailable$.next(unavailable);
+  }
+
   /**
    * Legacy mock loader retained for the views still on mock data
    * (platform-page, etc.). Do NOT use this for the new GoGoCash overview —
@@ -145,7 +163,7 @@ export class AnalyticsDataEntity extends Entity {
     this.loading$.next(true);
     this.error$.next(null);
     try {
-      // eslint-disable-next-line no-console
+       
       console.warn(
         '[analytics] AnalyticsDataEntity.load (mock) — used only by platform-page until it migrates to the GoGoCash overview path.'
       );

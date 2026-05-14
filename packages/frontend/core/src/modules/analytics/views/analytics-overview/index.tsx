@@ -42,17 +42,18 @@ export function AnalyticsOverview() {
   const overview = useLiveData(analyticsService.data.overview$);
   const loading = useLiveData(analyticsService.data.loading$) ?? false;
   const error = useLiveData(analyticsService.data.error$);
+  const unavailable = useLiveData(analyticsService.data.unavailable$) ?? false;
   const connections = useLiveData(connectionService.entity.connections$) ?? [];
 
   const workspaceId = workspaceService.workspace.id;
 
   useEffect(() => {
     analyticsService.loadOverview(workspaceId).catch(err => {
-      // eslint-disable-next-line no-console
+       
       console.warn('[analytics] loadOverview failed', err);
     });
     connectionService.loadConnections(workspaceId).catch(err => {
-      // eslint-disable-next-line no-console
+       
       console.warn('[analytics] loadConnections failed', err);
     });
   }, [analyticsService, connectionService, workspaceId]);
@@ -72,20 +73,31 @@ export function AnalyticsOverview() {
       </div>
 
       {loading && !overview ? (
-        <div className={styles.skeleton} data-testid="analytics-overview-loading">
+        <div
+          className={styles.skeleton}
+          data-testid="analytics-overview-loading"
+        >
           <div className={styles.skeletonBlock} />
           <div className={styles.skeletonBlock} />
           <div className={styles.skeletonBlock} />
         </div>
-      ) : error ? (
-        <div className={styles.empty}>
-          Could not load analytics: {error}
-        </div>
-      ) : empty ? (
+      ) : unavailable ? (
+        // Schema-missing fallback: the deployed server doesn't expose
+        // `getOverview`. Show an actionable notice instead of the generic
+        // "Unhandled error raised" banner that surfaced on prod before this
+        // path existed (mirrors the connections settings panel).
         <div
           className={styles.empty}
-          data-testid="analytics-overview-empty"
+          data-testid="analytics-overview-unavailable"
         >
+          Analytics is not enabled on this server. Ask your administrator to
+          enable the analytics module (<code>ENABLE_ANALYTICS_MODULE=true</code>
+          ) and redeploy.
+        </div>
+      ) : error ? (
+        <div className={styles.empty}>Could not load analytics: {error}</div>
+      ) : empty ? (
+        <div className={styles.empty} data-testid="analytics-overview-empty">
           No data yet — connect a platform or wait 5 minutes for the next sync.
         </div>
       ) : (
@@ -137,8 +149,8 @@ export function AnalyticsOverview() {
           ))
         ) : (
           <div className={styles.empty}>
-            No platforms connected yet. Open Workspace Settings → Connections
-            to link your social accounts.
+            No platforms connected yet. Open Workspace Settings → Connections to
+            link your social accounts.
           </div>
         )}
       </div>
