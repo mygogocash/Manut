@@ -66,6 +66,10 @@ export const workbenchRoutes = [
     lazy: () => import('./pages/workspace/projects/index'),
   },
   {
+    path: '/projects/:projectId',
+    lazy: () => import('./pages/workspace/projects/detail'),
+  },
+  {
     path: '/crm',
     lazy: () => import('./pages/workspace/crm/index'),
   },

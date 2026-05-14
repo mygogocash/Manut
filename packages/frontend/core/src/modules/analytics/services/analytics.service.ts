@@ -19,6 +19,7 @@ import {
   type InsightSeverity,
   type InsightType,
 } from '../entities/insight.entity';
+import { isAnalyticsFeatureUnavailableError } from './connection.service';
 
 // SocialInsight on the wire (from `SocialInsightObjectType` in the backend
 // DTO) does NOT include `workspaceId`. The entity-level `Insight` type does
@@ -81,6 +82,45 @@ export interface ListInsightsOptions {
 export type InsightSubscriptionUnsubscribe = () => void;
 
 /**
+ * Pure helper for the analytics overview loader's catch-path. Extracted so
+ * unit tests (`apply-overview-load-error.spec.ts`) can verify the
+ * classification + setter wiring without booting the framework.
+ *
+ *  - Schema-missing (the deployed backend's GraphQL lacks `getOverview`):
+ *      → `unavailable = true`, `error = null`, `overview = null`
+ *      → loader does NOT rethrow
+ *  - Any other failure (real backend error, table-missing, 5xx, perms):
+ *      → `error = err.message`, `unavailable = false`, `overview = null`
+ *      → loader rethrows so observability sees it
+ *
+ * The split mirrors `connection.service.ts`'s `loadConnections` and reuses
+ * the same `isAnalyticsFeatureUnavailableError` classifier — keeping both
+ * panels in sync about which errors are "feature unavailable" vs "broken".
+ */
+export function applyOverviewLoadError(
+  data: Pick<
+    AnalyticsDataEntity,
+    'setOverview' | 'setError' | 'setUnavailable'
+  >,
+  err: unknown
+): void {
+  // Always clear the cached overview so a stale render doesn't survive a
+  // failure. The frontend treats null overview as "not loaded yet".
+  data.setOverview(null);
+  if (isAnalyticsFeatureUnavailableError(err)) {
+    data.setUnavailable(true);
+    data.setError(null);
+    console.warn(
+      '[analytics] overview schema not available on this server',
+      err
+    );
+    return;
+  }
+  const message = err instanceof Error ? err.message : 'Unknown error';
+  data.setError(message);
+}
+
+/**
  * AnalyticsService is the public read-side API for the Analytics module.
  *
  * Round-C operations:
@@ -110,10 +150,24 @@ export class AnalyticsService extends Service {
   /**
    * Load the workspace overview (KPIs + platform statuses) from the
    * backend.
+   *
+   * Error handling mirrors the Connections loader: when the GraphQL
+   * schema does NOT expose `getOverview` (the analytics module hasn't
+   * registered on the deployed server — usually a stale image or env
+   * var skew), we surface a typed `unavailable` flag so the view can
+   * render a friendly notice. Other errors (real backend failures,
+   * timeouts, permission denials) propagate through `error$` as before.
+   *
+   * We intentionally do NOT classify Prisma-side errors (e.g. the data
+   * migration `1746345600000-analytics-platform` not having run yet, so
+   * `social_metrics` is absent) as `unavailable` — those should surface
+   * as errors so operators investigate the missing migration rather than
+   * seeing a "disabled" message that papers over a broken deploy.
    */
   loadOverview = async (workspaceId: string): Promise<void> => {
     this.data.setLoading(true);
     this.data.setError(null);
+    this.data.setUnavailable(false);
     try {
       const data = await (
         await this.graphql()
@@ -127,10 +181,13 @@ export class AnalyticsService extends Service {
       // overview tile starts surfacing recentInsights again.
       this.data.setOverview({ ...data.getOverview, recentInsights: [] });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      this.data.setError(message);
-      this.data.setOverview(null);
-      throw err;
+      applyOverviewLoadError(this.data, err);
+      // Schema-missing errors are absorbed (loader settles successfully so
+      // the view renders the `unavailable` notice); everything else
+      // propagates so observability surfaces the real failure.
+      if (!isAnalyticsFeatureUnavailableError(err)) {
+        throw err;
+      }
     } finally {
       this.data.setLoading(false);
     }

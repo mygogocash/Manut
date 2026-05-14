@@ -75,6 +75,9 @@ vi.mock('@toeverything/infra', () => ({
     if (token === WorkspaceServiceToken) {
       return { workspace: { id: 'workspace-test' } };
     }
+    if (token === WorkbenchServiceToken) {
+      return { workbench: { open: vi.fn() } };
+    }
     return {};
   },
 }));

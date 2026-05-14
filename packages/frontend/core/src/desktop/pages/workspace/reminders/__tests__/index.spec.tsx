@@ -71,30 +71,55 @@ vi.mock('@affine/component', () => ({
     success: vi.fn(),
     error: vi.fn(),
   },
+  Switch: ({ checked }: { checked: boolean }) => (
+    <span data-testid="switch" data-checked={checked} />
+  ),
+  useConfirmModal: () => ({
+    openConfirmModal: vi.fn(),
+    closeConfirmModal: vi.fn(),
+  }),
 }));
 
 vi.mock('@affine/core/components/hooks/use-query', () => ({
-  useQuery: () => ({
-    data: useQueryState.data,
-    isLoading: useQueryState.isLoading,
-    error: useQueryState.error,
-    mutate: mutateQuery,
-  }),
+  useQuery: (arg: { query: { id: string } }) => {
+    if (arg.query.id === 'mnReminderRulesQuery') {
+      return {
+        data: { mnReminderRules: [] },
+        isLoading: false,
+        error: null,
+        mutate: vi.fn(async () => undefined),
+      };
+    }
+    return {
+      data: useQueryState.data,
+      isLoading: useQueryState.isLoading,
+      error: useQueryState.error,
+      mutate: mutateQuery,
+    };
+  },
 }));
 
 vi.mock('@affine/core/components/hooks/use-mutation', () => ({
-  useMutation: ({ mutation }: { mutation: { id: string } }) => ({
-    trigger:
-      mutation.id === 'createMnReminderMutation'
-        ? triggerCreate
-        : triggerCancel,
-  }),
+  useMutation: ({ mutation }: { mutation: { id: string } }) => {
+    switch (mutation.id) {
+      case 'createMnReminderMutation':
+        return { trigger: triggerCreate };
+      case 'cancelMnReminderMutation':
+        return { trigger: triggerCancel };
+      default:
+        return { trigger: vi.fn(async () => undefined) };
+    }
+  },
 }));
 
 vi.mock('@affine/core/modules/manut-reminders', () => ({
   mnRemindersQuery: { id: 'mnRemindersQuery' },
   createMnReminderMutation: { id: 'createMnReminderMutation' },
   cancelMnReminderMutation: { id: 'cancelMnReminderMutation' },
+  mnReminderRulesQuery: { id: 'mnReminderRulesQuery' },
+  createMnReminderRuleMutation: { id: 'createMnReminderRuleMutation' },
+  updateMnReminderRuleMutation: { id: 'updateMnReminderRuleMutation' },
+  deleteMnReminderRuleMutation: { id: 'deleteMnReminderRuleMutation' },
 }));
 
 vi.mock('@affine/core/modules/workbench', () => ({

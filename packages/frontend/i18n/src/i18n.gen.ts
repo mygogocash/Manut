@@ -9088,6 +9088,62 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.title"](): string;
     /**
+      * `Part of a cluster of {{size}} docs`
+      */
+    ["com.manut.knowledgeGraph.detail.cluster"](options: {
+        readonly size: string;
+    }): string;
+    /**
+      * `Close panel`
+      */
+    ["com.manut.knowledgeGraph.detail.close"](): string;
+    /**
+      * `Incoming links ({{count}})`
+      */
+    ["com.manut.knowledgeGraph.detail.incoming"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `No recent activity`
+      */
+    ["com.manut.knowledgeGraph.detail.noActivity"](): string;
+    /**
+      * `No incoming links`
+      */
+    ["com.manut.knowledgeGraph.detail.noIncoming"](): string;
+    /**
+      * `No outgoing links`
+      */
+    ["com.manut.knowledgeGraph.detail.noOutgoing"](): string;
+    /**
+      * `Open {{title}}`
+      */
+    ["com.manut.knowledgeGraph.detail.openDoc"](options: {
+        readonly title: string;
+    }): string;
+    /**
+      * `Open document`
+      */
+    ["com.manut.knowledgeGraph.detail.openDocumentButton"](): string;
+    /**
+      * `Open in peek`
+      */
+    ["com.manut.knowledgeGraph.detail.openPeekButton"](): string;
+    /**
+      * `Orphan doc`
+      */
+    ["com.manut.knowledgeGraph.detail.orphan"](): string;
+    /**
+      * `Outgoing links ({{count}})`
+      */
+    ["com.manut.knowledgeGraph.detail.outgoing"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `Recent AI activity`
+      */
+    ["com.manut.knowledgeGraph.detail.recentActivity"](): string;
+    /**
       * `Add task`
       */
     ["com.manut.pm.action.addTask"](): string;
@@ -9340,6 +9396,232 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.reminders.notify.created.title"](): string;
     /**
+      * `Delete`
+      */
+    ["com.manut.reminders.rules.action.delete"](): string;
+    /**
+      * `Edit`
+      */
+    ["com.manut.reminders.rules.action.edit"](): string;
+    /**
+      * `New rule`
+      */
+    ["com.manut.reminders.rules.action.new"](): string;
+    /**
+      * `Email`
+      */
+    ["com.manut.reminders.rules.channel.email"](): string;
+    /**
+      * `In-app`
+      */
+    ["com.manut.reminders.rules.channel.inApp"](): string;
+    /**
+      * `Cancel`
+      */
+    ["com.manut.reminders.rules.delete.confirm.cancel"](): string;
+    /**
+      * `{{name}} will stop firing. This cannot be undone.`
+      */
+    ["com.manut.reminders.rules.delete.confirm.description"](options: {
+        readonly name: string;
+    }): string;
+    /**
+      * `Delete`
+      */
+    ["com.manut.reminders.rules.delete.confirm.submit"](): string;
+    /**
+      * `Delete rule?`
+      */
+    ["com.manut.reminders.rules.delete.confirm.title"](): string;
+    /**
+      * `Failed to delete rule.`
+      */
+    ["com.manut.reminders.rules.error.delete"](): string;
+    /**
+      * `Failed to save rule.`
+      */
+    ["com.manut.reminders.rules.error.submit"](): string;
+    /**
+      * `Failed to update rule.`
+      */
+    ["com.manut.reminders.rules.error.toggle"](): string;
+    /**
+      * `Reminder body`
+      */
+    ["com.manut.reminders.rules.field.body.label"](): string;
+    /**
+      * `Body sent when this rule fires.`
+      */
+    ["com.manut.reminders.rules.field.body.placeholder"](): string;
+    /**
+      * `Channel`
+      */
+    ["com.manut.reminders.rules.field.channel.label"](): string;
+    /**
+      * `Five fields: minute hour day-of-month month day-of-week. Example: 0 9 * * 1 fires every Monday at 9am.`
+      */
+    ["com.manut.reminders.rules.field.cron.hint"](): string;
+    /**
+      * `Cron expression`
+      */
+    ["com.manut.reminders.rules.field.cron.label"](): string;
+    /**
+      * `Enabled`
+      */
+    ["com.manut.reminders.rules.field.enabled.label"](): string;
+    /**
+      * `Frequency`
+      */
+    ["com.manut.reminders.rules.field.frequency.label"](): string;
+    /**
+      * `Day of month`
+      */
+    ["com.manut.reminders.rules.field.monthDay.label"](): string;
+    /**
+      * `Name`
+      */
+    ["com.manut.reminders.rules.field.name.label"](): string;
+    /**
+      * `What should this rule do?`
+      */
+    ["com.manut.reminders.rules.field.name.placeholder"](): string;
+    /**
+      * `Advanced (cron)`
+      */
+    ["com.manut.reminders.rules.field.recurrence.advanced"](): string;
+    /**
+      * `Recurrence`
+      */
+    ["com.manut.reminders.rules.field.recurrence.label"](): string;
+    /**
+      * `Preset`
+      */
+    ["com.manut.reminders.rules.field.recurrence.preset"](): string;
+    /**
+      * `Invalid recurrence — fix the cron expression to continue.`
+      */
+    ["com.manut.reminders.rules.field.summary.invalid"](): string;
+    /**
+      * `Summary`
+      */
+    ["com.manut.reminders.rules.field.summary.label"](): string;
+    /**
+      * `Time`
+      */
+    ["com.manut.reminders.rules.field.time.label"](): string;
+    /**
+      * `Day of week`
+      */
+    ["com.manut.reminders.rules.field.weekday.label"](): string;
+    /**
+      * `Daily`
+      */
+    ["com.manut.reminders.rules.frequency.daily"](): string;
+    /**
+      * `Monthly`
+      */
+    ["com.manut.reminders.rules.frequency.monthly"](): string;
+    /**
+      * `Weekly`
+      */
+    ["com.manut.reminders.rules.frequency.weekly"](): string;
+    /**
+      * `No rules yet. Create one to start firing reminders on a schedule.`
+      */
+    ["com.manut.reminders.rules.list.empty"](): string;
+    /**
+      * `Last run:`
+      */
+    ["com.manut.reminders.rules.list.lastRun"](): string;
+    /**
+      * `Never`
+      */
+    ["com.manut.reminders.rules.list.never"](): string;
+    /**
+      * `Next run:`
+      */
+    ["com.manut.reminders.rules.list.nextRun"](): string;
+    /**
+      * `No schedule configured.`
+      */
+    ["com.manut.reminders.rules.list.noSchedule"](): string;
+    /**
+      * `Unknown`
+      */
+    ["com.manut.reminders.rules.list.unknown"](): string;
+    /**
+      * `Cancel`
+      */
+    ["com.manut.reminders.rules.modal.cancel"](): string;
+    /**
+      * `Create rule`
+      */
+    ["com.manut.reminders.rules.modal.create"](): string;
+    /**
+      * `New rule`
+      */
+    ["com.manut.reminders.rules.modal.create.title"](): string;
+    /**
+      * `Reminder rules fire repeatedly on a schedule you control.`
+      */
+    ["com.manut.reminders.rules.modal.description"](): string;
+    /**
+      * `Edit rule`
+      */
+    ["com.manut.reminders.rules.modal.edit.title"](): string;
+    /**
+      * `Save changes`
+      */
+    ["com.manut.reminders.rules.modal.save"](): string;
+    /**
+      * `Rule created`
+      */
+    ["com.manut.reminders.rules.notify.created.title"](): string;
+    /**
+      * `Could not delete rule`
+      */
+    ["com.manut.reminders.rules.notify.deleted.error"](): string;
+    /**
+      * `Rule deleted`
+      */
+    ["com.manut.reminders.rules.notify.deleted.title"](): string;
+    /**
+      * `Could not toggle rule`
+      */
+    ["com.manut.reminders.rules.notify.toggle.error"](): string;
+    /**
+      * `Rule updated`
+      */
+    ["com.manut.reminders.rules.notify.updated.title"](): string;
+    /**
+      * `Friday`
+      */
+    ["com.manut.reminders.rules.weekday.friday"](): string;
+    /**
+      * `Monday`
+      */
+    ["com.manut.reminders.rules.weekday.monday"](): string;
+    /**
+      * `Saturday`
+      */
+    ["com.manut.reminders.rules.weekday.saturday"](): string;
+    /**
+      * `Sunday`
+      */
+    ["com.manut.reminders.rules.weekday.sunday"](): string;
+    /**
+      * `Thursday`
+      */
+    ["com.manut.reminders.rules.weekday.thursday"](): string;
+    /**
+      * `Tuesday`
+      */
+    ["com.manut.reminders.rules.weekday.tuesday"](): string;
+    /**
+      * `Wednesday`
+      */
+    ["com.manut.reminders.rules.weekday.wednesday"](): string;
+    /**
       * `Cancelled`
       */
     ["com.manut.reminders.status.cancelled"](): string;
@@ -9367,6 +9649,10 @@ export function useAFFiNEI18N(): {
       * `Due now`
       */
     ["com.manut.reminders.tab.due"](): string;
+    /**
+      * `Rules`
+      */
+    ["com.manut.reminders.tab.rules"](): string;
     /**
       * `Upcoming`
       */

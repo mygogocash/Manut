@@ -63,11 +63,66 @@ export const createMnProjectMutation = {
 }`,
 };
 
+export const updateMnProjectMutation = {
+  id: 'updateMnProjectMutation' as const,
+  op: 'updateMnProject',
+  query: `mutation updateMnProject($projectId: ID!, $input: UpdateMnProjectInput!) {
+  updateMnProject(projectId: $projectId, input: $input) {
+    id
+    workspaceId
+    name
+    description
+    status
+    sortOrder
+    createdAt
+    updatedAt
+  }
+}`,
+};
+
+export const archiveMnProjectMutation = {
+  id: 'archiveMnProjectMutation' as const,
+  op: 'archiveMnProject',
+  query: `mutation archiveMnProject($projectId: ID!) {
+  archiveMnProject(projectId: $projectId) {
+    id
+    workspaceId
+    name
+    description
+    status
+    sortOrder
+    createdAt
+    updatedAt
+  }
+}`,
+};
+
 export const createMnTaskMutation = {
   id: 'createMnTaskMutation' as const,
   op: 'createMnTask',
   query: `mutation createMnTask($projectId: ID!, $input: CreateMnTaskInput!) {
   createMnTask(projectId: $projectId, input: $input) {
+    id
+    projectId
+    title
+    description
+    status
+    priority
+    dueAt
+    listSortOrder
+    assigneeUserId
+    createdByUserId
+    createdAt
+    updatedAt
+  }
+}`,
+};
+
+export const updateMnTaskMutation = {
+  id: 'updateMnTaskMutation' as const,
+  op: 'updateMnTask',
+  query: `mutation updateMnTask($taskId: ID!, $input: UpdateMnTaskInput!) {
+  updateMnTask(taskId: $taskId, input: $input) {
     id
     projectId
     title

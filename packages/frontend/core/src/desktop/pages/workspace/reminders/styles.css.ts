@@ -270,3 +270,81 @@ export const fieldError = style({
   fontSize: 11,
   lineHeight: '16px',
 });
+
+export const select = style({
+  width: '100%',
+  height: 32,
+  padding: '0 8px',
+  borderRadius: 6,
+  border: `1px solid ${cssVarV2.layer.insideBorder.border}`,
+  background: cssVarV2.layer.background.primary,
+  color: cssVarV2.text.primary,
+  fontSize: 13,
+  lineHeight: '20px',
+  selectors: {
+    '&:focus': {
+      outline: `1px solid ${cssVarV2.layer.insideBorder.blackBorder}`,
+    },
+  },
+});
+
+export const modeToggle = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  padding: 4,
+  borderRadius: 8,
+  background: cssVarV2.layer.background.secondary,
+  border: `1px solid ${cssVarV2.layer.insideBorder.border}`,
+  alignSelf: 'flex-start',
+});
+
+export const modeButton = style({
+  appearance: 'none',
+  border: 'none',
+  background: 'transparent',
+  padding: '6px 12px',
+  borderRadius: 6,
+  fontSize: 13,
+  lineHeight: '20px',
+  fontWeight: 500,
+  cursor: 'pointer',
+  color: cssVarV2.text.secondary,
+  selectors: {
+    '&[data-active="true"]': {
+      background: cssVarV2.layer.background.primary,
+      color: cssVarV2.text.primary,
+      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.06)',
+    },
+    '&:hover:not([data-active="true"]):not(:disabled)': {
+      color: cssVarV2.text.primary,
+    },
+    '&:disabled': {
+      cursor: 'not-allowed',
+      opacity: 0.6,
+    },
+  },
+});
+
+export const presetGrid = style({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: 12,
+});
+
+export const summary = style({
+  padding: '8px 10px',
+  borderRadius: 6,
+  border: `1px dashed ${cssVarV2.layer.insideBorder.border}`,
+  background: cssVarV2.layer.background.secondary,
+  fontSize: 13,
+  lineHeight: '20px',
+  color: cssVarV2.text.primary,
+});
+
+export const enabledRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8,
+});
