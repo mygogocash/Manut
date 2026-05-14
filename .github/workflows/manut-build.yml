@@ -1,4 +1,5 @@
-name: Manut Build
+name: 🏗️ Manut Build
+run-name: 🏗️ Build • ${{ github.event.workflow_run.head_sha && format('{0}@{1}', github.event.workflow_run.head_branch, github.event.workflow_run.head_sha) || github.sha }} • ${{ github.event_name }} • ${{ github.actor }}
 
 # Tier 2 split: this workflow ONLY builds + pushes the image. Deploy is
 # now a separate workflow (`Manut Auto Deploy`) that watches THIS
@@ -45,13 +46,17 @@ on:
         required: false
         default: false
 
-# One build at a time per branch. cancel-in-progress kills the runner
-# but the docker buildx push to GAR is the slow part; cancelling in the
-# middle of `docker buildx build --push` leaves no partial tag in GAR
-# (buildx publishes the manifest atomically at the end).
+# Build runs serially (one at a time globally) but QUEUE rather than
+# cancel. The cancel-in-progress: true setting caused a multi-cycle
+# cancellation storm during the v1.12.0 release (2026-05-14): every
+# new commit on main superseded its predecessor's Build, so no image
+# ever published. With cancel-in-progress: false, runs queue and each
+# Manut CI -> Manut Build chain completes in order. The buildx push
+# is atomic, so a queued Build that runs later still produces a clean
+# tagged image. See CLAUDE.md §8 for the full incident write-up.
 concurrency:
   group: superflow-build
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   YARN_ENABLE_HARDENED_MODE: 0

@@ -1,4 +1,5 @@
-name: Manut Deploy
+name: 🎯 Manut Deploy (manual)
+run-name: 🎯 Deploy ${{ inputs.tag }} • ${{ github.actor }}
 
 # Manually triggered. Deploys a chosen image tag to production using the
 # Tier 1 safe-deploy contract (smoke-then-swap with sidecar validation +

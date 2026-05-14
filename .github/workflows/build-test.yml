@@ -10,8 +10,25 @@ on:
       - v[0-9]+.[0-9]+.x
     paths-ignore:
       - README.md
+  # Upstream AFFiNE Build & Test does not apply to the Manut fork's `main`
+  # branch (we use `Manut CI` instead). Restrict pull_request + merge_group
+  # to the upstream-aligned release branches so PRs into `main` don't
+  # trigger noisy upstream test runs that have nothing to validate here.
+  # See CLAUDE.md §8 for the CI hygiene rationale.
   pull_request:
+    branches:
+      - canary
+      - beta
+      - stable
+      - v[0-9]+.[0-9]+.x-staging
+      - v[0-9]+.[0-9]+.x
   merge_group:
+    branches:
+      - canary
+      - beta
+      - stable
+      - v[0-9]+.[0-9]+.x-staging
+      - v[0-9]+.[0-9]+.x
 
 env:
   DEBUG: napi:*

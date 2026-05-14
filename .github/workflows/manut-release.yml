@@ -1,4 +1,5 @@
-name: Manut Release
+name: 📦 Manut Release
+run-name: 📦 Release ${{ github.ref_name }} • ${{ github.actor }}
 
 # Triggered when a `v*.*.*` tag is pushed.
 #
