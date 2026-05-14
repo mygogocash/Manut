@@ -624,6 +624,55 @@ Document the surprises — saves the next session a discovery cycle.
   Pre-deploy guard: smoke-test docker images locally with
   `docker run --rm -e DATABASE_URL=… <image> node ./dist/main.js` and
   watch for `UndefinedTypeError` in the first 5 seconds before pushing.
+- **NestJS DI metadata traps — broken TWICE the same day.** Same root
+  family as the `@Field` trap above: TypeScript type information has
+  to be present at runtime for NestJS reflection. Two distinct ways to
+  lose it on injected dependencies, both shipped in v1.12.0 and only
+  manifested when `ENABLE_MANUT_MODULE=true` was first flipped on
+  production:
+  - **`import type` on a DI target class.** `manut-agent-registry.service.ts`
+    used `import type { PrismaClient }` for the constructor injection
+    target. `import type` is erased at compile time, so the emitted
+    `design:paramtypes` metadata reflects `Object` instead of
+    `PrismaClient`, and NestJS throws
+    `UnknownDependenciesException: Nest can't resolve dependencies of
+    MnAgentRegistryService (?)`. Fixed in PR #57 by splitting the
+    import: runtime value for the class, `import type` only for
+    pure-type usages (e.g. row types from `@prisma/client`).
+  - **Missing `@Injectable()` decorator on a class registered as a
+    provider.** `SuperflowFeatureRegistrar` shipped in v1.10.x without
+    `@Injectable()`. Without that decoration, TypeScript skips emitting
+    the `design:paramtypes` metadata entirely, so the constructor
+    parameter (`ServerService`) silently resolves to `undefined`. The
+    class still instantiates (it's in the `providers[]` array) — the
+    crash happens on the first method call:
+    `TypeError: Cannot read properties of undefined (reading 'enableFeature')
+    at SuperflowFeatureRegistrar.onModuleInit`. Fixed in PR #58 by
+    adding `@Injectable()`. This was latent for 6+ months because the
+    module was never actually loaded in production.
+
+  Rules:
+  1. **Any class injected via an `@Injectable()` constructor parameter
+     must be a runtime import.** Never `import type` for DI targets.
+     Use `import type` ONLY for pure-type usages — function parameters,
+     return types, generic constraints, type aliases.
+  2. **Every class registered in a NestJS module's `providers[]` array
+     MUST be decorated with `@Injectable()`.** This is non-negotiable
+     even for classes that "look like" they shouldn't need it (e.g.
+     OnModuleInit-only registrars that exist purely for side effects).
+  3. **`MnAgentRegistryService` and `MnReleaseRunsService` have a CI
+     smoke test** (`__tests__/manut/module-init-smoke.spec.ts`) that
+     instantiates the gated `ManutModule.forRoot()` branch via
+     `Test.createTestingModule` and asserts all providers resolve.
+     Mirror this guard for every new module that adds providers — it
+     catches both traps above at PR time, not at production-flip time.
+  4. **Pre-deploy smoke for prod env changes:** before flipping any
+     module-gating env var like `ENABLE_MANUT_MODULE` for the first
+     time, run the same smoke locally:
+     `ENABLE_MANUT_MODULE=true docker run --rm <image> node ./dist/main.js`
+     and watch for `Listening on http://...:3010` within 10 seconds.
+     Any `UnknownDependenciesException` or `TypeError` in that window
+     means the module load is broken; do NOT flip in production.
 - **v1.10.2 — Gmail / Drive integrations.** Token refresh lives in
   `GoogleOAuthService.getValidAccessToken(userId, workspaceId, scope)`
   — call it from any new Google service to get a non-expired bearer
