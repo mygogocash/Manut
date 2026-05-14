@@ -1,33 +1,43 @@
 # AI Session Handover
 
-Last updated: 2026-05-10 15:01:17 +07
+Last updated: 2026-05-13 (v1.12.0 release handoff)
 
-This file is the fast-resume handover for AI sessions in the Superflow
-AFFiNE fork. Update it whenever meaningful work finishes, before long builds
-or deploys, and before ending a session. The goal is simple: another AI agent
-or human should be able to continue without relying on chat memory.
+This file is the fast-resume handover for AI sessions in the Manut
+AFFiNE fork (historically Superflow — the brand rename completed in
+v1.11.0). Update it whenever meaningful work finishes, before long
+builds or deploys, and before ending a session. The goal is simple:
+another AI agent or human should be able to continue without relying
+on chat memory.
 
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/superflow-backlog-pm-crm`
+- Branch: `docs/v1.12-release-and-handover-refresh` (this docs PR)
 - Upstream: `origin/main`
-- Local HEAD: `de7b49388 feat(superflow): add PM CRM reminders and handover inbox`
-- Origin HEAD: `788a0e0b0 chore(deps): bump fast-xml-builder (#16)`
-- Branch state: local branch is 1 commit ahead of and 1 commit behind
-  `origin/main`.
-- Dirty state: feature WIP was committed; this handover refresh is the only
-  expected local change. No source diff is pending.
-- Pull request: https://github.com/mygogocash/Superflow/pull/13 merged at
-  `2026-05-08T13:35:32Z`
-- Follow-up pull request: https://github.com/mygogocash/Superflow/pull/14
-  merged at `2026-05-08T14:09:04Z`
-- Dependabot pull requests: #15 merged at `2026-05-08T14:55:26Z`; #16
-  merged at `2026-05-09T00:12:29Z`.
+- Origin HEAD: `21364d308 chore(release): consolidate pending PRs #32 #34 #35 #36 #37 into v1.11.0 release (#39)`
+- Branch state: clean baseline + the docs edits in this PR.
 - Production branch: `main`
-- Production app: https://manut.gogocash.co
-- Production image: `main-788a0e0b0-25585897582`
-- Production deploy run: `25586178501` succeeded at `2026-05-09T00:29:21Z`
+- Production app: https://manut.gogocash.co (canonical;
+  `affine.gogocash.co` 301-redirects)
+- Production image lineage: post-v1.11.0 consolidation tag in the
+  GAR registry `affine-gogocash`. Refresh against the latest
+  `manut-release.yml` run for the exact tag.
+
+## Release lineage
+
+- **v1.10.2** — Gmail live import + Drive picker + AI permission mode
+  picker + DriveFile schema fix.
+- **v1.11.0** — Brand rename Superflow → Manut. Domain switch,
+  Prisma model rename, frontend module path rename, i18n key rename,
+  workflow filename rename, infra path rename, frontier model
+  picker, Moonshot/xAI/Alibaba providers, deploy.sh migration fix,
+  doc cleanup.
+- **v1.12.0** (this release) — PM, CRM, Reminders v0 frontend.
+  Analytics Connections panel fix. `gpt-5-mini` removed from the
+  auto-prompt runtime injection. Documentation refresh. The
+  detail/edit, Kanban, reminder rules, and brain-style Knowledge
+  Graph visualisation are tracked on internal branches but did not
+  merge in the v1.12.0 window.
 
 ## Latest Completed Work
 
@@ -187,12 +197,42 @@ or human should be able to continue without relying on chat memory.
   `packages/backend/server/src/plugins/superflow/` is now `plugins/manut/`
   (PR #29). Frontend `modules/superflow-*` is now `modules/manut-*`
   and i18n keys moved from `com.superflow.*` to `com.manut.*` (PR #30).
-  Documentation was brought into line in this commit. A handful of
-  internal identifiers — workflow filenames `superflow-*.yml`, the
-  GAR Docker image name `affine-gogocash`, and legacy
-  `@ObjectType('Superflow*')` GraphQL decorators — were deliberately
-  left at their old names with a tracked migration plan; see
-  `CLAUDE.md` §9.
+  Documentation was brought into line in v1.11.0. A handful of
+  internal identifiers — the GAR Docker image name `affine-gogocash`,
+  and legacy `@ObjectType('Superflow*')` GraphQL decorators — were
+  deliberately left at their old names with a tracked migration plan;
+  see `CLAUDE.md` §9. Workflow filenames were renamed from
+  `superflow-*.yml` to `manut-*.yml` as part of v1.11.0's
+  consolidation.
+- **2026-05-13 — v1.12.0 frontend rollout shipped.** The PM, CRM, and
+  Reminders v0 workspace pages landed on `main` via PR #23, gated on
+  `ServerFeature.Superflow`. The backend feature registrar
+  (`SuperflowFeatureRegistrar` in `plugins/manut/manut.module.ts`)
+  toggles the flag based on `ENABLE_MANUT_MODULE=true` (legacy
+  `ENABLE_SUPERFLOW_MODULE` fallback). PR #25 fixed the
+  `useSuperflowEnabled` hook's ServerFeature shape access. The chat
+  picker's `optionalModels` now exposes 10 frontier models; Moonshot,
+  xAI, and Alibaba provider implementations are wired but off until
+  provider config is populated on the VM.
+- **2026-05-13 — Analytics Connections panel unbroken on production.**
+  PR #33 fixed the `isAnalyticsModuleEnabled()` gate predicate to read
+  `globalThis.env.selfhosted` (matching `/info`) instead of the raw
+  `DEPLOYMENT_TYPE` env var. Settings → Connections now renders
+  normally on `manut.gogocash.co`; previously it surfaced "Unhandled
+  error raised" because the resolver was missing from the GraphQL
+  schema. A schema-version-skew fallback also lands so the panel
+  shows a friendly notice if the field is genuinely missing.
+- **2026-05-13 — `gpt-5-mini` removed from the auto prompt runtime
+  injection.** Commit `cbb55eef1` cleans up the in-memory auto prompt
+  injected by `PromptService` at boot. This was the runtime-only
+  sibling of the same trap documented in `CLAUDE.md` §5c.
+- **In flight (not merged at v1.12.0 cut).** Internal branches are
+  tracking detail/edit views for PM/CRM, Kanban for tasks and deals,
+  reminder rules editor + repeat schedules, and the brain-style
+  Knowledge Graph (multi-lobe layout, curved Bezier edges, synaptic
+  pulses on AI doc-reads via a doc-read event bus + SSE stream). The
+  Knowledge Graph branch (`feat/superflow-pm-crm-reminders-ui`) has
+  the implementation but did not merge in time for v1.12.0.
 
 ## Verification Already Run
 
@@ -278,31 +318,33 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
 
 ## Open Threads
 
-- The merged control-plane handover slice is now deployed and smoke-tested in
-  production; latest production image is `main-788a0e0b0-25585897582`.
-- Local commit `de7b49388` now includes PM/CRM/reminders backend APIs,
-  reminder delivery pipeline, Superflow Handover Inbox backend/frontend,
-  About/settings branding, and first-pass workspace routes/pages.
-- Remaining PM/CRM risk: CRM cross-workspace integrity is guarded in resolver
-  code but not enforced by composite foreign keys; keep service-level checks
-  before exposing richer mutation surfaces.
-- Remaining reminder risk: Superflow reminder handoff is now honest about
-  queueing, but there is still no provider-level delivery receipt path that
-  moves `QUEUED` deliveries to `SENT`/`COMPLETED`.
-- Remaining handover-inbox risk: backend unit tests cover parse/render/GraphQL
-  shape and generated CI JSON compatibility, and the rebuilt web bundle mounts
-  in a frontend-only static smoke. There is still no authenticated browser smoke
-  of the workspace integration panel and no live doc-create probe against a
-  running backend.
-- Review risk: the attempted final focused sub-agent review did not run because
-  the account hit the usage limit; keep PR review focused on reminder lifecycle,
-  Handover Inbox gating, and the import panel.
+- PM/CRM/Reminders v0 frontend is on `main` and gated on
+  `ServerFeature.Superflow`. Detail/edit views, Kanban for tasks/deals,
+  reminder rules editor, drag-drop, bulk operations / CSV, real-time
+  updates, and mobile views remain as v1 follow-ups — internal branches
+  exist; none merged at v1.12.0.
+- CRM cross-workspace integrity is guarded in resolver code but not
+  enforced by composite foreign keys. Keep service-level checks before
+  exposing richer mutation surfaces.
+- Reminder handoff records intent via `MnNotificationDelivery.QUEUED`
+  but there is no provider-level delivery receipt path that promotes
+  `QUEUED` to `SENT`/`COMPLETED`. Downstream confirmation requires
+  reading the mail provider's logs.
+- Brain-style Knowledge Graph (lobes, curved dendrite edges, synaptic
+  pulses on AI doc-reads via a `DocReadEventBus` + SSE stream at
+  `/api/workspace/:workspaceId/doc-read-stream`) lives on
+  `feat/superflow-pm-crm-reminders-ui` but did not merge for v1.12.0.
+  The branch has Phase 1 (layout) and Phase 2 (pulses) commits. Next
+  step is a review pass and a merge decision before v1.13.0.
+- Moonshot, xAI, and Alibaba providers are wired but the chat picker
+  doesn't render them until provider config (`apiKey`, `baseUrl`) is
+  populated on the VM. Document the rollout step before exposing them
+  in product.
 - Keep `docs/MANUT_CONTROL_PLANE.md` and this file in sync whenever the
   handover JSON contract changes.
-- Next concrete step: decide whether to rebase or merge `origin/main`
-  (`788a0e0b0`) into `codex/superflow-backlog-pm-crm`, then push the branch and
-  open a PR. Before any production deploy, run a full backend-backed browser
-  smoke for the Handover Inbox panel.
+- Next concrete step: open the v1.12.0 docs PR (this branch), then cut
+  the `v1.12.0` tag once `main` is rebased / merged and the release
+  CI green-lights the image.
 
 ## Frequent Update Protocol
 
