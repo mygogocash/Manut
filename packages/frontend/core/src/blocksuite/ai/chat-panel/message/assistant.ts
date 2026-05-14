@@ -145,10 +145,22 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
         ? this.renderStreamObjects(streamObjects)
         : this.renderRichText(content)}
       ${shouldRenderError ? AIChatErrorRenderer(error, host) : nothing}
-      ${this.renderWriteChip()}
-      ${this.renderEditorActions()}
+      ${this.renderWriteChip()} ${this.renderEditorActions()}
     `;
   }
+
+  // Knowledge-graph activation pulses: the optimistic frontend emit
+  // path (which used to live here) was removed because the backend emits
+  // its own `sourceId` via `crypto.randomUUID()` per tool call — there
+  // was no shared key to dedupe against, so every doc read produced two
+  // pulses (Codex PR review on #44). The /graph view now subscribes to
+  // the backend SSE stream as the single source of truth; the ~100ms
+  // round-trip is imperceptible against the 800ms pulse animation.
+  //
+  // If you need instant feedback again, plumb the AI SDK's `toolCallId`
+  // through `CopilotToolExecuteOptions` so the backend can use it as
+  // `sourceId`, then re-introduce the optimistic emit here with the
+  // same id. Until then, do not emit from the frontend.
 
   // ε-AI-INTEL v1.10: render a "AI made changes" chip whenever the
   // assistant's stream contains a tool-call for a write tool. Backend

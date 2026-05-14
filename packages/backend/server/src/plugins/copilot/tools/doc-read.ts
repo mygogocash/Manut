@@ -1,9 +1,12 @@
+import { randomUUID } from 'node:crypto';
+
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 
 import { DocReader } from '../../../core/doc';
 import { AccessController } from '../../../core/permission';
 import { Models } from '../../../models';
+import type { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
 import {
   documentSyncPendingError,
   workspaceSyncRequiredError,
@@ -20,7 +23,11 @@ const isToolError = (result: ToolError | object): result is ToolError =>
 export const buildDocContentGetter = (
   ac: AccessController,
   docReader: DocReader,
-  models: Models
+  models: Models,
+  // Optional so tests / callers that don't care about the activation
+  // pulse stream can omit it. Production wiring in provider.ts always
+  // passes the workspace-scoped bus.
+  bus?: DocReadEventBus
 ) => {
   const getDoc = async (options: CopilotChatOptions, docId?: string) => {
     if (!options?.user || !options?.workspace || !docId) {
@@ -62,6 +69,20 @@ export const buildDocContentGetter = (
     );
     if (!content) {
       return documentSyncPendingError(docId);
+    }
+
+    // Emit an activation pulse for the Knowledge Graph view AFTER we
+    // confirm the read succeeded. The graph subscribes via SSE and
+    // animates a light pulse along the matching edge.
+    if (bus) {
+      bus.emit(options.workspace, {
+        workspaceId: options.workspace,
+        docId,
+        sourceId: randomUUID(),
+        op: 'docRead',
+        agentId: options.session,
+        ts: Date.now(),
+      });
     }
 
     return {
