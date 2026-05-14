@@ -3,6 +3,11 @@ import { Loading } from '@affine/component/ui/loading';
 import { useSystemOnline } from '@affine/core/components/hooks/use-system-online';
 import { useWorkspace } from '@affine/core/components/hooks/use-workspace';
 import { useWorkspaceInfo } from '@affine/core/components/hooks/use-workspace-info';
+// Reuses the same confirmation modal as Settings → Workspace → Delete.
+// Surfacing it from the workspace switcher lets owners delete from where
+// they already see the workspace list, but the modal still requires
+// typing the workspace name so accidental clicks can't lose data.
+import { WorkspaceDeleteModal } from '@affine/core/desktop/dialogs/setting/workspace-setting/preference/delete-leave-workspace/delete';
 import {
   type WorkspaceMetadata,
   type WorkspaceProfileInfo,
@@ -14,6 +19,7 @@ import {
   ArrowDownSmallIcon,
   CloudWorkspaceIcon,
   CollaborationIcon,
+  DeleteIcon,
   DoneIcon,
   InformationFillDuotoneIcon,
   LocalWorkspaceIcon,
@@ -301,6 +307,7 @@ export const WorkspaceCard = forwardRef<
     const information = useWorkspaceInfo(workspaceMetadata);
     const workspacesService = useService(WorkspacesService);
     const navigate = useNavigateHelper();
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     const name = information?.name ?? UNTITLED_WORKSPACE_NAME;
 
@@ -319,6 +326,17 @@ export const WorkspaceCard = forwardRef<
           notify.error({ title: t['Failed to remove workspace']() });
         });
     }, [workspacesService, workspaceMetadata, t, navigate]);
+
+    // Open the typed-confirmation modal. Owners only. The previous Remove
+    // button was gated on `information.isEmpty && information.isOwner` so
+    // non-empty workspaces had no path here from the switcher — operators
+    // had to drill into Settings → Workspace → Delete. Now the same proper
+    // confirmation flow is one click away, but still requires typing the
+    // workspace name (modal logic in ./delete-leave-workspace/delete) so
+    // accidental clicks can't lose data.
+    const onOpenDeleteModal = useCatchEventCallback(() => {
+      setShowDeleteModal(true);
+    }, []);
 
     const onOpenSettings = useCatchEventCallback(() => {
       onClickOpenSettings?.(workspaceMetadata);
@@ -366,9 +384,6 @@ export const WorkspaceCard = forwardRef<
               <Skeleton width={100} />
             )}
           </div>
-          {information?.isEmpty && information.isOwner ? (
-            <Button onClick={onRemoveWorkspace}>Remove</Button>
-          ) : null}
           <div className={styles.showOnCardHover}>
             {onClickEnableCloud && workspaceMetadata.flavour === 'local' ? (
               <Button
@@ -384,6 +399,25 @@ export const WorkspaceCard = forwardRef<
                 <SettingsIcon width={16} height={16} />
               </div>
             )}
+
+            {/*
+             * Owner-only delete shortcut. Reveals on row hover, opens the
+             * type-the-workspace-name confirmation modal. The legacy guard
+             * `information.isEmpty` was removed so owners can clean up
+             * non-empty workspaces from the switcher too — the typed
+             * confirmation is the actual safety net, not row emptiness.
+             */}
+            {information?.isOwner ? (
+              <Tooltip content={t['com.affine.workspaceDelete.title']()}>
+                <div
+                  className={styles.settingButton}
+                  data-testid="workspace-card-delete-button"
+                  onClick={onOpenDeleteModal}
+                >
+                  <DeleteIcon width={16} height={16} />
+                </div>
+              </Tooltip>
+            ) : null}
           </div>
         </div>
 
@@ -407,6 +441,19 @@ export const WorkspaceCard = forwardRef<
           )}
           {showArrowDownIcon && <ArrowDownSmallIcon />}
         </div>
+        {/*
+         * Mounted at the same level as the card row so it doesn't inherit
+         * the row's hover/click handlers. WorkspaceDeleteModal renders to
+         * a Radix portal, so layout-wise it floats above everything else.
+         */}
+        {information?.isOwner ? (
+          <WorkspaceDeleteModal
+            workspaceMetadata={workspaceMetadata}
+            open={showDeleteModal}
+            onOpenChange={setShowDeleteModal}
+            onConfirm={onRemoveWorkspace}
+          />
+        ) : null}
       </div>
     );
   }
