@@ -1,5 +1,5 @@
 name: 🚀 Manut Auto Deploy
-run-name: 🚀 Auto Deploy • ${{ github.event.workflow_run.head_sha || github.sha }} • from ${{ github.event.workflow_run.name || github.event_name }}
+run-name: "🚀 Auto Deploy #${{ github.run_number }} • ${{ github.event.workflow_run.display_title || 'manual' }} • by ${{ github.actor }}"
 
 # Tier 2 split: this workflow ONLY deploys an already-built image. It
 # fires when `Manut Build` succeeds, fetches the resulting tag from
