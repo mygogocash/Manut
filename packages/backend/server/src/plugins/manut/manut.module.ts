@@ -1,5 +1,5 @@
 import type { DynamicModule, OnModuleInit } from '@nestjs/common';
-import { Module } from '@nestjs/common';
+import { Injectable, Module } from '@nestjs/common';
 
 import { ServerConfigModule, ServerService } from '../../core/config';
 import { ServerFeature } from '../../core/config/types';
@@ -25,7 +25,13 @@ import { SuperflowReminderResolver } from './manut-reminder.resolver';
  *
  * `ServerFeature.Superflow` retains its 'superflow' enum value because
  * the frontend reads it from the GraphQL server-config contract.
+ *
+ * `@Injectable()` is required so TypeScript emits the `design:paramtypes`
+ * metadata that NestJS DI uses to find `ServerService`. Without it,
+ * `this.server` is `undefined` at `onModuleInit` and `.enableFeature()`
+ * throws (see incident: ENABLE_MANUT_MODULE flip on 2026-05-14).
  */
+@Injectable()
 class SuperflowFeatureRegistrar implements OnModuleInit {
   constructor(private readonly server: ServerService) {}
 
