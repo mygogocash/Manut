@@ -62,7 +62,7 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'Unexpected error';
 }
 
-function formatDueDate(value: string | null): string {
+export function formatDueDate(value: string | null): string {
   if (!value) return '';
   const t = Date.parse(value);
   if (isNaN(t)) return '';
@@ -86,7 +86,7 @@ function dueAtInputValue(value: string | null): string {
   return `${year}-${month}-${day}`;
 }
 
-function priorityClass(priority: MnTaskPriority): string {
+export function priorityClass(priority: MnTaskPriority): string {
   switch (priority) {
     case 'URGENT':
       return listStyles.priorityUrgent;
@@ -102,7 +102,7 @@ function priorityClass(priority: MnTaskPriority): string {
   }
 }
 
-function readableStatus(value: MnTaskStatus): string {
+export function readableStatus(value: MnTaskStatus): string {
   switch (value) {
     case 'IN_PROGRESS':
       return 'In progress';
