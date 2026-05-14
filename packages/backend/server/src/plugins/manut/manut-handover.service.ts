@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 
 import { DocWriter } from '../../core/doc';
+import { MnReleaseRunsService } from './manut-release-runs.service';
 
 const MAX_HANDOVER_JSON_BYTES = 256 * 1024;
 const MAX_AGENTS = 20;
@@ -63,7 +64,12 @@ export interface RenderedSuperflowHandover {
 
 @Injectable()
 export class SuperflowHandoverService {
-  constructor(private readonly docWriter: DocWriter) {}
+  private readonly logger = new Logger(SuperflowHandoverService.name);
+
+  constructor(
+    private readonly docWriter: DocWriter,
+    private readonly releaseRuns: MnReleaseRunsService
+  ) {}
 
   async importHandover(
     workspaceId: string,
@@ -72,6 +78,8 @@ export class SuperflowHandoverService {
     targetDocId?: string | null
   ): Promise<SuperflowHandoverImportResult> {
     const rendered = parseAndRenderSuperflowHandover(handoverJson);
+
+    let result: SuperflowHandoverImportResult;
 
     if (targetDocId) {
       await this.docWriter.updateDoc(
@@ -87,25 +95,41 @@ export class SuperflowHandoverService {
         editorId
       );
 
-      return {
+      result = {
         docId: targetDocId,
         title: rendered.title,
         updated: true,
       };
+    } else {
+      const created = await this.docWriter.createDoc(
+        workspaceId,
+        rendered.title,
+        rendered.markdown,
+        editorId
+      );
+
+      result = {
+        docId: created.docId,
+        title: rendered.title,
+        updated: false,
+      };
     }
 
-    const result = await this.docWriter.createDoc(
-      workspaceId,
-      rendered.title,
-      rendered.markdown,
-      editorId
-    );
+    // Doc write is the source of truth. The release run board is a
+    // secondary projection — if persisting it fails (DB outage, schema
+    // drift, etc.) we still want the import call to succeed so the user
+    // gets their handover doc. Log the failure for ops to investigate.
+    try {
+      await this.releaseRuns.recordRunFromHandover(workspaceId, handoverJson);
+    } catch (err) {
+      this.logger.warn(
+        `Failed to record release run for workspace ${workspaceId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+    }
 
-    return {
-      docId: result.docId,
-      title: rendered.title,
-      updated: false,
-    };
+    return result;
   }
 }
 

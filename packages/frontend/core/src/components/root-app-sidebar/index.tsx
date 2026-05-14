@@ -26,6 +26,7 @@ import {
   DataPanelIcon,
   DateTimeIcon,
   FolderIcon,
+  HistoryIcon,
   ImportIcon,
   JournalIcon,
   SettingsIcon,
@@ -217,6 +218,32 @@ const RemindersButton = () => {
   );
 };
 
+/**
+ * Sidebar link to the Manut Control Plane release-runs board (Phase 4).
+ * Gated on `ServerFeature.Superflow` like the other Manut nav entries so
+ * users on stock AFFiNE don't see a broken link.
+ */
+const ReleaseRunsButton = () => {
+  const enabled = useSuperflowEnabled();
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const active = useLiveData(
+    workbench.location$.selector(location =>
+      location.pathname.startsWith('/release-runs')
+    )
+  );
+
+  if (!enabled) return null;
+
+  return (
+    <MenuLinkItem icon={<HistoryIcon />} active={active} to={'/release-runs'}>
+      <span data-testid="release-runs-nav">Release runs</span>
+    </MenuLinkItem>
+  );
+};
+
 const AIChatButton = () => {
   const t = useI18n();
   const featureFlagService = useService(FeatureFlagService);
@@ -346,6 +373,7 @@ export const RootAppSidebar = memo((): ReactElement => {
         <ProjectsButton />
         <CrmButton />
         <RemindersButton />
+        <ReleaseRunsButton />
         <AppSidebarJournalButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />

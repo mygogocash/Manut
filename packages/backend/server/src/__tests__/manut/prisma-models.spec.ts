@@ -21,4 +21,5 @@ test('Prisma client exposes Manut Mn* model delegates', t => {
   t.truthy(prisma.mnReminderRule);
   t.truthy(prisma.mnReminderRun);
   t.truthy(prisma.mnNotificationDelivery);
+  t.truthy(prisma.mnAgentRole);
 });

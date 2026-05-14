@@ -1080,12 +1080,13 @@ extended to include all five families' lead models. This keeps
 `prompts.ts` clean (no entry per-family) and avoids the
 `refreshPrompts` upsert-stickiness trap (§6c).
 
-## 5e. Knowledge Graph activation pulses
+## 6e. Knowledge Graph activation pulses
 
-> **Status as of v1.12.0:** the brain-style layout + activation-pulses
-> redesign of the Knowledge Graph shipped in v1.12.0 (combined PR).
-> This section is a quick reference for the doc-read event bus
-> contract.
+> **Status:** shipped in the v1.11.0/v1.12.0 release wave (PR #44
+> folded into the consolidation PR #39). The doc-read event bus is
+> live: the backend emits SSE events on every AI tool that reads or
+> edits a doc, and the frontend Knowledge Graph view subscribes and
+> animates pulses along the curved Bezier edges.
 
 ### Event shape
 
@@ -1174,7 +1175,7 @@ assignment / Bezier offset math. Test in isolation in
   body, because the AI's prose isn't structured enough to reliably
   classify.
 
-## 6. Commit + PR conventions
+## 7. Commit + PR conventions
 
 - Commit message format: `<type>: <subject>` then optional body.
   `type` ∈ `feat | fix | refactor | docs | test | chore | perf | ci`.

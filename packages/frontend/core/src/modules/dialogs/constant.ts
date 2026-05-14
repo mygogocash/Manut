@@ -15,6 +15,7 @@ export type SettingTab =
   | 'account'
   | 'meetings'
   | 'personalize'
+  | 'controlPlaneRoles'
   | `workspace:${'preference' | 'properties' | 'members' | 'storage' | 'billing' | 'license' | 'integrations' | 'embedding' | 'search' | 'analytics-connections'}`;
 
 export type GLOBAL_DIALOG_SCHEMA = {

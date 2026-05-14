@@ -6,10 +6,14 @@ import { ServerFeature } from '../../core/config/types';
 import { DocStorageModule } from '../../core/doc';
 import { MailModule } from '../../core/mail';
 import { PermissionModule } from '../../core/permission';
+import { MnAgentRegistryResolver } from './manut-agent-registry.resolver';
+import { MnAgentRegistryService } from './manut-agent-registry.service';
 import { SuperflowCrmResolver } from './manut-crm.resolver';
 import { SuperflowHandoverResolver } from './manut-handover.resolver';
 import { SuperflowHandoverService } from './manut-handover.service';
 import { SuperflowPmResolver } from './manut-pm.resolver';
+import { MnReleaseRunsResolver } from './manut-release-runs.resolver';
+import { MnReleaseRunsService } from './manut-release-runs.service';
 import { SuperflowReminderCron } from './manut-reminder.cron';
 import { SuperflowReminderJob } from './manut-reminder.job';
 import { SuperflowReminderResolver } from './manut-reminder.resolver';
@@ -56,6 +60,8 @@ export class ManutModule {
         providers: [
           SuperflowHandoverResolver,
           SuperflowHandoverService,
+          MnReleaseRunsService,
+          MnReleaseRunsResolver,
           SuperflowFeatureRegistrar,
         ],
       };
@@ -77,6 +83,10 @@ export class ManutModule {
         SuperflowReminderResolver,
         SuperflowReminderJob,
         SuperflowReminderCron,
+        MnAgentRegistryService,
+        MnAgentRegistryResolver,
+        MnReleaseRunsService,
+        MnReleaseRunsResolver,
         SuperflowFeatureRegistrar,
       ],
     };
