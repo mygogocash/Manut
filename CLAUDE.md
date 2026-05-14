@@ -1291,6 +1291,30 @@ Emojis are deliberate — they create visual landmarks in the Actions list
 (scan for 🚀 to find deploys, 📦 for releases, ↩️ for rollbacks). Don't
 remove them when adding new Manut workflows; mirror the prefix pattern.
 
+**Critical trap — workflow_run.workflows is a DISPLAY-NAME filter.**
+If you rename a workflow's `name:` (e.g. adding an emoji prefix), every
+downstream workflow that chains via `workflow_run.workflows:` MUST also
+have its filter string updated. The filter does silent string matching
+— a stale name does not error, it just never fires.
+
+PR #60 hit this. Renaming `Manut CI` → `✅ Manut CI` broke the Build
+trigger (`workflows: ['Manut CI']`) and renaming `Manut Build` →
+`🏗️ Manut Build` broke the Auto Deploy trigger (`workflows: ['Manut Build']`).
+Both were silently no-op for ~30 minutes — neither Build nor Auto
+Deploy ran on any commit between PR #60 merging and the fix landing,
+even though Manut CI passed green on each one.
+
+Fix pattern: rename the workflow AND every downstream filter in the
+same PR. Audit before merging:
+
+    rg "workflows: \[" .github/workflows/
+
+The filter strings must match the renamed `name:` exactly, emojis
+included. Validated grep-target after this fix:
+
+- `manut-build.yml` listens on `workflows: ['✅ Manut CI']`
+- `manut-autodeploy.yml` listens on `workflows: ['🏗️ Manut Build']`
+
 ### Concurrency rules (QUEUE, don't cancel)
 
 After the v1.12.0 production incident (2026-05-14), `manut-build.yml`
