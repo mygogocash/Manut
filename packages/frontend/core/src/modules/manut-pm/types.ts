@@ -76,3 +76,20 @@ export interface CreateMnTaskInput {
   listSortOrder?: number | null;
   assigneeUserId?: string | null;
 }
+
+export interface UpdateMnProjectInput {
+  name?: string | null;
+  description?: string | null;
+  status?: MnProjectStatus | null;
+  sortOrder?: number | null;
+}
+
+export interface UpdateMnTaskInput {
+  title?: string | null;
+  description?: string | null;
+  status?: MnTaskStatus;
+  priority?: MnTaskPriority;
+  dueAt?: string | null;
+  listSortOrder?: number | null;
+  assigneeUserId?: string | null;
+}
