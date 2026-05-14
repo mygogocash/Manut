@@ -1,11 +1,14 @@
 # Manut Handover
 
-Last reviewed: 2026-05-13 after the brand-rename release wave (PRs #24-#32).
-The brand → Manut rename is complete in code, database, and user-facing
-copy. A handful of internal identifiers — workflow filenames, the GAR
-Docker image name, and legacy GraphQL `@ObjectType('Superflow*')`
-decorators — are intentionally left at their old names with a documented
-migration plan; see `CLAUDE.md` §9.
+Last reviewed: 2026-05-13 after the v1.12.0 cut. v1.12.0 is the first
+release on the renamed stack — it ships the v0 Projects, CRM, and
+Reminders frontend, expands the chat model picker with frontier models,
+and unbreaks the Settings → Connections panel. v1.11.0 (the immediately
+prior release) was the brand rename and post-rebrand documentation
+cleanup. A handful of internal identifiers — workflow filenames were
+renamed in v1.11.0, the GAR Docker image name `affine-gogocash`, and
+legacy GraphQL `@ObjectType('Superflow*')` decorators are still on the
+old names with a documented migration plan; see `CLAUDE.md` §9.
 
 This document is the tracked handover entry point for the GoGoCash Manut
 fork of AFFiNE 0.26.3. It summarizes what a successor needs before
@@ -14,8 +17,9 @@ changing, building, or deploying the project.
 ## Current State
 
 - Product: GoGoCash Manut, a fork of AFFiNE with AI agents, Vertex AI,
-  self-host AI unlocks, Gmail/Drive integration, analytics work, and
-  Manut-specific deployment automation.
+  self-host AI unlocks, Gmail/Drive integration, analytics work,
+  v0 Projects/CRM/Reminders modules, and Manut-specific deployment
+  automation.
 - Live app: `https://manut.gogocash.co`. The legacy
   `https://affine.gogocash.co` host 301-redirects to the new domain.
 - Repository: `https://github.com/mygogocash/Manut` (renamed from
@@ -25,6 +29,11 @@ changing, building, or deploying the project.
   trusting numbers from a stale handover.
 - Branch model: Manut work lands on `main`; upstream AFFiNE workflows
   for `canary`/`master` are not the Manut deploy path.
+- Feature gate: the Projects/CRM/Reminders frontend nav and the
+  PM/CRM/Reminders backend resolvers are both gated on
+  `ServerFeature.Superflow`, which the backend enables when
+  `ENABLE_MANUT_MODULE=true` (legacy `ENABLE_SUPERFLOW_MODULE` is also
+  honored).
 
 ## Source Of Truth
 
@@ -38,8 +47,10 @@ changing, building, or deploying the project.
 - `docs/MANUT_CONTROL_PLANE.md` - Manut-native operating model for
   agent/company-style coordination, release handover artifacts, and future
   AFFiNE-facing control-plane work.
-- `docs/RELEASES/v1.11.0.md` - latest release narrative (brand rename
-  wave). `docs/RELEASES/v1.10.2.md` is the previous release.
+- `docs/RELEASES/v1.12.0.md` - latest release narrative (PM/CRM/Reminders
+  v0 frontend + frontier model picker + analytics Connections fix).
+  `docs/RELEASES/v1.11.0.md` is the brand-rename release.
+  `docs/RELEASES/v1.10.2.md` is the Gmail/Drive integration release.
 - `docs/analytics-platform.md` and `docs/analytics-approvals.md` - analytics
   product plan and external approval checklist.
 - `scripts/manut-release-handover.mjs` - generates human and JSON
@@ -128,17 +139,72 @@ live VM state.
 ## High-Risk Findings
 
 1. Analytics is partially live. The GoGoCash overview path is wired to the
-   backend, but several platform pages, ingestion paths, rollups, and event
-   lists are still explicitly marked as Round-A stubs or mock-backed. Do not
-   hand it over as a complete multi-platform analytics system.
+   backend (and the Connections panel was unbroken in v1.12.0 by fixing
+   the module gate to read `globalThis.env.selfhosted` instead of the
+   raw `DEPLOYMENT_TYPE` env var), but several platform pages, ingestion
+   paths, rollups, and event lists are still explicitly marked as
+   Round-A stubs or mock-backed. Do not hand it over as a complete
+   multi-platform analytics system.
 
-2. Documentation drift remains:
-   - `.github/SUPERFLOW_CI_SETUP.md` still centers `GCP_SA_KEY`, while the
-     current pipeline docs describe WIF. (Filename retained pending the
-     workflow-filename rename in `CLAUDE.md` §9.)
+2. PM/CRM/Reminders are v0 — list and create surfaces only. Detail and
+   edit views, Kanban for tasks/deals, reminder rules and repeat
+   schedules, drag-drop reordering, bulk operations / CSV, real-time
+   updates, and mobile views are all v1 follow-ups. Internal branches
+   are tracking each; none had merged at the v1.12.0 cut. Treat the v0
+   surface as the canonical create flow and continue using the
+   underlying GraphQL APIs for richer interactions until the v1
+   surfaces ship.
+
+3. CRM cross-workspace integrity is guarded in resolver code but not
+   enforced by composite foreign keys. Keep service-level checks before
+   exposing richer mutation surfaces; v0 only writes through paths that
+   already validate, so this is currently latent.
+
+4. Reminder handoff is honest about queueing but there is still no
+   provider-level delivery receipt path that moves `QUEUED` deliveries
+   to `SENT`/`COMPLETED`. The `MnNotificationDelivery` table records
+   intent; downstream confirmation comes from the mail provider's
+   logs, not the app.
+
+5. Documentation drift remains:
+   - `.github/MANUT_CI_SETUP.md` (renamed from `SUPERFLOW_CI_SETUP.md`
+     in v1.11.0) still centers `GCP_SA_KEY`, while the current
+     pipeline docs describe WIF. Refresh during the next pipeline
+     audit pass.
    - Some rollback examples still mention `compose.yml.pre-*`.
 
-## Closed During 2026-05-13 Review
+## Closed During 2026-05-13 Review (v1.12.0)
+
+- PM, CRM, and Reminders v0 frontend rollout shipped (PR #23).
+  Three new sidebar entries (`/projects`, `/crm`, `/reminders`) are
+  gated on `ServerFeature.Superflow`. Local GraphQL operation objects
+  live under `packages/frontend/core/src/modules/manut-{pm,crm,reminders}/`
+  and bypass the codegen union via a documented `as unknown as` cast at
+  the operation boundary.
+- `ServerFeature.Superflow` wiring landed: `SuperflowFeatureRegistrar`
+  in `plugins/manut/manut.module.ts` toggles the feature based on
+  `ENABLE_MANUT_MODULE` (with legacy `ENABLE_SUPERFLOW_MODULE`
+  fallback). Non-Manut installs see no nav additions.
+- Frontier model picker expanded from 4 to 10 models on
+  `optionalModels`. Added: Gemini 3.1 Flash Lite Preview, Claude Sonnet
+  4, Claude Opus 4, Llama 4 Scout, Llama 4 Maverick. Default model is
+  unchanged.
+- Moonshot, xAI, and Alibaba provider implementations landed (each is
+  its own folder under `plugins/copilot/providers/`). They are off by
+  default — enabling them requires provider config on the VM.
+- Analytics Connections panel unbroken on production. The module gate
+  predicate now reads `globalThis.env.selfhosted` and matches what
+  `/info` reports. A schema-version-skew fallback renders a friendly
+  notice instead of the generic red error.
+- `gpt-5-mini` removed from the auto-prompt `optionalModels` array
+  (`prompts/service.ts`). Same poison documented in `CLAUDE.md` §5c;
+  this is the runtime-injection sibling that escapes the static
+  prompts.ts catalogue.
+- Workflow paths renamed from `superflow-*.yml` to `manut-*.yml`
+  (part of the v1.11.0 consolidation; reflected here because the
+  rename is now stable across docs).
+
+## Closed During 2026-05-13 Review (v1.11.0)
 
 - Manut brand rename completed: user-facing copy in PR #24, web/electron
   icons in PR #27, Prisma `Sf*` → `Mn*` models in PR #26 (DB migration ran
@@ -147,7 +213,7 @@ live VM state.
   `com.superflow.*` → `com.manut.*` in PR #30.
 - Production now answers on `manut.gogocash.co`; the old
   `affine.gogocash.co` host 301-redirects.
-- Documentation updated to match (this commit).
+- Documentation updated to match (in v1.11.0).
 
 ## Closed During 2026-05-07 Review
 
@@ -164,7 +230,18 @@ live VM state.
 - CI/CD: Tier 1 and Tier 2 are documented as done. Sidecar smoke, immutable
   tags, build/deploy split, registry cache, Slack notifications, supersession,
   prompt-seed verification, and chaos validation are documented in
-  `docs/CICD.md` and `docs/CICD_ROADMAP.md`.
+  `docs/CICD.md` and `docs/CICD_ROADMAP.md`. Workflow filenames renamed to
+  `manut-*.yml` in v1.11.0.
+- PM/CRM/Reminders: v0 frontend shipped in v1.12.0 — list and create flows
+  for `/projects`, `/crm` (Accounts/Contacts/Deals/Activities tabs), and
+  `/reminders` (Due now/Upcoming/Done tabs). Gated by
+  `ServerFeature.Superflow` on the sidebar. Detail/edit, Kanban, reminder
+  rules, drag-drop, bulk, real-time, and mobile remain v1 follow-ups.
+- Chat model picker: 10 frontier models on `optionalModels` (Gemini 2.5/3.1
+  family, Claude Sonnet 4/4.5/Opus 4, Llama 4 Scout/Maverick). Default is
+  `gemini-2.5-flash`. Moonshot Kimi, xAI Grok, and Alibaba Qwen provider
+  implementations exist (v1.12.0) but require provider config on the VM
+  before they render in the picker.
 - Gmail/Drive: v1.10.2 adds live Gmail import and Drive picker on top of the
   Google OAuth scaffold. Required env vars are `GOOGLE_OAUTH_CLIENT_ID`,
   `GOOGLE_OAUTH_CLIENT_SECRET`, and optional `GOOGLE_OAUTH_REDIRECT_URI`.
@@ -173,8 +250,10 @@ live VM state.
   are available in every environment.
 - FOSS/self-host limits: Manut hides the license tab and lifts self-host
   seat limits through `QuotaService.getWorkspaceQuota`.
-- Analytics: GoGoCash overview and AI insight pieces exist, but multi-platform
-  ingestion/rollups are not complete.
+- Analytics: GoGoCash overview and AI insight pieces exist, but
+  multi-platform ingestion/rollups are not complete. Settings → Connections
+  panel unbroken in v1.12.0 — was previously surfacing "Unhandled error
+  raised" because the module gate misread the env default.
 
 ## External Systems
 

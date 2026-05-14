@@ -740,6 +740,62 @@ Document the surprises — saves the next session a discovery cycle.
     No --no-verify needed for new commits. If it bites again later,
     `yarn eslint --no-cache <file>` is the source of truth — exit 0
     means the hook will pass.
+- **`rxjs/finnish` requires Finnish notation on Observable typed
+  members.** The project enables `rxjs/finnish`, which requires the
+  `$` suffix on any field, getter, method return, or function whose
+  type is `Observable<T>` (or a subclass: `Subject<T>`,
+  `BehaviorSubject<T>`, `ReplaySubject<T>`, `LiveData<T>`). Sub-agents
+  trained on standard RxJS conventions reliably forget this — they
+  write `subject`, `value`, `connections`, etc. and the pre-commit
+  hook rejects the commit. The error message is:
+  `rxjs/finnish — Symbols of type Observable should be suffixed
+  with $`. Fix is mechanical: rename `subject` → `subject$`,
+  `connections` → `connections$`, etc. Verify before commit with
+  `yarn oxlint <file>`. Spotted in the v1.12.0 PM/CRM/Reminders
+  rollout: the analytics fix and the manut module both had sub-agent
+  drafts that fell into this trap. Brief sub-agents up front:
+  "Any Observable-typed member must end in `$`." Common false
+  positives: `Promise<T>` is fine without `$`; type aliases that
+  resolve to Observable still need it. When in doubt, run oxlint.
+- **Sub-agents must use `tsc --noEmit`, never `tsc -b`.** `tsc -b`
+  (project build mode) compiles project references AND writes
+  outputs — including `.d.ts` and `.d.ts.map` files — to whatever
+  the tsconfig's `outDir` (or sibling-of-source) is. Several Manut
+  tsconfigs emit alongside source (no `outDir`), so a sub-agent
+  running `yarn tsc -b packages/frontend/core/tsconfig.json` dumps
+  hundreds of declaration files INTO `packages/frontend/core/src/`
+  next to the `.tsx` they were generated from. These get picked up
+  by `git status --untracked-files=all` and a careless `git add .`
+  stages them. Even worse, the `.d.ts` cleanup glob is explicitly
+  guarded against (see "DO NOT widen this glob to include `*.d.ts`"
+  trap above) because some declarations are hand-authored, so you
+  can't just wipe them. Recovery: `git status -u | rg '\.d\.ts'`
+  to find the strays, then delete by name. v1.10.x AI session
+  handover (line 242-246) documents one occurrence where an attempt
+  to typecheck via `tsc -b` produced thousands of TS6305 errors AND
+  emitted dist files that had to be cleaned manually. Sub-agent
+  rule: brief explicitly with "Use `yarn workspace <pkg> tsc
+  --noEmit` to typecheck. Never `tsc -b`." Also worth knowing: the
+  per-workspace flavour `yarn workspace @affine/core tsc --noEmit`
+  honors the package's tsconfig without invoking project references.
+- **`streamObjects` in the chat panel surfaces a tool-call shape
+  worth knowing about for any feature that wants to react to AI
+  activity.** The chat panel's assistant message component
+  (`blocksuite/ai/chat-panel/message/assistant.ts`) maintains a
+  `streamObjects` array as the SSE stream arrives. Each entry is one
+  of: a `text-delta` chunk (token streaming), a `reasoning` chunk,
+  a `tool-call` chunk (the AI invoked a tool — has a `toolName` and
+  an `args` payload), or a `tool-result` chunk (the tool returned —
+  has `result` keyed by the call's id). The first appearance of
+  each `toolName` in `streamObjects` is the earliest reliable signal
+  that the AI just touched something, which makes it a useful hook
+  for downstream reactions: change-badges ("AI made changes"),
+  activation buses (Knowledge Graph pulses), analytics, or per-tool
+  toasts. Watch the array length and emit when a new entry's `type
+  === 'tool-call'` and `toolName` matches your filter. Do NOT poll
+  on every render — debounce or move into a reactive subscription.
+  Reference: the "AI made changes" chip in `assistant.ts`, and the
+  in-flight Knowledge Graph activation bus (§5e).
 
 ## 6b. Settings dialog wiring (where new tabs live)
 
@@ -1024,6 +1080,101 @@ extended to include all five families' lead models. This keeps
 `prompts.ts` clean (no entry per-family) and avoids the
 `refreshPrompts` upsert-stickiness trap (§6c).
 
+## 6e. Knowledge Graph activation pulses
+
+> **Status:** shipped in the v1.11.0/v1.12.0 release wave (PR #44
+> folded into the consolidation PR #39). The doc-read event bus is
+> live: the backend emits SSE events on every AI tool that reads or
+> edits a doc, and the frontend Knowledge Graph view subscribes and
+> animates pulses along the curved Bezier edges.
+
+### Event shape
+
+A single "the AI just read or edited this doc" event:
+
+```ts
+interface DocReadActivation {
+  docId: string;
+  workspaceId: string;
+  sourceId: string; // dedup key — see below
+  tool:
+    | 'doc-read'
+    | 'doc-edit'
+    | 'doc-keyword-search'
+    | 'doc-semantic-search'
+    | 'frontend-local'; // optimistic emit before the backend round-trip
+}
+```
+
+`workspaceId` is the SSE filter key; `sourceId` is the dedup key.
+The frontend emits optimistically the moment a chat tool-call appears
+in `streamObjects` (see §5 "streamObjects in the chat panel"), and
+the backend emits the same event with the same `sourceId` once the
+tool finishes. The frontend bus drops the duplicate if it arrives
+within a 2s window — so a single doc-read pulses ONCE, not twice.
+
+### Backend: `DocReadEventBus` + SSE controller
+
+Lives at
+`packages/backend/server/src/plugins/copilot/doc-read/`:
+
+- `doc-read-event-bus.service.ts` — per-workspace `ReplaySubject`
+  with refcounted subscribe/unsubscribe and idle cleanup. Emit via
+  `bus.emit({...})`. Subscribe via `bus.subscribe(workspaceId)` which
+  returns an Observable. Refcount drops when finalize runs on the
+  Observable's teardown, so HTTP disconnects don't leak buses.
+- `doc-read-stream.controller.ts` — `@Sse('/api/workspace/:workspaceId/doc-read-stream')`.
+  Checks `Workspace.Read` BEFORE subscribing (so unauthorised clients
+  never bump the refcount). Interleaves a 5s `ping` event into the
+  stream so reverse proxies don't kill idle workspaces.
+
+Emit sites are the four doc tools — `doc-read`, `doc-edit`,
+`doc-keyword-search`, `doc-semantic-search` — and the search tools
+emit ONE event per unique matched doc per query (so a search that
+hits five docs produces five pulses, not five×N).
+
+### Frontend: `ActivationBus` + EventSource subscriber
+
+Lives at
+`packages/frontend/core/src/modules/knowledge-graph/services/`:
+
+- `activation-bus.ts` — process-wide singleton with a 2s `sourceId`
+  dedup window. Emit via `activationBus.emit({...})`. Subscribe via
+  `activationBus.activations$.subscribe(...)`.
+- `doc-read-stream.ts` — opens an `EventSource` against the SSE
+  controller above and forwards every `doc-read` message into the
+  bus. Reconnects with backoff on transport errors.
+
+The graph view subscribes to the bus and animates one `ActivePulse`
+per incident edge per event, riding the same cubic Bezier curve as
+the edge.
+
+### Pure helpers (testable in isolation)
+
+`utils/graph-math.ts` exports `labelPropagation`, `lobeColour`, and
+`curveOffsetFor`. These are pure functions — no DOM, no observables,
+no service deps — and they cover the cluster detection / colour
+assignment / Bezier offset math. Test in isolation in
+`__tests__/label-propagation.spec.ts` and `__tests__/activation-bus.spec.ts`.
+
+### Production gotchas to watch for
+
+- The 2s dedup window assumes wall-clock parity between frontend and
+  backend. If a workspace has a chat session generating doc-reads
+  faster than 2s apart with the same `sourceId`, the second emit will
+  be dropped silently. Use a fresh `sourceId` per logical event —
+  `crypto.randomUUID()` is the right default.
+- The SSE stream is per-workspace, not per-user. Anyone with
+  `Workspace.Read` sees the same event stream. That's intentional
+  (the Knowledge Graph is a workspace-level view), but if a future
+  feature wants per-user events on this channel, it needs a new
+  controller or a tagged event variant.
+- Tool-call detection on the frontend reads `streamObjects` (see §5
+  "streamObjects in the chat panel"). The matcher should anchor on
+  `toolName === 'doc-read'` etc., not on free-text in the message
+  body, because the AI's prose isn't structured enough to reliably
+  classify.
+
 ## 7. Commit + PR conventions
 
 - Commit message format: `<type>: <subject>` then optional body.
@@ -1067,10 +1218,10 @@ through `/browse`.
 
 The Manut-specific workflows live alongside the upstream AFFiNE ones
 (which target `canary`/`master` and rely on upstream-only secrets, so
-they're effectively dormant on this fork). Workflow filenames still
-carry the `superflow-` prefix — see §9 for why, and tracked rename
-plan. Workflow display names ("Manut CI", "Manut Build", etc.) were
-updated during the rebrand:
+they're effectively dormant on this fork). Workflow filenames are
+`manut-*.yml` as of v1.11.0's consolidation; the previous
+`superflow-*.yml` paths were git-mv'd in the same release. Workflow
+display names ("Manut CI", "Manut Build", etc.) match the filenames:
 
 - `.github/workflows/manut-ci.yml` — push/PR to `main`. Three
   jobs: lint (oxlint + prettier), build-web (web/admin/mobile bundles),
@@ -1126,11 +1277,14 @@ because each is its own R1 operation with a separate rollback path:
   pushing the new tag, updating compose.yml on the VM, retagging cache
   image (`affine-gogocash-cache:buildx`), and updating every workflow
   reference. Track as a separate R1 release.
-- **CI workflow filenames** — `.github/workflows/superflow-*.yml`.
-  Renaming changes the GHA URL slugs, breaks any external bookmarks /
-  links to specific runs, and must be coordinated with the
-  `workflow_run` chain (CI → Build → Auto Deploy). The infra
-  sub-agent is tracking the rename in a separate worktree.
+- **~~CI workflow filenames~~** — completed in v1.11.0's PR #39
+  consolidation. `.github/workflows/superflow-*.yml` were
+  git-mv'd to `manut-*.yml` (7 files including `manut-ci.yml`,
+  `manut-build.yml`, `manut-deploy.yml`, `manut-release.yml`,
+  `manut-rollback.yml`, `manut-vm-init.yml`, `manut-autodeploy.yml`).
+  `.docker/gogocash/` moved to `.docker/manut/` in the same change.
+  The `workflow_run` chain (CI → Build → Auto Deploy) uses display
+  names so it kept working unchanged.
 - **GraphQL `@ObjectType('Superflow*')` decorators** — backend types
   in `plugins/manut/resolver*.ts`. Renaming the decorator string is a
   contract change for any client that queries those object types by

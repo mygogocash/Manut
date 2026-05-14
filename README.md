@@ -19,10 +19,13 @@
 
 Manut is GoGoCash's fork of [AFFiNE](https://github.com/toeverything/AFFiNE) 0.26.3 — a privacy-first, open-source workspace where docs, whiteboards, and tables hyper-merge into one canvas. On top of upstream AFFiNE, Manut adds:
 
+- **Projects, CRM, and Reminders (v0)** — three new workspace modules in the sidebar (`/projects`, `/crm`, `/reminders`). Projects show expandable cards with inline tasks (status/priority/dueAt). CRM has Accounts/Contacts/Deals/Activities tabs. Reminders has Due now/Upcoming/Done tabs. All backed by gated GraphQL APIs.
 - **Agents (Beta)** — Notion-style agents in the sidebar, Perplexity-style agent detail page. Per-agent description, instructions, files, skills, links, and sub-agents that report up.
 - **Picrew-style avatars** — 8-tab 2D character builder (Hair · Accessory · Eyes · Brow · Mouth · Facial Hair · Clothes · Skin) for AI agents, persisted as JSONB.
 - **Vertex AI integration** — Anthropic Claude + Google Gemini through one service account. The URL builder now includes the `/projects/{project}/locations/{location}` prefix (fixes `RESOURCE_PROJECT_INVALID`).
-- **Self-host AI unlock** — model picker no longer locks Pro models on self-hosted instances. No subscription gate on `setModel`.
+- **Frontier model picker** — 10 model entries on `optionalModels` covering Gemini 2.5/3.1, Claude Sonnet 4/4.5/Opus 4, and Llama 4 Scout/Maverick on Vertex Model Garden. Moonshot, xAI, and Alibaba provider implementations also ship in v1.12.0 (off by default — enable via provider config).
+- **Gmail and Drive integration** — live import of Gmail messages into AFFiNE docs and a Drive file picker; OAuth tokens refreshed automatically with a 5-minute leeway.
+- **Self-host AI unlock** — model picker no longer locks Pro models on self-hosted instances. No subscription gate on `setModel`. Seat-cap lifted on self-hosted via `QuotaService.getWorkspaceQuota`.
 - **Notion-style chat composer** — suggested prompts render in a grid _below_ the chat input, not stacked above.
 - **Slash menu fix** — `affine:note` no longer crashes the slash menu with a duplicate-id error (`addFactory({ override: true })`).
 - **Native binary rebuild** — `server-native.x64.node` rebuilt with full LLM dispatch (`llm_dispatch_stream`) for AI streaming.
@@ -47,7 +50,7 @@ Manut is GoGoCash's fork of [AFFiNE](https://github.com/toeverything/AFFiNE) 0.2
 # compose.yml — minimal
 services:
   affine_server:
-    image: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:v1.8.0
+    image: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:v1.12.0
     depends_on: [postgres, redis]
     environment:
       DATABASE_URL: postgres://affine:affine@postgres:5432/affine
@@ -149,6 +152,8 @@ Manut tracks upstream AFFiNE closely. Untouched areas include:
 
 ## Roadmap
 
+- [ ] PM/CRM/Reminders v1 — detail and edit views, Kanban for tasks and deals, reminder rules editor with repeat schedules, drag-drop reordering, bulk operations and CSV import/export
+- [ ] Knowledge Graph brain redesign — multi-lobe layout with curved Bezier dendrite edges, synaptic pulses on AI doc-reads via a `DocReadEventBus` and per-workspace SSE stream
 - [ ] ARM64 native binary (currently x64-only — `ring` crate cross-compile blocker)
 - [ ] Migrate the Picrew avatar picker to use server-side rendering for SEO
 - [ ] Agent → Skills marketplace (per-skill schema + sandbox)
