@@ -19,6 +19,7 @@ import { useEffect, useMemo } from 'react';
 
 import { AuthService, ServerService } from '../../../../modules/cloud';
 import type { SettingSidebarItem, SettingState } from '../types';
+import { ControlPlaneRolesSettingPanel } from '../workspace-setting/integration/control-plane-roles/setting-panel';
 import { AboutAffine } from './about';
 import { AppearanceSettings } from './appearance';
 import { BackupSettingPanel } from './backup';
@@ -144,6 +145,12 @@ export const useGeneralSettingList = (): GeneralSettingList => {
 
     settings.push(
       {
+        key: 'controlPlaneRoles',
+        title: 'Control Plane Roles',
+        icon: <AiOutlineIcon />,
+        testId: 'control-plane-roles-trigger',
+      },
+      {
         key: 'experimental-features',
         title: t['com.affine.settings.workspace.experimental-features'](),
         icon: <ExperimentIcon />,
@@ -198,6 +205,8 @@ export const GeneralSetting = ({
       return <ExperimentalFeatures />;
     case 'backup':
       return <BackupSettingPanel />;
+    case 'controlPlaneRoles':
+      return <ControlPlaneRolesSettingPanel />;
     default:
       return null;
   }
