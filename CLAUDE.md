@@ -1269,8 +1269,75 @@ The Manut-specific workflows live alongside the upstream AFFiNE ones
 (which target `canary`/`master` and rely on upstream-only secrets, so
 they're effectively dormant on this fork). Workflow filenames are
 `manut-*.yml` as of v1.11.0's consolidation; the previous
-`superflow-*.yml` paths were git-mv'd in the same release. Workflow
-display names ("Manut CI", "Manut Build", etc.) match the filenames:
+`superflow-*.yml` paths were git-mv'd in the same release.
+
+### Visual conventions (post-v1.12.1 CI hygiene pass)
+
+Every Manut workflow uses an emoji prefix in its display name and a
+`run-name:` template so the Actions tab is scannable without clicking
+into each run:
+
+| File | Display name | run-name template |
+|---|---|---|
+| `manut-ci.yml` | ✅ Manut CI | `✅ CI • <ref>@<sha> • <event> • <actor>` |
+| `manut-build.yml` | 🏗️ Manut Build | `🏗️ Build • <ref>@<sha> • <event> • <actor>` |
+| `manut-autodeploy.yml` | 🚀 Manut Auto Deploy | `🚀 Auto Deploy • <sha> • from <upstream-workflow>` |
+| `manut-deploy.yml` | 🎯 Manut Deploy (manual) | `🎯 Deploy <tag> • <actor>` |
+| `manut-release.yml` | 📦 Manut Release | `📦 Release <tag> • <actor>` |
+| `manut-rollback.yml` | ↩️ Manut Rollback | `↩️ Rollback to previous • <actor>` |
+| `manut-vm-init.yml` | 🔧 Manut VM Init | `🔧 VM Init • <actor>` |
+
+Emojis are deliberate — they create visual landmarks in the Actions list
+(scan for 🚀 to find deploys, 📦 for releases, ↩️ for rollbacks). Don't
+remove them when adding new Manut workflows; mirror the prefix pattern.
+
+### Concurrency rules (QUEUE, don't cancel)
+
+After the v1.12.0 production incident (2026-05-14), `manut-build.yml`
+uses `cancel-in-progress: false`. Rapid commits on `main` now QUEUE
+their Builds instead of cancelling each other, and the buildx push to
+GAR is atomic so the queued Build still produces a clean tag. The
+previous `cancel-in-progress: true` setting caused a multi-cycle
+cancellation storm where every new commit superseded its predecessor
+and no image ever published — production stayed on the pre-v1.10.x
+image for hours despite multiple successful CI runs.
+
+Per workflow:
+- `manut-ci.yml` — **cancel-in-progress: true**, group is `manut-ci-<ref>`
+  (per-ref). Cancellation here is fine — stale CI on a superseded
+  commit has no value.
+- `manut-build.yml` — **cancel-in-progress: false**, group is
+  `superflow-build` (global). Builds queue serially so every commit
+  on `main` gets its own image. The trade-off is slightly more CI
+  minutes; the win is predictable deploy behavior.
+- `manut-autodeploy.yml` — **cancel-in-progress: false**, group is
+  `superflow-autodeploy` (global). Documented in-workflow: the
+  remote `deploy.sh` script handles supersession via VM-side runid
+  registry, so we want both deploys to reach the SSH stage rather
+  than cancel mid-flight.
+
+Don't switch any of these to `cancel-in-progress: true` without a
+specific reason — the queueing model is the v1.12.1 contract.
+
+### Upstream-AFFiNE workflow noise
+
+The fork inherits ~10 upstream workflow files that target `canary`/
+`beta`/`stable` branches. Most have `push:` triggers restricted to
+those branches and are dormant on `main`, but `build-test.yml`
+historically also had an unrestricted `pull_request:` trigger that
+fired on every PR into `main` — generating noisy "Build & Test"
+runs that always failed or skipped because the upstream test env
+isn't present on the fork.
+
+`build-test.yml` is now scoped: both its `pull_request:` and
+`merge_group:` triggers restrict to the upstream-aligned branches
+(`canary`, `beta`, `stable`, `v*.*.x-staging`, `v*.*.x`). PRs into
+`main` no longer fire it. If a new upstream workflow appears (via
+a future upstream sync) and starts cluttering the Actions tab on
+`main`-targeted PRs, apply the same pattern: restrict `pull_request:`
+to the upstream branches.
+
+### Workflow inventory:
 
 - `.github/workflows/manut-ci.yml` — push/PR to `main`. Three
   jobs: lint (oxlint + prettier), build-web (web/admin/mobile bundles),

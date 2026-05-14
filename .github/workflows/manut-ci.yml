@@ -1,4 +1,5 @@
-name: Manut CI
+name: ✅ Manut CI
+run-name: ✅ CI • ${{ github.ref_name }}@${{ github.sha }} • ${{ github.event_name }} • ${{ github.actor }}
 
 # Runs on every push to main and every PR targeting main. Catches lint
 # and web-bundle regressions before they reach the deploy track.

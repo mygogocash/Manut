@@ -1,4 +1,5 @@
-name: Manut VM Init
+name: 🔧 Manut VM Init
+run-name: 🔧 VM Init • ${{ github.actor }}
 
 # One-time bootstrap (idempotent — safe to re-run). Installs the Tier 1
 # safe-deploy scripts AND the canary overlay file onto the GCE VM.

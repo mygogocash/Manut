@@ -1,4 +1,5 @@
-name: Manut Rollback
+name: ↩️ Manut Rollback
+run-name: ↩️ Rollback to previous • ${{ github.actor }}
 
 # Manually triggered. Rolls production back to a known-good image tag,
 # either an explicitly chosen one or whatever is recorded in
