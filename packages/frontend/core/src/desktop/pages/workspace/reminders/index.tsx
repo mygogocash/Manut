@@ -1,12 +1,25 @@
-import { Button, Input, Modal, notify } from '@affine/component';
+import {
+  Button,
+  Input,
+  Modal,
+  notify,
+  useConfirmModal,
+} from '@affine/component';
 import { useMutation } from '@affine/core/components/hooks/use-mutation';
 import { useQuery } from '@affine/core/components/hooks/use-query';
 import {
   cancelMnReminderMutation,
   createMnReminderMutation,
+  type CreateMnReminderRuleInput,
+  createMnReminderRuleMutation,
+  deleteMnReminderRuleMutation,
   type MnReminderDto,
+  type MnReminderRuleDto,
+  mnReminderRulesQuery,
   mnRemindersQuery,
   type MnReminderStatus,
+  type UpdateMnReminderRuleInput,
+  updateMnReminderRuleMutation,
 } from '@affine/core/modules/manut-reminders';
 import {
   ViewBody,
@@ -23,9 +36,11 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Header } from '../../../../components/pure/header';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
+import { RuleList } from './rule-list';
+import { RuleModal } from './rule-modal';
 import * as styles from './styles.css';
 
-type TabKey = 'due' | 'upcoming' | 'done';
+type TabKey = 'due' | 'upcoming' | 'done' | 'rules';
 
 interface NewReminderFormState {
   title: string;
@@ -178,7 +193,9 @@ const NewReminderModal = ({
             id="sf-reminder-title"
             value={form.title}
             placeholder={t['com.manut.reminders.field.title.placeholder']()}
-            onChange={value => setForm(prev => ({ ...prev, title: value }))}
+            onChange={(value: string) =>
+              setForm(prev => ({ ...prev, title: value }))
+            }
             disabled={submitting}
             autoFocus
           />
@@ -322,8 +339,10 @@ const LoadingSkeleton = () => (
   </div>
 );
 
+type ReminderTabKey = 'due' | 'upcoming' | 'done';
+
 interface EmptyStateProps {
-  tab: TabKey;
+  tab: ReminderTabKey;
 }
 
 const EmptyState = ({ tab }: EmptyStateProps) => {
@@ -362,15 +381,27 @@ interface RemindersResponse {
   mnReminders?: MnReminderDto[];
 }
 
+interface RulesResponse {
+  mnReminderRules?: MnReminderRuleDto[];
+}
+
 const RemindersPage = () => {
   const t = useI18n();
   const workspaceService = useService(WorkspaceService);
   const workspaceId = workspaceService.workspace.id;
+  const { openConfirmModal } = useConfirmModal();
 
   const [activeTab, setActiveTab] = useState<TabKey>('due');
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [ruleModalOpen, setRuleModalOpen] = useState(false);
+  const [ruleSubmitting, setRuleSubmitting] = useState(false);
+  const [editingRule, setEditingRule] = useState<MnReminderRuleDto | null>(
+    null
+  );
+  const [ruleTogglingId, setRuleTogglingId] = useState<string | null>(null);
+  const [ruleDeletingId, setRuleDeletingId] = useState<string | null>(null);
 
   // The local mnReminders operation is not part of the codegen'd
   // discriminated union, so we cast at the boundary — same trick the
@@ -393,6 +424,34 @@ const RemindersPage = () => {
   });
   const { trigger: triggerCancel } = useMutation({
     mutation: cancelMnReminderMutation,
+  });
+
+  // Rules data + mutations. Same casting pattern as the local mnReminders
+  // operation above.
+  const ruleQueryArg = {
+    query: mnReminderRulesQuery,
+    variables: { workspaceId },
+  } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
+  const {
+    data: rulesData,
+    isLoading: rulesLoading,
+    error: rulesError,
+    mutate: rulesMutate,
+  } = useQuery(ruleQueryArg, { suspense: false });
+
+  const rules = useMemo<MnReminderRuleDto[]>(() => {
+    const typed = rulesData as unknown as RulesResponse | undefined;
+    return typed?.mnReminderRules ?? [];
+  }, [rulesData]);
+
+  const { trigger: triggerCreateRule } = useMutation({
+    mutation: createMnReminderRuleMutation,
+  });
+  const { trigger: triggerUpdateRule } = useMutation({
+    mutation: updateMnReminderRuleMutation,
+  });
+  const { trigger: triggerDeleteRule } = useMutation({
+    mutation: deleteMnReminderRuleMutation,
   });
 
   const bucketed = useMemo(() => {
@@ -471,14 +530,135 @@ const RemindersPage = () => {
     // required by the no-floating-promises rule even though SWR's own error
     // surface already exposes failures via the `error` field.
     mutate().catch(() => {});
-  }, [mutate]);
+    rulesMutate().catch(() => {});
+  }, [mutate, rulesMutate]);
 
-  const handleNewClick = useCallback(() => setModalOpen(true), []);
+  const handleNewClick = useCallback(() => {
+    if (activeTab === 'rules') {
+      setEditingRule(null);
+      setRuleModalOpen(true);
+    } else {
+      setModalOpen(true);
+    }
+  }, [activeTab]);
+
   const handleModalClose = useCallback(() => {
     if (!submitting) setModalOpen(false);
   }, [submitting]);
 
-  const renderList = (list: MnReminderDto[], tab: TabKey) => {
+  const handleRuleModalClose = useCallback(() => {
+    if (!ruleSubmitting) {
+      setRuleModalOpen(false);
+      setEditingRule(null);
+    }
+  }, [ruleSubmitting]);
+
+  const handleEditRule = useCallback((rule: MnReminderRuleDto) => {
+    setEditingRule(rule);
+    setRuleModalOpen(true);
+  }, []);
+
+  const handleRuleSubmit = useCallback(
+    async (input: CreateMnReminderRuleInput | UpdateMnReminderRuleInput) => {
+      setRuleSubmitting(true);
+      try {
+        if (editingRule) {
+          await (triggerUpdateRule as (args: unknown) => Promise<unknown>)({
+            ruleId: editingRule.id,
+            input: input as UpdateMnReminderRuleInput,
+          });
+          notify.success({
+            title: t['com.manut.reminders.rules.notify.updated.title'](),
+          });
+        } else {
+          await (triggerCreateRule as (args: unknown) => Promise<unknown>)({
+            workspaceId,
+            input: input as CreateMnReminderRuleInput,
+          });
+          notify.success({
+            title: t['com.manut.reminders.rules.notify.created.title'](),
+          });
+        }
+        await rulesMutate();
+        setRuleModalOpen(false);
+        setEditingRule(null);
+      } finally {
+        setRuleSubmitting(false);
+      }
+    },
+    [
+      editingRule,
+      rulesMutate,
+      t,
+      triggerCreateRule,
+      triggerUpdateRule,
+      workspaceId,
+    ]
+  );
+
+  const handleRuleToggle = useCallback(
+    (rule: MnReminderRuleDto, next: boolean) => {
+      setRuleTogglingId(rule.id);
+      (triggerUpdateRule as (args: unknown) => Promise<unknown>)({
+        ruleId: rule.id,
+        input: { enabled: next } satisfies UpdateMnReminderRuleInput,
+      })
+        .then(() => rulesMutate())
+        .then(() => undefined)
+        .catch((err: unknown) => {
+          const message =
+            err instanceof Error
+              ? err.message
+              : t['com.manut.reminders.rules.error.toggle']();
+          notify.error({
+            title: t['com.manut.reminders.rules.notify.toggle.error'](),
+            message,
+          });
+        })
+        .finally(() => setRuleTogglingId(null));
+    },
+    [rulesMutate, t, triggerUpdateRule]
+  );
+
+  const handleRuleDelete = useCallback(
+    (rule: MnReminderRuleDto) => {
+      openConfirmModal({
+        title: t['com.manut.reminders.rules.delete.confirm.title'](),
+        description: t['com.manut.reminders.rules.delete.confirm.description']({
+          name: rule.name,
+        }),
+        confirmText: t['com.manut.reminders.rules.delete.confirm.submit'](),
+        cancelText: t['com.manut.reminders.rules.delete.confirm.cancel'](),
+        confirmButtonOptions: { variant: 'error' },
+        onConfirm: async () => {
+          setRuleDeletingId(rule.id);
+          try {
+            await (triggerDeleteRule as (args: unknown) => Promise<unknown>)({
+              ruleId: rule.id,
+            });
+            notify.success({
+              title: t['com.manut.reminders.rules.notify.deleted.title'](),
+            });
+            await rulesMutate();
+          } catch (err) {
+            const message =
+              err instanceof Error
+                ? err.message
+                : t['com.manut.reminders.rules.error.delete']();
+            notify.error({
+              title: t['com.manut.reminders.rules.notify.deleted.error'](),
+              message,
+            });
+          } finally {
+            setRuleDeletingId(null);
+          }
+        },
+      });
+    },
+    [openConfirmModal, rulesMutate, t, triggerDeleteRule]
+  );
+
+  const renderReminderList = (list: MnReminderDto[], tab: ReminderTabKey) => {
     if (list.length === 0) return <EmptyState tab={tab} />;
     return (
       <div className={styles.list}>
@@ -495,12 +675,16 @@ const RemindersPage = () => {
     );
   };
 
-  const activeList =
+  const activeReminderList: MnReminderDto[] =
     activeTab === 'due'
       ? bucketed.due
       : activeTab === 'upcoming'
         ? bucketed.upcoming
-        : bucketed.done;
+        : activeTab === 'done'
+          ? bucketed.done
+          : [];
+  const activeReminderTab: ReminderTabKey =
+    activeTab === 'rules' ? 'due' : (activeTab as ReminderTabKey);
 
   const headerTitle = t['com.manut.reminders.title']();
 
@@ -557,21 +741,52 @@ const RemindersPage = () => {
                 {t['com.manut.reminders.tab.done']()}
                 <span className={styles.tabCount}>{bucketed.done.length}</span>
               </button>
+              <button
+                role="tab"
+                type="button"
+                aria-selected={activeTab === 'rules'}
+                data-active={activeTab === 'rules'}
+                className={styles.tabButton}
+                onClick={() => setActiveTab('rules')}
+                data-testid="reminders-tab-rules"
+              >
+                {t['com.manut.reminders.tab.rules']()}
+                <span className={styles.tabCount}>{rules.length}</span>
+              </button>
             </div>
             <Button
               variant="primary"
               onClick={handleNewClick}
-              data-testid="reminders-new"
+              data-testid={
+                activeTab === 'rules' ? 'reminders-new-rule' : 'reminders-new'
+              }
             >
-              {t['com.manut.reminders.action.new']()}
+              {activeTab === 'rules'
+                ? t['com.manut.reminders.rules.action.new']()
+                : t['com.manut.reminders.action.new']()}
             </Button>
           </div>
-          {error ? (
+          {activeTab === 'rules' ? (
+            rulesError ? (
+              <ErrorState message={rulesError.message} onRetry={handleRetry} />
+            ) : rulesLoading && rules.length === 0 ? (
+              <LoadingSkeleton />
+            ) : (
+              <RuleList
+                rules={rules}
+                togglingId={ruleTogglingId}
+                deletingId={ruleDeletingId}
+                onToggle={handleRuleToggle}
+                onEdit={handleEditRule}
+                onDelete={handleRuleDelete}
+              />
+            )
+          ) : error ? (
             <ErrorState message={error.message} onRetry={handleRetry} />
           ) : isLoading && reminders.length === 0 ? (
             <LoadingSkeleton />
           ) : (
-            renderList(activeList, activeTab)
+            renderReminderList(activeReminderList, activeReminderTab)
           )}
         </div>
         <NewReminderModal
@@ -579,6 +794,13 @@ const RemindersPage = () => {
           submitting={submitting}
           onSubmit={handleCreate}
           onClose={handleModalClose}
+        />
+        <RuleModal
+          open={ruleModalOpen}
+          rule={editingRule}
+          submitting={ruleSubmitting}
+          onSubmit={handleRuleSubmit}
+          onClose={handleRuleModalClose}
         />
       </ViewBody>
       <AllDocSidebarTabs />
