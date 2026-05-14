@@ -5,7 +5,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { MnAgentRole, PrismaClient } from '@prisma/client';
+import type { MnAgentRole } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 import type { UpdateMnAgentRoleInput } from './manut-agent-registry.dto';
 
