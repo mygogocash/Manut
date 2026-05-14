@@ -477,6 +477,14 @@ export const KnowledgeGraphView = () => {
       const { nodes, edges } = stateRef.current;
       const source = nodes.find(n => n.id === event.docId);
       if (!source) return;
+      // Feed the per-doc activity ring buffer so the detail panel's
+      // "Recent activity" list reflects AI doc-reads in real time.
+      activityBufferRef.current?.push({
+        docId: event.docId,
+        timestamp: Date.now(),
+        toolName: event.op,
+        agentLabel: event.agentId,
+      });
       // Snapshot the source's lobe colour at spawn time so changes to the
       // cluster after spawn don't recolour an in-flight pulse mid-travel.
       const palette = lobeColour(source.cluster);
@@ -1063,7 +1071,7 @@ export const KnowledgeGraphView = () => {
     // stateRef.current.nodes is updated synchronously when docTitlesById
     // changes (see the rebuild effect above), so docTitlesById is a safe
     // proxy for "node set changed". Edges aren't needed here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [docTitlesById]);
 
   // Per-doc recent-activity ring buffer. Wired here so future code that
@@ -1074,14 +1082,27 @@ export const KnowledgeGraphView = () => {
     activityBufferRef.current = createActivityBuffer();
   }
 
-  // No external producer yet — when the activation-bus contract surfaces in
-  // the backend, push events here.
-  const selectedActivity = useMemo(() => {
-    if (!selectedId || !activityBufferRef.current) return [];
-    return activityBufferRef.current.recent(selectedId, Date.now());
-    // `edges` participates because activity feed re-evaluation is cheap and
-    // keeps the panel snappy if a future producer pushes between renders.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Recent-activity list for the currently-selected doc. Driven by an
+  // effect rather than a useMemo so we can poll the wall-clock (Date.now)
+  // without violating react-hooks/purity. We re-read on a 1s tick while
+  // a node is selected so the relative timestamps stay fresh and any
+  // pulses that landed since the last render show up.
+  const [selectedActivity, setSelectedActivity] = useState<
+    ReturnType<ActivityBuffer['recent']>
+  >([]);
+  useEffect(() => {
+    if (!selectedId || !activityBufferRef.current) {
+      setSelectedActivity([]);
+      return undefined;
+    }
+    const refresh = () => {
+      const buf = activityBufferRef.current;
+      if (!buf) return;
+      setSelectedActivity(buf.recent(selectedId, Date.now()));
+    };
+    refresh();
+    const id = window.setInterval(refresh, 1000);
+    return () => window.clearInterval(id);
   }, [selectedId, edges]);
 
   const onOpenDoc = useCallback(

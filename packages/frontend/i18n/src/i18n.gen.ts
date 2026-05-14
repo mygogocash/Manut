@@ -9068,6 +9068,34 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.fields.website"](): string;
     /**
+      * `{{count}} deals`
+      */
+    ["com.manut.crm.kanban.column.count"](options: {
+        readonly count: number;
+    }): string;
+    /**
+      * `{{count}} deal`
+      */
+    ["com.manut.crm.kanban.column.count_one"](options: {
+        readonly count: number;
+    }): string;
+    /**
+      * `Drop a deal here to move it.`
+      */
+    ["com.manut.crm.kanban.column.empty"](): string;
+    /**
+      * `Could not move deal`
+      */
+    ["com.manut.crm.kanban.error.move"](): string;
+    /**
+      * `Add at least one stage to use the Kanban.`
+      */
+    ["com.manut.crm.kanban.error.noStages"](): string;
+    /**
+      * `Kanban view`
+      */
+    ["com.manut.crm.kanban.toggle"](): string;
+    /**
       * `Accounts`
       */
     ["com.manut.crm.tab.accounts"](): string;
@@ -9219,6 +9247,38 @@ export function useAFFiNEI18N(): {
       * `Title`
       */
     ["com.manut.pm.field.title"](): string;
+    /**
+      * `{{count}} tasks`
+      */
+    ["com.manut.pm.kanban.column.count"](options: {
+        readonly count: number;
+    }): string;
+    /**
+      * `{{count}} task`
+      */
+    ["com.manut.pm.kanban.column.count_one"](options: {
+        readonly count: number;
+    }): string;
+    /**
+      * `Drop a task here to move it.`
+      */
+    ["com.manut.pm.kanban.column.empty"](): string;
+    /**
+      * `Could not move task`
+      */
+    ["com.manut.pm.kanban.error.move"](): string;
+    /**
+      * `Kanban view`
+      */
+    ["com.manut.pm.kanban.toggle"](): string;
+    /**
+      * `Kanban view`
+      */
+    ["com.manut.pm.kanban.view.kanban"](): string;
+    /**
+      * `List view`
+      */
+    ["com.manut.pm.kanban.view.list"](): string;
     /**
       * `New project`
       */

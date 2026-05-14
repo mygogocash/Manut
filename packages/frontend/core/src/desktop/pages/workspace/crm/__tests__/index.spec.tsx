@@ -259,6 +259,57 @@ describe('CrmPage', () => {
     expect(screen.queryByTestId('crm-accounts-empty')).toBeNull();
   });
 
+  test('renders a Kanban column per deal stage with linked deals', () => {
+    queryState.stages = [
+      {
+        id: 'stage-discover',
+        workspaceId: 'workspace-1',
+        pipelineKey: 'default',
+        name: 'Discovery',
+        sortOrder: 0,
+        createdAt: '2026-05-01T00:00:00.000Z',
+      },
+      {
+        id: 'stage-won',
+        workspaceId: 'workspace-1',
+        pipelineKey: 'default',
+        name: 'Won',
+        sortOrder: 1,
+        createdAt: '2026-05-01T00:00:00.000Z',
+      },
+    ];
+    queryState.deals = [
+      {
+        id: 'deal-1',
+        workspaceId: 'workspace-1',
+        accountId: null,
+        contactId: null,
+        stageId: 'stage-discover',
+        name: 'Big launch',
+        value: 5000,
+        currency: 'USD',
+        probability: null,
+        expectedCloseAt: null,
+        ownerUserId: null,
+        createdAt: '2026-05-10T00:00:00.000Z',
+        updatedAt: '2026-05-10T00:00:00.000Z',
+      },
+    ];
+
+    render(<Component />);
+
+    // The Kanban replaces the previous grouped list — both stages render
+    // as columns and the deal lands in the right one.
+    expect(
+      screen.getByTestId('crm-deals-kanban-column-stage-discover')
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId('crm-deals-kanban-column-stage-won')
+    ).toBeTruthy();
+    expect(screen.getByTestId('crm-deals-kanban-card-deal-1')).toBeTruthy();
+    expect(screen.getByText('Big launch')).toBeTruthy();
+  });
+
   // -- detail panel ----------------------------------------------------------
 
   test('clicking an account row opens its detail panel', () => {
