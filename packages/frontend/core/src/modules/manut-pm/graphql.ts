@@ -155,27 +155,6 @@ export const updateMnTaskStatusMutation = {
 }`,
 };
 
-export const updateMnTaskMutation = {
-  id: 'updateMnTaskMutation' as const,
-  op: 'updateMnTask',
-  query: `mutation updateMnTask($taskId: ID!, $input: UpdateMnTaskInput!) {
-  updateMnTask(taskId: $taskId, input: $input) {
-    id
-    projectId
-    title
-    description
-    status
-    priority
-    dueAt
-    listSortOrder
-    assigneeUserId
-    createdByUserId
-    createdAt
-    updatedAt
-  }
-}`,
-};
-
 export const deleteMnTaskMutation = {
   id: 'deleteMnTaskMutation' as const,
   op: 'deleteMnTask',

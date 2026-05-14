@@ -183,3 +183,101 @@ export const textarea = style({
     },
   },
 });
+
+// Clickable list rows. We don't use a real <button> because the row already
+// contains rich content + a chevron, but we surface keyboard affordance via
+// role="button" + tabIndex + Enter/Space handling on the caller side.
+export const clickableRow = style({
+  cursor: 'pointer',
+  selectors: {
+    '&:hover': {
+      borderColor: cssVarV2.layer.insideBorder.blackBorder,
+    },
+    '&:focus-visible': {
+      outline: `2px solid ${cssVarV2.layer.insideBorder.blackBorder}`,
+      outlineOffset: 2,
+    },
+  },
+});
+
+// Detail panel — opens as a right-side drawer via Modal's `slideRight`
+// animation. It's not a full peek view, just a focused side panel that
+// shares the page's stacking context.
+export const detailPanel = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 12,
+  padding: '4px 0',
+});
+
+export const detailSection = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+});
+
+export const detailLabel = style({
+  fontSize: 11,
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: 0.4,
+  color: cssVarV2.text.secondary,
+});
+
+export const detailValue = style({
+  fontSize: 14,
+  color: cssVarV2.text.primary,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+});
+
+export const detailEmpty = style({
+  fontSize: 14,
+  color: cssVarV2.text.tertiary,
+  fontStyle: 'italic',
+});
+
+export const detailHeader = style({
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 12,
+  paddingBottom: 12,
+  borderBottom: `1px solid ${cssVarV2.layer.insideBorder.border}`,
+});
+
+export const detailActions = style({
+  display: 'flex',
+  gap: 8,
+  flexShrink: 0,
+});
+
+export const detailLinkedList = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+  paddingTop: 4,
+});
+
+export const detailLinkedRow = style({
+  display: 'flex',
+  alignItems: 'baseline',
+  justifyContent: 'space-between',
+  gap: 8,
+  fontSize: 13,
+  color: cssVarV2.text.primary,
+});
+
+export const detailLinkedMeta = style({
+  fontSize: 12,
+  color: cssVarV2.text.secondary,
+  flexShrink: 0,
+});
+
+export const dangerButton = style({
+  selectors: {
+    '&:not(:disabled)': {
+      color: cssVarV2.status.error,
+    },
+  },
+});

@@ -16,6 +16,9 @@ import type {
   MnCrmContact,
   MnCrmDeal,
   MnCrmDealStage,
+  UpdateMnCrmAccountInput,
+  UpdateMnCrmActivityInput,
+  UpdateMnCrmContactInput,
   UpdateMnCrmDealInput,
 } from './types';
 
@@ -162,6 +165,36 @@ export const createMnCrmDealMutation = {
 }`,
 };
 
+export const createMnCrmActivityMutation = {
+  id: 'createMnCrmActivityMutation' as const,
+  op: 'createMnCrmActivity',
+  query: `mutation createMnCrmActivity($workspaceId: String!, $input: CreateMnCrmActivityInput!) {
+  createMnCrmActivity(workspaceId: $workspaceId, input: $input) {${ACTIVITY_FIELDS}}
+}`,
+};
+
+// Update mutations ---------------------------------------------------------
+//
+// All four entities (account / contact / deal / activity) have an
+// `update*` resolver on the backend. Stage updates exist too, but the v0
+// page only edits the four primary entities — stage rename is a follow-up.
+
+export const updateMnCrmAccountMutation = {
+  id: 'updateMnCrmAccountMutation' as const,
+  op: 'updateMnCrmAccount',
+  query: `mutation updateMnCrmAccount($accountId: ID!, $input: UpdateMnCrmAccountInput!) {
+  updateMnCrmAccount(accountId: $accountId, input: $input) {${ACCOUNT_FIELDS}}
+}`,
+};
+
+export const updateMnCrmContactMutation = {
+  id: 'updateMnCrmContactMutation' as const,
+  op: 'updateMnCrmContact',
+  query: `mutation updateMnCrmContact($contactId: ID!, $input: UpdateMnCrmContactInput!) {
+  updateMnCrmContact(contactId: $contactId, input: $input) {${CONTACT_FIELDS}}
+}`,
+};
+
 export const updateMnCrmDealMutation = {
   id: 'updateMnCrmDealMutation' as const,
   op: 'updateMnCrmDeal',
@@ -170,11 +203,11 @@ export const updateMnCrmDealMutation = {
 }`,
 };
 
-export const createMnCrmActivityMutation = {
-  id: 'createMnCrmActivityMutation' as const,
-  op: 'createMnCrmActivity',
-  query: `mutation createMnCrmActivity($workspaceId: String!, $input: CreateMnCrmActivityInput!) {
-  createMnCrmActivity(workspaceId: $workspaceId, input: $input) {${ACTIVITY_FIELDS}}
+export const updateMnCrmActivityMutation = {
+  id: 'updateMnCrmActivityMutation' as const,
+  op: 'updateMnCrmActivity',
+  query: `mutation updateMnCrmActivity($activityId: ID!, $input: UpdateMnCrmActivityInput!) {
+  updateMnCrmActivity(activityId: $activityId, input: $input) {${ACTIVITY_FIELDS}}
 }`,
 };
 
@@ -216,12 +249,24 @@ export interface CreateMnCrmDealResponse {
   createMnCrmDeal: MnCrmDeal;
 }
 
+export interface CreateMnCrmActivityResponse {
+  createMnCrmActivity: MnCrmActivity;
+}
+
+export interface UpdateMnCrmAccountResponse {
+  updateMnCrmAccount: MnCrmAccount;
+}
+
+export interface UpdateMnCrmContactResponse {
+  updateMnCrmContact: MnCrmContact;
+}
+
 export interface UpdateMnCrmDealResponse {
   updateMnCrmDeal: MnCrmDeal;
 }
 
-export interface CreateMnCrmActivityResponse {
-  createMnCrmActivity: MnCrmActivity;
+export interface UpdateMnCrmActivityResponse {
+  updateMnCrmActivity: MnCrmActivity;
 }
 
 // Variable shapes ----------------------------------------------------------
@@ -250,12 +295,27 @@ export interface CreateMnCrmDealVars {
   input: CreateMnCrmDealInput;
 }
 
+export interface CreateMnCrmActivityVars {
+  workspaceId: string;
+  input: CreateMnCrmActivityInput;
+}
+
+export interface UpdateMnCrmAccountVars {
+  accountId: string;
+  input: UpdateMnCrmAccountInput;
+}
+
+export interface UpdateMnCrmContactVars {
+  contactId: string;
+  input: UpdateMnCrmContactInput;
+}
+
 export interface UpdateMnCrmDealVars {
   dealId: string;
   input: UpdateMnCrmDealInput;
 }
 
-export interface CreateMnCrmActivityVars {
-  workspaceId: string;
-  input: CreateMnCrmActivityInput;
+export interface UpdateMnCrmActivityVars {
+  activityId: string;
+  input: UpdateMnCrmActivityInput;
 }

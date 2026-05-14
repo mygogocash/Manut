@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type * as Infra from '@toeverything/infra';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -15,33 +15,65 @@ const queryState = vi.hoisted(() => ({
   stages: [] as unknown[],
   activities: [] as unknown[],
 }));
+// Tracks every useMutation trigger call so tests can assert that a
+// specific mutation fired with the expected payload. Keyed by mutation
+// `id` so tests don't have to thread the same trigger fn through React.
+const mutationState = vi.hoisted(() => ({
+  calls: [] as Array<{ id: string; vars: unknown }>,
+  triggerImpl: vi.fn(async () => ({
+    // Default: return a "successful update" envelope shaped like the
+    // real response. Tests that want a different shape can override
+    // via `mutationState.triggerImpl.mockImplementationOnce(...)`.
+    updateMnCrmAccount: { id: 'account-1' },
+  })),
+}));
 
 vi.mock('@affine/component', () => ({
   Button: ({
     children,
     onClick,
     disabled,
+    ...rest
   }: {
     children?: ReactNode;
     onClick?: ButtonHTMLAttributes<HTMLButtonElement>['onClick'];
     disabled?: boolean;
-  }) => (
-    <button onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
-  ),
+    [key: string]: unknown;
+  }) => {
+    // Pass through any data-* attributes so tests can locate buttons by
+    // their data-testid. The real Button forwards these onto the
+    // rendered <button>; the stub needs to do the same.
+    const dataProps: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rest)) {
+      if (key.startsWith('data-')) dataProps[key] = value;
+    }
+    return (
+      <button onClick={onClick} disabled={disabled} {...dataProps}>
+        {children}
+      </button>
+    );
+  },
   Input: ({
     value,
     onChange,
+    ...rest
   }: {
     value?: string;
     onChange?: (value: string) => void;
-  }) => (
-    <input
-      value={value ?? ''}
-      onChange={event => onChange?.(event.target.value)}
-    />
-  ),
+    [key: string]: unknown;
+  }) => {
+    const dataProps: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rest)) {
+      if (key.startsWith('data-')) dataProps[key] = value;
+    }
+    return (
+      <input
+        value={value ?? ''}
+        onChange={event => onChange?.(event.target.value)}
+        {...dataProps}
+      />
+    );
+  },
   Menu: ({ children }: { children: ReactNode; items: ReactNode }) => (
     <div>{children}</div>
   ),
@@ -107,7 +139,12 @@ vi.mock('@affine/core/components/hooks/use-query', () => ({
 }));
 
 vi.mock('@affine/core/components/hooks/use-mutation', () => ({
-  useMutation: () => ({ trigger: vi.fn(async () => undefined) }),
+  useMutation: ({ mutation }: { mutation: { id: string } }) => ({
+    trigger: async (vars: unknown) => {
+      mutationState.calls.push({ id: mutation.id, vars });
+      return mutationState.triggerImpl();
+    },
+  }),
 }));
 
 vi.mock('@affine/core/components/pure/swr-error-bundary', () => ({
@@ -164,6 +201,21 @@ vi.mock('@toeverything/infra', async importOriginal => {
 
 import { Component } from '../index';
 
+function makeAccount(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'account-1',
+    workspaceId: 'workspace-1',
+    name: 'Acme Inc.',
+    website: null,
+    industry: null,
+    notes: null,
+    ownerUserId: null,
+    createdAt: '2026-05-12T00:00:00.000Z',
+    updatedAt: '2026-05-12T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
 describe('CrmPage', () => {
   beforeEach(() => {
     cleanup();
@@ -172,6 +224,11 @@ describe('CrmPage', () => {
     queryState.deals = [];
     queryState.stages = [];
     queryState.activities = [];
+    mutationState.calls = [];
+    mutationState.triggerImpl.mockClear();
+    mutationState.triggerImpl.mockImplementation(async () => ({
+      updateMnCrmAccount: makeAccount({ name: 'Updated Inc.' }),
+    }));
   });
 
   afterEach(() => {
@@ -194,19 +251,7 @@ describe('CrmPage', () => {
   });
 
   test('renders an account row when accounts are returned', () => {
-    queryState.accounts = [
-      {
-        id: 'account-1',
-        workspaceId: 'workspace-1',
-        name: 'Acme Inc.',
-        website: null,
-        industry: null,
-        notes: null,
-        ownerUserId: null,
-        createdAt: '2026-05-12T00:00:00.000Z',
-        updatedAt: '2026-05-12T00:00:00.000Z',
-      },
-    ];
+    queryState.accounts = [makeAccount()];
 
     render(<Component />);
 
@@ -263,5 +308,63 @@ describe('CrmPage', () => {
     ).toBeTruthy();
     expect(screen.getByTestId('crm-deals-kanban-card-deal-1')).toBeTruthy();
     expect(screen.getByText('Big launch')).toBeTruthy();
+  });
+
+  // -- detail panel ----------------------------------------------------------
+
+  test('clicking an account row opens its detail panel', () => {
+    queryState.accounts = [makeAccount({ industry: 'Saas' })];
+
+    render(<Component />);
+
+    // Before click: detail panel header is hidden because Modal mock
+    // gates content on `open`. The row should be present though.
+    expect(screen.queryByTestId('account-detail-name')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('crm-account-row-account-1'));
+
+    // After click: the AccountDetailBody renders. The name + industry
+    // fields are rendered as DetailField children with the matching
+    // test IDs.
+    expect(screen.getByTestId('account-detail-name')).toBeTruthy();
+  });
+
+  // -- edit flow -------------------------------------------------------------
+
+  test('saving from the account edit modal fires updateMnCrmAccount with the right input', async () => {
+    queryState.accounts = [
+      makeAccount({ name: 'Original Inc.', industry: 'Saas' }),
+    ];
+
+    render(<Component />);
+
+    // Open detail panel.
+    fireEvent.click(screen.getByTestId('crm-account-row-account-1'));
+    // Open edit modal.
+    fireEvent.click(screen.getByTestId('crm-detail-edit'));
+    // Modify the name field.
+    const nameInput = screen.getByTestId(
+      'account-edit-name'
+    ) as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: 'Renamed Inc.' } });
+    // Click save.
+    fireEvent.click(screen.getByTestId('account-edit-save'));
+
+    // Let the async submit resolve. handleSubmit returns a promise but
+    // the click handler doesn't await it, so we yield a microtask.
+    await Promise.resolve();
+
+    const updateCalls = mutationState.calls.filter(
+      c => c.id === 'updateMnCrmAccountMutation'
+    );
+    expect(updateCalls.length).toBe(1);
+    const vars = updateCalls[0]?.vars as
+      | { accountId: string; input: { name: string; industry: string | null } }
+      | undefined;
+    expect(vars).toBeTruthy();
+    expect(vars?.accountId).toBe('account-1');
+    expect(vars?.input.name).toBe('Renamed Inc.');
+    // The industry field was untouched — should be preserved as-is.
+    expect(vars?.input.industry).toBe('Saas');
   });
 });
