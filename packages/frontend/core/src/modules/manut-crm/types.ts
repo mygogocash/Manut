@@ -115,6 +115,18 @@ export interface CreateMnCrmDealInput {
   probability?: number | null;
 }
 
+export interface UpdateMnCrmDealInput {
+  accountId?: string | null;
+  contactId?: string | null;
+  stageId?: string | null;
+  name?: string | null;
+  value?: number | null;
+  currency?: string | null;
+  probability?: number | null;
+  expectedCloseAt?: string | null;
+  ownerUserId?: string | null;
+}
+
 export interface CreateMnCrmActivityInput {
   accountId?: string | null;
   contactId?: string | null;
