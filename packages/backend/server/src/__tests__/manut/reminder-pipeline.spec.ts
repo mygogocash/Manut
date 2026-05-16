@@ -64,7 +64,7 @@ test('Manut reminder cron creates a delivery and enqueues due reminders', async 
     [
       'superflow.deliverReminder',
       { reminderId: reminder.id, deliveryId: createdDelivery.id },
-      { jobId: 'manut-deliver-reminder-${createdDelivery.id}` },
+      { jobId: `manut-deliver-reminder-${createdDelivery.id}` },
     ],
   ]);
 });

@@ -93,7 +93,7 @@ export class MnReminderCron {
         await this.queue.add(
           'superflow.deliverReminder',
           { reminderId: reminder.id, deliveryId: delivery.id },
-          { jobId: 'manut-deliver-reminder-${delivery.id}` }
+          { jobId: `manut-deliver-reminder-${delivery.id}` }
         );
       } catch (error) {
         await this.db.mnReminder.update({
