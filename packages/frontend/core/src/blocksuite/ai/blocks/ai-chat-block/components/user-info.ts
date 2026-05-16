@@ -109,7 +109,7 @@ export function UserInfoTemplate(
         .avatarUrl=${userInfo.avatarUrl}
       ></user-info>`
     : html`<user-info
-        .userName=${'AFFiNE AI'}
+        .userName=${'Manut AI'}
         .avatarIcon=${AffineAIIcon}
       ></user-info>`;
 

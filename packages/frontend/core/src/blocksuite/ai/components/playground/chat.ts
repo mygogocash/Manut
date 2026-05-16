@@ -332,7 +332,7 @@ export class PlaygroundChat extends SignalWatcher(
             ? html`<span data-testid="chat-panel-embedding-progress"
                 >Embedding ${done}/${total}</span
               >`
-            : 'AFFiNE AI'}
+            : 'Manut AI'}
         </div>
         <div class="chat-panel-add" @click=${this.addChat}>
           ${NewPageIcon()}

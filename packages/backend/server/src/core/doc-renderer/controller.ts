@@ -206,9 +206,7 @@ export class DocRendererController {
       envMeta.isSelfHosted = true;
     }
 
-    const title = opts?.title
-      ? htmlSanitize(`${opts.title} | AFFiNE`)
-      : 'AFFiNE';
+    const title = opts?.title ? htmlSanitize(`${opts.title} | Manut`) : 'Manut';
     const summary = opts ? htmlSanitize(opts.summary) : assets.description;
     const image = opts?.avatar ?? 'https://affine.pro/og.jpeg';
 
