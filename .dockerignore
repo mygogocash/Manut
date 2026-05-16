@@ -44,4 +44,13 @@ blocksuite/**/src/**/*.js
 **/*.p12
 **/*.pfx
 **/.npmrc
+# Allowlist the checked-in root .npmrc — it carries only public config
+# (shell-emulator, electron_mirror, engine-strict). Dockerfile.fullstack
+# COPYs it explicitly; without this exception the build fails at the
+# `COPY package.json yarn.lock .yarnrc.yml .npmrc ./` step with
+# `"/.npmrc": not found` and Auto-Deploy skips. Builds #29 and #30
+# (commits 49a7d1b1 and 34d8e5e) hit this. The broader `**/.npmrc`
+# rule above still blocks dev-tokens-laden .npmrc files in workspaces
+# or in a developer's untracked root copy — H10 intent is preserved.
+!/.npmrc
 !**/.npmrc.example
