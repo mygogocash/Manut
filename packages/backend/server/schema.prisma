@@ -67,6 +67,7 @@ model User {
   mnCrmActivitiesCreated      MnCrmActivity[]             @relation("MnCrmActivityCreatedBy")
   mnReminders                 MnReminder[]
   mnReminderRulesCreated      MnReminderRule[]            @relation("MnReminderRuleCreator")
+  mnRoutinesOwned             MnRoutine[]                 @relation("MnRoutineOwner")
 
   @@index([email])
   @@map("users")
@@ -186,6 +187,7 @@ model Workspace {
   mnNotificationDeliveries   MnNotificationDelivery[]
   mnAgentRoles               MnAgentRole[]
   mnReleaseRuns              MnReleaseRun[]
+  mnRoutines                 MnRoutine[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -1474,6 +1476,31 @@ enum MnNotificationDeliveryStatus {
   SKIPPED
 }
 
+enum MnRoutineVisibility {
+  PERSONAL
+  WORKSPACE_SHARED
+}
+
+enum MnRoutineStatus {
+  ACTIVE
+  PAUSED
+  ERROR
+}
+
+enum MnRoutineRunTrigger {
+  MANUAL
+  SCHEDULED
+  MCP
+}
+
+enum MnRoutineRunStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  TIMED_OUT
+}
+
 model MnProject {
   id              String          @id @default(uuid()) @db.VarChar
   workspaceId     String          @map("workspace_id") @db.VarChar
@@ -1775,6 +1802,59 @@ model MnNotificationDelivery {
   @@index([workspaceId, status, createdAt])
   @@index([reminderId])
   @@map("mn_notification_deliveries")
+}
+
+/// Manut Routine — a named AI prompt with an optional cron schedule.
+/// Workspace-shared routines are visible/runnable by any workspace
+/// member but write-protected to admins-or-owner. Personal routines
+/// are visible only to the owner. `anthropicTaskId` is populated by
+/// the PR-2 Anthropic scheduled-tasks sync; null otherwise.
+model MnRoutine {
+  id              String              @id @default(uuid()) @db.VarChar
+  workspaceId     String              @map("workspace_id") @db.VarChar
+  ownerId         String              @map("owner_id") @db.VarChar
+  visibility      MnRoutineVisibility @default(PERSONAL)
+  name            String              @db.VarChar
+  description     String?             @db.Text
+  prompt          String              @db.Text
+  cronSchedule    String?             @map("cron_schedule") @db.VarChar(120)
+  timezone        String?             @db.VarChar(64)
+  status          MnRoutineStatus     @default(ACTIVE)
+  anthropicTaskId String?             @map("anthropic_task_id") @db.VarChar
+  lastRunAt       DateTime?           @map("last_run_at") @db.Timestamptz(3)
+  nextRunAt       DateTime?           @map("next_run_at") @db.Timestamptz(3)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User           @relation("MnRoutineOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  runs      MnRoutineRun[]
+
+  @@index([workspaceId, visibility, status])
+  @@index([ownerId])
+  @@map("mn_routines")
+}
+
+/// Execution history for a routine. One row per invocation (manual,
+/// scheduled, or MCP). `output` and `errorMessage` are populated by
+/// PR-4 (real execution against Vertex); v0 rows are stubs.
+model MnRoutineRun {
+  id           String              @id @default(uuid()) @db.VarChar
+  routineId    String              @map("routine_id") @db.VarChar
+  triggeredBy  String?             @map("triggered_by") @db.VarChar
+  triggerType  MnRoutineRunTrigger @map("trigger_type")
+  status       MnRoutineRunStatus  @default(QUEUED)
+  output       String?             @db.Text
+  errorMessage String?             @map("error_message") @db.Text
+  durationMs   Int?                @map("duration_ms")
+  startedAt    DateTime?           @map("started_at") @db.Timestamptz(3)
+  finishedAt   DateTime?           @map("finished_at") @db.Timestamptz(3)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  routine MnRoutine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@index([routineId, createdAt(sort: Desc)])
+  @@map("mn_routine_runs")
 }
 
 /// Manut Agent Registry — the 5 canonical operating roles per workspace.

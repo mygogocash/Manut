@@ -17,6 +17,8 @@ import { MnReleaseRunsService } from './manut-release-runs.service';
 import { MnReminderCron } from './manut-reminder.cron';
 import { MnReminderJob } from './manut-reminder.job';
 import { MnReminderResolver } from './manut-reminder.resolver';
+import { MnRoutineResolver } from './manut-routine.resolver';
+import { MnRoutineService } from './manut-routine.service';
 
 /**
  * Toggles `ServerFeature.Manut` so the frontend can show/hide the
@@ -76,6 +78,28 @@ export class ManutModule {
       };
     }
 
+    const providers: any[] = [
+      MnPmResolver,
+      MnCrmResolver,
+      MnHandoverResolver,
+      MnHandoverService,
+      MnReminderResolver,
+      MnReminderJob,
+      MnReminderCron,
+      MnAgentRegistryService,
+      MnAgentRegistryResolver,
+      MnReleaseRunsService,
+      MnReleaseRunsResolver,
+      MnFeatureRegistrar,
+    ];
+
+    // Sub-feature: Routines. Gated by its own env flag so it can ship
+    // independently of the full Manut module. Adds MnRoutineService +
+    // MnRoutineResolver; future PRs add MnRoutineCron / MnRoutineMcp.
+    if (isManutRoutinesEnabled()) {
+      providers.push(MnRoutineService, MnRoutineResolver);
+    }
+
     return {
       module: ManutModule,
       imports: [
@@ -84,20 +108,7 @@ export class ManutModule {
         DocStorageModule,
         ServerConfigModule,
       ],
-      providers: [
-        MnPmResolver,
-        MnCrmResolver,
-        MnHandoverResolver,
-        MnHandoverService,
-        MnReminderResolver,
-        MnReminderJob,
-        MnReminderCron,
-        MnAgentRegistryService,
-        MnAgentRegistryResolver,
-        MnReleaseRunsService,
-        MnReleaseRunsResolver,
-        MnFeatureRegistrar,
-      ],
+      providers,
     };
   }
 }
@@ -113,4 +124,16 @@ export function isManutModuleEnabled(): boolean {
   const value =
     process.env.ENABLE_MANUT_MODULE ?? process.env.ENABLE_SUPERFLOW_MODULE;
   return value === 'true';
+}
+
+/**
+ * Sub-feature flag for Manut Routines (PR 1 of the routines work).
+ * Independent of `ENABLE_MANUT_MODULE` so we can roll out routines
+ * without touching the wider PM/CRM/Reminders surface — but routines
+ * still requires the parent flag because the providers list lives
+ * inside the enabled branch of `forRoot()`. Both must be true to
+ * load `MnRoutineResolver`.
+ */
+export function isManutRoutinesEnabled(): boolean {
+  return process.env.ENABLE_MANUT_ROUTINES === 'true';
 }
