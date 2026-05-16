@@ -10,6 +10,7 @@ import {
 import { WorkspaceBlobStorage } from '../storage';
 import {
   effectiveStorageQuota,
+  isStorageOverQuotaAfterUpload,
   MANUT_BASE_STORAGE_QUOTA_BYTES,
 } from './effective-storage-quota';
 import {
@@ -52,6 +53,7 @@ const MANUT_UNLIMITED_BYTES = 1_000_000_000_000_000;
 // external consumer that imports from this service entrypoint.
 export {
   effectiveStorageQuota,
+  isStorageOverQuotaAfterUpload,
   MANUT_BASE_STORAGE_QUOTA_BYTES,
   MANUT_STORAGE_GROWTH_FACTOR,
   MANUT_STORAGE_GROWTH_THRESHOLD,
@@ -306,16 +308,17 @@ export class QuotaService {
     const quota = await this.getUserQuota(userId);
     const usedSize = await this.getUserStorageUsage(userId);
 
-    // MANUT: apply lazy auto-grow on self-hosted so enforcement matches
-    // the displayed quota from `getUserQuotaWithUsage`.
-    const storageQuota = env.selfhosted
-      ? effectiveStorageQuota(usedSize)
-      : quota.storageQuota;
-
+    // MANUT: on self-hosted, autoGrow=true tells the calculator to
+    // evaluate the effective quota against the POST-upload size so a
+    // single large blob that itself triggers a growth step is allowed
+    // (vs the v1.12.x P1 where pre-upload 5 GB BASE rejected a 6 GB
+    // upload to an empty workspace).
     return this.generateQuotaCalculator(
-      storageQuota,
+      quota.storageQuota,
       quota.blobLimit,
-      usedSize
+      usedSize,
+      false,
+      env.selfhosted
     );
   }
 
@@ -336,16 +339,13 @@ export class QuotaService {
       ? await this.getUserStorageUsage(quota.ownerQuota)
       : await this.getWorkspaceStorageUsage(workspaceId);
 
-    // MANUT: apply lazy auto-grow on self-hosted so enforcement matches
-    // the displayed quota from `getWorkspaceQuotaWithUsage`.
-    const storageQuota = env.selfhosted
-      ? effectiveStorageQuota(usedSize)
-      : quota.storageQuota;
-
+    // MANUT: see comment in getUserQuotaCalculator above.
     return this.generateQuotaCalculator(
-      storageQuota,
+      quota.storageQuota,
       quota.blobLimit,
-      usedSize
+      usedSize,
+      false,
+      env.selfhosted
     );
   }
 
@@ -357,14 +357,24 @@ export class QuotaService {
     storageQuota: number,
     blobLimit: number,
     usedQuota: number,
-    unlimited = false
+    unlimited = false,
+    // MANUT: when true, evaluate the effective quota against the
+    // post-upload size via the lazy auto-grow rule. See
+    // isStorageOverQuotaAfterUpload for the rationale (PR #76 P1).
+    autoGrow = false
   ) {
     const checkExceeded = (recvSize: number) => {
       const currentSize = usedQuota + recvSize;
-      // only skip total storage check if workspace has unlimited feature
-      if (currentSize > storageQuota && !unlimited) {
+      const { exceeded, effectiveQuota } = isStorageOverQuotaAfterUpload({
+        usedSize: usedQuota,
+        recvSize,
+        storageQuota,
+        autoGrow,
+        unlimited,
+      });
+      if (exceeded) {
         this.logger.warn(
-          `storage size limit exceeded: ${currentSize} > ${storageQuota}`
+          `storage size limit exceeded: ${currentSize} > ${effectiveQuota}`
         );
         return { storageQuotaExceeded: true, blobQuotaExceeded: false };
       } else if (recvSize > blobLimit) {

@@ -16,6 +16,43 @@ export const MANUT_STORAGE_GROWTH_FACTOR = 1.2;
 const MANUT_STORAGE_QUOTA_CAP_BYTES = 1_000_000_000_000_000;
 
 /**
+ * Returns whether a proposed upload of `recvSize` bytes would exceed the
+ * effective workspace storage quota, given current usage `usedSize`.
+ *
+ * Crucially, on `autoGrow=true` (self-hosted), the effective quota is
+ * evaluated against the POST-upload size — so a single large blob that
+ * itself triggers a growth step is allowed, instead of being rejected on
+ * a stale pre-upload quota. This was the v1.12.x P1 caught in PR #76
+ * review: an empty workspace uploading a 6 GB blob was being rejected on
+ * the 5 GB BASE because the calculator used `effectiveStorageQuota(0)`
+ * = BASE rather than `effectiveStorageQuota(6 GB)` ≈ 8.64 GB.
+ *
+ * On `autoGrow=false` (cloud/hosted), the fixed `storageQuota` is
+ * enforced literally — no auto-grow.
+ *
+ * `unlimited=true` short-circuits to `false` (no check).
+ */
+export function isStorageOverQuotaAfterUpload(args: {
+  usedSize: number;
+  recvSize: number;
+  storageQuota: number;
+  autoGrow: boolean;
+  unlimited?: boolean;
+}): { exceeded: boolean; effectiveQuota: number } {
+  if (args.unlimited) {
+    return { exceeded: false, effectiveQuota: args.storageQuota };
+  }
+  const postUploadSize = args.usedSize + args.recvSize;
+  const effectiveQuota = args.autoGrow
+    ? effectiveStorageQuota(postUploadSize)
+    : args.storageQuota;
+  return {
+    exceeded: postUploadSize > effectiveQuota,
+    effectiveQuota,
+  };
+}
+
+/**
  * Returns the effective storage quota (bytes) for a given current usage,
  * applying the MANUT lazy auto-grow rule:
  *
