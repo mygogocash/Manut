@@ -358,6 +358,14 @@ export const RootAppSidebar = memo((): ReactElement => {
           </div>
           <UserInfo />
         </div>
+        {/*
+         * Intelligence (AI chat) sits directly under the workspace switcher
+         * so the primary AI interaction is the first nav item users see —
+         * before search, before docs. AIChatButton self-gates on
+         * enableAI + serverFeatures.copilot so it renders null on
+         * deployments without copilot, keeping the layout stable.
+         */}
+        <AIChatButton />
         <div className={quickSearchAndNewPage}>
           <QuickSearchInput
             className={quickSearch}
@@ -367,6 +375,13 @@ export const RootAppSidebar = memo((): ReactElement => {
           />
           <AddPageButton />
         </div>
+        {/*
+         * Notifications sits directly under the search bar so the
+         * scan-the-inbox affordance is right next to the find-anything
+         * affordance. Self-gates on sessionStatus so it doesn't show
+         * for unauthenticated visitors.
+         */}
+        {sessionStatus === 'authenticated' && <NotificationButton />}
         <AllDocsButton />
         <GraphButton />
         <AnalyticsButton />
@@ -375,8 +390,6 @@ export const RootAppSidebar = memo((): ReactElement => {
         <RemindersButton />
         <ReleaseRunsButton />
         <AppSidebarJournalButton />
-        {sessionStatus === 'authenticated' && <NotificationButton />}
-        <AIChatButton />
         <AgentsSection />
         <MenuItem
           data-testid="slider-bar-workspace-setting-button"
