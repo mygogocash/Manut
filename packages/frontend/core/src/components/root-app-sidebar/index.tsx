@@ -29,6 +29,7 @@ import {
   HistoryIcon,
   ImportIcon,
   JournalIcon,
+  RotateIcon,
   SettingsIcon,
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService, useServices } from '@toeverything/infra';
@@ -219,6 +220,31 @@ const RemindersButton = () => {
 };
 
 /**
+ * Sidebar link to the Manut Routines page (PR #69 backend + PR 1.5 frontend).
+ * Gated on `ServerFeature.Manut` like the other Manut nav entries.
+ */
+const RoutinesButton = () => {
+  const enabled = useManutEnabled();
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const active = useLiveData(
+    workbench.location$.selector(location =>
+      location.pathname.startsWith('/routines')
+    )
+  );
+
+  if (!enabled) return null;
+
+  return (
+    <MenuLinkItem icon={<RotateIcon />} active={active} to={'/routines'}>
+      <span data-testid="routines-nav">Routines</span>
+    </MenuLinkItem>
+  );
+};
+
+/**
  * Sidebar link to the Manut Control Plane release-runs board (Phase 4).
  * Gated on `ServerFeature.Manut` like the other Manut nav entries so
  * users on stock AFFiNE don't see a broken link.
@@ -388,6 +414,7 @@ export const RootAppSidebar = memo((): ReactElement => {
         <ProjectsButton />
         <CrmButton />
         <RemindersButton />
+        <RoutinesButton />
         <ReleaseRunsButton />
         <AppSidebarJournalButton />
         <AgentsSection />

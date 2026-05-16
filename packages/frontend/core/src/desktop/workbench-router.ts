@@ -78,6 +78,10 @@ export const workbenchRoutes = [
     lazy: () => import('./pages/workspace/reminders/index'),
   },
   {
+    path: '/routines',
+    lazy: () => import('./pages/workspace/routines/index'),
+  },
+  {
     path: '/release-runs',
     lazy: () => import('./pages/workspace/release-runs/index'),
   },
