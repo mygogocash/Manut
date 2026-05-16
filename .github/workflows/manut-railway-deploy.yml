@@ -1,0 +1,159 @@
+name: 🚂 Manut Railway Deploy
+run-name: '🚂 Railway Deploy • ${{ github.event.workflow_run.head_sha }} • by ${{ github.actor }}'
+
+# Watches "🏗️ Manut Build" and tells Railway to pull the new image tag.
+#
+# Why a separate workflow (not a job inside Build): same reasoning as
+# the GCE Auto Deploy split — keeps the build cacheable + idempotent,
+# makes the deploy step small and easy to reason about, and lets us
+# re-deploy an existing image without re-bundling.
+#
+# Required repo secrets:
+#   RAILWAY_TOKEN       — Railway Service Token (NOT a user account
+#                         token; create one under
+#                         Project Settings -> Tokens). Scope it to the
+#                         single Manut project.
+#   RAILWAY_PROJECT_ID  — Railway project ID (UUID).
+#   RAILWAY_SERVICE_ID  — Railway service ID (UUID) for the app
+#                         service that pulls from GAR.
+#
+# The display-name + run-name conventions match the rest of the Manut
+# workflows. Mind the emoji-filter trap (CLAUDE.md §9): if you ever
+# rename "🏗️ Manut Build", update the `workflows:` filter below in the
+# same PR.
+#
+# Security note: every user-controlled input (workflow_dispatch
+# image_tag, artifact file content) is passed through env vars and
+# validated against a strict regex before being used in shell
+# commands. github.* template values used directly in run-name are
+# GitHub-controlled fields (SHA, actor login) with constrained
+# character sets.
+
+on:
+  workflow_run:
+    workflows: ['🏗️ Manut Build']
+    types: [completed]
+  # Manual trigger for re-deploying an existing image (no rebuild) —
+  # useful when only env vars on Railway changed and you want a clean
+  # restart, or when rolling back to a specific tag.
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (e.g. main-abc123def-12345). Leave empty to redeploy current.'
+        type: string
+        required: false
+        default: ''
+
+# Serialize deploys — same reasoning as manut-autodeploy.yml. We let
+# multiple build successes queue rather than cancel so the latest tag
+# always lands. cancel-in-progress: false is the v1.12.0 contract.
+concurrency:
+  group: railway-deploy
+  cancel-in-progress: false
+
+env:
+  GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
+
+jobs:
+  deploy:
+    name: Deploy to Railway
+    # workflow_run path: only deploy if Build was a success on a push
+    # event (mirrors the manut-build.yml gate). workflow_dispatch path
+    # always runs.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Path A: workflow_run → pull tag from upstream Build's artifact.
+      - name: Download image-tag artifact (workflow_run path)
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tag
+          path: ./artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Resolve + validate image tag
+        id: tag
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_TAG: ${{ github.event.inputs.image_tag }}
+        run: |
+          set -eu
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$DISPATCH_TAG" ]; then
+            IMAGE_TAG="$DISPATCH_TAG"
+            SOURCE="manual dispatch"
+          elif [ -f ./artifact/image-tag.txt ]; then
+            # Grep returns the matching line, cut takes the value side.
+            # The artifact file is produced by manut-build.yml from
+            # trusted GitHub Actions context (head_sha + run_id, both
+            # GitHub-generated), but we still validate the format.
+            IMAGE_TAG=$(grep '^image_tag=' ./artifact/image-tag.txt | cut -d= -f2)
+            SOURCE="Build artifact"
+          else
+            echo "::error::No image tag available — manual dispatch with empty input and no Build artifact"
+            exit 1
+          fi
+
+          # Strict tag whitelist — alphanumerics, dash, dot, underscore.
+          # The Build workflow produces `main-<short_sha>-<run_id>` so
+          # this matches; rejects shell metacharacters.
+          if ! printf '%s' "$IMAGE_TAG" | grep -qE '^[A-Za-z0-9._-]+$'; then
+            echo "::error::Image tag failed validation: '$IMAGE_TAG'"
+            exit 1
+          fi
+
+          echo "Using tag from $SOURCE: $IMAGE_TAG"
+          echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Railway CLI
+        run: |
+          curl -fsSL https://railway.com/install.sh | sh
+          railway --version
+
+      - name: Point Railway service at new image
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -eu
+          FULL_IMAGE="${GAR_REPO}:${IMAGE_TAG}"
+          echo "Deploying image: ${FULL_IMAGE}"
+
+          # Link this CI run to the Railway project so subsequent
+          # commands have implicit project context.
+          railway link --project "$RAILWAY_PROJECT_ID"
+
+          # Update the service variable that controls the image source.
+          # On Railway, when a service is configured to deploy from a
+          # Docker image, the URL lives in a special service variable
+          # (RAILWAY_DOCKER_IMAGE by convention — verify by inspecting
+          # your service in the Railway dashboard the first time). The
+          # variable update auto-triggers a redeploy.
+          railway variables \
+            --service "$RAILWAY_SERVICE_ID" \
+            --set "RAILWAY_DOCKER_IMAGE=${FULL_IMAGE}"
+
+      - name: Summary
+        if: always()
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "## Manut Railway Deploy"
+            echo ""
+            echo "- Image: \`${GAR_REPO}:${IMAGE_TAG}\`"
+            echo "- Status: ${JOB_STATUS}"
+            echo ""
+            echo "Verify health: open the Railway dashboard, watch the"
+            echo "deploy logs, and confirm a 200 from \`/info\` once the"
+            echo "new container takes traffic."
+          } >> "$GITHUB_STEP_SUMMARY"

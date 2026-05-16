@@ -75,6 +75,12 @@ WORKDIR /app
 
 COPY --from=assets /app /app
 
+# Entrypoint shim — seeds GCP SA key + AFFiNE config.json from env vars
+# on Railway, no-op on the legacy GCE/compose deploy. See the script
+# header for details.
+COPY .docker/manut/entrypoint.railway.sh /usr/local/bin/manut-entrypoint
+RUN chmod +x /usr/local/bin/manut-entrypoint
+
 RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::AllowInsecureRepositories=true -o Acquire::AllowDowngradeToInsecureRepositories=true update && \
     apt-get install -y --no-install-recommends --allow-unauthenticated openssl libjemalloc2 && \
     rm -rf /var/lib/apt/lists/*
@@ -82,4 +88,5 @@ RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::AllowInsecureReposit
 ENV LD_PRELOAD=libjemalloc.so.2
 EXPOSE 3010
 
+ENTRYPOINT ["/usr/local/bin/manut-entrypoint"]
 CMD ["node", "./dist/main.js"]
