@@ -2,101 +2,86 @@ name: 🚂 Manut Railway Deploy
 run-name: '🚂 Railway Deploy • ${{ github.event.workflow_run.head_sha || github.event.inputs.image_tag }} • by ${{ github.actor }}'
 
 # Watches "🏗️ Manut Build" and points the Railway service at the new
-# image tag via the Railway Public GraphQL API (serviceInstanceUpdate
-# → serviceInstanceDeployV2). Then polls /info until 200 OK.
+# image SHA via a GAR rolling-tag swap, then triggers a Railway redeploy.
 #
-# Why a separate workflow (not a job inside Build): same reasoning as
-# the GCE Auto Deploy split — keeps the build cacheable + idempotent,
-# makes the deploy step small and easy to reason about, and lets us
-# re-deploy an existing image without re-bundling.
+# WHY THIS DESIGN (and why the previous one didn't work):
+# Previous v1.10.x version called `serviceInstanceUpdate(input: {
+# source: { image: "..." }})`. Per Railway docs the `ServiceInstanceUpdateInput`
+# type does NOT accept a `source` field — only build/runtime settings
+# (buildCommand, startCommand, healthcheck, region, replicas, etc.).
+# Railway rejected every call with a misleading "Not Authorized" error
+# that's its catch-all for unknown input fields. The workflow had never
+# succeeded; rotating RAILWAY_TOKEN never fixed it because the mutation
+# shape itself was wrong. See CLAUDE.md §9 for the full diagnosis.
 #
-# v1.12.x history — see CLAUDE.md §6 "manut-railway-deploy.yml is
-# broken":
-#   - Previous version's `if:` clause required `workflow_run.event
-#     == 'push'`. But this workflow consumes Build, which is itself
-#     workflow_run-triggered (by CI). So workflow_run.event on the
-#     Build object is `'workflow_run'`, never `'push'` → always
-#     skipped. Removed.
-#   - Previous version tried `railway variables --set
-#     RAILWAY_DOCKER_IMAGE=...`. That env var is fictional —
-#     Railway sources Docker images via the service's GraphQL
-#     `source.image` field, not an env var. Replaced with direct
-#     GraphQL.
-#   - Previous version installed the Railway CLI via `curl … | sh`
-#     and its install path wasn't on PATH in ubuntu-latest. We no
-#     longer need the CLI; GraphQL via curl is enough.
+# THE WORKAROUND:
+# 1. Build keeps pushing the immutable SHA tag (`main-<sha>-<runid>`)
+#    to GAR — unchanged. GCP Auto Deploy still consumes immutable tags.
+# 2. THIS workflow re-tags the freshly-built image as `:main` in GAR
+#    via `gcloud artifacts docker tags add`. The immutable SHA tag
+#    stays for rollback; the `:main` pointer moves to latest.
+# 3. The Railway service is configured ONE-TIME with
+#    `source.image = <gar-repo>:main` (no specific SHA).
+# 4. We call `serviceInstanceDeployV2` to trigger a redeploy. Railway
+#    resolves `:main` against GAR fresh and rolls a new container.
+# 5. Healthcheck poll closes the loop.
 #
-# Required repo secrets:
-#   RAILWAY_TOKEN           — Railway Personal Access Token (PAT).
-#                             Create at https://railway.com/account/tokens.
-#                             A *Project Token* won't work — Railway
-#                             rejects `serviceInstanceUpdate` calls
-#                             made with the `Project-Access-Token`
-#                             header (we tried during the migration).
-#                             PATs use `Authorization: Bearer …`.
-#   RAILWAY_PROJECT_ID      — Project UUID. Used only by the summary
-#                             step for human reference; the actual
-#                             mutations don't need it.
-#   RAILWAY_SERVICE_ID      — Service UUID for the app service that
-#                             pulls from GAR.
-#   RAILWAY_ENVIRONMENT_ID  — Environment UUID (e.g. production).
-#                             Required by serviceInstanceUpdate +
-#                             serviceInstanceDeployV2.
+# REQUIRED REPO SECRETS:
+#   RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_SERVICE_ID,
+#   RAILWAY_ENVIRONMENT_ID — same as before.
 #
-# Optional repo variable:
-#   RAILWAY_HEALTHCHECK_URL — Full URL to probe after deploy. Defaults
-#                             to https://manut-app-production.up.railway.app/info.
+# ONE-TIME RAILWAY DASHBOARD SETUP:
+# Set the Railway service's source image to `<gar-repo>:main` (no SHA).
+# manut-app → Settings → Source → replace the current `:main-<sha>-<runid>`
+# tag with `:main`.
 #
-# The display-name + run-name conventions match the rest of the Manut
-# workflows. Mind the emoji-filter trap (CLAUDE.md §9): if you ever
-# rename "🏗️ Manut Build", update the `workflows:` filter below in the
-# same PR.
+# EMOJI-FILTER TRAP (CLAUDE.md §9): If you rename "🏗️ Manut Build",
+# update the `workflows:` filter below in the same PR.
 #
-# Security note: every user-controlled input (workflow_dispatch
-# image_tag, artifact file content) is passed through env vars and
-# validated against a strict regex before being used in shell or
-# JSON-builder commands. github.* template values used directly in
-# run-name are GitHub-controlled fields (SHA, actor login) with
-# constrained character sets.
+# SECURITY: All user-controlled inputs (workflow_dispatch image_tag,
+# artifact file content) pass through env vars and are validated
+# against a strict alphanumeric/dash/dot/underscore regex before any
+# shell or JSON use.
 
 on:
   workflow_run:
     workflows: ['🏗️ Manut Build']
     types: [completed]
-  # Manual trigger for re-deploying an existing image (no rebuild) —
-  # useful when only env vars on Railway changed and you want a clean
-  # restart, or when rolling back to a specific tag.
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Image tag to deploy (e.g. main-abc123def-12345). Leave empty to redeploy current.'
+        description: 'Image tag to deploy. Empty = redeploy whatever :main currently points at.'
         type: string
         required: false
         default: ''
 
-# Serialize deploys — same reasoning as manut-autodeploy.yml. We let
-# multiple build successes queue rather than cancel so the latest tag
-# always lands. cancel-in-progress: false is the v1.12.0 contract.
 concurrency:
   group: railway-deploy
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  id-token: write
+  # actions: read is required for actions/download-artifact@v4 to
+  # read the image-tag artifact from the upstream Build workflow_run.
+  # Without it, the workflow_run trigger path fails before resolving
+  # the tag. (Codex review #80 / CLAUDE.md §9 token-scope trap.)
+  actions: read
+
 env:
   GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
+  ROLLING_TAG: main
   RAILWAY_API: https://backboard.railway.com/graphql/v2
 
 jobs:
   deploy:
     name: Deploy to Railway
-    # workflow_run path: only deploy if upstream Build was a success.
-    # workflow_dispatch path always runs.
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      # Path A: workflow_run → pull tag from upstream Build's artifact.
       - name: Download image-tag artifact (workflow_run path)
         if: github.event_name == 'workflow_run'
         uses: actions/download-artifact@v4
@@ -117,79 +102,51 @@ jobs:
           if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$DISPATCH_TAG" ]; then
             IMAGE_TAG="$DISPATCH_TAG"
             SOURCE="manual dispatch"
+            HAS_TAG=yes
           elif [ -f ./artifact/image-tag.txt ]; then
-            # Grep returns the matching line, cut takes the value side.
-            # The artifact file is produced by manut-build.yml from
-            # trusted GitHub Actions context (head_sha + run_id, both
-            # GitHub-generated), but we still validate the format.
             IMAGE_TAG=$(grep '^image_tag=' ./artifact/image-tag.txt | cut -d= -f2)
             SOURCE="Build artifact"
+            HAS_TAG=yes
           else
-            echo "::error::No image tag available — manual dispatch with empty input and no Build artifact"
-            exit 1
+            IMAGE_TAG=""
+            SOURCE="redeploy current :main"
+            HAS_TAG=no
           fi
 
-          # Strict tag whitelist — alphanumerics, dash, dot, underscore.
-          # The Build workflow produces `main-<short_sha>-<run_id>` so
-          # this matches; rejects shell metacharacters AND anything
-          # that could break out of a JSON string when we build the
-          # GraphQL request body below.
-          if ! printf '%s' "$IMAGE_TAG" | grep -qE '^[A-Za-z0-9._-]+$'; then
-            echo "::error::Image tag failed validation: '$IMAGE_TAG'"
-            exit 1
+          if [ "$HAS_TAG" = "yes" ]; then
+            if ! printf '%s' "$IMAGE_TAG" | grep -qE '^[A-Za-z0-9._-]+$'; then
+              echo "::error::Image tag failed validation: '$IMAGE_TAG'"
+              exit 1
+            fi
+            echo "Using tag from $SOURCE: $IMAGE_TAG"
+          else
+            echo "No tag — will redeploy whatever :${ROLLING_TAG} currently points at."
           fi
 
-          echo "Using tag from $SOURCE: $IMAGE_TAG"
           echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "has_tag=${HAS_TAG}" >> "$GITHUB_OUTPUT"
 
-      # serviceInstanceUpdate sets the service's `source.image` for
-      # the target environment. The mutation returns Boolean; a
-      # GraphQL `errors` array means the change didn't land (most
-      # commonly: token type is a Project Token, not a PAT — that
-      # returns "Not Authorized"). We fail fast on any errors entry.
-      - name: Update Railway service image source
-        id: update
+      - name: Auth to GCP (Workload Identity Federation)
+        if: steps.tag.outputs.has_tag == 'yes'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
+          service_account: 'affine-gha-deployer@affine-495114.iam.gserviceaccount.com'
+
+      - name: Set up gcloud
+        if: steps.tag.outputs.has_tag == 'yes'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Re-tag GAR image as rolling tag
+        if: steps.tag.outputs.has_tag == 'yes'
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
-          ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -eu
-          FULL_IMAGE="${GAR_REPO}:${IMAGE_TAG}"
-          echo "Pointing service at: ${FULL_IMAGE}"
-
-          # Build the variables JSON via jq so the image string is
-          # safely escaped — never via shell interpolation into a
-          # JSON literal.
-          VARIABLES=$(jq -n \
-            --arg sid "$SERVICE_ID" \
-            --arg eid "$ENVIRONMENT_ID" \
-            --arg img "$FULL_IMAGE" \
-            '{serviceId:$sid, environmentId:$eid, input:{source:{image:$img}}}')
-
-          read -r -d '' QUERY <<'EOF' || true
-          mutation serviceInstanceUpdate($serviceId: String!, $environmentId: String!, $input: ServiceInstanceUpdateInput!) {
-            serviceInstanceUpdate(serviceId: $serviceId, environmentId: $environmentId, input: $input)
-          }
-          EOF
-
-          BODY=$(jq -n --arg q "$QUERY" --argjson v "$VARIABLES" '{query:$q, variables:$v}')
-
-          RESPONSE=$(curl -sS --fail-with-body \
-            -X POST "$RAILWAY_API" \
-            -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "$BODY")
-
-          echo "Update response:"
-          echo "$RESPONSE" | jq '.'
-
-          # Fail if GraphQL returned an errors array.
-          if echo "$RESPONSE" | jq -e '.errors' >/dev/null 2>&1; then
-            echo "::error::serviceInstanceUpdate returned errors — confirm RAILWAY_TOKEN is a Personal Access Token (PAT), not a Project Token"
-            exit 1
-          fi
+          SRC="${GAR_REPO}:${IMAGE_TAG}"
+          DST="${GAR_REPO}:${ROLLING_TAG}"
+          echo "Re-tagging ${SRC} -> ${DST}"
+          gcloud artifacts docker tags add "$SRC" "$DST"
 
       - name: Trigger Railway deploy
         id: deploy
@@ -223,7 +180,7 @@ jobs:
           echo "$RESPONSE" | jq '.'
 
           if echo "$RESPONSE" | jq -e '.errors' >/dev/null 2>&1; then
-            echo "::error::serviceInstanceDeployV2 returned errors"
+            echo "::error::serviceInstanceDeployV2 returned errors. Check RAILWAY_TOKEN/SERVICE_ID/ENVIRONMENT_ID and that Railway source.image is set to :${ROLLING_TAG}."
             exit 1
           fi
 
@@ -231,10 +188,6 @@ jobs:
           echo "Deployment id: ${DEPLOY_ID:-(none returned)}"
           echo "deploy_id=${DEPLOY_ID}" >> "$GITHUB_OUTPUT"
 
-      # Poll the public URL until /info returns 200 OK. We don't want
-      # to mark the job green until the new container actually serves
-      # traffic — that's how we'd notice broken images, bad migrations,
-      # or env-var regressions.
       - name: Wait for healthcheck
         id: probe
         env:
@@ -259,16 +212,20 @@ jobs:
         if: always()
         env:
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          HAS_TAG: ${{ steps.tag.outputs.has_tag }}
           JOB_STATUS: ${{ job.status }}
           DEPLOY_ID: ${{ steps.deploy.outputs.deploy_id }}
         run: |
           {
             echo "## Manut Railway Deploy"
             echo ""
-            echo "- Image: \`${GAR_REPO}:${IMAGE_TAG}\`"
+            if [ "$HAS_TAG" = "yes" ]; then
+              echo "- Re-tagged: \`${GAR_REPO}:${IMAGE_TAG}\` -> \`${GAR_REPO}:${ROLLING_TAG}\`"
+            else
+              echo "- Re-redeployed existing \`${GAR_REPO}:${ROLLING_TAG}\`"
+            fi
             echo "- Deployment id: \`${DEPLOY_ID:-(unset)}\`"
             echo "- Status: ${JOB_STATUS}"
             echo ""
-            echo "Rollback: re-run this workflow via workflow_dispatch"
-            echo "with the previous tag as \`image_tag\`."
+            echo "Rollback: re-run via workflow_dispatch with a previous \`main-<sha>-<runid>\` tag. The rolling \`:${ROLLING_TAG}\` pointer will move back to that SHA."
           } >> "$GITHUB_STEP_SUMMARY"

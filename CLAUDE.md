@@ -845,6 +845,39 @@ Document the surprises — saves the next session a discovery cycle.
   on every render — debounce or move into a reactive subscription.
   Reference: the "AI made changes" chip in `assistant.ts`, and the
   in-flight Knowledge Graph activation bus (§5e).
+- **Railway's `serviceInstanceUpdate` does NOT accept a `source.image`
+  field.** The published `ServiceInstanceUpdateInput` carries only
+  build/runtime settings (buildCommand, startCommand, healthcheck,
+  region, replicas, restartPolicyType, cronSchedule, sleepApplication,
+  dockerfilePath, watchPatterns) — see Railway's "Manage Services"
+  docs. The original v1.10.x `manut-railway-deploy.yml` posted
+  `input: { source: { image: "<gar-repo>:<sha>" }}` expecting Railway
+  to swap the service's image source, and Railway rejected every
+  call with a misleading `"Not Authorized"` (its catch-all for
+  unknown input fields). The workflow had NEVER succeeded since
+  introduction; we burned a session rotating RAILWAY_TOKEN through
+  Account / Workspace / Project token classes before reading the
+  spec carefully enough to spot the mismatch. Symptoms:
+  ```json
+  {"errors":[{"message":"Not Authorized","path":["serviceInstanceUpdate"],
+    "extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}
+  ```
+  Workaround we landed: rolling-tag swap in GAR. Build keeps pushing
+  the immutable `main-<sha>-<runid>` tag (unchanged). The Railway
+  Deploy workflow re-tags the freshly-built image as `:main` via
+  `gcloud artifacts docker tags add` (registry-only operation, no
+  daemon, no pull), then calls `serviceInstanceDeployV2`. Railway
+  resolves `:main` against GAR fresh at deploy time. One-time setup:
+  Railway service source.image must be pointed at `<gar-repo>:main`
+  (not a specific SHA) via the dashboard. Trade-off: we lose
+  immutable SHA tags ON THE RAILWAY SIDE ONLY — the immutable
+  `main-<sha>-<runid>` tags still exist in GAR for audit + rollback,
+  and Railway can be pointed back to any prior SHA by re-running
+  the workflow with that tag (the `:main` pointer moves back).
+  GCP-side immutable-tag discipline (per §5) is preserved. Avoid
+  `serviceInstanceRedeploy` for this use case — it redeploys the
+  cached digest and won't pick up the new `:main`. Use
+  `serviceInstanceDeployV2` instead — it re-resolves the source.
 
 ## 6b. Settings dialog wiring (where new tabs live)
 
