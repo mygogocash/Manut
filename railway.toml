@@ -1,0 +1,35 @@
+# Railway service config for the Manut app.
+#
+# We deliberately do NOT define [build] here. Railway must pull the
+# pre-built image from GAR, NOT build the Dockerfile from source — the
+# Dockerfile expects pre-built dist/ artifacts in the build context
+# (server bundle, frontend/web/admin/mobile dists, napi binaries) that
+# only the GitHub Actions Build workflow produces. See:
+#   - .docker/manut/Dockerfile.fullstack (header comment)
+#   - .github/workflows/manut-build.yml
+#   - CLAUDE.md §6 "Dockerfile.fullstack expects pre-built dists"
+#
+# Image source for this service is configured in the Railway dashboard:
+#   Settings -> Source -> "Image" -> GAR URL with private-registry creds.
+# The downstream "Manut Railway Deploy" workflow updates the image tag
+# per build via the Railway API; see .github/workflows/manut-railway-deploy.yml.
+#
+# Migration: AFFiNE's predeploy script (`yarn predeploy` from the server
+# package — runs `prisma migrate deploy` + admin-user seeding) is NOT
+# baked into startCommand because it can run idempotently as a separate
+# step before promotion. Two patterns work:
+#   1. Run it from the deploy workflow once per release via
+#      `railway run -- node ./dist/scripts/self-host-predeploy.js`.
+#   2. Or include it inline:
+#        startCommand = "node ./dist/scripts/self-host-predeploy.js && node ./dist/main.js"
+#      (~1-2s overhead per container start; idempotent).
+# Default below is the bare server boot — pick the pattern that fits
+# your release flow.
+
+[deploy]
+healthcheckPath         = "/info"
+healthcheckTimeout      = 30
+numReplicas             = 1
+restartPolicyMaxRetries = 3
+restartPolicyType       = "ON_FAILURE"
+startCommand            = "node ./dist/main.js"
