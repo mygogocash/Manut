@@ -1,4 +1,12 @@
 name: 'Pull Request Labeler'
+
+# Pentest H12 — pull_request_target runs in the BASE repo context with
+# secret access, so the default GITHUB_TOKEN scope is the blast radius if
+# any future job in this file omits its own permissions block. Pinning to
+# `{}` here means jobs must explicitly opt into the minimum they need
+# (the triage job below does so already).
+permissions: {}
+
 on:
   pull_request_target:
     types:
