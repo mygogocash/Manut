@@ -9,6 +9,11 @@ import {
 } from '../../models';
 import { WorkspaceBlobStorage } from '../storage';
 import {
+  effectiveStorageQuota,
+  isStorageOverQuotaAfterUpload,
+  MANUT_BASE_STORAGE_QUOTA_BYTES,
+} from './effective-storage-quota';
+import {
   UserQuotaHumanReadableType,
   UserQuotaType,
   WorkspaceQuotaHumanReadableType,
@@ -38,17 +43,21 @@ const MANUT_UNLIMITED_SEATS = 100_000;
 // formats cleanly in formatSize(). Self-hosted operators control their own
 // disk; we don't cap individual blob sizes that exist only to gate
 // upstream's hosted plans. Used for `blobLimit` only — the total workspace
-// storage cap is `MANUT_STORAGE_QUOTA_BYTES` below.
+// storage quota grows lazily from `MANUT_BASE_STORAGE_QUOTA_BYTES` below
+// via `effectiveStorageQuota`.
 const MANUT_UNLIMITED_BYTES = 1_000_000_000_000_000;
 
-// MANUT: total workspace/user storage cap on self-hosted. Set to 100 GB
-// (binary) so formatSize() in the Settings UI renders as a clean "100 GB"
-// rather than an unfriendly "909.49 TB" placeholder. 100 × 1024³ keeps the
-// binary-divisor formatter consistent with the rest of the AFFiNE storage
-// numbers. Operators with more disk should raise this constant in their
-// fork rather than expecting an env knob — the override is intentionally
-// build-time so the displayed quota matches the enforced quota.
-const MANUT_STORAGE_QUOTA_BYTES = 100 * 1024 * 1024 * 1024;
+// MANUT: storage-quota auto-grow lives in a separate pure module so it can
+// be unit-tested without dragging in the native binding loaded transitively
+// by this file's NestJS / models / storage imports. Re-exported for any
+// external consumer that imports from this service entrypoint.
+export {
+  effectiveStorageQuota,
+  isStorageOverQuotaAfterUpload,
+  MANUT_BASE_STORAGE_QUOTA_BYTES,
+  MANUT_STORAGE_GROWTH_FACTOR,
+  MANUT_STORAGE_GROWTH_THRESHOLD,
+} from './effective-storage-quota';
 
 // MANUT: effectively-unlimited history retention period in milliseconds.
 // 100 years × 365 days × 24h × 3600s × 1000ms — safe int, formats cleanly.
@@ -100,7 +109,7 @@ export class QuotaService {
         ...quota.configs,
         copilotActionLimit: undefined,
         blobLimit: MANUT_UNLIMITED_BYTES,
-        storageQuota: MANUT_STORAGE_QUOTA_BYTES,
+        storageQuota: MANUT_BASE_STORAGE_QUOTA_BYTES,
         historyPeriod: MANUT_UNLIMITED_HISTORY_MS,
         memberLimit: MANUT_UNLIMITED_SEATS,
       } as UserQuotaWithUsage;
@@ -118,7 +127,15 @@ export class QuotaService {
     const quota = await this.getUserQuota(userId);
     const usedStorageQuota = await this.getUserStorageUsage(userId);
 
-    return { ...quota, usedStorageQuota };
+    // MANUT: apply lazy auto-grow on self-hosted. The fast path
+    // (`getUserQuota`) returns BASE because it has no usage; here we know
+    // the usage and can publish the effective quota the UI/calculator
+    // should see.
+    const storageQuota = env.selfhosted
+      ? effectiveStorageQuota(usedStorageQuota)
+      : quota.storageQuota;
+
+    return { ...quota, storageQuota, usedStorageQuota };
   }
 
   async getUserStorageUsage(userId: string) {
@@ -196,7 +213,7 @@ export class QuotaService {
       return {
         ...resolved,
         blobLimit: MANUT_UNLIMITED_BYTES,
-        storageQuota: MANUT_STORAGE_QUOTA_BYTES,
+        storageQuota: MANUT_BASE_STORAGE_QUOTA_BYTES,
         historyPeriod: MANUT_UNLIMITED_HISTORY_MS,
         memberLimit: MANUT_UNLIMITED_SEATS,
       };
@@ -216,8 +233,14 @@ export class QuotaService {
       await this.models.workspaceUser.chargedCount(workspaceId);
     const overcapacityMemberCount = memberCount - quota.memberLimit;
 
+    // MANUT: apply lazy auto-grow on self-hosted (see getUserQuotaWithUsage).
+    const storageQuota = env.selfhosted
+      ? effectiveStorageQuota(usedStorageQuota)
+      : quota.storageQuota;
+
     return {
       ...quota,
+      storageQuota,
       usedStorageQuota,
       memberCount,
       overcapacityMemberCount,
@@ -285,10 +308,17 @@ export class QuotaService {
     const quota = await this.getUserQuota(userId);
     const usedSize = await this.getUserStorageUsage(userId);
 
+    // MANUT: on self-hosted, autoGrow=true tells the calculator to
+    // evaluate the effective quota against the POST-upload size so a
+    // single large blob that itself triggers a growth step is allowed
+    // (vs the v1.12.x P1 where pre-upload 5 GB BASE rejected a 6 GB
+    // upload to an empty workspace).
     return this.generateQuotaCalculator(
       quota.storageQuota,
       quota.blobLimit,
-      usedSize
+      usedSize,
+      false,
+      env.selfhosted
     );
   }
 
@@ -309,10 +339,13 @@ export class QuotaService {
       ? await this.getUserStorageUsage(quota.ownerQuota)
       : await this.getWorkspaceStorageUsage(workspaceId);
 
+    // MANUT: see comment in getUserQuotaCalculator above.
     return this.generateQuotaCalculator(
       quota.storageQuota,
       quota.blobLimit,
-      usedSize
+      usedSize,
+      false,
+      env.selfhosted
     );
   }
 
@@ -324,14 +357,24 @@ export class QuotaService {
     storageQuota: number,
     blobLimit: number,
     usedQuota: number,
-    unlimited = false
+    unlimited = false,
+    // MANUT: when true, evaluate the effective quota against the
+    // post-upload size via the lazy auto-grow rule. See
+    // isStorageOverQuotaAfterUpload for the rationale (PR #76 P1).
+    autoGrow = false
   ) {
     const checkExceeded = (recvSize: number) => {
       const currentSize = usedQuota + recvSize;
-      // only skip total storage check if workspace has unlimited feature
-      if (currentSize > storageQuota && !unlimited) {
+      const { exceeded, effectiveQuota } = isStorageOverQuotaAfterUpload({
+        usedSize: usedQuota,
+        recvSize,
+        storageQuota,
+        autoGrow,
+        unlimited,
+      });
+      if (exceeded) {
         this.logger.warn(
-          `storage size limit exceeded: ${currentSize} > ${storageQuota}`
+          `storage size limit exceeded: ${currentSize} > ${effectiveQuota}`
         );
         return { storageQuotaExceeded: true, blobQuotaExceeded: false };
       } else if (recvSize > blobLimit) {
