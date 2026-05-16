@@ -85,9 +85,9 @@ function visibilityLabel(visibility: MnRoutineVisibility): string {
 function runStatusLabel(status: MnRoutineRunDto['status']): string {
   if (status === 'QUEUED') return 'Queued';
   if (status === 'RUNNING') return 'Running';
-  if (status === 'SUCCEEDED') return 'Succeeded';
+  if (status === 'SUCCESS') return 'Succeeded';
   if (status === 'FAILED') return 'Failed';
-  return 'Cancelled';
+  return 'Timed out';
 }
 
 function runTriggerLabel(trigger: MnRoutineRunDto['triggerType']): string {

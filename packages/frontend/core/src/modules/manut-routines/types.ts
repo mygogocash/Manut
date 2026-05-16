@@ -11,12 +11,18 @@
 export type MnRoutineVisibility = 'PERSONAL' | 'WORKSPACE_SHARED';
 export type MnRoutineStatus = 'ACTIVE' | 'PAUSED' | 'ERROR';
 export type MnRoutineRunTrigger = 'MANUAL' | 'SCHEDULED' | 'MCP';
+// Mirrors the Prisma `MnRoutineRunStatus` enum exactly. There is no
+// `CANCELLED` member — the backend never cancels a run mid-flight in v0;
+// runs always reach SUCCESS / FAILED / TIMED_OUT or stay QUEUED forever
+// if nothing consumed them. v1.x of PR #71 mis-typed this as `SUCCEEDED`
+// + `CANCELLED`; corrected in PR 2 once the consumer started writing
+// actual terminal states.
 export type MnRoutineRunStatus =
   | 'QUEUED'
   | 'RUNNING'
-  | 'SUCCEEDED'
+  | 'SUCCESS'
   | 'FAILED'
-  | 'CANCELLED';
+  | 'TIMED_OUT';
 
 export interface MnRoutineDto {
   id: string;

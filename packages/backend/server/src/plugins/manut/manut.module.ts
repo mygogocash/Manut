@@ -17,6 +17,8 @@ import { MnReleaseRunsService } from './manut-release-runs.service';
 import { MnReminderCron } from './manut-reminder.cron';
 import { MnReminderJob } from './manut-reminder.job';
 import { MnReminderResolver } from './manut-reminder.resolver';
+import { MnRoutineCron } from './manut-routine.cron';
+import { MnRoutineJob } from './manut-routine.job';
 import { MnRoutineResolver } from './manut-routine.resolver';
 import { MnRoutineService } from './manut-routine.service';
 
@@ -94,10 +96,20 @@ export class ManutModule {
     ];
 
     // Sub-feature: Routines. Gated by its own env flag so it can ship
-    // independently of the full Manut module. Adds MnRoutineService +
-    // MnRoutineResolver; future PRs add MnRoutineCron / MnRoutineMcp.
+    // independently of the full Manut module. Adds:
+    //   - MnRoutineService     (PR 1) — CRUD service for routines
+    //   - MnRoutineResolver    (PR 1) — GraphQL surface
+    //   - MnRoutineCron        (PR 2) — @Cron(EVERY_MINUTE) scheduler
+    //                                   that fires due routines via BullMQ
+    //   - MnRoutineJob         (PR 2) — BullMQ consumer (stub body;
+    //                                   real Vertex execution lands in PR 4)
     if (isManutRoutinesEnabled()) {
-      providers.push(MnRoutineService, MnRoutineResolver);
+      providers.push(
+        MnRoutineService,
+        MnRoutineResolver,
+        MnRoutineCron,
+        MnRoutineJob
+      );
     }
 
     return {
