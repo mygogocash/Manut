@@ -1,5 +1,5 @@
 /**
- * Generic Kanban board used by the Superflow PM and CRM modules.
+ * Generic Kanban board used by the Manut PM and CRM modules.
  *
  * - Columns are declared by the caller (`columns`).
  * - Cards are rendered via the caller-supplied `renderCard` prop.

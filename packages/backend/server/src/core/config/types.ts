@@ -17,10 +17,12 @@ export enum ServerFeature {
   // `ServerService.server.features` to decide whether to surface the
   // Projects / CRM / Reminders nav entries and pages.
   //
-  // The enum identifier and string value remain `Superflow` / 'superflow'
-  // because this enum is part of the public GraphQL ServerFeature
-  // contract — frontend clients compare against these names.
-  Superflow = 'superflow',
+  // The enum identifier `Manut` and string value 'manut' replaced the
+  // historical `Superflow` / 'superflow' in the v1.12.1 rename pass.
+  // This is a coordinated FE+BE change: the bundled frontend updated
+  // in the same image looks for `ServerFeature.Manut` so the contract
+  // stays whole on every deploy.
+  Manut = 'manut',
 }
 
 registerEnumType(ServerFeature, {

@@ -15,7 +15,7 @@ import { GraphQLJSONObject } from 'graphql-scalars';
 
 registerEnumType(MnReminderStatus, {
   name: 'MnReminderStatus',
-  description: 'Superflow reminder lifecycle.',
+  description: 'Manut reminder lifecycle.',
 });
 
 registerEnumType(MnNotificationChannel, {

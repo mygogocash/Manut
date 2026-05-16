@@ -81,7 +81,7 @@ import { DealEditModal } from './deal-edit-modal';
 import { DetailPanel } from './detail-panel';
 import * as styles from './styles.css';
 
-// The Superflow CRM operations are not part of the codegen'd
+// The Manut CRM operations are not part of the codegen'd
 // discriminated union, so we cast at the boundary — same trick the
 // reminders / Gmail / Drive panels use.
 type UseQueryArg = NonNullable<Parameters<typeof useQuery>[0]>;

@@ -19,8 +19,8 @@ declare global {
 }
 
 @Injectable()
-export class SuperflowReminderJob {
-  private readonly logger = new Logger(SuperflowReminderJob.name);
+export class MnReminderJob {
+  private readonly logger = new Logger(MnReminderJob.name);
 
   constructor(
     private readonly db: PrismaClient,

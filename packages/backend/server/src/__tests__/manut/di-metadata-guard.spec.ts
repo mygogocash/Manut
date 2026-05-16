@@ -10,7 +10,7 @@
  *    decoration -> TS skips emitting `design:paramtypes` metadata ->
  *    constructor parameter resolves to `undefined` at runtime -> first
  *    method call crashes
- *    (PR #58 incident — SuperflowFeatureRegistrar + ServerService).
+ *    (PR #58 incident — MnFeatureRegistrar + ServerService).
  *
  * Runtime testing modules don't catch these reliably because they
  * mock dependencies away. Static checks on the source files are

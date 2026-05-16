@@ -11,7 +11,7 @@ import { JobQueue } from '../../base';
 const REMINDER_SCAN_BATCH_SIZE = 100;
 
 @Injectable()
-export class SuperflowReminderCron {
+export class MnReminderCron {
   constructor(
     private readonly db: PrismaClient,
     private readonly queue: JobQueue
@@ -93,7 +93,7 @@ export class SuperflowReminderCron {
         await this.queue.add(
           'superflow.deliverReminder',
           { reminderId: reminder.id, deliveryId: delivery.id },
-          { jobId: `superflow-deliver-reminder-${delivery.id}` }
+          { jobId: `manut-deliver-reminder-${delivery.id}` }
         );
       } catch (error) {
         await this.db.mnReminder.update({

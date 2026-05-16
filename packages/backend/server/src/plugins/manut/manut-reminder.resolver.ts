@@ -19,7 +19,7 @@ import {
 } from './manut-reminder.dto';
 
 @Resolver()
-export class SuperflowReminderResolver {
+export class MnReminderResolver {
   constructor(
     private readonly db: PrismaClient,
     private readonly ac: AccessController

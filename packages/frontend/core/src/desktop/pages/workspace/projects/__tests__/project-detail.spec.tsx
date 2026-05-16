@@ -127,7 +127,7 @@ vi.mock('@toeverything/infra', () => ({
 
 import { Component } from '../detail';
 
-describe('Superflow project detail page', () => {
+describe('Manut project detail page', () => {
   test('renders the page shell without crashing', () => {
     render(<Component />);
     expect(screen.getByTestId('manut-pm-detail-page')).toBeTruthy();

@@ -5,28 +5,28 @@ import { AuthenticationRequired } from '../../base';
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
 import {
-  ImportSuperflowHandoverInput,
-  ImportSuperflowHandoverResult,
+  ImportMnHandoverInput,
+  ImportMnHandoverResult,
 } from './manut.dto';
-import { SuperflowHandoverService } from './manut-handover.service';
+import { MnHandoverService } from './manut-handover.service';
 
 @Resolver()
-export class SuperflowHandoverResolver {
+export class MnHandoverResolver {
   constructor(
-    private readonly handover: SuperflowHandoverService,
+    private readonly handover: MnHandoverService,
     private readonly ac: AccessController
   ) {}
 
-  @Mutation(() => ImportSuperflowHandoverResult, {
+  @Mutation(() => ImportMnHandoverResult, {
     description:
-      'Import a Superflow release handover JSON payload into a workspace doc.',
+      'Import a Manut release handover JSON payload into a workspace doc.',
   })
-  async importSuperflowHandover(
+  async importMnHandover(
     @CurrentUser() user: CurrentUser | null,
     @Args('workspaceId', { type: () => String }) workspaceId: string,
-    @Args('input', { type: () => ImportSuperflowHandoverInput })
-    input: ImportSuperflowHandoverInput
-  ): Promise<ImportSuperflowHandoverResult> {
+    @Args('input', { type: () => ImportMnHandoverInput })
+    input: ImportMnHandoverInput
+  ): Promise<ImportMnHandoverResult> {
     if (!user) {
       throw new AuthenticationRequired();
     }

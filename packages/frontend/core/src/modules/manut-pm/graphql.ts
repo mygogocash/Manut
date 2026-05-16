@@ -1,5 +1,5 @@
 /**
- * Local GraphQL operations for the Superflow PM (Projects + Tasks) module.
+ * Local GraphQL operations for the Manut PM (Projects + Tasks) module.
  *
  * Operation-object shape mirrors the codegen output (`{ id, op, query }`) so
  * these can be passed to `useQuery` / `useMutation` from

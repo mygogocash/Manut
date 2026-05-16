@@ -50,7 +50,7 @@ function mapDeal(row: MnCrmDeal): MnCrmDealObjectType {
 }
 
 @Resolver()
-export class SuperflowCrmResolver {
+export class MnCrmResolver {
   constructor(
     private readonly db: PrismaClient,
     private readonly ac: AccessController

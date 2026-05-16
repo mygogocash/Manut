@@ -1,5 +1,5 @@
 /**
- * Temporary local GraphQL operations for the Superflow Reminders page.
+ * Temporary local GraphQL operations for the Manut Reminders page.
  *
  * Mirrors the codegen operation-object shape (`{ id, op, query }`) so the
  * page can ship alongside the backend resolver before `@affine/graphql`

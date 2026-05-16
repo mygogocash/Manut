@@ -1,5 +1,5 @@
 /**
- * Local GraphQL operation objects for the Superflow CRM v0 UI.
+ * Local GraphQL operation objects for the Manut CRM v0 UI.
  *
  * Mirrors the codegen operation-object shape so the page can ship alongside
  * the backend resolvers before `@affine/graphql` has been regenerated.

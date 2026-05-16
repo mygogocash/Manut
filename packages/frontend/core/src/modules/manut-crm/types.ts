@@ -1,9 +1,9 @@
 /**
- * TypeScript types mirroring the Superflow CRM backend DTOs.
+ * TypeScript types mirroring the Manut CRM backend DTOs.
  *
  * These live in the frontend so the v0 panel can ship before
  * `@affine/graphql` has been regenerated. Keep them in lockstep with
- * `packages/backend/server/src/plugins/superflow/superflow-crm.dto.ts`.
+ * `packages/backend/server/src/plugins/manut/manut-crm.dto.ts`.
  */
 
 export type MnCrmActivityType = 'NOTE' | 'CALL' | 'EMAIL' | 'MEETING' | 'OTHER';
