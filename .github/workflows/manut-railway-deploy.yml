@@ -1,21 +1,51 @@
 name: 🚂 Manut Railway Deploy
-run-name: '🚂 Railway Deploy • ${{ github.event.workflow_run.head_sha }} • by ${{ github.actor }}'
+run-name: '🚂 Railway Deploy • ${{ github.event.workflow_run.head_sha || github.event.inputs.image_tag }} • by ${{ github.actor }}'
 
-# Watches "🏗️ Manut Build" and tells Railway to pull the new image tag.
+# Watches "🏗️ Manut Build" and points the Railway service at the new
+# image tag via the Railway Public GraphQL API (serviceInstanceUpdate
+# → serviceInstanceDeployV2). Then polls /info until 200 OK.
 #
 # Why a separate workflow (not a job inside Build): same reasoning as
 # the GCE Auto Deploy split — keeps the build cacheable + idempotent,
 # makes the deploy step small and easy to reason about, and lets us
 # re-deploy an existing image without re-bundling.
 #
+# v1.12.x history — see CLAUDE.md §6 "manut-railway-deploy.yml is
+# broken":
+#   - Previous version's `if:` clause required `workflow_run.event
+#     == 'push'`. But this workflow consumes Build, which is itself
+#     workflow_run-triggered (by CI). So workflow_run.event on the
+#     Build object is `'workflow_run'`, never `'push'` → always
+#     skipped. Removed.
+#   - Previous version tried `railway variables --set
+#     RAILWAY_DOCKER_IMAGE=...`. That env var is fictional —
+#     Railway sources Docker images via the service's GraphQL
+#     `source.image` field, not an env var. Replaced with direct
+#     GraphQL.
+#   - Previous version installed the Railway CLI via `curl … | sh`
+#     and its install path wasn't on PATH in ubuntu-latest. We no
+#     longer need the CLI; GraphQL via curl is enough.
+#
 # Required repo secrets:
-#   RAILWAY_TOKEN       — Railway Service Token (NOT a user account
-#                         token; create one under
-#                         Project Settings -> Tokens). Scope it to the
-#                         single Manut project.
-#   RAILWAY_PROJECT_ID  — Railway project ID (UUID).
-#   RAILWAY_SERVICE_ID  — Railway service ID (UUID) for the app
-#                         service that pulls from GAR.
+#   RAILWAY_TOKEN           — Railway Personal Access Token (PAT).
+#                             Create at https://railway.com/account/tokens.
+#                             A *Project Token* won't work — Railway
+#                             rejects `serviceInstanceUpdate` calls
+#                             made with the `Project-Access-Token`
+#                             header (we tried during the migration).
+#                             PATs use `Authorization: Bearer …`.
+#   RAILWAY_PROJECT_ID      — Project UUID. Used only by the summary
+#                             step for human reference; the actual
+#                             mutations don't need it.
+#   RAILWAY_SERVICE_ID      — Service UUID for the app service that
+#                             pulls from GAR.
+#   RAILWAY_ENVIRONMENT_ID  — Environment UUID (e.g. production).
+#                             Required by serviceInstanceUpdate +
+#                             serviceInstanceDeployV2.
+#
+# Optional repo variable:
+#   RAILWAY_HEALTHCHECK_URL — Full URL to probe after deploy. Defaults
+#                             to https://manut-app-production.up.railway.app/info.
 #
 # The display-name + run-name conventions match the rest of the Manut
 # workflows. Mind the emoji-filter trap (CLAUDE.md §9): if you ever
@@ -24,10 +54,10 @@ run-name: '🚂 Railway Deploy • ${{ github.event.workflow_run.head_sha }} •
 #
 # Security note: every user-controlled input (workflow_dispatch
 # image_tag, artifact file content) is passed through env vars and
-# validated against a strict regex before being used in shell
-# commands. github.* template values used directly in run-name are
-# GitHub-controlled fields (SHA, actor login) with constrained
-# character sets.
+# validated against a strict regex before being used in shell or
+# JSON-builder commands. github.* template values used directly in
+# run-name are GitHub-controlled fields (SHA, actor login) with
+# constrained character sets.
 
 on:
   workflow_run:
@@ -53,17 +83,16 @@ concurrency:
 
 env:
   GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
+  RAILWAY_API: https://backboard.railway.com/graphql/v2
 
 jobs:
   deploy:
     name: Deploy to Railway
-    # workflow_run path: only deploy if Build was a success on a push
-    # event (mirrors the manut-build.yml gate). workflow_dispatch path
-    # always runs.
+    # workflow_run path: only deploy if upstream Build was a success.
+    # workflow_dispatch path always runs.
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push')
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -102,7 +131,9 @@ jobs:
 
           # Strict tag whitelist — alphanumerics, dash, dot, underscore.
           # The Build workflow produces `main-<short_sha>-<run_id>` so
-          # this matches; rejects shell metacharacters.
+          # this matches; rejects shell metacharacters AND anything
+          # that could break out of a JSON string when we build the
+          # GraphQL request body below.
           if ! printf '%s' "$IMAGE_TAG" | grep -qE '^[A-Za-z0-9._-]+$'; then
             echo "::error::Image tag failed validation: '$IMAGE_TAG'"
             exit 1
@@ -111,49 +142,133 @@ jobs:
           echo "Using tag from $SOURCE: $IMAGE_TAG"
           echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Install Railway CLI
-        run: |
-          curl -fsSL https://railway.com/install.sh | sh
-          railway --version
-
-      - name: Point Railway service at new image
+      # serviceInstanceUpdate sets the service's `source.image` for
+      # the target environment. The mutation returns Boolean; a
+      # GraphQL `errors` array means the change didn't land (most
+      # commonly: token type is a Project Token, not a PAT — that
+      # returns "Not Authorized"). We fail fast on any errors entry.
+      - name: Update Railway service image source
+        id: update
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -eu
           FULL_IMAGE="${GAR_REPO}:${IMAGE_TAG}"
-          echo "Deploying image: ${FULL_IMAGE}"
+          echo "Pointing service at: ${FULL_IMAGE}"
 
-          # Link this CI run to the Railway project so subsequent
-          # commands have implicit project context.
-          railway link --project "$RAILWAY_PROJECT_ID"
+          # Build the variables JSON via jq so the image string is
+          # safely escaped — never via shell interpolation into a
+          # JSON literal.
+          VARIABLES=$(jq -n \
+            --arg sid "$SERVICE_ID" \
+            --arg eid "$ENVIRONMENT_ID" \
+            --arg img "$FULL_IMAGE" \
+            '{serviceId:$sid, environmentId:$eid, input:{source:{image:$img}}}')
 
-          # Update the service variable that controls the image source.
-          # On Railway, when a service is configured to deploy from a
-          # Docker image, the URL lives in a special service variable
-          # (RAILWAY_DOCKER_IMAGE by convention — verify by inspecting
-          # your service in the Railway dashboard the first time). The
-          # variable update auto-triggers a redeploy.
-          railway variables \
-            --service "$RAILWAY_SERVICE_ID" \
-            --set "RAILWAY_DOCKER_IMAGE=${FULL_IMAGE}"
+          read -r -d '' QUERY <<'EOF' || true
+          mutation serviceInstanceUpdate($serviceId: String!, $environmentId: String!, $input: ServiceInstanceUpdateInput!) {
+            serviceInstanceUpdate(serviceId: $serviceId, environmentId: $environmentId, input: $input)
+          }
+          EOF
+
+          BODY=$(jq -n --arg q "$QUERY" --argjson v "$VARIABLES" '{query:$q, variables:$v}')
+
+          RESPONSE=$(curl -sS --fail-with-body \
+            -X POST "$RAILWAY_API" \
+            -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY")
+
+          echo "Update response:"
+          echo "$RESPONSE" | jq '.'
+
+          # Fail if GraphQL returned an errors array.
+          if echo "$RESPONSE" | jq -e '.errors' >/dev/null 2>&1; then
+            echo "::error::serviceInstanceUpdate returned errors — confirm RAILWAY_TOKEN is a Personal Access Token (PAT), not a Project Token"
+            exit 1
+          fi
+
+      - name: Trigger Railway deploy
+        id: deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICE_ID: ${{ secrets.RAILWAY_SERVICE_ID }}
+          ENVIRONMENT_ID: ${{ secrets.RAILWAY_ENVIRONMENT_ID }}
+        run: |
+          set -eu
+
+          VARIABLES=$(jq -n \
+            --arg sid "$SERVICE_ID" \
+            --arg eid "$ENVIRONMENT_ID" \
+            '{serviceId:$sid, environmentId:$eid}')
+
+          read -r -d '' QUERY <<'EOF' || true
+          mutation serviceInstanceDeployV2($serviceId: String!, $environmentId: String!) {
+            serviceInstanceDeployV2(serviceId: $serviceId, environmentId: $environmentId)
+          }
+          EOF
+
+          BODY=$(jq -n --arg q "$QUERY" --argjson v "$VARIABLES" '{query:$q, variables:$v}')
+
+          RESPONSE=$(curl -sS --fail-with-body \
+            -X POST "$RAILWAY_API" \
+            -H "Authorization: Bearer ${RAILWAY_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$BODY")
+
+          echo "Deploy response:"
+          echo "$RESPONSE" | jq '.'
+
+          if echo "$RESPONSE" | jq -e '.errors' >/dev/null 2>&1; then
+            echo "::error::serviceInstanceDeployV2 returned errors"
+            exit 1
+          fi
+
+          DEPLOY_ID=$(echo "$RESPONSE" | jq -r '.data.serviceInstanceDeployV2 // empty')
+          echo "Deployment id: ${DEPLOY_ID:-(none returned)}"
+          echo "deploy_id=${DEPLOY_ID}" >> "$GITHUB_OUTPUT"
+
+      # Poll the public URL until /info returns 200 OK. We don't want
+      # to mark the job green until the new container actually serves
+      # traffic — that's how we'd notice broken images, bad migrations,
+      # or env-var regressions.
+      - name: Wait for healthcheck
+        id: probe
+        env:
+          PROBE_URL: ${{ vars.RAILWAY_HEALTHCHECK_URL || 'https://manut-app-production.up.railway.app/info' }}
+        run: |
+          set -eu
+          echo "Probing ${PROBE_URL}"
+          for i in $(seq 1 60); do
+            CODE=$(curl -sS -o /tmp/probe.body -w '%{http_code}' --max-time 8 "${PROBE_URL}" || echo "000")
+            if [ "$CODE" = "200" ]; then
+              echo "OK on attempt ${i}"
+              cat /tmp/probe.body | head -c 200; echo
+              exit 0
+            fi
+            echo "[${i}/60] HTTP ${CODE} — waiting 10s"
+            sleep 10
+          done
+          echo "::error::Healthcheck never returned 200 after 10 minutes"
+          exit 1
 
       - name: Summary
         if: always()
         env:
           IMAGE_TAG: ${{ steps.tag.outputs.tag }}
           JOB_STATUS: ${{ job.status }}
+          DEPLOY_ID: ${{ steps.deploy.outputs.deploy_id }}
         run: |
           {
             echo "## Manut Railway Deploy"
             echo ""
             echo "- Image: \`${GAR_REPO}:${IMAGE_TAG}\`"
+            echo "- Deployment id: \`${DEPLOY_ID:-(unset)}\`"
             echo "- Status: ${JOB_STATUS}"
             echo ""
-            echo "Verify health: open the Railway dashboard, watch the"
-            echo "deploy logs, and confirm a 200 from \`/info\` once the"
-            echo "new container takes traffic."
+            echo "Rollback: re-run this workflow via workflow_dispatch"
+            echo "with the previous tag as \`image_tag\`."
           } >> "$GITHUB_STEP_SUMMARY"
