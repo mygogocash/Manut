@@ -30,3 +30,18 @@
 # in-container bundle build the same way it breaks local builds.
 packages/**/src/**/*.js
 blocksuite/**/src/**/*.js
+
+# Pentest H10 — never ship local secrets / dev creds into the public image.
+# These patterns belong in .dockerignore even if .gitignore already covers
+# them: a developer who has the file locally but not committed would still
+# leak it through the build context without these rules.
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/.npmrc
+!**/.npmrc.example

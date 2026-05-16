@@ -6,9 +6,35 @@ import {
   MnRoutineVisibility,
   PrismaClient,
 } from '@prisma/client';
+// cron-parser is CJS-only; the default import is the right shape under
+// our Node ESM<->CJS bridge. Mirrors the import pattern in
+// manut-routine.cron.ts — a named `{ parseExpression }` import compiles
+// but throws at runtime.
+import cronParser from 'cron-parser';
 
 import { ActionForbidden, NotInSpace } from '../../base';
 import { AccessController } from '../../core/permission';
+
+/**
+ * Hard cap on the prompt column we persist for a routine. Pentest R1
+ * (post-Routines audit): an attacker who can call `createMnRoutine` /
+ * `updateMnRoutine` with an unbounded prompt can blow up the row, the
+ * downstream Vertex token budget, and the in-flight memory of every
+ * worker that materialises the row. 16 KB is well above any realistic
+ * authoring need (~16k characters of UTF-8) but far below DoS scale.
+ */
+const MAX_PROMPT_BYTES = 16 * 1024;
+
+/**
+ * Minimum allowed interval between cron fires. Pentest R2 (schedule
+ * storm): a per-minute 5-field cron fires every 60s and a per-second
+ * 6-field cron fires every second. Either turns a per-tick scan +
+ * BullMQ enqueue into a sustained DoS vector against the worker pool
+ * and Vertex MaaS quota. We compute the wall-clock delta between two
+ * successive fires and reject any schedule that wants to fire more
+ * than once per 5 minutes.
+ */
+const MIN_SCHEDULE_INTERVAL_MS = 5 * 60 * 1000;
 
 /**
  * Cron expression syntax check (pentest M4 mitigation). This is a
@@ -118,7 +144,9 @@ export class MnRoutineService {
         .assert('Workspace.Read');
     }
 
+    this.validatePromptSize(input.prompt);
     this.validateCron(input.cronSchedule);
+    this.validateScheduleInterval(input.cronSchedule, input.timezone);
 
     return this.db.mnRoutine.create({
       data: {
@@ -163,8 +191,18 @@ export class MnRoutineService {
         .assert('Workspace.Settings.Update');
     }
 
+    if (input.prompt !== undefined) {
+      this.validatePromptSize(input.prompt);
+    }
+
     if (input.cronSchedule !== undefined) {
       this.validateCron(input.cronSchedule);
+      // Pentest R2: re-check interval on any schedule edit. Timezone
+      // may have shifted on the same edit, so prefer the incoming
+      // timezone; fall back to the persisted one when not provided.
+      const tz =
+        input.timezone !== undefined ? input.timezone : routine.timezone;
+      this.validateScheduleInterval(input.cronSchedule, tz);
     }
 
     return this.db.mnRoutine.update({
@@ -312,6 +350,54 @@ export class MnRoutineService {
     if (expr === null || expr === undefined || expr === '') return;
     if (!isValidCronGrammar(expr)) {
       throw new ActionForbidden();
+    }
+  }
+
+  /**
+   * Pentest R1 — reject prompts above MAX_PROMPT_BYTES.
+   * Byte length, not character count: a single emoji is 4 UTF-8 bytes,
+   * which is what we actually pay for at the column / token level.
+   */
+  private validatePromptSize(prompt: string | null | undefined): void {
+    const bytes = Buffer.byteLength(prompt ?? '', 'utf8');
+    if (bytes > MAX_PROMPT_BYTES) {
+      throw new ActionForbidden('routine prompt exceeds 16KB');
+    }
+  }
+
+  /**
+   * Pentest R2 — reject schedules that fire more than once per 5
+   * minutes. We let `cron-parser` walk two successive fires forward
+   * from "now" and compute the delta; this works for both 5- and
+   * 6-field expressions, and respects the routine's timezone if set.
+   *
+   * The grammar guard (validateCron) runs first, so anything that
+   * reaches us here passed the regex. If `cron-parser` still throws —
+   * e.g. semantically invalid combinations like `60 * * * *` —
+   * surface a useful error rather than letting the failure leak from
+   * Prisma at insert time.
+   */
+  private validateScheduleInterval(
+    expr: string | null | undefined,
+    timezone: string | null | undefined
+  ): void {
+    if (expr === null || expr === undefined || expr === '') return;
+    let intervalMs: number;
+    try {
+      const it = cronParser.parseExpression(expr, {
+        tz: timezone ?? undefined,
+      });
+      const first = it.next().toDate();
+      const second = it.next().toDate();
+      intervalMs = second.getTime() - first.getTime();
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new ActionForbidden(`routine schedule is not parseable: ${reason}`);
+    }
+    if (intervalMs < MIN_SCHEDULE_INTERVAL_MS) {
+      throw new ActionForbidden(
+        'routine schedule must fire no more than every 5 minutes'
+      );
     }
   }
 }

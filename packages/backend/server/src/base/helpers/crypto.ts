@@ -6,7 +6,6 @@ import {
   createPublicKey,
   createSign,
   createVerify,
-  generateKeyPairSync,
   type KeyObject,
   randomBytes,
   randomInt,
@@ -31,20 +30,15 @@ import { OnEvent } from '../event';
 const NONCE_LENGTH = 12;
 const AUTH_TAG_LENGTH = 12;
 
-function generatePrivateKey(): string {
-  const { privateKey } = generateKeyPairSync('ec', {
-    namedCurve: 'prime256v1',
-  });
-
-  // Export EC private key as PKCS#8 PEM. This avoids OpenSSL 3.x decoder issues
-  // in Node.js 22 when later deriving the public key via createPublicKey.
-  const key = privateKey.export({
-    type: 'pkcs8',
-    format: 'pem',
-  });
-
-  return key.toString('utf8');
-}
+// OWASP Argon2id recommended parameters (m=64MiB, t=3, p=4).
+// `algorithm: 2` is `Algorithm.Argon2id` from @node-rs/argon2 — using the
+// numeric value avoids the const-enum reference under isolatedModules.
+const ARGON2_OPTS = {
+  algorithm: 2,
+  memoryCost: 65536,
+  timeCost: 3,
+  parallelism: 4,
+} as const;
 
 function parseKey(privateKey: string) {
   const keyBuf = Buffer.from(privateKey);
@@ -104,7 +98,13 @@ export class CryptoHelper implements OnModuleInit {
 
   private setup() {
     const prevPublicKey = this.keyPair?.publicKey;
-    const privateKey = this.config.crypto.privateKey || generatePrivateKey();
+    const configuredKey = this.config.crypto.privateKey;
+    if (configuredKey.length === 0 || configuredKey.length < 64) {
+      throw new Error(
+        'AFFINE_PRIVATE_KEY must be set to a PEM private key of at least 64 bytes'
+      );
+    }
+    const privateKey = configuredKey;
     const { priv, pub } = parseKey(privateKey);
     const publicKey = pub
       .export({ format: 'pem', type: 'spki' })
@@ -269,7 +269,7 @@ export class CryptoHelper implements OnModuleInit {
   }
 
   encryptPassword(password: string) {
-    return hashPassword(password);
+    return hashPassword(password, ARGON2_OPTS);
   }
 
   verifyPassword(password: string, hash: string) {

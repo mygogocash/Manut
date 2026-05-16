@@ -148,9 +148,7 @@ export function parseAndRenderManutHandover(
   };
 }
 
-export function renderManutHandoverMarkdown(
-  model: MnHandoverModel
-): string {
+export function renderManutHandoverMarkdown(model: MnHandoverModel): string {
   const release = model.release;
   const workflow = model.workflow;
 
@@ -331,7 +329,19 @@ function linkOrValue(input: string): string {
     return 'unknown';
   }
 
-  return `[${escapeMarkdownTable(input)}](${input})`;
+  // SECURITY (H9): only wrap http(s) URLs as Markdown links. Other
+  // schemes (javascript:, file:, data:, custom protocols, schemeless)
+  // are rendered as plain text to prevent link injection / XSS / SSRF
+  // when the rendered Markdown is consumed downstream. We strip the
+  // closing bracket ']' from the displayed text so a crafted value
+  // can't break out of the link's display segment either.
+  const safeDisplay = escapeMarkdownTable(input).replace(/]/g, '');
+
+  if (/^https?:\/\//i.test(input)) {
+    return `[${safeDisplay}](${input})`;
+  }
+
+  return safeDisplay;
 }
 
 function escapeMarkdownTable(input: string): string {

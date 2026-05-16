@@ -76,6 +76,12 @@ export class MnReleaseRunsResolver {
     if (Array.isArray(includedTasks)) {
       return includedTasks;
     }
-    return (await this.runs.listTasks(parent.id)) as MnReleaseTaskObjectType[];
+    // Pentest H8 — scope by workspaceId so runId guessing across workspaces
+    // can't enumerate tasks. The parent MnReleaseRun.workspaceId is the
+    // authoritative scope.
+    return (await this.runs.listTasks(
+      parent.id,
+      parent.workspaceId
+    )) as MnReleaseTaskObjectType[];
   }
 }

@@ -1,6 +1,15 @@
 import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { MnRoutineStatus } from '@prisma/client';
 
+// Throttle decorator wrapping `@nestjs/throttler`. Pentest R3
+// (post-Routines audit): runMnRoutine / createMnRoutine /
+// updateMnRoutine were unthrottled, so a single user could fan out
+// unbounded Vertex calls or schedule edits. We adopt the `'default'`
+// named bucket the codebase already uses (see core/auth, payment,
+// copilot resolvers) and tighten the per-user limit to 10/min on
+// these three mutations. SkipThrottle is intentionally not used —
+// these surfaces must be throttled.
+import { Throttle } from '../../base';
 import { CurrentUser } from '../../core/auth';
 import {
   CreateMnRoutineInput,
@@ -58,6 +67,7 @@ export class MnRoutineResolver {
     description:
       'Create a new routine (personal by default; admins can pick workspace-shared).',
   })
+  @Throttle('default', { limit: 10 })
   async createMnRoutine(
     @CurrentUser() user: CurrentUser,
     @Args('workspaceId', { type: () => ID }) workspaceId: string,
@@ -75,6 +85,7 @@ export class MnRoutineResolver {
   }
 
   @Mutation(() => MnRoutineObjectType)
+  @Throttle('default', { limit: 10 })
   async updateMnRoutine(
     @CurrentUser() user: CurrentUser,
     @Args('id', { type: () => ID }) id: string,
@@ -124,6 +135,7 @@ export class MnRoutineResolver {
     description:
       'Manually trigger a routine. PR 1 creates a QUEUED run record without executing — Vertex execution lands in PR 4.',
   })
+  @Throttle('default', { limit: 10 })
   async runMnRoutine(
     @CurrentUser() user: CurrentUser,
     @Args('id', { type: () => ID }) id: string

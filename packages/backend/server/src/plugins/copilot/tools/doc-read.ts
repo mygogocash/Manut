@@ -109,7 +109,7 @@ export const createDocReadTool = (
     description:
       'Return the complete text and basic metadata of a single document identified by docId; use this when the user needs the full content of a specific file rather than a search result.',
     inputSchema: z.object({
-      doc_id: z.string().describe('The target doc to read'),
+      doc_id: z.string().uuid().describe('The target doc to read'),
     }),
     execute: async ({ doc_id }) => {
       try {

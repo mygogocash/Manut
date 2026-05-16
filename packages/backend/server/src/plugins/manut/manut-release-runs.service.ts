@@ -148,10 +148,15 @@ export class MnReleaseRunsService {
   /**
    * Fetch the task rows for a given run id, ordered by sortOrder asc.
    * Used by the GraphQL ResolveField on MnReleaseRun.tasks.
+   *
+   * Pentest H8 hardening: scope by workspaceId so a workspace member who
+   * guesses a runId from another workspace cannot enumerate its tasks
+   * through this field. The caller is the resolver, which has the
+   * workspaceId from the parent MnReleaseRun.
    */
-  async listTasks(runId: string) {
+  async listTasks(runId: string, workspaceId: string) {
     return this.db.mnReleaseTask.findMany({
-      where: { runId },
+      where: { runId, run: { workspaceId } },
       orderBy: { sortOrder: 'asc' },
     });
   }
