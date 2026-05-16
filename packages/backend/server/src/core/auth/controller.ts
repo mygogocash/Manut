@@ -269,10 +269,11 @@ export class AuthController {
       | string
       | undefined;
     const csrfHeader = req.get('x-affine-csrf-token');
-    if (
-      csrfHeader && // optional for backward compatibility, drop after 0.25.0 outdated
-      (!csrfCookie || csrfCookie !== csrfHeader)
-    ) {
+    // Pentest C4 hardening (was a backward-compat shim for <=0.25.0 — we're
+    // on 0.26.3, drop the short-circuit). The header is now mandatory:
+    // missing header OR mismatched value → 403. Prevents CSRF on sign-out
+    // and any future state-changing endpoint that copies this pattern.
+    if (!csrfHeader || !csrfCookie || csrfCookie !== csrfHeader) {
       throw new ActionForbidden();
     }
 

@@ -996,8 +996,10 @@ __metadata:
     get-stream: "npm:^9.0.1"
     google-auth-library: "npm:^10.2.0"
     graphql: "npm:^16.13.2"
+    graphql-depth-limit: "npm:^1.1.0"
     graphql-scalars: "npm:^1.24.0"
     graphql-upload: "npm:^17.0.0"
+    graphql-validation-complexity: "npm:^0.4.2"
     html-validate: "npm:^9.0.0"
     htmlrewriter: "npm:^0.0.12"
     http-errors: "npm:^2.0.0"
@@ -19055,6 +19057,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"arrify@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "arrify@npm:1.0.1"
+  checksum: 10/745075dd4a4624ff0225c331dacb99be501a515d39bcb7c84d24660314a6ec28e68131b137e6f7e16318170842ce97538cd298fc4cd6b2cc798e0b957f2747e7
+  languageName: node
+  linkType: hard
+
 "arrify@npm:^3.0.0":
   version: 3.0.0
   resolution: "arrify@npm:3.0.0"
@@ -24928,6 +24937,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"graphql-depth-limit@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "graphql-depth-limit@npm:1.1.0"
+  dependencies:
+    arrify: "npm:^1.0.1"
+  peerDependencies:
+    graphql: "*"
+  checksum: 10/fc45ac82f002d8130f9997cbe3d650409fbb5c33f4f9a057218f5847a2cb1cfceb89d6b4271f22693370a1f1c82e3697a9da7667e1d8f55672700f97c4b973b0
+  languageName: node
+  linkType: hard
+
 "graphql-scalars@npm:^1.24.0":
   version: 1.24.2
   resolution: "graphql-scalars@npm:1.24.2"
@@ -24971,6 +24991,17 @@ __metadata:
     "@types/koa":
       optional: true
   checksum: 10/7df39d0cd16b14668151091e2844960faa46b3d79a75219585821db7a24b08e8be6264e26c97b1bf144678fdde5489ef4d105a3e718983826747221bf81bba81
+  languageName: node
+  linkType: hard
+
+"graphql-validation-complexity@npm:^0.4.2":
+  version: 0.4.2
+  resolution: "graphql-validation-complexity@npm:0.4.2"
+  dependencies:
+    warning: "npm:^4.0.3"
+  peerDependencies:
+    graphql: ">=0.9.5"
+  checksum: 10/3eeff6aafc127793c2e925b116dacb7b51e6c24b8d8ffa57e27302b6a04f36160db7ead8b857629fd2c032185fc51e00da58e5575f02238958ea6220e5ed0ada
   languageName: node
   linkType: hard
 
@@ -36195,6 +36226,15 @@ __metadata:
   version: 2.2.8
   resolution: "w3c-keyname@npm:2.2.8"
   checksum: 10/95bafa4c04fa2f685a86ca1000069c1ec43ace1f8776c10f226a73296caeddd83f893db885c2c220ebeb6c52d424e3b54d7c0c1e963bbf204038ff1a944fbb07
+  languageName: node
+  linkType: hard
+
+"warning@npm:^4.0.3":
+  version: 4.0.3
+  resolution: "warning@npm:4.0.3"
+  dependencies:
+    loose-envify: "npm:^1.0.0"
+  checksum: 10/e7842aff036e2e07ce7a6cc3225e707775b969fe3d0577ad64bd24660e3a9ce3017f0b8c22a136566dcd3a151f37b8ed1ccee103b3bd82bd8a571bf80b247bc4
   languageName: node
   linkType: hard
 

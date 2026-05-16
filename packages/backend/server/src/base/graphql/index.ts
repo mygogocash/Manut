@@ -7,6 +7,10 @@ import { ApolloDriver } from '@nestjs/apollo';
 import { Global, Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import type { Request, Response } from 'express';
+// @ts-expect-error -- graphql-depth-limit ships without bundled types
+import depthLimit from 'graphql-depth-limit';
+// @ts-expect-error -- graphql-validation-complexity ships without bundled types
+import { createComplexityLimitRule } from 'graphql-validation-complexity';
 
 import { NodeEnv } from '../../env';
 import { Config } from '../config';
@@ -43,6 +47,9 @@ export type GraphqlContext = {
           csrfPrevention: {
             requestHeaders: ['content-type'],
           },
+          // Pentest H4: DoS defense — limits query depth and complexity to prevent
+          // CPU exhaustion via deeply nested queries.
+          validationRules: [depthLimit(10), createComplexityLimitRule(1000)],
           context: ({
             req,
             res,

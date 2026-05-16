@@ -109,9 +109,7 @@ test('Manut handover parser accepts generated CI JSON contract', t => {
       { stdio: 'ignore' }
     );
 
-    const result = parseAndRenderManutHandover(
-      readFileSync(jsonPath, 'utf8')
-    );
+    const result = parseAndRenderManutHandover(readFileSync(jsonPath, 'utf8'));
 
     t.is(result.title, 'Manut Release Handover - v9.9.9');
     t.true(result.markdown.includes('Status: release image built'));
@@ -156,4 +154,133 @@ test('Manut handover GraphQL nullable DTO fields use explicit types', t => {
       `${file}: nullable @Field decorators must use @Field(() => Type, { nullable: true })`
     );
   }
+});
+
+test('Manut handover wraps https runUrl as a Markdown link', t => {
+  const result = parseAndRenderManutHandover(
+    handover({
+      workflow: {
+        mode: 'release',
+        status: 'release image built',
+        repository: 'mygogocash/Manut',
+        ref: 'v1.2.3',
+        actor: 'codex',
+        runId: '12345',
+        runUrl: 'https://example.com/runs/1',
+      },
+    })
+  );
+
+  t.true(
+    result.markdown.includes(
+      '| Run URL | [https://example.com/runs/1](https://example.com/runs/1) |'
+    )
+  );
+});
+
+test('Manut handover wraps http runUrl as a Markdown link', t => {
+  const result = parseAndRenderManutHandover(
+    handover({
+      workflow: {
+        mode: 'release',
+        status: 'release image built',
+        repository: 'mygogocash/Manut',
+        ref: 'v1.2.3',
+        actor: 'codex',
+        runId: '12345',
+        runUrl: 'http://example.com/runs/1',
+      },
+    })
+  );
+
+  t.true(
+    result.markdown.includes(
+      '| Run URL | [http://example.com/runs/1](http://example.com/runs/1) |'
+    )
+  );
+});
+
+test('Manut handover renders javascript: scheme runUrl as plain text', t => {
+  const result = parseAndRenderManutHandover(
+    handover({
+      workflow: {
+        mode: 'release',
+        status: 'release image built',
+        repository: 'mygogocash/Manut',
+        ref: 'v1.2.3',
+        actor: 'codex',
+        runId: '12345',
+        runUrl: 'javascript:alert(1)',
+      },
+    })
+  );
+
+  // Plain text, no Markdown link syntax.
+  t.true(result.markdown.includes('| Run URL | javascript:alert(1) |'));
+  t.false(result.markdown.includes('[javascript:alert(1)]'));
+  t.false(result.markdown.includes('(javascript:alert(1))'));
+});
+
+test('Manut handover renders file: scheme runUrl as plain text', t => {
+  const result = parseAndRenderManutHandover(
+    handover({
+      workflow: {
+        mode: 'release',
+        status: 'release image built',
+        repository: 'mygogocash/Manut',
+        ref: 'v1.2.3',
+        actor: 'codex',
+        runId: '12345',
+        runUrl: 'file:///etc/passwd',
+      },
+    })
+  );
+
+  t.true(result.markdown.includes('| Run URL | file:///etc/passwd |'));
+  t.false(result.markdown.includes('[file:///etc/passwd]'));
+});
+
+test('Manut handover renders schemeless runUrl as plain text', t => {
+  const result = parseAndRenderManutHandover(
+    handover({
+      workflow: {
+        mode: 'release',
+        status: 'release image built',
+        repository: 'mygogocash/Manut',
+        ref: 'v1.2.3',
+        actor: 'codex',
+        runId: '12345',
+        runUrl: 'not-a-url',
+      },
+    })
+  );
+
+  t.true(result.markdown.includes('| Run URL | not-a-url |'));
+  t.false(result.markdown.includes('[not-a-url]'));
+});
+
+test('Manut handover strips closing brackets from link display text', t => {
+  // A crafted URL that would let a "]" close the Markdown link's display
+  // segment early. Even though only https?:// URLs are linkified, we
+  // strip "]" from the display text on every branch so it can't break
+  // Markdown link syntax or smuggle a trailing payload.
+  const result = parseAndRenderManutHandover(
+    handover({
+      workflow: {
+        mode: 'release',
+        status: 'release image built',
+        repository: 'mygogocash/Manut',
+        ref: 'v1.2.3',
+        actor: 'codex',
+        runId: '12345',
+        runUrl: 'https://example.com/]injected',
+      },
+    })
+  );
+
+  // The display segment must not contain a raw "]" that would close the
+  // link early.
+  t.false(result.markdown.includes('[https://example.com/]'));
+  // The URL itself is preserved inside the parentheses.
+  t.true(result.markdown.includes('(https://example.com/]injected)'));
 });

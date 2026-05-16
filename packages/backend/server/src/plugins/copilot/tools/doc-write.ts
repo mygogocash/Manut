@@ -168,7 +168,7 @@ export const createDocUpdateTool = (
     description:
       'Update an existing document with new markdown content (body only). Uses structural diffing to apply minimal changes. This does NOT update the document title. This tool not support insert or update database block and image yet.',
     inputSchema: z.object({
-      doc_id: z.string().describe('The ID of the document to update'),
+      doc_id: z.string().uuid().describe('The ID of the document to update'),
       content: z
         .string()
         .describe(
@@ -192,7 +192,7 @@ export const createDocUpdateMetaTool = (
   return defineTool({
     description: 'Update document metadata (currently title only).',
     inputSchema: z.object({
-      doc_id: z.string().describe('The ID of the document to update'),
+      doc_id: z.string().uuid().describe('The ID of the document to update'),
       title: z.string().min(1).describe('The new document title'),
     }),
     execute: async ({ doc_id, title }) => {
