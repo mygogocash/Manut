@@ -33,11 +33,22 @@ export type WorkspaceQuotaWithUsage = Omit<
 // any client formatting.
 const MANUT_UNLIMITED_SEATS = 100_000;
 
-// MANUT: effectively-unlimited byte count for blob/storage quotas on
+// MANUT: effectively-unlimited byte count for the per-blob upload limit on
 // self-hosted. 1 PB stays well below Number.MAX_SAFE_INTEGER (~9 PB) and
 // formats cleanly in formatSize(). Self-hosted operators control their own
-// disk; we don't enforce caps that matter only for upstream's hosted plans.
+// disk; we don't cap individual blob sizes that exist only to gate
+// upstream's hosted plans. Used for `blobLimit` only — the total workspace
+// storage cap is `MANUT_STORAGE_QUOTA_BYTES` below.
 const MANUT_UNLIMITED_BYTES = 1_000_000_000_000_000;
+
+// MANUT: total workspace/user storage cap on self-hosted. Set to 100 GB
+// (binary) so formatSize() in the Settings UI renders as a clean "100 GB"
+// rather than an unfriendly "909.49 TB" placeholder. 100 × 1024³ keeps the
+// binary-divisor formatter consistent with the rest of the AFFiNE storage
+// numbers. Operators with more disk should raise this constant in their
+// fork rather than expecting an env knob — the override is intentionally
+// build-time so the displayed quota matches the enforced quota.
+const MANUT_STORAGE_QUOTA_BYTES = 100 * 1024 * 1024 * 1024;
 
 // MANUT: effectively-unlimited history retention period in milliseconds.
 // 100 years × 365 days × 24h × 3600s × 1000ms — safe int, formats cleanly.
@@ -89,7 +100,7 @@ export class QuotaService {
         ...quota.configs,
         copilotActionLimit: undefined,
         blobLimit: MANUT_UNLIMITED_BYTES,
-        storageQuota: MANUT_UNLIMITED_BYTES,
+        storageQuota: MANUT_STORAGE_QUOTA_BYTES,
         historyPeriod: MANUT_UNLIMITED_HISTORY_MS,
         memberLimit: MANUT_UNLIMITED_SEATS,
       } as UserQuotaWithUsage;
@@ -185,7 +196,7 @@ export class QuotaService {
       return {
         ...resolved,
         blobLimit: MANUT_UNLIMITED_BYTES,
-        storageQuota: MANUT_UNLIMITED_BYTES,
+        storageQuota: MANUT_STORAGE_QUOTA_BYTES,
         historyPeriod: MANUT_UNLIMITED_HISTORY_MS,
         memberLimit: MANUT_UNLIMITED_SEATS,
       };
