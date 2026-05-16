@@ -1,5 +1,5 @@
 /**
- * Local Superflow Reminders DTOs.
+ * Local Manut Reminders DTOs.
  *
  * Mirrors `MnReminderObjectType` and `MnReminderRule*` shapes from the
  * backend (`packages/backend/server/src/plugins/manut/manut-reminder.dto.ts`

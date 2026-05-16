@@ -11,7 +11,7 @@ import { MnProjectStatus } from '@prisma/client';
 
 registerEnumType(MnProjectStatus, {
   name: 'MnProjectStatus',
-  description: 'Lifecycle state of a Superflow project.',
+  description: 'Lifecycle state of a Manut project.',
 });
 
 @ObjectType('MnProject')
@@ -42,7 +42,7 @@ export class MnProjectObjectType {
 }
 
 @InputType()
-export class ImportSuperflowHandoverInput {
+export class ImportMnHandoverInput {
   @Field(() => String)
   handoverJson!: string;
 
@@ -51,7 +51,7 @@ export class ImportSuperflowHandoverInput {
 }
 
 @ObjectType()
-export class ImportSuperflowHandoverResult {
+export class ImportMnHandoverResult {
   @Field(() => ID)
   docId!: string;
 

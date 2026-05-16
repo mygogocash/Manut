@@ -3,8 +3,8 @@ import { join } from 'node:path';
 
 import test from 'ava';
 
-import type { SuperflowHandoverImportResult } from '../../plugins/manut/manut-handover.service';
-import { SuperflowHandoverService } from '../../plugins/manut/manut-handover.service';
+import type { MnHandoverImportResult } from '../../plugins/manut/manut-handover.service';
+import { MnHandoverService } from '../../plugins/manut/manut-handover.service';
 import type { MnReleaseRunObjectType } from '../../plugins/manut/manut-release-runs.dto';
 import { MnReleaseRunsResolver } from '../../plugins/manut/manut-release-runs.resolver';
 import {
@@ -590,9 +590,9 @@ test('Importing handover records a run alongside the doc write (success path)', 
     updateDoc: async () => undefined,
     updateDocMeta: async () => undefined,
   };
-  const handover = new SuperflowHandoverService(docWriter as any, releaseSvc);
+  const handover = new MnHandoverService(docWriter as any, releaseSvc);
 
-  const result: SuperflowHandoverImportResult = await handover.importHandover(
+  const result: MnHandoverImportResult = await handover.importHandover(
     'workspace-1',
     'user-1',
     makeHandoverJson()
@@ -616,7 +616,7 @@ test('Handover importer does NOT record a run when doc write fails', async t => 
     updateDoc: async () => undefined,
     updateDocMeta: async () => undefined,
   };
-  const handover = new SuperflowHandoverService(docWriter as any, releaseSvc);
+  const handover = new MnHandoverService(docWriter as any, releaseSvc);
 
   await t.throwsAsync(() =>
     handover.importHandover('workspace-1', 'user-1', makeHandoverJson())
@@ -646,7 +646,7 @@ test('Handover importer swallows release-run recording failures so doc write rem
     updateDoc: async () => undefined,
     updateDocMeta: async () => undefined,
   };
-  const handover = new SuperflowHandoverService(docWriter as any, releaseSvc);
+  const handover = new MnHandoverService(docWriter as any, releaseSvc);
 
   const result = await handover.importHandover(
     'workspace-1',
@@ -666,7 +666,7 @@ test('Handover importer records a run for an existing doc update', async t => {
     updateDoc: async () => undefined,
     updateDocMeta: async () => undefined,
   };
-  const handover = new SuperflowHandoverService(docWriter as any, releaseSvc);
+  const handover = new MnHandoverService(docWriter as any, releaseSvc);
 
   const result = await handover.importHandover(
     'workspace-1',

@@ -16,7 +16,7 @@ import {
 } from './manut-pm.dto';
 
 @Resolver()
-export class SuperflowPmResolver {
+export class MnPmResolver {
   constructor(
     private readonly db: PrismaClient,
     private readonly ac: AccessController

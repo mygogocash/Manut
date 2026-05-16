@@ -65,7 +65,7 @@ jobs:
           ls -la scripts/vm/
 
       - name: Authenticate to GCP
-        # WIF — see superflow-autodeploy.yml. No untrusted input.
+        # WIF — see manut-autodeploy.yml. No untrusted input.
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
@@ -144,7 +144,7 @@ jobs:
             echo ""
             echo "Next steps:"
             echo "1. Trigger Manut Auto Deploy via any push to main, OR"
-            echo "2. Manually deploy any pushed image: \`gh workflow run superflow-deploy.yml -f tag=<tag>\`"
+            echo "2. Manually deploy any pushed image: \`gh workflow run manut-deploy.yml -f tag=<tag>\`"
             echo "3. Deploys now use the smoke-then-swap pattern. Pre-validation"
             echo "   failures leave production untouched."
           } >> "$GITHUB_STEP_SUMMARY"

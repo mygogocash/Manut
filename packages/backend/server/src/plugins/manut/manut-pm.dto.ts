@@ -11,12 +11,12 @@ import { MnProjectStatus, MnTaskPriority, MnTaskStatus } from '@prisma/client';
 
 registerEnumType(MnTaskStatus, {
   name: 'MnTaskStatus',
-  description: 'Superflow task workflow state.',
+  description: 'Manut task workflow state.',
 });
 
 registerEnumType(MnTaskPriority, {
   name: 'MnTaskPriority',
-  description: 'Superflow task priority.',
+  description: 'Manut task priority.',
 });
 
 @InputType()

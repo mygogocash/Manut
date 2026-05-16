@@ -5,8 +5,8 @@ import {
 } from '@prisma/client';
 import test from 'ava';
 
-import { SuperflowReminderCron } from '../../plugins/manut/manut-reminder.cron';
-import { SuperflowReminderJob } from '../../plugins/manut/manut-reminder.job';
+import { MnReminderCron } from '../../plugins/manut/manut-reminder.cron';
+import { MnReminderJob } from '../../plugins/manut/manut-reminder.job';
 
 test('Manut reminder cron creates a delivery and enqueues due reminders', async t => {
   const fireAt = new Date('2026-05-09T00:00:00.000Z');
@@ -56,7 +56,7 @@ test('Manut reminder cron creates a delivery and enqueues due reminders', async 
     },
   };
 
-  const cron = new SuperflowReminderCron(db as any, queue as any);
+  const cron = new MnReminderCron(db as any, queue as any);
 
   await cron.runOnce(new Date('2026-05-09T00:01:00.000Z'));
 
@@ -64,7 +64,7 @@ test('Manut reminder cron creates a delivery and enqueues due reminders', async 
     [
       'superflow.deliverReminder',
       { reminderId: reminder.id, deliveryId: createdDelivery.id },
-      { jobId: `superflow-deliver-reminder-${createdDelivery.id}` },
+      { jobId: 'manut-deliver-reminder-${createdDelivery.id}` },
     ],
   ]);
 });
@@ -124,7 +124,7 @@ test('Manut reminder cron reuses pending delivery and skips terminal delivery st
     },
   };
 
-  const cron = new SuperflowReminderCron(db as any, queue as any);
+  const cron = new MnReminderCron(db as any, queue as any);
 
   await cron.runOnce();
 
@@ -133,7 +133,7 @@ test('Manut reminder cron reuses pending delivery and skips terminal delivery st
     [
       'superflow.deliverReminder',
       { reminderId: reminder.id, deliveryId: 'delivery-pending' },
-      { jobId: 'superflow-deliver-reminder-delivery-pending' },
+      { jobId: 'manut-deliver-reminder-delivery-pending' },
     ],
   ]);
   t.deepEqual(reminderUpdates, [
@@ -173,7 +173,7 @@ test('Manut reminder cron skips reminders claimed by another worker', async t =>
     },
   };
 
-  const cron = new SuperflowReminderCron(db as any, queue as any);
+  const cron = new MnReminderCron(db as any, queue as any);
 
   await cron.runOnce();
   t.pass();
@@ -228,7 +228,7 @@ test('Manut reminder job queues mail and marks delivery queued', async t => {
     },
   };
 
-  const job = new SuperflowReminderJob(db as any, mailer as any);
+  const job = new MnReminderJob(db as any, mailer as any);
 
   await job.deliverReminder({ reminderId, deliveryId });
 
@@ -295,7 +295,7 @@ test('Manut reminder job ignores stale or mismatched delivery jobs', async t => 
     },
   };
 
-  const job = new SuperflowReminderJob(db as any, mailer as any);
+  const job = new MnReminderJob(db as any, mailer as any);
 
   await job.deliverReminder({
     reminderId: 'reminder-1',
@@ -342,7 +342,7 @@ test('Manut reminder job marks delivery failed when mail cannot queue', async t 
     trySend: async () => false,
   };
 
-  const job = new SuperflowReminderJob(db as any, mailer as any);
+  const job = new MnReminderJob(db as any, mailer as any);
 
   await job.deliverReminder({ reminderId, deliveryId });
 

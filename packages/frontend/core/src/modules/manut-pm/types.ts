@@ -1,8 +1,8 @@
 /**
- * Frontend types for the Superflow PM (Projects + Tasks) module.
+ * Frontend types for the Manut PM (Projects + Tasks) module.
  *
  * Mirrors the backend DTOs in
- * `packages/backend/server/src/plugins/superflow/superflow-pm.dto.ts`
+ * `packages/backend/server/src/plugins/manut/manut-pm.dto.ts`
  * and the Prisma enums in `schema.prisma`. Co-located with the frontend
  * call sites because `@affine/graphql` codegen has not been re-run yet
  * for these operations.

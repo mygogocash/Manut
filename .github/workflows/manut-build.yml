@@ -55,7 +55,7 @@ on:
 # is atomic, so a queued Build that runs later still produces a clean
 # tagged image. See CLAUDE.md §8 for the full incident write-up.
 concurrency:
-  group: superflow-build
+  group: manut-build
   cancel-in-progress: false
 
 env:
@@ -428,15 +428,15 @@ jobs:
             --gar-repo "${GAR_REPO}" \
             --short-sha "${SHORT_SHA}" \
             --head-sha "${HEAD_SHA}" \
-            --output artifact/superflow-handover.md \
-            --json-output artifact/superflow-handover.json
+            --output artifact/manut-handover.md \
+            --json-output artifact/manut-handover.json
 
       - uses: actions/upload-artifact@v4
         with:
-          name: superflow-handover
+          name: manut-handover
           path: |
-            artifact/superflow-handover.md
-            artifact/superflow-handover.json
+            artifact/manut-handover.md
+            artifact/manut-handover.json
           retention-days: 30
           if-no-files-found: error
 
@@ -459,7 +459,7 @@ jobs:
             echo "- Image digest: \`${IMAGE_DIGEST:-unknown}\`"
             echo "- Registry: \`${GAR_REPO_VAR}\`"
             echo "- Buildx cache: \`${CACHE_IMAGE}\`"
-            echo "- Handover artifact: \`superflow-handover\`"
+            echo "- Handover artifact: \`manut-handover\`"
             echo ""
             echo "**Machine-readable**: \`IMAGE_TAG=${IMAGE_TAG}\`"
             echo ""
@@ -468,7 +468,7 @@ jobs:
             echo "the VM. To deploy manually instead, run:"
             echo ""
             echo '```bash'
-            echo "gh workflow run superflow-deploy.yml -f tag=${IMAGE_TAG}"
+            echo "gh workflow run manut-deploy.yml -f tag=${IMAGE_TAG}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 

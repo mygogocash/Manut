@@ -8,10 +8,10 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { IntegrationSettingHeader } from '../setting';
 import type {
-  ImportSuperflowHandoverInput,
-  ImportSuperflowHandoverResult,
+  ImportMnHandoverInput,
+  ImportMnHandoverResult,
 } from './graphql';
-import { importSuperflowHandoverMutation } from './graphql';
+import { importMnHandoverMutation } from './graphql';
 import * as styles from './setting-panel.css';
 
 interface HandoverPreview {
@@ -100,7 +100,7 @@ function parsePreview(
         workflowName:
           readString(controlPlane?.name) ||
           readString(workflow?.mode) ||
-          'Superflow handover',
+          'Manut handover',
         runId: readString(workflow?.runId),
         imageTag: readString(release?.imageTag),
         imageDigest: readString(release?.imageDigest),
@@ -131,11 +131,11 @@ const PreviewRow = ({
   </>
 );
 
-export const SuperflowHandoverIcon = () => {
+export const MnHandoverIcon = () => {
   return <span className={styles.icon}>SF</span>;
 };
 
-export const SuperflowHandoverSettingPanel = () => {
+export const MnHandoverSettingPanel = () => {
   const workspaceService = useService(WorkspaceService);
   const workspaceId = workspaceService.workspace.id;
   const { jumpToPage } = useNavigateHelper();
@@ -145,7 +145,7 @@ export const SuperflowHandoverSettingPanel = () => {
   const [fileName, setFileName] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<ImportSuperflowHandoverResult | null>(
+  const [result, setResult] = useState<ImportMnHandoverResult | null>(
     null
   );
 
@@ -157,7 +157,7 @@ export const SuperflowHandoverSettingPanel = () => {
   const canImport = Boolean(handoverJson.trim()) && previewResult.ok;
 
   const { trigger } = useMutation({
-    mutation: importSuperflowHandoverMutation,
+    mutation: importMnHandoverMutation,
   });
 
   const handleFileChange = useCallback(
@@ -187,12 +187,12 @@ export const SuperflowHandoverSettingPanel = () => {
     setResult(null);
 
     try {
-      const input: ImportSuperflowHandoverInput = { handoverJson };
+      const input: ImportMnHandoverInput = { handoverJson };
       const response = (await (trigger as (args: unknown) => Promise<unknown>)({
         workspaceId,
         input,
-      })) as { importSuperflowHandover?: ImportSuperflowHandoverResult };
-      const imported = response.importSuperflowHandover;
+      })) as { importMnHandover?: ImportMnHandoverResult };
+      const imported = response.importMnHandover;
       if (!imported) {
         throw new Error('The server did not return an imported doc.');
       }
@@ -214,8 +214,8 @@ export const SuperflowHandoverSettingPanel = () => {
   return (
     <div className={styles.root}>
       <IntegrationSettingHeader
-        icon={<SuperflowHandoverIcon />}
-        name="Superflow Handover"
+        icon={<MnHandoverIcon />}
+        name="Manut Handover"
         desc="Import release handover JSON into a workspace doc."
       />
 

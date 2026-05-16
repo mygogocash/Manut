@@ -10,13 +10,13 @@ const MAX_GATES = 50;
 const MAX_TEXT = 500;
 const MAX_LONG_TEXT = 2000;
 
-export interface SuperflowHandoverImportResult {
+export interface MnHandoverImportResult {
   docId: string;
   title: string;
   updated: boolean;
 }
 
-interface SuperflowHandoverModel {
+interface MnHandoverModel {
   schemaVersion: number;
   generatedAt: string;
   controlPlane: {
@@ -56,15 +56,15 @@ interface SuperflowHandoverModel {
   };
 }
 
-export interface RenderedSuperflowHandover {
+export interface RenderedMnHandover {
   title: string;
   markdown: string;
-  handover: SuperflowHandoverModel;
+  handover: MnHandoverModel;
 }
 
 @Injectable()
-export class SuperflowHandoverService {
-  private readonly logger = new Logger(SuperflowHandoverService.name);
+export class MnHandoverService {
+  private readonly logger = new Logger(MnHandoverService.name);
 
   constructor(
     private readonly docWriter: DocWriter,
@@ -76,10 +76,10 @@ export class SuperflowHandoverService {
     editorId: string,
     handoverJson: string,
     targetDocId?: string | null
-  ): Promise<SuperflowHandoverImportResult> {
-    const rendered = parseAndRenderSuperflowHandover(handoverJson);
+  ): Promise<MnHandoverImportResult> {
+    const rendered = parseAndRenderManutHandover(handoverJson);
 
-    let result: SuperflowHandoverImportResult;
+    let result: MnHandoverImportResult;
 
     if (targetDocId) {
       await this.docWriter.updateDoc(
@@ -133,23 +133,23 @@ export class SuperflowHandoverService {
   }
 }
 
-export function parseAndRenderSuperflowHandover(
+export function parseAndRenderManutHandover(
   handoverJson: string
-): RenderedSuperflowHandover {
-  const handover = normalizeSuperflowHandover(parseJson(handoverJson));
+): RenderedMnHandover {
+  const handover = normalizeMnHandover(parseJson(handoverJson));
   const version = handover.release.version || handover.release.imageTag;
   const suffix = version ? ` - ${version}` : '';
-  const title = sanitizeInlineText(`Superflow Release Handover${suffix}`, 120);
+  const title = sanitizeInlineText(`Manut Release Handover${suffix}`, 120);
 
   return {
     title,
-    markdown: renderSuperflowHandoverMarkdown(handover),
+    markdown: renderManutHandoverMarkdown(handover),
     handover,
   };
 }
 
-export function renderSuperflowHandoverMarkdown(
-  model: SuperflowHandoverModel
+export function renderManutHandoverMarkdown(
+  model: MnHandoverModel
 ): string {
   const release = model.release;
   const workflow = model.workflow;
@@ -222,7 +222,7 @@ function parseJson(handoverJson: string): unknown {
   }
 }
 
-function normalizeSuperflowHandover(input: unknown): SuperflowHandoverModel {
+function normalizeMnHandover(input: unknown): MnHandoverModel {
   const model = objectAt(input, 'handover');
 
   if (model.schemaVersion !== 1) {

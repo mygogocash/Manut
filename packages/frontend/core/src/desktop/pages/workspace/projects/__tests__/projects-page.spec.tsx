@@ -84,7 +84,7 @@ vi.mock('@toeverything/infra', () => ({
 
 import { Component } from '../index';
 
-describe('Superflow projects page', () => {
+describe('Manut projects page', () => {
   afterEach(() => cleanup());
 
   test('renders the empty state when there are no projects', () => {

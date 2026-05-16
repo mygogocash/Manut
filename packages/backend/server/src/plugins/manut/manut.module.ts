@@ -8,22 +8,22 @@ import { MailModule } from '../../core/mail';
 import { PermissionModule } from '../../core/permission';
 import { MnAgentRegistryResolver } from './manut-agent-registry.resolver';
 import { MnAgentRegistryService } from './manut-agent-registry.service';
-import { SuperflowCrmResolver } from './manut-crm.resolver';
-import { SuperflowHandoverResolver } from './manut-handover.resolver';
-import { SuperflowHandoverService } from './manut-handover.service';
-import { SuperflowPmResolver } from './manut-pm.resolver';
+import { MnCrmResolver } from './manut-crm.resolver';
+import { MnHandoverResolver } from './manut-handover.resolver';
+import { MnHandoverService } from './manut-handover.service';
+import { MnPmResolver } from './manut-pm.resolver';
 import { MnReleaseRunsResolver } from './manut-release-runs.resolver';
 import { MnReleaseRunsService } from './manut-release-runs.service';
-import { SuperflowReminderCron } from './manut-reminder.cron';
-import { SuperflowReminderJob } from './manut-reminder.job';
-import { SuperflowReminderResolver } from './manut-reminder.resolver';
+import { MnReminderCron } from './manut-reminder.cron';
+import { MnReminderJob } from './manut-reminder.job';
+import { MnReminderResolver } from './manut-reminder.resolver';
 
 /**
- * Toggles `ServerFeature.Superflow` so the frontend can show/hide the
+ * Toggles `ServerFeature.Manut` so the frontend can show/hide the
  * Projects / CRM / Reminders nav entries based on whether the backend
  * has the gated APIs loaded.
  *
- * `ServerFeature.Superflow` retains its 'superflow' enum value because
+ * `ServerFeature.Manut` is gated by the same env flag as the module
  * the frontend reads it from the GraphQL server-config contract.
  *
  * `@Injectable()` is required so TypeScript emits the `design:paramtypes`
@@ -32,24 +32,27 @@ import { SuperflowReminderResolver } from './manut-reminder.resolver';
  * throws (see incident: ENABLE_MANUT_MODULE flip on 2026-05-14).
  */
 @Injectable()
-class SuperflowFeatureRegistrar implements OnModuleInit {
+class MnFeatureRegistrar implements OnModuleInit {
   constructor(private readonly server: ServerService) {}
 
   onModuleInit(): void {
     if (isManutModuleEnabled()) {
-      this.server.enableFeature(ServerFeature.Superflow);
+      this.server.enableFeature(ServerFeature.Manut);
     } else {
-      this.server.disableFeature(ServerFeature.Superflow);
+      this.server.disableFeature(ServerFeature.Manut);
     }
   }
 }
 
 /**
  * Manut product suite (PM, CRM, reminders, notifications). Historically
- * codenamed "Superflow" — internal class identifiers and the GraphQL
- * surface (resolver methods, DTO types, ServerFeature enum value) still
- * carry the Superflow name to preserve the public contract until a
- * coordinated frontend rename ships.
+ * codenamed "Superflow" — the v1.12.1 rename pass moved every internal
+ * class, GraphQL @ObjectType/@InputType, and resolver method to the
+ * Manut/Mn family. The only intentional Superflow leftovers are:
+ * - ENABLE_SUPERFLOW_MODULE env var (BC alias for ENABLE_MANUT_MODULE)
+ * - 'superflow.deliverReminder' BullMQ job name (Redis-persisted, see
+ *   packages/backend/server/src/base/job/queue/def.ts)
+ * - Documentation in docs/ that records the rename history.
  *
  * PM/CRM/reminder APIs are gated by `ENABLE_MANUT_MODULE=true`
  * (legacy `ENABLE_SUPERFLOW_MODULE` is also honored). The handover inbox
@@ -64,11 +67,11 @@ export class ManutModule {
         module: ManutModule,
         imports: [PermissionModule, DocStorageModule, ServerConfigModule],
         providers: [
-          SuperflowHandoverResolver,
-          SuperflowHandoverService,
+          MnHandoverResolver,
+          MnHandoverService,
           MnReleaseRunsService,
           MnReleaseRunsResolver,
-          SuperflowFeatureRegistrar,
+          MnFeatureRegistrar,
         ],
       };
     }
@@ -82,18 +85,18 @@ export class ManutModule {
         ServerConfigModule,
       ],
       providers: [
-        SuperflowPmResolver,
-        SuperflowCrmResolver,
-        SuperflowHandoverResolver,
-        SuperflowHandoverService,
-        SuperflowReminderResolver,
-        SuperflowReminderJob,
-        SuperflowReminderCron,
+        MnPmResolver,
+        MnCrmResolver,
+        MnHandoverResolver,
+        MnHandoverService,
+        MnReminderResolver,
+        MnReminderJob,
+        MnReminderCron,
         MnAgentRegistryService,
         MnAgentRegistryResolver,
         MnReleaseRunsService,
         MnReleaseRunsResolver,
-        SuperflowFeatureRegistrar,
+        MnFeatureRegistrar,
       ],
     };
   }

@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Authenticate to GCP
-        # WIF — see superflow-autodeploy.yml. No untrusted input.
+        # WIF — see manut-autodeploy.yml. No untrusted input.
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
@@ -188,7 +188,7 @@ jobs:
           fi
 
       - name: Notify Slack
-        # See superflow-autodeploy.yml for the full design rationale.
+        # See manut-autodeploy.yml for the full design rationale.
         # Rollback messages have a slightly different shape — they
         # report which tag prod is now on (read from the previous step)
         # plus the operator who triggered the rollback. Webhook URL

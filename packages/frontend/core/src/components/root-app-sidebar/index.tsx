@@ -134,29 +134,29 @@ const AnalyticsButton = () => {
 };
 
 /**
- * Returns true when the backend has `ServerFeature.Superflow` enabled
+ * Returns true when the backend has `ServerFeature.Manut` enabled
  * (i.e., `ENABLE_SUPERFLOW_MODULE=true` on the server). The sidebar entries
  * and routes for Projects / CRM / Reminders are hidden otherwise so users
  * don't see broken navigation.
  *
- * Reads from `ServerService.server.features$` which the Superflow plugin
+ * Reads from `ServerService.server.features$` which the Manut plugin
  * populates on module init.
  */
-const useSuperflowEnabled = (): boolean => {
+const useManutEnabled = (): boolean => {
   const serverService = useService(ServerService);
   const serverFeatures = useLiveData(serverService.server.features$);
   // `features$` maps each ServerFeature into a lowercase keyed object
-  // (`{ superflow: true, copilot: true, ... }`) — NOT an array. See
+  // (`{ manut: true, copilot: true, ... }`) — NOT an array. See
   // `cloud/entities/server.ts`'s `features$` map. Calling `.includes()`
   // on an object throws `TypeError: t?.includes is not a function`,
   // which crashed the workspace render in production. Use property
   // access — matches the existing `serverFeatures?.copilot` usage
   // below.
-  return !!serverFeatures?.superflow;
+  return !!serverFeatures?.manut;
 };
 
 const ProjectsButton = () => {
-  const enabled = useSuperflowEnabled();
+  const enabled = useManutEnabled();
   const { workbenchService } = useServices({
     WorkbenchService,
   });
@@ -177,7 +177,7 @@ const ProjectsButton = () => {
 };
 
 const CrmButton = () => {
-  const enabled = useSuperflowEnabled();
+  const enabled = useManutEnabled();
   const { workbenchService } = useServices({
     WorkbenchService,
   });
@@ -198,7 +198,7 @@ const CrmButton = () => {
 };
 
 const RemindersButton = () => {
-  const enabled = useSuperflowEnabled();
+  const enabled = useManutEnabled();
   const { workbenchService } = useServices({
     WorkbenchService,
   });
@@ -220,11 +220,11 @@ const RemindersButton = () => {
 
 /**
  * Sidebar link to the Manut Control Plane release-runs board (Phase 4).
- * Gated on `ServerFeature.Superflow` like the other Manut nav entries so
+ * Gated on `ServerFeature.Manut` like the other Manut nav entries so
  * users on stock AFFiNE don't see a broken link.
  */
 const ReleaseRunsButton = () => {
-  const enabled = useSuperflowEnabled();
+  const enabled = useManutEnabled();
   const { workbenchService } = useServices({
     WorkbenchService,
   });

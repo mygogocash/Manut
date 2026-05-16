@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { BadRequestException } from '@nestjs/common';
 import test from 'ava';
 
-import { parseAndRenderSuperflowHandover } from '../../plugins/manut/manut-handover.service';
+import { parseAndRenderManutHandover } from '../../plugins/manut/manut-handover.service';
 
 const manutDir = join(process.cwd(), 'src/plugins/manut');
 const repoRoot = join(process.cwd(), '../../..');
@@ -24,17 +24,17 @@ function handover(overrides: Record<string, unknown> = {}) {
     generatedAt: '2026-05-09T12:00:00.000Z',
     controlPlane: {
       source: 'docs/SUPERFLOW_CONTROL_PLANE.md',
-      company: 'GoGoCash Superflow',
+      company: 'GoGoCash Manut',
       goal: 'Ship verified AI-assisted AFFiNE work.',
     },
     workflow: {
       mode: 'release',
       status: 'release image built',
-      repository: 'mygogocash/Superflow',
+      repository: 'mygogocash/Manut',
       ref: 'v1.2.3',
       actor: 'codex',
       runId: '12345',
-      runUrl: 'https://github.com/mygogocash/Superflow/actions/runs/12345',
+      runUrl: 'https://github.com/mygogocash/Manut/actions/runs/12345',
     },
     release: {
       version: 'v1.2.3',
@@ -58,7 +58,7 @@ function handover(overrides: Record<string, unknown> = {}) {
     taskTree: ['Build fresh artifacts.', 'Package immutable image tag.'],
     verificationGates: ['server bundle rebuilt', 'post-swap /info passes'],
     rollback: {
-      workflow: 'superflow-rollback.yml',
+      workflow: 'manut-rollback.yml',
       vmSnapshot: '/srv/affine/compose/compose.yml.previous.bak',
     },
     ...overrides,
@@ -66,18 +66,18 @@ function handover(overrides: Record<string, unknown> = {}) {
 }
 
 test('Manut handover JSON renders title and markdown', t => {
-  const result = parseAndRenderSuperflowHandover(handover());
+  const result = parseAndRenderManutHandover(handover());
 
-  t.is(result.title, 'Superflow Release Handover - v1.2.3');
+  t.is(result.title, 'Manut Release Handover - v1.2.3');
   t.true(result.markdown.includes('Status: release image built'));
   t.true(result.markdown.includes('| Version | v1.2.3 |'));
   t.true(result.markdown.includes('| Verifier | CI checks |'));
   t.true(result.markdown.includes('1. Build fresh artifacts.'));
-  t.true(result.markdown.includes('- Workflow: superflow-rollback.yml'));
+  t.true(result.markdown.includes('- Workflow: manut-rollback.yml'));
 });
 
 test('Manut handover parser accepts generated CI JSON contract', t => {
-  const tmp = mkdtempSync(join(tmpdir(), 'superflow-handover-'));
+  const tmp = mkdtempSync(join(tmpdir(), 'manut-handover-'));
 
   try {
     const jsonPath = join(tmp, 'handover.json');
@@ -109,11 +109,11 @@ test('Manut handover parser accepts generated CI JSON contract', t => {
       { stdio: 'ignore' }
     );
 
-    const result = parseAndRenderSuperflowHandover(
+    const result = parseAndRenderManutHandover(
       readFileSync(jsonPath, 'utf8')
     );
 
-    t.is(result.title, 'Superflow Release Handover - v9.9.9');
+    t.is(result.title, 'Manut Release Handover - v9.9.9');
     t.true(result.markdown.includes('Status: release image built'));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
@@ -122,7 +122,7 @@ test('Manut handover parser accepts generated CI JSON contract', t => {
 
 test('Manut handover rejects unsupported schemaVersion', t => {
   const error = t.throws(() =>
-    parseAndRenderSuperflowHandover(handover({ schemaVersion: 2 }))
+    parseAndRenderManutHandover(handover({ schemaVersion: 2 }))
   );
 
   t.true(error instanceof BadRequestException);
@@ -130,7 +130,7 @@ test('Manut handover rejects unsupported schemaVersion', t => {
 });
 
 test('Manut handover rejects malformed JSON', t => {
-  const error = t.throws(() => parseAndRenderSuperflowHandover('{nope'));
+  const error = t.throws(() => parseAndRenderManutHandover('{nope'));
 
   t.true(error instanceof BadRequestException);
   t.regex(error.message, /valid JSON/);
@@ -138,7 +138,7 @@ test('Manut handover rejects malformed JSON', t => {
 
 test('Manut handover caps high-cardinality arrays', t => {
   const error = t.throws(() =>
-    parseAndRenderSuperflowHandover(
+    parseAndRenderManutHandover(
       handover({ verificationGates: Array.from({ length: 51 }, () => 'gate') })
     )
   );

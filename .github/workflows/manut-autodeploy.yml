@@ -65,7 +65,7 @@ on:
 # without any signalling back. The supersession lives on the VM, not in
 # GHA's concurrency engine.
 concurrency:
-  group: superflow-autodeploy
+  group: manut-autodeploy
 
 env:
   GAR_REGION: asia-southeast1
@@ -145,7 +145,7 @@ jobs:
             echo "::error::image_tag missing from artifact"
             exit 1
           fi
-          # Defensive charset check — same rule as superflow-deploy.yml.
+          # Defensive charset check — same rule as manut-deploy.yml.
           if ! printf '%s' "${IMAGE_TAG}" | grep -Eq '^[A-Za-z0-9._-]+$'; then
             echo "::error::Resolved image tag contains characters outside [A-Za-z0-9._-]: ${IMAGE_TAG}"
             exit 1
@@ -158,7 +158,7 @@ jobs:
           echo "Resolved image tag: ${IMAGE_TAG}"
 
       - name: Authenticate to GCP
-        # Workload Identity Federation — see superflow-build.yml.
+        # Workload Identity Federation — see manut-build.yml.
         # No untrusted input — only literal WIF provider id and SA email.
         uses: google-github-actions/auth@v2
         with:

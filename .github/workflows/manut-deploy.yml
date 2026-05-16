@@ -14,7 +14,7 @@ run-name: 🎯 Deploy ${{ inputs.tag }} • ${{ github.actor }}
 #   - Re-deploying after fixing an image that failed validation in
 #     the auto-deploy path (exit code 1)
 #
-# Exit-code contract (matches superflow-autodeploy.yml):
+# Exit-code contract (matches manut-autodeploy.yml):
 #   0 = success — prod is on the new image
 #   1 = sidecar validation failed — prod NEVER touched, still on prior image
 #   2 = post-swap smoke failed — auto-rolled back, prod is on prior image
@@ -64,7 +64,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Authenticate to GCP
-        # Workload Identity Federation — see superflow-autodeploy.yml.
+        # Workload Identity Federation — see manut-autodeploy.yml.
         # No untrusted input; literal WIF provider id and SA email.
         uses: google-github-actions/auth@v2
         with:
@@ -212,7 +212,7 @@ jobs:
           fi
 
       - name: Notify Slack
-        # See superflow-autodeploy.yml for the full design rationale. This
+        # See manut-autodeploy.yml for the full design rationale. This
         # is the same step trimmed for the manual-deploy context: TAG
         # comes from the workflow_dispatch input rather than a computed
         # tag step, and there is no head_sha / short_sha to report. All

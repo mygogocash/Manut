@@ -13,7 +13,7 @@ run-name: 📦 Release ${{ github.ref_name }} • ${{ github.actor }}
 #                 on project affine-495114 (or whatever project hosts the
 #                 affine-gogocash repo).
 #
-# Deploy is intentionally a separate manual workflow (superflow-deploy.yml)
+# Deploy is intentionally a separate manual workflow (manut-deploy.yml)
 # so a tag push doesn't auto-deploy to prod without explicit approval.
 
 on:
@@ -25,7 +25,7 @@ env:
   YARN_ENABLE_HARDENED_MODE: 0
   GAR_REGION: asia-southeast1
   GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
-  # Tier 2: shared with superflow-autodeploy.yml so a single warm cache
+  # Tier 2: shared with manut-autodeploy.yml so a single warm cache
   # serves both pipelines. See docs/CICD.md "Buildx cache (registry-backed)".
   GAR_CACHE_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash-cache
 
@@ -90,7 +90,7 @@ jobs:
       # dummies for the unused arms so rspack resolution succeeds.
       # No untrusted input — all literals.
       - name: Build napi native binary (server-native.x64.node)
-        # See superflow-autodeploy.yml for explanation. Don't guess
+        # See manut-autodeploy.yml for explanation. Don't guess
         # the napi filename — detect after build.
         run: |
           cd packages/backend/native
@@ -128,14 +128,14 @@ jobs:
         run: yarn workspace @affine/server prisma generate
 
       # Tier 2 (build determinism): wipe stale dist directories before
-      # bundling. Same rationale as superflow-build.yml — the
+      # bundling. Same rationale as manut-build.yml — the
       # empty-mobile-dist incident that took prod down twice was a
       # cached stale dist tree slipping into the docker build context.
       #
       # CRITICAL: explicit paths only. A `find -path '*/dist'` glob
       # also matches vendored library dist dirs inside node_modules
       # (e.g. node_modules/react-router-dom/dist) and silently destroys
-      # them. Build 25412101434 hit this on superflow-build.yml; same
+      # them. Build 25412101434 hit this on manut-build.yml; same
       # rule applies here.
       - name: Prune stale dist artifacts
         run: |
@@ -150,7 +150,7 @@ jobs:
 
       # Mobile bundle is required: backend's DocRendererController reads
       # assets-manifest.json from /app/static/mobile at boot. Empty dir
-      # crashes the server with ENOENT. See superflow-autodeploy.yml.
+      # crashes the server with ENOENT. See manut-autodeploy.yml.
       - name: Build frontend bundles
         run: |
           yarn affine bundle -p web
@@ -158,7 +158,7 @@ jobs:
           yarn affine bundle -p mobile
 
       # Tier 2 (build determinism): same source-drift guard as
-      # superflow-autodeploy.yml. Catches the class of bugs where the
+      # manut-autodeploy.yml. Catches the class of bugs where the
       # build process writes back into the source tree (CLAUDE.md §5
       # "Stale .js / .d.ts in packages/**/src/").
       - name: Check no source files drifted during build
@@ -177,7 +177,7 @@ jobs:
 
       - name: Authenticate to GCP
         id: gcp-auth
-        # Workload Identity Federation — see superflow-autodeploy.yml.
+        # Workload Identity Federation — see manut-autodeploy.yml.
         # No untrusted input.
         uses: google-github-actions/auth@v2
         with:
@@ -211,7 +211,7 @@ jobs:
 
       - name: Build + push image
         # Tier 2 (cache poisoning fix): registry-backed buildx cache
-        # shared with superflow-autodeploy.yml. See that file's longer
+        # shared with manut-autodeploy.yml. See that file's longer
         # comment block for rationale; the short version:
         #   - GHA cache was opaque, partitioned per-runner, not
         #     selectively invalidable. Switched to a registry image
@@ -254,15 +254,15 @@ jobs:
             --image-tag "${IMAGE_TAG}" \
             --image-digest "${IMAGE_DIGEST}" \
             --gar-repo "${GAR_REPO}" \
-            --output artifact/superflow-handover.md \
-            --json-output artifact/superflow-handover.json
+            --output artifact/manut-handover.md \
+            --json-output artifact/manut-handover.json
 
       - uses: actions/upload-artifact@v4
         with:
-          name: superflow-handover
+          name: manut-handover
           path: |
-            artifact/superflow-handover.md
-            artifact/superflow-handover.json
+            artifact/manut-handover.md
+            artifact/manut-handover.json
           retention-days: 30
           if-no-files-found: error
 
@@ -281,7 +281,7 @@ jobs:
             echo "- Plain version tag (human reference): \`$VERSION\`"
             echo "- Image: \`$REPO:$IMAGE_TAG\`"
             echo "- Buildx cache: \`$CACHE_IMAGE\`"
-            echo "- Handover artifact: \`superflow-handover\`"
+            echo "- Handover artifact: \`manut-handover\`"
             echo ""
             echo "Run the **Manut Deploy** workflow manually with"
             echo "\`tag: $IMAGE_TAG\` to roll this out to GCE under the"

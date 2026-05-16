@@ -1410,30 +1410,62 @@ GH Actions per week, majors of react/blocksuite/prisma/next pinned).
 The brand → Manut rename landed across user-facing strings, frontend
 modules (`modules/manut-*`), backend plugin paths (`plugins/manut/`),
 i18n keys (`com.manut.*`), and Prisma models (`Mn*` after DB migration
-in PR #26). These items were deliberately left at their old names
-because each is its own R1 operation with a separate rollback path:
+in PR #26).
+
+**v1.12.1 follow-up pass** (this PR): closed out almost everything that
+was originally on this list.
+
+- **~~CI workflow filenames~~** — completed in v1.11.0's PR #39.
+- **~~GraphQL `@ObjectType` / `@InputType` decorators, resolver
+  method names, internal TS classes~~** — completed in v1.12.1.
+  - Backend providers renamed: `SuperflowHandoverService` →
+    `MnHandoverService`, `SuperflowPmResolver` → `MnPmResolver`,
+    `SuperflowCrmResolver` → `MnCrmResolver`, `SuperflowReminderResolver`
+    → `MnReminderResolver`, `SuperflowReminderJob` → `MnReminderJob`,
+    `SuperflowReminderCron` → `MnReminderCron`, `SuperflowFeatureRegistrar`
+    → `MnFeatureRegistrar`, `SuperflowHandoverResolver` → `MnHandoverResolver`.
+  - GraphQL contract: `ImportSuperflowHandoverInput` → `ImportMnHandoverInput`,
+    `ImportSuperflowHandoverResult` → `ImportMnHandoverResult`, mutation
+    `importSuperflowHandover` → `importMnHandover`. Frontend updated in
+    lockstep so the contract change is whole on every deploy.
+  - `ServerFeature.Superflow = 'superflow'` → `ServerFeature.Manut =
+    'manut'`. The frontend `useManutEnabled()` hook reads
+    `serverFeatures?.manut`. Coordinated rename on the same image; the
+    only failure mode is a sub-second window where a stale browser-cached
+    frontend still checks the old key — benign and self-corrects on reload.
+  - Workflow concurrency groups: `superflow-build` → `manut-build`,
+    `superflow-autodeploy` → `manut-autodeploy`.
+  - Handover artifact filenames: `superflow-handover.{md,json}` →
+    `manut-handover.{md,json}` (both in the workflow uploads + in
+    `scripts/manut-release-handover.mjs`).
+  - Frontend symbols: `useSuperflowEnabled` → `useManutEnabled`,
+    `SuperflowHandoverIcon` → `MnHandoverIcon`,
+    `SuperflowHandoverSettingPanel` → `MnHandoverSettingPanel`,
+    integration card label "Superflow Handover" → "Manut Handover".
+
+**Intentional BC items still using "superflow"** (do NOT rename without
+a Redis migration plan):
+
+- `ENABLE_SUPERFLOW_MODULE` env var — silent fallback for `ENABLE_MANUT_MODULE`.
+  Documented at `isManutModuleEnabled()`. Operators may still have the
+  legacy var set on the VM; the gate accepts either.
+- `'superflow.deliverReminder'` BullMQ job name + `QueueName.MANUT =
+  'superflow'` enum value + config key `'queues.superflow'`. The string
+  `'superflow'` is persisted in Redis under the BullMQ queue prefix; in-
+  flight jobs reference it. Renaming would orphan any queued jobs at the
+  deploy moment. Schedule as a quiet-window migration if/when needed.
+- Migration comments in `core/config/types.ts` and `manut.module.ts`
+  that document this rename pass.
+
+**Still pending** (R1, separate operation):
 
 - **Docker image name** — `affine-gogocash` in GAR. Renaming requires
   pushing the new tag, updating compose.yml on the VM, retagging cache
   image (`affine-gogocash-cache:buildx`), and updating every workflow
   reference. Track as a separate R1 release.
-- **~~CI workflow filenames~~** — completed in v1.11.0's PR #39
-  consolidation. `.github/workflows/superflow-*.yml` were
-  git-mv'd to `manut-*.yml` (7 files including `manut-ci.yml`,
-  `manut-build.yml`, `manut-deploy.yml`, `manut-release.yml`,
-  `manut-rollback.yml`, `manut-vm-init.yml`, `manut-autodeploy.yml`).
-  `.docker/gogocash/` moved to `.docker/manut/` in the same change.
-  The `workflow_run` chain (CI → Build → Auto Deploy) uses display
-  names so it kept working unchanged.
-- **GraphQL `@ObjectType('Superflow*')` decorators** — backend types
-  in `plugins/manut/resolver*.ts`. Renaming the decorator string is a
-  contract change for any client that queries those object types by
-  name (currently only the Manut frontend, but third-party API
-  consumers are possible). Plan: introduce `@ObjectType('Manut*')`
-  aliases alongside, deprecate `Superflow*` over a release, then
-  remove. R1 from a contract-stability perspective.
 
 If you find a deferred-rename surface that's NOT on this list, flag it
-in the PR description rather than renaming inline — every one of these
-has surprising blast radius. The full plan lives in
+in the PR description rather than renaming inline — Redis-persisted
+state, OAuth client IDs, and GCP resource paths all need migration
+plans, not in-place renames. The full plan lives in
 `docs/MANUT_CONTROL_PLANE.md`.

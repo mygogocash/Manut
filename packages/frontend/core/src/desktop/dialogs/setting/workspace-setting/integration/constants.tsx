@@ -11,8 +11,8 @@ import {
   GoogleDriveSettingPanel,
 } from './google/setting-panel';
 import {
-  SuperflowHandoverIcon,
-  SuperflowHandoverSettingPanel,
+  MnHandoverIcon,
+  MnHandoverSettingPanel,
 } from './manut-handover/setting-panel';
 import MCPIcon from './mcp-server/MCP.inline.svg';
 import { McpServerSettingPanel } from './mcp-server/setting-panel';
@@ -64,11 +64,11 @@ const INTEGRATION_LIST = [
     requiresCloud: true,
   },
   {
-    id: 'superflow-handover' as const,
-    name: 'Superflow Handover',
+    id: 'manut-handover' as const,
+    name: 'Manut Handover',
     desc: 'Import release handover JSON into a workspace doc.',
-    icon: <SuperflowHandoverIcon />,
-    setting: <SuperflowHandoverSettingPanel />,
+    icon: <MnHandoverIcon />,
+    setting: <MnHandoverSettingPanel />,
     requiresCloud: true,
   },
   {
