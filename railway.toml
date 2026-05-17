@@ -58,13 +58,12 @@ builder        = "DOCKERFILE"
 dockerfilePath = ".docker/manut/Dockerfile.railway"
 
 [deploy]
-healthcheckPath = "/info"
+healthcheckPath    = "/info"
 healthcheckTimeout = 120
-numReplicas = 1
+numReplicas        = 1
+# Railway allows at most one preDeployCommand entry (not argv-style arrays).
 preDeployCommand = [
-  "/bin/sh",
-  "-c",
-  "./node_modules/.bin/prisma migrate deploy --schema=./schema.prisma",
+  "/bin/sh -c './node_modules/.bin/prisma migrate deploy --schema=./schema.prisma'",
 ]
 restartPolicyMaxRetries = 3
 restartPolicyType = "ON_FAILURE"
