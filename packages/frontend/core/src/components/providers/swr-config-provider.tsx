@@ -19,17 +19,22 @@ const swrConfig: SWRConfiguration = {
             return d.catch(e => {
               const error = UserFriendlyError.fromAny(e);
 
-              notify.error({
-                title: error.name,
-                message: error.message,
-              });
+              // Let callers with their own onError show a contextual toast;
+              // otherwise every failed query surfaces a generic
+              // INTERNAL_SERVER_ERROR banner in addition to the caller's.
+              if (!config?.onError) {
+                notify.error({
+                  title: error.name,
+                  message: error.message,
+                });
+              }
 
               throw e;
             });
           }
           return d;
         },
-        [fetcher]
+        [fetcher, config?.onError]
       );
       return useSWRNext(key, fetcher ? fetcherWrapper : fetcher, config);
     },

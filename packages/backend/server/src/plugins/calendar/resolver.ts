@@ -37,6 +37,8 @@ import {
 
 @Resolver(() => ServerConfigType)
 export class CalendarServerConfigResolver {
+  private readonly logger = new Logger(CalendarServerConfigResolver.name);
+
   constructor(
     private readonly providerFactory: CalendarProviderFactory,
     private readonly config: Config
@@ -44,21 +46,37 @@ export class CalendarServerConfigResolver {
 
   @ResolveField(() => [CalendarProviderName])
   calendarProviders() {
-    return this.providerFactory.providers;
+    try {
+      return this.providerFactory.providers;
+    } catch (error) {
+      this.logger.error(
+        'calendarProviders: failed to list providers',
+        error instanceof Error ? error.stack : String(error)
+      );
+      return [];
+    }
   }
 
   @ResolveField(() => [CalendarCalDAVProviderPresetObjectType])
   calendarCalDAVProviders() {
-    const caldavConfig = this.config.calendar.caldav;
-    if (!caldavConfig?.enabled) {
+    try {
+      const caldavConfig = this.config.calendar?.caldav;
+      if (!caldavConfig?.enabled) {
+        return [];
+      }
+      return caldavConfig.providers.map(provider => ({
+        id: provider.id,
+        label: provider.label,
+        requiresAppPassword: provider.requiresAppPassword ?? null,
+        docsUrl: provider.docsUrl ?? null,
+      }));
+    } catch (error) {
+      this.logger.error(
+        'calendarCalDAVProviders: failed to load presets',
+        error instanceof Error ? error.stack : String(error)
+      );
       return [];
     }
-    return caldavConfig.providers.map(provider => ({
-      id: provider.id,
-      label: provider.label,
-      requiresAppPassword: provider.requiresAppPassword ?? null,
-      docsUrl: provider.docsUrl ?? null,
-    }));
   }
 }
 

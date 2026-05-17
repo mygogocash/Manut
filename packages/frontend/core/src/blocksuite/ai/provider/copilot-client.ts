@@ -72,9 +72,7 @@ function codeToError(error: UserFriendlyError) {
       return new PaymentRequiredError();
     default:
       return new GeneralNetworkError(
-        error.code
-          ? `${error.code}: ${error.message}\nIdentify: ${error.name}`
-          : error.message
+        error.code ? `${error.code}: ${error.message}` : error.message
       );
   }
 }

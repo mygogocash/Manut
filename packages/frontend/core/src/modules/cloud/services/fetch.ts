@@ -71,13 +71,22 @@ export class FetchService extends Service {
 
       const message =
         err?.message || (isAbort ? 'Request aborted' : 'Unknown network error');
+      const baseUrl = this.serverService.server.serverMetadata.baseUrl;
+      const tlsHint =
+        !isAbort &&
+        /failed to fetch|networkerror|load failed/i.test(message) &&
+        typeof location !== 'undefined' &&
+        location.protocol === 'https:' &&
+        baseUrl.startsWith('https:')
+          ? ' The browser could not reach the server — if the address bar shows "Not secure", fix DNS for this domain (use the Railway CNAME, not an A record to Railway\'s IP) and wait for a valid TLS certificate.'
+          : '';
 
       throw new UserFriendlyError({
         status: isAbort ? 499 : 504,
         code: isAbort ? 'REQUEST_ABORTED' : 'NETWORK_ERROR',
         type: isAbort ? 'REQUEST_ABORTED' : 'NETWORK_ERROR',
         name: isAbort ? 'REQUEST_ABORTED' : 'NETWORK_ERROR',
-        message: `Network error: ${message}`,
+        message: `Network error: ${message}${tlsHint}`,
         stacktrace: err?.stack,
       });
     } finally {

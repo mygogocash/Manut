@@ -268,6 +268,9 @@ live VM state.
   `manut.gogocash.co`).
 - Optional Slack secret: `SLACK_WEBHOOK_URL`.
 - Google OAuth APIs: Gmail and Drive APIs must be enabled in the GCP project.
+- Google sign-in redirect URI (must match GCP **Authorized redirect URIs** on
+  client `affine-google-oauth-client-id`): `https://manut.xyz/oauth/callback`.
+  Integrations use `https://manut.xyz/oauth/google/callback` on the same client.
 
 Secret rotation, IAM changes, database destructive work, and production
 deploys are R1/R0-style work. Stop and get explicit coordination before doing

@@ -1,10 +1,15 @@
 import { Logger } from '@nestjs/common';
 import test from 'ava';
 
-import { ActionForbidden, UserFriendlyError } from '../../../base';
+import { ActionForbidden, type Config, UserFriendlyError } from '../../../base';
 import type { CurrentUser } from '../../../core/auth';
 import type { UserType } from '../../../core/user';
-import { CalendarAccountResolver, UserCalendarResolver } from '../resolver';
+import { CalendarProviderFactory } from '../providers';
+import {
+  CalendarAccountResolver,
+  CalendarServerConfigResolver,
+  UserCalendarResolver,
+} from '../resolver';
 import type { CalendarService } from '../service';
 
 function makeUser(id = 'user-1'): CurrentUser {
@@ -127,4 +132,42 @@ test('CalendarAccountResolver.calendarsCount uses precomputed count when availab
   } as never);
   t.is(result, 7);
   t.false(called);
+});
+
+test('CalendarServerConfigResolver.calendarCalDAVProviders returns [] when calendar config is missing', t => {
+  const resolver = new CalendarServerConfigResolver(
+    new CalendarProviderFactory(),
+    {} as Config
+  );
+
+  t.deepEqual(resolver.calendarCalDAVProviders(), []);
+});
+
+test('CalendarServerConfigResolver.calendarCalDAVProviders maps enabled presets', t => {
+  const resolver = new CalendarServerConfigResolver(
+    new CalendarProviderFactory(),
+    {
+      calendar: {
+        caldav: {
+          enabled: true,
+          providers: [
+            {
+              id: 'icloud',
+              label: 'iCloud',
+              serverUrl: 'https://caldav.icloud.com',
+            },
+          ],
+        },
+      },
+    } as Config
+  );
+
+  t.deepEqual(resolver.calendarCalDAVProviders(), [
+    {
+      id: 'icloud',
+      label: 'iCloud',
+      requiresAppPassword: null,
+      docsUrl: null,
+    },
+  ]);
 });

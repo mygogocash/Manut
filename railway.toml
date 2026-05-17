@@ -57,6 +57,12 @@
 builder        = "DOCKERFILE"
 dockerfilePath = ".docker/manut/Dockerfile.railway"
 
+# Runtime (set in Railway dashboard / CLI — not build-time):
+#   AFFINE_SERVER_EXTERNAL_URL=https://manut.xyz
+#   AFFINE_SERVER_HTTPS=true
+# DNS must be CNAME @ → <railway-target>.up.railway.app (see scripts/manut-dns-railway-tls.sh).
+# Do not use A records to Railway IPs — browsers will see *.up.railway.app certs.
+
 [deploy]
 healthcheckPath    = "/info"
 healthcheckTimeout = 120

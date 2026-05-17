@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
-import { CalendarProviderRequestError } from '../../../base';
+import { CalendarProviderRequestError, type Config } from '../../../base';
+import type { CalendarGoogleConfig } from '../config';
 import {
   CalendarProvider,
   CalendarProviderEvent,
@@ -80,9 +81,60 @@ type GoogleWatchResponse = {
   expiration?: string;
 };
 
+/** Reuse sign-in / workspace Google OAuth credentials when calendar.google is unset. */
+export function resolveGoogleCalendarConfig(
+  affineConfig: Config
+): CalendarGoogleConfig | undefined {
+  const calendarGoogle = affineConfig.calendar?.google;
+  if (
+    calendarGoogle?.enabled &&
+    calendarGoogle.clientId &&
+    calendarGoogle.clientSecret
+  ) {
+    return calendarGoogle;
+  }
+
+  const oauthGoogle = affineConfig.oauth?.providers?.google;
+  if (oauthGoogle?.clientId && oauthGoogle?.clientSecret) {
+    return {
+      enabled: true,
+      clientId: oauthGoogle.clientId,
+      clientSecret: oauthGoogle.clientSecret,
+      externalWebhookUrl: calendarGoogle?.externalWebhookUrl ?? '',
+      webhookVerificationToken: calendarGoogle?.webhookVerificationToken ?? '',
+      requestTimeoutMs: calendarGoogle?.requestTimeoutMs ?? 10_000,
+    };
+  }
+
+  const clientId =
+    process.env.GOOGLE_OAUTH_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID ?? '';
+  const clientSecret =
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET ??
+    process.env.GOOGLE_CLIENT_SECRET ??
+    '';
+  if (clientId && clientSecret) {
+    return {
+      enabled: true,
+      clientId,
+      clientSecret,
+      externalWebhookUrl: calendarGoogle?.externalWebhookUrl ?? '',
+      webhookVerificationToken: calendarGoogle?.webhookVerificationToken ?? '',
+      requestTimeoutMs: calendarGoogle?.requestTimeoutMs ?? 10_000,
+    };
+  }
+
+  return calendarGoogle;
+}
+
 @Injectable()
 export class GoogleCalendarProvider extends CalendarProvider {
   provider = CalendarProviderName.Google;
+
+  @Inject() private readonly appConfig!: Config;
+
+  override get config() {
+    return resolveGoogleCalendarConfig(this.appConfig);
+  }
 
   getAuthUrl(state: string, redirectUri: string) {
     const params = new URLSearchParams({

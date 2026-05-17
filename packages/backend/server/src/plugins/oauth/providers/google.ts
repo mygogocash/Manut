@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
-import { URLHelper } from '../../../base';
+import { Config, URLHelper } from '../../../base';
+import { resolveGoogleOAuthCredentials } from '../../google-oauth-credentials';
 import { OAuthProviderName } from '../config';
 import type { OAuthState } from '../types';
 import { OAuthAccount, OAuthProvider, Tokens } from './def';
@@ -26,6 +27,17 @@ export class GoogleOAuthProvider extends OAuthProvider {
 
   constructor(private readonly url: URLHelper) {
     super();
+  }
+
+  @Inject() private readonly appConfig!: Config;
+
+  override get config() {
+    const configured = this.appConfig.oauth.providers[this.provider];
+    const credentials = resolveGoogleOAuthCredentials(configured);
+    if (!credentials) {
+      return configured;
+    }
+    return { ...configured, ...credentials };
   }
 
   getAuthUrl(state: string) {

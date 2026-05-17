@@ -93,12 +93,12 @@ changes meaningfully — flag for me and I'll revise.
 | Surface        | What                                                                                                           | Where                                                                              |
 | -------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | App container  | `affine` (compose service) running `affine-gogocash:main-fc11d7785-25958662159`                                | GCE VM `affine-vm` (e2-standard-?, asia-southeast1-a, static IP `34.142.207.33`)   |
-| Reverse proxy  | `caddy:2-alpine` (TLS via Let's Encrypt, serves `manut.xyz`)                                           | Same VM, compose service                                                           |
+| Reverse proxy  | `caddy:2-alpine` (TLS via Let's Encrypt, serves `manut.xyz`)                                                   | Same VM, compose service                                                           |
 | Postgres       | Cloud SQL `affine-pg`, POSTGRES_16, `db-custom-1-3840` (1 vCPU / 3.84 GB), 50 GB PD_SSD                        | asia-southeast1-c, managed                                                         |
 | Redis          | Memorystore `affine-redis`, BASIC tier, 1 GB                                                                   | asia-southeast1, managed                                                           |
 | Blob storage   | GCS buckets `gogocash-affine-blobs` + `gogocash-affine-backups` (both ASIA-SOUTHEAST1)                         | Currently reporting 0 bytes — needs verification; could be Postgres BYTEA fallback |
 | Image registry | Artifact Registry `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash`                        | asia-southeast1                                                                    |
-| DNS            | `manut.xyz` → `34.142.207.33`                                                                          | Cloudflare zone (NS: `hadlee.ns.cloudflare.com`, `odin.ns.cloudflare.com`)         |
+| DNS            | `manut.xyz` → `34.142.207.33`                                                                                  | Cloudflare zone (NS: `hadlee.ns.cloudflare.com`, `odin.ns.cloudflare.com`)         |
 | Secrets        | `affine-cio-smtp-*`, `affine-db-password`, `affine-google-oauth-*`                                             | Secret Manager, project `affine-495114`                                            |
 | OAuth          | Google OAuth client tied to `affine-495114`                                                                    | GCP Console                                                                        |
 | AI             | Vertex AI in `affine-495114`, regions `us-central1` (Gemini, Meta, Mistral, DeepSeek) + `us-east5` (Anthropic) | GCP Vertex                                                                         |
@@ -122,7 +122,7 @@ because the connection-string pattern doesn't change.
 | Redis          | Railway Redis add-on, 1 GB                                                                                                                                                                          | Same region                                                                                |
 | Blob storage   | **Decision needed**: stay on GCS (cross-cloud egress costs), move to Railway volume (limited size), or move to S3-compatible (Cloudflare R2 is the obvious cheap option since DNS is already there) |
 | Image registry | Stay on GAR (Railway pulls). Optional later: push to Railway too.                                                                                                                                   |
-| DNS            | `manut.xyz` → Railway custom hostname via CNAME                                                                                                                                             |
+| DNS            | `manut.xyz` → Railway custom hostname via CNAME                                                                                                                                                     |
 | Secrets        | Railway environment variables (per service)                                                                                                                                                         |
 | OAuth          | **Decision needed**: keep GCP-tied client (works, requires no user re-link) or create new client tied to Railway domain (every connected user re-links Gmail/Drive)                                 |
 | AI (Vertex)    | Unchanged — calls go from Railway out to `aiplatform.googleapis.com`. Service account credentials live in Railway env vars.                                                                         |
@@ -218,15 +218,21 @@ in S2. Easy.
 **Effort**: 1 hour.
 
 1. In Railway, add `manut.xyz` as a custom domain on the app service.
-   Railway provides a TXT verification record and a CNAME target.
-2. In Cloudflare DNS:
-   - Add TXT verification record
-   - Replace A record (`34.142.207.33`) with CNAME pointing to the Railway
-     target (e.g. `manut-app-production.up.railway.app`)
-3. Disable Cloudflare proxy (orange cloud) on the CNAME — Railway needs
-   to see the real host for TLS challenge
-4. Wait for Railway TLS provisioning (~5–15 min)
-5. Verify TLS chain via `curl -vI https://manut.xyz`
+   Railway provides a TXT verification record and a CNAME target. Run
+   `./scripts/manut-dns-railway-tls.sh` to print the live values from the
+   Railway API.
+2. In Spaceship DNS (nameservers: `launch1/2.spaceship.net`):
+   - **Delete** all `A` / `AAAA` records for `@` (do not point apex at
+     Railway or GCP IPs — dual A records cause cert mismatch / "Not secure").
+   - Add **CNAME** `@` → Railway target (e.g. `53sd5x3j.up.railway.app`), or
+     **ALIAS** at apex if CNAME is not allowed.
+   - Add **TXT** `_railway-verify` → value from Railway / the script above.
+3. Set Railway runtime env (required for correct app URLs):
+   - `AFFINE_SERVER_EXTERNAL_URL=https://manut.xyz`
+   - `AFFINE_SERVER_HTTPS=true`
+4. Wait for Railway TLS provisioning (~5–15 min); cert status should leave
+   `ISSUING` once DNS matches.
+5. Verify: `./scripts/manut-dns-railway-tls.sh` and `curl -vI https://manut.xyz`
 
 **Rollback**: flip the DNS record back to the A record. TTL on Cloudflare
 defaults to "auto" (~5 min); set to 60s before cutover for faster rollback.
@@ -244,11 +250,15 @@ ID**.
 
 **Path α — keep the existing client**:
 
-- Add the new Railway redirect URI (`https://manut.xyz/oauth/google/callback`)
-  alongside the existing one in the GCP OAuth client config.
-- Set `GOOGLE_OAUTH_REDIRECT_URI` env var on Railway to the new URL.
+- Add these **Authorized redirect URIs** on the existing GCP OAuth client
+  (Secret Manager: `affine-google-oauth-client-id`):
+  - `https://manut.xyz/oauth/callback` — **Sign in with Google** (the
+    Continue with Google button; backend sends this URI to Google)
+  - `https://manut.xyz/oauth/google/callback` — Gmail/Drive integrations
+    (Settings → Integrations; optional `GOOGLE_OAUTH_REDIRECT_URI` override)
+- Add **Authorized JavaScript origin**: `https://manut.xyz`
 - Existing user tokens continue to work — no re-link needed.
-- After full migration, remove the old GCE redirect URI.
+- After full migration, remove legacy redirect URIs (e.g. GCE host) if unused.
 - **Requires keeping the GCP OAuth client in `affine-495114`**, which is
   fine under Option A (project stays alive for Vertex anyway).
 
