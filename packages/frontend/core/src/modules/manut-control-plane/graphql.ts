@@ -213,3 +213,183 @@ export const revokeMnAgentApiKeyMutation = {
   revokeMnAgentApiKey(id: $id) {${MN_AGENT_API_KEY_FIELDS}}
 }`,
 };
+
+// ---------------------------------------------------------------------------
+// Phase 6 — Budget + cost events (M4) operations.
+// ---------------------------------------------------------------------------
+
+const MN_BUDGET_FIELDS = `
+    id
+    workspaceId
+    projectId
+    scopeType
+    scopeId
+    monthYear
+    capCents
+    spentCents
+    warnThresholdPct
+    hardStopEnabled
+    alertSent
+    createdAt
+    updatedAt
+`;
+
+const MN_COST_EVENT_FIELDS = `
+    id
+    workspaceId
+    projectId
+    agentId
+    taskId
+    goalId
+    billingCode
+    provider
+    model
+    inputTokens
+    outputTokens
+    costCents
+    occurredAt
+`;
+
+const MN_BUDGET_ROLLUP_FIELDS = `
+    scopeType
+    scopeId
+    projectId
+    monthYear
+    capCents
+    spentCents
+    utilizationPct
+`;
+
+export const mnBudgetsQuery = {
+  id: 'mnBudgetsQuery' as const,
+  op: 'mnBudgets',
+  query: `query mnBudgets($workspaceId: ID!, $monthYear: String, $scopeType: MnBudgetScope) {
+  mnBudgets(workspaceId: $workspaceId, monthYear: $monthYear, scopeType: $scopeType) {${MN_BUDGET_FIELDS}}
+}`,
+};
+
+export const mnCostEventsQuery = {
+  id: 'mnCostEventsQuery' as const,
+  op: 'mnCostEvents',
+  query: `query mnCostEvents($workspaceId: ID!, $projectId: ID, $agentId: ID, $taskId: ID, $monthYear: String, $limit: Int) {
+  mnCostEvents(workspaceId: $workspaceId, projectId: $projectId, agentId: $agentId, taskId: $taskId, monthYear: $monthYear, limit: $limit) {${MN_COST_EVENT_FIELDS}}
+}`,
+};
+
+export const mnBudgetProjectRollupsQuery = {
+  id: 'mnBudgetProjectRollupsQuery' as const,
+  op: 'mnBudgetProjectRollups',
+  query: `query mnBudgetProjectRollups($workspaceId: ID!, $monthYear: String!) {
+  mnBudgetProjectRollups(workspaceId: $workspaceId, monthYear: $monthYear) {${MN_BUDGET_ROLLUP_FIELDS}}
+}`,
+};
+
+export const createMnBudgetMutation = {
+  id: 'createMnBudgetMutation' as const,
+  op: 'createMnBudget',
+  query: `mutation createMnBudget($workspaceId: ID!, $input: CreateMnBudgetInput!) {
+  createMnBudget(workspaceId: $workspaceId, input: $input) {${MN_BUDGET_FIELDS}}
+}`,
+};
+
+export const updateMnBudgetMutation = {
+  id: 'updateMnBudgetMutation' as const,
+  op: 'updateMnBudget',
+  query: `mutation updateMnBudget($workspaceId: ID!, $budgetId: ID!, $input: UpdateMnBudgetInput!) {
+  updateMnBudget(workspaceId: $workspaceId, budgetId: $budgetId, input: $input) {${MN_BUDGET_FIELDS}}
+}`,
+};
+
+export const deleteMnBudgetMutation = {
+  id: 'deleteMnBudgetMutation' as const,
+  op: 'deleteMnBudget',
+  query: `mutation deleteMnBudget($workspaceId: ID!, $budgetId: ID!) {
+  deleteMnBudget(workspaceId: $workspaceId, budgetId: $budgetId)
+}`,
+};
+
+// ---------------------------------------------------------------------------
+// Phase 6 — Approvals + reviews (M3) operations.
+// ---------------------------------------------------------------------------
+
+const MN_APPROVAL_FIELDS = `
+    id
+    workspaceId
+    projectId
+    type
+    requestedByAgentId
+    requestedByUserId
+    status
+    payload
+    decisionNote
+    decidedByUserId
+    decidedAt
+    createdAt
+    updatedAt
+`;
+
+const MN_APPROVAL_COMMENT_FIELDS = `
+    id
+    approvalId
+    projectId
+    authorAgentId
+    authorUserId
+    body
+    createdAt
+`;
+
+export const mnApprovalsQuery = {
+  id: 'mnApprovalsQuery' as const,
+  op: 'mnApprovals',
+  query: `query mnApprovals($workspaceId: ID!, $filter: ListMnApprovalsInput) {
+  mnApprovals(workspaceId: $workspaceId, filter: $filter) {${MN_APPROVAL_FIELDS}}
+}`,
+};
+
+export const mnApprovalQuery = {
+  id: 'mnApprovalQuery' as const,
+  op: 'mnApproval',
+  query: `query mnApproval($workspaceId: ID!, $approvalId: ID!) {
+  mnApproval(workspaceId: $workspaceId, approvalId: $approvalId) {${MN_APPROVAL_FIELDS}}
+}`,
+};
+
+export const mnApprovalCommentsQuery = {
+  id: 'mnApprovalCommentsQuery' as const,
+  op: 'mnApprovalComments',
+  query: `query mnApprovalComments($workspaceId: ID!, $approvalId: ID!) {
+  mnApprovalComments(workspaceId: $workspaceId, approvalId: $approvalId) {${MN_APPROVAL_COMMENT_FIELDS}}
+}`,
+};
+
+export const createMnApprovalMutation = {
+  id: 'createMnApprovalMutation' as const,
+  op: 'createMnApproval',
+  query: `mutation createMnApproval($workspaceId: ID!, $input: CreateMnApprovalInput!) {
+  createMnApproval(workspaceId: $workspaceId, input: $input) {${MN_APPROVAL_FIELDS}}
+}`,
+};
+
+export const decideMnApprovalMutation = {
+  id: 'decideMnApprovalMutation' as const,
+  op: 'decideMnApproval',
+  query: `mutation decideMnApproval($workspaceId: ID!, $approvalId: ID!, $input: DecideMnApprovalInput!) {
+  decideMnApproval(workspaceId: $workspaceId, approvalId: $approvalId, input: $input) {${MN_APPROVAL_FIELDS}}
+}`,
+};
+
+export const submitMnApprovalRevisionMutation = {
+  id: 'submitMnApprovalRevisionMutation' as const,
+  op: 'submitMnApprovalRevision',
+  query: `mutation submitMnApprovalRevision($workspaceId: ID!, $approvalId: ID!, $payload: JSONObject) {
+  submitMnApprovalRevision(workspaceId: $workspaceId, approvalId: $approvalId, payload: $payload) {${MN_APPROVAL_FIELDS}}
+}`,
+};
+
+export const createMnApprovalCommentMutation = {
+  id: 'createMnApprovalCommentMutation' as const,
+  op: 'createMnApprovalComment',
+  query: `mutation createMnApprovalComment($workspaceId: ID!, $approvalId: ID!, $input: CreateMnApprovalCommentInput!) {
+  createMnApprovalComment(workspaceId: $workspaceId, approvalId: $approvalId, input: $input) {${MN_APPROVAL_COMMENT_FIELDS}}
+}`,
+};

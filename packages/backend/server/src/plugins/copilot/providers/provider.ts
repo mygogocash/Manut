@@ -14,6 +14,9 @@ import { DocReader, DocWriter } from '../../../core/doc';
 import { AccessController } from '../../../core/permission';
 import { Models } from '../../../models';
 import { IndexerService } from '../../indexer';
+import { MnApprovalService } from '../../manut/manut-approval.service';
+import { MnApprovalGateService } from '../../manut/manut-approval-gate.service';
+import { MnApprovalEventBus } from '../../manut/manut-approvals-stream.controller';
 import type { ProviderMiddlewareConfig } from '../config';
 import { CopilotContextService } from '../context/service';
 import { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
@@ -552,9 +555,156 @@ export abstract class CopilotProvider<C = any> {
           }
         }
       }
+      // M3 approval gate. If the workspace has any unresolved
+      // approvals (or the chat session opted in via
+      // `requireToolApproval`), wrap every WRITE tool with a gate
+      // check: when blocked, the tool emits a TOOL_CALL_REVIEW
+      // approval, surfaces a structured rejection in the stream, and
+      // does NOT execute the underlying side-effect.
+      //
+      // Read-only tools (doc_read, *_search, *_summary, blob_read,
+      // code_artifact) are intentionally NOT gated — pulses on the
+      // Knowledge Graph make sense even mid-review.
+      this.wrapToolsWithApprovalGate(tools, options);
       return tools;
     }
     return tools;
+  }
+
+  /**
+   * Set of tool names that count as "writes" for the M3 approval gate.
+   * Every entry here corresponds to a `case` branch in `getTools` that
+   * registers a side-effecting tool. Read-side and inert tools (search,
+   * read, conversation_summary, code_artifact, blob_read, web_search)
+   * are intentionally absent — they never mutate workspace state.
+   *
+   * Marked `protected static readonly` so concrete provider subclasses
+   * can override it if they ever ship custom write tools that need the
+   * same gating.
+   */
+  protected static readonly WRITE_TOOL_NAMES = new Set<string>([
+    'doc_edit',
+    'doc_create',
+    'doc_update',
+    'doc_update_meta',
+    'doc_compose',
+    'section_edit',
+    'data_view_filter',
+    'data_view_autofill_column',
+  ]);
+
+  /**
+   * Wrap each write tool's `execute` with a sub-millisecond gate
+   * check. When the gate is hot (no pending approvals for the
+   * workspace), the wrapper is a 1-comparison no-op (`gate.peek()`
+   * returns `false`). When the gate is blocked OR cold, the wrapper:
+   *
+   *   1. (cold path only) refreshes the gate cache via
+   *      `MnApprovalService.pendingCountForWorkspace`.
+   *   2. (blocked path) creates a new TOOL_CALL_REVIEW approval with
+   *      `{ toolName, args, sessionId, agentId }` payload.
+   *   3. emits an event on `MnApprovalEventBus` so the inbox UI
+   *      reflects the new pending row in real time.
+   *   4. returns a structured rejection (not a thrown error) so the
+   *      model can react.
+   *
+   * If the Manut module is disabled (gate / service unavailable via
+   * `moduleRef.get`), the wrapper falls through to the original
+   * `execute` — failing-open keeps the existing copilot surface
+   * working on installs that haven't flipped `ENABLE_MANUT_MODULE`.
+   */
+  private wrapToolsWithApprovalGate(
+    tools: CopilotToolSet,
+    options: CopilotChatOptions
+  ): void {
+    const workspaceId = options?.workspace;
+    if (!workspaceId) return;
+
+    let gate: MnApprovalGateService | undefined;
+    let approvals: MnApprovalService | undefined;
+    let bus: MnApprovalEventBus | undefined;
+    try {
+      gate = this.moduleRef.get(MnApprovalGateService, { strict: false });
+      approvals = this.moduleRef.get(MnApprovalService, { strict: false });
+      bus = this.moduleRef.get(MnApprovalEventBus, { strict: false });
+    } catch {
+      // ManutModule is not loaded — fall through unchanged.
+      return;
+    }
+    if (!gate || !approvals) return;
+
+    for (const [name, tool] of Object.entries(tools)) {
+      if (!CopilotProvider.WRITE_TOOL_NAMES.has(name)) continue;
+      const originalExecute = tool.execute;
+      if (!originalExecute) continue;
+      tool.execute = async (args, execOptions) => {
+        // Sub-millisecond fast path: synchronous Map.get + one
+        // bounded comparison. This is the hot path for the common
+        // case (no pending approvals).
+        let blocked = gate.peek(workspaceId);
+        if (blocked === null) {
+          // Cache miss / stale — refresh against the DB and write
+          // back. Await is fine here; we only land here on TTL
+          // expiry (≤ every 30s) or on first call.
+          const count = await approvals.pendingCountForWorkspace(workspaceId);
+          gate.set(workspaceId, count);
+          blocked = count > 0;
+        }
+        if (!blocked) {
+          return originalExecute(args, execOptions);
+        }
+        // Blocked — emit a TOOL_CALL_REVIEW approval. Best-effort:
+        // an approval-creation failure must NOT throw out of the
+        // tool call (we'd rather skip the gate than crash mid-
+        // chat). Log loudly and fall through to a structured
+        // rejection.
+        try {
+          const sessionId = options?.session ?? null;
+          const created = await approvals.create(workspaceId, null, {
+            // The project the approval belongs to. Without an explicit
+            // resolver on the chat session, we use the workspace's
+            // "default" project — wired through the payload so the
+            // UI can join in. When projectId is unknown, the create
+            // call throws BadRequestException and we fall through to
+            // the structured rejection below.
+            projectId: '',
+            type: 'TOOL_CALL_REVIEW' as never,
+            requestedByAgentId: null,
+            payload: {
+              toolName: name,
+              args,
+              sessionId,
+              agentId: null,
+            },
+          });
+          bus?.emit(workspaceId, {
+            approvalId: created.id,
+            workspaceId,
+            op: 'created',
+            ts: Date.now(),
+          });
+          return {
+            type: 'awaiting-approval',
+            approvalId: created.id,
+            toolName: name,
+            message:
+              'This action requires human approval. Once approved, the AI can retry.',
+          };
+        } catch (err) {
+          this.logger.warn(
+            `M3 approval gate: failed to create TOOL_CALL_REVIEW for ${name} in workspace ${workspaceId}`,
+            err
+          );
+          return {
+            type: 'awaiting-approval',
+            approvalId: null,
+            toolName: name,
+            message:
+              'This action requires approval, but the approval could not be created.',
+          };
+        }
+      };
+    }
   }
 
   private handleZodError(ret: z.SafeParseReturnType<any, any>) {

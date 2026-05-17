@@ -1,4 +1,11 @@
+import { emitProviderCostEvent } from '../../cost-emit';
 import { IMAGE_ATTACHMENT_CAPABILITY } from '../attachments';
+import type {
+  CopilotChatOptions,
+  ModelConditions,
+  PromptMessage,
+  StreamObject,
+} from '../types';
 import { CopilotProviderType, ModelInputType, ModelOutputType } from '../types';
 import {
   getGoogleAuth,
@@ -98,6 +105,59 @@ export class AnthropicVertexProvider extends AnthropicProvider<AnthropicVertexCo
   override configured(): boolean {
     if (!this.config.location || !this.config.googleAuthOptions) return false;
     return !!this.config.project || !!getVertexAnthropicBaseUrl(this.config);
+  }
+
+  /**
+   * M4 cost-emit wrapper. Delegates to the AnthropicProvider base, then
+   * fires a cost row via `MnCostService.emit` on stream close
+   * (fire-and-forget per CLAUDE.md scar #5).
+   */
+  override async *streamText(
+    cond: ModelConditions,
+    messages: PromptMessage[],
+    options: CopilotChatOptions = {}
+  ): AsyncIterable<string> {
+    const model = this.selectModel({
+      ...cond,
+      outputType: ModelOutputType.Text,
+    });
+    let collected = '';
+    for await (const chunk of super.streamText(cond, messages, options)) {
+      collected += chunk;
+      yield chunk;
+    }
+    emitProviderCostEvent(this.moduleRef, this.logger, {
+      provider: this.type,
+      model: model.id,
+      messages,
+      outputText: collected,
+      options,
+    });
+  }
+
+  override async *streamObject(
+    cond: ModelConditions,
+    messages: PromptMessage[],
+    options: CopilotChatOptions = {}
+  ): AsyncIterable<StreamObject> {
+    const model = this.selectModel({
+      ...cond,
+      outputType: ModelOutputType.Object,
+    });
+    let outputChars = 0;
+    for await (const chunk of super.streamObject(cond, messages, options)) {
+      if (chunk.type === 'text-delta' && chunk.textDelta) {
+        outputChars += chunk.textDelta.length;
+      }
+      yield chunk;
+    }
+    emitProviderCostEvent(this.moduleRef, this.logger, {
+      provider: this.type,
+      model: model.id,
+      messages,
+      outputTextLength: outputChars,
+      options,
+    });
   }
 
   override async refreshOnlineModels() {

@@ -69,6 +69,9 @@ model User {
   mnReminderRulesCreated      MnReminderRule[]            @relation("MnReminderRuleCreator")
   mnRoutinesOwned             MnRoutine[]                 @relation("MnRoutineOwner")
   mnAgentsCreated             MnAgent[]                   @relation("MnAgentCreator")
+  mnApprovalsRequested        MnApproval[]                @relation("MnApprovalRequestedByUser")
+  mnApprovalsDecided          MnApproval[]                @relation("MnApprovalDecidedByUser")
+  mnApprovalComments          MnApprovalComment[]         @relation("MnApprovalCommentAuthorUser")
 
   @@index([email])
   @@map("users")
@@ -191,6 +194,10 @@ model Workspace {
   mnReleaseRuns              MnReleaseRun[]
   mnRoutines                 MnRoutine[]
   mnAgents                   MnAgent[]
+  mnCostEvents               MnCostEvent[]
+  mnBudgets                  MnBudget[]
+  mnGoals                    MnGoal[]
+  mnApprovals                MnApproval[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -581,10 +588,15 @@ model AiSession {
   // Manut M1: optional binding to an MnAgent so chat-turn heartbeats can be
   // attributed. Null = unbound (no heartbeat row emitted for this session).
   agentId         String?   @map("agent_id") @db.VarChar
+  // Manut M2: optional binding to an MnTask so the chat session can pull
+  // task / goal ancestry context into its system prompt. SetNull on task
+  // delete so session history survives task removal.
+  taskId          String?   @map("task_id") @db.VarChar
 
   user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   prompt          AiPrompt           @relation(fields: [promptName], references: [name], onDelete: Cascade)
   agent           MnAgent?           @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  task            MnTask?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
   messages        AiSessionMessage[]
   context         AiContext[]
   mnHeartbeatRuns MnHeartbeatRun[]
@@ -1520,11 +1532,15 @@ model MnProject {
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy User?             @relation("MnProjectCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  members   MnProjectMember[]
-  tasks     MnTask[]
-  agents    MnAgent[]
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User?             @relation("MnProjectCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  members     MnProjectMember[]
+  tasks       MnTask[]
+  agents      MnAgent[]
+  costEvents  MnCostEvent[]
+  budgets     MnBudget[]
+  goals       MnGoal[]
+  approvals   MnApproval[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, sortOrder])
@@ -1556,19 +1572,51 @@ model MnTask {
   dueAt           DateTime?      @map("due_at") @db.Timestamptz(3)
   listSortOrder   Int            @default(0) @map("list_sort_order")
   assigneeUserId  String?        @map("assignee_user_id") @db.VarChar
+  /// M2: optional agent assignee. XOR with `assigneeUserId` — at most one
+  /// of the two may be non-null. Prisma cannot express XOR declaratively,
+  /// so the service layer rejects both-set writes with BadRequestException.
+  assigneeAgentId String?        @map("assignee_agent_id") @db.VarChar
+  /// M2: optional link to the goal this task contributes to. SetNull on
+  /// goal delete so task history survives goal removal.
+  goalId          String?        @map("goal_id") @db.VarChar
+  /// M2: optional parent task. Self-ref forms an ancestry tree used by
+  /// MnGoalContextService to render the task's place in the hierarchy.
+  /// Cycle prevention is enforced at the service layer (max-depth walk).
+  parentTaskId    String?        @map("parent_task_id") @db.VarChar
+  /// M2: opaque routine-run id that triggered this task. VarChar (not FK)
+  /// because runs can live in foreign scopes (MCP callers, external
+  /// schedulers); free text so attribution can survive schema drift.
+  originRunId     String?        @map("origin_run_id") @db.VarChar
+  /// M2: time the task transitioned out of BACKLOG / TODO.
+  startedAt       DateTime?      @map("started_at") @db.Timestamptz(3)
+  /// M2: time the task moved to DONE. Null while in flight.
+  completedAt     DateTime?      @map("completed_at") @db.Timestamptz(3)
+  /// M2: time the task moved to CANCELLED. Null when not cancelled.
+  cancelledAt     DateTime?      @map("cancelled_at") @db.Timestamptz(3)
   createdByUserId String?        @map("created_by_user_id") @db.VarChar
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  project    MnProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee   User?            @relation("MnTaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
-  createdBy  User?            @relation("MnTaskCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  comments   MnTaskComment[]
-  activities MnTaskActivity[]
+  project       MnProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee      User?            @relation("MnTaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  agentAssignee MnAgent?         @relation("MnTaskAgentAssignee", fields: [assigneeAgentId], references: [id], onDelete: SetNull)
+  goal          MnGoal?          @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  parent        MnTask?          @relation("MnTaskParent", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  children      MnTask[]         @relation("MnTaskParent")
+  createdBy     User?            @relation("MnTaskCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  comments      MnTaskComment[]
+  activities    MnTaskActivity[]
+  costEvents    MnCostEvent[]
+  blockedBy     MnTaskBlocker[]  @relation("MnTaskBlockedBy")
+  blocking      MnTaskBlocker[]  @relation("MnTaskBlocking")
+  aiSessions    AiSession[]
 
   @@index([projectId, status])
   @@index([projectId, listSortOrder])
   @@index([assigneeUserId])
+  @@index([assigneeAgentId])
+  @@index([goalId])
+  @@index([parentTaskId])
   @@index([dueAt])
   @@map("mn_tasks")
 }
@@ -1991,9 +2039,14 @@ model MnAgent {
   reportsTo      MnAgent?         @relation("MnAgentReportsTo", fields: [reportsToAgentId], references: [id], onDelete: SetNull)
   directReports  MnAgent[]        @relation("MnAgentReportsTo")
   createdBy      User?            @relation("MnAgentCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  apiKeys        MnAgentApiKey[]
-  heartbeatRuns  MnHeartbeatRun[]
-  aiSessions     AiSession[]
+  apiKeys              MnAgentApiKey[]
+  heartbeatRuns        MnHeartbeatRun[]
+  aiSessions           AiSession[]
+  costEvents           MnCostEvent[]
+  requestedApprovals   MnApproval[]      @relation("MnApprovalRequestedByAgent")
+  approvalComments     MnApprovalComment[] @relation("MnApprovalCommentAuthorAgent")
+  ownedGoals           MnGoal[]          @relation("MnGoalOwnerAgent")
+  assignedTasks        MnTask[]          @relation("MnTaskAgentAssignee")
 
   @@index([workspaceId, projectId, status])
   @@index([workspaceId, reportsToAgentId])
@@ -2042,4 +2095,260 @@ model MnHeartbeatRun {
   @@index([workspaceId, agentId, startedAt(sort: Desc)])
   @@index([aiSessionId])
   @@map("mn_heartbeat_runs")
+}
+
+/// Scope discriminator for an MnBudget row. The enforcer walks
+/// task → goal → agent → project → workspace; first hard-stop match wins.
+/// GOAL is a logical scope; the MnGoal model is owned by Branch B (M2) and
+/// may land before or after M4. The `goalId` link on MnCostEvent is
+/// deliberately a VarChar without a foreign key for the same reason.
+enum MnBudgetScope {
+  WORKSPACE
+  PROJECT
+  AGENT
+  TASK
+  GOAL
+}
+
+/// One row per LLM invocation that contributes to a tenant's spend.
+/// Written fire-and-forget from the copilot providers (cost emission must
+/// NEVER block a streaming response). The `goalId` link is intentionally
+/// loose (no FK) so this migration applies cleanly whether M2 (MnGoal) is
+/// merged or not — once Branch B ships the FK can be tightened later.
+///
+/// All money is denominated in **cents (USD)** as an Int to avoid floating
+/// point comparison bugs in budget enforcement. Sub-cent costs round up at
+/// emit time per the formula in `MnCostService.emit`.
+model MnCostEvent {
+  id            String   @id @default(uuid()) @db.VarChar
+  workspaceId   String   @map("workspace_id") @db.VarChar
+  projectId     String?  @map("project_id") @db.VarChar
+  agentId       String?  @map("agent_id") @db.VarChar
+  taskId        String?  @map("task_id") @db.VarChar
+  /// Logical goal-scope link. Branch B (M2) owns MnGoal; once shipped we
+  /// can tighten this to an FK with onDelete: SetNull.
+  goalId        String?  @map("goal_id") @db.VarChar
+  /// Optional billing classifier — e.g. customer/cost-center label. Free
+  /// text so we don't paint ourselves into a corner before billing ships.
+  billingCode   String?  @map("billing_code") @db.VarChar
+  provider      String   @db.VarChar
+  model         String   @db.VarChar
+  inputTokens   Int      @default(0) @map("input_tokens")
+  outputTokens  Int      @default(0) @map("output_tokens")
+  costCents     Int      @map("cost_cents")
+  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   MnProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  agent     MnAgent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  task      MnTask?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, occurredAt])
+  @@index([workspaceId, projectId, occurredAt])
+  @@index([workspaceId, agentId, occurredAt])
+  @@map("mn_cost_events")
+}
+
+/// Monthly spend cap per scope. The enforcer aggregates against this row
+/// every check; `spentCents` is a denormalized running total updated by
+/// MnCostService at emit time so we don't sum millions of cost rows on
+/// every chat turn. The unique tuple `(workspaceId, scopeType, scopeId,
+/// monthYear)` makes upsert-on-create safe in race conditions.
+///
+/// `monthYear` is a YYYY-MM string (e.g. "2026-05") rather than a date
+/// because budgets reset on calendar month boundaries and storing a date
+/// makes range arithmetic in the enforcer surprising.
+///
+/// `scopeId` is nullable so a WORKSPACE budget can be expressed by
+/// `scopeType=WORKSPACE, scopeId=null` without inventing a sentinel. The
+/// @@unique tuple still functions correctly because Postgres treats NULL
+/// values as distinct in unique constraints — meaning a single workspace
+/// can have at most one WORKSPACE-scope budget per month (since `scopeId`
+/// is always null for that scope).
+model MnBudget {
+  id                  String        @id @default(uuid()) @db.VarChar
+  workspaceId         String        @map("workspace_id") @db.VarChar
+  projectId           String?       @map("project_id") @db.VarChar
+  scopeType           MnBudgetScope @map("scope_type")
+  scopeId             String?       @map("scope_id") @db.VarChar
+  monthYear           String        @map("month_year") @db.VarChar
+  capCents            Int           @map("cap_cents")
+  spentCents          Int           @default(0) @map("spent_cents")
+  warnThresholdPct    Int           @default(80) @map("warn_threshold_pct")
+  hardStopEnabled     Boolean       @default(true) @map("hard_stop_enabled")
+  alertSent           Boolean       @default(false) @map("alert_sent")
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   MnProject? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, scopeType, scopeId, monthYear])
+  @@index([workspaceId, scopeType])
+  @@map("mn_budgets")
+}
+
+// ---------------------------------------------------------------------------
+// M3 — Approvals + reviews
+//
+// Pending approvals block agent work; a single PENDING row of type
+// TOOL_CALL_REVIEW is emitted by the copilot provider just before a write
+// tool fires, the agent waits for a decision via SSE, and the gate cache
+// (see `manut-approval-gate.service.ts`) keeps the per-workspace lookup
+// sub-millisecond. State machine: PENDING → APPROVED/REJECTED/CANCELLED
+// (terminal); PENDING → REVISION_REQUESTED → PENDING (mutable). Decided
+// rows are immutable (enforced in `manut-approval.service.ts`).
+//
+// CLAUDE.md scars honored:
+//  - Every nullable @Field on the matching DTOs uses the explicit
+//    `() => Type` form (v1.7.0 / v1.10.2 UndefinedTypeError trap).
+//  - `requestedByAgentId` + `decidedByUserId` use SetNull so deleting
+//    the agent or user does NOT delete audit history.
+//  - `approvalId` on MnApprovalComment uses Cascade so the comment
+//    thread vanishes with the approval row.
+// ---------------------------------------------------------------------------
+
+enum MnApprovalType {
+  HIRE_AGENT
+  APPROVE_TASK_COMPLETION
+  BUDGET_OVERRIDE
+  REQUEST_BOARD_APPROVAL
+  TOOL_CALL_REVIEW
+  AGENT_ORG_CHANGE
+}
+
+enum MnApprovalStatus {
+  PENDING
+  REVISION_REQUESTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Manut Approval — one pending or decided request for a human (or agent)
+/// to authorize an action. Scoped to a workspace + project; the gate
+/// service caches per-workspace pending counts in-memory with a 30s TTL.
+model MnApproval {
+  id                 String           @id @default(uuid()) @db.VarChar
+  workspaceId        String           @map("workspace_id") @db.VarChar
+  projectId          String           @map("project_id") @db.VarChar
+  type               MnApprovalType
+  requestedByAgentId String?          @map("requested_by_agent_id") @db.VarChar
+  requestedByUserId  String?          @map("requested_by_user_id") @db.VarChar
+  status             MnApprovalStatus @default(PENDING)
+  payload            Json             @default("{}") @db.JsonB
+  decisionNote       String?          @map("decision_note") @db.Text
+  decidedByUserId    String?          @map("decided_by_user_id") @db.VarChar
+  decidedAt          DateTime?        @map("decided_at") @db.Timestamptz(3)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace        Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project          MnProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestedByAgent MnAgent?            @relation("MnApprovalRequestedByAgent", fields: [requestedByAgentId], references: [id], onDelete: SetNull)
+  requestedByUser  User?               @relation("MnApprovalRequestedByUser", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  decidedByUser    User?               @relation("MnApprovalDecidedByUser", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  comments         MnApprovalComment[]
+
+  @@index([workspaceId, status, createdAt(sort: Desc)])
+  @@index([workspaceId, projectId, status])
+  @@index([requestedByAgentId])
+  @@map("mn_approvals")
+}
+
+/// Comment attached to an approval. Comments survive decision (an APPROVED
+/// approval can still be commented on for audit context) but are deleted
+/// with the parent approval via Cascade.
+model MnApprovalComment {
+  id            String   @id @default(uuid()) @db.VarChar
+  approvalId    String   @map("approval_id") @db.VarChar
+  projectId     String   @map("project_id") @db.VarChar
+  authorAgentId String?  @map("author_agent_id") @db.VarChar
+  authorUserId  String?  @map("author_user_id") @db.VarChar
+  body          String   @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  approval    MnApproval @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  authorAgent MnAgent?   @relation("MnApprovalCommentAuthorAgent", fields: [authorAgentId], references: [id], onDelete: SetNull)
+  authorUser  User?      @relation("MnApprovalCommentAuthorUser", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([approvalId, createdAt])
+  @@map("mn_approval_comments")
+}
+
+/// Manut M2 — goal hierarchy level. The chain runs PROJECT > TEAM > AGENT > TASK
+/// (plus one flex slot for product-defined sub-levels); deeper than 5 is rejected
+/// at the service layer to keep context-injection bounded.
+enum MnGoalLevel {
+  PROJECT
+  TEAM
+  AGENT
+  TASK
+}
+
+/// Manut M2 — lifecycle state of a goal row.
+enum MnGoalStatus {
+  PLANNED
+  ACTIVE
+  ACHIEVED
+  CANCELLED
+}
+
+/// Manut M2 — a single rung in the goal hierarchy. Goals own zero or many
+/// `MnTask` rows via `MnTask.goalId`, and chain to a parent via
+/// `parentGoalId`. The cycle / depth-limit invariants are enforced by
+/// `MnGoalService`; Prisma cannot express either declaratively.
+///
+/// `ownerAgentId` is the agent the goal is delegated to, if any. Null means
+/// the goal sits with a project owner / team (not assigned to a single
+/// agent yet). SetNull on agent delete preserves the goal so we don't lose
+/// strategy when an agent is decommissioned.
+model MnGoal {
+  id              String       @id @default(uuid()) @db.VarChar
+  workspaceId     String       @map("workspace_id") @db.VarChar
+  projectId       String       @map("project_id") @db.VarChar
+  title           String       @db.VarChar
+  description     String?      @db.Text
+  level           MnGoalLevel
+  parentGoalId    String?      @map("parent_goal_id") @db.VarChar
+  ownerAgentId    String?      @map("owner_agent_id") @db.VarChar
+  status          MnGoalStatus @default(PLANNED)
+  createdByUserId String?      @map("created_by_user_id") @db.VarChar
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project    MnProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent     MnGoal?   @relation("MnGoalParent", fields: [parentGoalId], references: [id], onDelete: SetNull)
+  children   MnGoal[]  @relation("MnGoalParent")
+  ownerAgent MnAgent?  @relation("MnGoalOwnerAgent", fields: [ownerAgentId], references: [id], onDelete: SetNull)
+  tasks      MnTask[]
+
+  @@index([workspaceId, projectId, status])
+  @@index([workspaceId, level])
+  @@index([parentGoalId])
+  @@index([ownerAgentId])
+  @@map("mn_goals")
+}
+
+/// Manut M2 — explicit "task A blocked by task B" edge. We need this as a
+/// separate join model (rather than denormalised on MnTask) because tasks
+/// can be blocked by N other tasks and the relationship needs to outlive
+/// the blocked task without dragging the blocker along. The blocker side
+/// uses Restrict so that deleting a blocker doesn't silently unblock
+/// downstream work — callers must explicitly remove the blocker edge first.
+model MnTaskBlocker {
+  id              String   @id @default(uuid()) @db.VarChar
+  taskId          String   @map("task_id") @db.VarChar
+  blockedByTaskId String   @map("blocked_by_task_id") @db.VarChar
+  projectId       String   @map("project_id") @db.VarChar
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  task          MnTask @relation("MnTaskBlockedBy", fields: [taskId], references: [id], onDelete: Cascade)
+  blockedByTask MnTask @relation("MnTaskBlocking", fields: [blockedByTaskId], references: [id], onDelete: Restrict)
+
+  @@unique([taskId, blockedByTaskId])
+  @@index([projectId])
+  @@index([blockedByTaskId])
+  @@map("mn_task_blockers")
 }

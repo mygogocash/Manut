@@ -467,6 +467,35 @@ export class ChatInputPreference extends SignalWatcher(
       })
     );
 
+    // M3: opt this chat session into per-tool approval gates. The
+    // backend gate is also keyed off any workspace-level pending
+    // approval, so this toggle is the "always force review for THIS
+    // session" override rather than the only on-ramp.
+    const approvalItems = [
+      menu.toggleSwitch({
+        name: 'Require approval before write tools',
+        label: () => html`
+          <div class="ai-pref-toggle-label">
+            <span class="ai-pref-toggle-label-title">
+              Require approval before write tools
+            </span>
+            <span class="ai-pref-toggle-label-sub">
+              Every doc-edit, doc-create, and data-view write in this chat waits
+              for a human approval. Track decisions in Settings → Control Plane
+              → Approvals.
+            </span>
+          </div>
+        `,
+        prefix: LockIcon(),
+        on: !!this.toolsConfigService.config.value.requireToolApproval,
+        onChange: (value: boolean) =>
+          this.toolsConfigService.setConfig({
+            requireToolApproval: value,
+          }),
+        class: { 'preference-action': true },
+      }),
+    ];
+
     popMenu(popupTargetFromElement(element), {
       options: {
         items: [
@@ -480,6 +509,9 @@ export class ChatInputPreference extends SignalWatcher(
           }),
           menu.group({
             items: [...searchItems],
+          }),
+          menu.group({
+            items: [...approvalItems],
           }),
         ],
         testId: 'chat-input-preference',

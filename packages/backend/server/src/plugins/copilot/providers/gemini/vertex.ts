@@ -21,11 +21,14 @@ import {
   UserFriendlyError,
 } from '../../../../base';
 import type { NativeLlmBackendConfig } from '../../../../native';
+import { emitProviderCostEvent } from '../../cost-emit';
 import { GEMINI_ATTACHMENT_CAPABILITY } from '../attachments';
 import type {
+  CopilotChatOptions,
   CopilotImageOptions,
   ModelConditions,
   PromptMessage,
+  StreamObject,
 } from '../types';
 import { CopilotProviderType, ModelInputType, ModelOutputType } from '../types';
 import {
@@ -238,6 +241,59 @@ export class GeminiVertexProvider extends GeminiProvider<GeminiVertexConfig> {
    * forwarded. If you need image-edit capability, swap to a model that
    * exposes editing through Vertex's separate /edit endpoint.
    */
+  /**
+   * M4 cost-emit wrapper. Delegates to the GeminiProvider base, then fires
+   * a cost row via `MnCostService.emit` on stream close (fire-and-forget
+   * per CLAUDE.md scar #5).
+   */
+  override async *streamText(
+    cond: ModelConditions,
+    messages: PromptMessage[],
+    options: CopilotChatOptions = {}
+  ): AsyncIterable<string> {
+    const model = this.selectModel({
+      ...cond,
+      outputType: ModelOutputType.Text,
+    });
+    let collected = '';
+    for await (const chunk of super.streamText(cond, messages, options)) {
+      collected += chunk;
+      yield chunk;
+    }
+    emitProviderCostEvent(this.moduleRef, this.logger, {
+      provider: this.type,
+      model: model.id,
+      messages,
+      outputText: collected,
+      options,
+    });
+  }
+
+  override async *streamObject(
+    cond: ModelConditions,
+    messages: PromptMessage[],
+    options: CopilotChatOptions = {}
+  ): AsyncIterable<StreamObject> {
+    const model = this.selectModel({
+      ...cond,
+      outputType: ModelOutputType.Object,
+    });
+    let outputChars = 0;
+    for await (const chunk of super.streamObject(cond, messages, options)) {
+      if (chunk.type === 'text-delta' && chunk.textDelta) {
+        outputChars += chunk.textDelta.length;
+      }
+      yield chunk;
+    }
+    emitProviderCostEvent(this.moduleRef, this.logger, {
+      provider: this.type,
+      model: model.id,
+      messages,
+      outputTextLength: outputChars,
+      options,
+    });
+  }
+
   override async *streamImages(
     cond: ModelConditions,
     messages: PromptMessage[],

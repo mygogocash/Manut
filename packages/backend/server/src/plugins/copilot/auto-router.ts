@@ -1,8 +1,64 @@
 import { Logger } from '@nestjs/common';
+import type { ModuleRef } from '@nestjs/core';
 
 import type { PromptMessage } from './providers/types';
 
 const logger = new Logger('CopilotAutoRouter');
+
+/**
+ * M4 budget gate. Resolves `MnBudgetEnforcerService` via ModuleRef with
+ * `strict: false` so the gate is a no-op when the Manut module isn't
+ * loaded (e.g. `ENABLE_MANUT_MODULE=false`). Coordinate with Branch B's
+ * goal-context prepend: goal-context is logical context (first), the
+ * budget check is the gate (second), so an over-budget user gets blocked
+ * BEFORE any provider work fires.
+ *
+ * Throws the enforcer's structured `BudgetExceededError` on hard-stop;
+ * the auto-router's caller is responsible for translating to a
+ * UserFriendlyError if it wants to expose the message to the client.
+ */
+export async function assertBudgetAllowed(
+  moduleRef: ModuleRef,
+  scope: {
+    workspaceId: string;
+    projectId?: string | null;
+    agentId?: string | null;
+    taskId?: string | null;
+    goalId?: string | null;
+  }
+): Promise<void> {
+  try {
+    // Lazy require to keep this file independent of the manut plugin
+    // import graph (avoids a cycle through copilot/providers).
+    // oxlint-disable-next-line no-var-requires
+    const mod = require('../manut/manut-budget-enforcer.service') as {
+      MnBudgetEnforcerService?: new (...args: unknown[]) => {
+        assertAllowed: (chain: typeof scope) => Promise<unknown>;
+      };
+    };
+    if (!mod?.MnBudgetEnforcerService) return;
+    const enforcer = moduleRef.get(mod.MnBudgetEnforcerService, {
+      strict: false,
+    });
+    if (!enforcer || typeof enforcer.assertAllowed !== 'function') return;
+    await enforcer.assertAllowed(scope);
+  } catch (error) {
+    // The enforcer's BudgetExceededError is the only re-throw class —
+    // every other error (require failure, no-provider, transient DB
+    // hiccup) is a non-event for the gate. We detect by name to avoid
+    // an import dependency on the error class.
+    if (
+      error &&
+      typeof error === 'object' &&
+      (error as { name?: string }).name === 'BudgetExceededError'
+    ) {
+      throw error;
+    }
+    logger.warn(
+      `budget gate resolution failed (allowing): ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
 
 /**
  * Sentinel values that cause the model resolver to delegate the choice
@@ -162,4 +218,65 @@ export function isAutoModel(value?: string | null): boolean {
  */
 export function isAutoPromptName(value?: string | null): boolean {
   return isAutoSentinel(value);
+}
+
+/**
+ * Hard cap on the GOAL CONTEXT block that {@link injectGoalContext}
+ * prepends to the system message. Mirrors `GOAL_CONTEXT_CHAR_CAP` from
+ * `plugins/manut/manut-goal.dto.ts`. Duplicated here so the auto-router
+ * stays decoupled from the manut plugin imports — both constants are
+ * the same physical number; if either drifts, ship the smaller value.
+ */
+export const GOAL_CONTEXT_INJECTION_CAP = 500;
+
+/**
+ * Prepend a GOAL CONTEXT block to the prompt messages. The block is
+ * inserted either:
+ *   - INTO the existing first `system` message (joined with two
+ *     newlines), or
+ *   - As a NEW `system` message at index 0 when no system message exists.
+ *
+ * The injection is bounded by {@link GOAL_CONTEXT_INJECTION_CAP}; the
+ * context string SHOULD already be capped by the caller
+ * (`MnGoalContextService.buildContext` enforces the same limit) but we
+ * trim defensively here too — a 5000-char system block is worse than a
+ * missing one. Logs a warning when defensive truncation kicks in.
+ *
+ * Returns a NEW messages array — the input is never mutated, preserving
+ * the immutability rule from CLAUDE.md.
+ */
+export function injectGoalContext(
+  messages: PromptMessage[],
+  context: string | null | undefined
+): PromptMessage[] {
+  if (!context || context.trim().length === 0) {
+    return messages;
+  }
+
+  let safeContext = context;
+  if (safeContext.length > GOAL_CONTEXT_INJECTION_CAP) {
+    const suffix = ' … [truncated]';
+    safeContext =
+      safeContext.slice(0, GOAL_CONTEXT_INJECTION_CAP - suffix.length) + suffix;
+    logger.warn(
+      `[goal-context] injection trimmed from ${context.length} to ` +
+        `${safeContext.length} chars (cap=${GOAL_CONTEXT_INJECTION_CAP})`
+    );
+  }
+
+  const firstSystemIdx = messages.findIndex(m => m.role === 'system');
+  if (firstSystemIdx === -1) {
+    return [
+      { role: 'system', content: safeContext } as PromptMessage,
+      ...messages,
+    ];
+  }
+
+  const updated = messages.slice();
+  const original = updated[firstSystemIdx];
+  updated[firstSystemIdx] = {
+    ...original,
+    content: `${safeContext}\n\n${original.content ?? ''}`,
+  };
+  return updated;
 }

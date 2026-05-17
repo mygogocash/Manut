@@ -23,6 +23,10 @@ export interface AIToolsConfig {
   editingDocs?: boolean;
   composingDocs?: boolean;
   editingDataViews?: boolean;
+  // M3: when true, every write-tool call in this chat session emits a
+  // pending TOOL_CALL_REVIEW approval before the side-effect runs.
+  // Default `false` so the workspace-default behaviour is unchanged.
+  requireToolApproval?: boolean;
 }
 
 export class AIToolsConfigService extends Service {
@@ -36,6 +40,7 @@ export class AIToolsConfigService extends Service {
         editingDocs: false,
         composingDocs: false,
         editingDataViews: false,
+        requireToolApproval: false,
       });
     this.config = signal;
     this.disposables.push(enabledCleanup);
@@ -57,6 +62,9 @@ export class AIToolsConfigService extends Service {
       editingDocs: config?.editingDocs ?? false,
       composingDocs: config?.composingDocs ?? false,
       editingDataViews: config?.editingDataViews ?? false,
+      // M3: defaults to workspace-default (false) — only opt-in surfaces
+      // approval gates on every tool call.
+      requireToolApproval: config?.requireToolApproval ?? false,
     }))
   );
 
