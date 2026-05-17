@@ -1,0 +1,233 @@
+# syntax=docker/dockerfile:1.7
+#
+# Manut Railway native build — self-contained.
+#
+# WHY THIS EXISTS (read this before editing):
+# The documented Manut deploy pipeline (CLAUDE.md §9) is GitHub Actions
+# -> GAR image -> Railway pull. That pipeline assumes the Railway
+# service's source is set to a Docker image registry in the dashboard.
+# When the service is instead pointed at the GitHub repo, Railway uses
+# railpack to auto-detect the language and build natively. Railpack
+# picks the Rust workspace and tries `cp target/release/y-octo-utils bin`
+# which fails because the y-octo-utils package defines three different
+# bins (bench_result_render, doc_merger, memory_leak_test), none of
+# which match the package name. This Dockerfile is the fallback: it
+# builds the entire app inside the container so Railway can ship a
+# working image without any external pipeline.
+#
+# Switch back to the GAR-pull design (cheaper, faster) by changing the
+# Railway service source to a registry image in the dashboard. Once that
+# is done, this file becomes dead code — keep it around for emergencies.
+#
+# Stages:
+#   1. napi-builder — Rust + napi-rs build of server-native.x64.node
+#   2. app-builder  — Node + yarn install + napi inject + bundle
+#                     (@affine/server, web, admin, mobile)
+#   3. prep         — production deps via `yarn workspaces focus
+#                     @affine/server --production` + prisma generate
+#   4. assets       — assemble runtime layout, run docker-clean
+#   5. runtime      — minimal node:22-bookworm-slim + jemalloc
+#
+# Estimated build time on a cold Railway runner: 20-30 min. Warm cache
+# (cargo registry + yarn cache + apt) brings it down to ~10 min.
+
+# ----------------------------------------------------------------------
+# Stage 1: napi builder (Rust -> server-native.x64.node)
+# ----------------------------------------------------------------------
+FROM rust:1.94-bookworm AS napi-builder
+WORKDIR /workspace
+
+# Node is required to invoke the napi-rs CLI.
+RUN --mount=type=cache,id=manut-apt-build,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=manut-apt-lists,target=/var/lib/apt/lists,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential pkg-config libssl-dev curl ca-certificates && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    npm install -g @napi-rs/cli@3.5.0
+
+# Workspace metadata + Rust source. Copy ALL workspace members listed
+# in root Cargo.toml so cargo can load the workspace; we only build
+# affine-server-native but cargo refuses to load a workspace with
+# missing members.
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY .cargo ./.cargo
+COPY packages/backend/native ./packages/backend/native
+COPY packages/common/native ./packages/common/native
+COPY packages/common/y-octo ./packages/common/y-octo
+COPY packages/frontend/native ./packages/frontend/native
+COPY packages/frontend/mobile-native ./packages/frontend/mobile-native
+
+WORKDIR /workspace/packages/backend/native
+
+# Build the napi binary. napi-rs CLI v3 produces a file named
+# `server-native.linux-x64-gnu.node` (target-triple suffix); rename to
+# the names index.js expects (bare + .x64.node) and touch dummies for
+# the arm variants rspack also statically references. Match the GHA
+# workflow's rename logic so any napi-rs CLI version change behaves
+# consistently with the GAR build.
+RUN --mount=type=cache,id=manut-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=manut-cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=manut-cargo-target,target=/workspace/target,sharing=locked \
+    set -eu && \
+    napi build --release --strip --no-const-enum --target x86_64-unknown-linux-gnu && \
+    echo "--- files after napi build ---" && \
+    find . -maxdepth 1 -name '*.node' -print && \
+    PRODUCED="" && \
+    for candidate in server-native*.node; do \
+      [ -e "$candidate" ] || continue ; \
+      case "$candidate" in \
+        server-native.node|server-native.x64.node|server-native.arm64.node|server-native.armv7.node) \
+          continue ;; \
+      esac ; \
+      PRODUCED="$candidate" ; \
+      break ; \
+    done && \
+    if [ -z "$PRODUCED" ] && [ -f server-native.node ]; then PRODUCED=server-native.node; fi && \
+    if [ -z "$PRODUCED" ]; then \
+      echo "ERROR: napi build produced no server-native*.node" >&2 ; \
+      ls -la >&2 ; \
+      exit 1 ; \
+    fi && \
+    echo "napi produced: $PRODUCED" && \
+    [ "$PRODUCED" != "server-native.x64.node" ] && cp "$PRODUCED" server-native.x64.node || true && \
+    [ "$PRODUCED" != "server-native.node" ]     && cp "$PRODUCED" server-native.node || true && \
+    touch server-native.arm64.node server-native.armv7.node && \
+    echo "--- final files ---" && \
+    find . -maxdepth 1 -name 'server-native*.node' -print
+
+# ----------------------------------------------------------------------
+# Stage 2: app builder (Node bundles)
+# ----------------------------------------------------------------------
+FROM node:22-bookworm AS app-builder
+WORKDIR /workspace
+
+RUN --mount=type=cache,id=manut-apt-build,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=manut-apt-lists,target=/var/lib/apt/lists,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential python3 git ca-certificates
+
+# Workspace metadata first to leverage Docker layer cache.
+COPY package.json yarn.lock .yarnrc.yml .npmrc ./
+COPY .yarn ./.yarn
+COPY packages ./packages
+COPY blocksuite ./blocksuite
+COPY tools ./tools
+
+ENV HUSKY=0
+# Strip the monorepo root postinstall (yarn affine init && yarn husky)
+# AND @affine/server's prisma-generate postinstall. Both need state that
+# isn't available at install time inside the container; we run prisma
+# generate explicitly below once engines are installed.
+RUN node -e "const f='./package.json'; const p=require(f); delete p.scripts.postinstall; require('fs').writeFileSync(f, JSON.stringify(p, null, 2));" && \
+    node -e "const f='./packages/backend/server/package.json'; const p=require(f); delete p.scripts.postinstall; require('fs').writeFileSync(f, JSON.stringify(p, null, 2));"
+
+# Pin yarn to package.json:packageManager. corepack defaults to
+# whatever ships with the runner image, which causes lockfile churn.
+RUN --mount=type=cache,id=manut-yarn-cache,target=/workspace/.yarn/cache,sharing=locked \
+    corepack enable && \
+    corepack prepare yarn@4.13.0 --activate && \
+    yarn install
+
+# Inject the napi binary at every name index.js / rspack reference.
+COPY --from=napi-builder /workspace/packages/backend/native/server-native.node       ./packages/backend/native/server-native.node
+COPY --from=napi-builder /workspace/packages/backend/native/server-native.x64.node   ./packages/backend/native/server-native.x64.node
+COPY --from=napi-builder /workspace/packages/backend/native/server-native.arm64.node ./packages/backend/native/server-native.arm64.node
+COPY --from=napi-builder /workspace/packages/backend/native/server-native.armv7.node ./packages/backend/native/server-native.armv7.node
+
+# Bundle server + frontends. GITHUB_SHA stamps the bundle's
+# data-version attribute (no .git in the container).
+ARG GITHUB_SHA=railway-build
+ENV GITHUB_SHA=${GITHUB_SHA}
+RUN yarn workspace @affine/server prisma generate && \
+    yarn affine bundle -p @affine/server && \
+    yarn affine bundle -p web && \
+    yarn affine bundle -p admin && \
+    yarn affine bundle -p mobile
+
+# ----------------------------------------------------------------------
+# Stage 3: production deps
+# ----------------------------------------------------------------------
+FROM node:22-bookworm-slim AS prep
+WORKDIR /workspace
+
+COPY package.json yarn.lock .yarnrc.yml .npmrc ./
+COPY .yarn ./.yarn
+COPY packages ./packages
+COPY blocksuite ./blocksuite
+COPY tools ./tools
+
+# Same postinstall strip rationale as app-builder; here we ALSO strip
+# the root postinstall so yarn workspaces focus doesn't try to run
+# `yarn affine init` before tools/cli is wired.
+RUN node -e "const f='./package.json'; const p=require(f); delete p.scripts.postinstall; require('fs').writeFileSync(f, JSON.stringify(p, null, 2));" && \
+    node -e "const f='./packages/backend/server/package.json'; const p=require(f); delete p.scripts.postinstall; require('fs').writeFileSync(f, JSON.stringify(p, null, 2));" && \
+    corepack enable && \
+    corepack prepare yarn@4.13.0 --activate && \
+    yarn config set --json supportedArchitectures.cpu '["x64", "arm64", "arm"]' && \
+    yarn config set --json supportedArchitectures.libc '["glibc"]' && \
+    yarn workspaces focus @affine/server --production && \
+    yarn workspace @affine/server prisma generate && \
+    rm -rf ./packages/backend/server/node_modules && \
+    mv ./node_modules ./packages/backend/server/node_modules
+
+# ----------------------------------------------------------------------
+# Stage 4: assemble runtime layout
+# ----------------------------------------------------------------------
+FROM node:22-bookworm-slim AS assets
+WORKDIR /app
+
+COPY --from=prep        /workspace/packages/backend/server               /app
+COPY --from=app-builder /workspace/packages/backend/server/dist          /app/dist
+# Re-inject napi binaries into /app/dist — the bundled main.js
+# statically references them at runtime via require('./server-native...').
+COPY --from=napi-builder /workspace/packages/backend/native/server-native.node       /app/dist/server-native.node
+COPY --from=napi-builder /workspace/packages/backend/native/server-native.x64.node   /app/dist/server-native.x64.node
+COPY --from=napi-builder /workspace/packages/backend/native/server-native.arm64.node /app/dist/server-native.arm64.node
+COPY --from=napi-builder /workspace/packages/backend/native/server-native.armv7.node /app/dist/server-native.armv7.node
+COPY --from=app-builder /workspace/packages/frontend/apps/web/dist        /app/static
+COPY --from=app-builder /workspace/packages/frontend/admin/dist           /app/static/admin
+COPY --from=app-builder /workspace/packages/frontend/apps/mobile/dist     /app/static/mobile
+
+ARG TARGETARCH=amd64
+ARG TARGETVARIANT
+RUN --mount=type=cache,id=manut-apt-runtime,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=manut-apt-lists,target=/var/lib/apt/lists,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends openssl ca-certificates
+
+RUN AFFINE_DOCKER_CLEAN=1 \
+    TARGETARCH="${TARGETARCH}" \
+    TARGETVARIANT="${TARGETVARIANT}" \
+    node ./scripts/docker-clean.mjs
+
+# ----------------------------------------------------------------------
+# Stage 5: runtime
+# ----------------------------------------------------------------------
+FROM node:22-bookworm-slim
+WORKDIR /app
+
+COPY --from=assets /app /app
+
+# Entrypoint shim — seeds GCP SA key + AFFiNE config.json + bridges
+# Railway's PORT to AFFINE_SERVER_PORT. Same script Dockerfile.fullstack
+# uses; no-op when the relevant env vars are unset.
+COPY .docker/manut/entrypoint.railway.sh /usr/local/bin/manut-entrypoint
+RUN chmod +x /usr/local/bin/manut-entrypoint
+
+RUN --mount=type=cache,id=manut-apt-runtime,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=manut-apt-lists,target=/var/lib/apt/lists,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends openssl libjemalloc2
+
+ENV LD_PRELOAD=libjemalloc.so.2
+EXPOSE 3010
+
+ENTRYPOINT ["/usr/local/bin/manut-entrypoint"]
+CMD ["node", "./dist/main.js"]
