@@ -131,7 +131,7 @@ export const plans: ReadonlyArray<Plan> = [
       'SSO via Google, GitHub, and email',
       'Priority email support',
     ],
-    cta: { href: '#', label: 'Start free trial' },
+    cta: { href: '/sign-in', label: 'Start free trial' },
   },
   {
     id: 'enterprise',

@@ -7,6 +7,12 @@ import { static as serveStatic } from 'express';
 
 import { Config } from '../../base';
 import { isMobileRequest } from '../utils/user-agent';
+import {
+  hasManutLanding,
+  isManutSpaRoute,
+  manutLandingDir,
+  registerManutLandingRoutes,
+} from './manut-landing';
 
 const staticPathRegex = /^\/(_plugin|assets|imgs|js|plugins|static)\//;
 
@@ -118,6 +124,8 @@ export class StaticFilesResolver implements OnModuleInit {
       );
     });
 
+    registerManutLandingRoutes(app, basePath, staticPath);
+
     // /
     app.use(rootPath, (req, res, next) => {
       if (req.path.startsWith('/admin')) {
@@ -137,6 +145,15 @@ export class StaticFilesResolver implements OnModuleInit {
       (req: Request, res: Response) => {
         if (req.path.startsWith('/admin')) {
           res.status(404).end();
+          return;
+        }
+
+        if (
+          hasManutLanding(staticPath) &&
+          req.path === '/' &&
+          !isManutSpaRoute(req.path)
+        ) {
+          res.sendFile(join(manutLandingDir(staticPath), 'index.html'));
           return;
         }
 

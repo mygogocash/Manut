@@ -235,6 +235,12 @@ jobs:
           yarn affine bundle -p admin
           yarn affine bundle -p mobile
 
+      - name: Build marketing landing site
+        run: |
+          cd manut-landing
+          npm ci
+          npm run build
+
       # Tier 2 (build determinism): catches the class of bugs where the
       # build process writes BACK into the source tree. Stale .js files
       # next to .css.ts source poison subsequent builds (CLAUDE.md §5

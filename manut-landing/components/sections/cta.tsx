@@ -38,7 +38,7 @@ export function Cta() {
 
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <ButtonLink
-              href="#pricing"
+              href="/sign-in"
               size="lg"
               className="h-12 rounded-full bg-foreground px-6 text-base text-background hover:bg-foreground/90"
             >

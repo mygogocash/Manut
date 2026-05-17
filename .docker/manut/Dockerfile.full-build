@@ -36,6 +36,7 @@ COPY .yarn ./.yarn
 COPY packages ./packages
 COPY blocksuite ./blocksuite
 COPY tools ./tools
+COPY manut-landing ./manut-landing
 
 ENV HUSKY=0
 # Strip the monorepo's "yarn affine init && yarn husky" postinstall — both
@@ -57,7 +58,8 @@ RUN yarn workspace @affine/server prisma generate && \
     yarn affine bundle -p @affine/server && \
     yarn affine bundle -p web && \
     yarn affine bundle -p mobile && \
-    yarn affine bundle -p admin
+    yarn affine bundle -p admin && \
+    cd manut-landing && npm ci && npm run build
 
 # ----------------------------------------------------------------------
 # Stage 2: server prep (production deps + prisma)
@@ -90,6 +92,7 @@ COPY --from=app-builder /workspace/packages/backend/server/dist /app/dist
 COPY --from=app-builder /workspace/packages/frontend/apps/web/dist /app/static
 COPY --from=app-builder /workspace/packages/frontend/admin/dist /app/static/admin
 COPY --from=app-builder /workspace/packages/frontend/apps/mobile/dist /app/static/mobile
+COPY --from=app-builder /workspace/manut-landing/out /app/static/landing
 
 ARG TARGETARCH
 ARG TARGETVARIANT

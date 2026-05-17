@@ -58,6 +58,7 @@ COPY --from=prep /workspace/packages/backend/server /app
 COPY packages/frontend/apps/web/dist /app/static
 COPY packages/frontend/admin/dist /app/static/admin
 COPY packages/frontend/apps/mobile/dist /app/static/mobile
+COPY manut-landing/out /app/static/landing
 
 ARG TARGETARCH
 ARG TARGETVARIANT
