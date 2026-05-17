@@ -68,6 +68,7 @@ model User {
   mnReminders                 MnReminder[]
   mnReminderRulesCreated      MnReminderRule[]            @relation("MnReminderRuleCreator")
   mnRoutinesOwned             MnRoutine[]                 @relation("MnRoutineOwner")
+  mnAgentsCreated             MnAgent[]                   @relation("MnAgentCreator")
 
   @@index([email])
   @@map("users")
@@ -189,6 +190,7 @@ model Workspace {
   mnAgentRoles               MnAgentRole[]
   mnReleaseRuns              MnReleaseRun[]
   mnRoutines                 MnRoutine[]
+  mnAgents                   MnAgent[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -576,11 +578,16 @@ model AiSession {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(3)
+  // Manut M1: optional binding to an MnAgent so chat-turn heartbeats can be
+  // attributed. Null = unbound (no heartbeat row emitted for this session).
+  agentId         String?   @map("agent_id") @db.VarChar
 
-  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  prompt   AiPrompt           @relation(fields: [promptName], references: [name], onDelete: Cascade)
-  messages AiSessionMessage[]
-  context  AiContext[]
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt          AiPrompt           @relation(fields: [promptName], references: [name], onDelete: Cascade)
+  agent           MnAgent?           @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  messages        AiSessionMessage[]
+  context         AiContext[]
+  mnHeartbeatRuns MnHeartbeatRun[]
 
   //NOTE:
   // unrecorded index:
@@ -1517,6 +1524,7 @@ model MnProject {
   createdBy User?             @relation("MnProjectCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   members   MnProjectMember[]
   tasks     MnTask[]
+  agents    MnAgent[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, sortOrder])
@@ -1876,6 +1884,7 @@ model MnAgentRole {
   updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agents    MnAgent[]
 
   @@unique([workspaceId, slug])
   @@index([workspaceId])
@@ -1926,4 +1935,111 @@ model MnReleaseTask {
   @@unique([runId, slug])
   @@index([runId, sortOrder])
   @@map("mn_release_tasks")
+}
+
+// --- Manut M1: Agent identity + adapter system ---
+
+enum MnAgentAdapterType {
+  COPILOT_CHAT_SESSION
+}
+
+enum MnAgentStatus {
+  IDLE
+  RUNNING
+  PAUSED
+  ERROR
+  TERMINATED
+}
+
+enum MnHeartbeatInvocationSource {
+  CHAT_TURN
+  MANUAL
+  SCHEDULED
+}
+
+enum MnHeartbeatRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+/// Manut Agent — runtime instance of an MnAgentRole template. Project-scoped
+/// per §5.1 (project = "company"). Adapter-typed; M1 only supports
+/// COPILOT_CHAT_SESSION binding via AiSession.agentId.
+model MnAgent {
+  id                String             @id @default(uuid()) @db.VarChar
+  workspaceId       String             @map("workspace_id") @db.VarChar
+  projectId         String             @map("project_id") @db.VarChar
+  roleId            String?            @map("role_id") @db.VarChar
+  name              String             @db.VarChar
+  adapterType       MnAgentAdapterType @default(COPILOT_CHAT_SESSION) @map("adapter_type")
+  adapterConfig     Json               @default("{}") @map("adapter_config") @db.JsonB
+  runtimeConfig     Json               @default("{}") @map("runtime_config") @db.JsonB
+  status            MnAgentStatus      @default(IDLE)
+  reportsToAgentId  String?            @map("reports_to_agent_id") @db.VarChar
+  capabilities      String?            @db.Text
+  lastHeartbeatAt   DateTime?          @map("last_heartbeat_at") @db.Timestamptz(3)
+  createdByUserId   String?            @map("created_by_user_id") @db.VarChar
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project        MnProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role           MnAgentRole?     @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  reportsTo      MnAgent?         @relation("MnAgentReportsTo", fields: [reportsToAgentId], references: [id], onDelete: SetNull)
+  directReports  MnAgent[]        @relation("MnAgentReportsTo")
+  createdBy      User?            @relation("MnAgentCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  apiKeys        MnAgentApiKey[]
+  heartbeatRuns  MnHeartbeatRun[]
+  aiSessions     AiSession[]
+
+  @@index([workspaceId, projectId, status])
+  @@index([workspaceId, reportsToAgentId])
+  @@map("mn_agents")
+}
+
+/// Bearer API key issued to a single MnAgent. Plaintext shown once at mint;
+/// only key_hash stored. Prefix `mn_ak_` for log-scanning.
+model MnAgentApiKey {
+  id          String    @id @default(uuid()) @db.VarChar
+  agentId     String    @map("agent_id") @db.VarChar
+  workspaceId String    @map("workspace_id") @db.VarChar
+  projectId   String    @map("project_id") @db.VarChar
+  name        String    @db.VarChar
+  keyHash     String    @unique @map("key_hash") @db.VarChar
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  agent MnAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId])
+  @@index([workspaceId, projectId])
+  @@map("mn_agent_api_keys")
+}
+
+/// Manut Heartbeat Run — one row per chat-turn (or scheduled wake or manual
+/// invocation). Fire-and-forget emission from copilot session.ts; idempotent
+/// on (agentId, externalRunId).
+model MnHeartbeatRun {
+  id                String                      @id @default(uuid()) @db.VarChar
+  workspaceId       String                      @map("workspace_id") @db.VarChar
+  projectId         String                      @map("project_id") @db.VarChar
+  agentId           String                      @map("agent_id") @db.VarChar
+  invocationSource  MnHeartbeatInvocationSource @map("invocation_source")
+  status            MnHeartbeatRunStatus
+  aiSessionId       String?                     @map("ai_session_id") @db.VarChar
+  startedAt         DateTime                    @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt        DateTime?                   @map("finished_at") @db.Timestamptz(3)
+  externalRunId     String?                     @map("external_run_id") @db.VarChar
+  error             String?                     @db.Text
+
+  agent     MnAgent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  aiSession AiSession?  @relation(fields: [aiSessionId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, agentId, startedAt(sort: Desc)])
+  @@index([aiSessionId])
+  @@map("mn_heartbeat_runs")
 }
