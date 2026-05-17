@@ -14,6 +14,7 @@ import { useCallback } from 'react';
 
 import { DeleteLeaveWorkspace } from './delete-leave-workspace';
 import { EnableCloudPanel } from './enable-cloud';
+import { ExportSnapshotPanel } from './export-snapshot';
 import { LabelsPanel } from './labels';
 import { ProfilePanel } from './profile';
 import { SharingPanel } from './sharing';
@@ -64,6 +65,7 @@ export const WorkspaceSettingDetail = ({
       </SettingWrapper>
       <TemplateDocSetting />
       <SharingPanel />
+      <ExportSnapshotPanel />
       <SettingWrapper>
         <DeleteLeaveWorkspace onCloseSetting={onCloseSetting} />
         <SettingRow

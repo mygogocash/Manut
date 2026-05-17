@@ -26,6 +26,7 @@ import { MnBudgetService } from './manut-budget.service';
 import { MnBudgetEnforcerService } from './manut-budget-enforcer.service';
 import { MnCostService } from './manut-cost.service';
 import { MnCrmResolver } from './manut-crm.resolver';
+import { MnExportSnapshotService } from './manut-export-snapshot.service';
 import { MnGoalResolver } from './manut-goal.resolver';
 import { MnGoalService } from './manut-goal.service';
 import { MnGoalContextService } from './manut-goal-context.service';
@@ -42,6 +43,8 @@ import { MnRoutineCron } from './manut-routine.cron';
 import { MnRoutineJob } from './manut-routine.job';
 import { MnRoutineResolver } from './manut-routine.resolver';
 import { MnRoutineService } from './manut-routine.service';
+import { MnSkillResolver } from './manut-skill.resolver';
+import { MnSkillService } from './manut-skill.service';
 
 /**
  * Toggles `ServerFeature.Manut` so the frontend can show/hide the
@@ -149,6 +152,14 @@ export class ManutModule {
       MnGoalService,
       MnGoalContextService,
       MnGoalResolver,
+      // M5 skills layer + portability snapshot. MnSkillService owns the
+      // (workspaceId, slug) uniqueness + version-bump invariant; the
+      // export snapshot service is the SHA-256-keyed receipt store the
+      // import/export pipeline writes into. Branch B owns the AGENTS.md
+      // parser that bridges these services.
+      MnSkillService,
+      MnSkillResolver,
+      MnExportSnapshotService,
       MnFeatureRegistrar,
     ];
 
