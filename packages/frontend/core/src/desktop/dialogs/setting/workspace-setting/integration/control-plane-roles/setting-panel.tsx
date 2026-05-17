@@ -12,16 +12,18 @@ import { Suspense, useCallback, useMemo, useState } from 'react';
 
 import { AgentsListPanel } from '../../../general-setting/control-plane-roles/agents-list';
 import { ApprovalsInbox } from '../../../general-setting/control-plane-roles/approvals-inbox';
+import { SkillsListPanel } from '../../../general-setting/control-plane-roles/skills-list';
 import { IntegrationSettingHeader } from '../setting';
 import { RoleEditModal } from './role-edit-modal';
 import * as styles from './setting-panel.css';
 
-type Subtab = 'roles' | 'agents' | 'approvals';
+type Subtab = 'roles' | 'agents' | 'approvals' | 'skills';
 
 const SUBTAB_ITEMS: RadioItem[] = [
   { value: 'roles', label: 'Roles' },
   { value: 'agents', label: 'Agents' },
   { value: 'approvals', label: 'Approvals' },
+  { value: 'skills', label: 'Skills' },
 ];
 
 // en-only copy; follow-up to thread through i18n once we open that can.
@@ -239,8 +241,10 @@ export const ControlPlaneRolesSettingPanel = () => {
         </section>
       ) : activeSubtab === 'agents' ? (
         <AgentsListPanel workspaceId={workspaceId} />
-      ) : (
+      ) : activeSubtab === 'approvals' ? (
         <ApprovalsInbox workspaceId={workspaceId} />
+      ) : (
+        <SkillsListPanel workspaceId={workspaceId} />
       )}
 
       <RoleEditModal

@@ -72,6 +72,7 @@ model User {
   mnApprovalsRequested        MnApproval[]                @relation("MnApprovalRequestedByUser")
   mnApprovalsDecided          MnApproval[]                @relation("MnApprovalDecidedByUser")
   mnApprovalComments          MnApprovalComment[]         @relation("MnApprovalCommentAuthorUser")
+  mnExportSnapshotsCreated    MnExportSnapshot[]          @relation("MnExportSnapshotsCreated")
 
   @@index([email])
   @@map("users")
@@ -198,6 +199,8 @@ model Workspace {
   mnBudgets                  MnBudget[]
   mnGoals                    MnGoal[]
   mnApprovals                MnApproval[]
+  mnSkills                   MnSkill[]
+  mnExportSnapshots          MnExportSnapshot[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -2351,4 +2354,66 @@ model MnTaskBlocker {
   @@index([projectId])
   @@index([blockedByTaskId])
   @@map("mn_task_blockers")
+}
+
+// ---------------------------------------------------------------------------
+// M5 — Skills layer + portability snapshot
+//
+// MnSkill is a workspace-scoped Markdown skill (think Claude Skills / AGENTS.md
+// instructions). Each row holds the rendered Markdown plus a semver-like
+// version string; the service enforces a version bump whenever `contentMd`
+// changes so consumers can cache by version.
+//
+// MnExportSnapshot is the one-row-per-export receipt produced by the M5
+// portability layer. The manifest carries a description of the export
+// (workspaces, agents, skills, etc.); the SHA-256 of the canonical payload is
+// stored uniquely so re-exporting the same content idempotently returns the
+// existing snapshot row. `payloadBlobKey` is nullable because small payloads
+// may be inlined elsewhere; large payloads point at an object-storage object.
+// ---------------------------------------------------------------------------
+
+enum MnSkillSource {
+  BUILTIN
+  WORKSPACE
+  IMPORTED
+}
+
+model MnSkill {
+  id          String        @id @default(uuid()) @db.VarChar
+  workspaceId String        @map("workspace_id") @db.VarChar
+  slug        String        @db.VarChar
+  name        String        @db.VarChar
+  description String?       @db.Text
+  contentMd   String        @map("content_md") @db.Text
+  version     String        @db.VarChar
+  source      MnSkillSource @default(WORKSPACE)
+  archivedAt  DateTime?     @map("archived_at") @db.Timestamptz(6)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, source])
+  @@index([workspaceId, archivedAt])
+  @@map("mn_skills")
+}
+
+model MnExportSnapshot {
+  id              String   @id @default(uuid()) @db.VarChar
+  workspaceId     String   @map("workspace_id") @db.VarChar
+  createdByUserId String?  @map("created_by_user_id") @db.VarChar
+  manifest        Json     @db.JsonB
+  sha256          String   @unique @db.VarChar
+  byteSize        Int      @map("byte_size")
+  payloadBlobKey  String?  @map("payload_blob_key") @db.VarChar
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdByUser User?     @relation("MnExportSnapshotsCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([createdByUserId])
+  @@map("mn_export_snapshots")
 }

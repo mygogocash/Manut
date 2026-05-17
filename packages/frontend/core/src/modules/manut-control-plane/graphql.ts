@@ -393,3 +393,81 @@ export const createMnApprovalCommentMutation = {
   createMnApprovalComment(workspaceId: $workspaceId, approvalId: $approvalId, input: $input) {${MN_APPROVAL_COMMENT_FIELDS}}
 }`,
 };
+
+// ---------------------------------------------------------------------------
+// Phase 7 — Skills + portability (M5) operations.
+//
+// Backend agent A is concurrently shipping the matching @ObjectType /
+// @InputType / @Resolver classes (MnSkill, MnExportSnapshot). Field
+// selection sets here mirror the agreed DTO contract; widen them once the
+// codegen run from @affine/graphql picks up the new schema.
+// ---------------------------------------------------------------------------
+
+const MN_SKILL_FIELDS = `
+    id
+    workspaceId
+    slug
+    name
+    version
+    source
+    body
+    archivedAt
+    createdAt
+    updatedAt
+`;
+
+const MN_EXPORT_SNAPSHOT_FIELDS = `
+    workspaceId
+    generatedAt
+    blobBase64
+    sha256
+    sizeBytes
+`;
+
+export const mnSkillsQuery = {
+  id: 'mnSkillsQuery' as const,
+  op: 'mnSkills',
+  query: `query mnSkills($workspaceId: ID!, $includeArchived: Boolean) {
+  mnSkills(workspaceId: $workspaceId, includeArchived: $includeArchived) {${MN_SKILL_FIELDS}}
+}`,
+};
+
+export const mnSkillQuery = {
+  id: 'mnSkillQuery' as const,
+  op: 'mnSkill',
+  query: `query mnSkill($id: ID!) {
+  mnSkill(id: $id) {${MN_SKILL_FIELDS}}
+}`,
+};
+
+export const createMnSkillMutation = {
+  id: 'createMnSkillMutation' as const,
+  op: 'createMnSkill',
+  query: `mutation createMnSkill($input: CreateMnSkillInput!) {
+  createMnSkill(input: $input) {${MN_SKILL_FIELDS}}
+}`,
+};
+
+export const updateMnSkillMutation = {
+  id: 'updateMnSkillMutation' as const,
+  op: 'updateMnSkill',
+  query: `mutation updateMnSkill($id: ID!, $input: UpdateMnSkillInput!) {
+  updateMnSkill(id: $id, input: $input) {${MN_SKILL_FIELDS}}
+}`,
+};
+
+export const archiveMnSkillMutation = {
+  id: 'archiveMnSkillMutation' as const,
+  op: 'archiveMnSkill',
+  query: `mutation archiveMnSkill($id: ID!) {
+  archiveMnSkill(id: $id) {${MN_SKILL_FIELDS}}
+}`,
+};
+
+export const exportWorkspaceSnapshotMutation = {
+  id: 'exportWorkspaceSnapshotMutation' as const,
+  op: 'exportWorkspaceSnapshot',
+  query: `mutation exportWorkspaceSnapshot($workspaceId: ID!) {
+  exportWorkspaceSnapshot(workspaceId: $workspaceId) {${MN_EXPORT_SNAPSHOT_FIELDS}}
+}`,
+};

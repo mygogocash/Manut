@@ -292,3 +292,60 @@ export interface MnApprovalSseEvent {
   op: MnApprovalEventOp;
   ts: number;
 }
+
+/**
+ * Phase 7 — Skills + portability (M5).
+ *
+ * Mirrors backend `MnSkill` DTO from
+ * `packages/backend/server/src/plugins/manut/manut-skill.dto.ts` and the
+ * Prisma `MnSkill` model. Skills are markdown documents pinned per
+ * workspace + version, optionally archived. `exportWorkspaceSnapshot`
+ * mutation returns a base64-encoded blob + SHA256 hash for offline
+ * archival.
+ *
+ * Replace with imports from `@affine/graphql` after the next codegen
+ * run picks up the new resolvers.
+ */
+export type MnSkillSource = 'CUSTOM' | 'SEED' | 'IMPORTED';
+
+export interface MnSkillDto {
+  id: string;
+  workspaceId: string;
+  slug: string;
+  name: string;
+  version: string;
+  source: MnSkillSource;
+  /** Markdown body. May be very large for richly authored skills. */
+  body: string;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMnSkillInput {
+  workspaceId: string;
+  slug: string;
+  name: string;
+  version: string;
+  body: string;
+  source?: MnSkillSource | null;
+}
+
+export interface UpdateMnSkillInput {
+  name?: string | null;
+  version?: string | null;
+  body?: string | null;
+  source?: MnSkillSource | null;
+}
+
+export interface MnExportSnapshotDto {
+  workspaceId: string;
+  /** ISO-8601 timestamp at which the snapshot was generated. */
+  generatedAt: string;
+  /** Base64-encoded blob containing the full export payload. */
+  blobBase64: string;
+  /** SHA-256 hash of the raw (pre-base64) blob, hex-encoded. */
+  sha256: string;
+  /** Pre-decoded byte length of the blob, useful for UI display. */
+  sizeBytes: number;
+}
