@@ -1,18 +1,31 @@
 # Railway service config for the Manut app.
 #
-# We deliberately do NOT define [build] here. Railway must pull the
-# pre-built image from GAR, NOT build the Dockerfile from source — the
-# Dockerfile expects pre-built dist/ artifacts in the build context
-# (server bundle, frontend/web/admin/mobile dists, napi binaries) that
-# only the GitHub Actions Build workflow produces. See:
-#   - .docker/manut/Dockerfile.fullstack (header comment)
-#   - .github/workflows/manut-build.yml
-#   - CLAUDE.md §6 "Dockerfile.fullstack expects pre-built dists"
+# DEPLOY DESIGN — TWO PATHS:
 #
-# Image source for this service is configured in the Railway dashboard:
-#   Settings -> Source -> "Image" -> GAR URL with private-registry creds.
-# The downstream "Manut Railway Deploy" workflow updates the image tag
-# per build via the Railway API; see .github/workflows/manut-railway-deploy.yml.
+# Path A (documented design — CLAUDE.md §9): GitHub Actions builds the
+# image, pushes to Google Artifact Registry, and the Railway service is
+# configured ONE-TIME in the dashboard with source.image pointed at
+# `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main`.
+# The manut-railway-deploy.yml workflow re-tags freshly-built images as
+# :main in GAR and triggers `serviceInstanceDeployV2` to roll. This
+# path is cheap, fast (~3-5 min deploy), and consistent with the legacy
+# GCE/compose deploy on the VM (same image, two destinations).
+#
+# Path B (fallback — this file): When the Railway service source is
+# the GitHub repo instead of a registry image, Railway builds the
+# Dockerfile defined below natively on its build runner. This is what
+# happens when the dashboard source has never been migrated from
+# "GitHub repo" (the default after `New service from repo`) to a
+# Docker image source. The build takes 20-30 min on a cold cache and
+# uses Railway build minutes — switch to Path A when convenient.
+#
+# The [build] block below activates Path B. To go back to Path A:
+#   1. Set the Railway service source.image in the dashboard.
+#   2. Delete the [build] block here (or set builder = "RAILPACK").
+#   3. Re-deploy.
+#
+# Either way, the [deploy] block applies — these are runtime settings
+# that work regardless of how the image was produced.
 #
 # Migration: AFFiNE's predeploy script (`yarn predeploy` from the server
 # package — runs `prisma migrate deploy` + admin-user seeding) is NOT
@@ -25,6 +38,10 @@
 #      (~1-2s overhead per container start; idempotent).
 # Default below is the bare server boot — pick the pattern that fits
 # your release flow.
+
+[build]
+builder        = "DOCKERFILE"
+dockerfilePath = ".docker/manut/Dockerfile.railway"
 
 [deploy]
 healthcheckPath         = "/info"
