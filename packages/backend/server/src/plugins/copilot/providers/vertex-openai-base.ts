@@ -9,6 +9,7 @@ import {
   type NativeLlmRequest,
 } from '../../../native';
 import type { NodeTextMiddleware } from '../config';
+import { emitProviderCostEvent } from '../cost-emit';
 import type { CopilotTool, CopilotToolSet } from '../tools';
 import { buildNativeRequest, NativeProviderAdapter } from './native';
 import { CopilotProvider } from './provider';
@@ -148,11 +149,20 @@ export abstract class VertexOpenAICompatProvider extends CopilotProvider<VertexP
         tools,
         middleware,
       });
-      return await this.createNativeAdapter(
+      const output = await this.createNativeAdapter(
         backendConfig,
         tools,
         middleware.node?.text
       ).text(request, options.signal, messages);
+      // M4 cost emission — fire-and-forget, never blocks the response.
+      emitProviderCostEvent(this.moduleRef, this.logger, {
+        provider: this.type,
+        model: model.id,
+        messages,
+        outputText: output,
+        options,
+      });
+      return output;
     } catch (e: any) {
       metrics.ai
         .counter('chat_text_errors')
@@ -187,13 +197,23 @@ export abstract class VertexOpenAICompatProvider extends CopilotProvider<VertexP
         tools,
         middleware,
       });
+      let collectedOutput = '';
       for await (const chunk of this.createNativeAdapter(
         backendConfig,
         tools,
         middleware.node?.text
       ).streamText(request, options.signal, messages)) {
+        collectedOutput += chunk;
         yield chunk;
       }
+      // M4 cost emission — fire-and-forget at stream end.
+      emitProviderCostEvent(this.moduleRef, this.logger, {
+        provider: this.type,
+        model: model.id,
+        messages,
+        outputText: collectedOutput,
+        options,
+      });
     } catch (e: any) {
       metrics.ai
         .counter('chat_text_stream_errors')
@@ -228,13 +248,27 @@ export abstract class VertexOpenAICompatProvider extends CopilotProvider<VertexP
         tools,
         middleware,
       });
+      let collectedOutputChars = 0;
       for await (const chunk of this.createNativeAdapter(
         backendConfig,
         tools,
         middleware.node?.text
       ).streamObject(request, options.signal, messages)) {
+        if (chunk.type === 'text-delta' && chunk.textDelta) {
+          collectedOutputChars += chunk.textDelta.length;
+        }
         yield chunk;
       }
+      // M4 cost emission. We can't easily reconstruct the full string
+      // from heterogeneous StreamObject types, so we approximate from the
+      // accumulated text-delta length.
+      emitProviderCostEvent(this.moduleRef, this.logger, {
+        provider: this.type,
+        model: model.id,
+        messages,
+        outputTextLength: collectedOutputChars,
+        options,
+      });
     } catch (e: any) {
       metrics.ai
         .counter('chat_object_stream_errors')

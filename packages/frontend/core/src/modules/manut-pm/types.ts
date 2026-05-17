@@ -93,3 +93,93 @@ export interface UpdateMnTaskInput {
   listSortOrder?: number | null;
   assigneeUserId?: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// M2 — goals, task ancestry, blockers, AI session task-link.
+// ---------------------------------------------------------------------------
+
+export type MnGoalLevel = 'PROJECT' | 'TEAM' | 'AGENT' | 'TASK';
+
+export type MnGoalStatus = 'PLANNED' | 'ACTIVE' | 'ACHIEVED' | 'CANCELLED';
+
+export const MN_GOAL_LEVELS: readonly MnGoalLevel[] = [
+  'PROJECT',
+  'TEAM',
+  'AGENT',
+  'TASK',
+];
+
+export const MN_GOAL_STATUSES: readonly MnGoalStatus[] = [
+  'PLANNED',
+  'ACTIVE',
+  'ACHIEVED',
+  'CANCELLED',
+];
+
+export interface MnGoalDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  title: string;
+  description: string | null;
+  level: MnGoalLevel;
+  parentGoalId: string | null;
+  ownerAgentId: string | null;
+  status: MnGoalStatus;
+  createdByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMnGoalInput {
+  projectId: string;
+  title: string;
+  description?: string | null;
+  level: MnGoalLevel;
+  parentGoalId?: string | null;
+  ownerAgentId?: string | null;
+  status?: MnGoalStatus | null;
+}
+
+export interface UpdateMnGoalInput {
+  title?: string | null;
+  description?: string | null;
+  level?: MnGoalLevel | null;
+  parentGoalId?: string | null;
+  ownerAgentId?: string | null;
+  status?: MnGoalStatus | null;
+}
+
+export interface MnGoalAncestryStep {
+  goalId: string;
+  title: string;
+  level: MnGoalLevel;
+  status: MnGoalStatus;
+  depth: number;
+}
+
+export interface MnTaskAncestryStep {
+  taskId: string;
+  title: string;
+  depth: number;
+}
+
+export interface MnTaskAncestry {
+  taskId: string;
+  taskTitle: string;
+  taskAncestors: MnTaskAncestryStep[];
+  goalChain: MnGoalAncestryStep[];
+}
+
+export interface MnTaskBlockerDto {
+  id: string;
+  taskId: string;
+  blockedByTaskId: string;
+  projectId: string;
+  createdAt: string;
+}
+
+export interface AddMnTaskBlockerInput {
+  taskId: string;
+  blockedByTaskId: string;
+}

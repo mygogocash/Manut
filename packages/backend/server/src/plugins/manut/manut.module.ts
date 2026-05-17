@@ -12,7 +12,23 @@ import { MnAgentApiKeyResolver } from './manut-agent-api-key.resolver';
 import { MnAgentApiKeyService } from './manut-agent-api-key.service';
 import { MnAgentRegistryResolver } from './manut-agent-registry.resolver';
 import { MnAgentRegistryService } from './manut-agent-registry.service';
+import { MnApprovalResolver } from './manut-approval.resolver';
+import { MnApprovalService } from './manut-approval.service';
+import { MnApprovalCommentService } from './manut-approval-comment.service';
+import { MnApprovalGateService } from './manut-approval-gate.service';
+import { MnApprovalStaleCron } from './manut-approval-stale.cron';
+import {
+  MnApprovalEventBus,
+  MnApprovalsStreamController,
+} from './manut-approvals-stream.controller';
+import { MnBudgetResolver } from './manut-budget.resolver';
+import { MnBudgetService } from './manut-budget.service';
+import { MnBudgetEnforcerService } from './manut-budget-enforcer.service';
+import { MnCostService } from './manut-cost.service';
 import { MnCrmResolver } from './manut-crm.resolver';
+import { MnGoalResolver } from './manut-goal.resolver';
+import { MnGoalService } from './manut-goal.service';
+import { MnGoalContextService } from './manut-goal-context.service';
 import { MnHandoverResolver } from './manut-handover.resolver';
 import { MnHandoverService } from './manut-handover.service';
 import { MnHeartbeatService } from './manut-heartbeat.service';
@@ -107,6 +123,32 @@ export class ManutModule {
       MnHeartbeatService,
       MnReleaseRunsService,
       MnReleaseRunsResolver,
+      // M4 budget + cost events. Hot-path enforcer is in
+      // MnBudgetEnforcerService (in-memory 30s TTL cache). Cost emission
+      // is fire-and-forget from the copilot providers — never blocks the
+      // streaming response (CLAUDE.md scar #5).
+      MnCostService,
+      MnBudgetService,
+      MnBudgetEnforcerService,
+      MnBudgetResolver,
+      // M3 approvals + reviews. Hot-path gate is MnApprovalGateService
+      // (in-memory 30s TTL cache; sub-millisecond peek). The cron
+      // auto-cancels stale PENDING approvals every 5 minutes
+      // (approvalTimeoutMinutes default 30). MnApprovalEventBus is a
+      // workspace-scoped SSE pub/sub identical in shape to
+      // DocReadEventBus (CLAUDE.md §6e).
+      MnApprovalGateService,
+      MnApprovalService,
+      MnApprovalCommentService,
+      MnApprovalResolver,
+      MnApprovalStaleCron,
+      MnApprovalEventBus,
+      // M2 goal hierarchy + task ancestry / blockers. MnGoalContextService
+      // is consumed by the auto-router to prepend a GOAL CONTEXT block to
+      // the system message when an AiSession has a linked taskId.
+      MnGoalService,
+      MnGoalContextService,
+      MnGoalResolver,
       MnFeatureRegistrar,
     ];
 
@@ -135,6 +177,7 @@ export class ManutModule {
         DocStorageModule,
         ServerConfigModule,
       ],
+      controllers: [MnApprovalsStreamController],
       providers,
     };
   }

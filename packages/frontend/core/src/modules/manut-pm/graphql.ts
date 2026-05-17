@@ -162,3 +162,189 @@ export const deleteMnTaskMutation = {
   deleteMnTask(taskId: $taskId)
 }`,
 };
+
+// ---------------------------------------------------------------------------
+// M2 — goal hierarchy + task ancestry + blockers + AI session task-link.
+// ---------------------------------------------------------------------------
+
+export const mnGoalsQuery = {
+  id: 'mnGoalsQuery' as const,
+  op: 'mnGoals',
+  query: `query mnGoals($workspaceId: ID!, $projectId: ID) {
+  mnGoals(workspaceId: $workspaceId, projectId: $projectId) {
+    id
+    workspaceId
+    projectId
+    title
+    description
+    level
+    parentGoalId
+    ownerAgentId
+    status
+    createdByUserId
+    createdAt
+    updatedAt
+  }
+}`,
+};
+
+export const mnGoalQuery = {
+  id: 'mnGoalQuery' as const,
+  op: 'mnGoal',
+  query: `query mnGoal($workspaceId: ID!, $goalId: ID!) {
+  mnGoal(workspaceId: $workspaceId, goalId: $goalId) {
+    id
+    workspaceId
+    projectId
+    title
+    description
+    level
+    parentGoalId
+    ownerAgentId
+    status
+    createdAt
+    updatedAt
+  }
+}`,
+};
+
+export const mnGoalAncestryQuery = {
+  id: 'mnGoalAncestryQuery' as const,
+  op: 'mnGoalAncestry',
+  query: `query mnGoalAncestry($workspaceId: ID!, $goalId: ID!) {
+  mnGoalAncestry(workspaceId: $workspaceId, goalId: $goalId) {
+    goalId
+    title
+    level
+    status
+    depth
+  }
+}`,
+};
+
+export const mnTaskAncestryQuery = {
+  id: 'mnTaskAncestryQuery' as const,
+  op: 'mnTaskAncestry',
+  query: `query mnTaskAncestry($workspaceId: ID!, $taskId: ID!) {
+  mnTaskAncestry(workspaceId: $workspaceId, taskId: $taskId) {
+    taskId
+    taskTitle
+    taskAncestors {
+      taskId
+      title
+      depth
+    }
+    goalChain {
+      goalId
+      title
+      level
+      status
+      depth
+    }
+  }
+}`,
+};
+
+export const createMnGoalMutation = {
+  id: 'createMnGoalMutation' as const,
+  op: 'createMnGoal',
+  query: `mutation createMnGoal($workspaceId: ID!, $input: CreateMnGoalInput!) {
+  createMnGoal(workspaceId: $workspaceId, input: $input) {
+    id
+    workspaceId
+    projectId
+    title
+    description
+    level
+    parentGoalId
+    ownerAgentId
+    status
+    createdAt
+    updatedAt
+  }
+}`,
+};
+
+export const updateMnGoalMutation = {
+  id: 'updateMnGoalMutation' as const,
+  op: 'updateMnGoal',
+  query: `mutation updateMnGoal($workspaceId: ID!, $goalId: ID!, $input: UpdateMnGoalInput!) {
+  updateMnGoal(workspaceId: $workspaceId, goalId: $goalId, input: $input) {
+    id
+    title
+    description
+    level
+    parentGoalId
+    ownerAgentId
+    status
+    updatedAt
+  }
+}`,
+};
+
+export const deleteMnGoalMutation = {
+  id: 'deleteMnGoalMutation' as const,
+  op: 'deleteMnGoal',
+  query: `mutation deleteMnGoal($workspaceId: ID!, $goalId: ID!) {
+  deleteMnGoal(workspaceId: $workspaceId, goalId: $goalId)
+}`,
+};
+
+export const setMnTaskParentMutation = {
+  id: 'setMnTaskParentMutation' as const,
+  op: 'setMnTaskParent',
+  query: `mutation setMnTaskParent($workspaceId: ID!, $taskId: ID!, $parentTaskId: ID) {
+  setMnTaskParent(
+    workspaceId: $workspaceId
+    taskId: $taskId
+    parentTaskId: $parentTaskId
+  )
+}`,
+};
+
+export const addMnTaskBlockerMutation = {
+  id: 'addMnTaskBlockerMutation' as const,
+  op: 'addMnTaskBlocker',
+  query: `mutation addMnTaskBlocker($workspaceId: ID!, $input: AddMnTaskBlockerInput!) {
+  addMnTaskBlocker(workspaceId: $workspaceId, input: $input) {
+    id
+    taskId
+    blockedByTaskId
+    projectId
+    createdAt
+  }
+}`,
+};
+
+export const removeMnTaskBlockerMutation = {
+  id: 'removeMnTaskBlockerMutation' as const,
+  op: 'removeMnTaskBlocker',
+  query: `mutation removeMnTaskBlocker($workspaceId: ID!, $blockerId: ID!) {
+  removeMnTaskBlocker(workspaceId: $workspaceId, blockerId: $blockerId)
+}`,
+};
+
+export const assignMnTaskMutation = {
+  id: 'assignMnTaskMutation' as const,
+  op: 'assignMnTask',
+  query: `mutation assignMnTask($workspaceId: ID!, $taskId: ID!, $assigneeUserId: ID, $assigneeAgentId: ID) {
+  assignMnTask(
+    workspaceId: $workspaceId
+    taskId: $taskId
+    assigneeUserId: $assigneeUserId
+    assigneeAgentId: $assigneeAgentId
+  )
+}`,
+};
+
+export const bindAiSessionToTaskMutation = {
+  id: 'bindAiSessionToTaskMutation' as const,
+  op: 'bindAiSessionToTask',
+  query: `mutation bindAiSessionToTask($workspaceId: ID!, $sessionId: ID!, $taskId: ID) {
+  bindAiSessionToTask(
+    workspaceId: $workspaceId
+    sessionId: $sessionId
+    taskId: $taskId
+  )
+}`,
+};
