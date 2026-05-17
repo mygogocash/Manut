@@ -1,9 +1,15 @@
 import { ArrowRight, ShieldCheck, Sparkles, Star, Users } from 'lucide-react';
+import Image from 'next/image';
 
 import { GithubIcon } from '@/components/icons/github';
 import { ProductMockup } from '@/components/sections/product-mockup';
 import { ButtonLink } from '@/components/ui/button';
 import { siteConfig } from '@/lib/site';
+
+// Set to '/newton-hero.jpeg' once you save the illustration to
+// manut-landing/public/newton-hero.jpeg. Until then, the hero shows
+// only the spectrum wash + headline (no broken image placeholder).
+const HERO_ILLUSTRATION: string | null = '/newton-hero.jpeg';
 
 export function Hero() {
   return (
@@ -11,13 +17,36 @@ export function Hero() {
       aria-labelledby="hero-heading"
       className="relative overflow-hidden pt-24 sm:pt-32"
     >
-      {/* Soft top wash */}
+      {/* Spectrum wash — coral / gold / teal refraction behind the headline */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-32 h-[480px] bg-[radial-gradient(ellipse_at_50%_0%,oklch(0.88_0.18_130/0.18)_0%,transparent_60%)] dark:bg-[radial-gradient(ellipse_at_50%_0%,oklch(0.85_0.19_132/0.10)_0%,transparent_60%)]"
+        className="bg-spectrum pointer-events-none absolute inset-x-0 -top-32 h-[560px]"
       />
 
       <div className="container-prose relative">
+        {HERO_ILLUSTRATION ? (
+          <figure className="mx-auto mb-14 max-w-4xl sm:mb-20">
+            <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[0_30px_80px_-20px_oklch(0_0_0/0.22)] dark:shadow-[0_30px_80px_-20px_oklch(0_0_0/0.65)]">
+              <Image
+                src={HERO_ILLUSTRATION}
+                alt="Newton observing light through a prism — a scene from the Manut workspace illustrations."
+                width={1024}
+                height={687}
+                priority
+                sizes="(max-width: 1024px) 92vw, 960px"
+                className="h-auto w-full"
+              />
+              <div
+                aria-hidden
+                className="bg-rainbow-strip absolute inset-x-0 bottom-0 h-[3px] opacity-80"
+              />
+            </div>
+            <figcaption className="mt-3 text-center font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Light, refracted into a workspace
+            </figcaption>
+          </figure>
+        ) : null}
+
         <div className="mx-auto max-w-3xl text-center">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3.5 py-1.5 backdrop-blur-sm">
             <Sparkles className="size-3.5 text-foreground" aria-hidden />

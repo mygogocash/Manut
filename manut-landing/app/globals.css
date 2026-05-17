@@ -28,6 +28,9 @@
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-line: var(--line);
+  --color-teal-ink: var(--teal-ink);
+  --color-coral: var(--coral);
+  --color-gold-warm: var(--gold-warm);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
@@ -42,7 +45,7 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ── Light theme: warm cream + ink + lime ── */
+/* ── Light theme: cream canvas + ink type + coral focal + teal-ink atmosphere ── */
 :root {
   --radius: 0.5rem;
 
@@ -70,8 +73,16 @@
   --muted: oklch(0.95 0.008 85);
   --muted-foreground: oklch(0.5 0.01 260);
 
-  --accent: oklch(0.88 0.18 130);
+  /* Coral — Newton's robe; the focal warm. Replaces lime. */
+  --accent: oklch(0.78 0.16 25);
   --accent-foreground: oklch(0.18 0.01 260);
+
+  /* Teal-ink — the deep cyan from the reference illustration */
+  --teal-ink: oklch(0.55 0.08 215);
+  /* Gold-warm — celestial/Principia gold for atmosphere */
+  --gold-warm: oklch(0.82 0.13 85);
+  /* Coral named alias for utility usage */
+  --coral: oklch(0.78 0.16 25);
 
   --destructive: oklch(0.577 0.245 27.325);
 
@@ -80,7 +91,7 @@
   --ring: oklch(0.5 0.01 260);
 }
 
-/* ── Dark theme: deep ink + paper + lime ── */
+/* ── Dark theme: deep ink + paper + coral ── */
 .dark {
   --background: oklch(0.16 0.008 270);
   --foreground: oklch(0.96 0.005 85);
@@ -106,8 +117,13 @@
   --muted: oklch(0.27 0.008 270);
   --muted-foreground: oklch(0.7 0.008 85);
 
-  --accent: oklch(0.85 0.19 132);
-  --accent-foreground: oklch(0.16 0.008 270);
+  /* Coral — slightly lifted for contrast against ink */
+  --accent: oklch(0.74 0.17 25);
+  --accent-foreground: oklch(0.96 0.005 85);
+
+  --teal-ink: oklch(0.68 0.1 215);
+  --gold-warm: oklch(0.86 0.14 85);
+  --coral: oklch(0.74 0.17 25);
 
   --destructive: oklch(0.704 0.191 22.216);
 
@@ -135,7 +151,7 @@
   }
 
   ::selection {
-    background-color: oklch(0.88 0.18 130);
+    background-color: oklch(0.78 0.16 25 / 0.45);
     color: oklch(0.18 0.01 260);
   }
 
@@ -221,11 +237,63 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Lime ring used on focused/active interactive surfaces */
+  /* Coral ring used on focused/active interactive surfaces */
   .ring-accent-glow:focus-visible {
-    outline: 2px solid oklch(0.88 0.18 130);
+    outline: 2px solid oklch(0.78 0.16 25);
     outline-offset: 3px;
   }
+}
+
+/* Spectrum wash and rainbow seam — declared OUTSIDE @layer utilities so
+   the Tailwind 4 CSS scanner does not tree-shake them. Stops are: coral,
+   gold, teal — echoing Newton's prism refraction. */
+.bg-spectrum {
+  background:
+    radial-gradient(
+      ellipse 55% 50% at 22% 18%,
+      oklch(0.78 0.16 25 / 0.22),
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 50% 45% at 78% 26%,
+      oklch(0.68 0.13 215 / 0.2),
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 70% 55% at 50% 6%,
+      oklch(0.82 0.13 85 / 0.18),
+      transparent 70%
+    );
+}
+
+.dark .bg-spectrum {
+  background:
+    radial-gradient(
+      ellipse 55% 50% at 22% 18%,
+      oklch(0.74 0.17 25 / 0.14),
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 50% 45% at 78% 26%,
+      oklch(0.7 0.13 215 / 0.14),
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 70% 55% at 50% 6%,
+      oklch(0.86 0.14 85 / 0.12),
+      transparent 70%
+    );
+}
+
+.bg-rainbow-strip {
+  background: linear-gradient(
+    90deg,
+    oklch(0.78 0.16 25) 0%,
+    oklch(0.82 0.13 85) 25%,
+    oklch(0.85 0.13 140) 50%,
+    oklch(0.7 0.13 215) 75%,
+    oklch(0.7 0.13 290) 100%
+  );
 }
 
 @media (prefers-reduced-motion: reduce) {
