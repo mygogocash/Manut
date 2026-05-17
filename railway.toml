@@ -43,6 +43,15 @@
 # If you want persistent JWT signing, attach a Railway volume to
 # /root/.affine/config and add a one-time `openssl ecparam ...` to the
 # preDeployCommand list.
+#
+# IMPORTANT — do NOT set startCommand here. Railway's startCommand
+# replaces the Docker ENTRYPOINT (exec form), which skips
+# .docker/manut/entrypoint.railway.sh. That script bridges Railway's
+# injected $PORT to AFFINE_SERVER_PORT; without it the server keeps
+# listening on 3010 while Railway healthchecks $PORT, and deploy fails
+# with "Healthcheck failure". The Dockerfile already sets:
+#   ENTRYPOINT ["/usr/local/bin/manut-entrypoint"]
+#   CMD ["node", "./dist/main.js"]
 
 [build]
 builder        = "DOCKERFILE"
@@ -50,11 +59,12 @@ dockerfilePath = ".docker/manut/Dockerfile.railway"
 
 [deploy]
 healthcheckPath = "/info"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
 numReplicas = 1
 preDeployCommand = [
+  "/bin/sh",
+  "-c",
   "./node_modules/.bin/prisma migrate deploy --schema=./schema.prisma",
 ]
 restartPolicyMaxRetries = 3
 restartPolicyType = "ON_FAILURE"
-startCommand = "node ./dist/main.js"
