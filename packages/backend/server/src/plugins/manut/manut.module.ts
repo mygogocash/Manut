@@ -6,11 +6,16 @@ import { ServerFeature } from '../../core/config/types';
 import { DocStorageModule } from '../../core/doc';
 import { MailModule } from '../../core/mail';
 import { PermissionModule } from '../../core/permission';
+import { MnAgentResolver } from './manut-agent.resolver';
+import { MnAgentService } from './manut-agent.service';
+import { MnAgentApiKeyResolver } from './manut-agent-api-key.resolver';
+import { MnAgentApiKeyService } from './manut-agent-api-key.service';
 import { MnAgentRegistryResolver } from './manut-agent-registry.resolver';
 import { MnAgentRegistryService } from './manut-agent-registry.service';
 import { MnCrmResolver } from './manut-crm.resolver';
 import { MnHandoverResolver } from './manut-handover.resolver';
 import { MnHandoverService } from './manut-handover.service';
+import { MnHeartbeatService } from './manut-heartbeat.service';
 import { MnPmResolver } from './manut-pm.resolver';
 import { MnReleaseRunsResolver } from './manut-release-runs.resolver';
 import { MnReleaseRunsService } from './manut-release-runs.service';
@@ -90,6 +95,16 @@ export class ManutModule {
       MnReminderCron,
       MnAgentRegistryService,
       MnAgentRegistryResolver,
+      // M1 agent identity: CRUD, API keys, heartbeats. Gated by the
+      // same env flag as the rest of the Manut suite. A standalone
+      // DynamicModule wrapping the same providers lives in
+      // manut-agent.module.ts for future M2 work that may want to
+      // split this out behind its own env flag.
+      MnAgentService,
+      MnAgentResolver,
+      MnAgentApiKeyService,
+      MnAgentApiKeyResolver,
+      MnHeartbeatService,
       MnReleaseRunsService,
       MnReleaseRunsResolver,
       MnFeatureRegistrar,

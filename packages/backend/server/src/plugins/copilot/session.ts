@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { Transactional } from '@nestjs-cls/transactional';
-import { AiPromptRole } from '@prisma/client';
+import { AiPromptRole, MnHeartbeatRunStatus } from '@prisma/client';
 import { pick } from 'lodash-es';
 
 import {
@@ -26,6 +26,7 @@ import {
   type UpdateChatSession,
   UpdateChatSessionOptions,
 } from '../../models';
+import { MnHeartbeatService } from '../manut/manut-heartbeat.service';
 import { SubscriptionService } from '../payment/service';
 import { SubscriptionPlan, SubscriptionStatus } from '../payment/types';
 import { isAutoModel, isAutoPromptName, routeAutoModel } from './auto-router';
@@ -62,6 +63,15 @@ declare global {
     };
   }
 }
+
+/**
+ * The Manut module is opt-in (`ENABLE_MANUT_MODULE`), so
+ * `MnHeartbeatService` may or may not be present in the DI container.
+ * The class symbol is imported eagerly (per the v1.12.0 DI-metadata
+ * scars — never `import type` for runtime DI tokens), but resolution
+ * goes through `moduleRef.get(MnHeartbeatService, { strict: false })`
+ * so a disabled module degrades to a silent no-op.
+ */
 
 export class ChatSession implements AsyncDisposable {
   private readonly logger = new Logger(ChatSession.name);
@@ -408,6 +418,9 @@ export class ChatSessionService {
         'title',
         'createdAt',
         'updatedAt',
+        // Manut control plane: pass the agent binding through so the
+        // heartbeat hook in `get()` can read it from in-memory state.
+        'agentId',
       ]),
       sessionId: session.id,
       tokens: session.tokenCost,
@@ -663,19 +676,126 @@ export class ChatSessionService {
   async get(sessionId: string): Promise<ChatSession | null> {
     const state = await this.getSessionInfo(sessionId);
     if (state) {
+      // Capture the agent binding from the in-memory state up-front so
+      // the dispose closure doesn't have to look at the live `state` it
+      // mutates. `agentId` is set via `bindAgent()` and only changes via
+      // that path, so the closure value is safe for the lifetime of the
+      // ChatSession instance.
+      const agentId = state.agentId;
+
       return new ChatSession(
         this.moduleRef,
         this.messageCache,
         state,
-        async state => {
-          await this.models.copilotSession.updateMessages(state);
-          if (!state.prompt.action) {
+        async disposedState => {
+          // Pre-stamp UUIDs on any freshly-pushed message that doesn't
+          // already have one. Prisma's `@default(uuid())` would otherwise
+          // generate ids server-side and we'd have to re-query to find
+          // the assistant turn we just persisted — pre-stamping lets the
+          // heartbeat hook below cite a stable `aiSessionMessageId`.
+          for (const m of disposedState.messages) {
+            if (!m.id) m.id = randomUUID();
+          }
+
+          let status: MnHeartbeatRunStatus = MnHeartbeatRunStatus.SUCCEEDED;
+          let persistError: unknown;
+          try {
+            await this.models.copilotSession.updateMessages(disposedState);
+          } catch (err) {
+            status = MnHeartbeatRunStatus.FAILED;
+            persistError = err;
+            throw err;
+          } finally {
+            // Manut control plane: emit one heartbeat per chat turn the
+            // moment it's durably persisted (or failed to persist). Skip
+            // silently when the session isn't bound to an agent — most
+            // chats are not.
+            if (agentId) {
+              const assistantMessage = [...disposedState.messages]
+                .reverse()
+                .find(m => m.role === 'assistant');
+              const externalRunId =
+                assistantMessage?.id ?? disposedState.messages.at(-1)?.id;
+              if (externalRunId) {
+                this.emitHeartbeat({
+                  agentId,
+                  aiSessionId: sessionId,
+                  externalRunId,
+                  status,
+                  finishedAt: new Date(),
+                  error:
+                    persistError instanceof Error
+                      ? persistError.message
+                      : persistError != null
+                        ? String(persistError)
+                        : null,
+                });
+              }
+            }
+          }
+
+          if (!disposedState.prompt.action) {
             await this.jobs.add('copilot.session.generateTitle', { sessionId });
           }
         }
       );
     }
     return null;
+  }
+
+  /**
+   * Manut control plane: associate or detach the `MnAgent` that owns
+   * this chat session. Called by the agent registry resolver in the
+   * Manut module; safe to call repeatedly and idempotent at the DB
+   * level. Pass `null` to clear the binding.
+   */
+  async bindAgent(aiSessionId: string, agentId: string | null): Promise<void> {
+    await this.models.copilotSession.bindAgent(aiSessionId, agentId);
+  }
+
+  /**
+   * Fire-and-forget heartbeat emit. Resolves `MnHeartbeatService`
+   * lazily so the copilot plugin builds cleanly even when the Manut
+   * module isn't loaded (the env flag is opt-in). If the service can't
+   * be resolved we silently no-op — the heartbeat is a best-effort
+   * audit signal and MUST NOT block or fail the chat-turn response.
+   *
+   * The recordTurn call is intentionally NOT awaited; the `.catch`
+   * keeps a stray promise rejection from crashing the Node process
+   * even though the service already swallows errors internally.
+   */
+  private emitHeartbeat(input: {
+    agentId: string;
+    aiSessionId: string;
+    externalRunId: string;
+    status: MnHeartbeatRunStatus;
+    finishedAt: Date;
+    error: string | null;
+  }): void {
+    let heartbeat: MnHeartbeatService | undefined;
+    try {
+      heartbeat = this.moduleRef.get(MnHeartbeatService, { strict: false });
+    } catch {
+      // Manut module not loaded; nothing to do.
+      return;
+    }
+    if (!heartbeat) return;
+
+    void heartbeat
+      .recordTurn({
+        agentId: input.agentId,
+        aiSessionId: input.aiSessionId,
+        externalRunId: input.externalRunId,
+        status: input.status,
+        finishedAt: input.finishedAt,
+        error: input.error,
+      })
+      .catch(err => {
+        this.logger.warn(
+          `Failed to record Manut heartbeat for session ${input.aiSessionId}`,
+          err instanceof Error ? (err.stack ?? err.message) : err
+        );
+      });
   }
 
   // public for test mock

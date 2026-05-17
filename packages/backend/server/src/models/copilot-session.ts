@@ -446,6 +446,11 @@ export class CopilotSessionModel extends BaseModel {
       pinned: true,
       title: true,
       promptName: true,
+      // Manut control plane: link the chat session to its owning agent
+      // (null for plain user chats). The heartbeat hook in
+      // ChatSessionService.get() reads this off the fetched row so it
+      // does not need to re-query AiSession before recording a turn.
+      agentId: true,
       tokenCost: true,
       createdAt: true,
       updatedAt: true,
@@ -533,6 +538,9 @@ export class CopilotSessionModel extends BaseModel {
         pinned: true,
         title: true,
         promptName: true,
+        // Manut control plane: same as `get()`. Keeps `getHistory()`
+        // happy when it threads list output through the same shape.
+        agentId: true,
         tokenCost: true,
         createdAt: true,
         updatedAt: true,
@@ -630,6 +638,22 @@ export class CopilotSessionModel extends BaseModel {
     });
 
     return sessionId;
+  }
+
+  /**
+   * Manut control plane: associate (or detach) an `AiSession` with the
+   * `MnAgent` that authored it. Pass `null` to clear the binding.
+   *
+   * Kept separate from `update()` so the agent registry resolver (in the
+   * Manut module) can drive this without going through the wider
+   * `UpdateChatSessionOptions` plumbing — it only needs the two fields.
+   */
+  @Transactional()
+  async bindAgent(sessionId: string, agentId: string | null): Promise<void> {
+    await this.db.aiSession.update({
+      where: { id: sessionId },
+      data: { agentId },
+    });
   }
 
   @Transactional()

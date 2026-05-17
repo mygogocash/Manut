@@ -94,6 +94,11 @@ export const ChatHistorySchema = z
     parentSessionId: z.string().nullable(),
     pinned: z.boolean(),
     title: z.string().nullable(),
+    // Manut control plane: optional binding to the MnAgent that authored
+    // this session. `null` for plain user chats. The heartbeat hook in
+    // ChatSessionService.get() reads this off the in-memory state so it
+    // does not need to re-query AiSession before recording a turn.
+    agentId: z.string().nullable(),
 
     action: z.string().nullable(),
     model: z.string(),
@@ -133,7 +138,7 @@ export type ChatSessionForkOptions = Pick<
 
 export type ChatSessionState = Pick<
   ChatHistory,
-  'userId' | 'sessionId' | 'workspaceId' | 'docId' | 'messages'
+  'userId' | 'sessionId' | 'workspaceId' | 'docId' | 'messages' | 'agentId'
 > & {
   prompt: ChatPrompt;
 };

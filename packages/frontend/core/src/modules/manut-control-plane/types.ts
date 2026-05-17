@@ -65,3 +65,71 @@ export interface MnReleaseRunDto {
   generatedAt: string;
   tasks: MnReleaseRunTaskDto[];
 }
+
+/**
+ * Phase 5 — Agent Identity (M1).
+ *
+ * `MnAgent` is the per-workspace registered worker — distinct from
+ * `MnAgentRole` (the five fixed operating slots). Agents bind to a project
+ * and a role template, expose API keys for adapters to authenticate with,
+ * and emit heartbeats while running.
+ */
+
+export type MnAgentStatus = 'active' | 'paused' | 'terminated';
+
+export type MnHeartbeatRunStatus =
+  | 'running'
+  | 'success'
+  | 'failure'
+  | 'timed_out';
+
+export interface MnAgentDto {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  name: string;
+  roleTemplate: string;
+  adapterType: string;
+  status: MnAgentStatus;
+  lastHeartbeatAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  apiKeys?: MnAgentApiKeyDto[];
+}
+
+export interface MnAgentApiKeyDto {
+  id: string;
+  agentId: string;
+  /** Last 4 chars of the secret; full secret is only returned on mint. */
+  tokenSuffix: string;
+  /** Plaintext bearer token — present ONLY in the `createMnAgentApiKey` response. */
+  plaintextToken?: string | null;
+  createdAt: string;
+  revokedAt: string | null;
+}
+
+export interface MnHeartbeatRunDto {
+  id: string;
+  agentId: string;
+  status: MnHeartbeatRunStatus;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+  errorMessage: string | null;
+}
+
+export interface CreateMnAgentInput {
+  workspaceId: string;
+  projectId?: string | null;
+  name: string;
+  roleTemplate: string;
+  adapterType?: string | null;
+}
+
+export interface UpdateMnAgentStatusInput {
+  status: MnAgentStatus;
+}
+
+export interface CreateMnAgentApiKeyInput {
+  agentId: string;
+}

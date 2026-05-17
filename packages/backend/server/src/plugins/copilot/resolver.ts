@@ -318,6 +318,13 @@ class CopilotHistoriesType implements Omit<ChatHistory, 'userId'> {
   @Field(() => String, { nullable: true })
   title!: string | null;
 
+  // Manut control plane: id of the MnAgent that owns this chat session,
+  // or null for plain user chats. Explicit `() => String` per the
+  // v1.10.2 @Field-UndefinedTypeError scar — nullable @Field decorators
+  // cannot infer their GraphQL type from a TS `string | null` union.
+  @Field(() => String, { nullable: true })
+  agentId!: string | null;
+
   @Field(() => Number, {
     description: 'The number of tokens used in the session',
   })

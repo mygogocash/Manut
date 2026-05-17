@@ -1,4 +1,4 @@
-import { Button } from '@affine/component';
+import { Button, RadioGroup, type RadioItem } from '@affine/component';
 import { useQuery } from '@affine/core/components/hooks/use-query';
 import {
   agentRolesQuery,
@@ -10,9 +10,17 @@ import { isGraphQLSchemaValidationError } from '@affine/error';
 import { useService } from '@toeverything/infra';
 import { Suspense, useCallback, useMemo, useState } from 'react';
 
+import { AgentsListPanel } from '../../../general-setting/control-plane-roles/agents-list';
 import { IntegrationSettingHeader } from '../setting';
 import { RoleEditModal } from './role-edit-modal';
 import * as styles from './setting-panel.css';
+
+type Subtab = 'roles' | 'agents';
+
+const SUBTAB_ITEMS: RadioItem[] = [
+  { value: 'roles', label: 'Roles' },
+  { value: 'agents', label: 'Agents' },
+];
 
 // en-only copy; follow-up to thread through i18n once we open that can.
 const CONTROL_PLANE_UNAVAILABLE_MESSAGE =
@@ -171,6 +179,7 @@ export const ControlPlaneRolesSettingPanel = () => {
   const workspaceId = workspaceService.workspace.id;
   const workbench = useService(WorkbenchService).workbench;
 
+  const [activeSubtab, setActiveSubtab] = useState<Subtab>('roles');
   const [editingRole, setEditingRole] = useState<MnAgentRoleDto | null>(null);
 
   const handleEdit = useCallback((role: MnAgentRoleDto) => {
@@ -203,21 +212,32 @@ export const ControlPlaneRolesSettingPanel = () => {
         desc="Edit the five operating roles (Release Captain, Builder, Verifier, Deployer, Historian). Slug is fixed; display name, adapter, and escalation are editable."
       />
 
-      <section className={styles.section}>
-        <div className={styles.sectionTitle}>Agent roles</div>
-        <div className={styles.muted}>
-          Each role binds to an adapter that executes its work — GitHub Actions,
-          deploy scripts, or future AI workers. Last successful run links to the
-          run details page.
-        </div>
-        <Suspense fallback={fallback}>
-          <RolesTable
-            workspaceId={workspaceId}
-            onEdit={handleEdit}
-            onOpenRun={handleOpenRun}
-          />
-        </Suspense>
-      </section>
+      <RadioGroup
+        items={SUBTAB_ITEMS}
+        value={activeSubtab}
+        onChange={(value: string) => setActiveSubtab(value as Subtab)}
+        width={200}
+      />
+
+      {activeSubtab === 'roles' ? (
+        <section className={styles.section}>
+          <div className={styles.sectionTitle}>Agent roles</div>
+          <div className={styles.muted}>
+            Each role binds to an adapter that executes its work — GitHub
+            Actions, deploy scripts, or future AI workers. Last successful run
+            links to the run details page.
+          </div>
+          <Suspense fallback={fallback}>
+            <RolesTable
+              workspaceId={workspaceId}
+              onEdit={handleEdit}
+              onOpenRun={handleOpenRun}
+            />
+          </Suspense>
+        </section>
+      ) : (
+        <AgentsListPanel workspaceId={workspaceId} />
+      )}
 
       <RoleEditModal
         open={editingRole !== null}
