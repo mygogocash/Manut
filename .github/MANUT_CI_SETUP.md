@@ -64,7 +64,7 @@ git push origin v1.9.0
 
 After it lands, go to **Actions → Superflow Deploy → Run workflow**,
 fill in the tag, and click Run. The deploy takes ~2 min and ends with
-a smoke test of `https://manut.gogocash.co/info`.
+a smoke test of `https://manut.xyz/info`.
 
 ## Rollback
 

@@ -16,7 +16,7 @@
 #   4. Stop the sidecar.
 #   5. Atomically swap production: sed compose.yml, `docker compose up
 #      -d --force-recreate affine`.
-#   6. Poll https://manut.gogocash.co/info. If it stays down past
+#   6. Poll https://manut.xyz/info. If it stays down past
 #      the post-swap timeout, auto-rollback to the previous image tag
 #      (read from compose.yml.previous.bak), and re-poll for 60s.
 #
@@ -75,7 +75,7 @@ LOCK_FILE="${LOCK_FILE:-/tmp/affine-deploy.lock}"
 # they should preempt. Format on disk: "<run_id> <pid>" on a single line.
 # Same dir as LOCK_FILE so atomic-rename across mv works.
 RUNID_FILE="${RUNID_FILE:-/tmp/affine-deploy.runid}"
-PROD_HOST="${PROD_HOST:-manut.gogocash.co}"
+PROD_HOST="${PROD_HOST:-manut.xyz}"
 SIDECAR_NAME="${SIDECAR_NAME:-affine_canary}"
 SIDECAR_HOST_PORT="${SIDECAR_HOST_PORT:-3011}"
 PROD_SERVICE="${PROD_SERVICE:-affine}"

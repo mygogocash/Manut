@@ -32,23 +32,23 @@ app, against the same screencast bundle.
       or "Threads" — Meta auto-rejects branding violations).
 - [ ] Switch to **Live mode** only AFTER review approval. Build & screencast
       in **Development mode** (Standard Access scopes only).
-- [ ] Set **Privacy Policy URL** to `https://manut.gogocash.co/legal/privacy`.
+- [ ] Set **Privacy Policy URL** to `https://manut.xyz/legal/privacy`.
       Page must explicitly cover ingestion of FB/IG/Threads data —
       generic privacy boilerplate fails review.
-- [ ] Set **Terms of Service URL**: `https://manut.gogocash.co/legal/terms`.
+- [ ] Set **Terms of Service URL**: `https://manut.xyz/legal/terms`.
 - [ ] Set **Data Deletion**: pick ONE of (a) Data Deletion Callback URL —
-      `https://manut.gogocash.co/api/integrations/meta/data-deletion`,
+      `https://manut.xyz/api/integrations/meta/data-deletion`,
       HMAC-SHA256 signed POST handler, returns `{url, confirmation_code}`,
       or (b) Data Deletion Instructions URL —
-      `https://manut.gogocash.co/legal/data-deletion-instructions`.
+      `https://manut.xyz/legal/data-deletion-instructions`.
       Recommendation: ship **(b) instructions** for v1, upgrade to (a)
       callback in Phase 5 (PRD §9). Source:
       https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback/
 - [ ] App Icon: 1024×1024 PNG, no Meta brand assets, no "Login with FB"
       buttons, no minor faces.
 - [ ] Category: **Business and Pages**.
-- [ ] Add app domain `manut.gogocash.co` and OAuth redirect URI
-      `https://manut.gogocash.co/api/integrations/meta/callback`.
+- [ ] Add app domain `manut.xyz` and OAuth redirect URI
+      `https://manut.xyz/api/integrations/meta/callback`.
 
 ### 1.2 Business Verification
 
@@ -76,7 +76,7 @@ For a **Thai-registered** company (GoGoCash):
   - Bank statement on bank letterhead showing legal name + registered
     address (last 90 days).
 - [ ] Domain verification: add the Meta-provided TXT record to
-      `manut.gogocash.co` DNS. Verify in Business Suite → **Brand Safety
+      `manut.xyz` DNS. Verify in Business Suite → **Brand Safety
       → Domains**.
 - [ ] Choose verification contact method: **email at @gogocash.co**
       (Meta strongly prefers domain-matched email over phone).
@@ -125,7 +125,7 @@ require: app screencast + at least 1 successful API call within
 
 - [ ] **Screencast bundle** — one `.mp4` per scope, ≤ 4 min each, 1080p.
       Each video must show:
-  - Cold-start: log out, open `https://manut.gogocash.co`, sign in fresh
+  - Cold-start: log out, open `https://manut.xyz`, sign in fresh
   - Navigate Settings → Analytics → Connections
   - Click **Connect Facebook** → OAuth dialog → grant the specific scope
   - Show the data flow: where the scope is exercised in the product UI
@@ -219,8 +219,8 @@ not the contingency.
   - Category: **Productivity**
   - Logo: 240×240 PNG
   - Terms URL, Privacy URL: same as Meta app
-  - Redirect URI: `https://manut.gogocash.co/api/integrations/tiktok/callback`
-  - **Webhook URL**: `https://manut.gogocash.co/api/integrations/tiktok/webhook`
+  - Redirect URI: `https://manut.xyz/api/integrations/tiktok/callback`
+  - **Webhook URL**: `https://manut.xyz/api/integrations/tiktok/webhook`
     (must be HTTPS, must be reachable before submission so TikTok's
     verification ping succeeds). Source:
     https://developers.tiktok.com/doc/webhooks-overview/
@@ -351,7 +351,7 @@ Documentation is contradictory:
 ### 3.3 Webhook setup
 
 - [ ] In the Messaging API channel, set **Webhook URL** to
-      `https://manut.gogocash.co/api/integrations/line/webhook`.
+      `https://manut.xyz/api/integrations/line/webhook`.
 - [ ] Toggle **Use webhook** to ON.
 - [ ] Toggle **Auto-reply messages** OFF (we're not a chatbot).
 - [ ] Toggle **Greeting messages** OFF.

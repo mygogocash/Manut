@@ -20,8 +20,9 @@ changing, building, or deploying the project.
   self-host AI unlocks, Gmail/Drive integration, analytics work,
   v0 Projects/CRM/Reminders modules, and Manut-specific deployment
   automation.
-- Live app: `https://manut.gogocash.co`. The legacy
-  `https://affine.gogocash.co` host 301-redirects to the new domain.
+- Live app: `https://manut.xyz`. The legacy `https://affine.gogocash.co`
+  and `https://manut.gogocash.co` hosts both 301-redirect to the canonical
+  domain.
 - Repository: `https://github.com/mygogocash/Manut` (renamed from
   `mygogocash/Superflow`; GitHub redirects the old URL).
 - Production status source: `docs/CICD_ROADMAP.md` records the latest
@@ -211,8 +212,9 @@ live VM state.
   in production), backend `plugins/superflow/` → `plugins/manut/` in
   PR #29, frontend `modules/superflow-*` → `manut-*` plus i18n
   `com.superflow.*` → `com.manut.*` in PR #30.
-- Production now answers on `manut.gogocash.co`; the old
-  `affine.gogocash.co` host 301-redirects.
+- Production now answers on `manut.xyz`; the legacy
+  `affine.gogocash.co` and `manut.gogocash.co` hosts both 301-redirect
+  to it.
 - Documentation updated to match (in v1.11.0).
 
 ## Closed During 2026-05-07 Review
@@ -262,7 +264,8 @@ live VM state.
 - GAR image path:
   `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash`.
   (Image-name rename is tracked in `CLAUDE.md` §9 as its own R1 operation.)
-- Domain: `manut.gogocash.co` (with 301 redirect from `affine.gogocash.co`).
+- Domain: `manut.xyz` (with 301 redirects from `affine.gogocash.co` and
+  `manut.gogocash.co`).
 - Optional Slack secret: `SLACK_WEBHOOK_URL`.
 - Google OAuth APIs: Gmail and Drive APIs must be enabled in the GCP project.
 

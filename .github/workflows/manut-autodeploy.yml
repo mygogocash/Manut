@@ -73,7 +73,7 @@ env:
   GCP_PROJECT: affine-495114
   GCE_ZONE: asia-southeast1-a
   GCE_VM: affine-vm
-  PROD_HOST: manut.gogocash.co
+  PROD_HOST: manut.xyz
   SMOKE_TIMEOUT_SECS: '90'
 
 jobs:
