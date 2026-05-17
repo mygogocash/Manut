@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { CalendarProviderRequestError, type Config } from '../../../base';
 import type { CalendarGoogleConfig } from '../config';
@@ -130,10 +130,8 @@ export function resolveGoogleCalendarConfig(
 export class GoogleCalendarProvider extends CalendarProvider {
   provider = CalendarProviderName.Google;
 
-  @Inject() private readonly appConfig!: Config;
-
   override get config() {
-    return resolveGoogleCalendarConfig(this.appConfig);
+    return resolveGoogleCalendarConfig(this.AFFiNEConfig);
   }
 
   getAuthUrl(state: string, redirectUri: string) {
