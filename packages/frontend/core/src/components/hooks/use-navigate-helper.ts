@@ -1,7 +1,13 @@
 import type { SettingTab } from '@affine/core/modules/dialogs/constant';
 import { toDocSearchParams } from '@affine/core/modules/navigation';
 import { getOpenUrlInDesktopAppLink } from '@affine/core/modules/open-in-app';
+import {
+  buildWorkspacePath,
+  type WorkspaceMetadata,
+  WorkspacesService,
+} from '@affine/core/modules/workspace';
 import type { DocMode } from '@blocksuite/affine/model';
+import { useLiveData, useService } from '@toeverything/infra';
 import { nanoid } from 'nanoid';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import type { NavigateFunction, NavigateOptions } from 'react-router-dom';
@@ -24,6 +30,7 @@ export type WorkspaceSettingsRouteOptions = {
 
 export function buildWorkspaceSettingsPath(
   workspaceId: string,
+  workspaces: readonly WorkspaceMetadata[] = [],
   options?: WorkspaceSettingsRouteOptions
 ) {
   const searchParams = new URLSearchParams();
@@ -34,11 +41,14 @@ export function buildWorkspaceSettingsPath(
     searchParams.set('scrollAnchor', options.scrollAnchor);
   }
   const query = searchParams.toString();
-  return `/workspace/${workspaceId}/settings${query ? `?${query}` : ''}`;
+  return `${buildWorkspacePath(workspaceId, workspaces, '/settings')}${
+    query ? `?${query}` : ''
+  }`;
 }
 
 export function buildWorkspaceSettingsRedirectUri(
   currentHref: string,
+  workspaces: readonly WorkspaceMetadata[] = [],
   options?: WorkspaceSettingsRouteOptions
 ): string {
   let currentUrl: URL;
@@ -58,7 +68,7 @@ export function buildWorkspaceSettingsRedirectUri(
 
   const basePath = pathSegments.slice(0, workspaceSegmentIndex).join('/');
   const redirectUrl = new URL(
-    buildWorkspaceSettingsPath(workspaceId, options),
+    buildWorkspaceSettingsPath(workspaceId, workspaces, options),
     currentUrl.origin
   );
 
@@ -75,6 +85,8 @@ export function buildWorkspaceSettingsRedirectUri(
  */
 export function useNavigateHelper() {
   const navigate = useContext(NavigateContext);
+  const workspacesService = useService(WorkspacesService);
+  const workspaces = useLiveData(workspacesService.list.workspaces$);
 
   if (!navigate) {
     throw new Error('useNavigateHelper must be used within a NavigateProvider');
@@ -86,11 +98,14 @@ export function useNavigateHelper() {
       pageId: string,
       logic: RouteLogic = RouteLogic.PUSH
     ) => {
-      return navigate(`/workspace/${workspaceId}/${pageId}`, {
-        replace: logic === RouteLogic.REPLACE,
-      });
+      return navigate(
+        buildWorkspacePath(workspaceId, workspaces, `/${pageId}`),
+        {
+          replace: logic === RouteLogic.REPLACE,
+        }
+      );
     },
-    [navigate]
+    [navigate, workspaces]
   );
   const jumpToPageBlock = useCallback(
     (
@@ -108,11 +123,14 @@ export function useNavigateHelper() {
         refreshKey: nanoid(),
       });
       const query = search?.size ? `?${search.toString()}` : '';
-      return navigate(`/workspace/${workspaceId}/${pageId}${query}`, {
-        replace: logic === RouteLogic.REPLACE,
-      });
+      return navigate(
+        `${buildWorkspacePath(workspaceId, workspaces, `/${pageId}`)}${query}`,
+        {
+          replace: logic === RouteLogic.REPLACE,
+        }
+      );
     },
-    [navigate]
+    [navigate, workspaces]
   );
   const jumpToPageComment = useCallback(
     (
@@ -128,27 +146,33 @@ export function useNavigateHelper() {
         commentId,
       });
       const query = search?.size ? `?${search.toString()}` : '';
-      return navigate(`/workspace/${workspaceId}/${pageId}${query}`, {
-        replace: logic === RouteLogic.REPLACE,
-      });
+      return navigate(
+        `${buildWorkspacePath(workspaceId, workspaces, `/${pageId}`)}${query}`,
+        {
+          replace: logic === RouteLogic.REPLACE,
+        }
+      );
     },
-    [navigate]
+    [navigate, workspaces]
   );
   const jumpToCollections = useCallback(
     (workspaceId: string, logic: RouteLogic = RouteLogic.PUSH) => {
-      return navigate(`/workspace/${workspaceId}/collection`, {
-        replace: logic === RouteLogic.REPLACE,
-      });
+      return navigate(
+        buildWorkspacePath(workspaceId, workspaces, '/collection'),
+        {
+          replace: logic === RouteLogic.REPLACE,
+        }
+      );
     },
-    [navigate]
+    [navigate, workspaces]
   );
   const jumpToTags = useCallback(
     (workspaceId: string, logic: RouteLogic = RouteLogic.PUSH) => {
-      return navigate(`/workspace/${workspaceId}/tag`, {
+      return navigate(buildWorkspacePath(workspaceId, workspaces, '/tag'), {
         replace: logic === RouteLogic.REPLACE,
       });
     },
-    [navigate]
+    [navigate, workspaces]
   );
   const jumpToTag = useCallback(
     (
@@ -156,11 +180,14 @@ export function useNavigateHelper() {
       tagId: string,
       logic: RouteLogic = RouteLogic.PUSH
     ) => {
-      return navigate(`/workspace/${workspaceId}/tag/${tagId}`, {
-        replace: logic === RouteLogic.REPLACE,
-      });
+      return navigate(
+        buildWorkspacePath(workspaceId, workspaces, `/tag/${tagId}`),
+        {
+          replace: logic === RouteLogic.REPLACE,
+        }
+      );
     },
-    [navigate]
+    [navigate, workspaces]
   );
   const jumpToCollection = useCallback(
     (
@@ -168,11 +195,18 @@ export function useNavigateHelper() {
       collectionId: string,
       logic: RouteLogic = RouteLogic.PUSH
     ) => {
-      return navigate(`/workspace/${workspaceId}/collection/${collectionId}`, {
-        replace: logic === RouteLogic.REPLACE,
-      });
+      return navigate(
+        buildWorkspacePath(
+          workspaceId,
+          workspaces,
+          `/collection/${collectionId}`
+        ),
+        {
+          replace: logic === RouteLogic.REPLACE,
+        }
+      );
     },
-    [navigate]
+    [navigate, workspaces]
   );
 
   const openPage = useCallback(
@@ -272,11 +306,11 @@ export function useNavigateHelper() {
         typeof options === 'string' ? { tab: options } : options;
 
       return navigate(
-        buildWorkspaceSettingsPath(workspaceId, resolvedOptions),
+        buildWorkspaceSettingsPath(workspaceId, workspaces, resolvedOptions),
         { replace: logic === RouteLogic.REPLACE }
       );
     },
-    [navigate]
+    [navigate, workspaces]
   );
   return useMemo(
     () => ({

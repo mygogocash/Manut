@@ -164,7 +164,7 @@ class CloudWorkspaceFlavourProvider implements WorkspaceFlavourProvider {
   ): Promise<WorkspaceMetadata> {
     // create workspace on cloud, get workspace id
     const {
-      createWorkspace: { id: workspaceId },
+      createWorkspace: { id: workspaceId, slug },
     } = await this.graphqlService.gql({
       query: createWorkspaceMutation,
     });
@@ -250,6 +250,7 @@ class CloudWorkspaceFlavourProvider implements WorkspaceFlavourProvider {
     return {
       id: workspaceId,
       flavour: this.server.id,
+      slug,
     };
   }
   revalidate = effect(
@@ -271,16 +272,13 @@ class CloudWorkspaceFlavourProvider implements WorkspaceFlavourProvider {
             },
           });
 
-          const ids = workspaces.map(({ id, initialized }) => ({
-            id,
-            initialized,
-          }));
           return {
             accountId,
-            workspaces: ids.map(({ id, initialized }) => ({
+            workspaces: workspaces.map(({ id, initialized, slug }) => ({
               id,
               flavour: this.server.id,
               initialized,
+              slug,
             })),
           };
         }).pipe(

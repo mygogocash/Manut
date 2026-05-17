@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { Injectable } from '@nestjs/common';
 import { Transactional } from '@nestjs-cls/transactional';
 import { Prisma, type Workspace, WorkspaceMemberStatus } from '@prisma/client';
@@ -6,6 +8,7 @@ import { EventBus } from '../base';
 import { BaseModel } from './base';
 import type { WorkspaceFeatureName } from './common';
 import { WorkspaceRole } from './common/role';
+import { buildWorkspaceSlugSeed, slugifyWorkspaceName } from './workspace-slug';
 
 type RawWorkspaceSummary = {
   id: string;
@@ -73,6 +76,7 @@ export type UpdateWorkspaceInput = Pick<
   | 'enableUrlPreview'
   | 'enableDocEmbedding'
   | 'name'
+  | 'slug'
   | 'avatarKey'
   | 'indexed'
   | 'lastCheckEmbeddings'
@@ -90,8 +94,9 @@ export class WorkspaceModel extends BaseModel {
    */
   @Transactional()
   async create(userId: string) {
+    const slug = await this.allocateSlug('workspace');
     const workspace = await this.db.workspace.create({
-      data: { public: false },
+      data: { public: false, slug },
     });
     this.logger.log(`Workspace created with id ${workspace.id}`);
     await this.models.workspaceUser.setOwner(workspace.id, userId);
@@ -106,11 +111,16 @@ export class WorkspaceModel extends BaseModel {
     data: UpdateWorkspaceInput,
     notifyUpdate = true
   ) {
+    const updates: UpdateWorkspaceInput = { ...data };
+    if (typeof updates.name === 'string' && updates.name.trim().length > 0) {
+      updates.slug = await this.allocateSlug(updates.name, workspaceId);
+    }
+
     const workspace = await this.db.workspace.update({
       where: {
         id: workspaceId,
       },
-      data,
+      data: updates,
     });
     this.logger.debug(
       `Updated workspace ${workspaceId} with data ${JSON.stringify(data)}`
@@ -129,6 +139,43 @@ export class WorkspaceModel extends BaseModel {
         id: workspaceId,
       },
     });
+  }
+
+  async getBySlug(slug: string) {
+    return await this.db.workspace.findUnique({
+      where: { slug },
+    });
+  }
+
+  async getBySlugOrId(key: string) {
+    const byId = await this.get(key);
+    if (byId) {
+      return byId;
+    }
+    return await this.getBySlug(key);
+  }
+
+  private async allocateSlug(name: string, excludeWorkspaceId?: string) {
+    const base = slugifyWorkspaceName(name);
+    let candidate = base;
+    let attempt = 0;
+
+    while (attempt < 100) {
+      const existing = await this.db.workspace.findUnique({
+        where: { slug: candidate },
+        select: { id: true },
+      });
+      if (!existing || existing.id === excludeWorkspaceId) {
+        return candidate;
+      }
+      attempt += 1;
+      candidate = `${base}-${attempt}`.slice(0, 64);
+    }
+
+    if (!excludeWorkspaceId) {
+      return buildWorkspaceSlugSeed(name, randomUUID());
+    }
+    return buildWorkspaceSlugSeed(name, excludeWorkspaceId);
   }
 
   async findMany(ids: string[]) {

@@ -2021,6 +2021,7 @@ export const createWorkspaceMutation = {
   query: `mutation createWorkspace {
   createWorkspace {
     id
+    slug
     public
     createdAt
   }
@@ -2556,6 +2557,7 @@ export const getWorkspacesQuery = {
   query: `query getWorkspaces {
   workspaces {
     id
+    slug
     initialized
     team
     owner {

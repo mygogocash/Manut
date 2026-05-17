@@ -4,7 +4,11 @@ import { PageNotFound } from '@affine/core/desktop/pages/404';
 import { SharePage } from '@affine/core/desktop/pages/workspace/share/share-page';
 import { workbenchRoutes } from '@affine/core/mobile/workbench-router';
 import { ServersService } from '@affine/core/modules/cloud';
-import { WorkspacesService } from '@affine/core/modules/workspace';
+import {
+  replaceWorkspaceKeyInPathname,
+  resolveWorkspaceMetadataByKey,
+  WorkspacesService,
+} from '@affine/core/modules/workspace';
 import { FrameworkScope, useLiveData, useServices } from '@toeverything/infra';
 import {
   lazy as reactLazy,
@@ -18,6 +22,7 @@ import {
   matchPath,
   type RouteObject,
   useLocation,
+  useNavigate,
   useParams,
   useSearchParams,
 } from 'react-router-dom';
@@ -72,7 +77,15 @@ export const Component = () => {
 
   const params = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  const [workspaceNotFound, setWorkspaceNotFound] = useState(false);
+  const listLoading = useLiveData(workspacesService.list.isRevalidating$);
+  const workspaces = useLiveData(workspacesService.list.workspaces$);
+  const meta = useMemo(() => {
+    return resolveWorkspaceMetadataByKey(params.workspaceId ?? '', workspaces);
+  }, [workspaces, params.workspaceId]);
 
   // todo(pengx17): dedupe the code with core
   // check if we are in detail doc route, if so, maybe render share page
@@ -90,21 +103,43 @@ export const Component = () => {
         matchPath(route.path, '/' + match.params.docId)
       )?.path === '/:pageId'
     ) {
+      const resolved = resolveWorkspaceMetadataByKey(
+        match.params.workspaceId,
+        workspaces
+      );
       return {
         docId: match.params.docId,
-        workspaceId: match.params.workspaceId,
+        workspaceId: resolved?.id ?? match.params.workspaceId,
       };
     } else {
       return null;
     }
-  }, [location.pathname]);
+  }, [location.pathname, workspaces]);
 
-  const [workspaceNotFound, setWorkspaceNotFound] = useState(false);
-  const listLoading = useLiveData(workspacesService.list.isRevalidating$);
-  const workspaces = useLiveData(workspacesService.list.workspaces$);
-  const meta = useMemo(() => {
-    return workspaces.find(({ id }) => id === params.workspaceId);
-  }, [workspaces, params.workspaceId]);
+  useEffect(() => {
+    if (!meta?.slug || !params.workspaceId || params.workspaceId !== meta.id) {
+      return;
+    }
+    const pathname = replaceWorkspaceKeyInPathname(
+      location.pathname,
+      meta.id,
+      workspaces
+    );
+    if (pathname && pathname !== location.pathname) {
+      navigate(
+        { pathname, search: location.search, hash: location.hash },
+        { replace: true }
+      );
+    }
+  }, [
+    location.hash,
+    location.pathname,
+    location.search,
+    meta,
+    navigate,
+    params.workspaceId,
+    workspaces,
+  ]);
 
   // if listLoading is false, we can show 404 page, otherwise we should show loading page.
   useEffect(() => {

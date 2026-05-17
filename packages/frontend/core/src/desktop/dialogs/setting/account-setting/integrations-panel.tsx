@@ -441,7 +441,7 @@ export const IntegrationsPanel = ({
             input: {
               provider,
               redirectUri: canOpenCalendarSetting
-                ? buildWorkspaceSettingsRedirectUri(window.location.href, {
+                ? buildWorkspaceSettingsRedirectUri(window.location.href, [], {
                     tab: 'workspace:integrations',
                     scrollAnchor: CALENDAR_INTEGRATION_SCROLL_ANCHOR,
                   })

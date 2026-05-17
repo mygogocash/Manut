@@ -182,15 +182,26 @@ export class WorkspaceResolver {
     description: 'Get workspace by id',
   })
   async workspace(@CurrentUser() user: CurrentUser, @Args('id') id: string) {
-    await this.ac.user(user.id).workspace(id).assert('Workspace.Read');
-
-    const workspace = await this.models.workspace.get(id);
+    const workspace = await this.models.workspace.getBySlugOrId(id);
 
     if (!workspace) {
       throw new SpaceNotFound({ spaceId: id });
     }
 
+    await this.ac
+      .user(user.id)
+      .workspace(workspace.id)
+      .assert('Workspace.Read');
+
     return workspace;
+  }
+
+  @ResolveField(() => String, {
+    description: 'URL-safe workspace path segment',
+    complexity: 1,
+  })
+  slug(@Parent() workspace: WorkspaceType & { slug?: string }) {
+    return workspace.slug ?? workspace.id;
   }
 
   @Query(() => WorkspaceRolePermissions, {

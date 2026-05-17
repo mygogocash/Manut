@@ -3763,6 +3763,8 @@ export interface WorkspaceType {
   search: SearchResultObjectType;
   /** Search docs by keyword */
   searchDocs: Array<SearchDocObjectType>;
+  /** URL-safe workspace path segment */
+  slug: Scalars['String']['output'];
   /** The team subscription of the workspace, if exists. */
   subscription: Maybe<SubscriptionType>;
   /** if workspace is team workspace */
@@ -6433,6 +6435,7 @@ export type CreateWorkspaceMutation = {
   createWorkspace: {
     __typename?: 'WorkspaceType';
     id: string;
+    slug: string;
     public: boolean;
     createdAt: string;
   };
@@ -7214,6 +7217,7 @@ export type GetWorkspacesQuery = {
   workspaces: Array<{
     __typename?: 'WorkspaceType';
     id: string;
+    slug: string;
     initialized: boolean;
     team: boolean;
     owner: { __typename?: 'UserType'; id: string };

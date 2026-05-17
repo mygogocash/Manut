@@ -12,7 +12,7 @@ import {
 describe('use-navigate-helper utilities', () => {
   test('buildWorkspaceSettingsPath includes tab and scroll anchor', () => {
     expect(
-      buildWorkspaceSettingsPath('workspace-1', {
+      buildWorkspaceSettingsPath('workspace-1', [], {
         tab: 'workspace:integrations',
         scrollAnchor: 'integration-calendar',
       })
@@ -25,6 +25,7 @@ describe('use-navigate-helper utilities', () => {
     expect(
       buildWorkspaceSettingsRedirectUri(
         'https://app.affine.pro/workspace/workspace-1/all',
+        [],
         {
           tab: 'workspace:integrations',
           scrollAnchor: 'integration-calendar',
@@ -39,6 +40,7 @@ describe('use-navigate-helper utilities', () => {
     expect(
       buildWorkspaceSettingsRedirectUri(
         'https://app.affine.pro/app/workspace/workspace-1/collection',
+        [],
         {
           tab: 'workspace:integrations',
           scrollAnchor: 'integration-calendar',
@@ -51,7 +53,7 @@ describe('use-navigate-helper utilities', () => {
 
   test('buildWorkspaceSettingsRedirectUri falls back to the current url when no workspace route is present', () => {
     expect(
-      buildWorkspaceSettingsRedirectUri('https://app.affine.pro/sign-in', {
+      buildWorkspaceSettingsRedirectUri('https://app.affine.pro/sign-in', [], {
         tab: 'workspace:integrations',
       })
     ).toBe('https://app.affine.pro/sign-in');

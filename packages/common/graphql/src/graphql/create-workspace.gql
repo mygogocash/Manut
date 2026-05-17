@@ -1,6 +1,7 @@
 mutation createWorkspace {
   createWorkspace {
     id
+    slug
     public
     createdAt
   }
