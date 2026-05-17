@@ -156,3 +156,33 @@ jobs:
       - run: yarn affine bundle -p web
       - run: yarn affine bundle -p admin
       - run: yarn affine bundle -p mobile
+
+  ci-complete:
+    name: ✅ CI complete
+    needs: [lint, codegen-drift, build-web]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Aggregate CI results
+        env:
+          LINT: ${{ needs.lint.result }}
+          CODEGEN: ${{ needs.codegen-drift.result }}
+          WEB: ${{ needs.build-web.result }}
+        run: |
+          {
+            echo "## Manut CI"
+            echo ""
+            echo "| Check | Result |"
+            echo "|-------|--------|"
+            echo "| Lint (oxlint) | ${LINT} |"
+            echo "| GraphQL codegen drift | ${CODEGEN} |"
+            echo "| Web bundle (web/admin/mobile) | ${WEB} |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$LINT" != "success" ] || [ "$CODEGEN" != "success" ] || [ "$WEB" != "success" ]; then
+            echo "::error::One or more CI jobs failed. Manut Build will not run until all checks pass."
+            exit 1
+          fi
+          echo "All CI checks passed. Manut Build triggers after push to main."

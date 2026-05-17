@@ -1,87 +1,69 @@
-import { ArrowRight, ShieldCheck, Sparkles, Star, Users } from 'lucide-react';
-import Image from 'next/image';
+import {
+  ArrowRight,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Users,
+  Zap,
+} from 'lucide-react';
 
+import { HeroWordFlip } from '@/components/hero-word-flip';
 import { GithubIcon } from '@/components/icons/github';
 import { ProductMockup } from '@/components/sections/product-mockup';
 import { ButtonLink } from '@/components/ui/button';
 import { siteConfig } from '@/lib/site';
 
-// Set to '/newton-hero.jpeg' once you save the illustration to
-// manut-landing/public/newton-hero.jpeg. Until then, the hero shows
-// only the spectrum wash + headline (no broken image placeholder).
-const HERO_ILLUSTRATION: string | null = '/newton-hero.jpeg';
-
 export function Hero() {
   return (
     <section
       aria-labelledby="hero-heading"
-      className="relative overflow-hidden pt-24 sm:pt-32"
+      className="hero-mesh-genz relative overflow-hidden pt-[calc(5.5rem+env(safe-area-inset-top,0px))] sm:pt-[calc(7.5rem+env(safe-area-inset-top,0px))] md:pt-[calc(8rem+env(safe-area-inset-top,0px))]"
     >
-      {/* Spectrum wash — coral / gold / teal refraction behind the headline */}
       <div
         aria-hidden
-        className="bg-spectrum pointer-events-none absolute inset-x-0 -top-32 h-[560px]"
+        className="bg-spectrum pointer-events-none absolute inset-x-0 -top-32 h-[min(560px,85vh)]"
       />
 
       <div className="container-prose relative">
-        {HERO_ILLUSTRATION ? (
-          <figure className="mx-auto mb-14 max-w-4xl sm:mb-20">
-            <div className="relative overflow-hidden rounded-3xl border border-border bg-card shadow-[0_30px_80px_-20px_oklch(0_0_0/0.22)] dark:shadow-[0_30px_80px_-20px_oklch(0_0_0/0.65)]">
-              <Image
-                src={HERO_ILLUSTRATION}
-                alt="Newton observing light through a prism — a scene from the Manut workspace illustrations."
-                width={1024}
-                height={687}
-                priority
-                sizes="(max-width: 1024px) 92vw, 960px"
-                className="h-auto w-full"
-              />
-              <div
-                aria-hidden
-                className="bg-rainbow-strip absolute inset-x-0 bottom-0 h-[3px] opacity-80"
-              />
-            </div>
-            <figcaption className="mt-3 text-center font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              Light, refracted into a workspace
-            </figcaption>
-          </figure>
-        ) : null}
-
-        <div className="mx-auto max-w-3xl text-center">
-          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3.5 py-1.5 backdrop-blur-sm">
-            <Sparkles className="size-3.5 text-foreground" aria-hidden />
-            <span className="font-mono text-[11px] font-medium uppercase tracking-wider text-foreground">
-              New
-            </span>
-            <span className="text-xs text-muted-foreground">
-              AI write tools and multi-model auto-routing
+        <div className="mx-auto max-w-4xl text-center">
+          <div className="badge-sticker mx-auto mb-6 max-w-full sm:mb-7">
+            <Zap
+              className="size-3.5 shrink-0 text-[oklch(0.78_0.16_25)]"
+              aria-hidden
+            />
+            <span>New drop</span>
+            <span className="font-normal normal-case tracking-normal text-muted-foreground">
+              · multi-model AI
             </span>
           </div>
 
           <h1
             id="hero-heading"
-            className="text-balance text-[clamp(2.5rem,6vw,5.25rem)] font-semibold leading-[1.04] tracking-[-0.035em] text-foreground"
+            className="text-[clamp(1.75rem,7.5vw,4.25rem)] font-semibold leading-[1.08] tracking-[-0.035em] text-foreground"
           >
-            The workspace
-            <br />
-            that <span className="display-italic text-foreground">
-              thinks
-            </span>{' '}
-            with you.
+            <span className="block">Your team&apos;s workspace</span>
+            <span className="mt-1 block md:whitespace-nowrap">
+              that <HeroWordFlip /> with you.
+            </span>
           </h1>
 
-          <p className="mx-auto mt-7 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Docs, databases, whiteboards, and a real AI agent. Built for teams
-            who think fast and ship faster.
+          <p className="mx-auto mt-6 max-w-xl text-pretty text-[15px] leading-relaxed text-muted-foreground sm:mt-7 sm:text-base md:text-lg">
+            Docs, databases, whiteboards, and an AI that{' '}
+            <span className="font-medium text-foreground">
+              asks before it edits
+            </span>
+            . One tab instead of five apps — built for teams who ship at
+            internet speed.
           </p>
 
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-8 flex w-full flex-col gap-3 sm:mt-9 sm:flex-row sm:flex-wrap sm:justify-center">
             <ButtonLink
               href="/sign-in"
               size="lg"
-              className="h-12 rounded-full bg-foreground px-6 text-base text-background hover:bg-foreground/90"
+              className="h-12 w-full min-h-11 rounded-full bg-foreground px-6 text-base text-background shadow-[0_12px_40px_-12px_oklch(0.18_0.01_260/0.55)] hover:bg-foreground/90 sm:w-auto"
             >
-              Start free
+              <span className="sm:hidden">Start free</span>
+              <span className="hidden sm:inline">Start free — no cap</span>
               <ArrowRight className="size-4" aria-hidden />
             </ButtonLink>
             <ButtonLink
@@ -90,7 +72,7 @@ export function Hero() {
               rel="noopener noreferrer"
               size="lg"
               variant="outline"
-              className="h-12 rounded-full border-border bg-background px-6 text-base hover:bg-muted"
+              className="h-12 w-full min-h-11 rounded-full border-border bg-background/80 px-6 text-base backdrop-blur-sm hover:bg-muted sm:w-auto"
             >
               <GithubIcon className="size-4" aria-hidden />
               Star on GitHub
@@ -99,23 +81,23 @@ export function Hero() {
 
           <ul
             aria-label="At a glance"
-            className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-2.5 text-xs text-muted-foreground"
+            className="mt-8 grid grid-cols-2 gap-x-4 gap-y-3 text-xs text-muted-foreground sm:mt-10 sm:flex sm:flex-wrap sm:justify-center sm:gap-x-8"
           >
-            <li className="flex items-center gap-1.5">
-              <Users className="size-3.5" aria-hidden />
-              50,000+ users
+            <li className="flex items-center justify-center gap-1.5 sm:justify-start">
+              <Users className="size-3.5 shrink-0" aria-hidden />
+              50k+ builders
             </li>
-            <li className="flex items-center gap-1.5">
-              <Star className="size-3.5" aria-hidden />
-              40,000+ GitHub stars
+            <li className="flex items-center justify-center gap-1.5 sm:justify-start">
+              <Star className="size-3.5 shrink-0" aria-hidden />
+              40k+ GitHub stars
             </li>
-            <li className="flex items-center gap-1.5">
-              <ShieldCheck className="size-3.5" aria-hidden />
+            <li className="flex items-center justify-center gap-1.5 sm:justify-start">
+              <ShieldCheck className="size-3.5 shrink-0" aria-hidden />
               SOC 2 ready
             </li>
-            <li className="flex items-center gap-1.5">
-              <GithubIcon className="size-3.5" aria-hidden />
-              MIT open source
+            <li className="flex items-center justify-center gap-1.5 sm:justify-start">
+              <Sparkles className="size-3.5 shrink-0" aria-hidden />
+              MIT · self-host OK
             </li>
           </ul>
         </div>

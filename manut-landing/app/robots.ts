@@ -24,6 +24,8 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: 'Applebot-Extended', allow: '/' },
       { userAgent: 'CCBot', allow: '/' },
       { userAgent: 'cohere-ai', allow: '/' },
+      { userAgent: 'Bytespider', allow: '/' },
+      { userAgent: 'meta-externalagent', allow: '/' },
     ],
     sitemap: `${siteConfig.url}/sitemap.xml`,
     host: siteConfig.url,

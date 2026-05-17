@@ -41,7 +41,7 @@ export function Testimonials() {
   return (
     <section
       aria-labelledby="testimonials-heading"
-      className="relative py-24 sm:py-32"
+      className="section-pad relative"
     >
       <div className="container-prose">
         <Reveal className="mx-auto max-w-2xl text-center">

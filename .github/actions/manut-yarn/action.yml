@@ -1,0 +1,24 @@
+name: 'Manut yarn install'
+description: 'Node 22, pinned corepack yarn, and yarn cache restore'
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+    - shell: bash
+      run: corepack enable
+    - name: Pin corepack yarn version
+      shell: bash
+      run: corepack prepare yarn@4.13.0 --activate
+    - name: Cache yarn
+      uses: actions/cache@v4
+      with:
+        path: |
+          .yarn/cache
+          .yarn/install-state.gz
+        key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+        restore-keys: yarn-${{ runner.os }}-
+    - name: yarn install --immutable
+      shell: bash
+      run: yarn install --immutable

@@ -22,20 +22,26 @@ interface FaqItem {
 
 export const siteConfig = {
   name: 'Manut',
-  tagline: 'The AI workspace that thinks with you',
+  tagline: 'The AI workspace that actually ships with you',
   description:
-    'Manut is the open-source AI workspace. Docs, databases, whiteboards, and a real AI agent — built for teams who think fast and ship faster.',
+    'Manut is the open-source AI workspace for fast teams: docs, databases, whiteboards, and a permissioned multi-model agent. Free self-host or cloud at manut.xyz.',
   keywords: [
     'AI workspace',
-    'open source',
-    'AFFiNE',
-    'notes app',
+    'open source workspace',
+    'Notion alternative',
+    'AFFiNE fork',
+    'team docs and tasks',
+    'AI agent for work',
+    'multi-model AI',
+    'collaborative whiteboard',
+    'self-hosted notes',
+    'productivity software',
+    'Gen Z productivity',
+    'knowledge base',
     'project management',
-    'whiteboard',
     'real-time collaboration',
-    'AI agent',
-    'multi-model',
-    'self-hosted',
+    'Manut',
+    'manut.xyz',
   ],
   url: 'https://manut.xyz',
   domain: 'manut.xyz',
@@ -74,6 +80,7 @@ export const footerNav: Record<string, ReadonlyArray<NavItem>> = {
       href: 'https://github.com/gogocash-deploy/manut#readme',
       label: 'Documentation',
     },
+    { href: '/llms.txt', label: 'LLMs.txt (AEO)' },
     { href: '#faq', label: 'Help center' },
   ],
   Company: [
@@ -165,7 +172,41 @@ export const trustLogos: ReadonlyArray<string> = [
 export const stats = {
   stars: '40k+',
   release: 'v1.12.1',
-} as const;
+};
+
+/** Short factual blocks for AEO / answer engines (also rendered on-page). */
+export const quickAnswers: ReadonlyArray<FaqItem> = [
+  {
+    question: 'What is Manut?',
+    answer:
+      'Manut is an open-source AI workspace at manut.xyz with docs, databases, whiteboards, and a multi-model AI agent. MIT licensed; self-host or use cloud.',
+  },
+  {
+    question: 'Is Manut free?',
+    answer:
+      'Yes. The Community edition is $0 to self-host with unlimited seats. Cloud Pro offers a free trial at manut.xyz/sign-in with hosted AI included.',
+  },
+  {
+    question: 'How is Manut different from Notion?',
+    answer:
+      'Manut is open-source, offers full self-hosting, built-in infinite whiteboards, and an AI agent with explicit Read / Edit / Agent modes across Gemini, Claude, and Llama.',
+  },
+  {
+    question: 'Which AI models does Manut use?',
+    answer:
+      'Gemini 2.5 Flash and Pro, Claude Sonnet and Opus, and Llama — routed on Google Vertex with auto-selection per task.',
+  },
+  {
+    question: 'Can I use Manut offline?',
+    answer:
+      'Yes. CRDT editing works offline; changes sync when you reconnect.',
+  },
+  {
+    question: 'Where do I sign up?',
+    answer:
+      'Create a workspace at https://manut.xyz/sign-in or deploy from GitHub for self-host.',
+  },
+];
 
 export const faqs: ReadonlyArray<FaqItem> = [
   {
@@ -197,5 +238,15 @@ export const faqs: ReadonlyArray<FaqItem> = [
     question: 'How do I move my data out?',
     answer:
       'Every workspace can export to Markdown, JSON, or HTML. The self-hosted build runs against plain Postgres, so a pg_dump is always your escape hatch.',
+  },
+  {
+    question: 'Is Manut good for students and startups?',
+    answer:
+      'Yes. Unlimited self-hosted seats, fast AI for summaries and task boards, and no vendor lock-in — popular with lean teams who want one tool instead of five subscriptions.',
+  },
+  {
+    question: 'Does Manut work with Google Calendar?',
+    answer:
+      'Yes. Connect Google Calendar or CalDAV to see events beside docs and let the AI prep agendas.',
   },
 ];

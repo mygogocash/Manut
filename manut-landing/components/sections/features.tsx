@@ -64,24 +64,24 @@ export function Features() {
     <section
       id="features"
       aria-labelledby="features-heading"
-      className="relative py-24 sm:py-32"
+      className="section-pad relative"
     >
       <div className="container-prose">
         <Reveal className="mx-auto max-w-2xl text-center">
-          <p className="kicker kicker-line">Platform</p>
+          <p className="kicker kicker-line">The stack</p>
           <h2
             id="features-heading"
             className="mt-4 text-balance text-[clamp(1.875rem,3.4vw,3rem)] font-semibold leading-[1.1] tracking-[-0.025em]"
           >
-            Everything your team needs.
+            Everything in one tab.
             <br />
-            <span className="display-italic text-muted-foreground">
-              Nothing they don&apos;t.
+            <span className="display-italic text-gen-z-gradient">
+              Zero tab-switching tax.
             </span>
           </h2>
           <p className="mt-5 text-pretty text-base text-muted-foreground sm:text-lg">
-            One workspace replaces your notes app, project tracker, whiteboard,
-            and AI assistant.
+            Notes, kanban, whiteboard, calendar, and AI — no more duct-taping
+            Notion + Miro + ChatGPT.
           </p>
         </Reveal>
 

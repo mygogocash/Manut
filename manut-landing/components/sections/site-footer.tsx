@@ -5,9 +5,9 @@ import { footerNav, siteConfig } from '@/lib/site';
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-card py-16">
+    <footer className="safe-bottom border-t border-border bg-card py-12 sm:py-16">
       <div className="container-prose">
-        <div className="grid gap-12 md:grid-cols-[260px_1fr] md:gap-20">
+        <div className="grid gap-10 sm:gap-12 md:grid-cols-[260px_1fr] md:gap-20">
           <div>
             <Link
               href="/"
@@ -25,8 +25,8 @@ export function SiteFooter() {
               {siteConfig.name}
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              The AI workspace for teams who take ownership of their data and
-              their thinking.
+              Open-source AI workspace. Your docs, your data, your vibe — at{' '}
+              {siteConfig.domain}.
             </p>
           </div>
 
@@ -54,8 +54,8 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <div className="mt-14 flex flex-wrap items-center justify-between gap-4 border-t border-border pt-7">
-          <p className="text-xs text-muted-foreground">
+        <div className="mt-10 flex flex-col items-start gap-4 border-t border-border pt-6 sm:mt-14 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:pt-7">
+          <p className="text-xs text-pretty text-muted-foreground">
             © {new Date().getFullYear()} {siteConfig.name} · GoGoCash · Built on{' '}
             <Link
               href={siteConfig.github}

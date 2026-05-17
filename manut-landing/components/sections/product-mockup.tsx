@@ -2,20 +2,29 @@ import { Sparkles } from 'lucide-react';
 
 export function ProductMockup() {
   return (
-    <div className="relative mx-auto mt-16 max-w-[1080px] sm:mt-20">
+    <div className="relative mx-auto mt-10 max-w-[1080px] min-w-0 sm:mt-16 md:mt-20">
       {/* Coral-teal glow — Newton's prism refracting beneath the canvas */}
       <div
         aria-hidden
         className="pointer-events-none absolute -inset-x-10 -top-20 h-72 bg-[radial-gradient(ellipse_at_30%_center,oklch(0.78_0.16_25/0.30)_0%,transparent_60%),radial-gradient(ellipse_at_70%_center,oklch(0.68_0.13_215/0.26)_0%,transparent_60%)] blur-2xl dark:bg-[radial-gradient(ellipse_at_30%_center,oklch(0.74_0.17_25/0.22)_0%,transparent_60%),radial-gradient(ellipse_at_70%_center,oklch(0.7_0.13_215/0.22)_0%,transparent_60%)]"
       />
 
-      <div className="relative rounded-[20px] border border-border bg-surface shadow-[0_30px_80px_-20px_oklch(0_0_0/0.18)] dark:shadow-[0_30px_80px_-20px_oklch(0_0_0/0.65)]">
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_30px_80px_-20px_oklch(0_0_0/0.18)] sm:rounded-[20px] dark:shadow-[0_30px_80px_-20px_oklch(0_0_0/0.65)]">
         {/* Window chrome */}
-        <div className="flex h-9 items-center gap-2 border-b border-border px-4">
-          <span aria-hidden className="size-2.5 rounded-full bg-[#ff5f56]/85" />
-          <span aria-hidden className="size-2.5 rounded-full bg-[#ffbd2e]/85" />
-          <span aria-hidden className="size-2.5 rounded-full bg-[#27c93f]/85" />
-          <div className="mx-auto rounded-md bg-muted px-3 py-0.5 font-mono text-[11px] text-muted-foreground">
+        <div className="flex h-9 min-w-0 items-center gap-2 border-b border-border px-3 sm:px-4">
+          <span
+            aria-hidden
+            className="size-2.5 shrink-0 rounded-full bg-[#ff5f56]/85"
+          />
+          <span
+            aria-hidden
+            className="size-2.5 shrink-0 rounded-full bg-[#ffbd2e]/85"
+          />
+          <span
+            aria-hidden
+            className="size-2.5 shrink-0 rounded-full bg-[#27c93f]/85"
+          />
+          <div className="mx-auto min-w-0 max-w-[calc(100%-4rem)] truncate rounded-md bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground sm:max-w-none sm:px-3 sm:text-[11px]">
             manut.xyz / workspace / docs
           </div>
         </div>
@@ -67,7 +76,7 @@ export function ProductMockup() {
           </aside>
 
           {/* Content */}
-          <div className="overflow-hidden p-7 sm:p-8">
+          <div className="overflow-hidden p-4 sm:p-7 md:p-8">
             <div className="mb-5">
               <h3 className="text-xl font-semibold tracking-tight sm:text-[22px]">
                 Q2 2026 Growth Strategy
@@ -107,48 +116,50 @@ export function ProductMockup() {
               <div className="mb-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                 Key initiatives
               </div>
-              <div className="grid grid-cols-[1fr_90px_72px] gap-px overflow-hidden rounded-md bg-border text-[12px]">
-                <div className="bg-background/80 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Initiative
-                </div>
-                <div className="bg-background/80 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Owner
-                </div>
-                <div className="bg-background/80 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Status
-                </div>
-                <div className="bg-card px-2.5 py-1.5 text-foreground">
-                  SEA Market Expansion
-                </div>
-                <div className="bg-card px-2.5 py-1.5 text-muted-foreground">
-                  Sarah K.
-                </div>
-                <div className="bg-card px-2.5 py-1.5">
-                  <span className="inline-flex items-center gap-1 text-emerald-500 dark:text-emerald-400">
-                    <span
-                      aria-hidden
-                      className="size-1.5 rounded-full bg-current"
-                    />{' '}
-                    Active
-                  </span>
-                </div>
-                <div className="bg-card px-2.5 py-1.5 text-foreground">
-                  AI-Assisted Onboarding
-                </div>
-                <div className="bg-card px-2.5 py-1.5 text-muted-foreground">
-                  Team AI
-                </div>
-                <div className="bg-card px-2.5 py-1.5 text-muted-foreground">
-                  In Review
-                </div>
-                <div className="bg-card px-2.5 py-1.5 text-foreground">
-                  Platform Reliability
-                </div>
-                <div className="bg-card px-2.5 py-1.5 text-muted-foreground">
-                  DevOps
-                </div>
-                <div className="bg-card px-2.5 py-1.5 text-amber-600 dark:text-amber-400">
-                  Planned
+              <div className="-mx-1 overflow-x-auto px-1 sm:mx-0 sm:overflow-visible sm:px-0">
+                <div className="grid min-w-[280px] grid-cols-[1fr_90px_72px] gap-px overflow-hidden rounded-md bg-border text-[12px]">
+                  <div className="bg-background/80 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Initiative
+                  </div>
+                  <div className="bg-background/80 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Owner
+                  </div>
+                  <div className="bg-background/80 px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Status
+                  </div>
+                  <div className="bg-card px-2.5 py-1.5 text-foreground">
+                    SEA Market Expansion
+                  </div>
+                  <div className="bg-card px-2.5 py-1.5 text-muted-foreground">
+                    Sarah K.
+                  </div>
+                  <div className="bg-card px-2.5 py-1.5">
+                    <span className="inline-flex items-center gap-1 text-emerald-500 dark:text-emerald-400">
+                      <span
+                        aria-hidden
+                        className="size-1.5 rounded-full bg-current"
+                      />{' '}
+                      Active
+                    </span>
+                  </div>
+                  <div className="bg-card px-2.5 py-1.5 text-foreground">
+                    AI-Assisted Onboarding
+                  </div>
+                  <div className="bg-card px-2.5 py-1.5 text-muted-foreground">
+                    Team AI
+                  </div>
+                  <div className="bg-card px-2.5 py-1.5 text-muted-foreground">
+                    In Review
+                  </div>
+                  <div className="bg-card px-2.5 py-1.5 text-foreground">
+                    Platform Reliability
+                  </div>
+                  <div className="bg-card px-2.5 py-1.5 text-muted-foreground">
+                    DevOps
+                  </div>
+                  <div className="bg-card px-2.5 py-1.5 text-amber-600 dark:text-amber-400">
+                    Planned
+                  </div>
                 </div>
               </div>
             </div>

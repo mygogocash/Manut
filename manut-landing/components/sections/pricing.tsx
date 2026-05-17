@@ -34,7 +34,7 @@ export function Pricing() {
     <section
       id="pricing"
       aria-labelledby="pricing-heading"
-      className="relative border-y border-border py-24 sm:py-32"
+      className="section-pad relative border-y border-border"
     >
       <div className="container-prose">
         <Reveal className="mx-auto max-w-2xl text-center">
@@ -85,7 +85,7 @@ export function Pricing() {
 
         <Reveal
           delay={120}
-          className="mx-auto mt-14 grid max-w-5xl grid-cols-1 gap-px overflow-hidden rounded-3xl border border-border bg-border md:grid-cols-3"
+          className="mx-auto mt-10 grid max-w-5xl grid-cols-1 gap-px overflow-hidden rounded-2xl border border-border bg-border sm:mt-14 sm:rounded-3xl md:grid-cols-3"
         >
           {plans.map(plan => {
             const { value, sub } = priceLabel(plan, billing);
@@ -94,7 +94,7 @@ export function Pricing() {
                 key={plan.id}
                 aria-label={`${plan.name} plan`}
                 className={cn(
-                  'relative flex flex-col p-8 sm:p-9',
+                  'relative flex flex-col p-6 sm:p-8 md:p-9',
                   plan.featured ? 'bg-foreground text-background' : 'bg-card'
                 )}
               >

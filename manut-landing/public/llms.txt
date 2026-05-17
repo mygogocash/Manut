@@ -1,0 +1,32 @@
+# Manut
+
+> Manut (manut.xyz) is an open-source AI workspace: docs, databases, whiteboards, and a multi-model AI agent. MIT licensed. Self-host or use hosted cloud.
+
+## What is Manut?
+
+Manut is a team workspace that combines notes, project databases, infinite whiteboards, and an AI agent with Read, Edit, and Full Agent modes. It is a friendly fork of AFFiNE with extra AI routing (Gemini, Claude, Llama on Vertex), calendar integrations, and unlimited seats on self-host.
+
+## Who is Manut for?
+
+Students, startups, and product teams who want Notion-class docs plus real AI automation without per-seat lock-in. Works in the browser; self-host on Postgres for full data ownership.
+
+## Pricing
+
+- Community: $0, self-hosted, MIT, all features
+- Cloud Pro: hosted, AI agent included, free trial at https://manut.xyz/sign-in
+- Enterprise: custom, SAML/SCIM, audit logs
+
+## Key facts
+
+- Website: https://manut.xyz
+- Sign up: https://manut.xyz/sign-in
+- Source: https://github.com/gogocash-deploy/manut
+- Support: hello@manut.xyz
+- Offline: yes (CRDT sync)
+- AI models: Gemini 2.5, Claude, Llama via Google Vertex
+- Export: Markdown, JSON, HTML; Postgres pg_dump on self-host
+
+## Compare
+
+Manut vs Notion: open-source, self-host option, multi-model agent with explicit permission modes, whiteboards built in.
+Manut vs AFFiNE: same core editor; Manut adds Manut-specific AI tools, calendar, and cloud at manut.xyz.

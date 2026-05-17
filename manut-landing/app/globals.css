@@ -143,11 +143,14 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     scroll-behavior: smooth;
+    overflow-x: clip;
   }
 
   body {
     @apply bg-background text-foreground;
     font-feature-settings: 'ss01', 'cv01', 'cv02', 'cv11';
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
   }
 
   ::selection {
@@ -225,11 +228,92 @@
     }
   }
 
-  /* Container with editorial gutters */
+  .hero-word-flip-in {
+    animation: hero-word-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .hero-word-flip-out {
+    animation: hero-word-out 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes hero-word-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.35em);
+      filter: blur(3px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes hero-word-out {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+    }
+    to {
+      opacity: 0.35;
+      transform: translateY(-0.28em) scale(0.98);
+      filter: blur(4px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-word-flip-in,
+    .hero-word-flip-out {
+      animation: none;
+    }
+  }
+
+  /* Container with editorial gutters + notch-safe horizontal inset */
   .container-prose {
     max-width: 1240px;
     margin-inline: auto;
-    padding-inline: clamp(1.25rem, 4vw, 2rem);
+    padding-inline: max(1.25rem, env(safe-area-inset-left, 0px))
+      max(1.25rem, env(safe-area-inset-right, 0px));
+  }
+
+  @media (min-width: 640px) {
+    .container-prose {
+      padding-inline: max(
+          clamp(1.25rem, 4vw, 2rem),
+          env(safe-area-inset-left, 0px)
+        )
+        max(clamp(1.25rem, 4vw, 2rem), env(safe-area-inset-right, 0px));
+    }
+  }
+
+  .section-pad {
+    padding-block: 4rem;
+  }
+
+  @media (min-width: 640px) {
+    .section-pad {
+      padding-block: 6rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .section-pad {
+      padding-block: 8rem;
+    }
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .touch-target {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
   }
 
   /* Numbered tabular figures for stats */
@@ -241,6 +325,97 @@
   .ring-accent-glow:focus-visible {
     outline: 2px solid oklch(0.78 0.16 25);
     outline-offset: 3px;
+  }
+
+  /* Gen Z accent — gradient type, sticker pills, soft mesh */
+  .text-gen-z-gradient {
+    background: linear-gradient(
+      115deg,
+      oklch(0.78 0.16 25) 0%,
+      oklch(0.68 0.13 215) 45%,
+      oklch(0.82 0.13 85) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Hero flip verb — gradient must live on the same node as the glyphs */
+  .hero-flip-word {
+    color: var(--accent);
+    background-image: linear-gradient(
+      118deg,
+      oklch(0.72 0.17 25) 0%,
+      oklch(0.58 0.1 215) 48%,
+      oklch(0.76 0.14 85) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 100% 100%;
+  }
+
+  .dark .hero-flip-word {
+    color: oklch(0.82 0.17 25);
+    background-image: linear-gradient(
+      118deg,
+      oklch(0.86 0.19 25) 0%,
+      oklch(0.78 0.14 215) 45%,
+      oklch(0.9 0.15 85) 100%
+    );
+  }
+
+  @supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+    .hero-flip-word {
+      -webkit-text-fill-color: currentColor;
+      color: var(--accent);
+      background-image: none;
+    }
+  }
+
+  .badge-sticker {
+    display: inline-flex;
+    max-width: 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    border: 1px solid oklch(0.78 0.16 25 / 0.35);
+    background: oklch(1 0 0 / 0.72);
+    padding: 0.35rem 0.85rem;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    box-shadow: 0 8px 24px -12px oklch(0.78 0.16 25 / 0.45);
+    transform: rotate(-1.5deg);
+  }
+
+  .dark .badge-sticker {
+    background: oklch(0.22 0.01 270 / 0.85);
+    border-color: oklch(0.78 0.16 25 / 0.4);
+  }
+
+  .hero-mesh-genz {
+    background-image:
+      radial-gradient(
+        ellipse 70% 55% at 15% 20%,
+        oklch(0.78 0.16 25 / 0.22),
+        transparent 65%
+      ),
+      radial-gradient(
+        ellipse 60% 50% at 85% 25%,
+        oklch(0.68 0.13 215 / 0.2),
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse 80% 60% at 50% 0%,
+        oklch(0.82 0.13 85 / 0.18),
+        transparent 70%
+      );
   }
 }
 

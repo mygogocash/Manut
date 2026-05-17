@@ -5,17 +5,22 @@ import { Features } from '@/components/sections/features';
 import { Hero } from '@/components/sections/hero';
 import { OpenSource } from '@/components/sections/open-source';
 import { Pricing } from '@/components/sections/pricing';
+import { SeoGlance } from '@/components/sections/seo-glance';
 import { SiteFooter } from '@/components/sections/site-footer';
 import { Testimonials } from '@/components/sections/testimonials';
 import { TrustBar } from '@/components/sections/trust-bar';
 import { SiteNav } from '@/components/site-nav';
+import { buildHomeMetadata } from '@/lib/seo';
+
+export const metadata = buildHomeMetadata();
 
 export default function Home() {
   return (
     <>
       <SiteNav />
-      <main id="main" className="flex flex-col">
+      <main id="main" className="flex min-w-0 flex-col overflow-x-clip">
         <Hero />
+        <SeoGlance />
         <TrustBar />
         <Features />
         <AiDemo />

@@ -1,0 +1,12 @@
+name: 'Manut checkout'
+description: 'Checkout the commit that triggered the pipeline (workflow_run head SHA or dispatch ref)'
+inputs:
+  ref:
+    description: 'Git ref to checkout'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.ref }}

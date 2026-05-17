@@ -5,9 +5,9 @@ import { ButtonLink } from '@/components/ui/button';
 import { siteConfig } from '@/lib/site';
 
 const POINTS = [
-  'No credit card required',
+  'No credit card',
   '14-day free trial',
-  'Cancel any time',
+  'Cancel anytime',
   'AI included',
 ] as const;
 
@@ -24,16 +24,19 @@ export function Cta() {
 
       <div className="container-prose relative">
         <Reveal className="mx-auto max-w-3xl text-center">
-          <p className="kicker kicker-line">Get started</p>
+          <p className="kicker kicker-line">Let&apos;s go</p>
           <h2
             id="cta-heading"
             className="mt-4 text-balance text-[clamp(2rem,4.5vw,4rem)] font-semibold leading-[1.05] tracking-[-0.03em]"
           >
-            Ready to <span className="display-italic">think faster?</span>
+            Ready to{' '}
+            <span className="display-italic text-gen-z-gradient">
+              ship faster?
+            </span>
           </h2>
           <p className="mx-auto mt-5 max-w-md text-pretty text-base text-muted-foreground sm:text-lg">
-            Spin up a workspace in seconds. Bring your team and your docs. Let
-            AI do the rest.
+            Spin up a workspace in under a minute. Invite the team. Let the AI
+            handle the boring parts.
           </p>
 
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">

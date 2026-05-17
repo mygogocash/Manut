@@ -26,7 +26,7 @@ export function ThemeToggle() {
       <DropdownMenuTrigger
         aria-label="Toggle color theme"
         className={cn(
-          'inline-flex size-9 items-center justify-center rounded-full border border-border/60 bg-background/40 text-muted-foreground',
+          'touch-target inline-flex size-11 items-center justify-center rounded-full border border-border/60 bg-background/40 text-muted-foreground sm:size-9',
           'transition-colors hover:text-foreground hover:bg-muted',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
           '[&_svg]:size-4'

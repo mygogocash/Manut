@@ -8,7 +8,7 @@ export function TrustBar() {
     >
       <div className="container-prose">
         <h2 id="trust-heading" className="kicker kicker-line text-center">
-          Trusted by teams at
+          Teams already cooking with Manut
         </h2>
         <ul className="mt-7 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 sm:gap-x-14">
           {trustLogos.map(name => (

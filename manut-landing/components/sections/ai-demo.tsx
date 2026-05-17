@@ -85,7 +85,7 @@ export function AiDemo() {
     <section
       id="ai"
       aria-labelledby="ai-heading"
-      className="relative border-y border-border py-24 sm:py-32"
+      className="section-pad relative border-y border-border"
     >
       <div
         aria-hidden
@@ -96,21 +96,23 @@ export function AiDemo() {
         <Reveal>
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_20px_60px_-20px_oklch(0_0_0/0.18)] dark:shadow-[0_20px_60px_-20px_oklch(0_0_0/0.55)]">
             {/* Header */}
-            <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-5 py-3.5">
-              <span
-                aria-hidden
-                className="grid size-7 place-items-center rounded-full bg-foreground text-background"
-              >
-                <Sparkles className="size-3.5" aria-hidden />
-              </span>
-              <span className="text-[13px] font-semibold tracking-tight">
-                Manut AI
-              </span>
+            <div className="flex flex-col gap-3 border-b border-border bg-muted/40 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  aria-hidden
+                  className="grid size-7 shrink-0 place-items-center rounded-full bg-foreground text-background"
+                >
+                  <Sparkles className="size-3.5" aria-hidden />
+                </span>
+                <span className="text-[13px] font-semibold tracking-tight">
+                  Manut AI
+                </span>
+              </div>
 
               <div
                 role="tablist"
                 aria-label="AI mode"
-                className="ml-auto flex gap-1"
+                className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5 sm:mx-0 sm:ml-auto sm:overflow-visible sm:px-0 sm:pb-0"
               >
                 {(Object.keys(MODE_LABELS) as Mode[]).map(m => (
                   <button
@@ -119,7 +121,7 @@ export function AiDemo() {
                     aria-selected={mode === m}
                     onClick={() => setMode(m)}
                     className={cn(
-                      'rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors',
+                      'shrink-0 rounded-full px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-wider transition-colors sm:py-1',
                       mode === m
                         ? 'bg-foreground text-background'
                         : 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
@@ -132,7 +134,7 @@ export function AiDemo() {
             </div>
 
             {/* Messages */}
-            <div className="flex flex-col gap-4 p-5">
+            <div className="flex flex-col gap-4 p-4 sm:p-5">
               <div className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-foreground px-3.5 py-2.5 text-[13px] text-background">
                 Summarize last week&apos;s meeting notes and draft a follow-up
                 action plan.

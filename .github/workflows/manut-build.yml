@@ -1,43 +1,19 @@
 name: 🏗️ Manut Build
 run-name: '🏗️ Build #${{ github.run_number }} • ${{ github.event.workflow_run.display_title || github.event.head_commit.message || github.event_name }} • by ${{ github.actor }}'
 
-# Tier 2 split: this workflow ONLY builds + pushes the image. Deploy is
-# now a separate workflow (`Manut Auto Deploy`) that watches THIS
-# workflow's success and SSHes deploy.sh on the VM with the resulting
-# tag. Splitting build from deploy:
-#   - lets us re-deploy an existing image without re-bundling
-#   - keeps the build job cacheable & idempotent
-#   - makes the deploy job small (~2-3 min) and easy to reason about
+# Tier 2 split: build + push only. Deploy is `Manut Auto Deploy` / Railway.
 #
-# Trigger:
-#   workflow_run on `Manut CI` success on `main` (same trigger that
-#   lived inside the previous monolithic autodeploy workflow).
+# Job chain (visible in the Actions graph for monitoring):
+#   ① Plan → ② Native + Landing (parallel) → ③ Bundle → ④ Push image → ⑤ Publish
 #
-# Outputs:
-#   - GAR image: ${GAR_REPO}:main-<short-sha>-<github_run_id>
-#   - Artifact `image-tag` containing the tag name (consumed by the
-#     downstream autodeploy workflow). Artifacts are the only reliable
-#     cross-workflow handoff: GitHub's `workflow_run` event payload does
-#     NOT propagate downstream `outputs.<key>`. The autodeploy workflow
-#     also has a fallback path that reads this same artifact via
-#     `gh api`/`gh run download`.
-#   - Job summary line `IMAGE_TAG=<tag>` for human readability.
-#
-# WIF auth (no JSON key — org policy forbids them):
-#   provider: projects/602860445793/.../providers/github
-#   service account: affine-gha-deployer@affine-495114.iam.gserviceaccount.com
+# Cross-workflow handoff to deploy still uses the `image-tag` artifact only
+# (workflow_run does not propagate job outputs).
 
 on:
   workflow_run:
     workflows: ['✅ Manut CI']
     types: [completed]
     branches: [main]
-  # Manual trigger exists primarily as the buildx-cache nuke escape
-  # hatch (Tier 2). Tick `nuke_cache` to wipe the registry cache image
-  # before this run starts; that forces a cold build on this run AND
-  # repopulates a fresh cache for subsequent runs. Useful when a poisoned
-  # layer is suspected — see the mobile/dist-empty incident that
-  # motivated this hatch.
   workflow_dispatch:
     inputs:
       nuke_cache:
@@ -46,14 +22,6 @@ on:
         required: false
         default: false
 
-# Build runs serially (one at a time globally) but QUEUE rather than
-# cancel. The cancel-in-progress: true setting caused a multi-cycle
-# cancellation storm during the v1.12.0 release (2026-05-14): every
-# new commit on main superseded its predecessor's Build, so no image
-# ever published. With cancel-in-progress: false, runs queue and each
-# Manut CI -> Manut Build chain completes in order. The buildx push
-# is atomic, so a queued Build that runs later still produces a clean
-# tagged image. See CLAUDE.md §8 for the full incident write-up.
 concurrency:
   group: manut-build
   cancel-in-progress: false
@@ -62,79 +30,65 @@ env:
   YARN_ENABLE_HARDENED_MODE: 0
   GAR_REGION: asia-southeast1
   GAR_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash
-  # Tier 2: dedicated registry image for buildx layer cache. Sibling of
-  # the deploy image in the same GAR repo so a single push permission
-  # covers both. Single tag :buildx accumulates all layers; the
-  # nuke_cache workflow input deletes this tag entirely to force a cold
-  # build. See docs/CICD.md "Buildx cache (registry-backed)".
   GAR_CACHE_REPO: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash-cache
   GCP_PROJECT: affine-495114
+  HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
-  build:
-    name: Build + push image
-    # Run when CI succeeded on a push event to main (not a PR merge-queue
-    # check, not a workflow_run from a fork) OR when manually dispatched
-    # (e.g., to nuke the registry buildx cache via the workflow_dispatch
-    # input). Manual dispatch always passes the gate; the workflow_run
-    # path retains the conclusion + event guard.
+  # ── Gate (same condition as the old monolithic build job) ─────────────
+  plan:
+    name: ① Plan
     if: >
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    timeout-minutes: 120
-    env:
-      MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
-    permissions:
-      contents: read
-      id-token: write
-    # Expose the computed tag as a job output. NOTE: this is consumable
-    # by other JOBS within the same workflow, but is NOT propagated
-    # through the `workflow_run` event payload to downstream workflows.
-    # Downstream workflows must use the `image-tag` artifact instead.
+    timeout-minutes: 5
     outputs:
       image_tag: ${{ steps.tag.outputs.tag }}
       short_sha: ${{ steps.tag.outputs.short_sha }}
       head_sha: ${{ steps.tag.outputs.head_sha }}
+      should_run: 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: ./.github/actions/manut-compute-tag
+        id: tag
         with:
-          # Build the IMAGE the CI run actually validated. github.sha on
-          # workflow_run events points at the workflow file's HEAD on the
-          # default branch — which can drift from the commit that passed
-          # CI if the workflow file itself was edited mid-flight.
-          # Fallback to github.sha for the workflow_dispatch (cache-nuke)
-          # path which lacks workflow_run.head_sha.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          head_sha: ${{ env.HEAD_SHA }}
 
-      - uses: actions/setup-node@v4
+      - name: Pipeline plan summary
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          SHORT_SHA: ${{ steps.tag.outputs.short_sha }}
+          HEAD_SHA: ${{ steps.tag.outputs.head_sha }}
+        run: |
+          {
+            echo "## Manut Build — plan"
+            echo ""
+            echo "| Stage | Job |"
+            echo "|-------|-----|"
+            echo "| ② | Native (napi) + Landing (parallel) |"
+            echo "| ③ | Bundle server + web + admin + mobile |"
+            echo "| ④ | Docker build + push to GAR |"
+            echo "| ⑤ | Publish artifacts for deploy |"
+            echo ""
+            echo "- Commit: \`${SHORT_SHA}\` (\`${HEAD_SHA}\`)"
+            echo "- Planned image tag: \`${IMAGE_TAG}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  native:
+    name: ② Native (napi)
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: ./.github/actions/manut-checkout
         with:
-          node-version: 22
-
-      - run: corepack enable
-
-      # Tier 2 (build determinism): pin yarn to the exact version recorded
-      # in package.json:packageManager. corepack defaults to "whatever's
-      # bundled with the runner image" which can drift between hosted
-      # runners and laptop. Pinning eliminates a class of build-output
-      # variance that contributed to the layer-cache poisoning saga.
-      - name: Pin corepack yarn version
-        run: corepack prepare yarn@4.13.0 --activate
+          ref: ${{ env.HEAD_SHA }}
 
       - name: Setup Rust (stable, x86_64-unknown-linux-gnu)
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-linux-gnu
-
-      - name: Cache yarn
-        uses: actions/cache@v4
-        with:
-          path: |
-            .yarn/cache
-            .yarn/install-state.gz
-          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: yarn-${{ runner.os }}-
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -146,20 +100,9 @@ jobs:
           key: cargo-${{ runner.os }}-${{ hashFiles('packages/backend/native/Cargo.lock', 'packages/backend/native/Cargo.toml') }}
           restore-keys: cargo-${{ runner.os }}-
 
-      - run: yarn install --immutable
+      - uses: ./.github/actions/manut-yarn
 
       - name: Build napi native binary (server-native.x64.node)
-        # napi-rs CLI's filename convention varies by version (v2 uses
-        # target-triple suffix `linux-x64-gnu`, v3 sometimes drops it).
-        # Don't guess — list whatever napi produced, then rename.
-        # The wrapper at packages/backend/native/index.js tries:
-        #   ./server-native.node       (first try)
-        #   ./server-native.x64.node   (fallback x64)
-        #   ./server-native.arm64.node (fallback arm64 — unused on amd64)
-        #   ./server-native.armv7.node (fallback armv7 — unused on amd64)
-        # rspack statically resolves all four at compile time. Materialize
-        # the real binary at the bare + x64 names; touch dummies for arm.
-        # No untrusted input — all literals.
         run: |
           cd packages/backend/native
           yarn build --target x86_64-unknown-linux-gnu
@@ -177,7 +120,6 @@ jobs:
             break
           done
           if [ -z "$PRODUCED" ]; then
-            # Maybe napi already wrote it as the bare name
             if [ -f server-native.node ]; then PRODUCED=server-native.node; fi
           fi
           if [ -z "$PRODUCED" ]; then
@@ -186,54 +128,34 @@ jobs:
             exit 1
           fi
           echo "napi produced: $PRODUCED"
-          # Materialize the real binary at both names rspack/index.js need.
-          # If napi already wrote it as the bare name, only copy to x64.
           [ "$PRODUCED" != "server-native.x64.node" ] && cp "$PRODUCED" server-native.x64.node
           [ "$PRODUCED" != "server-native.node" ]     && cp "$PRODUCED" server-native.node
           touch server-native.arm64.node server-native.armv7.node
-          echo "--- files after rename ---"
-          find . -maxdepth 1 \( -name 'server-native.*.node' -o -name 'server-native.node' \) -print | head -10
 
-      - name: Generate Prisma client
-        run: yarn workspace @affine/server prisma generate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manut-native
+          path: |
+            packages/backend/native/server-native.node
+            packages/backend/native/server-native.x64.node
+            packages/backend/native/server-native.arm64.node
+            packages/backend/native/server-native.armv7.node
+          retention-days: 1
+          if-no-files-found: error
 
-      # Tier 2 (build determinism): wipe stale dist directories before
-      # bundling. CI runners are ephemeral so this is usually a no-op,
-      # but yarn install can leave behind generated dist trees from
-      # workspace postinstalls in some configurations. A stale dist
-      # tree is exactly what got cached in the layer-poisoning incident
-      # — start each bundle from a known-clean slate.
-      #
-      # CRITICAL: explicit paths only. The first version of this step
-      # used `find packages/frontend -path '*/dist' -type d` which
-      # matched `packages/frontend/admin/node_modules/react-router-dom/dist`
-      # — i.e., it wiped vendored library `dist/` directories inside
-      # `node_modules`, killing react-router-dom (and every other lib
-      # that ships compiled output that way). Build 25412101434 hit this
-      # and failed with `Module not found: Can't resolve 'react-router-dom'`.
-      # Don't reintroduce a -path glob here.
-      - name: Prune stale dist artifacts
-        run: |
-          rm -rf packages/frontend/apps/web/dist
-          rm -rf packages/frontend/apps/mobile/dist
-          rm -rf packages/frontend/admin/dist
-          rm -rf packages/backend/server/dist
-          echo "Pruned package-owned dist directories (not node_modules)"
+  landing:
+    name: ② Landing site
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: ./.github/actions/manut-checkout
+        with:
+          ref: ${{ env.HEAD_SHA }}
 
-      - name: Build server bundle
-        run: yarn affine bundle -p @affine/server
-
-      - name: Build frontend bundles
-        # All four bundles built — mobile rebuild is required because
-        # Dockerfile copies mobile/dist into /app/static/mobile, and
-        # backend's DocRendererController.readHtmlAssets reads the
-        # assets-manifest.json from there at boot. An empty dir crashes
-        # the server with ENOENT before it can bind port 3010. CLAUDE.md
-        # §5 documents the prior outage from skipping this.
-        run: |
-          yarn affine bundle -p web
-          yarn affine bundle -p admin
-          yarn affine bundle -p mobile
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Build marketing landing site
         run: |
@@ -241,34 +163,96 @@ jobs:
           npm ci
           npm run build
 
-      # Tier 2 (build determinism): catches the class of bugs where the
-      # build process writes BACK into the source tree. Stale .js files
-      # next to .css.ts source poison subsequent builds (CLAUDE.md §5
-      # "Stale .js / .d.ts in packages/**/src/"). git-status respects
-      # .gitignore, so the existing dist/ + *.js gitignore rules keep
-      # legitimate untracked artifacts from triggering this. Run AFTER
-      # all bundles complete — some shared codegen may legitimately
-      # update files mid-build but should converge before the final
-      # bundle step.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manut-landing
+          path: manut-landing/out
+          retention-days: 1
+          if-no-files-found: error
+
+  bundle:
+    name: ③ Bundle (server + web)
+    needs: [plan, native]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: ./.github/actions/manut-checkout
+        with:
+          ref: ${{ env.HEAD_SHA }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: manut-native
+          path: packages/backend/native
+
+      - uses: ./.github/actions/manut-yarn
+
+      - name: Generate Prisma client
+        run: yarn workspace @affine/server prisma generate
+
+      - name: Prune stale dist artifacts
+        run: |
+          rm -rf packages/frontend/apps/web/dist
+          rm -rf packages/frontend/apps/mobile/dist
+          rm -rf packages/frontend/admin/dist
+          rm -rf packages/backend/server/dist
+
+      - name: Build server bundle
+        run: yarn affine bundle -p @affine/server
+
+      - name: Build frontend bundles
+        run: |
+          yarn affine bundle -p web
+          yarn affine bundle -p admin
+          yarn affine bundle -p mobile
+
       - name: Check no source files drifted during build
         run: |
           if [ -n "$(git status --porcelain packages/ blocksuite/ tools/)" ]; then
             echo "::error::source tree drifted during build:"
             git status --short packages/ blocksuite/ tools/ | head -50
-            echo ""
-            echo "rspack/tsc wrote back into the source tree. The bundle"
-            echo "may have picked up stale .js next to .ts/.tsx and"
-            echo "produced a different output than a clean tree would."
-            echo "See CLAUDE.md §5 'Stale .js / .d.ts in packages/**/src/'."
             exit 1
           fi
-          echo "No source drift detected"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: manut-dist
+          path: |
+            packages/backend/server/dist
+            packages/frontend/apps/web/dist
+            packages/frontend/admin/dist
+            packages/frontend/apps/mobile/dist
+          retention-days: 1
+          if-no-files-found: error
+
+  push-image:
+    name: ④ Docker push
+    needs: [plan, bundle, landing]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      image_digest: ${{ steps.build_push.outputs.digest }}
+    env:
+      MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: ./.github/actions/manut-checkout
+        with:
+          ref: ${{ env.HEAD_SHA }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: manut-dist
+          path: .
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: manut-landing
+          path: manut-landing/out
 
       - name: Authenticate to GCP
-        # Workload Identity Federation — no JSON key (org policy
-        # constraints/iam.disableServiceAccountKeyCreation forbids them).
-        # GitHub OIDC token impersonates the service account directly.
-        # No untrusted input — only literal WIF provider id and SA email.
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
@@ -278,99 +262,18 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker for GAR
-        env:
-          GAR_REGION: ${{ env.GAR_REGION }}
-        run: gcloud auth configure-docker "${GAR_REGION}-docker.pkg.dev" --quiet
+        run: gcloud auth configure-docker "${{ env.GAR_REGION }}-docker.pkg.dev" --quiet
 
-      # Tier 2 (cache poisoning escape hatch): operator can wipe the
-      # registry buildx cache image before the build by ticking
-      # `nuke_cache` in the workflow_dispatch input. This forces a cold
-      # cache miss on this run and repopulates a fresh cache for
-      # subsequent runs — the only reliable way to recover from a
-      # poisoned layer (the mobile/dist-empty incident took prod down
-      # twice via this exact failure mode).
-      #
-      # `|| true` is intentional: the cache image may not yet exist on
-      # the very first run, and the deployer SA only has
-      # roles/artifactregistry.writer (not repoAdmin) so the delete may
-      # 403. Either way, the next buildx step will simply cache-miss
-      # and repopulate. Document the permission shortcoming in
-      # docs/CICD.md so an operator who needs reliable nuking can
-      # request roles/artifactregistry.repoAdmin.
       - name: Nuke buildx cache image (escape hatch)
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.nuke_cache == 'true'
         env:
           CACHE_IMAGE: ${{ env.GAR_CACHE_REPO }}:buildx
         run: |
-          echo "Wiping buildx cache: ${CACHE_IMAGE}"
           gcloud artifacts docker images delete "${CACHE_IMAGE}" --quiet --delete-tags || true
-          echo "Cache nuked (or never existed). The next docker build will"
-          echo "be slow (no cache hits) and will repopulate a fresh cache."
 
       - uses: docker/setup-buildx-action@v3
 
-      # head_sha is a hex SHA. RUN_ID is a numeric ID from GitHub.
-      # Concatenated tag is shell-safe.
-      #
-      # workflow_run carries the SHA on workflow_run.head_sha;
-      # workflow_dispatch (the cache-nuke escape hatch) does not. Fall
-      # back to github.sha (the ref the dispatch resolved to) so
-      # nuke-mode runs still produce a proper main-<sha>-<run> tag.
-      - name: Compute image tag
-        id: tag
-        env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-          RUN_ID: ${{ github.run_id }}
-        run: |
-          SHORT_SHA=$(echo "$HEAD_SHA" | cut -c1-9)
-          IMAGE_TAG="main-${SHORT_SHA}-${RUN_ID}"
-          {
-            echo "tag=${IMAGE_TAG}"
-            echo "short_sha=${SHORT_SHA}"
-            echo "head_sha=${HEAD_SHA}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Computed image tag: ${IMAGE_TAG}"
-
       - name: Build + push image
-        # ONE tag only: the run-unique immutable tag. We deliberately do
-        # NOT push :latest or :main-<sha> here — those floating tags are
-        # what enabled the clobber-then-redeploy regressions in v1.x.
-        # If you need a "current main" pointer, query GAR by image
-        # creation timestamp, not by tag.
-        #
-        # Tier 2 (cache poisoning fix): registry-backed buildx cache
-        # instead of GHA cache. Three reasons:
-        #   1. Visible. `docker manifest inspect` on the cache image
-        #      shows what's there. GHA cache is opaque.
-        #   2. Selectively invalidable. `gcloud artifacts docker images
-        #      delete` (the workflow_dispatch nuke_cache input above)
-        #      wipes a single bad cache without nuking everything else.
-        #      With GHA cache the only knob was "delete the entire
-        #      Actions cache for the repo".
-        #   3. Cross-runner reuse. Every CI run hits the same registry
-        #      cache regardless of which hosted runner picks up the job.
-        #      GHA cache is partitioned per ref/branch and tends to
-        #      cold-miss across runs.
-        #
-        # `mode=max` exports cache for ALL stages (default `min` only
-        # exports the final stage). We need this because the `prep`
-        # stage's `yarn workspaces focus` is the slowest single step.
-        #
-        # `no-cache-filters: assets` forces the `assets` stage in
-        # Dockerfile.fullstack to rebuild every time, even on a cache
-        # hit. That stage is the COPY layer that brings in the dist
-        # directories — the EXACT layer that got poisoned in the
-        # mobile/dist-empty incident. Defense-in-depth: even if the
-        # registry cache somehow ships a stale dist layer, the
-        # bypassed cache forces a rebuild from the current working
-        # tree. Cost: ~30s per build. Worth it.
-        #
-        # FIRST-RUN BEHAVIOR: on the first build after this change
-        # lands, the cache image at GAR_CACHE_REPO:buildx does not yet
-        # exist. cache-from will quietly miss; cache-to will create
-        # the image at the end of the build. Subsequent builds are
-        # fast. The job summary calls this out so an operator who
-        # sees a slow first build doesn't panic.
         id: build_push
         uses: docker/build-push-action@v5
         with:
@@ -379,28 +282,23 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.GAR_REPO }}:${{ steps.tag.outputs.tag }}
+            ${{ env.GAR_REPO }}:${{ needs.plan.outputs.image_tag }}
           cache-from: type=registry,ref=${{ env.GAR_CACHE_REPO }}:buildx
           cache-to: type=registry,ref=${{ env.GAR_CACHE_REPO }}:buildx,mode=max
           no-cache-filters: assets
 
+  publish:
+    name: ⑤ Publish artifacts
+    needs: [plan, native, landing, bundle, push-image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: always() && needs.plan.result == 'success' && needs.push-image.result == 'success'
+    steps:
       - name: Write image-tag artifact (cross-workflow handoff)
-        # Why an artifact, not job outputs?
-        # GitHub's `workflow_run` event payload does NOT expose the
-        # upstream workflow's job outputs to the downstream workflow.
-        # `${{ github.event.workflow_run.outputs.* }}` is empty even
-        # when `jobs.<id>.outputs.*` is populated upstream. The two
-        # supported handoff mechanisms are:
-        #   1. Artifacts (this approach) — works in every GHA version,
-        #      simple to consume via `actions/download-artifact` or
-        #      `gh run download`.
-        #   2. Repository dispatch / commit status — heavier, less
-        #      ergonomic.
-        # We pick (1).
         env:
-          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
-          SHORT_SHA: ${{ steps.tag.outputs.short_sha }}
-          HEAD_SHA: ${{ steps.tag.outputs.head_sha }}
+          IMAGE_TAG: ${{ needs.plan.outputs.image_tag }}
+          SHORT_SHA: ${{ needs.plan.outputs.short_sha }}
+          HEAD_SHA: ${{ needs.plan.outputs.head_sha }}
           BUILD_RUN_ID: ${{ github.run_id }}
         run: |
           mkdir -p artifact
@@ -410,7 +308,6 @@ jobs:
             echo "head_sha=${HEAD_SHA}"
             echo "build_run_id=${BUILD_RUN_ID}"
           } > artifact/image-tag.txt
-          echo "--- image-tag.txt ---"
           cat artifact/image-tag.txt
 
       - uses: actions/upload-artifact@v4
@@ -420,13 +317,17 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+
       - name: Write Manut handover artifact
         env:
-          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
-          IMAGE_DIGEST: ${{ steps.build_push.outputs.digest }}
+          IMAGE_TAG: ${{ needs.plan.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.push-image.outputs.image_digest }}
           GAR_REPO: ${{ env.GAR_REPO }}
-          SHORT_SHA: ${{ steps.tag.outputs.short_sha }}
-          HEAD_SHA: ${{ steps.tag.outputs.head_sha }}
+          SHORT_SHA: ${{ needs.plan.outputs.short_sha }}
+          HEAD_SHA: ${{ needs.plan.outputs.head_sha }}
         run: |
           node scripts/manut-release-handover.mjs \
             --mode build \
@@ -449,46 +350,33 @@ jobs:
           if-no-files-found: error
 
       - name: Summary
-        if: always()
         env:
-          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
-          SHORT_SHA: ${{ steps.tag.outputs.short_sha }}
-          HEAD_SHA: ${{ steps.tag.outputs.head_sha }}
-          IMAGE_DIGEST: ${{ steps.build_push.outputs.digest }}
+          IMAGE_TAG: ${{ needs.plan.outputs.image_tag }}
+          SHORT_SHA: ${{ needs.plan.outputs.short_sha }}
+          HEAD_SHA: ${{ needs.plan.outputs.head_sha }}
+          IMAGE_DIGEST: ${{ needs.push-image.outputs.image_digest }}
           GAR_REPO_VAR: ${{ env.GAR_REPO }}
-          NUKE_CACHE: ${{ github.event.inputs.nuke_cache }}
           CACHE_IMAGE: ${{ env.GAR_CACHE_REPO }}:buildx
+          NUKE_CACHE: ${{ github.event.inputs.nuke_cache }}
         run: |
           {
-            echo "## Manut Build"
+            echo "## Manut Build — complete"
+            echo ""
+            echo "| Job | Status |"
+            echo "|-----|--------|"
+            echo "| ① Plan | ✅ |"
+            echo "| ② Native | ${{ needs.native.result == 'success' && '✅' || needs.native.result }} |"
+            echo "| ② Landing | ${{ needs.landing.result == 'success' && '✅' || needs.landing.result }} |"
+            echo "| ③ Bundle | ${{ needs.bundle.result == 'success' && '✅' || needs.bundle.result }} |"
+            echo "| ④ Docker push | ✅ |"
+            echo "| ⑤ Publish | ✅ |"
             echo ""
             echo "- Commit: \`${SHORT_SHA}\` (\`${HEAD_SHA}\`)"
             echo "- Image tag: \`${IMAGE_TAG}\`"
             echo "- Image digest: \`${IMAGE_DIGEST:-unknown}\`"
             echo "- Registry: \`${GAR_REPO_VAR}\`"
-            echo "- Buildx cache: \`${CACHE_IMAGE}\`"
-            echo "- Handover artifact: \`manut-handover\`"
             echo ""
             echo "**Machine-readable**: \`IMAGE_TAG=${IMAGE_TAG}\`"
             echo ""
-            echo "Downstream \`Manut Auto Deploy\` will pick this tag"
-            echo "up via the \`image-tag\` artifact and SSH deploy.sh on"
-            echo "the VM. To deploy manually instead, run:"
-            echo ""
-            echo '```bash'
-            echo "gh workflow run manut-deploy.yml -f tag=${IMAGE_TAG}"
-            echo '```'
+            echo "Downstream \`Manut Auto Deploy\` / \`Manut Railway Deploy\` consume the \`image-tag\` artifact."
           } >> "$GITHUB_STEP_SUMMARY"
-
-          # Tier 2: surface cache-related expectations to the operator.
-          if [ "${NUKE_CACHE}" = "true" ]; then
-            {
-              echo ""
-              echo "### Buildx cache: NUKED"
-              echo ""
-              echo "The registry cache image was deleted before this build."
-              echo "This run took the cold-cache penalty (~5-10 min slower)"
-              echo "and has now repopulated a fresh \`${CACHE_IMAGE}\`."
-              echo "Subsequent runs will be fast again."
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi

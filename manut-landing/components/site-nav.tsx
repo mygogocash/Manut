@@ -30,13 +30,13 @@ export function SiteNav() {
   return (
     <header
       className={cn(
-        'fixed inset-x-0 top-0 z-50 transition-[backdrop-filter,background,border-color] duration-200',
+        'safe-top fixed inset-x-0 top-0 z-50 transition-[backdrop-filter,background,border-color] duration-200',
         'border-b border-transparent',
         scrolled &&
           'border-border/60 bg-background/80 backdrop-blur-xl backdrop-saturate-150'
       )}
     >
-      <div className="container-prose flex h-16 items-center justify-between gap-6">
+      <div className="container-prose flex h-14 min-h-14 items-center justify-between gap-3 sm:h-16 sm:gap-6">
         <Link
           href="/"
           className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight"
@@ -44,8 +44,7 @@ export function SiteNav() {
         >
           <Image
             src="/manut-logo.jpeg"
-            alt=""
-            aria-hidden
+            alt="Manut logo"
             width={32}
             height={32}
             priority
@@ -85,7 +84,7 @@ export function SiteNav() {
           <ButtonLink
             href="#pricing"
             size="sm"
-            className="rounded-full bg-foreground px-4 py-2 text-background hover:bg-foreground/90"
+            className="hidden min-h-11 rounded-full bg-foreground px-4 py-2 text-background hover:bg-foreground/90 md:inline-flex"
           >
             Get started
             <ArrowRight className="size-3.5" aria-hidden />
@@ -94,7 +93,7 @@ export function SiteNav() {
           <Sheet>
             <SheetTrigger
               aria-label="Open menu"
-              className="inline-flex size-9 items-center justify-center rounded-full border border-border/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+              className="touch-target inline-flex size-11 items-center justify-center rounded-full border border-border/60 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
             >
               <Menu className="size-4" aria-hidden />
             </SheetTrigger>

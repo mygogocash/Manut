@@ -48,7 +48,7 @@ const COMMITS = [
 
 export function OpenSource() {
   return (
-    <section aria-labelledby="oss-heading" className="relative py-24 sm:py-32">
+    <section aria-labelledby="oss-heading" className="section-pad relative">
       <div className="container-prose grid gap-12 md:grid-cols-2 md:gap-20">
         <Reveal>
           <p className="kicker kicker-line">Open source</p>
@@ -139,15 +139,17 @@ export function OpenSource() {
               {COMMITS.map(c => (
                 <li
                   key={c.text}
-                  className="flex items-center gap-3 text-[13px]"
+                  className="flex min-w-0 items-center gap-3 text-[13px]"
                 >
                   <span
                     aria-hidden
-                    className="size-2 rounded-full"
+                    className="size-2 shrink-0 rounded-full"
                     style={{ background: c.color }}
                   />
-                  <span className="text-foreground">{c.text}</span>
-                  <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+                  <span className="min-w-0 truncate text-foreground">
+                    {c.text}
+                  </span>
+                  <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground">
                     {c.time}
                   </span>
                 </li>

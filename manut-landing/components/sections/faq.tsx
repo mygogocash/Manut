@@ -12,7 +12,7 @@ export function Faq() {
     <section
       id="faq"
       aria-labelledby="faq-heading"
-      className="relative border-y border-border py-24 sm:py-32"
+      className="section-pad relative border-y border-border"
     >
       <div className="container-prose grid gap-12 md:grid-cols-[1fr_2fr] md:gap-20">
         <Reveal>
@@ -21,10 +21,11 @@ export function Faq() {
             id="faq-heading"
             className="mt-4 text-balance text-[clamp(1.875rem,3.4vw,3rem)] font-semibold leading-[1.08] tracking-[-0.025em]"
           >
-            Questions, answered.
+            FAQ — no fluff, just facts.
           </h2>
           <p className="mt-5 text-pretty text-base text-muted-foreground sm:text-lg">
-            Quick answers to common questions. Reach out if anything is missing.
+            Straight answers for search, AI assistants, and your team lead who
+            asks hard questions.
           </p>
           <p className="mt-6 font-mono text-xs text-muted-foreground">
             Need more?{' '}
