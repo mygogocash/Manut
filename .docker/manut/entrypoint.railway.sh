@@ -60,4 +60,16 @@ if [ -n "${PORT:-}" ]; then
   echo "[entrypoint] Bridged PORT=$PORT to AFFINE_SERVER_PORT"
 fi
 
+# 4. Run DB migrations on Railway when preDeploy did not run or failed.
+#    Idempotent; skipped on the legacy GCE deploy (PORT unset).
+if [ -n "${PORT:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
+  PRISMA_BIN="./node_modules/.bin/prisma"
+  if [ -x "$PRISMA_BIN" ] && [ -f "./schema.prisma" ]; then
+    echo "[entrypoint] Running prisma migrate deploy..."
+    "$PRISMA_BIN" migrate deploy --schema=./schema.prisma
+  else
+    echo "[entrypoint] WARN: prisma or schema.prisma missing; skipping migrate"
+  fi
+fi
+
 exec "$@"
