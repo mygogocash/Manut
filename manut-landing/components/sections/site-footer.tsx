@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 
 import { footerNav, siteConfig } from '@/lib/site';
@@ -13,12 +14,14 @@ export function SiteFooter() {
               className="flex items-center gap-2.5 text-[15px] font-semibold tracking-tight"
               aria-label={`${siteConfig.name} home`}
             >
-              <span
+              <Image
+                src="/manut-logo.jpeg"
+                alt=""
                 aria-hidden
-                className="grid size-8 place-items-center rounded-md bg-foreground font-bold text-background"
-              >
-                S
-              </span>
+                width={32}
+                height={32}
+                className="size-8 rounded-md object-cover"
+              />
               {siteConfig.name}
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">

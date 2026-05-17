@@ -120,7 +120,7 @@ export function OpenSource() {
                   className={
                     'nums-tabular text-[clamp(2rem,4vw,2.75rem)] font-semibold tracking-[-0.04em] ' +
                     (s.grad
-                      ? 'bg-[linear-gradient(135deg,oklch(0.18_0.01_260),oklch(0.6_0.18_130))] bg-clip-text text-transparent dark:bg-[linear-gradient(135deg,oklch(0.96_0.005_85),oklch(0.85_0.19_132))]'
+                      ? 'bg-[linear-gradient(135deg,oklch(0.18_0.01_260),oklch(0.78_0.16_25))] bg-clip-text text-transparent dark:bg-[linear-gradient(135deg,oklch(0.96_0.005_85),oklch(0.74_0.17_25))]'
                       : (s.color ?? ''))
                   }
                 >

@@ -89,7 +89,7 @@ export function AiDemo() {
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-96 bg-[radial-gradient(ellipse_at_50%_0%,oklch(0.88_0.18_130/0.10)_0%,transparent_60%)]"
+        className="bg-spectrum pointer-events-none absolute inset-x-0 top-0 h-96 opacity-70"
       />
 
       <div className="container-prose grid items-start gap-12 md:grid-cols-2 md:gap-16">

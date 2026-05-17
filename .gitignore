@@ -80,6 +80,11 @@ target
 *.node
 tsconfig.node.tsbuildinfo
 lib
+# manut-landing keeps its data spine (siteConfig, plans, faqs, jsonld) in
+# a project-local lib/ directory. The generic `lib` rule above would
+# silently hide it and break the build. Unignore explicitly.
+!manut-landing/lib/
+!manut-landing/lib/**
 affine.db
 apps/web/next-routes.conf
 .nx

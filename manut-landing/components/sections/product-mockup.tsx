@@ -3,10 +3,10 @@ import { Sparkles } from 'lucide-react';
 export function ProductMockup() {
   return (
     <div className="relative mx-auto mt-16 max-w-[1080px] sm:mt-20">
-      {/* Lime glow */}
+      {/* Coral-teal glow — Newton's prism refracting beneath the canvas */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-x-10 -top-20 h-72 bg-[radial-gradient(ellipse_at_center,oklch(0.88_0.18_130/0.35)_0%,transparent_70%)] blur-2xl dark:bg-[radial-gradient(ellipse_at_center,oklch(0.85_0.19_132/0.28)_0%,transparent_70%)]"
+        className="pointer-events-none absolute -inset-x-10 -top-20 h-72 bg-[radial-gradient(ellipse_at_30%_center,oklch(0.78_0.16_25/0.30)_0%,transparent_60%),radial-gradient(ellipse_at_70%_center,oklch(0.68_0.13_215/0.26)_0%,transparent_60%)] blur-2xl dark:bg-[radial-gradient(ellipse_at_30%_center,oklch(0.74_0.17_25/0.22)_0%,transparent_60%),radial-gradient(ellipse_at_70%_center,oklch(0.7_0.13_215/0.22)_0%,transparent_60%)]"
       />
 
       <div className="relative rounded-[20px] border border-border bg-surface shadow-[0_30px_80px_-20px_oklch(0_0_0/0.18)] dark:shadow-[0_30px_80px_-20px_oklch(0_0_0/0.65)]">
@@ -16,7 +16,7 @@ export function ProductMockup() {
           <span aria-hidden className="size-2.5 rounded-full bg-[#ffbd2e]/85" />
           <span aria-hidden className="size-2.5 rounded-full bg-[#27c93f]/85" />
           <div className="mx-auto rounded-md bg-muted px-3 py-0.5 font-mono text-[11px] text-muted-foreground">
-            manut.gogocash.co / workspace / docs
+            manut.xyz / workspace / docs
           </div>
         </div>
 

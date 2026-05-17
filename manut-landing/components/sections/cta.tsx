@@ -19,7 +19,7 @@ export function Cta() {
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_50%,oklch(0.88_0.18_130/0.18)_0%,transparent_60%)] dark:bg-[radial-gradient(ellipse_at_50%_50%,oklch(0.85_0.19_132/0.10)_0%,transparent_60%)]"
+        className="bg-spectrum pointer-events-none absolute inset-0"
       />
 
       <div className="container-prose relative">
