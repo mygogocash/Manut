@@ -28,25 +28,33 @@
 # that work regardless of how the image was produced.
 #
 # Migration: AFFiNE's predeploy script (`yarn predeploy` from the server
-# package — runs `prisma migrate deploy` + admin-user seeding) is NOT
-# baked into startCommand because it can run idempotently as a separate
-# step before promotion. Two patterns work:
-#   1. Run it from the deploy workflow once per release via
-#      `railway run -- node ./dist/scripts/self-host-predeploy.js`.
-#   2. Or include it inline:
-#        startCommand = "node ./dist/scripts/self-host-predeploy.js && node ./dist/main.js"
-#      (~1-2s overhead per container start; idempotent).
-# Default below is the bare server boot — pick the pattern that fits
-# your release flow.
+# package — runs `prisma migrate deploy` + admin-user seeding) needs yarn
+# at runtime, which isn't installed in the slim runtime image. Instead we
+# invoke prisma directly via the local CLI binary in `preDeployCommand`
+# below; Railway runs it once per deploy in the same container as the
+# app, BEFORE the container starts taking traffic. This:
+#   - runs migrations idempotently (prisma migrate deploy is a no-op
+#     when the schema is already up to date),
+#   - doesn't require yarn in the runtime image,
+#   - skips the self-host-predeploy.js wrapper (it generates a
+#     ~/.affine/config/private.key for JWT signing — AFFiNE falls back
+#     to a random in-memory key without it; restart invalidates sessions
+#     but boot still succeeds).
+# If you want persistent JWT signing, attach a Railway volume to
+# /root/.affine/config and add a one-time `openssl ecparam ...` to the
+# preDeployCommand list.
 
 [build]
 builder        = "DOCKERFILE"
 dockerfilePath = ".docker/manut/Dockerfile.railway"
 
 [deploy]
-healthcheckPath         = "/info"
-healthcheckTimeout      = 30
-numReplicas             = 1
+healthcheckPath = "/info"
+healthcheckTimeout = 30
+numReplicas = 1
+preDeployCommand = [
+  "./node_modules/.bin/prisma migrate deploy --schema=./schema.prisma",
+]
 restartPolicyMaxRetries = 3
-restartPolicyType       = "ON_FAILURE"
-startCommand            = "node ./dist/main.js"
+restartPolicyType = "ON_FAILURE"
+startCommand = "node ./dist/main.js"
