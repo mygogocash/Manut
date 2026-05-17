@@ -84,6 +84,8 @@ jobs:
        github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
     permissions:
       contents: read
       id-token: write

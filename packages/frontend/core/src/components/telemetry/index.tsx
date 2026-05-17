@@ -1,4 +1,10 @@
-import { enableAutoTrack, sentry, tracker } from '@affine/track';
+import {
+  enableAutoTrack,
+  mixpanelOptIn,
+  mixpanelOptOut,
+  sentry,
+  tracker,
+} from '@affine/track';
 import { appSettingAtom } from '@toeverything/infra';
 import { useAtomValue } from 'jotai/react';
 import { useEffect } from 'react';
@@ -10,10 +16,12 @@ export function Telemetry() {
     if (settings.enableTelemetry === false) {
       sentry.disable();
       tracker.opt_out_tracking();
+      mixpanelOptOut();
       return;
     } else {
       sentry.enable();
       tracker.opt_in_tracking();
+      mixpanelOptIn();
       return enableAutoTrack(document.body, tracker.track);
     }
   }, [settings.enableTelemetry]);

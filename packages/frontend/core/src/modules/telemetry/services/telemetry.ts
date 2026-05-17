@@ -1,7 +1,14 @@
 import { shallowEqual } from '@affine/component';
 import { DebugLogger } from '@affine/debug';
 import { ServerDeploymentType } from '@affine/graphql';
-import { flushTelemetry, setTelemetryContext, tracker } from '@affine/track';
+import {
+  flushTelemetry,
+  mixpanelIdentify,
+  mixpanelPeopleSet,
+  mixpanelReset,
+  setTelemetryContext,
+  tracker,
+} from '@affine/track';
 import { LiveData, OnEvent, Service } from '@toeverything/infra';
 
 import type { AuthAccountInfo, Server, ServersService } from '../../cloud';
@@ -67,6 +74,7 @@ export class TelemetryService extends Service {
 
         if (prevAccount) {
           tracker.reset();
+          mixpanelReset();
         }
         // the isSelfHosted property from environment is not reliable
         if (selfHosted !== prevSelfHosted) {
@@ -78,11 +86,14 @@ export class TelemetryService extends Service {
         prevAccount = account ?? null;
         if (account) {
           tracker.identify(account.id);
-          tracker.people.set({
+          const people = {
             $email: account.email,
             $name: account.label,
             $avatar: account.avatar,
-          });
+          };
+          tracker.people.set(people);
+          mixpanelIdentify(account.id);
+          mixpanelPeopleSet(people);
           void flushTelemetry().catch(error => {
             logger.error('failed to flush telemetry after login', error);
           });

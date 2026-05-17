@@ -150,7 +150,9 @@ COPY --from=napi-builder /workspace/packages/backend/native/server-native.armv7.
 # Bundle server + frontends. GITHUB_SHA stamps the bundle's
 # data-version attribute (no .git in the container).
 ARG GITHUB_SHA=railway-build
+ARG MIXPANEL_TOKEN
 ENV GITHUB_SHA=${GITHUB_SHA}
+ENV MIXPANEL_TOKEN=${MIXPANEL_TOKEN}
 RUN yarn workspace @affine/server prisma generate && \
     yarn affine bundle -p @affine/server && \
     yarn affine bundle -p web && \

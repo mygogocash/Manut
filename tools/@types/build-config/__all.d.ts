@@ -37,6 +37,7 @@ declare interface BUILD_CONFIG_TYPE {
 
   CAPTCHA_SITE_KEY: string;
   SENTRY_DSN: string;
+  MIXPANEL_TOKEN: string;
 }
 
 declare var BUILD_CONFIG: BUILD_CONFIG_TYPE;

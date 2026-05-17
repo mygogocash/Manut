@@ -1052,6 +1052,7 @@ __metadata:
     "@affine/debug": "workspace:*"
     "@sentry/react": "npm:^10.47.0"
     "@types/react": "npm:^19.0.1"
+    mixpanel-browser: "npm:^2.79.0"
     nanoid: "npm:^5.1.6"
     react-router-dom: "npm:^6.30.3"
     vitest: "npm:^4.0.18"
@@ -7425,6 +7426,64 @@ __metadata:
   version: 0.16.0
   resolution: "@microsoft/tsdoc@npm:0.16.0"
   checksum: 10/1eaad3605234dc7e44898c15d1ba3c97fb968af1117025400cba572ce268da05afc36634d1fb9e779457af3ff7f13330aee07a962510a4d9c6612c13f71ee41e
+  languageName: node
+  linkType: hard
+
+"@mixpanel/rrdom@npm:^2.0.0-alpha.18":
+  version: 2.0.0-alpha.18.4
+  resolution: "@mixpanel/rrdom@npm:2.0.0-alpha.18.4"
+  dependencies:
+    "@mixpanel/rrweb-snapshot": "npm:^2.0.0-alpha.18"
+  checksum: 10/1202c76a7be76d31c92c072e6faeab8ab23f5bd7df8920148223cc338ed2c6eeb6cd696603f97c3bf7e6654329bbd2baf7381a83dc206b2cefc9ae6b7d2594e6
+  languageName: node
+  linkType: hard
+
+"@mixpanel/rrweb-plugin-console-record@npm:2.0.0-alpha.18.4":
+  version: 2.0.0-alpha.18.4
+  resolution: "@mixpanel/rrweb-plugin-console-record@npm:2.0.0-alpha.18.4"
+  peerDependencies:
+    "@mixpanel/rrweb": ^2.0.0-alpha.18
+    "@mixpanel/rrweb-utils": ^2.0.0-alpha.18
+  checksum: 10/719f38b2173d569819be8ca30f01a5aba0fae5a3d4d7e7cc261d6f0b51fe4a42fe0c7dc1f297fcc30b028125ac9ef6a10af65a9cb8feb3db4b889ed6196473d5
+  languageName: node
+  linkType: hard
+
+"@mixpanel/rrweb-snapshot@npm:^2.0.0-alpha.18":
+  version: 2.0.0-alpha.18.4
+  resolution: "@mixpanel/rrweb-snapshot@npm:2.0.0-alpha.18.4"
+  dependencies:
+    postcss: "npm:^8.4.38"
+  checksum: 10/c3cf6ccb6e49c92b4861d1afc0c827467a0fd11a836a45d8ae1bd4dc8447773190a93cb613cf2b303247514cd6a7ffdf39fe3169d0cdec12bb45f17fae1b7bd8
+  languageName: node
+  linkType: hard
+
+"@mixpanel/rrweb-types@npm:^2.0.0-alpha.18":
+  version: 2.0.0-alpha.18.4
+  resolution: "@mixpanel/rrweb-types@npm:2.0.0-alpha.18.4"
+  checksum: 10/9e1ebc7be30a4a5574a941b43071e2e00579da6dba115e46ed1d4393edd61b8a0f8ab62dac2676bb5ef3e9383e9b9cd29c6891e4f49527c5c856e668d7c6adaa
+  languageName: node
+  linkType: hard
+
+"@mixpanel/rrweb-utils@npm:2.0.0-alpha.18.4, @mixpanel/rrweb-utils@npm:^2.0.0-alpha.18":
+  version: 2.0.0-alpha.18.4
+  resolution: "@mixpanel/rrweb-utils@npm:2.0.0-alpha.18.4"
+  checksum: 10/6fd698d089a2692a457577feca109f12fd0914ee3ae109075afc4a99e1c0fb44b6eb2dbfb6643ee952014faac206c578cd0a62b2ae6e80b53346844db91ff8c0
+  languageName: node
+  linkType: hard
+
+"@mixpanel/rrweb@npm:2.0.0-alpha.18.4":
+  version: 2.0.0-alpha.18.4
+  resolution: "@mixpanel/rrweb@npm:2.0.0-alpha.18.4"
+  dependencies:
+    "@mixpanel/rrdom": "npm:^2.0.0-alpha.18"
+    "@mixpanel/rrweb-snapshot": "npm:^2.0.0-alpha.18"
+    "@mixpanel/rrweb-types": "npm:^2.0.0-alpha.18"
+    "@mixpanel/rrweb-utils": "npm:^2.0.0-alpha.18"
+    "@types/css-font-loading-module": "npm:0.0.7"
+    "@xstate/fsm": "npm:^1.4.0"
+    base64-arraybuffer: "npm:^1.0.1"
+    mitt: "npm:^3.0.0"
+  checksum: 10/91c0e144203c8dbd8b60fdef066bf7e5ffbb05f70317216beacbc0c24e324089d3c6d0afc776e803005be55a6a41aa300a0aabed5a38ea53971ebb25e5828b67
   languageName: node
   linkType: hard
 
@@ -16322,6 +16381,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/css-font-loading-module@npm:0.0.7":
+  version: 0.0.7
+  resolution: "@types/css-font-loading-module@npm:0.0.7"
+  checksum: 10/f70b9098ee3b2e006f5f6d5cecc627dcc7b898f266bfc594e73a8720636f1a3bc5f8c38fa0e8f7e5b7878038b46fd70da0c797c3288e072af984097210f4c056
+  languageName: node
+  linkType: hard
+
 "@types/d3-array@npm:*, @types/d3-array@npm:^3.0.3":
   version: 3.2.2
   resolution: "@types/d3-array@npm:3.2.2"
@@ -16821,6 +16887,13 @@ __metadata:
   version: 4.0.9
   resolution: "@types/js-yaml@npm:4.0.9"
   checksum: 10/a0ce595db8a987904badd21fc50f9f444cb73069f4b95a76cc222e0a17b3ff180669059c763ec314bc4c3ce284379177a9da80e83c5f650c6c1310cafbfaa8e6
+  languageName: node
+  linkType: hard
+
+"@types/json-logic-js@npm:2.0.5":
+  version: 2.0.5
+  resolution: "@types/json-logic-js@npm:2.0.5"
+  checksum: 10/60f1b3f5f820cebbfba24e59a396572bfcc16bf90d978427bf7529d0ed00b7fc7efd234847e5ea9ccde63ba9e89a5f0b21bc3daf179a46361083f3e0a4548cbb
   languageName: node
   linkType: hard
 
@@ -18485,6 +18558,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@xstate/fsm@npm:^1.4.0":
+  version: 1.6.5
+  resolution: "@xstate/fsm@npm:1.6.5"
+  checksum: 10/deae1501169d41d5395ce1581d7b08bde17911b7dec1533eacd5bee17060d22273055d6d6bc7e8f32222a502e4dcf510cd29064a5c9c5fa5aa2ced0ad60b2512
+  languageName: node
+  linkType: hard
+
 "@xtuc/ieee754@npm:^1.2.0":
   version: 1.2.0
   resolution: "@xtuc/ieee754@npm:1.2.0"
@@ -19323,7 +19403,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"base64-arraybuffer@npm:^1.0.2":
+"base64-arraybuffer@npm:^1.0.1, base64-arraybuffer@npm:^1.0.2":
   version: 1.0.2
   resolution: "base64-arraybuffer@npm:1.0.2"
   checksum: 10/15e6400d2d028bf18be4ed97702b11418f8f8779fb8c743251c863b726638d52f69571d4cc1843224da7838abef0949c670bde46936663c45ad078e89fee5c62
@@ -26759,6 +26839,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"json-logic-js@npm:2.0.5":
+  version: 2.0.5
+  resolution: "json-logic-js@npm:2.0.5"
+  checksum: 10/5d3c49e331027df2307aa8ab5c27fbadb930ffa083ad9b2876b20844a71cbe441c17702ab6a378cb79604c03c326124dfe3d7b75ec8bb4630075e8bdf16fe59a
+  languageName: node
+  linkType: hard
+
 "json-parse-even-better-errors@npm:^2.3.0, json-parse-even-better-errors@npm:^2.3.1":
   version: 2.3.1
   resolution: "json-parse-even-better-errors@npm:2.3.1"
@@ -29018,10 +29105,23 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mitt@npm:^3.0.1":
+"mitt@npm:^3.0.0, mitt@npm:^3.0.1":
   version: 3.0.1
   resolution: "mitt@npm:3.0.1"
   checksum: 10/287c70d8e73ffc25624261a4989c783768aed95ecb60900f051d180cf83e311e3e59865bfd6e9d029cdb149dc20ba2f128a805e9429c5c4ce33b1416c65bbd14
+  languageName: node
+  linkType: hard
+
+"mixpanel-browser@npm:^2.79.0":
+  version: 2.79.0
+  resolution: "mixpanel-browser@npm:2.79.0"
+  dependencies:
+    "@mixpanel/rrweb": "npm:2.0.0-alpha.18.4"
+    "@mixpanel/rrweb-plugin-console-record": "npm:2.0.0-alpha.18.4"
+    "@mixpanel/rrweb-utils": "npm:2.0.0-alpha.18.4"
+    "@types/json-logic-js": "npm:2.0.5"
+    json-logic-js: "npm:2.0.5"
+  checksum: 10/d9b02b428c2482390ab5e66982ba570968bfae0890acb2ad80c24ae82d8b51f2eb499c2c586697160e893c53595603a922401b0f4a8848814ca1e6d9773e09fd
   languageName: node
   linkType: hard
 
@@ -31323,7 +31423,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"postcss@npm:^8.5.14, postcss@npm:^8.5.3":
+"postcss@npm:^8.4.38, postcss@npm:^8.5.14, postcss@npm:^8.5.3":
   version: 8.5.14
   resolution: "postcss@npm:8.5.14"
   dependencies:
