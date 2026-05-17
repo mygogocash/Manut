@@ -1,6 +1,6 @@
 # Manut CI/CD
 
-How code gets from `main` to `https://manut.gogocash.co`. This doc is
+How code gets from `main` to `https://manut.xyz`. This doc is
 the architecture reference for the deploy pipeline; for daily commands
 see also `CLAUDE.md` §4 (testing checklist).
 
@@ -63,7 +63,7 @@ push to main
    │  7. stop sidecar
    │  8. ATOMIC SWAP: sed prod image tag in compose.yml,
    │       docker compose up -d --force-recreate affine
-   │  9. poll https://manut.gogocash.co/info for POST_SWAP_TIMEOUT (60s)
+   │  9. poll https://manut.xyz/info for POST_SWAP_TIMEOUT (60s)
    │       FAIL + --rollback-on-failure → restore compose.yml.previous.bak,
    │                                       recreate, re-poll → exit 2
    │       FAIL + --no-rollback → exit 1
@@ -573,7 +573,7 @@ sidecar smoke check actually exits 1 and production stays up.
 3. Capture pre-deploy production state (so you can verify "untouched"):
 
    ```bash
-   curl -fsS https://manut.gogocash.co/info
+   curl -fsS https://manut.xyz/info
    gcloud compute ssh affine-vm --project=affine-495114 \
      --zone=asia-southeast1-a --tunnel-through-iap \
      --command='sudo docker ps --filter name=affine_server --format "{{.Image}}"'
@@ -593,7 +593,7 @@ sidecar smoke check actually exits 1 and production stays up.
    ```bash
    while true; do
      printf '%s  /info → HTTP %s\n' "$(date '+%H:%M:%S')" \
-       "$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 5 https://manut.gogocash.co/info)"
+       "$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 5 https://manut.xyz/info)"
      sleep 20
    done
    ```

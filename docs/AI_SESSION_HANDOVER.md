@@ -17,8 +17,8 @@ on chat memory.
 - Origin HEAD: `21364d308 chore(release): consolidate pending PRs #32 #34 #35 #36 #37 into v1.11.0 release (#39)`
 - Branch state: clean baseline + the docs edits in this PR.
 - Production branch: `main`
-- Production app: https://manut.gogocash.co (canonical;
-  `affine.gogocash.co` 301-redirects)
+- Production app: https://manut.xyz (canonical;
+  `affine.gogocash.co` and `manut.gogocash.co` both 301-redirect)
 - Production image lineage: post-v1.11.0 consolidation tag in the
   GAR registry `affine-gogocash`. Refresh against the latest
   `manut-release.yml` run for the exact tag.
@@ -87,8 +87,8 @@ on chat memory.
   `main-8767c95e5-25558739931`, post-swap `/info` passed, and the prompt-seed
   gate passed `3/3`.
 - External production probe after deploy returned HTTP 200 for
-  `https://manut.gogocash.co/info`.
-- Browser smoke loaded `https://manut.gogocash.co/sign-in`; React mounted on
+  `https://manut.xyz/info`.
+- Browser smoke loaded `https://manut.xyz/sign-in`; React mounted on
   `#app` with children present and no `console.error` entries.
 - PR #14 merged into `main` as merge commit `2b30bc0d6`, preserving the VM
   pre-pull disk cleanup in GitHub for future deploys.
@@ -188,9 +188,10 @@ on chat memory.
   `app.module.ts` and `mails/index.tsx`; fixed with targeted `oxlint --fix`.
 - Committed the Superflow PM/CRM/reminders + Handover Inbox WIP as
   `de7b49388 feat(superflow): add PM CRM reminders and handover inbox`.
-- **2026-05-13 — Manut brand rename complete.** Production now answers
+- **2026-05-13 — Manut brand rename complete.** Production answered
   on `https://manut.gogocash.co`; the old `affine.gogocash.co` host
-  301-redirects. The GitHub repository was renamed
+  301-redirected. (Both hostnames later 301-redirected to `manut.xyz`
+  after the 2026-05-17 canonical switch.) The GitHub repository was renamed
   `mygogocash/Superflow` → `mygogocash/Manut` (the old URL redirects).
   Prisma `Sf*` models were renamed to `Mn*` and the DB migration ran
   in production (PR #26). Backend
@@ -218,7 +219,7 @@ on chat memory.
   PR #33 fixed the `isAnalyticsModuleEnabled()` gate predicate to read
   `globalThis.env.selfhosted` (matching `/info`) instead of the raw
   `DEPLOYMENT_TYPE` env var. Settings → Connections now renders
-  normally on `manut.gogocash.co`; previously it surfaced "Unhandled
+  normally on `manut.xyz`; previously it surfaced "Unhandled
   error raised" because the resolver was missing from the GraphQL
   schema. A schema-version-skew fallback also lands so the panel
   shows a friendly notice if the field is genuinely missing.
@@ -252,7 +253,7 @@ on chat memory.
 - `superflow-vm-init.yml` run `25559581702` succeeded.
 - `superflow-deploy.yml` run `25559646582` succeeded with
   `deploy.sh exit code: 0`.
-- `curl -fsS -D - https://manut.gogocash.co/info` returned HTTP 200 after
+- `curl -fsS -D - https://manut.xyz/info` returned HTTP 200 after
   deploy.
 - Playwright production smoke: sign-in page rendered, `#app` had 3 children,
   React keys were present, and browser console had 0 errors.
@@ -263,7 +264,7 @@ on chat memory.
 - Superflow Auto Deploy run `25586178501` succeeded; deploy script exit code
   was `0`, with `PRODUCTION HEALTHY` and `PROMPT-SEED OK — 3/3`.
 - Latest Dependabot Updates run `25589669434` on head `788a0e0b0` succeeded.
-- Latest heartbeat probe: `curl -fsS -D - https://manut.gogocash.co/info`
+- Latest heartbeat probe: `curl -fsS -D - https://manut.xyz/info`
   returned HTTP 200 on `2026-05-09 10:14:23 +07`.
 - `DATABASE_URL='postgresql://user:pass@localhost:5432/affine' yarn workspace @affine/server prisma format`
   passed.
@@ -385,6 +386,6 @@ gh run view 25559646582 --json status,conclusion,jobs,url
 gh run view 25585897582 --json status,conclusion,jobs,url
 gh run view 25586178501 --json status,conclusion,jobs,url
 gh run list --branch main --limit 10 --json databaseId,workflowName,status,conclusion,headSha,url
-curl -fsS https://manut.gogocash.co/info
+curl -fsS https://manut.xyz/info
 sed -n '1,240p' docs/AI_SESSION_HANDOVER.md
 ```

@@ -80,7 +80,7 @@ const actor = field('actor', 'GITHUB_ACTOR', '');
 const deployUrl = field(
   'deploy-url',
   'MANUT_DEPLOY_URL',
-  'https://manut.gogocash.co'
+  'https://manut.xyz'
 );
 const status = field('status', 'MANUT_HANDOVER_STATUS', defaultStatus(mode));
 
