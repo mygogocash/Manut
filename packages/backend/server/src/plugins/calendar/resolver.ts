@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
   Args,
   GraphQLISODateTime,
@@ -8,7 +9,12 @@ import {
   Resolver,
 } from '@nestjs/graphql';
 
-import { ActionForbidden, AuthenticationRequired, Config } from '../../base';
+import {
+  ActionForbidden,
+  AuthenticationRequired,
+  Config,
+  UserFriendlyError,
+} from '../../base';
 import { CurrentUser } from '../../core/auth';
 import { ServerConfigType } from '../../core/config/types';
 import { AccessController } from '../../core/permission';
@@ -58,6 +64,8 @@ export class CalendarServerConfigResolver {
 
 @Resolver(() => UserType)
 export class UserCalendarResolver {
+  private readonly logger = new Logger(UserCalendarResolver.name);
+
   constructor(private readonly calendar: CalendarService) {}
 
   @ResolveField(() => [CalendarAccountObjectType])
@@ -68,12 +76,25 @@ export class UserCalendarResolver {
     if (!currentUser || currentUser.id !== user.id) {
       throw new ActionForbidden();
     }
-    return await this.calendar.listAccounts(user.id);
+    try {
+      return await this.calendar.listAccounts(user.id);
+    } catch (error) {
+      if (error instanceof UserFriendlyError) {
+        throw error;
+      }
+      this.logger.error(
+        `calendarAccounts: failed to list accounts for user ${user.id}`,
+        error instanceof Error ? error.stack : String(error)
+      );
+      return [];
+    }
   }
 }
 
 @Resolver(() => CalendarAccountObjectType)
 export class CalendarAccountResolver {
+  private readonly logger = new Logger(CalendarAccountResolver.name);
+
   constructor(private readonly calendar: CalendarService) {}
 
   @ResolveField(() => Int)
@@ -85,11 +106,22 @@ export class CalendarAccountResolver {
       return account.calendarsCount;
     }
 
-    const calendars = await this.calendar.listAccountCalendars(
-      user.id,
-      account.id
-    );
-    return calendars.length;
+    try {
+      const calendars = await this.calendar.listAccountCalendars(
+        user.id,
+        account.id
+      );
+      return calendars.length;
+    } catch (error) {
+      if (error instanceof UserFriendlyError) {
+        throw error;
+      }
+      this.logger.error(
+        `calendarsCount: failed to list calendars for account ${account.id}`,
+        error instanceof Error ? error.stack : String(error)
+      );
+      return 0;
+    }
   }
 
   @ResolveField(() => [CalendarSubscriptionObjectType])
@@ -97,7 +129,18 @@ export class CalendarAccountResolver {
     @CurrentUser() user: CurrentUser,
     @Parent() account: CalendarAccountObjectType
   ) {
-    return await this.calendar.listAccountCalendars(user.id, account.id);
+    try {
+      return await this.calendar.listAccountCalendars(user.id, account.id);
+    } catch (error) {
+      if (error instanceof UserFriendlyError) {
+        throw error;
+      }
+      this.logger.error(
+        `calendars: failed to list calendars for account ${account.id}`,
+        error instanceof Error ? error.stack : String(error)
+      );
+      return [];
+    }
   }
 }
 

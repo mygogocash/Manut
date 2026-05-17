@@ -51,14 +51,25 @@ export class CalendarService {
 
   async listAccounts(userId: string) {
     const accounts = await this.models.calendarAccount.listByUser(userId);
-    const accountIds = accounts.map(account => account.id);
-    const subscriptions =
-      await this.models.calendarSubscription.listByAccountIds(accountIds);
+    if (accounts.length === 0) {
+      return [];
+    }
+
     const counts = new Map<string, number>();
-    for (const subscription of subscriptions) {
-      counts.set(
-        subscription.accountId,
-        (counts.get(subscription.accountId) ?? 0) + 1
+    try {
+      const accountIds = accounts.map(account => account.id);
+      const subscriptions =
+        await this.models.calendarSubscription.listByAccountIds(accountIds);
+      for (const subscription of subscriptions) {
+        counts.set(
+          subscription.accountId,
+          (counts.get(subscription.accountId) ?? 0) + 1
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `listAccounts: failed to load subscription counts for user ${userId}; serving accounts with 0 counts`,
+        error instanceof Error ? error.stack : String(error)
       );
     }
 
