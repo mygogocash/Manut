@@ -38,6 +38,10 @@ import { MnGoalContextService } from './manut-goal-context.service';
 import { MnHandoverResolver } from './manut-handover.resolver';
 import { MnHandoverService } from './manut-handover.service';
 import { MnHeartbeatService } from './manut-heartbeat.service';
+import { MnAgentMemoryResolver } from './manut-memory.resolver';
+import { MnAgentMemoryService } from './manut-memory.service';
+import { MnOutcomeVerifierResolver } from './manut-outcome-verifier.resolver';
+import { MnOutcomeVerifierService } from './manut-outcome-verifier.service';
 import { MnPmResolver } from './manut-pm.resolver';
 import { MnPortabilityService } from './manut-portability.service';
 import { MnReleaseRunsResolver } from './manut-release-runs.resolver';
@@ -54,6 +58,11 @@ import { MnSkillService } from './manut-skill.service';
 import { MnTaskCheckoutResolver } from './manut-task-checkout.resolver';
 import { MnTaskCheckoutService } from './manut-task-checkout.service';
 import { MnTaskWatchdogCron } from './manut-task-watchdog.cron';
+import { MnWorkProductResolver } from './manut-work-product.resolver';
+import { MnWorkProductService } from './manut-work-product.service';
+import { MnWorkQueueController } from './manut-work-queue.controller';
+import { MnWorkQueueResolver } from './manut-work-queue.resolver';
+import { MnWorkQueueService } from './manut-work-queue.service';
 import { ManutPluginResolver } from './plugin-runtime/manut-plugin.resolver';
 import { ManutPluginConfigService } from './plugin-runtime/manut-plugin-config.service';
 import { ManutPluginHostRpcService } from './plugin-runtime/manut-plugin-host-rpc.service';
@@ -218,6 +227,44 @@ export class ManutModule {
       MnHttpWebhookAdapter,
       MnProcessAdapter,
       MnAdapterRegistryService,
+      // M9 — Memory / Knowledge surface. Per-agent + per-task durable
+      // recall ranked by importance + recency. The service exposes a
+      // `renderRecallBlock` helper that the auto-router uses to prepend
+      // the top-N memories into the system prompt (wiring deferred to a
+      // follow-up commit in session.ts). The garbageCollect path keeps
+      // low-importance noise from accumulating.
+      MnAgentMemoryService,
+      MnAgentMemoryResolver,
+      // M11 — Enforced Outcomes. Runs typed predicates declared on
+      // MnTask.definitionOfDone and refuses to transition a task into
+      // DONE if any predicate is unsatisfied. The verifier is consumed
+      // by MnPmResolver via an optional constructor parameter — when
+      // absent (test fixtures), the gate degrades to a no-op so
+      // existing PM tests don't have to mock it. Predicate kinds:
+      // DOC_EXISTS (WorkspaceDoc probe), URL_REACHABLE (HEAD with 10s
+      // timeout), WORK_PRODUCT_EXISTS (M10 feature-detected at
+      // runtime, gracefully unsatisfied until M10 ships),
+      // EMBEDDING_SIMILARITY (v1 stub auto-satisfied with warning),
+      // and CUSTOM (always unsatisfied — operators approve manually).
+      MnOutcomeVerifierService,
+      MnOutcomeVerifierResolver,
+      // M10 — Artifacts & Work Products. First-class registry of
+      // task / agent outputs (docs, files, URLs, PRs, deployments,
+      // CSV exports, screenshots). The artifact itself stays in its
+      // source-of-truth system; this table stores only the reference
+      // and enough metadata to render and re-open it. M11's
+      // WORK_PRODUCT_EXISTS predicate feature-detects this service at
+      // runtime, so M10 can ship before any wiring change there.
+      MnWorkProductService,
+      MnWorkProductResolver,
+      // M14 — Work Queues. Per-project intake buckets with a public
+      // webhook URL and first-match-wins routing rules. Each inbound
+      // POST creates an MnTask + an MnWorkQueueIntake row linking back
+      // for audit. The webhook token in the URL path is the credential;
+      // optional HMAC via MANUT_INTAKE_SIGNING_SECRET hardens the
+      // surface for senders that can co-sign requests.
+      MnWorkQueueService,
+      MnWorkQueueResolver,
       MnFeatureRegistrar,
     ];
 
@@ -246,7 +293,11 @@ export class ManutModule {
         DocStorageModule,
         ServerConfigModule,
       ],
-      controllers: [MnApprovalsStreamController, ManutPluginRoutesController],
+      controllers: [
+        MnApprovalsStreamController,
+        ManutPluginRoutesController,
+        MnWorkQueueController,
+      ],
       providers,
     };
   }
