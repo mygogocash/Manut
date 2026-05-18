@@ -1,6 +1,8 @@
 import { cssVar } from '@toeverything/theme';
 import { style } from '@vanilla-extract/css';
 
+import { manutRadius } from '../../theme/manut-tokens';
+
 export const dropdownBtn = style({
   display: 'inline-flex',
   alignItems: 'center',
@@ -12,7 +14,7 @@ export const dropdownBtn = style({
   fontWeight: 600,
   background: cssVar('backgroundPrimaryColor'),
   border: `1px solid ${cssVar('borderColor')}`,
-  borderRadius: '8px',
+  borderRadius: manutRadius.input,
   fontSize: cssVar('fontSm'),
   // width: '100%',
   height: '32px',

@@ -84,6 +84,35 @@ const calcCardRatioById = (id: string) => {
   return ratios[code % ratios.length];
 };
 
+// Only the first STAGGER_CAP items across all groups get a non-zero
+// stagger delay. Past that, return -1 so DocListItem skips the inline
+// style entirely — keeps the lookup O(STAGGER_CAP) and the cascade
+// var defaults to 0ms (instant entrance) for everything else.
+const STAGGER_CAP = 8;
+
+function findStaggerIndex(
+  groups: Array<{ key: string; items: string[] }>,
+  groupId: string,
+  itemId: string
+): number {
+  let flat = 0;
+  for (const group of groups) {
+    for (const doc of group.items) {
+      if (flat >= STAGGER_CAP) {
+        return -1;
+      }
+      if (group.key === groupId && doc === itemId) {
+        return flat;
+      }
+      flat++;
+    }
+    if (flat >= STAGGER_CAP) {
+      return -1;
+    }
+  }
+  return -1;
+}
+
 export const DocListItemComponent = memo(function DocListItemComponent({
   itemId,
   groupId,
@@ -91,7 +120,24 @@ export const DocListItemComponent = memo(function DocListItemComponent({
   groupId: string;
   itemId: string;
 }) {
-  return <DocListItem docId={itemId} groupId={groupId} />;
+  const contextValue = useContext(DocExplorerContext);
+  const groups = useLiveData(contextValue.groups$);
+
+  // Recompute only when groups identity changes — Masonry remounts
+  // items as it virtualises, so the index is stable across the lifetime
+  // of any given group ordering. Past the cap this is constant-time.
+  const staggerIndex = useMemo(
+    () => findStaggerIndex(groups, groupId, itemId),
+    [groups, groupId, itemId]
+  );
+
+  return (
+    <DocListItem
+      docId={itemId}
+      groupId={groupId}
+      staggerIndex={staggerIndex >= 0 ? staggerIndex : undefined}
+    />
+  );
 });
 
 export const DocsExplorer = ({

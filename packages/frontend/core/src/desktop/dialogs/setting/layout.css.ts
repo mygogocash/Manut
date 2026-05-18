@@ -54,9 +54,14 @@ export const collapsibleHeaderContent = style({
   flex: 1,
 });
 export const collapsibleHeaderTitle = style({
-  fontWeight: 600,
+  // Manut typography: bump weight one notch and tighten letter-spacing
+  // for a more deliberate section heading. Raw CSS vars (not the
+  // `manutDisplay` TS export) so this `.css.ts` stays leaf-pure for
+  // vanilla-extract's Node-VM evaluation. See CLAUDE.md §6.
+  fontWeight: 700,
   fontSize: cssVar('fontBase'),
   lineHeight: '22px',
+  letterSpacing: 'var(--manut-display-letter-spacing)',
 });
 export const collapsibleHeaderCaption = style({
   fontWeight: 400,

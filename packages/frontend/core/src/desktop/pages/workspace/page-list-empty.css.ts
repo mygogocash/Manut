@@ -18,6 +18,8 @@ export const emptyDescButton = style({
   borderRadius: '4px',
   padding: '0 6px',
   boxSizing: 'border-box',
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), background 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       background: cssVar('hoverColor'),

@@ -63,19 +63,25 @@ export class AIChatInput extends SignalWatcher(
         0px 0px 0px 3px transparent,
         0px 2px 3px rgba(0, 0, 0, 0.05);
     }
+    /* Manut v1.12: focus ring uses --manut-accent-blue-border so both
+       light and dark themes get a consistent Manut-branded focus state.
+       Drop shadow stays for elevation; ring colour is the Manut token. */
     .chat-panel-input[data-if-focused='true'] {
       box-shadow:
         var(--border-shadow),
-        0px 0px 0px 3px transparent,
+        0px 0px 0px 3px var(--manut-accent-blue-border),
         0px 4px 6px rgba(0, 0, 0, 0.05);
     }
     [data-theme='dark'] .chat-panel-input[data-if-focused='true'] {
       box-shadow:
         var(--border-shadow),
-        0px 0px 0px 3px rgba(28, 158, 228, 0.3),
+        0px 0px 0px 3px var(--manut-accent-blue-border),
         0px 2px 3px rgba(0, 0, 0, 0.05);
     }
 
+    /* Manut v1.12: input bar border radius bumped from 12px to
+       --manut-radius-modal (20px) for the softer modern feel.
+       Background stays solid for input legibility. */
     .chat-panel-input {
       --input-border-width: 0.5px;
       --input-border-color: var(--affine-v2-layer-insideBorder-border);
@@ -86,7 +92,7 @@ export class AIChatInput extends SignalWatcher(
       justify-content: space-between;
       gap: 4px;
       position: relative;
-      border-radius: 12px;
+      border-radius: var(--manut-radius-modal);
       padding: 8px 6px 6px 8px;
       min-height: 94px;
       box-sizing: border-box;
@@ -95,7 +101,7 @@ export class AIChatInput extends SignalWatcher(
 
       &[data-independent-mode='true'] {
         padding: 12px;
-        border-radius: 16px;
+        border-radius: var(--manut-radius-modal);
       }
 
       .chat-selection-quote {

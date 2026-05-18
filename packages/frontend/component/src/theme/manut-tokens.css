@@ -1,0 +1,169 @@
+/**
+ * Manut design tokens.
+ *
+ * The new Manut visual system layers on top of the upstream AFFiNE theme.
+ * All tokens live behind `--manut-*` CSS custom properties so they cannot
+ * collide with `--affine-*`. Light defaults live on `:root`; dark
+ * overrides are scoped via `:root[data-theme="dark"]` to match the
+ * project convention (see packages/frontend/component/src/ui/button/button.css.ts
+ * and next-themes' attribute writer).
+ *
+ * TypeScript consumers should import bindings from `./manut-tokens.ts`
+ * rather than referencing these variables by name, so the source-of-truth
+ * stays here and refactors propagate cleanly.
+ */
+:root {
+  /*
+   * Accent colours — blue
+   */
+  --manut-accent-blue-fg: #1e96eb;
+  --manut-accent-blue-bg: rgba(30, 150, 235, 0.08);
+  --manut-accent-blue-border: rgba(30, 150, 235, 0.32);
+
+  /*
+   * Accent colours — violet
+   */
+  --manut-accent-violet-fg: #7c3aed;
+  --manut-accent-violet-bg: rgba(124, 58, 237, 0.08);
+  --manut-accent-violet-border: rgba(124, 58, 237, 0.32);
+
+  /*
+   * Accent colours — magenta
+   */
+  --manut-accent-magenta-fg: #ec4899;
+  --manut-accent-magenta-bg: rgba(236, 72, 153, 0.08);
+  --manut-accent-magenta-border: rgba(236, 72, 153, 0.32);
+
+  /*
+   * Accent colours — lime
+   * Light tier uses darker lime so AA contrast survives on white text bg.
+   */
+  --manut-accent-lime-fg: #65a30d;
+  --manut-accent-lime-bg: rgba(163, 230, 53, 0.16);
+  --manut-accent-lime-border: rgba(101, 163, 13, 0.32);
+
+  /*
+   * Accent colours — cream
+   * Light tier reads as a warm dark on cream surface; dark inverts.
+   */
+  --manut-accent-cream-fg: #92400e;
+  --manut-accent-cream-bg: #fef3c7;
+  --manut-accent-cream-border: rgba(146, 64, 14, 0.32);
+
+  /*
+   * Glass surfaces.
+   * `--manut-surface-glass-blur` and `--manut-surface-glass-saturate`
+   * are static across themes; only the surface tint changes.
+   */
+  --manut-surface-glass: rgba(255, 255, 255, 0.72);
+  --manut-surface-glass-strong: rgba(255, 255, 255, 0.88);
+  --manut-surface-glass-blur: 20px;
+  --manut-surface-glass-saturate: 180%;
+
+  /*
+   * Radii — single source across themes.
+   */
+  --manut-radius-chip: 4px;
+  --manut-radius-input: 8px;
+  --manut-radius-card: 14px;
+  --manut-radius-modal: 20px;
+  --manut-radius-sheet: 28px;
+
+  /*
+   * Spacing scale.
+   */
+  --manut-space-1: 4px;
+  --manut-space-2: 8px;
+  --manut-space-3: 12px;
+  --manut-space-4: 16px;
+  --manut-space-5: 20px;
+  --manut-space-6: 24px;
+  --manut-space-7: 32px;
+  --manut-space-8: 40px;
+  --manut-space-9: 48px;
+  --manut-space-10: 64px;
+  --manut-space-11: 80px;
+  --manut-space-12: 96px;
+
+  /*
+   * Display typography scale.
+   *
+   * --manut-font-display currently aliases the body font (Inter). A real
+   * variable display face is a follow-up; see fonts.css for the TODO.
+   */
+  --manut-display-1: 48px;
+  --manut-display-2: 60px;
+  --manut-display-3: 80px;
+  --manut-display-4: 100px;
+  --manut-display-5: 120px;
+  --manut-display-line-height: 1.05;
+  --manut-display-letter-spacing: -0.02em;
+  --manut-display-weight: 900;
+  --manut-font-display: var(--affine-font-family);
+
+  /*
+   * Motion. Sits alongside the upstream `--affine-anim-*` system; use these
+   * for Manut-specific overshoot / spring feels and for stagger sequencing.
+   */
+  --manut-anim-curve-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --manut-anim-curve-overshoot: cubic-bezier(0.34, 1.26, 0.64, 1);
+  --manut-anim-duration-stagger: 50ms;
+}
+
+:root[data-theme='dark'] {
+  /*
+   * Accent colours — blue
+   */
+  --manut-accent-blue-fg: #1c9ee4;
+  --manut-accent-blue-bg: rgba(28, 158, 228, 0.16);
+  --manut-accent-blue-border: rgba(28, 158, 228, 0.4);
+
+  /*
+   * Accent colours — violet
+   */
+  --manut-accent-violet-fg: #a78bfa;
+  --manut-accent-violet-bg: rgba(167, 139, 250, 0.16);
+  --manut-accent-violet-border: rgba(167, 139, 250, 0.4);
+
+  /*
+   * Accent colours — magenta
+   */
+  --manut-accent-magenta-fg: #f472b6;
+  --manut-accent-magenta-bg: rgba(244, 114, 182, 0.16);
+  --manut-accent-magenta-border: rgba(244, 114, 182, 0.4);
+
+  /*
+   * Accent colours — lime
+   */
+  --manut-accent-lime-fg: #bef264;
+  --manut-accent-lime-bg: rgba(190, 242, 100, 0.16);
+  --manut-accent-lime-border: rgba(190, 242, 100, 0.4);
+
+  /*
+   * Accent colours — cream
+   */
+  --manut-accent-cream-fg: #fef3c7;
+  --manut-accent-cream-bg: rgba(254, 243, 199, 0.08);
+  --manut-accent-cream-border: rgba(254, 243, 199, 0.4);
+
+  /*
+   * Glass surfaces — dark tints.
+   */
+  --manut-surface-glass: rgba(20, 20, 20, 0.6);
+  --manut-surface-glass-strong: rgba(20, 20, 20, 0.8);
+}
+
+/*
+ * Honour `prefers-reduced-motion: reduce` by collapsing the stagger
+ * duration. The spring/overshoot CURVES stay defined — they are only
+ * applied via `transition` / `animation` shorthand strings that
+ * already gate on the upstream `--affine-anim-duration-*` tokens
+ * (which themselves collapse to 0ms under reduced motion, see
+ * animation.css). The stagger duration is independent, so it needs
+ * its own reduced-motion override here.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --manut-anim-duration-stagger: 0ms;
+  }
+}

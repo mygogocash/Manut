@@ -82,6 +82,7 @@ export const addPropertyButton = style({
 globalStyle(`${addPropertyButton} svg`, {
   fontSize: 16,
   color: cssVarV2('icon/secondary'),
+  transition: 'color 100ms var(--manut-anim-curve-overshoot)',
 });
 globalStyle(`${addPropertyButton}:hover svg`, {
   color: cssVarV2('icon/primary'),

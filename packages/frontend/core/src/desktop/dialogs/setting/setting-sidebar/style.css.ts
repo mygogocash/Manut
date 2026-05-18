@@ -43,12 +43,18 @@ export const sidebarSelectItem = style({
   borderRadius: '8px',
   cursor: 'pointer',
   userSelect: 'none',
+  // Manut motion: snappy overshoot curve on hover / activate. Raw CSS
+  // vars (not the `manutMotion` TS export) so this `.css.ts` stays
+  // leaf-pure for vanilla-extract's Node-VM eval. See CLAUDE.md §6.
+  transition:
+    'background-color var(--affine-anim-duration-fast) var(--manut-anim-curve-overshoot), color var(--affine-anim-duration-fast) var(--manut-anim-curve-overshoot)',
   ':hover': {
     background: cssVar('hoverColor'),
   },
   selectors: {
     '&.active': {
-      background: cssVar('hoverColor'),
+      background: 'var(--manut-accent-blue-bg)',
+      color: 'var(--manut-accent-blue-fg)',
     },
   },
 });
@@ -64,6 +70,10 @@ export const sidebarSelectSubItem = style({
   cursor: 'pointer',
   userSelect: 'none',
   color: cssVar('textSecondaryColor'),
+  // Manut motion: hover/active uses the same overshoot curve as the
+  // parent sidebar item. Raw CSS vars — see CLAUDE.md §6.
+  transition:
+    'color var(--affine-anim-duration-fast) var(--manut-anim-curve-overshoot)',
   selectors: {
     '&.active, &:hover': {
       color: cssVar('textPrimaryColor'),
@@ -135,6 +145,10 @@ export const accountButton = style({
   columnGap: '10px',
   justifyContent: 'space-between',
   alignItems: 'center',
+  // Same Manut overshoot transition as sidebarSelectItem. Raw CSS vars
+  // for vanilla-extract leaf-purity. See CLAUDE.md §6.
+  transition:
+    'background-color var(--affine-anim-duration-fast) var(--manut-anim-curve-overshoot)',
   ':hover': {
     background: cssVar('hoverColor'),
   },

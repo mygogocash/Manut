@@ -10,6 +10,8 @@ export const wrapper = style({
   flexDirection: 'row',
   alignItems: 'center',
   padding: 4,
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), background 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   ':hover': {
     background: cssVarV2('layer/background/hoverOverlay'),
   },
@@ -19,6 +21,7 @@ globalStyle(`${wrapper} svg`, {
   color: cssVarV2('icon/secondary'),
   fontSize: 16,
   transform: 'none',
+  transition: 'color 100ms var(--manut-anim-curve-overshoot)',
 });
 
 globalStyle(`${wrapper}:hover svg`, {

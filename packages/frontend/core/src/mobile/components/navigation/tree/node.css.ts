@@ -20,6 +20,8 @@ export const itemRoot = style({
   padding: '8px',
   borderRadius: 0,
   gap: 12,
+  transition:
+    'opacity 120ms ease-out, transform 200ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&[data-disabled="true"]': {
       cursor: 'default',
@@ -28,6 +30,8 @@ export const itemRoot = style({
     },
     '&[data-dragging="true"]': {
       opacity: 0.5,
+      transform: 'rotate(-1.5deg) scale(1.02)',
+      pointerEvents: 'none',
     },
   },
 

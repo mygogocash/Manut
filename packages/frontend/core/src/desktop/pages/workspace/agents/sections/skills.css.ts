@@ -55,7 +55,8 @@ export const pill = style({
   fontSize: cssVar('fontXs'),
   cursor: 'pointer',
   userSelect: 'none',
-  transition: 'background 120ms ease, border-color 120ms ease, color 120ms ease',
+  transition:
+    'background 120ms ease, border-color 120ms ease, color 120ms ease, background-color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       borderColor: cssVarV2.layer.insideBorder.primaryBorder,

@@ -1,6 +1,8 @@
 import { cssVar } from '@toeverything/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { style } from '@vanilla-extract/css';
+
+import { manutColor, manutRadius } from '../../theme/manut-tokens';
 export const inputWrapper = style({
   width: '100%',
   height: 28,
@@ -9,7 +11,7 @@ export const inputWrapper = style({
   color: cssVarV2('text/primary'),
   border: '1px solid',
   backgroundColor: cssVarV2('input/background'),
-  borderRadius: 8,
+  borderRadius: manutRadius.input,
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
@@ -47,7 +49,7 @@ export const inputWrapper = style({
     '&.default:is(:focus-within, :focus, :focus-visible)': {
       borderColor: cssVarV2('button/primary'),
       outline: 'none',
-      boxShadow: '0px 0px 0px 2px rgba(30, 150, 235, 0.30);',
+      boxShadow: `0px 0px 0px 2px ${manutColor.blue.border}`,
     },
   },
 });

@@ -11,13 +11,20 @@ export const closeIconColor = createVar();
 export const cardWrapper = style({});
 
 export const card = style({
-  borderRadius: 8,
+  borderRadius: 'var(--manut-radius-card)',
   boxShadow: cssVar('shadow1'),
   borderWidth: 1,
   borderStyle: 'solid',
-  backgroundColor: cardColor,
+  backgroundColor: 'var(--manut-surface-glass-strong)',
+  backdropFilter: 'blur(20px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(20px) saturate(180%)',
   borderColor: cardBorderColor,
   color: cardForeground,
+  '@supports': {
+    'not (backdrop-filter: blur(20px))': {
+      backgroundColor: cssVar('backgroundOverlayPanelColor'),
+    },
+  },
 });
 export const cardInner = style({
   padding: 16,

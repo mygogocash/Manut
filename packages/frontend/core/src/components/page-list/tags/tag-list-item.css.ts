@@ -1,3 +1,4 @@
+import { manutMotion, manutRadius } from '@affine/component/theme';
 import { cssVar } from '@toeverything/theme';
 import { globalStyle, style } from '@vanilla-extract/css';
 export const root = style({
@@ -9,22 +10,28 @@ export const root = style({
   width: '100%',
   contain: 'strict',
   alignItems: 'stretch',
-  transition: 'background-color 0.2s, opacity 0.2s',
+  transition: `background-color 0.2s, opacity 0.2s, transform 160ms ${manutMotion.curveOvershoot}, box-shadow 160ms ease-out`,
   ':hover': {
     backgroundColor: cssVar('hoverColor'),
+    transform: 'scale(1.015)',
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
   },
   overflow: 'hidden',
   cursor: 'default',
-  willChange: 'opacity',
+  willChange: 'opacity, transform',
   selectors: {
     '&[data-clickable=true]': {
       cursor: 'pointer',
+    },
+    '&:focus-within': {
+      transform: 'scale(1.015)',
+      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
     },
   },
 });
 export const dragPageItemOverlay = style({
   height: '45px',
-  borderRadius: '10px',
+  borderRadius: manutRadius.card,
   display: 'flex',
   alignItems: 'center',
   background: cssVar('hoverColorFilled'),

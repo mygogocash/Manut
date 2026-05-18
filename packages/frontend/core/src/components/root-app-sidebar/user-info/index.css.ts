@@ -105,6 +105,9 @@ export const teamWorkspace = style({
   borderRadius: 4,
   cursor: 'pointer',
   padding: '2px 6px',
+  // Raw CSS vars keep this file leaf-pure (see CLAUDE.md §6).
+  transition:
+    'background-color var(--affine-anim-duration-fast) var(--manut-anim-curve-overshoot)',
   ':hover': {
     backgroundColor: cssVarV2('layer/background/hoverOverlay'),
   },

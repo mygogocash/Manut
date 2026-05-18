@@ -85,6 +85,8 @@ export const resetButton = style({
   padding: '4px 10px',
   cursor: 'pointer',
   fontFamily: 'inherit',
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), background 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       background: cssVarV2.layer.background.tertiary,
@@ -108,6 +110,8 @@ export const shuffleButton = style({
   cursor: 'pointer',
   fontFamily: 'inherit',
   fontWeight: 500,
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), background 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       background: cssVarV2.layer.background.tertiary,
@@ -148,6 +152,8 @@ export const tabButton = style({
   borderRadius: 6,
   cursor: 'pointer',
   fontFamily: 'inherit',
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), background 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       background: cssVarV2.layer.background.tertiary,
@@ -185,7 +191,8 @@ export const optionThumb = style({
   cursor: 'pointer',
   padding: 0,
   overflow: 'hidden',
-  transition: 'border-color 120ms ease, transform 120ms ease',
+  transition:
+    'border-color 120ms ease, transform 120ms ease, background-color 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       borderColor: cssVarV2.layer.insideBorder.primaryBorder,

@@ -79,9 +79,13 @@ export const card = style({
   border: `1px solid ${cssVarV2.layer.insideBorder.border}`,
   cursor: 'grab',
   userSelect: 'none',
+  transition:
+    'opacity 120ms ease-out, transform 200ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&[data-dragging="true"]': {
       opacity: 0.4,
+      transform: 'rotate(-1.5deg) scale(1.02)',
+      pointerEvents: 'none',
     },
     '&:active': {
       cursor: 'grabbing',

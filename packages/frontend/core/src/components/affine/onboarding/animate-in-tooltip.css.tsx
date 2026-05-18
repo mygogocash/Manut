@@ -8,12 +8,13 @@ const fadeIn = keyframes({
 });
 
 export const tooltip = style({
-  width: 500,
+  width: 560,
   textAlign: 'center',
   fontFamily: 'var(--affine-font-family)',
-  fontSize: '20px',
-  lineHeight: '28px',
-  fontWeight: 600,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '12px',
   opacity: 0,
   animation: `${fadeIn} 1s ease forwards`,
   animationDelay: onboardingVars.animateIn.tooltipShowUpDelay,
@@ -24,6 +25,25 @@ export const tooltip = style({
       textShadow: '0px 0px 4px rgba(66, 65, 73, 0.14)',
     },
   },
+});
+
+export const headline = style({
+  fontSize: 'var(--manut-display-2)',
+  fontWeight: 'var(--manut-display-weight)',
+  letterSpacing: 'var(--manut-display-letter-spacing)',
+  lineHeight: 'var(--manut-display-line-height)',
+  color: 'var(--manut-accent-blue-fg)',
+  selectors: {
+    '[data-is-desktop="true"] &': {
+      color: 'white',
+    },
+  },
+});
+
+export const tagline = style({
+  fontSize: '20px',
+  lineHeight: '28px',
+  fontWeight: 600,
 });
 
 export const next = style({

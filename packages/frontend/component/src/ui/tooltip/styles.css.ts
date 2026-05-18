@@ -3,6 +3,7 @@ import { cssVarV2 } from '@toeverything/theme/v2';
 import { keyframes, style } from '@vanilla-extract/css';
 
 import { animationToken } from '../../theme/animation';
+import { manutGlass, manutRadius } from '../../theme/manut-tokens';
 
 const tooltipFadeIn = keyframes({
   from: {
@@ -16,17 +17,24 @@ const tooltipFadeIn = keyframes({
 });
 
 export const tooltipContent = style({
-  backgroundColor: cssVarV2('tooltips/background'),
+  backgroundColor: manutGlass.surfaceStrong,
+  backdropFilter: manutGlass.backdropFilter,
+  WebkitBackdropFilter: manutGlass.backdropFilter,
   color: cssVarV2('tooltips/foreground'),
   padding: '5px 12px',
   fontSize: cssVar('fontSm'),
   lineHeight: '22px',
-  borderRadius: '4px',
+  borderRadius: manutRadius.input,
   maxWidth: '280px',
   wordBreak: 'break-word',
   transformOrigin: 'var(--radix-tooltip-content-transform-origin)',
   animation: `${tooltipFadeIn} ${animationToken.durationBase} ${animationToken.curveDefault}`,
   willChange: 'transform, opacity',
+  '@supports': {
+    'not (backdrop-filter: blur(20px))': {
+      backgroundColor: cssVarV2('tooltips/background'),
+    },
+  },
 });
 
 export const withShortcut = style({

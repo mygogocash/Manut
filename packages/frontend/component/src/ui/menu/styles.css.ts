@@ -3,6 +3,7 @@ import { cssVarV2 } from '@toeverything/theme/v2';
 import { createVar, keyframes, style } from '@vanilla-extract/css';
 
 import { animationToken } from '../../theme/animation';
+import { manutGlass, manutRadius } from '../../theme/manut-tokens';
 
 export const iconColor = createVar('iconColor');
 export const labelColor = createVar('labelColor');
@@ -21,11 +22,13 @@ const menuShow = keyframes({
 
 export const menuContent = style({
   minWidth: '180px',
-  borderRadius: '8px',
+  borderRadius: manutRadius.modal,
   padding: '8px',
   fontSize: cssVar('fontSm'),
   fontWeight: '400',
-  backgroundColor: cssVarV2('layer/background/overlayPanel'),
+  backgroundColor: manutGlass.surface,
+  backdropFilter: manutGlass.backdropFilter,
+  WebkitBackdropFilter: manutGlass.backdropFilter,
   boxShadow: cssVar('menuShadow'),
   userSelect: 'none',
   ['WebkitAppRegion' as string]: 'no-drag',
@@ -35,6 +38,11 @@ export const menuContent = style({
   transformOrigin: 'var(--radix-popper-transform-origin, top center)',
   animation: `${menuShow} ${animationToken.durationBase} ${animationToken.curveDefault}`,
   willChange: 'transform, opacity',
+  '@supports': {
+    'not (backdrop-filter: blur(20px))': {
+      backgroundColor: cssVar('backgroundOverlayPanelColor'),
+    },
+  },
   selectors: {
     '&.mobile': {
       padding: 0,

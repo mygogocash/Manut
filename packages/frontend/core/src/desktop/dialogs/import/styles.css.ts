@@ -78,11 +78,12 @@ export const importItem = style({
   borderRadius: '8px',
   border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
   background: cssVarV2('button/secondary'),
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), background 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       background: cssVarV2('layer/background/hoverOverlay'),
       cursor: 'pointer',
-      transition: 'background .30s',
     },
   },
 });

@@ -65,7 +65,8 @@ export const listItem = style({
   cursor: 'pointer',
   textDecoration: 'none',
   color: 'inherit',
-  transition: 'background 0.15s',
+  transition:
+    'background 0.15s, background-color 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       background: cssVar('backgroundTertiaryColor'),

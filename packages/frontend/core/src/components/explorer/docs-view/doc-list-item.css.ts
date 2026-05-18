@@ -4,7 +4,17 @@
 // package's DOM-touching code (which references HTMLElement at module
 // level and would crash the build-time eval).
 import { cssVarV2 } from '@toeverything/theme/v2';
-import { style } from '@vanilla-extract/css';
+import { keyframes, style } from '@vanilla-extract/css';
+
+// Entrance animation for doc list/card items. Opt-in stagger: a parent can
+// pass `style={{ '--manut-stagger-delay': '50ms' }}` to delay this card's
+// entrance; without the var the delay collapses to 0ms and every card
+// animates in immediately. Animation tokens come from Batch 1 (the
+// `--manut-anim-curve-overshoot` global from theme bootstrap).
+const docCardEnter = keyframes({
+  from: { opacity: 0, transform: 'translateY(8px)' },
+  to: { opacity: 1, transform: 'translateY(0)' },
+});
 
 export const root = style({
   width: '100%',
@@ -38,9 +48,20 @@ export const listViewRoot = style({
   containerName: 'list-view-root',
   containerType: 'size',
   transition: `background-color var(--affine-anim-duration-base) var(--affine-anim-curve-default)`,
+  animation: `${docCardEnter} 280ms var(--manut-anim-curve-overshoot) both`,
+  animationDelay: 'var(--manut-stagger-delay, 0ms)',
   selectors: {
     '&:hover': {
       backgroundColor: cssVarV2.layer.background.hoverOverlay,
+    },
+  },
+  // Respect reduced-motion: skip both the entrance translate/fade and
+  // any per-card stagger so users with the OS pref see cards appear
+  // immediately, in order, with no movement.
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      animation: 'none',
+      animationDelay: '0ms',
     },
   },
 });
@@ -202,6 +223,8 @@ export const cardViewRoot = style({
   boxShadow: '0px 0px 0px 1px var(--ring-color), 0px 0px 3px rgba(0,0,0,.05)',
   overflow: 'hidden',
   transition: `box-shadow var(--affine-anim-duration-slow) var(--affine-anim-curve-default), border-color var(--affine-anim-duration-slow) var(--affine-anim-curve-default)`,
+  animation: `${docCardEnter} 280ms var(--manut-anim-curve-overshoot) both`,
+  animationDelay: 'var(--manut-stagger-delay, 0ms)',
   selectors: {
     [`${root}[data-selected="true"] &`]: {
       vars: {
@@ -222,6 +245,13 @@ export const cardViewRoot = style({
     },
     '[data-theme="dark"] &:hover': {
       boxShadow: 'var(--dark-shadow-hover)',
+    },
+  },
+  // See listViewRoot — same reduced-motion contract.
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      animation: 'none',
+      animationDelay: '0ms',
     },
   },
 });

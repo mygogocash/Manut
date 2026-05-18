@@ -45,7 +45,8 @@ export const dropzone = style({
   color: cssVarV2.text.secondary,
   fontSize: cssVar('fontXs'),
   cursor: 'pointer',
-  transition: 'background 120ms ease, border-color 120ms ease',
+  transition:
+    'background 120ms ease, border-color 120ms ease, background-color 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       borderColor: cssVarV2.layer.insideBorder.primaryBorder,

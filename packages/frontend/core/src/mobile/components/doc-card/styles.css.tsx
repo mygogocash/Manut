@@ -7,7 +7,7 @@ import { style } from '@vanilla-extract/css';
 
 export const card = style({
   padding: 16,
-  borderRadius: 12,
+  borderRadius: 'var(--manut-radius-card)',
   border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
   boxShadow: '0px 2px 3px rgba(0,0,0,0.05)',
   background: cssVarV2('layer/background/mobile/secondary'),
@@ -16,10 +16,12 @@ export const card = style({
   flexDirection: 'column',
   gap: 8,
 
+  transition: 'transform 120ms var(--manut-anim-curve-overshoot)',
+
   color: 'unset',
   ':visited': { color: 'unset' },
   ':hover': { color: 'unset' },
-  ':active': { color: 'unset' },
+  ':active': { color: 'unset', transform: 'scale(0.985)' },
 });
 export const head = style({
   display: 'flex',

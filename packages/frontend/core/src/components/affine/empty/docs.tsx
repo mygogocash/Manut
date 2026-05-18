@@ -8,8 +8,7 @@ import { type MouseEvent, useCallback } from 'react';
 
 import { usePageHelper } from '../../../blocksuite/block-suite-page-list/utils';
 import { ActionButton } from './action-button';
-import docsIllustrationDark from './assets/docs.dark.png';
-import docsIllustrationLight from './assets/docs.light.png';
+import { EmptyDocsIllustration } from './illustrations';
 import { EmptyLayout } from './layout';
 import type { UniversalEmptyProps } from './types';
 
@@ -49,8 +48,7 @@ export const EmptyDocs = ({
 
   return (
     <EmptyLayout
-      illustrationLight={docsIllustrationLight}
-      illustrationDark={docsIllustrationDark}
+      illustration={<EmptyDocsIllustration />}
       title={t['com.affine.empty.docs.title']()}
       description={
         type === 'trash'

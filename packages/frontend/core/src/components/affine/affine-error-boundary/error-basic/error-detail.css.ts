@@ -52,8 +52,34 @@ export const scrollArea = style({
 
 export const illustration = style({
   maxWidth: '100%',
-  width: 300,
+  width: 240,
+  height: 240,
   alignSelf: 'center',
+  color: cssVarV2('text/primary'),
+  marginBottom: 8,
+});
+
+export const statusBadge = style({
+  display: 'inline-block',
+  padding: '4px 10px',
+  marginBottom: 12,
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  color: cssVarV2('text/secondary'),
+  background: cssVarV2('layer/background/secondary'),
+  borderRadius: 999,
+});
+
+export const heading = style({
+  fontSize: 'var(--manut-display-2)',
+  fontWeight: 900,
+  letterSpacing: '-0.02em',
+  lineHeight: 'var(--manut-display-line-height)',
+  color: cssVarV2('text/primary'),
+  margin: 0,
+  marginBottom: 12,
 });
 
 export const text = style({

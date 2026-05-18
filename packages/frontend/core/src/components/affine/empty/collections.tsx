@@ -8,8 +8,7 @@ import { useService } from '@toeverything/infra';
 import { useCallback } from 'react';
 
 import { ActionButton } from './action-button';
-import collectionListDark from './assets/collection-list.dark.png';
-import collectionListLight from './assets/collection-list.light.png';
+import { EmptyCollectionsIllustration } from './illustrations';
 import { EmptyLayout } from './layout';
 import type { UniversalEmptyProps } from './types';
 
@@ -51,8 +50,7 @@ export const EmptyCollections = (props: UniversalEmptyProps) => {
 
   return (
     <EmptyLayout
-      illustrationLight={collectionListLight}
-      illustrationDark={collectionListDark}
+      illustration={<EmptyCollectionsIllustration />}
       title={t['com.affine.empty.collections.title']()}
       description={t['com.affine.empty.collections.description']()}
       action={
