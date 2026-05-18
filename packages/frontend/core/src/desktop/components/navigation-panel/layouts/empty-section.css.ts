@@ -10,6 +10,9 @@ export const content = style({
   gap: 4,
   padding: '12px 0px',
   borderRadius: 8,
+  // Raw CSS vars keep this file leaf-pure (see CLAUDE.md §6).
+  transition:
+    'background-color var(--affine-anim-duration-fast) var(--manut-anim-curve-overshoot)',
   selectors: {
     // assume that the section can be dragged over
     '&[data-dragged-over="true"]': {

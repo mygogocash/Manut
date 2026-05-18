@@ -13,10 +13,29 @@ export class ChatMessageUser extends WithDisposable(ShadowlessElement) {
       align-items: flex-end;
     }
 
+    /* Manut v1.12 chat redesign: glass bubble surface for user messages.
+       Wraps the entire user content stack (image attachments + text body).
+       A 2px accent-violet left border distinguishes user messages from
+       assistant messages (accent-blue). */
     .chat-message-user {
       display: flex;
       flex-direction: column;
       max-width: calc(100% - 58px);
+      background-color: var(--manut-surface-glass);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-radius: var(--manut-radius-card);
+      border-left: 2px solid var(--manut-accent-violet-border);
+      padding: 12px 14px;
+      box-sizing: border-box;
+    }
+
+    /* Solid fallback for browsers without backdrop-filter support. */
+    @supports (not (backdrop-filter: blur(20px))) and
+      (not (-webkit-backdrop-filter: blur(20px))) {
+      .chat-message-user {
+        background-color: var(--affine-background-overlay-panel-color);
+      }
     }
 
     .chat-content-images {

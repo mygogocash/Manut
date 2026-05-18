@@ -1,3 +1,4 @@
+import { manutRadius } from '@affine/component/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { style } from '@vanilla-extract/css';
 
@@ -56,13 +57,13 @@ export const dragPreview = style({
   padding: '4px 16px',
   overflow: 'hidden',
   backgroundColor: cssVarV2('layer/background/primary'),
-  borderRadius: '12px',
+  borderRadius: manutRadius.card,
 });
 
 export const templateMark = style({
   backgroundColor: cssVarV2.button.templateLabelBackground,
   color: cssVarV2.button.primary,
-  borderRadius: 4,
+  borderRadius: manutRadius.chip,
   padding: '2px 8px',
   fontSize: 12,
   fontWeight: 500,

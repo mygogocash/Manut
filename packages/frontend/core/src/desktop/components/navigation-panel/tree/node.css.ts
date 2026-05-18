@@ -1,3 +1,9 @@
+// Manut motion + accent tokens are referenced as raw CSS variables (not
+// via the `manutColor` / `manutMotion` TS exports) so this `.css.ts`
+// file evaluates inside vanilla-extract's Node VM without dragging in
+// the `@affine/component` package's DOM-touching code (which references
+// HTMLElement at module level and would crash the build-time eval).
+// See CLAUDE.md §6 "vanilla-extract evaluates .css.ts files in a Node VM".
 import { cssVar } from '@toeverything/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { createVar, keyframes, style } from '@vanilla-extract/css';
@@ -19,12 +25,15 @@ export const itemRoot = style({
   fontSize: cssVar('fontSm'),
   position: 'relative',
   marginTop: '0px',
+  transition:
+    'background-color var(--affine-anim-duration-fast) var(--manut-anim-curve-overshoot), color var(--affine-anim-duration-fast) var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       background: cssVar('hoverColor'),
     },
     '&[data-active="true"]': {
-      background: cssVar('hoverColor'),
+      background: 'var(--manut-accent-blue-bg)',
+      color: 'var(--manut-accent-blue-fg)',
     },
     '&[data-disabled="true"]': {
       cursor: 'default',
@@ -68,6 +77,14 @@ export const itemContent = style({
   flex: 1,
   color: cssVarV2('text/primary'),
   lineHeight: cssVar('lineHeight'),
+  transition:
+    'color var(--affine-anim-duration-fast) var(--manut-anim-curve-overshoot)',
+  selectors: {
+    [`${itemRoot}[data-active="true"] &`]: {
+      color: 'var(--manut-accent-blue-fg)',
+      fontWeight: 500,
+    },
+  },
 });
 export const postfix = style({
   display: 'flex',

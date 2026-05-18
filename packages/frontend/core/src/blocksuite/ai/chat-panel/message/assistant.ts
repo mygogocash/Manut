@@ -38,6 +38,29 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       font-size: var(--affine-font-xs);
       font-weight: 400;
     }
+    /* Manut v1.12 chat redesign: glass bubble surface for assistant
+       messages. The .item-wrapper wraps every assistant message body
+       (renderImages + renderStreamObjects/renderRichText + write-chip +
+       editor actions). A 2px accent-blue border on the left edge gives
+       assistant messages a visual distinction from the violet-bordered
+       user messages without leaning on the avatar alone. */
+    .item-wrapper {
+      position: relative;
+      background-color: var(--manut-surface-glass);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-radius: var(--manut-radius-card);
+      border-left: 2px solid var(--manut-accent-blue-border);
+      padding: 12px 14px;
+      box-sizing: border-box;
+    }
+    /* Solid fallback for browsers without backdrop-filter support. */
+    @supports (not (backdrop-filter: blur(20px))) and
+      (not (-webkit-backdrop-filter: blur(20px))) {
+      .item-wrapper {
+        background-color: var(--affine-background-overlay-panel-color);
+      }
+    }
     /* ε-AI-INTEL v1.10: chip surfaced when the assistant's stream contains
        a tool-call for a write tool. Lets the user see at-a-glance that AI
        made a change in this turn. */

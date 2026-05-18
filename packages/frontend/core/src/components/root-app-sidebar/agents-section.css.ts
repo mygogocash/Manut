@@ -85,9 +85,12 @@ export const modalTextarea = style({
   fontSize: 14,
   lineHeight: 1.4,
   outline: 'none',
+  // Raw CSS vars keep this file leaf-pure (see CLAUDE.md §6).
+  transition:
+    'border-color var(--affine-anim-duration-fast) var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:focus': {
-      borderColor: cssVar('primaryColor'),
+      borderColor: 'var(--manut-accent-blue-fg)',
     },
   },
 });
