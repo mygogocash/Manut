@@ -928,6 +928,7 @@ __metadata:
     "@google-cloud/opentelemetry-cloud-trace-exporter": "npm:^3.0.0"
     "@google-cloud/opentelemetry-resource-util": "npm:^3.0.0"
     "@inquirer/prompts": "npm:8.4.2"
+    "@manut/plugin-sdk": "workspace:*"
     "@nestjs-cls/transactional": "npm:^3.2.0"
     "@nestjs-cls/transactional-adapter-prisma": "npm:^1.3.4"
     "@nestjs/apollo": "npm:^13.2.4"
@@ -7381,6 +7382,25 @@ __metadata:
   checksum: 10/14e04215bcc3dc4cafe8343893ab869f69ad768272563cbb39e7d2e876dc5e03dde9f0c1b0506308a4d90d945871491b05b77c26521b2b4b38245aeed8085d3b
   languageName: node
   linkType: hard
+
+"@manut/example-plugin@workspace:packages/backend/example-plugin":
+  version: 0.0.0-use.local
+  resolution: "@manut/example-plugin@workspace:packages/backend/example-plugin"
+  dependencies:
+    "@manut/plugin-sdk": "workspace:*"
+  languageName: unknown
+  linkType: soft
+
+"@manut/plugin-sdk@workspace:*, @manut/plugin-sdk@workspace:packages/backend/plugin-sdk":
+  version: 0.0.0-use.local
+  resolution: "@manut/plugin-sdk@workspace:packages/backend/plugin-sdk"
+  dependencies:
+    typescript: "npm:^5.9.3"
+    zod: "npm:^3.23.0"
+  peerDependencies:
+    zod: ^3.23.0
+  languageName: unknown
+  linkType: soft
 
 "@mapbox/node-pre-gyp@npm:^2.0.0":
   version: 2.0.0
@@ -36998,7 +37018,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.22.0, zod@npm:^3.24.2, zod@npm:^3.25.76":
+"zod@npm:^3.22.0, zod@npm:^3.23.0, zod@npm:^3.24.2, zod@npm:^3.25.76":
   version: 3.25.76
   resolution: "zod@npm:3.25.76"
   checksum: 10/f0c963ec40cd96858451d1690404d603d36507c1fc9682f2dae59ab38b578687d542708a7fdbf645f77926f78c9ed558f57c3d3aa226c285f798df0c4da16995

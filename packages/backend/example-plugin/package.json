@@ -1,0 +1,21 @@
+{
+  "name": "@manut/example-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reference plugin for @manut/plugin-sdk. Declares a single 'echo' tool and a POST /echo route; useful as a smoke test for the plugin runtime.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "echo 'example-plugin ships TS source; the runtime imports via tsx'"
+  },
+  "dependencies": {
+    "@manut/plugin-sdk": "workspace:*"
+  }
+}

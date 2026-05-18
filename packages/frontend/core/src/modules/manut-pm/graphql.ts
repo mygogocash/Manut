@@ -348,3 +348,170 @@ export const bindAiSessionToTaskMutation = {
   )
 }`,
 };
+
+// ---------------------------------------------------------------------------
+// M11 — Definition of Done verifier.
+//
+// The result shape mirrors `MnDoDVerificationResultObjectType` on the
+// backend. `predicate` and `evidence` are GraphQLJSON scalars so we
+// fetch them as raw values; the frontend types narrow them at the
+// component boundary.
+// ---------------------------------------------------------------------------
+
+const dodResultSelection = `taskId
+    satisfied
+    hasDefinition
+    results {
+      predicate
+      satisfied
+      kind
+      evidence
+      reason
+    }`;
+
+export const verifyMnTaskDoneQuery = {
+  id: 'verifyMnTaskDoneQuery' as const,
+  op: 'verifyMnTaskDone',
+  query: `query verifyMnTaskDone($taskId: ID!) {
+  verifyMnTaskDone(taskId: $taskId) {
+    ${dodResultSelection}
+  }
+}`,
+};
+
+export const setMnTaskDefinitionOfDoneMutation = {
+  id: 'setMnTaskDefinitionOfDoneMutation' as const,
+  op: 'setMnTaskDefinitionOfDone',
+  query: `mutation setMnTaskDefinitionOfDone($input: SetMnTaskDefinitionOfDoneInput!) {
+  setMnTaskDefinitionOfDone(input: $input) {
+    ${dodResultSelection}
+  }
+}`,
+};
+
+// ---------------------------------------------------------------------------
+// M10 — Artifacts & Work Products. First-class registry of task / agent
+// outputs (docs, files, URLs, PRs, deployments, CSV exports, screenshots).
+// The artifact itself stays in its source-of-truth system; we only store
+// the reference and enough metadata to render it.
+// ---------------------------------------------------------------------------
+
+const workProductSelection = `
+    id
+    workspaceId
+    projectId
+    taskId
+    producedByAgentId
+    kind
+    ref
+    byteSize
+    title
+    description
+    metadata
+    createdAt`;
+
+export const mnWorkProductsQuery = {
+  id: 'mnWorkProductsQuery' as const,
+  op: 'mnWorkProducts',
+  query: `query mnWorkProducts($workspaceId: ID!, $taskId: ID!) {
+  mnWorkProducts(workspaceId: $workspaceId, taskId: $taskId) {${workProductSelection}
+  }
+}`,
+};
+
+export const createMnWorkProductMutation = {
+  id: 'createMnWorkProductMutation' as const,
+  op: 'createMnWorkProduct',
+  query: `mutation createMnWorkProduct($workspaceId: ID!, $input: CreateMnWorkProductInput!) {
+  createMnWorkProduct(workspaceId: $workspaceId, input: $input) {${workProductSelection}
+  }
+}`,
+};
+
+export const deleteMnWorkProductMutation = {
+  id: 'deleteMnWorkProductMutation' as const,
+  op: 'deleteMnWorkProduct',
+  query: `mutation deleteMnWorkProduct($workspaceId: ID!, $workProductId: ID!) {
+  deleteMnWorkProduct(workspaceId: $workspaceId, workProductId: $workProductId)
+}`,
+};
+
+// ---------------------------------------------------------------------------
+// M14 — Work queues. Queue-style intake routing for continuous external
+// inputs (support tickets, review requests, etc.).
+// ---------------------------------------------------------------------------
+
+const workQueueSelection = `
+    id
+    workspaceId
+    projectId
+    name
+    description
+    intakeWebhookToken
+    routingRulesJson
+    defaultAssigneeAgentId
+    defaultPriority
+    isActive
+    createdAt
+    updatedAt`;
+
+export const mnWorkQueuesQuery = {
+  id: 'mnWorkQueuesQuery' as const,
+  op: 'mnWorkQueues',
+  query: `query mnWorkQueues($workspaceId: ID!) {
+  mnWorkQueues(workspaceId: $workspaceId) {${workQueueSelection}
+  }
+}`,
+};
+
+export const mnWorkQueueIntakesQuery = {
+  id: 'mnWorkQueueIntakesQuery' as const,
+  op: 'mnWorkQueueIntakes',
+  query: `query mnWorkQueueIntakes($workspaceId: ID!, $queueId: ID!) {
+  mnWorkQueueIntakes(workspaceId: $workspaceId, queueId: $queueId) {
+    id
+    queueId
+    externalRef
+    payloadJson
+    status
+    routedToTaskId
+    receivedAt
+  }
+}`,
+};
+
+export const createMnWorkQueueMutation = {
+  id: 'createMnWorkQueueMutation' as const,
+  op: 'createMnWorkQueue',
+  query: `mutation createMnWorkQueue($workspaceId: ID!, $input: CreateMnWorkQueueInput!) {
+  createMnWorkQueue(workspaceId: $workspaceId, input: $input) {${workQueueSelection}
+  }
+}`,
+};
+
+export const updateMnWorkQueueMutation = {
+  id: 'updateMnWorkQueueMutation' as const,
+  op: 'updateMnWorkQueue',
+  query: `mutation updateMnWorkQueue($workspaceId: ID!, $queueId: ID!, $input: UpdateMnWorkQueueInput!) {
+  updateMnWorkQueue(workspaceId: $workspaceId, queueId: $queueId, input: $input) {${workQueueSelection}
+  }
+}`,
+};
+
+export const rotateMnWorkQueueTokenMutation = {
+  id: 'rotateMnWorkQueueTokenMutation' as const,
+  op: 'rotateMnWorkQueueToken',
+  query: `mutation rotateMnWorkQueueToken($workspaceId: ID!, $queueId: ID!) {
+  rotateMnWorkQueueToken(workspaceId: $workspaceId, queueId: $queueId) {${workQueueSelection}
+  }
+}`,
+};
+
+export const archiveMnWorkQueueMutation = {
+  id: 'archiveMnWorkQueueMutation' as const,
+  op: 'archiveMnWorkQueue',
+  query: `mutation archiveMnWorkQueue($workspaceId: ID!, $queueId: ID!) {
+  archiveMnWorkQueue(workspaceId: $workspaceId, queueId: $queueId) {${workQueueSelection}
+  }
+}`,
+};

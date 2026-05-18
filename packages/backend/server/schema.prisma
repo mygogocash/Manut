@@ -201,6 +201,8 @@ model Workspace {
   mnApprovals                MnApproval[]
   mnSkills                   MnSkill[]
   mnExportSnapshots          MnExportSnapshot[]
+  mnPluginConfigs            MnPluginConfig[]
+  mnWorkQueues               MnWorkQueue[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -1535,15 +1537,16 @@ model MnProject {
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy   User?             @relation("MnProjectCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  members     MnProjectMember[]
-  tasks       MnTask[]
-  agents      MnAgent[]
-  costEvents  MnCostEvent[]
-  budgets     MnBudget[]
-  goals       MnGoal[]
-  approvals   MnApproval[]
+  workspace  Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy  User?             @relation("MnProjectCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  members    MnProjectMember[]
+  tasks      MnTask[]
+  agents     MnAgent[]
+  costEvents MnCostEvent[]
+  budgets    MnBudget[]
+  goals      MnGoal[]
+  approvals  MnApproval[]
+  workQueues MnWorkQueue[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, sortOrder])
@@ -1566,53 +1569,113 @@ model MnProjectMember {
 }
 
 model MnTask {
-  id              String         @id @default(uuid()) @db.VarChar
-  projectId       String         @map("project_id") @db.VarChar
-  title           String         @db.VarChar
-  description     String?        @db.Text
-  status          MnTaskStatus   @default(TODO)
-  priority        MnTaskPriority @default(NONE)
-  dueAt           DateTime?      @map("due_at") @db.Timestamptz(3)
-  listSortOrder   Int            @default(0) @map("list_sort_order")
-  assigneeUserId  String?        @map("assignee_user_id") @db.VarChar
+  id                String         @id @default(uuid()) @db.VarChar
+  projectId         String         @map("project_id") @db.VarChar
+  title             String         @db.VarChar
+  description       String?        @db.Text
+  status            MnTaskStatus   @default(TODO)
+  priority          MnTaskPriority @default(NONE)
+  dueAt             DateTime?      @map("due_at") @db.Timestamptz(3)
+  listSortOrder     Int            @default(0) @map("list_sort_order")
+  assigneeUserId    String?        @map("assignee_user_id") @db.VarChar
   /// M2: optional agent assignee. XOR with `assigneeUserId` — at most one
   /// of the two may be non-null. Prisma cannot express XOR declaratively,
   /// so the service layer rejects both-set writes with BadRequestException.
-  assigneeAgentId String?        @map("assignee_agent_id") @db.VarChar
+  assigneeAgentId   String?        @map("assignee_agent_id") @db.VarChar
   /// M2: optional link to the goal this task contributes to. SetNull on
   /// goal delete so task history survives goal removal.
-  goalId          String?        @map("goal_id") @db.VarChar
+  goalId            String?        @map("goal_id") @db.VarChar
   /// M2: optional parent task. Self-ref forms an ancestry tree used by
   /// MnGoalContextService to render the task's place in the hierarchy.
   /// Cycle prevention is enforced at the service layer (max-depth walk).
-  parentTaskId    String?        @map("parent_task_id") @db.VarChar
+  parentTaskId      String?        @map("parent_task_id") @db.VarChar
   /// M2: opaque routine-run id that triggered this task. VarChar (not FK)
   /// because runs can live in foreign scopes (MCP callers, external
   /// schedulers); free text so attribution can survive schema drift.
-  originRunId     String?        @map("origin_run_id") @db.VarChar
+  originRunId       String?        @map("origin_run_id") @db.VarChar
   /// M2: time the task transitioned out of BACKLOG / TODO.
-  startedAt       DateTime?      @map("started_at") @db.Timestamptz(3)
+  startedAt         DateTime?      @map("started_at") @db.Timestamptz(3)
   /// M2: time the task moved to DONE. Null while in flight.
-  completedAt     DateTime?      @map("completed_at") @db.Timestamptz(3)
+  completedAt       DateTime?      @map("completed_at") @db.Timestamptz(3)
   /// M2: time the task moved to CANCELLED. Null when not cancelled.
-  cancelledAt     DateTime?      @map("cancelled_at") @db.Timestamptz(3)
-  createdByUserId String?        @map("created_by_user_id") @db.VarChar
-  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  cancelledAt       DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  /// M7 — atomic checkout + execution lock.
+  ///
+  /// `checkoutRunId` is the run id that holds the *checkout right* —
+  /// the soft reservation taken before the run starts (e.g. a queue
+  /// dispatcher claiming the task for itself). VarChar instead of an
+  /// FK so external schedulers can populate it without an MnExecutionRun
+  /// row existing yet.
+  checkoutRunId     String?        @map("checkout_run_id") @db.VarChar
+  /// `executionRunId` is the run id that holds the *execution lock* —
+  /// taken atomically at the start of work via
+  /// `MnTaskCheckoutService.tryCheckout`. Cleared on release or by
+  /// the watchdog when the lock goes stale (>5 min without heartbeat).
+  /// VarChar (not FK) for the same reason as checkoutRunId.
+  executionRunId    String?        @map("execution_run_id") @db.VarChar
+  /// Timestamp when the execution lock was last acquired. Used by the
+  /// atomic `tryCheckout` SQL to detect stale locks
+  /// (executionLockedAt < NOW() - INTERVAL '5 minutes' → freely
+  /// re-acquirable). Cleared on release.
+  executionLockedAt DateTime?      @map("execution_locked_at") @db.Timestamptz(3)
+  /// Free-form execution-policy hints (max_attempts, retry_backoff_ms,
+  /// approval_required, etc.). JSONB so we can grow the shape without
+  /// migrations. The checkout service does not interpret it — it's a
+  /// pass-through field for run dispatchers / agents.
+  executionPolicy   Json?          @map("execution_policy") @db.JsonB
+  /// Per-task execution state — last attempt number, last error,
+  /// last heartbeat snapshot, etc. Free-form JSONB so dispatchers can
+  /// stash arbitrary recovery context without schema churn.
+  executionState    Json?          @map("execution_state") @db.JsonB
+  /// M11 — Enforced Outcomes. An array of typed predicates declaring
+  /// what "done" means for this task. The MnOutcomeVerifierService
+  /// runs each predicate and refuses to transition the task to DONE
+  /// unless every predicate is satisfied. JSONB so the predicate shape
+  /// can grow without schema migrations.
+  ///
+  /// Schema (validated by Zod at the resolver edge):
+  ///   Array<
+  ///     | { kind: 'DOC_EXISTS', docId: string }
+  ///     | { kind: 'URL_REACHABLE', url: string, expectedStatus?: number }
+  ///     | { kind: 'WORK_PRODUCT_EXISTS', taskId: string, productKind?: string }
+  ///     | { kind: 'EMBEDDING_SIMILARITY', sourceText: string, threshold: number }
+  ///     | { kind: 'CUSTOM', description: string }
+  ///   >
+  ///
+  /// `null` or `[]` means "no enforcement" — task transitions to DONE
+  /// freely. Once populated, the status-transition guard in
+  /// MnOutcomeVerifierService.assertCanTransitionToDone runs every
+  /// predicate before allowing the status write.
+  definitionOfDone  Json?          @map("definition_of_done") @db.JsonB
+  createdByUserId   String?        @map("created_by_user_id") @db.VarChar
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  project       MnProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee      User?            @relation("MnTaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
-  agentAssignee MnAgent?         @relation("MnTaskAgentAssignee", fields: [assigneeAgentId], references: [id], onDelete: SetNull)
-  goal          MnGoal?          @relation(fields: [goalId], references: [id], onDelete: SetNull)
-  parent        MnTask?          @relation("MnTaskParent", fields: [parentTaskId], references: [id], onDelete: SetNull)
-  children      MnTask[]         @relation("MnTaskParent")
-  createdBy     User?            @relation("MnTaskCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  project       MnProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee      User?               @relation("MnTaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  agentAssignee MnAgent?            @relation("MnTaskAgentAssignee", fields: [assigneeAgentId], references: [id], onDelete: SetNull)
+  goal          MnGoal?             @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  parent        MnTask?             @relation("MnTaskParent", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  children      MnTask[]            @relation("MnTaskParent")
+  createdBy     User?               @relation("MnTaskCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
   comments      MnTaskComment[]
   activities    MnTaskActivity[]
   costEvents    MnCostEvent[]
-  blockedBy     MnTaskBlocker[]  @relation("MnTaskBlockedBy")
-  blocking      MnTaskBlocker[]  @relation("MnTaskBlocking")
+  blockedBy     MnTaskBlocker[]     @relation("MnTaskBlockedBy")
+  blocking      MnTaskBlocker[]     @relation("MnTaskBlocking")
   aiSessions    AiSession[]
+  executionRuns MnExecutionRun[]
+  memories      MnAgentMemory[]
+  /// M10 — first-class work products this task produced. Cascade on
+  /// task delete: when a task disappears, its registry rows disappear
+  /// too. The artifact itself (doc / PR / URL) is owned by an external
+  /// system and is referenced by string, not deleted.
+  workProducts  MnWorkProduct[]
+  /// M14 — back-ref for work queue intakes that routed into this task.
+  /// SetNull on task delete: the intake event row outlives its routed
+  /// task so the audit trail (when did this ticket arrive, what queue
+  /// routed it) survives the task's eventual cleanup.
+  intakeRefs    MnWorkQueueIntake[]
 
   @@index([projectId, status])
   @@index([projectId, listSortOrder])
@@ -1621,7 +1684,45 @@ model MnTask {
   @@index([goalId])
   @@index([parentTaskId])
   @@index([dueAt])
+  @@index([executionRunId])
   @@map("mn_tasks")
+}
+
+/// M7 — Manut Execution Run. One row per attempt to execute a task.
+/// Distinct from MnHeartbeatRun (which records chat-turn level keepalives)
+/// because an execution run can span many chat-turns or none at all
+/// (e.g. a batch worker).
+///
+/// Status lifecycle:
+///   QUEUED → RUNNING → SUCCEEDED | FAILED | CANCELLED | TIMED_OUT
+///
+/// `agentId` is SetNull so a deleted agent doesn't cascade-delete the
+/// historical record. `taskId` is Cascade because runs are meaningless
+/// without their task.
+enum MnExecutionRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  TIMED_OUT
+}
+
+model MnExecutionRun {
+  id         String               @id @default(uuid()) @db.VarChar
+  taskId     String               @map("task_id") @db.VarChar
+  agentId    String?              @map("agent_id") @db.VarChar
+  status     MnExecutionRunStatus @default(QUEUED)
+  startedAt  DateTime             @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime?            @map("finished_at") @db.Timestamptz(3)
+  error      String?              @db.Text
+
+  task  MnTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  agent MnAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, startedAt(sort: Desc)])
+  @@index([status, startedAt])
+  @@map("mn_execution_runs")
 }
 
 model MnTaskComment {
@@ -1965,7 +2066,7 @@ model MnReleaseRun {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks     MnReleaseTask[]
 
   @@unique([workspaceId, ghRunId])
@@ -1992,6 +2093,10 @@ model MnReleaseTask {
 
 enum MnAgentAdapterType {
   COPILOT_CHAT_SESSION
+  E2B_SANDBOX
+  CURSOR_CLOUD
+  HTTP_WEBHOOK
+  PROCESS_COMMAND
 }
 
 enum MnAgentStatus {
@@ -2020,40 +2125,99 @@ enum MnHeartbeatRunStatus {
 /// per §5.1 (project = "company"). Adapter-typed; M1 only supports
 /// COPILOT_CHAT_SESSION binding via AiSession.agentId.
 model MnAgent {
-  id                String             @id @default(uuid()) @db.VarChar
-  workspaceId       String             @map("workspace_id") @db.VarChar
-  projectId         String             @map("project_id") @db.VarChar
-  roleId            String?            @map("role_id") @db.VarChar
-  name              String             @db.VarChar
-  adapterType       MnAgentAdapterType @default(COPILOT_CHAT_SESSION) @map("adapter_type")
-  adapterConfig     Json               @default("{}") @map("adapter_config") @db.JsonB
-  runtimeConfig     Json               @default("{}") @map("runtime_config") @db.JsonB
-  status            MnAgentStatus      @default(IDLE)
-  reportsToAgentId  String?            @map("reports_to_agent_id") @db.VarChar
-  capabilities      String?            @db.Text
-  lastHeartbeatAt   DateTime?          @map("last_heartbeat_at") @db.Timestamptz(3)
-  createdByUserId   String?            @map("created_by_user_id") @db.VarChar
-  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id               String             @id @default(uuid()) @db.VarChar
+  workspaceId      String             @map("workspace_id") @db.VarChar
+  projectId        String             @map("project_id") @db.VarChar
+  roleId           String?            @map("role_id") @db.VarChar
+  name             String             @db.VarChar
+  adapterType      MnAgentAdapterType @default(COPILOT_CHAT_SESSION) @map("adapter_type")
+  adapterConfig    Json               @default("{}") @map("adapter_config") @db.JsonB
+  runtimeConfig    Json               @default("{}") @map("runtime_config") @db.JsonB
+  status           MnAgentStatus      @default(IDLE)
+  reportsToAgentId String?            @map("reports_to_agent_id") @db.VarChar
+  capabilities     String?            @db.Text
+  lastHeartbeatAt  DateTime?          @map("last_heartbeat_at") @db.Timestamptz(3)
+  createdByUserId  String?            @map("created_by_user_id") @db.VarChar
+  createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project        MnProject        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  role           MnAgentRole?     @relation(fields: [roleId], references: [id], onDelete: SetNull)
-  reportsTo      MnAgent?         @relation("MnAgentReportsTo", fields: [reportsToAgentId], references: [id], onDelete: SetNull)
-  directReports  MnAgent[]        @relation("MnAgentReportsTo")
-  createdBy      User?            @relation("MnAgentCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  apiKeys              MnAgentApiKey[]
-  heartbeatRuns        MnHeartbeatRun[]
-  aiSessions           AiSession[]
-  costEvents           MnCostEvent[]
-  requestedApprovals   MnApproval[]      @relation("MnApprovalRequestedByAgent")
-  approvalComments     MnApprovalComment[] @relation("MnApprovalCommentAuthorAgent")
-  ownedGoals           MnGoal[]          @relation("MnGoalOwnerAgent")
-  assignedTasks        MnTask[]          @relation("MnTaskAgentAssignee")
+  workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project            MnProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role               MnAgentRole?        @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  reportsTo          MnAgent?            @relation("MnAgentReportsTo", fields: [reportsToAgentId], references: [id], onDelete: SetNull)
+  directReports      MnAgent[]           @relation("MnAgentReportsTo")
+  createdBy          User?               @relation("MnAgentCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  apiKeys            MnAgentApiKey[]
+  heartbeatRuns      MnHeartbeatRun[]
+  aiSessions         AiSession[]
+  costEvents         MnCostEvent[]
+  requestedApprovals MnApproval[]        @relation("MnApprovalRequestedByAgent")
+  approvalComments   MnApprovalComment[] @relation("MnApprovalCommentAuthorAgent")
+  ownedGoals         MnGoal[]            @relation("MnGoalOwnerAgent")
+  assignedTasks      MnTask[]            @relation("MnTaskAgentAssignee")
+  executionRuns      MnExecutionRun[]
+  memories           MnAgentMemory[]
+  /// M10 — work products this agent produced. SetNull on agent delete:
+  /// the artifact (PR, doc, deployment) outlives its producing agent
+  /// so historical attribution survives agent decommissioning.
+  workProducts       MnWorkProduct[]     @relation("MnWorkProductProducedBy")
+  /// M14 — back-ref for work queues that default new intakes to this
+  /// agent. SetNull on agent delete so the queue keeps routing rules
+  /// intact and the operator can pick a replacement assignee later.
+  workQueueDefaults  MnWorkQueue[]       @relation("MnWorkQueueDefaultAssignee")
 
   @@index([workspaceId, projectId, status])
   @@index([workspaceId, reportsToAgentId])
   @@map("mn_agents")
+}
+
+/// M9 — Per-agent + per-task durable recall.
+/// Kinds:
+///   FACT       — Statement of truth ("user prefers TypeScript over Go").
+///   DECISION   — Recorded choice that future runs should respect.
+///   OBSERVATION — Free-form note captured during a run.
+///   PLAYBOOK   — Reusable runbook fragment / how-to step.
+enum MnMemoryKind {
+  FACT
+  DECISION
+  OBSERVATION
+  PLAYBOOK
+}
+
+/// M9 — Memory / Knowledge surface. Each row is a durable piece of recall
+/// scoped to (workspaceId, agentId) with an optional taskId pin. The
+/// auto-router prepends the top-N memories (ordered by importance desc,
+/// then lastRetrievedAt desc) into the system message at session start.
+///
+/// `embedding` is reserved for future semantic recall (1024 dims to match
+/// the M-class embedding model AFFiNE already ships with); nullable for
+/// now so the M9 surface can land before the embedding job is wired.
+///
+/// `retrievedCount` + `lastRetrievedAt` form the recency component of the
+/// ranking. `importance` (1-10) is operator-controlled and dominates.
+/// `garbageCollect` reaps rows with `importance < threshold` older than a
+/// cutoff to keep the recall surface narrow.
+model MnAgentMemory {
+  id              String       @id @default(uuid()) @db.VarChar
+  workspaceId     String       @map("workspace_id") @db.VarChar
+  projectId       String       @map("project_id") @db.VarChar
+  agentId         String       @map("agent_id") @db.VarChar
+  taskId          String?      @map("task_id") @db.VarChar
+  kind            MnMemoryKind
+  contentMd       String       @map("content_md") @db.Text
+  embedding       Float[]      @default([])
+  retrievedCount  Int          @default(0) @map("retrieved_count")
+  lastRetrievedAt DateTime?    @map("last_retrieved_at") @db.Timestamptz(3)
+  importance      Int          @default(1)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  agent MnAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  task  MnTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, agentId, importance(sort: Desc)])
+  @@index([workspaceId, taskId])
+  @@map("mn_agent_memories")
 }
 
 /// Bearer API key issued to a single MnAgent. Plaintext shown once at mint;
@@ -2080,20 +2244,20 @@ model MnAgentApiKey {
 /// invocation). Fire-and-forget emission from copilot session.ts; idempotent
 /// on (agentId, externalRunId).
 model MnHeartbeatRun {
-  id                String                      @id @default(uuid()) @db.VarChar
-  workspaceId       String                      @map("workspace_id") @db.VarChar
-  projectId         String                      @map("project_id") @db.VarChar
-  agentId           String                      @map("agent_id") @db.VarChar
-  invocationSource  MnHeartbeatInvocationSource @map("invocation_source")
-  status            MnHeartbeatRunStatus
-  aiSessionId       String?                     @map("ai_session_id") @db.VarChar
-  startedAt         DateTime                    @default(now()) @map("started_at") @db.Timestamptz(3)
-  finishedAt        DateTime?                   @map("finished_at") @db.Timestamptz(3)
-  externalRunId     String?                     @map("external_run_id") @db.VarChar
-  error             String?                     @db.Text
+  id               String                      @id @default(uuid()) @db.VarChar
+  workspaceId      String                      @map("workspace_id") @db.VarChar
+  projectId        String                      @map("project_id") @db.VarChar
+  agentId          String                      @map("agent_id") @db.VarChar
+  invocationSource MnHeartbeatInvocationSource @map("invocation_source")
+  status           MnHeartbeatRunStatus
+  aiSessionId      String?                     @map("ai_session_id") @db.VarChar
+  startedAt        DateTime                    @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt       DateTime?                   @map("finished_at") @db.Timestamptz(3)
+  externalRunId    String?                     @map("external_run_id") @db.VarChar
+  error            String?                     @db.Text
 
-  agent     MnAgent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  aiSession AiSession?  @relation(fields: [aiSessionId], references: [id], onDelete: SetNull)
+  agent     MnAgent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  aiSession AiSession? @relation(fields: [aiSessionId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, agentId, startedAt(sort: Desc)])
   @@index([aiSessionId])
@@ -2123,23 +2287,23 @@ enum MnBudgetScope {
 /// point comparison bugs in budget enforcement. Sub-cent costs round up at
 /// emit time per the formula in `MnCostService.emit`.
 model MnCostEvent {
-  id            String   @id @default(uuid()) @db.VarChar
-  workspaceId   String   @map("workspace_id") @db.VarChar
-  projectId     String?  @map("project_id") @db.VarChar
-  agentId       String?  @map("agent_id") @db.VarChar
-  taskId        String?  @map("task_id") @db.VarChar
+  id           String   @id @default(uuid()) @db.VarChar
+  workspaceId  String   @map("workspace_id") @db.VarChar
+  projectId    String?  @map("project_id") @db.VarChar
+  agentId      String?  @map("agent_id") @db.VarChar
+  taskId       String?  @map("task_id") @db.VarChar
   /// Logical goal-scope link. Branch B (M2) owns MnGoal; once shipped we
   /// can tighten this to an FK with onDelete: SetNull.
-  goalId        String?  @map("goal_id") @db.VarChar
+  goalId       String?  @map("goal_id") @db.VarChar
   /// Optional billing classifier — e.g. customer/cost-center label. Free
   /// text so we don't paint ourselves into a corner before billing ships.
-  billingCode   String?  @map("billing_code") @db.VarChar
-  provider      String   @db.VarChar
-  model         String   @db.VarChar
-  inputTokens   Int      @default(0) @map("input_tokens")
-  outputTokens  Int      @default(0) @map("output_tokens")
-  costCents     Int      @map("cost_cents")
-  occurredAt    DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
+  billingCode  String?  @map("billing_code") @db.VarChar
+  provider     String   @db.VarChar
+  model        String   @db.VarChar
+  inputTokens  Int      @default(0) @map("input_tokens")
+  outputTokens Int      @default(0) @map("output_tokens")
+  costCents    Int      @map("cost_cents")
+  occurredAt   DateTime @default(now()) @map("occurred_at") @db.Timestamptz(3)
 
   workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   project   MnProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -2169,19 +2333,19 @@ model MnCostEvent {
 /// can have at most one WORKSPACE-scope budget per month (since `scopeId`
 /// is always null for that scope).
 model MnBudget {
-  id                  String        @id @default(uuid()) @db.VarChar
-  workspaceId         String        @map("workspace_id") @db.VarChar
-  projectId           String?       @map("project_id") @db.VarChar
-  scopeType           MnBudgetScope @map("scope_type")
-  scopeId             String?       @map("scope_id") @db.VarChar
-  monthYear           String        @map("month_year") @db.VarChar
-  capCents            Int           @map("cap_cents")
-  spentCents          Int           @default(0) @map("spent_cents")
-  warnThresholdPct    Int           @default(80) @map("warn_threshold_pct")
-  hardStopEnabled     Boolean       @default(true) @map("hard_stop_enabled")
-  alertSent           Boolean       @default(false) @map("alert_sent")
-  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id               String        @id @default(uuid()) @db.VarChar
+  workspaceId      String        @map("workspace_id") @db.VarChar
+  projectId        String?       @map("project_id") @db.VarChar
+  scopeType        MnBudgetScope @map("scope_type")
+  scopeId          String?       @map("scope_id") @db.VarChar
+  monthYear        String        @map("month_year") @db.VarChar
+  capCents         Int           @map("cap_cents")
+  spentCents       Int           @default(0) @map("spent_cents")
+  warnThresholdPct Int           @default(80) @map("warn_threshold_pct")
+  hardStopEnabled  Boolean       @default(true) @map("hard_stop_enabled")
+  alertSent        Boolean       @default(false) @map("alert_sent")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   project   MnProject? @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -2416,4 +2580,217 @@ model MnExportSnapshot {
   @@index([workspaceId, createdAt(sort: Desc)])
   @@index([createdByUserId])
   @@map("mn_export_snapshots")
+}
+
+// M6a — Plugin runtime + IPC + capability gates.
+//
+// `MnPlugin` is the instance-scoped registry row: one per installed
+// plugin package. The runtime spawns a `child_process.fork` worker
+// per ENABLED row and supervises it via exponential backoff (see
+// `plugin-runtime/manut-plugin-supervisor.service.ts`).
+//
+// `MnPluginConfig` is per-workspace plugin configuration. Optional
+// `projectId` lets a plugin scope settings to a single project so
+// the same plugin can run with different configs across projects
+// inside one workspace.
+enum MnPluginStatus {
+  INSTALLED
+  LOADING
+  RUNNING
+  CRASHED
+  DISABLED
+}
+
+model MnPlugin {
+  id            String         @id @default(uuid()) @db.VarChar
+  name          String         @unique @db.VarChar
+  version       String         @db.VarChar
+  manifestJson  Json           @map("manifest_json") @db.JsonB
+  packagePath   String?        @map("package_path") @db.VarChar
+  processStatus MnPluginStatus @default(INSTALLED) @map("process_status")
+  installedAt   DateTime       @default(now()) @map("installed_at") @db.Timestamptz(6)
+  enabledAt     DateTime?      @map("enabled_at") @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  configs MnPluginConfig[]
+
+  @@index([processStatus])
+  @@map("mn_plugins")
+}
+
+model MnPluginConfig {
+  id          String   @id @default(uuid()) @db.VarChar
+  pluginId    String   @map("plugin_id") @db.VarChar
+  workspaceId String   @map("workspace_id") @db.VarChar
+  projectId   String?  @map("project_id") @db.VarChar
+  configJson  Json     @default("{}") @map("config_json") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  plugin    MnPlugin  @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([pluginId, workspaceId, projectId])
+  @@index([workspaceId])
+  @@map("mn_plugin_configs")
+}
+
+/// M14 — Work-queue intake status lifecycle. RECEIVED is the moment the
+/// HTTP webhook lands; ROUTED is the post-rule terminal state when a
+/// MnTask has been created; REJECTED is the terminal state when no
+/// routing rule matched and the queue has no default assignee, or when
+/// the payload failed validation.
+enum MnIntakeStatus {
+  RECEIVED
+  ROUTED
+  REJECTED
+}
+
+/// M14 — Manut Work Queue. Each queue is a per-project intake bucket
+/// reachable via a single rotation-stable webhook URL
+/// (`/api/work-queues/:intakeWebhookToken/intake`). Inbound payloads
+/// are evaluated against `routingRules` in order; the first match
+/// produces an MnTask + a MnWorkQueueIntake row linking back.
+///
+/// `routingRules` shape (validated at the service edge):
+///   Array<{
+///     match: { field: string; op: 'eq' | 'contains'; value: string };
+///     assignToAgentId?: string;
+///     assignToRoleSlug?: string;
+///   }>
+///
+/// `field` is a JSONPath-ish dot-segment into the payload (`payload.foo.bar`
+/// or just `foo` for the root); `op` is `eq` (exact) or `contains`
+/// (case-insensitive substring). The service skips rules whose `field`
+/// resolves to non-string for safety. If no rule matches and
+/// `defaultAssigneeAgentId` is set, the task is created assigned to that
+/// agent; otherwise the intake row records REJECTED.
+model MnWorkQueue {
+  id                     String         @id @default(uuid()) @db.VarChar
+  workspaceId            String         @map("workspace_id") @db.VarChar
+  projectId              String         @map("project_id") @db.VarChar
+  name                   String         @db.VarChar
+  description            String?        @db.Text
+  /// Webhook token used in the public intake URL path. Globally unique
+  /// (not just per-workspace) so a leaked token cannot collide with an
+  /// unrelated workspace's queue. Rotated via the `rotateMnWorkQueueToken`
+  /// mutation; old tokens become 404s the moment the rotation lands.
+  intakeWebhookToken     String         @unique @map("intake_webhook_token") @db.VarChar
+  routingRules           Json           @default("[]") @map("routing_rules") @db.JsonB
+  defaultAssigneeAgentId String?        @map("default_assignee_agent_id") @db.VarChar
+  defaultPriority        MnTaskPriority @default(LOW) @map("default_priority")
+  isActive               Boolean        @default(true) @map("is_active")
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project         MnProject           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  defaultAssignee MnAgent?            @relation("MnWorkQueueDefaultAssignee", fields: [defaultAssigneeAgentId], references: [id], onDelete: SetNull)
+  intakes         MnWorkQueueIntake[]
+
+  @@index([workspaceId])
+  @@index([projectId])
+  @@index([defaultAssigneeAgentId])
+  @@map("mn_work_queues")
+}
+
+/// M14 — One row per inbound webhook delivery. `payload` is the raw
+/// JSON body the external system POSTed; we store it verbatim so the
+/// audit log captures exactly what was received before any rule
+/// evaluation. `externalRef` is an optional client-supplied id (e.g.
+/// the support-ticket number) so the queue UI can dedupe and the
+/// external system can link back. `routedToTaskId` is SetNull on task
+/// delete so the intake row's audit trail survives task cleanup.
+model MnWorkQueueIntake {
+  id             String         @id @default(uuid()) @db.VarChar
+  queueId        String         @map("queue_id") @db.VarChar
+  externalRef    String?        @map("external_ref") @db.VarChar
+  payload        Json           @db.JsonB
+  status         MnIntakeStatus @default(RECEIVED)
+  routedToTaskId String?        @map("routed_to_task_id") @db.VarChar
+  receivedAt     DateTime       @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  queue        MnWorkQueue @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  routedToTask MnTask?     @relation(fields: [routedToTaskId], references: [id], onDelete: SetNull)
+
+  @@index([queueId, receivedAt])
+  @@index([status])
+  @@index([externalRef])
+  @@map("mn_work_queue_intakes")
+}
+
+/// M14 — Back-ref for MnProject so the project list query can pull its
+/// queue count alongside other counts. Cascade on project delete is
+/// the natural cleanup contract: queues are project-scoped, so a
+/// deleted project takes its queues with it.
+///
+/// NOTE: this section reserved for future migration adding
+/// MnProject.workQueues back-ref. For M14 we keep the relation lookup
+/// on MnWorkQueue.project unidirectional to limit blast radius on the
+/// MnProject model (which is already heavy with back-refs).
+
+// M10 — Artifacts & Work Products.
+//
+// MnWorkProduct is the first-class registry row for ANY meaningful
+// thing a task or agent produces: a doc, an uploaded file, an
+// external URL, a pull request, a deployment, a CSV export, a
+// screenshot. The artifact itself stays where it lives (BlockSuite
+// docs in the docstore, files on R2/GCS, PRs in GitHub) — the
+// registry stores only the *reference* (`ref` Text) plus enough
+// metadata to render it in a list and re-open it.
+//
+// Ownership semantics:
+//   - taskId is REQUIRED + Cascade — a work product without a task
+//     to attribute it to is meaningless. When the task is deleted,
+//     the registry row disappears with it. The underlying artifact
+//     (doc / PR / URL) is owned by its external system and is NOT
+//     touched.
+//   - producedByAgentId is OPTIONAL + SetNull — work products
+//     attributable to a human or to a since-decommissioned agent
+//     still survive with a null producer. Historical attribution
+//     beats foreign-key strictness.
+enum MnWorkProductKind {
+  DOC
+  FILE
+  URL
+  PR
+  DEPLOYMENT
+  CSV
+  SCREENSHOT
+}
+
+model MnWorkProduct {
+  id                String            @id @default(uuid()) @db.VarChar
+  workspaceId       String            @map("workspace_id") @db.VarChar
+  projectId         String            @map("project_id") @db.VarChar
+  taskId            String            @map("task_id") @db.VarChar
+  producedByAgentId String?           @map("produced_by_agent_id") @db.VarChar
+  kind              MnWorkProductKind
+  /// Free-text reference: the URL, doc id, blob key, PR url,
+  /// deployment id, etc. The shape varies by `kind` — interpretation
+  /// is the caller's responsibility. NOT FK because targets live in
+  /// foreign storage systems (GitHub, R2, BlockSuite docstore).
+  ref               String            @db.Text
+  /// Optional payload size in bytes for FILE/CSV/SCREENSHOT kinds.
+  /// Null for kinds where size is meaningless (URL, PR, DEPLOYMENT).
+  byteSize          Int?              @map("byte_size")
+  title             String?           @db.VarChar
+  description       String?           @db.Text
+  /// Free-form per-kind metadata. Examples:
+  ///   DOC          { docId, blockId? }
+  ///   FILE / CSV   { mimeType, blobKey, filename }
+  ///   URL          { domain, faviconUrl? }
+  ///   PR           { repo, number, status, mergedAt? }
+  ///   DEPLOYMENT   { environment, commitSha, deployedAt }
+  ///   SCREENSHOT   { width, height, viewport }
+  metadata          Json              @default("{}") @db.JsonB
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  task            MnTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  producedByAgent MnAgent? @relation("MnWorkProductProducedBy", fields: [producedByAgentId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, taskId, createdAt(sort: Desc)])
+  @@index([producedByAgentId])
+  @@map("mn_work_products")
 }

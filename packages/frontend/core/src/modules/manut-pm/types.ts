@@ -183,3 +183,206 @@ export interface AddMnTaskBlockerInput {
   taskId: string;
   blockedByTaskId: string;
 }
+
+// ---------------------------------------------------------------------------
+// M11 — Enforced Outcomes (Definition of Done).
+//
+// Mirrors the backend Zod schema in
+// `packages/backend/server/src/plugins/manut/manut-outcome-verifier.dto.ts`.
+// The discriminated union shape lets the frontend renderer pick the
+// right editor (URL input, doc picker, etc.) per predicate kind.
+// ---------------------------------------------------------------------------
+
+export type MnDoDPredicateKind =
+  | 'DOC_EXISTS'
+  | 'URL_REACHABLE'
+  | 'WORK_PRODUCT_EXISTS'
+  | 'EMBEDDING_SIMILARITY'
+  | 'CUSTOM';
+
+export const MN_DOD_PREDICATE_KINDS: readonly MnDoDPredicateKind[] = [
+  'DOC_EXISTS',
+  'URL_REACHABLE',
+  'WORK_PRODUCT_EXISTS',
+  'EMBEDDING_SIMILARITY',
+  'CUSTOM',
+];
+
+export interface MnDoDDocExistsPredicate {
+  kind: 'DOC_EXISTS';
+  docId: string;
+}
+
+export interface MnDoDUrlReachablePredicate {
+  kind: 'URL_REACHABLE';
+  url: string;
+  expectedStatus?: number;
+}
+
+export interface MnDoDWorkProductExistsPredicate {
+  kind: 'WORK_PRODUCT_EXISTS';
+  taskId: string;
+  productKind?: string;
+}
+
+export interface MnDoDEmbeddingSimilarityPredicate {
+  kind: 'EMBEDDING_SIMILARITY';
+  sourceText: string;
+  threshold: number;
+}
+
+export interface MnDoDCustomPredicate {
+  kind: 'CUSTOM';
+  description: string;
+}
+
+export type MnDoDPredicate =
+  | MnDoDDocExistsPredicate
+  | MnDoDUrlReachablePredicate
+  | MnDoDWorkProductExistsPredicate
+  | MnDoDEmbeddingSimilarityPredicate
+  | MnDoDCustomPredicate;
+
+export interface MnDoDPredicateResult {
+  predicate: MnDoDPredicate;
+  satisfied: boolean;
+  kind: MnDoDPredicateKind;
+  evidence: Record<string, unknown> | null;
+  reason: string | null;
+}
+
+export interface MnDoDVerificationResult {
+  taskId: string;
+  satisfied: boolean;
+  hasDefinition: boolean;
+  results: MnDoDPredicateResult[];
+}
+
+export interface SetMnTaskDefinitionOfDoneInput {
+  taskId: string;
+  predicates: MnDoDPredicate[] | null;
+}
+
+// ---------------------------------------------------------------------------
+// M10 — Artifacts & Work Products.
+// ---------------------------------------------------------------------------
+
+export type MnWorkProductKind =
+  | 'DOC'
+  | 'FILE'
+  | 'URL'
+  | 'PR'
+  | 'DEPLOYMENT'
+  | 'CSV'
+  | 'SCREENSHOT';
+
+export const MN_WORK_PRODUCT_KINDS: readonly MnWorkProductKind[] = [
+  'DOC',
+  'FILE',
+  'URL',
+  'PR',
+  'DEPLOYMENT',
+  'CSV',
+  'SCREENSHOT',
+];
+
+export interface MnWorkProductDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  taskId: string;
+  producedByAgentId: string | null;
+  kind: MnWorkProductKind;
+  ref: string;
+  byteSize: number | null;
+  title: string | null;
+  description: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface CreateMnWorkProductInput {
+  taskId: string;
+  kind: MnWorkProductKind;
+  ref: string;
+  byteSize?: number | null;
+  title?: string | null;
+  description?: string | null;
+  producedByAgentId?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+// ---------------------------------------------------------------------------
+// M14 — Work queues. Intake routing for continuous external inputs.
+// ---------------------------------------------------------------------------
+
+export type MnIntakeStatus = 'RECEIVED' | 'ROUTED' | 'REJECTED';
+
+export const MN_INTAKE_STATUSES: readonly MnIntakeStatus[] = [
+  'RECEIVED',
+  'ROUTED',
+  'REJECTED',
+];
+
+/**
+ * Routing-rule shape mirrored from the backend service. `routingRulesJson`
+ * on `MnWorkQueueDto` is the JSON-stringified array of these.
+ */
+export type MnWorkQueueRuleOp = 'eq' | 'contains';
+
+export interface MnWorkQueueRuleMatch {
+  field: string;
+  op: MnWorkQueueRuleOp;
+  value: string;
+}
+
+export interface MnWorkQueueRule {
+  match: MnWorkQueueRuleMatch;
+  assignToAgentId?: string;
+  assignToRoleSlug?: string;
+}
+
+export interface MnWorkQueueDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  intakeWebhookToken: string;
+  /** JSON-stringified routing rules array; parse with JSON.parse on read. */
+  routingRulesJson: string;
+  defaultAssigneeAgentId: string | null;
+  defaultPriority: MnTaskPriority;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MnWorkQueueIntakeDto {
+  id: string;
+  queueId: string;
+  externalRef: string | null;
+  /** JSON-stringified payload; parse with JSON.parse on read. */
+  payloadJson: string;
+  status: MnIntakeStatus;
+  routedToTaskId: string | null;
+  receivedAt: string;
+}
+
+export interface CreateMnWorkQueueInput {
+  projectId: string;
+  name: string;
+  description?: string | null;
+  routingRulesJson?: string | null;
+  defaultAssigneeAgentId?: string | null;
+  defaultPriority?: MnTaskPriority | null;
+}
+
+export interface UpdateMnWorkQueueInput {
+  name?: string | null;
+  description?: string | null;
+  routingRulesJson?: string | null;
+  defaultAssigneeAgentId?: string | null;
+  defaultPriority?: MnTaskPriority | null;
+  isActive?: boolean | null;
+}

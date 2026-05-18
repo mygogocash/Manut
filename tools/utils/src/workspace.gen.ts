@@ -1136,8 +1136,18 @@ export const PackageList = [
     workspaceDependencies: [],
   },
   {
+    location: 'packages/backend/example-plugin',
+    name: '@manut/example-plugin',
+    workspaceDependencies: ['packages/backend/plugin-sdk'],
+  },
+  {
     location: 'packages/backend/native',
     name: '@affine/server-native',
+    workspaceDependencies: [],
+  },
+  {
+    location: 'packages/backend/plugin-sdk',
+    name: '@manut/plugin-sdk',
     workspaceDependencies: [],
   },
   {
@@ -1556,7 +1566,9 @@ export type PackageName =
   | '@blocksuite/integration-test'
   | '@blocksuite/playground'
   | '@affine/docs'
+  | '@manut/example-plugin'
   | '@affine/server-native'
+  | '@manut/plugin-sdk'
   | '@affine/server'
   | '@affine/debug'
   | '@affine/env'

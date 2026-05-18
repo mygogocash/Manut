@@ -1,0 +1,30 @@
+{
+  "name": "@manut/plugin-sdk",
+  "version": "0.1.0",
+  "description": "SDK for authoring Manut plugins. Provides manifest schema, capability enums, and host-RPC type definitions consumed by both the plugin worker process and the Manut server.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "zod": "^3.23.0"
+  }
+}

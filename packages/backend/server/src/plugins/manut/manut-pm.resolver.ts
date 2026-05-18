@@ -7,6 +7,7 @@ import { MnProjectStatus, MnTaskStatus, PrismaClient } from '@prisma/client';
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
 import { MnProjectObjectType } from './manut.dto';
+import { MnOutcomeVerifierService } from './manut-outcome-verifier.service';
 import {
   CreateMnProjectInput,
   CreateMnTaskInput,
@@ -19,7 +20,14 @@ import {
 export class MnPmResolver {
   constructor(
     private readonly db: PrismaClient,
-    private readonly ac: AccessController
+    private readonly ac: AccessController,
+    // M11 — Enforced Outcomes. Optional in tests, but always present
+    // at runtime because the module wires it as a sibling provider.
+    // Mark `?: ...` so test fixtures that boot MnPmResolver without
+    // the verifier (e.g. ancestry-only tests) don't have to mock it.
+    // The guard short-circuits when the verifier is absent — the
+    // DoD column is also null in those fixtures.
+    private readonly outcomeVerifier?: MnOutcomeVerifierService
   ) {}
 
   private async assertWorkspaceMember(
@@ -213,6 +221,19 @@ export class MnPmResolver {
       input.assigneeUserId
     );
 
+    // M11 — Enforced Outcomes gate. If the input transitions this task
+    // to DONE, run the DoD predicates first; an unsatisfied predicate
+    // raises BadRequestException with a friendly summary and the DB
+    // write never happens. No-op when the task has no DoD or the
+    // verifier isn't wired (test fixtures).
+    if (
+      input.status === MnTaskStatus.DONE &&
+      task.status !== MnTaskStatus.DONE &&
+      this.outcomeVerifier
+    ) {
+      await this.outcomeVerifier.assertCanTransitionToDone(taskId);
+    }
+
     return this.db.mnTask.update({
       where: { id: taskId },
       data: {
@@ -252,6 +273,18 @@ export class MnPmResolver {
       .user(user.id)
       .workspace(task.project.workspaceId)
       .assert('Workspace.Settings.Update');
+
+    // M11 — Enforced Outcomes gate. Same logic as in updateMnTask: run
+    // the DoD predicates before letting the status move into DONE.
+    // Skipping the gate for DONE→DONE is the same idempotency trick
+    // (re-marking a finished task should never re-run predicates).
+    if (
+      status === MnTaskStatus.DONE &&
+      task.status !== MnTaskStatus.DONE &&
+      this.outcomeVerifier
+    ) {
+      await this.outcomeVerifier.assertCanTransitionToDone(taskId);
+    }
 
     return this.db.mnTask.update({
       where: { id: taskId },

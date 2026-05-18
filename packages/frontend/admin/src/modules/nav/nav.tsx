@@ -7,6 +7,7 @@ import {
   DatabaseIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
+  PuzzleIcon,
 } from 'lucide-react';
 
 import { NavItem } from './nav-item';
@@ -76,6 +77,12 @@ export function Nav({ isCollapsed = false }: NavProps) {
           to={ROUTES.admin.verifiedPages}
           icon={<BadgeCheckIcon size={18} />}
           label="Verified Pages"
+          isCollapsed={isCollapsed}
+        />
+        <NavItem
+          to={ROUTES.admin.plugins}
+          icon={<PuzzleIcon size={18} />}
+          label="Plugins"
           isCollapsed={isCollapsed}
         />
         <SettingsItem isCollapsed={isCollapsed} />

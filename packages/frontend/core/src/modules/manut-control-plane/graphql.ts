@@ -471,3 +471,101 @@ export const exportWorkspaceSnapshotMutation = {
   exportWorkspaceSnapshot(workspaceId: $workspaceId) {${MN_EXPORT_SNAPSHOT_FIELDS}}
 }`,
 };
+
+// ---------------------------------------------------------------------------
+// Phase 8 — Plugin runtime + per-workspace plugin enable (M6a + M6b).
+//
+// Backend resolvers in
+// `packages/backend/server/src/plugins/manut/plugin-runtime/manut-plugin.resolver.ts`.
+// Selection sets mirror the agreed DTO contract; widen once `@affine/graphql`
+// codegen picks the new schema up. The instance-admin queries are gated
+// server-side; an unauthorised caller gets a Forbidden error which the UI
+// translates to "Plugin lifecycle requires instance-administrator".
+// ---------------------------------------------------------------------------
+
+const MN_PLUGIN_FIELDS = `
+    id
+    name
+    version
+    manifestJson
+    packagePath
+    processStatus
+    enabledAt
+    installedAt
+    createdAt
+    updatedAt
+`;
+
+const MN_PLUGIN_CONFIG_FIELDS = `
+    id
+    pluginId
+    workspaceId
+    projectId
+    configJson
+    createdAt
+    updatedAt
+`;
+
+export const mnPluginsQuery = {
+  id: 'mnPluginsQuery' as const,
+  op: 'mnPlugins',
+  query: `query mnPlugins {
+  mnPlugins {${MN_PLUGIN_FIELDS}}
+}`,
+};
+
+export const mnPluginQuery = {
+  id: 'mnPluginQuery' as const,
+  op: 'mnPlugin',
+  query: `query mnPlugin($id: ID!) {
+  mnPlugin(id: $id) {${MN_PLUGIN_FIELDS}}
+}`,
+};
+
+export const mnPluginConfigsQuery = {
+  id: 'mnPluginConfigsQuery' as const,
+  op: 'mnPluginConfigs',
+  query: `query mnPluginConfigs($workspaceId: String!) {
+  mnPluginConfigs(workspaceId: $workspaceId) {${MN_PLUGIN_CONFIG_FIELDS}}
+}`,
+};
+
+export const installMnPluginMutation = {
+  id: 'installMnPluginMutation' as const,
+  op: 'installMnPlugin',
+  query: `mutation installMnPlugin($input: InstallMnPluginInput!) {
+  installMnPlugin(input: $input) {${MN_PLUGIN_FIELDS}}
+}`,
+};
+
+export const enableMnPluginMutation = {
+  id: 'enableMnPluginMutation' as const,
+  op: 'enableMnPlugin',
+  query: `mutation enableMnPlugin($id: ID!) {
+  enableMnPlugin(id: $id) {${MN_PLUGIN_FIELDS}}
+}`,
+};
+
+export const disableMnPluginMutation = {
+  id: 'disableMnPluginMutation' as const,
+  op: 'disableMnPlugin',
+  query: `mutation disableMnPlugin($id: ID!) {
+  disableMnPlugin(id: $id) {${MN_PLUGIN_FIELDS}}
+}`,
+};
+
+export const uninstallMnPluginMutation = {
+  id: 'uninstallMnPluginMutation' as const,
+  op: 'uninstallMnPlugin',
+  query: `mutation uninstallMnPlugin($id: ID!) {
+  uninstallMnPlugin(id: $id)
+}`,
+};
+
+export const upsertMnPluginConfigMutation = {
+  id: 'upsertMnPluginConfigMutation' as const,
+  op: 'upsertMnPluginConfig',
+  query: `mutation upsertMnPluginConfig($input: UpsertMnPluginConfigInput!) {
+  upsertMnPluginConfig(input: $input) {${MN_PLUGIN_CONFIG_FIELDS}}
+}`,
+};

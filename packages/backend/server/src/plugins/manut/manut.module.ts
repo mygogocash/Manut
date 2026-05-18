@@ -6,6 +6,11 @@ import { ServerFeature } from '../../core/config/types';
 import { DocStorageModule } from '../../core/doc';
 import { MailModule } from '../../core/mail';
 import { PermissionModule } from '../../core/permission';
+import { MnAdapterRegistryService } from './adapters/manut-adapter-registry.service';
+import { MnCursorCloudAdapter } from './adapters/manut-cursor-cloud-adapter.service';
+import { MnE2bAdapter } from './adapters/manut-e2b-adapter.service';
+import { MnHttpWebhookAdapter } from './adapters/manut-http-webhook-adapter.service';
+import { MnProcessAdapter } from './adapters/manut-process-adapter.service';
 import { MnAgentResolver } from './manut-agent.resolver';
 import { MnAgentService } from './manut-agent.service';
 import { MnAgentApiKeyResolver } from './manut-agent-api-key.resolver';
@@ -33,6 +38,10 @@ import { MnGoalContextService } from './manut-goal-context.service';
 import { MnHandoverResolver } from './manut-handover.resolver';
 import { MnHandoverService } from './manut-handover.service';
 import { MnHeartbeatService } from './manut-heartbeat.service';
+import { MnAgentMemoryResolver } from './manut-memory.resolver';
+import { MnAgentMemoryService } from './manut-memory.service';
+import { MnOutcomeVerifierResolver } from './manut-outcome-verifier.resolver';
+import { MnOutcomeVerifierService } from './manut-outcome-verifier.service';
 import { MnPmResolver } from './manut-pm.resolver';
 import { MnPortabilityService } from './manut-portability.service';
 import { MnReleaseRunsResolver } from './manut-release-runs.resolver';
@@ -46,6 +55,21 @@ import { MnRoutineResolver } from './manut-routine.resolver';
 import { MnRoutineService } from './manut-routine.service';
 import { MnSkillResolver } from './manut-skill.resolver';
 import { MnSkillService } from './manut-skill.service';
+import { MnTaskCheckoutResolver } from './manut-task-checkout.resolver';
+import { MnTaskCheckoutService } from './manut-task-checkout.service';
+import { MnTaskWatchdogCron } from './manut-task-watchdog.cron';
+import { MnWorkProductResolver } from './manut-work-product.resolver';
+import { MnWorkProductService } from './manut-work-product.service';
+import { MnWorkQueueController } from './manut-work-queue.controller';
+import { MnWorkQueueResolver } from './manut-work-queue.resolver';
+import { MnWorkQueueService } from './manut-work-queue.service';
+import { ManutPluginResolver } from './plugin-runtime/manut-plugin.resolver';
+import { ManutPluginConfigService } from './plugin-runtime/manut-plugin-config.service';
+import { ManutPluginHostRpcService } from './plugin-runtime/manut-plugin-host-rpc.service';
+import { ManutPluginInstallerService } from './plugin-runtime/manut-plugin-installer.service';
+import { ManutPluginRoutesController } from './plugin-runtime/manut-plugin-routes.controller';
+import { ManutPluginRuntimeService } from './plugin-runtime/manut-plugin-runtime.service';
+import { ManutPluginSupervisorService } from './plugin-runtime/manut-plugin-supervisor.service';
 
 /**
  * Toggles `ServerFeature.Manut` so the frontend can show/hide the
@@ -165,6 +189,82 @@ export class ManutModule {
       // export/import. Depends on PrismaClient and is consumed by the
       // CLI scripts in src/scripts/manut-{export,import}-workspace.ts.
       MnPortabilityService,
+      // M6a — Plugin runtime + IPC + capability gates. Out-of-process
+      // workers via child_process.fork; JSON-RPC bridge over stdio;
+      // host RPC surface capability-gated against the plugin's
+      // manifest. See plugin-runtime/manut-plugin.module.ts for the
+      // standalone module wrapper. UI sandboxing is M6b (Paperclip
+      // same-origin caveat — see SDK README).
+      ManutPluginSupervisorService,
+      ManutPluginHostRpcService,
+      ManutPluginInstallerService,
+      ManutPluginRuntimeService,
+      // M6b — per-workspace plugin config service (enable/disable toggle).
+      ManutPluginConfigService,
+      ManutPluginResolver,
+      // M7 — atomic checkout + execution locks. The R0 invariant is
+      // single-winner concurrency: `tryCheckout` issues a single raw
+      // UPDATE so concurrent callers serialise on the row-lock and at
+      // most one walks away with the executionRunId set. The
+      // watchdog cron clears stale locks (>2 min RUNNING with no
+      // matching heartbeat) and writes a recovery_lock_cleared
+      // activity row.
+      MnTaskCheckoutService,
+      MnTaskCheckoutResolver,
+      MnTaskWatchdogCron,
+      // M8 — Cloud / sandbox agent adapters. Extends
+      // MnAgentAdapterType beyond COPILOT_CHAT_SESSION with four
+      // external dispatch surfaces (e2b sandboxes, Cursor cloud
+      // agents, HTTP webhooks, allowlisted local processes). The
+      // registry resolves MnAgent.adapterType → MnAdapter at
+      // invocation time. Each adapter scrubs its secret config
+      // fields before logging (apiKey / signingSecret / cursorApiKey
+      // / env). All transport failures are wrapped in
+      // MnAdapterResult rather than thrown — the heartbeat consumer
+      // depends on that stable contract.
+      MnE2bAdapter,
+      MnCursorCloudAdapter,
+      MnHttpWebhookAdapter,
+      MnProcessAdapter,
+      MnAdapterRegistryService,
+      // M9 — Memory / Knowledge surface. Per-agent + per-task durable
+      // recall ranked by importance + recency. The service exposes a
+      // `renderRecallBlock` helper that the auto-router uses to prepend
+      // the top-N memories into the system prompt (wiring deferred to a
+      // follow-up commit in session.ts). The garbageCollect path keeps
+      // low-importance noise from accumulating.
+      MnAgentMemoryService,
+      MnAgentMemoryResolver,
+      // M11 — Enforced Outcomes. Runs typed predicates declared on
+      // MnTask.definitionOfDone and refuses to transition a task into
+      // DONE if any predicate is unsatisfied. The verifier is consumed
+      // by MnPmResolver via an optional constructor parameter — when
+      // absent (test fixtures), the gate degrades to a no-op so
+      // existing PM tests don't have to mock it. Predicate kinds:
+      // DOC_EXISTS (WorkspaceDoc probe), URL_REACHABLE (HEAD with 10s
+      // timeout), WORK_PRODUCT_EXISTS (M10 feature-detected at
+      // runtime, gracefully unsatisfied until M10 ships),
+      // EMBEDDING_SIMILARITY (v1 stub auto-satisfied with warning),
+      // and CUSTOM (always unsatisfied — operators approve manually).
+      MnOutcomeVerifierService,
+      MnOutcomeVerifierResolver,
+      // M10 — Artifacts & Work Products. First-class registry of
+      // task / agent outputs (docs, files, URLs, PRs, deployments,
+      // CSV exports, screenshots). The artifact itself stays in its
+      // source-of-truth system; this table stores only the reference
+      // and enough metadata to render and re-open it. M11's
+      // WORK_PRODUCT_EXISTS predicate feature-detects this service at
+      // runtime, so M10 can ship before any wiring change there.
+      MnWorkProductService,
+      MnWorkProductResolver,
+      // M14 — Work Queues. Per-project intake buckets with a public
+      // webhook URL and first-match-wins routing rules. Each inbound
+      // POST creates an MnTask + an MnWorkQueueIntake row linking back
+      // for audit. The webhook token in the URL path is the credential;
+      // optional HMAC via MANUT_INTAKE_SIGNING_SECRET hardens the
+      // surface for senders that can co-sign requests.
+      MnWorkQueueService,
+      MnWorkQueueResolver,
       MnFeatureRegistrar,
     ];
 
@@ -193,7 +293,11 @@ export class ManutModule {
         DocStorageModule,
         ServerConfigModule,
       ],
-      controllers: [MnApprovalsStreamController],
+      controllers: [
+        MnApprovalsStreamController,
+        ManutPluginRoutesController,
+        MnWorkQueueController,
+      ],
       providers,
     };
   }

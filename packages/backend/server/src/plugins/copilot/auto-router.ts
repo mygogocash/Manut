@@ -280,3 +280,64 @@ export function injectGoalContext(
   };
   return updated;
 }
+
+/**
+ * M9 — Hard cap on the MEMORY RECALL block that {@link injectMemoryRecall}
+ * prepends to the system message. Mirrors `GOAL_CONTEXT_INJECTION_CAP` to
+ * keep the auto-router decoupled from the manut plugin; the block is
+ * already line-capped at the service layer (`renderRecallBlock`) but a
+ * defensive trim here protects against runaway recall outputs.
+ */
+export const MEMORY_RECALL_INJECTION_CAP = 1500;
+
+/**
+ * Prepend a MEMORY RECALL block to the prompt messages. Same insertion
+ * shape as {@link injectGoalContext}: joins into the existing first
+ * `system` message (with two newlines) or inserts a new system message
+ * at index 0 if none exists.
+ *
+ * The recall block SHOULD already be capped + formatted by
+ * `MnAgentMemoryService.renderRecallBlock`; we trim defensively here.
+ *
+ * Returns a NEW messages array — input is never mutated.
+ *
+ * NOTE: This export is the pure helper. Wiring it into the live
+ * session.ts flow is deferred to a follow-up commit so we can land the
+ * M9 surface (schema + service + resolver + tests) on its own and
+ * verify the recall path independently of the streaming code path.
+ */
+export function injectMemoryRecall(
+  messages: PromptMessage[],
+  recallBlock: string | null | undefined
+): PromptMessage[] {
+  if (!recallBlock || recallBlock.trim().length === 0) {
+    return messages;
+  }
+
+  let safeBlock = recallBlock;
+  if (safeBlock.length > MEMORY_RECALL_INJECTION_CAP) {
+    const suffix = ' … [truncated]';
+    safeBlock =
+      safeBlock.slice(0, MEMORY_RECALL_INJECTION_CAP - suffix.length) + suffix;
+    logger.warn(
+      `[memory-recall] injection trimmed from ${recallBlock.length} to ` +
+        `${safeBlock.length} chars (cap=${MEMORY_RECALL_INJECTION_CAP})`
+    );
+  }
+
+  const firstSystemIdx = messages.findIndex(m => m.role === 'system');
+  if (firstSystemIdx === -1) {
+    return [
+      { role: 'system', content: safeBlock } as PromptMessage,
+      ...messages,
+    ];
+  }
+
+  const updated = messages.slice();
+  const original = updated[firstSystemIdx];
+  updated[firstSystemIdx] = {
+    ...original,
+    content: `${safeBlock}\n\n${original.content ?? ''}`,
+  };
+  return updated;
+}
