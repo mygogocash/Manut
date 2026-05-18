@@ -21,16 +21,27 @@ export class ManutPluginSupervisorService {
   private readonly logger = new Logger(ManutPluginSupervisorService.name);
   private readonly ledger = new Map<string, RestartLedgerEntry>();
 
-  private readonly baseMs: number;
-  private readonly maxBackoffMs: number;
-  private readonly maxAttempts: number;
-  private readonly windowMs: number;
+  // Defaults — overridable in tests via setOptionsForTesting(). Direct
+  // field init (not constructor params) keeps NestJS DI happy: a
+  // constructor param of an interface type is reflected as `Object` at
+  // runtime, which the IoC container can't resolve. v1.12.0 scar — see
+  // CLAUDE.md §6 "NestJS DI metadata traps".
+  private baseMs = 1_000;
+  private maxBackoffMs = 60_000;
+  private maxAttempts = 5;
+  private windowMs = 10 * 60_000;
 
-  constructor(options: SupervisorOptions = {}) {
-    this.baseMs = options.baseMs ?? 1_000;
-    this.maxBackoffMs = options.maxBackoffMs ?? 60_000;
-    this.maxAttempts = options.maxAttempts ?? 5;
-    this.windowMs = options.windowMs ?? 10 * 60_000;
+  /**
+   * Override the timing knobs from a test. Production code never calls
+   * this — production just relies on the field defaults above.
+   */
+  setOptionsForTesting(options: SupervisorOptions): void {
+    if (options.baseMs !== undefined) this.baseMs = options.baseMs;
+    if (options.maxBackoffMs !== undefined)
+      this.maxBackoffMs = options.maxBackoffMs;
+    if (options.maxAttempts !== undefined)
+      this.maxAttempts = options.maxAttempts;
+    if (options.windowMs !== undefined) this.windowMs = options.windowMs;
   }
 
   /**

@@ -253,7 +253,8 @@ test('bridge rejects all pending callers on dispose', async t => {
 // ---------------------------------------------------------------------
 
 test('supervisor returns exponential delays on successive crashes', t => {
-  const supervisor = new ManutPluginSupervisorService({
+  const supervisor = new ManutPluginSupervisorService();
+  supervisor.setOptionsForTesting({
     baseMs: 100,
     maxBackoffMs: 10_000,
     maxAttempts: 5,
@@ -272,7 +273,8 @@ test('supervisor returns exponential delays on successive crashes', t => {
 });
 
 test('supervisor parks plugin after exceeding maxAttempts', t => {
-  const supervisor = new ManutPluginSupervisorService({
+  const supervisor = new ManutPluginSupervisorService();
+  supervisor.setOptionsForTesting({
     baseMs: 100,
     maxAttempts: 2,
     windowMs: 60_000,
@@ -284,7 +286,8 @@ test('supervisor parks plugin after exceeding maxAttempts', t => {
 });
 
 test('supervisor sliding window drops out-of-window crashes', t => {
-  const supervisor = new ManutPluginSupervisorService({
+  const supervisor = new ManutPluginSupervisorService();
+  supervisor.setOptionsForTesting({
     baseMs: 100,
     maxAttempts: 2,
     windowMs: 1_000,
@@ -298,7 +301,8 @@ test('supervisor sliding window drops out-of-window crashes', t => {
 });
 
 test('supervisor clear() resets the ledger', t => {
-  const supervisor = new ManutPluginSupervisorService({
+  const supervisor = new ManutPluginSupervisorService();
+  supervisor.setOptionsForTesting({
     baseMs: 100,
     maxAttempts: 2,
   });
