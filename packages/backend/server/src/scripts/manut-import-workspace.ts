@@ -25,6 +25,7 @@ import { join } from 'node:path';
 import process from 'node:process';
 
 import { PrismaClient } from '@prisma/client';
+// eslint-disable-next-line import-x/no-extraneous-dependencies
 import * as tar from 'tar';
 
 import type { ExportManifest } from '../plugins/manut/manut-portability.service';
