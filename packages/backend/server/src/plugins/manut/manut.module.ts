@@ -29,6 +29,8 @@ import {
 import { MnBudgetResolver } from './manut-budget.resolver';
 import { MnBudgetService } from './manut-budget.service';
 import { MnBudgetEnforcerService } from './manut-budget-enforcer.service';
+import { MnCeoChatResolver } from './manut-ceo-chat.resolver';
+import { MnCeoChatService } from './manut-ceo-chat.service';
 import { MnCostService } from './manut-cost.service';
 import { MnCrmResolver } from './manut-crm.resolver';
 import { MnExportSnapshotService } from './manut-export-snapshot.service';
@@ -38,8 +40,14 @@ import { MnGoalContextService } from './manut-goal-context.service';
 import { MnHandoverResolver } from './manut-handover.resolver';
 import { MnHandoverService } from './manut-handover.service';
 import { MnHeartbeatService } from './manut-heartbeat.service';
+import { MnMaximizerResolver } from './manut-maximizer.resolver';
+import { MnMaximizerService } from './manut-maximizer.service';
 import { MnAgentMemoryResolver } from './manut-memory.resolver';
 import { MnAgentMemoryService } from './manut-memory.service';
+import { MnOrgChangeResolver } from './manut-org-change.resolver';
+import { MnOrgChangeService } from './manut-org-change.service';
+import { MnOrgLearningResolver } from './manut-org-learning.resolver';
+import { MnOrgLearningService } from './manut-org-learning.service';
 import { MnOutcomeVerifierResolver } from './manut-outcome-verifier.resolver';
 import { MnOutcomeVerifierService } from './manut-outcome-verifier.service';
 import { MnPmResolver } from './manut-pm.resolver';
@@ -57,6 +65,9 @@ import { MnSkillResolver } from './manut-skill.resolver';
 import { MnSkillService } from './manut-skill.service';
 import { MnTaskCheckoutResolver } from './manut-task-checkout.resolver';
 import { MnTaskCheckoutService } from './manut-task-checkout.service';
+import { MnTaskCompletionHookService } from './manut-task-completion-hook.service';
+import { MnTaskPlanResolver } from './manut-task-plan.resolver';
+import { MnTaskPlanService } from './manut-task-plan.service';
 import { MnTaskWatchdogCron } from './manut-task-watchdog.cron';
 import { MnWorkProductResolver } from './manut-work-product.resolver';
 import { MnWorkProductService } from './manut-work-product.service';
@@ -265,6 +276,59 @@ export class ManutModule {
       // surface for senders that can co-sign requests.
       MnWorkQueueService,
       MnWorkQueueResolver,
+      // M12 — MAXIMIZER MODE. High-autonomy execution policy that
+      // composes M3 (approvals), M4 (budgets), M9 (memory), and M11
+      // (outcomes). When MnAgent.maximizerMode is true, the dispatch
+      // orchestrator auto-delegates capability-matched tool calls to
+      // subordinates, batches the rest into 10-call heartbeat groups,
+      // forces approval for any call costing >50% of remaining
+      // monthly budget, and runs full M11 outcome verification on
+      // every DONE transition. Default off so existing agents are
+      // unaffected; flip via enableMnAgentMaximizer.
+      MnMaximizerService,
+      MnMaximizerResolver,
+      // M13 — Deep Planning. Revisionable plan documents attached to a
+      // task. Plans flow DRAFT → UNDER_REVIEW → APPROVED | REJECTED;
+      // approving a new revision auto-supersedes the prior APPROVED
+      // plan in the same transaction so the "current plan" invariant
+      // (≤1 APPROVED per task) holds even under concurrent decide
+      // calls. The service auto-increments revisionNumber inside a
+      // transaction to keep the @@unique([taskId, revisionNumber])
+      // constraint clean.
+      MnTaskPlanService,
+      MnTaskPlanResolver,
+      // M15 — Self-Organization. Agents propose structural changes
+      // (DELEGATION_CHANGE, NEW_ROUTINE, REPORTING_CHANGE,
+      // CAPABILITY_GRANT, plus advisory ROLE_ADJUSTMENT and
+      // AGENT_HIRE_PROPOSAL). propose() also creates a sibling
+      // MnApproval (type=AGENT_ORG_CHANGE) so the existing inbox / SSE
+      // gates the human decision. apply() executes the structural
+      // mutation and captures priorState onto the payload so revert()
+      // can undo it. The propose+approval pair is written in a single
+      // transaction so a half-committed proposal cannot exist.
+      MnOrgChangeService,
+      MnOrgChangeResolver,
+      // M16 — Automatic Organizational Learning. Auto-extracts
+      // reusable playbooks from completed tasks into MnSkill rows
+      // (source=IMPORTED) with a candidate marker embedded in
+      // contentMd. Operators approve/reject from a GraphQL inbox;
+      // approved rows remain source=IMPORTED so provenance survives.
+      // Depends on M5 (MnSkill) + M9 (MnAgentMemory) via PrismaClient
+      // directly — never touches MnSkillService / MnAgentMemoryService
+      // (peer ownership rule). The completion-hook scaffold is
+      // registered too; the auto-on-DONE wiring is a follow-up PR
+      // so MnTaskService stays untouched in this milestone.
+      MnOrgLearningService,
+      MnOrgLearningResolver,
+      MnTaskCompletionHookService,
+      // M17 — CEO Chat. Top-level chat surface that resolves every USER
+      // turn to a typed work object (MnTask / MnApproval / MnTaskPlan /
+      // DECISION_RECORDED). Keyword-heuristic intent classification
+      // today; a follow-up replaces it with the Vertex auto-router.
+      // Conversations are owner-scoped (one chat per signed-in user
+      // per workspace) and survive across sessions.
+      MnCeoChatService,
+      MnCeoChatResolver,
       MnFeatureRegistrar,
     ];
 

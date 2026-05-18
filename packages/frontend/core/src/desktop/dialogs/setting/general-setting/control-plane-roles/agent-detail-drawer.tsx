@@ -4,9 +4,12 @@ import { useQuery } from '@affine/core/components/hooks/use-query';
 import {
   createMnAgentApiKeyMutation,
   deleteMnAgentMutation,
+  disableMnAgentMaximizerMutation,
+  enableMnAgentMaximizerMutation,
   type MnAgentApiKeyDto,
   type MnAgentDto,
   mnAgentHeartbeatRunsQuery,
+  type MnAgentMaximizerToggleResultDto,
   mnAgentQuery,
   type MnAgentStatus,
   type MnHeartbeatRunDto,
@@ -265,6 +268,153 @@ const ApiKeysSection = ({ agentId, apiKeys }: ApiKeysSectionProps) => {
   );
 };
 
+interface MaximizerToggleSectionProps {
+  agentId: string;
+  agentName: string;
+  initialMaximizerMode: boolean;
+}
+
+const MaximizerToggleSection = ({
+  agentId,
+  agentName,
+  initialMaximizerMode,
+}: MaximizerToggleSectionProps) => {
+  const [maximizerMode, setMaximizerMode] =
+    useState<boolean>(initialMaximizerMode);
+  const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
+
+  const { trigger: triggerEnable, isMutating: enableMutating } = useMutation({
+    mutation: enableMnAgentMaximizerMutation,
+  });
+  const { trigger: triggerDisable, isMutating: disableMutating } = useMutation({
+    mutation: disableMnAgentMaximizerMutation,
+  });
+
+  const mutating = enableMutating || disableMutating;
+
+  const applyEnable = useCallback(async () => {
+    try {
+      const response = (await (
+        triggerEnable as (args: unknown) => Promise<unknown>
+      )({
+        agentId,
+      })) as
+        | { enableMnAgentMaximizer?: MnAgentMaximizerToggleResultDto }
+        | undefined;
+      const next = response?.enableMnAgentMaximizer?.maximizerMode ?? true;
+      setMaximizerMode(next);
+      notify.success({
+        title: 'Maximizer mode enabled',
+        message: `${agentName} now runs in high-autonomy mode.`,
+      });
+    } catch (err) {
+      notify.error({
+        title: 'Could not enable maximizer mode',
+        message: errorMessage(err),
+      });
+    } finally {
+      setConfirmOpen(false);
+    }
+  }, [agentId, agentName, triggerEnable]);
+
+  const handleToggle = useCallback(async () => {
+    if (maximizerMode) {
+      try {
+        const response = (await (
+          triggerDisable as (args: unknown) => Promise<unknown>
+        )({
+          agentId,
+        })) as
+          | { disableMnAgentMaximizer?: MnAgentMaximizerToggleResultDto }
+          | undefined;
+        const next = response?.disableMnAgentMaximizer?.maximizerMode ?? false;
+        setMaximizerMode(next);
+        notify.success({
+          title: 'Maximizer mode disabled',
+          message: `${agentName} reverted to standard dispatch.`,
+        });
+      } catch (err) {
+        notify.error({
+          title: 'Could not disable maximizer mode',
+          message: errorMessage(err),
+        });
+      }
+      return;
+    }
+    // Enabling requires confirmation.
+    setConfirmOpen(true);
+  }, [agentId, agentName, maximizerMode, triggerDisable]);
+
+  return (
+    <section
+      className={styles.section}
+      data-testid="cp-agent-maximizer-section"
+    >
+      <div className={styles.sectionTitle}>MAXIMIZER MODE</div>
+      <div className={styles.factGrid}>
+        <div className={styles.factLabel}>Status</div>
+        <div
+          className={styles.factValue}
+          data-testid="cp-agent-maximizer-status"
+          data-maximizer={maximizerMode ? 'on' : 'off'}
+        >
+          {maximizerMode ? 'ON — high-autonomy execution' : 'OFF (default)'}
+        </div>
+      </div>
+      <div className={styles.apiKeyMeta}>
+        When ON, the orchestrator auto-delegates capability-matched tool calls
+        to subordinate agents, batches the rest into groups of 10, forces
+        approval for any call costing &gt;50% of remaining monthly budget, and
+        runs full M11 outcome verification on every DONE transition. Use only
+        when you trust the agent to act without per-call human review.
+      </div>
+      <div className={styles.actionRow}>
+        <Button
+          variant={maximizerMode ? undefined : 'primary'}
+          onClick={() => void handleToggle()}
+          disabled={mutating}
+          loading={mutating}
+          data-testid="cp-agent-maximizer-toggle"
+        >
+          {maximizerMode ? 'Turn OFF maximizer' : 'Turn ON maximizer'}
+        </Button>
+      </div>
+
+      <Modal
+        open={confirmOpen}
+        onOpenChange={(value: boolean) => {
+          if (!value) setConfirmOpen(false);
+        }}
+        title="Enable MAXIMIZER MODE?"
+        description={
+          `${agentName} will run in high-autonomy mode. It can ` +
+          'auto-delegate work, dispatch in batches of 10, and skip ' +
+          'per-call human review except for high-cost calls. You can ' +
+          'turn it off at any time.'
+        }
+      >
+        <div className={styles.actionRow}>
+          <Button
+            onClick={() => setConfirmOpen(false)}
+            data-testid="cp-agent-maximizer-cancel"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => void applyEnable()}
+            loading={enableMutating}
+            disabled={enableMutating}
+            data-testid="cp-agent-maximizer-confirm"
+          >
+            Enable maximizer mode
+          </Button>
+        </div>
+      </Modal>
+    </section>
+  );
+};
+
 const AgentDetailContent = ({
   agentId,
   fallbackAgent,
@@ -432,6 +582,12 @@ const AgentDetailContent = ({
           <HeartbeatRunsTable agentId={agent.id} />
         </Suspense>
       </section>
+
+      <MaximizerToggleSection
+        agentId={agent.id}
+        agentName={agent.name}
+        initialMaximizerMode={agent.maximizerMode ?? false}
+      />
     </div>
   );
 };

@@ -515,3 +515,56 @@ export const archiveMnWorkQueueMutation = {
   }
 }`,
 };
+
+// ---------------------------------------------------------------------------
+// M13 — Deep Planning. Revisionable plan documents attached to a task.
+// `reviewerComments` is GraphQLJSON on the backend; the frontend types it
+// as `unknown` and narrows at the render boundary.
+// ---------------------------------------------------------------------------
+
+const taskPlanSelection = `
+    id
+    taskId
+    revisionNumber
+    bodyMd
+    status
+    authorAgentId
+    authorUserId
+    reviewerComments
+    createdAt`;
+
+export const mnTaskPlansQuery = {
+  id: 'mnTaskPlansQuery' as const,
+  op: 'mnTaskPlans',
+  query: `query mnTaskPlans($taskId: ID!) {
+  mnTaskPlans(taskId: $taskId) {${taskPlanSelection}
+  }
+}`,
+};
+
+export const createMnTaskPlanMutation = {
+  id: 'createMnTaskPlanMutation' as const,
+  op: 'createMnTaskPlan',
+  query: `mutation createMnTaskPlan($input: CreateMnTaskPlanInput!) {
+  createMnTaskPlan(input: $input) {${taskPlanSelection}
+  }
+}`,
+};
+
+export const submitMnTaskPlanForReviewMutation = {
+  id: 'submitMnTaskPlanForReviewMutation' as const,
+  op: 'submitMnTaskPlanForReview',
+  query: `mutation submitMnTaskPlanForReview($planId: ID!) {
+  submitMnTaskPlanForReview(planId: $planId) {${taskPlanSelection}
+  }
+}`,
+};
+
+export const decideMnTaskPlanMutation = {
+  id: 'decideMnTaskPlanMutation' as const,
+  op: 'decideMnTaskPlan',
+  query: `mutation decideMnTaskPlan($input: DecideMnTaskPlanInput!) {
+  decideMnTaskPlan(input: $input) {${taskPlanSelection}
+  }
+}`,
+};
