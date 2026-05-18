@@ -1156,6 +1156,7 @@ export const PackageList = [
     workspaceDependencies: [
       'packages/common/s3-compat',
       'packages/backend/native',
+      'packages/backend/plugin-sdk',
       'tools/cli',
       'tools/utils',
       'packages/common/graphql',
