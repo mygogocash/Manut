@@ -386,3 +386,70 @@ export interface UpdateMnWorkQueueInput {
   defaultPriority?: MnTaskPriority | null;
   isActive?: boolean | null;
 }
+
+// ---------------------------------------------------------------------------
+// M13 — Deep Planning. Revisionable plan documents attached to a task.
+//
+// Mirrors the backend DTO in
+// `packages/backend/server/src/plugins/manut/manut-task-plan.dto.ts`
+// and the Prisma enum in `schema.prisma`. The decision discriminator
+// (`MnTaskPlanDecision`) is the API contract for the decide mutation
+// — the frontend ships the enum value as a GraphQL enum literal.
+// ---------------------------------------------------------------------------
+
+export type MnTaskPlanStatus =
+  | 'DRAFT'
+  | 'UNDER_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'SUPERSEDED';
+
+export const MN_TASK_PLAN_STATUSES: readonly MnTaskPlanStatus[] = [
+  'DRAFT',
+  'UNDER_REVIEW',
+  'APPROVED',
+  'REJECTED',
+  'SUPERSEDED',
+];
+
+export type MnTaskPlanDecision = 'APPROVE' | 'REJECT';
+
+/**
+ * Append-only reviewer comment audit entry. The backend pushes one of
+ * these onto `reviewerComments` per `decidePlan` call. Shape is
+ * defensive — the JSONB column can technically store anything, so the
+ * UI narrows at the render boundary.
+ */
+export interface MnTaskPlanReviewerComment {
+  decision?: MnTaskPlanDecision;
+  comment?: string | null;
+  decidedAt?: string;
+  reviewerUserId?: string | null;
+  reviewerAgentId?: string | null;
+}
+
+export interface MnTaskPlanDto {
+  id: string;
+  taskId: string;
+  revisionNumber: number;
+  bodyMd: string;
+  status: MnTaskPlanStatus;
+  authorAgentId: string | null;
+  authorUserId: string | null;
+  /** Untyped at the contract boundary — the column is JSONB so the
+   *  shape can grow without a frontend schema change. Cast to
+   *  `MnTaskPlanReviewerComment[]` at the render site. */
+  reviewerComments: unknown;
+  createdAt: string;
+}
+
+export interface CreateMnTaskPlanInput {
+  taskId: string;
+  bodyMd: string;
+}
+
+export interface DecideMnTaskPlanInput {
+  planId: string;
+  decision: MnTaskPlanDecision;
+  comment?: string | null;
+}
