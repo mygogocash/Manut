@@ -9,6 +9,7 @@ import {
 } from '@vanilla-extract/css';
 
 import { animationToken } from '../../theme/animation';
+import { manutGlass, manutMotion, manutRadius } from '../../theme/manut-tokens';
 import { vtScopeSelector } from '../../utils/view-transition';
 export const widthVar = createVar('widthVar');
 export const heightVar = createVar('heightVar');
@@ -104,7 +105,7 @@ export const modalContentWrapper = style({
       animation: 'none',
     },
     '&.anim-fadeScaleTop': {
-      animation: `${contentShowFadeScaleTop} ${animationToken.durationSlow} ${animationToken.curveDefault}`,
+      animation: `${contentShowFadeScaleTop} ${animationToken.durationSlow} ${manutMotion.curveSpring}`,
       animationFillMode: 'forwards',
     },
     [`${vtScopeSelector(modalVTScope)} &.anim-fadeScaleTop.vt-active`]: {
@@ -165,11 +166,19 @@ export const modalContent = style({
   lineHeight: '1.6',
   padding: '20px 24px',
   position: 'relative',
-  backgroundColor: cssVar('backgroundOverlayPanelColor'),
+  backgroundColor: manutGlass.surface,
+  backdropFilter: manutGlass.backdropFilter,
+  WebkitBackdropFilter: manutGlass.backdropFilter,
   boxShadow: cssVar('popoverShadow'),
-  borderRadius: '12px',
+  borderRadius: manutRadius.modal,
   // :focus-visible will set outline
   outline: 'none',
+
+  '@supports': {
+    'not (backdrop-filter: blur(20px))': {
+      backgroundColor: cssVar('backgroundOverlayPanelColor'),
+    },
+  },
 
   selectors: {
     '[data-full-screen="true"] &': {

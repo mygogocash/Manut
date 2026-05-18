@@ -2,6 +2,7 @@ import { cssVar } from '@toeverything/theme';
 import { createVar, style } from '@vanilla-extract/css';
 
 import { animationToken } from '../../theme/animation';
+import { manutColor } from '../../theme/manut-tokens';
 
 export const switchHeightVar = createVar('switchSize');
 export const switchPaddingVar = createVar('switchPadding');
@@ -47,7 +48,7 @@ export const switchStyle = style({
   },
 });
 export const switchCheckedStyle = style({
-  background: cssVar('primaryColor'),
+  background: manutColor.blue.fg,
   selectors: {
     '&:before': {
       borderColor: cssVar('pureBlack10'),

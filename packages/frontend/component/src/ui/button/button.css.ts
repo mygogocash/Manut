@@ -3,6 +3,7 @@ import { cssVarV2 } from '@toeverything/theme/v2';
 import { createVar, globalStyle, style } from '@vanilla-extract/css';
 
 import { animationToken } from '../../theme/animation';
+import { manutMotion, manutRadius } from '../../theme/manut-tokens';
 
 // Using variables can override externally, without considering the priority of selectors.
 // size vars
@@ -39,14 +40,15 @@ export const button = style({
   justifyContent: 'center',
   userSelect: 'none',
   outline: 0,
-  borderRadius: 8,
+  borderRadius: manutRadius.input,
   // Animate only GPU-friendly properties for hover/press feedback.
+  // Transform uses a Manut overshoot curve for spring press feedback.
   transition: [
     `background-color ${animationToken.durationBase} ${animationToken.curveDefault}`,
     `border-color ${animationToken.durationBase} ${animationToken.curveDefault}`,
     `color ${animationToken.durationBase} ${animationToken.curveDefault}`,
     `box-shadow ${animationToken.durationBase} ${animationToken.curveDefault}`,
-    `transform ${animationToken.durationFast} ${animationToken.curveDefault}`,
+    `transform ${animationToken.durationFast} ${manutMotion.curveOvershoot}`,
     `opacity ${animationToken.durationBase} ${animationToken.curveDefault}`,
   ].join(', '),
   ['WebkitAppRegion' as string]: 'no-drag',

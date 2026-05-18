@@ -3,6 +3,7 @@ import { cssVarV2 } from '@toeverything/theme/v2';
 import { style } from '@vanilla-extract/css';
 
 import { animationToken } from '../../theme/animation';
+import { manutColor } from '../../theme/manut-tokens';
 
 export const tabsRoot = style({
   display: 'flex',
@@ -33,12 +34,12 @@ export const tabsTrigger = style({
   cursor: 'pointer',
   fontSize: cssVar('fontSm'),
   color: cssVarV2('text/secondary'),
-  borderBottom: '2px solid transparent',
+  borderBottom: '3px solid transparent',
   transition: `color ${animationToken.durationBase} ${animationToken.curveDefault}, border-color ${animationToken.durationBase} ${animationToken.curveDefault}`,
   selectors: {
     '&[data-state="active"]': {
       color: cssVarV2('text/primary'),
-      borderColor: cssVarV2('button/primary'),
+      borderColor: manutColor.blue.fg,
     },
   },
 });
