@@ -53,10 +53,19 @@ interface CacheEntry {
 export class MnApprovalGateService {
   private readonly logger = new Logger(MnApprovalGateService.name);
   private readonly cache = new Map<string, CacheEntry>();
-  private readonly ttlMs: number;
+  // Mutable so tests can override via setTtlMsForTesting(). Not a
+  // constructor parameter because NestJS DI cannot resolve a primitive
+  // `number` (v1.12.0 UnknownDependenciesException scar — production
+  // boot failed in Auto Deploy #65 with exactly this).
+  private ttlMs: number = DEFAULT_TTL_MS;
 
-  constructor(ttlMs: number = DEFAULT_TTL_MS) {
-    this.ttlMs = ttlMs;
+  /**
+   * Override the TTL for tests. Production code should never call this —
+   * the default (30s) is intentionally fixed to match the latency budget
+   * declared in the M3 plan.
+   */
+  setTtlMsForTesting(ms: number): void {
+    this.ttlMs = ms;
   }
 
   /**
