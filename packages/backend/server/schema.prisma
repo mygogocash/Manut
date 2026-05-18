@@ -1597,6 +1597,34 @@ model MnTask {
   completedAt     DateTime?      @map("completed_at") @db.Timestamptz(3)
   /// M2: time the task moved to CANCELLED. Null when not cancelled.
   cancelledAt     DateTime?      @map("cancelled_at") @db.Timestamptz(3)
+  /// M7 — atomic checkout + execution lock.
+  ///
+  /// `checkoutRunId` is the run id that holds the *checkout right* —
+  /// the soft reservation taken before the run starts (e.g. a queue
+  /// dispatcher claiming the task for itself). VarChar instead of an
+  /// FK so external schedulers can populate it without an MnExecutionRun
+  /// row existing yet.
+  checkoutRunId      String?   @map("checkout_run_id") @db.VarChar
+  /// `executionRunId` is the run id that holds the *execution lock* —
+  /// taken atomically at the start of work via
+  /// `MnTaskCheckoutService.tryCheckout`. Cleared on release or by
+  /// the watchdog when the lock goes stale (>5 min without heartbeat).
+  /// VarChar (not FK) for the same reason as checkoutRunId.
+  executionRunId     String?   @map("execution_run_id") @db.VarChar
+  /// Timestamp when the execution lock was last acquired. Used by the
+  /// atomic `tryCheckout` SQL to detect stale locks
+  /// (executionLockedAt < NOW() - INTERVAL '5 minutes' → freely
+  /// re-acquirable). Cleared on release.
+  executionLockedAt  DateTime? @map("execution_locked_at") @db.Timestamptz(3)
+  /// Free-form execution-policy hints (max_attempts, retry_backoff_ms,
+  /// approval_required, etc.). JSONB so we can grow the shape without
+  /// migrations. The checkout service does not interpret it — it's a
+  /// pass-through field for run dispatchers / agents.
+  executionPolicy    Json?     @map("execution_policy") @db.JsonB
+  /// Per-task execution state — last attempt number, last error,
+  /// last heartbeat snapshot, etc. Free-form JSONB so dispatchers can
+  /// stash arbitrary recovery context without schema churn.
+  executionState     Json?     @map("execution_state") @db.JsonB
   createdByUserId String?        @map("created_by_user_id") @db.VarChar
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1614,6 +1642,7 @@ model MnTask {
   blockedBy     MnTaskBlocker[]  @relation("MnTaskBlockedBy")
   blocking      MnTaskBlocker[]  @relation("MnTaskBlocking")
   aiSessions    AiSession[]
+  executionRuns MnExecutionRun[]
 
   @@index([projectId, status])
   @@index([projectId, listSortOrder])
@@ -1622,7 +1651,45 @@ model MnTask {
   @@index([goalId])
   @@index([parentTaskId])
   @@index([dueAt])
+  @@index([executionRunId])
   @@map("mn_tasks")
+}
+
+/// M7 — Manut Execution Run. One row per attempt to execute a task.
+/// Distinct from MnHeartbeatRun (which records chat-turn level keepalives)
+/// because an execution run can span many chat-turns or none at all
+/// (e.g. a batch worker).
+///
+/// Status lifecycle:
+///   QUEUED → RUNNING → SUCCEEDED | FAILED | CANCELLED | TIMED_OUT
+///
+/// `agentId` is SetNull so a deleted agent doesn't cascade-delete the
+/// historical record. `taskId` is Cascade because runs are meaningless
+/// without their task.
+enum MnExecutionRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  TIMED_OUT
+}
+
+model MnExecutionRun {
+  id          String               @id @default(uuid()) @db.VarChar
+  taskId      String               @map("task_id") @db.VarChar
+  agentId     String?              @map("agent_id") @db.VarChar
+  status      MnExecutionRunStatus @default(QUEUED)
+  startedAt   DateTime             @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt  DateTime?            @map("finished_at") @db.Timestamptz(3)
+  error       String?              @db.Text
+
+  task  MnTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  agent MnAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, startedAt(sort: Desc)])
+  @@index([status, startedAt])
+  @@map("mn_execution_runs")
 }
 
 model MnTaskComment {
@@ -1993,6 +2060,10 @@ model MnReleaseTask {
 
 enum MnAgentAdapterType {
   COPILOT_CHAT_SESSION
+  E2B_SANDBOX
+  CURSOR_CLOUD
+  HTTP_WEBHOOK
+  PROCESS_COMMAND
 }
 
 enum MnAgentStatus {
@@ -2051,6 +2122,7 @@ model MnAgent {
   approvalComments     MnApprovalComment[] @relation("MnApprovalCommentAuthorAgent")
   ownedGoals           MnGoal[]          @relation("MnGoalOwnerAgent")
   assignedTasks        MnTask[]          @relation("MnTaskAgentAssignee")
+  executionRuns        MnExecutionRun[]
 
   @@index([workspaceId, projectId, status])
   @@index([workspaceId, reportsToAgentId])

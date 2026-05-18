@@ -6,6 +6,11 @@ import { ServerFeature } from '../../core/config/types';
 import { DocStorageModule } from '../../core/doc';
 import { MailModule } from '../../core/mail';
 import { PermissionModule } from '../../core/permission';
+import { MnAdapterRegistryService } from './adapters/manut-adapter-registry.service';
+import { MnCursorCloudAdapter } from './adapters/manut-cursor-cloud-adapter.service';
+import { MnE2bAdapter } from './adapters/manut-e2b-adapter.service';
+import { MnHttpWebhookAdapter } from './adapters/manut-http-webhook-adapter.service';
+import { MnProcessAdapter } from './adapters/manut-process-adapter.service';
 import { MnAgentResolver } from './manut-agent.resolver';
 import { MnAgentService } from './manut-agent.service';
 import { MnAgentApiKeyResolver } from './manut-agent-api-key.resolver';
@@ -46,7 +51,11 @@ import { MnRoutineResolver } from './manut-routine.resolver';
 import { MnRoutineService } from './manut-routine.service';
 import { MnSkillResolver } from './manut-skill.resolver';
 import { MnSkillService } from './manut-skill.service';
+import { MnTaskCheckoutResolver } from './manut-task-checkout.resolver';
+import { MnTaskCheckoutService } from './manut-task-checkout.service';
+import { MnTaskWatchdogCron } from './manut-task-watchdog.cron';
 import { ManutPluginResolver } from './plugin-runtime/manut-plugin.resolver';
+import { ManutPluginConfigService } from './plugin-runtime/manut-plugin-config.service';
 import { ManutPluginHostRpcService } from './plugin-runtime/manut-plugin-host-rpc.service';
 import { ManutPluginInstallerService } from './plugin-runtime/manut-plugin-installer.service';
 import { ManutPluginRoutesController } from './plugin-runtime/manut-plugin-routes.controller';
@@ -181,7 +190,34 @@ export class ManutModule {
       ManutPluginHostRpcService,
       ManutPluginInstallerService,
       ManutPluginRuntimeService,
+      // M6b — per-workspace plugin config service (enable/disable toggle).
+      ManutPluginConfigService,
       ManutPluginResolver,
+      // M7 — atomic checkout + execution locks. The R0 invariant is
+      // single-winner concurrency: `tryCheckout` issues a single raw
+      // UPDATE so concurrent callers serialise on the row-lock and at
+      // most one walks away with the executionRunId set. The
+      // watchdog cron clears stale locks (>2 min RUNNING with no
+      // matching heartbeat) and writes a recovery_lock_cleared
+      // activity row.
+      MnTaskCheckoutService,
+      MnTaskCheckoutResolver,
+      MnTaskWatchdogCron,
+      // M8 — Cloud / sandbox agent adapters. Extends
+      // MnAgentAdapterType beyond COPILOT_CHAT_SESSION with four
+      // external dispatch surfaces (e2b sandboxes, Cursor cloud
+      // agents, HTTP webhooks, allowlisted local processes). The
+      // registry resolves MnAgent.adapterType → MnAdapter at
+      // invocation time. Each adapter scrubs its secret config
+      // fields before logging (apiKey / signingSecret / cursorApiKey
+      // / env). All transport failures are wrapped in
+      // MnAdapterResult rather than thrown — the heartbeat consumer
+      // depends on that stable contract.
+      MnE2bAdapter,
+      MnCursorCloudAdapter,
+      MnHttpWebhookAdapter,
+      MnProcessAdapter,
+      MnAdapterRegistryService,
       MnFeatureRegistrar,
     ];
 

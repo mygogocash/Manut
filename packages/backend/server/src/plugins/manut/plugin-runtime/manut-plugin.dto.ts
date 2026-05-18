@@ -85,3 +85,81 @@ export class MnPluginObjectType {
   @Field(() => GraphQLISODateTime)
   updatedAt!: Date;
 }
+
+// ---------------------------------------------------------------------------
+// M6b — per-workspace plugin enable + config surface.
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-workspace plugin configuration row. `configJson` is intentionally
+ * an unstructured JSON blob so plugin authors can hang arbitrary options
+ * off it (API keys, feature flags, capability overrides). The control
+ * plane treats one well-known field specially: `configJson.enabled`,
+ * which is what the workspace-settings toggle flips. Other fields are
+ * read by plugins via the host RPC bridge.
+ *
+ * Every nullable @Field uses the explicit `() => Type` form per the
+ * v1.7.0 / v1.10.2 UndefinedTypeError scars (CLAUDE.md §6).
+ */
+@ObjectType('MnPluginConfig')
+export class MnPluginConfigObjectType {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => ID)
+  pluginId!: string;
+
+  @Field(() => String)
+  workspaceId!: string;
+
+  @Field(() => ID, { nullable: true })
+  projectId!: string | null;
+
+  @Field(() => GraphQLJSON)
+  configJson!: unknown;
+
+  @Field(() => GraphQLISODateTime)
+  createdAt!: Date;
+
+  @Field(() => GraphQLISODateTime)
+  updatedAt!: Date;
+}
+
+export const UpsertMnPluginConfigSchema = z.object({
+  workspaceId: z.string().min(1).max(64),
+  pluginId: z.string().min(1).max(64),
+  projectId: z.string().min(1).max(64).nullable().optional(),
+  configJson: z.record(z.unknown()).default({}),
+});
+
+export type UpsertMnPluginConfigValues = z.infer<
+  typeof UpsertMnPluginConfigSchema
+>;
+
+@InputType('UpsertMnPluginConfigInput')
+export class UpsertMnPluginConfigInput {
+  @Field(() => String)
+  workspaceId!: string;
+
+  @Field(() => ID)
+  pluginId!: string;
+
+  @Field(() => ID, { nullable: true })
+  projectId?: string | null;
+
+  /**
+   * Opaque JSON payload — plugin authors document the shape. The
+   * `enabled` boolean inside is the per-workspace on/off switch the UI
+   * toggles. Bounded to 16 KB by the resolver to prevent runaway
+   * configs poisoning the DB.
+   */
+  @Field(() => GraphQLJSON)
+  configJson!: Record<string, unknown>;
+}
+
+/**
+ * Hard cap on serialised config payloads. 16 KB is plenty for sane
+ * configs (API keys, flag maps, capability overrides) and small enough
+ * to keep one bad actor from filling the DB.
+ */
+export const MN_PLUGIN_CONFIG_MAX_BYTES = 16 * 1024;

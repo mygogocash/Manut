@@ -37,8 +37,7 @@ export const AI = lazy(
   () => import(/* webpackChunkName: "ai" */ './modules/ai')
 );
 export const Indexing = lazy(
-  () =>
-    import(/* webpackChunkName: "indexing" */ './modules/indexing')
+  () => import(/* webpackChunkName: "indexing" */ './modules/indexing')
 );
 export const About = lazy(
   () => import(/* webpackChunkName: "about" */ './modules/about')
@@ -51,9 +50,10 @@ export const Auth = lazy(
 );
 export const VerifiedPages = lazy(
   () =>
-    import(
-      /* webpackChunkName: "verified-pages" */ './modules/verified-pages'
-    )
+    import(/* webpackChunkName: "verified-pages" */ './modules/verified-pages')
+);
+export const Plugins = lazy(
+  () => import(/* webpackChunkName: "plugins" */ './modules/plugins')
 );
 
 const Routes = window.SENTRY_RELEASE
@@ -142,14 +142,12 @@ export const App = () => {
                   />
                   <Route path={`${ROUTES.admin.queue}/*`} element={<Queue />} />
                   <Route path={ROUTES.admin.ai} element={<AI />} />
-                  <Route
-                    path={ROUTES.admin.indexing}
-                    element={<Indexing />}
-                  />
+                  <Route path={ROUTES.admin.indexing} element={<Indexing />} />
                   <Route
                     path={ROUTES.admin.verifiedPages}
                     element={<VerifiedPages />}
                   />
+                  <Route path={ROUTES.admin.plugins} element={<Plugins />} />
                   <Route path={ROUTES.admin.about} element={<About />} />
                   <Route
                     path={ROUTES.admin.settings.index}

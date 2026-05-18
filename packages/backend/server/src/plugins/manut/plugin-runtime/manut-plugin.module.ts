@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { ManutPluginResolver } from './manut-plugin.resolver';
+import { ManutPluginConfigService } from './manut-plugin-config.service';
 import { ManutPluginHostRpcService } from './manut-plugin-host-rpc.service';
 import { ManutPluginInstallerService } from './manut-plugin-installer.service';
 import { ManutPluginRoutesController } from './manut-plugin-routes.controller';
@@ -28,6 +29,7 @@ import { ManutPluginSupervisorService } from './manut-plugin-supervisor.service'
     ManutPluginHostRpcService,
     ManutPluginInstallerService,
     ManutPluginRuntimeService,
+    ManutPluginConfigService,
     ManutPluginResolver,
   ],
   exports: [
@@ -35,6 +37,7 @@ import { ManutPluginSupervisorService } from './manut-plugin-supervisor.service'
     ManutPluginInstallerService,
     ManutPluginHostRpcService,
     ManutPluginSupervisorService,
+    ManutPluginConfigService,
   ],
 })
 export class ManutPluginModule {}

@@ -3,11 +3,16 @@ import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { PrismaClient } from '@prisma/client';
 
 import { CurrentUser } from '../../../core/auth';
+import { AccessController } from '../../../core/permission';
 import {
   InstallMnPluginInput,
   InstallPluginSchema,
+  MnPluginConfigObjectType,
   MnPluginObjectType,
+  UpsertMnPluginConfigInput,
+  UpsertMnPluginConfigSchema,
 } from './manut-plugin.dto';
+import { ManutPluginConfigService } from './manut-plugin-config.service';
 import { ManutPluginInstallerService } from './manut-plugin-installer.service';
 import { ManutPluginRuntimeService } from './manut-plugin-runtime.service';
 
@@ -24,7 +29,9 @@ export class ManutPluginResolver {
   constructor(
     private readonly db: PrismaClient,
     private readonly installer: ManutPluginInstallerService,
-    private readonly runtime: ManutPluginRuntimeService
+    private readonly runtime: ManutPluginRuntimeService,
+    private readonly ac: AccessController,
+    private readonly configService: ManutPluginConfigService
   ) {}
 
   @Query(() => [MnPluginObjectType], {
@@ -122,6 +129,52 @@ export class ManutPluginResolver {
     return true;
   }
 
+  // -------------------------------------------------------------------------
+  // M6b — per-workspace plugin configs (enable/disable scoped to a workspace).
+  //
+  // Workspace members may read + upsert configs for their own workspace; the
+  // AccessController fence handles that — no admin check. Cross-workspace
+  // writes are blocked by `Workspace.Read` / `Workspace.Settings.Update`
+  // assertions, not by a free-form workspaceId comparison.
+  // -------------------------------------------------------------------------
+
+  @Query(() => [MnPluginConfigObjectType], {
+    description:
+      'List the per-workspace plugin configs visible to this workspace. ' +
+      'Returns every installed plugin once — synthesises an empty config row ' +
+      'for plugins the workspace has not yet configured so the UI can render ' +
+      'an "enable" toggle for them.',
+  })
+  async mnPluginConfigs(
+    @CurrentUser() user: CurrentUser,
+    @Args('workspaceId', { type: () => String }) workspaceId: string
+  ): Promise<MnPluginConfigObjectType[]> {
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
+    const rows = await this.configService.listForWorkspace(workspaceId);
+    return rows.map(toPluginConfigObjectType);
+  }
+
+  @Mutation(() => MnPluginConfigObjectType, {
+    description:
+      'Create or update the workspace-scoped (or project-scoped) plugin ' +
+      'config row. The well-known `configJson.enabled` boolean is what the ' +
+      'workspace UI toggle flips; other fields are passed through to plugin ' +
+      'workers via the host RPC bridge. 16 KB hard cap on payload size.',
+  })
+  async upsertMnPluginConfig(
+    @CurrentUser() user: CurrentUser,
+    @Args('input', { type: () => UpsertMnPluginConfigInput })
+    input: UpsertMnPluginConfigInput
+  ): Promise<MnPluginConfigObjectType> {
+    const values = UpsertMnPluginConfigSchema.parse(input);
+    await this.ac
+      .user(user.id)
+      .workspace(values.workspaceId)
+      .assert('Workspace.Settings.Update');
+    const row = await this.configService.upsert(values);
+    return toPluginConfigObjectType(row);
+  }
+
   private async assertAdmin(user: CurrentUser): Promise<void> {
     const features = await this.db.userFeature.findMany({
       where: { userId: user.id, activated: true },
@@ -161,6 +214,30 @@ function toObjectType(row: PluginRow): MnPluginObjectType {
     processStatus: row.processStatus,
     enabledAt: row.enabledAt,
     installedAt: row.installedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+interface PluginConfigRow {
+  id: string;
+  pluginId: string;
+  workspaceId: string;
+  projectId: string | null;
+  configJson: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+function toPluginConfigObjectType(
+  row: PluginConfigRow
+): MnPluginConfigObjectType {
+  return {
+    id: row.id,
+    pluginId: row.pluginId,
+    workspaceId: row.workspaceId,
+    projectId: row.projectId,
+    configJson: row.configJson,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

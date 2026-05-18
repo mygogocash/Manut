@@ -349,3 +349,75 @@ export interface MnExportSnapshotDto {
   /** Pre-decoded byte length of the blob, useful for UI display. */
   sizeBytes: number;
 }
+
+/**
+ * Phase 8 — M6b plugin runtime UI surface.
+ *
+ * Mirrors backend DTOs in
+ * `packages/backend/server/src/plugins/manut/plugin-runtime/manut-plugin.dto.ts`.
+ * The `MnPluginConfig` row is per-workspace; `configJson.enabled` is the
+ * well-known boolean the UI toggle flips, but plugin authors may hang
+ * arbitrary config off it (api keys, feature flags, capability overrides).
+ *
+ * Replace with imports from `@affine/graphql` after the next codegen run
+ * picks up the M6a + M6b resolvers.
+ */
+export type MnPluginStatus =
+  | 'INSTALLED'
+  | 'LOADING'
+  | 'RUNNING'
+  | 'CRASHED'
+  | 'DISABLED';
+
+export interface MnPluginManifestDto {
+  name: string;
+  version: string;
+  hostApiVersion: string;
+  capabilities: string[];
+  tools?: Array<{ name: string; description?: string | null }>;
+  apiRoutes?: Array<{
+    method: string;
+    path: string;
+    capability: string;
+  }>;
+}
+
+export interface MnPluginDto {
+  id: string;
+  name: string;
+  version: string;
+  /** Parsed plugin manifest (JSON column). */
+  manifestJson: MnPluginManifestDto;
+  packagePath: string | null;
+  processStatus: MnPluginStatus;
+  enabledAt: string | null;
+  installedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MnPluginConfigDto {
+  id: string;
+  pluginId: string;
+  workspaceId: string;
+  projectId: string | null;
+  /**
+   * Opaque per-workspace config. `enabled: boolean` is the toggle the UI
+   * flips; other keys are documented by individual plugin authors.
+   */
+  configJson: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateMnPluginInput {
+  name: string;
+  version: string;
+}
+
+export interface UpsertMnPluginConfigInput {
+  workspaceId: string;
+  pluginId: string;
+  projectId?: string | null;
+  configJson: Record<string, unknown>;
+}
