@@ -1,7 +1,6 @@
 import { useI18n } from '@affine/i18n';
 
-import tagsDark from './assets/tag-list.dark.png';
-import tagsLight from './assets/tag-list.light.png';
+import { EmptyTagsIllustration } from './illustrations';
 import { EmptyLayout } from './layout';
 import type { UniversalEmptyProps } from './types';
 
@@ -10,8 +9,7 @@ export const EmptyTags = (props: UniversalEmptyProps) => {
 
   return (
     <EmptyLayout
-      illustrationLight={tagsLight}
-      illustrationDark={tagsDark}
+      illustration={<EmptyTagsIllustration />}
       title={t['com.affine.empty.tags.title']()}
       description={t['com.affine.empty.tags.description']()}
       {...props}

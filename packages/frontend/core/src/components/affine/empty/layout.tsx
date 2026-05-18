@@ -6,6 +6,7 @@ import type { EmptyLayoutProps } from './types';
 
 export const EmptyLayout = ({
   className,
+  illustration,
   illustrationLight,
   illustrationDark,
   illustrationWidth = 300,
@@ -24,13 +25,24 @@ export const EmptyLayout = ({
       )}
       {...attrs}
     >
-      <ThemedImg
-        style={{ width: withUnit(illustrationWidth, 'px') }}
-        draggable={false}
-        className={styles.illustration}
-        lightSrc={illustrationLight}
-        darkSrc={illustrationDark}
-      />
+      {illustration ? (
+        // Inline themeable SVG (Manut visual identity).
+        // Wrapper carries the width constraint so consumers don't have to.
+        <div
+          className={styles.illustration}
+          style={{ width: withUnit(illustrationWidth, 'px') }}
+        >
+          {illustration}
+        </div>
+      ) : illustrationLight ? (
+        <ThemedImg
+          style={{ width: withUnit(illustrationWidth, 'px') }}
+          draggable={false}
+          className={styles.illustration}
+          lightSrc={illustrationLight}
+          darkSrc={illustrationDark}
+        />
+      ) : null}
 
       {title || description ? (
         <div>

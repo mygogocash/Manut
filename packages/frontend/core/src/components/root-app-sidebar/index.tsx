@@ -13,6 +13,7 @@ import { ExternalMenuLinkItem } from '@affine/core/modules/app-sidebar/views/men
 import { AuthService, ServerService } from '@affine/core/modules/cloud';
 import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
 import { FeatureFlagService } from '@affine/core/modules/feature-flag';
+import { GraphMini } from '@affine/core/modules/knowledge-graph';
 import { CMDKQuickSearchService } from '@affine/core/modules/quicksearch/services/cmdk';
 import type { Workspace } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
@@ -382,6 +383,16 @@ export const RootAppSidebar = memo((): ReactElement => {
               dense
             />
           </div>
+          {/*
+           * Ambient Knowledge Graph widget — three nodes connected by
+           * two faint arcs, with a synaptic pulse whenever the AI
+           * touches a doc anywhere in the workspace. Persistent,
+           * decorative, carries the Knowledge Graph brand into every
+           * page. Renders a 60x24 canvas with pointerEvents: none so
+           * it doesn't intercept clicks meant for the workspace
+           * switcher or user menu.
+           */}
+          <GraphMini />
           <UserInfo />
         </div>
         {/*

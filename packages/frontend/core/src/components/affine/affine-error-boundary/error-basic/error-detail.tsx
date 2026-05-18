@@ -1,15 +1,12 @@
-import { Scrollable, ThemedImg } from '@affine/component';
+import { Scrollable } from '@affine/component';
 import { useAsyncCallback } from '@affine/core/components/hooks/affine-async-hooks';
 import { Trans, useI18n } from '@affine/i18n';
 import { ArrowDownSmallIcon } from '@blocksuite/icons/rc';
-import type { FC, PropsWithChildren, ReactNode } from 'react';
+import type { FC, PropsWithChildren, ReactNode, SVGProps } from 'react';
 import { useCallback, useState } from 'react';
 
 import { ActionButton } from '../../empty/action-button';
-import imageUrlForDark404 from '../error-assets/404.dark.png';
-import imageUrlForLight404 from '../error-assets/404.light.png';
-import imageUrlForDark500 from '../error-assets/500.dark.png';
-import imageUrlForLight500 from '../error-assets/500.light.png';
+import { ErrorIllustration404, ErrorIllustration500 } from '../error-assets';
 import * as styles from './error-detail.css';
 
 export enum ErrorStatus {
@@ -27,22 +24,19 @@ export interface ErrorDetailProps extends PropsWithChildren {
   error?: Error;
 }
 
-const imageMap = new Map([
-  [
-    ErrorStatus.NotFound,
-    {
-      light: imageUrlForLight404,
-      dark: imageUrlForDark404,
-    },
-  ],
-  [
-    ErrorStatus.Unexpected,
-    {
-      light: imageUrlForLight500, // TODO(@catsjuice): Split assets lib and use image hook to handle light and dark.
-      dark: imageUrlForDark500,
-    },
-  ],
-]);
+/**
+ * Manut v1.13 — themeable inline-SVG illustrations replace the legacy
+ * 404.{light,dark}.png + 500.{light,dark}.png assets. PNGs in
+ * `../error-assets/{404,500}.{light,dark}.png` are unreferenced and
+ * flagged for cleanup in a follow-up commit.
+ */
+const ILLUSTRATION_BY_STATUS: Record<
+  ErrorStatus,
+  FC<SVGProps<SVGSVGElement>>
+> = {
+  [ErrorStatus.NotFound]: ErrorIllustration404,
+  [ErrorStatus.Unexpected]: ErrorIllustration500,
+};
 
 /**
  * TODO(@eyhn): Unify with NotFoundPage.
@@ -80,19 +74,22 @@ export const ErrorDetail: FC<ErrorDetailProps> = props => {
     </p>
   ));
 
+  const Illustration = ILLUSTRATION_BY_STATUS[status] ?? ErrorIllustration500;
+  const statusLabel = status === ErrorStatus.NotFound ? '404' : '500';
+
   return (
     <div className={styles.errorLayout}>
       <div className={styles.errorContainer} data-show-stack={showStack}>
-        <ThemedImg
-          style={{ width: '300px' }}
-          draggable={false}
-          className={styles.illustration}
-          lightSrc={imageMap.get(status)?.light || imageUrlForLight404}
-          darkSrc={imageMap.get(status)?.dark || imageUrlForDark404}
-        />
+        <Illustration className={styles.illustration} aria-hidden="true" />
 
         <div className={styles.label}>
-          <div className={styles.text}>{props.title}</div>
+          <div
+            className={styles.statusBadge}
+            aria-label={`Error ${statusLabel}`}
+          >
+            Error {statusLabel}
+          </div>
+          <h1 className={styles.heading}>{props.title}</h1>
           <div className={styles.text}>{desc}</div>
         </div>
         <Scrollable.Root

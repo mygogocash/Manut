@@ -16,6 +16,17 @@ export const root = style({
 export const illustration = style({
   maxWidth: '100%',
   width: 300,
+  // Tint inline SVG illustrations via `currentColor`. text/primary gives
+  // a controlled monochrome look that flows with the rest of the panel
+  // copy and adapts to dark mode without separate assets.
+  color: cssVarV2('text/primary'),
+  selectors: {
+    '& > svg': {
+      width: '100%',
+      height: 'auto',
+      display: 'block',
+    },
+  },
 });
 
 export const title = style({
