@@ -34,6 +34,7 @@ import { MnHandoverResolver } from './manut-handover.resolver';
 import { MnHandoverService } from './manut-handover.service';
 import { MnHeartbeatService } from './manut-heartbeat.service';
 import { MnPmResolver } from './manut-pm.resolver';
+import { MnPortabilityService } from './manut-portability.service';
 import { MnReleaseRunsResolver } from './manut-release-runs.resolver';
 import { MnReleaseRunsService } from './manut-release-runs.service';
 import { MnReminderCron } from './manut-reminder.cron';
@@ -160,6 +161,10 @@ export class ManutModule {
       MnSkillService,
       MnSkillResolver,
       MnExportSnapshotService,
+      // M5.2 portability service — AGENTS.md round-trip + tar.gz
+      // export/import. Depends on PrismaClient and is consumed by the
+      // CLI scripts in src/scripts/manut-{export,import}-workspace.ts.
+      MnPortabilityService,
       MnFeatureRegistrar,
     ];
 
