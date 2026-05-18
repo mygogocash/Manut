@@ -16,9 +16,10 @@ export const ManutLogoIcon: FC<SVGProps<SVGSVGElement>> = ({
       className={className}
       aria-label="Manut"
       role="img"
+      strokeLinejoin="miter"
       {...rest}
     >
-      <path d="M3 20.5V3.5h3.7L12 12.5l5.3-9h3.7v17h-3.4V10.2L13 17.4h-2L6.4 10.2v10.3H3Z" />
+      <path d="M3 20.5V3.5h3.6L12 13.7l5.4-10.2H21v17h-3.4V9.6L13 17.6h-2L6.4 9.6v10.9H3Z" />
     </svg>
   );
 };
