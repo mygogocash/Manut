@@ -46,6 +46,12 @@ import { MnRoutineResolver } from './manut-routine.resolver';
 import { MnRoutineService } from './manut-routine.service';
 import { MnSkillResolver } from './manut-skill.resolver';
 import { MnSkillService } from './manut-skill.service';
+import { ManutPluginResolver } from './plugin-runtime/manut-plugin.resolver';
+import { ManutPluginHostRpcService } from './plugin-runtime/manut-plugin-host-rpc.service';
+import { ManutPluginInstallerService } from './plugin-runtime/manut-plugin-installer.service';
+import { ManutPluginRoutesController } from './plugin-runtime/manut-plugin-routes.controller';
+import { ManutPluginRuntimeService } from './plugin-runtime/manut-plugin-runtime.service';
+import { ManutPluginSupervisorService } from './plugin-runtime/manut-plugin-supervisor.service';
 
 /**
  * Toggles `ServerFeature.Manut` so the frontend can show/hide the
@@ -165,6 +171,17 @@ export class ManutModule {
       // export/import. Depends on PrismaClient and is consumed by the
       // CLI scripts in src/scripts/manut-{export,import}-workspace.ts.
       MnPortabilityService,
+      // M6a — Plugin runtime + IPC + capability gates. Out-of-process
+      // workers via child_process.fork; JSON-RPC bridge over stdio;
+      // host RPC surface capability-gated against the plugin's
+      // manifest. See plugin-runtime/manut-plugin.module.ts for the
+      // standalone module wrapper. UI sandboxing is M6b (Paperclip
+      // same-origin caveat — see SDK README).
+      ManutPluginSupervisorService,
+      ManutPluginHostRpcService,
+      ManutPluginInstallerService,
+      ManutPluginRuntimeService,
+      ManutPluginResolver,
       MnFeatureRegistrar,
     ];
 
@@ -193,7 +210,7 @@ export class ManutModule {
         DocStorageModule,
         ServerConfigModule,
       ],
-      controllers: [MnApprovalsStreamController],
+      controllers: [MnApprovalsStreamController, ManutPluginRoutesController],
       providers,
     };
   }

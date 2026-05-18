@@ -201,6 +201,7 @@ model Workspace {
   mnApprovals                MnApproval[]
   mnSkills                   MnSkill[]
   mnExportSnapshots          MnExportSnapshot[]
+  mnPluginConfigs            MnPluginConfig[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -2416,4 +2417,58 @@ model MnExportSnapshot {
   @@index([workspaceId, createdAt(sort: Desc)])
   @@index([createdByUserId])
   @@map("mn_export_snapshots")
+}
+
+// M6a — Plugin runtime + IPC + capability gates.
+//
+// `MnPlugin` is the instance-scoped registry row: one per installed
+// plugin package. The runtime spawns a `child_process.fork` worker
+// per ENABLED row and supervises it via exponential backoff (see
+// `plugin-runtime/manut-plugin-supervisor.service.ts`).
+//
+// `MnPluginConfig` is per-workspace plugin configuration. Optional
+// `projectId` lets a plugin scope settings to a single project so
+// the same plugin can run with different configs across projects
+// inside one workspace.
+enum MnPluginStatus {
+  INSTALLED
+  LOADING
+  RUNNING
+  CRASHED
+  DISABLED
+}
+
+model MnPlugin {
+  id            String         @id @default(uuid()) @db.VarChar
+  name          String         @unique @db.VarChar
+  version       String         @db.VarChar
+  manifestJson  Json           @map("manifest_json") @db.JsonB
+  packagePath   String?        @map("package_path") @db.VarChar
+  processStatus MnPluginStatus @default(INSTALLED) @map("process_status")
+  installedAt   DateTime       @default(now()) @map("installed_at") @db.Timestamptz(6)
+  enabledAt     DateTime?      @map("enabled_at") @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  configs MnPluginConfig[]
+
+  @@index([processStatus])
+  @@map("mn_plugins")
+}
+
+model MnPluginConfig {
+  id          String   @id @default(uuid()) @db.VarChar
+  pluginId    String   @map("plugin_id") @db.VarChar
+  workspaceId String   @map("workspace_id") @db.VarChar
+  projectId   String?  @map("project_id") @db.VarChar
+  configJson  Json     @default("{}") @map("config_json") @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  plugin    MnPlugin  @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([pluginId, workspaceId, projectId])
+  @@index([workspaceId])
+  @@map("mn_plugin_configs")
 }
