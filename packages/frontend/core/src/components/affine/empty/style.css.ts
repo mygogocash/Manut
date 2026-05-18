@@ -1,5 +1,5 @@
 import { cssVarV2 } from '@toeverything/theme/v2';
-import { style } from '@vanilla-extract/css';
+import { globalStyle, style } from '@vanilla-extract/css';
 
 export const root = style({
   width: '100%',
@@ -20,13 +20,15 @@ export const illustration = style({
   // a controlled monochrome look that flows with the rest of the panel
   // copy and adapts to dark mode without separate assets.
   color: cssVarV2('text/primary'),
-  selectors: {
-    '& > svg': {
-      width: '100%',
-      height: 'auto',
-      display: 'block',
-    },
-  },
+});
+
+// vanilla-extract requires `globalStyle` for child selectors — `& > svg`
+// inside `selectors:` is rejected because that block only styles the
+// current class. The svg here is the inline illustration component.
+globalStyle(`${illustration} > svg`, {
+  width: '100%',
+  height: 'auto',
+  display: 'block',
 });
 
 export const title = style({

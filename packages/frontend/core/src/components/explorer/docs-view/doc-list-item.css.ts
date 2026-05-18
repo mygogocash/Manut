@@ -54,10 +54,12 @@ export const listViewRoot = style({
     '&:hover': {
       backgroundColor: cssVarV2.layer.background.hoverOverlay,
     },
-    // Respect reduced-motion: skip both the entrance translate/fade and
-    // any per-card stagger so users with the OS pref see cards appear
-    // immediately, in order, with no movement.
-    '@media (prefers-reduced-motion: reduce)': {
+  },
+  // Respect reduced-motion: skip both the entrance translate/fade and
+  // any per-card stagger so users with the OS pref see cards appear
+  // immediately, in order, with no movement.
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
       animation: 'none',
       animationDelay: '0ms',
     },
@@ -244,8 +246,10 @@ export const cardViewRoot = style({
     '[data-theme="dark"] &:hover': {
       boxShadow: 'var(--dark-shadow-hover)',
     },
-    // See listViewRoot — same reduced-motion contract.
-    '@media (prefers-reduced-motion: reduce)': {
+  },
+  // See listViewRoot — same reduced-motion contract.
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
       animation: 'none',
       animationDelay: '0ms',
     },
