@@ -1,5 +1,5 @@
 import { cssVarV2 } from '@toeverything/theme/v2';
-import { createVar, style } from '@vanilla-extract/css';
+import { createVar, globalStyle, style } from '@vanilla-extract/css';
 
 const headerHeight = createVar('headerHeight');
 const wsSelectorHeight = createVar('wsSelectorHeight');
@@ -21,17 +21,18 @@ export const wsSelectorAndSearch = style({
   flexDirection: 'column',
   gap: 15,
   padding: '4px 16px 15px 16px',
-  // Manut display typography for the expanded workspace identity.
-  // Targets the workspace-name label rendered inside WorkspaceSelector
-  // (sibling .css.ts owned by workspace-selector module).
-  selectors: {
-    '& [class*="label"]': {
-      fontSize: 'var(--manut-display-1)',
-      fontWeight: 'var(--manut-display-weight)',
-      letterSpacing: '-0.02em',
-      lineHeight: 1.05,
-    },
-  },
+});
+
+// Manut display typography for the expanded workspace identity.
+// Targets the workspace-name label rendered inside WorkspaceSelector
+// (sibling .css.ts owned by workspace-selector module). vanilla-extract
+// requires `globalStyle` for descendant selectors — they can't live in
+// `selectors:` which is scoped to the current class only.
+globalStyle(`${wsSelectorAndSearch} [class*="label"]`, {
+  fontSize: 'var(--manut-display-1)',
+  fontWeight: 'var(--manut-display-weight)',
+  letterSpacing: '-0.02em',
+  lineHeight: 1.05,
 });
 
 export const float = style({
