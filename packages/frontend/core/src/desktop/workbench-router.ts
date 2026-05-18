@@ -90,6 +90,13 @@ export const workbenchRoutes = [
     lazy: () => import('./pages/workspace/release-runs/index'),
   },
   {
+    // M17 — CEO Chat. Top-level chat surface that resolves every turn to
+    // a typed work object (task / approval / plan / decision). One page
+    // per workspace; the conversation list rail handles thread switching.
+    path: '/ceo-chat',
+    lazy: () => import('./views/manut-ceo-chat/ceo-chat-page'),
+  },
+  {
     path: '/settings',
     lazy: () => import('./pages/workspace/settings'),
   },

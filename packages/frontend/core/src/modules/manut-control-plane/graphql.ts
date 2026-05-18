@@ -125,6 +125,7 @@ const MN_AGENT_FIELDS = `
     roleTemplate
     adapterType
     status
+    maximizerMode
     lastHeartbeatAt
     createdAt
     updatedAt
@@ -211,6 +212,36 @@ export const revokeMnAgentApiKeyMutation = {
   op: 'revokeMnAgentApiKey',
   query: `mutation revokeMnAgentApiKey($id: ID!) {
   revokeMnAgentApiKey(id: $id) {${MN_AGENT_API_KEY_FIELDS}}
+}`,
+};
+
+// ---------------------------------------------------------------------------
+// Phase 13 — MAXIMIZER MODE (M12) operations.
+//
+// Toggle the high-autonomy execution policy on a single agent. The result
+// carries the freshly persisted boolean so the UI can flip without a
+// follow-up `mnAgent` query. Backend resolver:
+// `manut-maximizer.resolver.ts`.
+// ---------------------------------------------------------------------------
+
+const MN_MAXIMIZER_TOGGLE_FIELDS = `
+    agentId
+    maximizerMode
+`;
+
+export const enableMnAgentMaximizerMutation = {
+  id: 'enableMnAgentMaximizerMutation' as const,
+  op: 'enableMnAgentMaximizer',
+  query: `mutation enableMnAgentMaximizer($agentId: ID!) {
+  enableMnAgentMaximizer(agentId: $agentId) {${MN_MAXIMIZER_TOGGLE_FIELDS}}
+}`,
+};
+
+export const disableMnAgentMaximizerMutation = {
+  id: 'disableMnAgentMaximizerMutation' as const,
+  op: 'disableMnAgentMaximizer',
+  query: `mutation disableMnAgentMaximizer($agentId: ID!) {
+  disableMnAgentMaximizer(agentId: $agentId) {${MN_MAXIMIZER_TOGGLE_FIELDS}}
 }`,
 };
 
@@ -567,5 +598,142 @@ export const upsertMnPluginConfigMutation = {
   op: 'upsertMnPluginConfig',
   query: `mutation upsertMnPluginConfig($input: UpsertMnPluginConfigInput!) {
   upsertMnPluginConfig(input: $input) {${MN_PLUGIN_CONFIG_FIELDS}}
+}`,
+};
+
+// ---------------------------------------------------------------------------
+// Phase 15 — Self-Organization (M15) operations.
+//
+// Backend resolvers in
+// `packages/backend/server/src/plugins/manut/manut-org-change.resolver.ts`.
+// Selection sets mirror the agreed DTO contract; widen once
+// `@affine/graphql` codegen picks up the new schema.
+// ---------------------------------------------------------------------------
+
+const MN_ORG_CHANGE_FIELDS = `
+    id
+    workspaceId
+    projectId
+    type
+    proposedByAgentId
+    status
+    payload
+    rationale
+    decisionNote
+    decidedByUserId
+    decidedAt
+    appliedAt
+    createdAt
+`;
+
+export const mnOrgChangesQuery = {
+  id: 'mnOrgChangesQuery' as const,
+  op: 'mnOrgChanges',
+  query: `query mnOrgChanges($workspaceId: ID!, $filter: ListMnOrgChangesInput) {
+  mnOrgChanges(workspaceId: $workspaceId, filter: $filter) {${MN_ORG_CHANGE_FIELDS}}
+}`,
+};
+
+export const proposeMnOrgChangeMutation = {
+  id: 'proposeMnOrgChangeMutation' as const,
+  op: 'proposeMnOrgChange',
+  query: `mutation proposeMnOrgChange($workspaceId: ID!, $input: ProposeMnOrgChangeInput!) {
+  proposeMnOrgChange(workspaceId: $workspaceId, input: $input) {${MN_ORG_CHANGE_FIELDS}}
+}`,
+};
+
+export const decideMnOrgChangeMutation = {
+  id: 'decideMnOrgChangeMutation' as const,
+  op: 'decideMnOrgChange',
+  query: `mutation decideMnOrgChange($workspaceId: ID!, $orgChangeId: ID!, $input: DecideMnOrgChangeInput!) {
+  decideMnOrgChange(workspaceId: $workspaceId, orgChangeId: $orgChangeId, input: $input) {${MN_ORG_CHANGE_FIELDS}}
+}`,
+};
+
+export const applyMnOrgChangeMutation = {
+  id: 'applyMnOrgChangeMutation' as const,
+  op: 'applyMnOrgChange',
+  query: `mutation applyMnOrgChange($workspaceId: ID!, $orgChangeId: ID!) {
+  applyMnOrgChange(workspaceId: $workspaceId, orgChangeId: $orgChangeId) {${MN_ORG_CHANGE_FIELDS}}
+}`,
+};
+
+export const revertMnOrgChangeMutation = {
+  id: 'revertMnOrgChangeMutation' as const,
+  op: 'revertMnOrgChange',
+  query: `mutation revertMnOrgChange($workspaceId: ID!, $orgChangeId: ID!) {
+  revertMnOrgChange(workspaceId: $workspaceId, orgChangeId: $orgChangeId) {${MN_ORG_CHANGE_FIELDS}}
+}`,
+};
+
+// =========================================================================
+// M17 — CEO Chat
+// =========================================================================
+
+const MN_CEO_CONVERSATION_FIELDS = `
+  id
+  workspaceId
+  ownerUserId
+  title
+  lastResolutionKind
+  createdAt
+  updatedAt
+`;
+
+const MN_CEO_TURN_FIELDS = `
+  id
+  conversationId
+  role
+  bodyMd
+  resolutionKind
+  resolutionRefId
+  createdAt
+`;
+
+export const mnCeoConversationsQuery = {
+  id: 'mnCeoConversationsQuery' as const,
+  op: 'mnCeoConversations',
+  query: `query mnCeoConversations($workspaceId: ID!) {
+  mnCeoConversations(workspaceId: $workspaceId) {${MN_CEO_CONVERSATION_FIELDS}}
+}`,
+};
+
+export const mnCeoConversationQuery = {
+  id: 'mnCeoConversationQuery' as const,
+  op: 'mnCeoConversation',
+  query: `query mnCeoConversation($workspaceId: ID!, $id: ID!) {
+  mnCeoConversation(workspaceId: $workspaceId, id: $id) {${MN_CEO_CONVERSATION_FIELDS}}
+}`,
+};
+
+export const mnCeoTurnsQuery = {
+  id: 'mnCeoTurnsQuery' as const,
+  op: 'mnCeoTurns',
+  query: `query mnCeoTurns($workspaceId: ID!, $conversationId: ID!) {
+  mnCeoTurns(workspaceId: $workspaceId, conversationId: $conversationId) {${MN_CEO_TURN_FIELDS}}
+}`,
+};
+
+export const createMnCeoConversationMutation = {
+  id: 'createMnCeoConversationMutation' as const,
+  op: 'createMnCeoConversation',
+  query: `mutation createMnCeoConversation($input: CreateMnCeoConversationInput!) {
+  createMnCeoConversation(input: $input) {${MN_CEO_CONVERSATION_FIELDS}}
+}`,
+};
+
+export const addMnCeoTurnMutation = {
+  id: 'addMnCeoTurnMutation' as const,
+  op: 'addMnCeoTurn',
+  query: `mutation addMnCeoTurn($workspaceId: ID!, $input: AddMnCeoTurnInput!) {
+  addMnCeoTurn(workspaceId: $workspaceId, input: $input) {${MN_CEO_TURN_FIELDS}}
+}`,
+};
+
+export const resolveMnCeoTurnMutation = {
+  id: 'resolveMnCeoTurnMutation' as const,
+  op: 'resolveMnCeoTurn',
+  query: `mutation resolveMnCeoTurn($workspaceId: ID!, $turnId: ID!) {
+  resolveMnCeoTurn(workspaceId: $workspaceId, turnId: $turnId) {${MN_CEO_TURN_FIELDS}}
 }`,
 };

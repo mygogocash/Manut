@@ -91,10 +91,22 @@ export interface MnAgentDto {
   roleTemplate: string;
   adapterType: string;
   status: MnAgentStatus;
+  /**
+   * M12 — MAXIMIZER MODE flag. Optional on the DTO because older
+   * server bundles deployed before M12 won't return the column;
+   * the UI defaults a missing value to `false` so the toggle renders
+   * safely.
+   */
+  maximizerMode?: boolean;
   lastHeartbeatAt: string | null;
   createdAt: string;
   updatedAt: string;
   apiKeys?: MnAgentApiKeyDto[];
+}
+
+export interface MnAgentMaximizerToggleResultDto {
+  agentId: string;
+  maximizerMode: boolean;
 }
 
 export interface MnAgentApiKeyDto {
@@ -420,4 +432,113 @@ export interface UpsertMnPluginConfigInput {
   pluginId: string;
   projectId?: string | null;
   configJson: Record<string, unknown>;
+}
+
+/**
+ * Phase 15 — Self-Organization (M15).
+ *
+ * Mirrors backend DTOs in
+ * `packages/backend/server/src/plugins/manut/manut-org-change.dto.ts`.
+ * Replace with imports from `@affine/graphql` after the next codegen
+ * run picks up the new resolvers.
+ */
+export type MnOrgChangeType =
+  | 'ROLE_ADJUSTMENT'
+  | 'DELEGATION_CHANGE'
+  | 'NEW_ROUTINE'
+  | 'AGENT_HIRE_PROPOSAL'
+  | 'REPORTING_CHANGE'
+  | 'CAPABILITY_GRANT';
+
+export type MnOrgChangeStatus =
+  | 'PROPOSED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'APPLIED'
+  | 'REVERTED';
+
+export interface MnOrgChangeDto {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  type: MnOrgChangeType;
+  proposedByAgentId: string | null;
+  status: MnOrgChangeStatus;
+  payload: Record<string, unknown>;
+  rationale: string;
+  decisionNote: string | null;
+  decidedByUserId: string | null;
+  decidedAt: string | null;
+  appliedAt: string | null;
+  createdAt: string;
+}
+
+export interface ProposeMnOrgChangeInput {
+  projectId: string;
+  type: MnOrgChangeType;
+  payload: Record<string, unknown>;
+  rationale: string;
+  proposedByAgentId?: string | null;
+}
+
+export interface DecideMnOrgChangeInput {
+  status: MnOrgChangeStatus;
+  decisionNote?: string | null;
+}
+
+export interface ListMnOrgChangesInput {
+  projectId?: string | null;
+  statuses?: MnOrgChangeStatus[] | null;
+  types?: MnOrgChangeType[] | null;
+  proposedByAgentId?: string | null;
+  limit?: number | null;
+}
+
+/**
+ * M17 — CEO Chat. Top-level chat surface that resolves every USER turn
+ * to a typed work object (MnTask / MnApproval / MnTaskPlan /
+ * DECISION_RECORDED). Backend intent classification is keyword-based
+ * today; a follow-up replaces it with the Vertex auto-router.
+ */
+
+export type MnCeoTurnRole = 'USER' | 'CEO_AGENT' | 'SYSTEM';
+
+export type MnCeoResolutionKind =
+  | 'NONE'
+  | 'TASK_CREATED'
+  | 'APPROVAL_REQUESTED'
+  | 'PLAN_DRAFTED'
+  | 'DECISION_RECORDED'
+  | 'BUDGET_QUERY'
+  | 'STATUS_QUERY';
+
+export interface MnCeoConversationDto {
+  id: string;
+  workspaceId: string;
+  ownerUserId: string;
+  title: string | null;
+  lastResolutionKind: MnCeoResolutionKind | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MnCeoTurnDto {
+  id: string;
+  conversationId: string;
+  role: MnCeoTurnRole;
+  bodyMd: string;
+  resolutionKind: MnCeoResolutionKind;
+  resolutionRefId: string | null;
+  createdAt: string;
+}
+
+export interface CreateMnCeoConversationInput {
+  workspaceId: string;
+  title?: string | null;
+}
+
+export interface AddMnCeoTurnInput {
+  conversationId: string;
+  role: MnCeoTurnRole;
+  bodyMd: string;
 }

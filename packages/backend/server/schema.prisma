@@ -73,6 +73,9 @@ model User {
   mnApprovalsDecided          MnApproval[]                @relation("MnApprovalDecidedByUser")
   mnApprovalComments          MnApprovalComment[]         @relation("MnApprovalCommentAuthorUser")
   mnExportSnapshotsCreated    MnExportSnapshot[]          @relation("MnExportSnapshotsCreated")
+  mnOrgChangesDecided         MnOrgChange[]               @relation("MnOrgChangeDecidedByUser")
+  mnTaskPlansAuthored         MnTaskPlan[]                @relation("MnTaskPlanAuthorUser")
+  mnCeoConversations          MnCeoConversation[]         @relation("MnCeoConversationOwner")
 
   @@index([email])
   @@map("users")
@@ -203,6 +206,8 @@ model Workspace {
   mnExportSnapshots          MnExportSnapshot[]
   mnPluginConfigs            MnPluginConfig[]
   mnWorkQueues               MnWorkQueue[]
+  mnOrgChanges               MnOrgChange[]
+  mnCeoConversations         MnCeoConversation[]
 
   @@index([lastCheckEmbeddings])
   @@index([createdAt])
@@ -1676,6 +1681,11 @@ model MnTask {
   /// task so the audit trail (when did this ticket arrive, what queue
   /// routed it) survives the task's eventual cleanup.
   intakeRefs    MnWorkQueueIntake[]
+  /// M13 — revisionable plan documents. Cascade on task delete: a plan
+  /// is meaningless without its task. The service layer auto-increments
+  /// `revisionNumber` so concurrent createPlan calls don't collide on
+  /// the `@@unique([taskId, revisionNumber])` constraint.
+  plans         MnTaskPlan[]
 
   @@index([projectId, status])
   @@index([projectId, listSortOrder])
@@ -2136,6 +2146,15 @@ model MnAgent {
   status           MnAgentStatus      @default(IDLE)
   reportsToAgentId String?            @map("reports_to_agent_id") @db.VarChar
   capabilities     String?            @db.Text
+  /// M12 — MAXIMIZER MODE flag. When true, the orchestrator applies a
+  /// stricter execution policy: auto-delegation to subordinates,
+  /// batched heartbeat scheduling (10 tool calls per batch), automatic
+  /// approval gating when a tool call costs >50% of remaining budget,
+  /// and mandatory full M11 outcome verification on every DONE
+  /// transition (not just the opt-in DoD path). Default false so
+  /// existing agents are unaffected until an operator explicitly opts
+  /// in via `enableMnAgentMaximizer`.
+  maximizerMode    Boolean            @default(false) @map("maximizer_mode")
   lastHeartbeatAt  DateTime?          @map("last_heartbeat_at") @db.Timestamptz(3)
   createdByUserId  String?            @map("created_by_user_id") @db.VarChar
   createdAt        DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -2165,6 +2184,15 @@ model MnAgent {
   /// agent. SetNull on agent delete so the queue keeps routing rules
   /// intact and the operator can pick a replacement assignee later.
   workQueueDefaults  MnWorkQueue[]       @relation("MnWorkQueueDefaultAssignee")
+  /// M15 — org-change proposals authored by this agent. SetNull on
+  /// agent delete so the proposal + audit trail survives decommissioning
+  /// of the proposer.
+  proposedOrgChanges MnOrgChange[]       @relation("MnOrgChangeProposedByAgent")
+  /// M13 — plans this agent authored. SetNull on agent delete: the
+  /// plan revision survives so the historical record of "what did the
+  /// strategy doc say before this task ran?" stays intact after the
+  /// agent is decommissioned.
+  authoredPlans      MnTaskPlan[]        @relation("MnTaskPlanAuthorAgent")
 
   @@index([workspaceId, projectId, status])
   @@index([workspaceId, reportsToAgentId])
@@ -2793,4 +2821,200 @@ model MnWorkProduct {
   @@index([workspaceId, taskId, createdAt(sort: Desc)])
   @@index([producedByAgentId])
   @@map("mn_work_products")
+}
+
+/// M13 — Deep Planning lifecycle. Plans flow DRAFT → UNDER_REVIEW →
+/// APPROVED | REJECTED. SUPERSEDED is set on the prior APPROVED plan
+/// when a new APPROVED plan lands for the same task. The terminal
+/// states (APPROVED, REJECTED, SUPERSEDED) never transition further;
+/// the service layer enforces the state machine and refuses backward
+/// transitions.
+enum MnTaskPlanStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUPERSEDED
+}
+
+/// M13 — Revisionable plan documents attached to a task. Strategy-heavy
+/// tasks generate a plan body (markdown), receive review, and only the
+/// APPROVED revision drives execution. `revisionNumber` is monotonic per
+/// task — the service auto-increments via a max+1 within a transaction
+/// so concurrent createPlan calls can't collide on the
+/// `@@unique([taskId, revisionNumber])` constraint.
+///
+/// `authorAgentId` / `authorUserId` are XOR-soft (at most one set) so
+/// the audit trail captures whether an agent or a human drafted the
+/// plan. Both SetNull on delete to preserve the historical record after
+/// agent/user cleanup. The service layer enforces XOR at write time.
+///
+/// `reviewerComments` is a JSONB array of free-form comment objects:
+///   Array<{ authorUserId?: string; authorAgentId?: string;
+///           body: string; createdAt: string }>
+/// Appended to on every decision via `decidePlan`; never rewritten.
+///
+/// `status` follows the MnTaskPlanStatus state machine. When a plan
+/// transitions to APPROVED, the service flips the prior APPROVED plan
+/// (if any) on the same task to SUPERSEDED so the "current plan"
+/// query is unambiguous: it's the row with status=APPROVED and the
+/// highest revisionNumber.
+model MnTaskPlan {
+  id               String           @id @default(uuid()) @db.VarChar
+  taskId           String           @map("task_id") @db.VarChar
+  revisionNumber   Int              @map("revision_number")
+  bodyMd           String           @map("body_md") @db.Text
+  status           MnTaskPlanStatus @default(DRAFT)
+  authorAgentId    String?          @map("author_agent_id") @db.VarChar
+  authorUserId     String?          @map("author_user_id") @db.VarChar
+  reviewerComments Json             @default("[]") @map("reviewer_comments") @db.JsonB
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  task        MnTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorAgent MnAgent? @relation("MnTaskPlanAuthorAgent", fields: [authorAgentId], references: [id], onDelete: SetNull)
+  authorUser  User?    @relation("MnTaskPlanAuthorUser", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([taskId, revisionNumber])
+  @@index([taskId, status])
+  @@map("mn_task_plans")
+}
+
+/// M17 — CEO Chat. Role of the speaker on a given turn. USER is the
+/// signed-in human; CEO_AGENT is the orchestrating LLM that classifies
+/// intents and produces resolutions; SYSTEM is for internal banners
+/// (resolution announcements, errors, etc).
+enum MnCeoTurnRole {
+  USER
+  CEO_AGENT
+  SYSTEM
+}
+
+/// M17 — CEO Chat. Typed resolution emitted by the CEO_AGENT for each
+/// user turn. Drives the "every turn resolves to a typed work object"
+/// invariant — the resolver creates a work object of the matching kind
+/// (MnTask / MnApproval / MnTaskPlan / decision memory) and records its
+/// id in `resolutionRefId`. NONE means the classifier could not pick a
+/// resolution; the turn is still persisted for context.
+enum MnCeoResolutionKind {
+  NONE
+  TASK_CREATED
+  APPROVAL_REQUESTED
+  PLAN_DRAFTED
+  DECISION_RECORDED
+  BUDGET_QUERY
+  STATUS_QUERY
+}
+
+/// M17 — CEO Chat conversation. One per chat thread between the owner
+/// (signed-in user) and the CEO agent. `lastResolutionKind` mirrors the
+/// most-recent turn's resolution kind for cheap list rendering — it is
+/// a denormalised cache, not an authoritative state. The authoritative
+/// thread is the ordered set of `MnCeoTurn` rows.
+model MnCeoConversation {
+  id                 String               @id @default(uuid()) @db.VarChar
+  workspaceId        String               @map("workspace_id") @db.VarChar
+  ownerUserId        String               @map("owner_user_id") @db.VarChar
+  title              String?              @db.VarChar
+  lastResolutionKind MnCeoResolutionKind? @map("last_resolution_kind")
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  owner     User        @relation("MnCeoConversationOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  turns     MnCeoTurn[]
+  Workspace Workspace   @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId, ownerUserId, updatedAt(sort: Desc)])
+  @@map("mn_ceo_conversations")
+}
+
+/// M17 — CEO Chat turn. One row per message in a conversation. Cascade
+/// on conversation delete — turn rows do not outlive their parent.
+/// `resolutionRefId` is the id of the work object the resolution
+/// created (e.g. an MnTask.id when kind=TASK_CREATED). VarChar (not
+/// FK) because the target shape varies by kind — interpretation is the
+/// resolver's responsibility.
+model MnCeoTurn {
+  id              String              @id @default(uuid()) @db.VarChar
+  conversationId  String              @map("conversation_id") @db.VarChar
+  role            MnCeoTurnRole
+  bodyMd          String              @map("body_md") @db.Text
+  resolutionKind  MnCeoResolutionKind @default(NONE) @map("resolution_kind")
+  resolutionRefId String?             @map("resolution_ref_id") @db.VarChar
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation MnCeoConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("mn_ceo_turns")
+}
+
+// ---------------------------------------------------------------------------
+// Manut M15 — Self-Organization.
+//
+// Agents propose structural changes to the control plane (role
+// adjustments, delegation re-wiring, new routines, hire requests,
+// reporting/capability changes). Every proposal is paired with a sibling
+// MnApproval row (type=AGENT_ORG_CHANGE) so the existing inbox / SSE
+// surface gates the decision. After APPROVED, an operator can APPLY the
+// change, which executes the structural edit (e.g. update
+// MnAgent.reportsToAgentId, create an MnRoutine row). REVERT undoes an
+// applied change when reversibility is possible.
+//
+// CLAUDE.md scars honored:
+//  - SetNull on `proposedByAgentId` + `decidedByUserId` so the proposal
+//    row survives proposer / decider deletion (audit trail).
+//  - Cascade on `workspaceId` so the row vanishes with its workspace.
+// ---------------------------------------------------------------------------
+
+/// Kind of structural change proposed by an agent. The `payload` JSONB
+/// column carries the type-specific shape; the service layer enforces
+/// its schema per kind.
+enum MnOrgChangeType {
+  ROLE_ADJUSTMENT
+  DELEGATION_CHANGE
+  NEW_ROUTINE
+  AGENT_HIRE_PROPOSAL
+  REPORTING_CHANGE
+  CAPABILITY_GRANT
+}
+
+/// Lifecycle state of a proposal. PROPOSED -> APPROVED|REJECTED ->
+/// APPLIED -> REVERTED. REJECTED is terminal; APPLIED can transition
+/// to REVERTED when `revert()` can reconstruct the prior state from
+/// `payload.priorState`.
+enum MnOrgChangeStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+  APPLIED
+  REVERTED
+}
+
+/// Manut M15 — a single structural change proposal. The sibling
+/// MnApproval (linked via `payload.approvalId` on this row) is the
+/// human-decision gate; this row owns the structural intent + audit
+/// trail and survives proposer / decider deletion via SetNull.
+model MnOrgChange {
+  id                String            @id @default(uuid()) @db.VarChar
+  workspaceId       String            @map("workspace_id") @db.VarChar
+  projectId         String            @map("project_id") @db.VarChar
+  type              MnOrgChangeType
+  proposedByAgentId String?           @map("proposed_by_agent_id") @db.VarChar
+  status            MnOrgChangeStatus @default(PROPOSED)
+  payload           Json              @default("{}") @db.JsonB
+  rationale         String            @db.Text
+  decisionNote      String?           @map("decision_note") @db.Text
+  decidedByUserId   String?           @map("decided_by_user_id") @db.VarChar
+  decidedAt         DateTime?         @map("decided_at") @db.Timestamptz(3)
+  appliedAt         DateTime?         @map("applied_at") @db.Timestamptz(3)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  proposedByAgent MnAgent?  @relation("MnOrgChangeProposedByAgent", fields: [proposedByAgentId], references: [id], onDelete: SetNull)
+  decidedByUser   User?     @relation("MnOrgChangeDecidedByUser", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status, createdAt(sort: Desc)])
+  @@index([workspaceId, projectId, status])
+  @@index([proposedByAgentId])
+  @@map("mn_org_changes")
 }
