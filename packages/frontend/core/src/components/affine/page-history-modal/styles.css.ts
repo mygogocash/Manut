@@ -194,6 +194,8 @@ export const historyItemGroupTitle = style({
   gap: 4,
   backgroundColor: cssVarV2('layer/background/primary'),
   height: 24,
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), background 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   ':hover': {
     background: cssVarV2('layer/background/hoverOverlay'),
   },

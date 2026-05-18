@@ -11,6 +11,8 @@ export const placeholderButton = style({
   cursor: 'pointer',
   fontSize: 15,
   lineHeight: '24px',
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   ':hover': {
     backgroundColor: cssVar('hoverColor'),
   },
@@ -19,6 +21,8 @@ export const button = style({
   userSelect: 'none',
   borderRadius: 4,
   cursor: 'pointer',
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   ':hover': {
     backgroundColor: cssVar('hoverColor'),
   },

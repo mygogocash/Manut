@@ -183,6 +183,8 @@ export const taskMetaRow = style({
 
 export const taskRowClickable = style({
   cursor: 'pointer',
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), background 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       background: cssVarV2.layer.background.secondary,

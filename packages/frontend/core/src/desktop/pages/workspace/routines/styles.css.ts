@@ -38,6 +38,8 @@ export const tabButton = style({
   fontWeight: 500,
   cursor: 'pointer',
   color: cssVarV2.text.secondary,
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&[data-active="true"]': {
       background: cssVarV2.layer.background.primary,

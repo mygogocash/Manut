@@ -54,7 +54,8 @@ export const row = style({
   cursor: 'pointer',
   color: cssVarV2.text.primary,
   fontSize: cssVar('fontSm'),
-  transition: 'border-color 120ms ease, background 120ms ease',
+  transition:
+    'border-color 120ms ease, background 120ms ease, background-color 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       borderColor: cssVarV2.layer.insideBorder.primaryBorder,

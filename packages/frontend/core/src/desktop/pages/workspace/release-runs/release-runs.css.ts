@@ -54,6 +54,8 @@ export const runRowHeader = style({
   padding: '12px 16px',
   cursor: 'pointer',
   userSelect: 'none',
+  transition:
+    'background-color 100ms var(--manut-anim-curve-overshoot), background 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&:hover': {
       background: cssVarV2.layer.background.secondary,

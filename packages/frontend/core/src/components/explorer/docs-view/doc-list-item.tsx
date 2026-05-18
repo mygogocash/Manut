@@ -18,12 +18,14 @@ import {
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import {
+  type CSSProperties,
   type HTMLProps,
   memo,
   type ReactNode,
   type SVGProps,
   useCallback,
   useContext,
+  useMemo,
 } from 'react';
 
 import { PagePreview } from '../../page-list/page-content-preview';
@@ -51,6 +53,13 @@ export const DocListViewIcon = ({
 export interface DocListItemProps {
   docId: string;
   groupId: string;
+  /**
+   * Optional flat index across all groups, used to stagger the entrance
+   * animation. Only the first 8 indices receive a non-zero delay (see
+   * `docs-list.tsx`); higher indices fall through to instant entrance to
+   * keep scroll-induced remounts snappy.
+   */
+  staggerIndex?: number;
 }
 
 class MixId {
@@ -66,13 +75,36 @@ class MixId {
     return { groupId, docId };
   }
 }
-export const DocListItem = ({ ...props }: DocListItemProps) => {
+// Cap the entrance stagger at the first 8 items so the docs grid feels
+// snappy on first paint but scroll-induced remounts (Masonry virtualises
+// off-screen items) get an instant entrance instead of a delayed one.
+const STAGGER_CAP = 8;
+// Matches `--manut-anim-duration-stagger` (50ms; collapses to 0ms under
+// prefers-reduced-motion via the keyframe @media block in the .css.ts).
+const STAGGER_STEP_MS = 50;
+
+export const DocListItem = ({ staggerIndex, ...props }: DocListItemProps) => {
   const contextValue = useContext(DocExplorerContext);
   const view = useLiveData(contextValue.view$) ?? 'list';
   const groups = useLiveData(contextValue.groups$);
   const selectMode = useLiveData(contextValue.selectMode$);
   const selectedDocIds = useLiveData(contextValue.selectedDocIds$);
   const prevCheckAnchorId = useLiveData(contextValue.prevCheckAnchorId$);
+
+  const staggerStyle = useMemo<CSSProperties | undefined>(() => {
+    if (
+      staggerIndex === undefined ||
+      staggerIndex < 0 ||
+      staggerIndex >= STAGGER_CAP
+    ) {
+      return undefined;
+    }
+    // Cast: CSSProperties does not type custom properties, so we extend
+    // with an index signature locally rather than pollute the global types.
+    return {
+      ['--manut-stagger-delay' as string]: `${staggerIndex * STAGGER_STEP_MS}ms`,
+    } as CSSProperties;
+  }, [staggerIndex]);
 
   const handleMultiSelect = useCallback(
     (prevCursor: string, currCursor: string) => {
@@ -173,6 +205,7 @@ export const DocListItem = ({ ...props }: DocListItemProps) => {
         onClick={handleClick}
         data-selected={selectedDocIds.includes(props.docId)}
         className={styles.root}
+        style={staggerStyle}
         data-testid={`doc-list-item`}
         data-doc-id={props.docId}
       >

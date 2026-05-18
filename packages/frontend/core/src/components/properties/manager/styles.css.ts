@@ -19,6 +19,8 @@ export const itemContainer = style({
   lineHeight: '22px',
   position: 'relative',
   userSelect: 'none',
+  transition:
+    'opacity 120ms ease-out, transform 200ms var(--manut-anim-curve-overshoot)',
   selectors: {
     '&': {
       cursor: 'pointer',
@@ -32,6 +34,8 @@ export const itemContainer = style({
     },
     '&[data-dragging="true"]': {
       opacity: 0.5,
+      transform: 'rotate(-1.5deg) scale(1.02)',
+      pointerEvents: 'none',
     },
     '&[draggable="true"]:before': {
       content: '""',
