@@ -21,6 +21,17 @@ export const wsSelectorAndSearch = style({
   flexDirection: 'column',
   gap: 15,
   padding: '4px 16px 15px 16px',
+  // Manut display typography for the expanded workspace identity.
+  // Targets the workspace-name label rendered inside WorkspaceSelector
+  // (sibling .css.ts owned by workspace-selector module).
+  selectors: {
+    '& [class*="label"]': {
+      fontSize: 'var(--manut-display-1)',
+      fontWeight: 'var(--manut-display-weight)',
+      letterSpacing: '-0.02em',
+      lineHeight: 1.05,
+    },
+  },
 });
 
 export const float = style({
@@ -34,8 +45,10 @@ export const float = style({
   padding: '4px 10px 4px 16px',
   gap: 10,
 
-  // visibility control
+  // visibility control + spring collapse motion
   background: 'transparent',
+  transition:
+    'transform 220ms var(--manut-anim-curve-spring), opacity 220ms ease-out, background 220ms ease-out',
   selectors: {
     '&.dense': {
       background: cssVarV2('layer/background/mobile/primary'),
@@ -47,10 +60,16 @@ export const floatWsSelector = style({
   flex: 1,
   visibility: 'hidden',
   pointerEvents: 'none',
+  opacity: 0,
+  transform: 'translateY(-4px)',
+  transition:
+    'opacity 220ms var(--manut-anim-curve-spring), transform 220ms var(--manut-anim-curve-spring)',
   selectors: {
     [`${float}.dense &`]: {
       visibility: 'visible',
       pointerEvents: 'auto',
+      opacity: 1,
+      transform: 'translateY(0)',
     },
   },
 });

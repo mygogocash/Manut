@@ -1,20 +1,42 @@
 import { cssVar } from '@toeverything/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
-import { style } from '@vanilla-extract/css';
+import { createVar, style } from '@vanilla-extract/css';
 
+import { manutGlass, manutRadius } from '../../../theme/manut-tokens';
 import { modalContent } from '../../modal/styles.css';
 import { bgColor, iconColor, labelColor } from '../styles.css';
 
 // To override desktop menu style defined in '../styles.css.ts'
 
+// Local CSS var so we can swap the surface under `@supports not
+// (backdrop-filter)` without losing to the higher-specificity
+// `&.${modalContent}` override that follows.
+const mobileMenuSurface = createVar('mobileMenuSurface');
+
 export const mobileMenuModal = style({
+  vars: {
+    [mobileMenuSurface]: manutGlass.surface,
+  },
+  // Fallback for browsers without backdrop-filter support: paint a
+  // solid overlayPanel surface so the menu still has contrast
+  // against the page underneath.
+  '@supports': {
+    'not (backdrop-filter: blur(1px))': {
+      vars: {
+        [mobileMenuSurface]: cssVarV2('layer/background/overlayPanel'),
+      },
+    },
+  },
   selectors: {
     // to make sure it will override the desktop modal style
     [`&.${modalContent}`]: {
-      backgroundColor: cssVarV2('layer/background/overlayPanel'),
+      backgroundColor: mobileMenuSurface,
+      backdropFilter: manutGlass.backdropFilter,
+      WebkitBackdropFilter: manutGlass.backdropFilter,
       boxShadow: cssVar('menuShadow'),
       userSelect: 'none',
-      borderRadius: 24,
+      // Align mobile menu corners with desktop Manut modal radius (20px).
+      borderRadius: manutRadius.modal,
       minHeight: 0,
       padding: 0,
       overflow: 'hidden',
