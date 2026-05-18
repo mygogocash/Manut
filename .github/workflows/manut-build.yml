@@ -50,6 +50,10 @@ jobs:
       head_sha: ${{ steps.tag.outputs.head_sha }}
       should_run: 'true'
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_SHA }}
+
       - uses: ./.github/actions/manut-compute-tag
         id: tag
         with:
