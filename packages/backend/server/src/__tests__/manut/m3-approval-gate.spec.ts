@@ -34,7 +34,8 @@ test('peek returns true when cached pending count is > 0', t => {
 
 test('peek returns null after the TTL elapses', t => {
   const ttlMs = 30_000;
-  const gate = new MnApprovalGateService(ttlMs);
+  const gate = new MnApprovalGateService();
+  gate.setTtlMsForTesting(ttlMs);
   const filledAt = 1_000_000;
   gate.set('workspace-1', 1, filledAt);
   t.is(gate.peek('workspace-1', filledAt + ttlMs - 1), true);
@@ -118,7 +119,7 @@ test('peek p95 latency is under the 1ms hot-path budget', t => {
   );
   // Surface the numbers so they show up in CI logs and the
   // benchmark trend is visible.
-   
+
   console.log(
     `[m3-gate] peek p95=${p95Ns}ns p99=${p99Ns}ns over ${iterations} iterations`
   );
