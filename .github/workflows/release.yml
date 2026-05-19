@@ -49,6 +49,21 @@ permissions:
 jobs:
   prepare:
     name: Prepare
+    # Fork guard: this is the upstream AFFiNE Release workflow (daily cron
+    # at 09:00 UTC, plus manual workflow_dispatch). On the Manut fork we
+    # don't ship desktop/cloud/mobile releases via this pipeline — Manut
+    # uses its own `manut-release.yml`. The upstream workflow's nested
+    # jobs (Release Desktop / make-distribution-macos, Release Cloud /
+    # Build Images / Build Images, etc.) always fail on the fork because
+    # the upstream secrets (Apple codesigning, GKE cluster, etc.) aren't
+    # set. Those failures poisoned Railway's "Wait for CI" gate and made
+    # every `mygogocash/Manut` deploy SKIP after 2026-05-19. Gating the
+    # `prepare` job propagates the skip to every downstream job via
+    # `needs:`, so the whole workflow shows as cleanly skipped (not
+    # failed) and Railway's CI gate passes. workflow_dispatch is still
+    # honored on either repo if a human explicitly invokes it. See
+    # CLAUDE.md §9 for context.
+    if: ${{ github.repository == 'toeverything/AFFiNE' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     outputs:
       APP_VERSION: ${{ steps.prepare.outputs.APP_VERSION }}
