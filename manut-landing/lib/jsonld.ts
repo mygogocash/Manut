@@ -81,11 +81,9 @@ function softwareApplicationSchema(): Schema {
       priceCurrency: 'USD',
       description: plan.blurb,
       url:
-        plan.id === 'community'
-          ? siteConfig.github
-          : plan.id === 'cloud'
-            ? `${siteConfig.url}/sign-in`
-            : `mailto:sales@manut.xyz`,
+        plan.id === 'enterprise'
+          ? `mailto:sales@manut.xyz`
+          : `${siteConfig.url}/sign-in`,
     })),
     featureList: [
       'Collaborative docs',
@@ -93,7 +91,7 @@ function softwareApplicationSchema(): Schema {
       'Infinite whiteboard',
       'Multi-model AI agent',
       'Offline CRDT sync',
-      'Self-hosted option',
+      'Real-time multiplayer editing',
     ],
   };
 }
