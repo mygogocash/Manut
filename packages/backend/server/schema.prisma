@@ -2383,6 +2383,28 @@ model MnBudget {
   @@map("mn_budgets")
 }
 
+/// Manut Wave 6 (E1.12 — T-1.12.1.a) — per-workspace AI budget usage.
+///
+/// One row per (workspaceId, periodStart) tracks running monthly spend
+/// in USD cents. Read by AiBudgetService.assertWithinCap to gate chat
+/// invocations against the workspace's tier cap (FREE=$5, PRO=$50,
+/// per IMPLEMENTATION_PLAN §0.3 decision #19 + #26 — same tiers exported
+/// from packages/backend/server/src/core/quota/tiers.ts).
+///
+/// Distinct from MnBudget (which is scope-chained: project/agent/task/
+/// goal/workspace). This is the simpler plan-tier ceiling that sits in
+/// front of every chat turn; M4's scope-chain enforcer stays independent.
+model MnAiBudgetUsage {
+  workspaceId String   @map("workspace_id") @db.VarChar
+  periodStart DateTime @map("period_start") @db.Timestamptz(3)
+  spentCents  Int      @default(0) @map("spent_cents")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@id([workspaceId, periodStart])
+  @@index([periodStart(sort: Desc)], map: "mn_ai_budget_usage_period_idx")
+  @@map("mn_ai_budget_usage")
+}
+
 // ---------------------------------------------------------------------------
 // M3 — Approvals + reviews
 //

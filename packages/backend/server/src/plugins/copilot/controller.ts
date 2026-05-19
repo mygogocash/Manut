@@ -44,7 +44,9 @@ import {
 } from '../../base';
 import { ServerFeature, ServerService } from '../../core';
 import { CurrentUser, Public } from '../../core/auth';
+import { AiBudgetService } from '../../core/quota';
 import { CopilotContextService } from './context/service';
+import { getModelMetadata } from './model-metadata';
 import { ScenarioClassifier } from './prompt/scenario-classifier';
 import { CopilotProviderFactory } from './providers/factory';
 import type { CopilotProvider } from './providers/provider';
@@ -82,8 +84,43 @@ export class CopilotController implements BeforeApplicationShutdown {
     private readonly provider: CopilotProviderFactory,
     private readonly workflow: CopilotWorkflowService,
     private readonly storage: CopilotStorage,
-    private readonly scenarioClassifier: ScenarioClassifier
+    private readonly scenarioClassifier: ScenarioClassifier,
+    private readonly aiBudget: AiBudgetService
   ) {}
+
+  /**
+   * Manut Wave 6 (E1.12 — T-1.12.1.a) — coarse cost estimate for the
+   * AI budget pre-flight check.
+   *
+   * We don't have real usage numbers from the Rust native dispatcher
+   * yet (CLAUDE.md scar #6); the budget gate just needs to know
+   * whether the next chat turn would push the workspace over the cap.
+   * Approximation: char-length / 4 ≈ input tokens (matches the
+   * heuristic in `cost-emit.ts` + `auto-router.ts`), priced at the
+   * model's input rate from `model-metadata.ts`.
+   *
+   * The output side is omitted from the pre-flight estimate because
+   * (a) we don't know it yet, and (b) `recordSpend` runs in the
+   * stream finalize with the actual generated length, so the running
+   * total catches up after the turn completes.
+   */
+  private estimateChatCostCents(
+    modelId: string,
+    messages: ReadonlyArray<{ content?: string | unknown }>
+  ): number {
+    const meta = getModelMetadata(modelId);
+    if (!meta.pricePerKToken) return 0;
+    const chars = messages.reduce(
+      (sum, m) => sum + (typeof m.content === 'string' ? m.content.length : 0),
+      0
+    );
+    const tokens = chars / 4;
+    // pricePerKToken is USD per 1k tokens → cents = tokens / 1000 *
+    // pricePerKToken * 100. Round UP so an estimate of < 1 cent
+    // still trips the cap at the boundary instead of silently passing.
+    const cents = Math.ceil((tokens * meta.pricePerKToken * 100) / 1000);
+    return Number.isFinite(cents) && cents > 0 ? cents : 0;
+  }
 
   async beforeApplicationShutdown() {
     await lastValueFrom(
@@ -318,6 +355,16 @@ export class CopilotController implements BeforeApplicationShutdown {
       info.model = model;
       info.finalMessage = finalMessage.filter(m => m.role !== 'system');
       metrics.ai.counter('chat_stream_calls').add(1, { model });
+
+      // Manut Wave 6 (E1.12 — T-1.12.1.a) — AI budget pre-flight gate.
+      // Throws AiBudgetExceeded (HTTP 402) if the running monthly spend
+      // plus the estimated cost of this turn would breach the
+      // workspace's tier cap (FREE=$5, PRO=$50). One call before the
+      // stream begins; one call to recordSpend in the tap finalize.
+      const workspaceId = session.config.workspaceId;
+      const estimatedCents = this.estimateChatCostCents(model, finalMessage);
+      await this.aiBudget.assertWithinCap(workspaceId, estimatedCents);
+
       this.ongoingStreamCount$.next(this.ongoingStreamCount$.value + 1);
 
       const { signal, onConnectionClosed } = getSignal(req);
@@ -368,6 +415,23 @@ export class CopilotController implements BeforeApplicationShutdown {
                       err
                     )
                   );
+                // E1.12 — record realised spend. Fire-and-forget per
+                // CLAUDE.md scar #5 (cost emission must never block
+                // the streaming response). The realised cents include
+                // the output-side that the pre-flight estimate omitted.
+                if (!endBeforePromiseResolve) {
+                  const outputCents = this.estimateChatCostCents(model, [
+                    { content: buffer },
+                  ]);
+                  const realisedCents = estimatedCents + outputCents;
+                  void this.aiBudget
+                    .recordSpend(workspaceId, realisedCents)
+                    .catch(err =>
+                      this.logger.warn(
+                        `Failed to record AI budget spend for workspace ${workspaceId}: ${err instanceof Error ? err.message : String(err)}`
+                      )
+                    );
+                }
               }),
               ignoreElements()
             )
