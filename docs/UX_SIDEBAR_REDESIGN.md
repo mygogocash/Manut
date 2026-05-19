@@ -126,6 +126,110 @@ User confirmed 2026-05-19 (with reference screenshot): Search should behave like
 
 This is its own slice — independent from the tab strip. Could ship before, during, or after Phases 2–3. Suggest landing it as part of Phase 3 alongside the Search tab wiring.
 
+### Customize sections (Home tab)
+
+User confirmed 2026-05-19 (with reference screenshot): the Home tab body should expose a "Home settings" popover that lets users hide/show individual sections. Matches Notion's pattern.
+
+```
+                        ┌─ Home settings ───────────────┐
+                        │  ⇄  Customize sections        │
+                        │  👁  Hide tab name             │
+                        └───────────────────────────────┘
+
+                        ┌─ Customize sections (edit) ──┐
+                        │  Meetings              👁     │
+                        │  Recents               👁     │
+                        │  Favorites             👁     │
+                        │  Agents                👁     │
+                        │  Private               👁     │
+                        │  Teamspaces            👁     │
+                        │  Shared                👁     │
+                        │  Notion apps           👁     │
+                        │  Library               👁     │
+                        │  My Tasks              👁     │
+                        │  Marketplace           👁     │
+                        │  Help                  👁     │
+                        │  Trash                 👁     │
+                        ├───────────────────────────────┤
+                        │            Done               │
+                        └───────────────────────────────┘
+```
+
+**Behavior:**
+- Right-click (or hover-gear) on Home tab → "Home settings" popover
+- "Customize sections" → enters edit mode: each section gets an eye-icon toggle
+- Toggling eye dims the section; hidden sections collapse out of view immediately for preview
+- "Done" commits and exits edit mode
+- Per-user preference stored in `globalState` (per-workspace, persists across reloads)
+- "Hide tab name" hides the label under the active tab icon (shrinks the tab strip vertically)
+
+**Implementation:** new component `SidebarSectionVisibilityEditor` rendered as a popover. The Home view (Phase 2) already iterates over named sections — gating each on a visibility-prefs lookup is trivial. ~half day on top of Phase 2.
+
+### Floating AI chat anchor (page-aware)
+
+User confirmed 2026-05-19 (with reference screenshot): focus on AI accessibility. Every page gets a floating chat affordance in the bottom-right corner — clicking it opens a contextual AI chat panel anchored to the current page.
+
+```
+              Page content
+                                                  ┌──────────────────────┐
+                                                  │ Chat about this page │
+                                                  │                ⌘J    │
+                                                  └─ tooltip ────────────┘
+                                                                       ⊕
+                                                                       │
+                                                                  ◯  click
+
+              After click →
+
+              Page content                        ┌────────── New AI chat ──┐
+                                                  │  ★ (workspace logo)     │
+                                                  │                         │
+                                                  │  How can I help today?  │
+                                                  │  ─ Summarize this page  │
+                                                  │  ─ Translate this page  │
+                                                  │  ─ Analyze for insights │
+                                                  │  ─ Create a task tracker│
+                                                  │                         │
+                                                  │  📄 @Today 9:41 PM      │
+                                                  │  ┌─────────────────────┐│
+                                                  │  │ Do anything with AI ││
+                                                  │  └─────────────────────┘│
+                                                  │             Auto ▾  ↑   │
+                                                  └─────────────────────────┘
+```
+
+**Behavior:**
+- Floating button bottom-right of every workspace page (docs, databases, whiteboards, settings)
+- `⌘J` (kbd) opens/closes — matches Notion's shortcut
+- Click → slides panel in from right (or floating overlay on mobile)
+- Panel is **page-aware**: auto-injects current doc id into the chat context so the AI knows what the user is looking at
+- Quick actions adapt to page type:
+  - Doc → Summarize, Translate, Outline, Continue writing
+  - Database → Analyze, Suggest filters, Generate column
+  - Meeting → Extract action items, Draft follow-up email
+- Free-form input "Do anything with AI..." for open queries
+- Model picker (`Auto` default; expands to the full 15-model list per `CHAT_PROMPT.optionalModels`)
+- Page context badge above input shows which doc the chat is anchored to (chip is removable to make the chat non-contextual)
+- Conversation persists when navigating to other pages — but the page-context chip swaps to match the current page. User can pin a chat to a specific page if they want it stuck.
+
+**Why this matters strategically:**
+The hero already markets AI as the killer feature ("Your team's workspace that builds with you"). Today users have to navigate AWAY from their work to a dedicated AI page to use it. Notion's floating-chat pattern means AI is always one keystroke away from whatever you're doing — much higher engagement and stickiness for the AI surface.
+
+**Implementation:**
+- Component `FloatingAiChatAnchor` rendered in the workbench layout (above all page content)
+- Reuses existing `AiChatPanel` component (currently used in the Intelligence route)
+- New `useCurrentDocContext` hook surfaces `{ docId, docType, title }` to the chat
+- New URL state for an open chat: `?ai-chat=open` so deep links preserve state
+- Quick-action templates live in a new `lib/ai-quick-actions.ts` mapped by `docType`
+
+**Reusing what's there:**
+- `CHAT_PROMPT.optionalModels` (the 15-model list) → model picker
+- `auto-router.ts` → "Auto" mode
+- `MailSender` is irrelevant here — chat doesn't email
+- Existing chat history + persistence in `aiChatHistories` table
+
+**Effort:** ~3-4 days as a standalone slice. Could ship independently of the tab-strip work.
+
 ### Utility footer (always visible)
 
 `Trash · Templates · Import · Settings · Invite · Help`
@@ -248,6 +352,28 @@ URL state for deep-linking: `?nav=chat|meetings|inbox|search`.
 - Empty states with CTAs ("No meetings today — connect your calendar →")
 - First-time-user ping on the tab strip
 
+### Phase A (parallel) — Floating AI chat anchor (R1, ~3–4 days, medium risk)
+
+**Independent of the tab-strip phases. Can ship before, during, or after.**
+
+- New `FloatingAiChatAnchor` component in workbench layout
+- `⌘J` keyboard binding (global)
+- Page-context auto-injection via `useCurrentDocContext`
+- Quick-action templates per `docType`
+- URL state `?ai-chat=open` for deep-linking
+- Reuses existing `AiChatPanel` + `CHAT_PROMPT.optionalModels` + `auto-router`
+
+This is the **highest user-facing AI win** in this whole redesign. Suggest it ships in parallel to Phase 1 since the two don't conflict.
+
+### Phase B (parallel) — Customize sections + section visibility prefs (R2, ~0.5 day)
+
+**Depends on Phase 2 (tab strip + Home view). Bundle into Phase 2 PR.**
+
+- `SidebarSectionVisibilityEditor` popover
+- "Home settings" entry: customize sections + hide tab name
+- Per-workspace prefs in `globalState`
+- Eye-toggle UI matching Notion's reference
+
 ---
 
 ## Open items + risk
@@ -278,11 +404,16 @@ Every authenticated user sees the sidebar on every page load. A regression is hi
 
 ## What I'd build first
 
-**Phase 1 — utility footer.**
+Two slices in parallel — they don't conflict:
 
-Smallest possible win. Visibly de-clutters the sidebar. We can ship it, watch the qualitative signal, and decide whether to invest in Phase 2.
+**Phase 1 — utility footer** (~1 day, low risk). Smallest possible visible win. Ships end-of-day. ~1 file (`root-app-sidebar/index.tsx`) + CSS.
 
-If green-lit, the Phase 1 PR is ~1 file (`root-app-sidebar/index.tsx`) + the CSS. Should ship end-of-day.
+**Phase A — floating AI chat anchor** (~3-4 days, medium risk, feature-flagged). The highest-leverage AI win in this whole plan. Reuses the existing `AiChatPanel`; mostly wiring + a new floating button + ⌘J handler + page-context hook.
+
+Combined effect after both ship:
+- Sidebar visibly less cluttered (Phase 1)
+- AI accessible from every page with one keystroke (Phase A)
+- Foundation ready for the tab strip (Phases 2–3) when we want to commit to the deeper restructure
 
 ---
 
@@ -296,8 +427,10 @@ If green-lit, the Phase 1 PR is ~1 file (`root-app-sidebar/index.tsx`) + the CSS
 | 4 | Agents section home | Under Chat tab | proposed |
 | 5 | Graph / Analytics | Cmd+K + Views dropdown (not sidebar) | proposed |
 | 6 | Search behavior | Opens Cmd+K modal (not sidebar view), Notion-style layout | **confirmed by user 2026-05-19** |
-| 7 | Feature flag name | `sidebar_tabs_v2` | proposed |
-| 8 | When to start Phase 1 | Awaiting your green-light | open |
+| 7 | Customize sections (eye-toggle popover) | Bundled with Phase 2; per-workspace prefs in `globalState` | **confirmed by user 2026-05-19** |
+| 8 | Floating AI chat anchor (⌘J, page-aware) | Phase A — ships in parallel to Phase 1, reuses existing AiChatPanel | **confirmed by user 2026-05-19** |
+| 9 | Feature flag name | `sidebar_tabs_v2` (tab strip) + `floating_ai_chat` (chat anchor) | proposed |
+| 10 | When to start Phase 1 + Phase A | Awaiting your green-light | open |
 
 ---
 
