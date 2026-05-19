@@ -31,14 +31,12 @@ import {
   ImportIcon,
   JournalIcon,
   RotateIcon,
-  SettingsIcon,
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService, useServices } from '@toeverything/infra';
 import type { ReactElement } from 'react';
 import { memo, useCallback } from 'react';
 
 import {
-  CollapsibleSection,
   NavigationPanelCollections,
   NavigationPanelFavorites,
   NavigationPanelMigrationFavorites,
@@ -369,13 +367,6 @@ export const RootAppSidebar = memo((): ReactElement => {
     [workbench]
   );
 
-  const onOpenSettingModal = useCallback(() => {
-    workspaceDialogService.open('setting', {
-      activeTab: 'appearance',
-    });
-    track.$.navigationPanel.$.openSettings();
-  }, [workspaceDialogService]);
-
   const handleOpenDocs = useCallback(
     (result: {
       docIds: string[];
@@ -476,15 +467,6 @@ export const RootAppSidebar = memo((): ReactElement => {
         <ReleaseRunsButton />
         <AppSidebarJournalButton />
         <AgentsSection />
-        <MenuItem
-          data-testid="slider-bar-workspace-setting-button"
-          icon={<SettingsIcon />}
-          onClick={onOpenSettingModal}
-        >
-          <span data-testid="settings-modal-trigger">
-            {t['com.affine.settingSidebar.title']()}
-          </span>
-        </MenuItem>
       </SidebarContainer>
       <SidebarScrollableContainer>
         {sidebarTabsV2Enabled ? (
@@ -493,37 +475,42 @@ export const RootAppSidebar = memo((): ReactElement => {
           // Inbox render the M1 placeholder views.
           <TabbedSidebarBody onOpenImportModal={onOpenImportModal} />
         ) : (
+          // Phase 1 utility footer landed via PR #116 — utility items
+          // (Trash / Import / Invite / Templates / Learn-more) live in
+          // the persistent bottom container below, so the scrollable
+          // body is just primary nav sections. Settings moved to the
+          // user-avatar dropdown (decision #20, account-menu.tsx).
           <>
             <NavigationPanelFavorites />
             <NavigationPanelOrganize />
             <NavigationPanelMigrationFavorites />
             <NavigationPanelTags />
             <NavigationPanelCollections />
-            <CollapsibleSection
-              path={['others']}
-              title={t['com.affine.rootAppSidebar.others']()}
-              contentStyle={{ padding: '6px 8px 0 8px' }}
-            >
-              <TrashButton />
-              <MenuItem
-                data-testid="slider-bar-import-button"
-                icon={<ImportIcon />}
-                onClick={onOpenImportModal}
-              >
-                <span data-testid="import-modal-trigger">{t['Import']()}</span>
-              </MenuItem>
-              <InviteMembersButton />
-              <TemplateDocEntrance />
-              <ExternalMenuLinkItem
-                href="https://affine.pro/blog?tag=Release+Note"
-                icon={<JournalIcon />}
-                label={t['com.affine.app-sidebar.learn-more']()}
-              />
-            </CollapsibleSection>
           </>
         )}
       </SidebarScrollableContainer>
+      {/*
+       * Phase 1 utility footer (Manut decision #11). Demoted from the
+       * "Others" CollapsibleSection into the persistent bottom container
+       * so primary nav stays scannable. Settings has moved to the user
+       * avatar dropdown (decision #20).
+       */}
       <SidebarContainer className={bottomContainer}>
+        <TrashButton />
+        <MenuItem
+          data-testid="slider-bar-import-button"
+          icon={<ImportIcon />}
+          onClick={onOpenImportModal}
+        >
+          <span data-testid="import-modal-trigger">{t['Import']()}</span>
+        </MenuItem>
+        <InviteMembersButton />
+        <TemplateDocEntrance />
+        <ExternalMenuLinkItem
+          href="https://affine.pro/blog?tag=Release+Note"
+          icon={<JournalIcon />}
+          label={t['com.affine.app-sidebar.learn-more']()}
+        />
         <SidebarAudioPlayer />
         {BUILD_CONFIG.isElectron ? <UpdaterButton /> : <AppDownloadButton />}
       </SidebarContainer>
