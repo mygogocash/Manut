@@ -17,8 +17,11 @@ export type {
 export {
   manutColor,
   manutDisplay,
+  manutFont,
   manutGlass,
   manutMotion,
+  manutPrimary,
   manutRadius,
   manutSpace,
+  manutSurface,
 } from './manut-tokens';

@@ -190,12 +190,18 @@
 }
 
 /*
- * Manut display type currently aliases to Inter via --manut-font-display
- * (declared in manut-tokens.css). No new @font-face is needed yet because
- * the variable resolves to var(--affine-font-family) which is Inter.
+ * Manut typography (decision #4):
+ * - UI body:  Geist Sans       → `--manut-font-sans`     (loaded via
+ *                                Google Fonts in template.html)
+ * - Display: Instrument Serif  → `--manut-font-display`  (Google Fonts)
+ * - Mono:    Geist Mono        → `--manut-font-mono`     (Google Fonts)
  *
- * TODO: drop a real variable display font (Space Grotesk / General Sans /
- * similar) under fonts/manut-display/ and update --manut-font-display in
- * manut-tokens.css to reference it. When you add the @font-face, mirror
- * the Inter block above (font-display: swap, full weight range 1-999).
+ * `manut-tokens.css` rebinds the upstream `--affine-font-family` to
+ * `--manut-font-sans`, so every consumer of `cssVar('fontFamily')`
+ * automatically picks up Geist without per-file edits.
+ *
+ * If we ever decide to self-host (no CDN dependency, no FOUT), add the
+ * @font-face declarations here mirroring the Inter block above (full
+ * variable axis, `font-display: swap`) and drop the matching Google
+ * Fonts <link> in template.html.
  */
