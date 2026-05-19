@@ -25,7 +25,7 @@ export function SiteFooter() {
               {siteConfig.name}
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              Open-source AI workspace. Your docs, your data, your vibe — at{' '}
+              The AI cloud workspace. Your docs, your data, your vibe — at{' '}
               {siteConfig.domain}.
             </p>
           </div>

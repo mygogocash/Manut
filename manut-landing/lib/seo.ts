@@ -4,7 +4,7 @@ import { siteConfig } from '@/lib/site';
 
 /** Primary landing metadata — tuned for SEO snippet length (~155 chars). */
 export const homeDescription =
-  'Manut is the free, open-source AI workspace for Gen Z teams: docs, databases, whiteboards, and a real multi-model agent. Self-host or use cloud at manut.xyz.';
+  'Manut is the AI cloud workspace for Gen Z teams: docs, databases, whiteboards, and a real multi-model agent. Start free in 30 seconds at manut.xyz.';
 
 export function buildRootMetadata(): Metadata {
   return {
