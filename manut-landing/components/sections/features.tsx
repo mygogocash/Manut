@@ -4,6 +4,7 @@ import {
   FileText,
   Layers,
   Lock,
+  Sparkles,
   Users2,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -167,6 +168,11 @@ export function Features() {
                 </Badge>
               </div>
             }
+          />
+          <Feature
+            icon={<Sparkles className="size-5" aria-hidden />}
+            title="AI copilots and agents"
+            description="Chat with Gemini, Claude, or Llama in any doc. Auto-router picks the right model per task. Agents read, edit, and search across your workspace on command."
           />
         </Reveal>
       </div>
