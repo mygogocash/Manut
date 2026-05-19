@@ -324,6 +324,19 @@ export const AFFINE_FLAGS = {
     configurable: true,
     defaultState: false,
   },
+  // Wave-2 Sidebar Phase 2 / Epic E1.9 — five-tab strip (Home / Chat /
+  // Meetings / Inbox / Search) at the top of the sidebar, swapping the
+  // body view per tab, plus a Customize Sections popover on the Home
+  // view. Flag-gated so the M1 rollout can ship the Home + Search tabs
+  // first and the Chat / Meetings / Inbox surfaces fill in during M2.
+  sidebar_tabs_v2: {
+    category: 'affine',
+    displayName: 'Enable Sidebar Tabs v2',
+    description:
+      'Adds a five-icon tab strip (Home / Chat / Meetings / Inbox / Search) to the sidebar. Home reuses the existing nav content; Chat / Meetings / Inbox are placeholder surfaces in M1 with full experiences shipping in M2. Search opens the existing quick-search modal.',
+    configurable: true,
+    defaultState: false,
+  },
 } satisfies { [key in string]: FlagInfo };
 
 // oxlint-disable-next-line no-redeclare
