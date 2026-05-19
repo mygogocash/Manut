@@ -59,14 +59,32 @@ export class ManutPluginRuntimeService
   ) {}
 
   async onModuleInit(): Promise<void> {
-    const rows = await this.db.mnPlugin.findMany({
-      where: {
-        OR: [
-          { processStatus: MnPluginStatus.RUNNING },
-          { processStatus: MnPluginStatus.LOADING },
-        ],
-      },
-    });
+    let rows: MnPlugin[];
+    try {
+      rows = await this.db.mnPlugin.findMany({
+        where: {
+          OR: [
+            { processStatus: MnPluginStatus.RUNNING },
+            { processStatus: MnPluginStatus.LOADING },
+          ],
+        },
+      });
+    } catch (err: unknown) {
+      // The smoke-then-swap deploy boots the sidecar BEFORE the
+      // migration job runs (the migration container only runs after
+      // the swap completes). On the first deploy of an image that
+      // adds new Manut tables, `mn_plugins` doesn't exist yet and
+      // Prisma throws P2021. Degrade gracefully — the next restart
+      // (post-migration) sees the table and resumes plugin loading.
+      // CLAUDE.md §5 deploy hygiene + production v1.13.x scar.
+      if (isPrismaTableMissingError(err)) {
+        this.logger.warn(
+          'mn_plugins table missing — skipping plugin auto-spawn (will resume after migration)'
+        );
+        return;
+      }
+      throw err;
+    }
     for (const row of rows) {
       try {
         await this.spawn(row);
@@ -374,4 +392,16 @@ interface ReadonlyActivePlugin {
 function getErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+/**
+ * Prisma error P2021 — "The table does not exist in the current database."
+ * Used to gracefully degrade plugin auto-spawn during the brief window
+ * between sidecar boot and the migration job completing on first deploy
+ * of an image that introduces new Manut tables.
+ */
+function isPrismaTableMissingError(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const code = (err as { code?: unknown }).code;
+  return code === 'P2021';
 }

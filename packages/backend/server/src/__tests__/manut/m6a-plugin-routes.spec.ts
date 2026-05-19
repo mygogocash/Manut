@@ -344,3 +344,65 @@ test('controller exposes the dispatch handler', t => {
   // method on its prototype.
   t.is(typeof ManutPluginRoutesController.prototype.dispatch, 'function');
 });
+
+// ---------------------------------------------------------------------
+// Boot resilience — sidecar smoke test boots BEFORE migration job
+// ---------------------------------------------------------------------
+
+test('runtime onModuleInit degrades gracefully when mn_plugins table is missing', async t => {
+  // Production scar: smoke-then-swap boots the new image as a sidecar
+  // BEFORE the migration job runs. On the first deploy of an image
+  // that introduces M6a tables, prisma.mnPlugin.findMany throws P2021.
+  // Without graceful handling, the sidecar boot times out and the
+  // deploy framework refuses to swap.
+  const p2021 = Object.assign(new Error('mn_plugins table missing'), {
+    code: 'P2021',
+  });
+  const db = {
+    mnPlugin: {
+      findMany: async () => {
+        throw p2021;
+      },
+    },
+  } as never;
+  const hostRpc = new ManutPluginHostRpcService(db);
+  const installer = new ManutPluginInstallerService(db);
+  const supervisor = new ManutPluginSupervisorService();
+  const runtime = new ManutPluginRuntimeService(
+    db,
+    hostRpc,
+    installer,
+    supervisor
+  );
+  await t.notThrowsAsync(() => runtime.onModuleInit());
+  t.is(runtime.getActiveSnapshot().size, 0);
+});
+
+test('runtime onModuleInit rethrows non-P2021 prisma errors', async t => {
+  // We only want to degrade for the table-missing case. Any other
+  // Prisma failure (connection refused, auth failure, etc.) should
+  // still crash the boot — those are NOT recoverable by waiting for
+  // migrations.
+  const badError = Object.assign(new Error('connection refused'), {
+    code: 'P1001',
+  });
+  const db = {
+    mnPlugin: {
+      findMany: async () => {
+        throw badError;
+      },
+    },
+  } as never;
+  const hostRpc = new ManutPluginHostRpcService(db);
+  const installer = new ManutPluginInstallerService(db);
+  const supervisor = new ManutPluginSupervisorService();
+  const runtime = new ManutPluginRuntimeService(
+    db,
+    hostRpc,
+    installer,
+    supervisor
+  );
+  await t.throwsAsync(() => runtime.onModuleInit(), {
+    message: /connection refused/,
+  });
+});
