@@ -15,7 +15,7 @@ export const useNavConfig = () => {
       },
       {
         title: t['com.affine.other-page.nav.contact-us'](),
-        path: 'https://manut.xyz/about-us',
+        path: 'https://manut.xyz/contact-us',
       },
     ],
     [t]
