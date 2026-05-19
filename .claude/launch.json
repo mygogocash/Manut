@@ -4,8 +4,23 @@
     {
       "name": "affine-frontend",
       "runtimeExecutable": "yarn",
-      "runtimeArgs": ["dev"],
+      "runtimeArgs": ["affine", "bundle", "--dev", "-p", "web"],
       "port": 8080
+    },
+    {
+      "name": "manut-web-static",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "-y",
+        "http-server",
+        "packages/frontend/apps/web/dist",
+        "-p",
+        "8090",
+        "-c-1",
+        "--proxy",
+        "http://localhost:8090?"
+      ],
+      "port": 8090
     },
     {
       "name": "affine-server",

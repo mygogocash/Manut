@@ -51,6 +51,31 @@
   --manut-accent-cream-border: rgba(146, 64, 14, 0.32);
 
   /*
+   * Brand primary — violet (decision #4: warm neutrals + violet accent).
+   * Use this for primary calls-to-action, focus rings, and brand moments.
+   * Aliases the violet ramp so the canonical "Manut primary" rolls through
+   * a single token if we ever shift the brand accent.
+   */
+  --manut-primary-fg: var(--manut-accent-violet-fg);
+  --manut-primary-bg: var(--manut-accent-violet-bg);
+  --manut-primary-border: var(--manut-accent-violet-border);
+
+  /*
+   * Warm-neutral surfaces — mirror manut-landing (apps/manut-landing/app/
+   * globals.css). Light mode lives on a cream canvas (#fafaf2) with deep
+   * ink type; dark mode flips to a near-black ink (#0e0e10) with warm
+   * paper-coloured type. Keep these in sync with landing whenever the
+   * marketing palette evolves so the app+marketing surface stays one
+   * visual system (decision #4 + acceptance criterion in US-1.3.1).
+   */
+  --manut-surface-canvas: #fafaf2; /* page background */
+  --manut-surface-paper: #ffffff; /* elevated card / popover */
+  --manut-surface-sunken: #f4f3ea; /* recessed wells */
+  --manut-ink: oklch(0.18 0.01 260); /* primary body type */
+  --manut-ink-soft: oklch(0.32 0.01 260); /* secondary type */
+  --manut-line: oklch(0.88 0.01 85); /* subtle borders */
+
+  /*
    * Glass surfaces.
    * `--manut-surface-glass-blur` and `--manut-surface-glass-saturate`
    * are static across themes; only the surface tint changes.
@@ -61,13 +86,15 @@
   --manut-surface-glass-saturate: 180%;
 
   /*
-   * Radii — single source across themes.
+   * Radii — single source across themes. Aligned to the Gen-Z scale
+   * 4/8/12/24 in IMPLEMENTATION_PLAN.md §B1. `sheet` extends the ladder
+   * to the next step (32) for full-screen drawers.
    */
   --manut-radius-chip: 4px;
   --manut-radius-input: 8px;
-  --manut-radius-card: 14px;
-  --manut-radius-modal: 20px;
-  --manut-radius-sheet: 28px;
+  --manut-radius-card: 12px;
+  --manut-radius-modal: 24px;
+  --manut-radius-sheet: 32px;
 
   /*
    * Spacing scale.
@@ -86,10 +113,30 @@
   --manut-space-12: 96px;
 
   /*
+   * Typography families — decision #4. Geist Sans is the UI body face
+   * (mirrors manut-landing's `next/font/google` setup), Instrument Serif
+   * is the display face for editorial moments, Geist Mono replaces
+   * Source Code Pro for inline / block code. Family stacks include
+   * system fallbacks so the app degrades gracefully if Google Fonts is
+   * blocked. The actual `@font-face` declarations / CDN links land in
+   * tools/cli/src/rspack-shared/template.html (T-1.3.1.c).
+   */
+  --manut-font-sans:
+    'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+  --manut-font-display:
+    'Instrument Serif', 'Source Serif 4', ui-serif, Georgia, 'Times New Roman',
+    serif;
+  --manut-font-mono:
+    'Geist Mono', 'JetBrains Mono', 'Source Code Pro', ui-monospace,
+    SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /*
    * Display typography scale.
    *
-   * --manut-font-display currently aliases the body font (Inter). A real
-   * variable display face is a follow-up; see fonts.css for the TODO.
+   * Display headers use `--manut-font-display` (Instrument Serif) for
+   * editorial accent. Body / UI type rides on `--manut-font-sans` via
+   * the `--affine-font-family` override below.
    */
   --manut-display-1: 48px;
   --manut-display-2: 60px;
@@ -99,7 +146,22 @@
   --manut-display-line-height: 1.05;
   --manut-display-letter-spacing: -0.02em;
   --manut-display-weight: 900;
-  --manut-font-display: var(--affine-font-family);
+
+  /*
+   * Upstream typography overrides.
+   *
+   * `@toeverything/theme` ships `--affine-font-family` (Inter) and
+   * `--affine-font-sans-family` (Inter again) as the canonical app font
+   * tokens. Every `cssVar('fontFamily')` callsite in vanilla-extract
+   * resolves to these. Rebinding them to `--manut-font-sans` rolls
+   * Geist through the entire app without any consumer-side edits.
+   *
+   * NOTE: This override must stay in manut-tokens.css (loaded LAST in
+   * packages/frontend/component/src/theme/index.ts), so cascade order
+   * beats the upstream declarations.
+   */
+  --affine-font-family: var(--manut-font-sans);
+  --affine-font-sans-family: var(--manut-font-sans);
 
   /*
    * Motion. Sits alongside the upstream `--affine-anim-*` system; use these
@@ -145,6 +207,19 @@
   --manut-accent-cream-fg: #fef3c7;
   --manut-accent-cream-bg: rgba(254, 243, 199, 0.08);
   --manut-accent-cream-border: rgba(254, 243, 199, 0.4);
+
+  /*
+   * Warm-neutral surfaces — dark mirror of landing palette.
+   * `#0e0e10` is the canvas; paper / sunken step up slightly so cards
+   * read as elevated against the canvas without breaking out of the
+   * near-black band. Ink flips to the warm paper tone for body type.
+   */
+  --manut-surface-canvas: #0e0e10;
+  --manut-surface-paper: #18181b;
+  --manut-surface-sunken: #0a0a0c;
+  --manut-ink: oklch(0.96 0.005 85);
+  --manut-ink-soft: oklch(0.78 0.008 85);
+  --manut-line: oklch(1 0 0 / 10%);
 
   /*
    * Glass surfaces — dark tints.
