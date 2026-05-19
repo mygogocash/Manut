@@ -14,7 +14,7 @@ import type { ExtensionType } from '@blocksuite/affine/store';
 import type { NotificationService } from '@blocksuite/affine-shared/services';
 import type { Signal } from '@preact/signals-core';
 import { css, html, nothing } from 'lit';
-import { property } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 
 import {
   EdgelessEditorActions,
@@ -77,6 +77,55 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       color: var(--affine-text-secondary-color);
       background: var(--affine-hover-color);
     }
+    /* Manut M2 E2.4 — self-evolution feedback chips. One pair per
+       assistant reply: thumbs-up / thumbs-down. Clicking flips the
+       data-rating attribute (and triggers the rateMessage mutation
+       in the click handler) so the chip visually locks to the user's
+       choice. Brand-violet for the active state, neutral grey for
+       the resting state — matches the violet user-message border. */
+    .ai-feedback {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      margin-left: 6px;
+    }
+    .ai-feedback-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 24px;
+      padding: 0 6px;
+      border-radius: var(--manut-radius-input);
+      border: 1px solid var(--affine-border-color);
+      background: transparent;
+      color: var(--affine-text-secondary-color);
+      font-size: var(--affine-font-xs);
+      line-height: 16px;
+      cursor: pointer;
+      user-select: none;
+      transition:
+        background-color var(--affine-anim-duration-base, 200ms)
+          var(--affine-anim-curve-default, ease),
+        color var(--affine-anim-duration-base, 200ms)
+          var(--affine-anim-curve-default, ease),
+        border-color var(--affine-anim-duration-base, 200ms)
+          var(--affine-anim-curve-default, ease);
+    }
+    .ai-feedback-button:hover:not([disabled]) {
+      background: var(--affine-hover-color);
+      color: var(--affine-text-primary-color);
+    }
+    .ai-feedback-button[data-active='true'] {
+      border-color: var(--manut-accent-violet-border);
+      color: var(--manut-accent-violet-fg, var(--affine-text-primary-color));
+      background: var(--manut-accent-violet-bg, var(--affine-hover-color));
+    }
+    .ai-feedback-button[disabled] {
+      cursor: default;
+      opacity: 0.55;
+    }
   `;
 
   @property({ attribute: false })
@@ -133,6 +182,14 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
   @property({ attribute: false })
   accessor onOpenDoc!: (docId: string, sessionId?: string) => void;
 
+  // Manut M2 E2.4 — local state for the 👍/👎 feedback chips. Once the
+  // user picks a rating we keep both buttons rendered (so they can flip
+  // their mind without re-firing the request needlessly) but lock them
+  // visually. `null` = nothing chosen yet; `pending` = mutation in
+  // flight; `positive`/`negative` = settled.
+  @state()
+  accessor feedbackRating: 'positive' | 'negative' | 'pending' | null = null;
+
   get state() {
     const { isLast, status } = this;
     return isLast
@@ -168,8 +225,128 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
         ? this.renderStreamObjects(streamObjects)
         : this.renderRichText(content)}
       ${shouldRenderError ? AIChatErrorRenderer(error, host) : nothing}
-      ${this.renderWriteChip()} ${this.renderEditorActions()}
+      ${this.renderWriteChip()} ${this.renderFeedbackChips()}
+      ${this.renderEditorActions()}
     `;
+  }
+
+  // Manut M2 E2.4 — render the 👍/👎 feedback chip pair below each
+  // settled assistant message. Clicking fires rateMessage(messageId,
+  // rating); the server persists an OBSERVATION memory which the
+  // weekly distill cron summarises into the workspace PLAYBOOK. We
+  // only render once the message has settled (status idle/success)
+  // and only when we have a real messageId — streaming half-messages
+  // and error states get no chip.
+  private renderFeedbackChips() {
+    const { item, status, isLast } = this;
+    if (!isChatMessage(item) || item.role !== 'assistant') return nothing;
+    if (!item.id) return nothing;
+    // Skip rendering while the message is still streaming. We allow
+    // 'idle', 'success', and any non-last (i.e., historical) status —
+    // historical messages always get the chip so users can backfill
+    // ratings on prior turns.
+    if (isLast && status !== 'success' && status !== 'idle') {
+      return nothing;
+    }
+    const settled =
+      this.feedbackRating === 'positive' || this.feedbackRating === 'negative';
+    const isPending = this.feedbackRating === 'pending';
+    const ariaLabelUp = I18n.t('com.affine.ai.feedback.thumbs-up') as string;
+    const ariaLabelDown = I18n.t(
+      'com.affine.ai.feedback.thumbs-down'
+    ) as string;
+    // No backticks inside any css/html template literal — comments and
+    // string content stay plain to avoid the v1.9.0 prod incident where
+    // a stray backtick terminated the template silently.
+    return html`<div
+      class="ai-feedback"
+      data-rating=${this.feedbackRating ?? 'none'}
+      data-testid="ai-feedback-chips"
+    >
+      <button
+        type="button"
+        class="ai-feedback-button"
+        data-active=${this.feedbackRating === 'positive'}
+        data-rating="positive"
+        data-testid="ai-feedback-thumbs-up"
+        ?disabled=${isPending}
+        aria-label=${ariaLabelUp || 'Thumbs up'}
+        title=${ariaLabelUp || 'Thumbs up'}
+        @click=${() => this.handleFeedback('positive')}
+      >
+        ${settled && this.feedbackRating === 'positive' ? '👍 ✓' : '👍'}
+      </button>
+      <button
+        type="button"
+        class="ai-feedback-button"
+        data-active=${this.feedbackRating === 'negative'}
+        data-rating="negative"
+        data-testid="ai-feedback-thumbs-down"
+        ?disabled=${isPending}
+        aria-label=${ariaLabelDown || 'Thumbs down'}
+        title=${ariaLabelDown || 'Thumbs down'}
+        @click=${() => this.handleFeedback('negative')}
+      >
+        ${settled && this.feedbackRating === 'negative' ? '👎 ✓' : '👎'}
+      </button>
+    </div>`;
+  }
+
+  /**
+   * Fire the rateMessage mutation. We POST to /graphql directly
+   * (rather than via CopilotClient) so the Lit component doesn't need
+   * a graphqlService dependency — the chat panel renders inside the
+   * editor sandbox and threading DI through is more wiring than the
+   * benefit. AFFiNE's GraphQL endpoint is `/graphql` (NOT
+   * `/api/graphql`) — see CLAUDE.md §6.
+   *
+   * Same-origin fetch with `credentials: 'include'` carries the auth
+   * cookie. Failures degrade silently: we revert the visual state to
+   * `null` so the user can retry. No toast — the chip itself is the
+   * confirmation surface.
+   */
+  private async handleFeedback(rating: 'positive' | 'negative') {
+    if (this.feedbackRating === 'pending' || this.feedbackRating === rating) {
+      return;
+    }
+    if (!isChatMessage(this.item) || !this.item.id) {
+      return;
+    }
+    const messageId = this.item.id;
+    this.feedbackRating = 'pending';
+    try {
+      const response = await fetch('/graphql', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          operationName: 'rateMessage',
+          query:
+            'mutation rateMessage($messageId: String!, $rating: String!) {\n' +
+            '  rateMessage(messageId: $messageId, rating: $rating)\n' +
+            '}',
+          variables: { messageId, rating },
+        }),
+      });
+      if (!response.ok) {
+        throw new Error('rate-message-network-error');
+      }
+      const json = (await response.json()) as {
+        data?: { rateMessage?: boolean };
+        errors?: Array<{ message: string }>;
+      };
+      if (json.errors?.length || json.data?.rateMessage !== true) {
+        throw new Error('rate-message-rejected');
+      }
+      this.feedbackRating = rating;
+    } catch {
+      // Revert so the user can retry. We deliberately don't surface
+      // an error toast — this is a low-stakes interaction and the
+      // unflipped chip is itself the indicator that nothing landed.
+      this.feedbackRating = null;
+    }
   }
 
   // Knowledge-graph activation pulses: the optimistic frontend emit

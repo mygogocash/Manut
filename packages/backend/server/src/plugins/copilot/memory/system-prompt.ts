@@ -1,4 +1,4 @@
-import type { RetrievedMemory } from './types';
+import type { MemoryKind, RetrievedMemory } from './types';
 
 /**
  * Manut Wave 4 (M5b) — Format retrieved memories for system-prompt injection.
@@ -26,12 +26,50 @@ import type { RetrievedMemory } from './types';
  *
  * Pure / side-effect-free / no DI — exposed as a stand-alone function so
  * tests can hit it without booting a NestJS module.
+ *
+ * Manut M2 E2.4 — ordering contract: PLAYBOOK > FACT > DECISION >
+ * OBSERVATION. The distill cron writes a workspace-scoped PLAYBOOK from
+ * the past week's feedback; the chat resolver fetches it independently
+ * and passes it via `latestPlaybook` so it ALWAYS appears at the top of
+ * the memory blob, regardless of kNN ranking. The other memories then
+ * follow in the same priority order, so the LLM reads the PLAYBOOK
+ * first and uses everything else as supporting detail.
  */
-export function formatMemoriesForPrompt(memories: RetrievedMemory[]): string {
-  if (!memories || memories.length === 0) {
+const KIND_PRIORITY: Record<MemoryKind, number> = {
+  PLAYBOOK: 0,
+  FACT: 1,
+  DECISION: 2,
+  OBSERVATION: 3,
+};
+
+export function formatMemoriesForPrompt(
+  memories: RetrievedMemory[],
+  // Manut M2 E2.4 — the workspace's most-recent PLAYBOOK (output of the
+  // weekly distill cron). When provided, it is rendered FIRST and the
+  // same row is removed from `memories` if it appeared via kNN so we
+  // don't double-render. When omitted/null, behaviour is unchanged from
+  // the M5b release.
+  latestPlaybook?: RetrievedMemory | null
+): string {
+  const ordered: RetrievedMemory[] = [];
+  const seenIds = new Set<string>();
+  if (latestPlaybook && latestPlaybook.content?.trim()) {
+    ordered.push(latestPlaybook);
+    seenIds.add(latestPlaybook.id);
+  }
+  if (memories && memories.length > 0) {
+    // Stable-sort by kind priority. Array.prototype.sort is stable in
+    // V8/Node 12+, so equal-priority items keep their incoming order
+    // (which is kNN-distance ascending — see retrieve.service.ts).
+    const sorted = [...memories]
+      .filter(m => !seenIds.has(m.id))
+      .sort((a, b) => KIND_PRIORITY[a.kind] - KIND_PRIORITY[b.kind]);
+    ordered.push(...sorted);
+  }
+  if (ordered.length === 0) {
     return '';
   }
-  const blocks = memories.map(m => formatBlock(m)).filter(Boolean);
+  const blocks = ordered.map(m => formatBlock(m)).filter(Boolean);
   if (blocks.length === 0) {
     return '';
   }
