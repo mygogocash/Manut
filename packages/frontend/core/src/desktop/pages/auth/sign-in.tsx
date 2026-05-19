@@ -24,7 +24,6 @@ export const SignIn = ({
   const [searchParams] = useSearchParams();
   const redirectUrl = redirectUrlFromProps ?? searchParams.get('redirect_uri');
 
-  const server = searchParams.get('server') ?? undefined;
   const error = searchParams.get('error');
 
   useEffect(() => {
@@ -60,16 +59,13 @@ export const SignIn = ({
     [handleClose, navigate, redirectUrl]
   );
 
-  const initStep = server ? 'addSelfhosted' : 'signIn';
-
   return (
     <SignInPageContainer>
       <div style={{ maxWidth: '400px', width: '100%', zIndex: 1 }}>
         <SignInPanel
           onSkip={handleClose}
           onAuthenticated={handleAuthenticated}
-          initStep={initStep}
-          server={server}
+          initStep="signIn"
         />
       </div>
     </SignInPageContainer>

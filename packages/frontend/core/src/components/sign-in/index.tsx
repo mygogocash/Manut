@@ -3,16 +3,11 @@ import type { AuthSessionStatus } from '@affine/core/modules/cloud/entities/sess
 import { FrameworkScope, useService } from '@toeverything/infra';
 import { useState } from 'react';
 
-import { AddSelfhostedStep } from './add-selfhosted';
 import { SignInStep } from './sign-in';
 import { SignInWithEmailStep } from './sign-in-with-email';
 import { SignInWithPasswordStep } from './sign-in-with-password';
 
-export type SignInStep =
-  | 'signIn'
-  | 'signInWithPassword'
-  | 'signInWithEmail'
-  | 'addSelfhosted';
+export type SignInStep = 'signIn' | 'signInWithPassword' | 'signInWithEmail';
 
 export interface SignInState {
   step: SignInStep;
@@ -23,23 +18,21 @@ export interface SignInState {
   redirectUrl?: string;
 }
 
+interface SignInPanelProps {
+  onAuthenticated?: (status: AuthSessionStatus) => void;
+  onSkip: () => void;
+  server?: string;
+  initStep?: SignInStep | undefined;
+}
+
 export const SignInPanel = ({
   onSkip,
   server: initialServerBaseUrl,
   initStep,
   onAuthenticated,
-}: {
-  onAuthenticated?: (status: AuthSessionStatus) => void;
-  onSkip: () => void;
-  server?: string;
-  initStep?: SignInStep | undefined;
-}) => {
+}: SignInPanelProps) => {
   const [state, setState] = useState<SignInState>({
-    step: initStep
-      ? initStep
-      : initialServerBaseUrl
-        ? 'addSelfhosted'
-        : 'signIn',
+    step: initStep ?? 'signIn',
     initialServerBaseUrl: initialServerBaseUrl,
   });
 
@@ -69,8 +62,6 @@ export const SignInPanel = ({
           changeState={setState}
           onAuthenticated={onAuthenticated}
         />
-      ) : step === 'addSelfhosted' ? (
-        <AddSelfhostedStep state={state} changeState={setState} />
       ) : null}
     </FrameworkScope>
   );
