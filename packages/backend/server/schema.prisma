@@ -602,6 +602,15 @@ model AiSession {
   // task / goal ancestry context into its system prompt. SetNull on task
   // delete so session history survives task removal.
   taskId          String?   @map("task_id") @db.VarChar
+  // Manut Wave 6 E2.5: when set, the floating chat tab locks its context
+  // to this doc and ignores nav-driven doc swaps. Null = context follows
+  // current page (existing behavior). Distinct from `docId` (which is the
+  // original session doc binding); `pinnedDocId` is a user-controlled
+  // "this tab is sticky" flag surfaced as a pin chip in the floating
+  // panel. No FK constraint — soft reference so doc deletes don't cascade
+  // into chat history. Idempotent migration:
+  // 20260520020000_add_pinned_doc_id_to_chat_histories.
+  pinnedDocId     String?   @map("pinned_doc_id") @db.VarChar
 
   user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   prompt          AiPrompt           @relation(fields: [promptName], references: [name], onDelete: Cascade)

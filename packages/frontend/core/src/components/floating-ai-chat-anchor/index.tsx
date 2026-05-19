@@ -36,8 +36,10 @@ import { CloseIcon } from '@blocksuite/icons/rc';
 import { useFramework, useLiveData, useService } from '@toeverything/infra';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { ChatTabs } from './chat-tabs';
 import { QuickActionsRow } from './quick-actions-row';
 import * as styles from './styles.css';
+import { useChatTabs } from './use-chat-tabs';
 import { useCurrentDocContext } from './use-current-doc-context';
 import { useFloatingChatShortcut } from './use-floating-chat-shortcut';
 
@@ -111,13 +113,50 @@ function FloatingAiChatAnchorBody({
   );
 
   const docContext = useCurrentDocContext();
-  const activeDoc = contextDismissed ? null : docContext;
+
+  // Manut Wave 6 E2.5 — multi-tab chat. The tab strip lives at the top
+  // of the panel; each tab maps 1:1 to an existing `aiChatHistories`
+  // row. Tabs persist via `useChatTabs` (workspace-scoped GlobalState).
+  const {
+    tabs,
+    activeTabId,
+    setActiveTabId,
+    registerTab,
+    removeTab,
+    updateTab,
+  } = useChatTabs({ workspaceId });
+
+  const activeTab = useMemo(
+    () => tabs.find(t => t.id === activeTabId) ?? null,
+    [tabs, activeTabId]
+  );
+
+  // Context follows the active tab: if the tab has a pinned doc id,
+  // the chip is locked to that doc and ignores nav changes. Otherwise
+  // it falls back to the current page (existing E1.10 behavior). The
+  // user-driven `contextDismissed` still wins in the no-pin case so
+  // the "remove context" affordance keeps working.
+  const activeDoc = useMemo(() => {
+    if (activeTab?.pinnedDocId) {
+      return {
+        docId: activeTab.pinnedDocId,
+        docType: 'page' as const,
+        title: activeTab.title?.trim() || 'Pinned chat',
+      };
+    }
+    return contextDismissed ? null : docContext;
+  }, [activeTab, contextDismissed, docContext]);
 
   const [chatContent, setChatContent] = useState<AIChatContent | null>(null);
   const [isBodyProvided, setIsBodyProvided] = useState(false);
-  const [currentSession, setCurrentSession] = useState<CopilotSession | null>(
-    null
+  // Per-tab session cache. Keyed by tab/session id so swapping tabs
+  // doesn't lose the loaded conversation. The currently displayed
+  // session is `sessionMap[activeTabId]` and gets pushed into the Lit
+  // element's `session` field on every effect run.
+  const [sessionMap, setSessionMap] = useState<Record<string, CopilotSession>>(
+    {}
   );
+  const [isCreating, setIsCreating] = useState(false);
   // status is tracked so future iterations can render an in-flight indicator
   // alongside the panel header. v1 keeps the slot quiet.
   const [, setStatus] = useState<ChatStatus>('idle');
@@ -127,23 +166,133 @@ function FloatingAiChatAnchorBody({
   const [hasMessages, setHasMessages] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
+  const currentSession = activeTabId ? (sessionMap[activeTabId] ?? null) : null;
+
+  // The Lit AIChatContent's `createSession` slot still needs to point at
+  // ONE create function so the existing input wiring works. We thread
+  // it to the active tab: if a session already exists for this tab,
+  // return it; otherwise create a new chat that lives under the active
+  // tab. This keeps the v1 single-chat code path intact for users who
+  // never spawn additional tabs.
   const createSession = useCallback(
     async (options: Partial<BlockSuitePresets.AICreateSessionOptions> = {}) => {
-      if (currentSession) return currentSession;
+      // React 19 preserve-manual-memoization: read fresh state inside
+      // the callback so it isn't stale when the user opens the panel,
+      // closes it, and re-opens — the active tab may have changed.
+      const currentActive = activeTabId;
+      if (currentActive && sessionMap[currentActive]) {
+        return sessionMap[currentActive];
+      }
       const session = await client.createSessionWithHistory({
         workspaceId,
         promptName: 'Chat With AFFiNE AI' satisfies PromptKey,
         reuseLatestChat: false,
-        // Auto-attach the active doc so the AI sees its content as context.
-        // Re-attaching on every send is handled by the chat content element.
+        // Auto-attach the active doc so the AI sees its content as
+        // context. Re-attaching on every send is handled by the chat
+        // content element.
         docId: activeDoc?.docId,
+        // If the active tab is pinned, persist that on the server so a
+        // reopened panel keeps the lock. Server defaults to null when
+        // omitted.
+        ...(activeTab?.pinnedDocId
+          ? { pinnedDocId: activeTab.pinnedDocId }
+          : {}),
         ...options,
       });
-      setCurrentSession(session);
+      const newId = session.sessionId;
+      setSessionMap(prev => ({ ...prev, [newId]: session }));
+      // Auto-register / refresh the tab so future swaps can find it.
+      registerTab(
+        {
+          id: newId,
+          title: session.title ?? null,
+          pinnedDocId: activeTab?.pinnedDocId ?? null,
+        },
+        { activate: !currentActive }
+      );
       return session;
     },
-    [activeDoc?.docId, client, currentSession, workspaceId]
+    [
+      activeDoc?.docId,
+      activeTab?.pinnedDocId,
+      activeTabId,
+      client,
+      registerTab,
+      sessionMap,
+      workspaceId,
+    ]
   );
+
+  // Tab-strip handlers ------------------------------------------------------
+  // Wrap the async create in a sync callback so the JSX prop expects
+  // `() => void` (per oxlint typescript-eslint/no-misused-promises).
+  // Errors flow through `client.createSessionWithHistory` -> error
+  // boundary in the AIProvider login path; the `.catch` here is a
+  // safety net for the lint rule + ensures the spinner clears even if
+  // the promise rejects (we already clear in `finally`, but oxlint
+  // requires a terminating catch).
+  const handleCreateTab = useCallback(() => {
+    if (isCreating) return;
+    setIsCreating(true);
+    (async () => {
+      try {
+        const session = await client.createSessionWithHistory({
+          workspaceId,
+          promptName: 'Chat With AFFiNE AI' satisfies PromptKey,
+          reuseLatestChat: false,
+          docId: docContext?.docId,
+        });
+        setSessionMap(prev => ({ ...prev, [session.sessionId]: session }));
+        registerTab(
+          {
+            id: session.sessionId,
+            title: session.title ?? null,
+            pinnedDocId: null,
+          },
+          { activate: true }
+        );
+      } finally {
+        setIsCreating(false);
+      }
+    })().catch(() => {
+      // swallowed — the underlying client already routes auth errors
+      // through `resolveError` (see CopilotClient.createSessionWithHistory).
+    });
+  }, [client, docContext?.docId, isCreating, registerTab, workspaceId]);
+
+  const handleSelectTab = useCallback(
+    (id: string) => {
+      setActiveTabId(id);
+    },
+    [setActiveTabId]
+  );
+
+  const handleCloseTab = useCallback(
+    (id: string) => {
+      removeTab(id);
+      setSessionMap(prev => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    },
+    [removeTab]
+  );
+
+  // Backend's `generateTitle` job updates `session.title` asynchronously
+  // after the first reply lands. Mirror that back into the tab strip so
+  // the user sees the chat's title rather than "New chat" forever.
+  useEffect(() => {
+    if (!activeTabId) return;
+    const session = sessionMap[activeTabId];
+    if (!session) return;
+    const nextTitle = session.title ?? null;
+    const tabSnapshot = tabs.find(t => t.id === activeTabId);
+    if (tabSnapshot && tabSnapshot.title !== nextTitle) {
+      updateTab(activeTabId, { title: nextTitle });
+    }
+  }, [activeTabId, sessionMap, tabs, updateTab]);
 
   const onContextChange = useCallback((context: Partial<ChatContextValue>) => {
     setStatus(context.status ?? 'idle');
@@ -270,6 +419,21 @@ function FloatingAiChatAnchorBody({
           <CloseIcon width={16} height={16} />
         </button>
       </div>
+
+      {/* Manut Wave 6 E2.5 — multi-tab strip. Mounts only when at least
+          one tab is registered so the panel keeps its slim look on first
+          open until the user (or the createSession effect) registers
+          the initial tab. */}
+      {tabs.length > 0 ? (
+        <ChatTabs
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onSelect={handleSelectTab}
+          onClose={handleCloseTab}
+          onCreate={handleCreateTab}
+          isCreating={isCreating}
+        />
+      ) : null}
 
       {activeDoc ? (
         <div className={styles.contextChipRow}>

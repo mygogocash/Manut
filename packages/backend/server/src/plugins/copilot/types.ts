@@ -104,6 +104,10 @@ export const ChatHistorySchema = z
     // ChatSessionService.get() reads this off the in-memory state so it
     // does not need to re-query AiSession before recording a turn.
     agentId: z.string().nullable(),
+    // Manut Wave 6 E2.5: per-tab pin in the floating multi-chat panel.
+    // When non-null, the tab's context is locked to this doc and ignores
+    // navigation; null = context follows the current page.
+    pinnedDocId: z.string().nullable(),
 
     action: z.string().nullable(),
     model: z.string(),
@@ -132,6 +136,9 @@ export type ChatSessionOptions = Pick<
   'userId' | 'workspaceId' | 'docId' | 'promptName' | 'pinned'
 > & {
   reuseLatestChat?: boolean;
+  // Manut Wave 6 E2.5: optional starting pin for the floating-chat tab.
+  // Null/omitted = no pin (context follows nav); a doc id = lock the tab.
+  pinnedDocId?: string | null;
 };
 
 export type ChatSessionForkOptions = Pick<
