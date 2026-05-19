@@ -402,6 +402,15 @@ export class AIChatInput extends SignalWatcher(
   @property({ attribute: false })
   accessor portalContainer: HTMLElement | null = null;
 
+  // Floating-mode flag — true when this input is hosted inside the
+  // FloatingAiChatAnchor slide-in panel (Epic E1.4). Defaults to false to
+  // preserve every existing consumer (the right-sidebar chat tab, the
+  // dedicated /chat page, the AI block peek view, etc.). Downstream styling
+  // and behavioural tweaks (compact padding, hide pin button, etc.) can
+  // branch on this prop without touching the rest of the component tree.
+  @property({ type: Boolean, attribute: 'floating-mode', reflect: true })
+  accessor floatingMode: boolean = false;
+
   private get _isReasoningActive() {
     return !!this.reasoningConfig.enabled.value;
   }

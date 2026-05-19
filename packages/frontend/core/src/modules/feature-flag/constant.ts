@@ -313,6 +313,17 @@ export const AFFINE_FLAGS = {
     configurable: true,
     defaultState: false,
   },
+  // M-floating-chat / Epic E1.4 — ⌘J slide-in chat surface. Hidden behind a
+  // flag so the v1 rollout can be wave-gated; flip to defaultState: true
+  // once the wiring is validated against the existing chat panel.
+  floating_ai_chat: {
+    category: 'affine',
+    displayName: 'Enable Floating AI Chat (⌘J)',
+    description:
+      'Adds a bottom-right floating button and ⌘J shortcut that slides in the AI chat panel from the right edge. Reuses the same chat input + messages as the dedicated chat surface; auto-injects the current doc as context.',
+    configurable: true,
+    defaultState: false,
+  },
 } satisfies { [key in string]: FlagInfo };
 
 // oxlint-disable-next-line no-redeclare

@@ -1,5 +1,6 @@
 import { uniReactRoot } from '@affine/component';
 import { AiLoginRequiredModal } from '@affine/core/components/affine/auth/ai-login-required';
+import { FloatingAiChatAnchor } from '@affine/core/components/floating-ai-chat-anchor';
 import { useResponsiveSidebar } from '@affine/core/components/hooks/use-responsive-siedebar';
 import { SWRConfigProvider } from '@affine/core/components/providers/swr-config-provider';
 import { WorkspaceSideEffects } from '@affine/core/components/providers/workspace-side-effects';
@@ -37,6 +38,11 @@ export const WorkspaceLayout = function WorkspaceLayout({
       {/* should show after workspace loaded */}
       {/* FIXME: wait for better ai, <WorkspaceAIOnboarding /> */}
       <AIIsland />
+      {/* Epic E1.4 — slide-in chat surface, gated by `floating_ai_chat` flag.
+          Component renders null when the flag is off, so unconditional
+          mounting here is safe and keeps the workbench shell the single
+          mount point for every /workspace/* route. */}
+      <FloatingAiChatAnchor />
       <FirstRunExperience />
       <KeyboardShortcutsOverlay />
       <uniReactRoot.Root />
