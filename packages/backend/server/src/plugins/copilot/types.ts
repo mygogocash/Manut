@@ -27,21 +27,26 @@ const ToolsConfigSchema = z.preprocess(
     }
     return val || {};
   },
-  // ε-AI-INTEL v1.10: extended with write-tool flags so chat sessions can
-  // opt into AI making changes (editingDocs/composingDocs/editingDataViews).
-  // Each flag corresponds to a group of backend tools — see
-  // `getTools()` in ./utils.ts for the actual mapping.
+  // ε-AI-INTEL v1.10: the editing-flag map (search/read/edit groups)
+  // remains the primary toolsConfig surface — each flag opts into a
+  // backend tool group via `getTools()` in ./utils.ts.
+  //
+  // ε-AI-INTEL B8 / Epic E1.6: the optional `enabledTools` field
+  // carries an explicit per-tool allowlist. When present, `getTools()`
+  // filters the prompt's declared tool set by membership AFTER the
+  // legacy flag mapping has been applied. Stored on the same flat
+  // object as the flags so old clients keep posting
+  // `{searchWorkspace: true, ...}` without any envelope change.
   z
-    .record(
-      z.enum([
-        'searchWorkspace',
-        'readingDocs',
-        'editingDocs',
-        'composingDocs',
-        'editingDataViews',
-      ]),
-      z.boolean()
-    )
+    .object({
+      searchWorkspace: z.boolean().optional(),
+      readingDocs: z.boolean().optional(),
+      editingDocs: z.boolean().optional(),
+      composingDocs: z.boolean().optional(),
+      editingDataViews: z.boolean().optional(),
+      enabledTools: z.array(z.string()).optional(),
+    })
+    .passthrough()
     .default({})
 );
 

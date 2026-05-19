@@ -33,6 +33,16 @@ import { computed } from '@preact/signals-core';
 import { css, html } from 'lit';
 import { property } from 'lit/decorators.js';
 
+import {
+  type AIToolName,
+  ALL_TOOLS,
+  type ChatMode,
+  DEFAULT_MODE,
+  defaultEnabledTools,
+  MODE_TOOL_SET,
+  TOOL_LABELS,
+} from '../../utils/modes';
+
 const modelSubMenuMiddleware = [
   autoPlacement({ allowedPlacements: ['right-start', 'left-start'] }),
   offset({ mainAxis: 4, crossAxis: 0 }),
@@ -272,6 +282,55 @@ export class ChatInputPreference extends SignalWatcher(
     });
   });
 
+  // ε-AI-INTEL B8 / Epic E1.6: workspace-scoped ChatMode + enabledTools.
+  // Reads + writes go through AIToolsConfigService.get/setChatMode and
+  // .get/setEnabledTools (which persist to GlobalStateService under
+  // chatMode.<workspaceId> + chatEnabledTools.<workspaceId>). The
+  // current session's workspaceId is the scope key; popup re-renders
+  // pick up changes via the SignalWatcher mixin.
+  private get _workspaceId(): string | undefined {
+    return this.session?.workspaceId;
+  }
+
+  private _getCurrentChatMode(): ChatMode {
+    const wsId = this._workspaceId;
+    if (!wsId) return DEFAULT_MODE;
+    const stored = this.toolsConfigService.getChatMode(wsId);
+    return stored ?? DEFAULT_MODE;
+  }
+
+  private _getCurrentEnabledTools(): readonly AIToolName[] {
+    const wsId = this._workspaceId;
+    if (!wsId) return defaultEnabledTools(DEFAULT_MODE);
+    const stored = this.toolsConfigService.getEnabledTools(wsId);
+    if (stored) return stored as readonly AIToolName[];
+    return defaultEnabledTools(this._getCurrentChatMode());
+  }
+
+  private _setChatMode(mode: ChatMode) {
+    const wsId = this._workspaceId;
+    if (!wsId) return;
+    this.toolsConfigService.setChatMode(wsId, mode);
+    // Picking a mode resets enabledTools to that mode's defaults.
+    const tools = [...MODE_TOOL_SET[mode]];
+    this.toolsConfigService.setEnabledTools(wsId, tools);
+    // Echo to the workspace-agnostic AIToolsConfig so the chat request
+    // payload (which reads `config.value`) carries the same array. The
+    // legacy editing flags are written by `setMode` in openPreference
+    // — this only adds the new `enabledTools` field.
+    this.toolsConfigService.setConfig({ enabledTools: tools });
+  }
+
+  private _toggleTool(tool: AIToolName, enabled: boolean) {
+    const wsId = this._workspaceId;
+    if (!wsId) return;
+    const current = this._getCurrentEnabledTools();
+    const without = current.filter(t => t !== tool);
+    const next = enabled ? [...without, tool] : without;
+    this.toolsConfigService.setEnabledTools(wsId, next);
+    this.toolsConfigService.setConfig({ enabledTools: next });
+  }
+
   openPreference(e: Event) {
     const element = e.currentTarget;
     if (!(element instanceof HTMLElement)) return;
@@ -281,9 +340,20 @@ export class ChatInputPreference extends SignalWatcher(
 
     // ε-AI-INTEL v1.10: Mode picker. Sits above the Model group so the
     // user picks "what AI is allowed to do" before "which model does it".
+    // ε-AI-INTEL B8 / Epic E1.6: in addition to the legacy editing-flag
+    // toggle (which keeps backwards compat with the v1.10 toolsConfig
+    // surface), each mode pick now ALSO writes the new per-workspace
+    // ChatMode + enabledTools state so the Advanced submenu's per-tool
+    // checkboxes start from the right baseline.
     const activeMode = this.currentMode.value;
+    const PERMISSION_TO_CHAT_MODE: Record<ChatPermissionMode, ChatMode> = {
+      'read-only': 'read',
+      'edit-doc': 'edit',
+      'full-agent': 'agent',
+    };
     const setMode = (mode: ChatPermissionMode) => {
       this.toolsConfigService.setConfig(CHAT_PERMISSION_MODE_FLAGS[mode]);
+      this._setChatMode(PERMISSION_TO_CHAT_MODE[mode]);
     };
     const modeOptions: Array<{
       mode: ChatPermissionMode;
@@ -332,6 +402,40 @@ export class ChatInputPreference extends SignalWatcher(
               select: () => setMode(option.mode),
             });
           }),
+        },
+      })
+    );
+
+    // ε-AI-INTEL B8 / Epic E1.6: "Advanced" submenu listing per-tool
+    // checkboxes. The initial checked state comes from the mode's
+    // default tool set (via MODE_TOOL_SET) unless the user has stored
+    // an explicit override in chatEnabledTools.<workspaceId>. Toggling
+    // an individual checkbox only updates enabledTools — the mode pick
+    // above stays whatever it was. The toggle reads fresh state on
+    // every click so the menu never drifts from the persisted store.
+    const enabledTools = this._getCurrentEnabledTools();
+    const enabledToolsSet = new Set<AIToolName>(enabledTools);
+    const advancedItems = ALL_TOOLS.map(tool =>
+      menu.toggleSwitch({
+        name: TOOL_LABELS[tool] ?? tool,
+        prefix: EditIcon(),
+        on: enabledToolsSet.has(tool),
+        onChange: (value: boolean) => this._toggleTool(tool, value),
+        class: { 'preference-action': true },
+      })
+    );
+    modeItems.push(
+      menu.subMenu({
+        name: 'Advanced',
+        prefix: EditIcon(),
+        middleware: modelSubMenuMiddleware,
+        postfix: html`
+          <span class="ai-active-model-name">
+            ${enabledToolsSet.size}/${ALL_TOOLS.length}
+          </span>
+        `,
+        options: {
+          items: advancedItems,
         },
       })
     );
