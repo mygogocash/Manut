@@ -1,0 +1,11 @@
+query myMemories($workspaceId: String!) {
+  myMemories(workspaceId: $workspaceId) {
+    id
+    content
+    kind
+    scope
+    pinned
+    createdAt
+    workspaceId
+  }
+}

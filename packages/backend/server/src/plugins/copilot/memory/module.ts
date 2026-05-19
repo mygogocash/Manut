@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { MemoryEmbedService } from './embed.service';
 import { MemoryIngestService } from './ingest.service';
+import { MemoryResolver } from './memory.resolver';
 import { MemoryRetrieveService } from './retrieve.service';
 
 /**
@@ -25,7 +26,14 @@ import { MemoryRetrieveService } from './retrieve.service';
  * be runtime imports (no `import type`). See each service file.
  */
 @Module({
-  providers: [MemoryEmbedService, MemoryIngestService, MemoryRetrieveService],
+  providers: [
+    MemoryEmbedService,
+    MemoryIngestService,
+    MemoryRetrieveService,
+    // M2 — E2.2 — Settings → Memory panel GraphQL surface.
+    // Resolver only — no new service deps; reads/writes via PrismaClient.
+    MemoryResolver,
+  ],
   exports: [MemoryEmbedService, MemoryIngestService, MemoryRetrieveService],
 })
 export class CopilotMemoryModule {}
