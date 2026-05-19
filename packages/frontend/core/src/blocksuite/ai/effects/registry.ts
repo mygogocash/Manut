@@ -86,6 +86,7 @@ export const appEffectElementTags = [
   'ai-history-clear',
   'chat-panel-add-popover',
   'chat-input-preference',
+  'chat-input-format-selector',
   'chat-panel-candidates-popover',
   'chat-panel-doc-chip',
   'chat-panel-file-chip',

@@ -5,7 +5,9 @@ import {
   type ChatContextValue,
 } from '@affine/core/blocksuite/ai/components/ai-chat-content';
 import type { ChatStatus } from '@affine/core/blocksuite/ai/components/ai-chat-messages';
+import { AIProvider } from '@affine/core/blocksuite/ai/provider';
 import type { PromptKey } from '@affine/core/blocksuite/ai/provider/prompt';
+import type { QuickAction } from '@affine/core/blocksuite/ai/quick-actions';
 import { getViewManager } from '@affine/core/blocksuite/manager/view';
 import { NotificationServiceImpl } from '@affine/core/blocksuite/view-extensions/editor-view/notification-service';
 import { useAIChatConfig } from '@affine/core/components/hooks/affine/use-ai-chat-config';
@@ -34,6 +36,7 @@ import { CloseIcon } from '@blocksuite/icons/rc';
 import { useFramework, useLiveData, useService } from '@toeverything/infra';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { QuickActionsRow } from './quick-actions-row';
 import * as styles from './styles.css';
 import { useCurrentDocContext } from './use-current-doc-context';
 import { useFloatingChatShortcut } from './use-floating-chat-shortcut';
@@ -118,6 +121,10 @@ function FloatingAiChatAnchorBody({
   // status is tracked so future iterations can render an in-flight indicator
   // alongside the panel header. v1 keeps the slot quiet.
   const [, setStatus] = useState<ChatStatus>('idle');
+  // Epic E1.10 — track message count so the empty-state quick-actions
+  // strip can hide as soon as the user (or AI) adds a message. Updated
+  // from the Lit element's onContextChange callback below.
+  const [hasMessages, setHasMessages] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   const createSession = useCallback(
@@ -140,6 +147,13 @@ function FloatingAiChatAnchorBody({
 
   const onContextChange = useCallback((context: Partial<ChatContextValue>) => {
     setStatus(context.status ?? 'idle');
+    // Mirror the messages-length signal so QuickActionsRow can hide
+    // once the chat actually starts. `messages` only appears on the
+    // partial when AIChatContent updates it — guard against missing
+    // values so unrelated status updates don't reset our flag.
+    if (context.messages !== undefined) {
+      setHasMessages(context.messages.length > 0);
+    }
   }, []);
 
   const onChatContainerRef = useCallback((node: HTMLDivElement | null) => {
@@ -147,6 +161,39 @@ function FloatingAiChatAnchorBody({
     chatContainerRef.current = node;
     setIsBodyProvided(true);
   }, []);
+
+  // Epic E1.10 — clicking a quick-action chip pushes the prompt into
+  // the existing AIChatInput via the AIProvider slot mechanism. The
+  // input's connectedCallback subscribes to requestSendWithChat and
+  // auto-submits when the host matches, so we get a single round-trip
+  // from chip click to in-flight chat with no manual textarea poking.
+  const handleQuickActionSelect = useCallback(
+    (action: QuickAction) => {
+      const host = mockStd?.host;
+      if (!host) {
+        // Fall back to filling the textarea directly when there's no
+        // editor host (shouldn't happen in the floating panel — the
+        // workspace always boots with at least one doc — but stay
+        // defensive in case the order-of-operations changes).
+        const textarea =
+          chatContainerRef.current?.querySelector<HTMLTextAreaElement>(
+            '[data-testid="chat-panel-input"]'
+          );
+        if (!textarea) return;
+        textarea.value = action.prompt;
+        textarea.focus();
+        textarea.dispatchEvent(
+          new Event('input', { bubbles: true, composed: true })
+        );
+        return;
+      }
+      AIProvider.slots.requestSendWithChat.next({
+        host,
+        input: action.prompt,
+      });
+    },
+    [mockStd]
+  );
 
   // Configure / append the Lit AIChatContent element. Same wire-up as the
   // /chat page, with `floatingMode` flipped so downstream styling can react.
@@ -244,6 +291,10 @@ function FloatingAiChatAnchorBody({
             </button>
           </span>
         </div>
+      ) : null}
+
+      {!hasMessages && isBodyProvided ? (
+        <QuickActionsRow onSelect={handleQuickActionSelect} />
       ) : null}
 
       <div className={styles.panelBody} ref={onChatContainerRef} />
