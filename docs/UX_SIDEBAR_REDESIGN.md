@@ -59,7 +59,72 @@ Notion's mental model (reference: screenshots in the user's session 2026-05-19):
 | 💬 **Chat** | AI conversation list + agents + "New chat" | Intelligence page (currently a content-area route, no sidebar entry) |
 | 📅 **Meetings** | Upcoming / Today / Past 30d / Calendars | Calendar plugin (buried in Settings → Integrations) |
 | 📥 **Inbox** | Notifications, invites, comments, mentions | Notifications button |
-| 🔍 **Search** | Global search input + recents + suggested | Search button |
+| 🔍 **Search** | **Opens modal — not a sidebar body view.** Reuses Cmd+K. See "Search experience spec" below. | Search button + existing Cmd+K |
+
+### Search experience spec (Notion-style modal)
+
+User confirmed 2026-05-19 (with reference screenshot): Search should behave like Notion's Cmd+K modal — a focused overlay, not an inline sidebar view. Manut already has `CMDKQuickSearchService`; this spec is how we level it up to match.
+
+```
+                ┌─────────────────────────────────────────────────────────┐
+                │  🔍  Search or ask a question in GoGoCash...    ▢  ▼   │
+                ├─────────────────────────────────────────────────────────┤
+                │  [Aa Title only]  [👤 Created by ▾]  [📂 In ▾]  [+ Filter]│
+                ├──────────────────────────────────┬──────────────────────┤
+                │  Today                           │                      │
+                │  ▸ 📄 @Today 9:39 PM        ↗   │  @Today 9:39 PM      │
+                │  ▸ 📄 @Today 9:39 PM             │  ──────────────      │
+                │  ▸ 📊 Home views                 │  🎙️ Meeting @Today  │
+                │                                  │                      │
+                │  Past 30 days                    │  (preview body)      │
+                │  ▸ 📄 @May 3, 2026 8:18 AM       │                      │
+                │  ▸ 📋 Meeting Notes              │                      │
+                │     — GoGoCash HQ                │                      │
+                │  ▸ 📊 Projects — GoGoCash HQ     │                      │
+                ├──────────────────────────────────┴──────────────────────┤
+                │  ⌘↵ Open in new tab                                ⚙    │
+                └─────────────────────────────────────────────────────────┘
+```
+
+**Required features (P0):**
+
+1. **Input bar** with magnifying-glass icon + placeholder `Search or ask a question in <Workspace>...`
+2. **Filter chips row** directly under input:
+   - `Aa Title only` — restrict match to title field
+   - `👤 Created by ▾` — dropdown of workspace members
+   - `📂 In ▾` — restrict to folder/tag/collection
+   - `+ Filter` — adds more filters from a menu (type, tags, date range)
+3. **Grouped results by recency**: `Today`, `Yesterday`, `Past 7 days`, `Past 30 days`, `Older`
+4. **Result row anatomy**:
+   - Icon (page / database / kanban / meeting / etc.)
+   - Title
+   - Em-dash + parent context: `Meeting Notes — GoGoCash HQ`
+   - Hover state shows "↗ Open in new tab" affordance
+5. **Right-side preview pane** (split view):
+   - Renders title + lightweight content preview of the focused result
+   - Updates on arrow-key navigation through results
+   - Toggle the preview pane open/closed (the ▢ icon top-right)
+6. **Keyboard**:
+   - `↑ ↓` navigate results
+   - `↵` open in current tab
+   - `⌘↵` open in new tab (footer hint visible)
+   - `Esc` close modal
+
+**Polish (P1):**
+
+- AI-assisted search: when query starts with a verb or question mark, surface a "Ask Manut AI" row at the top of results that pipes to the chat panel
+- Recent searches when input is empty
+- Suggested filters based on workspace usage patterns
+
+**What we already have:**
+
+- `CMDKQuickSearchService` in `packages/frontend/core/src/modules/quicksearch/services/cmdk.ts` is the entry point
+- It already does global doc search via the existing search index
+- Missing: the filter chips, grouped-by-recency layout, preview pane
+
+**Implementation order:**
+
+This is its own slice — independent from the tab strip. Could ship before, during, or after Phases 2–3. Suggest landing it as part of Phase 3 alongside the Search tab wiring.
 
 ### Utility footer (always visible)
 
@@ -172,7 +237,7 @@ Fill in tabs. Each tab is independently shippable.
 | **Chat** | Move chat history + agent list from Intelligence header into `SidebarChatView`. Chat panel stays in main content area when active. |
 | **Meetings** | Wire to `calendar/service.ts`. Show Today / Upcoming / Past 30d. Click → event detail in main area. |
 | **Inbox** | Wire to `NotificationService`. Unread first, then read. Mark-as-read on click. |
-| **Search** | Existing `QuickSearchInput` becomes the always-visible field. Show "Recent searches" + "Suggested" below. |
+| **Search** | Clicking the 🔍 tab opens the **Cmd+K modal** described in "Search experience spec" above — split view, filter chips, grouped results, preview pane. Not a sidebar body view. Implements the existing `CMDKQuickSearchService` with the new layout. |
 
 URL state for deep-linking: `?nav=chat|meetings|inbox|search`.
 
@@ -230,8 +295,9 @@ If green-lit, the Phase 1 PR is ~1 file (`root-app-sidebar/index.tsx`) + the CSS
 | 3 | Workspace selector placement | Above tab strip | proposed |
 | 4 | Agents section home | Under Chat tab | proposed |
 | 5 | Graph / Analytics | Cmd+K + Views dropdown (not sidebar) | proposed |
-| 6 | Feature flag name | `sidebar_tabs_v2` | proposed |
-| 7 | When to start Phase 1 | Awaiting your green-light | open |
+| 6 | Search behavior | Opens Cmd+K modal (not sidebar view), Notion-style layout | **confirmed by user 2026-05-19** |
+| 7 | Feature flag name | `sidebar_tabs_v2` | proposed |
+| 8 | When to start Phase 1 | Awaiting your green-light | open |
 
 ---
 
