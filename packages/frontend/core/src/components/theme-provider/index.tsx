@@ -18,8 +18,12 @@ function ThemeObserver() {
 }
 
 export const ThemeProvider = ({ children }: PropsWithChildren) => {
+  // Manut Gen-Z identity defaults new users to dark mode; system
+  // preference still takes over once enableSystem resolves it, and
+  // returning users keep whatever they previously chose because
+  // next-themes persists `theme` in localStorage.
   return (
-    <NextThemeProvider themes={themes} enableSystem={true}>
+    <NextThemeProvider themes={themes} defaultTheme="dark" enableSystem={true}>
       {children}
       <ThemeObserver />
     </NextThemeProvider>
