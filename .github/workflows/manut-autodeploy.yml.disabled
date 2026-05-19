@@ -1,3 +1,33 @@
+# ============================================================================
+# DISABLED — 2026-05-19
+# ============================================================================
+#
+# This workflow targets the GCE VM `affine-vm` via /srv/affine/scripts/deploy.sh.
+# Production at manut.xyz now lives on Railway (verified via x-railway-edge
+# response header). The GCE VM no longer serves traffic and this workflow has
+# been silently failing on every commit since `c1f6f3fe0` (~28 commits ago)
+# with `affine_migration exited rc=1` during sidecar canary validation.
+#
+# Worse, its red status was poisoning Railway's "Wait for CI" gate: Railway
+# saw every commit's check suite as "failed" and SKIPPED auto-deploys —
+# including PR #106's Dockerfile.railway cache-mount fix. So Manut prod was
+# stuck on the May-17 build with all M5b-M17 migrations missing.
+#
+# Disabled by renaming to .yml.disabled so GitHub Actions ignores it. Workflow
+# history is preserved; new pushes will not trigger a deploy attempt. CLAUDE.md
+# §9 documents the new architecture.
+#
+# To revive (if GCE VM is ever needed again):
+#   1. SSH the VM and diagnose what migration is failing
+#        sudo /srv/affine/scripts/deploy.sh --image-tag <tag> --rollback-on-failure
+#      (the sidecar runs `affine_migration` first; check its container logs)
+#   2. Rename this file back to manut-autodeploy.yml
+#   3. Confirm Railway's "Wait for CI" still treats it as a required check
+#      before re-enabling — otherwise its failures will block Railway again.
+#
+# Original content below this banner is unchanged for reference.
+# ============================================================================
+
 name: 🚀 Manut Auto Deploy
 run-name: "🚀 Auto Deploy #${{ github.run_number }} • ${{ github.event.workflow_run.display_title || 'manual' }} • by ${{ github.actor }}"
 

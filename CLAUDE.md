@@ -1304,6 +1304,50 @@ they're effectively dormant on this fork). Workflow filenames are
 `manut-*.yml` as of v1.11.0's consolidation; the previous
 `superflow-*.yml` paths were git-mv'd in the same release.
 
+### Current production deploy path (post-2026-05-19)
+
+**Production `manut.xyz` is served by Railway (project `b67be32f`, service
+`Manut` / `60a64cda`) in GitHub source-build mode.** Railway watches `main`,
+auto-pulls each commit, and builds with `.docker/manut/Dockerfile.railway`.
+There is no image-pull configured — the GHA workflows do not trigger the
+deploy. Railway does it natively when its "Wait for CI" check sees green.
+
+**Two GHA workflows are intentionally DISABLED** (renamed to `.yml.disabled`):
+
+- `manut-autodeploy.yml.disabled` — targeted the legacy GCE VM `affine-vm`
+  via `/srv/affine/scripts/deploy.sh`. The VM no longer serves prod and
+  the workflow had been failing on every commit since `c1f6f3fe0` with
+  `affine_migration exited rc=1` during sidecar validation.
+- `manut-railway-deploy.yml.disabled` — was built for image-pull mode that
+  Railway was never configured for. `serviceInstanceDeployV2` returned
+  "Not Authorized" on every run.
+
+Both disables happened together because their red status was poisoning
+Railway's "Wait for CI" gate — Railway treated every commit's check suite as
+failed and SKIPPED auto-deploys, including PR #106's Dockerfile cache-mount
+fix. Production was stuck on the May-17 build with all M5b-M17 migrations
+missing until the workflows were disabled. See each file's header banner for
+revival instructions.
+
+**What still runs on every push to `main`:**
+
+- `manut-ci.yml` — lint + bundle build (signal only).
+- `manut-build.yml` — builds + pushes immutable `main-<sha>-<runid>` to GAR.
+  Kept alive so rollback to GCE VM or a future image-pull Railway is one
+  rename away. Does not deploy.
+
+**Manual paths still available:**
+
+- `manut-deploy.yml` — `workflow_dispatch` to deploy any GAR tag to the GCE
+  VM (legacy). Useful if you ever want to revive the VM.
+- `manut-release.yml` — fires on `v*.*.*` tag push, builds + pushes GAR.
+- `manut-rollback.yml` — rolls the GCE VM back to its previous tag.
+
+**To force a Railway redeploy of `main`:** open the Railway dashboard,
+select the `Manut` service, go to Deployments, and click "Redeploy" on the
+desired commit. Railway's GraphQL `serviceInstanceDeployV2` won't work from
+CI in source-build mode (the misleading "Not Authorized" trap).
+
 ### Visual conventions (post-v1.12.1 CI hygiene pass)
 
 Every Manut workflow uses an emoji prefix in its display name and a
@@ -1314,7 +1358,8 @@ into each run:
 |---|---|---|
 | `manut-ci.yml` | ✅ Manut CI | `✅ CI • <ref>@<sha> • <event> • <actor>` |
 | `manut-build.yml` | 🏗️ Manut Build | `🏗️ Build • <ref>@<sha> • <event> • <actor>` |
-| `manut-autodeploy.yml` | 🚀 Manut Auto Deploy | `🚀 Auto Deploy • <sha> • from <upstream-workflow>` |
+| `manut-autodeploy.yml.disabled` | 🚀 Manut Auto Deploy (DISABLED 2026-05-19) | — |
+| `manut-railway-deploy.yml.disabled` | 🚂 Manut Railway Deploy (DISABLED 2026-05-19) | — |
 | `manut-deploy.yml` | 🎯 Manut Deploy (manual) | `🎯 Deploy <tag> • <actor>` |
 | `manut-release.yml` | 📦 Manut Release | `📦 Release <tag> • <actor>` |
 | `manut-rollback.yml` | ↩️ Manut Rollback | `↩️ Rollback to previous • <actor>` |

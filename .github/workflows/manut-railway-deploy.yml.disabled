@@ -1,3 +1,37 @@
+# ============================================================================
+# DISABLED — 2026-05-19
+# ============================================================================
+#
+# This workflow assumed Railway was configured in IMAGE-PULL mode with
+# `source.image = <gar-repo>:main`, then re-tagged GAR and called
+# serviceInstanceDeployV2 to trigger a redeploy. Reality (as of 2026-05-19,
+# verified via Dockerfile.railway comment + Railway dashboard screenshot):
+# Railway is in GITHUB SOURCE-BUILD mode — it auto-pulls from main and builds
+# with .docker/manut/Dockerfile.railway. There is no image-pull configured,
+# so serviceInstanceDeployV2 returned the misleading "Not Authorized" catch-all
+# on every run.
+#
+# This workflow being red also poisoned Railway's "Wait for CI" gate. Combined
+# with manut-autodeploy.yml's failures, every recent commit's check suite
+# showed up as "failed", so Railway SKIPPED the source-build redeploys —
+# including PR #106's Dockerfile cache-mount fix. Disabling both removes the
+# false-CI-failure noise and unblocks Railway's native auto-deploy.
+#
+# Disabled by renaming to .yml.disabled. CLAUDE.md §9 documents the new
+# architecture (Railway source-build is the canonical path).
+#
+# To revive (if you want to switch back to image-pull):
+#   1. In the Railway dashboard, set the Manut service Settings → Source from
+#      "GitHub repo" to "Docker image" and point at <gar-repo>:main.
+#   2. Verify the rolling tag exists in GAR.
+#   3. Rename this file back to manut-railway-deploy.yml.
+#   4. Workflow then re-tags the build's immutable tag as :main and calls
+#      serviceInstanceDeployV2 to roll a new container. ~2 min vs ~25 min
+#      source-build.
+#
+# Original content below this banner is unchanged for reference.
+# ============================================================================
+
 name: 🚂 Manut Railway Deploy
 run-name: '🚂 Railway Deploy • ${{ github.event.workflow_run.head_sha || github.event.inputs.image_tag }} • by ${{ github.actor }}'
 
