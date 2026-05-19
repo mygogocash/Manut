@@ -230,7 +230,8 @@ async function buildRuntimeWith(manifest: PluginManifest): Promise<{
   const db = buildFakeDb(rows);
   const hostRpc = new ManutPluginHostRpcService(db);
   const installer = new ManutPluginInstallerService(db);
-  const supervisor = new ManutPluginSupervisorService({
+  const supervisor = new ManutPluginSupervisorService();
+  supervisor.setOptionsForTesting({
     baseMs: 10,
     maxBackoffMs: 100,
     maxAttempts: 5,
