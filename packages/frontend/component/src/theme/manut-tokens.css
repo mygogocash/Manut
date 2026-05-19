@@ -14,6 +14,28 @@
  */
 :root {
   /*
+   * Gen-Z brand canvas — warm-neutral cream + ink, mirrored from
+   * manut-landing/app/globals.css. These tokens layer on top of the
+   * upstream `--affine-*` palette without replacing it; surface code
+   * that wants the new look reads `var(--manut-canvas)` / etc.
+   */
+  --manut-canvas: oklch(0.985 0.008 85);
+  --manut-canvas-elevated: oklch(0.995 0.005 85);
+  --manut-surface: oklch(1 0 0);
+  --manut-ink: oklch(0.18 0.01 260);
+  --manut-ink-soft: oklch(0.32 0.01 260);
+  --manut-line: oklch(0.88 0.01 85);
+  --manut-muted: oklch(0.95 0.008 85);
+  --manut-muted-fg: oklch(0.5 0.01 260);
+
+  /* Coral focal warm — Newton's robe (matches landing --accent). */
+  --manut-coral: oklch(0.78 0.16 25);
+  /* Teal-ink — deep cyan atmosphere. */
+  --manut-teal-ink: oklch(0.55 0.08 215);
+  /* Gold-warm — celestial / Principia gold. */
+  --manut-gold-warm: oklch(0.82 0.13 85);
+
+  /*
    * Accent colours — blue
    */
   --manut-accent-blue-fg: #1e96eb;
@@ -61,12 +83,14 @@
   --manut-surface-glass-saturate: 180%;
 
   /*
-   * Radii — single source across themes.
+   * Radii — Gen-Z 4 / 8 / 12 / 24 scale (matches manut-landing's
+   * --radius / radius-xl / radius-4xl rhythm). `sheet` keeps the
+   * larger 28px tier for full-screen editorial surfaces.
    */
   --manut-radius-chip: 4px;
   --manut-radius-input: 8px;
-  --manut-radius-card: 14px;
-  --manut-radius-modal: 20px;
+  --manut-radius-card: 12px;
+  --manut-radius-modal: 24px;
   --manut-radius-sheet: 28px;
 
   /*
@@ -86,10 +110,9 @@
   --manut-space-12: 96px;
 
   /*
-   * Display typography scale.
-   *
-   * --manut-font-display currently aliases the body font (Inter). A real
-   * variable display face is a follow-up; see fonts.css for the TODO.
+   * Display typography scale. Display surfaces (hero copy, large
+   * headers) use Instrument Serif for the Gen-Z editorial feel,
+   * mirroring manut-landing's `--font-display`.
    */
   --manut-display-1: 48px;
   --manut-display-2: 60px;
@@ -98,8 +121,27 @@
   --manut-display-5: 120px;
   --manut-display-line-height: 1.05;
   --manut-display-letter-spacing: -0.02em;
-  --manut-display-weight: 900;
-  --manut-font-display: var(--affine-font-family);
+  --manut-display-weight: 400;
+  --manut-font-display:
+    'Instrument Serif', Georgia, 'Source Serif 4', ui-serif, serif;
+
+  /*
+   * Body / UI font stack — Geist Sans first, with Inter and the
+   * upstream AFFiNE fallback chain after. Overrides the upstream
+   * `--affine-font-family` (`'Inter', 'Source Sans 3', Poppins, ...`)
+   * so the whole app picks up Geist when present, and falls back to
+   * Inter (vendored as @font-face in fonts.css) when the Google
+   * Fonts import is blocked. `font-mono` mirrors landing.
+   */
+  --manut-font-sans:
+    'Geist', 'Inter', 'Source Sans 3', Poppins, apple-system,
+    BlinkMacSystemFont, 'Helvetica Neue', Tahoma, 'PingFang SC',
+    'Microsoft Yahei', Arial, 'Hiragino Sans GB', sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --manut-font-mono:
+    'Geist Mono', 'Source Code Pro', 'IBM Plex Mono', 'Space Mono',
+    ui-monospace, SFMono-Regular, Menlo, monospace;
+  --affine-font-family: var(--manut-font-sans);
 
   /*
    * Motion. Sits alongside the upstream `--affine-anim-*` system; use these
@@ -111,6 +153,23 @@
 }
 
 :root[data-theme='dark'] {
+  /*
+   * Gen-Z brand canvas — dark ink + paper, mirrored from
+   * manut-landing/app/globals.css `.dark` block.
+   */
+  --manut-canvas: oklch(0.16 0.008 270);
+  --manut-canvas-elevated: oklch(0.23 0.008 270);
+  --manut-surface: oklch(0.2 0.008 270);
+  --manut-ink: oklch(0.96 0.005 85);
+  --manut-ink-soft: oklch(0.78 0.008 85);
+  --manut-line: oklch(1 0 0 / 10%);
+  --manut-muted: oklch(0.27 0.008 270);
+  --manut-muted-fg: oklch(0.7 0.008 85);
+
+  --manut-coral: oklch(0.74 0.17 25);
+  --manut-teal-ink: oklch(0.68 0.1 215);
+  --manut-gold-warm: oklch(0.86 0.14 85);
+
   /*
    * Accent colours — blue
    */

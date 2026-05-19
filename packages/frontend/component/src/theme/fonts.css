@@ -1,5 +1,17 @@
 /*
- * Inter (Variable)
+ * Manut Gen-Z type stack — Geist Sans (UI), Geist Mono (mono),
+ * Instrument Serif (display). Pulled from Google Fonts so the AFFiNE
+ * app matches manut-landing's `next/font/google` setup without
+ * vendoring the font binaries. swap display lets text render with
+ * the fallback Inter face below until Geist is available.
+ *
+ * font-src in any future CSP must include fonts.gstatic.com.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Instrument+Serif:ital@0;1&display=swap');
+
+/*
+ * Inter (Variable) — kept as a body fallback for offline / blocked
+ * environments where the Google Fonts import above can't load.
  */
 @font-face {
   font-family: 'Inter';
