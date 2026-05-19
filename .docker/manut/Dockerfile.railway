@@ -28,16 +28,20 @@
 #   4. assets       — assemble runtime layout, run docker-clean
 #   5. runtime      — minimal node:22-bookworm-slim + jemalloc
 #
-# Estimated build time on a cold Railway runner: 20-30 min. Warm cache
-# (cargo registry + yarn cache + apt) brings it down to ~10 min.
+# Estimated build time on a cold Railway runner: 20-30 min. No
+# inter-build caching — see note below.
 #
-# Cache mount IDs use Railway's required format:
-#   s/<service id>-<target path>
-# (https://docs.railway.com/builds/dockerfiles#cache-mounts). The
-# hardcoded service id below is `manut > production > Manut`. If this
-# Dockerfile is ever reused for a different Railway service, EITHER
-# update the service id in every cache mount OR drop the --mount
-# flags entirely (slower builds, but no validation error).
+# CACHE MOUNTS REMOVED (2026-05-19). Previously this Dockerfile used
+# `--mount=type=cache,id=s/<service-id>-...` flags to share apt/yarn/
+# cargo caches across deployments. Railway requires the id prefix to
+# match the service's cacheKey, and the hardcoded id (`4a1d62b9...`)
+# was the DEV service (`manut-app`), not the PROD service (`Manut` /
+# 60a64cda...). Result: every PROD build aborted with
+# "dockerfile invalid: flag '--mount=...' is missing the cacheKey
+# prefix from its id". The Dockerfile is now portable across services
+# at the cost of slower builds (no cache reuse between deployments).
+# To restore caching for one specific service, add back the --mount
+# flags with that service's cacheKey from the Railway dashboard.
 
 # ----------------------------------------------------------------------
 # Stage 1: napi builder (Rust -> server-native.x64.node)
@@ -46,9 +50,7 @@ FROM rust:1.94-bookworm AS napi-builder
 WORKDIR /workspace
 
 # Node is required to invoke the napi-rs CLI.
-RUN --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/var/cache/apt,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/var/lib/apt/lists,target=/var/lib/apt/lists,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
+RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
       build-essential pkg-config libssl-dev curl ca-certificates && \
@@ -76,10 +78,7 @@ WORKDIR /workspace/packages/backend/native
 # the arm variants rspack also statically references. Match the GHA
 # workflow's rename logic so any napi-rs CLI version change behaves
 # consistently with the GAR build.
-RUN --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/usr/local/cargo/registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/usr/local/cargo/git,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/workspace/target,target=/workspace/target,sharing=locked \
-    set -eu && \
+RUN set -eu && \
     napi build --release --strip --no-const-enum --target x86_64-unknown-linux-gnu && \
     echo "--- files after napi build ---" && \
     find . -maxdepth 1 -name '*.node' -print && \
@@ -112,9 +111,7 @@ RUN --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/usr/local/carg
 FROM node:22-bookworm AS app-builder
 WORKDIR /workspace
 
-RUN --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/var/cache/apt,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/var/lib/apt/lists,target=/var/lib/apt/lists,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
+RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
       build-essential python3 git ca-certificates
@@ -137,8 +134,7 @@ RUN node -e "const f='./package.json'; const p=require(f); delete p.scripts.post
 
 # Pin yarn to package.json:packageManager. corepack defaults to
 # whatever ships with the runner image, which causes lockfile churn.
-RUN --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/workspace/.yarn/cache,target=/workspace/.yarn/cache,sharing=locked \
-    corepack enable && \
+RUN corepack enable && \
     corepack prepare yarn@4.13.0 --activate && \
     yarn install
 
@@ -208,9 +204,7 @@ COPY --from=app-builder /workspace/manut-landing/out                      /app/s
 
 ARG TARGETARCH=amd64
 ARG TARGETVARIANT
-RUN --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/var/cache/apt,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/var/lib/apt/lists,target=/var/lib/apt/lists,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
+RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     apt-get update && \
     apt-get install -y --no-install-recommends openssl ca-certificates
 
@@ -233,9 +227,7 @@ COPY --from=assets /app /app
 COPY .docker/manut/entrypoint.railway.sh /usr/local/bin/manut-entrypoint
 RUN chmod +x /usr/local/bin/manut-entrypoint
 
-RUN --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/var/cache/apt,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,id=s/4a1d62b9-84ae-488d-8fae-8b07dd8cd64c-/var/lib/apt/lists,target=/var/lib/apt/lists,sharing=locked \
-    rm -f /etc/apt/apt.conf.d/docker-clean && \
+RUN rm -f /etc/apt/apt.conf.d/docker-clean && \
     apt-get update && \
     apt-get install -y --no-install-recommends openssl libjemalloc2
 
