@@ -92,9 +92,23 @@ export function registerManutLandingRoutes(
       if (res.headersSent) {
         return;
       }
-      if (normalizePath(req.path) === '/') {
+      const path = normalizePath(req.path);
+      if (path === '/') {
         res.sendFile(join(landingPath, 'index.html'));
         return;
+      }
+      // Subdirectory route fallback: Next.js static export emits each route
+      // as `<route>/index.html`. Express.static with redirect:false won't
+      // resolve `/about-us` -> `/about-us/index.html` automatically, so try
+      // it here. Only attempt for paths that look like routes (no file
+      // extension), so missing `/styles.css` still 404s properly instead of
+      // serving HTML.
+      if (!/\.[a-zA-Z0-9]{1,8}$/.test(path)) {
+        const candidate = join(landingPath, path, 'index.html');
+        if (existsSync(candidate)) {
+          res.sendFile(candidate);
+          return;
+        }
       }
       next();
     });
