@@ -27,6 +27,7 @@ import { CopilotStorage } from '../storage';
 import {
   buildBlobContentGetter,
   buildCalendarSearchHandler,
+  buildCodeRunHandler,
   buildContentGetter,
   buildDocContentGetter,
   buildDocCreateHandler,
@@ -41,6 +42,7 @@ import {
   createBlobReadTool,
   createCalendarSearchTool,
   createCodeArtifactTool,
+  createCodeRunTool,
   createConversationSummaryTool,
   createDataViewAutofillColumnTool,
   createDataViewFilterTool,
@@ -555,6 +557,18 @@ export abstract class CopilotProvider<C = any> {
                 imageGenHandler.bind(null, options)
               );
             }
+            break;
+          }
+          case 'codeRun': {
+            // M3 E3.1 — Modal sandbox via a single typed Config entry.
+            // The tool handler reads `config.copilot.modal.{apiToken,
+            // endpoint}` directly, returns `toolError` when the token
+            // is unset (graceful no-op), and never throws. The bound
+            // handler shape mirrors imageGen / gmailSearch.
+            const codeRunHandler = buildCodeRunHandler(this.AFFiNEConfig);
+            tools.code_run = createCodeRunTool(
+              codeRunHandler.bind(null, options)
+            );
             break;
           }
           case 'gmailSearch': {

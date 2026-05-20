@@ -1,6 +1,7 @@
 export * from './blob-read';
 export * from './calendar';
 export * from './code-artifact';
+export * from './code-run';
 export * from './conversation-summary';
 export * from './data-view-autofill-column';
 export * from './data-view-filter';

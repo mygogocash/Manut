@@ -45,6 +45,11 @@ export type AIToolName =
   // mode; the Image format chip in the chat input also flips this on
   // so the AI selects the tool for the next reply.
   | 'imageGen'
+  // M3 E3.1 — Remote code execution in a Modal sandbox. Privileged:
+  // Agent mode only. Gracefully no-ops when `MODAL_API_TOKEN` is
+  // unset, so showing the option is safe even on installs that
+  // haven't provisioned Modal.
+  | 'codeRun'
   // M1 B10 / E1.8 — Gmail search via the existing Google OAuth
   // scaffold. Read-only; gated on the user having connected Gmail
   // under Settings > Integrations.
@@ -82,6 +87,7 @@ const AGENT_TOOLS: readonly AIToolName[] = [
   'docCompose',
   'dataViewAutofillColumn',
   'imageGen',
+  'codeRun',
 ] as const;
 
 export const MODE_TOOL_SET: Record<ChatMode, readonly AIToolName[]> = {
@@ -110,6 +116,7 @@ export const ALL_TOOLS: readonly AIToolName[] = [
   'docCompose',
   'dataViewAutofillColumn',
   'imageGen',
+  'codeRun',
 ] as const;
 
 // Human-readable labels for the Advanced view's checkbox rows. Falls
@@ -131,6 +138,7 @@ export const TOOL_LABELS: Partial<Record<AIToolName, string>> = {
   docCompose: 'Compose new doc',
   dataViewAutofillColumn: 'Autofill data column',
   imageGen: 'Generate image',
+  codeRun: 'Run code',
 };
 
 // Map a ChatMode to its default enabledTools list (the persisted
