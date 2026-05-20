@@ -13,6 +13,8 @@ import {
 import { DocReader, DocWriter } from '../../../core/doc';
 import { AccessController } from '../../../core/permission';
 import { Models } from '../../../models';
+import { CalendarService } from '../../calendar/service';
+import { GoogleOAuthService } from '../../google-oauth/google-oauth.service';
 import { IndexerService } from '../../indexer';
 import { MnApprovalService } from '../../manut/manut-approval.service';
 import { MnApprovalGateService } from '../../manut/manut-approval-gate.service';
@@ -24,6 +26,7 @@ import { PromptService } from '../prompt/service';
 import { CopilotStorage } from '../storage';
 import {
   buildBlobContentGetter,
+  buildCalendarSearchHandler,
   buildContentGetter,
   buildDocContentGetter,
   buildDocCreateHandler,
@@ -31,10 +34,12 @@ import {
   buildDocSearchGetter,
   buildDocUpdateHandler,
   buildDocUpdateMetaHandler,
+  buildGmailSearchHandler,
   buildImageGenHandler,
   type CopilotTool,
   type CopilotToolSet,
   createBlobReadTool,
+  createCalendarSearchTool,
   createCodeArtifactTool,
   createConversationSummaryTool,
   createDataViewAutofillColumnTool,
@@ -49,6 +54,7 @@ import {
   createDocUpdateTool,
   createExaCrawlTool,
   createExaSearchTool,
+  createGmailSearchTool,
   createImageGenTool,
   createSectionEditTool,
 } from '../tools';
@@ -547,6 +553,40 @@ export abstract class CopilotProvider<C = any> {
               );
               tools.image_gen = createImageGenTool(
                 imageGenHandler.bind(null, options)
+              );
+            }
+            break;
+          }
+          case 'gmailSearch': {
+            // M1 B10 / E1.8 — Gmail API via the existing Google OAuth
+            // scaffold. GoogleOAuthService.getValidAccessToken handles
+            // the 5-minute refresh window; the tool itself gracefully
+            // degrades when not connected / not configured.
+            const oauth = this.moduleRef.get(GoogleOAuthService, {
+              strict: false,
+            });
+            if (oauth) {
+              const gmailHandler = buildGmailSearchHandler(oauth);
+              tools.gmail_search = createGmailSearchTool(
+                gmailHandler.bind(null, options)
+              );
+            }
+            break;
+          }
+          case 'calendarSearch': {
+            // M1 B10 / E1.8 — Workspace-linked calendar events from
+            // the CalendarService's Postgres-cached event table.
+            // No live Google Calendar round-trip per AI invocation;
+            // CalendarService maintains the cache via sync workers
+            // and kicks off background resync on stale subscriptions.
+            const calendarService = this.moduleRef.get(CalendarService, {
+              strict: false,
+            });
+            if (calendarService) {
+              const calendarHandler =
+                buildCalendarSearchHandler(calendarService);
+              tools.calendar_search = createCalendarSearchTool(
+                calendarHandler.bind(null, options)
               );
             }
             break;

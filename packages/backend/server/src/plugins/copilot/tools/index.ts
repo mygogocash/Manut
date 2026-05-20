@@ -1,4 +1,5 @@
 export * from './blob-read';
+export * from './calendar';
 export * from './code-artifact';
 export * from './conversation-summary';
 export * from './data-view-autofill-column';
@@ -12,6 +13,7 @@ export * from './doc-write';
 export * from './error';
 export * from './exa-crawl';
 export * from './exa-search';
+export * from './gmail';
 export * from './image-gen';
 export * from './section-edit';
 export * from './tool';

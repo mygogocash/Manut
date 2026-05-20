@@ -91,6 +91,10 @@ export const PromptToolsSchema = z
     'dataViewAutofillColumn',
     // image generation via Vertex Imagen (M3 E3.2)
     'imageGen',
+    // Gmail search via existing Google OAuth scaffold (M1 B10 / E1.8)
+    'gmailSearch',
+    // Workspace-linked calendar search (M1 B10 / E1.8)
+    'calendarSearch',
   ])
   .array();
 

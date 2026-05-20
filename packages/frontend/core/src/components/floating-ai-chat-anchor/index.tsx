@@ -14,7 +14,6 @@ import { SkeletonGroup } from '@affine/core/components/affine/skeleton';
 import { useAIChatConfig } from '@affine/core/components/hooks/affine/use-ai-chat-config';
 import { useAISpecs } from '@affine/core/components/hooks/affine/use-ai-specs';
 import { useAISubscribe } from '@affine/core/components/hooks/affine/use-ai-subscribe';
-import { SPRING_TIGHT } from '@affine/core/utils/motion';
 import {
   AIDraftService,
   AIToolsConfigService,
@@ -31,6 +30,7 @@ import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { PeekViewService } from '@affine/core/modules/peek-view';
 import { AppThemeService } from '@affine/core/modules/theme';
 import { WorkspaceService } from '@affine/core/modules/workspace';
+import { SPRING_TIGHT } from '@affine/core/utils/motion';
 import { useI18n } from '@affine/i18n';
 import { BlockStdScope } from '@blocksuite/affine/std';
 import type { Workspace } from '@blocksuite/affine/store';

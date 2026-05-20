@@ -2,13 +2,13 @@ import { IconButton, Skeleton } from '@affine/component';
 import { useCatchEventCallback } from '@affine/core/components/hooks/use-catch-event-hook';
 import { PagePreview } from '@affine/core/components/page-list/page-content-preview';
 import { IsFavoriteIcon } from '@affine/core/components/pure/icons';
-import { FADE_UP_VARIANTS, SPRING_GENTLE } from '@affine/core/utils/motion';
 import { DocDisplayMetaService } from '@affine/core/modules/doc-display-meta';
 import { CompatibleFavoriteItemsAdapter } from '@affine/core/modules/favorite';
 import {
   WorkbenchLink,
   type WorkbenchLinkProps,
 } from '@affine/core/modules/workbench';
+import { FADE_UP_VARIANTS, SPRING_GENTLE } from '@affine/core/utils/motion';
 import type { DocMeta } from '@blocksuite/affine/store';
 import { useLiveData, useService } from '@toeverything/infra';
 import clsx from 'clsx';

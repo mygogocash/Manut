@@ -44,7 +44,14 @@ export type AIToolName =
   // M3 E3.2 — Vertex Imagen text-to-image. Only available in Agent
   // mode; the Image format chip in the chat input also flips this on
   // so the AI selects the tool for the next reply.
-  | 'imageGen';
+  | 'imageGen'
+  // M1 B10 / E1.8 — Gmail search via the existing Google OAuth
+  // scaffold. Read-only; gated on the user having connected Gmail
+  // under Settings > Integrations.
+  | 'gmailSearch'
+  // M1 B10 / E1.8 — Workspace-linked calendar events read from the
+  // Postgres-cached calendarEvent table. Read-only.
+  | 'calendarSearch';
 
 export type ChatMode = 'read' | 'edit' | 'agent';
 
@@ -53,6 +60,11 @@ const READ_TOOLS: readonly AIToolName[] = [
   'docKeywordSearch',
   'docSemanticSearch',
   'webSearch',
+  // Gmail + Calendar reads are non-mutating personal-data lookups —
+  // safe to expose at every Mode level once the user has connected the
+  // accounts in Settings > Integrations.
+  'gmailSearch',
+  'calendarSearch',
 ] as const;
 
 const EDIT_TOOLS: readonly AIToolName[] = [
@@ -87,6 +99,8 @@ export const ALL_TOOLS: readonly AIToolName[] = [
   'docKeywordSearch',
   'docSemanticSearch',
   'webSearch',
+  'gmailSearch',
+  'calendarSearch',
   'docEdit',
   'sectionEdit',
   'dataViewFilter',
@@ -106,6 +120,8 @@ export const TOOL_LABELS: Partial<Record<AIToolName, string>> = {
   docKeywordSearch: 'Keyword search',
   docSemanticSearch: 'Semantic search',
   webSearch: 'Web search',
+  gmailSearch: 'Search Gmail',
+  calendarSearch: 'Search Calendar',
   docEdit: 'Edit doc',
   sectionEdit: 'Edit section',
   dataViewFilter: 'Filter data view',
