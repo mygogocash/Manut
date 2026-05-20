@@ -7,11 +7,12 @@
 // whatever shape best fits the user's request). The remaining four
 // nudge toward a structured response.
 //
-// "Image" is intentionally surfaced in the UI but flagged disabled
-// until the image-generation tool ships in M3 — see `isFormatEnabled`
-// below. Selecting a disabled format is a no-op in the picker; the
-// chip stays clickable for screen-reader discoverability but the
-// dropdown disables it visually.
+// M3 E3.2 (2026-05-20): "Image" is now live and selectable. Choosing
+// it nudges the system prompt to request an image and the AI loop
+// dispatches to the `image_gen` tool (Vertex Imagen 3) when the
+// capability is registered for the session. `isFormatEnabled` is
+// still the gate so future format additions can stay grey until
+// their tool is wired through.
 
 export type OutputFormat = 'auto' | 'list' | 'table' | 'code' | 'image';
 
@@ -52,10 +53,13 @@ export const OUTPUT_FORMAT_OPTIONS: readonly OutputFormatOption[] = [
     enabled: true,
   },
   {
+    // M3 E3.2 — Image generation is live via the Vertex Imagen 3
+    // tool. Selecting this format flips a flag on the chat input
+    // that biases the backend's tool dispatch toward `image_gen`.
     format: 'image',
     label: 'Image',
-    description: 'Generate an image (rolling out in M3).',
-    enabled: false,
+    description: 'Generate an image with Vertex Imagen.',
+    enabled: true,
   },
 ];
 

@@ -21,6 +21,7 @@ import type { ProviderMiddlewareConfig } from '../config';
 import { CopilotContextService } from '../context/service';
 import { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
 import { PromptService } from '../prompt/service';
+import { CopilotStorage } from '../storage';
 import {
   buildBlobContentGetter,
   buildContentGetter,
@@ -30,6 +31,7 @@ import {
   buildDocSearchGetter,
   buildDocUpdateHandler,
   buildDocUpdateMetaHandler,
+  buildImageGenHandler,
   type CopilotTool,
   type CopilotToolSet,
   createBlobReadTool,
@@ -47,6 +49,7 @@ import {
   createDocUpdateTool,
   createExaCrawlTool,
   createExaSearchTool,
+  createImageGenTool,
   createSectionEditTool,
 } from '../tools';
 import { canonicalizePromptAttachment } from './attachments';
@@ -527,6 +530,25 @@ export abstract class CopilotProvider<C = any> {
           case 'webSearch': {
             tools.web_search_exa = createExaSearchTool(this.AFFiNEConfig);
             tools.web_crawl_exa = createExaCrawlTool(this.AFFiNEConfig);
+            break;
+          }
+          case 'imageGen': {
+            // M3 E3.2 — Vertex Imagen via the existing geminiVertex
+            // auth path. CopilotStorage is resolved lazily so a
+            // deployment without it (unlikely — it's always in the
+            // CopilotModule providers list) just skips the tool.
+            const copilotStorage = this.moduleRef.get(CopilotStorage, {
+              strict: false,
+            });
+            if (copilotStorage) {
+              const imageGenHandler = buildImageGenHandler(
+                this.AFFiNEConfig,
+                copilotStorage
+              );
+              tools.image_gen = createImageGenTool(
+                imageGenHandler.bind(null, options)
+              );
+            }
             break;
           }
           case 'docCompose': {

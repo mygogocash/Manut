@@ -89,6 +89,8 @@ export const PromptToolsSchema = z
     'dataViewFilter',
     // data-view cell autofill (ε-AI-INTEL v1.10)
     'dataViewAutofillColumn',
+    // image generation via Vertex Imagen (M3 E3.2)
+    'imageGen',
   ])
   .array();
 

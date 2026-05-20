@@ -1,8 +1,9 @@
 // Output-format chip dropdown that sits alongside the chat input
 // preference picker. The chip surfaces the active format (Auto by
 // default) and opens a popMenu with five options — Auto / List /
-// Table / Code / Image. Image is intentionally rendered but disabled
-// until the image-generation tool lands in M3.
+// Table / Code / Image. All five are live as of M3 E3.2: the Image
+// option flips a flag that biases the backend tool dispatch toward
+// `image_gen` (Vertex Imagen 3) for the next reply.
 //
 // Epic E1.10 — T-1.10.2. The selector is a Lit element so it can mount
 // inside the existing AIChatInput render tree (which is already Lit).

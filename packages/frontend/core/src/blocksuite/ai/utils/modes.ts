@@ -40,7 +40,11 @@ export type AIToolName =
   | 'docCompose'
   | 'sectionEdit'
   | 'dataViewFilter'
-  | 'dataViewAutofillColumn';
+  | 'dataViewAutofillColumn'
+  // M3 E3.2 — Vertex Imagen text-to-image. Only available in Agent
+  // mode; the Image format chip in the chat input also flips this on
+  // so the AI selects the tool for the next reply.
+  | 'imageGen';
 
 export type ChatMode = 'read' | 'edit' | 'agent';
 
@@ -65,6 +69,7 @@ const AGENT_TOOLS: readonly AIToolName[] = [
   'docUpdateMeta',
   'docCompose',
   'dataViewAutofillColumn',
+  'imageGen',
 ] as const;
 
 export const MODE_TOOL_SET: Record<ChatMode, readonly AIToolName[]> = {
@@ -90,6 +95,7 @@ export const ALL_TOOLS: readonly AIToolName[] = [
   'docUpdateMeta',
   'docCompose',
   'dataViewAutofillColumn',
+  'imageGen',
 ] as const;
 
 // Human-readable labels for the Advanced view's checkbox rows. Falls
@@ -108,6 +114,7 @@ export const TOOL_LABELS: Partial<Record<AIToolName, string>> = {
   docUpdateMeta: 'Update doc metadata',
   docCompose: 'Compose new doc',
   dataViewAutofillColumn: 'Autofill data column',
+  imageGen: 'Generate image',
 };
 
 // Map a ChatMode to its default enabledTools list (the persisted
