@@ -14,6 +14,7 @@ import { DocReader, DocWriter } from '../../../core/doc';
 import { AccessController } from '../../../core/permission';
 import { Models } from '../../../models';
 import { CalendarService } from '../../calendar/service';
+import { GithubOAuthService } from '../../github-oauth/github-oauth.service';
 import { GoogleOAuthService } from '../../google-oauth/google-oauth.service';
 import { IndexerService } from '../../indexer';
 import { MnApprovalService } from '../../manut/manut-approval.service';
@@ -35,6 +36,10 @@ import {
   buildDocSearchGetter,
   buildDocUpdateHandler,
   buildDocUpdateMetaHandler,
+  buildGithubReadIssueHandler,
+  buildGithubReadPrHandler,
+  buildGithubSearchIssuesHandler,
+  buildGithubSearchReposHandler,
   buildGmailSearchHandler,
   buildImageGenHandler,
   type CopilotTool,
@@ -56,6 +61,10 @@ import {
   createDocUpdateTool,
   createExaCrawlTool,
   createExaSearchTool,
+  createGithubReadIssueTool,
+  createGithubReadPrTool,
+  createGithubSearchIssuesTool,
+  createGithubSearchReposTool,
   createGmailSearchTool,
   createImageGenTool,
   createSectionEditTool,
@@ -601,6 +610,39 @@ export abstract class CopilotProvider<C = any> {
                 buildCalendarSearchHandler(calendarService);
               tools.calendar_search = createCalendarSearchTool(
                 calendarHandler.bind(null, options)
+              );
+            }
+            break;
+          }
+          case 'githubSearchIssues':
+          case 'githubReadIssue':
+          case 'githubSearchRepos':
+          case 'githubReadPr': {
+            // M2 E2.1 — GitHub REST tools via the v1.13.0 GitHub
+            // OAuth scaffold. All four read-only tools share a
+            // single GithubOAuthService resolution; the binding is
+            // cheap and we'd rather register every tool the chat
+            // session opted into than skip subsequent ones because
+            // the first hit `break`-d out. GithubOAuthService is
+            // resolved lazily via moduleRef so installs without
+            // GITHUB_OAUTH_* env vars degrade gracefully — the
+            // tools surface a "configure" toolError on first call
+            // rather than crashing the chat stream.
+            const githubOAuth = this.moduleRef.get(GithubOAuthService, {
+              strict: false,
+            });
+            if (githubOAuth) {
+              tools.github_search_issues = createGithubSearchIssuesTool(
+                buildGithubSearchIssuesHandler(githubOAuth).bind(null, options)
+              );
+              tools.github_read_issue = createGithubReadIssueTool(
+                buildGithubReadIssueHandler(githubOAuth).bind(null, options)
+              );
+              tools.github_search_repos = createGithubSearchReposTool(
+                buildGithubSearchReposHandler(githubOAuth).bind(null, options)
+              );
+              tools.github_read_pr = createGithubReadPrTool(
+                buildGithubReadPrHandler(githubOAuth).bind(null, options)
               );
             }
             break;

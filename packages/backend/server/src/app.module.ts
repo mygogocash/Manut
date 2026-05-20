@@ -63,6 +63,7 @@ import { ConnectionsModule } from './plugins/connections';
 import { CopilotModule } from './plugins/copilot';
 import { CustomerIoModule } from './plugins/customerio';
 import { GCloudModule } from './plugins/gcloud';
+import { GithubOAuthModule } from './plugins/github-oauth/github-oauth.module';
 import { GoogleOAuthModule } from './plugins/google-oauth';
 import { IndexerModule } from './plugins/indexer';
 import { LicenseModule } from './plugins/license';
@@ -212,6 +213,7 @@ export function buildAppModule(env: Env) {
       CalendarModule,
       ConnectionsModule,
       GoogleOAuthModule,
+      GithubOAuthModule,
       AgentsModule,
       CustomerIoModule,
       TelemetryModule,

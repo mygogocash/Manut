@@ -97,6 +97,13 @@ export const PromptToolsSchema = z
     'gmailSearch',
     // Workspace-linked calendar search (M1 B10 / E1.8)
     'calendarSearch',
+    // GitHub: issue search, single-issue read, repo search, PR read
+    // — all read-only and gated on the user having connected GitHub
+    // under Settings → Integrations (M2 E2.1).
+    'githubSearchIssues',
+    'githubReadIssue',
+    'githubSearchRepos',
+    'githubReadPr',
   ])
   .array();
 

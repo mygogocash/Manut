@@ -5,6 +5,8 @@ import { Logo1Icon, TodayIcon } from '@blocksuite/icons/rc';
 import type { ReactNode } from 'react';
 
 import { CalendarSettingPanel } from './calendar/setting-panel';
+import { GithubLogoIcon } from './github/icons';
+import { GithubSettingPanel } from './github/setting-panel';
 import { GmailLogoIcon, GoogleDriveLogoIcon } from './google/icons';
 import {
   GmailSettingPanel,
@@ -100,6 +102,18 @@ const INTEGRATION_LIST = [
     desc: 'com.affine.integration.google-drive.description',
     icon: <GoogleDriveLogoIcon />,
     setting: <GoogleDriveSettingPanel />,
+    requiresCloud: true,
+  },
+  {
+    // M2 E2.1 — GitHub OAuth scaffold + AI-callable read tools.
+    // Same "Connect" pattern as the Gmail / Drive cards above;
+    // copy intentionally generic ("AI to search issues …") because
+    // live import UX isn't shipped yet.
+    id: 'github' as const,
+    name: 'GitHub',
+    desc: 'Connect your GitHub account to let AI search issues, PRs, and repositories on your behalf.',
+    icon: <GithubLogoIcon />,
+    setting: <GithubSettingPanel />,
     requiresCloud: true,
   },
 ] satisfies (IntegrationCard | false)[];

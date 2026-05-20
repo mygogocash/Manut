@@ -56,7 +56,14 @@ export type AIToolName =
   | 'gmailSearch'
   // M1 B10 / E1.8 — Workspace-linked calendar events read from the
   // Postgres-cached calendarEvent table. Read-only.
-  | 'calendarSearch';
+  | 'calendarSearch'
+  // M2 E2.1 — GitHub read-only tools via the v1.13.0 GitHub OAuth
+  // scaffold. Gated on the user having connected GitHub under
+  // Settings > Integrations.
+  | 'githubSearchIssues'
+  | 'githubReadIssue'
+  | 'githubSearchRepos'
+  | 'githubReadPr';
 
 export type ChatMode = 'read' | 'edit' | 'agent';
 
@@ -70,6 +77,12 @@ const READ_TOOLS: readonly AIToolName[] = [
   // accounts in Settings > Integrations.
   'gmailSearch',
   'calendarSearch',
+  // GitHub reads — same reasoning as Gmail/Calendar above. All four
+  // are non-mutating; gated on the user having connected GitHub.
+  'githubSearchIssues',
+  'githubReadIssue',
+  'githubSearchRepos',
+  'githubReadPr',
 ] as const;
 
 const EDIT_TOOLS: readonly AIToolName[] = [
@@ -107,6 +120,10 @@ export const ALL_TOOLS: readonly AIToolName[] = [
   'webSearch',
   'gmailSearch',
   'calendarSearch',
+  'githubSearchIssues',
+  'githubReadIssue',
+  'githubSearchRepos',
+  'githubReadPr',
   'docEdit',
   'sectionEdit',
   'dataViewFilter',
@@ -129,6 +146,10 @@ export const TOOL_LABELS: Partial<Record<AIToolName, string>> = {
   webSearch: 'Web search',
   gmailSearch: 'Search Gmail',
   calendarSearch: 'Search Calendar',
+  githubSearchIssues: 'Search GitHub issues',
+  githubReadIssue: 'Read GitHub issue',
+  githubSearchRepos: 'Search GitHub repos',
+  githubReadPr: 'Read GitHub PR',
   docEdit: 'Edit doc',
   sectionEdit: 'Edit section',
   dataViewFilter: 'Filter data view',
