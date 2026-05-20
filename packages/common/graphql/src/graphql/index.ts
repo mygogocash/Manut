@@ -1767,6 +1767,14 @@ export const copilotQuotaQuery = {
 }`,
 };
 
+export const rateMessageMutation = {
+  id: 'rateMessageMutation' as const,
+  op: 'rateMessage',
+  query: `mutation rateMessage($messageId: String!, $rating: String!) {
+  rateMessage(messageId: $messageId, rating: $rating)
+}`,
+};
+
 export const cleanupCopilotSessionMutation = {
   id: 'cleanupCopilotSessionMutation' as const,
   op: 'cleanupCopilotSession',
@@ -2774,6 +2782,62 @@ export const listNotificationsQuery = {
         hasPreviousPage
       }
     }
+  }
+}`,
+};
+
+export const forgetMemoryMutation = {
+  id: 'forgetMemoryMutation' as const,
+  op: 'forgetMemory',
+  query: `mutation forgetMemory($id: ID!) {
+  forgetMemory(id: $id)
+}`,
+};
+
+export const myMemoriesQuery = {
+  id: 'myMemoriesQuery' as const,
+  op: 'myMemories',
+  query: `query myMemories($workspaceId: String!) {
+  myMemories(workspaceId: $workspaceId) {
+    id
+    content
+    kind
+    scope
+    pinned
+    createdAt
+    workspaceId
+  }
+}`,
+};
+
+export const pinMemoryMutation = {
+  id: 'pinMemoryMutation' as const,
+  op: 'pinMemory',
+  query: `mutation pinMemory($id: ID!) {
+  pinMemory(id: $id) {
+    id
+    content
+    kind
+    scope
+    pinned
+    createdAt
+    workspaceId
+  }
+}`,
+};
+
+export const promoteMemoryToWorkspaceMutation = {
+  id: 'promoteMemoryToWorkspaceMutation' as const,
+  op: 'promoteMemoryToWorkspace',
+  query: `mutation promoteMemoryToWorkspace($id: ID!) {
+  promoteMemoryToWorkspace(id: $id) {
+    id
+    content
+    kind
+    scope
+    pinned
+    createdAt
+    workspaceId
   }
 }`,
 };

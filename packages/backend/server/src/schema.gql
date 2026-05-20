@@ -34,6 +34,17 @@ input AddContextFileInput {
   contextId: String!
 }
 
+input AddMnCeoTurnInput {
+  bodyMd: String!
+  conversationId: ID!
+  role: MnCeoTurnRole!
+}
+
+input AddMnTaskBlockerInput {
+  blockedByTaskId: ID!
+  taskId: ID!
+}
+
 type AdminAllSharedLink {
   docId: String!
   docUpdatedAt: DateTime
@@ -180,6 +191,32 @@ enum AdminWorkspaceSort {
   PublicPageCount
   SnapshotCount
   SnapshotSize
+}
+
+type Agent {
+  avatar: JSONObject!
+  createdAt: DateTime!
+  description: String!
+  files: [String!]!
+  id: String!
+  instructions: String!
+  links: [AgentLink!]!
+  name: String!
+  ownerId: String!
+  parentAgentId: String
+  skills: [String!]!
+  updatedAt: DateTime!
+  workspaceId: String!
+}
+
+type AgentLink {
+  label: String
+  url: String!
+}
+
+input AgentLinkInput {
+  label: String
+  url: String!
 }
 
 type AggregateBucketHitsObjectType {
@@ -333,6 +370,31 @@ type BlobUploadedPart {
   partNumber: Int!
 }
 
+type BudgetSoftCapNotificationBodyType {
+  """Hard cap in USD for the workspace; soft cap is 80% of this"""
+  capUsd: Float!
+
+  """
+  The user who created the notification, maybe null when user is deleted or sent by system
+  """
+  createdByUser: PublicUserType
+
+  """Calendar month the spend belongs to, formatted as YYYY-MM"""
+  monthYear: String!
+
+  """
+  Total AI spend in USD for the calendar month at the time the soft cap was crossed
+  """
+  spentUsd: Float!
+
+  """The type of the notification"""
+  type: NotificationType!
+  workspace: NotificationWorkspaceType
+
+  """Workspace whose AI budget crossed the soft cap"""
+  workspaceId: String!
+}
+
 type CalendarAccountObjectType {
   calendars: [CalendarSubscriptionObjectType!]!
   calendarsCount: Int!
@@ -392,6 +454,11 @@ type CalendarSubscriptionObjectType {
   timezone: String
 }
 
+input CancelPlatformConnectInput {
+  """Pending OAuth id to discard."""
+  pendingId: String!
+}
+
 enum ChatHistoryOrder {
   asc
   desc
@@ -428,11 +495,6 @@ type CommentChangeObjectType {
 type CommentChangeObjectTypeEdge {
   cursor: String!
   node: CommentChangeObjectType!
-}
-
-input CancelPlatformConnectInput {
-  """Pending OAuth id to discard."""
-  pendingId: String!
 }
 
 input CommentCreateInput {
@@ -486,6 +548,15 @@ input CommentUpdateInput {
   id: ID!
 }
 
+type ConnectedAccountType {
+  createdAt: DateTime!
+  displayName: String!
+  id: String!
+  provider: String!
+  scopes: [String!]!
+}
+
+"""Lifecycle state of a workspace platform connection."""
 enum ConnectionStatus {
   ACTIVE
   ERROR
@@ -641,6 +712,7 @@ type CopilotFailedToModifyContextDataType {
 type CopilotHistories {
   """An mark identifying which view to use to display the session"""
   action: String
+  agentId: String
   createdAt: DateTime!
   docId: String
   messages: [ChatMessage!]!
@@ -648,6 +720,7 @@ type CopilotHistories {
   optionalModels: [String!]!
   parentSessionId: String
   pinned: Boolean!
+  pinnedDocId: String
   promptName: String!
   sessionId: String!
   title: String
@@ -671,9 +744,48 @@ type CopilotMessageNotFoundDataType {
   messageId: String!
 }
 
+enum CopilotModelFamily {
+  claude
+  cloudflare
+  deepseek
+  fal
+  gemini
+  gpt
+  llama
+  mistral
+  morph
+  other
+  perplexity
+}
+
+enum CopilotModelTier {
+  balanced
+  fast
+  max
+}
+
 type CopilotModelType {
+  """
+  Human-readable display name. Falls back to `name` when no friendlier label is available.
+  """
+  displayName: String!
+
+  """
+  Model family (gemini / claude / gpt / llama / mistral / deepseek / ...) for picker badges.
+  """
+  family: CopilotModelFamily!
   id: String!
   name: String!
+
+  """
+  USD per 1k input tokens, list-price approximation. Used by the auto-router and surfaced in the UI for cost-awareness.
+  """
+  pricePerKToken: Int!
+
+  """
+  Coarse tier — fast / balanced / max — for the picker to group by speed-vs-quality.
+  """
+  tier: CopilotModelTier!
 }
 
 type CopilotModelsType {
@@ -751,6 +863,15 @@ type CopilotWorkspaceIgnoredDocTypeEdge {
   node: CopilotWorkspaceIgnoredDoc!
 }
 
+input CreateAgentInput {
+  avatar: JSONObject
+  description: String
+  instructions: String
+  name: String!
+  parentAgentId: String
+  workspaceId: String!
+}
+
 input CreateChatMessageInput {
   attachments: [String!] @deprecated(reason: "use blobs")
   blob: Upload
@@ -763,6 +884,9 @@ input CreateChatMessageInput {
 input CreateChatSessionInput {
   docId: String
   pinned: Boolean
+
+  """Lock the floating-chat tab context to this doc id (Wave 6 E2.5)."""
+  pinnedDocId: String
 
   """The prompt name to use for the session"""
   promptName: String!
@@ -782,6 +906,191 @@ input CreateCheckoutSessionInput {
   variant: SubscriptionVariant
 }
 
+input CreateMnAgentInput {
+  adapterConfig: JSONObject
+  adapterType: MnAgentAdapterType
+  capabilities: String
+  name: String!
+  projectId: ID!
+  reportsToAgentId: ID
+  roleId: ID
+  runtimeConfig: JSONObject
+}
+
+input CreateMnApprovalCommentInput {
+  """
+  Optional agent id if the comment author is an agent. Null when authored by a human user.
+  """
+  authorAgentId: ID
+  body: String!
+}
+
+input CreateMnApprovalInput {
+  """
+  Type-specific payload. For TOOL_CALL_REVIEW: { toolName, args, sessionId, agentId }. Free JSON otherwise.
+  """
+  payload: JSONObject
+  projectId: ID!
+
+  """
+  Optional agent id that requested the approval. Null when a human requested it directly.
+  """
+  requestedByAgentId: ID
+  type: MnApprovalType!
+}
+
+input CreateMnBudgetInput {
+  """Spending cap in USD cents (integer). Negative not allowed."""
+  capCents: Int!
+
+  """When true (default), reaching capCents blocks new spend on this scope."""
+  hardStopEnabled: Boolean
+
+  """Calendar month in YYYY-MM (e.g. "2026-05")."""
+  monthYear: String!
+
+  """
+  Optional project context. Required for PROJECT scope; may be unset for WORKSPACE scope.
+  """
+  projectId: ID
+
+  """
+  Identifier for the entity at `scopeType`. NULL for workspace-level budgets.
+  """
+  scopeId: ID
+  scopeType: MnBudgetScope!
+
+  """Warning threshold as integer percent of cap (0–100). Defaults to 80."""
+  warnThresholdPct: Int
+}
+
+input CreateMnCeoConversationInput {
+  title: String
+  workspaceId: ID!
+}
+
+input CreateMnCrmAccountInput {
+  industry: String
+  name: String!
+  notes: String
+  ownerUserId: ID
+  website: String
+}
+
+input CreateMnCrmActivityInput {
+  accountId: ID
+  body: String
+  contactId: ID
+  dealId: ID
+  dueAt: DateTime
+  subject: String
+  type: MnCrmActivityType!
+}
+
+input CreateMnCrmContactInput {
+  accountId: ID
+  email: String
+  firstName: String!
+  lastName: String
+  ownerUserId: ID
+  phone: String
+  title: String
+}
+
+input CreateMnCrmDealInput {
+  accountId: ID
+  contactId: ID
+  currency: String
+  expectedCloseAt: DateTime
+  name: String!
+  ownerUserId: ID
+  probability: Int
+  stageId: ID!
+  value: Float
+}
+
+input CreateMnCrmDealStageInput {
+  name: String!
+  pipelineKey: String
+  sortOrder: Int
+}
+
+input CreateMnGoalInput {
+  description: String
+  level: MnGoalLevel!
+  ownerAgentId: ID
+  parentGoalId: ID
+  projectId: ID!
+  status: MnGoalStatus
+  title: String!
+}
+
+input CreateMnProjectInput {
+  description: String
+  name: String!
+  sortOrder: Int
+}
+
+input CreateMnReminderInput {
+  body: String
+  channel: MnNotificationChannel
+  fireAt: DateTime!
+  title: String!
+}
+
+input CreateMnReminderRuleInput {
+  config: JSONObject
+  cronExpression: String
+  enabled: Boolean
+  name: String!
+  timezone: String
+  trigger: MnReminderRuleTrigger!
+}
+
+input CreateMnSkillInput {
+  contentMd: String!
+  description: String
+  name: String!
+  slug: String!
+  source: MnSkillSource
+  version: String!
+}
+
+input CreateMnTaskInput {
+  assigneeUserId: ID
+  description: String
+  dueAt: DateTime
+  listSortOrder: Int
+  priority: MnTaskPriority
+  status: MnTaskStatus
+  title: String!
+}
+
+input CreateMnTaskPlanInput {
+  bodyMd: String!
+  taskId: ID!
+}
+
+input CreateMnWorkProductInput {
+  byteSize: Int
+  description: String
+  kind: MnWorkProductKind!
+  metadata: JSONObject
+  producedByAgentId: ID
+  ref: String!
+  taskId: ID!
+  title: String
+}
+
+input CreateMnWorkQueueInput {
+  defaultAssigneeAgentId: ID
+  defaultPriority: MnTaskPriority
+  description: String
+  name: String!
+  projectId: ID!
+  routingRulesJson: String
+}
+
 input CreateUserInput {
   email: String!
   name: String
@@ -796,6 +1105,36 @@ type CredentialsRequirementType {
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+input DecideMnApprovalInput {
+  """
+  Free-text note explaining the decision. Surfaced to the requesting agent so it can react.
+  """
+  decisionNote: String
+
+  """
+  Decision: APPROVED, REJECTED, CANCELLED, or REVISION_REQUESTED. PENDING is not a legal write target.
+  """
+  status: MnApprovalStatus!
+}
+
+input DecideMnOrgChangeInput {
+  """
+  Free-text note explaining the decision. Surfaced to the proposing agent so it can react.
+  """
+  decisionNote: String
+
+  """
+  Decision: APPROVED or REJECTED. PROPOSED is not a legal write target; APPLIED / REVERTED are reachable only via apply() / revert().
+  """
+  status: MnOrgChangeStatus!
+}
+
+input DecideMnTaskPlanInput {
+  comment: String
+  decision: MnTaskPlanDecision!
+  planId: ID!
+}
 
 type DeleteAccount {
   success: Boolean!
@@ -918,6 +1257,7 @@ type DocType {
   """paginated doc granted users list"""
   grantedUsersList(pagination: PaginationInput!): PaginatedGrantedDocUserType!
   id: String!
+  isVerified: Boolean!
 
   """Paginated last accessed members of the current doc"""
   lastAccessedMembers(includeTotal: Boolean = false, pagination: PaginationInput!, query: String): PaginatedDocMemberLastAccess!
@@ -934,6 +1274,9 @@ type DocType {
   summary: String
   title: String
   updatedAt: DateTime
+  verificationExpiresAt: DateTime
+  verifiedAt: DateTime
+  verifiedBy: String
   workspaceId: String!
 }
 
@@ -945,6 +1288,16 @@ type DocTypeEdge {
 type DocUpdateBlockedDataType {
   docId: String!
   spaceId: String!
+}
+
+type DriveFileType {
+  iconLink: String
+  id: String!
+  mimeType: String!
+  modifiedTime: String
+  name: String!
+  size: String
+  webViewLink: String
 }
 
 type EditorType {
@@ -1154,6 +1507,41 @@ input GenerateAccessTokenInput {
   name: String!
 }
 
+type GithubConnectAuthUrl {
+  url: String!
+}
+
+type GithubConnectionType {
+  connected: Boolean!
+  login: String
+}
+
+type GmailMessageSummaryType {
+  date: String!
+  from: String!
+  messageId: String!
+  snippet: String!
+  subject: String!
+}
+
+type GoogleConnectAuthUrl {
+  url: String!
+}
+
+type GoogleConnectionType {
+  connected: Boolean!
+  email: String
+  scope: GoogleScope!
+}
+
+"""
+Which Google service the OAuth flow should request access to. v1.10.1: gmail and drive only.
+"""
+enum GoogleScope {
+  drive
+  gmail
+}
+
 input GrantDocUserRolesInput {
   docId: String!
   role: DocRole!
@@ -1184,21 +1572,39 @@ type ImageFormatNotSupportedDataType {
   format: String!
 }
 
+input ImportMnHandoverInput {
+  handoverJson: String!
+  targetDocId: ID
+}
+
+type ImportMnHandoverResult {
+  docId: ID!
+  title: String!
+  updated: Boolean!
+}
+
 input ImportUsersInput {
   users: [CreateUserInput!]!
 }
 
+"""How loud the insight should be in the UI."""
 enum InsightSeverity {
   ACTION_REQUIRED
   INFO
   NOTABLE
 }
 
+"""Category of an AI-generated SocialInsight."""
 enum InsightType {
   ANOMALY
   RECOMMENDATION
   TREND
   WEEKLY_STRATEGY
+}
+
+input InstallMnPluginInput {
+  name: String!
+  version: String!
 }
 
 type InvalidAppConfigDataType {
@@ -1315,31 +1721,6 @@ type InvitationReviewDeclinedNotificationBodyType {
   workspace: NotificationWorkspaceType
 }
 
-type BudgetSoftCapNotificationBodyType {
-  """
-  The user who created the notification, maybe null when user is deleted or sent by system
-  """
-  createdByUser: PublicUserType
-
-  """The type of the notification"""
-  type: NotificationType!
-  workspace: NotificationWorkspaceType
-
-  """Workspace whose AI budget crossed the soft cap"""
-  workspaceId: String!
-
-  """
-  Total AI spend in USD for the calendar month at the time the soft cap was crossed
-  """
-  spentUsd: Float!
-
-  """Hard cap in USD for the workspace; soft cap is 80% of this"""
-  capUsd: Float!
-
-  """Calendar month the spend belongs to, formatted as YYYY-MM"""
-  monthYear: String!
-}
-
 type InvitationReviewRequestNotificationBodyType {
   """
   The user who created the notification, maybe null when user is deleted or sent by system
@@ -1399,6 +1780,11 @@ type InviteResult {
 type InviteUserType {
   """User avatar url"""
   avatarUrl: String
+
+  """
+  Whether the user has finished (or skipped) the /welcome onboarding wizard. Used by the frontend index router to decide whether to drop a brand-new account into /welcome or into their landing workspace.
+  """
+  completedOnboarding: Boolean
 
   """User email verified"""
   createdAt: DateTime @deprecated(reason: "useless")
@@ -1508,6 +1894,24 @@ input ListMetricsInput {
   workspaceId: String!
 }
 
+input ListMnApprovalsInput {
+  """Maximum rows to return. Defaults to 100; clamped to 500."""
+  limit: Int
+  projectId: ID
+  requestedByAgentId: ID
+  statuses: [MnApprovalStatus!]
+  types: [MnApprovalType!]
+}
+
+input ListMnOrgChangesInput {
+  """Maximum rows to return. Defaults to 100; clamped to 500."""
+  limit: Int
+  projectId: ID
+  proposedByAgentId: ID
+  statuses: [MnOrgChangeStatus!]
+  types: [MnOrgChangeType!]
+}
+
 input ListUserInput {
   features: [FeatureType!]
   first: Int = 20
@@ -1564,6 +1968,28 @@ type MemberNotFoundInSpaceDataType {
   spaceId: String!
 }
 
+type Memory {
+  content: String!
+  createdAt: DateTime!
+  id: ID!
+  kind: MemoryKindEnum!
+  pinned: Boolean!
+  scope: MemoryScopeEnum!
+  workspaceId: String!
+}
+
+enum MemoryKindEnum {
+  DECISION
+  FACT
+  OBSERVATION
+  PLAYBOOK
+}
+
+enum MemoryScopeEnum {
+  user
+  workspace
+}
+
 input MentionDocInput {
   """The block id in the doc"""
   blockId: String
@@ -1605,14 +2031,830 @@ type MentionUserDocAccessDeniedDataType {
   docId: String!
 }
 
+"""Pre-aggregated rollup window for a SocialMetric row."""
 enum MetricBucket {
   DAY
   HOUR
   WEEK
 }
 
+input MintMnAgentApiKeyInput {
+  """Human-readable label for this key, shown in the key list."""
+  name: String!
+}
+
+type MintedMnAgentApiKey {
+  key: MnAgentApiKey!
+
+  """
+  Plaintext API key. Shown ONCE — never recoverable from the server again.
+  """
+  plaintext: String!
+}
+
 type MissingOauthQueryParameterDataType {
   name: String!
+}
+
+type MnAgent {
+  adapterConfig: JSONObject!
+  adapterType: MnAgentAdapterType!
+  capabilities: String
+  createdAt: DateTime!
+  createdByUserId: ID
+  id: ID!
+  lastHeartbeatAt: DateTime
+  name: String!
+  projectId: ID!
+  reportsToAgentId: ID
+  roleId: ID
+  runtimeConfig: JSONObject!
+  status: MnAgentStatus!
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+"""
+Which downstream runtime an agent talks to. M1 only ships Copilot chat sessions.
+"""
+enum MnAgentAdapterType {
+  COPILOT_CHAT_SESSION
+  CURSOR_CLOUD
+  E2B_SANDBOX
+  HTTP_WEBHOOK
+  PROCESS_COMMAND
+}
+
+type MnAgentApiKey {
+  agentId: ID!
+  createdAt: DateTime!
+  id: ID!
+  lastUsedAt: DateTime
+  name: String!
+  projectId: ID!
+  revokedAt: DateTime
+  workspaceId: ID!
+}
+
+type MnAgentMaximizerToggleResult {
+  agentId: ID!
+  maximizerMode: Boolean!
+}
+
+type MnAgentMemory {
+  agentId: ID!
+  contentMd: String!
+  createdAt: DateTime!
+  id: ID!
+  importance: Int!
+  kind: MnMemoryKind!
+  lastRetrievedAt: DateTime
+  projectId: ID!
+  retrievedCount: Int!
+  taskId: ID
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+type MnAgentRole {
+  adapter: String!
+  createdAt: DateTime!
+  displayName: String!
+  escalation: String
+  id: ID!
+  lastSeenAt: DateTime
+  lastSuccessfulRunId: String
+  responsibility: String!
+
+  """
+  Stable identifier (e.g. "release-captain"). Immutable — used by automation.
+  """
+  slug: String!
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+"""Lifecycle state of a Manut agent."""
+enum MnAgentStatus {
+  ERROR
+  IDLE
+  PAUSED
+  RUNNING
+  TERMINATED
+}
+
+type MnApproval {
+  createdAt: DateTime!
+  decidedAt: DateTime
+  decidedByUserId: ID
+  decisionNote: String
+  id: ID!
+  payload: JSONObject!
+  projectId: ID!
+  requestedByAgentId: ID
+  requestedByUserId: ID
+  status: MnApprovalStatus!
+  type: MnApprovalType!
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+type MnApprovalComment {
+  approvalId: ID!
+  authorAgentId: ID
+  authorUserId: ID
+  body: String!
+  createdAt: DateTime!
+  id: ID!
+  projectId: ID!
+}
+
+"""
+Lifecycle state of an approval. PENDING/REVISION_REQUESTED are mutable; APPROVED/REJECTED/CANCELLED are terminal.
+"""
+enum MnApprovalStatus {
+  APPROVED
+  CANCELLED
+  PENDING
+  REJECTED
+  REVISION_REQUESTED
+}
+
+"""
+Kind of approval request — hire-an-agent, mark-task-complete, override-budget, board-approval, tool-call-review, or org-change.
+"""
+enum MnApprovalType {
+  AGENT_ORG_CHANGE
+  APPROVE_TASK_COMPLETION
+  BUDGET_OVERRIDE
+  HIRE_AGENT
+  REQUEST_BOARD_APPROVAL
+  TOOL_CALL_REVIEW
+}
+
+type MnBudget {
+  alertSent: Boolean!
+  capCents: Int!
+  createdAt: DateTime!
+  hardStopEnabled: Boolean!
+  id: ID!
+  monthYear: String!
+  projectId: ID
+  scopeId: ID
+  scopeType: MnBudgetScope!
+  spentCents: Int!
+  updatedAt: DateTime!
+  warnThresholdPct: Int!
+  workspaceId: ID!
+}
+
+type MnBudgetRollup {
+  capCents: Int!
+  monthYear: String!
+  projectId: ID
+  scopeId: ID
+  scopeType: MnBudgetScope!
+  spentCents: Int!
+
+  """
+  Convenience: `Math.min(100, Math.floor(spent / cap * 100))`. 0 when capCents is 0.
+  """
+  utilizationPct: Int!
+}
+
+"""
+Scope on which a budget cap is enforced. The enforcer walks task → goal → agent → project → workspace; first hard-stop hit wins.
+"""
+enum MnBudgetScope {
+  AGENT
+  GOAL
+  PROJECT
+  TASK
+  WORKSPACE
+}
+
+type MnCeoConversation {
+  createdAt: DateTime!
+  id: ID!
+  lastResolutionKind: MnCeoResolutionKind
+  ownerUserId: ID!
+  title: String
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+"""M17 — typed resolution emitted by the CEO agent for a user turn."""
+enum MnCeoResolutionKind {
+  APPROVAL_REQUESTED
+  BUDGET_QUERY
+  DECISION_RECORDED
+  NONE
+  PLAN_DRAFTED
+  STATUS_QUERY
+  TASK_CREATED
+}
+
+type MnCeoTurn {
+  bodyMd: String!
+  conversationId: ID!
+  createdAt: DateTime!
+  id: ID!
+  resolutionKind: MnCeoResolutionKind!
+  resolutionRefId: String
+  role: MnCeoTurnRole!
+}
+
+"""M17 — speaker role on a CEO Chat turn."""
+enum MnCeoTurnRole {
+  CEO_AGENT
+  SYSTEM
+  USER
+}
+
+type MnCostEvent {
+  agentId: ID
+  billingCode: String
+  costCents: Int!
+  goalId: ID
+  id: ID!
+  inputTokens: Int!
+  model: String!
+  occurredAt: DateTime!
+  outputTokens: Int!
+  projectId: ID
+  provider: String!
+  taskId: ID
+  workspaceId: ID!
+}
+
+type MnCrmAccount {
+  createdAt: DateTime!
+  id: ID!
+  industry: String
+  name: String!
+  notes: String
+  ownerUserId: ID
+  updatedAt: DateTime!
+  website: String
+  workspaceId: ID!
+}
+
+type MnCrmActivity {
+  accountId: ID
+  body: String
+  completedAt: DateTime
+  contactId: ID
+  createdAt: DateTime!
+  createdByUserId: ID!
+  dealId: ID
+  dueAt: DateTime
+  id: ID!
+  subject: String
+  type: MnCrmActivityType!
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+"""CRM activity category."""
+enum MnCrmActivityType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+  OTHER
+}
+
+type MnCrmContact {
+  accountId: ID
+  createdAt: DateTime!
+  email: String
+  firstName: String!
+  id: ID!
+  lastName: String
+  ownerUserId: ID
+  phone: String
+  title: String
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+type MnCrmDeal {
+  accountId: ID
+  contactId: ID
+  createdAt: DateTime!
+  currency: String
+  expectedCloseAt: DateTime
+  id: ID!
+  name: String!
+  ownerUserId: ID
+  probability: Int
+  stageId: ID!
+  updatedAt: DateTime!
+  value: Float
+  workspaceId: ID!
+}
+
+type MnCrmDealStage {
+  createdAt: DateTime!
+  id: ID!
+  name: String!
+  pipelineKey: String!
+  sortOrder: Int!
+  workspaceId: ID!
+}
+
+"""
+M11 — Predicate kind for Definition of Done. Each kind has its own verifier path in MnOutcomeVerifierService.
+"""
+enum MnDoDPredicateKind {
+  CUSTOM
+  DOC_EXISTS
+  EMBEDDING_SIMILARITY
+  URL_REACHABLE
+  WORK_PRODUCT_EXISTS
+}
+
+type MnDoDPredicateResult {
+  evidence: JSON
+  kind: MnDoDPredicateKind!
+  predicate: JSON!
+  reason: String
+  satisfied: Boolean!
+}
+
+type MnDoDVerificationResult {
+  hasDefinition: Boolean!
+  results: [MnDoDPredicateResult!]!
+  satisfied: Boolean!
+  taskId: ID!
+}
+
+type MnExecutionRun {
+  agentId: ID
+  error: String
+  finishedAt: DateTime
+  id: ID!
+  startedAt: DateTime!
+  status: MnExecutionRunStatus!
+  taskId: ID!
+}
+
+"""
+M7 — Manut execution run lifecycle status. QUEUED → RUNNING → SUCCEEDED | FAILED | CANCELLED | TIMED_OUT.
+"""
+enum MnExecutionRunStatus {
+  CANCELLED
+  FAILED
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  TIMED_OUT
+}
+
+type MnGoal {
+  createdAt: DateTime!
+  createdByUserId: ID
+  description: String
+  id: ID!
+  level: MnGoalLevel!
+  ownerAgentId: ID
+  parentGoalId: ID
+  projectId: ID!
+  status: MnGoalStatus!
+  title: String!
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+type MnGoalAncestryStep {
+  depth: Int!
+  goalId: ID!
+  level: MnGoalLevel!
+  status: MnGoalStatus!
+  title: String!
+}
+
+"""
+Where in the strategy chain a goal sits. PROJECT > TEAM > AGENT > TASK.
+"""
+enum MnGoalLevel {
+  AGENT
+  PROJECT
+  TASK
+  TEAM
+}
+
+"""Lifecycle state of a Manut goal."""
+enum MnGoalStatus {
+  ACHIEVED
+  ACTIVE
+  CANCELLED
+  PLANNED
+}
+
+"""Manut work queue intake lifecycle status."""
+enum MnIntakeStatus {
+  RECEIVED
+  REJECTED
+  ROUTED
+}
+
+type MnLearningCandidate {
+  """
+  The proposed playbook body in Markdown. Includes the mn-learning-candidate marker block as a trailing HTML comment so a round-trip back into the candidate list stays deterministic.
+  """
+  body: String!
+  createdAt: DateTime!
+
+  """
+  Short summary of the playbook body. Mirrors MnSkill.description so an approving operator can scan the list without opening every row.
+  """
+  description: String
+
+  """
+  The underlying MnSkill.id of the candidate row. Approving / rejecting a candidate operates on this id.
+  """
+  id: ID!
+  name: String!
+  slug: String!
+  source: MnSkillSource!
+
+  """
+  Task id that triggered this extraction. SetNull on task delete so a candidate survives the task being purged. Surfaces as null when the source task is no longer resolvable.
+  """
+  sourceTaskId: String
+  status: MnLearningCandidateStatus!
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+"""
+Lifecycle state for an auto-extracted playbook. PENDING means awaiting operator review; APPROVED means promoted to a real skill (the row remains source=IMPORTED to preserve provenance); REJECTED means archived without promotion.
+"""
+enum MnLearningCandidateStatus {
+  APPROVED
+  PENDING
+  REJECTED
+}
+
+"""
+Kind of memory row. FACT is a statement of truth; DECISION is a recorded choice future runs should respect; OBSERVATION is a free-form note; PLAYBOOK is a reusable runbook fragment.
+"""
+enum MnMemoryKind {
+  DECISION
+  FACT
+  OBSERVATION
+  PLAYBOOK
+}
+
+"""Outbound notification channel for a reminder."""
+enum MnNotificationChannel {
+  EMAIL
+}
+
+type MnOrgChange {
+  appliedAt: DateTime
+  createdAt: DateTime!
+  decidedAt: DateTime
+  decidedByUserId: ID
+  decisionNote: String
+  id: ID!
+  payload: JSONObject!
+  projectId: ID!
+  proposedByAgentId: ID
+  rationale: String!
+  status: MnOrgChangeStatus!
+  type: MnOrgChangeType!
+  workspaceId: ID!
+}
+
+"""
+Lifecycle state of an org-change proposal: PROPOSED -> APPROVED|REJECTED -> APPLIED -> REVERTED.
+"""
+enum MnOrgChangeStatus {
+  APPLIED
+  APPROVED
+  PROPOSED
+  REJECTED
+  REVERTED
+}
+
+"""
+Kind of structural change proposed by an agent: role adjustment, delegation change, new routine, hire proposal, reporting change, or capability grant.
+"""
+enum MnOrgChangeType {
+  AGENT_HIRE_PROPOSAL
+  CAPABILITY_GRANT
+  DELEGATION_CHANGE
+  NEW_ROUTINE
+  REPORTING_CHANGE
+  ROLE_ADJUSTMENT
+}
+
+type MnPlugin {
+  createdAt: DateTime!
+  enabledAt: DateTime
+  id: ID!
+  installedAt: DateTime!
+  manifestJson: JSON!
+  name: String!
+  packagePath: String
+  processStatus: MnPluginStatus!
+  updatedAt: DateTime!
+  version: String!
+}
+
+type MnPluginConfig {
+  configJson: JSON!
+  createdAt: DateTime!
+  id: ID!
+  pluginId: ID!
+  projectId: ID
+  updatedAt: DateTime!
+  workspaceId: String!
+}
+
+"""
+Lifecycle status of an installed plugin: INSTALLED (manifest in DB, not yet enabled), LOADING (spawning), RUNNING (worker alive), CRASHED (supervisor parked it after N restart failures), DISABLED (operator paused it).
+"""
+enum MnPluginStatus {
+  CRASHED
+  DISABLED
+  INSTALLED
+  LOADING
+  RUNNING
+}
+
+type MnProject {
+  createdAt: DateTime!
+  description: String
+  id: ID!
+  name: String!
+  sortOrder: Int!
+  status: MnProjectStatus!
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+"""Lifecycle state of a Manut project."""
+enum MnProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+type MnReleaseRun {
+  actor: String
+  createdAt: DateTime!
+  deployUrl: String
+  generatedAt: DateTime
+
+  """GitHub Actions run identifier (workflow.runId from the handover)."""
+  ghRunId: String!
+  ghRunUrl: String
+  headSha: String
+  id: ID!
+  imageDigest: String
+  imageTag: String
+  mode: String!
+  registry: String
+  shortSha: String
+  status: String!
+  tasks: [MnReleaseTask!]!
+  updatedAt: DateTime!
+  version: String
+  workspaceId: ID!
+}
+
+type MnReleaseTask {
+  id: ID!
+
+  """Human-readable label copied verbatim from the handover taskTree."""
+  label: String!
+  runId: ID!
+
+  """Stable slug for the task (build, verify, deploy, observe, document)."""
+  slug: String!
+  sortOrder: Int!
+}
+
+type MnReminder {
+  body: String
+  channel: MnNotificationChannel!
+  completedAt: DateTime
+  createdAt: DateTime!
+  fireAt: DateTime!
+  id: ID!
+  relatedEntityId: String
+  relatedEntityType: String
+  ruleId: ID
+  status: MnReminderStatus!
+  title: String!
+  updatedAt: DateTime!
+  userId: ID!
+  workspaceId: ID!
+}
+
+type MnReminderRule {
+  config: JSONObject!
+  createdAt: DateTime!
+  createdByUserId: ID!
+  cronExpression: String
+  enabled: Boolean!
+  id: ID!
+  lastEvaluatedAt: DateTime
+  name: String!
+  nextRunAt: DateTime
+  timezone: String
+  trigger: MnReminderRuleTrigger!
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+"""
+When a reminder rule fires: cron-driven (DATETIME) or event-driven (OVERDUE_TASK, INACTIVITY, UPCOMING_DEADLINE). v0 surfaces only DATETIME in the UI.
+"""
+enum MnReminderRuleTrigger {
+  DATETIME
+  INACTIVITY
+  OVERDUE_TASK
+  UPCOMING_DEADLINE
+}
+
+"""Manut reminder lifecycle."""
+enum MnReminderStatus {
+  CANCELLED
+  COMPLETED
+  FAILED
+  PROCESSING
+  SCHEDULED
+}
+
+type MnSkill {
+  archivedAt: DateTime
+  contentMd: String!
+  createdAt: DateTime!
+  description: String
+  id: ID!
+  name: String!
+  slug: String!
+  source: MnSkillSource!
+  updatedAt: DateTime!
+  version: String!
+  workspaceId: ID!
+}
+
+"""
+Provenance of an MnSkill row. BUILTIN is reserved for seed skills, WORKSPACE is created by an end user, and IMPORTED was created by the AGENTS.md import flow (Branch B / M5.2).
+"""
+enum MnSkillSource {
+  BUILTIN
+  IMPORTED
+  WORKSPACE
+}
+
+type MnTask {
+  assigneeUserId: ID
+  createdAt: DateTime!
+  createdByUserId: ID
+  description: String
+  dueAt: DateTime
+  id: ID!
+  listSortOrder: Int!
+  priority: MnTaskPriority!
+  projectId: ID!
+  status: MnTaskStatus!
+  title: String!
+  updatedAt: DateTime!
+}
+
+type MnTaskAncestry {
+  goalChain: [MnGoalAncestryStep!]!
+  taskAncestors: [MnTaskAncestryStep!]!
+  taskId: ID!
+  taskTitle: String!
+}
+
+type MnTaskAncestryStep {
+  depth: Int!
+  taskId: ID!
+  title: String!
+}
+
+type MnTaskBlocker {
+  blockedByTaskId: ID!
+  createdAt: DateTime!
+  id: ID!
+  projectId: ID!
+  taskId: ID!
+}
+
+type MnTaskCheckoutResult {
+  acquired: Boolean!
+  executionLockedAt: DateTime
+  executionRunId: ID
+  taskId: ID
+}
+
+type MnTaskPlan {
+  authorAgentId: ID
+  authorUserId: ID
+  bodyMd: String!
+  createdAt: DateTime!
+  id: ID!
+  reviewerComments: JSON!
+  revisionNumber: Int!
+  status: MnTaskPlanStatus!
+  taskId: ID!
+}
+
+"""
+M13 — Reviewer decision discriminator. APPROVE moves UNDER_REVIEW → APPROVED and supersedes prior APPROVED revisions; REJECT moves UNDER_REVIEW → REJECTED.
+"""
+enum MnTaskPlanDecision {
+  APPROVE
+  REJECT
+}
+
+"""
+M13 — Plan lifecycle state. DRAFT and UNDER_REVIEW are the only mutable states; APPROVED, REJECTED, and SUPERSEDED are terminal.
+"""
+enum MnTaskPlanStatus {
+  APPROVED
+  DRAFT
+  REJECTED
+  SUPERSEDED
+  UNDER_REVIEW
+}
+
+"""Manut task priority."""
+enum MnTaskPriority {
+  HIGH
+  LOW
+  MEDIUM
+  NONE
+  URGENT
+}
+
+"""Manut task workflow state."""
+enum MnTaskStatus {
+  BACKLOG
+  CANCELLED
+  DONE
+  IN_PROGRESS
+  TODO
+}
+
+type MnWorkProduct {
+  byteSize: Int
+  createdAt: DateTime!
+  description: String
+  id: ID!
+  kind: MnWorkProductKind!
+  metadata: JSONObject!
+  producedByAgentId: ID
+  projectId: ID!
+  ref: String!
+  taskId: ID!
+  title: String
+  workspaceId: ID!
+}
+
+"""
+Kind of work product. DOC is an internal BlockSuite doc, FILE is a blob in object storage, URL is an external link, PR is a pull request, DEPLOYMENT is an environment rollout, CSV is a data export, SCREENSHOT is an image attachment. Free-form `metadata` JSON carries per-kind detail.
+"""
+enum MnWorkProductKind {
+  CSV
+  DEPLOYMENT
+  DOC
+  FILE
+  PR
+  SCREENSHOT
+  URL
+}
+
+type MnWorkQueue {
+  createdAt: DateTime!
+  defaultAssigneeAgentId: ID
+  defaultPriority: MnTaskPriority!
+  description: String
+  id: ID!
+  intakeWebhookToken: String!
+  isActive: Boolean!
+  name: String!
+  projectId: ID!
+  routingRulesJson: String!
+  updatedAt: DateTime!
+  workspaceId: ID!
+}
+
+type MnWorkQueueIntake {
+  externalRef: String
+  id: ID!
+  payloadJson: String!
+  queueId: ID!
+  receivedAt: DateTime!
+  routedToTaskId: ID
+  status: MnIntakeStatus!
 }
 
 type Mutation {
@@ -1622,6 +2864,9 @@ type Mutation {
   """Mark an AI insight as acknowledged by the current user."""
   acknowledgeInsight(input: AcknowledgeInsightInput!): SocialInsight!
   activateLicense(license: String!, workspaceId: String!): License!
+  addAgentFile(fileId: String!, id: String!): Agent!
+  addAgentLink(id: String!, label: String, url: String!): Agent!
+  addAgentSkill(id: String!, skill: String!): Agent!
 
   """add a blob to context"""
   addContextBlob(options: AddContextBlobInput!): CopilotContextBlob!
@@ -1634,6 +2879,10 @@ type Mutation {
 
   """add a file to context"""
   addContextFile(content: Upload!, options: AddContextFileInput!): CopilotContextFile!
+  addMnCeoTurn(input: AddMnCeoTurnInput!, workspaceId: ID!): MnCeoTurn!
+
+  """Mark one task as blocked by another. Rejects self-block."""
+  addMnTaskBlocker(input: AddMnTaskBlockerInput!, workspaceId: ID!): MnTaskBlocker!
 
   """Update workspace embedding files"""
   addWorkspaceEmbeddingFiles(blob: Upload!, workspaceId: String!): CopilotWorkspaceFile!
@@ -1644,14 +2893,47 @@ type Mutation {
 
   """Apply updates to a doc using LLM and return the merged markdown."""
   applyDocUpdates(docId: String!, op: String!, updates: String!, workspaceId: String!): String!
+
+  """
+  Execute an APPROVED change. Mutates the underlying tables (e.g. updates MnAgent.reportsToAgentId for DELEGATION_CHANGE, creates an MnRoutine row for NEW_ROUTINE) and transitions to APPLIED. Captures priorState onto the payload so revert() can undo if needed.
+  """
+  applyMnOrgChange(orgChangeId: ID!, workspaceId: ID!): MnOrgChange!
   approveMember(userId: String!, workspaceId: String!): Boolean!
+
+  """
+  Approve a candidate playbook. The underlying MnSkill row remains source=IMPORTED so provenance (auto-extracted vs hand-authored) is preserved forever. Returns the updated candidate.
+  """
+  approveMnLearningCandidate(candidateId: ID!, workspaceId: ID!): MnLearningCandidate!
+  archiveMnProject(projectId: ID!): MnProject!
+
+  """
+  Archive a skill (soft delete). Archived skills are hidden from the default list but preserved so existing references keep resolving.
+  """
+  archiveMnSkill(skillId: ID!, workspaceId: ID!): MnSkill!
+  archiveMnWorkQueue(queueId: ID!, workspaceId: ID!): MnWorkQueue!
+
+  """
+  Assign or re-assign a task. XOR — at most one of { userId, agentId } may be non-null. Both null clears assignees.
+  """
+  assignMnTask(assigneeAgentId: ID, assigneeUserId: ID, taskId: ID!, workspaceId: ID!): Boolean!
 
   """Ban an user"""
   banUser(id: String!): UserType!
 
-  """Begin OAuth handshake for a platform. Returns the authorization URL the client must navigate to."""
+  """
+  Begin OAuth handshake for a platform. Returns the authorization URL the client must navigate to.
+  """
   beginPlatformConnect(platform: SocialPlatform!, workspaceId: String!): BeginOAuthResult!
-  """Discard a pending Meta OAuth picker session without binding any account."""
+
+  """
+  Bind the given chat session to a task so its messages get GOAL CONTEXT injected on the next turn. Pass null to unbind.
+  """
+  bindAiSessionToTask(depth: Int, sessionId: ID!, taskId: ID, workspaceId: ID!): Boolean!
+  cancelMnReminder(reminderId: ID!): MnReminder!
+
+  """
+  Discard a pending Meta OAuth picker session without binding any account.
+  """
   cancelPlatformConnect(input: CancelPlatformConnectInput!): Boolean!
   cancelSubscription(idempotencyKey: String @deprecated(reason: "use header `Idempotency-Key`"), plan: SubscriptionPlan = Pro, workspaceId: String): SubscriptionType!
   changeEmail(email: String!, token: String!): UserType!
@@ -1661,6 +2943,9 @@ type Mutation {
   """Cleanup sessions"""
   cleanupCopilotSession(options: DeleteSessionInput!): [String!]!
   completeBlobUpload(key: String!, parts: [BlobUploadPartInput!], uploadId: String, workspaceId: String!): String!
+  connectGithub(workspaceId: String!): GithubConnectAuthUrl!
+  connectGoogle(scope: GoogleScope!, workspaceId: String!): GoogleConnectAuthUrl!
+  createAgent(input: CreateAgentInput!): Agent!
   createBlobUpload(key: String!, mime: String!, size: Int!, workspaceId: String!): BlobUploadInit!
 
   """Create change password url"""
@@ -1685,6 +2970,54 @@ type Mutation {
   """Create a stripe customer portal to manage payment methods"""
   createCustomerPortal: String!
   createInviteLink(expireTime: WorkspaceInviteLinkExpireTime!, workspaceId: String!): InviteLink!
+
+  """
+  Open a Stripe Checkout Session that upgrades the workspace to Manut Pro. Returns the absolute checkout URL — the frontend redirects via `window.location.assign(checkoutUrl)`. Requires Workspace.Settings.Update.
+  """
+  createManutProCheckoutSession(workspaceId: ID!): String!
+
+  """Create a new agent. Requires Workspace.Settings.Update."""
+  createMnAgent(input: CreateMnAgentInput!, workspaceId: ID!): MnAgent!
+
+  """Create a new PENDING approval. Requires Workspace.Settings.Update."""
+  createMnApproval(input: CreateMnApprovalInput!, workspaceId: ID!): MnApproval!
+
+  """Add a comment to an approval thread."""
+  createMnApprovalComment(approvalId: ID!, input: CreateMnApprovalCommentInput!, workspaceId: ID!): MnApprovalComment!
+
+  """Create a new budget. Requires Workspace.Settings.Update."""
+  createMnBudget(input: CreateMnBudgetInput!, workspaceId: ID!): MnBudget!
+  createMnCeoConversation(input: CreateMnCeoConversationInput!): MnCeoConversation!
+  createMnCrmAccount(input: CreateMnCrmAccountInput!, workspaceId: String!): MnCrmAccount!
+  createMnCrmActivity(input: CreateMnCrmActivityInput!, workspaceId: String!): MnCrmActivity!
+  createMnCrmContact(input: CreateMnCrmContactInput!, workspaceId: String!): MnCrmContact!
+  createMnCrmDeal(input: CreateMnCrmDealInput!, workspaceId: String!): MnCrmDeal!
+  createMnCrmDealStage(input: CreateMnCrmDealStageInput!, workspaceId: String!): MnCrmDealStage!
+
+  """Create a goal. Requires Workspace.Settings.Update."""
+  createMnGoal(input: CreateMnGoalInput!, workspaceId: ID!): MnGoal!
+  createMnProject(input: CreateMnProjectInput!, workspaceId: String!): MnProject!
+  createMnReminder(input: CreateMnReminderInput!, workspaceId: String!): MnReminder!
+
+  """Create a reminder rule. Requires Workspace.Settings.Update."""
+  createMnReminderRule(input: CreateMnReminderRuleInput!, workspaceId: String!): MnReminderRule!
+
+  """
+  Create a new skill. Requires Workspace.Settings.Update. Slug must be unique within the workspace.
+  """
+  createMnSkill(input: CreateMnSkillInput!, workspaceId: ID!): MnSkill!
+  createMnTask(input: CreateMnTaskInput!, projectId: ID!): MnTask!
+
+  """
+  M13 — create a new DRAFT revision for a task. The service auto-increments revisionNumber inside a transaction so concurrent creates produce distinct revisions.
+  """
+  createMnTaskPlan(input: CreateMnTaskPlanInput!): MnTaskPlan!
+
+  """
+  Create a new work product attached to a task. Requires Workspace.Settings.Update. The task and (optional) producer agent must live in the same workspace as the caller — cross-workspace attachment is rejected with Forbidden.
+  """
+  createMnWorkProduct(input: CreateMnWorkProductInput!, workspaceId: ID!): MnWorkProduct!
+  createMnWorkQueue(input: CreateMnWorkQueueInput!, workspaceId: ID!): MnWorkQueue!
   createReply(input: ReplyCreateInput!): ReplyObjectType!
   createSelfhostWorkspaceCustomerPortal(workspaceId: String!): String!
 
@@ -1694,11 +3027,52 @@ type Mutation {
   """Create a new workspace"""
   createWorkspace(init: Upload): WorkspaceType!
   deactivateLicense(workspaceId: String!): Boolean!
+
+  """
+  Decide an approval (APPROVED / REJECTED / CANCELLED / REVISION_REQUESTED). Terminal-state approvals are immutable.
+  """
+  decideMnApproval(approvalId: ID!, input: DecideMnApprovalInput!, workspaceId: ID!): MnApproval!
+
+  """
+  Decide a PROPOSED change (APPROVED or REJECTED). Mirrors the decision onto the sibling MnApproval row.
+  """
+  decideMnOrgChange(input: DecideMnOrgChangeInput!, orgChangeId: ID!, workspaceId: ID!): MnOrgChange!
+
+  """
+  M13 — APPROVE or REJECT an UNDER_REVIEW plan. APPROVE supersedes any prior APPROVED revision on the same task in the same transaction so the "current plan" invariant holds. Both decisions append an audit entry to reviewerComments.
+  """
+  decideMnTaskPlan(input: DecideMnTaskPlanInput!): MnTaskPlan!
   deleteAccount: DeleteAccount!
+  deleteAgent(id: String!): Boolean!
   deleteBlob(hash: String @deprecated(reason: "use parameter [key]"), key: String, permanently: Boolean! = false, workspaceId: String!): Boolean!
 
   """Delete a comment"""
   deleteComment(id: String!): Boolean!
+
+  """Delete an agent. Cascades to API keys and heartbeat runs."""
+  deleteMnAgent(agentId: ID!, workspaceId: ID!): Boolean!
+
+  """
+  Delete a memory row. Requires Workspace.Settings.Update. Returns true on success; throws NotFound when the row is missing or belongs to another workspace.
+  """
+  deleteMnAgentMemory(memoryId: ID!, workspaceId: ID!): Boolean!
+
+  """Delete a budget. Cost events are preserved."""
+  deleteMnBudget(budgetId: ID!, workspaceId: ID!): Boolean!
+
+  """Delete a goal. Linked tasks survive (goalId set to null)."""
+  deleteMnGoal(goalId: ID!, workspaceId: ID!): Boolean!
+
+  """
+  Delete a reminder rule. Pending reminders generated by the rule are kept (the FK is nullable on MnReminder.ruleId). Requires Workspace.Settings.Update.
+  """
+  deleteMnReminderRule(ruleId: ID!): Boolean!
+  deleteMnTask(taskId: ID!): Boolean!
+
+  """
+  Delete a work product registry row. Does NOT delete the underlying artifact (doc / PR / file) — those are owned by their source-of- truth system. Requires Workspace.Settings.Update.
+  """
+  deleteMnWorkProduct(workProductId: ID!, workspaceId: ID!): Boolean!
 
   """Delete a reply"""
   deleteReply(id: String!): Boolean!
@@ -1707,14 +3081,42 @@ type Mutation {
   deleteUser(id: String!): DeleteAccount!
   deleteWorkspace(id: String!): Boolean!
 
+  """
+  M12 — disable MAXIMIZER MODE on an agent and revert the dispatch path to upstream behavior. Requires Workspace.Settings.Update.
+  """
+  disableMnAgentMaximizer(agentId: ID!): MnAgentMaximizerToggleResult!
+
+  """
+  Disable a plugin: terminate the worker process and mark DISABLED. Pending RPC calls reject with rpc_disposed.
+  """
+  disableMnPlugin(id: ID!): MnPlugin!
+  disconnectGithub(workspaceId: String!): Boolean!
+  disconnectGoogle(scope: GoogleScope!, workspaceId: String!): Boolean!
+
   """Disconnect a platform from the workspace (soft-delete)."""
   disconnectPlatform(connectionId: String!): Boolean!
+  disconnectProvider(provider: String!, workspaceId: String!): Boolean!
+
+  """
+  M12 — enable MAXIMIZER MODE on an agent. While on, the dispatch orchestrator auto-delegates capability-matched calls to subordinates, batches the rest into 10-call heartbeat groups, forces approval for any call costing >50% of remaining monthly budget, and runs full M11 outcome verification on every DONE transition. Requires Workspace.Settings.Update.
+  """
+  enableMnAgentMaximizer(agentId: ID!): MnAgentMaximizerToggleResult!
+
+  """
+  Enable a plugin: flip its status to LOADING and spawn the worker process. Idempotent for an already-running plugin.
+  """
+  enableMnPlugin(id: ID!): MnPlugin!
 
   """Reenable an banned user"""
   enableUser(id: String!): UserType!
 
-  """Complete a multi-account Meta OAuth flow by binding the chosen page / IG biz / Threads profile."""
+  """
+  Complete a multi-account Meta OAuth flow by binding the chosen page / IG biz / Threads profile.
+  """
   finalizePlatformConnect(input: FinalizePlatformConnectInput!): SocialConnection!
+
+  """Hard-delete a memory the AI has stored about the user."""
+  forgetMemory(id: ID!): Boolean!
 
   """Create a chat session"""
   forkCopilotSession(options: ForkChatSessionInput!): String!
@@ -1723,20 +3125,61 @@ type Mutation {
   grantDocUserRoles(input: GrantDocUserRolesInput!): Boolean!
   grantMember(permission: Permission!, userId: String!, workspaceId: String!): Boolean!
 
+  """Imports a Gmail message as a new doc. Returns the new doc ID."""
+  importGmailMessage(messageId: String!, workspaceId: String!): String!
+
+  """Import a Manut release handover JSON payload into a workspace doc."""
+  importMnHandover(input: ImportMnHandoverInput!, workspaceId: String!): ImportMnHandoverResult!
+
   """import users"""
   importUsers(input: ImportUsersInput!): [UserImportResultType!]!
   installLicense(license: Upload!, workspaceId: String!): License!
+
+  """
+  Install a plugin from npm by package name + version. Runs `npm install` under the instance plugin directory, validates the declared manifest, and persists an MnPlugin row in INSTALLED status.
+  """
+  installMnPlugin(input: InstallMnPluginInput!): MnPlugin!
   inviteMembers(emails: [String!]!, workspaceId: String!): [InviteResult!]!
   leaveWorkspace(sendLeaveMail: Boolean @deprecated(reason: "no used anymore"), workspaceId: String!, workspaceName: String @deprecated(reason: "no longer used")): Boolean!
   linkCalDAVAccount(input: LinkCalDAVAccountInput!): CalendarAccountObjectType!
   linkCalendarAccount(input: LinkCalendarAccountInput!): String!
 
+  """
+  M7 — mark an MnExecutionRun row as complete. `status` must be terminal (SUCCEEDED / FAILED / CANCELLED / TIMED_OUT).
+  """
+  markMnExecutionRunComplete(error: String, runId: ID!, status: MnExecutionRunStatus!): MnExecutionRun!
+
   """mention user in a doc"""
   mentionUser(input: MentionInput!): ID!
+
+  """
+  Mint a new API key. The plaintext is shown ONCE in the response and is never recoverable from the server again.
+  """
+  mintMnAgentApiKey(agentId: ID!, input: MintMnAgentApiKeyInput!, workspaceId: ID!): MintedMnAgentApiKey!
+
+  """
+  Toggle the pinned flag on a memory. Pinned memories surface ahead of unpinned ones during AI recall.
+  """
+  pinMemory(id: ID!): Memory!
+
+  """
+  Promote a personal (user-scope) memory to workspace-scope so any member can recall it.
+  """
+  promoteMemoryToWorkspace(id: ID!): Memory!
+
+  """
+  Propose a structural change. Creates a PROPOSED MnOrgChange row AND a sibling PENDING MnApproval (type=AGENT_ORG_CHANGE) linked via payload.orgChangeId so the existing inbox / SSE surface gates the human decision.
+  """
+  proposeMnOrgChange(input: ProposeMnOrgChangeInput!, workspaceId: ID!): MnOrgChange!
   publishDoc(docId: String!, mode: PublicDocMode = Page, workspaceId: String!): DocType!
 
   """queue workspace doc embedding"""
   queueWorkspaceEmbedding(docId: [String!]!, workspaceId: String!): Boolean!
+
+  """
+  Record a user 👍/👎 rating on an assistant chat message. Stored as an OBSERVATION memory tagged feedback:positive|negative.
+  """
+  rateMessage(messageId: String!, rating: String!): Boolean!
 
   """mark all notifications as read"""
   readAllNotifications: Boolean!
@@ -1747,7 +3190,20 @@ type Mutation {
 
   """Refresh current user subscriptions and return latest."""
   refreshUserSubscriptions: [SubscriptionType!]!
+
+  """
+  Reject a candidate playbook. Archives the row AND rewrites the embedded marker to status=rejected so the audit trail survives.
+  """
+  rejectMnLearningCandidate(candidateId: ID!, workspaceId: ID!): MnLearningCandidate!
   releaseDeletedBlobs(workspaceId: String!): Boolean!
+
+  """
+  M7 — release a task checkout. No-op if `runId` does not match the current holder (security: stale processes cannot clobber fresh executions).
+  """
+  releaseMnTaskCheckout(runId: ID!, taskId: ID!): Boolean!
+  removeAgentFile(fileId: String!, id: String!): Agent!
+  removeAgentLink(id: String!, url: String!): Agent!
+  removeAgentSkill(id: String!, skill: String!): Agent!
 
   """Remove user avatar"""
   removeAvatar: RemoveAvatar!
@@ -1764,6 +3220,9 @@ type Mutation {
   """remove a file from context"""
   removeContextFile(options: RemoveContextFileInput!): Boolean!
 
+  """Remove a task blocker edge. No-op when the edge is gone."""
+  removeMnTaskBlocker(blockerId: ID!, workspaceId: ID!): Boolean!
+
   """Remove workspace embedding files"""
   removeWorkspaceEmbeddingFiles(fileId: String!, workspaceId: String!): Boolean!
   removeWorkspaceFeature(feature: FeatureType!, workspaceId: String!): Boolean!
@@ -1773,16 +3232,38 @@ type Mutation {
 
   """Resolve a comment or not"""
   resolveComment(input: CommentResolveInput!): Boolean!
+  resolveMnCeoTurn(turnId: ID!, workspaceId: ID!): MnCeoTurn!
+
+  """Restore an archived skill so it shows in default lists again."""
+  restoreMnSkill(skillId: ID!, workspaceId: ID!): MnSkill!
   resumeSubscription(idempotencyKey: String @deprecated(reason: "use header `Idempotency-Key`"), plan: SubscriptionPlan = Pro, workspaceId: String): SubscriptionType!
   retryAudioTranscription(jobId: String!, workspaceId: String!): TranscriptionResultType
+
+  """
+  Reverse an APPLIED change when reversibility is possible. Restores underlying tables from payload.priorState; transitions to REVERTED.
+  """
+  revertMnOrgChange(orgChangeId: ID!, workspaceId: ID!): MnOrgChange!
   revokeDocUserRoles(input: RevokeDocUserRoleInput!): Boolean!
   revokeInviteLink(workspaceId: String!): Boolean!
   revokeMember(userId: String!, workspaceId: String!): Boolean!
+
+  """
+  Soft-revoke an API key. Idempotent — re-revoking a revoked key returns the existing row unchanged.
+  """
+  revokeMnAgentApiKey(agentId: ID!, keyId: ID!, workspaceId: ID!): MnAgentApiKey!
   revokePublicDoc(docId: String!, workspaceId: String!): DocType!
   revokeUserAccessToken(id: String!): Boolean!
+  rotateMnWorkQueueToken(queueId: ID!, workspaceId: ID!): MnWorkQueue!
 
-  """Run the on-demand Content Recommendation prompt — gemini-2.5-flash, ~3K in / 0.5K out."""
+  """
+  Run the on-demand Content Recommendation prompt — gemini-2.5-flash, ~3K in / 0.5K out.
+  """
   runContentRecommendation(input: RunContentRecommendationInput!): SocialInsight!
+
+  """
+  Seed additional starter docs derived from the /welcome onboarding wizard answers.
+  """
+  seedWorkspaceFromWizard(answers: WizardAnswersInput!, workspaceId: String!): Boolean!
   sendChangeEmail(callbackUrl: String!, email: String): Boolean!
   sendChangePasswordEmail(callbackUrl: String!, email: String @deprecated(reason: "fetched from signed in user")): Boolean!
   sendSetPasswordEmail(callbackUrl: String!, email: String @deprecated(reason: "fetched from signed in user")): Boolean!
@@ -1790,15 +3271,59 @@ type Mutation {
   sendVerifyChangeEmail(callbackUrl: String!, email: String!, token: String!): Boolean!
   sendVerifyEmail(callbackUrl: String!): Boolean!
   setBlob(blob: Upload!, workspaceId: String!): String!
+
+  """
+  M11 — set or clear the Definition of Done predicate list for a task. Pass `predicates: null` (or an empty array) to remove the transition guard. Returns the freshly verified outcome so the UI can render predicate-by-predicate status immediately after save.
+  """
+  setMnTaskDefinitionOfDone(input: SetMnTaskDefinitionOfDoneInput!): MnDoDVerificationResult!
+
+  """
+  Set or clear a task parent. Rejects self-parent, cycles, and chains deeper than the configured cap.
+  """
+  setMnTaskParent(parentTaskId: ID, taskId: ID!, workspaceId: ID!): Boolean!
+
+  """Store a new memory row. Requires Workspace.Settings.Update."""
+  storeMnAgentMemory(input: StoreMnAgentMemoryInput!): MnAgentMemory!
   submitAudioTranscription(blob: Upload, blobId: String!, blobs: [Upload!], input: SubmitAudioTranscriptionInput, workspaceId: String!): TranscriptionResultType
+
+  """
+  Resubmit a REVISION_REQUESTED approval. Optionally overwrites the payload with the revised version. Status returns to PENDING.
+  """
+  submitMnApprovalRevision(approvalId: ID!, payload: JSONObject, workspaceId: ID!): MnApproval!
+
+  """
+  M13 — move a DRAFT plan to UNDER_REVIEW. Idempotent on already-UNDER_REVIEW plans is NOT supported — the service rejects any source state other than DRAFT to keep the state machine honest.
+  """
+  submitMnTaskPlanForReview(planId: ID!): MnTaskPlan!
 
   """Trigger cleanup of trashed doc embeddings"""
   triggerCleanupTrashedDocEmbeddings: Boolean!
 
   """Trigger generate missing titles cron job"""
   triggerGenerateTitleCron: Boolean!
+
+  """
+  On-demand trigger: extract a candidate playbook from the given task. In M16.1 this is the only way to start an extraction — the auto-on-DONE wiring is deferred to a follow-up so MnTask service stays untouched.
+  """
+  triggerLearningExtractionForTask(taskId: ID!, workspaceId: ID!): MnLearningCandidate!
+
+  """
+  M7 — atomically claim the execution lock on a task. Returns `acquired=true` plus updated lock metadata on success; `acquired=false` when another caller holds a non-stale lock.
+  """
+  tryCheckoutMnTask(executingAgentId: ID, runId: ID!, taskId: ID!): MnTaskCheckoutResult!
+
+  """
+  Uninstall a plugin: disables it if running, deletes the MnPlugin row, and leaves the on-disk package directory in place so an operator can audit it. Returns true on success.
+  """
+  uninstallMnPlugin(id: ID!): Boolean!
   unlinkCalendarAccount(accountId: String!): Boolean!
   unverifyDoc(docId: String!, workspaceId: String!): Boolean!
+  updateAgent(id: String!, input: UpdateAgentInput!): Agent!
+
+  """
+  Update an agent role. The slug is immutable; only displayName, adapter, responsibility, and escalation can be edited.
+  """
+  updateAgentRole(input: UpdateMnAgentRoleInput!, slug: String!, workspaceId: ID!): MnAgentRole!
 
   """update app configuration"""
   updateAppConfig(updates: [UpdateAppConfigInput!]!): JSONObject!
@@ -1811,6 +3336,43 @@ type Mutation {
   updateCopilotSession(options: UpdateChatSessionInput!): String!
   updateDocDefaultRole(input: UpdateDocDefaultRoleInput!): Boolean!
   updateDocUserRole(input: UpdateDocUserRoleInput!): Boolean!
+
+  """
+  Patch editable fields on an agent. TERMINATED agents cannot be resumed; updating them is rejected.
+  """
+  updateMnAgent(agentId: ID!, input: UpdateMnAgentInput!, workspaceId: ID!): MnAgent!
+
+  """Update editable fields on a budget. Resets alertSent if cap is raised."""
+  updateMnBudget(budgetId: ID!, input: UpdateMnBudgetInput!, workspaceId: ID!): MnBudget!
+  updateMnCrmAccount(accountId: ID!, input: UpdateMnCrmAccountInput!): MnCrmAccount!
+  updateMnCrmActivity(activityId: ID!, input: UpdateMnCrmActivityInput!): MnCrmActivity!
+  updateMnCrmContact(contactId: ID!, input: UpdateMnCrmContactInput!): MnCrmContact!
+  updateMnCrmDeal(dealId: ID!, input: UpdateMnCrmDealInput!): MnCrmDeal!
+  updateMnCrmDealStage(input: UpdateMnCrmDealStageInput!, stageId: ID!): MnCrmDealStage!
+
+  """
+  Patch an existing goal. Terminal statuses (ACHIEVED, CANCELLED) cannot be flipped back. Requires Workspace.Settings.Update.
+  """
+  updateMnGoal(goalId: ID!, input: UpdateMnGoalInput!, workspaceId: ID!): MnGoal!
+  updateMnProject(input: UpdateMnProjectInput!, projectId: ID!): MnProject!
+
+  """
+  Update a reminder rule. The trigger field is immutable after create. Requires Workspace.Settings.Update on the rule's workspace.
+  """
+  updateMnReminderRule(input: UpdateMnReminderRuleInput!, ruleId: ID!): MnReminderRule!
+
+  """
+  Patch editable fields on a skill. The version-bump rule applies: editing contentMd without changing version is rejected.
+  """
+  updateMnSkill(input: UpdateMnSkillInput!, skillId: ID!, workspaceId: ID!): MnSkill!
+  updateMnTask(input: UpdateMnTaskInput!, taskId: ID!): MnTask!
+  updateMnTaskStatus(status: MnTaskStatus!, taskId: ID!): MnTask!
+  updateMnWorkQueue(input: UpdateMnWorkQueueInput!, queueId: ID!, workspaceId: ID!): MnWorkQueue!
+
+  """
+  Persist the user’s onboarding flag after the /welcome wizard finishes or is skipped.
+  """
+  updateOnboarding(input: UpdateOnboardingInput!): UserType!
   updateProfile(input: UpdateUserInput!): UserType!
 
   """Update a reply content"""
@@ -1838,6 +3400,11 @@ type Mutation {
 
   """Upload a comment attachment and return the access url"""
   uploadCommentAttachment(attachment: Upload!, docId: String!, workspaceId: String!): String!
+
+  """
+  Create or update the workspace-scoped (or project-scoped) plugin config row. The well-known `configJson.enabled` boolean is what the workspace UI toggle flips; other fields are passed through to plugin workers via the host RPC bridge. 16 KB hard cap on payload size.
+  """
+  upsertMnPluginConfig(input: UpsertMnPluginConfigInput!): MnPluginConfig!
   verifyDoc(docId: String!, expiresAt: DateTime, workspaceId: String!): Boolean!
   verifyEmail(token: String!): Boolean!
 }
@@ -2026,6 +3593,25 @@ enum Permission {
   Owner
 }
 
+input ProposeMnOrgChangeInput {
+  """
+  Type-specific payload. For DELEGATION_CHANGE: { agentId, newReportsToAgentId }. For NEW_ROUTINE: { name, prompt, cronSchedule?, timezone? }. See enum docs in schema.prisma.
+  """
+  payload: JSONObject!
+  projectId: ID!
+
+  """
+  Optional agent id that proposed the change. Null when a human authored it directly via the org-changes inbox.
+  """
+  proposedByAgentId: ID
+
+  """
+  Free-form rationale explaining why this change is being proposed. Surfaced verbatim to the deciding operator.
+  """
+  rationale: String!
+  type: MnOrgChangeType!
+}
+
 """The mode which the public doc default in"""
 enum PublicDocMode {
   Edgeless
@@ -2056,6 +3642,11 @@ type Query {
 
   """Workspaces count for admin"""
   adminWorkspacesCount(filter: ListWorkspaceInput!): Int!
+  agent(id: String!): Agent
+
+  """Return the 5 canonical operating roles registered for a workspace."""
+  agentRoles(workspaceId: ID!): [MnAgentRole!]!
+  agents(parentAgentId: String, workspaceId: String!): [Agent!]!
 
   """get the whole app configuration"""
   appConfig: JSONObject!
@@ -2068,19 +3659,174 @@ type Query {
 
   """Get current user"""
   currentUser: UserType
+  driveFiles(pageSize: Int! = 25, query: String, workspaceId: String!): [DriveFileType!]!
   error(name: ErrorNames!): ErrorDataUnion!
 
   """get workspace invitation info"""
   getInviteInfo(inviteId: String!): InvitationType!
 
-  """Overview tile for the Analytics landing page: totals, recent insights, current AI spend."""
+  """
+  Overview tile for the Analytics landing page: totals, recent insights, current AI spend.
+  """
   getOverview(workspaceId: String!): AnalyticsOverview!
+  githubConnection(workspaceId: String!): GithubConnectionType!
+  gmailMessages(maxResults: Int! = 25, query: String, workspaceId: String!): [GmailMessageSummaryType!]!
+  googleConnection(scope: GoogleScope!, workspaceId: String!): GoogleConnectionType!
+  listConnections(workspaceId: String!): [ConnectedAccountType!]!
 
   """AI insights timeline filtered by type."""
   listInsights(input: ListInsightsInput!): [SocialInsight!]!
 
   """Aggregated metrics for the dashboard charts."""
   listMetrics(input: ListMetricsInput!): [SocialMetric!]!
+
+  """
+  Fetch a single agent by id. Returns null when the agent does not exist or belongs to another workspace.
+  """
+  mnAgent(agentId: ID!, workspaceId: ID!): MnAgent
+
+  """
+  List API keys for an agent. Includes revoked keys so the audit trail stays visible.
+  """
+  mnAgentApiKeys(agentId: ID!, workspaceId: ID!): [MnAgentApiKey!]!
+
+  """
+  List memories for an agent. Pass taskId to narrow to memories pinned to a specific task; otherwise returns all agent memories ranked by importance then recency.
+  """
+  mnAgentMemories(agentId: ID!, taskId: ID, workspaceId: ID!): [MnAgentMemory!]!
+
+  """List agents in a workspace, optionally filtered by project."""
+  mnAgents(projectId: ID, workspaceId: ID!): [MnAgent!]!
+
+  """
+  Fetch a single approval by id. Returns null when the approval does not exist or belongs to another workspace (no info leak).
+  """
+  mnApproval(approvalId: ID!, workspaceId: ID!): MnApproval
+
+  """
+  List comments on an approval, oldest first. Cross-workspace lookups throw NotFoundException (matches the approval surface).
+  """
+  mnApprovalComments(approvalId: ID!, workspaceId: ID!): [MnApprovalComment!]!
+
+  """
+  List approvals for a workspace inbox. Filterable by project, status, type, or requesting agent. Workspace-scoped.
+  """
+  mnApprovals(filter: ListMnApprovalsInput, workspaceId: ID!): [MnApproval!]!
+
+  """Fetch a single budget by id."""
+  mnBudget(budgetId: ID!, workspaceId: ID!): MnBudget
+
+  """
+  Per-project spend rollup for the dashboard. Joins budgets with live cost-event aggregates for projects without a configured cap.
+  """
+  mnBudgetProjectRollups(monthYear: String!, workspaceId: ID!): [MnBudgetRollup!]!
+
+  """List budgets in a workspace, optionally narrowed by month or scope."""
+  mnBudgets(monthYear: String, scopeType: MnBudgetScope, workspaceId: ID!): [MnBudget!]!
+  mnCeoConversation(id: ID!, workspaceId: ID!): MnCeoConversation!
+  mnCeoConversations(workspaceId: ID!): [MnCeoConversation!]!
+  mnCeoTurns(conversationId: ID!, workspaceId: ID!): [MnCeoTurn!]!
+
+  """Recent cost events for a workspace; capped at 500 by default."""
+  mnCostEvents(agentId: ID, limit: Int, monthYear: String, projectId: ID, taskId: ID, workspaceId: ID!): [MnCostEvent!]!
+  mnCrmAccounts(workspaceId: String!): [MnCrmAccount!]!
+  mnCrmActivities(workspaceId: String!): [MnCrmActivity!]!
+  mnCrmContacts(workspaceId: String!): [MnCrmContact!]!
+  mnCrmDealStages(workspaceId: String!): [MnCrmDealStage!]!
+  mnCrmDeals(workspaceId: String!): [MnCrmDeal!]!
+
+  """
+  M7 — list execution runs for a task, newest first. Requires Workspace.Read on the owning workspace.
+  """
+  mnExecutionRunsForTask(limit: Int, taskId: ID!): [MnExecutionRun!]!
+
+  """Fetch a single goal. Returns null when not in workspace."""
+  mnGoal(goalId: ID!, workspaceId: ID!): MnGoal
+
+  """Walk parent chain of a goal, ordered root → leaf."""
+  mnGoalAncestry(goalId: ID!, workspaceId: ID!): [MnGoalAncestryStep!]!
+
+  """
+  List goals in a workspace, optionally filtered by project. Workspace.Read.
+  """
+  mnGoals(projectId: ID, workspaceId: ID!): [MnGoal!]!
+
+  """
+  List auto-learning playbook candidates for a workspace. By default returns only candidates awaiting review (status=PENDING). Pass an explicit status to see approved or rejected history.
+  """
+  mnLearningCandidates(
+    """
+    Optional status filter. When omitted, defaults to PENDING so the inbox does not surface previously-handled candidates.
+    """
+    status: MnLearningCandidateStatus
+    workspaceId: ID!
+  ): [MnLearningCandidate!]!
+
+  """
+  List structural-change proposals for an org-changes inbox. Workspace-scoped; filterable by project, status, type, and proposing agent.
+  """
+  mnOrgChanges(filter: ListMnOrgChangesInput, workspaceId: ID!): [MnOrgChange!]!
+
+  """Fetch a single plugin by id. Returns null when missing."""
+  mnPlugin(id: ID!): MnPlugin
+
+  """
+  List the per-workspace plugin configs visible to this workspace. Returns every installed plugin once — synthesises an empty config row for plugins the workspace has not yet configured so the UI can render an "enable" toggle for them.
+  """
+  mnPluginConfigs(workspaceId: String!): [MnPluginConfig!]!
+
+  """
+  List every installed plugin (instance-wide). Admin-only because plugin lifecycle is an operator concern, not a workspace concern.
+  """
+  mnPlugins: [MnPlugin!]!
+  mnProjects(workspaceId: String!): [MnProject!]!
+
+  """List reminder rules in a workspace. Requires Workspace.Read."""
+  mnReminderRules(workspaceId: String!): [MnReminderRule!]!
+
+  """
+  List reminders in a workspace: own reminders for all members; admins see all when they have Workspace.Settings.Update.
+  """
+  mnReminders(workspaceId: String!): [MnReminder!]!
+
+  """
+  Fetch a single skill by id. Returns null when the skill does not exist or belongs to another workspace.
+  """
+  mnSkill(skillId: ID!, workspaceId: ID!): MnSkill
+
+  """Look up a skill by its workspace-scoped slug."""
+  mnSkillBySlug(slug: String!, workspaceId: ID!): MnSkill
+
+  """
+  List skills in a workspace. Excludes archived rows by default; pass includeArchived=true to see the full history.
+  """
+  mnSkills(includeArchived: Boolean, workspaceId: ID!): [MnSkill!]!
+
+  """Combined task + goal ancestry for the task detail breadcrumb."""
+  mnTaskAncestry(taskId: ID!, workspaceId: ID!): MnTaskAncestry
+
+  """
+  M13 — list every revision of a task plan, newest first. The UI renders this as a vertical timeline with status badges.
+  """
+  mnTaskPlans(taskId: ID!): [MnTaskPlan!]!
+  mnTasks(projectId: ID!): [MnTask!]!
+
+  """
+  Fetch a single work product by id. Returns null when the row does not exist or belongs to another workspace.
+  """
+  mnWorkProduct(workProductId: ID!, workspaceId: ID!): MnWorkProduct
+
+  """
+  List work products attributed to a task, newest first. Workspace-fenced — passing a task from another workspace returns [].
+  """
+  mnWorkProducts(taskId: ID!, workspaceId: ID!): [MnWorkProduct!]!
+  mnWorkQueueIntakes(queueId: ID!, workspaceId: ID!): [MnWorkQueueIntake!]!
+  mnWorkQueues(workspaceId: ID!): [MnWorkQueue!]!
+
+  """
+  List memories the current user can recall in this workspace (personal + workspace-scope). Pinned rows first, newest first.
+  """
+  myMemories(workspaceId: String!): [Memory!]!
   prices: [SubscriptionPrice!]!
 
   """Get public user by id"""
@@ -2088,6 +3834,17 @@ type Query {
 
   """query workspace embedding status"""
   queryWorkspaceEmbeddingStatus(workspaceId: String!): ContextWorkspaceEmbeddingStatus!
+
+  """
+  Recall top memories for an agent ranked by importance and recency. Touches retrievedCount + lastRetrievedAt as a side effect so the next recall sees the recency boost. Limit is clamped to [1, 100].
+  """
+  recallMnAgentMemories(agentId: ID!, limit: Int, taskId: ID, workspaceId: ID!): [MnAgentMemory!]!
+
+  """Fetch a single Manut release run scoped to the workspace."""
+  releaseRun(runId: ID!, workspaceId: String!): MnReleaseRun!
+
+  """List Manut release runs for the given workspace, newest first."""
+  releaseRuns(limit: Int, offset: Int, workspaceId: String!): [MnReleaseRun!]!
   revealedAccessTokens: [RevealedAccessToken!]! @deprecated(reason: "use currentUser.revealedAccessTokens")
 
   """server config"""
@@ -2110,6 +3867,11 @@ type Query {
 
   """validate app configuration"""
   validateAppConfig(updates: [UpdateAppConfigInput!]!): [AppConfigValidateResult!]!
+
+  """
+  M11 — verify a task against its declared Definition of Done. Runs every predicate and returns a per-predicate breakdown. `satisfied=true` is the AND of every predicate. A task with no predicates returns `hasDefinition=false, satisfied=true` (transition guard is a no-op for un-enforced tasks).
+  """
+  verifyMnTaskDone(taskId: ID!): MnDoDVerificationResult!
 
   """Get workspace by id"""
   workspace(id: String!): WorkspaceType!
@@ -2391,8 +4153,14 @@ enum ServerFeature {
   CopilotEmbedding
   Indexer
   LocalWorkspace
+  Manut
   OAuth
   Payment
+}
+
+input SetMnTaskDefinitionOfDoneInput {
+  predicates: JSON
+  taskId: ID!
 }
 
 type SocialConnection {
@@ -2434,6 +4202,7 @@ type SocialMetric {
   value: Float!
 }
 
+"""Connected analytics platform."""
 enum SocialPlatform {
   FACEBOOK
   GOGOCASH
@@ -2461,6 +4230,16 @@ type SpaceShouldHaveOnlyOneOwnerDataType {
 
 type SsrfBlockedErrorDataType {
   reason: String!
+}
+
+input StoreMnAgentMemoryInput {
+  agentId: ID!
+  contentMd: String!
+  importance: Int
+  kind: MnMemoryKind!
+  projectId: ID!
+  taskId: ID
+  workspaceId: ID!
 }
 
 type StreamObject {
@@ -2639,6 +4418,16 @@ type UnsupportedSubscriptionPlanDataType {
   plan: String!
 }
 
+input UpdateAgentInput {
+  avatar: JSONObject
+  description: String
+  files: [String!]
+  instructions: String
+  links: [AgentLinkInput!]
+  name: String
+  skills: [String!]
+}
+
 input UpdateAppConfigInput {
   key: String!
   module: String!
@@ -2651,6 +4440,9 @@ input UpdateChatSessionInput {
 
   """Whether to pin the session"""
   pinned: Boolean
+
+  """Pin (or clear, pass null) the floating-chat tab to a doc id. (E2.5)"""
+  pinnedDocId: String
 
   """The prompt name to use for the session"""
   promptName: String
@@ -2668,6 +4460,130 @@ input UpdateDocUserRoleInput {
   role: DocRole!
   userId: String!
   workspaceId: String!
+}
+
+input UpdateMnAgentInput {
+  adapterConfig: JSONObject
+  adapterType: MnAgentAdapterType
+  capabilities: String
+  name: String
+  reportsToAgentId: ID
+  roleId: ID
+  runtimeConfig: JSONObject
+  status: MnAgentStatus
+}
+
+input UpdateMnAgentRoleInput {
+  adapter: String
+  displayName: String
+  escalation: String
+  responsibility: String
+}
+
+input UpdateMnBudgetInput {
+  capCents: Int
+  hardStopEnabled: Boolean
+  warnThresholdPct: Int
+}
+
+input UpdateMnCrmAccountInput {
+  industry: String
+  name: String
+  notes: String
+  ownerUserId: ID
+  website: String
+}
+
+input UpdateMnCrmActivityInput {
+  body: String
+  completedAt: DateTime
+  dueAt: DateTime
+  subject: String
+  type: MnCrmActivityType
+}
+
+input UpdateMnCrmContactInput {
+  accountId: ID
+  email: String
+  firstName: String
+  lastName: String
+  ownerUserId: ID
+  phone: String
+  title: String
+}
+
+input UpdateMnCrmDealInput {
+  accountId: ID
+  contactId: ID
+  currency: String
+  expectedCloseAt: DateTime
+  name: String
+  ownerUserId: ID
+  probability: Int
+  stageId: ID
+  value: Float
+}
+
+input UpdateMnCrmDealStageInput {
+  name: String
+  sortOrder: Int
+}
+
+input UpdateMnGoalInput {
+  description: String
+  level: MnGoalLevel
+  ownerAgentId: ID
+  parentGoalId: ID
+  status: MnGoalStatus
+  title: String
+}
+
+input UpdateMnProjectInput {
+  description: String
+  name: String
+  sortOrder: Int
+  status: MnProjectStatus
+}
+
+input UpdateMnReminderRuleInput {
+  config: JSONObject
+  cronExpression: String
+  enabled: Boolean
+  name: String
+  timezone: String
+}
+
+input UpdateMnSkillInput {
+  contentMd: String
+  description: String
+  name: String
+  version: String
+}
+
+input UpdateMnTaskInput {
+  assigneeUserId: ID
+  description: String
+  dueAt: DateTime
+  listSortOrder: Int
+  priority: MnTaskPriority
+  status: MnTaskStatus
+  title: String
+}
+
+input UpdateMnWorkQueueInput {
+  defaultAssigneeAgentId: ID
+  defaultPriority: MnTaskPriority
+  description: String
+  isActive: Boolean
+  name: String
+  routingRulesJson: String
+}
+
+input UpdateOnboardingInput {
+  """
+  Whether the user has completed (or skipped) the /welcome onboarding wizard.
+  """
+  completedOnboarding: Boolean
 }
 
 input UpdateUserInput {
@@ -2712,6 +4628,13 @@ input UpdateWorkspaceInput {
 """The `Upload` scalar type represents a file upload."""
 scalar Upload
 
+input UpsertMnPluginConfigInput {
+  configJson: JSON!
+  pluginId: ID!
+  projectId: ID
+  workspaceId: String!
+}
+
 type UserImportFailedType {
   email: String!
   error: String!
@@ -2747,6 +4670,9 @@ type UserQuotaUsageType {
 }
 
 type UserSettingsType {
+  """Personalize text appended to AI prompts"""
+  personalize: String!
+
   """Receive comment email"""
   receiveCommentEmail: Boolean!
 
@@ -2763,6 +4689,11 @@ type UserType {
   """User avatar url"""
   avatarUrl: String
   calendarAccounts: [CalendarAccountObjectType!]!
+
+  """
+  Whether the user has finished (or skipped) the /welcome onboarding wizard. Used by the frontend index router to decide whether to drop a brand-new account into /welcome or into their landing workspace.
+  """
+  completedOnboarding: Boolean!
   copilot(workspaceId: String): Copilot!
 
   """User email verified"""
@@ -2813,6 +4744,26 @@ type ValidationErrorDataType {
 type VersionRejectedDataType {
   serverVersion: String!
   version: String!
+}
+
+input WizardAnswersInput {
+  """
+  The apps the user wants to connect ("gmail" | "calendar" | "github"). Not used by the backend yet — the frontend uses this list to render Connect buttons.
+  """
+  apps: [String!]
+
+  """
+  One of "saas" | "agency" | "personal" | "research" | "other". Drives the Project plan template.
+  """
+  context: String
+
+  """Free-text project name from the final wizard step."""
+  project: String
+
+  """
+  One of "solo" | "2-5" | "6-20" | "20+". When non-solo we add a Team notes starter doc.
+  """
+  team: String
 }
 
 input WorkspaceCalendarItemInput {
@@ -2963,9 +4914,6 @@ type WorkspaceType {
   histories(before: DateTime, guid: String!, take: Int): [DocHistoryType!]!
   id: ID!
 
-  """URL-safe workspace path segment"""
-  slug: String!
-
   """is current workspace initialized"""
   initialized: Boolean!
 
@@ -3014,6 +4962,9 @@ type WorkspaceType {
 
   """Search docs by keyword"""
   searchDocs(input: SearchDocsInput!): [SearchDocObjectType!]!
+
+  """URL-safe workspace path segment"""
+  slug: String!
 
   """The team subscription of the workspace, if exists."""
   subscription: SubscriptionType

@@ -70,6 +70,17 @@ export interface AddContextFileInput {
   contextId: Scalars['String']['input'];
 }
 
+export interface AddMnCeoTurnInput {
+  bodyMd: Scalars['String']['input'];
+  conversationId: Scalars['ID']['input'];
+  role: MnCeoTurnRole;
+}
+
+export interface AddMnTaskBlockerInput {
+  blockedByTaskId: Scalars['ID']['input'];
+  taskId: Scalars['ID']['input'];
+}
+
 export interface AdminAllSharedLink {
   __typename?: 'AdminAllSharedLink';
   docId: Scalars['String']['output'];
@@ -231,6 +242,34 @@ export enum AdminWorkspaceSort {
   PublicPageCount = 'PublicPageCount',
   SnapshotCount = 'SnapshotCount',
   SnapshotSize = 'SnapshotSize',
+}
+
+export interface Agent {
+  __typename?: 'Agent';
+  avatar: Scalars['JSONObject']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  description: Scalars['String']['output'];
+  files: Array<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  instructions: Scalars['String']['output'];
+  links: Array<AgentLink>;
+  name: Scalars['String']['output'];
+  ownerId: Scalars['String']['output'];
+  parentAgentId: Maybe<Scalars['String']['output']>;
+  skills: Array<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['String']['output'];
+}
+
+export interface AgentLink {
+  __typename?: 'AgentLink';
+  label: Maybe<Scalars['String']['output']>;
+  url: Scalars['String']['output'];
+}
+
+export interface AgentLinkInput {
+  label?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
 }
 
 export interface AggregateBucketHitsObjectType {
@@ -565,6 +604,16 @@ export interface CommentUpdateInput {
   id: Scalars['ID']['input'];
 }
 
+export interface ConnectedAccountType {
+  __typename?: 'ConnectedAccountType';
+  createdAt: Scalars['DateTime']['output'];
+  displayName: Scalars['String']['output'];
+  id: Scalars['String']['output'];
+  provider: Scalars['String']['output'];
+  scopes: Array<Scalars['String']['output']>;
+}
+
+/** Lifecycle state of a workspace platform connection. */
 export enum ConnectionStatus {
   ACTIVE = 'ACTIVE',
   ERROR = 'ERROR',
@@ -778,6 +827,7 @@ export interface CopilotHistories {
   __typename?: 'CopilotHistories';
   /** An mark identifying which view to use to display the session */
   action: Maybe<Scalars['String']['output']>;
+  agentId: Maybe<Scalars['String']['output']>;
   createdAt: Scalars['DateTime']['output'];
   docId: Maybe<Scalars['String']['output']>;
   messages: Array<ChatMessage>;
@@ -785,6 +835,7 @@ export interface CopilotHistories {
   optionalModels: Array<Scalars['String']['output']>;
   parentSessionId: Maybe<Scalars['String']['output']>;
   pinned: Scalars['Boolean']['output'];
+  pinnedDocId: Maybe<Scalars['String']['output']>;
   promptName: Scalars['String']['output'];
   sessionId: Scalars['String']['output'];
   title: Maybe<Scalars['String']['output']>;
@@ -810,10 +861,38 @@ export interface CopilotMessageNotFoundDataType {
   messageId: Scalars['String']['output'];
 }
 
+export enum CopilotModelFamily {
+  claude = 'claude',
+  cloudflare = 'cloudflare',
+  deepseek = 'deepseek',
+  fal = 'fal',
+  gemini = 'gemini',
+  gpt = 'gpt',
+  llama = 'llama',
+  mistral = 'mistral',
+  morph = 'morph',
+  other = 'other',
+  perplexity = 'perplexity',
+}
+
+export enum CopilotModelTier {
+  balanced = 'balanced',
+  fast = 'fast',
+  max = 'max',
+}
+
 export interface CopilotModelType {
   __typename?: 'CopilotModelType';
+  /** Human-readable display name. Falls back to `name` when no friendlier label is available. */
+  displayName: Scalars['String']['output'];
+  /** Model family (gemini / claude / gpt / llama / mistral / deepseek / ...) for picker badges. */
+  family: CopilotModelFamily;
   id: Scalars['String']['output'];
   name: Scalars['String']['output'];
+  /** USD per 1k input tokens, list-price approximation. Used by the auto-router and surfaced in the UI for cost-awareness. */
+  pricePerKToken: Scalars['Int']['output'];
+  /** Coarse tier — fast / balanced / max — for the picker to group by speed-vs-quality. */
+  tier: CopilotModelTier;
 }
 
 export interface CopilotModelsType {
@@ -910,6 +989,15 @@ export interface CopilotWorkspaceIgnoredDocTypeEdge {
   node: CopilotWorkspaceIgnoredDoc;
 }
 
+export interface CreateAgentInput {
+  avatar?: InputMaybe<Scalars['JSONObject']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  instructions?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  parentAgentId?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface CreateChatMessageInput {
   /** @deprecated use blobs */
   attachments?: InputMaybe<Array<Scalars['String']['input']>>;
@@ -923,6 +1011,8 @@ export interface CreateChatMessageInput {
 export interface CreateChatSessionInput {
   docId?: InputMaybe<Scalars['String']['input']>;
   pinned?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Lock the floating-chat tab context to this doc id (Wave 6 E2.5). */
+  pinnedDocId?: InputMaybe<Scalars['String']['input']>;
   /** The prompt name to use for the session */
   promptName: Scalars['String']['input'];
   /** true by default, compliant for old version */
@@ -941,6 +1031,175 @@ export interface CreateCheckoutSessionInput {
   variant?: InputMaybe<SubscriptionVariant>;
 }
 
+export interface CreateMnAgentInput {
+  adapterConfig?: InputMaybe<Scalars['JSONObject']['input']>;
+  adapterType?: InputMaybe<MnAgentAdapterType>;
+  capabilities?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  projectId: Scalars['ID']['input'];
+  reportsToAgentId?: InputMaybe<Scalars['ID']['input']>;
+  roleId?: InputMaybe<Scalars['ID']['input']>;
+  runtimeConfig?: InputMaybe<Scalars['JSONObject']['input']>;
+}
+
+export interface CreateMnApprovalCommentInput {
+  /** Optional agent id if the comment author is an agent. Null when authored by a human user. */
+  authorAgentId?: InputMaybe<Scalars['ID']['input']>;
+  body: Scalars['String']['input'];
+}
+
+export interface CreateMnApprovalInput {
+  /** Type-specific payload. For TOOL_CALL_REVIEW: { toolName, args, sessionId, agentId }. Free JSON otherwise. */
+  payload?: InputMaybe<Scalars['JSONObject']['input']>;
+  projectId: Scalars['ID']['input'];
+  /** Optional agent id that requested the approval. Null when a human requested it directly. */
+  requestedByAgentId?: InputMaybe<Scalars['ID']['input']>;
+  type: MnApprovalType;
+}
+
+export interface CreateMnBudgetInput {
+  /** Spending cap in USD cents (integer). Negative not allowed. */
+  capCents: Scalars['Int']['input'];
+  /** When true (default), reaching capCents blocks new spend on this scope. */
+  hardStopEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Calendar month in YYYY-MM (e.g. "2026-05"). */
+  monthYear: Scalars['String']['input'];
+  /** Optional project context. Required for PROJECT scope; may be unset for WORKSPACE scope. */
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  /** Identifier for the entity at `scopeType`. NULL for workspace-level budgets. */
+  scopeId?: InputMaybe<Scalars['ID']['input']>;
+  scopeType: MnBudgetScope;
+  /** Warning threshold as integer percent of cap (0–100). Defaults to 80. */
+  warnThresholdPct?: InputMaybe<Scalars['Int']['input']>;
+}
+
+export interface CreateMnCeoConversationInput {
+  title?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface CreateMnCrmAccountInput {
+  industry?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  notes?: InputMaybe<Scalars['String']['input']>;
+  ownerUserId?: InputMaybe<Scalars['ID']['input']>;
+  website?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface CreateMnCrmActivityInput {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  body?: InputMaybe<Scalars['String']['input']>;
+  contactId?: InputMaybe<Scalars['ID']['input']>;
+  dealId?: InputMaybe<Scalars['ID']['input']>;
+  dueAt?: InputMaybe<Scalars['DateTime']['input']>;
+  subject?: InputMaybe<Scalars['String']['input']>;
+  type: MnCrmActivityType;
+}
+
+export interface CreateMnCrmContactInput {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  email?: InputMaybe<Scalars['String']['input']>;
+  firstName: Scalars['String']['input'];
+  lastName?: InputMaybe<Scalars['String']['input']>;
+  ownerUserId?: InputMaybe<Scalars['ID']['input']>;
+  phone?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface CreateMnCrmDealInput {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  contactId?: InputMaybe<Scalars['ID']['input']>;
+  currency?: InputMaybe<Scalars['String']['input']>;
+  expectedCloseAt?: InputMaybe<Scalars['DateTime']['input']>;
+  name: Scalars['String']['input'];
+  ownerUserId?: InputMaybe<Scalars['ID']['input']>;
+  probability?: InputMaybe<Scalars['Int']['input']>;
+  stageId: Scalars['ID']['input'];
+  value?: InputMaybe<Scalars['Float']['input']>;
+}
+
+export interface CreateMnCrmDealStageInput {
+  name: Scalars['String']['input'];
+  pipelineKey?: InputMaybe<Scalars['String']['input']>;
+  sortOrder?: InputMaybe<Scalars['Int']['input']>;
+}
+
+export interface CreateMnGoalInput {
+  description?: InputMaybe<Scalars['String']['input']>;
+  level: MnGoalLevel;
+  ownerAgentId?: InputMaybe<Scalars['ID']['input']>;
+  parentGoalId?: InputMaybe<Scalars['ID']['input']>;
+  projectId: Scalars['ID']['input'];
+  status?: InputMaybe<MnGoalStatus>;
+  title: Scalars['String']['input'];
+}
+
+export interface CreateMnProjectInput {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  sortOrder?: InputMaybe<Scalars['Int']['input']>;
+}
+
+export interface CreateMnReminderInput {
+  body?: InputMaybe<Scalars['String']['input']>;
+  channel?: InputMaybe<MnNotificationChannel>;
+  fireAt: Scalars['DateTime']['input'];
+  title: Scalars['String']['input'];
+}
+
+export interface CreateMnReminderRuleInput {
+  config?: InputMaybe<Scalars['JSONObject']['input']>;
+  cronExpression?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  name: Scalars['String']['input'];
+  timezone?: InputMaybe<Scalars['String']['input']>;
+  trigger: MnReminderRuleTrigger;
+}
+
+export interface CreateMnSkillInput {
+  contentMd: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  slug: Scalars['String']['input'];
+  source?: InputMaybe<MnSkillSource>;
+  version: Scalars['String']['input'];
+}
+
+export interface CreateMnTaskInput {
+  assigneeUserId?: InputMaybe<Scalars['ID']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  dueAt?: InputMaybe<Scalars['DateTime']['input']>;
+  listSortOrder?: InputMaybe<Scalars['Int']['input']>;
+  priority?: InputMaybe<MnTaskPriority>;
+  status?: InputMaybe<MnTaskStatus>;
+  title: Scalars['String']['input'];
+}
+
+export interface CreateMnTaskPlanInput {
+  bodyMd: Scalars['String']['input'];
+  taskId: Scalars['ID']['input'];
+}
+
+export interface CreateMnWorkProductInput {
+  byteSize?: InputMaybe<Scalars['Int']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  kind: MnWorkProductKind;
+  metadata?: InputMaybe<Scalars['JSONObject']['input']>;
+  producedByAgentId?: InputMaybe<Scalars['ID']['input']>;
+  ref: Scalars['String']['input'];
+  taskId: Scalars['ID']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface CreateMnWorkQueueInput {
+  defaultAssigneeAgentId?: InputMaybe<Scalars['ID']['input']>;
+  defaultPriority?: InputMaybe<MnTaskPriority>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  projectId: Scalars['ID']['input'];
+  routingRulesJson?: InputMaybe<Scalars['String']['input']>;
+}
+
 export interface CreateUserInput {
   email: Scalars['String']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
@@ -950,6 +1209,26 @@ export interface CreateUserInput {
 export interface CredentialsRequirementType {
   __typename?: 'CredentialsRequirementType';
   password: PasswordLimitsType;
+}
+
+export interface DecideMnApprovalInput {
+  /** Free-text note explaining the decision. Surfaced to the requesting agent so it can react. */
+  decisionNote?: InputMaybe<Scalars['String']['input']>;
+  /** Decision: APPROVED, REJECTED, CANCELLED, or REVISION_REQUESTED. PENDING is not a legal write target. */
+  status: MnApprovalStatus;
+}
+
+export interface DecideMnOrgChangeInput {
+  /** Free-text note explaining the decision. Surfaced to the proposing agent so it can react. */
+  decisionNote?: InputMaybe<Scalars['String']['input']>;
+  /** Decision: APPROVED or REJECTED. PROPOSED is not a legal write target; APPLIED / REVERTED are reachable only via apply() / revert(). */
+  status: MnOrgChangeStatus;
+}
+
+export interface DecideMnTaskPlanInput {
+  comment?: InputMaybe<Scalars['String']['input']>;
+  decision: MnTaskPlanDecision;
+  planId: Scalars['ID']['input'];
 }
 
 export interface DeleteAccount {
@@ -1083,6 +1362,7 @@ export interface DocType {
   /** paginated doc granted users list */
   grantedUsersList: PaginatedGrantedDocUserType;
   id: Scalars['String']['output'];
+  isVerified: Scalars['Boolean']['output'];
   /** Paginated last accessed members of the current doc */
   lastAccessedMembers: PaginatedDocMemberLastAccess;
   /** Doc last updated user */
@@ -1096,6 +1376,9 @@ export interface DocType {
   summary: Maybe<Scalars['String']['output']>;
   title: Maybe<Scalars['String']['output']>;
   updatedAt: Maybe<Scalars['DateTime']['output']>;
+  verificationExpiresAt: Maybe<Scalars['DateTime']['output']>;
+  verifiedAt: Maybe<Scalars['DateTime']['output']>;
+  verifiedBy: Maybe<Scalars['String']['output']>;
   workspaceId: Scalars['String']['output'];
 }
 
@@ -1123,6 +1406,17 @@ export interface DocUpdateBlockedDataType {
   __typename?: 'DocUpdateBlockedDataType';
   docId: Scalars['String']['output'];
   spaceId: Scalars['String']['output'];
+}
+
+export interface DriveFileType {
+  __typename?: 'DriveFileType';
+  iconLink: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  mimeType: Scalars['String']['output'];
+  modifiedTime: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  size: Maybe<Scalars['String']['output']>;
+  webViewLink: Maybe<Scalars['String']['output']>;
 }
 
 export interface EditorType {
@@ -1394,6 +1688,44 @@ export interface GenerateAccessTokenInput {
   name: Scalars['String']['input'];
 }
 
+export interface GithubConnectAuthUrl {
+  __typename?: 'GithubConnectAuthUrl';
+  url: Scalars['String']['output'];
+}
+
+export interface GithubConnectionType {
+  __typename?: 'GithubConnectionType';
+  connected: Scalars['Boolean']['output'];
+  login: Maybe<Scalars['String']['output']>;
+}
+
+export interface GmailMessageSummaryType {
+  __typename?: 'GmailMessageSummaryType';
+  date: Scalars['String']['output'];
+  from: Scalars['String']['output'];
+  messageId: Scalars['String']['output'];
+  snippet: Scalars['String']['output'];
+  subject: Scalars['String']['output'];
+}
+
+export interface GoogleConnectAuthUrl {
+  __typename?: 'GoogleConnectAuthUrl';
+  url: Scalars['String']['output'];
+}
+
+export interface GoogleConnectionType {
+  __typename?: 'GoogleConnectionType';
+  connected: Scalars['Boolean']['output'];
+  email: Maybe<Scalars['String']['output']>;
+  scope: GoogleScope;
+}
+
+/** Which Google service the OAuth flow should request access to. v1.10.1: gmail and drive only. */
+export enum GoogleScope {
+  drive = 'drive',
+  gmail = 'gmail',
+}
+
 export interface GrantDocUserRolesInput {
   docId: Scalars['String']['input'];
   role: DocRole;
@@ -1429,21 +1761,40 @@ export interface ImageFormatNotSupportedDataType {
   format: Scalars['String']['output'];
 }
 
+export interface ImportMnHandoverInput {
+  handoverJson: Scalars['String']['input'];
+  targetDocId?: InputMaybe<Scalars['ID']['input']>;
+}
+
+export interface ImportMnHandoverResult {
+  __typename?: 'ImportMnHandoverResult';
+  docId: Scalars['ID']['output'];
+  title: Scalars['String']['output'];
+  updated: Scalars['Boolean']['output'];
+}
+
 export interface ImportUsersInput {
   users: Array<CreateUserInput>;
 }
 
+/** How loud the insight should be in the UI. */
 export enum InsightSeverity {
   ACTION_REQUIRED = 'ACTION_REQUIRED',
   INFO = 'INFO',
   NOTABLE = 'NOTABLE',
 }
 
+/** Category of an AI-generated SocialInsight. */
 export enum InsightType {
   ANOMALY = 'ANOMALY',
   RECOMMENDATION = 'RECOMMENDATION',
   TREND = 'TREND',
   WEEKLY_STRATEGY = 'WEEKLY_STRATEGY',
+}
+
+export interface InstallMnPluginInput {
+  name: Scalars['String']['input'];
+  version: Scalars['String']['input'];
 }
 
 export interface InvalidAppConfigDataType {
@@ -1619,6 +1970,8 @@ export interface InviteUserType {
   __typename?: 'InviteUserType';
   /** User avatar url */
   avatarUrl: Maybe<Scalars['String']['output']>;
+  /** Whether the user has finished (or skipped) the /welcome onboarding wizard. Used by the frontend index router to decide whether to drop a brand-new account into /welcome or into their landing workspace. */
+  completedOnboarding: Maybe<Scalars['Boolean']['output']>;
   /**
    * User email verified
    * @deprecated useless
@@ -1719,6 +2072,24 @@ export interface ListMetricsInput {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface ListMnApprovalsInput {
+  /** Maximum rows to return. Defaults to 100; clamped to 500. */
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  requestedByAgentId?: InputMaybe<Scalars['ID']['input']>;
+  statuses?: InputMaybe<Array<MnApprovalStatus>>;
+  types?: InputMaybe<Array<MnApprovalType>>;
+}
+
+export interface ListMnOrgChangesInput {
+  /** Maximum rows to return. Defaults to 100; clamped to 500. */
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  proposedByAgentId?: InputMaybe<Scalars['ID']['input']>;
+  statuses?: InputMaybe<Array<MnOrgChangeStatus>>;
+  types?: InputMaybe<Array<MnOrgChangeType>>;
+}
+
 export interface ListUserInput {
   features?: InputMaybe<Array<FeatureType>>;
   first?: InputMaybe<Scalars['Int']['input']>;
@@ -1778,6 +2149,29 @@ export interface MemberNotFoundInSpaceDataType {
   spaceId: Scalars['String']['output'];
 }
 
+export interface Memory {
+  __typename?: 'Memory';
+  content: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  kind: MemoryKindEnum;
+  pinned: Scalars['Boolean']['output'];
+  scope: MemoryScopeEnum;
+  workspaceId: Scalars['String']['output'];
+}
+
+export enum MemoryKindEnum {
+  DECISION = 'DECISION',
+  FACT = 'FACT',
+  OBSERVATION = 'OBSERVATION',
+  PLAYBOOK = 'PLAYBOOK',
+}
+
+export enum MemoryScopeEnum {
+  user = 'user',
+  workspace = 'workspace',
+}
+
 export interface MentionDocInput {
   /** The block id in the doc */
   blockId?: InputMaybe<Scalars['String']['input']>;
@@ -1818,15 +2212,816 @@ export interface MentionUserDocAccessDeniedDataType {
   docId: Scalars['String']['output'];
 }
 
+/** Pre-aggregated rollup window for a SocialMetric row. */
 export enum MetricBucket {
   DAY = 'DAY',
   HOUR = 'HOUR',
   WEEK = 'WEEK',
 }
 
+export interface MintMnAgentApiKeyInput {
+  /** Human-readable label for this key, shown in the key list. */
+  name: Scalars['String']['input'];
+}
+
+export interface MintedMnAgentApiKey {
+  __typename?: 'MintedMnAgentApiKey';
+  key: MnAgentApiKey;
+  /** Plaintext API key. Shown ONCE — never recoverable from the server again. */
+  plaintext: Scalars['String']['output'];
+}
+
 export interface MissingOauthQueryParameterDataType {
   __typename?: 'MissingOauthQueryParameterDataType';
   name: Scalars['String']['output'];
+}
+
+export interface MnAgent {
+  __typename?: 'MnAgent';
+  adapterConfig: Scalars['JSONObject']['output'];
+  adapterType: MnAgentAdapterType;
+  capabilities: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId: Maybe<Scalars['ID']['output']>;
+  id: Scalars['ID']['output'];
+  lastHeartbeatAt: Maybe<Scalars['DateTime']['output']>;
+  name: Scalars['String']['output'];
+  projectId: Scalars['ID']['output'];
+  reportsToAgentId: Maybe<Scalars['ID']['output']>;
+  roleId: Maybe<Scalars['ID']['output']>;
+  runtimeConfig: Scalars['JSONObject']['output'];
+  status: MnAgentStatus;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** Which downstream runtime an agent talks to. M1 only ships Copilot chat sessions. */
+export enum MnAgentAdapterType {
+  COPILOT_CHAT_SESSION = 'COPILOT_CHAT_SESSION',
+  CURSOR_CLOUD = 'CURSOR_CLOUD',
+  E2B_SANDBOX = 'E2B_SANDBOX',
+  HTTP_WEBHOOK = 'HTTP_WEBHOOK',
+  PROCESS_COMMAND = 'PROCESS_COMMAND',
+}
+
+export interface MnAgentApiKey {
+  __typename?: 'MnAgentApiKey';
+  agentId: Scalars['ID']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  lastUsedAt: Maybe<Scalars['DateTime']['output']>;
+  name: Scalars['String']['output'];
+  projectId: Scalars['ID']['output'];
+  revokedAt: Maybe<Scalars['DateTime']['output']>;
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnAgentMaximizerToggleResult {
+  __typename?: 'MnAgentMaximizerToggleResult';
+  agentId: Scalars['ID']['output'];
+  maximizerMode: Scalars['Boolean']['output'];
+}
+
+export interface MnAgentMemory {
+  __typename?: 'MnAgentMemory';
+  agentId: Scalars['ID']['output'];
+  contentMd: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  importance: Scalars['Int']['output'];
+  kind: MnMemoryKind;
+  lastRetrievedAt: Maybe<Scalars['DateTime']['output']>;
+  projectId: Scalars['ID']['output'];
+  retrievedCount: Scalars['Int']['output'];
+  taskId: Maybe<Scalars['ID']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnAgentRole {
+  __typename?: 'MnAgentRole';
+  adapter: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  displayName: Scalars['String']['output'];
+  escalation: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastSeenAt: Maybe<Scalars['DateTime']['output']>;
+  lastSuccessfulRunId: Maybe<Scalars['String']['output']>;
+  responsibility: Scalars['String']['output'];
+  /** Stable identifier (e.g. "release-captain"). Immutable — used by automation. */
+  slug: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** Lifecycle state of a Manut agent. */
+export enum MnAgentStatus {
+  ERROR = 'ERROR',
+  IDLE = 'IDLE',
+  PAUSED = 'PAUSED',
+  RUNNING = 'RUNNING',
+  TERMINATED = 'TERMINATED',
+}
+
+export interface MnApproval {
+  __typename?: 'MnApproval';
+  createdAt: Scalars['DateTime']['output'];
+  decidedAt: Maybe<Scalars['DateTime']['output']>;
+  decidedByUserId: Maybe<Scalars['ID']['output']>;
+  decisionNote: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  payload: Scalars['JSONObject']['output'];
+  projectId: Scalars['ID']['output'];
+  requestedByAgentId: Maybe<Scalars['ID']['output']>;
+  requestedByUserId: Maybe<Scalars['ID']['output']>;
+  status: MnApprovalStatus;
+  type: MnApprovalType;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnApprovalComment {
+  __typename?: 'MnApprovalComment';
+  approvalId: Scalars['ID']['output'];
+  authorAgentId: Maybe<Scalars['ID']['output']>;
+  authorUserId: Maybe<Scalars['ID']['output']>;
+  body: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  projectId: Scalars['ID']['output'];
+}
+
+/** Lifecycle state of an approval. PENDING/REVISION_REQUESTED are mutable; APPROVED/REJECTED/CANCELLED are terminal. */
+export enum MnApprovalStatus {
+  APPROVED = 'APPROVED',
+  CANCELLED = 'CANCELLED',
+  PENDING = 'PENDING',
+  REJECTED = 'REJECTED',
+  REVISION_REQUESTED = 'REVISION_REQUESTED',
+}
+
+/** Kind of approval request — hire-an-agent, mark-task-complete, override-budget, board-approval, tool-call-review, or org-change. */
+export enum MnApprovalType {
+  AGENT_ORG_CHANGE = 'AGENT_ORG_CHANGE',
+  APPROVE_TASK_COMPLETION = 'APPROVE_TASK_COMPLETION',
+  BUDGET_OVERRIDE = 'BUDGET_OVERRIDE',
+  HIRE_AGENT = 'HIRE_AGENT',
+  REQUEST_BOARD_APPROVAL = 'REQUEST_BOARD_APPROVAL',
+  TOOL_CALL_REVIEW = 'TOOL_CALL_REVIEW',
+}
+
+export interface MnBudget {
+  __typename?: 'MnBudget';
+  alertSent: Scalars['Boolean']['output'];
+  capCents: Scalars['Int']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  hardStopEnabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  monthYear: Scalars['String']['output'];
+  projectId: Maybe<Scalars['ID']['output']>;
+  scopeId: Maybe<Scalars['ID']['output']>;
+  scopeType: MnBudgetScope;
+  spentCents: Scalars['Int']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  warnThresholdPct: Scalars['Int']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnBudgetRollup {
+  __typename?: 'MnBudgetRollup';
+  capCents: Scalars['Int']['output'];
+  monthYear: Scalars['String']['output'];
+  projectId: Maybe<Scalars['ID']['output']>;
+  scopeId: Maybe<Scalars['ID']['output']>;
+  scopeType: MnBudgetScope;
+  spentCents: Scalars['Int']['output'];
+  /** Convenience: `Math.min(100, Math.floor(spent / cap * 100))`. 0 when capCents is 0. */
+  utilizationPct: Scalars['Int']['output'];
+}
+
+/** Scope on which a budget cap is enforced. The enforcer walks task → goal → agent → project → workspace; first hard-stop hit wins. */
+export enum MnBudgetScope {
+  AGENT = 'AGENT',
+  GOAL = 'GOAL',
+  PROJECT = 'PROJECT',
+  TASK = 'TASK',
+  WORKSPACE = 'WORKSPACE',
+}
+
+export interface MnCeoConversation {
+  __typename?: 'MnCeoConversation';
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  lastResolutionKind: Maybe<MnCeoResolutionKind>;
+  ownerUserId: Scalars['ID']['output'];
+  title: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** M17 — typed resolution emitted by the CEO agent for a user turn. */
+export enum MnCeoResolutionKind {
+  APPROVAL_REQUESTED = 'APPROVAL_REQUESTED',
+  BUDGET_QUERY = 'BUDGET_QUERY',
+  DECISION_RECORDED = 'DECISION_RECORDED',
+  NONE = 'NONE',
+  PLAN_DRAFTED = 'PLAN_DRAFTED',
+  STATUS_QUERY = 'STATUS_QUERY',
+  TASK_CREATED = 'TASK_CREATED',
+}
+
+export interface MnCeoTurn {
+  __typename?: 'MnCeoTurn';
+  bodyMd: Scalars['String']['output'];
+  conversationId: Scalars['ID']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  resolutionKind: MnCeoResolutionKind;
+  resolutionRefId: Maybe<Scalars['String']['output']>;
+  role: MnCeoTurnRole;
+}
+
+/** M17 — speaker role on a CEO Chat turn. */
+export enum MnCeoTurnRole {
+  CEO_AGENT = 'CEO_AGENT',
+  SYSTEM = 'SYSTEM',
+  USER = 'USER',
+}
+
+export interface MnCostEvent {
+  __typename?: 'MnCostEvent';
+  agentId: Maybe<Scalars['ID']['output']>;
+  billingCode: Maybe<Scalars['String']['output']>;
+  costCents: Scalars['Int']['output'];
+  goalId: Maybe<Scalars['ID']['output']>;
+  id: Scalars['ID']['output'];
+  inputTokens: Scalars['Int']['output'];
+  model: Scalars['String']['output'];
+  occurredAt: Scalars['DateTime']['output'];
+  outputTokens: Scalars['Int']['output'];
+  projectId: Maybe<Scalars['ID']['output']>;
+  provider: Scalars['String']['output'];
+  taskId: Maybe<Scalars['ID']['output']>;
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnCrmAccount {
+  __typename?: 'MnCrmAccount';
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  industry: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  notes: Maybe<Scalars['String']['output']>;
+  ownerUserId: Maybe<Scalars['ID']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  website: Maybe<Scalars['String']['output']>;
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnCrmActivity {
+  __typename?: 'MnCrmActivity';
+  accountId: Maybe<Scalars['ID']['output']>;
+  body: Maybe<Scalars['String']['output']>;
+  completedAt: Maybe<Scalars['DateTime']['output']>;
+  contactId: Maybe<Scalars['ID']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId: Scalars['ID']['output'];
+  dealId: Maybe<Scalars['ID']['output']>;
+  dueAt: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['ID']['output'];
+  subject: Maybe<Scalars['String']['output']>;
+  type: MnCrmActivityType;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** CRM activity category. */
+export enum MnCrmActivityType {
+  CALL = 'CALL',
+  EMAIL = 'EMAIL',
+  MEETING = 'MEETING',
+  NOTE = 'NOTE',
+  OTHER = 'OTHER',
+}
+
+export interface MnCrmContact {
+  __typename?: 'MnCrmContact';
+  accountId: Maybe<Scalars['ID']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  email: Maybe<Scalars['String']['output']>;
+  firstName: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  lastName: Maybe<Scalars['String']['output']>;
+  ownerUserId: Maybe<Scalars['ID']['output']>;
+  phone: Maybe<Scalars['String']['output']>;
+  title: Maybe<Scalars['String']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnCrmDeal {
+  __typename?: 'MnCrmDeal';
+  accountId: Maybe<Scalars['ID']['output']>;
+  contactId: Maybe<Scalars['ID']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  currency: Maybe<Scalars['String']['output']>;
+  expectedCloseAt: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  ownerUserId: Maybe<Scalars['ID']['output']>;
+  probability: Maybe<Scalars['Int']['output']>;
+  stageId: Scalars['ID']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  value: Maybe<Scalars['Float']['output']>;
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnCrmDealStage {
+  __typename?: 'MnCrmDealStage';
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  pipelineKey: Scalars['String']['output'];
+  sortOrder: Scalars['Int']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** M11 — Predicate kind for Definition of Done. Each kind has its own verifier path in MnOutcomeVerifierService. */
+export enum MnDoDPredicateKind {
+  CUSTOM = 'CUSTOM',
+  DOC_EXISTS = 'DOC_EXISTS',
+  EMBEDDING_SIMILARITY = 'EMBEDDING_SIMILARITY',
+  URL_REACHABLE = 'URL_REACHABLE',
+  WORK_PRODUCT_EXISTS = 'WORK_PRODUCT_EXISTS',
+}
+
+export interface MnDoDPredicateResult {
+  __typename?: 'MnDoDPredicateResult';
+  evidence: Maybe<Scalars['JSON']['output']>;
+  kind: MnDoDPredicateKind;
+  predicate: Scalars['JSON']['output'];
+  reason: Maybe<Scalars['String']['output']>;
+  satisfied: Scalars['Boolean']['output'];
+}
+
+export interface MnDoDVerificationResult {
+  __typename?: 'MnDoDVerificationResult';
+  hasDefinition: Scalars['Boolean']['output'];
+  results: Array<MnDoDPredicateResult>;
+  satisfied: Scalars['Boolean']['output'];
+  taskId: Scalars['ID']['output'];
+}
+
+export interface MnExecutionRun {
+  __typename?: 'MnExecutionRun';
+  agentId: Maybe<Scalars['ID']['output']>;
+  error: Maybe<Scalars['String']['output']>;
+  finishedAt: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['ID']['output'];
+  startedAt: Scalars['DateTime']['output'];
+  status: MnExecutionRunStatus;
+  taskId: Scalars['ID']['output'];
+}
+
+/** M7 — Manut execution run lifecycle status. QUEUED → RUNNING → SUCCEEDED | FAILED | CANCELLED | TIMED_OUT. */
+export enum MnExecutionRunStatus {
+  CANCELLED = 'CANCELLED',
+  FAILED = 'FAILED',
+  QUEUED = 'QUEUED',
+  RUNNING = 'RUNNING',
+  SUCCEEDED = 'SUCCEEDED',
+  TIMED_OUT = 'TIMED_OUT',
+}
+
+export interface MnGoal {
+  __typename?: 'MnGoal';
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId: Maybe<Scalars['ID']['output']>;
+  description: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  level: MnGoalLevel;
+  ownerAgentId: Maybe<Scalars['ID']['output']>;
+  parentGoalId: Maybe<Scalars['ID']['output']>;
+  projectId: Scalars['ID']['output'];
+  status: MnGoalStatus;
+  title: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnGoalAncestryStep {
+  __typename?: 'MnGoalAncestryStep';
+  depth: Scalars['Int']['output'];
+  goalId: Scalars['ID']['output'];
+  level: MnGoalLevel;
+  status: MnGoalStatus;
+  title: Scalars['String']['output'];
+}
+
+/** Where in the strategy chain a goal sits. PROJECT > TEAM > AGENT > TASK. */
+export enum MnGoalLevel {
+  AGENT = 'AGENT',
+  PROJECT = 'PROJECT',
+  TASK = 'TASK',
+  TEAM = 'TEAM',
+}
+
+/** Lifecycle state of a Manut goal. */
+export enum MnGoalStatus {
+  ACHIEVED = 'ACHIEVED',
+  ACTIVE = 'ACTIVE',
+  CANCELLED = 'CANCELLED',
+  PLANNED = 'PLANNED',
+}
+
+/** Manut work queue intake lifecycle status. */
+export enum MnIntakeStatus {
+  RECEIVED = 'RECEIVED',
+  REJECTED = 'REJECTED',
+  ROUTED = 'ROUTED',
+}
+
+export interface MnLearningCandidate {
+  __typename?: 'MnLearningCandidate';
+  /** The proposed playbook body in Markdown. Includes the mn-learning-candidate marker block as a trailing HTML comment so a round-trip back into the candidate list stays deterministic. */
+  body: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  /** Short summary of the playbook body. Mirrors MnSkill.description so an approving operator can scan the list without opening every row. */
+  description: Maybe<Scalars['String']['output']>;
+  /** The underlying MnSkill.id of the candidate row. Approving / rejecting a candidate operates on this id. */
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  slug: Scalars['String']['output'];
+  source: MnSkillSource;
+  /** Task id that triggered this extraction. SetNull on task delete so a candidate survives the task being purged. Surfaces as null when the source task is no longer resolvable. */
+  sourceTaskId: Maybe<Scalars['String']['output']>;
+  status: MnLearningCandidateStatus;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** Lifecycle state for an auto-extracted playbook. PENDING means awaiting operator review; APPROVED means promoted to a real skill (the row remains source=IMPORTED to preserve provenance); REJECTED means archived without promotion. */
+export enum MnLearningCandidateStatus {
+  APPROVED = 'APPROVED',
+  PENDING = 'PENDING',
+  REJECTED = 'REJECTED',
+}
+
+/** Kind of memory row. FACT is a statement of truth; DECISION is a recorded choice future runs should respect; OBSERVATION is a free-form note; PLAYBOOK is a reusable runbook fragment. */
+export enum MnMemoryKind {
+  DECISION = 'DECISION',
+  FACT = 'FACT',
+  OBSERVATION = 'OBSERVATION',
+  PLAYBOOK = 'PLAYBOOK',
+}
+
+/** Outbound notification channel for a reminder. */
+export enum MnNotificationChannel {
+  EMAIL = 'EMAIL',
+}
+
+export interface MnOrgChange {
+  __typename?: 'MnOrgChange';
+  appliedAt: Maybe<Scalars['DateTime']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  decidedAt: Maybe<Scalars['DateTime']['output']>;
+  decidedByUserId: Maybe<Scalars['ID']['output']>;
+  decisionNote: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  payload: Scalars['JSONObject']['output'];
+  projectId: Scalars['ID']['output'];
+  proposedByAgentId: Maybe<Scalars['ID']['output']>;
+  rationale: Scalars['String']['output'];
+  status: MnOrgChangeStatus;
+  type: MnOrgChangeType;
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** Lifecycle state of an org-change proposal: PROPOSED -> APPROVED|REJECTED -> APPLIED -> REVERTED. */
+export enum MnOrgChangeStatus {
+  APPLIED = 'APPLIED',
+  APPROVED = 'APPROVED',
+  PROPOSED = 'PROPOSED',
+  REJECTED = 'REJECTED',
+  REVERTED = 'REVERTED',
+}
+
+/** Kind of structural change proposed by an agent: role adjustment, delegation change, new routine, hire proposal, reporting change, or capability grant. */
+export enum MnOrgChangeType {
+  AGENT_HIRE_PROPOSAL = 'AGENT_HIRE_PROPOSAL',
+  CAPABILITY_GRANT = 'CAPABILITY_GRANT',
+  DELEGATION_CHANGE = 'DELEGATION_CHANGE',
+  NEW_ROUTINE = 'NEW_ROUTINE',
+  REPORTING_CHANGE = 'REPORTING_CHANGE',
+  ROLE_ADJUSTMENT = 'ROLE_ADJUSTMENT',
+}
+
+export interface MnPlugin {
+  __typename?: 'MnPlugin';
+  createdAt: Scalars['DateTime']['output'];
+  enabledAt: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['ID']['output'];
+  installedAt: Scalars['DateTime']['output'];
+  manifestJson: Scalars['JSON']['output'];
+  name: Scalars['String']['output'];
+  packagePath: Maybe<Scalars['String']['output']>;
+  processStatus: MnPluginStatus;
+  updatedAt: Scalars['DateTime']['output'];
+  version: Scalars['String']['output'];
+}
+
+export interface MnPluginConfig {
+  __typename?: 'MnPluginConfig';
+  configJson: Scalars['JSON']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  pluginId: Scalars['ID']['output'];
+  projectId: Maybe<Scalars['ID']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['String']['output'];
+}
+
+/** Lifecycle status of an installed plugin: INSTALLED (manifest in DB, not yet enabled), LOADING (spawning), RUNNING (worker alive), CRASHED (supervisor parked it after N restart failures), DISABLED (operator paused it). */
+export enum MnPluginStatus {
+  CRASHED = 'CRASHED',
+  DISABLED = 'DISABLED',
+  INSTALLED = 'INSTALLED',
+  LOADING = 'LOADING',
+  RUNNING = 'RUNNING',
+}
+
+export interface MnProject {
+  __typename?: 'MnProject';
+  createdAt: Scalars['DateTime']['output'];
+  description: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  sortOrder: Scalars['Int']['output'];
+  status: MnProjectStatus;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** Lifecycle state of a Manut project. */
+export enum MnProjectStatus {
+  ACTIVE = 'ACTIVE',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export interface MnReleaseRun {
+  __typename?: 'MnReleaseRun';
+  actor: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  deployUrl: Maybe<Scalars['String']['output']>;
+  generatedAt: Maybe<Scalars['DateTime']['output']>;
+  /** GitHub Actions run identifier (workflow.runId from the handover). */
+  ghRunId: Scalars['String']['output'];
+  ghRunUrl: Maybe<Scalars['String']['output']>;
+  headSha: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  imageDigest: Maybe<Scalars['String']['output']>;
+  imageTag: Maybe<Scalars['String']['output']>;
+  mode: Scalars['String']['output'];
+  registry: Maybe<Scalars['String']['output']>;
+  shortSha: Maybe<Scalars['String']['output']>;
+  status: Scalars['String']['output'];
+  tasks: Array<MnReleaseTask>;
+  updatedAt: Scalars['DateTime']['output'];
+  version: Maybe<Scalars['String']['output']>;
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnReleaseTask {
+  __typename?: 'MnReleaseTask';
+  id: Scalars['ID']['output'];
+  /** Human-readable label copied verbatim from the handover taskTree. */
+  label: Scalars['String']['output'];
+  runId: Scalars['ID']['output'];
+  /** Stable slug for the task (build, verify, deploy, observe, document). */
+  slug: Scalars['String']['output'];
+  sortOrder: Scalars['Int']['output'];
+}
+
+export interface MnReminder {
+  __typename?: 'MnReminder';
+  body: Maybe<Scalars['String']['output']>;
+  channel: MnNotificationChannel;
+  completedAt: Maybe<Scalars['DateTime']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  fireAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  relatedEntityId: Maybe<Scalars['String']['output']>;
+  relatedEntityType: Maybe<Scalars['String']['output']>;
+  ruleId: Maybe<Scalars['ID']['output']>;
+  status: MnReminderStatus;
+  title: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  userId: Scalars['ID']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnReminderRule {
+  __typename?: 'MnReminderRule';
+  config: Scalars['JSONObject']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId: Scalars['ID']['output'];
+  cronExpression: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  lastEvaluatedAt: Maybe<Scalars['DateTime']['output']>;
+  name: Scalars['String']['output'];
+  nextRunAt: Maybe<Scalars['DateTime']['output']>;
+  timezone: Maybe<Scalars['String']['output']>;
+  trigger: MnReminderRuleTrigger;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** When a reminder rule fires: cron-driven (DATETIME) or event-driven (OVERDUE_TASK, INACTIVITY, UPCOMING_DEADLINE). v0 surfaces only DATETIME in the UI. */
+export enum MnReminderRuleTrigger {
+  DATETIME = 'DATETIME',
+  INACTIVITY = 'INACTIVITY',
+  OVERDUE_TASK = 'OVERDUE_TASK',
+  UPCOMING_DEADLINE = 'UPCOMING_DEADLINE',
+}
+
+/** Manut reminder lifecycle. */
+export enum MnReminderStatus {
+  CANCELLED = 'CANCELLED',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  PROCESSING = 'PROCESSING',
+  SCHEDULED = 'SCHEDULED',
+}
+
+export interface MnSkill {
+  __typename?: 'MnSkill';
+  archivedAt: Maybe<Scalars['DateTime']['output']>;
+  contentMd: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  description: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  slug: Scalars['String']['output'];
+  source: MnSkillSource;
+  updatedAt: Scalars['DateTime']['output'];
+  version: Scalars['String']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** Provenance of an MnSkill row. BUILTIN is reserved for seed skills, WORKSPACE is created by an end user, and IMPORTED was created by the AGENTS.md import flow (Branch B / M5.2). */
+export enum MnSkillSource {
+  BUILTIN = 'BUILTIN',
+  IMPORTED = 'IMPORTED',
+  WORKSPACE = 'WORKSPACE',
+}
+
+export interface MnTask {
+  __typename?: 'MnTask';
+  assigneeUserId: Maybe<Scalars['ID']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  createdByUserId: Maybe<Scalars['ID']['output']>;
+  description: Maybe<Scalars['String']['output']>;
+  dueAt: Maybe<Scalars['DateTime']['output']>;
+  id: Scalars['ID']['output'];
+  listSortOrder: Scalars['Int']['output'];
+  priority: MnTaskPriority;
+  projectId: Scalars['ID']['output'];
+  status: MnTaskStatus;
+  title: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+}
+
+export interface MnTaskAncestry {
+  __typename?: 'MnTaskAncestry';
+  goalChain: Array<MnGoalAncestryStep>;
+  taskAncestors: Array<MnTaskAncestryStep>;
+  taskId: Scalars['ID']['output'];
+  taskTitle: Scalars['String']['output'];
+}
+
+export interface MnTaskAncestryStep {
+  __typename?: 'MnTaskAncestryStep';
+  depth: Scalars['Int']['output'];
+  taskId: Scalars['ID']['output'];
+  title: Scalars['String']['output'];
+}
+
+export interface MnTaskBlocker {
+  __typename?: 'MnTaskBlocker';
+  blockedByTaskId: Scalars['ID']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  projectId: Scalars['ID']['output'];
+  taskId: Scalars['ID']['output'];
+}
+
+export interface MnTaskCheckoutResult {
+  __typename?: 'MnTaskCheckoutResult';
+  acquired: Scalars['Boolean']['output'];
+  executionLockedAt: Maybe<Scalars['DateTime']['output']>;
+  executionRunId: Maybe<Scalars['ID']['output']>;
+  taskId: Maybe<Scalars['ID']['output']>;
+}
+
+export interface MnTaskPlan {
+  __typename?: 'MnTaskPlan';
+  authorAgentId: Maybe<Scalars['ID']['output']>;
+  authorUserId: Maybe<Scalars['ID']['output']>;
+  bodyMd: Scalars['String']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+  reviewerComments: Scalars['JSON']['output'];
+  revisionNumber: Scalars['Int']['output'];
+  status: MnTaskPlanStatus;
+  taskId: Scalars['ID']['output'];
+}
+
+/** M13 — Reviewer decision discriminator. APPROVE moves UNDER_REVIEW → APPROVED and supersedes prior APPROVED revisions; REJECT moves UNDER_REVIEW → REJECTED. */
+export enum MnTaskPlanDecision {
+  APPROVE = 'APPROVE',
+  REJECT = 'REJECT',
+}
+
+/** M13 — Plan lifecycle state. DRAFT and UNDER_REVIEW are the only mutable states; APPROVED, REJECTED, and SUPERSEDED are terminal. */
+export enum MnTaskPlanStatus {
+  APPROVED = 'APPROVED',
+  DRAFT = 'DRAFT',
+  REJECTED = 'REJECTED',
+  SUPERSEDED = 'SUPERSEDED',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+}
+
+/** Manut task priority. */
+export enum MnTaskPriority {
+  HIGH = 'HIGH',
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  NONE = 'NONE',
+  URGENT = 'URGENT',
+}
+
+/** Manut task workflow state. */
+export enum MnTaskStatus {
+  BACKLOG = 'BACKLOG',
+  CANCELLED = 'CANCELLED',
+  DONE = 'DONE',
+  IN_PROGRESS = 'IN_PROGRESS',
+  TODO = 'TODO',
+}
+
+export interface MnWorkProduct {
+  __typename?: 'MnWorkProduct';
+  byteSize: Maybe<Scalars['Int']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  description: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  kind: MnWorkProductKind;
+  metadata: Scalars['JSONObject']['output'];
+  producedByAgentId: Maybe<Scalars['ID']['output']>;
+  projectId: Scalars['ID']['output'];
+  ref: Scalars['String']['output'];
+  taskId: Scalars['ID']['output'];
+  title: Maybe<Scalars['String']['output']>;
+  workspaceId: Scalars['ID']['output'];
+}
+
+/** Kind of work product. DOC is an internal BlockSuite doc, FILE is a blob in object storage, URL is an external link, PR is a pull request, DEPLOYMENT is an environment rollout, CSV is a data export, SCREENSHOT is an image attachment. Free-form `metadata` JSON carries per-kind detail. */
+export enum MnWorkProductKind {
+  CSV = 'CSV',
+  DEPLOYMENT = 'DEPLOYMENT',
+  DOC = 'DOC',
+  FILE = 'FILE',
+  PR = 'PR',
+  SCREENSHOT = 'SCREENSHOT',
+  URL = 'URL',
+}
+
+export interface MnWorkQueue {
+  __typename?: 'MnWorkQueue';
+  createdAt: Scalars['DateTime']['output'];
+  defaultAssigneeAgentId: Maybe<Scalars['ID']['output']>;
+  defaultPriority: MnTaskPriority;
+  description: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  intakeWebhookToken: Scalars['String']['output'];
+  isActive: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  projectId: Scalars['ID']['output'];
+  routingRulesJson: Scalars['String']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['ID']['output'];
+}
+
+export interface MnWorkQueueIntake {
+  __typename?: 'MnWorkQueueIntake';
+  externalRef: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  payloadJson: Scalars['String']['output'];
+  queueId: Scalars['ID']['output'];
+  receivedAt: Scalars['DateTime']['output'];
+  routedToTaskId: Maybe<Scalars['ID']['output']>;
+  status: MnIntakeStatus;
 }
 
 export interface Mutation {
@@ -1836,6 +3031,9 @@ export interface Mutation {
   /** Mark an AI insight as acknowledged by the current user. */
   acknowledgeInsight: SocialInsight;
   activateLicense: License;
+  addAgentFile: Agent;
+  addAgentLink: Agent;
+  addAgentSkill: Agent;
   /** add a blob to context */
   addContextBlob: CopilotContextBlob;
   /** add a category to context */
@@ -1844,6 +3042,9 @@ export interface Mutation {
   addContextDoc: CopilotContextDoc;
   /** add a file to context */
   addContextFile: CopilotContextFile;
+  addMnCeoTurn: MnCeoTurn;
+  /** Mark one task as blocked by another. Rejects self-block. */
+  addMnTaskBlocker: MnTaskBlocker;
   /** Update workspace embedding files */
   addWorkspaceEmbeddingFiles: CopilotWorkspaceFile;
   addWorkspaceFeature: Scalars['Boolean']['output'];
@@ -1851,11 +3052,24 @@ export interface Mutation {
   adminUpdateWorkspace: Maybe<AdminWorkspace>;
   /** Apply updates to a doc using LLM and return the merged markdown. */
   applyDocUpdates: Scalars['String']['output'];
+  /** Execute an APPROVED change. Mutates the underlying tables (e.g. updates MnAgent.reportsToAgentId for DELEGATION_CHANGE, creates an MnRoutine row for NEW_ROUTINE) and transitions to APPLIED. Captures priorState onto the payload so revert() can undo if needed. */
+  applyMnOrgChange: MnOrgChange;
   approveMember: Scalars['Boolean']['output'];
+  /** Approve a candidate playbook. The underlying MnSkill row remains source=IMPORTED so provenance (auto-extracted vs hand-authored) is preserved forever. Returns the updated candidate. */
+  approveMnLearningCandidate: MnLearningCandidate;
+  archiveMnProject: MnProject;
+  /** Archive a skill (soft delete). Archived skills are hidden from the default list but preserved so existing references keep resolving. */
+  archiveMnSkill: MnSkill;
+  archiveMnWorkQueue: MnWorkQueue;
+  /** Assign or re-assign a task. XOR — at most one of { userId, agentId } may be non-null. Both null clears assignees. */
+  assignMnTask: Scalars['Boolean']['output'];
   /** Ban an user */
   banUser: UserType;
   /** Begin OAuth handshake for a platform. Returns the authorization URL the client must navigate to. */
   beginPlatformConnect: BeginOAuthResult;
+  /** Bind the given chat session to a task so its messages get GOAL CONTEXT injected on the next turn. Pass null to unbind. */
+  bindAiSessionToTask: Scalars['Boolean']['output'];
+  cancelMnReminder: MnReminder;
   /** Discard a pending Meta OAuth picker session without binding any account. */
   cancelPlatformConnect: Scalars['Boolean']['output'];
   cancelSubscription: SubscriptionType;
@@ -1865,6 +3079,9 @@ export interface Mutation {
   /** Cleanup sessions */
   cleanupCopilotSession: Array<Scalars['String']['output']>;
   completeBlobUpload: Scalars['String']['output'];
+  connectGithub: GithubConnectAuthUrl;
+  connectGoogle: GoogleConnectAuthUrl;
+  createAgent: Agent;
   createBlobUpload: BlobUploadInit;
   /** Create change password url */
   createChangePasswordUrl: Scalars['String']['output'];
@@ -1885,6 +3102,36 @@ export interface Mutation {
   /** Create a stripe customer portal to manage payment methods */
   createCustomerPortal: Scalars['String']['output'];
   createInviteLink: InviteLink;
+  /** Open a Stripe Checkout Session that upgrades the workspace to Manut Pro. Returns the absolute checkout URL — the frontend redirects via `window.location.assign(checkoutUrl)`. Requires Workspace.Settings.Update. */
+  createManutProCheckoutSession: Scalars['String']['output'];
+  /** Create a new agent. Requires Workspace.Settings.Update. */
+  createMnAgent: MnAgent;
+  /** Create a new PENDING approval. Requires Workspace.Settings.Update. */
+  createMnApproval: MnApproval;
+  /** Add a comment to an approval thread. */
+  createMnApprovalComment: MnApprovalComment;
+  /** Create a new budget. Requires Workspace.Settings.Update. */
+  createMnBudget: MnBudget;
+  createMnCeoConversation: MnCeoConversation;
+  createMnCrmAccount: MnCrmAccount;
+  createMnCrmActivity: MnCrmActivity;
+  createMnCrmContact: MnCrmContact;
+  createMnCrmDeal: MnCrmDeal;
+  createMnCrmDealStage: MnCrmDealStage;
+  /** Create a goal. Requires Workspace.Settings.Update. */
+  createMnGoal: MnGoal;
+  createMnProject: MnProject;
+  createMnReminder: MnReminder;
+  /** Create a reminder rule. Requires Workspace.Settings.Update. */
+  createMnReminderRule: MnReminderRule;
+  /** Create a new skill. Requires Workspace.Settings.Update. Slug must be unique within the workspace. */
+  createMnSkill: MnSkill;
+  createMnTask: MnTask;
+  /** M13 — create a new DRAFT revision for a task. The service auto-increments revisionNumber inside a transaction so concurrent creates produce distinct revisions. */
+  createMnTaskPlan: MnTaskPlan;
+  /** Create a new work product attached to a task. Requires Workspace.Settings.Update. The task and (optional) producer agent must live in the same workspace as the caller — cross-workspace attachment is rejected with Forbidden. */
+  createMnWorkProduct: MnWorkProduct;
+  createMnWorkQueue: MnWorkQueue;
   createReply: ReplyObjectType;
   createSelfhostWorkspaceCustomerPortal: Scalars['String']['output'];
   /** Create a new user */
@@ -1892,39 +3139,90 @@ export interface Mutation {
   /** Create a new workspace */
   createWorkspace: WorkspaceType;
   deactivateLicense: Scalars['Boolean']['output'];
+  /** Decide an approval (APPROVED / REJECTED / CANCELLED / REVISION_REQUESTED). Terminal-state approvals are immutable. */
+  decideMnApproval: MnApproval;
+  /** Decide a PROPOSED change (APPROVED or REJECTED). Mirrors the decision onto the sibling MnApproval row. */
+  decideMnOrgChange: MnOrgChange;
+  /** M13 — APPROVE or REJECT an UNDER_REVIEW plan. APPROVE supersedes any prior APPROVED revision on the same task in the same transaction so the "current plan" invariant holds. Both decisions append an audit entry to reviewerComments. */
+  decideMnTaskPlan: MnTaskPlan;
   deleteAccount: DeleteAccount;
+  deleteAgent: Scalars['Boolean']['output'];
   deleteBlob: Scalars['Boolean']['output'];
   /** Delete a comment */
   deleteComment: Scalars['Boolean']['output'];
+  /** Delete an agent. Cascades to API keys and heartbeat runs. */
+  deleteMnAgent: Scalars['Boolean']['output'];
+  /** Delete a memory row. Requires Workspace.Settings.Update. Returns true on success; throws NotFound when the row is missing or belongs to another workspace. */
+  deleteMnAgentMemory: Scalars['Boolean']['output'];
+  /** Delete a budget. Cost events are preserved. */
+  deleteMnBudget: Scalars['Boolean']['output'];
+  /** Delete a goal. Linked tasks survive (goalId set to null). */
+  deleteMnGoal: Scalars['Boolean']['output'];
+  /** Delete a reminder rule. Pending reminders generated by the rule are kept (the FK is nullable on MnReminder.ruleId). Requires Workspace.Settings.Update. */
+  deleteMnReminderRule: Scalars['Boolean']['output'];
+  deleteMnTask: Scalars['Boolean']['output'];
+  /** Delete a work product registry row. Does NOT delete the underlying artifact (doc / PR / file) — those are owned by their source-of- truth system. Requires Workspace.Settings.Update. */
+  deleteMnWorkProduct: Scalars['Boolean']['output'];
   /** Delete a reply */
   deleteReply: Scalars['Boolean']['output'];
   /** Delete a user account */
   deleteUser: DeleteAccount;
   deleteWorkspace: Scalars['Boolean']['output'];
+  /** M12 — disable MAXIMIZER MODE on an agent and revert the dispatch path to upstream behavior. Requires Workspace.Settings.Update. */
+  disableMnAgentMaximizer: MnAgentMaximizerToggleResult;
+  /** Disable a plugin: terminate the worker process and mark DISABLED. Pending RPC calls reject with rpc_disposed. */
+  disableMnPlugin: MnPlugin;
+  disconnectGithub: Scalars['Boolean']['output'];
+  disconnectGoogle: Scalars['Boolean']['output'];
   /** Disconnect a platform from the workspace (soft-delete). */
   disconnectPlatform: Scalars['Boolean']['output'];
+  disconnectProvider: Scalars['Boolean']['output'];
+  /** M12 — enable MAXIMIZER MODE on an agent. While on, the dispatch orchestrator auto-delegates capability-matched calls to subordinates, batches the rest into 10-call heartbeat groups, forces approval for any call costing >50% of remaining monthly budget, and runs full M11 outcome verification on every DONE transition. Requires Workspace.Settings.Update. */
+  enableMnAgentMaximizer: MnAgentMaximizerToggleResult;
+  /** Enable a plugin: flip its status to LOADING and spawn the worker process. Idempotent for an already-running plugin. */
+  enableMnPlugin: MnPlugin;
   /** Reenable an banned user */
   enableUser: UserType;
   /** Complete a multi-account Meta OAuth flow by binding the chosen page / IG biz / Threads profile. */
   finalizePlatformConnect: SocialConnection;
+  /** Hard-delete a memory the AI has stored about the user. */
+  forgetMemory: Scalars['Boolean']['output'];
   /** Create a chat session */
   forkCopilotSession: Scalars['String']['output'];
   generateLicenseKey: Scalars['String']['output'];
   generateUserAccessToken: RevealedAccessToken;
   grantDocUserRoles: Scalars['Boolean']['output'];
   grantMember: Scalars['Boolean']['output'];
+  /** Imports a Gmail message as a new doc. Returns the new doc ID. */
+  importGmailMessage: Scalars['String']['output'];
+  /** Import a Manut release handover JSON payload into a workspace doc. */
+  importMnHandover: ImportMnHandoverResult;
   /** import users */
   importUsers: Array<UserImportResultType>;
   installLicense: License;
+  /** Install a plugin from npm by package name + version. Runs `npm install` under the instance plugin directory, validates the declared manifest, and persists an MnPlugin row in INSTALLED status. */
+  installMnPlugin: MnPlugin;
   inviteMembers: Array<InviteResult>;
   leaveWorkspace: Scalars['Boolean']['output'];
   linkCalDAVAccount: CalendarAccountObjectType;
   linkCalendarAccount: Scalars['String']['output'];
+  /** M7 — mark an MnExecutionRun row as complete. `status` must be terminal (SUCCEEDED / FAILED / CANCELLED / TIMED_OUT). */
+  markMnExecutionRunComplete: MnExecutionRun;
   /** mention user in a doc */
   mentionUser: Scalars['ID']['output'];
+  /** Mint a new API key. The plaintext is shown ONCE in the response and is never recoverable from the server again. */
+  mintMnAgentApiKey: MintedMnAgentApiKey;
+  /** Toggle the pinned flag on a memory. Pinned memories surface ahead of unpinned ones during AI recall. */
+  pinMemory: Memory;
+  /** Promote a personal (user-scope) memory to workspace-scope so any member can recall it. */
+  promoteMemoryToWorkspace: Memory;
+  /** Propose a structural change. Creates a PROPOSED MnOrgChange row AND a sibling PENDING MnApproval (type=AGENT_ORG_CHANGE) linked via payload.orgChangeId so the existing inbox / SSE surface gates the human decision. */
+  proposeMnOrgChange: MnOrgChange;
   publishDoc: DocType;
   /** queue workspace doc embedding */
   queueWorkspaceEmbedding: Scalars['Boolean']['output'];
+  /** Record a user 👍/👎 rating on an assistant chat message. Stored as an OBSERVATION memory tagged feedback:positive|negative. */
+  rateMessage: Scalars['Boolean']['output'];
   /** mark all notifications as read */
   readAllNotifications: Scalars['Boolean']['output'];
   /** mark notification as read */
@@ -1932,7 +3230,14 @@ export interface Mutation {
   recoverDoc: Scalars['DateTime']['output'];
   /** Refresh current user subscriptions and return latest. */
   refreshUserSubscriptions: Array<SubscriptionType>;
+  /** Reject a candidate playbook. Archives the row AND rewrites the embedded marker to status=rejected so the audit trail survives. */
+  rejectMnLearningCandidate: MnLearningCandidate;
   releaseDeletedBlobs: Scalars['Boolean']['output'];
+  /** M7 — release a task checkout. No-op if `runId` does not match the current holder (security: stale processes cannot clobber fresh executions). */
+  releaseMnTaskCheckout: Scalars['Boolean']['output'];
+  removeAgentFile: Agent;
+  removeAgentLink: Agent;
+  removeAgentSkill: Agent;
   /** Remove user avatar */
   removeAvatar: RemoveAvatar;
   /** remove a blob from context */
@@ -1943,6 +3248,8 @@ export interface Mutation {
   removeContextDoc: Scalars['Boolean']['output'];
   /** remove a file from context */
   removeContextFile: Scalars['Boolean']['output'];
+  /** Remove a task blocker edge. No-op when the edge is gone. */
+  removeMnTaskBlocker: Scalars['Boolean']['output'];
   /** Remove workspace embedding files */
   removeWorkspaceEmbeddingFiles: Scalars['Boolean']['output'];
   removeWorkspaceFeature: Scalars['Boolean']['output'];
@@ -1950,15 +3257,25 @@ export interface Mutation {
   requestApplySubscription: Array<SubscriptionType>;
   /** Resolve a comment or not */
   resolveComment: Scalars['Boolean']['output'];
+  resolveMnCeoTurn: MnCeoTurn;
+  /** Restore an archived skill so it shows in default lists again. */
+  restoreMnSkill: MnSkill;
   resumeSubscription: SubscriptionType;
   retryAudioTranscription: Maybe<TranscriptionResultType>;
+  /** Reverse an APPLIED change when reversibility is possible. Restores underlying tables from payload.priorState; transitions to REVERTED. */
+  revertMnOrgChange: MnOrgChange;
   revokeDocUserRoles: Scalars['Boolean']['output'];
   revokeInviteLink: Scalars['Boolean']['output'];
   revokeMember: Scalars['Boolean']['output'];
+  /** Soft-revoke an API key. Idempotent — re-revoking a revoked key returns the existing row unchanged. */
+  revokeMnAgentApiKey: MnAgentApiKey;
   revokePublicDoc: DocType;
   revokeUserAccessToken: Scalars['Boolean']['output'];
+  rotateMnWorkQueueToken: MnWorkQueue;
   /** Run the on-demand Content Recommendation prompt — gemini-2.5-flash, ~3K in / 0.5K out. */
   runContentRecommendation: SocialInsight;
+  /** Seed additional starter docs derived from the /welcome onboarding wizard answers. */
+  seedWorkspaceFromWizard: Scalars['Boolean']['output'];
   sendChangeEmail: Scalars['Boolean']['output'];
   sendChangePasswordEmail: Scalars['Boolean']['output'];
   sendSetPasswordEmail: Scalars['Boolean']['output'];
@@ -1966,13 +3283,32 @@ export interface Mutation {
   sendVerifyChangeEmail: Scalars['Boolean']['output'];
   sendVerifyEmail: Scalars['Boolean']['output'];
   setBlob: Scalars['String']['output'];
+  /** M11 — set or clear the Definition of Done predicate list for a task. Pass `predicates: null` (or an empty array) to remove the transition guard. Returns the freshly verified outcome so the UI can render predicate-by-predicate status immediately after save. */
+  setMnTaskDefinitionOfDone: MnDoDVerificationResult;
+  /** Set or clear a task parent. Rejects self-parent, cycles, and chains deeper than the configured cap. */
+  setMnTaskParent: Scalars['Boolean']['output'];
+  /** Store a new memory row. Requires Workspace.Settings.Update. */
+  storeMnAgentMemory: MnAgentMemory;
   submitAudioTranscription: Maybe<TranscriptionResultType>;
+  /** Resubmit a REVISION_REQUESTED approval. Optionally overwrites the payload with the revised version. Status returns to PENDING. */
+  submitMnApprovalRevision: MnApproval;
+  /** M13 — move a DRAFT plan to UNDER_REVIEW. Idempotent on already-UNDER_REVIEW plans is NOT supported — the service rejects any source state other than DRAFT to keep the state machine honest. */
+  submitMnTaskPlanForReview: MnTaskPlan;
   /** Trigger cleanup of trashed doc embeddings */
   triggerCleanupTrashedDocEmbeddings: Scalars['Boolean']['output'];
   /** Trigger generate missing titles cron job */
   triggerGenerateTitleCron: Scalars['Boolean']['output'];
+  /** On-demand trigger: extract a candidate playbook from the given task. In M16.1 this is the only way to start an extraction — the auto-on-DONE wiring is deferred to a follow-up so MnTask service stays untouched. */
+  triggerLearningExtractionForTask: MnLearningCandidate;
+  /** M7 — atomically claim the execution lock on a task. Returns `acquired=true` plus updated lock metadata on success; `acquired=false` when another caller holds a non-stale lock. */
+  tryCheckoutMnTask: MnTaskCheckoutResult;
+  /** Uninstall a plugin: disables it if running, deletes the MnPlugin row, and leaves the on-disk package directory in place so an operator can audit it. Returns true on success. */
+  uninstallMnPlugin: Scalars['Boolean']['output'];
   unlinkCalendarAccount: Scalars['Boolean']['output'];
   unverifyDoc: Scalars['Boolean']['output'];
+  updateAgent: Agent;
+  /** Update an agent role. The slug is immutable; only displayName, adapter, responsibility, and escalation can be edited. */
+  updateAgentRole: MnAgentRole;
   /** update app configuration */
   updateAppConfig: Scalars['JSONObject']['output'];
   updateCalendarAccount: Maybe<CalendarAccountObjectType>;
@@ -1982,6 +3318,27 @@ export interface Mutation {
   updateCopilotSession: Scalars['String']['output'];
   updateDocDefaultRole: Scalars['Boolean']['output'];
   updateDocUserRole: Scalars['Boolean']['output'];
+  /** Patch editable fields on an agent. TERMINATED agents cannot be resumed; updating them is rejected. */
+  updateMnAgent: MnAgent;
+  /** Update editable fields on a budget. Resets alertSent if cap is raised. */
+  updateMnBudget: MnBudget;
+  updateMnCrmAccount: MnCrmAccount;
+  updateMnCrmActivity: MnCrmActivity;
+  updateMnCrmContact: MnCrmContact;
+  updateMnCrmDeal: MnCrmDeal;
+  updateMnCrmDealStage: MnCrmDealStage;
+  /** Patch an existing goal. Terminal statuses (ACHIEVED, CANCELLED) cannot be flipped back. Requires Workspace.Settings.Update. */
+  updateMnGoal: MnGoal;
+  updateMnProject: MnProject;
+  /** Update a reminder rule. The trigger field is immutable after create. Requires Workspace.Settings.Update on the rule's workspace. */
+  updateMnReminderRule: MnReminderRule;
+  /** Patch editable fields on a skill. The version-bump rule applies: editing contentMd without changing version is rejected. */
+  updateMnSkill: MnSkill;
+  updateMnTask: MnTask;
+  updateMnTaskStatus: MnTask;
+  updateMnWorkQueue: MnWorkQueue;
+  /** Persist the user’s onboarding flag after the /welcome wizard finishes or is skipped. */
+  updateOnboarding: UserType;
   updateProfile: UserType;
   /** Update a reply content */
   updateReply: Scalars['Boolean']['output'];
@@ -2001,6 +3358,8 @@ export interface Mutation {
   uploadAvatar: UserType;
   /** Upload a comment attachment and return the access url */
   uploadCommentAttachment: Scalars['String']['output'];
+  /** Create or update the workspace-scoped (or project-scoped) plugin config row. The well-known `configJson.enabled` boolean is what the workspace UI toggle flips; other fields are passed through to plugin workers via the host RPC bridge. 16 KB hard cap on payload size. */
+  upsertMnPluginConfig: MnPluginConfig;
   verifyDoc: Scalars['Boolean']['output'];
   verifyEmail: Scalars['Boolean']['output'];
 }
@@ -2026,6 +3385,22 @@ export interface MutationActivateLicenseArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationAddAgentFileArgs {
+  fileId: Scalars['String']['input'];
+  id: Scalars['String']['input'];
+}
+
+export interface MutationAddAgentLinkArgs {
+  id: Scalars['String']['input'];
+  label?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
+}
+
+export interface MutationAddAgentSkillArgs {
+  id: Scalars['String']['input'];
+  skill: Scalars['String']['input'];
+}
+
 export interface MutationAddContextBlobArgs {
   options: AddContextBlobInput;
 }
@@ -2041,6 +3416,16 @@ export interface MutationAddContextDocArgs {
 export interface MutationAddContextFileArgs {
   content: Scalars['Upload']['input'];
   options: AddContextFileInput;
+}
+
+export interface MutationAddMnCeoTurnArgs {
+  input: AddMnCeoTurnInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationAddMnTaskBlockerArgs {
+  input: AddMnTaskBlockerInput;
+  workspaceId: Scalars['ID']['input'];
 }
 
 export interface MutationAddWorkspaceEmbeddingFilesArgs {
@@ -2064,9 +3449,40 @@ export interface MutationApplyDocUpdatesArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationApplyMnOrgChangeArgs {
+  orgChangeId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
 export interface MutationApproveMemberArgs {
   userId: Scalars['String']['input'];
   workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationApproveMnLearningCandidateArgs {
+  candidateId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationArchiveMnProjectArgs {
+  projectId: Scalars['ID']['input'];
+}
+
+export interface MutationArchiveMnSkillArgs {
+  skillId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationArchiveMnWorkQueueArgs {
+  queueId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationAssignMnTaskArgs {
+  assigneeAgentId?: InputMaybe<Scalars['ID']['input']>;
+  assigneeUserId?: InputMaybe<Scalars['ID']['input']>;
+  taskId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
 }
 
 export interface MutationBanUserArgs {
@@ -2076,6 +3492,17 @@ export interface MutationBanUserArgs {
 export interface MutationBeginPlatformConnectArgs {
   platform: SocialPlatform;
   workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationBindAiSessionToTaskArgs {
+  depth?: InputMaybe<Scalars['Int']['input']>;
+  sessionId: Scalars['ID']['input'];
+  taskId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationCancelMnReminderArgs {
+  reminderId: Scalars['ID']['input'];
 }
 
 export interface MutationCancelPlatformConnectArgs {
@@ -2112,6 +3539,19 @@ export interface MutationCompleteBlobUploadArgs {
   parts?: InputMaybe<Array<BlobUploadPartInput>>;
   uploadId?: InputMaybe<Scalars['String']['input']>;
   workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationConnectGithubArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationConnectGoogleArgs {
+  scope: GoogleScope;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationCreateAgentArgs {
+  input: CreateAgentInput;
 }
 
 export interface MutationCreateBlobUploadArgs {
@@ -2156,6 +3596,104 @@ export interface MutationCreateInviteLinkArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationCreateManutProCheckoutSessionArgs {
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationCreateMnAgentArgs {
+  input: CreateMnAgentInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationCreateMnApprovalArgs {
+  input: CreateMnApprovalInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationCreateMnApprovalCommentArgs {
+  approvalId: Scalars['ID']['input'];
+  input: CreateMnApprovalCommentInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationCreateMnBudgetArgs {
+  input: CreateMnBudgetInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationCreateMnCeoConversationArgs {
+  input: CreateMnCeoConversationInput;
+}
+
+export interface MutationCreateMnCrmAccountArgs {
+  input: CreateMnCrmAccountInput;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationCreateMnCrmActivityArgs {
+  input: CreateMnCrmActivityInput;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationCreateMnCrmContactArgs {
+  input: CreateMnCrmContactInput;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationCreateMnCrmDealArgs {
+  input: CreateMnCrmDealInput;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationCreateMnCrmDealStageArgs {
+  input: CreateMnCrmDealStageInput;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationCreateMnGoalArgs {
+  input: CreateMnGoalInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationCreateMnProjectArgs {
+  input: CreateMnProjectInput;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationCreateMnReminderArgs {
+  input: CreateMnReminderInput;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationCreateMnReminderRuleArgs {
+  input: CreateMnReminderRuleInput;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationCreateMnSkillArgs {
+  input: CreateMnSkillInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationCreateMnTaskArgs {
+  input: CreateMnTaskInput;
+  projectId: Scalars['ID']['input'];
+}
+
+export interface MutationCreateMnTaskPlanArgs {
+  input: CreateMnTaskPlanInput;
+}
+
+export interface MutationCreateMnWorkProductArgs {
+  input: CreateMnWorkProductInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationCreateMnWorkQueueArgs {
+  input: CreateMnWorkQueueInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
 export interface MutationCreateReplyArgs {
   input: ReplyCreateInput;
 }
@@ -2176,6 +3714,26 @@ export interface MutationDeactivateLicenseArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationDecideMnApprovalArgs {
+  approvalId: Scalars['ID']['input'];
+  input: DecideMnApprovalInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationDecideMnOrgChangeArgs {
+  input: DecideMnOrgChangeInput;
+  orgChangeId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationDecideMnTaskPlanArgs {
+  input: DecideMnTaskPlanInput;
+}
+
+export interface MutationDeleteAgentArgs {
+  id: Scalars['String']['input'];
+}
+
 export interface MutationDeleteBlobArgs {
   hash?: InputMaybe<Scalars['String']['input']>;
   key?: InputMaybe<Scalars['String']['input']>;
@@ -2185,6 +3743,39 @@ export interface MutationDeleteBlobArgs {
 
 export interface MutationDeleteCommentArgs {
   id: Scalars['String']['input'];
+}
+
+export interface MutationDeleteMnAgentArgs {
+  agentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationDeleteMnAgentMemoryArgs {
+  memoryId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationDeleteMnBudgetArgs {
+  budgetId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationDeleteMnGoalArgs {
+  goalId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationDeleteMnReminderRuleArgs {
+  ruleId: Scalars['ID']['input'];
+}
+
+export interface MutationDeleteMnTaskArgs {
+  taskId: Scalars['ID']['input'];
+}
+
+export interface MutationDeleteMnWorkProductArgs {
+  workProductId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
 }
 
 export interface MutationDeleteReplyArgs {
@@ -2199,8 +3790,38 @@ export interface MutationDeleteWorkspaceArgs {
   id: Scalars['String']['input'];
 }
 
+export interface MutationDisableMnAgentMaximizerArgs {
+  agentId: Scalars['ID']['input'];
+}
+
+export interface MutationDisableMnPluginArgs {
+  id: Scalars['ID']['input'];
+}
+
+export interface MutationDisconnectGithubArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationDisconnectGoogleArgs {
+  scope: GoogleScope;
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface MutationDisconnectPlatformArgs {
   connectionId: Scalars['String']['input'];
+}
+
+export interface MutationDisconnectProviderArgs {
+  provider: Scalars['String']['input'];
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationEnableMnAgentMaximizerArgs {
+  agentId: Scalars['ID']['input'];
+}
+
+export interface MutationEnableMnPluginArgs {
+  id: Scalars['ID']['input'];
 }
 
 export interface MutationEnableUserArgs {
@@ -2209,6 +3830,10 @@ export interface MutationEnableUserArgs {
 
 export interface MutationFinalizePlatformConnectArgs {
   input: FinalizePlatformConnectInput;
+}
+
+export interface MutationForgetMemoryArgs {
+  id: Scalars['ID']['input'];
 }
 
 export interface MutationForkCopilotSessionArgs {
@@ -2233,6 +3858,16 @@ export interface MutationGrantMemberArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationImportGmailMessageArgs {
+  messageId: Scalars['String']['input'];
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationImportMnHandoverArgs {
+  input: ImportMnHandoverInput;
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface MutationImportUsersArgs {
   input: ImportUsersInput;
 }
@@ -2240,6 +3875,10 @@ export interface MutationImportUsersArgs {
 export interface MutationInstallLicenseArgs {
   license: Scalars['Upload']['input'];
   workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationInstallMnPluginArgs {
+  input: InstallMnPluginInput;
 }
 
 export interface MutationInviteMembersArgs {
@@ -2261,8 +3900,33 @@ export interface MutationLinkCalendarAccountArgs {
   input: LinkCalendarAccountInput;
 }
 
+export interface MutationMarkMnExecutionRunCompleteArgs {
+  error?: InputMaybe<Scalars['String']['input']>;
+  runId: Scalars['ID']['input'];
+  status: MnExecutionRunStatus;
+}
+
 export interface MutationMentionUserArgs {
   input: MentionInput;
+}
+
+export interface MutationMintMnAgentApiKeyArgs {
+  agentId: Scalars['ID']['input'];
+  input: MintMnAgentApiKeyInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationPinMemoryArgs {
+  id: Scalars['ID']['input'];
+}
+
+export interface MutationPromoteMemoryToWorkspaceArgs {
+  id: Scalars['ID']['input'];
+}
+
+export interface MutationProposeMnOrgChangeArgs {
+  input: ProposeMnOrgChangeInput;
+  workspaceId: Scalars['ID']['input'];
 }
 
 export interface MutationPublishDocArgs {
@@ -2276,6 +3940,11 @@ export interface MutationQueueWorkspaceEmbeddingArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationRateMessageArgs {
+  messageId: Scalars['String']['input'];
+  rating: Scalars['String']['input'];
+}
+
 export interface MutationReadNotificationArgs {
   id: Scalars['String']['input'];
 }
@@ -2286,8 +3955,33 @@ export interface MutationRecoverDocArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationRejectMnLearningCandidateArgs {
+  candidateId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
 export interface MutationReleaseDeletedBlobsArgs {
   workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationReleaseMnTaskCheckoutArgs {
+  runId: Scalars['ID']['input'];
+  taskId: Scalars['ID']['input'];
+}
+
+export interface MutationRemoveAgentFileArgs {
+  fileId: Scalars['String']['input'];
+  id: Scalars['String']['input'];
+}
+
+export interface MutationRemoveAgentLinkArgs {
+  id: Scalars['String']['input'];
+  url: Scalars['String']['input'];
+}
+
+export interface MutationRemoveAgentSkillArgs {
+  id: Scalars['String']['input'];
+  skill: Scalars['String']['input'];
 }
 
 export interface MutationRemoveContextBlobArgs {
@@ -2304,6 +3998,11 @@ export interface MutationRemoveContextDocArgs {
 
 export interface MutationRemoveContextFileArgs {
   options: RemoveContextFileInput;
+}
+
+export interface MutationRemoveMnTaskBlockerArgs {
+  blockerId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
 }
 
 export interface MutationRemoveWorkspaceEmbeddingFilesArgs {
@@ -2324,6 +4023,16 @@ export interface MutationResolveCommentArgs {
   input: CommentResolveInput;
 }
 
+export interface MutationResolveMnCeoTurnArgs {
+  turnId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationRestoreMnSkillArgs {
+  skillId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
 export interface MutationResumeSubscriptionArgs {
   idempotencyKey?: InputMaybe<Scalars['String']['input']>;
   plan?: InputMaybe<SubscriptionPlan>;
@@ -2333,6 +4042,11 @@ export interface MutationResumeSubscriptionArgs {
 export interface MutationRetryAudioTranscriptionArgs {
   jobId: Scalars['String']['input'];
   workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationRevertMnOrgChangeArgs {
+  orgChangeId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
 }
 
 export interface MutationRevokeDocUserRolesArgs {
@@ -2348,6 +4062,12 @@ export interface MutationRevokeMemberArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationRevokeMnAgentApiKeyArgs {
+  agentId: Scalars['ID']['input'];
+  keyId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
 export interface MutationRevokePublicDocArgs {
   docId: Scalars['String']['input'];
   workspaceId: Scalars['String']['input'];
@@ -2357,8 +4077,18 @@ export interface MutationRevokeUserAccessTokenArgs {
   id: Scalars['String']['input'];
 }
 
+export interface MutationRotateMnWorkQueueTokenArgs {
+  queueId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
 export interface MutationRunContentRecommendationArgs {
   input: RunContentRecommendationInput;
+}
+
+export interface MutationSeedWorkspaceFromWizardArgs {
+  answers: WizardAnswersInput;
+  workspaceId: Scalars['String']['input'];
 }
 
 export interface MutationSendChangeEmailArgs {
@@ -2395,12 +4125,51 @@ export interface MutationSetBlobArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationSetMnTaskDefinitionOfDoneArgs {
+  input: SetMnTaskDefinitionOfDoneInput;
+}
+
+export interface MutationSetMnTaskParentArgs {
+  parentTaskId?: InputMaybe<Scalars['ID']['input']>;
+  taskId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationStoreMnAgentMemoryArgs {
+  input: StoreMnAgentMemoryInput;
+}
+
 export interface MutationSubmitAudioTranscriptionArgs {
   blob?: InputMaybe<Scalars['Upload']['input']>;
   blobId: Scalars['String']['input'];
   blobs?: InputMaybe<Array<Scalars['Upload']['input']>>;
   input?: InputMaybe<SubmitAudioTranscriptionInput>;
   workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationSubmitMnApprovalRevisionArgs {
+  approvalId: Scalars['ID']['input'];
+  payload?: InputMaybe<Scalars['JSONObject']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationSubmitMnTaskPlanForReviewArgs {
+  planId: Scalars['ID']['input'];
+}
+
+export interface MutationTriggerLearningExtractionForTaskArgs {
+  taskId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationTryCheckoutMnTaskArgs {
+  executingAgentId?: InputMaybe<Scalars['ID']['input']>;
+  runId: Scalars['ID']['input'];
+  taskId: Scalars['ID']['input'];
+}
+
+export interface MutationUninstallMnPluginArgs {
+  id: Scalars['ID']['input'];
 }
 
 export interface MutationUnlinkCalendarAccountArgs {
@@ -2410,6 +4179,17 @@ export interface MutationUnlinkCalendarAccountArgs {
 export interface MutationUnverifyDocArgs {
   docId: Scalars['String']['input'];
   workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationUpdateAgentArgs {
+  id: Scalars['String']['input'];
+  input: UpdateAgentInput;
+}
+
+export interface MutationUpdateAgentRoleArgs {
+  input: UpdateMnAgentRoleInput;
+  slug: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
 }
 
 export interface MutationUpdateAppConfigArgs {
@@ -2435,6 +4215,85 @@ export interface MutationUpdateDocDefaultRoleArgs {
 
 export interface MutationUpdateDocUserRoleArgs {
   input: UpdateDocUserRoleInput;
+}
+
+export interface MutationUpdateMnAgentArgs {
+  agentId: Scalars['ID']['input'];
+  input: UpdateMnAgentInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationUpdateMnBudgetArgs {
+  budgetId: Scalars['ID']['input'];
+  input: UpdateMnBudgetInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationUpdateMnCrmAccountArgs {
+  accountId: Scalars['ID']['input'];
+  input: UpdateMnCrmAccountInput;
+}
+
+export interface MutationUpdateMnCrmActivityArgs {
+  activityId: Scalars['ID']['input'];
+  input: UpdateMnCrmActivityInput;
+}
+
+export interface MutationUpdateMnCrmContactArgs {
+  contactId: Scalars['ID']['input'];
+  input: UpdateMnCrmContactInput;
+}
+
+export interface MutationUpdateMnCrmDealArgs {
+  dealId: Scalars['ID']['input'];
+  input: UpdateMnCrmDealInput;
+}
+
+export interface MutationUpdateMnCrmDealStageArgs {
+  input: UpdateMnCrmDealStageInput;
+  stageId: Scalars['ID']['input'];
+}
+
+export interface MutationUpdateMnGoalArgs {
+  goalId: Scalars['ID']['input'];
+  input: UpdateMnGoalInput;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationUpdateMnProjectArgs {
+  input: UpdateMnProjectInput;
+  projectId: Scalars['ID']['input'];
+}
+
+export interface MutationUpdateMnReminderRuleArgs {
+  input: UpdateMnReminderRuleInput;
+  ruleId: Scalars['ID']['input'];
+}
+
+export interface MutationUpdateMnSkillArgs {
+  input: UpdateMnSkillInput;
+  skillId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationUpdateMnTaskArgs {
+  input: UpdateMnTaskInput;
+  taskId: Scalars['ID']['input'];
+}
+
+export interface MutationUpdateMnTaskStatusArgs {
+  status: MnTaskStatus;
+  taskId: Scalars['ID']['input'];
+}
+
+export interface MutationUpdateMnWorkQueueArgs {
+  input: UpdateMnWorkQueueInput;
+  queueId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationUpdateOnboardingArgs {
+  input: UpdateOnboardingInput;
 }
 
 export interface MutationUpdateProfileArgs {
@@ -2488,6 +4347,10 @@ export interface MutationUploadCommentAttachmentArgs {
   attachment: Scalars['Upload']['input'];
   docId: Scalars['String']['input'];
   workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationUpsertMnPluginConfigArgs {
+  input: UpsertMnPluginConfigInput;
 }
 
 export interface MutationVerifyDocArgs {
@@ -2692,6 +4555,17 @@ export enum Permission {
   Owner = 'Owner',
 }
 
+export interface ProposeMnOrgChangeInput {
+  /** Type-specific payload. For DELEGATION_CHANGE: { agentId, newReportsToAgentId }. For NEW_ROUTINE: { name, prompt, cronSchedule?, timezone? }. See enum docs in schema.prisma. */
+  payload: Scalars['JSONObject']['input'];
+  projectId: Scalars['ID']['input'];
+  /** Optional agent id that proposed the change. Null when a human authored it directly via the org-changes inbox. */
+  proposedByAgentId?: InputMaybe<Scalars['ID']['input']>;
+  /** Free-form rationale explaining why this change is being proposed. Surfaced verbatim to the deciding operator. */
+  rationale: Scalars['String']['input'];
+  type: MnOrgChangeType;
+}
+
 /** The mode which the public doc default in */
 export enum PublicDocMode {
   Edgeless = 'Edgeless',
@@ -2719,6 +4593,10 @@ export interface Query {
   adminWorkspaces: Array<AdminWorkspace>;
   /** Workspaces count for admin */
   adminWorkspacesCount: Scalars['Int']['output'];
+  agent: Maybe<Agent>;
+  /** Return the 5 canonical operating roles registered for a workspace. */
+  agentRoles: Array<MnAgentRole>;
+  agents: Array<Agent>;
   /** get the whole app configuration */
   appConfig: Scalars['JSONObject']['output'];
   /**
@@ -2730,20 +4608,103 @@ export interface Query {
   connections: Array<SocialConnection>;
   /** Get current user */
   currentUser: Maybe<UserType>;
+  driveFiles: Array<DriveFileType>;
   error: ErrorDataUnion;
   /** get workspace invitation info */
   getInviteInfo: InvitationType;
   /** Overview tile for the Analytics landing page: totals, recent insights, current AI spend. */
   getOverview: AnalyticsOverview;
+  githubConnection: GithubConnectionType;
+  gmailMessages: Array<GmailMessageSummaryType>;
+  googleConnection: GoogleConnectionType;
+  listConnections: Array<ConnectedAccountType>;
   /** AI insights timeline filtered by type. */
   listInsights: Array<SocialInsight>;
   /** Aggregated metrics for the dashboard charts. */
   listMetrics: Array<SocialMetric>;
+  /** Fetch a single agent by id. Returns null when the agent does not exist or belongs to another workspace. */
+  mnAgent: Maybe<MnAgent>;
+  /** List API keys for an agent. Includes revoked keys so the audit trail stays visible. */
+  mnAgentApiKeys: Array<MnAgentApiKey>;
+  /** List memories for an agent. Pass taskId to narrow to memories pinned to a specific task; otherwise returns all agent memories ranked by importance then recency. */
+  mnAgentMemories: Array<MnAgentMemory>;
+  /** List agents in a workspace, optionally filtered by project. */
+  mnAgents: Array<MnAgent>;
+  /** Fetch a single approval by id. Returns null when the approval does not exist or belongs to another workspace (no info leak). */
+  mnApproval: Maybe<MnApproval>;
+  /** List comments on an approval, oldest first. Cross-workspace lookups throw NotFoundException (matches the approval surface). */
+  mnApprovalComments: Array<MnApprovalComment>;
+  /** List approvals for a workspace inbox. Filterable by project, status, type, or requesting agent. Workspace-scoped. */
+  mnApprovals: Array<MnApproval>;
+  /** Fetch a single budget by id. */
+  mnBudget: Maybe<MnBudget>;
+  /** Per-project spend rollup for the dashboard. Joins budgets with live cost-event aggregates for projects without a configured cap. */
+  mnBudgetProjectRollups: Array<MnBudgetRollup>;
+  /** List budgets in a workspace, optionally narrowed by month or scope. */
+  mnBudgets: Array<MnBudget>;
+  mnCeoConversation: MnCeoConversation;
+  mnCeoConversations: Array<MnCeoConversation>;
+  mnCeoTurns: Array<MnCeoTurn>;
+  /** Recent cost events for a workspace; capped at 500 by default. */
+  mnCostEvents: Array<MnCostEvent>;
+  mnCrmAccounts: Array<MnCrmAccount>;
+  mnCrmActivities: Array<MnCrmActivity>;
+  mnCrmContacts: Array<MnCrmContact>;
+  mnCrmDealStages: Array<MnCrmDealStage>;
+  mnCrmDeals: Array<MnCrmDeal>;
+  /** M7 — list execution runs for a task, newest first. Requires Workspace.Read on the owning workspace. */
+  mnExecutionRunsForTask: Array<MnExecutionRun>;
+  /** Fetch a single goal. Returns null when not in workspace. */
+  mnGoal: Maybe<MnGoal>;
+  /** Walk parent chain of a goal, ordered root → leaf. */
+  mnGoalAncestry: Array<MnGoalAncestryStep>;
+  /** List goals in a workspace, optionally filtered by project. Workspace.Read. */
+  mnGoals: Array<MnGoal>;
+  /** List auto-learning playbook candidates for a workspace. By default returns only candidates awaiting review (status=PENDING). Pass an explicit status to see approved or rejected history. */
+  mnLearningCandidates: Array<MnLearningCandidate>;
+  /** List structural-change proposals for an org-changes inbox. Workspace-scoped; filterable by project, status, type, and proposing agent. */
+  mnOrgChanges: Array<MnOrgChange>;
+  /** Fetch a single plugin by id. Returns null when missing. */
+  mnPlugin: Maybe<MnPlugin>;
+  /** List the per-workspace plugin configs visible to this workspace. Returns every installed plugin once — synthesises an empty config row for plugins the workspace has not yet configured so the UI can render an "enable" toggle for them. */
+  mnPluginConfigs: Array<MnPluginConfig>;
+  /** List every installed plugin (instance-wide). Admin-only because plugin lifecycle is an operator concern, not a workspace concern. */
+  mnPlugins: Array<MnPlugin>;
+  mnProjects: Array<MnProject>;
+  /** List reminder rules in a workspace. Requires Workspace.Read. */
+  mnReminderRules: Array<MnReminderRule>;
+  /** List reminders in a workspace: own reminders for all members; admins see all when they have Workspace.Settings.Update. */
+  mnReminders: Array<MnReminder>;
+  /** Fetch a single skill by id. Returns null when the skill does not exist or belongs to another workspace. */
+  mnSkill: Maybe<MnSkill>;
+  /** Look up a skill by its workspace-scoped slug. */
+  mnSkillBySlug: Maybe<MnSkill>;
+  /** List skills in a workspace. Excludes archived rows by default; pass includeArchived=true to see the full history. */
+  mnSkills: Array<MnSkill>;
+  /** Combined task + goal ancestry for the task detail breadcrumb. */
+  mnTaskAncestry: Maybe<MnTaskAncestry>;
+  /** M13 — list every revision of a task plan, newest first. The UI renders this as a vertical timeline with status badges. */
+  mnTaskPlans: Array<MnTaskPlan>;
+  mnTasks: Array<MnTask>;
+  /** Fetch a single work product by id. Returns null when the row does not exist or belongs to another workspace. */
+  mnWorkProduct: Maybe<MnWorkProduct>;
+  /** List work products attributed to a task, newest first. Workspace-fenced — passing a task from another workspace returns []. */
+  mnWorkProducts: Array<MnWorkProduct>;
+  mnWorkQueueIntakes: Array<MnWorkQueueIntake>;
+  mnWorkQueues: Array<MnWorkQueue>;
+  /** List memories the current user can recall in this workspace (personal + workspace-scope). Pinned rows first, newest first. */
+  myMemories: Array<Memory>;
   prices: Array<SubscriptionPrice>;
   /** Get public user by id */
   publicUserById: Maybe<PublicUserType>;
   /** query workspace embedding status */
   queryWorkspaceEmbeddingStatus: ContextWorkspaceEmbeddingStatus;
+  /** Recall top memories for an agent ranked by importance and recency. Touches retrievedCount + lastRetrievedAt as a side effect so the next recall sees the recency boost. Limit is clamped to [1, 100]. */
+  recallMnAgentMemories: Array<MnAgentMemory>;
+  /** Fetch a single Manut release run scoped to the workspace. */
+  releaseRun: MnReleaseRun;
+  /** List Manut release runs for the given workspace, newest first. */
+  releaseRuns: Array<MnReleaseRun>;
   /** @deprecated use currentUser.revealedAccessTokens */
   revealedAccessTokens: Array<RevealedAccessToken>;
   /** server config */
@@ -2760,6 +4721,8 @@ export interface Query {
   usersCount: Scalars['Int']['output'];
   /** validate app configuration */
   validateAppConfig: Array<AppConfigValidateResult>;
+  /** M11 — verify a task against its declared Definition of Done. Runs every predicate and returns a per-predicate breakdown. `satisfied=true` is the AND of every predicate. A task with no predicates returns `hasDefinition=false, satisfied=true` (transition guard is a no-op for un-enforced tasks). */
+  verifyMnTaskDone: MnDoDVerificationResult;
   /** Get workspace by id */
   workspace: WorkspaceType;
   /**
@@ -2796,6 +4759,19 @@ export interface QueryAdminWorkspacesCountArgs {
   filter: ListWorkspaceInput;
 }
 
+export interface QueryAgentArgs {
+  id: Scalars['String']['input'];
+}
+
+export interface QueryAgentRolesArgs {
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryAgentsArgs {
+  parentAgentId?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface QueryApplyDocUpdatesArgs {
   docId: Scalars['String']['input'];
   op: Scalars['String']['input'];
@@ -2804,6 +4780,12 @@ export interface QueryApplyDocUpdatesArgs {
 }
 
 export interface QueryConnectionsArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryDriveFilesArgs {
+  pageSize?: Scalars['Int']['input'];
+  query?: InputMaybe<Scalars['String']['input']>;
   workspaceId: Scalars['String']['input'];
 }
 
@@ -2819,6 +4801,25 @@ export interface QueryGetOverviewArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface QueryGithubConnectionArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryGmailMessagesArgs {
+  maxResults?: Scalars['Int']['input'];
+  query?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryGoogleConnectionArgs {
+  scope: GoogleScope;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryListConnectionsArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface QueryListInsightsArgs {
   input: ListInsightsInput;
 }
@@ -2827,11 +4828,225 @@ export interface QueryListMetricsArgs {
   input: ListMetricsInput;
 }
 
+export interface QueryMnAgentArgs {
+  agentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnAgentApiKeysArgs {
+  agentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnAgentMemoriesArgs {
+  agentId: Scalars['ID']['input'];
+  taskId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnAgentsArgs {
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnApprovalArgs {
+  approvalId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnApprovalCommentsArgs {
+  approvalId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnApprovalsArgs {
+  filter?: InputMaybe<ListMnApprovalsInput>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnBudgetArgs {
+  budgetId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnBudgetProjectRollupsArgs {
+  monthYear: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnBudgetsArgs {
+  monthYear?: InputMaybe<Scalars['String']['input']>;
+  scopeType?: InputMaybe<MnBudgetScope>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnCeoConversationArgs {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnCeoConversationsArgs {
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnCeoTurnsArgs {
+  conversationId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnCostEventsArgs {
+  agentId?: InputMaybe<Scalars['ID']['input']>;
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  monthYear?: InputMaybe<Scalars['String']['input']>;
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  taskId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnCrmAccountsArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryMnCrmActivitiesArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryMnCrmContactsArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryMnCrmDealStagesArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryMnCrmDealsArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryMnExecutionRunsForTaskArgs {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  taskId: Scalars['ID']['input'];
+}
+
+export interface QueryMnGoalArgs {
+  goalId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnGoalAncestryArgs {
+  goalId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnGoalsArgs {
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnLearningCandidatesArgs {
+  status?: InputMaybe<MnLearningCandidateStatus>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnOrgChangesArgs {
+  filter?: InputMaybe<ListMnOrgChangesInput>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnPluginArgs {
+  id: Scalars['ID']['input'];
+}
+
+export interface QueryMnPluginConfigsArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryMnProjectsArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryMnReminderRulesArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryMnRemindersArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryMnSkillArgs {
+  skillId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnSkillBySlugArgs {
+  slug: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnSkillsArgs {
+  includeArchived?: InputMaybe<Scalars['Boolean']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnTaskAncestryArgs {
+  taskId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnTaskPlansArgs {
+  taskId: Scalars['ID']['input'];
+}
+
+export interface QueryMnTasksArgs {
+  projectId: Scalars['ID']['input'];
+}
+
+export interface QueryMnWorkProductArgs {
+  workProductId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnWorkProductsArgs {
+  taskId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnWorkQueueIntakesArgs {
+  queueId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMnWorkQueuesArgs {
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryMyMemoriesArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface QueryPublicUserByIdArgs {
   id: Scalars['String']['input'];
 }
 
 export interface QueryQueryWorkspaceEmbeddingStatusArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryRecallMnAgentMemoriesArgs {
+  agentId: Scalars['ID']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  taskId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}
+
+export interface QueryReleaseRunArgs {
+  runId: Scalars['ID']['input'];
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryReleaseRunsArgs {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
   workspaceId: Scalars['String']['input'];
 }
 
@@ -2857,6 +5072,10 @@ export interface QueryUsersCountArgs {
 
 export interface QueryValidateAppConfigArgs {
   updates: Array<UpdateAppConfigInput>;
+}
+
+export interface QueryVerifyMnTaskDoneArgs {
+  taskId: Scalars['ID']['input'];
 }
 
 export interface QueryWorkspaceArgs {
@@ -3127,8 +5346,14 @@ export enum ServerFeature {
   CopilotEmbedding = 'CopilotEmbedding',
   Indexer = 'Indexer',
   LocalWorkspace = 'LocalWorkspace',
+  Manut = 'Manut',
   OAuth = 'OAuth',
   Payment = 'Payment',
+}
+
+export interface SetMnTaskDefinitionOfDoneInput {
+  predicates?: InputMaybe<Scalars['JSON']['input']>;
+  taskId: Scalars['ID']['input'];
 }
 
 export interface SocialConnection {
@@ -3173,6 +5398,7 @@ export interface SocialMetric {
   value: Scalars['Float']['output'];
 }
 
+/** Connected analytics platform. */
 export enum SocialPlatform {
   FACEBOOK = 'FACEBOOK',
   GOGOCASH = 'GOGOCASH',
@@ -3205,6 +5431,16 @@ export interface SpaceShouldHaveOnlyOneOwnerDataType {
 export interface SsrfBlockedErrorDataType {
   __typename?: 'SsrfBlockedErrorDataType';
   reason: Scalars['String']['output'];
+}
+
+export interface StoreMnAgentMemoryInput {
+  agentId: Scalars['ID']['input'];
+  contentMd: Scalars['String']['input'];
+  importance?: InputMaybe<Scalars['Int']['input']>;
+  kind: MnMemoryKind;
+  projectId: Scalars['ID']['input'];
+  taskId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
 }
 
 export interface StreamObject {
@@ -3399,6 +5635,16 @@ export interface UnsupportedSubscriptionPlanDataType {
   plan: Scalars['String']['output'];
 }
 
+export interface UpdateAgentInput {
+  avatar?: InputMaybe<Scalars['JSONObject']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  files?: InputMaybe<Array<Scalars['String']['input']>>;
+  instructions?: InputMaybe<Scalars['String']['input']>;
+  links?: InputMaybe<Array<AgentLinkInput>>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  skills?: InputMaybe<Array<Scalars['String']['input']>>;
+}
+
 export interface UpdateAppConfigInput {
   key: Scalars['String']['input'];
   module: Scalars['String']['input'];
@@ -3410,6 +5656,8 @@ export interface UpdateChatSessionInput {
   docId?: InputMaybe<Scalars['String']['input']>;
   /** Whether to pin the session */
   pinned?: InputMaybe<Scalars['Boolean']['input']>;
+  /** Pin (or clear, pass null) the floating-chat tab to a doc id. (E2.5) */
+  pinnedDocId?: InputMaybe<Scalars['String']['input']>;
   /** The prompt name to use for the session */
   promptName?: InputMaybe<Scalars['String']['input']>;
   sessionId: Scalars['String']['input'];
@@ -3426,6 +5674,128 @@ export interface UpdateDocUserRoleInput {
   role: DocRole;
   userId: Scalars['String']['input'];
   workspaceId: Scalars['String']['input'];
+}
+
+export interface UpdateMnAgentInput {
+  adapterConfig?: InputMaybe<Scalars['JSONObject']['input']>;
+  adapterType?: InputMaybe<MnAgentAdapterType>;
+  capabilities?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  reportsToAgentId?: InputMaybe<Scalars['ID']['input']>;
+  roleId?: InputMaybe<Scalars['ID']['input']>;
+  runtimeConfig?: InputMaybe<Scalars['JSONObject']['input']>;
+  status?: InputMaybe<MnAgentStatus>;
+}
+
+export interface UpdateMnAgentRoleInput {
+  adapter?: InputMaybe<Scalars['String']['input']>;
+  displayName?: InputMaybe<Scalars['String']['input']>;
+  escalation?: InputMaybe<Scalars['String']['input']>;
+  responsibility?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface UpdateMnBudgetInput {
+  capCents?: InputMaybe<Scalars['Int']['input']>;
+  hardStopEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  warnThresholdPct?: InputMaybe<Scalars['Int']['input']>;
+}
+
+export interface UpdateMnCrmAccountInput {
+  industry?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  notes?: InputMaybe<Scalars['String']['input']>;
+  ownerUserId?: InputMaybe<Scalars['ID']['input']>;
+  website?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface UpdateMnCrmActivityInput {
+  body?: InputMaybe<Scalars['String']['input']>;
+  completedAt?: InputMaybe<Scalars['DateTime']['input']>;
+  dueAt?: InputMaybe<Scalars['DateTime']['input']>;
+  subject?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<MnCrmActivityType>;
+}
+
+export interface UpdateMnCrmContactInput {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  email?: InputMaybe<Scalars['String']['input']>;
+  firstName?: InputMaybe<Scalars['String']['input']>;
+  lastName?: InputMaybe<Scalars['String']['input']>;
+  ownerUserId?: InputMaybe<Scalars['ID']['input']>;
+  phone?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface UpdateMnCrmDealInput {
+  accountId?: InputMaybe<Scalars['ID']['input']>;
+  contactId?: InputMaybe<Scalars['ID']['input']>;
+  currency?: InputMaybe<Scalars['String']['input']>;
+  expectedCloseAt?: InputMaybe<Scalars['DateTime']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  ownerUserId?: InputMaybe<Scalars['ID']['input']>;
+  probability?: InputMaybe<Scalars['Int']['input']>;
+  stageId?: InputMaybe<Scalars['ID']['input']>;
+  value?: InputMaybe<Scalars['Float']['input']>;
+}
+
+export interface UpdateMnCrmDealStageInput {
+  name?: InputMaybe<Scalars['String']['input']>;
+  sortOrder?: InputMaybe<Scalars['Int']['input']>;
+}
+
+export interface UpdateMnGoalInput {
+  description?: InputMaybe<Scalars['String']['input']>;
+  level?: InputMaybe<MnGoalLevel>;
+  ownerAgentId?: InputMaybe<Scalars['ID']['input']>;
+  parentGoalId?: InputMaybe<Scalars['ID']['input']>;
+  status?: InputMaybe<MnGoalStatus>;
+  title?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface UpdateMnProjectInput {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  sortOrder?: InputMaybe<Scalars['Int']['input']>;
+  status?: InputMaybe<MnProjectStatus>;
+}
+
+export interface UpdateMnReminderRuleInput {
+  config?: InputMaybe<Scalars['JSONObject']['input']>;
+  cronExpression?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  timezone?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface UpdateMnSkillInput {
+  contentMd?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  version?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface UpdateMnTaskInput {
+  assigneeUserId?: InputMaybe<Scalars['ID']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  dueAt?: InputMaybe<Scalars['DateTime']['input']>;
+  listSortOrder?: InputMaybe<Scalars['Int']['input']>;
+  priority?: InputMaybe<MnTaskPriority>;
+  status?: InputMaybe<MnTaskStatus>;
+  title?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface UpdateMnWorkQueueInput {
+  defaultAssigneeAgentId?: InputMaybe<Scalars['ID']['input']>;
+  defaultPriority?: InputMaybe<MnTaskPriority>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  isActive?: InputMaybe<Scalars['Boolean']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  routingRulesJson?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface UpdateOnboardingInput {
+  /** Whether the user has completed (or skipped) the /welcome onboarding wizard. */
+  completedOnboarding?: InputMaybe<Scalars['Boolean']['input']>;
 }
 
 export interface UpdateUserInput {
@@ -3459,6 +5829,13 @@ export interface UpdateWorkspaceInput {
   id: Scalars['ID']['input'];
   /** is Public workspace */
   public?: InputMaybe<Scalars['Boolean']['input']>;
+}
+
+export interface UpsertMnPluginConfigInput {
+  configJson: Scalars['JSON']['input'];
+  pluginId: Scalars['ID']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['String']['input'];
 }
 
 export interface UserImportFailedType {
@@ -3502,6 +5879,8 @@ export interface UserQuotaUsageType {
 
 export interface UserSettingsType {
   __typename?: 'UserSettingsType';
+  /** Personalize text appended to AI prompts */
+  personalize: Scalars['String']['output'];
   /** Receive comment email */
   receiveCommentEmail: Scalars['Boolean']['output'];
   /** Receive invitation email */
@@ -3516,6 +5895,8 @@ export interface UserType {
   /** User avatar url */
   avatarUrl: Maybe<Scalars['String']['output']>;
   calendarAccounts: Array<CalendarAccountObjectType>;
+  /** Whether the user has finished (or skipped) the /welcome onboarding wizard. Used by the frontend index router to decide whether to drop a brand-new account into /welcome or into their landing workspace. */
+  completedOnboarding: Scalars['Boolean']['output'];
   copilot: Copilot;
   /**
    * User email verified
@@ -3574,6 +5955,17 @@ export interface VersionRejectedDataType {
   __typename?: 'VersionRejectedDataType';
   serverVersion: Scalars['String']['output'];
   version: Scalars['String']['output'];
+}
+
+export interface WizardAnswersInput {
+  /** The apps the user wants to connect ("gmail" | "calendar" | "github"). Not used by the backend yet — the frontend uses this list to render Connect buttons. */
+  apps?: InputMaybe<Array<Scalars['String']['input']>>;
+  /** One of "saas" | "agency" | "personal" | "research" | "other". Drives the Project plan template. */
+  context?: InputMaybe<Scalars['String']['input']>;
+  /** Free-text project name from the final wizard step. */
+  project?: InputMaybe<Scalars['String']['input']>;
+  /** One of "solo" | "2-5" | "6-20" | "20+". When non-solo we add a Team notes starter doc. */
+  team?: InputMaybe<Scalars['String']['input']>;
 }
 
 export interface WorkspaceCalendarItemInput {
@@ -5932,6 +8324,16 @@ export type CopilotQuotaQuery = {
   } | null;
 };
 
+export type RateMessageMutationVariables = Exact<{
+  messageId: Scalars['String']['input'];
+  rating: Scalars['String']['input'];
+}>;
+
+export type RateMessageMutation = {
+  __typename?: 'Mutation';
+  rateMessage: boolean;
+};
+
 export type CleanupCopilotSessionMutationVariables = Exact<{
   input: DeleteSessionInput;
 }>;
@@ -7502,6 +9904,69 @@ export type ListNotificationsQuery = {
   } | null;
 };
 
+export type ForgetMemoryMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+export type ForgetMemoryMutation = {
+  __typename?: 'Mutation';
+  forgetMemory: boolean;
+};
+
+export type MyMemoriesQueryVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+}>;
+
+export type MyMemoriesQuery = {
+  __typename?: 'Query';
+  myMemories: Array<{
+    __typename?: 'Memory';
+    id: string;
+    content: string;
+    kind: MemoryKindEnum;
+    scope: MemoryScopeEnum;
+    pinned: boolean;
+    createdAt: string;
+    workspaceId: string;
+  }>;
+};
+
+export type PinMemoryMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+export type PinMemoryMutation = {
+  __typename?: 'Mutation';
+  pinMemory: {
+    __typename?: 'Memory';
+    id: string;
+    content: string;
+    kind: MemoryKindEnum;
+    scope: MemoryScopeEnum;
+    pinned: boolean;
+    createdAt: string;
+    workspaceId: string;
+  };
+};
+
+export type PromoteMemoryToWorkspaceMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+export type PromoteMemoryToWorkspaceMutation = {
+  __typename?: 'Mutation';
+  promoteMemoryToWorkspace: {
+    __typename?: 'Memory';
+    id: string;
+    content: string;
+    kind: MemoryKindEnum;
+    scope: MemoryScopeEnum;
+    pinned: boolean;
+    createdAt: string;
+    workspaceId: string;
+  };
+};
+
 export type MentionUserMutationVariables = Exact<{
   input: MentionInput;
 }>;
@@ -8538,6 +11003,11 @@ export type Queries =
       response: ListNotificationsQuery;
     }
   | {
+      name: 'myMemoriesQuery';
+      variables: MyMemoriesQueryVariables;
+      response: MyMemoriesQuery;
+    }
+  | {
       name: 'notificationCountQuery';
       variables: NotificationCountQueryVariables;
       response: NotificationCountQuery;
@@ -8870,6 +11340,11 @@ export type Mutations =
       response: CreateCopilotMessageMutation;
     }
   | {
+      name: 'rateMessageMutation';
+      variables: RateMessageMutationVariables;
+      response: RateMessageMutation;
+    }
+  | {
       name: 'cleanupCopilotSessionMutation';
       variables: CleanupCopilotSessionMutationVariables;
       response: CleanupCopilotSessionMutation;
@@ -8973,6 +11448,21 @@ export type Mutations =
       name: 'installLicenseMutation';
       variables: InstallLicenseMutationVariables;
       response: InstallLicenseMutation;
+    }
+  | {
+      name: 'forgetMemoryMutation';
+      variables: ForgetMemoryMutationVariables;
+      response: ForgetMemoryMutation;
+    }
+  | {
+      name: 'pinMemoryMutation';
+      variables: PinMemoryMutationVariables;
+      response: PinMemoryMutation;
+    }
+  | {
+      name: 'promoteMemoryToWorkspaceMutation';
+      variables: PromoteMemoryToWorkspaceMutationVariables;
+      response: PromoteMemoryToWorkspaceMutation;
     }
   | {
       name: 'mentionUserMutation';
