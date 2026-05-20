@@ -48,7 +48,7 @@ export const CurrentUser = createParamDecorator(
 
 export interface CurrentUser extends Pick<
   User,
-  'id' | 'email' | 'avatarUrl' | 'name' | 'disabled'
+  'id' | 'email' | 'avatarUrl' | 'name' | 'disabled' | 'completedOnboarding'
 > {
   hasPassword: boolean | null;
   emailVerified: boolean;

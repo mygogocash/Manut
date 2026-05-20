@@ -10,6 +10,7 @@ import { DocsQuickSearchSession } from '../impls/docs';
 import { LinksQuickSearchSession } from '../impls/links';
 import { RecentDocsQuickSearchSession } from '../impls/recent-docs';
 import { TagsQuickSearchSession } from '../impls/tags';
+import { VerbsQuickSearchSession } from '../impls/verbs';
 import type { QuickSearchService } from './quick-search';
 
 export class CMDKQuickSearchService extends Service {
@@ -34,6 +35,12 @@ export class CMDKQuickSearchService extends Service {
           this.framework.createEntity(DocsQuickSearchSession),
           this.framework.createEntity(LinksQuickSearchSession),
           this.framework.createEntity(TagsQuickSearchSession),
+          // M2 E2.8 §B11 — power-user verb actions (New doc, Open
+          // Settings, Sign out, etc.). Routed below in the result
+          // handler under `result.source === 'verbs'`. Listed LAST
+          // so the order in the search results matches its low
+          // group score — verbs sink to the bottom on empty-query.
+          this.framework.createEntity(VerbsQuickSearchSession),
         ],
         result => {
           if (!result) {
@@ -44,6 +51,24 @@ export class CMDKQuickSearchService extends Service {
             result.payload.run()?.catch(err => {
               console.error(err);
             });
+            return;
+          }
+
+          if (result.source === 'verbs') {
+            // Verb payloads expose a synchronous `run()`. Wrap in
+            // a try/catch so a buggy verb doesn't take down CMDK.
+            // `result.payload` is typed as `unknown` by the
+            // QuickSearch entity's wide source-type sum (same trap
+            // as the `commands` branch above) — narrow locally with
+            // a payload-shape check before invoking.
+            const payload = result.payload as { run?: () => void };
+            if (typeof payload?.run === 'function') {
+              try {
+                payload.run();
+              } catch (err) {
+                console.error('Verb run failed', err);
+              }
+            }
             return;
           }
 
@@ -62,6 +87,7 @@ export class CMDKQuickSearchService extends Service {
             const doc: {
               docId?: string;
               blockId?: string;
+              __cmdkOpenInNewTab?: boolean;
             } = result.payload;
 
             if (!doc.docId) {
@@ -80,7 +106,12 @@ export class CMDKQuickSearchService extends Service {
               options.blockIds = [doc.blockId];
             }
 
-            this.workbenchService.workbench.openDoc(options);
+            // Cmd+Enter on a search result opens the doc in a new tab
+            // (cmdk-only signal — set by views/container.tsx).
+            this.workbenchService.workbench.openDoc(
+              options,
+              doc.__cmdkOpenInNewTab ? { at: 'new-tab', show: true } : undefined
+            );
             return;
           }
 
@@ -118,6 +149,12 @@ export class CMDKQuickSearchService extends Service {
           placeholder: {
             i18nKey: 'com.affine.cmdk.docs.placeholder',
           },
+          // Notion-style upgrade per IMPLEMENTATION_PLAN.md §B4 (M2 E2.3):
+          // filter chips, time-bucketed result groups, and the right-side
+          // preview pane. Action pickers (link picker, settings actions)
+          // still get the compact 640px legacy layout because they don't
+          // open this service.
+          enhancedLayout: true,
         }
       );
     }

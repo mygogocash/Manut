@@ -19,7 +19,12 @@ function ThemeObserver() {
 
 export const ThemeProvider = ({ children }: PropsWithChildren) => {
   return (
-    <NextThemeProvider themes={themes} enableSystem={true}>
+    // `defaultTheme="dark"` lands the brand decision from
+    // IMPLEMENTATION_PLAN.md §B1 (decision #14): new users start in
+    // dark mode. next-themes only consults `defaultTheme` when the
+    // user has no stored preference, so existing users keep whatever
+    // they last picked from Settings → Appearance.
+    <NextThemeProvider themes={themes} enableSystem={true} defaultTheme="dark">
       {children}
       <ThemeObserver />
     </NextThemeProvider>

@@ -32,7 +32,6 @@ import {
 import { useCallback, useMemo } from 'react';
 
 import { WorkspaceCard } from '../../workspace-card';
-import { AddServer } from '../add-server';
 import * as styles from './index.css';
 
 interface WorkspaceModalProps {
@@ -245,11 +244,6 @@ export const AFFiNEWorkspaceList = ({
     () => servers.find(s => s.id === 'affine-cloud') as Server,
     [servers]
   );
-  const selfhostServers = useMemo(
-    () => servers.filter(s => s.id !== 'affine-cloud'),
-    [servers]
-  );
-
   const cloudWorkspaces = useMemo(
     () =>
       workspaces.filter(
@@ -301,7 +295,7 @@ export const AFFiNEWorkspaceList = ({
           onClickWorkspace={handleClickWorkspace}
         />
       </FrameworkScope>
-      {(localWorkspaces.length > 0 || selfhostServers.length > 0) && (
+      {localWorkspaces.length > 0 && (
         <Divider size="thinner" className={styles.serverDivider} />
       )}
 
@@ -313,27 +307,6 @@ export const AFFiNEWorkspaceList = ({
           showEnableCloudButton ? onClickEnableCloud : undefined
         }
       />
-      {selfhostServers.length > 0 && (
-        <Divider size="thinner" className={styles.serverDivider} />
-      )}
-
-      {/* 3. selfhost */}
-      {selfhostServers.map((server, index) => (
-        <FrameworkScope key={server.id} scope={server.scope}>
-          <CloudWorkSpaceList
-            server={server}
-            workspaces={cloudWorkspaces.filter(
-              ({ flavour }) => flavour === server.id
-            )}
-            onClickWorkspace={handleClickWorkspace}
-          />
-          {index !== selfhostServers.length - 1 && (
-            <Divider size="thinner" className={styles.serverDivider} />
-          )}
-        </FrameworkScope>
-      ))}
-      <AddServer />
-      <Divider size="thinner" />
     </>
   );
 };

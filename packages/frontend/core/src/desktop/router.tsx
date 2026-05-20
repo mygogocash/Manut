@@ -89,6 +89,10 @@ export const topLevelRoutes = [
         lazy: () => import('./pages/onboarding'),
       },
       {
+        path: '/welcome',
+        lazy: () => import('./pages/welcome'),
+      },
+      {
         path: '/redirect-proxy',
         lazy: () => import('./pages/redirect'),
       },
@@ -99,6 +103,14 @@ export const topLevelRoutes = [
       {
         path: '/upgrade-to-team',
         lazy: () => import('./pages/upgrade-to-team'),
+      },
+      // Wave 2 / M3 E3.3 (decision #19) — Manut Pro upgrade page.
+      // Reachable from `StorageCapModal` + `AiBudgetModal` "Upgrade to
+      // Pro" CTAs and any direct nav. Distinct from the upstream
+      // `/upgrade-to-team` which targets the AFFiNE Cloud Team tier.
+      {
+        path: '/upgrade',
+        lazy: () => import('./pages/upgrade'),
       },
       {
         path: '/try-cloud',
@@ -182,6 +194,13 @@ export const topLevelRoutes = [
       {
         path: '/open-app/:action',
         lazy: () => import('./pages/open-app'),
+      },
+      // Wave 2 B12 / M3 E3.4 brand polish — easter egg surface.
+      // Registered BEFORE the catch-all so it routes correctly. Not
+      // linked from any nav; discoverable only by URL.
+      {
+        path: '/manifesto',
+        lazy: () => import('./pages/manifesto'),
       },
       {
         path: CATCH_ALL_ROUTE_PATH,

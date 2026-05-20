@@ -62,6 +62,54 @@ export type ManutAccentName = keyof typeof manutColor;
 export type ManutAccentTone = keyof (typeof manutColor)[ManutAccentName];
 
 /**
+ * Brand primary token. Currently aliases the violet ramp per decision
+ * #4 (warm neutrals + violet accent). Use this whenever you'd reach
+ * for "the Manut brand color" — focus rings, primary CTAs, brand
+ * moments — so that a future palette shift only needs to update
+ * manut-tokens.css.
+ */
+export const manutPrimary = {
+  fg: 'var(--manut-primary-fg)',
+  bg: 'var(--manut-primary-bg)',
+  border: 'var(--manut-primary-border)',
+} as const;
+
+/**
+ * Warm-neutral surface tokens — mirror manut-landing. Light mode is
+ * cream canvas + ink type; dark mode flips to near-black canvas +
+ * warm paper type. Use these instead of the upstream
+ * `--affine-background-*` variables when you specifically want the
+ * Manut surface palette to win over the legacy theme.
+ */
+export const manutSurface = {
+  /** Page background. Cream `#fafaf2` / dark `#0e0e10`. */
+  canvas: 'var(--manut-surface-canvas)',
+  /** Elevated card / popover surface. */
+  paper: 'var(--manut-surface-paper)',
+  /** Recessed wells and sunken regions. */
+  sunken: 'var(--manut-surface-sunken)',
+  /** Primary body ink. */
+  ink: 'var(--manut-ink)',
+  /** Secondary / muted ink. */
+  inkSoft: 'var(--manut-ink-soft)',
+  /** Subtle 1px hairline borders. */
+  line: 'var(--manut-line)',
+} as const;
+
+/**
+ * Typography family tokens. `sans` is the UI body face (Geist),
+ * `display` is the editorial face (Instrument Serif), `mono` is the
+ * code face (Geist Mono). The body font is wired globally via the
+ * upstream `--affine-font-family` override in manut-tokens.css — most
+ * surfaces don't need to import `manutFont.sans` directly.
+ */
+export const manutFont = {
+  sans: 'var(--manut-font-sans)',
+  display: 'var(--manut-font-display)',
+  mono: 'var(--manut-font-mono)',
+} as const;
+
+/**
  * Corner radii. Use these instead of hard-coding pixel values so the
  * shape language stays consistent across surfaces.
  */
@@ -109,10 +157,7 @@ export type ManutDisplayLevel = 1 | 2 | 3 | 4 | 5;
 export const manutDisplay = {
   /** Returns the `var(--manut-display-N)` font-size reference. */
   scale: (level: ManutDisplayLevel): string => `var(--manut-display-${level})`,
-  /**
-   * Font family for display text. Currently aliases the body font
-   * (Inter); a real variable display face is a follow-up.
-   */
+  /** Editorial display face — Instrument Serif. */
   font: 'var(--manut-font-display)',
   weight: 'var(--manut-display-weight)',
   lineHeight: 'var(--manut-display-line-height)',

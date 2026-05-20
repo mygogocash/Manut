@@ -24,17 +24,15 @@ export const siteConfig = {
   name: 'Manut',
   tagline: 'The AI workspace that actually ships with you',
   description:
-    'Manut is the open-source AI workspace for fast teams: docs, databases, whiteboards, and a permissioned multi-model agent. Free self-host or cloud at manut.xyz.',
+    'Manut is the AI cloud workspace for fast teams: docs, databases, whiteboards, and a permissioned multi-model agent. Start free in 30 seconds at manut.xyz.',
   keywords: [
     'AI workspace',
-    'open source workspace',
+    'cloud AI workspace',
     'Notion alternative',
-    'AFFiNE fork',
     'team docs and tasks',
     'AI agent for work',
     'multi-model AI',
     'collaborative whiteboard',
-    'self-hosted notes',
     'productivity software',
     'Gen Z productivity',
     'knowledge base',
@@ -102,39 +100,39 @@ export const footerNav: Record<string, ReadonlyArray<NavItem>> = {
 
 export const plans: ReadonlyArray<Plan> = [
   {
-    id: 'community',
-    name: 'Community',
+    id: 'free',
+    name: 'Free',
     priceMonthly: 0,
     priceAnnual: 0,
     blurb:
-      'Self-host the full Manut workspace. Unlimited seats, every feature, MIT licensed.',
+      'Everything you need to spin up a workspace. Unlimited members, real AI included.',
     features: [
-      'Unlimited workspaces and members',
+      'Unlimited workspace members',
+      '2 GB storage',
+      '$5 of AI usage per month',
       'Docs, databases, whiteboards',
       'CRDT collaboration and offline sync',
-      'Self-hosted on your own infrastructure',
-      'MIT license — no vendor lock-in',
-      'Community Discord support',
+      'Community support',
     ],
     cta: {
-      href: 'https://github.com/gogocash-deploy/manut#self-host',
-      label: 'Self-host on GitHub',
+      href: '/sign-in',
+      label: 'Start free',
     },
   },
   {
-    id: 'cloud',
-    name: 'Cloud Pro',
-    priceMonthly: 10,
-    priceAnnual: 8,
+    id: 'pro',
+    name: 'Pro',
+    priceMonthly: 20,
+    priceAnnual: 16,
     blurb:
-      'Hosted Manut with the full AI agent, multi-model routing, and team management.',
+      'For teams that live in Manut. Higher AI cap, more storage, premium routing.',
     featured: true,
     features: [
-      'Everything in Community',
-      'Hosted by us — zero ops',
+      'Everything in Free',
+      '100 GB storage',
+      '$50 of AI usage per month (configurable)',
       'Multi-model AI agent (Gemini, Claude, Llama)',
       'Read / Edit / Full Agent modes',
-      'AI Auto Tag and database autofill',
       'SSO via Google, GitHub, and email',
       'Priority email support',
     ],
@@ -149,7 +147,7 @@ export const plans: ReadonlyArray<Plan> = [
     blurb:
       'For teams with hard security, compliance, and procurement requirements.',
     features: [
-      'Everything in Cloud Pro',
+      'Everything in Pro',
       'SAML SSO and SCIM provisioning',
       'Audit logs and access controls',
       'HIPAA-ready handling, SOC 2 posture',
@@ -179,17 +177,17 @@ export const quickAnswers: ReadonlyArray<FaqItem> = [
   {
     question: 'What is Manut?',
     answer:
-      'Manut is an open-source AI workspace at manut.xyz with docs, databases, whiteboards, and a multi-model AI agent. MIT licensed; self-host or use cloud.',
+      'Manut is an AI cloud workspace at manut.xyz with docs, databases, whiteboards, and a multi-model AI agent. Built in the open, hosted by us.',
   },
   {
     question: 'Is Manut free?',
     answer:
-      'Yes. The Community edition is $0 to self-host with unlimited seats. Cloud Pro offers a free trial at manut.xyz/sign-in with hosted AI included.',
+      'Yes. The Free tier includes unlimited members, 2 GB of storage, and $5 of AI usage per month. Upgrade to Pro at $20 per user / month for higher limits.',
   },
   {
     question: 'How is Manut different from Notion?',
     answer:
-      'Manut is open-source, offers full self-hosting, built-in infinite whiteboards, and an AI agent with explicit Read / Edit / Agent modes across Gemini, Claude, and Llama.',
+      'Manut ships a real multi-model AI agent with explicit Read / Edit / Full Agent modes, infinite whiteboards, and unlimited team members on the Free tier.',
   },
   {
     question: 'Which AI models does Manut use?',
@@ -204,20 +202,25 @@ export const quickAnswers: ReadonlyArray<FaqItem> = [
   {
     question: 'Where do I sign up?',
     answer:
-      'Create a workspace at https://manut.xyz/sign-in or deploy from GitHub for self-host.',
+      'Create a free workspace at https://manut.xyz/sign-in — Google or email, 30 seconds to your first doc.',
   },
 ];
 
 export const faqs: ReadonlyArray<FaqItem> = [
   {
-    question: 'Is Manut really free for self-hosting?',
+    question: 'How do I get started?',
     answer:
-      'Yes. Manut is MIT licensed, every feature works, and there is no seat cap. Run it on your own server, your laptop, or a $5 VPS. You own the data and the deployment.',
+      'Sign up at manut.xyz/sign-in with Google or email. Your workspace is ready in 30 seconds — no credit card, no setup wizard you can’t skip.',
+  },
+  {
+    question: 'What’s included in the Free tier?',
+    answer:
+      'Unlimited workspace members, 2 GB of storage, $5 of AI usage per month, every editor feature, and the full multi-model AI agent. No seat cap, no premium-feature paywall on the basics.',
   },
   {
     question: 'How is Manut different from AFFiNE?',
     answer:
-      'Manut is a friendly fork of AFFiNE. We track the upstream canary branch closely and add our own AI write tools, multi-model auto-routing on Vertex, calendar integrations, and an unlimited-seat policy on top.',
+      'Manut is a friendly fork of AFFiNE focused on the cloud product. We track the upstream canary branch closely and add our own AI write tools, multi-model auto-routing on Vertex, calendar integrations, and an unlimited-member Free tier on top.',
   },
   {
     question: 'Which AI models does Manut use?',
@@ -237,12 +240,12 @@ export const faqs: ReadonlyArray<FaqItem> = [
   {
     question: 'How do I move my data out?',
     answer:
-      'Every workspace can export to Markdown, JSON, or HTML. The self-hosted build runs against plain Postgres, so a pg_dump is always your escape hatch.',
+      'Every workspace can export to Markdown, JSON, or HTML. Your data is yours — export the whole workspace anytime, no friction.',
   },
   {
     question: 'Is Manut good for students and startups?',
     answer:
-      'Yes. Unlimited self-hosted seats, fast AI for summaries and task boards, and no vendor lock-in — popular with lean teams who want one tool instead of five subscriptions.',
+      'Yes. Unlimited workspace members on the Free tier, fast AI for summaries and task boards — popular with lean teams who want one tool instead of five subscriptions.',
   },
   {
     question: 'Does Manut work with Google Calendar?',

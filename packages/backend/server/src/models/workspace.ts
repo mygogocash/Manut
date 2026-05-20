@@ -80,7 +80,16 @@ export type UpdateWorkspaceInput = Pick<
   | 'avatarKey'
   | 'indexed'
   | 'lastCheckEmbeddings'
->;
+> & {
+  // Manut Pro tier (E3.3): 'free' | 'pro' | null. Written by the
+  // Stripe webhook handler in plugins/payment/manut-pro-webhook.ts.
+  // Declared as an intersection rather than a Pick from
+  // `Partial<Workspace>` so the input type continues to compile until
+  // `prisma generate` re-emits `@prisma/client` with the new column.
+  // (TS error would otherwise surface as
+  //   `Type '"plan"' is not assignable to type ' "sid" | … '`.)
+  plan?: string | null;
+};
 
 @Injectable()
 export class WorkspaceModel extends BaseModel {

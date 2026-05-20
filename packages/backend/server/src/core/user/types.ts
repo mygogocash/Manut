@@ -51,6 +51,12 @@ export class UserType implements CurrentUser {
     description: 'User is disabled',
   })
   disabled!: boolean;
+
+  @Field(() => Boolean, {
+    description:
+      'Whether the user has finished (or skipped) the /welcome onboarding wizard. Used by the frontend index router to decide whether to drop a brand-new account into /welcome or into their landing workspace.',
+  })
+  completedOnboarding!: boolean;
 }
 
 @ObjectType()
@@ -133,6 +139,25 @@ export class UserSettingsType implements UserSettings {
 export class UpdateUserInput implements Partial<User> {
   @Field({ description: 'User name', nullable: true })
   name?: string;
+}
+
+/**
+ * Input for the {@link UserResolver.updateOnboarding} mutation. Wave 2 B6 —
+ * persisted by the /welcome wizard once the user clicks "Create my workspace"
+ * or "Skip", so we don't bounce them back into the wizard on next sign-in.
+ *
+ * Each field is annotated with an EXPLICIT type to avoid the NestJS
+ * `UndefinedTypeError` trap that bit the v1.7.0 and v1.10.2 deploys. See
+ * CLAUDE.md §6 "GraphQL `@Field` UndefinedTypeError — broken TWICE now".
+ */
+@InputType()
+export class UpdateOnboardingInput {
+  @Field(() => Boolean, {
+    nullable: true,
+    description:
+      'Whether the user has completed (or skipped) the /welcome onboarding wizard.',
+  })
+  completedOnboarding?: boolean | null;
 }
 
 @InputType()

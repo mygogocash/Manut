@@ -9,6 +9,7 @@ import { QuotaServiceModule } from './service.module';
  * includes:
  * - quota query/update/permit
  * - quota statistics
+ * - AI budget gating (Wave 6 / E1.12)
  */
 @Module({
   imports: [QuotaServiceModule],
@@ -19,4 +20,11 @@ export class QuotaModule {}
 
 export { QuotaService };
 export { QuotaServiceModule };
+export {
+  type AiBudgetCapDetail,
+  aiBudgetCapMessage,
+  AiBudgetExceeded,
+  AiBudgetService,
+  currentPeriodStart,
+} from './ai-budget.service';
 export { WorkspaceQuotaHumanReadableType, WorkspaceQuotaType } from './types';

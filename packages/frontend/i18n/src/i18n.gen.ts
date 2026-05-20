@@ -48,7 +48,7 @@ export function useAFFiNEI18N(): {
       */
     ["404.signOut"](): string;
     /**
-      * `AFFiNE Cloud`
+      * `Manut Cloud`
       */
     ["AFFiNE Cloud"](): string;
     /**
@@ -200,15 +200,15 @@ export function useAFFiNEI18N(): {
       */
     Enable(): string;
     /**
-      * `Enable AFFiNE Cloud`
+      * `Enable Manut Cloud`
       */
     ["Enable AFFiNE Cloud"](): string;
     /**
-      * `If enabled, the data in this workspace will be backed up and synchronised via AFFiNE Cloud.`
+      * `If enabled, the data in this workspace will be backed up and synchronised via Manut Cloud.`
       */
     ["Enable AFFiNE Cloud Description"](): string;
     /**
-      * `The following functions rely on AFFiNE Cloud. All data is stored on the current device. You can enable AFFiNE Cloud for this workspace to keep data in sync with the cloud.`
+      * `The following functions rely on Manut Cloud. All data is stored on the current device. You can enable Manut Cloud for this workspace to keep data in sync with the cloud.`
       */
     ["Enable cloud hint"](): string;
     /**
@@ -474,7 +474,7 @@ export function useAFFiNEI18N(): {
       */
     Sync(): string;
     /**
-      * `Synced with AFFiNE Cloud`
+      * `Synced with Manut Cloud`
       */
     ["Synced with AFFiNE Cloud"](): string;
     /**
@@ -736,15 +736,15 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.ai-onboarding.general.1.description"](): string;
     /**
-      * `Meet AFFiNE AI`
+      * `Meet Manut AI`
       */
     ["com.affine.ai-onboarding.general.1.title"](): string;
     /**
-      * `Answer questions, draft docs, visualize ideas - AFFiNE AI can save you time at every possible step. Powered by GPT's most powerful model.`
+      * `Answer questions, draft docs, visualize ideas - Manut AI can save you time at every possible step. Powered by GPT's most powerful model.`
       */
     ["com.affine.ai-onboarding.general.2.description"](): string;
     /**
-      * `Chat with AFFiNE AI`
+      * `Chat with Manut AI`
       */
     ["com.affine.ai-onboarding.general.2.title"](): string;
     /**
@@ -752,7 +752,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.ai-onboarding.general.3.description"](): string;
     /**
-      * `Edit inline with AFFiNE AI`
+      * `Edit inline with Manut AI`
       */
     ["com.affine.ai-onboarding.general.3.title"](): string;
     /**
@@ -764,7 +764,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.ai-onboarding.general.4.title"](): string;
     /**
-      * `AFFiNE AI is ready`
+      * `Manut AI is ready`
       */
     ["com.affine.ai-onboarding.general.5.title"](): string;
     /**
@@ -808,7 +808,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.ai-onboarding.local.message"](): string;
     /**
-      * `Meet AFFiNE AI`
+      * `Meet Manut AI`
       */
     ["com.affine.ai-onboarding.local.title"](): string;
     /**
@@ -816,7 +816,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.ai-scroll-tip.tag"](): string;
     /**
-      * `Meet AFFiNE AI`
+      * `Meet Manut AI`
       */
     ["com.affine.ai-scroll-tip.title"](): string;
     /**
@@ -835,7 +835,7 @@ export function useAFFiNEI18N(): {
         total: string;
     }>): string;
     /**
-      * `AFFiNE AI is loading history...`
+      * `Manut AI is loading history...`
       */
     ["com.affine.ai.chat-panel.loading-history"](): string;
     /**
@@ -855,7 +855,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.ai.chat-panel.session.delete.toast.success"](): string;
     /**
-      * `AFFiNE AI`
+      * `Manut AI`
       */
     ["com.affine.ai.chat-panel.title"](): string;
     /**
@@ -883,7 +883,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.ai.login-required.dialog-confirm"](): string;
     /**
-      * `To use AFFiNE AI, please sign in to your AFFiNE Cloud account.`
+      * `To use Manut AI, please sign in to your Manut Cloud account.`
       */
     ["com.affine.ai.login-required.dialog-content"](): string;
     /**
@@ -1073,7 +1073,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.appearanceSettings.color.title"](): string;
     /**
-      * `Edit all AFFiNE theme variables here`
+      * `Edit all Manut theme variables here`
       */
     ["com.affine.appearanceSettings.customize-theme.description"](): string;
     /**
@@ -1129,7 +1129,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.appearanceSettings.language.title"](): string;
     /**
-      * `Display the menubar app in the tray for quick access to AFFiNE or meeting recordings.`
+      * `Display the menubar app in the tray for quick access to Manut or meeting recordings.`
       */
     ["com.affine.appearanceSettings.menubar.description"](): string;
     /**
@@ -1141,7 +1141,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.appearanceSettings.menubar.toggle"](): string;
     /**
-      * `Close AFFiNE to the system tray.`
+      * `Close Manut to the system tray.`
       */
     ["com.affine.appearanceSettings.menubar.windowBehavior.closeToTray.description"](): string;
     /**
@@ -1149,7 +1149,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.appearanceSettings.menubar.windowBehavior.closeToTray.toggle"](): string;
     /**
-      * `Minimize AFFiNE to the system tray.`
+      * `Minimize Manut to the system tray.`
       */
     ["com.affine.appearanceSettings.menubar.windowBehavior.minimizeToTray.description"](): string;
     /**
@@ -1157,7 +1157,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.appearanceSettings.menubar.windowBehavior.minimizeToTray.toggle"](): string;
     /**
-      * `Open AFFiNE when left‑clicking the tray icon.`
+      * `Open Manut when left‑clicking the tray icon.`
       */
     ["com.affine.appearanceSettings.menubar.windowBehavior.openOnLeftClick.description"](): string;
     /**
@@ -1165,7 +1165,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.appearanceSettings.menubar.windowBehavior.openOnLeftClick.toggle"](): string;
     /**
-      * `Start AFFiNE minimized to the system tray.`
+      * `Start Manut minimized to the system tray.`
       */
     ["com.affine.appearanceSettings.menubar.windowBehavior.startMinimized.description"](): string;
     /**
@@ -1197,7 +1197,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.appearanceSettings.sidebar.title"](): string;
     /**
-      * `Customize your AFFiNE appearance`
+      * `Customize your Manut appearance`
       */
     ["com.affine.appearanceSettings.subtitle"](): string;
     /**
@@ -1255,7 +1255,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.auth.change.email.page.subtitle"](): string;
     /**
-      * `Congratulations! You have successfully updated the email address associated with your AFFiNE Cloud account.`
+      * `Congratulations! You have successfully updated the email address associated with your Manut Cloud account.`
       */
     ["com.affine.auth.change.email.page.success.subtitle"](): string;
     /**
@@ -1275,7 +1275,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.auth.later"](): string;
     /**
-      * `Open AFFiNE`
+      * `Open Manut`
       */
     ["com.affine.auth.open.affine"](): string;
     /**
@@ -1287,7 +1287,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.auth.open.affine.doc.edit-settings"](): string;
     /**
-      * `Requires AFFiNE desktop app version 0.18 or later.`
+      * `Requires Manut desktop app version 0.18 or later.`
       */
     ["com.affine.auth.open.affine.doc.footer-text"](): string;
     /**
@@ -1318,7 +1318,7 @@ export function useAFFiNEI18N(): {
         max: string;
     }>): string;
     /**
-      * `Welcome to AFFiNE Cloud, you are almost there!`
+      * `Welcome to Manut Cloud, you are almost there!`
       */
     ["com.affine.auth.page.sent.email.title"](): string;
     /**
@@ -1346,7 +1346,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.auth.reset.password.page.success"](): string;
     /**
-      * `Reset your AFFiNE Cloud password`
+      * `Reset your Manut Cloud password`
       */
     ["com.affine.auth.reset.password.page.title"](): string;
     /**
@@ -1378,7 +1378,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.auth.sent.change.password.hint"](): string;
     /**
-      * `Your password has been updated! You can sign in AFFiNE Cloud with new password!`
+      * `Your password has been updated! You can sign in Manut Cloud with new password!`
       */
     ["com.affine.auth.sent.reset.password.success.message"](): string;
     /**
@@ -1386,7 +1386,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.auth.sent.set.password.hint"](): string;
     /**
-      * `Your password has saved! You can sign in AFFiNE Cloud with email and password!`
+      * `Your password has saved! You can sign in Manut Cloud with email and password!`
       */
     ["com.affine.auth.sent.set.password.success.message"](): string;
     /**
@@ -1425,7 +1425,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.auth.set.password.page.success"](): string;
     /**
-      * `Set your AFFiNE Cloud password`
+      * `Set your Manut Cloud password`
       */
     ["com.affine.auth.set.password.page.title"](): string;
     /**
@@ -1458,26 +1458,6 @@ export function useAFFiNEI18N(): {
       * `Sign out?`
       */
     ["com.affine.auth.sign-out.confirm-modal.title"](): string;
-    /**
-      * `Connect to a Self-Hosted Instance`
-      */
-    ["com.affine.auth.sign.add-selfhosted"](): string;
-    /**
-      * `Server URL`
-      */
-    ["com.affine.auth.sign.add-selfhosted.baseurl"](): string;
-    /**
-      * `Connect`
-      */
-    ["com.affine.auth.sign.add-selfhosted.connect-button"](): string;
-    /**
-      * `Unable to connect to the server.`
-      */
-    ["com.affine.auth.sign.add-selfhosted.error"](): string;
-    /**
-      * `Self-Hosted`
-      */
-    ["com.affine.auth.sign.add-selfhosted.title"](): string;
     /**
       * `Verification code`
       */
@@ -1545,7 +1525,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.auth.sign.up.sent.email.subtitle"](): string;
     /**
-      * `The app will automatically open or redirect to the web version. If you encounter any issues, you can also click the button below to manually open the AFFiNE app.`
+      * `The app will automatically open or redirect to the web version. If you encounter any issues, you can also click the button below to manually open the Manut app.`
       */
     ["com.affine.auth.sign.up.success.subtitle"](): string;
     /**
@@ -1553,7 +1533,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.auth.sign.up.success.title"](): string;
     /**
-      * `You have successfully signed in. The app will automatically open or redirect to the web version. if you encounter any issues, you can also click the button below to  manually open the AFFiNE app.`
+      * `You have successfully signed in. The app will automatically open or redirect to the web version. if you encounter any issues, you can also click the button below to  manually open the Manut app.`
       */
     ["com.affine.auth.signed.success.subtitle"](): string;
     /**
@@ -1565,7 +1545,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.auth.toast.message.failed"](): string;
     /**
-      * `You have been signed in, start to sync your data with AFFiNE Cloud!`
+      * `You have been signed in, start to sync your data with Manut Cloud!`
       */
     ["com.affine.auth.toast.message.signed-in"](): string;
     /**
@@ -1591,7 +1571,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.banner.local-warning"](): string;
     /**
-      * `AFFiNE Cloud`
+      * `Manut Cloud`
       */
     ["com.affine.brand.affineCloud"](): string;
     /**
@@ -1607,11 +1587,11 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.calendar-date-picker.week-days"](): string;
     /**
-      * `Host by AFFiNE.Pro, Save, sync, and backup all your data.`
+      * `Host by Manut.Pro, Save, sync, and backup all your data.`
       */
     ["com.affine.cloud-scroll-tip.caption"](): string;
     /**
-      * `AFFiNE Cloud`
+      * `Manut Cloud`
       */
     ["com.affine.cloud-scroll-tip.title"](): string;
     /**
@@ -2139,7 +2119,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.doc.analytics.paywall.open-pricing"](): string;
     /**
-      * `Doc analytics over 7 days require an AFFiNE Team subscription.`
+      * `Doc analytics over 7 days require an Manut Team subscription.`
       */
     ["com.affine.doc.analytics.paywall.toast"](): string;
     /**
@@ -2521,7 +2501,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.error.refetch"](): string;
     /**
-      * `Reload AFFiNE`
+      * `Reload Manut`
       */
     ["com.affine.error.reload"](): string;
     /**
@@ -2773,15 +2753,15 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.history-vision.tips-modal.cancel"](): string;
     /**
-      * `Enable AFFiNE Cloud`
+      * `Enable Manut Cloud`
       */
     ["com.affine.history-vision.tips-modal.confirm"](): string;
     /**
-      * `The current workspace is a local workspace, and we do not support version history for it at the moment. You can enable AFFiNE Cloud. This will sync the workspace with the Cloud, allowing you to use this feature.`
+      * `The current workspace is a local workspace, and we do not support version history for it at the moment. You can enable Manut Cloud. This will sync the workspace with the Cloud, allowing you to use this feature.`
       */
     ["com.affine.history-vision.tips-modal.description"](): string;
     /**
-      * `History vision needs AFFiNE Cloud`
+      * `History vision needs Manut Cloud`
       */
     ["com.affine.history-vision.tips-modal.title"](): string;
     /**
@@ -2879,7 +2859,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.import-template.dialog.errorLoad"](): string;
     /**
-      * `AFFiNE workspace data`
+      * `Manut workspace data`
       */
     ["com.affine.import.affine-workspace-data"](): string;
     /**
@@ -2895,7 +2875,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.import.dotaffinefile"](): string;
     /**
-      * `Import your AFFiNE db file (.affine)`
+      * `Import your Manut db file (.affine)`
       */
     ["com.affine.import.dotaffinefile.tooltip"](): string;
     /**
@@ -2943,7 +2923,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.import.snapshot"](): string;
     /**
-      * `Import your AFFiNE workspace and page snapshot file.`
+      * `Import your Manut workspace and page snapshot file.`
       */
     ["com.affine.import.snapshot.tooltip"](): string;
     /**
@@ -2967,7 +2947,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.import.status.importing.title"](): string;
     /**
-      * `Your document has been imported successfully, thank you for choosing AFFiNE. Any questions please feel free to feedback to us`
+      * `Your document has been imported successfully, thank you for choosing Manut. Any questions please feel free to feedback to us`
       */
     ["com.affine.import.status.success.message"](): string;
     /**
@@ -3099,7 +3079,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.calendar.caldav.link.title"](): string;
     /**
-      * `New events will be scheduled in AFFiNE’s journal`
+      * `New events will be scheduled in Manut’s journal`
       */
     ["com.affine.integration.calendar.desc"](): string;
     /**
@@ -3149,7 +3129,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.calendar.show-events"](): string;
     /**
-      * `Enabling this setting allows you to connect your calendar events to your Journal in AFFiNE`
+      * `Enabling this setting allows you to connect your calendar events to your Journal in Manut`
       */
     ["com.affine.integration.calendar.show-events-desc"](): string;
     /**
@@ -3171,7 +3151,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.cloudOnlyDesc"](): string;
     /**
-      * `Connect GitHub, Slack, Linear, Figma and more to sync data into AFFiNE.`
+      * `Connect GitHub, Slack, Linear, Figma and more to sync data into Manut.`
       */
     ["com.affine.integration.connections.desc"](): string;
     /**
@@ -3289,7 +3269,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.mcp-server.copy-json.disabled-hint"](): string;
     /**
-      * `Enable other MCP Client to search and read the doc of AFFiNE.`
+      * `Enable other MCP Client to search and read the doc of Manut.`
       */
     ["com.affine.integration.mcp-server.desc"](): string;
     /**
@@ -3345,7 +3325,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.readwise.connect.title"](): string;
     /**
-      * `Manually import your content to AFFiNE from Readwise`
+      * `Manually import your content to Manut from Readwise`
       */
     ["com.affine.integration.readwise.desc"](): string;
     /**
@@ -3357,7 +3337,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.readwise.disconnect.delete"](): string;
     /**
-      * `Once disconnected, content will no longer be imported. Do you want to keep your existing highlights in AFFiNE?`
+      * `Once disconnected, content will no longer be imported. Do you want to keep your existing highlights in Manut?`
       */
     ["com.affine.integration.readwise.disconnect.desc"](): string;
     /**
@@ -3451,11 +3431,11 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.readwise.setting.start-import-name"](): string;
     /**
-      * `New highlights in Readwise will be synced to AFFiNE `
+      * `New highlights in Readwise will be synced to Manut `
       */
     ["com.affine.integration.readwise.setting.sync-new-desc"](): string;
     /**
-      * `New Readwise highlights will be imported to AFFiNE `
+      * `New Readwise highlights will be imported to Manut `
       */
     ["com.affine.integration.readwise.setting.sync-new-name"](): string;
     /**
@@ -3499,11 +3479,11 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.refresh"](): string;
     /**
-      * `Elevate your AFFiNE experience with diverse add-ons and seamless integrations.`
+      * `Elevate your Manut experience with diverse add-ons and seamless integrations.`
       */
     ["com.affine.integration.setting.description"](): string;
     /**
-      * `Learn how to develop a integration for AFFiNE`
+      * `Learn how to develop a integration for Manut`
       */
     ["com.affine.integration.setting.learn"](): string;
     /**
@@ -3519,7 +3499,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.integration.status.not-configured"](): string;
     /**
-      * `Import web pages to AFFiNE`
+      * `Import web pages to Manut`
       */
     ["com.affine.integration.web-clipper.desc"](): string;
     /**
@@ -4069,7 +4049,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.mobile.sign-in.skip.hint"](): string;
     /**
-      * `Start AFFiNE without an account`
+      * `Start Manut without an account`
       */
     ["com.affine.mobile.sign-in.skip.link"](): string;
     /**
@@ -4115,11 +4095,11 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.multi-tab.new-tab"](): string;
     /**
-      * `Enabling AFFiNE Cloud allows you to synchronise and backup data, as well as support multi-user collaboration and content publishing.`
+      * `Enabling Manut Cloud allows you to synchronise and backup data, as well as support multi-user collaboration and content publishing.`
       */
     ["com.affine.nameWorkspace.affine-cloud.description"](): string;
     /**
-      * `Sync across devices with AFFiNE Cloud`
+      * `Sync across devices with Manut Cloud`
       */
     ["com.affine.nameWorkspace.affine-cloud.title"](): string;
     /**
@@ -4241,11 +4221,11 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.open-in-app.card.remember"](): string;
     /**
-      * `Open this doc in AFFiNE app`
+      * `Open this doc in Manut app`
       */
     ["com.affine.open-in-app.card.title"](): string;
     /**
-      * `AFFiNE Community`
+      * `Manut Community`
       */
     ["com.affine.other-page.nav.affine-community"](): string;
     /**
@@ -4265,7 +4245,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.other-page.nav.official-website"](): string;
     /**
-      * `Open AFFiNE`
+      * `Open Manut`
       */
     ["com.affine.other-page.nav.open-affine"](): string;
     /**
@@ -4451,7 +4431,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.page-properties.property.journal.tooltips"](): string;
     /**
-      * `Enter a link to websites or AFFiNE docs. Useful for connecting to external resources and referencing internal docs.`
+      * `Enter a link to websites or Manut docs. Useful for connecting to external resources and referencing internal docs.`
       */
     ["com.affine.page-properties.property.link.tooltips"](): string;
     /**
@@ -4647,7 +4627,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.pageMode.page"](): string;
     /**
-      * `Congratulations on your successful purchase of AFFiNE AI! You're now empowered to refine your content, generate images, and craft comprehensive mindmaps directly within AFFiNE AI, dramatically enhancing your productivity.`
+      * `Congratulations on your successful purchase of Manut AI! You're now empowered to refine your content, generate images, and craft comprehensive mindmaps directly within Manut AI, dramatically enhancing your productivity.`
       */
     ["com.affine.payment.ai-upgrade-success-page.text"](): string;
     /**
@@ -4659,7 +4639,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.ai.action.cancel.button-label"](): string;
     /**
-      * `Keep AFFiNE AI`
+      * `Keep Manut AI`
       */
     ["com.affine.payment.ai.action.cancel.confirm.cancel-text"](): string;
     /**
@@ -4667,7 +4647,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.ai.action.cancel.confirm.confirm-text"](): string;
     /**
-      * `If you end your subscription now, you can still use AFFiNE AI until the end of this billing period.`
+      * `If you end your subscription now, you can still use Manut AI until the end of this billing period.`
       */
     ["com.affine.payment.ai.action.cancel.confirm.description"](): string;
     /**
@@ -4691,7 +4671,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.ai.action.resume.confirm.confirm-text"](): string;
     /**
-      * `Are you sure you want to resume the subscription for AFFiNE AI? This means your payment method will be charged automatically at the end of each billing cycle, starting from the next billing cycle.`
+      * `Are you sure you want to resume the subscription for Manut AI? This means your payment method will be charged automatically at the end of each billing cycle, starting from the next billing cycle.`
       */
     ["com.affine.payment.ai.action.resume.confirm.description"](): string;
     /**
@@ -4755,13 +4735,13 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.ai.benefit.g3-3"](): string;
     /**
-      * `You have purchased AFFiNE AI. The expiration date is {{end}}.`
+      * `You have purchased Manut AI. The expiration date is {{end}}.`
       */
     ["com.affine.payment.ai.billing-tip.end-at"](options: {
         readonly end: string;
     }): string;
     /**
-      * `You have purchased AFFiNE AI. The next payment date is {{due}}.`
+      * `You have purchased Manut AI. The next payment date is {{due}}.`
       */
     ["com.affine.payment.ai.billing-tip.next-bill-at"](options: {
         readonly due: string;
@@ -4771,15 +4751,15 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.ai.pricing-plan.caption-free"](): string;
     /**
-      * `You have purchased AFFiNE AI`
+      * `You have purchased Manut AI`
       */
     ["com.affine.payment.ai.pricing-plan.caption-purchased"](): string;
     /**
-      * `Learn about AFFiNE AI`
+      * `Learn about Manut AI`
       */
     ["com.affine.payment.ai.pricing-plan.learn"](): string;
     /**
-      * `AFFiNE AI`
+      * `Manut AI`
       */
     ["com.affine.payment.ai.pricing-plan.title"](): string;
     /**
@@ -4791,7 +4771,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.ai.pricing-plan.title-caption-2"](): string;
     /**
-      * `This model requires AFFiNE AI subscription.`
+      * `This model requires Manut AI subscription.`
       */
     ["com.affine.payment.ai.pro-locked.title"](): string;
     /**
@@ -4803,11 +4783,11 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.ai.subscribe.billed-annually"](): string;
     /**
-      * `You have purchased AFFiNE AI.`
+      * `You have purchased Manut AI.`
       */
     ["com.affine.payment.ai.usage-description-purchased"](): string;
     /**
-      * `AFFiNE AI usage`
+      * `Manut AI usage`
       */
     ["com.affine.payment.ai.usage-title"](): string;
     /**
@@ -4870,7 +4850,7 @@ export function useAFFiNEI18N(): {
         readonly capacity: string;
     }): string;
     /**
-      * `AFFiNE AI`
+      * `Manut AI`
       */
     ["com.affine.payment.billing-setting.ai-plan"](): string;
     /**
@@ -4886,7 +4866,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.billing-setting.believer.price-caption"](): string;
     /**
-      * `AFFiNE Cloud`
+      * `Manut Cloud`
       */
     ["com.affine.payment.billing-setting.believer.title"](): string;
     /**
@@ -4902,7 +4882,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.billing-setting.change-plan"](): string;
     /**
-      * `AFFiNE Cloud`
+      * `Manut Cloud`
       */
     ["com.affine.payment.billing-setting.current-plan"](): string;
     /**
@@ -5002,7 +4982,7 @@ export function useAFFiNEI18N(): {
         readonly due: string;
     }): string;
     /**
-      * `Please tell us more about your use case, to make AFFiNE better.`
+      * `Please tell us more about your use case, to make Manut better.`
       */
     ["com.affine.payment.billing-type-form.description"](): string;
     /**
@@ -5096,7 +5076,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.cloud.pricing-plan.select.caption"](): string;
     /**
-      * `Hosted by AFFiNE.Pro`
+      * `Hosted by Manut.Pro`
       */
     ["com.affine.payment.cloud.pricing-plan.select.title"](): string;
     /**
@@ -5118,7 +5098,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.cloud.pro.benefit.g1"](): string;
     /**
-      * `Everything in AFFiNE FOSS & Basic.`
+      * `Everything in Manut FOSS & Basic.`
       */
     ["com.affine.payment.cloud.pro.benefit.g1-1"](): string;
     /**
@@ -5176,7 +5156,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.cloud.team-workspace.benefit.g1"](): string;
     /**
-      * `Everything in AFFiNE Pro.`
+      * `Everything in Manut Pro.`
       */
     ["com.affine.payment.cloud.team-workspace.benefit.g1-1"](): string;
     /**
@@ -5236,7 +5216,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.downgrade"](): string;
     /**
-      * `We'd like to hear more about where we fall short, so that we can make AFFiNE better.`
+      * `We'd like to hear more about where we fall short, so that we can make Manut better.`
       */
     ["com.affine.payment.downgraded-notify.content"](): string;
     /**
@@ -5288,11 +5268,11 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.license-success.hint"](): string;
     /**
-      * `Open AFFiNE`
+      * `Open Manut`
       */
     ["com.affine.payment.license-success.open-affine"](): string;
     /**
-      * `Thank you for purchasing the AFFiNE self-hosted license.`
+      * `Thank you for purchasing your Manut license.`
       */
     ["com.affine.payment.license-success.text-1"](): string;
     /**
@@ -5300,7 +5280,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.license-success.title"](): string;
     /**
-      * `Everything in AFFiNE Pro`
+      * `Everything in Manut Pro`
       */
     ["com.affine.payment.lifetime.benefit-1"](): string;
     /**
@@ -5314,7 +5294,7 @@ export function useAFFiNEI18N(): {
         readonly capacity: string;
     }): string;
     /**
-      * `Dedicated Discord support with AFFiNE makers`
+      * `Dedicated Discord support with Manut makers`
       */
     ["com.affine.payment.lifetime.benefit-4"](): string;
     /**
@@ -5349,7 +5329,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.member-limit.description.tips-2"](): string;
     /**
-      * `Upgrade to AFFiNE Pro for expanded member capacity`
+      * `Upgrade to Manut Pro for expanded member capacity`
       */
     ["com.affine.payment.member-limit.description.tips-for-free-plan"](): string;
     /**
@@ -5659,11 +5639,11 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.modal.downgrade.cancel"](): string;
     /**
-      * `You can still use AFFiNE Cloud Pro until the end of this billing period :)`
+      * `You can still use Manut Cloud Pro until the end of this billing period :)`
       */
     ["com.affine.payment.modal.downgrade.caption"](): string;
     /**
-      * `Keep AFFiNE Cloud Pro`
+      * `Keep Manut Cloud Pro`
       */
     ["com.affine.payment.modal.downgrade.confirm"](): string;
     /**
@@ -5793,7 +5773,7 @@ export function useAFFiNEI18N(): {
         readonly plan: string;
     }): string;
     /**
-      * `This is the pricing plans of AFFiNE Cloud. You can sign up or sign in to your account first.`
+      * `This is the pricing plans of Manut Cloud. You can sign up or sign in to your account first.`
       */
     ["com.affine.payment.subtitle-not-signed-in"](): string;
     /**
@@ -5879,7 +5859,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.upgrade"](): string;
     /**
-      * `We'd like to hear more about your use case, so that we can make AFFiNE better.`
+      * `We'd like to hear more about your use case, so that we can make Manut better.`
       */
     ["com.affine.payment.upgrade-success-notify.content"](): string;
     /**
@@ -5903,7 +5883,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.upgrade-success-page.team.text-1"](): string;
     /**
-      * `Congratulations! Your AFFiNE account has been successfully upgraded to a Pro account.`
+      * `Congratulations! Your Manut account has been successfully upgraded to a Pro account.`
       */
     ["com.affine.payment.upgrade-success-page.text"](): string;
     /**
@@ -5979,7 +5959,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.personalize.status.saving"](): string;
     /**
-      * `Customize how AFFiNE AI responds to you across this workspace.`
+      * `Customize how Manut AI responds to you across this workspace.`
       */
     ["com.affine.personalize.subtitle"](): string;
     /**
@@ -6385,7 +6365,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.setting.appearance.links"](): string;
     /**
-      * `Open AFFiNE links`
+      * `Open Manut links`
       */
     ["com.affine.setting.appearance.open-in-app"](): string;
     /**
@@ -6405,7 +6385,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.setting.appearance.open-in-app.open-in-web"](): string;
     /**
-      * `Open AFFiNE links`
+      * `Open Manut links`
       */
     ["com.affine.setting.appearance.open-in-app.title"](): string;
     /**
@@ -6449,7 +6429,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.setting.notifications.header.title"](): string;
     /**
-      * `Sync with AFFiNE Cloud`
+      * `Sync with Manut Cloud`
       */
     ["com.affine.setting.sign.message"](): string;
     /**
@@ -6765,7 +6745,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.editorSettings.general"](): string;
     /**
-      * `Enable the powerful AI assistant, AFFiNE AI.`
+      * `Enable the powerful AI assistant, Manut AI.`
       */
     ["com.affine.settings.editorSettings.general.ai.description"](): string;
     /**
@@ -6793,7 +6773,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.editorSettings.general.ai.enable.title"](): string;
     /**
-      * `AFFiNE AI`
+      * `Manut AI`
       */
     ["com.affine.settings.editorSettings.general.ai.title"](): string;
     /**
@@ -7061,7 +7041,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.meetings.record.open-saved-file.description"](): string;
     /**
-      * `AFFiNE will generate meeting notes by recording your meetings. Authorization to "Screen & System Audio Recording" is necessary.`
+      * `Manut will generate meeting notes by recording your meetings. Authorization to "Screen & System Audio Recording" is necessary.`
       */
     ["com.affine.settings.meetings.record.permission-modal.description"](): string;
     /**
@@ -7130,7 +7110,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.meetings.transcription.header"](): string;
     /**
-      * `Enable AFFiNE Cloud to collaborate with others`
+      * `Enable Manut Cloud to collaborate with others`
       */
     ["com.affine.settings.member-tooltip"](): string;
     /**
@@ -7206,15 +7186,15 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace"](): string;
     /**
-      * `Allow workspace members to use AFFiNE AI features. This setting doesn't affect billing. Workspace members use AFFiNE AI through their personal accounts.`
+      * `Allow workspace members to use Manut AI features. This setting doesn't affect billing. Workspace members use Manut AI through their personal accounts.`
       */
     ["com.affine.settings.workspace.affine-ai.description"](): string;
     /**
-      * `Allow AFFiNE AI Assistant`
+      * `Allow Manut AI Assistant`
       */
     ["com.affine.settings.workspace.affine-ai.label"](): string;
     /**
-      * `AFFiNE AI`
+      * `Manut AI`
       */
     ["com.affine.settings.workspace.affine-ai.title"](): string;
     /**
@@ -7505,7 +7485,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.experimental-features.enable-local-workspace.name"](): string;
     /**
-      * `Meetings allows you to record and transcribe meetings. Don't forget to enable it in AFFiNE settings.`
+      * `Meetings allows you to record and transcribe meetings. Don't forget to enable it in Manut settings.`
       */
     ["com.affine.settings.workspace.experimental-features.enable-meetings.description"](): string;
     /**
@@ -7613,7 +7593,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.experimental-features.prompt-warning-title"](): string;
     /**
-      * `Manage AFFiNE indexing and AFFiNE AI Embedding for local content processing`
+      * `Manage Manut indexing and Manut AI Embedding for local content processing`
       */
     ["com.affine.settings.workspace.indexer-embedding.description"](): string;
     /**
@@ -7709,10 +7689,6 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.license"](): string;
     /**
-      * `Enter license key to activate this self host workspace.`
-      */
-    ["com.affine.settings.workspace.license.activate-modal.description"](): string;
-    /**
       * `Activate License`
       */
     ["com.affine.settings.workspace.license.activate-modal.title"](): string;
@@ -7720,10 +7696,6 @@ export function useAFFiNEI18N(): {
       * `License activated successfully.`
       */
     ["com.affine.settings.workspace.license.activate-success"](): string;
-    /**
-      * `Everything in Self Hosted FOSS`
-      */
-    ["com.affine.settings.workspace.license.benefit.team.g1"](): string;
     /**
       * `{{initialQuota}} initial storage + {{quotaPerSeat}} per seat`
       */
@@ -7754,10 +7726,6 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.license.benefit.team.subtitle"](): string;
     /**
-      * `Get teams plan for your self hosted workspace.`
-      */
-    ["com.affine.settings.workspace.license.benefit.team.title"](): string;
-    /**
       * `Buy more seat`
       */
     ["com.affine.settings.workspace.license.buy-more-seat"](): string;
@@ -7778,94 +7746,9 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.license.deactivate-success"](): string;
     /**
-      * `Manage license information and invoices for the self host team workspace.`
-      */
-    ["com.affine.settings.workspace.license.description"](): string;
-    /**
       * `Lean more`
       */
     ["com.affine.settings.workspace.license.lean-more"](): string;
-    /**
-      * `Selfhosted workspace`
-      */
-    ["com.affine.settings.workspace.license.self-host"](): string;
-    /**
-      * `Self-host Team Workspace`
-      */
-    ["com.affine.settings.workspace.license.self-host-team"](): string;
-    /**
-      * `Deactivate`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.deactivate-license"](): string;
-    /**
-      * `Basic version: {{memberCount}} seats. For more, purchase or use activation key.`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.free.description"](options: {
-        readonly memberCount: string;
-    }): string;
-    /**
-      * `Replace the existing license file with a new, updated version.`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.replace-license.description"](): string;
-    /**
-      * `Replace your license file`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.replace-license.title"](): string;
-    /**
-      * `Upload license file`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.replace-license.upload"](): string;
-    /**
-      * `Seats`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.seats"](): string;
-    /**
-      * `This license will expire on {{expirationDate}}, with {{leftDays}} days remaining.`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.team.description"](options: Readonly<{
-        expirationDate: string;
-        leftDays: string;
-    }>): string;
-    /**
-      * `Upload license file`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.upload-license-file"](): string;
-    /**
-      * `Click to upload`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.upload-license-file.click-to-upload"](): string;
-    /**
-      * `Upload license file locally and verify the license information.`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.upload-license-file.description"](): string;
-    /**
-      * `Activation failed`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.upload-license-file.failed"](): string;
-    /**
-      * `If you encounter any issues, contact support@toeverything.info.`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.upload-license-file.help"](): string;
-    /**
-      * `License has been successfully applied`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.upload-license-file.success.description"](): string;
-    /**
-      * `Activation Success`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.upload-license-file.success.title"](): string;
-    /**
-      * `To purchase a license:`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.upload-license-file.tips.title"](): string;
-    /**
-      * `Workspace id`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.upload-license-file.tips.workspace-id"](): string;
-    /**
-      * `Use purchased key`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.use-purchased-key"](): string;
     /**
       * `Only an owner can edit the workspace avatar and name. Changes will be shown for everyone.`
       */
@@ -7923,7 +7806,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.properties.unused"](): string;
     /**
-      * `Enable AFFiNE Cloud to publish this workspace`
+      * `Enable Manut Cloud to publish this workspace`
       */
     ["com.affine.settings.workspace.publish-tooltip"](): string;
     /**
@@ -7963,11 +7846,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.state.published"](): string;
     /**
-      * `Self-Hosted Server`
-      */
-    ["com.affine.settings.workspace.state.self-hosted"](): string;
-    /**
-      * `Sync with AFFiNE Cloud`
+      * `Sync with Manut Cloud`
       */
     ["com.affine.settings.workspace.state.sync-affine-cloud"](): string;
     /**
@@ -8031,7 +7910,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.settings.workspace.template.title"](): string;
     /**
-      * `Sharing doc requires AFFiNE Cloud.`
+      * `Sharing doc requires Manut Cloud.`
       */
     ["com.affine.share-menu.EnableCloudDescription"](): string;
     /**
@@ -8300,7 +8179,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.share-page.footer.create-with"](): string;
     /**
-      * `Empower your sharing with AFFiNE Cloud: One-click doc sharing`
+      * `Empower your sharing with Manut Cloud: One-click doc sharing`
       */
     ["com.affine.share-page.footer.description"](): string;
     /**
@@ -8392,7 +8271,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.storage.plan"](): string;
     /**
-      * `AFFiNE Cloud storage`
+      * `Manut Cloud storage`
       */
     ["com.affine.storage.title"](): string;
     /**
@@ -8708,7 +8587,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.upgrade.tips.error"](): string;
     /**
-      * `To ensure compatibility with the updated AFFiNE client, please upgrade your data by clicking the "Upgrade workspace data" button below.`
+      * `To ensure compatibility with the updated Manut client, please upgrade your data by clicking the "Upgrade workspace data" button below.`
       */
     ["com.affine.upgrade.tips.normal"](): string;
     /**
@@ -8792,7 +8671,7 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.workspace.cloud.auth"](): string;
     /**
-      * `Sync with AFFiNE Cloud`
+      * `Sync with Manut Cloud`
       */
     ["com.affine.workspace.cloud.description"](): string;
     /**
@@ -8884,6 +8763,178 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.yesterday"](): string;
     /**
+      * `Trigger a build to populate this. Once GitHub Actions runs a Manut release workflow, you'll see it listed here.`
+      */
+    ["com.manut.control-plane.releaseRuns.empty.body"](): string;
+    /**
+      * `No release runs yet`
+      */
+    ["com.manut.control-plane.releaseRuns.empty.title"](): string;
+    /**
+      * `Failed to load release runs`
+      */
+    ["com.manut.control-plane.releaseRuns.error"](): string;
+    /**
+      * `Deploy URL`
+      */
+    ["com.manut.control-plane.releaseRuns.evidence.deployUrl"](): string;
+    /**
+      * `GitHub run`
+      */
+    ["com.manut.control-plane.releaseRuns.evidence.githubRun"](): string;
+    /**
+      * `Evidence`
+      */
+    ["com.manut.control-plane.releaseRuns.evidence.label"](): string;
+    /**
+      * `Recent Manut control-plane release runs. Click a row to see the task tree and evidence links.`
+      */
+    ["com.manut.control-plane.releaseRuns.subtitle"](): string;
+    /**
+      * `Tasks`
+      */
+    ["com.manut.control-plane.releaseRuns.tasks.label"](): string;
+    /**
+      * `Release runs`
+      */
+    ["com.manut.control-plane.releaseRuns.title"](): string;
+    /**
+      * `Release runs are not enabled on this workspace. Ask your administrator to enable the Manut control plane.`
+      */
+    ["com.manut.control-plane.releaseRuns.unavailable"](): string;
+    /**
+      * `The system or workflow that executes this role.`
+      */
+    ["com.manut.control-plane.roles.adapter.hint"](): string;
+    /**
+      * `Adapter`
+      */
+    ["com.manut.control-plane.roles.adapter.label"](): string;
+    /**
+      * `e.g. github-actions`
+      */
+    ["com.manut.control-plane.roles.adapter.placeholder"](): string;
+    /**
+      * ``
+      */
+    ["com.manut.control-plane.roles.column.actions"](): string;
+    /**
+      * `Adapter`
+      */
+    ["com.manut.control-plane.roles.column.adapter"](): string;
+    /**
+      * `Display name`
+      */
+    ["com.manut.control-plane.roles.column.displayName"](): string;
+    /**
+      * `Escalation`
+      */
+    ["com.manut.control-plane.roles.column.escalation"](): string;
+    /**
+      * `Responsibility`
+      */
+    ["com.manut.control-plane.roles.column.responsibility"](): string;
+    /**
+      * `Slug`
+      */
+    ["com.manut.control-plane.roles.column.slug"](): string;
+    /**
+      * `Edit the five operating roles (Release Captain, Builder, Verifier, Deployer, Historian). Slug is fixed; display name, adapter, and escalation are editable.`
+      */
+    ["com.manut.control-plane.roles.description"](): string;
+    /**
+      * `Display name`
+      */
+    ["com.manut.control-plane.roles.displayName.label"](): string;
+    /**
+      * `e.g. Release Captain`
+      */
+    ["com.manut.control-plane.roles.displayName.placeholder"](): string;
+    /**
+      * `Cancel`
+      */
+    ["com.manut.control-plane.roles.edit.cancel"](): string;
+    /**
+      * `Update display name, adapter binding, and escalation note. The slug is fixed.`
+      */
+    ["com.manut.control-plane.roles.edit.description"](): string;
+    /**
+      * `Save`
+      */
+    ["com.manut.control-plane.roles.edit.save"](): string;
+    /**
+      * `Edit agent role`
+      */
+    ["com.manut.control-plane.roles.edit.title"](): string;
+    /**
+      * `Edit`
+      */
+    ["com.manut.control-plane.roles.editButton"](): string;
+    /**
+      * `No agent roles have been registered for this workspace yet.`
+      */
+    ["com.manut.control-plane.roles.empty"](): string;
+    /**
+      * `Adapter is required.`
+      */
+    ["com.manut.control-plane.roles.error.adapterRequired"](): string;
+    /**
+      * `Display name is required.`
+      */
+    ["com.manut.control-plane.roles.error.displayNameRequired"](): string;
+    /**
+      * `Could not update role`
+      */
+    ["com.manut.control-plane.roles.error.updateFailed"](): string;
+    /**
+      * `Escalation (optional)`
+      */
+    ["com.manut.control-plane.roles.escalation.label"](): string;
+    /**
+      * `Who to page if this role fails.`
+      */
+    ["com.manut.control-plane.roles.escalation.placeholder"](): string;
+    /**
+      * `Each role binds to an adapter that executes its work — GitHub Actions, deploy scripts, or future AI workers. Last successful run links to the run details page.`
+      */
+    ["com.manut.control-plane.roles.intro"](): string;
+    /**
+      * `Last success:`
+      */
+    ["com.manut.control-plane.roles.lastRun.label"](): string;
+    /**
+      * `view run`
+      */
+    ["com.manut.control-plane.roles.lastRun.view"](): string;
+    /**
+      * `Last seen:`
+      */
+    ["com.manut.control-plane.roles.lastSeen.label"](): string;
+    /**
+      * `Agent roles`
+      */
+    ["com.manut.control-plane.roles.section.title"](): string;
+    /**
+      * `Stable identifier. Cannot be changed.`
+      */
+    ["com.manut.control-plane.roles.slug.hint"](): string;
+    /**
+      * `Slug`
+      */
+    ["com.manut.control-plane.roles.slug.label"](): string;
+    /**
+      * `Control Plane Roles`
+      */
+    ["com.manut.control-plane.roles.tab.title"](): string;
+    /**
+      * `Control Plane roles are not enabled on this workspace. Ask your administrator to enable the Manut control plane.`
+      */
+    ["com.manut.control-plane.roles.unavailable"](): string;
+    /**
+      * `Role updated`
+      */
+    ["com.manut.control-plane.roles.updated.title"](): string;
+    /**
       * `New account`
       */
     ["com.manut.crm.accounts.create"](): string;
@@ -8896,6 +8947,10 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.accounts.created"](): string;
     /**
+      * `Edit account`
+      */
+    ["com.manut.crm.accounts.edit"](): string;
+    /**
       * `No accounts yet. Create one to get started.`
       */
     ["com.manut.crm.accounts.empty"](): string;
@@ -8904,6 +8959,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.accounts.subtitle"](): string;
     /**
+      * `Could not save account`
+      */
+    ["com.manut.crm.accounts.update.error"](): string;
+    /**
+      * `Account saved`
+      */
+    ["com.manut.crm.accounts.updated"](): string;
+    /**
       * `Cancel`
       */
     ["com.manut.crm.action.cancel"](): string;
@@ -8911,6 +8974,18 @@ export function useAFFiNEI18N(): {
       * `Create`
       */
     ["com.manut.crm.action.create"](): string;
+    /**
+      * `Delete`
+      */
+    ["com.manut.crm.action.delete"](): string;
+    /**
+      * `Edit`
+      */
+    ["com.manut.crm.action.edit"](): string;
+    /**
+      * `Save`
+      */
+    ["com.manut.crm.action.save"](): string;
     /**
       * `New activity`
       */
@@ -8924,6 +8999,10 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.activities.created"](): string;
     /**
+      * `Edit activity`
+      */
+    ["com.manut.crm.activities.edit"](): string;
+    /**
       * `No activities yet. Log a call, email, or note to keep track.`
       */
     ["com.manut.crm.activities.empty"](): string;
@@ -8931,6 +9010,14 @@ export function useAFFiNEI18N(): {
       * `Calls, meetings, emails, and notes attached to your CRM records.`
       */
     ["com.manut.crm.activities.subtitle"](): string;
+    /**
+      * `Could not save activity`
+      */
+    ["com.manut.crm.activities.update.error"](): string;
+    /**
+      * `Activity saved`
+      */
+    ["com.manut.crm.activities.updated"](): string;
     /**
       * `New contact`
       */
@@ -8944,6 +9031,10 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.contacts.created"](): string;
     /**
+      * `Edit contact`
+      */
+    ["com.manut.crm.contacts.edit"](): string;
+    /**
       * `No contacts yet. Add one to start tracking conversations.`
       */
     ["com.manut.crm.contacts.empty"](): string;
@@ -8951,6 +9042,14 @@ export function useAFFiNEI18N(): {
       * `People you talk to. Link them to an account to keep context together.`
       */
     ["com.manut.crm.contacts.subtitle"](): string;
+    /**
+      * `Could not save contact`
+      */
+    ["com.manut.crm.contacts.update.error"](): string;
+    /**
+      * `Contact saved`
+      */
+    ["com.manut.crm.contacts.updated"](): string;
     /**
       * `Add a stage`
       */
@@ -8968,6 +9067,10 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.deals.created"](): string;
     /**
+      * `Edit deal`
+      */
+    ["com.manut.crm.deals.edit"](): string;
+    /**
       * `No deals yet. Create one to start tracking your pipeline.`
       */
     ["com.manut.crm.deals.empty"](): string;
@@ -8984,9 +9087,49 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.deals.stage.created"](): string;
     /**
+      * `Could not move stage`
+      */
+    ["com.manut.crm.deals.stage.move.error"](): string;
+    /**
+      * `Stage updated`
+      */
+    ["com.manut.crm.deals.stage.moved"](): string;
+    /**
       * `Open opportunities grouped by pipeline stage.`
       */
     ["com.manut.crm.deals.subtitle"](): string;
+    /**
+      * `Could not save deal`
+      */
+    ["com.manut.crm.deals.update.error"](): string;
+    /**
+      * `Deal saved`
+      */
+    ["com.manut.crm.deals.updated"](): string;
+    /**
+      * `Linked contacts`
+      */
+    ["com.manut.crm.detail.account.contacts"](): string;
+    /**
+      * `Linked deals`
+      */
+    ["com.manut.crm.detail.account.deals"](): string;
+    /**
+      * `Linked records`
+      */
+    ["com.manut.crm.detail.activity.linked"](): string;
+    /**
+      * `Activity history`
+      */
+    ["com.manut.crm.detail.deal.activity"](): string;
+    /**
+      * `Moving…`
+      */
+    ["com.manut.crm.detail.deal.moving"](): string;
+    /**
+      * `Nothing linked yet.`
+      */
+    ["com.manut.crm.detail.linked.none"](): string;
     /**
       * `Something went wrong loading CRM data`
       */
@@ -9036,6 +9179,10 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.fields.name.placeholder"](): string;
     /**
+      * `Notes`
+      */
+    ["com.manut.crm.fields.notes"](): string;
+    /**
       * `Phone`
       */
     ["com.manut.crm.fields.phone"](): string;
@@ -9056,6 +9203,10 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.crm.fields.subject"](): string;
     /**
+      * `Title`
+      */
+    ["com.manut.crm.fields.title"](): string;
+    /**
       * `Type`
       */
     ["com.manut.crm.fields.type"](): string;
@@ -9069,15 +9220,17 @@ export function useAFFiNEI18N(): {
     ["com.manut.crm.fields.website"](): string;
     /**
       * `{{count}} deals`
+    
+      * - com.manut.crm.kanban.column.count_one: `{{count}} deal`
       */
     ["com.manut.crm.kanban.column.count"](options: {
-        readonly count: number;
+        readonly count: string | number | bigint;
     }): string;
     /**
       * `{{count}} deal`
       */
     ["com.manut.crm.kanban.column.count_one"](options: {
-        readonly count: number;
+        readonly count: string | number | bigint;
     }): string;
     /**
       * `Drop a deal here to move it.`
@@ -9176,6 +9329,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.pm.action.addTask"](): string;
     /**
+      * `Archive`
+      */
+    ["com.manut.pm.action.archiveProject"](): string;
+    /**
+      * `Back`
+      */
+    ["com.manut.pm.action.back"](): string;
+    /**
       * `Cancel`
       */
     ["com.manut.pm.action.cancel"](): string;
@@ -9184,6 +9345,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.pm.action.createProject"](): string;
     /**
+      * `Edit project`
+      */
+    ["com.manut.pm.action.editProject"](): string;
+    /**
+      * `Edit task`
+      */
+    ["com.manut.pm.action.editTask"](): string;
+    /**
       * `New project`
       */
     ["com.manut.pm.action.newProject"](): string;
@@ -9191,6 +9360,54 @@ export function useAFFiNEI18N(): {
       * `Retry`
       */
     ["com.manut.pm.action.retry"](): string;
+    /**
+      * `Save changes`
+      */
+    ["com.manut.pm.action.saveChanges"](): string;
+    /**
+      * `This project is archived. Edit the project to restore it to Active.`
+      */
+    ["com.manut.pm.archive.banner"](): string;
+    /**
+      * `Cancel`
+      */
+    ["com.manut.pm.archive.confirm.cancel"](): string;
+    /**
+      * `Archive project`
+      */
+    ["com.manut.pm.archive.confirm.confirm"](): string;
+    /**
+      * `Archiving this project hides it from active project lists. You can restore it later by editing the project status.`
+      */
+    ["com.manut.pm.archive.confirm.description"](): string;
+    /**
+      * `Archive project?`
+      */
+    ["com.manut.pm.archive.confirm.title"](): string;
+    /**
+      * `The project you are looking for may have been deleted.`
+      */
+    ["com.manut.pm.detail.notFound.body"](): string;
+    /**
+      * `Project not found`
+      */
+    ["com.manut.pm.detail.notFound.title"](): string;
+    /**
+      * `No project id provided in the URL.`
+      */
+    ["com.manut.pm.detail.notFound.noId"](): string;
+    /**
+      * `Tasks`
+      */
+    ["com.manut.pm.detail.section.tasks"](): string;
+    /**
+      * `Could not archive project`
+      */
+    ["com.manut.pm.error.archiveProject"](): string;
+    /**
+      * `Could not update project`
+      */
+    ["com.manut.pm.error.updateProject"](): string;
     /**
       * `Create your first project to organize tasks.`
       */
@@ -9224,6 +9441,10 @@ export function useAFFiNEI18N(): {
       */
     ["com.manut.pm.error.updateTask"](): string;
     /**
+      * `Assignee user id (optional)`
+      */
+    ["com.manut.pm.field.assignee"](): string;
+    /**
       * `Description (optional)`
       */
     ["com.manut.pm.field.description"](): string;
@@ -9249,15 +9470,17 @@ export function useAFFiNEI18N(): {
     ["com.manut.pm.field.title"](): string;
     /**
       * `{{count}} tasks`
+    
+      * - com.manut.pm.kanban.column.count_one: `{{count}} task`
       */
     ["com.manut.pm.kanban.column.count"](options: {
-        readonly count: number;
+        readonly count: string | number | bigint;
     }): string;
     /**
       * `{{count}} task`
       */
     ["com.manut.pm.kanban.column.count_one"](options: {
-        readonly count: number;
+        readonly count: string | number | bigint;
     }): string;
     /**
       * `Drop a task here to move it.`
@@ -9279,6 +9502,22 @@ export function useAFFiNEI18N(): {
       * `List view`
       */
     ["com.manut.pm.kanban.view.list"](): string;
+    /**
+      * `Edit project`
+      */
+    ["com.manut.pm.modal.editProject"](): string;
+    /**
+      * `Update the project name, description, or status.`
+      */
+    ["com.manut.pm.modal.editProject.description"](): string;
+    /**
+      * `Edit task`
+      */
+    ["com.manut.pm.modal.editTask"](): string;
+    /**
+      * `Update task details.`
+      */
+    ["com.manut.pm.modal.editTask.description"](): string;
     /**
       * `New project`
       */
@@ -10519,7 +10758,7 @@ function createComponent(i18nKey: string) {
 }
 export const TypedTrans: {
     /**
-      * `Go to <a>{{link}}</a> for learn more details about AFFiNE AI.`
+      * `Go to <a>{{link}}</a> for learn more details about Manut AI.`
       */
     ["com.affine.ai-onboarding.general.5.description"]: ComponentType<TypedTransProps<{
         readonly link: string;
@@ -10541,21 +10780,15 @@ export const TypedTrans: {
         ["1"]: JSX.Element;
     }>>;
     /**
-      * `This doc is now opened in <1>AFFiNE</1> app`
+      * `This doc is now opened in <1>Manut</1> app`
       */
     ["com.affine.auth.open.affine.open-doc-prompt"]: ComponentType<TypedTransProps<Readonly<{}>, {
         ["1"]: JSX.Element;
     }>>;
     /**
-      * `Opening <1>AFFiNE</1> app now`
+      * `Opening <1>Manut</1> app now`
       */
     ["com.affine.auth.open.affine.prompt"]: ComponentType<TypedTransProps<Readonly<{}>, {
-        ["1"]: JSX.Element;
-    }>>;
-    /**
-      * `The Self-Hosted instance is not hosted or deployed by AFFiNE. Your data will be stored on these instances.  <1>Learn more about Self-Host details.</1>`
-      */
-    ["com.affine.auth.sign.add-selfhosted.description"]: ComponentType<TypedTransProps<Readonly<{}>, {
         ["1"]: JSX.Element;
     }>>;
     /**
@@ -10573,14 +10806,14 @@ export const TypedTrans: {
         ["1"]: JSX.Element;
     }>>;
     /**
-      * `By clicking “Continue with Google/Email” above, you acknowledge that you agree to AFFiNE's <1>Terms of Conditions</1> and <3>Privacy Policy</3>.`
+      * `By clicking “Continue with Google/Email” above, you acknowledge that you agree to Manut's <1>Terms of Conditions</1> and <3>Privacy Policy</3>.`
       */
     ["com.affine.auth.sign.message"]: ComponentType<TypedTransProps<Readonly<{}>, {
         ["1"]: JSX.Element;
         ["3"]: JSX.Element;
     }>>;
     /**
-      * `This demo is limited. <1>Download the AFFiNE Client</1> for the latest features and Performance.`
+      * `This demo is limited. <1>Download the Manut Client</1> for the latest features and Performance.`
       */
     ["com.affine.banner.content"]: ComponentType<TypedTransProps<Readonly<{}>, {
         ["1"]: JSX.Element;
@@ -10717,7 +10950,7 @@ export const TypedTrans: {
         ["1"]: JSX.Element;
     }>>;
     /**
-      * `Import your Readwise highlights to AFFiNE. Please visit Readwise, <br />click <a>"Get Access Token"</a>, and paste the token below.`
+      * `Import your Readwise highlights to Manut. Please visit Readwise, <br />click <a>"Get Access Token"</a>, and paste the token below.`
       */
     ["com.affine.integration.readwise.connect.desc"]: ComponentType<TypedTransProps<Readonly<{}>, {
         br: JSX.Element;
@@ -10999,7 +11232,7 @@ export const TypedTrans: {
         ["1"]: JSX.Element;
     }>>;
     /**
-      * `Utilize the meeting notes and AI summarization features provided by AFFiNE. <1>Discuss more in the community</1>.`
+      * `Utilize the meeting notes and AI summarization features provided by Manut. <1>Discuss more in the community</1>.`
       */
     ["com.affine.settings.meetings.enable.description"]: ComponentType<TypedTransProps<Readonly<{}>, {
         ["1"]: JSX.Element;
@@ -11036,18 +11269,6 @@ export const TypedTrans: {
       * `This will make the workspace read-only. Your key remains usable elsewhere. Deactivation doesn't cancel your Team plan. To cancel, go to <1>Manage Payment</1>.`
       */
     ["com.affine.settings.workspace.license.deactivate-modal.description"]: ComponentType<TypedTransProps<Readonly<{}>, {
-        ["1"]: JSX.Element;
-    }>>;
-    /**
-      * `Activate using the local key from <1>Toeverything.Inc</1>`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.team.license"]: ComponentType<TypedTransProps<Readonly<{}>, {
-        ["1"]: JSX.Element;
-    }>>;
-    /**
-      * `Copy your workspace id and <1>reach out to us</1>.`
-      */
-    ["com.affine.settings.workspace.license.self-host-team.upload-license-file.tips.content"]: ComponentType<TypedTransProps<Readonly<{}>, {
         ["1"]: JSX.Element;
     }>>;
     /**

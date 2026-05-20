@@ -89,6 +89,21 @@ export const PromptToolsSchema = z
     'dataViewFilter',
     // data-view cell autofill (ε-AI-INTEL v1.10)
     'dataViewAutofillColumn',
+    // image generation via Vertex Imagen (M3 E3.2)
+    'imageGen',
+    // remote code execution via Modal sandbox (M3 E3.1)
+    'codeRun',
+    // Gmail search via existing Google OAuth scaffold (M1 B10 / E1.8)
+    'gmailSearch',
+    // Workspace-linked calendar search (M1 B10 / E1.8)
+    'calendarSearch',
+    // GitHub: issue search, single-issue read, repo search, PR read
+    // — all read-only and gated on the user having connected GitHub
+    // under Settings → Integrations (M2 E2.1).
+    'githubSearchIssues',
+    'githubReadIssue',
+    'githubSearchRepos',
+    'githubReadPr',
   ])
   .array();
 

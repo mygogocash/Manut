@@ -313,6 +313,45 @@ export const AFFINE_FLAGS = {
     configurable: true,
     defaultState: false,
   },
+  // M-floating-chat / Epic E1.4 — ⌘J slide-in chat surface. Hidden behind a
+  // flag so the v1 rollout can be wave-gated; flip to defaultState: true
+  // once the wiring is validated against the existing chat panel.
+  floating_ai_chat: {
+    category: 'affine',
+    displayName: 'Enable Floating AI Chat (⌘J)',
+    description:
+      'Adds a bottom-right floating button and ⌘J shortcut that slides in the AI chat panel from the right edge. Reuses the same chat input + messages as the dedicated chat surface; auto-injects the current doc as context.',
+    configurable: true,
+    defaultState: false,
+  },
+  // Wave-2 Sidebar Phase 2 / Epic E1.9 — five-tab strip (Home / Chat /
+  // Meetings / Inbox / Search) at the top of the sidebar, swapping the
+  // body view per tab, plus a Customize Sections popover on the Home
+  // view. Flag-gated so the M1 rollout can ship the Home + Search tabs
+  // first and the Chat / Meetings / Inbox surfaces fill in during M2.
+  sidebar_tabs_v2: {
+    category: 'affine',
+    displayName: 'Enable Sidebar Tabs v2',
+    description:
+      'Adds a five-icon tab strip (Home / Chat / Meetings / Inbox / Search) to the sidebar. Home reuses the existing nav content; Chat / Meetings / Inbox are placeholder surfaces in M1 with full experiences shipping in M2. Search opens the existing quick-search modal.',
+    configurable: true,
+    defaultState: false,
+  },
+  // Manut M1 — Epic E1.11. WebSocket transport for AI chat, in parallel
+  // with SSE. When OFF (default) the chat input goes through the existing
+  // SSE `/api/copilot/chat/:sessionId/stream-object` endpoint. When ON,
+  // the request layer dynamically imports the WS transport and routes
+  // through the `/copilot-chat` socket.io namespace. SSE stays alive
+  // for 30 days as fallback per plan decision #23 — flipping this flag
+  // off rolls back instantly.
+  ws_transport: {
+    category: 'affine',
+    displayName: 'Enable WebSocket transport for AI chat',
+    description:
+      'Routes AI chat streaming through a WebSocket transport (socket.io namespace /copilot-chat) instead of SSE. Adds tool-progress and memory-pushed push events. Off by default during the canary; SSE remains the fallback for 30 days post-cutover.',
+    configurable: true,
+    defaultState: false,
+  },
 } satisfies { [key in string]: FlagInfo };
 
 // oxlint-disable-next-line no-redeclare

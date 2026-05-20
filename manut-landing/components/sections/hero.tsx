@@ -63,7 +63,7 @@ export function Hero() {
               className="h-12 w-full min-h-11 rounded-full bg-foreground px-6 text-base text-background shadow-[0_12px_40px_-12px_oklch(0.18_0.01_260/0.55)] hover:bg-foreground/90 sm:w-auto"
             >
               <span className="sm:hidden">Start free</span>
-              <span className="hidden sm:inline">Start free — no cap</span>
+              <span className="hidden sm:inline">Start free in 30 seconds</span>
               <ArrowRight className="size-4" aria-hidden />
             </ButtonLink>
             <ButtonLink
@@ -97,7 +97,7 @@ export function Hero() {
             </li>
             <li className="flex items-center justify-center gap-1.5 sm:justify-start">
               <Sparkles className="size-3.5 shrink-0" aria-hidden />
-              MIT · self-host OK
+              Free in 30 seconds
             </li>
           </ul>
         </div>

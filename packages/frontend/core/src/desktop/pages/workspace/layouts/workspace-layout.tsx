@@ -1,6 +1,8 @@
 import { uniReactRoot } from '@affine/component';
 import { AiLoginRequiredModal } from '@affine/core/components/affine/auth/ai-login-required';
+import { FloatingAiChatAnchor } from '@affine/core/components/floating-ai-chat-anchor';
 import { useResponsiveSidebar } from '@affine/core/components/hooks/use-responsive-siedebar';
+import { KeyboardShortcutsAnchor } from '@affine/core/components/keyboard-shortcuts';
 import { SWRConfigProvider } from '@affine/core/components/providers/swr-config-provider';
 import { WorkspaceSideEffects } from '@affine/core/components/providers/workspace-side-effects';
 import { AIIsland } from '@affine/core/desktop/components/ai-island';
@@ -37,8 +39,19 @@ export const WorkspaceLayout = function WorkspaceLayout({
       {/* should show after workspace loaded */}
       {/* FIXME: wait for better ai, <WorkspaceAIOnboarding /> */}
       <AIIsland />
+      {/* Epic E1.4 — slide-in chat surface, gated by `floating_ai_chat` flag.
+          Component renders null when the flag is off, so unconditional
+          mounting here is safe and keeps the workbench shell the single
+          mount point for every /workspace/* route. */}
+      <FloatingAiChatAnchor />
       <FirstRunExperience />
       <KeyboardShortcutsOverlay />
+      {/* M2 E2.8 — Cmd+P quick switcher + Cmd+Shift+/ workspace
+          shortcuts overlay. Co-mounted with the existing `?` cheat-
+          sheet above; the two cover different audiences (editor
+          shortcuts vs workspace shell shortcuts) and never bind to
+          the same key combination. */}
+      <KeyboardShortcutsAnchor />
       <uniReactRoot.Root />
     </SWRConfigProvider>
   );

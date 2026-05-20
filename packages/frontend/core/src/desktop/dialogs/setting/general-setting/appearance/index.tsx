@@ -13,6 +13,7 @@ import { useLiveData, useService } from '@toeverything/infra';
 import { useTheme } from 'next-themes';
 import { useCallback, useMemo } from 'react';
 
+import { useAudioCues } from '../../../../../components/affine/audio/use-audio-cues';
 import { useAppSettingHelper } from '../../../../../components/hooks/affine/use-app-setting-helper';
 import { OpenInAppLinksMenu } from './links';
 import { settingWrapper } from './style.css';
@@ -151,6 +152,33 @@ const MenubarSetting = () => {
   );
 };
 
+/**
+ * Sound effects toggle (M2 E2.8 §B7 audio cues).
+ *
+ * Default OFF per IMPLEMENTATION_PLAN.md decision #14 — users opt
+ * in. The toggle is mounted inside Appearance because it's an
+ * ambient-sensory setting; this matches the precedent of "Image
+ * antialiasing" living here rather than in a dedicated panel.
+ *
+ * The audio context is lazy-loaded the first time `play` is called
+ * (or proactively warmed when the user toggles ON), so the bundle
+ * cost when off is just the module-level constants.
+ */
+const SoundEffectsSettings = () => {
+  const { enabled, setEnabled } = useAudioCues();
+  return (
+    <SettingWrapper title="Sound effects">
+      <SettingRow
+        name="Audio cues"
+        desc="Play subtle tones when AI completes, messages send, or connections succeed. Off by default."
+        data-testid="audio-cues-trigger"
+      >
+        <Switch checked={enabled} onChange={checked => setEnabled(checked)} />
+      </SettingRow>
+    </SettingWrapper>
+  );
+};
+
 export const AppearanceSettings = () => {
   const t = useI18n();
 
@@ -213,6 +241,8 @@ export const AppearanceSettings = () => {
           />
         </SettingRow>
       </SettingWrapper>
+
+      <SoundEffectsSettings />
 
       {BUILD_CONFIG.isWeb && !environment.isMobile ? (
         <SettingWrapper title={t['com.affine.setting.appearance.links']()}>

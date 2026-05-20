@@ -91,6 +91,11 @@ declare global {
     'stripe.charge.refunded': Stripe.ChargeRefundedEvent;
     'stripe.charge.dispute.created': Stripe.ChargeDisputeCreatedEvent;
     'stripe.charge.dispute.closed': Stripe.ChargeDisputeClosedEvent;
+    // Manut Pro tier (E3.3 / M3) — Pro upgrade flow listens here.
+    // Declared alongside the existing Stripe event surface so the type
+    // of `@OnEvent('stripe.checkout.session.completed')` resolves
+    // cleanly via the global `Events` interface declaration merging.
+    'stripe.checkout.session.completed': Stripe.CheckoutSessionCompletedEvent;
 
     // RevenueCat integration
     'revenuecat.webhook': {

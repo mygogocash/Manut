@@ -51,6 +51,8 @@ type PureChatSession = {
   workspaceId: string;
   docId?: string | null;
   pinned?: boolean;
+  // Manut Wave 6 E2.5: optional per-tab pin doc id (see schema.prisma).
+  pinnedDocId?: string | null;
   title: string | null;
   messages?: ChatMessage[];
   // connect ids
@@ -84,7 +86,10 @@ type UpdateChatSessionMessage = ChatSessionBaseState & {
 };
 
 export type UpdateChatSessionOptions = ChatSessionBaseState &
-  Pick<Partial<ChatSession>, 'docId' | 'pinned' | 'promptName' | 'title'>;
+  Pick<
+    Partial<ChatSession>,
+    'docId' | 'pinned' | 'pinnedDocId' | 'promptName' | 'title'
+  >;
 
 export type UpdateChatSession = ChatSessionBaseState & UpdateChatSessionOptions;
 
@@ -341,6 +346,8 @@ export class CopilotSessionModel extends BaseModel {
         workspaceId: state.workspaceId,
         docId: state.docId,
         pinned: state.pinned ?? false,
+        // Manut Wave 6 E2.5: per-tab sticky pin. Defaults to null when omitted.
+        pinnedDocId: state.pinnedDocId ?? null,
         // connect
         userId: state.userId,
         promptName: state.promptName,
@@ -451,6 +458,10 @@ export class CopilotSessionModel extends BaseModel {
       // ChatSessionService.get() reads this off the fetched row so it
       // does not need to re-query AiSession before recording a turn.
       agentId: true,
+      // Manut Wave 6 E2.5: per-tab sticky pin in the floating multi-chat
+      // panel. Read here so the GraphQL `pinnedDocId` field on
+      // CopilotHistories doesn't need a separate round-trip.
+      pinnedDocId: true,
       tokenCost: true,
       createdAt: true,
       updatedAt: true,
@@ -541,6 +552,9 @@ export class CopilotSessionModel extends BaseModel {
         // Manut control plane: same as `get()`. Keeps `getHistory()`
         // happy when it threads list output through the same shape.
         agentId: true,
+        // Manut Wave 6 E2.5: per-tab sticky pin. Same select-shape parity
+        // with `get()` so list+detail paths emit the same ChatHistory shape.
+        pinnedDocId: true,
         tokenCost: true,
         createdAt: true,
         updatedAt: true,
@@ -585,7 +599,17 @@ export class CopilotSessionModel extends BaseModel {
     options: UpdateChatSessionOptions,
     internalCall = false
   ): Promise<string> {
-    const { userId, sessionId, docId, promptName, pinned, title } = options;
+    const {
+      userId,
+      sessionId,
+      docId,
+      promptName,
+      pinned,
+      // Manut Wave 6 E2.5: undefined means "leave alone", explicit `null`
+      // means "clear the pin", any string means "lock to this docId".
+      pinnedDocId,
+      title,
+    } = options;
     const sanitizedTitle = this.sanitizeString(title);
     const session = await this.getExists(
       sessionId,
@@ -634,7 +658,16 @@ export class CopilotSessionModel extends BaseModel {
 
     await this.db.aiSession.update({
       where: { id: sessionId },
-      data: { docId, promptName, pinned, title: sanitizedTitle },
+      data: {
+        docId,
+        promptName,
+        pinned,
+        title: sanitizedTitle,
+        // Only thread `pinnedDocId` through when the caller passed it;
+        // Prisma treats `undefined` as "don't touch" so we get the
+        // tri-state semantics (unset / null / value) we want.
+        ...(pinnedDocId !== undefined ? { pinnedDocId } : {}),
+      },
     });
 
     return sessionId;

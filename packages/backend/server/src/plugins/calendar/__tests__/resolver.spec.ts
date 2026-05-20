@@ -21,6 +21,7 @@ function makeUser(id = 'user-1'): CurrentUser {
     disabled: false,
     hasPassword: true,
     emailVerified: true,
+    completedOnboarding: true,
   };
 }
 

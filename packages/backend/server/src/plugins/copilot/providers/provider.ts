@@ -13,6 +13,9 @@ import {
 import { DocReader, DocWriter } from '../../../core/doc';
 import { AccessController } from '../../../core/permission';
 import { Models } from '../../../models';
+import { CalendarService } from '../../calendar/service';
+import { GithubOAuthService } from '../../github-oauth/github-oauth.service';
+import { GoogleOAuthService } from '../../google-oauth/google-oauth.service';
 import { IndexerService } from '../../indexer';
 import { MnApprovalService } from '../../manut/manut-approval.service';
 import { MnApprovalGateService } from '../../manut/manut-approval-gate.service';
@@ -21,8 +24,11 @@ import type { ProviderMiddlewareConfig } from '../config';
 import { CopilotContextService } from '../context/service';
 import { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
 import { PromptService } from '../prompt/service';
+import { CopilotStorage } from '../storage';
 import {
   buildBlobContentGetter,
+  buildCalendarSearchHandler,
+  buildCodeRunHandler,
   buildContentGetter,
   buildDocContentGetter,
   buildDocCreateHandler,
@@ -30,10 +36,18 @@ import {
   buildDocSearchGetter,
   buildDocUpdateHandler,
   buildDocUpdateMetaHandler,
+  buildGithubReadIssueHandler,
+  buildGithubReadPrHandler,
+  buildGithubSearchIssuesHandler,
+  buildGithubSearchReposHandler,
+  buildGmailSearchHandler,
+  buildImageGenHandler,
   type CopilotTool,
   type CopilotToolSet,
   createBlobReadTool,
+  createCalendarSearchTool,
   createCodeArtifactTool,
+  createCodeRunTool,
   createConversationSummaryTool,
   createDataViewAutofillColumnTool,
   createDataViewFilterTool,
@@ -47,6 +61,12 @@ import {
   createDocUpdateTool,
   createExaCrawlTool,
   createExaSearchTool,
+  createGithubReadIssueTool,
+  createGithubReadPrTool,
+  createGithubSearchIssuesTool,
+  createGithubSearchReposTool,
+  createGmailSearchTool,
+  createImageGenTool,
   createSectionEditTool,
 } from '../tools';
 import { canonicalizePromptAttachment } from './attachments';
@@ -527,6 +547,104 @@ export abstract class CopilotProvider<C = any> {
           case 'webSearch': {
             tools.web_search_exa = createExaSearchTool(this.AFFiNEConfig);
             tools.web_crawl_exa = createExaCrawlTool(this.AFFiNEConfig);
+            break;
+          }
+          case 'imageGen': {
+            // M3 E3.2 — Vertex Imagen via the existing geminiVertex
+            // auth path. CopilotStorage is resolved lazily so a
+            // deployment without it (unlikely — it's always in the
+            // CopilotModule providers list) just skips the tool.
+            const copilotStorage = this.moduleRef.get(CopilotStorage, {
+              strict: false,
+            });
+            if (copilotStorage) {
+              const imageGenHandler = buildImageGenHandler(
+                this.AFFiNEConfig,
+                copilotStorage
+              );
+              tools.image_gen = createImageGenTool(
+                imageGenHandler.bind(null, options)
+              );
+            }
+            break;
+          }
+          case 'codeRun': {
+            // M3 E3.1 — Modal sandbox via a single typed Config entry.
+            // The tool handler reads `config.copilot.modal.{apiToken,
+            // endpoint}` directly, returns `toolError` when the token
+            // is unset (graceful no-op), and never throws. The bound
+            // handler shape mirrors imageGen / gmailSearch.
+            const codeRunHandler = buildCodeRunHandler(this.AFFiNEConfig);
+            tools.code_run = createCodeRunTool(
+              codeRunHandler.bind(null, options)
+            );
+            break;
+          }
+          case 'gmailSearch': {
+            // M1 B10 / E1.8 — Gmail API via the existing Google OAuth
+            // scaffold. GoogleOAuthService.getValidAccessToken handles
+            // the 5-minute refresh window; the tool itself gracefully
+            // degrades when not connected / not configured.
+            const oauth = this.moduleRef.get(GoogleOAuthService, {
+              strict: false,
+            });
+            if (oauth) {
+              const gmailHandler = buildGmailSearchHandler(oauth);
+              tools.gmail_search = createGmailSearchTool(
+                gmailHandler.bind(null, options)
+              );
+            }
+            break;
+          }
+          case 'calendarSearch': {
+            // M1 B10 / E1.8 — Workspace-linked calendar events from
+            // the CalendarService's Postgres-cached event table.
+            // No live Google Calendar round-trip per AI invocation;
+            // CalendarService maintains the cache via sync workers
+            // and kicks off background resync on stale subscriptions.
+            const calendarService = this.moduleRef.get(CalendarService, {
+              strict: false,
+            });
+            if (calendarService) {
+              const calendarHandler =
+                buildCalendarSearchHandler(calendarService);
+              tools.calendar_search = createCalendarSearchTool(
+                calendarHandler.bind(null, options)
+              );
+            }
+            break;
+          }
+          case 'githubSearchIssues':
+          case 'githubReadIssue':
+          case 'githubSearchRepos':
+          case 'githubReadPr': {
+            // M2 E2.1 — GitHub REST tools via the v1.13.0 GitHub
+            // OAuth scaffold. All four read-only tools share a
+            // single GithubOAuthService resolution; the binding is
+            // cheap and we'd rather register every tool the chat
+            // session opted into than skip subsequent ones because
+            // the first hit `break`-d out. GithubOAuthService is
+            // resolved lazily via moduleRef so installs without
+            // GITHUB_OAUTH_* env vars degrade gracefully — the
+            // tools surface a "configure" toolError on first call
+            // rather than crashing the chat stream.
+            const githubOAuth = this.moduleRef.get(GithubOAuthService, {
+              strict: false,
+            });
+            if (githubOAuth) {
+              tools.github_search_issues = createGithubSearchIssuesTool(
+                buildGithubSearchIssuesHandler(githubOAuth).bind(null, options)
+              );
+              tools.github_read_issue = createGithubReadIssueTool(
+                buildGithubReadIssueHandler(githubOAuth).bind(null, options)
+              );
+              tools.github_search_repos = createGithubSearchReposTool(
+                buildGithubSearchReposHandler(githubOAuth).bind(null, options)
+              );
+              tools.github_read_pr = createGithubReadPrTool(
+                buildGithubReadPrHandler(githubOAuth).bind(null, options)
+              );
+            }
             break;
           }
           case 'docCompose': {

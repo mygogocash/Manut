@@ -43,7 +43,7 @@ export const modalContent = style({
   // height: 530,
   backgroundColor: cssVar('backgroundOverlayPanelColor'),
   boxShadow: cssVar('cmdShadow'),
-  borderRadius: '12px',
+  borderRadius: 'var(--manut-radius-card, 12px)',
   maxWidth: 'calc(100vw - 50px)',
   minWidth: 480,
   // minHeight: 420,
@@ -64,6 +64,19 @@ export const modalContent = style({
   },
   '@media': {
     'screen and (max-width: 520px)': {
+      minWidth: 'auto',
+    },
+  },
+});
+
+// Wide variant for the enhanced (Notion-style) docs cmdk layout. Applied
+// via a sibling className on QuickSearchModal — leaves the legacy
+// 640px modal untouched for action pickers and command palettes.
+export const modalContentWide = style({
+  width: 920,
+  '@media': {
+    'screen and (max-width: 980px)': {
+      width: '100%',
       minWidth: 'auto',
     },
   },

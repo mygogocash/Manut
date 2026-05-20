@@ -24,6 +24,11 @@ model User {
   /// for example, the value will be false if user never registered and invited into a workspace by others.
   registered      Boolean   @default(true)
   disabled        Boolean   @default(false)
+  /// Wave 2 B6 — set to true once the user finishes (or skips) the
+  /// 4-question onboarding wizard at `/welcome`. Non-nullable with a
+  /// `false` default so the migration is idempotent and existing rows
+  /// auto-fill — see `migrations/20260520030000_add_user_completed_onboarding/`.
+  completedOnboarding Boolean   @default(false) @map("completed_onboarding")
 
   features                    UserFeature[]
   userStripeCustomer          UserStripeCustomer?
@@ -165,6 +170,11 @@ model Workspace {
   avatarKey           String?  @map("avatar_key") @db.VarChar
   indexed             Boolean  @default(false)
   lastCheckEmbeddings DateTime @default("1970-01-01T00:00:00-00:00") @map("last_check_embeddings") @db.Timestamptz(3)
+  // Manut Pro tier plan: NULL or 'free' → FREE_TIER, 'pro' → PRO_TIER.
+  // See `core/quota/tiers.ts` for tier shapes and `plugins/payment/manut-pro-webhook.ts`
+  // for the Stripe-driven flip. Defaults to NULL so existing rows
+  // grandfather into Free with no data migration.
+  plan                String?  @db.VarChar
 
   features                   WorkspaceFeature[]
   docs                       WorkspaceDoc[]
@@ -602,6 +612,15 @@ model AiSession {
   // task / goal ancestry context into its system prompt. SetNull on task
   // delete so session history survives task removal.
   taskId          String?   @map("task_id") @db.VarChar
+  // Manut Wave 6 E2.5: when set, the floating chat tab locks its context
+  // to this doc and ignores nav-driven doc swaps. Null = context follows
+  // current page (existing behavior). Distinct from `docId` (which is the
+  // original session doc binding); `pinnedDocId` is a user-controlled
+  // "this tab is sticky" flag surfaced as a pin chip in the floating
+  // panel. No FK constraint — soft reference so doc deletes don't cascade
+  // into chat history. Idempotent migration:
+  // 20260520020000_add_pinned_doc_id_to_chat_histories.
+  pinnedDocId     String?   @map("pinned_doc_id") @db.VarChar
 
   user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   prompt          AiPrompt           @relation(fields: [promptName], references: [name], onDelete: Cascade)
@@ -2381,6 +2400,28 @@ model MnBudget {
   @@unique([workspaceId, scopeType, scopeId, monthYear])
   @@index([workspaceId, scopeType])
   @@map("mn_budgets")
+}
+
+/// Manut Wave 6 (E1.12 — T-1.12.1.a) — per-workspace AI budget usage.
+///
+/// One row per (workspaceId, periodStart) tracks running monthly spend
+/// in USD cents. Read by AiBudgetService.assertWithinCap to gate chat
+/// invocations against the workspace's tier cap (FREE=$5, PRO=$50,
+/// per IMPLEMENTATION_PLAN §0.3 decision #19 + #26 — same tiers exported
+/// from packages/backend/server/src/core/quota/tiers.ts).
+///
+/// Distinct from MnBudget (which is scope-chained: project/agent/task/
+/// goal/workspace). This is the simpler plan-tier ceiling that sits in
+/// front of every chat turn; M4's scope-chain enforcer stays independent.
+model MnAiBudgetUsage {
+  workspaceId String   @map("workspace_id") @db.VarChar
+  periodStart DateTime @map("period_start") @db.Timestamptz(3)
+  spentCents  Int      @default(0) @map("spent_cents")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@id([workspaceId, periodStart])
+  @@index([periodStart(sort: Desc)], map: "mn_ai_budget_usage_period_idx")
+  @@map("mn_ai_budget_usage")
 }
 
 // ---------------------------------------------------------------------------

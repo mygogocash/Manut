@@ -2,7 +2,7 @@ import { type Framework } from '@toeverything/infra';
 
 import { WorkspaceServerService } from '../cloud';
 import { CollectionService } from '../collection';
-import { WorkspaceDialogService } from '../dialogs';
+import { GlobalDialogService, WorkspaceDialogService } from '../dialogs';
 import { DocsService } from '../doc';
 import { DocDisplayMetaService } from '../doc-display-meta';
 import { DocsSearchService } from '../docs-search';
@@ -26,6 +26,7 @@ import { JournalsQuickSearchSession } from './impls/journals';
 import { LinksQuickSearchSession } from './impls/links';
 import { RecentDocsQuickSearchSession } from './impls/recent-docs';
 import { TagsQuickSearchSession } from './impls/tags';
+import { VerbsQuickSearchSession } from './impls/verbs';
 import { CMDKQuickSearchService } from './services/cmdk';
 import { QuickSearchService } from './services/quick-search';
 import { RecentDocsService } from './services/recent-pages';
@@ -40,6 +41,7 @@ export { ExternalLinksQuickSearchSession } from './impls/external-links';
 export { LinksQuickSearchSession } from './impls/links';
 export { RecentDocsQuickSearchSession } from './impls/recent-docs';
 export { TagsQuickSearchSession } from './impls/tags';
+export { VerbsQuickSearchSession } from './impls/verbs';
 export type { QuickSearchItem } from './types/item';
 export { QuickSearchContainer } from './views/container';
 export { QuickSearchTagIcon } from './views/tag-icon';
@@ -81,5 +83,11 @@ export function configureQuickSearchModule(framework: Framework) {
       JournalService,
       WorkspaceDialogService,
       DocDisplayMetaService,
+    ])
+    .entity(VerbsQuickSearchSession, [
+      DocsService,
+      WorkbenchService,
+      GlobalDialogService,
+      WorkspaceDialogService,
     ]);
 }

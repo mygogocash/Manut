@@ -1,0 +1,11 @@
+mutation pinMemory($id: ID!) {
+  pinMemory(id: $id) {
+    id
+    content
+    kind
+    scope
+    pinned
+    createdAt
+    workspaceId
+  }
+}

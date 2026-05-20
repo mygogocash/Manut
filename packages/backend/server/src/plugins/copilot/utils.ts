@@ -97,6 +97,11 @@ export function getTools(
   }
   let result: PromptTools = tools;
   (Object.keys(toolsConfig) as Array<keyof ToolsConfig>).forEach(key => {
+    // ε-AI-INTEL B8: enabledTools is the per-tool allowlist, applied
+    // AFTER the legacy flag mapping below so the explicit user choice
+    // wins. Handled in its own pass to avoid colliding with the flag
+    // switch (which only knows about flag keys).
+    if (key === 'enabledTools') return;
     const value = toolsConfig[key];
     switch (key) {
       case 'searchWorkspace':
@@ -137,5 +142,19 @@ export function getTools(
         break;
     }
   });
+
+  // ε-AI-INTEL B8 / Epic E1.6: per-tool allowlist gate. When the client
+  // explicitly opted out of one or more tools via the Advanced submenu,
+  // `enabledTools` carries the surviving set. Filter the resolved tool
+  // list by membership — unknown tool names in the array are ignored
+  // (forward compatibility for tool names the backend hasn't shipped
+  // yet). When `enabledTools` is undefined the legacy flag mapping is
+  // the sole gate, preserving the v1.10 contract.
+  const enabledTools = toolsConfig.enabledTools;
+  if (Array.isArray(enabledTools)) {
+    const allow = new Set<string>(enabledTools);
+    result = result.filter(tool => allow.has(tool));
+  }
+
   return result;
 }

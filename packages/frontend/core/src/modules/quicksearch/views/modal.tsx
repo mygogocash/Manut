@@ -1,5 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { assignInlineVars } from '@vanilla-extract/dynamic';
+import clsx from 'clsx';
 import { useEffect } from 'react';
 import { useTransition } from 'react-transition-state';
 
@@ -11,6 +12,12 @@ import * as styles from './modal.css';
 export interface QuickSearchModalProps {
   open: boolean;
   onOpenChange?: (open: boolean) => void;
+  /**
+   * Wider variant for the Notion-style docs cmdk layout (split list +
+   * preview pane). Defaults to false so action pickers and command
+   * palettes keep their compact 640px width.
+   */
+  wide?: boolean;
 }
 
 const animationTimeout = 120;
@@ -18,6 +25,7 @@ const animationTimeout = 120;
 export const QuickSearchModal = ({
   onOpenChange,
   open,
+  wide = false,
   children,
 }: React.PropsWithChildren<QuickSearchModalProps>) => {
   const [{ status }, toggle] = useTransition({
@@ -35,7 +43,9 @@ export const QuickSearchModal = ({
             style={assignInlineVars({
               [styles.animationTimeout]: `${animationTimeout}ms`,
             })}
-            className={styles.modalContent}
+            className={clsx(styles.modalContent, {
+              [styles.modalContentWide]: wide,
+            })}
             data-state={status}
           >
             {children}

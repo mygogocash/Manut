@@ -1,4 +1,3 @@
-import { Logger } from '@nestjs/common';
 import {
   Args,
   Field,
@@ -12,8 +11,8 @@ import {
 } from '@nestjs/graphql';
 import { GraphQLJSON, GraphQLJSONObject } from 'graphql-scalars';
 
-import { Config, hasNewerVersion, URLHelper } from '../../base';
-import { Namespace } from '../../env';
+import { Config, URLHelper } from '../../base';
+import { DeploymentType } from '../../env';
 import { Feature, type WorkspaceFeatureName } from '../../models';
 import { CurrentUser, Public } from '../auth';
 import { Admin } from '../common';
@@ -50,16 +49,8 @@ export class ReleaseVersionType {
   changelog!: string;
 }
 
-const RELEASE_CHANNEL_MAP = new Map<Namespace, string>([
-  [Namespace.Dev, 'canary'],
-  [Namespace.Beta, 'beta'],
-  [Namespace.Production, 'stable'],
-]);
-
 @Resolver(() => ServerConfigType)
 export class ServerConfigResolver {
-  private readonly logger = new Logger(ServerConfigResolver.name);
-
   constructor(
     private readonly config: Config,
     private readonly url: URLHelper,
@@ -74,16 +65,18 @@ export class ServerConfigResolver {
     return {
       name:
         this.config.server.name ??
-        (env.selfhosted
-          ? 'Manut SelfHosted Cloud'
-          : env.namespaces.canary
-            ? 'Manut Canary Cloud'
-            : env.namespaces.beta
-              ? 'Manut Beta Cloud'
-              : 'Manut Cloud'),
+        (env.namespaces.canary
+          ? 'Manut Canary Cloud'
+          : env.namespaces.beta
+            ? 'Manut Beta Cloud'
+            : 'Manut Cloud'),
       version: env.version,
       baseUrl: this.url.requestBaseUrl,
-      type: env.DEPLOYMENT_TYPE,
+      // Manut is cloud-only — `DeploymentType` is hardcoded to `Affine` so
+      // the GraphQL `ServerConfigType.type` field consistently reflects the
+      // cloud surface. The historical `env.DEPLOYMENT_TYPE` selfhost branch
+      // is intentionally removed; see docs/IMPLEMENTATION_PLAN.md §0.2.
+      type: DeploymentType.Affine,
       features: this.server.features,
     };
   }
@@ -112,51 +105,10 @@ export class ServerConfigResolver {
     description: 'fetch latest available upgradable release of server',
   })
   async availableUpgrade(): Promise<ReleaseVersionType | null> {
-    if (!env.selfhosted) {
-      return null;
-    }
-
-    const channel = RELEASE_CHANNEL_MAP.get(env.NAMESPACE) ?? 'stable';
-    const url = `https://affine.pro/api/worker/releases?channel=${channel}`;
-
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'Cache-Control': 'no-cache',
-        },
-      });
-
-      if (!response.ok) {
-        this.logger.error(
-          'failed to fetch affine releases',
-          await response.text()
-        );
-        return null;
-      }
-      const releases = (await response.json()) as Array<{
-        name: string;
-        url: string;
-        body: string;
-        published_at: string;
-      }>;
-
-      const latest = releases.at(0);
-      if (!latest || !hasNewerVersion(env.version, latest.name)) {
-        return null;
-      }
-
-      return {
-        version: latest.name,
-        url: latest.url,
-        changelog: latest.body,
-        publishedAt: new Date(latest.published_at),
-      };
-    } catch (e) {
-      this.logger.error('failed to fetch affine releases', e);
-      return null;
-    }
+    // Manut is cloud-only — there is no in-app upgrade probe. The historical
+    // upstream behavior fetched the AFFiNE GitHub releases feed when running
+    // self-hosted; on cloud we always return null.
+    return null;
   }
 }
 

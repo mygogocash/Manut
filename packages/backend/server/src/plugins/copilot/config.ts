@@ -262,6 +262,10 @@ declare global {
       exa: ConfigItem<{
         key: string;
       }>;
+      modal: ConfigItem<{
+        apiToken: string;
+        endpoint: string;
+      }>;
       storage: ConfigItem<StorageProviderConfig>;
       scenarios: ConfigItem<CopilotPromptScenario>;
       providers: {
@@ -423,6 +427,13 @@ defineModuleConfig('copilot', {
     desc: 'The config for the exa web search key.',
     default: {
       key: '',
+    },
+  },
+  modal: {
+    desc: 'The config for the Modal sandbox `code_run` tool. `apiToken` flows through as a Bearer token to the operator-deployed Modal web endpoint; leave empty to disable the tool (graceful no-op).',
+    default: {
+      apiToken: '',
+      endpoint: '',
     },
   },
   storage: {

@@ -7,6 +7,7 @@ export const dynamic = 'force-static';
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   const sections = ['about-manut', 'features', 'ai', 'pricing', 'faq'];
+  const legalPages = ['terms', 'privacy'];
   return [
     {
       url: siteConfig.url,
@@ -19,6 +20,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: 'monthly' as const,
       priority: 0.7,
+    })),
+    ...legalPages.map(path => ({
+      url: `${siteConfig.url}/${path}`,
+      lastModified: now,
+      changeFrequency: 'yearly' as const,
+      priority: 0.3,
     })),
   ];
 }

@@ -27,21 +27,26 @@ const ToolsConfigSchema = z.preprocess(
     }
     return val || {};
   },
-  // ε-AI-INTEL v1.10: extended with write-tool flags so chat sessions can
-  // opt into AI making changes (editingDocs/composingDocs/editingDataViews).
-  // Each flag corresponds to a group of backend tools — see
-  // `getTools()` in ./utils.ts for the actual mapping.
+  // ε-AI-INTEL v1.10: the editing-flag map (search/read/edit groups)
+  // remains the primary toolsConfig surface — each flag opts into a
+  // backend tool group via `getTools()` in ./utils.ts.
+  //
+  // ε-AI-INTEL B8 / Epic E1.6: the optional `enabledTools` field
+  // carries an explicit per-tool allowlist. When present, `getTools()`
+  // filters the prompt's declared tool set by membership AFTER the
+  // legacy flag mapping has been applied. Stored on the same flat
+  // object as the flags so old clients keep posting
+  // `{searchWorkspace: true, ...}` without any envelope change.
   z
-    .record(
-      z.enum([
-        'searchWorkspace',
-        'readingDocs',
-        'editingDocs',
-        'composingDocs',
-        'editingDataViews',
-      ]),
-      z.boolean()
-    )
+    .object({
+      searchWorkspace: z.boolean().optional(),
+      readingDocs: z.boolean().optional(),
+      editingDocs: z.boolean().optional(),
+      composingDocs: z.boolean().optional(),
+      editingDataViews: z.boolean().optional(),
+      enabledTools: z.array(z.string()).optional(),
+    })
+    .passthrough()
     .default({})
 );
 
@@ -99,6 +104,10 @@ export const ChatHistorySchema = z
     // ChatSessionService.get() reads this off the in-memory state so it
     // does not need to re-query AiSession before recording a turn.
     agentId: z.string().nullable(),
+    // Manut Wave 6 E2.5: per-tab pin in the floating multi-chat panel.
+    // When non-null, the tab's context is locked to this doc and ignores
+    // navigation; null = context follows the current page.
+    pinnedDocId: z.string().nullable(),
 
     action: z.string().nullable(),
     model: z.string(),
@@ -127,6 +136,9 @@ export type ChatSessionOptions = Pick<
   'userId' | 'workspaceId' | 'docId' | 'promptName' | 'pinned'
 > & {
   reuseLatestChat?: boolean;
+  // Manut Wave 6 E2.5: optional starting pin for the floating-chat tab.
+  // Null/omitted = no pin (context follows nav); a doc id = lock the tab.
+  pinnedDocId?: string | null;
 };
 
 export type ChatSessionForkOptions = Pick<

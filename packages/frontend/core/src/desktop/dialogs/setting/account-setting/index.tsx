@@ -23,6 +23,12 @@ import type { SettingState } from '../types';
 import { AIUsagePanel } from './ai-usage-panel';
 import { DeleteAccount } from './delete-account';
 import { IntegrationsPanel } from './integrations-panel';
+// M2 — E2.2 — "What AI knows about me" memory list (FACTs/OBSERVATIONs
+// ingested by the chat-session post-completion hook in commit
+// eb92e4b53). Gated on the same `serverFeatures?.copilot` flag as the
+// AI usage panel — on builds without the copilot plugin the GraphQL
+// surface isn't registered.
+import { MemoryPanel } from './memory-panel';
 import { StorageProgress } from './storage-progress';
 import * as styles from './style.css';
 
@@ -242,6 +248,7 @@ export const AccountSetting = ({
         {serverFeatures?.copilot && (
           <AIUsagePanel onChangeSettingState={onChangeSettingState} />
         )}
+        {serverFeatures?.copilot && <MemoryPanel />}
         <IntegrationsPanel onChangeSettingState={onChangeSettingState} />
         <SettingRow
           name={t[`Sign out`]()}

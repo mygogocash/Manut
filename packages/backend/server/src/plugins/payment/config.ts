@@ -57,6 +57,23 @@ declare global {
         /** Product whitelist mapping: productId -> { plan, recurring } */
         productMap?: Record<string, { plan: string; recurring: string }>;
       }>;
+      // Manut Pro tier (E3.3 / M3) — separate config namespace from
+      // AFFiNE's existing checkout surface. See
+      // `./manut-pro-config.ts` for the keys + env mapping.
+      manutPro: ConfigItem<{
+        /** Stripe Price ID for the Manut Pro recurring subscription. */
+        priceId?: string;
+        /**
+         * Optional Pro-tier-specific webhook signing secret. When unset,
+         * the global `payment.stripe.webhookKey` is reused via the
+         * shared event bus.
+         */
+        webhookSecret?: string;
+        /** Absolute URL to redirect to after a successful checkout. */
+        successUrl?: string;
+        /** Absolute URL to redirect to on cancel. */
+        cancelUrl?: string;
+      }>;
     };
   }
 }
@@ -99,5 +116,20 @@ defineModuleConfig('payment', {
       productMap: {},
     },
     link: 'https://www.revenuecat.com/docs/',
+  },
+  // Manut Pro tier (E3.3 / M3). Env mapping happens in
+  // `./manut-pro-config.ts` via the per-leaf env helpers (the
+  // ConfigItem<T> here only takes per-block defaults; leaf-level env
+  // mappings are picked up by the runtime config loader on the same
+  // object path). See `manut-pro-config.ts` header for the operator
+  // boundary.
+  manutPro: {
+    desc: 'Manut Pro tier (E3.3 / M3) — Stripe checkout config.',
+    default: {
+      priceId: '',
+      webhookSecret: '',
+      successUrl: '',
+      cancelUrl: '',
+    },
   },
 });

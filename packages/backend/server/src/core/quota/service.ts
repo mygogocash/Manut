@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import { InternalServerError, MemberQuotaExceeded, OnEvent } from '../../base';
+import {
+  InternalServerError,
+  MemberQuotaExceeded,
+  OnEvent,
+  StorageQuotaExceeded,
+} from '../../base';
 import {
   Models,
   type UserQuota,
@@ -8,11 +13,8 @@ import {
   WorkspaceRole,
 } from '../../models';
 import { WorkspaceBlobStorage } from '../storage';
-import {
-  effectiveStorageQuota,
-  isStorageOverQuotaAfterUpload,
-  MANUT_BASE_STORAGE_QUOTA_BYTES,
-} from './effective-storage-quota';
+import { isStorageOverQuotaAfterUpload } from './effective-storage-quota';
+import { FREE_TIER, storageCapMessage, tierFor } from './tiers';
 import {
   UserQuotaHumanReadableType,
   UserQuotaType,
@@ -30,27 +32,27 @@ export type WorkspaceQuotaWithUsage = Omit<
   'humanReadable'
 > & { ownerQuota?: string };
 
-// MANUT: effectively-unlimited seat count returned for self-hosted
-// deployments. We deliberately keep this finite (rather than
-// `Number.MAX_SAFE_INTEGER`) because the value is serialised to GraphQL Int
-// in places (e.g. `WorkspaceQuotaHumanReadableType.memberLimit` via
-// `quota.memberLimit.toString()`), and a 32-bit-safe value is friendlier to
-// any client formatting.
-const MANUT_UNLIMITED_SEATS = 100_000;
+// MANUT Wave 2 (T-1.1.5.a/b): cloud-only quota service.
+// The legacy self-host code paths (quota uplift + auto-grow lazy
+// expansion) were removed per decision #0 + #24 (multi-tenant cloud
+// SaaS). The `effectiveStorageQuota` family in `./effective-storage-quota`
+// is kept for backwards-compatible exports + the
+// `isStorageOverQuotaAfterUpload` helper (still used with autoGrow=false
+// on cloud — same module, simpler path).
+//
+// Per-blob upload size cap: keep a sane finite value (1 PB) so existing
+// `blobLimit` consumers (size formatters, GraphQL Int fields) work
+// unchanged. Real per-blob enforcement happens through the workspace
+// storage cap below.
+const MANUT_PER_BLOB_LIMIT_BYTES = 1_000_000_000_000_000;
 
-// MANUT: effectively-unlimited byte count for the per-blob upload limit on
-// self-hosted. 1 PB stays well below Number.MAX_SAFE_INTEGER (~9 PB) and
-// formats cleanly in formatSize(). Self-hosted operators control their own
-// disk; we don't cap individual blob sizes that exist only to gate
-// upstream's hosted plans. Used for `blobLimit` only — the total workspace
-// storage quota grows lazily from `MANUT_BASE_STORAGE_QUOTA_BYTES` below
-// via `effectiveStorageQuota`.
-const MANUT_UNLIMITED_BYTES = 1_000_000_000_000_000;
+// History retention: keep the cloud-tier value finite-but-huge for the same
+// reason (downstream comparisons + GraphQL serialisation).
+const MANUT_HISTORY_RETENTION_MS = 100 * 365 * 24 * 3600 * 1000;
 
-// MANUT: storage-quota auto-grow lives in a separate pure module so it can
-// be unit-tested without dragging in the native binding loaded transitively
-// by this file's NestJS / models / storage imports. Re-exported for any
-// external consumer that imports from this service entrypoint.
+// Re-export the auto-grow helpers so any external consumer that imports
+// from this entrypoint keeps compiling. The helpers themselves are kept
+// for the pure-function spec coverage; new callers should not use them.
 export {
   effectiveStorageQuota,
   isStorageOverQuotaAfterUpload,
@@ -59,9 +61,19 @@ export {
   MANUT_STORAGE_GROWTH_THRESHOLD,
 } from './effective-storage-quota';
 
-// MANUT: effectively-unlimited history retention period in milliseconds.
-// 100 years × 365 days × 24h × 3600s × 1000ms — safe int, formats cleanly.
-const MANUT_UNLIMITED_HISTORY_MS = 100 * 365 * 24 * 3600 * 1000;
+// MANUT Wave 2 (T-1.1.5.a) — Free + Pro cloud tier definitions live in
+// `./tiers.ts` so they can be unit-tested without dragging in the native
+// binding via the NestJS / models / storage transitive imports below.
+// Re-exported here for any external consumer that imports from this
+// service entrypoint.
+export {
+  FREE_TIER,
+  type ManutTier,
+  PRO_TIER,
+  type StorageCapDetail,
+  storageCapMessage,
+  tierFor,
+} from './tiers';
 
 @Injectable()
 export class QuotaService {
@@ -97,29 +109,21 @@ export class QuotaService {
       );
     }
 
-    // MANUT: lift every per-user limit on self-hosted deployments. The
-    // FOSS build is unlimited by policy — operators control their own
-    // infrastructure, so caps that exist only to gate upstream's hosted
-    // tiers don't apply. `copilotActionLimit: undefined` matches the
-    // existing `unlimited_copilot` feature path; the rest set effectively-
-    // infinite finite values to keep downstream checks (size formatters,
-    // comparisons, GraphQL serialisation) working unchanged.
-    if (env.selfhosted) {
-      return {
-        ...quota.configs,
-        copilotActionLimit: undefined,
-        blobLimit: MANUT_UNLIMITED_BYTES,
-        storageQuota: MANUT_BASE_STORAGE_QUOTA_BYTES,
-        historyPeriod: MANUT_UNLIMITED_HISTORY_MS,
-        memberLimit: MANUT_UNLIMITED_SEATS,
-      } as UserQuotaWithUsage;
-    }
-
+    // MANUT Wave 2 (T-1.1.5.a): cloud Free tier defaults. Every user gets
+    // unlimited members + 2 GB storage + finite history retention. The
+    // `copilotActionLimit` stays under feature-flag control
+    // (`unlimited_copilot`) so power users / staff can be opted into
+    // unlimited copilot independently of plan. AI budget is enforced
+    // upstream in the copilot module (separate token-bucket), not here.
     return {
       ...quota.configs,
       copilotActionLimit: unlimitedCopilot
         ? undefined
         : quota.configs.copilotActionLimit,
+      blobLimit: MANUT_PER_BLOB_LIMIT_BYTES,
+      storageQuota: FREE_TIER.storageBytes,
+      historyPeriod: MANUT_HISTORY_RETENTION_MS,
+      memberLimit: FREE_TIER.memberLimit,
     } as UserQuotaWithUsage;
   }
 
@@ -127,15 +131,10 @@ export class QuotaService {
     const quota = await this.getUserQuota(userId);
     const usedStorageQuota = await this.getUserStorageUsage(userId);
 
-    // MANUT: apply lazy auto-grow on self-hosted. The fast path
-    // (`getUserQuota`) returns BASE because it has no usage; here we know
-    // the usage and can publish the effective quota the UI/calculator
-    // should see.
-    const storageQuota = env.selfhosted
-      ? effectiveStorageQuota(usedStorageQuota)
-      : quota.storageQuota;
-
-    return { ...quota, storageQuota, usedStorageQuota };
+    // MANUT Wave 2: cloud cap is fixed (no auto-grow). The previous
+    // self-host conditional that swapped in `effectiveStorageQuota(used)`
+    // is gone — Free tier is a literal 2 GB ceiling.
+    return { ...quota, storageQuota: quota.storageQuota, usedStorageQuota };
   }
 
   async getUserStorageUsage(userId: string) {
@@ -202,24 +201,67 @@ export class QuotaService {
       resolved = quota.configs;
     }
 
-    // MANUT: lift every per-workspace limit on self-hosted deployments.
-    // The FOSS build is unlimited by policy. Workspace quota mostly inherits
-    // from owner's user quota (which we already lifted in getUserQuota), but
-    // workspaces with their own stored config bypass that path — so we apply
-    // the same overrides here. Keeps fields populated so downstream call
-    // sites (`tryCheckSeat`, `getWorkspaceSeatQuota`, member-cap resolvers,
-    // etc.) continue to work unchanged.
-    if (env.selfhosted) {
-      return {
-        ...resolved,
-        blobLimit: MANUT_UNLIMITED_BYTES,
-        storageQuota: MANUT_BASE_STORAGE_QUOTA_BYTES,
-        historyPeriod: MANUT_UNLIMITED_HISTORY_MS,
-        memberLimit: MANUT_UNLIMITED_SEATS,
-      };
-    }
+    // MANUT Wave 2 (T-1.1.5.a): cloud tier overlay. The `workspace.plan`
+    // column lands in E3.3 (Month 3) — for now `getWorkspacePlan` returns
+    // `undefined` and `tierFor(undefined)` resolves to FREE_TIER, which
+    // grandfathers every existing workspace into Free with no data
+    // migration. Once `plan` ships, `plan === 'pro'` will route through
+    // PRO_TIER automatically.
+    const plan = await this.getWorkspacePlan(workspaceId);
+    const tier = tierFor(plan);
 
-    return resolved;
+    return {
+      ...resolved,
+      blobLimit: MANUT_PER_BLOB_LIMIT_BYTES,
+      storageQuota: tier.storageBytes,
+      historyPeriod: MANUT_HISTORY_RETENTION_MS,
+      memberLimit: tier.memberLimit,
+    };
+  }
+
+  /**
+   * Returns the `workspace.plan` value for the given workspace.
+   *
+   * E3.3 wires this to the `workspace.plan` column that ships in the
+   * 20260520040000_add_workspace_plan migration. The Stripe webhook in
+   * `plugins/payment/manut-pro-webhook.ts` is the only writer:
+   *   - `checkout.session.completed` (metadata.manutProUpgrade === 'true')
+   *     → set 'pro'
+   *   - `customer.subscription.deleted` → set 'free'
+   *
+   * Any unknown / missing value (`undefined`, `null`, `'free'`, '') falls
+   * through to FREE_TIER via `tierFor()` — see `tiers.ts` for the
+   * defensive lookup. Returning `null` for missing workspaces keeps the
+   * call non-throwing; the upstream `getWorkspaceQuota` is already
+   * tolerant of that path because it falls back to the owner's quota.
+   */
+  private async getWorkspacePlan(
+    workspaceId: string
+  ): Promise<string | null | undefined> {
+    const workspace = await this.models.workspace.get(workspaceId);
+    // Cast to a partial shape because the prisma-generated Workspace
+    // type does not yet carry `plan` — the column ships in
+    // `20260520040000_add_workspace_plan` and `prisma generate` will
+    // re-emit the type at the next build. Until then this cast is the
+    // narrowest type-system hole that keeps the call typesafe.
+    return (workspace as { plan?: string | null } | null)?.plan ?? null;
+  }
+
+  /**
+   * MANUT Wave 2 (T-1.1.5.b): structured storage-cap snapshot used by
+   * the frontend `StorageCapModal`. Returns `{currentBytes, capBytes}`
+   * so the modal can render "X GB of Y GB used" without an extra
+   * resolver hop. Throws if the workspace is not found (delegates to
+   * `getWorkspaceQuota`).
+   */
+  async getWorkspaceStorageCap(
+    workspaceId: string
+  ): Promise<{ currentBytes: number; capBytes: number }> {
+    const quota = await this.getWorkspaceQuota(workspaceId);
+    const currentBytes = quota.ownerQuota
+      ? await this.getUserStorageUsage(quota.ownerQuota)
+      : await this.getWorkspaceStorageUsage(workspaceId);
+    return { currentBytes, capBytes: quota.storageQuota };
   }
 
   async getWorkspaceQuotaWithUsage(
@@ -233,14 +275,11 @@ export class QuotaService {
       await this.models.workspaceUser.chargedCount(workspaceId);
     const overcapacityMemberCount = memberCount - quota.memberLimit;
 
-    // MANUT: apply lazy auto-grow on self-hosted (see getUserQuotaWithUsage).
-    const storageQuota = env.selfhosted
-      ? effectiveStorageQuota(usedStorageQuota)
-      : quota.storageQuota;
-
+    // MANUT Wave 2: cloud cap is fixed (no auto-grow). Quota comes from
+    // the tier overlay in `getWorkspaceQuota`.
     return {
       ...quota,
-      storageQuota,
+      storageQuota: quota.storageQuota,
       usedStorageQuota,
       memberCount,
       overcapacityMemberCount,
@@ -308,17 +347,14 @@ export class QuotaService {
     const quota = await this.getUserQuota(userId);
     const usedSize = await this.getUserStorageUsage(userId);
 
-    // MANUT: on self-hosted, autoGrow=true tells the calculator to
-    // evaluate the effective quota against the POST-upload size so a
-    // single large blob that itself triggers a growth step is allowed
-    // (vs the v1.12.x P1 where pre-upload 5 GB BASE rejected a 6 GB
-    // upload to an empty workspace).
+    // MANUT Wave 2: autoGrow=false (cloud-only). The fixed Free/Pro caps
+    // are enforced literally — no lazy expansion.
     return this.generateQuotaCalculator(
       quota.storageQuota,
       quota.blobLimit,
       usedSize,
       false,
-      env.selfhosted
+      false
     );
   }
 
@@ -339,14 +375,47 @@ export class QuotaService {
       ? await this.getUserStorageUsage(quota.ownerQuota)
       : await this.getWorkspaceStorageUsage(workspaceId);
 
-    // MANUT: see comment in getUserQuotaCalculator above.
+    // MANUT Wave 2: autoGrow=false (cloud-only). See above.
     return this.generateQuotaCalculator(
       quota.storageQuota,
       quota.blobLimit,
       usedSize,
       false,
-      env.selfhosted
+      false
     );
+  }
+
+  /**
+   * MANUT Wave 2 (T-1.1.5.b): enforce the workspace storage cap at the
+   * blob-upload boundary. Throws `StorageQuotaExceeded` carrying a
+   * JSON-serialised `StorageCapDetail` payload so the frontend
+   * `StorageCapModal` can render the "X GB of Y GB used" copy without an
+   * extra round-trip.
+   *
+   * The HTTP status of the thrown error is `quota_exceeded`
+   * (HTTP 402 — see `BaseTypeToHttpStatusMap` in
+   * `base/error/def.ts`). The implementation plan §0.3 calls for HTTP
+   * 413; promoting the status from 402 to 413 is a separate R1 because
+   * the existing generated error class is shared across all quota
+   * paths and a status change would also need a typed-arg DataType
+   * upgrade. The structured payload here is the load-bearing part for
+   * the frontend modal.
+   */
+  async assertStorageCap(
+    workspaceId: string,
+    uploadSize: number
+  ): Promise<void> {
+    const { currentBytes, capBytes } =
+      await this.getWorkspaceStorageCap(workspaceId);
+    if (currentBytes + uploadSize > capBytes) {
+      throw new StorageQuotaExceeded(
+        storageCapMessage({
+          error: 'STORAGE_CAP',
+          currentBytes,
+          capBytes,
+        })
+      );
+    }
   }
 
   private async setupUserBaseQuota(userId: string) {

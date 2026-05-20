@@ -58,6 +58,7 @@ export const editorEffectElementTags = [
   'edgeless-copilot-panel',
   'edgeless-copilot-toolbar-entry',
   'transcription-block',
+  'ai-inline-chat',
 ] as const;
 
 export type EditorEffectElementTag = (typeof editorEffectElementTags)[number];
@@ -86,6 +87,7 @@ export const appEffectElementTags = [
   'ai-history-clear',
   'chat-panel-add-popover',
   'chat-input-preference',
+  'chat-input-format-selector',
   'chat-panel-candidates-popover',
   'chat-panel-doc-chip',
   'chat-panel-file-chip',
