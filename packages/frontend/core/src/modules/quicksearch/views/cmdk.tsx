@@ -14,12 +14,59 @@ import {
   useState,
 } from 'react';
 
+import {
+  FilterChips,
+  type QuickSearchFilters,
+  type WorkspaceMemberOption,
+} from '../components/filter-chips';
+import { PreviewPane } from '../components/preview-pane';
+import * as previewStyles from '../components/preview-pane.css';
+import {
+  pickTimeBucket,
+  ResultGroupHeading,
+  TIME_BUCKETS,
+  type TimeBucketId,
+} from '../components/result-group';
+import * as resultGroupStyles from '../components/result-group.css';
 import type { QuickSearchGroup } from '../types/group';
 import type { QuickSearchItem } from '../types/item';
 import * as styles from './cmdk.css';
 import { HighlightText } from './highlight-text';
 
 type Groups = { group?: QuickSearchGroup; items: QuickSearchItem[] }[];
+
+const DEFAULT_FILTERS: QuickSearchFilters = {
+  titleOnly: false,
+  createdBy: null,
+  inScope: 'anywhere',
+  facets: [],
+};
+
+interface CMDKProps {
+  className?: string;
+  query: string;
+  error?: ReactNode;
+  inputLabel?: ReactNode;
+  placeholder?: string;
+  loading?: boolean;
+  loadingProgress?: number;
+  groups?: Groups;
+  onSubmit?: (item: QuickSearchItem, newTab?: boolean) => void;
+  onQueryChange?: (query: string) => void;
+  /**
+   * When 'timestamp', groups are bucketed into Today / Yesterday /
+   * Past 7 / Past 30 / Older. Default 'source' preserves the legacy
+   * grouping driven by each QuickSearchSession.
+   */
+  groupBy?: 'source' | 'timestamp';
+  /**
+   * Show Notion-style filter chips + right-side preview pane. Off by
+   * default so existing call-sites (action pickers, etc.) keep their
+   * compact single-column layout.
+   */
+  enhancedLayout?: boolean;
+  members?: ReadonlyArray<WorkspaceMemberOption>;
+}
 
 export const CMDK = ({
   className,
@@ -32,20 +79,13 @@ export const CMDK = ({
   loadingProgress,
   onQueryChange,
   onSubmit,
-}: React.PropsWithChildren<{
-  className?: string;
-  query: string;
-  error?: ReactNode;
-  inputLabel?: ReactNode;
-  placeholder?: string;
-  loading?: boolean;
-  loadingProgress?: number;
-  groups?: Groups;
-  onSubmit?: (item: QuickSearchItem) => void;
-  onQueryChange?: (query: string) => void;
-}>) => {
+  groupBy = 'source',
+  enhancedLayout = false,
+  members,
+}: React.PropsWithChildren<CMDKProps>) => {
   const [opening, setOpening] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState<QuickSearchFilters>(DEFAULT_FILTERS);
 
   const [{ groups, selectedValue }, dispatch] = useReducer(
     (
@@ -165,6 +205,114 @@ export const CMDK = ({
     return () => clearTimeout(timeout);
   }, [newLoading]);
 
+  // Resolve the currently-selected item across all groups so the preview
+  // pane can render it. Read fresh state inside the callback per
+  // React 19 preserve-manual-memoization guidance.
+  const selectedItem = useMemo<QuickSearchItem | null>(() => {
+    if (!selectedValue) return null;
+    for (const { items } of groups) {
+      const hit = items.find(item => item.id === selectedValue);
+      if (hit) return hit;
+    }
+    return null;
+  }, [groups, selectedValue]);
+
+  // Apply session-scoped filters. Title-only drops any item whose match
+  // came purely from body text (we can tell by the absence of a snippet
+  // in the i18n subTitle). For other facets we just pass through; the
+  // backend search session decides what payload shape to return.
+  const filteredGroups = useMemo<Groups>(() => {
+    if (!filters.titleOnly) return groups;
+    return groups
+      .map(({ group, items }) => ({
+        group,
+        items: items.filter(item => {
+          const label = item.label;
+          if (isI18nString(label)) return true;
+          // Body-content matches surface a subTitle snippet; reject those
+          // when "Title only" is on.
+          return !label.subTitle;
+        }),
+      }))
+      .filter(({ items }) => items.length > 0);
+  }, [groups, filters.titleOnly]);
+
+  // Anchor a `now` timestamp at modal mount so the time-bucket grouping
+  // is stable while the user types. `useState`'s lazy initialiser is the
+  // React 19-safe way to read the clock once without breaking the
+  // react-hooks/purity rule during render.
+  const [bucketNow] = useState(() => Date.now());
+
+  // Time-bucket grouping: flatten every item, then re-group by timestamp
+  // window. Used only when groupBy === 'timestamp' (the doc search modal).
+  const timestampGroups = useMemo<
+    Array<{ bucketId: TimeBucketId; items: QuickSearchItem[] }>
+  >(() => {
+    if (groupBy !== 'timestamp') return [];
+    const buckets = new Map<TimeBucketId, QuickSearchItem[]>();
+    for (const { items } of filteredGroups) {
+      for (const item of items) {
+        const bucket = pickTimeBucket(item.timestamp, bucketNow);
+        const arr = buckets.get(bucket) ?? [];
+        arr.push(item);
+        buckets.set(bucket, arr);
+      }
+    }
+    return TIME_BUCKETS.map(b => ({
+      bucketId: b.id,
+      items: buckets.get(b.id) ?? [],
+    })).filter(g => g.items.length > 0);
+  }, [filteredGroups, groupBy, bucketNow]);
+
+  const handleSubmit = useCallback(
+    (item: QuickSearchItem, newTab = false) => {
+      onSubmit?.(item, newTab);
+    },
+    [onSubmit]
+  );
+
+  // Cmd+Enter opens in a new tab. cmdk doesn't expose this natively;
+  // intercept at the Command root so we hit it before the default
+  // Enter-to-submit handler.
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      const isCmdEnter =
+        event.key === 'Enter' && (event.metaKey || event.ctrlKey);
+      if (isCmdEnter && selectedItem) {
+        event.preventDefault();
+        event.stopPropagation();
+        handleSubmit(selectedItem, true);
+      }
+    },
+    [selectedItem, handleSubmit]
+  );
+
+  const listContent = (
+    <>
+      {error && <p className={styles.errorMessage}>{error}</p>}
+      {groupBy === 'timestamp'
+        ? timestampGroups.map(({ bucketId, items }) => (
+            <CMDKTimestampGroup
+              key={bucketId}
+              bucketId={bucketId}
+              items={items}
+              query={query}
+              onSubmit={handleSubmit}
+            />
+          ))
+        : filteredGroups.map(({ group, items }) => {
+            return (
+              <CMDKGroup
+                key={group?.id ?? ''}
+                onSubmit={handleSubmit}
+                query={query}
+                group={{ group, items }}
+              />
+            );
+          })}
+    </>
+  );
+
   return (
     <Command
       data-testid="cmdk-quick-search"
@@ -172,6 +320,7 @@ export const CMDK = ({
       className={clsx(className, styles.root, styles.panelContainer)}
       value={selectedValue}
       onValueChange={handleSelectChange}
+      onKeyDown={handleKeyDown}
       loop
     >
       {inputLabel ? (
@@ -202,32 +351,46 @@ export const CMDK = ({
         ) : null}
       </div>
 
-      <Command.List ref={listRef} data-opening={opening ? true : undefined}>
-        {error && <p className={styles.errorMessage}>{error}</p>}
-        {groups.map(({ group, items }) => {
-          return (
-            <CMDKGroup
-              key={group?.id ?? ''}
-              onSubmit={onSubmit}
-              query={query}
-              group={{ group, items }}
-            />
-          );
-        })}
-      </Command.List>
+      {enhancedLayout ? (
+        <FilterChips
+          filters={filters}
+          onChange={setFilters}
+          members={members}
+        />
+      ) : null}
+
+      {enhancedLayout ? (
+        <div className={previewStyles.splitLayout}>
+          <div className={previewStyles.splitListColumn}>
+            <Command.List
+              ref={listRef}
+              data-opening={opening ? true : undefined}
+            >
+              {listContent}
+            </Command.List>
+          </div>
+          <PreviewPane selectedItem={selectedItem} />
+        </div>
+      ) : (
+        <Command.List ref={listRef} data-opening={opening ? true : undefined}>
+          {listContent}
+        </Command.List>
+      )}
     </Command>
   );
 };
+
+interface CMDKGroupProps {
+  group: { group?: QuickSearchGroup; items: QuickSearchItem[] };
+  onSubmit?: (item: QuickSearchItem, newTab?: boolean) => void;
+  query: string;
+}
 
 export const CMDKGroup = ({
   group: { group, items },
   onSubmit,
   query,
-}: {
-  group: { group?: QuickSearchGroup; items: QuickSearchItem[] };
-  onSubmit?: (item: QuickSearchItem) => void;
-  query: string;
-}) => {
+}: CMDKGroupProps) => {
   const i18n = useI18n();
   return (
     <Command.Group
@@ -235,62 +398,97 @@ export const CMDKGroup = ({
       heading={group && i18n.t(group.label)}
       style={{ overflowAnchor: 'none' }}
     >
-      {items.map(item => {
-        const [title, subTitle] = isI18nString(item.label)
-          ? [i18n.t(item.label), null]
-          : [
-              i18n.t(item.label.title),
-              item.label.subTitle ? i18n.t(item.label.subTitle) : null,
-            ];
-
-        return (
-          <Command.Item
-            key={item.id}
-            onSelect={() => onSubmit?.(item)}
-            value={item.id}
-            disabled={item.disabled}
-            data-is-danger={
-              item.id === 'editor:page-move-to-trash' ||
-              item.id === 'editor:edgeless-move-to-trash'
-            }
-          >
-            <div className={styles.itemIcon}>
-              {item.icon &&
-                (typeof item.icon === 'function' ? <item.icon /> : item.icon)}
-            </div>
-            <div
-              data-testid="cmdk-label"
-              className={styles.itemLabel}
-              data-value={item.id}
-            >
-              <div className={styles.itemTitle}>
-                <HighlightText text={title} start="<b>" end="</b>" />
-                {/* Show verified badge for doc search results that carry isVerified */}
-                <DocVerifiedBadge
-                  isVerified={
-                    !!(item.payload as { isVerified?: boolean } | undefined)
-                      ?.isVerified
-                  }
-                />
-              </div>
-              {subTitle && (
-                <div className={styles.itemSubtitle}>
-                  <HighlightText text={subTitle} start="<b>" end="</b>" />
-                </div>
-              )}
-            </div>
-            {item.timestamp ? (
-              <div className={styles.timestamp}>
-                {i18nTime(new Date(item.timestamp))}
-              </div>
-            ) : null}
-            {item.keyBinding ? (
-              <CMDKKeyBinding keyBinding={item.keyBinding} />
-            ) : null}
-          </Command.Item>
-        );
-      })}
+      {items.map(item => (
+        <CMDKItem key={item.id} item={item} onSubmit={onSubmit} />
+      ))}
     </Command.Group>
+  );
+};
+
+interface CMDKTimestampGroupProps {
+  bucketId: TimeBucketId;
+  items: QuickSearchItem[];
+  query: string;
+  onSubmit?: (item: QuickSearchItem, newTab?: boolean) => void;
+}
+
+const CMDKTimestampGroup = ({
+  bucketId,
+  items,
+  query,
+  onSubmit,
+}: CMDKTimestampGroupProps): ReactNode => {
+  if (items.length === 0) return null;
+  return (
+    <Command.Group
+      key={query + ':bucket:' + bucketId}
+      heading={<ResultGroupHeading bucketId={bucketId} count={items.length} />}
+      style={{ overflowAnchor: 'none' }}
+    >
+      {items.map(item => (
+        <CMDKItem key={item.id} item={item} onSubmit={onSubmit} />
+      ))}
+    </Command.Group>
+  );
+};
+
+interface CMDKItemProps {
+  item: QuickSearchItem;
+  onSubmit?: (item: QuickSearchItem, newTab?: boolean) => void;
+}
+
+const CMDKItem = ({ item, onSubmit }: CMDKItemProps): ReactNode => {
+  const i18n = useI18n();
+  const [title, subTitle] = isI18nString(item.label)
+    ? [i18n.t(item.label), null]
+    : [
+        i18n.t(item.label.title),
+        item.label.subTitle ? i18n.t(item.label.subTitle) : null,
+      ];
+  return (
+    <Command.Item
+      key={item.id}
+      onSelect={() => onSubmit?.(item, false)}
+      value={item.id}
+      disabled={item.disabled}
+      className={resultGroupStyles.groupItemSelectedAccent}
+      data-is-danger={
+        item.id === 'editor:page-move-to-trash' ||
+        item.id === 'editor:edgeless-move-to-trash'
+      }
+    >
+      <div className={styles.itemIcon}>
+        {item.icon &&
+          (typeof item.icon === 'function' ? <item.icon /> : item.icon)}
+      </div>
+      <div
+        data-testid="cmdk-label"
+        className={styles.itemLabel}
+        data-value={item.id}
+      >
+        <div className={styles.itemTitle}>
+          <HighlightText text={title} start="<b>" end="</b>" />
+          {/* Show verified badge for doc search results that carry isVerified */}
+          <DocVerifiedBadge
+            isVerified={
+              !!(item.payload as { isVerified?: boolean } | undefined)
+                ?.isVerified
+            }
+          />
+        </div>
+        {subTitle && (
+          <div className={styles.itemSubtitle}>
+            <HighlightText text={subTitle} start="<b>" end="</b>" />
+          </div>
+        )}
+      </div>
+      {item.timestamp ? (
+        <div className={styles.timestamp}>
+          {i18nTime(new Date(item.timestamp))}
+        </div>
+      ) : null}
+      {item.keyBinding ? <CMDKKeyBinding keyBinding={item.keyBinding} /> : null}
+    </Command.Item>
   );
 };
 

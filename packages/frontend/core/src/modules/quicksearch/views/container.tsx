@@ -70,14 +70,37 @@ export const QuickSearchContainer = () => {
   );
 
   const handleSubmit = useCallback(
-    (item: QuickSearchItem) => {
+    (item: QuickSearchItem, newTab?: boolean) => {
+      if (newTab) {
+        // Stash the "open in new tab" intent on the item so consumer
+        // callbacks (e.g. CMDKQuickSearchService) can read it via the
+        // payload without us changing every QuickSearchSession contract.
+        // Read fresh state inside the callback per React 19 manual-
+        // memoization guidance — we don't want the closure to capture
+        // a stale `item`.
+        const enriched: QuickSearchItem = {
+          ...item,
+          payload: {
+            ...(item.payload as Record<string, unknown> | undefined),
+            __cmdkOpenInNewTab: true,
+          },
+        };
+        quickSearch.submit(enriched);
+        return;
+      }
       quickSearch.submit(item);
     },
     [quickSearch]
   );
 
+  const enhancedLayout = options?.enhancedLayout === true;
+
   return (
-    <QuickSearchModal open={open} onOpenChange={onToggleQuickSearch}>
+    <QuickSearchModal
+      open={open}
+      onOpenChange={onToggleQuickSearch}
+      wide={enhancedLayout}
+    >
       <CMDK
         query={query}
         groups={groups}
@@ -88,6 +111,8 @@ export const QuickSearchContainer = () => {
         onSubmit={handleSubmit}
         inputLabel={options?.label && i18n.t(options.label)}
         placeholder={options?.placeholder && i18n.t(options.placeholder)}
+        groupBy={enhancedLayout ? 'timestamp' : 'source'}
+        enhancedLayout={enhancedLayout}
       />
     </QuickSearchModal>
   );
