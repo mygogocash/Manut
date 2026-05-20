@@ -187,6 +187,13 @@ export const topLevelRoutes = [
         path: '/open-app/:action',
         lazy: () => import('./pages/open-app'),
       },
+      // Wave 2 B12 / M3 E3.4 brand polish — easter egg surface.
+      // Registered BEFORE the catch-all so it routes correctly. Not
+      // linked from any nav; discoverable only by URL.
+      {
+        path: '/manifesto',
+        lazy: () => import('./pages/manifesto'),
+      },
       {
         path: CATCH_ALL_ROUTE_PATH,
         lazy: () => import('./pages/404'),
