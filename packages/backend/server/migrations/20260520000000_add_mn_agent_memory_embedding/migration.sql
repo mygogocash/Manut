@@ -46,6 +46,29 @@
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- The 20260518200000 baseline migration created `embedding` as `Float[]`
+-- (double precision[]). pgvector's `vector_cosine_ops` operator class
+-- only accepts `vector(N)` types, so the prior `ADD COLUMN IF NOT EXISTS`
+-- no-op'd against the existing wrong-typed column and the subsequent
+-- ivfflat index creation failed (Postgres error 42804 — see CI #173 on
+-- ba851f061). Drop-and-recreate is safe here: the memory ingest service
+-- hadn't shipped to prod when the Float[] column was first created, so
+-- there is no real data to preserve. After this migration runs, the
+-- schema.prisma side switches from `Float[]` to `Unsupported("vector(1024)")`
+-- to match the other vector columns (ai_workspace_embeddings,
+-- ai_context_embeddings, etc.) — see the same-PR change in schema.prisma.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'mn_agent_memories'
+      AND column_name = 'embedding'
+      AND udt_name <> 'vector'
+  ) THEN
+    ALTER TABLE "mn_agent_memories" DROP COLUMN "embedding";
+  END IF;
+END $$;
+
 ALTER TABLE "mn_agent_memories"
   ADD COLUMN IF NOT EXISTS "embedding" vector(1024);
 

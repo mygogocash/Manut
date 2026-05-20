@@ -2251,9 +2251,9 @@ model MnAgentMemory {
   agentId         String       @map("agent_id") @db.VarChar
   taskId          String?      @map("task_id") @db.VarChar
   kind            MnMemoryKind
-  contentMd       String       @map("content_md") @db.Text
-  embedding       Float[]      @default([])
-  retrievedCount  Int          @default(0) @map("retrieved_count")
+  contentMd       String                       @map("content_md") @db.Text
+  embedding       Unsupported("vector(1024)")?
+  retrievedCount  Int                          @default(0) @map("retrieved_count")
   lastRetrievedAt DateTime?    @map("last_retrieved_at") @db.Timestamptz(3)
   importance      Int          @default(1)
   createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
