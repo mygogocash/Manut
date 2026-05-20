@@ -15,6 +15,7 @@ import {
 } from '../../analytics-connections/graphql';
 import { IntegrationSettingHeader } from '../setting';
 import { MongoDbLogoIcon } from './icons';
+import { MongoIngestionPanel } from './ingestion-panel';
 import * as styles from './setting-panel.css';
 
 /**
@@ -170,6 +171,8 @@ export const MongoDbSettingPanel = () => {
         <div className={styles.stateLabel}>{`Connected to ${host}`}</div>
       ) : null}
 
+      {isConnected ? <MongoIngestionPanel /> : null}
+
       {!isConnected ? (
         <form
           className={styles.form}
@@ -230,9 +233,7 @@ export const MongoDbSettingPanel = () => {
       ) : null}
 
       <p className={styles.helpText}>
-        The connection string is encrypted at rest and never logged. Live ingest
-        is rolling out soon — for now you can verify the credentials work via
-        the Test button.
+        The connection string is encrypted at rest and never logged.
       </p>
     </div>
   );
