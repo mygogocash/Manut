@@ -62,6 +62,12 @@ import {
   CopilotWorkspaceEmbeddingResolver,
   CopilotWorkspaceService,
 } from './workspace';
+// Manut M1 — Epic E1.11: WebSocket transport for AI chat. Parallel to the
+// SSE controller; flag-gated cutover via `ws_transport` feature flag, with
+// SSE staying live for 30 days as fallback per plan decision #23.
+import { CopilotChatGateway } from './ws/chat.gateway';
+import { MemoryPushService } from './ws/memory-push.service';
+import { ToolProgressService } from './ws/tool-progress.service';
 
 @Module({
   imports: [
@@ -133,6 +139,12 @@ import {
     DistillService,
     DistillCron,
     RateMessageResolver,
+    // Manut M1 — Epic E1.11. WS gateway + thin fan-out services for tool
+    // progress and memory-push events. Lives alongside the SSE controller
+    // (still in `controllers:` above) — both transports run in parallel.
+    CopilotChatGateway,
+    ToolProgressService,
+    MemoryPushService,
   ],
   controllers: [
     CopilotController,

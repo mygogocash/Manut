@@ -5,6 +5,24 @@ import { AIProvider } from './ai-provider';
 import { type CopilotClient, Endpoint } from './copilot-client';
 import { toTextStream } from './event-source';
 
+// Manut M1 — Epic E1.11. Flag-gated WS transport. We read the flag straight
+// from localStorage (the FeatureFlagService is localStorage-backed via
+// `global-state:affine-flag:<flag>`) to avoid threading the FeatureFlagService
+// through the textToText signature. Trade-off: a mid-stream toggle picks
+// up the new transport on the NEXT call, not the current one — fine for a
+// flag that flips on cutover and stays put.
+function isWsTransportEnabled(): boolean {
+  try {
+    const raw =
+      typeof localStorage !== 'undefined'
+        ? localStorage.getItem('global-state:affine-flag:ws_transport')
+        : null;
+    return raw ? JSON.parse(raw) === true : false;
+  } catch {
+    return false;
+  }
+}
+
 const TIMEOUT = 50000;
 
 export type TextToTextOptions = {
@@ -141,54 +159,56 @@ export function textToText({
             signal,
           });
         }
-        const eventSource = client.chatTextStream(
-          {
-            sessionId,
-            messageId,
-            reasoning,
-            modelId,
-            toolsConfig,
-          },
-          endpoint
-        );
         AIProvider.LAST_ACTION_SESSIONID = sessionId;
+
+        // Manut M1 / Epic E1.11 — WS path when the flag is on. Same yielded
+        // shape as the SSE path so the join layer (line ~248 below) doesn't
+        // care which transport delivered the StreamObject chunks.
+        const useWs = isWsTransportEnabled();
+        const source = useWs
+          ? await openWsSource({ sessionId, signal, timeout })
+          : openSseSource({
+              client,
+              sessionId,
+              messageId,
+              reasoning,
+              modelId,
+              toolsConfig,
+              endpoint,
+              signal,
+              timeout,
+            });
 
         let onAbort: (() => void) | undefined;
         try {
           if (signal) {
             if (signal.aborted) {
-              eventSource.close();
+              source.close();
               return;
             }
             onAbort = () => {
-              eventSource.close();
+              source.close();
             };
             signal.addEventListener('abort', onAbort, { once: true });
           }
 
           if (postfix) {
             const messages: string[] = [];
-            for await (const event of toTextStream(eventSource, {
-              timeout,
-              signal,
-            })) {
+            for await (const event of source.iterable) {
               if (event.type === 'message') {
                 messages.push(event.data);
               }
             }
             yield postfix(messages.join(''));
           } else {
-            for await (const event of toTextStream(eventSource, {
-              timeout,
-              signal,
-            })) {
+            for await (const event of source.iterable) {
               if (event.type === 'message') {
                 yield event.data;
               }
             }
           }
         } finally {
-          eventSource.close();
+          source.close();
           if (signal && onAbort) {
             signal.removeEventListener('abort', onAbort);
           }
@@ -208,43 +228,48 @@ export function textToText({
           signal,
         });
       }
-      const eventSource = client.chatTextStream(
-        {
-          sessionId,
-          messageId,
-          reasoning,
-          modelId,
-          toolsConfig,
-        },
-        endpoint
-      );
       AIProvider.LAST_ACTION_SESSIONID = sessionId;
+
+      const useWs = isWsTransportEnabled();
+      const source = useWs
+        ? await openWsSource({ sessionId, signal, timeout })
+        : openSseSource({
+            client,
+            sessionId,
+            messageId,
+            reasoning,
+            modelId,
+            toolsConfig,
+            endpoint,
+            signal,
+            timeout,
+          });
 
       let onAbort: (() => void) | undefined;
       try {
         if (signal) {
           if (signal.aborted) {
-            eventSource.close();
+            source.close();
             return '';
           }
           onAbort = () => {
-            eventSource.close();
+            source.close();
           };
           signal.addEventListener('abort', onAbort, { once: true });
         }
 
-        // Each SSE 'message' event carries a JSON-serialized StreamObject
+        // Each 'message' event carries a JSON-serialized StreamObject
         // (e.g. {"type":"text-delta","textDelta":"..."}). Naively joining the
         // raw `event.data` strings concatenates JSON wrappers into the output
         // and produces garbage like `{"type":"text...` in downstream parsers.
         // Extract `textDelta` from each chunk and ignore non-text chunks
         // (tool-call, tool-result, reasoning); join only text. Fall back to
         // the raw payload if parsing fails so we don't silently lose data.
+        // (v1.10.1 SSE-stream-object scar — applies to BOTH SSE and WS
+        // paths because the WS transport JSON-serialises the same StreamObject
+        // shape so this join layer stays transport-agnostic.)
         const messages: string[] = [];
-        for await (const event of toTextStream(eventSource, {
-          timeout,
-          signal,
-        })) {
+        for await (const event of source.iterable) {
           if (event.type !== 'message') continue;
           const data = event.data;
           try {
@@ -268,13 +293,78 @@ export function textToText({
         const result = messages.join('');
         return postfix ? postfix(result) : result;
       } finally {
-        eventSource.close();
+        source.close();
         if (signal && onAbort) {
           signal.removeEventListener('abort', onAbort);
         }
       }
     })();
   }
+}
+
+// --- Transport sources ------------------------------------------------------
+//
+// Both helpers below produce the same shape: an `iterable` that yields
+// `{ type: 'message', data: <JSON-StreamObject> }` events, plus a `close()`
+// teardown. The downstream parser is transport-agnostic.
+
+interface ChatStreamSource {
+  iterable: AsyncIterable<{ type: 'message' | 'attachment'; data: string }>;
+  close: () => void;
+}
+
+interface OpenSseSourceOptions {
+  client: CopilotClient;
+  sessionId: string;
+  messageId: string | undefined;
+  reasoning: boolean | undefined;
+  modelId: string | undefined;
+  toolsConfig: AIToolsConfig | undefined;
+  endpoint: Endpoint;
+  signal: AbortSignal | undefined;
+  timeout: number;
+}
+
+function openSseSource(opts: OpenSseSourceOptions): ChatStreamSource {
+  const eventSource = opts.client.chatTextStream(
+    {
+      sessionId: opts.sessionId,
+      messageId: opts.messageId,
+      reasoning: opts.reasoning,
+      modelId: opts.modelId,
+      toolsConfig: opts.toolsConfig,
+    },
+    opts.endpoint
+  );
+  return {
+    iterable: toTextStream(eventSource, {
+      timeout: opts.timeout,
+      signal: opts.signal,
+    }),
+    close: () => eventSource.close(),
+  };
+}
+
+interface OpenWsSourceOptions {
+  sessionId: string;
+  signal: AbortSignal | undefined;
+  timeout: number;
+}
+
+async function openWsSource(
+  opts: OpenWsSourceOptions
+): Promise<ChatStreamSource> {
+  // Code-split: socket.io-client is only pulled in when the flag is on.
+  const { chatWebSocketStream } = await import('./ws-transport');
+  const stream = chatWebSocketStream({
+    sessionId: opts.sessionId,
+    signal: opts.signal,
+    timeout: opts.timeout,
+  });
+  return {
+    iterable: stream,
+    close: () => stream.close(),
+  };
 }
 
 // Only one image is currently being processed

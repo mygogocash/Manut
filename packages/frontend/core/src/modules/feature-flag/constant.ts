@@ -337,6 +337,21 @@ export const AFFINE_FLAGS = {
     configurable: true,
     defaultState: false,
   },
+  // Manut M1 — Epic E1.11. WebSocket transport for AI chat, in parallel
+  // with SSE. When OFF (default) the chat input goes through the existing
+  // SSE `/api/copilot/chat/:sessionId/stream-object` endpoint. When ON,
+  // the request layer dynamically imports the WS transport and routes
+  // through the `/copilot-chat` socket.io namespace. SSE stays alive
+  // for 30 days as fallback per plan decision #23 — flipping this flag
+  // off rolls back instantly.
+  ws_transport: {
+    category: 'affine',
+    displayName: 'Enable WebSocket transport for AI chat',
+    description:
+      'Routes AI chat streaming through a WebSocket transport (socket.io namespace /copilot-chat) instead of SSE. Adds tool-progress and memory-pushed push events. Off by default during the canary; SSE remains the fallback for 30 days post-cutover.',
+    configurable: true,
+    defaultState: false,
+  },
 } satisfies { [key in string]: FlagInfo };
 
 // oxlint-disable-next-line no-redeclare
