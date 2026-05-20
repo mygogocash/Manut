@@ -36,9 +36,13 @@ import { property } from 'lit/decorators.js';
 import {
   type AIToolName,
   ALL_TOOLS,
+  CHAT_MODEL_FAMILY_LABELS,
+  CHAT_MODEL_FAMILY_ORDER,
   type ChatMode,
+  type ChatModelFamily,
   DEFAULT_MODE,
   defaultEnabledTools,
+  getChatModelFamily,
   MODE_TOOL_SET,
   TOOL_LABELS,
 } from '../../utils/modes';
@@ -440,7 +444,124 @@ export class ChatInputPreference extends SignalWatcher(
       })
     );
 
-    // model switch
+    // model switch — group the submenu items by family (Auto / Gemini /
+    // Claude / Llama / Other) so the picker stays readable as we add more
+    // optionalModels per CHAT_PROMPT in
+    // packages/backend/server/src/plugins/copilot/prompt/prompts.ts.
+    // Auto sits at the top with a "Smart routing" sublabel; clicking it
+    // sends modelId='auto' which the backend's ScenarioClassifier resolves
+    // per request. The Pro lock chip and the Beta badge logic are preserved
+    // from the flat version below.
+    const allModels = this.aiModelService.models.value;
+    const isSelfHosted =
+      this.serverService.server.config$.value?.type ===
+      ServerDeploymentType.Selfhosted;
+    const status = this.subscriptionService.subscription.ai$.value?.status;
+    const isSubscribed = status === SubscriptionStatus.Active;
+    const handleLockClick = (ev: Event) => {
+      // Stop the row's select handler from also firing
+      ev.stopPropagation();
+      ev.preventDefault();
+      const proLockedTitle = I18n.t('com.affine.payment.ai.pro-locked.title');
+      const upgradeLabel = I18n.t('com.affine.payment.ai.pro-locked.upgrade');
+      // Surface a confirm dialog acting as the popover: clear copy +
+      // an explicit "Upgrade" CTA that triggers the existing
+      // subscription flow.
+      this.notificationService
+        .confirm({
+          title: proLockedTitle,
+          message: '',
+          confirmText: upgradeLabel,
+          cancelText: 'Cancel',
+        })
+        .then(confirmed => {
+          if (confirmed) {
+            return this.onAISubscribe();
+          }
+          return undefined;
+        })
+        .catch(() => {
+          // Surfacing failures here would double-toast on top of the
+          // subscribe flow's own error handling.
+        });
+    };
+    const buildModelRow = (model: (typeof allModels)[number]) => {
+      const isSelected = model.id === this.model.value?.id;
+      const isBeta = BETA_MODEL_IDS.has(model.id);
+      const betaTooltip = isBeta
+        ? I18n.t('com.affine.ai.model.beta-tooltip', {
+            provider: getProviderLabel(model.category),
+          })
+        : '';
+      // Auto entry shows "Smart routing" as its sub-label instead of a
+      // version string — it doesn't have a single model behind it.
+      const isAuto = model.id === 'auto';
+      return menu.action({
+        name: isAuto ? CHAT_MODEL_FAMILY_LABELS.auto : model.category,
+        info: html`
+          <span class="ai-model-version">
+            ${isAuto ? 'Smart routing' : model.version}
+          </span>
+          ${isBeta
+            ? html`<span
+                class="ai-model-beta-badge"
+                title=${betaTooltip}
+                aria-label=${betaTooltip}
+                >Beta</span
+              >`
+            : ''}
+        `,
+        prefix: html`
+          <div class="ai-model-prefix">
+            ${isSelected ? DoneIcon() : undefined}
+          </div>
+        `,
+        postfix: html`
+          <div class="ai-model-postfix" @click=${handleLockClick}>
+            ${model.isPro && !isSelfHosted && !isSubscribed
+              ? LockIcon()
+              : undefined}
+          </div>
+        `,
+        select: () => {
+          if (model.isPro && !isSelfHosted && !isSubscribed) {
+            this.notificationService.toast(
+              I18n.t('com.affine.payment.ai.pro-locked.title')
+            );
+            return;
+          }
+          this.aiModelService.setModel(model.id);
+        },
+      });
+    };
+    // Partition by family while preserving the order the backend returned
+    // optionalModels in (so users see the same lead model first within
+    // each section as the canonical list in prompts.ts).
+    const byFamily = new Map<ChatModelFamily, typeof allModels>();
+    for (const model of allModels) {
+      const family = getChatModelFamily(model.id);
+      const bucket = byFamily.get(family) ?? [];
+      bucket.push(model);
+      byFamily.set(family, bucket);
+    }
+    const modelSubmenuItems = CHAT_MODEL_FAMILY_ORDER.flatMap(family => {
+      const bucket = byFamily.get(family);
+      if (!bucket || bucket.length === 0) return [];
+      // Auto is presented as the topmost row WITHOUT a section heading —
+      // it's the default and treated as "no override". Every other family
+      // gets a labelled group divider so the user can scan by brand.
+      // Static English labels here (CHAT_MODEL_FAMILY_LABELS) keep the
+      // change off the i18n resource files; localised labels can land in
+      // a follow-up by reading `com.affine.ai.model.family.<family>`.
+      const groupName =
+        family === 'auto' ? undefined : CHAT_MODEL_FAMILY_LABELS[family];
+      return [
+        menu.group({
+          name: groupName,
+          items: bucket.map(buildModelRow),
+        }),
+      ];
+    });
     modelItems.push(
       menu.subMenu({
         name: 'Model',
@@ -450,87 +571,7 @@ export class ChatInputPreference extends SignalWatcher(
           <span class="ai-active-model-name"> ${this.model.value?.name} </span>
         `,
         options: {
-          items: this.aiModelService.models.value.map(model => {
-            const isSelected = model.id === this.model.value?.id;
-            const isSelfHosted =
-              this.serverService.server.config$.value?.type ===
-              ServerDeploymentType.Selfhosted;
-            const status =
-              this.subscriptionService.subscription.ai$.value?.status;
-            const isSubscribed = status === SubscriptionStatus.Active;
-            const isBeta = BETA_MODEL_IDS.has(model.id);
-            const betaTooltip = isBeta
-              ? I18n.t('com.affine.ai.model.beta-tooltip', {
-                  provider: getProviderLabel(model.category),
-                })
-              : '';
-            const handleLockClick = (ev: Event) => {
-              // Stop the row's select handler from also firing
-              ev.stopPropagation();
-              ev.preventDefault();
-              const proLockedTitle = I18n.t(
-                'com.affine.payment.ai.pro-locked.title'
-              );
-              const upgradeLabel = I18n.t(
-                'com.affine.payment.ai.pro-locked.upgrade'
-              );
-              // Surface a confirm dialog acting as the popover: clear copy +
-              // an explicit "Upgrade" CTA that triggers the existing
-              // subscription flow.
-              this.notificationService
-                .confirm({
-                  title: proLockedTitle,
-                  message: '',
-                  confirmText: upgradeLabel,
-                  cancelText: 'Cancel',
-                })
-                .then(confirmed => {
-                  if (confirmed) {
-                    return this.onAISubscribe();
-                  }
-                  return undefined;
-                })
-                .catch(() => {
-                  // Surfacing failures here would double-toast on top of the
-                  // subscribe flow's own error handling.
-                });
-            };
-            return menu.action({
-              name: model.category,
-              info: html`
-                <span class="ai-model-version">${model.version}</span>
-                ${isBeta
-                  ? html`<span
-                      class="ai-model-beta-badge"
-                      title=${betaTooltip}
-                      aria-label=${betaTooltip}
-                      >Beta</span
-                    >`
-                  : ''}
-              `,
-              prefix: html`
-                <div class="ai-model-prefix">
-                  ${isSelected ? DoneIcon() : undefined}
-                </div>
-              `,
-              postfix: html`
-                <div class="ai-model-postfix" @click=${handleLockClick}>
-                  ${model.isPro && !isSelfHosted && !isSubscribed
-                    ? LockIcon()
-                    : undefined}
-                </div>
-              `,
-              select: () => {
-                if (model.isPro && !isSelfHosted && !isSubscribed) {
-                  this.notificationService.toast(
-                    I18n.t('com.affine.payment.ai.pro-locked.title')
-                  );
-                  return;
-                }
-                this.aiModelService.setModel(model.id);
-              },
-            });
-          }),
+          items: modelSubmenuItems,
         },
       })
     );

@@ -1,9 +1,15 @@
 import { WorkspaceServerService } from '@affine/core/modules/cloud';
 import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
 import { IntegrationService } from '@affine/core/modules/integration';
+import {
+  FADE_UP_VARIANTS,
+  SPRING_GENTLE,
+  STAGGER_30MS,
+} from '@affine/core/utils/motion';
 import { TodayIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import dayjs from 'dayjs';
+import { motion, useReducedMotion } from 'framer-motion';
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 
@@ -155,6 +161,23 @@ export function MeetingsView(): ReactElement {
     });
   }, [workspaceDialogService]);
 
+  // Motion polish — STAGGER_30MS cascade for meeting rows. Reduced-
+  // motion users see the list snap in without movement. Hooks live
+  // ABOVE any early-return so the rules-of-hooks contract holds when
+  // the user connects/disconnects accounts (which flips `isConnected`
+  // and would otherwise change the hook call count between renders).
+  const prefersReducedMotion = useReducedMotion();
+  const listVariants = useMemo(
+    () => ({
+      hidden: { opacity: 1 },
+      visible: {
+        opacity: 1,
+        transition: prefersReducedMotion ? {} : STAGGER_30MS,
+      },
+    }),
+    [prefersReducedMotion]
+  );
+
   if (!isConnected) {
     return (
       <div className={styles.viewRoot} data-testid="sidebar-meetings-view">
@@ -188,24 +211,39 @@ export function MeetingsView(): ReactElement {
         {orderedBuckets.length === 0 ? (
           <div className={styles.skeletonRow}>No meetings in this window.</div>
         ) : (
-          orderedBuckets.map(bucket => (
-            <div key={bucket.bucket.id}>
-              <div
-                className={styles.groupLabel}
-                data-testid={`sidebar-meetings-bucket-${bucket.bucket.id}`}
-              >
-                {bucket.bucket.label}
+          <motion.div
+            variants={listVariants}
+            initial={prefersReducedMotion ? false : 'hidden'}
+            animate="visible"
+          >
+            {orderedBuckets.map(bucket => (
+              <div key={bucket.bucket.id}>
+                <div
+                  className={styles.groupLabel}
+                  data-testid={`sidebar-meetings-bucket-${bucket.bucket.id}`}
+                >
+                  {bucket.bucket.label}
+                </div>
+                {bucket.items.map(event => (
+                  <motion.div
+                    key={event.id}
+                    variants={
+                      prefersReducedMotion ? undefined : FADE_UP_VARIANTS
+                    }
+                    transition={
+                      prefersReducedMotion ? { duration: 0 } : SPRING_GENTLE
+                    }
+                  >
+                    <MeetingRow
+                      title={event.title}
+                      startMs={event.startMs}
+                      color={event.color}
+                    />
+                  </motion.div>
+                ))}
               </div>
-              {bucket.items.map(event => (
-                <MeetingRow
-                  key={event.id}
-                  title={event.title}
-                  startMs={event.startMs}
-                  color={event.color}
-                />
-              ))}
-            </div>
-          ))
+            ))}
+          </motion.div>
         )}
       </div>
     </div>

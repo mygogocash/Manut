@@ -4,7 +4,7 @@
 // package's DOM-touching code (which references HTMLElement at module
 // level and would crash the build-time eval).
 import { cssVarV2 } from '@toeverything/theme/v2';
-import { keyframes, style } from '@vanilla-extract/css';
+import { globalStyle, keyframes, style } from '@vanilla-extract/css';
 
 // Entrance animation for doc list/card items. Opt-in stagger: a parent can
 // pass `style={{ '--manut-stagger-delay': '50ms' }}` to delay this card's
@@ -222,7 +222,15 @@ export const cardViewRoot = style({
   // TODO: use variable
   boxShadow: '0px 0px 0px 1px var(--ring-color), 0px 0px 3px rgba(0,0,0,.05)',
   overflow: 'hidden',
-  transition: `box-shadow var(--affine-anim-duration-slow) var(--affine-anim-curve-default), border-color var(--affine-anim-duration-slow) var(--affine-anim-curve-default)`,
+  // Motion polish — extend the existing hover state with a 2px lift +
+  // a tighter spring-feel transform curve. The lift uses translateY
+  // which is compositor-only (no reflow). The cubic-bezier mimics
+  // SPRING_TIGHT (snap, no overshoot) and disappears under
+  // prefers-reduced-motion so users in that mode see only the shadow
+  // intensify on hover.
+  transformOrigin: 'center bottom',
+  willChange: 'transform',
+  transition: `box-shadow var(--affine-anim-duration-slow) var(--affine-anim-curve-default), border-color var(--affine-anim-duration-slow) var(--affine-anim-curve-default), transform 180ms cubic-bezier(0.22, 1, 0.36, 1)`,
   animation: `${docCardEnter} 280ms var(--manut-anim-curve-overshoot) both`,
   animationDelay: 'var(--manut-stagger-delay, 0ms)',
   selectors: {
@@ -233,6 +241,7 @@ export const cardViewRoot = style({
     },
     '&:hover': {
       borderColor: cssVarV2.pagelist.hoverBorder,
+      transform: 'translateY(-2px)',
     },
     '[data-theme="light"] &': {
       boxShadow: 'var(--light-shadow)',
@@ -247,11 +256,27 @@ export const cardViewRoot = style({
       boxShadow: 'var(--dark-shadow-hover)',
     },
   },
-  // See listViewRoot — same reduced-motion contract.
+  // See listViewRoot — same reduced-motion contract. Also kill the
+  // hover-lift transform entirely in reduced-motion mode so the user
+  // sees a static card on pointer-over.
   '@media': {
     '(prefers-reduced-motion: reduce)': {
       animation: 'none',
       animationDelay: '0ms',
+      transition: `box-shadow var(--affine-anim-duration-slow) var(--affine-anim-curve-default), border-color var(--affine-anim-duration-slow) var(--affine-anim-curve-default)`,
+    },
+  },
+});
+
+// Reduced-motion override for the cardViewRoot hover lift. vanilla-
+// extract doesn't allow `selectors` inside `@media` blocks, so the
+// hover transform has to be neutralised via globalStyle. The query
+// applies to the generated class name; under reduced-motion the
+// hover transform collapses back to none so the card stays still.
+globalStyle(`${cardViewRoot}:hover`, {
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      transform: 'none',
     },
   },
 });

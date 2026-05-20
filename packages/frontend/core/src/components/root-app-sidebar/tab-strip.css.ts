@@ -33,12 +33,29 @@ export const tabButton = style({
   borderRadius: 'var(--manut-radius-input)',
   cursor: 'pointer',
   fontSize: 18,
+  // Motion polish — hover scale 1.08 with a snappy overshoot curve to
+  // match the chat anchor button. The CSS-based transform keeps the
+  // bundle slim (no per-tab motion.button) and the cubic-bezier mimics
+  // SPRING_TIGHT. Reduced-motion users have the transform disabled via
+  // the @media query below; only the background/color swap remains.
+  transformOrigin: 'center',
+  willChange: 'transform',
   transition:
-    'background var(--affine-anim-duration-fast) var(--affine-anim-curve-default), color var(--affine-anim-duration-fast) var(--affine-anim-curve-default), border-color var(--affine-anim-duration-fast) var(--affine-anim-curve-default)',
+    'background var(--affine-anim-duration-fast) var(--affine-anim-curve-default), color var(--affine-anim-duration-fast) var(--affine-anim-curve-default), border-color var(--affine-anim-duration-fast) var(--affine-anim-curve-default), transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      transition:
+        'background var(--affine-anim-duration-fast) var(--affine-anim-curve-default), color var(--affine-anim-duration-fast) var(--affine-anim-curve-default), border-color var(--affine-anim-duration-fast) var(--affine-anim-curve-default)',
+    },
+  },
   selectors: {
     '&:hover': {
       background: cssVar('hoverColor'),
       color: cssVar('iconSecondary'),
+      transform: 'scale(1.08)',
+    },
+    '&:active': {
+      transform: 'scale(0.96)',
     },
     // Notion-style rounded-chip active state — subtle violet fill + brand
     // violet border. Border colour swaps in via the same `--manut-*` token

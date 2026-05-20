@@ -74,6 +74,10 @@ export class AIErrorWrapper extends SignalWatcher(WithDisposable(LitElement)) {
         border-radius: 4px;
         background-color: ${unsafeCSSVarV2('aI/errorDetailBackground')};
         overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ${unsafeCSS(baseTheme.fontMonoFamily)};
+        font-size: var(--affine-font-xs);
       }
       ${scrollbarStyle('.detail-content')}
 
@@ -227,6 +231,37 @@ const GeneralErrorRenderer = (props: ErrorProps = {}) => {
   ></ai-error-wrapper>`;
 };
 
+/**
+ * Build the "Show detail" body for a non-PaymentRequired / non-Unauthorized
+ * AI error. We want enough information to debug a prod-only failure without
+ * the user having to open dev tools:
+ *   - The error class name (e.g. `GeneralNetworkError`, `RequestTimeoutError`),
+ *   - The error `type` enum (matches `AIErrorType`),
+ *   - The `${code}: ${message}` payload constructed by `codeToError`
+ *     (already encodes the upstream UserFriendlyError code).
+ *
+ * v1.12.x prod-bug investigation: prior version exposed only `error.message`,
+ * which for a generic `GeneralNetworkError` collapses to a string like
+ * `INTERNAL_SERVER_ERROR: An internal error occurred.` — losing the class
+ * name. Adding the name + type makes incident triage one-click instead of
+ * one-screenshare.
+ */
+function buildErrorDetail(error: AIError): string {
+  const parts: string[] = [];
+  const name = (error as Error).name;
+  if (name && name !== 'Error') {
+    parts.push(`Name: ${name}`);
+  }
+  const type = (error as { type?: string }).type;
+  if (type) {
+    parts.push(`Type: ${type}`);
+  }
+  if (error.message) {
+    parts.push(`Message: ${error.message}`);
+  }
+  return parts.join('\n');
+}
+
 export function AIChatErrorRenderer(error: AIError, host?: EditorHost | null) {
   if (error instanceof PaymentRequiredError) {
     return PaymentRequiredErrorRenderer(host);
@@ -234,7 +269,7 @@ export function AIChatErrorRenderer(error: AIError, host?: EditorHost | null) {
     return LoginRequiredErrorRenderer(host);
   } else {
     return GeneralErrorRenderer({
-      errorMessage: error.message,
+      errorMessage: buildErrorDetail(error),
     });
   }
 }

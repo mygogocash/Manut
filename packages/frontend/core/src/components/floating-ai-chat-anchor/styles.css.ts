@@ -58,10 +58,12 @@ export const anchorButton = style({
 });
 
 // Slide-in panel container. Lives at the right edge.
-// Closed state translates X by 100% so the panel sits off-screen; open state
-// resets to translateX(0). Uses the upstream affine animation tokens so
-// reduced-motion users get an instant snap (those tokens collapse to 0ms
-// under `prefers-reduced-motion: reduce` — see animation.css).
+// Motion polish: framer-motion AnimatePresence now drives the slide
+// animation via SPRING_GENTLE (see index.tsx). We keep the .panel
+// class for layout + shadow + radius; the `transform` / `opacity` /
+// `transition` properties are owned by motion at runtime. The
+// data-open attribute is preserved for any existing query selectors
+// that lock onto it (e.g. e2e tests).
 export const panel = style({
   position: 'fixed',
   top: 16,
@@ -76,18 +78,7 @@ export const panel = style({
   flexDirection: 'column',
   overflow: 'hidden',
   zIndex: 101,
-  transform: 'translateX(calc(100% + 32px))',
-  opacity: 0,
-  pointerEvents: 'none',
-  transition:
-    'transform var(--affine-anim-duration-slow) var(--affine-anim-curve-out), opacity var(--affine-anim-duration-slow) var(--affine-anim-curve-out)',
-  selectors: {
-    '&[data-open="true"]': {
-      transform: 'translateX(0)',
-      opacity: 1,
-      pointerEvents: 'auto',
-    },
-  },
+  pointerEvents: 'auto',
 });
 
 export const panelHeader = style({

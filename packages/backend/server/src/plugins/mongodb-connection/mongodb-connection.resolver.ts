@@ -1,0 +1,164 @@
+import { Logger } from '@nestjs/common';
+import {
+  Args,
+  Field,
+  InputType,
+  Mutation,
+  ObjectType,
+  Query,
+  Resolver,
+} from '@nestjs/graphql';
+
+import { AuthenticationRequired } from '../../base';
+import { CurrentUser } from '../../core/auth';
+import {
+  MongoDbConnectionInvalidUriError,
+  MongoDbConnectionNotConnectedError,
+  MongoDbConnectionService,
+} from './mongodb-connection.service';
+
+@InputType()
+export class MongoDbConnectionInputType {
+  @Field()
+  uri!: string;
+}
+
+@ObjectType()
+export class MongoDbConnectionType {
+  @Field()
+  connected!: boolean;
+
+  // Explicit @Field(() => String) for nullable union — CLAUDE.md §6.
+  @Field(() => String, { nullable: true })
+  host?: string;
+
+  @Field(() => String, { nullable: true })
+  database?: string;
+}
+
+@ObjectType()
+export class MongoDbConnectionTestResultType {
+  @Field()
+  ok!: boolean;
+
+  @Field(() => String, { nullable: true })
+  error?: string;
+
+  @Field(() => String, { nullable: true })
+  host?: string;
+
+  @Field(() => String, { nullable: true })
+  database?: string;
+
+  @Field(() => Number, { nullable: true })
+  pingMs?: number;
+}
+
+function rethrowFriendly(err: unknown): never {
+  if (err instanceof MongoDbConnectionNotConnectedError) {
+    throw new Error(
+      'MongoDB is not connected. Add a connection string in Settings → Analytics · Connections.'
+    );
+  }
+  if (err instanceof MongoDbConnectionInvalidUriError) {
+    throw new Error(err.message);
+  }
+  throw err;
+}
+
+@Resolver()
+export class MongoDbConnectionResolver {
+  private readonly logger = new Logger(MongoDbConnectionResolver.name);
+
+  constructor(private readonly mongo: MongoDbConnectionService) {}
+
+  /**
+   * Persist a MongoDB URI for the workspace. Encrypts at rest.
+   * Returns the parsed host + database for display.
+   */
+  @Mutation(() => MongoDbConnectionType)
+  async setMongoDbConnection(
+    @CurrentUser() user: CurrentUser | null,
+    @Args('workspaceId') workspaceId: string,
+    @Args('input') input: MongoDbConnectionInputType
+  ): Promise<MongoDbConnectionType> {
+    if (!user) {
+      throw new AuthenticationRequired();
+    }
+    try {
+      const status = await this.mongo.setConnection(
+        user.id,
+        workspaceId,
+        input.uri
+      );
+      return {
+        connected: status.connected,
+        host: status.host,
+        database: status.database,
+      };
+    } catch (err) {
+      rethrowFriendly(err);
+    }
+  }
+
+  @Mutation(() => Boolean)
+  async disconnectMongoDb(
+    @CurrentUser() user: CurrentUser | null,
+    @Args('workspaceId') workspaceId: string
+  ): Promise<boolean> {
+    if (!user) {
+      throw new AuthenticationRequired();
+    }
+    return this.mongo.disconnect(user.id, workspaceId);
+  }
+
+  /**
+   * Stateless connection probe — does NOT persist the URI. Used by
+   * the inline "Test" button on the frontend form before the user
+   * saves.
+   */
+  @Mutation(() => MongoDbConnectionTestResultType)
+  async testMongoDbConnection(
+    @CurrentUser() user: CurrentUser | null,
+    @Args('input') input: MongoDbConnectionInputType
+  ): Promise<MongoDbConnectionTestResultType> {
+    if (!user) {
+      throw new AuthenticationRequired();
+    }
+    const result = await this.mongo.testConnection(input.uri);
+    return {
+      ok: result.ok,
+      error: result.error,
+      host: result.host,
+      database: result.database,
+      pingMs: result.pingMs,
+    };
+  }
+
+  @Query(() => MongoDbConnectionType)
+  async mongoDbConnection(
+    @CurrentUser() user: CurrentUser | null,
+    @Args('workspaceId') workspaceId: string
+  ): Promise<MongoDbConnectionType> {
+    if (!user) {
+      throw new AuthenticationRequired();
+    }
+    try {
+      const status = await this.mongo.getStatus(user.id, workspaceId);
+      return {
+        connected: status.connected,
+        host: status.host,
+        database: status.database,
+      };
+    } catch (err) {
+      this.logger.error(
+        // CRITICAL: never log the URI; the user-bound row stores it
+        // encrypted but a transient query failure must not echo any
+        // metadata that might contain secrets.
+        `mongoDbConnection lookup failed for user=${user.id} workspace=${workspaceId}: ${err instanceof Error ? err.message : String(err)}`,
+        err instanceof Error ? err.stack : undefined
+      );
+      return { connected: false };
+    }
+  }
+}

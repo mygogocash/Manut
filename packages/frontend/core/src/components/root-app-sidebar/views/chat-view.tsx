@@ -1,7 +1,13 @@
 import { GlobalStateService } from '@affine/core/modules/storage';
 import { WorkspaceService } from '@affine/core/modules/workspace';
+import {
+  FADE_UP_VARIANTS,
+  SPRING_GENTLE,
+  STAGGER_30MS,
+} from '@affine/core/utils/motion';
 import { AiIcon, ChatPanelIcon, PlusIcon } from '@blocksuite/icons/rc';
 import { useService } from '@toeverything/infra';
+import { motion, useReducedMotion } from 'framer-motion';
 import type { ReactElement } from 'react';
 import { useCallback, useMemo } from 'react';
 
@@ -191,31 +197,82 @@ export function ChatView(): ReactElement {
           </div>
         </div>
       ) : (
-        <div className={styles.historySection}>
-          {buckets.map(bucket => (
-            <div key={bucket.id}>
-              <div
-                className={styles.groupHeading}
-                data-testid={`sidebar-chat-bucket-${bucket.id}`}
-              >
-                {bucket.label}
-              </div>
-              <div className={styles.historyList}>
-                {bucket.rows.map(row => (
-                  <ChatHistoryRowButton
-                    key={row.id}
-                    row={row}
-                    active={row.id === activeId}
-                    now={now}
-                    onSelect={handleSelect}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <HistoryList
+          buckets={buckets}
+          activeId={activeId}
+          now={now}
+          onSelect={handleSelect}
+        />
       )}
     </div>
+  );
+}
+
+// Motion polish — chat history list with FADE_UP cascade. Each row
+// fades up 8px with SPRING_GENTLE; the parent container staggers
+// children by 30ms. Reduced-motion users see the list render
+// instantly (no opacity, no transform, no stagger).
+interface HistoryListProps {
+  buckets: ReturnType<typeof useChatHistory>['buckets'];
+  activeId: string | null;
+  now: number;
+  onSelect: (id: string, title: string) => void;
+}
+
+function HistoryList({
+  buckets,
+  activeId,
+  now,
+  onSelect,
+}: HistoryListProps): ReactElement {
+  const prefersReducedMotion = useReducedMotion();
+  const containerVariants = useMemo(
+    () => ({
+      hidden: { opacity: 1 },
+      visible: {
+        opacity: 1,
+        transition: prefersReducedMotion ? {} : STAGGER_30MS,
+      },
+    }),
+    [prefersReducedMotion]
+  );
+
+  return (
+    <motion.div
+      className={styles.historySection}
+      variants={containerVariants}
+      initial={prefersReducedMotion ? false : 'hidden'}
+      animate="visible"
+    >
+      {buckets.map(bucket => (
+        <div key={bucket.id}>
+          <div
+            className={styles.groupHeading}
+            data-testid={`sidebar-chat-bucket-${bucket.id}`}
+          >
+            {bucket.label}
+          </div>
+          <div className={styles.historyList}>
+            {bucket.rows.map(row => (
+              <motion.div
+                key={row.id}
+                variants={prefersReducedMotion ? undefined : FADE_UP_VARIANTS}
+                transition={
+                  prefersReducedMotion ? { duration: 0 } : SPRING_GENTLE
+                }
+              >
+                <ChatHistoryRowButton
+                  row={row}
+                  active={row.id === activeId}
+                  now={now}
+                  onSelect={onSelect}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </motion.div>
   );
 }
 

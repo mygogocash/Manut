@@ -145,6 +145,16 @@ export const button = style({
         [borderColorVar]: cssVarV2.layer.insideBorder.blackBorder,
       },
     },
+    // Motion polish — primary buttons get a subtle hover lift on top
+    // of the existing press scale. translateY(-1px) is compositor-
+    // friendly and reads as "this is the headline action on the
+    // surface" without being noisy. Combines with the press scale
+    // already defined on the `&:active` selector above. Reduced-
+    // motion users keep the colour/shadow swap but skip the lift.
+    '&[data-variant="primary"]:hover:not([data-disabled])': {
+      transform: 'translateY(-1px)',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
+    },
     '&[data-variant="secondary"]': {
       vars: {
         [bgVar]: cssVarV2('button/secondary'),
@@ -203,6 +213,26 @@ export const button = style({
     '&[data-mobile=true]:focus-visible::after': {
       content: 'none',
       display: 'none',
+    },
+  },
+});
+
+// Reduced-motion clamp for both the primary-button hover lift and the
+// `:active` press scale. Lives in a globalStyle wrapper so we can target
+// the selectors via `@media` without colliding with the `selectors`
+// block inside `style({})` (vanilla-extract doesn't let you nest
+// `selectors` inside `@media` directly).
+globalStyle(`${button}:hover:not([data-disabled])`, {
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      transform: 'none',
+    },
+  },
+});
+globalStyle(`${button}:not([data-disabled]):not([data-no-press]):active`, {
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      transform: 'none',
     },
   },
 });

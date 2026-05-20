@@ -167,3 +167,42 @@ export const TOOL_LABELS: Partial<Record<AIToolName, string>> = {
 export function defaultEnabledTools(mode: ChatMode): AIToolName[] {
   return [...MODE_TOOL_SET[mode]];
 }
+
+// Model family taxonomy for the chat input's Model picker submenu.
+// Used to GROUP optional models in the preference popup so the user sees
+// "Auto" at top, then Gemini, Claude, Llama, and "Other" sections — instead
+// of one flat alphabetical list. Detection is best-effort against model.id
+// prefixes; matches CHAT_PROMPT.optionalModels in
+// packages/backend/server/src/plugins/copilot/prompt/prompts.ts.
+export type ChatModelFamily = 'auto' | 'gemini' | 'claude' | 'llama' | 'other';
+
+export const CHAT_MODEL_FAMILY_LABELS: Record<ChatModelFamily, string> = {
+  auto: 'Auto',
+  gemini: 'Gemini',
+  claude: 'Claude',
+  llama: 'Llama',
+  other: 'Other',
+};
+
+// Stable render order so the submenu is deterministic regardless of the
+// order the backend returns optionalModels in.
+export const CHAT_MODEL_FAMILY_ORDER: readonly ChatModelFamily[] = [
+  'auto',
+  'gemini',
+  'claude',
+  'llama',
+  'other',
+] as const;
+
+// Map a model id (e.g. "claude-sonnet-4-5@20250929") or the synthetic
+// "auto" entry to the family it belongs to. Matches the prefix conventions
+// the Vertex provider lists use today; falls back to 'other' for direct
+// OpenAI-compat vendors like kimi-k2 / grok-4 / qwen3.
+export function getChatModelFamily(modelId: string): ChatModelFamily {
+  const id = modelId.toLowerCase();
+  if (id === 'auto') return 'auto';
+  if (id.startsWith('gemini')) return 'gemini';
+  if (id.startsWith('claude')) return 'claude';
+  if (id.startsWith('llama')) return 'llama';
+  return 'other';
+}

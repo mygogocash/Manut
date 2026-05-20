@@ -171,12 +171,27 @@ export class ManageUserInput {
 
 @InputType()
 export class UpdateUserSettingsInput implements UserSettingsInput {
-  @Field({ description: 'Receive invitation email', nullable: true })
+  // Each field carries an explicit `() => Boolean` so NestJS GraphQL's
+  // reflection-based type inference doesn't fall over on the nullable
+  // declarations. See CLAUDE.md §6 "GraphQL `@Field` UndefinedTypeError
+  // — broken TWICE now" — the v1.7.0 and v1.10.2 startup crashes both
+  // came from `@Field({ nullable: true })` without an explicit type
+  // function. Keep this pattern even though boolean "looks obvious".
+  @Field(() => Boolean, {
+    description: 'Receive invitation email',
+    nullable: true,
+  })
   receiveInvitationEmail?: boolean;
 
-  @Field({ description: 'Receive mention email', nullable: true })
+  @Field(() => Boolean, {
+    description: 'Receive mention email',
+    nullable: true,
+  })
   receiveMentionEmail?: boolean;
 
-  @Field({ description: 'Receive comment email', nullable: true })
+  @Field(() => Boolean, {
+    description: 'Receive comment email',
+    nullable: true,
+  })
   receiveCommentEmail?: boolean;
 }

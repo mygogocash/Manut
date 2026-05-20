@@ -62,17 +62,28 @@ import { CaptchaModule } from './plugins/captcha';
 import { ConnectionsModule } from './plugins/connections';
 import { CopilotModule } from './plugins/copilot';
 import { CustomerIoModule } from './plugins/customerio';
+import { FacebookOAuthModule } from './plugins/facebook-oauth/facebook-oauth.module';
+import { FigmaOAuthModule } from './plugins/figma-oauth/figma-oauth.module';
 import { GCloudModule } from './plugins/gcloud';
 import { GithubOAuthModule } from './plugins/github-oauth/github-oauth.module';
+import { GoGoCashConnectionModule } from './plugins/gogocash-connection/gogocash-connection.module';
 import { GoogleOAuthModule } from './plugins/google-oauth';
 import { IndexerModule } from './plugins/indexer';
+import { InstagramOAuthModule } from './plugins/instagram-oauth/instagram-oauth.module';
 import { LicenseModule } from './plugins/license';
+import { LineVoomOAuthModule } from './plugins/line-voom-oauth/line-voom-oauth.module';
+import { LinearOAuthModule } from './plugins/linear-oauth/linear-oauth.module';
 import {
   isManutModuleEnabled,
   ManutModule,
 } from './plugins/manut/manut.module';
+import { MongoDbConnectionModule } from './plugins/mongodb-connection/mongodb-connection.module';
 import { OAuthModule } from './plugins/oauth';
 import { PaymentModule } from './plugins/payment';
+import { PostHogConnectionModule } from './plugins/posthog-connection/posthog-connection.module';
+import { SlackOAuthModule } from './plugins/slack-oauth/slack-oauth.module';
+import { ThreadsOAuthModule } from './plugins/threads-oauth/threads-oauth.module';
+import { TiktokOAuthModule } from './plugins/tiktok-oauth/tiktok-oauth.module';
 import { WorkerModule } from './plugins/worker';
 
 export const FunctionalityModules = [
@@ -214,6 +225,23 @@ export function buildAppModule(env: Env) {
       ConnectionsModule,
       GoogleOAuthModule,
       GithubOAuthModule,
+      SlackOAuthModule,
+      LinearOAuthModule,
+      FigmaOAuthModule,
+      // Manut Analytics — social platform OAuth scaffolds (5 OAuth providers
+      // + 1 internal API-key + 2 database connectors). All shipped together
+      // in the analytics-connections panel. Same useIf gate as the rest of
+      // the OAuth modules so the GraphQL surface only mounts on the graphql
+      // flavor. Each module is graceful-no-op when its env vars are unset
+      // (see CLAUDE.md §6 Google OAuth scaffold-only pattern).
+      FacebookOAuthModule,
+      InstagramOAuthModule,
+      ThreadsOAuthModule,
+      TiktokOAuthModule,
+      LineVoomOAuthModule,
+      GoGoCashConnectionModule,
+      MongoDbConnectionModule,
+      PostHogConnectionModule,
       AgentsModule,
       CustomerIoModule,
       TelemetryModule,

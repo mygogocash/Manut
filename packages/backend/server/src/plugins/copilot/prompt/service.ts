@@ -421,6 +421,15 @@ export class PromptService implements OnApplicationBootstrap {
       topK?: number;
     }
   ): Promise<PromptMessage[]> {
+    // Belt-and-braces guards per the v1.12.x prod incident (PR #122 chat
+    // pipeline failure). Memory injection is best-effort — invalid input
+    // returns the original messages immediately, never throws.
+    if (!Array.isArray(messages)) {
+      return messages;
+    }
+    if (!context || !context.workspaceId || !context.userId || !context.query) {
+      return messages;
+    }
     try {
       const memories = await this.memoryRetrieve.retrieve({
         workspaceId: context.workspaceId,
@@ -429,6 +438,9 @@ export class PromptService implements OnApplicationBootstrap {
         topK: context.topK ?? 5,
         scopes: ['user', 'workspace'],
       });
+      if (!memories || memories.length === 0) {
+        return messages;
+      }
       const memoryBlob = formatMemoriesForPrompt(memories);
       if (!memoryBlob) {
         return messages;
@@ -448,12 +460,12 @@ export class PromptService implements OnApplicationBootstrap {
       const original = cloned[systemIdx];
       cloned[systemIdx] = {
         ...original,
-        content: `${memoryBlob}${original.content}`,
+        content: `${memoryBlob}${original.content ?? ''}`,
       };
       return cloned;
     } catch (error) {
       this.logger.warn(
-        `Memory injection failed (workspace=${context.workspaceId}, user=${context.userId}): ${this.stringifyError(error)}`
+        `Memory injection failed (workspace=${context?.workspaceId ?? '?'}, user=${context?.userId ?? '?'}): ${this.stringifyError(error)}`
       );
       return messages;
     }

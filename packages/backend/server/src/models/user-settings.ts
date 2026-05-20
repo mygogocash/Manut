@@ -48,6 +48,19 @@ export class UserSettingsModel extends BaseModel {
         userId,
       },
     });
-    return UserSettingsSchema.parse(row?.payload ?? {});
+    // Defensive parse: if a row has a legacy/corrupted payload that no
+    // longer satisfies the schema (e.g. older deploys before `personalize`
+    // was added wrote `null` for a field that's now non-nullable), fall
+    // back to defaults so the Settings → Notifications panel stays
+    // usable instead of throwing INTERNAL_SERVER_ERROR. The schema has
+    // `.default(...)` on every field, so an empty object always parses.
+    const result = UserSettingsSchema.safeParse(row?.payload ?? {});
+    if (result.success) {
+      return result.data;
+    }
+    this.logger.warn(
+      `UserSettings payload for ${userId} failed schema parse, returning defaults: ${result.error.message}`
+    );
+    return UserSettingsSchema.parse({});
   }
 }

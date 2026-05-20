@@ -4,6 +4,11 @@ import {
   NotificationListService,
   NotificationType,
 } from '@affine/core/modules/notification';
+import {
+  FADE_UP_VARIANTS,
+  SPRING_GENTLE,
+  STAGGER_30MS,
+} from '@affine/core/utils/motion';
 import type {
   BudgetSoftCapNotificationBodyType,
   InvitationAcceptedNotificationBodyType,
@@ -21,6 +26,7 @@ import {
   MoreHorizontalIcon,
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
+import { motion, useReducedMotion } from 'framer-motion';
 import type { ReactElement } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 
@@ -74,6 +80,21 @@ export function InboxView(): ReactElement {
     );
   }, [notifications]);
 
+  // Motion polish — STAGGER_30MS cascade for notification rows.
+  // Reduced-motion users see the list render statically (no fade,
+  // no movement).
+  const prefersReducedMotion = useReducedMotion();
+  const listVariants = useMemo(
+    () => ({
+      hidden: { opacity: 1 },
+      visible: {
+        opacity: 1,
+        transition: prefersReducedMotion ? {} : STAGGER_30MS,
+      },
+    }),
+    [prefersReducedMotion]
+  );
+
   return (
     <div className={styles.viewRoot} data-testid="sidebar-inbox-view">
       <div className={styles.viewHeader}>
@@ -121,22 +142,35 @@ export function InboxView(): ReactElement {
             <InboxEmptyState />
           )
         ) : (
-          buckets.map(bucket => (
-            <div key={bucket.bucket.id}>
-              <div
-                className={styles.groupLabel}
-                data-testid={`sidebar-inbox-bucket-${bucket.bucket.id}`}
-              >
-                {bucket.bucket.label}
+          <motion.div
+            variants={listVariants}
+            initial={prefersReducedMotion ? false : 'hidden'}
+            animate="visible"
+          >
+            {buckets.map(bucket => (
+              <div key={bucket.bucket.id}>
+                <div
+                  className={styles.groupLabel}
+                  data-testid={`sidebar-inbox-bucket-${bucket.bucket.id}`}
+                >
+                  {bucket.bucket.label}
+                </div>
+                {bucket.items.map(notification => (
+                  <motion.div
+                    key={notification.id}
+                    variants={
+                      prefersReducedMotion ? undefined : FADE_UP_VARIANTS
+                    }
+                    transition={
+                      prefersReducedMotion ? { duration: 0 } : SPRING_GENTLE
+                    }
+                  >
+                    <NotificationRow notification={notification} />
+                  </motion.div>
+                ))}
               </div>
-              {bucket.items.map(notification => (
-                <NotificationRow
-                  key={notification.id}
-                  notification={notification}
-                />
-              ))}
-            </div>
-          ))
+            ))}
+          </motion.div>
         )}
       </div>
     </div>

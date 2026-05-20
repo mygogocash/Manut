@@ -36,15 +36,19 @@ export class MemoryRetrieveService {
   ) {}
 
   async retrieve(input: RetrieveMemoryInput): Promise<RetrievedMemory[]> {
-    const query = input.query?.trim();
-    if (!query) {
-      return [];
-    }
-    const topK = Math.max(1, Math.min(input.topK ?? this.defaultTopK, 50));
-    const scopes = input.scopes?.length
-      ? Array.from(new Set(input.scopes))
-      : this.defaultScopes;
+    // Defensive top-level wrapper per the v1.12.x prod incident (PR #122
+    // chat pipeline failure). Any malformed input — missing workspaceId,
+    // non-string query, attachment-shape weirdness — must NOT bubble out
+    // of memory retrieval and break the chat turn. Memory is best-effort.
     try {
+      const query = input?.query?.trim();
+      if (!query || !input?.workspaceId) {
+        return [];
+      }
+      const topK = Math.max(1, Math.min(input.topK ?? this.defaultTopK, 50));
+      const scopes = input.scopes?.length
+        ? Array.from(new Set(input.scopes))
+        : this.defaultScopes;
       const embedding = await this.embedService.embed(query);
       if (!embedding) {
         return [];

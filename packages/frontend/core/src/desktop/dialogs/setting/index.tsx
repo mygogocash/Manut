@@ -14,10 +14,12 @@ import type {
 } from '@affine/core/modules/dialogs/constant';
 import { GlobalContextService } from '@affine/core/modules/global-context';
 import { createIsland, type Island } from '@affine/core/utils/island';
+import { SPRING_GENTLE } from '@affine/core/utils/motion';
 import { ServerDeploymentType } from '@affine/graphql';
 import { Trans, useTranslation } from '@affine/i18n';
 import { ContactWithUsIcon } from '@blocksuite/icons/rc';
 import { FrameworkScope, useLiveData, useService } from '@toeverything/infra';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { debounce } from 'lodash-es';
 import {
   Suspense,
@@ -194,6 +196,17 @@ const SettingModalInner = ({
     }
     modalContentWrapperRef.current?.scrollTo({ top: 0 });
   }, [settingState]);
+  // Manut motion polish — fade-cross between settings panels. The
+  // previous behaviour was an instant snap which felt cheap next to the
+  // sidebar's magic-line indicator. AnimatePresence keyed on activeTab
+  // gives us a 180ms cross-fade with a tiny y offset. Reduced-motion
+  // users collapse to an instant swap via `prefers-reduced-motion: reduce`
+  // — framer-motion's useReducedMotion hook returns true for that pref
+  // and we feed `{ duration: 0 }` into the transition.
+  const prefersReducedMotion = useReducedMotion();
+  const panelTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : SPRING_GENTLE;
   return (
     <FrameworkScope
       key={`setting-modal-${currentServerId}-${currentLanguageKey}`}
@@ -215,22 +228,42 @@ const SettingModalInner = ({
             <div className={style.centerContainer}>
               <div ref={modalContentRef} className={style.content}>
                 <Suspense fallback={<WorkspaceDetailSkeleton />}>
-                  {settingState.activeTab === 'account' &&
-                  loginStatus === 'authenticated' ? (
-                    <AccountSetting onChangeSettingState={setSettingState} />
-                  ) : isWorkspaceSetting(settingState.activeTab) ? (
-                    <WorkspaceSetting
-                      activeTab={settingState.activeTab}
-                      scrollAnchor={settingState.scrollAnchor}
-                      onCloseSetting={onCloseSetting}
-                      onChangeSettingState={setSettingState}
-                    />
-                  ) : !isWorkspaceSetting(settingState.activeTab) ? (
-                    <GeneralSetting
-                      activeTab={settingState.activeTab}
-                      onChangeSettingState={setSettingState}
-                    />
-                  ) : null}
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={settingState.activeTab}
+                      initial={
+                        prefersReducedMotion
+                          ? { opacity: 1 }
+                          : { opacity: 0, y: 6 }
+                      }
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={
+                        prefersReducedMotion
+                          ? { opacity: 1 }
+                          : { opacity: 0, y: -4 }
+                      }
+                      transition={panelTransition}
+                    >
+                      {settingState.activeTab === 'account' &&
+                      loginStatus === 'authenticated' ? (
+                        <AccountSetting
+                          onChangeSettingState={setSettingState}
+                        />
+                      ) : isWorkspaceSetting(settingState.activeTab) ? (
+                        <WorkspaceSetting
+                          activeTab={settingState.activeTab}
+                          scrollAnchor={settingState.scrollAnchor}
+                          onCloseSetting={onCloseSetting}
+                          onChangeSettingState={setSettingState}
+                        />
+                      ) : !isWorkspaceSetting(settingState.activeTab) ? (
+                        <GeneralSetting
+                          activeTab={settingState.activeTab}
+                          onChangeSettingState={setSettingState}
+                        />
+                      ) : null}
+                    </motion.div>
+                  </AnimatePresence>
                 </Suspense>
               </div>
               <div className={style.footer}>
