@@ -1,5 +1,7 @@
+import { SPRING_WOBBLY } from '@affine/core/utils/motion';
 import { CloseIcon, PinedIcon, PinIcon, PlusIcon } from '@blocksuite/icons/rc';
-import { type MouseEvent, useCallback } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { type MouseEvent, useCallback, useId } from 'react';
 
 import * as styles from './chat-tabs.css';
 import type { ChatTabSnapshot } from './use-chat-tabs';
@@ -60,6 +62,15 @@ export const ChatTabs = ({
     [onSelect]
   );
 
+  // Manut M2 E2.7 — magic-line indicator. A shared layoutId across all
+  // tabs glides the active-tab underline between tabs via Framer Motion's
+  // FLIP layout animation. The `useId()` hook keeps the layoutId unique
+  // per ChatTabs instance so two strips on the same page (devtools
+  // overlay, split-pane) don't share an indicator.
+  const reactId = useId();
+  const layoutId = `manut-chat-tabs-indicator-${reactId}`;
+  const prefersReducedMotion = useReducedMotion();
+
   return (
     <div
       className={styles.tabStrip}
@@ -107,6 +118,20 @@ export const ChatTabs = ({
             >
               <CloseIcon width={10} height={10} />
             </button>
+            {isActive ? (
+              <motion.span
+                aria-hidden="true"
+                layoutId={layoutId}
+                className={styles.tabActiveIndicator}
+                // SPRING_WOBBLY gives the indicator a tiny overshoot that
+                // makes the glide feel intentional. Under reduced-motion
+                // we collapse to an instant transition so the indicator
+                // snaps to the new tab without movement.
+                transition={
+                  prefersReducedMotion ? { duration: 0 } : SPRING_WOBBLY
+                }
+              />
+            ) : null}
           </button>
         );
       })}

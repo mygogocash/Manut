@@ -33,6 +33,12 @@ export const tabStrip = style({
 });
 
 export const tab = style({
+  // Manut M2 E2.7 — `position: 'relative'` so the magic-line indicator
+  // (see `tabActiveIndicator` below) can `position: 'absolute'` along
+  // the tab's bottom edge. Without this, Framer Motion's layout
+  // animation would jump to the nearest positioned ancestor (the panel
+  // body), causing the indicator to glide outside the tab strip.
+  position: 'relative',
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
@@ -69,6 +75,23 @@ export const tab = style({
       outlineOffset: 1,
     },
   },
+});
+
+// Manut M2 E2.7 — magic-line indicator. A 2px violet bar that sits along
+// the bottom edge of the active tab. Framer Motion's layoutId animates
+// position + width as the active tab changes, producing a smooth glide
+// rather than a jump-cut. The bar is purely decorative
+// (aria-hidden="true" in the React layer) — accessibility users already
+// have aria-selected on the parent button to convey selection.
+export const tabActiveIndicator = style({
+  position: 'absolute',
+  left: 6,
+  right: 6,
+  bottom: -2,
+  height: 2,
+  borderRadius: 1,
+  background: 'var(--manut-accent-violet-fg)',
+  pointerEvents: 'none',
 });
 
 export const tabTitle = style({

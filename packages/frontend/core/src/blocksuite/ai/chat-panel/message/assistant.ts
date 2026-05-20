@@ -126,6 +126,66 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       cursor: default;
       opacity: 0.55;
     }
+    /* Manut M2 E2.7 — typewriter cursor for streaming AI responses.
+       The CopilotClient already delivers text deltas at the SSE
+       token cadence (typically 8-15ms per chunk on Vertex), so the
+       perceived effect is already token-by-token; what was missing
+       was the visual cue that the response is still in flight. The
+       blinking-bar glyph mirrors common terminal/AI chat patterns
+       (ChatGPT, Claude.ai, Cursor) so users recognise it without
+       any explanatory copy. Fades out via opacity transition on
+       state="finished" so completion feels gentle, not abrupt.
+       Animation is keyframe-based, not JS-driven, so the cursor
+       continues to blink even while React/Lit is busy reflowing
+       streamed markdown. */
+    .ai-streaming-cursor {
+      display: inline-block;
+      width: 0.5em;
+      height: 1em;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      background-color: var(--manut-accent-violet-fg);
+      border-radius: 1px;
+      opacity: 0.85;
+      transform-origin: center;
+      animation: manut-cursor-blink 0.95s steps(1, end) infinite;
+    }
+    .ai-streaming-cursor[data-state='finished'] {
+      animation: manut-cursor-fade-out 220ms ease-out forwards;
+    }
+    @keyframes manut-cursor-blink {
+      0%,
+      50% {
+        opacity: 0.85;
+      }
+      50.01%,
+      100% {
+        opacity: 0;
+      }
+    }
+    @keyframes manut-cursor-fade-out {
+      from {
+        opacity: 0.85;
+        transform: scaleY(1);
+      }
+      to {
+        opacity: 0;
+        transform: scaleY(0.6);
+      }
+    }
+    /* Honour the OS-level reduced-motion preference: hold the cursor
+       at a steady 85% opacity instead of blinking. Users still see
+       the in-flight signal; we just don't animate it. */
+    @media (prefers-reduced-motion: reduce) {
+      .ai-streaming-cursor {
+        animation: none;
+        opacity: 0.85;
+      }
+      .ai-streaming-cursor[data-state='finished'] {
+        animation: none;
+        opacity: 0;
+      }
+    }
   `;
 
   @property({ attribute: false })
@@ -224,10 +284,35 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       ${streamObjects?.length
         ? this.renderStreamObjects(streamObjects)
         : this.renderRichText(content)}
+      ${this.renderStreamingCursor()}
       ${shouldRenderError ? AIChatErrorRenderer(error, host) : nothing}
       ${this.renderWriteChip()} ${this.renderFeedbackChips()}
       ${this.renderEditorActions()}
     `;
+  }
+
+  // Manut M2 E2.7 — typewriter cursor for streaming responses. We mount
+  // the cursor span whenever the assistant is the last message AND its
+  // generation is still in flight (loading or transmitting). Lit drops
+  // the node on the next render once state flips to finished — but we
+  // ALSO render it briefly with `data-state="finished"` to play the
+  // fade-out animation; once that animation completes the node is
+  // unmounted by the next streamObject/content change.
+  //
+  // We hide the cursor entirely for non-last messages and for error
+  // states (the error-renderer already provides its own visual cue).
+  private renderStreamingCursor() {
+    const { isLast, status, error } = this;
+    if (!isLast) return nothing;
+    if (error) return nothing;
+    const isGenerating = status === 'loading' || status === 'transmitting';
+    if (!isGenerating) return nothing;
+    return html`<span
+      class="ai-streaming-cursor"
+      data-state=${this.state}
+      aria-hidden="true"
+      data-testid="ai-streaming-cursor"
+    ></span>`;
   }
 
   // Manut M2 E2.4 — render the 👍/👎 feedback chip pair below each

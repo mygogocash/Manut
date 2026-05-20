@@ -61,6 +61,7 @@
     "file-type": "^21.0.0",
     "filesize": "^10.1.6",
     "foxact": "^0.2.49",
+    "framer-motion": "^12.39.0",
     "fuse.js": "^7.0.0",
     "graphemer": "^1.4.0",
     "graphql": "^16.9.0",

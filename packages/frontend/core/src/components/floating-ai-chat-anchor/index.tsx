@@ -10,9 +10,11 @@ import type { PromptKey } from '@affine/core/blocksuite/ai/provider/prompt';
 import type { QuickAction } from '@affine/core/blocksuite/ai/quick-actions';
 import { getViewManager } from '@affine/core/blocksuite/manager/view';
 import { NotificationServiceImpl } from '@affine/core/blocksuite/view-extensions/editor-view/notification-service';
+import { SkeletonGroup } from '@affine/core/components/affine/skeleton';
 import { useAIChatConfig } from '@affine/core/components/hooks/affine/use-ai-chat-config';
 import { useAISpecs } from '@affine/core/components/hooks/affine/use-ai-specs';
 import { useAISubscribe } from '@affine/core/components/hooks/affine/use-ai-subscribe';
+import { SPRING_TIGHT } from '@affine/core/utils/motion';
 import {
   AIDraftService,
   AIToolsConfigService,
@@ -34,6 +36,7 @@ import { BlockStdScope } from '@blocksuite/affine/std';
 import type { Workspace } from '@blocksuite/affine/store';
 import { CloseIcon } from '@blocksuite/icons/rc';
 import { useFramework, useLiveData, useService } from '@toeverything/infra';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ChatTabs } from './chat-tabs';
@@ -463,7 +466,13 @@ function FloatingAiChatAnchorBody({
 
       <div className={styles.panelBody} ref={onChatContainerRef} />
       {!isBodyProvided ? (
-        <div className={styles.panelPlaceholder}>Loading chat…</div>
+        // Manut M2 E2.7 — replace the static "Loading chat…" string with
+        // a brand-shimmer skeleton card. Keeps the panel from feeling
+        // empty on first open while the heavy AIChatContent Lit element
+        // mounts (typically 100–300ms depending on cold cache).
+        <div className={styles.panelPlaceholder}>
+          <SkeletonGroup lines={4} animation="shimmer" />
+        </div>
       ) : null}
     </>
   );
@@ -503,6 +512,11 @@ export const FloatingAiChatAnchor = () => {
   const toggle = useCallback(() => setOpen(prev => !prev), []);
   const close = useCallback(() => setOpen(false), []);
   const dismissContext = useCallback(() => setContextDismissed(true), []);
+  // Manut M2 E2.7 — respect reduced-motion when applying the press-scale
+  // visual. When the user has the OS pref set, we still render the
+  // motion.button (so layout stays identical), but skip the whileTap
+  // scale and let the button just fire the click — no movement.
+  const prefersReducedMotion = useReducedMotion();
 
   useFloatingChatShortcut({
     enabled: !!enabled,
@@ -516,19 +530,24 @@ export const FloatingAiChatAnchor = () => {
   return (
     <>
       <div className={styles.anchorContainer}>
-        <button
+        <motion.button
           type="button"
           className={styles.anchorButton}
           onClick={toggle}
           aria-label="Open Manut AI chat (⌘J)"
           data-testid="floating-ai-chat-anchor"
           data-open={open}
+          // 0.97 press scale per implementation plan §B7 #5. Reduced
+          // motion users get a no-op object (Framer treats unset whileTap
+          // as static).
+          whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
+          transition={SPRING_TIGHT}
         >
           {/* Glyph is intentionally text-only — replace with an SVG glyph
               once the AI brand icon ships. Using "M" keeps bundle weight
               flat for v1. */}
           M
-        </button>
+        </motion.button>
       </div>
 
       <div
