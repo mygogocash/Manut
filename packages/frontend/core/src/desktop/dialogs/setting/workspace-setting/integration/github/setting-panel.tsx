@@ -5,6 +5,7 @@ import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useService } from '@toeverything/infra';
 import { useCallback, useEffect, useState } from 'react';
 
+import { looksLikeNotConfigured } from '../_shared/error-classifier';
 import { IntegrationSettingHeader } from '../setting';
 import {
   connectGithubMutation,
@@ -16,6 +17,11 @@ import { GithubLogoIcon } from './icons';
 import * as styles from './setting-panel.css';
 
 const POSTMESSAGE_TYPE = 'affine:github-oauth-result';
+
+const GITHUB_ENV_VARS = [
+  'GITHUB_OAUTH_CLIENT_ID',
+  'GITHUB_OAUTH_CLIENT_SECRET',
+] as const;
 
 interface OAuthResultMessage {
   type: typeof POSTMESSAGE_TYPE;
@@ -29,31 +35,6 @@ function isOAuthResultMessage(value: unknown): value is OAuthResultMessage {
     typeof value === 'object' &&
     value !== null &&
     (value as { type?: unknown }).type === POSTMESSAGE_TYPE
-  );
-}
-
-/**
- * Classifier for the "GitHub OAuth client is not configured" failure
- * mode. The backend `GithubOAuthNotConfiguredError` is rethrown by
- * `github-oauth.resolver.ts#rethrowFriendly` as a plain `Error` with
- * a deterministic message. NestJS then wraps it as `INTERNAL_SERVER_ERROR`
- * before it reaches the frontend, so the typed `name` is lost — the
- * only signal that survives the wrap is the message body itself.
- *
- * Matching on substrings is intentional: it covers both the resolver's
- * friendly rewrite ("GITHUB_OAUTH_CLIENT_ID") and the service-thrown
- * raw message ("not configured"). If either string moves, this
- * classifier degrades to "generic error" — never to a false positive.
- */
-function looksLikeNotConfigured(err: unknown): boolean {
-  if (!err || typeof err !== 'object') return false;
-  const candidate = err as { message?: unknown; name?: unknown };
-  const message =
-    typeof candidate.message === 'string' ? candidate.message : '';
-  return (
-    candidate.name === 'GithubOAuthNotConfiguredError' ||
-    message.includes('GITHUB_OAUTH_CLIENT_ID') ||
-    message.includes('GitHub OAuth client is not configured')
   );
 }
 
@@ -142,7 +123,7 @@ export const GithubSettingPanel = () => {
         window.location.href = url;
       }
     } catch (err) {
-      if (looksLikeNotConfigured(err)) {
+      if (looksLikeNotConfigured(err, GITHUB_ENV_VARS)) {
         // Don't set `error` — the dedicated empty state replaces the
         // connect action entirely. Generic red banner would mislead
         // users into thinking they could retry their way out of this.

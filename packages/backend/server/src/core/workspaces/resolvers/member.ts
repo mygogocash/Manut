@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
   Args,
   Int,
@@ -59,6 +60,8 @@ import {
  */
 @Resolver(() => WorkspaceType)
 export class WorkspaceMemberResolver {
+  private readonly logger = new Logger(WorkspaceMemberResolver.name);
+
   constructor(
     private readonly cache: Cache,
     private readonly event: EventBus,
@@ -103,34 +106,62 @@ export class WorkspaceMemberResolver {
       .workspace(workspace.id)
       .assert('Workspace.Users.Read');
 
-    if (query) {
-      if (query.length > 255) {
-        throw new QueryTooLong({ max: 255 });
+    // Defensive try/catch: a downstream Prisma blip (stale workspace row,
+    // missing user FK, schema drift on an upgrading deploy) used to surface
+    // here as a GraphQL "Internal error" red banner on the Members panel,
+    // blocking the entire workspace from inviting teammates. The list query
+    // is informational — failing it should NOT take down the invite flow.
+    // Log the cause and return an empty array; the frontend then renders
+    // "No members to display" + a Retry button.
+    const handleMembersError = (err: unknown): never[] => {
+      // QueryTooLong is the only expected throw — bubble it up so the
+      // user gets actionable input feedback rather than a silent empty.
+      if (err instanceof QueryTooLong) {
+        throw err;
       }
+      this.logger.error(
+        `failed to load members for workspace ${workspace.id}; returning empty list`,
+        err
+      );
+      return [];
+    };
 
-      const list = await this.models.workspaceUser.search(workspace.id, query, {
-        offset: skip ?? 0,
-        first: take ?? 8,
-      });
+    try {
+      if (query) {
+        if (query.length > 255) {
+          throw new QueryTooLong({ max: 255 });
+        }
 
-      return list.map(({ id, status, type, user }) => ({
-        ...user,
-        permission: type,
-        inviteId: id,
-        status,
-      }));
-    } else {
-      const [list] = await this.models.workspaceUser.paginate(workspace.id, {
-        offset: skip ?? 0,
-        first: take ?? 8,
-      });
+        const list = await this.models.workspaceUser.search(
+          workspace.id,
+          query,
+          {
+            offset: skip ?? 0,
+            first: take ?? 8,
+          }
+        );
 
-      return list.map(({ id, status, type, user }) => ({
-        ...user,
-        permission: type,
-        inviteId: id,
-        status,
-      }));
+        return list.map(({ id, status, type, user }) => ({
+          ...user,
+          permission: type,
+          inviteId: id,
+          status,
+        }));
+      } else {
+        const [list] = await this.models.workspaceUser.paginate(workspace.id, {
+          offset: skip ?? 0,
+          first: take ?? 8,
+        });
+
+        return list.map(({ id, status, type, user }) => ({
+          ...user,
+          permission: type,
+          inviteId: id,
+          status,
+        }));
+      }
+    } catch (err) {
+      return handleMembersError(err);
     }
   }
 

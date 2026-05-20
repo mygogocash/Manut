@@ -302,12 +302,19 @@ export const CloudWorkspaceMembersPanel = ({
     if (isLoading) {
       return <MembersPanelFallback />;
     } else {
+      // Quota lookup failed — the backend now wraps `getWorkspaceQuotaWithUsage`
+      // in try/catch and returns a Free-tier fallback, so this branch should
+      // be rare in practice. When it does fire, render the members list panel
+      // anyway (it has its own error handling) plus a Retry control, instead
+      // of replacing the whole panel with a red banner that blocked the user
+      // from re-attempting the load.
       return (
-        <span className={styles.errorStyle}>
-          {error
-            ? UserFriendlyError.fromAny(error).message
-            : 'Failed to load members'}
-        </span>
+        <MembersPanelQuotaErrorFallback
+          error={error}
+          onRetry={() => workspaceQuotaService.quota.revalidate()}
+          isOwnerOrAdmin={!!isOwnerOrAdmin}
+          goToTeamBilling={goToTeamBilling}
+        />
       );
     }
   }
@@ -386,6 +393,57 @@ export const MembersPanelFallback = () => {
       />
       <div className={styles.membersPanel}>
         <MemberListFallback memberCount={1} />
+      </div>
+    </>
+  );
+};
+
+/**
+ * Defensive rendering when the workspaceQuota load fails. Previously this
+ * code path replaced the entire panel with a raw red banner ("An internal
+ * error occurred") — users had no recovery action and couldn't invite even
+ * if the members list itself was healthy. We now keep the panel skeleton
+ * intact, surface the members list (which has its own error handling), and
+ * offer a Retry control so transient backend hiccups self-heal.
+ */
+const MembersPanelQuotaErrorFallback = ({
+  error,
+  onRetry,
+  isOwnerOrAdmin,
+  goToTeamBilling,
+}: {
+  error: unknown;
+  onRetry: () => void;
+  isOwnerOrAdmin: boolean;
+  goToTeamBilling: () => void;
+}) => {
+  const t = useI18n();
+  const friendly = error ? UserFriendlyError.fromAny(error) : null;
+  const showRawMessage =
+    !!friendly && friendly.name !== 'INTERNAL_SERVER_ERROR';
+
+  return (
+    <>
+      <SettingRow
+        name={t['Members']()}
+        desc={
+          <span>
+            {showRawMessage
+              ? friendly.message
+              : 'Workspace quota is temporarily unavailable. Member management still works.'}
+          </span>
+        }
+      >
+        <Button onClick={onRetry} variant="secondary">
+          Retry
+        </Button>
+      </SettingRow>
+      <div className={styles.membersPanel}>
+        <MemberList
+          isOwner={isOwnerOrAdmin}
+          isAdmin={isOwnerOrAdmin}
+          goToTeamBilling={goToTeamBilling}
+        />
       </div>
     </>
   );

@@ -1,5 +1,25 @@
 import { cssVar } from '@toeverything/theme';
-import { style } from '@vanilla-extract/css';
+import { keyframes, style } from '@vanilla-extract/css';
+
+// Manut M2 E2.8 — idle pulse keyframes for the floating Star AI button.
+// Subtle scale + halo expansion every ~4s; expands the box-shadow's
+// outer ring so the violet glow "breathes" instead of the whole button
+// jumping (which would be distracting). Suppressed via media query
+// further down for users with prefers-reduced-motion: reduce.
+const idlePulse = keyframes({
+  '0%': {
+    boxShadow:
+      '0 6px 16px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(124, 58, 237, 0.24), 0 0 0 0 rgba(124, 58, 237, 0.4)',
+  },
+  '70%': {
+    boxShadow:
+      '0 6px 16px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(124, 58, 237, 0.24), 0 0 0 10px rgba(124, 58, 237, 0)',
+  },
+  '100%': {
+    boxShadow:
+      '0 6px 16px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(124, 58, 237, 0.24), 0 0 0 0 rgba(124, 58, 237, 0)',
+  },
+});
 
 // Floating button — bottom-right anchor. Sits next to (and above) the existing
 // AI Island when both are present. The AI Island lives at bottom: 16. We park
@@ -42,10 +62,25 @@ export const anchorButton = style({
   transition:
     'transform var(--affine-anim-duration-fast) var(--affine-anim-curve-default), box-shadow var(--affine-anim-duration-fast) var(--affine-anim-curve-default)',
   selectors: {
+    // Idle pulse: only when the panel is closed (data-idle="true").
+    // 4s interval, infinite. Brand-violet halo expands then fades.
+    // The `prefers-reduced-motion: reduce` media query lives INSIDE
+    // this selector (via vanilla-extract's `@media`) so its specificity
+    // matches the attribute selector and the override wins reliably,
+    // rather than fighting cascade against a top-level @media block.
+    '&[data-idle="true"]': {
+      animation: `${idlePulse} 4s ease-in-out infinite`,
+      '@media': {
+        '(prefers-reduced-motion: reduce)': {
+          animation: 'none',
+        },
+      },
+    },
     '&:hover': {
       transform: 'translateY(-1px)',
       boxShadow:
         '0 10px 24px rgba(0, 0, 0, 0.16), 0 4px 10px rgba(124, 58, 237, 0.32)',
+      animation: 'none',
     },
     '&:active': {
       transform: 'translateY(0)',

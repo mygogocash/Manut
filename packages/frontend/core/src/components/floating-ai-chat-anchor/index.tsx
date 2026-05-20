@@ -546,9 +546,15 @@ export const FloatingAiChatAnchor = () => {
           type="button"
           className={styles.anchorButton}
           onClick={toggle}
-          aria-label="Open Manut AI chat (⌘J)"
+          aria-label="Open Manut AI (⌘J)"
           data-testid="floating-ai-chat-anchor"
           data-open={open}
+          // Manut M2 E2.8 — idle pulse draws attention to the AI
+          // launcher when the panel is closed. data-idle is only
+          // truthy when the chat isn't open, so the pulse stops the
+          // moment the user engages (and the CSS handles the
+          // prefers-reduced-motion suppression).
+          data-idle={!open}
           // 0.97 press scale per implementation plan §B7 #5. Hover
           // scale to 1.05 with SPRING_TIGHT for the brand "lift on
           // pointer-over". Reduced motion users get no-ops on both
@@ -557,10 +563,21 @@ export const FloatingAiChatAnchor = () => {
           whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
           transition={SPRING_TIGHT}
         >
-          {/* Glyph is intentionally text-only — replace with an SVG glyph
-              once the AI brand icon ships. Using "M" keeps bundle weight
-              flat for v1. */}
-          M
+          {/* Manut M2 E2.8 — brand "Star AI" glyph. Inline 4-point
+              star (per spec) keeps bundle weight flat: no extra icon
+              import, no Lit template trap, vanilla-extract leaf-safe
+              (no DOM access). currentColor inherits the button's
+              white fill so theme swaps just work. */}
+          <svg
+            width={20}
+            height={20}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M12 2 L13.5 9 L20 10.5 L13.5 12 L12 19 L10.5 12 L4 10.5 L10.5 9 Z" />
+          </svg>
         </motion.button>
       </div>
 

@@ -34,6 +34,15 @@ import {
   useState,
 } from 'react';
 
+import { looksLikeNotConfigured } from '../integration/_shared/error-classifier';
+import { FacebookLogoIcon } from '../integration/facebook/icons';
+import { GoGoCashLogoIcon } from '../integration/gogocash/icons';
+import { InstagramLogoIcon } from '../integration/instagram/icons';
+import { LineVoomLogoIcon } from '../integration/line-voom/icons';
+import { MongoDbLogoIcon } from '../integration/mongodb/icons';
+import { PostHogLogoIcon } from '../integration/posthog/icons';
+import { ThreadsLogoIcon } from '../integration/threads/icons';
+import { TiktokLogoIcon } from '../integration/tiktok/icons';
 import {
   connectFacebookMutation,
   connectInstagramMutation,
@@ -99,22 +108,6 @@ function isOAuthResultMessage(value: unknown): value is OAuthResultMessage {
     typeof t === 'string' &&
     POSTMESSAGE_TYPES.includes(t as OAuthPostMessageType)
   );
-}
-
-/**
- * Substring matcher for "<provider> OAuth client is not configured" /
- * "<env_var> is not configured" error messages. NestJS wraps the typed
- * errors thrown by the service in INTERNAL_SERVER_ERROR before they
- * reach the frontend, so the typed `name` is lost. Match on the
- * deterministic message body the resolver `rethrowFriendly` rewrites
- * to. If the message string moves, this classifier degrades to
- * "generic error" — never a false positive.
- */
-function looksLikeNotConfigured(err: unknown, ...needles: string[]): boolean {
-  if (!err || typeof err !== 'object') return false;
-  const msg = ((err as { message?: unknown }).message as string) ?? '';
-  if (!msg) return false;
-  return needles.some(n => msg.includes(n));
 }
 
 // ----------------------------------------------------------------------------
@@ -278,7 +271,7 @@ const OAuthCard = ({
         window.location.href = url;
       }
     } catch (err) {
-      if (looksLikeNotConfigured(err, ...envVarsNeeded, 'is not configured')) {
+      if (looksLikeNotConfigured(err, envVarsNeeded)) {
         setNotConfigured(true);
         return;
       }
@@ -348,9 +341,23 @@ const OAuthCard = ({
         <>
           {error ? <div className={styles.errorBanner}>{error}</div> : null}
           {notConfigured ? (
-            <div className={styles.errorBanner}>
-              Configure {envVarsNeeded.join(' + ')} on the server to enable this
-              connector.
+            <div
+              className={styles.notConfiguredPlate}
+              data-testid={`analytics-not-configured-${name.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              <div className={styles.notConfiguredTitle}>
+                {name} OAuth not configured
+              </div>
+              <div className={styles.notConfiguredCopy}>
+                An admin needs to set{' '}
+                {envVarsNeeded.map((envVar, idx) => (
+                  <span key={envVar}>
+                    <span className={styles.notConfiguredEnv}>{envVar}</span>
+                    {idx < envVarsNeeded.length - 1 ? ' and ' : ''}
+                  </span>
+                ))}{' '}
+                in the server config to enable this connector.
+              </div>
             </div>
           ) : null}
         </>
@@ -671,12 +678,26 @@ const InlineFormCard = ({
 };
 
 // ----------------------------------------------------------------------------
-// Provider logo glyphs — keep inline SVG-free for the scaffold; designers
-// will replace these with proper brand marks in a follow-up. Using initials
-// in coloured chips so the layout is final even without art.
+// Provider logo plates — each platform's real brand glyph painted on a
+// rounded brand-coloured plate. The plate fills the parent `cardLogo`
+// (32×32) and the SVG is centered inside at 20×20 so the brand mark
+// reads cleanly without crowding the plate edge.
+//
+// Each glyph is imported from the per-platform `integration/<name>/icons.tsx`
+// — the same component used by the standalone integration setting-panel
+// headers. That keeps the brand mark consistent across both surfaces and
+// gives us a single point of edit per platform.
 // ----------------------------------------------------------------------------
 
-const Glyph = ({ char, bg }: { char: string; bg: string }) => (
+const BrandPlate = ({
+  glyph,
+  bg,
+  glyphColor = '#fff',
+}: {
+  glyph: ReactNode;
+  bg: string;
+  glyphColor?: string;
+}) => (
   <span
     style={{
       width: '100%',
@@ -686,13 +707,20 @@ const Glyph = ({ char, bg }: { char: string; bg: string }) => (
       justifyContent: 'center',
       borderRadius: 8,
       background: bg,
-      color: '#fff',
-      fontSize: 12,
-      fontWeight: 700,
-      letterSpacing: 0.5,
+      color: glyphColor,
     }}
   >
-    {char}
+    <span
+      style={{
+        width: 20,
+        height: 20,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {glyph}
+    </span>
   </span>
 );
 
@@ -861,7 +889,12 @@ export const AnalyticsConnectionsPanel = () => {
         <OAuthCard
           name="Facebook"
           description="Connect a Facebook account to import Page engagement metrics."
-          logo={<Glyph char="FB" bg="#1877F2" />}
+          logo={
+            <BrandPlate
+              glyph={<FacebookLogoIcon width={20} height={20} />}
+              bg="#0866FF"
+            />
+          }
           query={facebookConnectionQuery}
           connectMutation={connectFacebookMutation}
           disconnectMutation={disconnectFacebookMutation}
@@ -872,7 +905,12 @@ export const AnalyticsConnectionsPanel = () => {
         <OAuthCard
           name="Instagram"
           description="Connect Instagram (Basic Display) to import profile + media stats."
-          logo={<Glyph char="IG" bg="#E1306C" />}
+          logo={
+            <BrandPlate
+              glyph={<InstagramLogoIcon width={20} height={20} />}
+              bg="#E4405F"
+            />
+          }
           query={instagramConnectionQuery}
           connectMutation={connectInstagramMutation}
           disconnectMutation={disconnectInstagramMutation}
@@ -883,7 +921,12 @@ export const AnalyticsConnectionsPanel = () => {
         <OAuthCard
           name="Threads"
           description="Connect a Threads account to import post engagement data."
-          logo={<Glyph char="TH" bg="#000000" />}
+          logo={
+            <BrandPlate
+              glyph={<ThreadsLogoIcon width={20} height={20} />}
+              bg="#000000"
+            />
+          }
           query={threadsConnectionQuery}
           connectMutation={connectThreadsMutation}
           disconnectMutation={disconnectThreadsMutation}
@@ -897,7 +940,12 @@ export const AnalyticsConnectionsPanel = () => {
         <OAuthCard
           name="TikTok"
           description="Connect a TikTok account to import video performance metrics."
-          logo={<Glyph char="TT" bg="#000000" />}
+          logo={
+            <BrandPlate
+              glyph={<TiktokLogoIcon width={20} height={20} />}
+              bg="#000000"
+            />
+          }
           query={tiktokConnectionQuery}
           connectMutation={connectTiktokMutation}
           disconnectMutation={disconnectTiktokMutation}
@@ -911,7 +959,12 @@ export const AnalyticsConnectionsPanel = () => {
         <OAuthCard
           name="LINE VOOM"
           description="Connect a LINE account to surface VOOM profile + post analytics."
-          logo={<Glyph char="LN" bg="#06C755" />}
+          logo={
+            <BrandPlate
+              glyph={<LineVoomLogoIcon width={20} height={20} />}
+              bg="#06C755"
+            />
+          }
           query={lineVoomConnectionQuery}
           connectMutation={connectLineVoomMutation}
           disconnectMutation={disconnectLineVoomMutation}
@@ -922,7 +975,12 @@ export const AnalyticsConnectionsPanel = () => {
         <InlineFormCard
           name="GoGoCash"
           description="Paste a GoGoCash internal API key to push analytics from the in-house platform."
-          logo={<Glyph char="GG" bg="#7C3AED" />}
+          logo={
+            <BrandPlate
+              glyph={<GoGoCashLogoIcon width={20} height={20} />}
+              bg="#7C3AED"
+            />
+          }
           query={goGoCashConnectionQuery}
           setMutation={setGoGoCashConnectionMutation}
           disconnectMutation={disconnectGoGoCashMutation}
@@ -950,7 +1008,12 @@ export const AnalyticsConnectionsPanel = () => {
         <InlineFormCard
           name="MongoDB"
           description="Connect a MongoDB cluster to query analytics from your own collections."
-          logo={<Glyph char="DB" bg="#13AA52" />}
+          logo={
+            <BrandPlate
+              glyph={<MongoDbLogoIcon width={20} height={20} />}
+              bg="#00684A"
+            />
+          }
           query={mongoDbConnectionQuery}
           setMutation={setMongoDbConnectionMutation}
           testMutation={testMongoDbConnectionMutation}
@@ -972,7 +1035,12 @@ export const AnalyticsConnectionsPanel = () => {
         <InlineFormCard
           name="PostHog"
           description="Paste a PostHog personal API key to read project events + insights."
-          logo={<Glyph char="PH" bg="#F54E00" />}
+          logo={
+            <BrandPlate
+              glyph={<PostHogLogoIcon width={20} height={20} />}
+              bg="#F54E00"
+            />
+          }
           query={postHogConnectionQuery}
           setMutation={setPostHogConnectionMutation}
           testMutation={testPostHogConnectionMutation}

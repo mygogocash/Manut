@@ -271,6 +271,22 @@ export const AFFINE_FLAGS = {
     configurable: true,
     defaultState: false,
   },
+  enable_auto_tag_on_save: {
+    category: 'affine',
+    displayName: 'Enable AI Auto-Tag on Save',
+    description:
+      'When a doc has no tags and a body longer than ~200 chars, suggest tags via AI after typing settles.',
+    configurable: true,
+    defaultState: false,
+  },
+  enable_related_docs_sidebar: {
+    category: 'affine',
+    displayName: 'Enable Related Docs Sidebar',
+    description:
+      'Show a "Related" tab in the right sidebar that surfaces semantically similar docs the AI can backlink for you.',
+    configurable: true,
+    defaultState: false,
+  },
   enable_two_step_journal_confirmation: {
     category: 'affine',
     displayName: 'Enable Two Step Journal Confirmation',

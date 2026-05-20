@@ -5,6 +5,7 @@ import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useService } from '@toeverything/infra';
 import { useCallback, useEffect, useState } from 'react';
 
+import { looksLikeNotConfigured } from '../_shared/error-classifier';
 import { IntegrationSettingHeader } from '../setting';
 import {
   connectLinearMutation,
@@ -16,6 +17,11 @@ import { LinearLogoIcon } from './icons';
 import * as styles from './setting-panel.css';
 
 const POSTMESSAGE_TYPE = 'affine:linear-oauth-result';
+
+const LINEAR_ENV_VARS = [
+  'LINEAR_OAUTH_CLIENT_ID',
+  'LINEAR_OAUTH_CLIENT_SECRET',
+] as const;
 
 interface OAuthResultMessage {
   type: typeof POSTMESSAGE_TYPE;
@@ -43,6 +49,10 @@ export const LinearSettingPanel = () => {
 
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Split out from `error` so the "not configured" empty state can
+  // replace the Connect action entirely — admin task, not a transient
+  // failure the user can retry.
+  const [notConfigured, setNotConfigured] = useState(false);
 
   const queryArg = {
     query: linearConnectionQuery,
@@ -92,9 +102,7 @@ export const LinearSettingPanel = () => {
       )({ workspaceId })) as { connectLinear?: { url?: string } } | undefined;
       const url = response?.connectLinear?.url;
       if (!url) {
-        setError(
-          'Linear OAuth is not configured on this server. Ask an admin to set LINEAR_OAUTH_CLIENT_ID / LINEAR_OAUTH_CLIENT_SECRET.'
-        );
+        setNotConfigured(true);
         return;
       }
       const popup = window.open(
@@ -106,6 +114,10 @@ export const LinearSettingPanel = () => {
         window.location.href = url;
       }
     } catch (err) {
+      if (looksLikeNotConfigured(err, LINEAR_ENV_VARS)) {
+        setNotConfigured(true);
+        return;
+      }
       setError(
         err instanceof Error
           ? err.message
@@ -135,6 +147,7 @@ export const LinearSettingPanel = () => {
 
   const action = (() => {
     if (isLoading) return null;
+    if (notConfigured) return null;
     if (isConnected) {
       return (
         <Button
@@ -167,6 +180,31 @@ export const LinearSettingPanel = () => {
         desc="Connect your Linear account to let AI search issues, projects, and teams on your behalf."
         action={action}
       />
+
+      {notConfigured ? (
+        <div
+          className={styles.notConfiguredPlate}
+          data-testid="linear-integration-not-configured"
+        >
+          <div className={styles.notConfiguredIcon} aria-hidden="true">
+            <LinearLogoIcon width={20} height={20} />
+          </div>
+          <div className={styles.notConfiguredTitle}>
+            Linear OAuth not configured
+          </div>
+          <div className={styles.notConfiguredCopy}>
+            An admin needs to set{' '}
+            <span className={styles.notConfiguredEnv}>
+              LINEAR_OAUTH_CLIENT_ID
+            </span>{' '}
+            and{' '}
+            <span className={styles.notConfiguredEnv}>
+              LINEAR_OAUTH_CLIENT_SECRET
+            </span>{' '}
+            in the server config to enable this integration.
+          </div>
+        </div>
+      ) : null}
 
       {error ? <div className={styles.errorMessage}>{error}</div> : null}
 

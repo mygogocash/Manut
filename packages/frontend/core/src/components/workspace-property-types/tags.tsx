@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { CopilotClient } from '../../blocksuite/ai/provider/copilot-client';
 import { textToText } from '../../blocksuite/ai/provider/request';
+import { looksLikeSseFragment, parseTagCandidates } from '../auto-tag/parse';
 import { PlainTextDocGroupHeader } from '../explorer/docs-view/group-header';
 import { StackProperty } from '../explorer/docs-view/stack-property';
 import type { GroupHeaderProps } from '../explorer/types';
@@ -23,87 +24,10 @@ import {
 } from '../tags';
 import * as styles from './tags.css';
 
-// SSE-stream parser trap — see onAutoTag below for context.
-// A candidate tag is treated as garbage if it contains any structural
-// fragment from the underlying SSE stream-object payload, e.g.
-// the JSON wrappers around text-delta chunks. We reject conservatively;
-// false positives (a tag containing a literal brace or backslash) are
-// far less harmful than a wall of stream chunks rendered as tags.
-const SSE_FRAGMENT_PATTERNS: RegExp[] = [
-  /\{/,
-  /\}/,
-  /[\\]/,
-  /"type"\s*:/i,
-  /"textDelta"\s*:/i,
-  /text-delta/i,
-  /text_delta/i,
-  /finishReason/i,
-  /:\s*"/,
-];
-
-function looksLikeSseFragment(candidate: string): boolean {
-  if (!candidate) return true;
-  if (/^[\s\\"'`]*$/.test(candidate)) return true;
-  return SSE_FRAGMENT_PATTERNS.some(re => re.test(candidate));
-}
-
-// Strip stray escaped quotes / whitespace that survive JSON.parse on
-// imperfect inputs. A name like \"mind\" becomes mind.
-function trimQuoteArtifacts(s: string): string {
-  return s
-    .trim()
-    .replace(/^[\s"'`\\]+/, '')
-    .replace(/[\s"'`\\]+$/, '')
-    .trim();
-}
-
-// Pull tag candidates out of an AI response that should be a JSON array
-// of strings but might be: (a) a clean array, (b) array embedded in prose,
-// (c) prose with newlines or commas between tags, (d) raw SSE chunks
-// concatenated together. Try strategies in increasing aggressiveness.
-function parseTagCandidates(raw: string): string[] {
-  // Strategy 0: defensive pre-strip. Remove obvious SSE chunk wrappers
-  // before JSON.parse so a single rogue chunk does not poison the whole array.
-  const cleaned = raw
-    .replace(
-      /\{"type"\s*:\s*"text-delta"\s*,\s*"textDelta"\s*:\s*"/g,
-      ''
-    )
-    .replace(/\{"type"\s*:\s*"finish"[^}]*\}/g, '')
-    .replace(/\{"type"\s*:\s*"[^"]*"\s*,\s*"textDelta"\s*:\s*"/g, '');
-
-  const tryParseArray = (text: string): string[] | null => {
-    try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        return parsed.map(x => trimQuoteArtifacts(String(x)));
-      }
-    } catch {
-      // fall through
-    }
-    return null;
-  };
-
-  // Strategy 1: full JSON parse on cleaned text.
-  const direct = tryParseArray(cleaned);
-  if (direct && direct.length > 0) return direct;
-
-  // Strategy 2: extract first JSON array literal substring.
-  const arrayMatch = cleaned.match(/\[[\s\S]*?\]/);
-  if (arrayMatch) {
-    const fromMatch = tryParseArray(arrayMatch[0]);
-    if (fromMatch && fromMatch.length > 0) return fromMatch;
-  }
-
-  // Strategy 3: split on newlines or commas. Strip bullet/quote prefixes.
-  const linesplit = cleaned
-    .split(/\r?\n|,/)
-    .map(s => trimQuoteArtifacts(s.replace(/^[\s\-*•]+/, '')))
-    .filter(s => s.length > 0);
-  if (linesplit.length > 0) return linesplit;
-
-  return [];
-}
+// SSE-stream parser trap — see CLAUDE.md §6c.
+// `parseTagCandidates` + `looksLikeSseFragment` now live in
+// `../auto-tag/parse` so both this manual button path and the new
+// auto-on-save flow share the same defense (and the same unit tests).
 
 // Friendly preview list capped at 3 names + "and N more" overflow tail.
 function formatTagListForDisplay(names: string[]): string {
@@ -357,8 +281,7 @@ const TagsInlineEditor = ({
       if (cleaned.length === 0) {
         notify.warning({
           title: 'AI Auto Tag',
-          message:
-            'No new tags suggested — your doc is already well-tagged.',
+          message: 'No new tags suggested — your doc is already well-tagged.',
         });
         return;
       }
@@ -373,8 +296,7 @@ const TagsInlineEditor = ({
             alreadyOnDoc.push(existing.name);
             continue;
           }
-          const tagInstance = tagService.tagList.tagByTagId$(existing.id)
-            .value;
+          const tagInstance = tagService.tagList.tagByTagId$(existing.id).value;
           if (tagInstance) {
             tagInstance.tag(pageId);
             appliedNames.push(existing.name);
@@ -384,9 +306,8 @@ const TagsInlineEditor = ({
           // tuples; if upstream changes the shape, fall back to the first
           // entry's value rather than crashing the whole auto-tag run.
           const tuple =
-            tagColorsList[
-              Math.floor(Math.random() * tagColorsList.length)
-            ] ?? tagColorsList[0];
+            tagColorsList[Math.floor(Math.random() * tagColorsList.length)] ??
+            tagColorsList[0];
           const color = tuple?.[1] ?? '#888';
           const newTag = tagService.tagList.createTag(name, color);
           newTag.tag(pageId);
@@ -398,8 +319,7 @@ const TagsInlineEditor = ({
       if (appliedNames.length === 0 && alreadyOnDoc.length === 0) {
         notify.warning({
           title: 'AI Auto Tag',
-          message:
-            'No new tags suggested — your doc is already well-tagged.',
+          message: 'No new tags suggested — your doc is already well-tagged.',
         });
         return;
       }
@@ -411,17 +331,13 @@ const TagsInlineEditor = ({
       if (appliedNames.length > 0) {
         const noun = appliedNames.length === 1 ? 'tag' : 'tags';
         const newSuffix =
-          createdNames.length > 0
-            ? ` (${createdNames.length} new)`
-            : '';
+          createdNames.length > 0 ? ` (${createdNames.length} new)` : '';
         parts.push(
           `Added ${appliedNames.length} ${noun}: ${namesPreview}${newSuffix}`
         );
       }
       if (alreadyOnDoc.length > 0) {
-        parts.push(
-          `(${alreadyOnDoc.length} already on doc)`
-        );
+        parts.push(`(${alreadyOnDoc.length} already on doc)`);
       }
       notify.success({
         title: 'AI Auto Tag',
