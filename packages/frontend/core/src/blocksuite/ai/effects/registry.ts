@@ -58,6 +58,7 @@ export const editorEffectElementTags = [
   'edgeless-copilot-panel',
   'edgeless-copilot-toolbar-entry',
   'transcription-block',
+  'ai-inline-chat',
 ] as const;
 
 export type EditorEffectElementTag = (typeof editorEffectElementTags)[number];

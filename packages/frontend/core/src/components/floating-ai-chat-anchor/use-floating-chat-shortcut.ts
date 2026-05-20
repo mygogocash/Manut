@@ -52,6 +52,13 @@ export function useFloatingChatShortcut({
 
       // ⌘J / Ctrl+J toggles. Match `key.toLowerCase()` so the binding survives
       // capslock and layout-specific quirks.
+      //
+      // M2 E2.6: ⌘. (Cmd+Period) is a SEPARATE shortcut owned by the
+      // in-editor inline AI chat (see ../../blocksuite/ai/inline-chat).
+      // It is registered through BlockSuite's UIEventDispatcher, which
+      // only dispatches while an editor host is focused — exactly the
+      // inverse of the editable-target guard below — so there is no
+      // collision with this hook. Do NOT add Period handling here.
       const isMod = event.metaKey || event.ctrlKey;
       if (!isMod) return;
       if (event.key.toLowerCase() !== 'j') return;
