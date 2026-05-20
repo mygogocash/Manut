@@ -7,6 +7,7 @@ import { AICodeBlockWatcher } from '@affine/core/blocksuite/ai/extensions/ai-cod
 import { getAIEdgelessRootWatcher } from '@affine/core/blocksuite/ai/extensions/ai-edgeless-root';
 import { getAIPageRootWatcher } from '@affine/core/blocksuite/ai/extensions/ai-page-root';
 import { AiSlashMenuConfigExtension } from '@affine/core/blocksuite/ai/extensions/ai-slash-menu';
+import { AIInlineChatWatcher } from '@affine/core/blocksuite/ai/inline-chat';
 import { CopilotTool } from '@affine/core/blocksuite/ai/tool/copilot-tool';
 import { aiPanelWidget } from '@affine/core/blocksuite/ai/widgets/ai-panel/ai-panel';
 import { edgelessCopilotWidget } from '@affine/core/blocksuite/ai/widgets/edgeless-copilot';
@@ -87,6 +88,7 @@ export class AIViewExtension extends ViewExtensionProvider<AIViewOptions> {
         getAIPageRootWatcher(),
         BlockDiffService,
         BlockDiffWatcher,
+        AIInlineChatWatcher,
       ]);
 
       if (process.env.NODE_ENV === 'development') {

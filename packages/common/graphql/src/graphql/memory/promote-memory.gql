@@ -1,0 +1,11 @@
+mutation promoteMemoryToWorkspace($id: ID!) {
+  promoteMemoryToWorkspace(id: $id) {
+    id
+    content
+    kind
+    scope
+    pinned
+    createdAt
+    workspaceId
+  }
+}

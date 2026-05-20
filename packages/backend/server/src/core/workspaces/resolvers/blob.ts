@@ -188,6 +188,14 @@ export class WorkspaceBlobResolver {
     if (result?.blobQuotaExceeded) {
       throw new BlobQuotaExceeded();
     } else if (result?.storageQuotaExceeded) {
+      // MANUT Wave 2 (T-1.1.5.b): throw the structured-payload variant so
+      // the frontend StorageCapModal can render "X GB of Y GB used"
+      // without an extra round-trip. `assertStorageCap` re-runs the size
+      // check and throws StorageQuotaExceeded with a JSON-encoded
+      // {currentBytes, capBytes} message.
+      await this.quota.assertStorageCap(workspaceId, 0);
+      // Fallback: if assertStorageCap somehow doesn't throw (race), still
+      // surface the generic error rather than silently accept the upload.
       throw new StorageQuotaExceeded();
     }
 
@@ -245,6 +253,9 @@ export class WorkspaceBlobResolver {
     if (result?.blobQuotaExceeded) {
       throw new BlobQuotaExceeded();
     } else if (result?.storageQuotaExceeded) {
+      // MANUT Wave 2 (T-1.1.5.b): structured cap payload — see setBlob
+      // above for rationale.
+      await this.quota.assertStorageCap(workspaceId, record ? 0 : size);
       throw new StorageQuotaExceeded();
     }
 

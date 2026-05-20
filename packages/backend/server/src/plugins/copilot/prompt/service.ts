@@ -3,6 +3,11 @@ import { Transactional } from '@nestjs-cls/transactional';
 import { Prisma, PrismaClient } from '@prisma/client';
 
 import { Config, OnEvent } from '../../../base';
+// Manut Wave 4 (M5b) — Memory MVP. Imports must be runtime (no `import
+// type`) per the v1.12.0 DI-metadata scar — the retrieve service is a
+// constructor target for NestJS DI.
+import { MemoryRetrieveService } from '../memory/retrieve.service';
+import { formatMemoriesForPrompt } from '../memory/system-prompt';
 import {
   PromptConfig,
   PromptConfigSchema,
@@ -26,7 +31,13 @@ export class PromptService implements OnApplicationBootstrap {
 
   constructor(
     private readonly config: Config,
-    private readonly db: PrismaClient
+    private readonly db: PrismaClient,
+    // Manut Wave 4 (M5b) — optional injection of the memory retrieve
+    // service. NestJS will fail to resolve PromptService at module-init
+    // time if MemoryRetrieveService isn't in providers[]; that's the
+    // intended contract (see plugins/copilot/index.ts where the memory
+    // services are registered alongside PromptService).
+    private readonly memoryRetrieve: MemoryRetrieveService
   ) {}
 
   async onApplicationBootstrap() {
@@ -364,5 +375,87 @@ export class PromptService implements OnApplicationBootstrap {
 
   private stringifyError(error: unknown) {
     return error instanceof Error ? error.message : String(error);
+  }
+
+  /**
+   * Manut Wave 4 (M5b) — inject memory snippets into a finalized message
+   * array immediately before send-to-provider. Surfaced as a method on
+   * PromptService (rather than baking into ChatPrompt.finish) so:
+   *   1. The memory plumbing lives on the same DI layer as the
+   *      MemoryRetrieveService (the only consumer).
+   *   2. Callers without workspace / user context (legacy code paths)
+   *      can skip injection trivially — there's no per-call API change.
+   *
+   * Wiring contract (chat-turn boundary):
+   *   - controller.ts:285 builds `finalMessage` via `session.finish(...)`.
+   *   - That `finalMessage` is then passed to provider.text /
+   *     provider.streamText. The right insertion point is just before
+   *     the provider call:
+   *
+   *       const memoryAware = await promptService.injectMemoriesIntoMessages(
+   *         finalMessage,
+   *         { workspaceId, userId, query: lastUserMessage }
+   *       );
+   *       return { provider, model, session, finalMessage: memoryAware };
+   *
+   *   - Wiring is deferred to a follow-up PR (controller.ts is outside
+   *     this slice's owned files). The method is public so the wiring
+   *     PR is a one-line addition.
+   *
+   * Behaviour:
+   *   - If `retrieve` returns zero memories, returns the input array
+   *     unchanged (no clone / no allocation).
+   *   - If the first message is a `system` message, the memory blob is
+   *     PREPENDED to that message's content. The LLM sees:
+   *         <memories>…</memories>\n\n<original system prompt>
+   *   - If there's no `system` message, a new one is inserted at index 0.
+   *   - Failures in retrieve are absorbed silently and the original
+   *     messages are returned — memory is best-effort.
+   */
+  async injectMemoriesIntoMessages(
+    messages: PromptMessage[],
+    context: {
+      workspaceId: string;
+      userId: string;
+      query: string;
+      topK?: number;
+    }
+  ): Promise<PromptMessage[]> {
+    try {
+      const memories = await this.memoryRetrieve.retrieve({
+        workspaceId: context.workspaceId,
+        userId: context.userId,
+        query: context.query,
+        topK: context.topK ?? 5,
+        scopes: ['user', 'workspace'],
+      });
+      const memoryBlob = formatMemoriesForPrompt(memories);
+      if (!memoryBlob) {
+        return messages;
+      }
+      // Clone the messages array shallowly so the caller's reference
+      // isn't mutated (immutability principle from CLAUDE.md §0 /
+      // common/coding-style.md).
+      const cloned = messages.map(m => ({ ...m }));
+      const systemIdx = cloned.findIndex(m => m.role === 'system');
+      if (systemIdx === -1) {
+        cloned.unshift({
+          role: 'system',
+          content: memoryBlob.trimEnd(),
+        } as PromptMessage);
+        return cloned;
+      }
+      const original = cloned[systemIdx];
+      cloned[systemIdx] = {
+        ...original,
+        content: `${memoryBlob}${original.content}`,
+      };
+      return cloned;
+    } catch (error) {
+      this.logger.warn(
+        `Memory injection failed (workspace=${context.workspaceId}, user=${context.userId}): ${this.stringifyError(error)}`
+      );
+      return messages;
+    }
   }
 }

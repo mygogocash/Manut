@@ -5,7 +5,6 @@ import {
   DefaultServerService,
   ServersService,
 } from '@affine/core/modules/cloud';
-import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import { DndService } from '@affine/core/modules/dnd/services';
 import { GlobalContextService } from '@affine/core/modules/global-context';
 import { OpenInAppGuard } from '@affine/core/modules/open-in-app';
@@ -66,13 +65,11 @@ globalThis.Y = _Y;
 export const Component = (): ReactElement => {
   const {
     workspacesService,
-    globalDialogService,
     serversService,
     defaultServerService,
     globalContextService,
   } = useServices({
     WorkspacesService,
-    GlobalDialogService,
     ServersService,
     DefaultServerService,
     GlobalContextService,
@@ -202,29 +199,6 @@ export const Component = (): ReactElement => {
     defaultServerService.server.id,
     globalContextService.globalContext.serverId,
     server,
-  ]);
-
-  // if server is not found, and we have server in search params, we should show add selfhosted dialog
-  const needAddSelfhosted = server === undefined && searchParams.has('server');
-  // use ref to avoid useEffect trigger twice
-  const addSelfhostedDialogOpened = useRef<boolean>(false);
-
-  useEffect(() => {
-    if (addSelfhostedDialogOpened.current) {
-      return;
-    }
-    addSelfhostedDialogOpened.current = true;
-    if (BUILD_CONFIG.isElectron && needAddSelfhosted) {
-      globalDialogService.open('sign-in', {
-        server: searchParams.get('server') as string,
-      });
-    }
-    return;
-  }, [
-    globalDialogService,
-    needAddSelfhosted,
-    searchParams,
-    serverFromSearchParams,
   ]);
 
   if (workspaceNotFound) {

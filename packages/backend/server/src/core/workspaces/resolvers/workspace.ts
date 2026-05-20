@@ -261,6 +261,14 @@ export class WorkspaceResolver {
           editorId: user.id,
         });
       }
+    } else {
+      // Wave 2 B5 — seed a "Getting Started" doc for brand-new
+      // workspaces created from the /welcome flow. We skip this when
+      // an `init` blob is provided because that path is the legacy
+      // import-existing-data flow, which ships its own first doc.
+      // Best-effort: a seed failure is logged inside `seedStarterDoc`
+      // but never bubbles up — the workspace already exists.
+      await this.workspaceService.seedStarterDoc(workspace.id, user.id);
     }
 
     return workspace;

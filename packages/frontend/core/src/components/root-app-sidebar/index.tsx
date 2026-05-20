@@ -59,10 +59,16 @@ import { InviteMembersButton } from './invite-members-button';
 import { AppSidebarJournalButton } from './journal-button';
 import { NotificationButton } from './notification-button';
 import { SidebarAudioPlayer } from './sidebar-audio-player';
+import { TabStrip } from './tab-strip';
 import { TemplateDocEntrance } from './template-doc-entrance';
 import { TrashButton } from './trash-button';
 import { UpdaterButton } from './updater-button';
+import { useActiveTab } from './use-active-tab';
 import UserInfo from './user-info';
+import { ChatView } from './views/chat-view';
+import { HomeView } from './views/home-view';
+import { InboxView } from './views/inbox-view';
+import { MeetingsView } from './views/meetings-view';
 
 export type RootAppSidebarProps = {
   isPublicWorkspace: boolean;
@@ -300,6 +306,33 @@ const AIChatButton = () => {
 };
 
 /**
+ * Renders the scrollable body content for the sidebar when the
+ * `sidebar_tabs_v2` flag is on. Reads the active tab via globalState (the
+ * `useActiveTab` hook) and swaps between Home / Chat / Meetings / Inbox.
+ * Search is not a body view — it opens CMDK as an overlay (see
+ * `tab-strip.tsx`) and never reaches this switch.
+ */
+const TabbedSidebarBody = ({
+  onOpenImportModal,
+}: {
+  onOpenImportModal: () => void;
+}): ReactElement => {
+  const { activeTab } = useActiveTab();
+
+  switch (activeTab) {
+    case 'chat':
+      return <ChatView />;
+    case 'meetings':
+      return <MeetingsView />;
+    case 'inbox':
+      return <InboxView />;
+    case 'home':
+    default:
+      return <HomeView onOpenImportModal={onOpenImportModal} />;
+  }
+};
+
+/**
  * This is for the whole affine app sidebar.
  * This component wraps the app sidebar in `@affine/component` with logic and data.
  *
@@ -316,6 +349,13 @@ export const RootAppSidebar = memo((): ReactElement => {
   const sessionStatus = useLiveData(authService.session.status$);
   const t = useI18n();
   const workspaceDialogService = useService(WorkspaceDialogService);
+  const featureFlagService = useService(FeatureFlagService);
+  // Wave-2 Sidebar Phase 2 / Epic E1.9. When false the sidebar renders the
+  // pre-flag layout unchanged; when true the TabStrip mounts above the
+  // scrollable container and the body swaps per active tab.
+  const sidebarTabsV2Enabled = useLiveData(
+    featureFlagService.flags.sidebar_tabs_v2.$
+  );
   const workbench = workbenchService.workbench;
   const workspaceSelectorOpen = useLiveData(workbench.workspaceSelectorOpen$);
   const onOpenQuickSearchModal = useCallback(() => {
@@ -372,6 +412,13 @@ export const RootAppSidebar = memo((): ReactElement => {
 
   return (
     <AppSidebar>
+      {/*
+       * Five-tab strip — mounted only when the `sidebar_tabs_v2` feature
+       * flag is on. Sits above every other sidebar surface so the active
+       * tab is always reachable. With the flag off the layout is
+       * byte-identical to pre-flag main.
+       */}
+      {sidebarTabsV2Enabled ? <TabStrip /> : null}
       <SidebarContainer>
         <div className={workspaceAndUserWrapper}>
           <div className={workspaceWrapper}>
@@ -440,32 +487,41 @@ export const RootAppSidebar = memo((): ReactElement => {
         </MenuItem>
       </SidebarContainer>
       <SidebarScrollableContainer>
-        <NavigationPanelFavorites />
-        <NavigationPanelOrganize />
-        <NavigationPanelMigrationFavorites />
-        <NavigationPanelTags />
-        <NavigationPanelCollections />
-        <CollapsibleSection
-          path={['others']}
-          title={t['com.affine.rootAppSidebar.others']()}
-          contentStyle={{ padding: '6px 8px 0 8px' }}
-        >
-          <TrashButton />
-          <MenuItem
-            data-testid="slider-bar-import-button"
-            icon={<ImportIcon />}
-            onClick={onOpenImportModal}
-          >
-            <span data-testid="import-modal-trigger">{t['Import']()}</span>
-          </MenuItem>
-          <InviteMembersButton />
-          <TemplateDocEntrance />
-          <ExternalMenuLinkItem
-            href="https://affine.pro/blog?tag=Release+Note"
-            icon={<JournalIcon />}
-            label={t['com.affine.app-sidebar.learn-more']()}
-          />
-        </CollapsibleSection>
+        {sidebarTabsV2Enabled ? (
+          // Tabs-v2: body content is owned by the active tab. Home re-uses
+          // the same section components used pre-flag; Chat / Meetings /
+          // Inbox render the M1 placeholder views.
+          <TabbedSidebarBody onOpenImportModal={onOpenImportModal} />
+        ) : (
+          <>
+            <NavigationPanelFavorites />
+            <NavigationPanelOrganize />
+            <NavigationPanelMigrationFavorites />
+            <NavigationPanelTags />
+            <NavigationPanelCollections />
+            <CollapsibleSection
+              path={['others']}
+              title={t['com.affine.rootAppSidebar.others']()}
+              contentStyle={{ padding: '6px 8px 0 8px' }}
+            >
+              <TrashButton />
+              <MenuItem
+                data-testid="slider-bar-import-button"
+                icon={<ImportIcon />}
+                onClick={onOpenImportModal}
+              >
+                <span data-testid="import-modal-trigger">{t['Import']()}</span>
+              </MenuItem>
+              <InviteMembersButton />
+              <TemplateDocEntrance />
+              <ExternalMenuLinkItem
+                href="https://affine.pro/blog?tag=Release+Note"
+                icon={<JournalIcon />}
+                label={t['com.affine.app-sidebar.learn-more']()}
+              />
+            </CollapsibleSection>
+          </>
+        )}
       </SidebarScrollableContainer>
       <SidebarContainer className={bottomContainer}>
         <SidebarAudioPlayer />

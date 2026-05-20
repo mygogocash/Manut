@@ -25,6 +25,7 @@ import { AIChatContent } from '../components/ai-chat-content';
 import { ChatPanelSplitView } from '../components/ai-chat-content/split-view';
 import { AIChatInput } from '../components/ai-chat-input';
 import { AIChatEmbeddingStatusTooltip } from '../components/ai-chat-input/embedding-status-tooltip';
+import { FormatSelector } from '../components/ai-chat-input/format-selector';
 import { AIChatMentionPopup } from '../components/ai-chat-input/mention-popup';
 import { ChatInputPreference } from '../components/ai-chat-input/preference-popup';
 import { AIChatMessages } from '../components/ai-chat-messages/ai-chat-messages';
@@ -65,6 +66,7 @@ const appElements = {
   'ai-history-clear': AIHistoryClear,
   'chat-panel-add-popover': ChatPanelAddPopover,
   'chat-input-preference': ChatInputPreference,
+  'chat-input-format-selector': FormatSelector,
   'chat-panel-candidates-popover': ChatPanelCandidatesPopover,
   'chat-panel-doc-chip': ChatPanelDocChip,
   'chat-panel-file-chip': ChatPanelFileChip,

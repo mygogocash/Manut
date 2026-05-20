@@ -62,6 +62,7 @@ export class CMDKQuickSearchService extends Service {
             const doc: {
               docId?: string;
               blockId?: string;
+              __cmdkOpenInNewTab?: boolean;
             } = result.payload;
 
             if (!doc.docId) {
@@ -80,7 +81,12 @@ export class CMDKQuickSearchService extends Service {
               options.blockIds = [doc.blockId];
             }
 
-            this.workbenchService.workbench.openDoc(options);
+            // Cmd+Enter on a search result opens the doc in a new tab
+            // (cmdk-only signal — set by views/container.tsx).
+            this.workbenchService.workbench.openDoc(
+              options,
+              doc.__cmdkOpenInNewTab ? { at: 'new-tab', show: true } : undefined
+            );
             return;
           }
 
@@ -118,6 +124,12 @@ export class CMDKQuickSearchService extends Service {
           placeholder: {
             i18nKey: 'com.affine.cmdk.docs.placeholder',
           },
+          // Notion-style upgrade per IMPLEMENTATION_PLAN.md §B4 (M2 E2.3):
+          // filter chips, time-bucketed result groups, and the right-side
+          // preview pane. Action pickers (link picker, settings actions)
+          // still get the compact 640px legacy layout because they don't
+          // open this service.
+          enhancedLayout: true,
         }
       );
     }

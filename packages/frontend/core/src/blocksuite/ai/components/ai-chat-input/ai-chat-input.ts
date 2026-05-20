@@ -25,6 +25,11 @@ import { styleMap } from 'lit/directives/style-map.js';
 import { ChatAbortIcon } from '../../_common/icons';
 import { type AIError, AIProvider, type AISendParams } from '../../provider';
 import { reportResponse } from '../../utils/action-reporter';
+import {
+  DEFAULT_FORMAT,
+  type OutputFormat,
+  suffixForFormat,
+} from '../../utils/format-prompt';
 import { readBlobAsURL } from '../../utils/image';
 import { mergeStreamObjects } from '../../utils/stream-objects';
 import type { MentionMember, SearchMenuConfig } from '../ai-chat-add-context';
@@ -402,6 +407,29 @@ export class AIChatInput extends SignalWatcher(
   @property({ attribute: false })
   accessor portalContainer: HTMLElement | null = null;
 
+  // Floating-mode flag — true when this input is hosted inside the
+  // FloatingAiChatAnchor slide-in panel (Epic E1.4). Defaults to false to
+  // preserve every existing consumer (the right-sidebar chat tab, the
+  // dedicated /chat page, the AI block peek view, etc.). Downstream styling
+  // and behavioural tweaks (compact padding, hide pin button, etc.) can
+  // branch on this prop without touching the rest of the component tree.
+  @property({ type: Boolean, attribute: 'floating-mode', reflect: true })
+  accessor floatingMode: boolean = false;
+
+  // Epic E1.10 — T-1.10.2. Output format chip selection. When set to a
+  // non-`auto` value the format suffix from format-prompt.ts is appended
+  // to the outgoing user input so the AI biases toward that shape. The
+  // chip itself lives in the action row (rendered below).
+  // Defaulting to `auto` keeps every existing surface byte-identical.
+  @property({ attribute: false })
+  accessor selectedFormat: OutputFormat = DEFAULT_FORMAT;
+
+  // Notified whenever the user picks a new format via the chip dropdown.
+  // Optional — surfaces that just want default behavior can omit it; the
+  // local `selectedFormat` accessor still drives the in-flight request.
+  @property({ attribute: false })
+  accessor onFormatChange: ((format: OutputFormat) => void) | undefined;
+
   private get _isReasoningActive() {
     return !!this.reasoningConfig.enabled.value;
   }
@@ -526,6 +554,10 @@ export class AIChatInput extends SignalWatcher(
           ></ai-chat-add-context>
         </div>
         <div class="chat-input-footer-spacer"></div>
+        <chat-input-format-selector
+          .format=${this.selectedFormat}
+          .onChange=${this._handleFormatChange}
+        ></chat-input-format-selector>
         <chat-input-preference
           .session=${this.session}
           .extendedThinking=${this._isReasoningActive}
@@ -808,6 +840,15 @@ export class AIChatInput extends SignalWatcher(
     this.reasoningConfig.setEnabled(extendedThinking);
   };
 
+  // Epic E1.10 — chip dropdown callback. Updates the local accessor so
+  // the next send picks up the new suffix, and notifies the parent for
+  // persistence (when wired). Defined as an arrow so the `this` binding
+  // stays stable across re-renders.
+  private readonly _handleFormatChange = (format: OutputFormat) => {
+    this.selectedFormat = format;
+    this.onFormatChange?.(format);
+  };
+
   private readonly _handleImageRemove = (index: number) => {
     const oldImages = this.chatContextValue.images;
     const newImages = oldImages.filter((_, i) => i !== index);
@@ -878,7 +919,17 @@ export class AIChatInput extends SignalWatcher(
       const imageAttachments = await Promise.all(
         images?.map(image => readBlobAsURL(image))
       );
-      const userInput = (markdown ? `${markdown}\n` : '') + text;
+      // Epic E1.10 — append the format suffix when the user has
+      // explicitly picked a non-auto chip. The suffix lives at the
+      // tail of the user message (the backend treats this as part of
+      // the user's instruction, which biases the model without
+      // requiring a system-prompt rewrite). Suffix is empty when
+      // format === 'auto' so default-state requests are byte-identical.
+      const formatSuffix = suffixForFormat(this.selectedFormat);
+      const baseInput = (markdown ? `${markdown}\n` : '') + text;
+      const userInput = formatSuffix
+        ? `${baseInput}\n\n${formatSuffix}`
+        : baseInput;
 
       // optimistic update messages
       await this._preUpdateMessages(userInput, imageAttachments);

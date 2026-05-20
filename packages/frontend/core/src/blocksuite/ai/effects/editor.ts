@@ -17,6 +17,7 @@ import { AskAIButton } from '../components/ask-ai-button';
 import { AskAIIcon } from '../components/ask-ai-icon';
 import { AskAIPanel } from '../components/ask-ai-panel';
 import { AskAIToolbarButton } from '../components/ask-ai-toolbar';
+import { AIInlineChat } from '../inline-chat/inline-chat';
 import {
   AFFINE_AI_PANEL_WIDGET,
   AffineAIPanelWidget,
@@ -89,6 +90,7 @@ const editorElements = {
   'edgeless-copilot-panel': EdgelessCopilotPanel,
   'edgeless-copilot-toolbar-entry': EdgelessCopilotToolbarEntry,
   'transcription-block': LitTranscriptionBlock,
+  'ai-inline-chat': AIInlineChat,
 } satisfies Record<EditorEffectElementTag, CustomElementConstructor>;
 
 export function registerAIEditorEffects() {

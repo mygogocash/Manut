@@ -421,6 +421,10 @@ export class ChatSessionService {
         // Manut control plane: pass the agent binding through so the
         // heartbeat hook in `get()` can read it from in-memory state.
         'agentId',
+        // Manut Wave 6 E2.5: per-tab sticky pin doc id. Surfaced on
+        // every ChatHistory so the floating multi-chat UI can render
+        // the pin chip without a separate query.
+        'pinnedDocId',
       ]),
       sessionId: session.id,
       tokens: session.tokenCost,
@@ -610,6 +614,13 @@ export class ChatSessionService {
     }
     finalData.pinned = options.pinned;
     finalData.docId = options.docId;
+    // Manut Wave 6 E2.5: thread the floating-chat tab pin through. Pass
+    // it on the way down only when the caller actually set it so we
+    // preserve the tri-state semantics in the model (`undefined` =
+    // leave alone, `null` = clear, string = set).
+    if (options.pinnedDocId !== undefined) {
+      finalData.pinnedDocId = options.pinnedDocId;
+    }
 
     if (Object.keys(finalData).length === 0) {
       throw new CopilotSessionInvalidInput(

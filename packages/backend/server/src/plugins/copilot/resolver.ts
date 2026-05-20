@@ -79,6 +79,17 @@ class CreateChatSessionInput {
   @Field(() => Boolean, { nullable: true })
   pinned?: boolean;
 
+  // Manut Wave 6 E2.5: when set on session creation, the floating-chat
+  // tab opens locked to that doc. Explicit `() => String` per the
+  // v1.10.2 @Field-UndefinedTypeError scar — nullable @Field decorators
+  // cannot infer their GraphQL type from a TS `string | null` union.
+  @Field(() => String, {
+    nullable: true,
+    description:
+      'Lock the floating-chat tab context to this doc id (Wave 6 E2.5).',
+  })
+  pinnedDocId?: string | null;
+
   @Field(() => Boolean, {
     nullable: true,
     description: 'true by default, compliant for old version',
@@ -105,6 +116,17 @@ class UpdateChatSessionInput implements Omit<
     nullable: true,
   })
   pinned!: boolean | undefined;
+
+  // Manut Wave 6 E2.5: tri-state — undefined leaves the pin alone, null
+  // clears it, a string locks the floating-chat tab to that doc id.
+  // Explicit `() => String` so the GraphQL type doesn't depend on TS
+  // inference (CLAUDE.md §6 @Field-UndefinedTypeError scar).
+  @Field(() => String, {
+    nullable: true,
+    description:
+      'Pin (or clear, pass null) the floating-chat tab to a doc id. (E2.5)',
+  })
+  pinnedDocId?: string | null;
 
   @Field(() => String, {
     description: 'The prompt name to use for the session',
@@ -324,6 +346,12 @@ class CopilotHistoriesType implements Omit<ChatHistory, 'userId'> {
   // cannot infer their GraphQL type from a TS `string | null` union.
   @Field(() => String, { nullable: true })
   agentId!: string | null;
+
+  // Manut Wave 6 E2.5: per-tab sticky pin doc id for the floating
+  // multi-chat panel. Null = context follows current page. Explicit
+  // `() => String` for the same v1.10.2 reason as above.
+  @Field(() => String, { nullable: true })
+  pinnedDocId!: string | null;
 
   @Field(() => Number, {
     description: 'The number of tokens used in the session',
