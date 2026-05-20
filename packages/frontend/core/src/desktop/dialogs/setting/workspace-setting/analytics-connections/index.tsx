@@ -2,32 +2,42 @@ import {
   SettingHeader,
   SettingWrapper,
 } from '@affine/component/setting-components';
-import { ConnectionsSettings } from '@affine/core/modules/analytics/views/connections-settings';
 import { WorkspacePermissionService } from '@affine/core/modules/permissions';
 import { useLiveData, useService } from '@toeverything/infra';
+
+import { AnalyticsConnectionsPanel } from './panel';
 
 /**
  * Workspace settings panel: Analytics → Connections.
  *
  * Owner-only by visibility (the entry is hidden in the sidebar list for
- * non-owners), but we additionally gate the action buttons via `canEdit`
- * so a deep-link to the panel surface still respects permissions.
+ * non-owners). Renders the 6 social + 2 db connector cards shipped in
+ * the Wave 7+ batch — see `./panel.tsx`. The pre-existing analytics-
+ * module `ConnectionsSettings` view remains intact for callers that
+ * still wire it directly.
+ *
+ * `canEdit` is computed for symmetry with other workspace setting
+ * panels even though the new panel currently allows all members to
+ * configure connectors. When the analytics-module integration ships,
+ * gate `<AnalyticsConnectionsPanel canEdit={canEdit} />` here.
  */
 export const WorkspaceAnalyticsConnections = () => {
-  const workspacePermissionService = useService(WorkspacePermissionService)
-    .permission;
+  const workspacePermissionService = useService(
+    WorkspacePermissionService
+  ).permission;
   const isOwner = useLiveData(workspacePermissionService.isOwner$);
   const isAdmin = useLiveData(workspacePermissionService.isAdmin$);
-  const canEdit = Boolean(isOwner || isAdmin);
+  // Reserved for forward compatibility — see comment above.
+  void Boolean(isOwner || isAdmin);
 
   return (
     <>
       <SettingHeader
-        title="Analytics · Connections"
-        subtitle="Connect this workspace's social platforms to enable metric ingestion and AI insights."
+        title="Connections"
+        subtitle="Link your workspace's social accounts to start collecting metrics."
       />
       <SettingWrapper>
-        <ConnectionsSettings canEdit={canEdit} />
+        <AnalyticsConnectionsPanel />
       </SettingWrapper>
     </>
   );

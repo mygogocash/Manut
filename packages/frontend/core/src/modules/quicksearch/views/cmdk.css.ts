@@ -76,9 +76,40 @@ globalStyle(`${root} [cmdk-item]`, {
   cursor: 'default',
   borderRadius: 4,
   userSelect: 'none',
+  // Manut motion polish — gentle hover scale for cmdk result rows.
+  // 1.02 matches the Linear / Notion micro-feel where rows lean in
+  // slightly on pointer-over. Transition runs on transform only so
+  // the layout never reflows. Scale is GPU-accelerated. The
+  // @media (prefers-reduced-motion: reduce) clause below disables
+  // the transform entirely so a reduced-motion user sees an
+  // unmoving row — only the background colour swap remains.
+  transformOrigin: 'left center',
+  transition:
+    'background-color var(--affine-anim-duration-fast) var(--affine-anim-curve-default), transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+  willChange: 'transform',
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      transition:
+        'background-color var(--affine-anim-duration-fast) var(--affine-anim-curve-default)',
+    },
+  },
+});
+globalStyle(`${root} [cmdk-item]:hover`, {
+  transform: 'scale(1.015)',
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      transform: 'none',
+    },
+  },
 });
 globalStyle(`${root} [cmdk-item][data-selected=true]`, {
   background: cssVar('backgroundSecondaryColor'),
+  transform: 'scale(1.02)',
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      transform: 'none',
+    },
+  },
 });
 globalStyle(`${root} [cmdk-item][data-selected=true][data-is-danger=true]`, {
   background: cssVar('backgroundErrorColor'),

@@ -33,6 +33,31 @@ function isOAuthResultMessage(value: unknown): value is OAuthResultMessage {
 }
 
 /**
+ * Classifier for the "GitHub OAuth client is not configured" failure
+ * mode. The backend `GithubOAuthNotConfiguredError` is rethrown by
+ * `github-oauth.resolver.ts#rethrowFriendly` as a plain `Error` with
+ * a deterministic message. NestJS then wraps it as `INTERNAL_SERVER_ERROR`
+ * before it reaches the frontend, so the typed `name` is lost — the
+ * only signal that survives the wrap is the message body itself.
+ *
+ * Matching on substrings is intentional: it covers both the resolver's
+ * friendly rewrite ("GITHUB_OAUTH_CLIENT_ID") and the service-thrown
+ * raw message ("not configured"). If either string moves, this
+ * classifier degrades to "generic error" — never to a false positive.
+ */
+function looksLikeNotConfigured(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const candidate = err as { message?: unknown; name?: unknown };
+  const message =
+    typeof candidate.message === 'string' ? candidate.message : '';
+  return (
+    candidate.name === 'GithubOAuthNotConfiguredError' ||
+    message.includes('GITHUB_OAUTH_CLIENT_ID') ||
+    message.includes('GitHub OAuth client is not configured')
+  );
+}
+
+/**
  * GitHub integration card. Mirrors the v1.10.1 Google OAuth scaffold
  * `GoogleSettingPanel` (CLAUDE.md §6): connect/disconnect plumbing
  * via GraphQL, OAuth popup with postMessage callback, "Live import
@@ -44,6 +69,10 @@ export const GithubSettingPanel = () => {
 
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Split out from `error` so the "not configured" empty state can
+  // replace the Connect action entirely (admin task, not a transient
+  // failure the user can retry).
+  const [notConfigured, setNotConfigured] = useState(false);
 
   // Cast at the boundary because the local query is not in the
   // codegen'd discriminated union — same trick the Google panel uses.
@@ -97,9 +126,10 @@ export const GithubSettingPanel = () => {
       )({ workspaceId })) as { connectGithub?: { url?: string } } | undefined;
       const url = response?.connectGithub?.url;
       if (!url) {
-        setError(
-          'GitHub OAuth is not configured on this server. Ask an admin to set GITHUB_OAUTH_CLIENT_ID / GITHUB_OAUTH_CLIENT_SECRET.'
-        );
+        // Defensive: the resolver shouldn't return a successful
+        // mutation with an empty URL — but if it does, treat it the
+        // same as the typed "not configured" error.
+        setNotConfigured(true);
         return;
       }
       const popup = window.open(
@@ -112,6 +142,13 @@ export const GithubSettingPanel = () => {
         window.location.href = url;
       }
     } catch (err) {
+      if (looksLikeNotConfigured(err)) {
+        // Don't set `error` — the dedicated empty state replaces the
+        // connect action entirely. Generic red banner would mislead
+        // users into thinking they could retry their way out of this.
+        setNotConfigured(true);
+        return;
+      }
       setError(
         err instanceof Error
           ? err.message
@@ -141,6 +178,10 @@ export const GithubSettingPanel = () => {
 
   const action = (() => {
     if (isLoading) return null;
+    // "Not configured" suppresses the Connect button — no recoverable
+    // action the user can take from this UI. The empty state below
+    // tells them what the admin needs to set instead.
+    if (notConfigured) return null;
     if (isConnected) {
       return (
         <Button
@@ -173,6 +214,31 @@ export const GithubSettingPanel = () => {
         desc="Connect your GitHub account to let AI search issues, PRs, and repositories on your behalf."
         action={action}
       />
+
+      {notConfigured ? (
+        <div
+          className={styles.notConfiguredPlate}
+          data-testid="github-integration-not-configured"
+        >
+          <div className={styles.notConfiguredIcon} aria-hidden="true">
+            <GithubLogoIcon width={20} height={20} />
+          </div>
+          <div className={styles.notConfiguredTitle}>
+            GitHub OAuth not configured
+          </div>
+          <div className={styles.notConfiguredCopy}>
+            An admin needs to set{' '}
+            <span className={styles.notConfiguredEnv}>
+              GITHUB_OAUTH_CLIENT_ID
+            </span>{' '}
+            and{' '}
+            <span className={styles.notConfiguredEnv}>
+              GITHUB_OAUTH_CLIENT_SECRET
+            </span>{' '}
+            in the server config to enable this integration.
+          </div>
+        </div>
+      ) : null}
 
       {error ? <div className={styles.errorMessage}>{error}</div> : null}
 

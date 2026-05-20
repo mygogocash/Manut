@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import {
   Args,
   createUnionType,
@@ -239,8 +240,33 @@ export class UserSettingsResolver {
     description: 'Get user settings',
   })
   async getSettings(@CurrentUser() me: CurrentUser): Promise<UserSettingsType> {
-    return await this.models.userSettings.get(me.id);
+    // Settings → Notifications panel reads this ResolveField. If anything in
+    // the lookup path throws (e.g. a row with a legacy payload shape that no
+    // longer parses under the current zod schema, a transient prisma error,
+    // or a future schema field that lacks a `.default()`), the GraphQL layer
+    // surfaces the failure as `INTERNAL_SERVER_ERROR` and the frontend
+    // shows "An internal error occurred" right next to the Email
+    // notifications toggles. That's a non-actionable banner — the user
+    // can't recover from it. Per CLAUDE.md §2.2 VERIFY BEFORE DONE: keep
+    // the happy path, but catch + log + return defaults so the panel stays
+    // usable. Writes still go through `updateSettings` which DOES throw
+    // on invalid input, so we don't paper over genuine bugs there.
+    try {
+      return await this.models.userSettings.get(me.id);
+    } catch (err) {
+      this.logger.warn(
+        `Failed to load user settings for ${me.id}, returning defaults: ${err instanceof Error ? err.message : String(err)}`
+      );
+      return {
+        receiveInvitationEmail: true,
+        receiveMentionEmail: true,
+        receiveCommentEmail: true,
+        personalize: '',
+      };
+    }
   }
+
+  private readonly logger = new Logger(UserSettingsResolver.name);
 }
 
 @InputType()

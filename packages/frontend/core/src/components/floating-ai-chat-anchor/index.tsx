@@ -30,13 +30,13 @@ import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { PeekViewService } from '@affine/core/modules/peek-view';
 import { AppThemeService } from '@affine/core/modules/theme';
 import { WorkspaceService } from '@affine/core/modules/workspace';
-import { SPRING_TIGHT } from '@affine/core/utils/motion';
+import { SPRING_GENTLE, SPRING_TIGHT } from '@affine/core/utils/motion';
 import { useI18n } from '@affine/i18n';
 import { BlockStdScope } from '@blocksuite/affine/std';
 import type { Workspace } from '@blocksuite/affine/store';
 import { CloseIcon } from '@blocksuite/icons/rc';
 import { useFramework, useLiveData, useService } from '@toeverything/infra';
-import { motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { trackEvent } from '../../modules/telemetry';
@@ -549,9 +549,11 @@ export const FloatingAiChatAnchor = () => {
           aria-label="Open Manut AI chat (⌘J)"
           data-testid="floating-ai-chat-anchor"
           data-open={open}
-          // 0.97 press scale per implementation plan §B7 #5. Reduced
-          // motion users get a no-op object (Framer treats unset whileTap
-          // as static).
+          // 0.97 press scale per implementation plan §B7 #5. Hover
+          // scale to 1.05 with SPRING_TIGHT for the brand "lift on
+          // pointer-over". Reduced motion users get no-ops on both
+          // (Framer treats unset whileHover/whileTap as static).
+          whileHover={prefersReducedMotion ? undefined : { scale: 1.05 }}
           whileTap={prefersReducedMotion ? undefined : { scale: 0.97 }}
           transition={SPRING_TIGHT}
         >
@@ -562,22 +564,42 @@ export const FloatingAiChatAnchor = () => {
         </motion.button>
       </div>
 
-      <div
-        className={styles.panel}
-        data-open={open}
-        role="dialog"
-        aria-label="Manut AI chat"
-        aria-hidden={!open}
-      >
+      {/* Panel slide-in. We keep the .panel CSS class for layout +
+          shadow + radius but drive the actual movement through framer-
+          motion AnimatePresence so the slide rides SPRING_GENTLE
+          instead of the upstream CSS cubic-bezier. The CSS class still
+          carries the initial `transform: translateX(...)` for the
+          first paint, then framer-motion takes over once mounted. */}
+      <AnimatePresence>
         {open ? (
-          <FloatingAiChatAnchorBody
-            open={open}
-            onClose={close}
-            contextDismissed={contextDismissed}
-            onDismissContext={dismissContext}
-          />
+          <motion.div
+            key="floating-chat-panel"
+            className={styles.panel}
+            data-open
+            role="dialog"
+            aria-label="Manut AI chat"
+            initial={
+              prefersReducedMotion
+                ? { opacity: 1, x: 0 }
+                : { opacity: 0, x: 32 }
+            }
+            animate={{ opacity: 1, x: 0 }}
+            exit={
+              prefersReducedMotion
+                ? { opacity: 0, x: 0 }
+                : { opacity: 0, x: 32 }
+            }
+            transition={prefersReducedMotion ? { duration: 0 } : SPRING_GENTLE}
+          >
+            <FloatingAiChatAnchorBody
+              open={open}
+              onClose={close}
+              contextDismissed={contextDismissed}
+              onDismissContext={dismissContext}
+            />
+          </motion.div>
         ) : null}
-      </div>
+      </AnimatePresence>
     </>
   );
 };

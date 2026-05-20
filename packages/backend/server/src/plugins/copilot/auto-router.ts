@@ -160,48 +160,81 @@ function messageHasImage(message: PromptMessage): boolean {
  *   3. Code-heavy (triple-backtick blocks or strong code keywords) → code model.
  *   4. < SHORT_TEXT_TOKEN_THRESHOLD tokens → fast model.
  *   5. Default → fast model.
+ *
+ * Failure mode: wrapped in try/catch — any internal failure (malformed
+ * messages, regex stack overflow, attachment-shape weirdness) falls back
+ * to `gemini-2.5-flash`. The auto-router MUST NEVER break the chat
+ * pipeline; a bad routing decision is a degraded experience, but a
+ * thrown error here would surface as the "An error occurred" red banner
+ * (per the prod incident on this branch).
  */
 export function routeAutoModel(messages: PromptMessage[]): AutoRouteDecision {
-  const userMessages = messages.filter(m => m.role === 'user');
-  const targetMessages = userMessages.length ? userMessages : messages;
+  try {
+    const safeMessages = Array.isArray(messages) ? messages : [];
+    const userMessages = safeMessages.filter(m => m && m.role === 'user');
+    const targetMessages = userMessages.length ? userMessages : safeMessages;
 
-  const combined = targetMessages.map(m => m.content ?? '').join('\n');
-  const approxInputTokens = approxTokenCount(combined);
-  const hasImage = targetMessages.some(messageHasImage);
-  const hasCodeFence = CODE_FENCE_PATTERN.test(combined);
-  const hasCodeKeyword = CODE_KEYWORD_PATTERN.test(combined);
+    const combined = targetMessages.map(m => m?.content ?? '').join('\n');
+    const approxInputTokens = approxTokenCount(combined);
+    const hasImage = targetMessages.some(m => {
+      try {
+        return messageHasImage(m);
+      } catch {
+        return false;
+      }
+    });
+    const hasCodeFence = CODE_FENCE_PATTERN.test(combined);
+    const hasCodeKeyword = CODE_KEYWORD_PATTERN.test(combined);
 
-  let modelId: string;
-  let reason: AutoRouteReason;
-  let explanation: string;
+    let modelId: string;
+    let reason: AutoRouteReason;
+    let explanation: string;
 
-  if (hasImage) {
-    modelId = AUTO_ROUTE_TARGETS.multimodalFast;
-    reason = 'image-input';
-    explanation = `image attachment detected, routing to ${modelId} for multimodal speed`;
-  } else if (approxInputTokens > LONG_CONTEXT_TOKEN_THRESHOLD) {
-    modelId = AUTO_ROUTE_TARGETS.longContext;
-    reason = 'long-context';
-    explanation = `long input (~${approxInputTokens} tokens), routing to ${modelId} for 1M context`;
-  } else if (hasCodeFence || hasCodeKeyword) {
-    modelId = AUTO_ROUTE_TARGETS.code;
-    reason = 'code-heavy';
-    explanation = `code-heavy input, routing to ${modelId}`;
-  } else if (approxInputTokens < SHORT_TEXT_TOKEN_THRESHOLD) {
-    modelId = AUTO_ROUTE_TARGETS.fast;
-    reason = 'short-text';
-    explanation = `short text (~${approxInputTokens} tokens), routing to ${modelId}`;
-  } else {
-    modelId = AUTO_ROUTE_TARGETS.balanced;
-    reason = 'default';
-    explanation = `balanced default, routing to ${modelId}`;
+    if (hasImage) {
+      modelId = AUTO_ROUTE_TARGETS.multimodalFast;
+      reason = 'image-input';
+      explanation = `image attachment detected, routing to ${modelId} for multimodal speed`;
+    } else if (approxInputTokens > LONG_CONTEXT_TOKEN_THRESHOLD) {
+      modelId = AUTO_ROUTE_TARGETS.longContext;
+      reason = 'long-context';
+      explanation = `long input (~${approxInputTokens} tokens), routing to ${modelId} for 1M context`;
+    } else if (hasCodeFence || hasCodeKeyword) {
+      modelId = AUTO_ROUTE_TARGETS.code;
+      reason = 'code-heavy';
+      explanation = `code-heavy input, routing to ${modelId}`;
+    } else if (approxInputTokens < SHORT_TEXT_TOKEN_THRESHOLD) {
+      modelId = AUTO_ROUTE_TARGETS.fast;
+      reason = 'short-text';
+      explanation = `short text (~${approxInputTokens} tokens), routing to ${modelId}`;
+    } else {
+      modelId = AUTO_ROUTE_TARGETS.balanced;
+      reason = 'default';
+      explanation = `balanced default, routing to ${modelId}`;
+    }
+
+    logger.log(
+      `[auto-router] picked ${modelId} (reason=${reason}, tokens≈${approxInputTokens}, image=${hasImage})`
+    );
+
+    return { modelId, reason, explanation, approxInputTokens, hasImage };
+  } catch (error) {
+    // Defensive fallback per the v1.12.x prod incident (PR #122 chat
+    // pipeline failure on "Draft a project roadmap"). The auto-router
+    // must never throw — return the safe Vertex default and let the
+    // provider lookup proceed normally.
+    logger.warn(
+      `[auto-router] routing failed, falling back to ${AUTO_ROUTE_TARGETS.fast}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+    return {
+      modelId: AUTO_ROUTE_TARGETS.fast,
+      reason: 'default',
+      explanation: `routing failed, fell back to ${AUTO_ROUTE_TARGETS.fast}`,
+      approxInputTokens: 0,
+      hasImage: false,
+    };
   }
-
-  logger.log(
-    `[auto-router] picked ${modelId} (reason=${reason}, tokens≈${approxInputTokens}, image=${hasImage})`
-  );
-
-  return { modelId, reason, explanation, approxInputTokens, hasImage };
 }
 
 /**

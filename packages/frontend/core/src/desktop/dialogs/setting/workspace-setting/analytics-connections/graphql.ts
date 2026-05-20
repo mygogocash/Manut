@@ -1,0 +1,348 @@
+/**
+ * GraphQL operations for the 8 Manut Analytics connectors (Wave 7+).
+ *
+ * Co-located with the panel UI for the same reason
+ * `integration/github/graphql.ts` is: the backend resolvers shipped
+ * in the same release, codegen hasn't re-run yet. Replace these with
+ * imports from `@affine/graphql` after the next codegen pass.
+ *
+ * Operation shape mirrors the codegen output (`{ id, op, query }`)
+ * so each can be passed to `useQuery` / `useMutation` from
+ * `@affine/core/components/hooks` with a single `as unknown as` cast
+ * at the call site.
+ */
+
+// ============================================================================
+// OAuth connectors — Facebook / Instagram / Threads / TikTok / LINE VOOM
+// All five expose the same shape: a connection query returning
+// `{ connected, <displayLabel> }` + a `connect*` mutation returning
+// `{ url }` + a `disconnect*` mutation returning Boolean.
+// ============================================================================
+
+export interface FacebookConnectionDto {
+  connected: boolean;
+  displayName?: string | null;
+}
+
+export const facebookConnectionQuery = {
+  id: 'facebookConnectionQuery' as const,
+  op: 'facebookConnection',
+  query: `query facebookConnection($workspaceId: String!) {
+  facebookConnection(workspaceId: $workspaceId) {
+    connected
+    displayName
+  }
+}`,
+};
+
+export const connectFacebookMutation = {
+  id: 'connectFacebookMutation' as const,
+  op: 'connectFacebook',
+  query: `mutation connectFacebook($workspaceId: String!) {
+  connectFacebook(workspaceId: $workspaceId) {
+    url
+  }
+}`,
+};
+
+export const disconnectFacebookMutation = {
+  id: 'disconnectFacebookMutation' as const,
+  op: 'disconnectFacebook',
+  query: `mutation disconnectFacebook($workspaceId: String!) {
+  disconnectFacebook(workspaceId: $workspaceId)
+}`,
+};
+
+export interface InstagramConnectionDto {
+  connected: boolean;
+  username?: string | null;
+}
+
+export const instagramConnectionQuery = {
+  id: 'instagramConnectionQuery' as const,
+  op: 'instagramConnection',
+  query: `query instagramConnection($workspaceId: String!) {
+  instagramConnection(workspaceId: $workspaceId) {
+    connected
+    username
+  }
+}`,
+};
+
+export const connectInstagramMutation = {
+  id: 'connectInstagramMutation' as const,
+  op: 'connectInstagram',
+  query: `mutation connectInstagram($workspaceId: String!) {
+  connectInstagram(workspaceId: $workspaceId) {
+    url
+  }
+}`,
+};
+
+export const disconnectInstagramMutation = {
+  id: 'disconnectInstagramMutation' as const,
+  op: 'disconnectInstagram',
+  query: `mutation disconnectInstagram($workspaceId: String!) {
+  disconnectInstagram(workspaceId: $workspaceId)
+}`,
+};
+
+export interface ThreadsConnectionDto {
+  connected: boolean;
+  username?: string | null;
+}
+
+export const threadsConnectionQuery = {
+  id: 'threadsConnectionQuery' as const,
+  op: 'threadsConnection',
+  query: `query threadsConnection($workspaceId: String!) {
+  threadsConnection(workspaceId: $workspaceId) {
+    connected
+    username
+  }
+}`,
+};
+
+export const connectThreadsMutation = {
+  id: 'connectThreadsMutation' as const,
+  op: 'connectThreads',
+  query: `mutation connectThreads($workspaceId: String!) {
+  connectThreads(workspaceId: $workspaceId) {
+    url
+  }
+}`,
+};
+
+export const disconnectThreadsMutation = {
+  id: 'disconnectThreadsMutation' as const,
+  op: 'disconnectThreads',
+  query: `mutation disconnectThreads($workspaceId: String!) {
+  disconnectThreads(workspaceId: $workspaceId)
+}`,
+};
+
+export interface TiktokConnectionDto {
+  connected: boolean;
+  displayName?: string | null;
+}
+
+export const tiktokConnectionQuery = {
+  id: 'tiktokConnectionQuery' as const,
+  op: 'tiktokConnection',
+  query: `query tiktokConnection($workspaceId: String!) {
+  tiktokConnection(workspaceId: $workspaceId) {
+    connected
+    displayName
+  }
+}`,
+};
+
+export const connectTiktokMutation = {
+  id: 'connectTiktokMutation' as const,
+  op: 'connectTiktok',
+  query: `mutation connectTiktok($workspaceId: String!) {
+  connectTiktok(workspaceId: $workspaceId) {
+    url
+  }
+}`,
+};
+
+export const disconnectTiktokMutation = {
+  id: 'disconnectTiktokMutation' as const,
+  op: 'disconnectTiktok',
+  query: `mutation disconnectTiktok($workspaceId: String!) {
+  disconnectTiktok(workspaceId: $workspaceId)
+}`,
+};
+
+export interface LineVoomConnectionDto {
+  connected: boolean;
+  displayName?: string | null;
+}
+
+export const lineVoomConnectionQuery = {
+  id: 'lineVoomConnectionQuery' as const,
+  op: 'lineVoomConnection',
+  query: `query lineVoomConnection($workspaceId: String!) {
+  lineVoomConnection(workspaceId: $workspaceId) {
+    connected
+    displayName
+  }
+}`,
+};
+
+export const connectLineVoomMutation = {
+  id: 'connectLineVoomMutation' as const,
+  op: 'connectLineVoom',
+  query: `mutation connectLineVoom($workspaceId: String!) {
+  connectLineVoom(workspaceId: $workspaceId) {
+    url
+  }
+}`,
+};
+
+export const disconnectLineVoomMutation = {
+  id: 'disconnectLineVoomMutation' as const,
+  op: 'disconnectLineVoom',
+  query: `mutation disconnectLineVoom($workspaceId: String!) {
+  disconnectLineVoom(workspaceId: $workspaceId)
+}`,
+};
+
+// ============================================================================
+// Direct-credential connectors — GoGoCash (api-key), MongoDB (uri),
+// PostHog (api-key + host)
+// ============================================================================
+
+export interface GoGoCashConnectionDto {
+  connected: boolean;
+  label?: string | null;
+}
+
+export const goGoCashConnectionQuery = {
+  id: 'goGoCashConnectionQuery' as const,
+  op: 'goGoCashConnection',
+  query: `query goGoCashConnection($workspaceId: String!) {
+  goGoCashConnection(workspaceId: $workspaceId) {
+    connected
+    label
+  }
+}`,
+};
+
+export const setGoGoCashConnectionMutation = {
+  id: 'setGoGoCashConnectionMutation' as const,
+  op: 'setGoGoCashConnection',
+  query: `mutation setGoGoCashConnection($workspaceId: String!, $input: GoGoCashConnectionInputType!) {
+  setGoGoCashConnection(workspaceId: $workspaceId, input: $input) {
+    connected
+    label
+  }
+}`,
+};
+
+export const disconnectGoGoCashMutation = {
+  id: 'disconnectGoGoCashMutation' as const,
+  op: 'disconnectGoGoCash',
+  query: `mutation disconnectGoGoCash($workspaceId: String!) {
+  disconnectGoGoCash(workspaceId: $workspaceId)
+}`,
+};
+
+export interface MongoDbConnectionDto {
+  connected: boolean;
+  host?: string | null;
+  database?: string | null;
+}
+
+export interface MongoDbConnectionTestResultDto {
+  ok: boolean;
+  error?: string | null;
+  host?: string | null;
+  database?: string | null;
+  pingMs?: number | null;
+}
+
+export const mongoDbConnectionQuery = {
+  id: 'mongoDbConnectionQuery' as const,
+  op: 'mongoDbConnection',
+  query: `query mongoDbConnection($workspaceId: String!) {
+  mongoDbConnection(workspaceId: $workspaceId) {
+    connected
+    host
+    database
+  }
+}`,
+};
+
+export const setMongoDbConnectionMutation = {
+  id: 'setMongoDbConnectionMutation' as const,
+  op: 'setMongoDbConnection',
+  query: `mutation setMongoDbConnection($workspaceId: String!, $input: MongoDbConnectionInputType!) {
+  setMongoDbConnection(workspaceId: $workspaceId, input: $input) {
+    connected
+    host
+    database
+  }
+}`,
+};
+
+export const testMongoDbConnectionMutation = {
+  id: 'testMongoDbConnectionMutation' as const,
+  op: 'testMongoDbConnection',
+  query: `mutation testMongoDbConnection($input: MongoDbConnectionInputType!) {
+  testMongoDbConnection(input: $input) {
+    ok
+    error
+    host
+    database
+    pingMs
+  }
+}`,
+};
+
+export const disconnectMongoDbMutation = {
+  id: 'disconnectMongoDbMutation' as const,
+  op: 'disconnectMongoDb',
+  query: `mutation disconnectMongoDb($workspaceId: String!) {
+  disconnectMongoDb(workspaceId: $workspaceId)
+}`,
+};
+
+export interface PostHogConnectionDto {
+  connected: boolean;
+  host?: string | null;
+  projectCount?: number | null;
+}
+
+export interface PostHogConnectionTestResultDto {
+  ok: boolean;
+  error?: string | null;
+  host?: string | null;
+  projectCount?: number | null;
+}
+
+export const postHogConnectionQuery = {
+  id: 'postHogConnectionQuery' as const,
+  op: 'postHogConnection',
+  query: `query postHogConnection($workspaceId: String!) {
+  postHogConnection(workspaceId: $workspaceId) {
+    connected
+    host
+    projectCount
+  }
+}`,
+};
+
+export const setPostHogConnectionMutation = {
+  id: 'setPostHogConnectionMutation' as const,
+  op: 'setPostHogConnection',
+  query: `mutation setPostHogConnection($workspaceId: String!, $input: PostHogConnectionInputType!) {
+  setPostHogConnection(workspaceId: $workspaceId, input: $input) {
+    connected
+    host
+    projectCount
+  }
+}`,
+};
+
+export const testPostHogConnectionMutation = {
+  id: 'testPostHogConnectionMutation' as const,
+  op: 'testPostHogConnection',
+  query: `mutation testPostHogConnection($input: PostHogConnectionInputType!) {
+  testPostHogConnection(input: $input) {
+    ok
+    error
+    host
+    projectCount
+  }
+}`,
+};
+
+export const disconnectPostHogMutation = {
+  id: 'disconnectPostHogMutation' as const,
+  op: 'disconnectPostHog',
+  query: `mutation disconnectPostHog($workspaceId: String!) {
+  disconnectPostHog(workspaceId: $workspaceId)
+}`,
+};
