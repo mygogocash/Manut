@@ -38,6 +38,120 @@ const STARTER_DOC_MARKDOWN = [
   'When you are ready, delete this doc and start writing. Everything you do here syncs automatically.',
 ].join('\n');
 
+/**
+ * Categorical answers persisted by the /welcome wizard.
+ *
+ * Wave 2 B6 — the wizard collects four answers ("context", "team",
+ * "apps", "project"). We pass the categorical answers + the free-text
+ * project name into `seedStarterDoc` so the very first batch of docs
+ * the user lands on already mention their project name and team
+ * shape. The answers are deliberately string unions (not free text)
+ * for the categoricals so we can branch on them safely without an
+ * LLM call at workspace-creation time.
+ */
+export type WizardContext =
+  | 'saas'
+  | 'agency'
+  | 'personal'
+  | 'research'
+  | 'other';
+
+export type WizardTeam = 'solo' | '2-5' | '6-20' | '20+';
+
+export type WizardApp = 'gmail' | 'calendar' | 'github';
+
+export interface WizardAnswers {
+  context?: WizardContext;
+  team?: WizardTeam;
+  apps?: WizardApp[];
+  /** Free text — capped/trimmed at the caller. */
+  project?: string;
+}
+
+const PROJECT_TEMPLATES: Record<WizardContext, readonly string[]> = {
+  saas: [
+    '- Customer problem you are solving (one sentence)',
+    '- Smallest shippable next milestone',
+    '- Open product questions to answer before building',
+    '- Risks: technical, market, distribution',
+  ],
+  agency: [
+    '- Client + main contact',
+    '- Scope of the engagement and the success metric',
+    '- Next deliverable and owner',
+    '- Open questions for the client',
+  ],
+  personal: [
+    '- Why this matters to you',
+    '- The next 1–2 concrete actions',
+    '- Things to stop doing to make room',
+    '- Anything to celebrate on the way',
+  ],
+  research: [
+    '- The question you are trying to answer',
+    '- What you already know vs. what you need to learn',
+    '- Sources to read or experts to talk to',
+    '- The expected output (report, decision, recommendation)',
+  ],
+  other: [
+    '- Goal (one sentence)',
+    '- Smallest next step',
+    '- Open questions',
+    '- People who should know about this',
+  ],
+};
+
+function buildProjectPlanMarkdown(
+  answers: WizardAnswers,
+  projectTitle: string
+): string {
+  const template = PROJECT_TEMPLATES[answers.context ?? 'other'];
+  return [
+    `Welcome to your first project plan in this workspace. We pre-filled the structure based on how you described your work; rewrite it freely.`,
+    '',
+    `**Project:** ${projectTitle}`,
+    '',
+    '## Why we are doing this',
+    '',
+    template[0] ?? '- ',
+    '',
+    '## What good looks like',
+    '',
+    template[1] ?? '- ',
+    template[2] ?? '- ',
+    '',
+    '## Risks and unknowns',
+    '',
+    template[3] ?? '- ',
+    '',
+    'Update or delete this doc — everything syncs automatically.',
+  ].join('\n');
+}
+
+function buildTeamNotesMarkdown(team: WizardTeam): string {
+  const sizeCopy: Record<WizardTeam, string> = {
+    solo: 'just you for now',
+    '2-5': 'a small, tight team',
+    '6-20': 'a growing team',
+    '20+': 'a large team',
+  };
+  return [
+    `A starter "Team notes" doc for ${sizeCopy[team]}. Use this as the place to capture the things everyone should know but nobody owns yet.`,
+    '',
+    '## Working norms',
+    '',
+    '- How and where we communicate',
+    '- How we make decisions',
+    '- How we share progress',
+    '',
+    '## Operating cadence',
+    '',
+    '- Weekly check-ins',
+    '- Where status lives',
+    '- Tools we use and what they are for',
+  ].join('\n');
+}
+
 @Injectable()
 export class WorkspaceService {
   private readonly logger = new Logger(WorkspaceService.name);
@@ -54,12 +168,22 @@ export class WorkspaceService {
   ) {}
 
   /**
-   * Seed the "Getting Started" doc into a freshly-created workspace.
+   * Seed the "Getting Started" doc (and, when wizard answers are
+   * provided, a Project Plan + Team Notes doc) into a freshly-created
+   * workspace.
    *
    * Wave 2 B5 — first-time workspace creation. The frontend
    * `/welcome` page now drops new users into an empty workspace; this
    * method gives them an onboarding doc to land on instead of an
    * empty `/all` view.
+   *
+   * Wave 2 B6 — `/welcome` now collects four onboarding answers
+   * (context / team / apps / project) before workspace creation. We
+   * accept the answers as an optional argument and use them to add
+   * 1–2 additional starter docs tailored to the user's stated work
+   * type. Templates are STATIC text per categorical answer; we
+   * intentionally do NOT call an LLM at workspace-creation time so
+   * the user lands on real content even with the AI provider down.
    *
    * At the moment `createWorkspace` returns, the workspace row exists
    * in Postgres but no y-doc snapshots have been written yet — the
@@ -76,47 +200,78 @@ export class WorkspaceService {
    * already exists at this point; the user can always create a doc
    * themselves.
    */
-  async seedStarterDoc(workspaceId: string, editorId: string): Promise<void> {
+  async seedStarterDoc(
+    workspaceId: string,
+    editorId: string,
+    answers?: WizardAnswers
+  ): Promise<void> {
     try {
-      const docId = nanoid();
-      const title = 'Getting Started';
+      // Build the list of docs to seed. "Getting Started" is always
+      // first. We add a Project Plan when the wizard captured a
+      // non-empty `project`, and Team Notes when team-size is
+      // anything other than `solo`.
+      const docs: Array<{ title: string; markdown: string }> = [
+        { title: 'Getting Started', markdown: STARTER_DOC_MARKDOWN },
+      ];
 
-      // Build an empty root doc that registers the seeded doc. The
-      // first arg `Buffer.from([0, 0])` is the canonical "empty
-      // y-doc" stamp (see workspace.e2e.ts:66 + controller.spec.ts:238
-      // — the test harness uses the exact same pattern).
-      const rootDocUpdate = addDocToRootDoc(Buffer.from([0, 0]), docId, title);
+      const trimmedProject = answers?.project?.trim();
+      if (trimmedProject && trimmedProject.length > 0) {
+        // Cap project title at 80 chars to avoid runaway input from
+        // the free-text step rendering oddly in the sidebar.
+        const projectTitle = trimmedProject.slice(0, 80);
+        docs.push({
+          title: `Project plan for ${projectTitle}`,
+          markdown: buildProjectPlanMarkdown(answers ?? {}, projectTitle),
+        });
+      }
 
-      // Build the doc body from markdown.
-      const docBinary = createDocWithMarkdown(
-        title,
-        STARTER_DOC_MARKDOWN,
-        docId
-      );
+      if (answers?.team && answers.team !== 'solo') {
+        docs.push({
+          title: 'Team notes',
+          markdown: buildTeamNotesMarkdown(answers.team),
+        });
+      }
 
-      // Push root doc first so the new doc shows up in `meta.pages`,
-      // then push the doc body. If the frontend later writes its own
-      // root doc, Y-doc CRDT semantics merge the two cleanly — the
-      // starter doc stays registered.
+      // Build root-doc registration deltas for every doc, then push
+      // them sequentially against the empty y-doc baseline. Y-doc
+      // updates are CRDTs so the order is irrelevant for correctness,
+      // but we keep the natural order so the doc-list reads top-down
+      // in the sidebar.
+      let rootDocBuffer: Buffer = Buffer.from([0, 0]);
+      const pendingDocPushes: Array<{ docId: string; binary: Buffer }> = [];
+
+      for (const { title, markdown } of docs) {
+        const docId = nanoid();
+        rootDocBuffer = addDocToRootDoc(rootDocBuffer, docId, title);
+        pendingDocPushes.push({
+          docId,
+          binary: createDocWithMarkdown(title, markdown, docId),
+        });
+      }
+
+      // Push the assembled root doc first so all docs show up in
+      // `meta.pages`, then push each doc body.
       await this.docStorage.pushDocUpdates(
         workspaceId,
         workspaceId,
-        [rootDocUpdate],
+        [rootDocBuffer],
         editorId
       );
-      await this.docStorage.pushDocUpdates(
-        workspaceId,
-        docId,
-        [docBinary],
-        editorId
-      );
+      for (const { docId, binary } of pendingDocPushes) {
+        await this.docStorage.pushDocUpdates(
+          workspaceId,
+          docId,
+          [binary],
+          editorId
+        );
+      }
 
       this.logger.log(
-        `Seeded Getting Started doc ${docId} in workspace ${workspaceId}`
+        `Seeded ${docs.length} starter doc(s) in workspace ${workspaceId}`
       );
     } catch (err) {
       this.logger.warn(
-        `Failed to seed Getting Started doc for workspace ${workspaceId}: ${
+        `Failed to seed starter docs for workspace ${workspaceId}: ${
           err instanceof Error ? err.message : String(err)
         }`
       );

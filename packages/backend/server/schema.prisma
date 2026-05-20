@@ -24,6 +24,11 @@ model User {
   /// for example, the value will be false if user never registered and invited into a workspace by others.
   registered      Boolean   @default(true)
   disabled        Boolean   @default(false)
+  /// Wave 2 B6 — set to true once the user finishes (or skips) the
+  /// 4-question onboarding wizard at `/welcome`. Non-nullable with a
+  /// `false` default so the migration is idempotent and existing rows
+  /// auto-fill — see `migrations/20260520030000_add_user_completed_onboarding/`.
+  completedOnboarding Boolean   @default(false) @map("completed_onboarding")
 
   features                    UserFeature[]
   userStripeCustomer          UserStripeCustomer?

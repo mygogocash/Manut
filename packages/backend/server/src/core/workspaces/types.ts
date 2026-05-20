@@ -146,6 +146,50 @@ export class UpdateWorkspaceInput extends PickType(
   id!: string;
 }
 
+/**
+ * Onboarding-wizard answers passed to `createWorkspace` from /welcome.
+ * Wave 2 B6. All fields are optional so the legacy "create blank
+ * workspace" flow keeps working without changes.
+ *
+ * Each `@Field` carries an EXPLICIT type to avoid the NestJS
+ * `UndefinedTypeError` startup-crash trap that bit v1.7.0 and v1.10.2.
+ * See CLAUDE.md §6 "GraphQL `@Field` UndefinedTypeError — broken TWICE now".
+ *
+ * Context / team / apps come in as strings (not enums) because the
+ * backend treats them as opaque categoricals — the choice of templates
+ * lives in `seedStarterDoc` and we'd rather widen the input than ship
+ * a new enum migration every time the wizard copy changes.
+ */
+@InputType()
+export class WizardAnswersInput {
+  @Field(() => String, {
+    nullable: true,
+    description:
+      'One of "saas" | "agency" | "personal" | "research" | "other". Drives the Project plan template.',
+  })
+  context?: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description:
+      'One of "solo" | "2-5" | "6-20" | "20+". When non-solo we add a Team notes starter doc.',
+  })
+  team?: string | null;
+
+  @Field(() => [String], {
+    nullable: true,
+    description:
+      'The apps the user wants to connect ("gmail" | "calendar" | "github"). Not used by the backend yet — the frontend uses this list to render Connect buttons.',
+  })
+  apps?: string[] | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Free-text project name from the final wizard step.',
+  })
+  project?: string | null;
+}
+
 @ObjectType()
 export class InviteLink {
   @Field(() => String, { description: 'Invite link' })

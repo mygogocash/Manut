@@ -119,7 +119,7 @@ export class UserModel extends BaseModel {
     filter: UserFilter = {}
   ): Promise<User | null> {
     const rows = await this.db.$queryRaw<User[]>`
-      SELECT id, name, email, password, registered, email_verified as "emailVerifiedAt", avatar_url as "avatarUrl", registered, created_at as "createdAt", disabled
+      SELECT id, name, email, password, registered, email_verified as "emailVerifiedAt", avatar_url as "avatarUrl", registered, created_at as "createdAt", disabled, completed_onboarding as "completedOnboarding"
       FROM "users"
       WHERE lower("email") = lower(${email})
       ${Prisma.raw(filter.withDisabled ? '' : 'AND disabled = false')}

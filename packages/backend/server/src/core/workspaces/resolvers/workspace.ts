@@ -26,8 +26,89 @@ import {
   WorkspaceRole,
 } from '../../permission';
 import { QuotaService, WorkspaceQuotaType } from '../../quota';
-import { WorkspaceService } from '../service';
-import { UpdateWorkspaceInput, WorkspaceType } from '../types';
+import {
+  type WizardAnswers,
+  type WizardApp,
+  type WizardContext,
+  type WizardTeam,
+  WorkspaceService,
+} from '../service';
+import {
+  UpdateWorkspaceInput,
+  WizardAnswersInput,
+  WorkspaceType,
+} from '../types';
+
+const ALLOWED_WIZARD_CONTEXTS: ReadonlyArray<WizardContext> = [
+  'saas',
+  'agency',
+  'personal',
+  'research',
+  'other',
+];
+const ALLOWED_WIZARD_TEAMS: ReadonlyArray<WizardTeam> = [
+  'solo',
+  '2-5',
+  '6-20',
+  '20+',
+];
+const ALLOWED_WIZARD_APPS: ReadonlyArray<WizardApp> = [
+  'gmail',
+  'calendar',
+  'github',
+];
+
+/**
+ * Wave 2 B6 — narrow the loose GraphQL `WizardAnswersInput` shape into
+ * the strict `WizardAnswers` type that `seedStarterDoc` expects. Every
+ * unknown / empty / malformed field is dropped silently; if the entire
+ * input is empty we return `undefined` so the seed path takes the
+ * legacy no-answers branch.
+ */
+function sanitizeWizardAnswers(
+  input?: WizardAnswersInput | null
+): WizardAnswers | undefined {
+  if (!input) return undefined;
+
+  const out: WizardAnswers = {};
+
+  if (
+    typeof input.context === 'string' &&
+    (ALLOWED_WIZARD_CONTEXTS as readonly string[]).includes(input.context)
+  ) {
+    out.context = input.context as WizardContext;
+  }
+
+  if (
+    typeof input.team === 'string' &&
+    (ALLOWED_WIZARD_TEAMS as readonly string[]).includes(input.team)
+  ) {
+    out.team = input.team as WizardTeam;
+  }
+
+  if (Array.isArray(input.apps)) {
+    const apps: WizardApp[] = [];
+    for (const candidate of input.apps) {
+      if (
+        typeof candidate === 'string' &&
+        (ALLOWED_WIZARD_APPS as readonly string[]).includes(candidate) &&
+        !apps.includes(candidate as WizardApp)
+      ) {
+        apps.push(candidate as WizardApp);
+      }
+    }
+    if (apps.length > 0) out.apps = apps;
+  }
+
+  if (typeof input.project === 'string') {
+    const trimmed = input.project.trim().slice(0, 200);
+    if (trimmed.length > 0) {
+      out.project = trimmed;
+    }
+  }
+
+  return Object.keys(out).length === 0 ? undefined : out;
+}
 
 export type DotToUnderline<T extends string> =
   T extends `${infer Prefix}.${infer Suffix}`
@@ -272,6 +353,50 @@ export class WorkspaceResolver {
     }
 
     return workspace;
+  }
+
+  /**
+   * Wave 2 B6 — push the additional wizard-driven starter docs
+   * (Project plan + Team notes) into a freshly-created workspace.
+   *
+   * Kept as its own mutation so we don't have to alter the long-stable
+   * `createWorkspace` mutation signature (which is invoked from many
+   * places including the cloud workspace-engine layer that has no
+   * notion of the welcome wizard). The /welcome page calls
+   * `createWorkspace` first, then this mutation, when the user
+   * supplied wizard answers.
+   *
+   * Best-effort: the seed runs through `WorkspaceService.seedStarterDoc`
+   * which swallows + logs failures (the workspace itself already
+   * exists; an extra doc that fails to seed is non-fatal).
+   *
+   * Returns `true` to keep the mutation shape simple.
+   */
+  @Mutation(() => Boolean, {
+    description:
+      'Seed additional starter docs derived from the /welcome onboarding wizard answers.',
+  })
+  async seedWorkspaceFromWizard(
+    @CurrentUser() user: CurrentUser,
+    @Args('workspaceId') workspaceId: string,
+    @Args('answers', { type: () => WizardAnswersInput })
+    answers: WizardAnswersInput
+  ): Promise<boolean> {
+    // Authorisation: only the owner of the workspace can seed extras.
+    // `Workspace.Settings.Update` is the closest existing permission
+    // bit — it covers anyone who could legitimately reshape the
+    // workspace's contents.
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
+
+    const sanitized = sanitizeWizardAnswers(answers);
+    if (!sanitized) {
+      return true;
+    }
+    await this.workspaceService.seedStarterDoc(workspaceId, user.id, sanitized);
+    return true;
   }
 
   @Mutation(() => WorkspaceType, {

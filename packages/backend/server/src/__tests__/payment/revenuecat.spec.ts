@@ -968,6 +968,7 @@ test('should refresh user subscriptions (empty / revenuecat / stripe-only)', asy
     disabled: false,
     hasPassword: true,
     emailVerified: true,
+    completedOnboarding: true,
   };
 
   // prepare mocks:

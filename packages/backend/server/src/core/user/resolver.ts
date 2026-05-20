@@ -42,6 +42,7 @@ import {
   ManageUserInput,
   PublicUserType,
   RemoveAvatar,
+  UpdateOnboardingInput,
   UpdateUserInput,
   UpdateUserSettingsInput,
   UserOrLimitedUser,
@@ -161,6 +162,37 @@ export class UserResolver {
     }
 
     return sessionUser(await this.models.user.update(user.id, input));
+  }
+
+  /**
+   * Wave 2 B6 — flip `completedOnboarding` after the user finishes (or
+   * skips) the /welcome wizard. We keep this as its own mutation rather
+   * than folding it into `updateProfile`'s input because the wizard
+   * shouldn't accidentally clear the user's name when persisting the
+   * onboarding flag, and the only reasonable transition for this column
+   * is `false -> true` (the user already onboarded once).
+   *
+   * Returns the refreshed UserType so the frontend can update its
+   * AuthService cache without an extra round-trip.
+   */
+  @Mutation(() => UserType, {
+    name: 'updateOnboarding',
+    description:
+      'Persist the user’s onboarding flag after the /welcome wizard finishes or is skipped.',
+  })
+  async updateOnboarding(
+    @CurrentUser() user: CurrentUser,
+    @Args('input', { type: () => UpdateOnboardingInput })
+    input: UpdateOnboardingInput
+  ): Promise<UserType> {
+    const next: { completedOnboarding?: boolean } = {};
+    if (typeof input.completedOnboarding === 'boolean') {
+      next.completedOnboarding = input.completedOnboarding;
+    }
+    if (Object.keys(next).length === 0) {
+      return user;
+    }
+    return sessionUser(await this.models.user.update(user.id, next));
   }
 
   @Mutation(() => RemoveAvatar, {
