@@ -1,6 +1,6 @@
 import type { FC, ImgHTMLAttributes } from 'react';
 
-import manutLogoSrc from './assets/manut-logo.jpeg';
+import manutLogoSrc from './assets/manut-logo.png';
 
 /**
  * Canonical Manut brand mark, displayed on auth pages (sign-in, magic link,

@@ -42,7 +42,7 @@ import { StreamObjectSchema } from '../components/ai-chat-messages';
 import { AIProvider } from '../provider';
 import { insertBelow } from '../utils/editor-actions';
 import { mergeStreamContent } from '../utils/stream-objects';
-import { inlineChatStyles } from './inline-chat.css';
+import { inlineChatStyles } from './inline-chat.styles';
 
 type InlineChatState = 'input' | 'generating' | 'answer' | 'error';
 
