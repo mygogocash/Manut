@@ -3,6 +3,7 @@ import { PageDetailLoading } from '@affine/component/page-detail-skeleton';
 import type { AIChatParams } from '@affine/core/blocksuite/ai';
 import { AIProvider } from '@affine/core/blocksuite/ai';
 import type { AffineEditorContainer } from '@affine/core/blocksuite/block-suite-editor';
+import { subscribeAutoTagOnSave } from '@affine/core/blocksuite/extensions/auto-tag-on-save';
 import { EditorOutlineViewer } from '@affine/core/blocksuite/outline-viewer';
 import { AffineErrorBoundary } from '@affine/core/components/affine/affine-error-boundary';
 // import { PageAIOnboarding } from '@affine/core/components/affine/ai-onboarding';
@@ -16,8 +17,13 @@ import { useActiveBlocksuiteEditor } from '@affine/core/components/hooks/use-blo
 import { PageDetailEditor } from '@affine/core/components/page-detail-editor';
 import { WorkspacePropertySidebar } from '@affine/core/components/properties/sidebar';
 import { TrashPageFooter } from '@affine/core/components/pure/trash-page-footer';
+import { RelatedDocsSidebar } from '@affine/core/components/related-docs';
 import { TopTip } from '@affine/core/components/top-tip';
-import { ServerService } from '@affine/core/modules/cloud';
+import {
+  EventSourceService,
+  GraphQLService,
+  ServerService,
+} from '@affine/core/modules/cloud';
 import { DocService } from '@affine/core/modules/doc';
 import { EditorService } from '@affine/core/modules/editor';
 import { FeatureFlagService } from '@affine/core/modules/feature-flag';
@@ -25,6 +31,7 @@ import { GlobalContextService } from '@affine/core/modules/global-context';
 import { JournalService } from '@affine/core/modules/journal';
 import { PeekViewService } from '@affine/core/modules/peek-view';
 import { RecentDocsService } from '@affine/core/modules/quicksearch';
+import { TagService } from '@affine/core/modules/tag';
 import {
   useIsActiveView,
   ViewBody,
@@ -47,6 +54,7 @@ import {
   CommentIcon,
   ExportIcon,
   FrameIcon,
+  LinkedPageIcon,
   PropertyIcon,
   TocIcon,
   TodayIcon,
@@ -121,6 +129,42 @@ const DetailPageImpl = memo(function DetailPageImpl() {
   const enableViewAnalyticsPanel = useLiveData(
     featureFlagService.flags.enable_view_analytics_panel.$
   );
+  const enableAutoTagOnSave = useLiveData(
+    featureFlagService.flags.enable_auto_tag_on_save.$
+  );
+  const enableRelatedDocsSidebar = useLiveData(
+    featureFlagService.flags.enable_related_docs_sidebar.$
+  );
+
+  // Auto-tag-on-save: services pulled here so the effect dep list is
+  // stable. The subscription itself is gated by the feature flag inside
+  // `subscribeAutoTagOnSave`.
+  const tagService = useService(TagService);
+  const graphqlService = useService(GraphQLService);
+  const eventSourceService = useService(EventSourceService);
+
+  useEffect(() => {
+    const teardown = subscribeAutoTagOnSave({
+      workspace: workspaceService,
+      docService,
+      tagService,
+      graphqlService,
+      eventSourceService,
+      enabled: enableAutoTagOnSave,
+    });
+    return teardown;
+  }, [
+    docService,
+    eventSourceService,
+    graphqlService,
+    tagService,
+    workspaceService,
+    enableAutoTagOnSave,
+    // Re-subscribe when the active doc changes — DocService is doc-scoped
+    // so the dep above already triggers re-subscription, but include
+    // doc.id explicitly so a same-instance docService change is honored.
+    doc.id,
+  ]);
 
   const serverService = useService(ServerService);
   const serverConfig = useLiveData(serverService.server.config$);
@@ -444,6 +488,17 @@ const DetailPageImpl = memo(function DetailPageImpl() {
           <Scrollable.Root className={styles.sidebarScrollArea}>
             <Scrollable.Viewport>
               <EditorAnalyticsPanel workspaceId={workspace.id} docId={doc.id} />
+            </Scrollable.Viewport>
+            <Scrollable.Scrollbar />
+          </Scrollable.Root>
+        </ViewSidebarTab>
+      )}
+
+      {enableRelatedDocsSidebar && (
+        <ViewSidebarTab tabId="related-docs" icon={<LinkedPageIcon />}>
+          <Scrollable.Root className={styles.sidebarScrollArea}>
+            <Scrollable.Viewport>
+              <RelatedDocsSidebar />
             </Scrollable.Viewport>
             <Scrollable.Scrollbar />
           </Scrollable.Root>

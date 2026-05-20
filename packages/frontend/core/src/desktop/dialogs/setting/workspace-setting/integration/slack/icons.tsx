@@ -1,14 +1,20 @@
 import type { SVGProps } from 'react';
 
 /**
- * Inline Slack brand mark. Kept inline (rather than imported as a
- * raster asset) to match the GitHub icon pattern in this directory.
- * Single-color glyph at 24×24px keeps the integration card legible
- * in both light and dark themes.
+ * Inline Slack brand mark — the four-tile hash glyph. Path data
+ * adapted from Simple Icons (https://simpleicons.org, license
+ * CC0-1.0). Slack's full brand mark is four-colour (green / blue /
+ * yellow / red); we render in `currentColor` so the same component
+ * works for both:
  *
- * Slack's brand guidelines allow monochrome use of the hash-mark glyph;
- * we render it via `currentColor` so it picks up the surrounding text
- * color and never clashes with the theme.
+ *   - the integration setting-panel header (monochrome, inherits the
+ *     surrounding text colour), and
+ *   - the analytics Connections panel (white on a brand-tinted plate).
+ *
+ * For a true four-colour rendering, swap the single `<path>` for the
+ * four-tile variant. This monochrome silhouette is what Slack
+ * recommends for in-product chrome where the surface already
+ * communicates the platform identity.
  */
 export const SlackLogoIcon = (props: SVGProps<SVGSVGElement>) => {
   return (

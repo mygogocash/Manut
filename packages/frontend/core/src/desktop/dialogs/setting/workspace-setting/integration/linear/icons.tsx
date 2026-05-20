@@ -1,10 +1,16 @@
 import type { SVGProps } from 'react';
 
 /**
- * Inline Linear brand mark. Single-color glyph at 24×24px keeps the
- * integration card legible in both light and dark themes. Drawn from
- * Linear's published brand guidelines monochrome variant — the
- * gradient-on-black logo is reserved for marketing surfaces.
+ * Inline Linear brand mark — the diagonal lines bursting out of a
+ * rounded square. Path data adapted from Simple Icons
+ * (https://simpleicons.org, license CC0-1.0). Linear's published
+ * brand uses the gradient-on-black variant for marketing; the
+ * monochrome silhouette is approved for in-product chrome. We
+ * render in `currentColor` so the same component works for both:
+ *
+ *   - the integration setting-panel header (monochrome), and
+ *   - the analytics Connections panel (white on a brand-violet
+ *     plate so the platform identity reads even at 32px).
  */
 export const LinearLogoIcon = (props: SVGProps<SVGSVGElement>) => {
   return (

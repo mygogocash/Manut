@@ -202,16 +202,40 @@ export class DocsSearchService extends Service {
       .pipe(
         switchMap(({ nodes }) => {
           return fromPromise(async () => {
+            // Defensive parse: indexer stores ref payloads as JSON strings, and
+            // a stale/half-reindexed workspace can surface malformed entries.
+            // Without this guard, one bad ref takes down the whole graph page
+            // (caught by the GraphErrorBoundary, but the user sees an empty
+            // graph instead of partial connections). Skip the offender, keep
+            // the rest.
+            const safeParse = (raw: string): unknown => {
+              try {
+                return JSON.parse(raw);
+              } catch {
+                return null;
+              }
+            };
+
             const refs: ({ docId: string } & ReferenceParams)[] = Array.from(
               new Map(
                 nodes
                   .flatMap(node => {
                     const { ref } = node.fields;
-                    return typeof ref === 'string'
-                      ? [JSON.parse(ref)]
-                      : ref.map(item => JSON.parse(item));
+                    if (typeof ref === 'string') {
+                      const parsed = safeParse(ref);
+                      return parsed ? [parsed] : [];
+                    }
+                    return ref
+                      .map(item => safeParse(item))
+                      .filter((item): item is object => item !== null);
                   })
-                  .filter(ref => !docIds.includes(ref.docId))
+                  .filter(
+                    (ref): ref is { docId: string } & ReferenceParams =>
+                      typeof ref === 'object' &&
+                      ref !== null &&
+                      typeof (ref as { docId?: unknown }).docId === 'string' &&
+                      !docIds.includes((ref as { docId: string }).docId)
+                  )
                   .map(ref => [ref.docId, ref])
               ).values()
             );

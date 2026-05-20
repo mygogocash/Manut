@@ -223,3 +223,45 @@ export const helpText = style({
   color: cssVarV2.text.secondary,
   marginTop: 6,
 });
+
+// MANUT v1.13.x: dedicated empty state for the "OAuth client not
+// configured" admin task on each card. Replaces the red errorBanner
+// shape that misled users into thinking they could retry their way
+// out of a missing server env var. Sized down compared to the
+// per-provider integration panels because each analytics card is
+// already inside a narrower grid cell.
+export const notConfiguredPlate = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+  padding: '12px 14px',
+  borderRadius: 'var(--manut-radius-card, 8px)',
+  border: `1px dashed var(--manut-accent-violet-border, #7b61ff)`,
+  background: 'var(--manut-accent-violet-bg, rgba(123, 97, 255, 0.06))',
+  color: cssVarV2.text.primary,
+});
+
+export const notConfiguredTitle = style({
+  fontSize: 12,
+  lineHeight: '16px',
+  fontWeight: 600,
+  color: cssVarV2.text.primary,
+});
+
+export const notConfiguredCopy = style({
+  fontSize: 11,
+  lineHeight: '16px',
+  color: cssVarV2.text.secondary,
+});
+
+export const notConfiguredEnv = style({
+  display: 'inline-block',
+  padding: '0 4px',
+  borderRadius: 3,
+  background: cssVarV2.layer.background.secondary,
+  border: `0.5px solid ${cssVarV2.layer.insideBorder.border}`,
+  fontFamily:
+    'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace',
+  fontSize: 10,
+  color: cssVarV2.text.primary,
+});

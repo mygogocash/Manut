@@ -1,4 +1,11 @@
-import { Avatar, IconButton, Loading, Menu, notify } from '@affine/component';
+import {
+  Avatar,
+  Button,
+  IconButton,
+  Loading,
+  Menu,
+  notify,
+} from '@affine/component';
 import { Pagination } from '@affine/component/setting-components';
 import { type AuthAccountInfo, AuthService } from '@affine/core/modules/cloud';
 import {
@@ -50,6 +57,10 @@ export const MemberList = ({
     [membersService]
   );
 
+  const handleRetry = useCallback(() => {
+    membersService.members.revalidate();
+  }, [membersService]);
+
   if (!account) {
     return null;
   }
@@ -70,12 +81,10 @@ export const MemberList = ({
             }
           />
         ) : (
-          <span className={styles.errorStyle}>
-            {error
-              ? UserFriendlyError.fromAny(error).message
-              : 'Failed to load members'}
-          </span>
+          <MemberListErrorState error={error} onRetry={handleRetry} />
         )
+      ) : pageMembers?.length === 0 ? (
+        <MemberListEmptyState onRetry={handleRetry} />
       ) : (
         pageMembers?.map(member => (
           <MemberItem
@@ -277,6 +286,73 @@ const getMemberStatus = (member: Member): I18nString => {
       }
   }
 };
+
+/**
+ * Renders when the members fetch fails. The previous behaviour was a single
+ * red `errorStyle` span carrying the raw UserFriendlyError text — for the
+ * common "An internal error occurred" case that left users staring at a red
+ * banner with no recovery path. We now show a calm, non-alarming hint and a
+ * single Retry button so transient backend hiccups self-heal once the user
+ * clicks.
+ */
+const MemberListErrorState = ({
+  error,
+  onRetry,
+}: {
+  error: unknown;
+  onRetry: () => void;
+}) => {
+  // Show the underlying message only when it's actually informative — for
+  // the generic upstream "An internal error occurred" the empty-state copy
+  // is friendlier. INTERNAL_SERVER_ERROR maps to the raw "An internal error
+  // occurred" string the user reported; suppress it in favour of the calmer
+  // empty-state copy.
+  const friendly = error ? UserFriendlyError.fromAny(error) : null;
+  const showRawMessage =
+    !!friendly && friendly.name !== 'INTERNAL_SERVER_ERROR';
+
+  return (
+    <div
+      className={styles.membersFallback}
+      style={{
+        flexDirection: 'column',
+        gap: 8,
+        padding: 24,
+        textAlign: 'center',
+      }}
+    >
+      <span>
+        {showRawMessage ? friendly.message : 'No members to display right now.'}
+      </span>
+      <Button onClick={onRetry} variant="secondary">
+        Retry
+      </Button>
+    </div>
+  );
+};
+
+/**
+ * Friendly placeholder when the resolver successfully returned an empty list
+ * (e.g. backend fell back to `[]` via the defensive try/catch in
+ * `WorkspaceMemberResolver.members`). Mirrors the error-state shape so the
+ * panel layout doesn't jump.
+ */
+const MemberListEmptyState = ({ onRetry }: { onRetry: () => void }) => (
+  <div
+    className={styles.membersFallback}
+    style={{
+      flexDirection: 'column',
+      gap: 8,
+      padding: 24,
+      textAlign: 'center',
+    }}
+  >
+    <span>No members to display.</span>
+    <Button onClick={onRetry} variant="secondary">
+      Retry
+    </Button>
+  </div>
+);
 
 export const MemberListFallback = ({
   memberCount,

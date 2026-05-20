@@ -1,11 +1,12 @@
 import type { SVGProps } from 'react';
 
 /**
- * Inline MongoDB leaf glyph. Kept inline (no external asset) to match
- * the Gmail / Drive / GitHub icon pattern in this directory and avoid
- * the brand-guideline ambiguity of redistributing vendor PNGs. Drawn
- * as a single-color leaf at 24×24px so it inherits the integration
- * card's `currentColor`.
+ * Inline MongoDB leaf glyph. Path data adapted from Simple Icons
+ * (https://simpleicons.org, license CC0-1.0). MongoDB's brand
+ * green (#00ED64) is supplied by the analytics Connections
+ * panel's coloured plate; this glyph paints `currentColor` so
+ * it's white on the green plate there, and inherits text colour
+ * in the integration setting-panel header.
  */
 export const MongoDbLogoIcon = (props: SVGProps<SVGSVGElement>) => {
   return (
@@ -17,7 +18,7 @@ export const MongoDbLogoIcon = (props: SVGProps<SVGSVGElement>) => {
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     >
-      <path d="M12 2c-.25 1.7-1.3 3-2.4 4.5C7.95 8.55 6 11.2 6 14.6c0 3.4 2.05 6 5 7l.6.4c.1-2.6.4-5 .4-7.5V2zm.7 0v22h.7c-.05-2.45-.35-4.95-.35-7.45 0-2.5.25-5 .35-7.55-.1-3-.2-5-.7-7z" />
+      <path d="M17.193 9.555c-1.264-5.58-4.252-7.414-4.573-8.115-.28-.394-.53-.954-.735-1.44-.036.495-.055.685-.523 1.184-.723.566-4.438 3.682-4.74 10.02-.282 5.912 4.27 9.435 4.888 9.884l.07.05A73.49 73.49 0 0 1 11.91 24h.481c.114-1.032.284-2.056.51-3.07.417-.296.604-.463.85-.693a11.342 11.342 0 0 0 3.639-8.464c.01-.814-.103-1.662-.197-2.218zm-5.336 8.195s0-8.291.275-8.29c.213 0 .49 10.695.49 10.695-.381-.045-.765-1.76-.765-2.405z" />
     </svg>
   );
 };

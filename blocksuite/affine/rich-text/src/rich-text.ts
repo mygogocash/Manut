@@ -399,8 +399,20 @@ export class RichText extends WithDisposable(ShadowlessElement) {
       readonly: this.readonly,
     });
 
+    // dir="auto" makes the browser pick the per-block writing direction from
+    // the first strong directional character in the content (UAX#9 P2/P3).
+    // Without this, every <rich-text> inherits the document-level direction
+    // set by `I18n.applyDocumentLanguage` (modules/i18n/entities/i18n.ts:70)
+    // when the user picks an RTL UI language (ar/fa/ur). That flips ALL
+    // English doc content right-aligned with neutral-character (punctuation)
+    // reorder, which looks like a regression even though the i18n behavior
+    // is intentional. Per-block `dir="auto"` is the same pattern Notion,
+    // GitHub, Slack, and Google Docs use — content direction follows the
+    // text, not the UI chrome. LTR remains the effective default for any
+    // English/Latin content regardless of the user's chosen UI language.
     return html`<div
       contenteditable=${this.readonly ? 'false' : 'true'}
+      dir="auto"
       class=${classes}
     ></div>`;
   }

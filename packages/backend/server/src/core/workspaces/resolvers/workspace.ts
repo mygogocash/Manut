@@ -230,11 +230,44 @@ export class WorkspaceResolver {
   async workspaceQuota(
     @Parent() workspace: WorkspaceType
   ): Promise<WorkspaceQuotaType> {
-    const quota = await this.quota.getWorkspaceQuotaWithUsage(workspace.id);
-    return {
-      ...quota,
-      humanReadable: this.quota.formatWorkspaceQuota(quota),
-    };
+    try {
+      const quota = await this.quota.getWorkspaceQuotaWithUsage(workspace.id);
+      return {
+        ...quota,
+        humanReadable: this.quota.formatWorkspaceQuota(quota),
+      };
+    } catch (err) {
+      // Defensive fallback: if quota lookup throws (storage backend hiccup,
+      // missing migration on a freshly-cloned workspace, stale ownerQuota
+      // pointing at a deleted user, etc.) we MUST still return a populated
+      // WorkspaceQuotaType — every `@Field` is non-nullable so Prisma
+      // returning `null` from a deep call would surface as a GraphQL
+      // serialization error to the frontend ("An internal error occurred"
+      // on the Members panel was traced to this path). Log the cause for
+      // operators; ship the user a permissive Free-tier shape so the
+      // members list and invite flow still render.
+      this.logger.error(
+        `workspaceQuota resolver fell back to safe defaults for workspace ${workspace.id}`,
+        err
+      );
+      const safe: Omit<WorkspaceQuotaType, 'humanReadable'> = {
+        name: 'free',
+        // MANUT: 100k seat cap matches QuotaService.getWorkspaceQuota
+        // self-hosted override; safe upper bound for cloud + self-host both.
+        memberLimit: 100_000,
+        memberCount: 0,
+        overcapacityMemberCount: 0,
+        blobLimit: 100 * 1024 * 1024,
+        storageQuota: 2 * 1024 * 1024 * 1024,
+        usedStorageQuota: 0,
+        historyPeriod: 0,
+        usedSize: 0,
+      };
+      return {
+        ...safe,
+        humanReadable: this.quota.formatWorkspaceQuota(safe),
+      };
+    }
   }
 
   @Query(() => [WorkspaceType], {

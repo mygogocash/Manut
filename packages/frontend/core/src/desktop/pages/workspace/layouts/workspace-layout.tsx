@@ -5,7 +5,6 @@ import { useResponsiveSidebar } from '@affine/core/components/hooks/use-responsi
 import { KeyboardShortcutsAnchor } from '@affine/core/components/keyboard-shortcuts';
 import { SWRConfigProvider } from '@affine/core/components/providers/swr-config-provider';
 import { WorkspaceSideEffects } from '@affine/core/components/providers/workspace-side-effects';
-import { AIIsland } from '@affine/core/desktop/components/ai-island';
 import { AppContainer } from '@affine/core/desktop/components/app-container';
 import { DocumentTitle } from '@affine/core/desktop/components/document-title';
 import { WorkspaceDialogs } from '@affine/core/desktop/dialogs';
@@ -38,7 +37,13 @@ export const WorkspaceLayout = function WorkspaceLayout({
       <WorkspaceLayoutInner>{children}</WorkspaceLayoutInner>
       {/* should show after workspace loaded */}
       {/* FIXME: wait for better ai, <WorkspaceAIOnboarding /> */}
-      <AIIsland />
+      {/* Manut M2 E2.8 — `<AIIsland />` removed: the FloatingAiChatAnchor
+          below is now the single AI launcher. The legacy island (lower
+          sparkle dot routing to /chat) was redundant once the multi-tab
+          chat panel shipped. Component file kept at
+          desktop/components/ai-island/ for now; a follow-up R2 commit
+          can delete it once nothing else imports it (current usage:
+          this file only). */}
       {/* Epic E1.4 — slide-in chat surface, gated by `floating_ai_chat` flag.
           Component renders null when the flag is off, so unconditional
           mounting here is safe and keeps the workbench shell the single

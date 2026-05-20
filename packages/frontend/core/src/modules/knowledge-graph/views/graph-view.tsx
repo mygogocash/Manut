@@ -466,67 +466,85 @@ export const KnowledgeGraphView = () => {
   // double-pulsed because backend used `randomUUID()` for sourceId and the
   // frontend used the toolCallId, so dedup never matched).
   useEffect(() => {
-    const bus = getActivationBus();
-    const disposeSse = subscribeDocReadStream(
-      eventSourceService,
-      workspaceId,
-      bus
-    );
-    const sub = bus.asObservable().subscribe(event => {
-      if (event.workspaceId !== workspaceId) return;
-      const { nodes, edges } = stateRef.current;
-      const source = nodes.find(n => n.id === event.docId);
-      if (!source) return;
-      // Feed the per-doc activity ring buffer so the detail panel's
-      // "Recent activity" list reflects AI doc-reads in real time.
-      activityBufferRef.current?.push({
-        docId: event.docId,
-        timestamp: Date.now(),
-        toolName: event.op,
-        agentLabel: event.agentId,
-      });
-      // Snapshot the source's lobe colour at spawn time so changes to the
-      // cluster after spawn don't recolour an in-flight pulse mid-travel.
-      const palette = lobeColour(source.cluster);
-      const dark = isDarkBackground(containerRef.current ?? document.body);
-      const rgb: readonly [number, number, number] = dark
-        ? palette.dark
-        : palette.light;
-      const now = performance.now();
-      // For every edge incident to the source, fire one pulse. Outgoing or
-      // incoming — graph is undirected — both surface the same activation.
-      const outgoing: ActivePulse[] = [];
-      for (const e of edges) {
-        if (e.source === event.docId) {
-          outgoing.push({
-            sourceId: e.source,
-            targetId: e.target,
-            curveOffset: e.curveOffset,
-            rgb,
-            startedAt: now,
-          });
-        } else if (e.target === event.docId) {
-          outgoing.push({
-            sourceId: e.target,
-            targetId: e.source,
-            // Flip the curve sign so the pulse rides the edge from the OTHER
-            // end and still bows the same physical way.
-            curveOffset: -e.curveOffset,
-            rgb,
-            startedAt: now,
-          });
+    // Defensive wiring: the SSE subscription is brand polish, NOT load-bearing.
+    // If the EventSource resolver, activation bus, or anything in this chain
+    // throws (e.g. ServerService.baseUrl resolving to undefined on a fresh
+    // workspace, or an indexer hiccup poisoning getActivationBus), the graph
+    // must still render — users can navigate without animated pulses.
+    let disposeSse: () => void = () => {};
+    let sub: { unsubscribe: () => void } = { unsubscribe: () => {} };
+    try {
+      const bus = getActivationBus();
+      disposeSse = subscribeDocReadStream(eventSourceService, workspaceId, bus);
+      sub = bus.asObservable().subscribe(event => {
+        if (event.workspaceId !== workspaceId) return;
+        const { nodes, edges } = stateRef.current;
+        const source = nodes.find(n => n.id === event.docId);
+        if (!source) return;
+        // Feed the per-doc activity ring buffer so the detail panel's
+        // "Recent activity" list reflects AI doc-reads in real time.
+        activityBufferRef.current?.push({
+          docId: event.docId,
+          timestamp: Date.now(),
+          toolName: event.op,
+          agentLabel: event.agentId,
+        });
+        // Snapshot the source's lobe colour at spawn time so changes to the
+        // cluster after spawn don't recolour an in-flight pulse mid-travel.
+        const palette = lobeColour(source.cluster);
+        const dark = isDarkBackground(containerRef.current ?? document.body);
+        const rgb: readonly [number, number, number] = dark
+          ? palette.dark
+          : palette.light;
+        const now = performance.now();
+        // For every edge incident to the source, fire one pulse. Outgoing or
+        // incoming — graph is undirected — both surface the same activation.
+        const outgoing: ActivePulse[] = [];
+        for (const e of edges) {
+          if (e.source === event.docId) {
+            outgoing.push({
+              sourceId: e.source,
+              targetId: e.target,
+              curveOffset: e.curveOffset,
+              rgb,
+              startedAt: now,
+            });
+          } else if (e.target === event.docId) {
+            outgoing.push({
+              sourceId: e.target,
+              targetId: e.source,
+              // Flip the curve sign so the pulse rides the edge from the OTHER
+              // end and still bows the same physical way.
+              curveOffset: -e.curveOffset,
+              rgb,
+              startedAt: now,
+            });
+          }
         }
-      }
-      // Cap concurrent pulses — drop the oldest if the new batch overflows.
-      const merged = [...pulsesRef.current, ...outgoing];
-      if (merged.length > PULSE_MAX_CONCURRENT) {
-        merged.splice(0, merged.length - PULSE_MAX_CONCURRENT);
-      }
-      pulsesRef.current = merged;
-    });
+        // Cap concurrent pulses — drop the oldest if the new batch overflows.
+        const merged = [...pulsesRef.current, ...outgoing];
+        if (merged.length > PULSE_MAX_CONCURRENT) {
+          merged.splice(0, merged.length - PULSE_MAX_CONCURRENT);
+        }
+        pulsesRef.current = merged;
+      });
+    } catch (err) {
+      logger.error(
+        'failed to wire activation bus / SSE — pulses disabled',
+        err
+      );
+    }
     return () => {
-      sub.unsubscribe();
-      disposeSse();
+      try {
+        sub.unsubscribe();
+      } catch (err) {
+        logger.error('activation bus subscription teardown failed', err);
+      }
+      try {
+        disposeSse();
+      } catch (err) {
+        logger.error('SSE disposer threw', err);
+      }
     };
   }, [eventSourceService, workspaceId]);
 
@@ -1071,7 +1089,6 @@ export const KnowledgeGraphView = () => {
     // stateRef.current.nodes is updated synchronously when docTitlesById
     // changes (see the rebuild effect above), so docTitlesById is a safe
     // proxy for "node set changed". Edges aren't needed here.
-     
   }, [docTitlesById]);
 
   // Per-doc recent-activity ring buffer. Wired here so future code that
