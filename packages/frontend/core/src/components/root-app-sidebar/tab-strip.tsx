@@ -1,4 +1,5 @@
 import { CMDKQuickSearchService } from '@affine/core/modules/quicksearch/services/cmdk';
+import { trackEvent } from '@affine/core/modules/telemetry';
 import {
   ChatPanelIcon,
   HomeIcon,
@@ -63,6 +64,12 @@ export function TabStrip(): ReactElement {
             data-testid={`sidebar-tab-${id}`}
             className={tabButton}
             onClick={() => {
+              // M3 E3.5 — fire telemetry for every nav click so we can
+              // measure which sidebar surfaces actually get used. `item`
+              // mirrors the tab id; `tab` is the active strip name
+              // ("sidebar") so downstream analytics can distinguish
+              // this surface from future tab strips.
+              trackEvent('sidebar_nav_clicked', { tab: 'sidebar', item: id });
               if (isSearch) {
                 openSearch();
                 return;

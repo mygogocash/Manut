@@ -1,6 +1,7 @@
 import { Button, IconButton, notify, Tooltip } from '@affine/component';
 import { SettingRow } from '@affine/component/setting-components';
 import { GraphQLService } from '@affine/core/modules/cloud';
+import { trackEvent } from '@affine/core/modules/telemetry';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import {
   forgetMemoryMutation,
@@ -268,6 +269,10 @@ export function MemoryPanel(_props: MemoryPanelProps) {
             query: pinMemoryMutation,
             variables: vars,
           } as never);
+          // M3 E3.5 — only emit after the server confirms the toggle.
+          // The pin mutation flips the state, so the event name maps
+          // to the user's intent rather than the post-state.
+          trackEvent('memory_pinned', { kind: memory.kind });
           await mutateMemories();
         } catch (e) {
           notify.error({
@@ -298,6 +303,9 @@ export function MemoryPanel(_props: MemoryPanelProps) {
             query: forgetMemoryMutation,
             variables: vars,
           } as never);
+          // M3 E3.5 — emit only after the delete succeeds so abandoned
+          // / failed forgets don't pollute the funnel.
+          trackEvent('memory_forgot', { kind: memory.kind });
           await mutateMemories();
           notify.success({
             title:

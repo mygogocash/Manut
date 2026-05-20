@@ -5,6 +5,7 @@ import {
 } from '@affine/core/blocksuite/ai/quick-actions';
 import { useCallback, useMemo } from 'react';
 
+import { trackEvent } from '../../modules/telemetry';
 import * as styles from './quick-actions-row.css';
 import {
   type CurrentDocContext,
@@ -61,9 +62,15 @@ export const QuickActionsRow = ({ onSelect }: QuickActionsRowProps) => {
   // whether to use `label` or `prompt` (or both).
   const handleClick = useCallback(
     (action: QuickAction) => () => {
+      // M3 E3.5 — telemetry. `docType` is non-null here because the
+      // row only renders when actions exist for the current doc.
+      trackEvent('quick_action_used', {
+        action: action.label,
+        docType: docType ?? 'unknown',
+      });
       onSelect(action);
     },
-    [onSelect]
+    [docType, onSelect]
   );
 
   if (!actions || actions.length === 0) return null;

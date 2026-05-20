@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 
+import { trackEvent } from '../../modules/telemetry';
+
 /**
  * Global keyboard binding for the FloatingAiChatAnchor. Cmd+J (macOS) or
  * Ctrl+J (everywhere else) toggles the panel. Esc closes when open.
@@ -69,6 +71,12 @@ export function useFloatingChatShortcut({
       if (isEditableTarget(event.target)) return;
 
       event.preventDefault();
+      // Track only when we're opening, not closing — the close side is
+      // covered by the dedicated close handlers + Esc above, and we
+      // care about the activation source for analytics.
+      if (!isOpen) {
+        trackEvent('floating_chat_opened', { from: 'shortcut' });
+      }
       onToggle();
     };
 

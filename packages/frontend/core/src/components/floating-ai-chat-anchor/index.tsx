@@ -39,6 +39,7 @@ import { useFramework, useLiveData, useService } from '@toeverything/infra';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { trackEvent } from '../../modules/telemetry';
 import { ChatTabs } from './chat-tabs';
 import { QuickActionsRow } from './quick-actions-row';
 import * as styles from './styles.css';
@@ -509,7 +510,18 @@ export const FloatingAiChatAnchor = () => {
     if (!open) setContextDismissed(false);
   }, [open]);
 
-  const toggle = useCallback(() => setOpen(prev => !prev), []);
+  const toggle = useCallback(
+    () =>
+      setOpen(prev => {
+        // Telemetry fires only on the open transition; the close path is
+        // intentionally silent (we only want to know how users get IN).
+        if (!prev) {
+          trackEvent('floating_chat_opened', { from: 'button' });
+        }
+        return !prev;
+      }),
+    []
+  );
   const close = useCallback(() => setOpen(false), []);
   const dismissContext = useCallback(() => setContextDismissed(true), []);
   // Manut M2 E2.7 — respect reduced-motion when applying the press-scale
