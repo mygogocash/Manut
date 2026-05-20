@@ -221,17 +221,30 @@ export class QuotaService {
 
   /**
    * Returns the `workspace.plan` value for the given workspace.
-   * Currently a stub returning `undefined` — the column ships in E3.3
-   * (Month 3, decision #19). Until then, `tierFor(undefined) → FREE_TIER`
-   * grandfathers every workspace into the Free tier.
    *
-   * TODO(E3.3): wire to the `workspace.plan` column once it lands.
-   * Expected return: `'free' | 'pro' | null`.
+   * E3.3 wires this to the `workspace.plan` column that ships in the
+   * 20260520040000_add_workspace_plan migration. The Stripe webhook in
+   * `plugins/payment/manut-pro-webhook.ts` is the only writer:
+   *   - `checkout.session.completed` (metadata.manutProUpgrade === 'true')
+   *     → set 'pro'
+   *   - `customer.subscription.deleted` → set 'free'
+   *
+   * Any unknown / missing value (`undefined`, `null`, `'free'`, '') falls
+   * through to FREE_TIER via `tierFor()` — see `tiers.ts` for the
+   * defensive lookup. Returning `null` for missing workspaces keeps the
+   * call non-throwing; the upstream `getWorkspaceQuota` is already
+   * tolerant of that path because it falls back to the owner's quota.
    */
   private async getWorkspacePlan(
-    _workspaceId: string
+    workspaceId: string
   ): Promise<string | null | undefined> {
-    return undefined;
+    const workspace = await this.models.workspace.get(workspaceId);
+    // Cast to a partial shape because the prisma-generated Workspace
+    // type does not yet carry `plan` — the column ships in
+    // `20260520040000_add_workspace_plan` and `prisma generate` will
+    // re-emit the type at the next build. Until then this cast is the
+    // narrowest type-system hole that keeps the call typesafe.
+    return (workspace as { plan?: string | null } | null)?.plan ?? null;
   }
 
   /**

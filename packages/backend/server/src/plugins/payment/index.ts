@@ -18,6 +18,8 @@ import {
   UserSubscriptionManager,
   WorkspaceSubscriptionManager,
 } from './manager';
+import { ManutProCheckoutResolver } from './manut-pro-checkout.resolver';
+import { ManutProWebhook } from './manut-pro-webhook';
 import {
   SubscriptionResolver,
   UserSubscriptionResolver,
@@ -57,6 +59,12 @@ import { StripeWebhook } from './webhook';
     SubscriptionCronJobs,
     WorkspaceSubscriptionResolver,
     PaymentEventHandlers,
+    // Manut Pro tier (E3.3 / M3 — decision #19). Sits alongside the
+    // existing AFFiNE subscription surface but uses a separate config
+    // namespace, mutation, and webhook handler so the two flows don't
+    // share price IDs, success URLs, or plan-flip logic.
+    ManutProCheckoutResolver,
+    ManutProWebhook,
   ],
   controllers: [
     StripeWebhookController,

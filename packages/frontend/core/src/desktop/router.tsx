@@ -104,6 +104,14 @@ export const topLevelRoutes = [
         path: '/upgrade-to-team',
         lazy: () => import('./pages/upgrade-to-team'),
       },
+      // Wave 2 / M3 E3.3 (decision #19) — Manut Pro upgrade page.
+      // Reachable from `StorageCapModal` + `AiBudgetModal` "Upgrade to
+      // Pro" CTAs and any direct nav. Distinct from the upstream
+      // `/upgrade-to-team` which targets the AFFiNE Cloud Team tier.
+      {
+        path: '/upgrade',
+        lazy: () => import('./pages/upgrade'),
+      },
       {
         path: '/try-cloud',
         loader: () => {

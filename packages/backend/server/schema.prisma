@@ -170,6 +170,11 @@ model Workspace {
   avatarKey           String?  @map("avatar_key") @db.VarChar
   indexed             Boolean  @default(false)
   lastCheckEmbeddings DateTime @default("1970-01-01T00:00:00-00:00") @map("last_check_embeddings") @db.Timestamptz(3)
+  // Manut Pro tier plan: NULL or 'free' → FREE_TIER, 'pro' → PRO_TIER.
+  // See `core/quota/tiers.ts` for tier shapes and `plugins/payment/manut-pro-webhook.ts`
+  // for the Stripe-driven flip. Defaults to NULL so existing rows
+  // grandfather into Free with no data migration.
+  plan                String?  @db.VarChar
 
   features                   WorkspaceFeature[]
   docs                       WorkspaceDoc[]

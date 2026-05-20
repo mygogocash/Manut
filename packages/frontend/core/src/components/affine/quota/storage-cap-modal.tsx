@@ -1,5 +1,6 @@
 import { ConfirmModal } from '@affine/component/ui/modal';
 import { useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const BYTES_PER_GB = 1024 ** 3;
 
@@ -11,13 +12,31 @@ const BYTES_PER_GB = 1024 ** 3;
  * structured `STORAGE_CAP` error payload thrown by the backend (see
  * `QuotaService.assertStorageCap` and
  * `core/quota/service.ts#storageCapMessage` for the wire shape).
+ *
+ * `onUpgrade` is a notify-only hook (for telemetry, etc.). The modal
+ * navigates to `/upgrade` itself via `react-router-dom`'s `useNavigate`.
+ * This wiring landed in M3 E3.3 — the Stripe checkout flow lives at
+ * `/upgrade` (see `desktop/pages/upgrade/index.tsx`) and the modal's
+ * confirm button is the load-bearing entry point from quota errors.
  */
 export interface StorageCapModalProps {
   open: boolean;
   currentBytes: number;
   capBytes: number;
   onClose: () => void;
-  onUpgrade: () => void;
+  /**
+   * Optional notify-only hook. Fired before the modal navigates to
+   * `/upgrade`. Use for telemetry or parent-controlled state cleanup —
+   * the modal owns the navigation either way.
+   */
+  onUpgrade?: () => void;
+  /**
+   * Optional workspace ID to forward as a `?workspaceId=…` query
+   * param on `/upgrade` so the Pro upgrade page can call the
+   * checkout mutation against the right workspace without a
+   * cross-route service lookup.
+   */
+  workspaceId?: string;
 }
 
 /**
@@ -51,7 +70,9 @@ export function StorageCapModal({
   capBytes,
   onClose,
   onUpgrade,
+  workspaceId,
 }: StorageCapModalProps): React.ReactElement {
+  const navigate = useNavigate();
   const description = useMemo(() => {
     const usedGb = formatGb(currentBytes);
     const capGb = formatGb(capBytes);
@@ -68,11 +89,17 @@ export function StorageCapModal({
   );
 
   const handleConfirm = useCallback(() => {
-    // E3.3 (M3) wires this to the real Stripe checkout flow. For now,
-    // delegate to the parent so consumers can show a "coming soon"
-    // toast or route to a Settings billing panel placeholder.
-    onUpgrade();
-  }, [onUpgrade]);
+    // Notify the parent first so consumers can fire telemetry or
+    // dismiss neighbouring state, THEN navigate to /upgrade. Wiring
+    // landed in M3 E3.3 — the route renders the Pro tier marketing
+    // page and opens Stripe checkout via the
+    // `createManutProCheckoutSession` mutation.
+    onUpgrade?.();
+    const target = workspaceId
+      ? `/upgrade?workspaceId=${encodeURIComponent(workspaceId)}`
+      : '/upgrade';
+    navigate(target);
+  }, [navigate, onUpgrade, workspaceId]);
 
   return (
     <ConfirmModal

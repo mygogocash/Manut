@@ -1,5 +1,6 @@
 import { ConfirmModal } from '@affine/component/ui/modal';
 import { useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const CENTS_PER_DOLLAR = 100;
 
@@ -12,13 +13,29 @@ const CENTS_PER_DOLLAR = 100;
  * `AiBudgetService.assertWithinCap` and `core/quota/ai-budget.service.ts`
  * for the wire shape — same JSON-in-message envelope as the storage
  * cap modal precedent).
+ *
+ * `onUpgrade` is a notify-only hook (for telemetry, etc.). The modal
+ * navigates to `/upgrade` itself via `react-router-dom`'s `useNavigate`.
+ * Mirrors `StorageCapModal` exactly — same route, same param contract —
+ * so both quota-cap upsells funnel into the same Pro tier marketing
+ * page.
  */
 export interface AiBudgetModalProps {
   open: boolean;
   spentCents: number;
   capCents: number;
   onClose: () => void;
-  onUpgrade: () => void;
+  /**
+   * Optional notify-only hook. Fired before the modal navigates to
+   * `/upgrade`. Use for telemetry or parent-controlled state cleanup.
+   */
+  onUpgrade?: () => void;
+  /**
+   * Optional workspace ID to forward as a `?workspaceId=…` query
+   * param on `/upgrade` so the Pro upgrade page can call the
+   * checkout mutation against the right workspace.
+   */
+  workspaceId?: string;
 }
 
 /**
@@ -56,7 +73,9 @@ export function AiBudgetModal({
   capCents,
   onClose,
   onUpgrade,
+  workspaceId,
 }: AiBudgetModalProps): React.ReactElement {
+  const navigate = useNavigate();
   const description = useMemo(() => {
     const spentUsd = formatUsd(spentCents);
     const capUsd = formatUsd(capCents);
@@ -73,11 +92,17 @@ export function AiBudgetModal({
   );
 
   const handleConfirm = useCallback(() => {
-    // E3.3 (M3) wires this to the real Stripe checkout flow. For now,
-    // delegate to the parent so consumers can show a "coming soon"
-    // toast or route to a Settings billing panel placeholder.
-    onUpgrade();
-  }, [onUpgrade]);
+    // Notify the parent first so consumers can fire telemetry or
+    // dismiss neighbouring state, THEN navigate to /upgrade. Wiring
+    // landed in M3 E3.3 — the route renders the Pro tier marketing
+    // page and opens Stripe checkout via the
+    // `createManutProCheckoutSession` mutation.
+    onUpgrade?.();
+    const target = workspaceId
+      ? `/upgrade?workspaceId=${encodeURIComponent(workspaceId)}`
+      : '/upgrade';
+    navigate(target);
+  }, [navigate, onUpgrade, workspaceId]);
 
   return (
     <ConfirmModal
