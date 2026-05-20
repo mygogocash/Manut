@@ -329,13 +329,18 @@ export const AFFINE_FLAGS = {
   // body view per tab, plus a Customize Sections popover on the Home
   // view. Flag-gated so the M1 rollout can ship the Home + Search tabs
   // first and the Chat / Meetings / Inbox surfaces fill in during M2.
+  // 2026-05-20 — flipped to defaultState: true alongside the Notion-style
+  // tab-strip polish + Inbox notification badge + bottom "+ New" pill
+  // (feat/manut-sidebar-notion-style). The flag is kept configurable so
+  // operators can roll back the new sidebar to the legacy layout without
+  // a redeploy if a regression surfaces during the M2 wave.
   sidebar_tabs_v2: {
     category: 'affine',
     displayName: 'Enable Sidebar Tabs v2',
     description:
       'Adds a five-icon tab strip (Home / Chat / Meetings / Inbox / Search) to the sidebar. Home reuses the existing nav content; Chat / Meetings / Inbox are placeholder surfaces in M1 with full experiences shipping in M2. Search opens the existing quick-search modal.',
     configurable: true,
-    defaultState: false,
+    defaultState: true,
   },
   // Manut M1 — Epic E1.11. WebSocket transport for AI chat, in parallel
   // with SSE. When OFF (default) the chat input goes through the existing

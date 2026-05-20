@@ -20,25 +20,32 @@ export const tabStripRoot = style({
 
 export const tabButton = style({
   flex: '1 1 0',
+  position: 'relative',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   height: 32,
-  border: 'none',
+  // Transparent 1px border on the inactive state keeps the active-state
+  // border from triggering a layout shift when it appears.
+  border: '1px solid transparent',
   background: 'transparent',
   color: cssVar('iconColor'),
   borderRadius: 'var(--manut-radius-input)',
   cursor: 'pointer',
   fontSize: 18,
   transition:
-    'background var(--affine-anim-duration-fast) var(--affine-anim-curve-default), color var(--affine-anim-duration-fast) var(--affine-anim-curve-default)',
+    'background var(--affine-anim-duration-fast) var(--affine-anim-curve-default), color var(--affine-anim-duration-fast) var(--affine-anim-curve-default), border-color var(--affine-anim-duration-fast) var(--affine-anim-curve-default)',
   selectors: {
     '&:hover': {
       background: cssVar('hoverColor'),
       color: cssVar('iconSecondary'),
     },
+    // Notion-style rounded-chip active state — subtle violet fill + brand
+    // violet border. Border colour swaps in via the same `--manut-*` token
+    // family so dark-mode just works.
     '&[data-active="true"]': {
       background: 'var(--manut-accent-violet-bg)',
+      borderColor: 'var(--manut-accent-violet-border)',
       color: 'var(--manut-accent-violet-fg)',
     },
     '&:focus-visible': {
@@ -46,6 +53,63 @@ export const tabButton = style({
       outlineOffset: 2,
     },
   },
+});
+
+// Notification dot — a small red pip pinned to the top-right corner of the
+// Inbox tab when there are unread notifications. Positioned absolute against
+// the button so it overlays the icon without affecting hit-target geometry.
+export const tabBadgeDot = style({
+  position: 'absolute',
+  top: 4,
+  right: 4,
+  width: 6,
+  height: 6,
+  borderRadius: '50%',
+  background: '#ef4444',
+  // Soft halo against the (potentially active) violet tint so the dot stays
+  // legible on both inactive and active backgrounds.
+  boxShadow: `0 0 0 1.5px ${cssVar('backgroundPrimaryColor')}`,
+  pointerEvents: 'none',
+});
+
+// Bottom "+ New" pill — full-width quick-create button rendered at the very
+// bottom of the sidebar when sidebar_tabs_v2 is on. Uses the same brand
+// violet token family as the active tab chip so the surface reads as one
+// coherent system.
+export const newPillButton = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  width: '100%',
+  height: 36,
+  padding: '0 12px',
+  border: '1px solid var(--manut-accent-violet-border)',
+  borderRadius: 'var(--manut-radius-input)',
+  background: 'var(--manut-accent-violet-bg)',
+  color: 'var(--manut-accent-violet-fg)',
+  fontSize: 13,
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition:
+    'background var(--affine-anim-duration-fast) var(--affine-anim-curve-default), border-color var(--affine-anim-duration-fast) var(--affine-anim-curve-default)',
+  selectors: {
+    '&:hover': {
+      background: 'var(--manut-accent-violet-bg)',
+      borderColor: 'var(--manut-accent-violet-fg)',
+    },
+    '&:focus-visible': {
+      outline: '2px solid var(--manut-accent-violet-fg)',
+      outlineOffset: 2,
+    },
+  },
+});
+
+export const newPillIcon = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 16,
 });
 
 // Placeholder view shell — centered "coming soon" message.

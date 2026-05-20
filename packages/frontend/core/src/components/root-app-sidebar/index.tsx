@@ -1,4 +1,5 @@
 // Import is already correct, no changes needed
+import { usePageHelper } from '@affine/core/blocksuite/block-suite-page-list/utils';
 import {
   AddPageButton,
   AppDownloadButton,
@@ -16,6 +17,7 @@ import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { GraphMini } from '@affine/core/modules/knowledge-graph';
 import { CMDKQuickSearchService } from '@affine/core/modules/quicksearch/services/cmdk';
 import type { Workspace } from '@affine/core/modules/workspace';
+import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
 import type { Store } from '@blocksuite/affine/store';
@@ -30,10 +32,11 @@ import {
   HistoryIcon,
   ImportIcon,
   JournalIcon,
+  PlusIcon,
   RotateIcon,
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService, useServices } from '@toeverything/infra';
-import type { ReactElement } from 'react';
+import type { MouseEvent, ReactElement } from 'react';
 import { memo, useCallback } from 'react';
 
 import {
@@ -58,6 +61,7 @@ import { AppSidebarJournalButton } from './journal-button';
 import { NotificationButton } from './notification-button';
 import { SidebarAudioPlayer } from './sidebar-audio-player';
 import { TabStrip } from './tab-strip';
+import { newPillButton, newPillIcon } from './tab-strip.css';
 import { TemplateDocEntrance } from './template-doc-entrance';
 import { TrashButton } from './trash-button';
 import { UpdaterButton } from './updater-button';
@@ -331,6 +335,49 @@ const TabbedSidebarBody = ({
 };
 
 /**
+ * Bottom "+ New" pill — full-width button rendered at the very bottom of
+ * the sidebar when sidebar_tabs_v2 is on. Mirrors the no-ask branch of
+ * `AddPageButton` (the existing IconButton) for behavior parity: creates
+ * a fresh doc in the current workspace + fires the navigation-panel
+ * createDoc telemetry. The Notion-style violet pill styling lives in
+ * tab-strip.css.ts so the chip + pill share one brand token family.
+ */
+const NewDocPill = (): ReactElement => {
+  const t = useI18n();
+  const workspaceService = useService(WorkspaceService);
+  const currentWorkspace = workspaceService.workspace;
+  const pageHelper = usePageHelper(currentWorkspace.docCollection);
+
+  const onClickNewPage = useCallback(
+    (e: MouseEvent<HTMLButtonElement>) => {
+      // `inferOpenMode` would pick this up if we wanted modifier-key open;
+      // for the pill we keep it deliberately simple — a regular click
+      // opens the new doc in the active workbench view, same as the
+      // upstream AddPageButton IconButton (decision: keep the pill quiet
+      // until users ask for power-user shortcuts).
+      e.preventDefault();
+      pageHelper.createPage();
+      track.$.navigationPanel.$.createDoc();
+    },
+    [pageHelper]
+  );
+
+  return (
+    <button
+      type="button"
+      className={newPillButton}
+      data-testid="sidebar-bottom-new-pill"
+      onClick={onClickNewPage}
+    >
+      <span className={newPillIcon} aria-hidden="true">
+        <PlusIcon />
+      </span>
+      <span>{t['New Page']()}</span>
+    </button>
+  );
+};
+
+/**
  * This is for the whole affine app sidebar.
  * This component wraps the app sidebar in `@affine/component` with logic and data.
  *
@@ -511,6 +558,15 @@ export const RootAppSidebar = memo((): ReactElement => {
           icon={<JournalIcon />}
           label={t['com.affine.app-sidebar.learn-more']()}
         />
+        {/*
+         * Tabs-v2 only — full-width "+ New" pill rendered above the
+         * audio-player / updater row. Behaviorally identical to the no-ask
+         * branch of the top-bar AddPageButton; the surface exists so a
+         * primary quick-create is always one click from the sidebar
+         * bottom (Notion-style). Flag-off layout stays byte-identical
+         * since this branch never renders.
+         */}
+        {sidebarTabsV2Enabled ? <NewDocPill /> : null}
         <SidebarAudioPlayer />
         {BUILD_CONFIG.isElectron ? <UpdaterButton /> : <AppDownloadButton />}
       </SidebarContainer>
