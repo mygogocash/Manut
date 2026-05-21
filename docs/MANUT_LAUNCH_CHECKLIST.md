@@ -29,7 +29,7 @@ Treat every box as a launch blocker unless explicitly marked as
 
 ## 2. CI gates
 
-- [ ] `✅ Manut CI` green on `main`.
+- [ ] `Manut CI` green on `main`.
 - [ ] `🏗️ Manut Build` produced the `:main-<sha>-<runid>` immutable
       image in GAR.
 - [ ] `tests/affine-cloud/e2e/manut/*.spec.ts` green in CI (the
