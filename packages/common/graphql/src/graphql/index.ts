@@ -563,6 +563,26 @@ export const validateConfigQuery = {
 }`,
 };
 
+export const dailyStatsQuery = {
+  id: 'dailyStatsQuery' as const,
+  op: 'dailyStats',
+  query: `query dailyStats($input: DailyStatsInput!) {
+  dailyStats(input: $input) {
+    day
+    metric
+    value
+  }
+}`,
+};
+
+export const backfillAnalyticsMutation = {
+  id: 'backfillAnalyticsMutation' as const,
+  op: 'backfillAnalytics',
+  query: `mutation backfillAnalytics($workspaceId: String!, $daysBack: Int!) {
+  backfillAnalytics(workspaceId: $workspaceId, daysBack: $daysBack)
+}`,
+};
+
 export const acknowledgeInsightMutation = {
   id: 'acknowledgeInsightMutation' as const,
   op: 'acknowledgeInsight',
@@ -2847,6 +2867,91 @@ export const mentionUserMutation = {
   op: 'mentionUser',
   query: `mutation mentionUser($input: MentionInput!) {
   mentionUser(input: $input)
+}`,
+};
+
+export const listMongoCollectionsQuery = {
+  id: 'listMongoCollectionsQuery' as const,
+  op: 'listMongoCollections',
+  query: `query listMongoCollections($workspaceId: String!) {
+  listMongoCollections(workspaceId: $workspaceId) {
+    name
+    estimatedCount
+    enabled
+    cursorField
+    lastSyncedAt
+    consecutiveFailures
+    lastError
+    lastErrorAt
+  }
+}`,
+};
+
+export const sampleMongoCollectionQuery = {
+  id: 'sampleMongoCollectionQuery' as const,
+  op: 'sampleMongoCollection',
+  query: `query sampleMongoCollection($workspaceId: String!, $collectionName: String!, $limit: Int) {
+  sampleMongoCollection(
+    workspaceId: $workspaceId
+    collectionName: $collectionName
+    limit: $limit
+  ) {
+    collectionName
+    documents
+  }
+}`,
+};
+
+export const getMongoIngestionConfigsQuery = {
+  id: 'getMongoIngestionConfigsQuery' as const,
+  op: 'getMongoIngestionConfigs',
+  query: `query getMongoIngestionConfigs($workspaceId: String!) {
+  getMongoIngestionConfigs(workspaceId: $workspaceId) {
+    id
+    workspaceId
+    collectionName
+    enabled
+    cursorField
+    lastSyncedAt
+    lastCursorValue
+    consecutiveFailures
+    lastError
+    lastErrorAt
+    createdAt
+    updatedAt
+  }
+}`,
+};
+
+export const setMongoIngestionConfigMutation = {
+  id: 'setMongoIngestionConfigMutation' as const,
+  op: 'setMongoIngestionConfig',
+  query: `mutation setMongoIngestionConfig($workspaceId: String!, $input: SetMongoIngestionConfigInput!) {
+  setMongoIngestionConfig(workspaceId: $workspaceId, input: $input) {
+    id
+    workspaceId
+    collectionName
+    enabled
+    cursorField
+    lastSyncedAt
+    lastCursorValue
+    consecutiveFailures
+    lastError
+    lastErrorAt
+    createdAt
+    updatedAt
+  }
+}`,
+};
+
+export const deleteMongoIngestionConfigMutation = {
+  id: 'deleteMongoIngestionConfigMutation' as const,
+  op: 'deleteMongoIngestionConfig',
+  query: `mutation deleteMongoIngestionConfig($workspaceId: String!, $collectionName: String!) {
+  deleteMongoIngestionConfig(
+    workspaceId: $workspaceId
+    collectionName: $collectionName
+  )
 }`,
 };
 
