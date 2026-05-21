@@ -60,7 +60,6 @@ export class MnAgentMemoryService {
         kind: values.kind,
         contentMd: values.contentMd,
         importance: values.importance ?? 1,
-        embedding: values.embedding ?? [],
       },
     });
   }

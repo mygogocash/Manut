@@ -50,7 +50,6 @@ export class MongoCollectionInfoType {
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   lastSyncedAt?: Date;
-
   @Field(() => Int, { nullable: true })
   consecutiveFailures?: number;
 
@@ -107,7 +106,6 @@ export class MongoIngestionConfigType {
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   lastErrorAt?: Date;
-
   @Field(() => GraphQLISODateTime)
   createdAt!: Date;
 

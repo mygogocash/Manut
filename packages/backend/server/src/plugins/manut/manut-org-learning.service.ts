@@ -304,7 +304,6 @@ export class MnOrgLearningService {
             kind: MnMemoryKind.DECISION,
             contentMd,
             importance,
-            embedding: [],
           },
         });
         created++;

@@ -464,7 +464,6 @@ export const deleteMongoIngestionConfigMutation = {
   deleteMongoIngestionConfig(workspaceId: $workspaceId, collectionName: $collectionName)
 }`,
 };
-
 export interface DailyStatDto {
   day: string;
   metric: string;

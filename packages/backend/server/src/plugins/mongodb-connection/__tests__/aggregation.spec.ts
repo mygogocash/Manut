@@ -185,7 +185,8 @@ function fakePrisma(seed: RawRow[]): {
       const matched: StatRow[] = [];
       for (const row of state.stats.values()) {
         if (row.workspaceId !== workspaceId) continue;
-        if (row.day < from || row.day > to) continue;
+        if (dayOnly(row.day) < dayOnly(from) || dayOnly(row.day) > dayOnly(to))
+          continue;
         if (metricsFilter && !metricsFilter.includes(row.metric)) continue;
         matched.push(row);
       }
@@ -223,7 +224,7 @@ function fakePrisma(seed: RawRow[]): {
 }
 
 function utcDay(y: number, m: number, d: number): Date {
-  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 }
 
 const NOW = new Date('2026-05-20T12:00:00.000Z');
