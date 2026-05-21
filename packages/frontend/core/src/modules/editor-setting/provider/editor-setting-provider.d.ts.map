@@ -1,0 +1,1 @@
+{"version":3,"file":"editor-setting-provider.d.ts","sourceRoot":"","sources":["editor-setting-provider.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,MAAM,CAAC;AAEvC,MAAM,WAAW,qBAAqB;IACpC,GAAG,CAAC,GAAG,EAAE,MAAM,EAAE,KAAK,EAAE,MAAM,GAAG,IAAI,CAAC;IACtC,QAAQ,IAAI,UAAU,CAAC,MAAM,CAAC,MAAM,EAAE,MAAM,CAAC,CAAC,CAAC;CAChD;AAED,eAAO,MAAM,qBAAqB,0JAEjC,CAAC"}

@@ -50,6 +50,7 @@ test.before(async t => {
       workspace: {
         create: {
           id: 'public',
+          slug: 'public',
           public: true,
         },
       },
@@ -63,6 +64,7 @@ test.before(async t => {
       workspace: {
         create: {
           id: 'private',
+          slug: 'private',
           public: false,
         },
       },
@@ -76,6 +78,7 @@ test.before(async t => {
       workspace: {
         create: {
           id: 'totally-private',
+          slug: 'totally-private',
           public: false,
         },
       },

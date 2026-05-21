@@ -1,0 +1,1 @@
+{"version":3,"file":"move-to-trash.d.ts","sourceRoot":"","sources":["move-to-trash.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,iBAAiB,EAAE,aAAa,EAAE,MAAM,mBAAmB,CAAC;AAK1E,eAAO,MAAM,WAAW;YAAW,aAAa;qDAa7C;QACD,MAAM,EAAE,MAAM,EAAE,CAAC;KAClB,GAAG,iBAAiB;CAPpB,CAAC"}

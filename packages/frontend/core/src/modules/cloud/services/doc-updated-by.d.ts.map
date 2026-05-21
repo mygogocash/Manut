@@ -1,0 +1,1 @@
+{"version":3,"file":"doc-updated-by.d.ts","sourceRoot":"","sources":["doc-updated-by.ts"],"names":[],"mappings":"AAAA,OAAO,EAAW,OAAO,EAAE,MAAM,qBAAqB,CAAC;AAIvD,OAAO,KAAK,EAAE,GAAG,EAAE,MAAM,WAAW,CAAC;AAErC,OAAO,KAAK,EAAE,sBAAsB,EAAE,MAAM,oBAAoB,CAAC;AAEjE,qBACa,mBAAoB,SAAQ,OAAO;IAClC,OAAO,CAAC,QAAQ,CAAC,sBAAsB;gBAAtB,sBAAsB,EAAE,sBAAsB;IAI3E,gBAAgB,CAAC,GAAG,EAAE,GAAG;CAsB1B"}

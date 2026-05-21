@@ -1,0 +1,1 @@
+{"version":3,"file":"worker-ops.d.ts","sourceRoot":"","sources":["worker-ops.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,QAAQ,EAAE,MAAM,wBAAwB,CAAC;AAEvD,MAAM,WAAW,SAAU,SAAQ,QAAQ;IACzC,sBAAsB,EAAE,CAAC,UAAU,EAAE,EAAE;QAAE,IAAI,CAAC,EAAE,MAAM,CAAC;QAAC,MAAM,CAAC,EAAE,MAAM,CAAA;KAAE,CAAC,CAAC;CAC5E"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"detail-page-wrapper.d.ts","sourceRoot":"","sources":["detail-page-wrapper.tsx"],"names":[],"mappings":"AAMA,OAAO,EACL,KAAK,iBAAiB,EACtB,KAAK,SAAS,EAIf,MAAM,OAAO,CAAC;AAiDf;;;GAGG;AACH,eAAO,MAAM,iBAAiB,GAAI,sDAM/B,iBAAiB,CAAC;IACnB,MAAM,EAAE,MAAM,CAAC;IACf,QAAQ,EAAE,SAAS,CAAC;IACpB,QAAQ,EAAE,SAAS,CAAC;IACpB,SAAS,CAAC,EAAE,OAAO,CAAC;CACrB,CAAC,4UAkBD,CAAC"}

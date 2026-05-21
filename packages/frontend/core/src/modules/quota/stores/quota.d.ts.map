@@ -1,0 +1,1 @@
+{"version":3,"file":"quota.d.ts","sourceRoot":"","sources":["quota.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,sBAAsB,EAAE,MAAM,4BAA4B,CAAC;AAEzE,OAAO,EAAE,KAAK,EAAE,MAAM,qBAAqB,CAAC;AAE5C,qBAAa,mBAAoB,SAAQ,KAAK;IAChC,OAAO,CAAC,QAAQ,CAAC,sBAAsB;gBAAtB,sBAAsB,EAAE,sBAAsB;IAIrE,mBAAmB,CAAC,WAAW,EAAE,MAAM,EAAE,MAAM,CAAC,EAAE,WAAW;;;;;;;;;;;sBAgB6mkO,CAAC;;;;;;;;;;CADlrkO"}

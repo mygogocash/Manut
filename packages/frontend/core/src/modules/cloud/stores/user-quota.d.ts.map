@@ -1,0 +1,1 @@
+{"version":3,"file":"user-quota.d.ts","sourceRoot":"","sources":["user-quota.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,KAAK,EAAE,MAAM,qBAAqB,CAAC;AAE5C,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,qBAAqB,CAAC;AAE1D,qBAAa,cAAe,SAAQ,KAAK;IAC3B,OAAO,CAAC,QAAQ,CAAC,cAAc;gBAAd,cAAc,EAAE,cAAc;IAIrD,cAAc,CAAC,WAAW,CAAC,EAAE,WAAW;;;;;;;;;;0BAmBgshM,CAAC;;;;;;;;;;CADhvhM"}

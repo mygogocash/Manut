@@ -1,0 +1,1 @@
+{"version":3,"file":"share-docs.d.ts","sourceRoot":"","sources":["share-docs.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,sBAAsB,EAAE,MAAM,4BAA4B,CAAC;AAEzE,OAAO,EAAE,KAAK,EAAE,MAAM,qBAAqB,CAAC;AAE5C,qBAAa,cAAe,SAAQ,KAAK;IAC3B,OAAO,CAAC,QAAQ,CAAC,sBAAsB;gBAAtB,sBAAsB,EAAE,sBAAsB;IAIrE,sBAAsB,CAAC,WAAW,EAAE,MAAM,EAAE,MAAM,CAAC,EAAE,WAAW;;;;;CAevE"}

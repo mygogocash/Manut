@@ -33,6 +33,7 @@ export class MockWorkspace extends Mocker<MockWorkspaceInput, MockedWorkspace> {
       data: {
         name: faker.animal.cat(),
         public: false,
+        slug: input?.slug ?? faker.string.uuid(),
         ...input,
         permissions: owner
           ? {

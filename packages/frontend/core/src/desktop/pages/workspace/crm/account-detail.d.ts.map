@@ -1,0 +1,1 @@
+{"version":3,"file":"account-detail.d.ts","sourceRoot":"","sources":["account-detail.tsx"],"names":[],"mappings":"AAGA,OAAO,KAAK,EACV,YAAY,EACZ,YAAY,EACZ,SAAS,EACV,MAAM,+BAA+B,CAAC;AAIvC,UAAU,sBAAsB;IAC9B,OAAO,EAAE,YAAY,CAAC;IACtB,QAAQ,EAAE,SAAS,YAAY,EAAE,CAAC;IAClC,KAAK,EAAE,SAAS,SAAS,EAAE,CAAC;CAC7B;AAsBD,eAAO,MAAM,iBAAiB,GAAI,+BAI/B,sBAAsB,4CAwFxB,CAAC"}

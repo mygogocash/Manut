@@ -1,0 +1,1 @@
+{"version":3,"file":"share-docs-list.d.ts","sourceRoot":"","sources":["share-docs-list.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,OAAO,EAAE,MAAM,qBAAqB,CAAC;AAE9C,OAAO,KAAK,EAAE,gBAAgB,EAAE,MAAM,iBAAiB,CAAC;AACxD,OAAO,EAAE,aAAa,EAAE,MAAM,6BAA6B,CAAC;AAE5D,qBAAa,oBAAqB,SAAQ,OAAO;IACnC,OAAO,CAAC,QAAQ,CAAC,gBAAgB;gBAAhB,gBAAgB,EAAE,gBAAgB;IAI/D,SAAS,uBAGE;IAEF,OAAO,IAAI,IAAI;CAGzB"}

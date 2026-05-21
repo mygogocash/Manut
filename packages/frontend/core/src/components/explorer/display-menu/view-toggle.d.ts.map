@@ -1,0 +1,1 @@
+{"version":3,"file":"view-toggle.d.ts","sourceRoot":"","sources":["view-toggle.tsx"],"names":[],"mappings":"AAIA,OAAO,EACL,KAAK,eAAe,EAErB,MAAM,4BAA4B,CAAC;AAqBpC,eAAO,MAAM,UAAU,GAAI,yBAGxB;IACD,IAAI,EAAE,eAAe,CAAC;IACtB,YAAY,EAAE,CAAC,IAAI,EAAE,eAAe,KAAK,IAAI,CAAC;CAC/C,4CAwBA,CAAC"}

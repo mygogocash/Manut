@@ -1,0 +1,23 @@
+export declare const root: string;
+export declare const scroll: string;
+export declare const inner: string;
+export declare const header: string;
+export declare const headerTopRow: string;
+export declare const headerInfo: string;
+export declare const headerActions: string;
+export declare const titleRow: string;
+export declare const nameInput: string;
+export declare const description: string;
+export declare const descriptionEmpty: string;
+export declare const statusBadge: string;
+export declare const statusBadgeActive: string;
+export declare const sections: string;
+export declare const sectionTitle: string;
+export declare const sectionHeader: string;
+export declare const loading: string;
+export declare const notFound: string;
+export declare const notFoundTitle: string;
+export declare const archiveBanner: string;
+export declare const taskMetaRow: string;
+export declare const taskRowClickable: string;
+//# sourceMappingURL=detail.css.d.ts.map

@@ -1,0 +1,1 @@
+{"version":3,"file":"list-floating-toolbar.d.ts","sourceRoot":"","sources":["list-floating-toolbar.tsx"],"names":[],"mappings":"AAMA,OAAO,KAAK,EAAE,SAAS,EAAE,MAAM,OAAO,CAAC;AAKvC,eAAO,MAAM,mBAAmB,GAAI,kDAMjC;IACD,IAAI,EAAE,OAAO,CAAC;IACd,OAAO,EAAE,SAAS,CAAC;IACnB,OAAO,EAAE,MAAM,IAAI,CAAC;IACpB,QAAQ,CAAC,EAAE,MAAM,IAAI,CAAC;IACtB,SAAS,CAAC,EAAE,MAAM,IAAI,CAAC;CACxB,4CAuBA,CAAC"}

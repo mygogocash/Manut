@@ -1,0 +1,1 @@
+{"version":3,"file":"ai-button.d.ts","sourceRoot":"","sources":["ai-button.ts"],"names":[],"mappings":"AACA,OAAO,EAIL,OAAO,EACR,MAAM,qBAAqB,CAAC;AAG7B,OAAO,KAAK,EAAE,gBAAgB,EAAE,MAAM,uBAAuB,CAAC;AAI9D,qBAAa,eAAgB,SAAQ,OAAO;IAC9B,OAAO,CAAC,QAAQ,CAAC,gBAAgB,CAAC;gBAAjB,gBAAgB,CAAC,EAAE,gBAAgB,YAAA;IAIhE,eAAe,gDAqBb;CACH"}

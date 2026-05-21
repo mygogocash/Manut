@@ -1,0 +1,1 @@
+{"version":3,"file":"feature-flag-syncer.d.ts","sourceRoot":"","sources":["feature-flag-syncer.ts"],"names":[],"mappings":"AAAA,OAAO,EAEL,KAAK,kBAAkB,EACxB,MAAM,mCAAmC,CAAC;AAE3C,OAAO,EAAE,KAAK,aAAa,EAAkB,MAAM,0BAA0B,CAAC;AAE9E,wBAAgB,oBAAoB,CAClC,kBAAkB,EAAE,kBAAkB,GACrC,aAAa,CAmBf"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"use-catch-event-hook.d.ts","sourceRoot":"","sources":["use-catch-event-hook.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,KAAK,cAAc,EAAE,KAAK,cAAc,EAAE,MAAM,OAAO,CAAC;AAIjE,eAAO,MAAM,qBAAqB,GAChC,CAAC,SAAS,cAAc,EACxB,IAAI,SAAS,GAAG,EAAE,EAElB,IAAI,CAAC,CAAC,EAAE,CAAC,EAAE,GAAG,IAAI,EAAE,IAAI,KAAK,IAAI,GAAG,OAAO,CAAC,IAAI,CAAC,EACjD,MAAM,cAAc,kCAOrB,CAAC"}

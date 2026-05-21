@@ -31,7 +31,7 @@ test.after(async () => {
 
 async function create() {
   return db.workspace.create({
-    data: { public: false },
+    data: { public: false, slug: Math.random().toString(36).slice(2) },
   });
 }
 

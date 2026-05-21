@@ -12,6 +12,7 @@ export class WorkspaceResolverMock {
     const workspace = await this.prisma.workspace.create({
       data: {
         public: false,
+        slug: Math.random().toString(36).slice(2),
         permissions: {
           create: {
             type: WorkspaceRole.Owner,

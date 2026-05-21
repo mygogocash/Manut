@@ -1,0 +1,1 @@
+{"version":3,"file":"affine-layout.d.ts","sourceRoot":"","sources":["affine-layout.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,OAAO,EAAE,MAAM,cAAc,CAAC;AAI5C,OAAO,KAAK,EAAE,iBAAiB,EAAE,MAAM,wBAAwB,CAAC;AAGhE,wBAAgB,4BAA4B,CAAC,EAC3C,CAAC,EACD,iBAAiB,GAClB,EAAE;IACD,CAAC,EAAE,UAAU,CAAC,OAAO,OAAO,CAAC,CAAC;IAC9B,iBAAiB,EAAE,iBAAiB,CAAC;CACtC,cA2BA"}

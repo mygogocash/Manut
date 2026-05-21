@@ -1,0 +1,1 @@
+{"version":3,"file":"edit-doc-property.d.ts","sourceRoot":"","sources":["edit-doc-property.tsx"],"names":[],"mappings":"AAMA,OAAO,KAAK,EAAE,qBAAqB,EAAE,MAAM,yBAAyB,CAAC;AAqBrE,eAAO,MAAM,8BAA8B,GAAI,iDAI5C;IACD,UAAU,EAAE,MAAM,CAAC;IACnB,QAAQ,CAAC,EAAE,OAAO,CAAC;IACnB,oBAAoB,CAAC,EAAE,CACrB,KAAK,EAAE,MAAM,qBAAqB,EAClC,KAAK,EAAE,MAAM,KACV,IAAI,CAAC;CACX,mDA2MA,CAAC"}

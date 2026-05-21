@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-13 (v1.12.0 release handoff)
+Last updated: 2026-05-21 18:50 +07 (heartbeat refresh)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,16 +12,35 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `docs/v1.12-release-and-handover-refresh` (this docs PR)
+- Branch: `feat/manut-wave2-cloud`
+- Local HEAD: `7fe4202f1 feat(sidebar): Phase 1 utility footer + Settings in avatar menu`
 - Upstream: `origin/main`
-- Origin HEAD: `21364d308 chore(release): consolidate pending PRs #32 #34 #35 #36 #37 into v1.11.0 release (#39)`
-- Branch state: clean baseline + the docs edits in this PR.
+- Origin HEAD: `8b9f1f48f feat(manut): ingest MongoDB into analytics (#125)`
+- Branch state: synced with `origin/feat/manut-wave2-cloud` (`0 0`
+  ahead/behind), but `38 5` against `origin/main`. The branch head was
+  merged by PR #121, so continue new work from a fresh `main`-based branch
+  after preserving the local WIP.
+- Current PR: #121
+  `feat(manut): full 3-month plan rollout — all 12 waves consolidated`
+  merged on 2026-05-20 01:59 UTC as `ba851f061`. No open PR remains for
+  this head branch.
+- Dirty state: tracked WIP is present in backend workspace tests, calendar
+  Google provider/config tests, `manut-release-runs.service.ts`, and the
+  inline-chat style rename/import, plus this handover file. There are also
+  `1,533` untracked generated declaration artifacts under
+  `packages/frontend/core/src/**` (`*.d.ts`, `*.d.ts.map`,
+  `*.css.d.ts.map`). Classify or clean these before any commit; do not
+  blanket-delete hand-authored `*.d.ts` files.
 - Production branch: `main`
 - Production app: https://manut.xyz (canonical;
   `affine.gogocash.co` and `manut.gogocash.co` both 301-redirect)
-- Production image lineage: post-v1.11.0 consolidation tag in the
-  GAR registry `affine-gogocash`. Refresh against the latest
-  `manut-release.yml` run for the exact tag.
+- Production image lineage: latest observed `main` commit is `8b9f1f48f`.
+  `✅ Manut CI` run `26197966111`, CodeQL run `26197965647`, and
+  `🏗️ Manut Build` run `26198091786` are green. Build run `26198091786`
+  pushed the image and published the Manut handover artifact. A later
+  `Copilot Test Automatically` run `26223055665` on the same head also passed;
+  refresh the release/deploy workflow for the exact deployed image before any
+  production action.
 
 ## Release lineage
 
@@ -234,6 +253,21 @@ on chat memory.
   pulses on AI doc-reads via a doc-read event bus + SSE stream). The
   Knowledge Graph branch (`feat/superflow-pm-crm-reminders-ui`) has
   the implementation but did not merge in time for v1.12.0.
+- **2026-05-21 — heartbeat state refreshes.** Fetched `origin` and refreshed
+  local status, PR, CI, and production probes from 03:59 through 18:50 +07.
+  At 07:37, `origin/main` advanced from `1a9e40c8b` to `8b9f1f48f` via PR
+  #125. By 09:19, the follow-up `🏗️ Manut Build` run was green. Current local
+  work is still on the already-merged `feat/manut-wave2-cloud` branch with
+  dirty WIP and generated declaration artifacts; no merge, deploy, commit, or
+  staging was performed by the heartbeats.
+- **2026-05-21 — MongoDB analytics ingestion merged.** PR #125
+  `feat(manut): ingest MongoDB data into analytics` merged to `main` as
+  `8b9f1f48f`. PR checks were green; post-merge `main` CI and CodeQL were
+  green, and Manut Build `26198091786` later completed successfully.
+- **2026-05-20 — Wave 2 cloud branch merged.** PR #121 merged
+  `feat/manut-wave2-cloud` into `main` as `ba851f061`. The PR's own
+  `✅ Manut CI` run failed on GraphQL codegen drift and web bundle, but later
+  `main` workflows on `1a9e40c8b` are green.
 
 ## Verification Already Run
 
@@ -316,6 +350,46 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
 - Post-commit state check at `2026-05-10 15:01:17 +07`: branch
   `codex/superflow-backlog-pm-crm`, local HEAD `de7b49388`, origin/main
   `788a0e0b0`, `1 1` ahead/behind.
+- 2026-05-21 heartbeat: `git fetch origin` passed.
+- 2026-05-21 heartbeat: `git status --short --branch --untracked-files=no`
+  confirmed tracked WIP on `feat/manut-wave2-cloud`; the branch is synced
+  with `origin/feat/manut-wave2-cloud`.
+- 2026-05-21 heartbeat: `git rev-list --left-right --count HEAD...origin/main`
+  returned `38 4`; `git rev-list --left-right --count HEAD...@{u}` returned
+  `0 0`.
+- 2026-05-21 heartbeat: `gh pr view 121` confirmed PR #121 is merged;
+  failed PR checks were `GraphQL codegen drift`, `Build web bundle`, and
+  aggregate `✅ CI complete`.
+- 2026-05-21 heartbeat: PR #121 codegen failure was caused by missing schema
+  fields for `rateMessage`, `forgetMemory`, `myMemories`, `pinMemory`, and
+  `promoteMemoryToWorkspace`. Web bundle failure included the vanilla-extract
+  `HTMLElement is not defined` trap in `inline-chat.css.ts` and a missing
+  loader for `manut-logo.jpeg`.
+- 2026-05-21 heartbeat: latest `main` workflows for `1a9e40c8b` were green:
+  `✅ Manut CI` `26171102322`, `🏗️ Manut Build` `26171319307`, and CodeQL
+  `26171100799`.
+- 2026-05-21 heartbeat: `curl -fsS -m 15 https://manut.xyz/info` returned
+  `{"compatibility":"0.26.3","message":"Manut 0.26.3 Server","type":"selfhosted","flavor":"allinone"}`.
+- 2026-05-21 repeated heartbeat refreshes through 07:07 +07: fetch,
+  branch/head, PR #121, main CI, generated declaration count, dirty tracked
+  file list, and production `/info` checks stayed unchanged.
+- 2026-05-21 07:37 heartbeat: `git fetch origin` advanced `origin/main` to
+  `8b9f1f48f` (#125); `git rev-list --left-right --count HEAD...origin/main`
+  changed to `38 5`. PR #125 was merged with green PR checks. Post-merge
+  `main` CI `26197966111` and CodeQL `26197965647` were green; Manut Build
+  `26198091786` was in progress. Production `/info` still returned the
+  expected Manut 0.26.3 selfhosted JSON.
+- 2026-05-21 09:19-18:50 heartbeats: `origin/main` stayed at `8b9f1f48f`;
+  Manut Build `26198091786` completed successfully. Its `① Plan`, `② Native
+(napi)`, `② Landing site`, `③ Bundle (server + web)`, `④ Docker push`, and
+  `⑤ Publish artifacts` jobs all succeeded. Branch/head, PR #121, dirty
+  tracked file list, main CI, and production `/info` stayed unchanged on the
+  09:50, 10:19, 10:49, 11:19, 11:49, 12:19, and 12:50, 13:20, 13:50, 14:20,
+  14:50, 15:21, 15:50, 16:20, 16:50, 17:20, 17:50, 18:20, and 18:50 rechecks.
+  A later `Copilot Test Automatically` run `26223055665` on the same `main`
+  head also passed. Generated declaration artifacts increased from `1,532` to
+  `1,533` on the 17:50 recheck; leave them uncommitted until reviewed or
+  cleaned.
 
 ## Open Threads
 
@@ -343,9 +417,18 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   in product.
 - Keep `docs/MANUT_CONTROL_PLANE.md` and this file in sync whenever the
   handover JSON contract changes.
-- Next concrete step: open the v1.12.0 docs PR (this branch), then cut
-  the `v1.12.0` tag once `main` is rebased / merged and the release
-  CI green-lights the image.
+- Current branch hygiene risk: `feat/manut-wave2-cloud` has already merged
+  as PR #121 and is now `38 5` against `origin/main`, with new local dirty
+  WIP layered on top. Before coding further, preserve the WIP and move it to a
+  fresh branch based on `origin/main`.
+- Current generated-artifact risk: the worktree has `1,533` untracked
+  declaration outputs under frontend source. Clean only generated artifacts
+  after reviewing the list; do not widen cleanup to all `*.d.ts`.
+- Current CI follow-up: if any PR reuses the Wave 2 changes, fix the GraphQL
+  document/schema drift and web bundle blockers before merge/deploy.
+- Next concrete step: create a fresh continuation branch from the new
+  `origin/main`, port or restage the tracked WIP deliberately, clean generated
+  declaration noise, and run targeted GraphQL codegen plus web bundle checks.
 
 ## Frequent Update Protocol
 
@@ -374,17 +457,11 @@ cd /Users/kunanonjarat/Developer/AFFiNE-canary
 git status --short --branch
 git log -5 --oneline
 git log -5 --oneline origin/main
-gh pr view 13 --json state,mergeStateStatus,statusCheckRollup,url
-gh pr view 14 --json state,mergeStateStatus,statusCheckRollup,url
-gh pr view 15 --json state,mergedAt,mergeCommit,url
-gh pr view 16 --json state,mergedAt,mergeCommit,url
-gh run view 25558581821 --json status,conclusion,jobs,url
-gh run view 25558739931 --json status,conclusion,jobs,url
-gh run view 25559360466 --json status,conclusion,jobs,url
-gh run view 25559581702 --json status,conclusion,jobs,url
-gh run view 25559646582 --json status,conclusion,jobs,url
-gh run view 25585897582 --json status,conclusion,jobs,url
-gh run view 25586178501 --json status,conclusion,jobs,url
+git rev-list --left-right --count HEAD...origin/main
+git rev-list --left-right --count HEAD...@{u}
+git ls-files --others --exclude-standard packages/frontend/core/src | rg '\.d\.ts(\.map)?$|\.css\.d\.ts\.map$' | wc -l
+gh pr view 121 --json number,state,mergedAt,mergeCommit,statusCheckRollup,url
+gh run view 26136477021 --json status,conclusion,jobs,url
 gh run list --branch main --limit 10 --json databaseId,workflowName,status,conclusion,headSha,url
 curl -fsS https://manut.xyz/info
 sed -n '1,240p' docs/AI_SESSION_HANDOVER.md

@@ -1,0 +1,1 @@
+{"version":3,"file":"flavours.d.ts","sourceRoot":"","sources":["flavours.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,QAAQ,EAAE,OAAO,EAAE,MAAM,qBAAqB,CAAC;AAGxD,OAAO,KAAK,EAAE,yBAAyB,EAAE,MAAM,sBAAsB,CAAC;AAEtE,qBAAa,wBAAyB,SAAQ,OAAO;IACvC,OAAO,CAAC,QAAQ,CAAC,SAAS;gBAAT,SAAS,EAAE,yBAAyB,EAAE;IAInE,SAAS,oDAKP;CACH"}

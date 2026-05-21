@@ -1,0 +1,1 @@
+{"version":3,"file":"ai-loading.d.ts","sourceRoot":"","sources":["ai-loading.ts"],"names":[],"mappings":";AAMA,qBAAa,SAAU,SAAQ,cAA0B;IACvD,OAAgB,MAAM,0BAqCpB;IAGF,QAAQ,CAAC,cAAc,EAAG,MAAM,IAAI,CAAC;IAGrC,QAAQ,CAAC,MAAM,SAAgB;IAEtB,MAAM;CAQhB;AAED,OAAO,CAAC,MAAM,CAAC;IACb,UAAU,qBAAqB;QAC7B,YAAY,EAAE,SAAS,CAAC;KACzB;CACF"}

@@ -1,0 +1,1 @@
+{"version":3,"file":"use-block-suite-editor.d.ts","sourceRoot":"","sources":["use-block-suite-editor.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,OAAO,CAAC;AAG5C,OAAO,KAAK,EAAE,qBAAqB,EAAE,MAAM,qCAAqC,CAAC;AAIjF,wBAAgB,yBAAyB,IAAI;IAC3C,qBAAqB,GAAG,IAAI;IAC5B,KAAK,CAAC,QAAQ,CAAC,cAAc,CAAC,qBAAqB,GAAG,IAAI,CAAC,CAAC;CAC7D,CAMA"}

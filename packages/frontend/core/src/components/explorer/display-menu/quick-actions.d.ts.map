@@ -1,0 +1,1 @@
+{"version":3,"file":"quick-actions.d.ts","sourceRoot":"","sources":["quick-actions.tsx"],"names":[],"mappings":"AAMA,OAAO,KAAK,EAAE,yBAAyB,EAAE,MAAM,UAAU,CAAC;AAE1D,eAAO,MAAM,kBAAkB,GAAI,mDAGhC;IACD,iBAAiB,EAAE,yBAAyB,CAAC;IAC7C,yBAAyB,EAAE,CACzB,iBAAiB,EAAE,yBAAyB,KACzC,IAAI,CAAC;CACX,4CA8BA,CAAC"}

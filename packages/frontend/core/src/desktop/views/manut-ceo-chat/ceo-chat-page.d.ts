@@ -1,0 +1,2 @@
+export declare const Component: () => import("react/jsx-runtime").JSX.Element;
+//# sourceMappingURL=ceo-chat-page.d.ts.map

@@ -1,0 +1,21 @@
+export declare const calendar: string;
+export declare const journalPanel: string;
+export declare const dailyCount: string;
+export declare const dailyCountHeader: string;
+export declare const dailyCountNav: string;
+export declare const dailyCountContainer: string;
+export declare const dailyCountItem: string;
+export declare const dailyCountContent: string;
+export declare const dailyCountEmpty: string;
+export declare const pageItem: string;
+export declare const pageItemIcon: string;
+export declare const pageItemLabel: string;
+export declare const journalConflictBlock: string;
+export declare const journalConflictWrapper: string;
+export declare const journalConflictMoreTrigger: string;
+export declare const duplicateTag: string;
+export declare const journalDateCell: string;
+export declare const journalDateCellDotContainer: string;
+export declare const journalDateCellDot: string;
+export declare const journalDateCellDotType: Record<"journal" | "event" | "activity", string>;
+//# sourceMappingURL=journal.css.d.ts.map

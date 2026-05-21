@@ -1,0 +1,1 @@
+{"version":3,"file":"collection-detail.d.ts","sourceRoot":"","sources":["collection-detail.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,iCAAiC,CAAC;AAWlE,OAAO,KAAK,EAAE,mBAAmB,EAAE,MAAM,SAAS,CAAC;AAEnD,MAAM,WAAW,0BAA2B,SAAQ,mBAAmB;IACrE,UAAU,EAAE,UAAU,CAAC;CACxB;AAED,eAAO,MAAM,qBAAqB,GAAI,0BAGnC,0BAA0B,4CAgB5B,CAAC"}

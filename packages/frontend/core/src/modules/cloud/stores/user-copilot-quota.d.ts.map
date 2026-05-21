@@ -1,0 +1,1 @@
+{"version":3,"file":"user-copilot-quota.d.ts","sourceRoot":"","sources":["user-copilot-quota.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,KAAK,EAAE,MAAM,qBAAqB,CAAC;AAE5C,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,qBAAqB,CAAC;AAE1D,qBAAa,qBAAsB,SAAQ,KAAK;IAClC,OAAO,CAAC,QAAQ,CAAC,cAAc;gBAAd,cAAc,EAAE,cAAc;IAIrD,qBAAqB,CAAC,WAAW,CAAC,EAAE,WAAW;;;;;CActD"}
