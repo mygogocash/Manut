@@ -28,7 +28,13 @@ import { track } from '@affine/track';
 import { ExportIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import { nanoid } from 'nanoid';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import type { SettingState } from '../../types';
 import { MemberList } from './member-list';
@@ -252,6 +258,20 @@ export const CloudWorkspaceMembersPanel = ({
     });
   }, [onChangeSettingState]);
 
+  const inviteModal = (
+    <InviteTeamMemberModal
+      open={openInvite}
+      setOpen={setOpenInvite}
+      onConfirm={onInviteBatchConfirm}
+      isMutating={isMutating}
+      copyTextToClipboard={copyTextToClipboard}
+      onGenerateInviteLink={onGenerateInviteLink}
+      onRevokeInviteLink={onRevokeInviteLink}
+      importCSV={<ImportCSV onImport={onImportCSV} />}
+      invitationLink={inviteLink}
+    />
+  );
+
   const desc = useMemo(() => {
     if (!workspaceQuota) return null;
 
@@ -312,6 +332,8 @@ export const CloudWorkspaceMembersPanel = ({
         <MembersPanelQuotaErrorFallback
           error={error}
           onRetry={() => workspaceQuotaService.quota.revalidate()}
+          onInvite={openInviteModal}
+          inviteModal={inviteModal}
           isOwnerOrAdmin={!!isOwnerOrAdmin}
           goToTeamBilling={goToTeamBilling}
         />
@@ -335,17 +357,7 @@ export const CloudWorkspaceMembersPanel = ({
                 onConfirm={handleUpgradeConfirm}
               />
             ) : null}
-            <InviteTeamMemberModal
-              open={openInvite}
-              setOpen={setOpenInvite}
-              onConfirm={onInviteBatchConfirm}
-              isMutating={isMutating}
-              copyTextToClipboard={copyTextToClipboard}
-              onGenerateInviteLink={onGenerateInviteLink}
-              onRevokeInviteLink={onRevokeInviteLink}
-              importCSV={<ImportCSV onImport={onImportCSV} />}
-              invitationLink={inviteLink}
-            />
+            {inviteModal}
           </>
         ) : null}
       </SettingRow>
@@ -409,11 +421,15 @@ export const MembersPanelFallback = () => {
 const MembersPanelQuotaErrorFallback = ({
   error,
   onRetry,
+  onInvite,
+  inviteModal,
   isOwnerOrAdmin,
   goToTeamBilling,
 }: {
   error: unknown;
   onRetry: () => void;
+  onInvite: () => void;
+  inviteModal: ReactNode;
   isOwnerOrAdmin: boolean;
   goToTeamBilling: () => void;
 }) => {
@@ -434,10 +450,16 @@ const MembersPanelQuotaErrorFallback = ({
           </span>
         }
       >
-        <Button onClick={onRetry} variant="secondary">
-          Retry
-        </Button>
+        <>
+          {isOwnerOrAdmin ? (
+            <Button onClick={onInvite}>{t['Invite Members']()}</Button>
+          ) : null}
+          <Button onClick={onRetry} variant="secondary">
+            Retry
+          </Button>
+        </>
       </SettingRow>
+      {isOwnerOrAdmin ? inviteModal : null}
       <div className={styles.membersPanel}>
         <MemberList
           isOwner={isOwnerOrAdmin}

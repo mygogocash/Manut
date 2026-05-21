@@ -321,6 +321,8 @@ export const SettingDialog = ({
           padding: 0,
           overflow: 'hidden',
           display: 'flex',
+          background: 'var(--affine-background-primary-color)',
+          color: 'var(--affine-text-primary-color)',
         },
       }}
       open

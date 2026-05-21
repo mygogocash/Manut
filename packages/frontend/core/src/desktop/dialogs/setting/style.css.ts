@@ -4,6 +4,10 @@ export const wrapper = style({
   height: '100%',
   padding: '40px 15px 20px 15px',
   display: 'flex',
+  flex: 1,
+  minWidth: 0,
+  background: cssVar('backgroundPrimaryColor'),
+  color: cssVar('textPrimaryColor'),
 });
 export const centerContainer = style({
   width: '100%',
