@@ -1,5 +1,5 @@
-name: ✅ Manut CI
-run-name: '✅ CI #${{ github.run_number }} • ${{ github.event.head_commit.message || github.ref_name }} • by ${{ github.actor }}'
+name: Manut CI
+run-name: 'CI #${{ github.run_number }} • ${{ github.event.head_commit.message || github.ref_name }} • by ${{ github.actor }}'
 
 # Runs on every push to main and every PR targeting main. Catches lint
 # and web-bundle regressions before they reach the deploy track.
@@ -158,7 +158,7 @@ jobs:
       - run: yarn affine bundle -p mobile
 
   ci-complete:
-    name: ✅ CI complete
+    name: CI complete
     needs: [lint, codegen-drift, build-web]
     if: always()
     runs-on: ubuntu-latest

@@ -28,7 +28,7 @@
 
 Run these in order. Each must be green before the next step.
 
-- [ ] PR #121 merged to `main`, GitHub Actions `✅ Manut CI` green.
+- [ ] PR #121 merged to `main`, GitHub Actions `Manut CI` green.
 - [ ] `manut-build.yml` produced an immutable
       `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-<sha>-<runid>`
       tag.
