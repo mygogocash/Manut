@@ -244,7 +244,7 @@ export function createHTMLTargetConfig(
               },
             },
             {
-              test: /\.(png|jpg|gif|svg|webp|mp4|zip)$/,
+              test: /\.(png|jpe?g|gif|svg|webp|mp4|zip)$/,
               type: 'asset/resource',
             },
             { test: /\.(ttf|eot|woff|woff2)$/, type: 'asset/resource' },
