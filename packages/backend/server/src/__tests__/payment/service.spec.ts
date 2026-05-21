@@ -249,6 +249,7 @@ test.beforeEach(async t => {
   await db.workspace.create({
     data: {
       id: 'ws_1',
+      slug: 'ws_1',
       public: false,
     },
   });

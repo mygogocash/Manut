@@ -60,3 +60,65 @@ export interface MongoDbConnectionTestResult {
   /** Round-trip latency of the `ping` command in milliseconds. */
   pingMs?: number;
 }
+
+// ============================================================================
+// Schema-explorer + ingestion-config (Manut analytics Wave 2 / M3 E3.4)
+// ============================================================================
+
+/**
+ * One row in the `db.listCollections()` result, plus an estimated
+ * document count and (if the user has already opted in) the persisted
+ * ingestion-config metadata.
+ *
+ * `estimatedCount` is `null` when the count call timed out or the
+ * collection refused the command — the schema-explorer is best-effort
+ * and we never block the picker UI on a slow count.
+ */
+export interface MongoCollectionInfo {
+  name: string;
+  estimatedCount?: number;
+  enabled: boolean;
+  cursorField?: string;
+  lastSyncedAt?: Date;
+}
+
+/**
+ * Sampled documents, ObjectIds + Dates already string-serialised so the
+ * frontend can `JSON.stringify` them without driver-specific helpers.
+ */
+export interface MongoSampleDocs {
+  collectionName: string;
+  /**
+   * Each entry is the document JSON-stringified by the server (we do
+   * the sanitisation server-side so the wire format is plain UTF-8).
+   */
+  documents: string[];
+}
+
+/**
+ * Persisted ingestion-config row, surfaced verbatim to the frontend.
+ * Mirrors the Prisma row shape — see `MnMongoIngestionConfig` in
+ * schema.prisma.
+ */
+export interface MongoIngestionConfig {
+  id: string;
+  workspaceId: string;
+  collectionName: string;
+  enabled: boolean;
+  cursorField: string;
+  lastSyncedAt?: Date;
+  lastCursorValue?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Input shape for the `setMongoIngestionConfig` mutation. Either
+ * inserts a new (workspaceId, collectionName) row or updates the
+ * existing one.
+ */
+export interface SetMongoIngestionConfigInput {
+  collectionName: string;
+  enabled: boolean;
+  cursorField: string;
+}

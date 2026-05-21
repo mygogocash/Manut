@@ -58,7 +58,7 @@ test('resolveGoogleCalendarConfig prefers explicit calendar.google', t => {
     oauth: {
       providers: {
         google: { clientId: 'oauth-id', clientSecret: 'oauth-secret' },
-      },
+      } as any,
     },
   });
 
@@ -72,7 +72,7 @@ test('resolveGoogleCalendarConfig falls back to oauth.providers.google', t => {
     oauth: {
       providers: {
         google: { clientId: 'oauth-id', clientSecret: 'oauth-secret' },
-      },
+      } as any,
     },
   });
 

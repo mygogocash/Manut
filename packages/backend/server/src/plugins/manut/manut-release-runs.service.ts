@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 /**
@@ -48,8 +48,6 @@ interface ParsedHandoverForRun {
 
 @Injectable()
 export class MnReleaseRunsService {
-  private readonly logger = new Logger(MnReleaseRunsService.name);
-
   constructor(private readonly db: PrismaClient) {}
 
   /**

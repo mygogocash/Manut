@@ -346,3 +346,106 @@ export const disconnectPostHogMutation = {
   disconnectPostHog(workspaceId: $workspaceId)
 }`,
 };
+
+// ============================================================================
+// MongoDB ingestion-config — schema discovery + per-collection toggle.
+//
+// Paired with packages/backend/server/src/plugins/mongodb-connection/
+// ingestion-config.resolver.ts. Reusing the analytics-connections
+// graphql.ts file follows the same pattern as the connector ops above —
+// codegen hasn't re-run; the strings below are the canonical source.
+// ============================================================================
+
+export interface MongoCollectionInfoDto {
+  name: string;
+  estimatedCount?: number | null;
+  enabled: boolean;
+  cursorField?: string | null;
+  lastSyncedAt?: string | null;
+}
+
+export interface MongoSampleDocsDto {
+  collectionName: string;
+  documents: string[];
+}
+
+export interface MongoIngestionConfigDto {
+  id: string;
+  workspaceId: string;
+  collectionName: string;
+  enabled: boolean;
+  cursorField: string;
+  lastSyncedAt?: string | null;
+  lastCursorValue?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const listMongoCollectionsQuery = {
+  id: 'listMongoCollectionsQuery' as const,
+  op: 'listMongoCollections',
+  query: `query listMongoCollections($workspaceId: String!) {
+  listMongoCollections(workspaceId: $workspaceId) {
+    name
+    estimatedCount
+    enabled
+    cursorField
+    lastSyncedAt
+  }
+}`,
+};
+
+export const sampleMongoCollectionQuery = {
+  id: 'sampleMongoCollectionQuery' as const,
+  op: 'sampleMongoCollection',
+  query: `query sampleMongoCollection($workspaceId: String!, $collectionName: String!, $limit: Int) {
+  sampleMongoCollection(workspaceId: $workspaceId, collectionName: $collectionName, limit: $limit) {
+    collectionName
+    documents
+  }
+}`,
+};
+
+export const getMongoIngestionConfigsQuery = {
+  id: 'getMongoIngestionConfigsQuery' as const,
+  op: 'getMongoIngestionConfigs',
+  query: `query getMongoIngestionConfigs($workspaceId: String!) {
+  getMongoIngestionConfigs(workspaceId: $workspaceId) {
+    id
+    workspaceId
+    collectionName
+    enabled
+    cursorField
+    lastSyncedAt
+    lastCursorValue
+    createdAt
+    updatedAt
+  }
+}`,
+};
+
+export const setMongoIngestionConfigMutation = {
+  id: 'setMongoIngestionConfigMutation' as const,
+  op: 'setMongoIngestionConfig',
+  query: `mutation setMongoIngestionConfig($workspaceId: String!, $input: SetMongoIngestionConfigInput!) {
+  setMongoIngestionConfig(workspaceId: $workspaceId, input: $input) {
+    id
+    workspaceId
+    collectionName
+    enabled
+    cursorField
+    lastSyncedAt
+    lastCursorValue
+    createdAt
+    updatedAt
+  }
+}`,
+};
+
+export const deleteMongoIngestionConfigMutation = {
+  id: 'deleteMongoIngestionConfigMutation' as const,
+  op: 'deleteMongoIngestionConfig',
+  query: `mutation deleteMongoIngestionConfig($workspaceId: String!, $collectionName: String!) {
+  deleteMongoIngestionConfig(workspaceId: $workspaceId, collectionName: $collectionName)
+}`,
+};

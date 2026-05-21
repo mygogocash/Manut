@@ -135,8 +135,12 @@ export class GoogleCalendarProvider extends CalendarProvider {
   }
 
   getAuthUrl(state: string, redirectUri: string) {
+    const config = this.config;
+    if (!config) {
+      throw new Error('Google Calendar is not configured');
+    }
     const params = new URLSearchParams({
-      client_id: this.config.clientId,
+      client_id: config.clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
       access_type: 'offline',
@@ -157,10 +161,14 @@ export class GoogleCalendarProvider extends CalendarProvider {
     code: string,
     redirectUri: string
   ): Promise<CalendarProviderTokens> {
+    const config = this.config;
+    if (!config) {
+      throw new Error('Google Calendar is not configured');
+    }
     const payload = new URLSearchParams({
       code,
-      client_id: this.config.clientId,
-      client_secret: this.config.clientSecret,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     });
@@ -182,10 +190,14 @@ export class GoogleCalendarProvider extends CalendarProvider {
   }
 
   async refreshTokens(refreshToken: string): Promise<CalendarProviderTokens> {
+    const config = this.config;
+    if (!config) {
+      throw new Error('Google Calendar is not configured');
+    }
     const payload = new URLSearchParams({
       refresh_token: refreshToken,
-      client_id: this.config.clientId,
-      client_secret: this.config.clientSecret,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
       grant_type: 'refresh_token',
     });
 

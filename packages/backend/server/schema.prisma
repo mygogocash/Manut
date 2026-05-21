@@ -3059,3 +3059,52 @@ model MnOrgChange {
   @@index([proposedByAgentId])
   @@map("mn_org_changes")
 }
+
+// Manut analytics Wave 2 / M3 E3.4 — MongoDB ingestion-config tables.
+//
+// The user connects a MongoDB cluster via the existing `mongodb-connection`
+// plugin (URI encrypted in IntegrationConnection). The ingestion-config
+// resolver then writes rows here, one per (workspace, collection) the
+// user has opted in. A separate worker (later milestone) reads enabled
+// rows, pulls Mongo documents into `mn_mongo_raw_data`, and rolls daily
+// aggregates into `mn_analytics_daily_stats`.
+//
+// Backed by migration 20260520050000_add_mongo_ingestion_tables (idempotent).
+model MnMongoIngestionConfig {
+  id              String    @id @default(uuid()) @db.VarChar
+  workspaceId     String    @map("workspace_id") @db.VarChar
+  collectionName  String    @map("collection_name") @db.VarChar
+  enabled         Boolean   @default(true)
+  cursorField     String    @default("updatedAt") @map("cursor_field") @db.VarChar
+  mappings        Json      @default("{}") @db.JsonB
+  lastSyncedAt    DateTime? @map("last_synced_at") @db.Timestamptz(3)
+  lastCursorValue String?   @map("last_cursor_value") @db.VarChar
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([workspaceId, collectionName])
+  @@map("mn_mongo_ingestion_config")
+}
+
+model MnMongoRawData {
+  workspaceId    String   @map("workspace_id") @db.VarChar
+  collectionName String   @map("collection_name") @db.VarChar
+  docId          String   @map("doc_id") @db.VarChar
+  payload        Json     @db.JsonB
+  ingestedAt     DateTime @default(now()) @map("ingested_at") @db.Timestamptz(3)
+
+  @@id([workspaceId, collectionName, docId])
+  @@index([workspaceId, collectionName, ingestedAt])
+  @@map("mn_mongo_raw_data")
+}
+
+model MnAnalyticsDailyStats {
+  workspaceId String   @map("workspace_id") @db.VarChar
+  day         DateTime @db.Date
+  metric      String   @db.VarChar
+  value       Float
+
+  @@id([workspaceId, day, metric])
+  @@index([workspaceId, metric, day])
+  @@map("mn_analytics_daily_stats")
+}
