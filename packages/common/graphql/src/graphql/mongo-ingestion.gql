@@ -1,0 +1,82 @@
+# MongoDB ingestion-config operations — Manut analytics Wave 2 / M3 E3.4.
+#
+# Pairs with the backend resolver at
+# `packages/backend/server/src/plugins/mongodb-connection/ingestion-config.resolver.ts`.
+# Until codegen re-runs the panel imports the operation strings
+# directly from `analytics-connections/graphql.ts`; the .gql file
+# below is the canonical source for the next codegen pass.
+
+query listMongoCollections($workspaceId: String!) {
+  listMongoCollections(workspaceId: $workspaceId) {
+    name
+    estimatedCount
+    enabled
+    cursorField
+    lastSyncedAt
+    consecutiveFailures
+    lastError
+    lastErrorAt
+  }
+}
+
+query sampleMongoCollection(
+  $workspaceId: String!
+  $collectionName: String!
+  $limit: Int
+) {
+  sampleMongoCollection(
+    workspaceId: $workspaceId
+    collectionName: $collectionName
+    limit: $limit
+  ) {
+    collectionName
+    documents
+  }
+}
+
+query getMongoIngestionConfigs($workspaceId: String!) {
+  getMongoIngestionConfigs(workspaceId: $workspaceId) {
+    id
+    workspaceId
+    collectionName
+    enabled
+    cursorField
+    lastSyncedAt
+    lastCursorValue
+    consecutiveFailures
+    lastError
+    lastErrorAt
+    createdAt
+    updatedAt
+  }
+}
+
+mutation setMongoIngestionConfig(
+  $workspaceId: String!
+  $input: SetMongoIngestionConfigInput!
+) {
+  setMongoIngestionConfig(workspaceId: $workspaceId, input: $input) {
+    id
+    workspaceId
+    collectionName
+    enabled
+    cursorField
+    lastSyncedAt
+    lastCursorValue
+    consecutiveFailures
+    lastError
+    lastErrorAt
+    createdAt
+    updatedAt
+  }
+}
+
+mutation deleteMongoIngestionConfig(
+  $workspaceId: String!
+  $collectionName: String!
+) {
+  deleteMongoIngestionConfig(
+    workspaceId: $workspaceId
+    collectionName: $collectionName
+  )
+}

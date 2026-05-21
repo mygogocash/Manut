@@ -12,6 +12,7 @@ import {
 
 import { AuthenticationRequired } from '../../base';
 import { CurrentUser } from '../../core/auth';
+import { AccessController } from '../../core/permission';
 import { MongoIngestionConfigService } from './ingestion-config.service';
 import { MongoDbConnectionNotConnectedError } from './mongodb-connection.service';
 import {
@@ -49,6 +50,14 @@ export class MongoCollectionInfoType {
 
   @Field(() => GraphQLISODateTime, { nullable: true })
   lastSyncedAt?: Date;
+  @Field(() => Int, { nullable: true })
+  consecutiveFailures?: number;
+
+  @Field(() => String, { nullable: true })
+  lastError?: string;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  lastErrorAt?: Date;
 }
 
 @ObjectType('MongoSampleDocs')
@@ -89,6 +98,14 @@ export class MongoIngestionConfigType {
   @Field(() => String, { nullable: true })
   lastCursorValue?: string;
 
+  @Field(() => Int)
+  consecutiveFailures!: number;
+
+  @Field(() => String, { nullable: true })
+  lastError?: string;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  lastErrorAt?: Date;
   @Field(() => GraphQLISODateTime)
   createdAt!: Date;
 
@@ -129,7 +146,8 @@ function rethrowFriendly(err: unknown): never {
 export class MongoIngestionConfigResolver {
   constructor(
     private readonly explorer: MongoSchemaExplorerService,
-    private readonly configs: MongoIngestionConfigService
+    private readonly configs: MongoIngestionConfigService,
+    private readonly ac: AccessController
   ) {}
 
   /**
@@ -146,6 +164,7 @@ export class MongoIngestionConfigResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
     try {
       const [collections, configs] = await Promise.all([
         this.explorer.listCollections(user.id, workspaceId),
@@ -173,6 +192,7 @@ export class MongoIngestionConfigResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
     try {
       const result = await this.explorer.sampleDocs(
         user.id,
@@ -200,6 +220,7 @@ export class MongoIngestionConfigResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
     const rows = await this.configs.list(workspaceId);
     return rows.map(configToDto);
   }
@@ -218,6 +239,10 @@ export class MongoIngestionConfigResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     const row = await this.configs.upsert(workspaceId, {
       collectionName: input.collectionName,
       enabled: input.enabled,
@@ -239,6 +264,10 @@ export class MongoIngestionConfigResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     return this.configs.delete(workspaceId, collectionName);
   }
 }
@@ -253,6 +282,9 @@ function mergeCollection(
     enabled: config?.enabled ?? false,
     cursorField: config?.cursorField,
     lastSyncedAt: config?.lastSyncedAt,
+    consecutiveFailures: config?.consecutiveFailures,
+    lastError: config?.lastError,
+    lastErrorAt: config?.lastErrorAt,
   };
 }
 
@@ -265,6 +297,9 @@ function configToDto(row: MongoIngestionConfig): MongoIngestionConfigType {
     cursorField: row.cursorField,
     lastSyncedAt: row.lastSyncedAt,
     lastCursorValue: row.lastCursorValue,
+    consecutiveFailures: row.consecutiveFailures,
+    lastError: row.lastError,
+    lastErrorAt: row.lastErrorAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

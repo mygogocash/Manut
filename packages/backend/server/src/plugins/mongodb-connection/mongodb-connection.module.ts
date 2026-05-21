@@ -6,6 +6,8 @@ import { PermissionModule } from '../../core/permission';
 import { MongoDbAggregationCron } from './aggregation.cron';
 import { MongoDbAggregationService } from './aggregation.service';
 import { AnalyticsResolver } from './analytics.resolver';
+import { MongoDbIngestionCron } from './ingestion.cron';
+import { MongoDbIngestionService } from './ingestion.service';
 import { MongoIngestionConfigResolver } from './ingestion-config.resolver';
 import { MongoIngestionConfigService } from './ingestion-config.service';
 import { MongoDbConnectionResolver } from './mongodb-connection.resolver';
@@ -50,6 +52,8 @@ import { MongoSchemaExplorerService } from './schema-explorer.service';
     MongoSchemaExplorerService,
     MongoIngestionConfigService,
     MongoIngestionConfigResolver,
+    MongoDbIngestionService,
+    MongoDbIngestionCron,
     // Daily-stats aggregation + GraphQL dashboard surface (M3 E3.5).
     // Reads from `mn_mongo_raw_data` that the ingestion service /
     // ingestion cron land; writes `mn_analytics_daily_stats` rows that
@@ -62,6 +66,7 @@ import { MongoSchemaExplorerService } from './schema-explorer.service';
     MongoDbConnectionService,
     MongoSchemaExplorerService,
     MongoIngestionConfigService,
+    MongoDbIngestionService,
     MongoDbAggregationService,
   ],
 })

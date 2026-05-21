@@ -1,0 +1,19 @@
+# MongoDB-derived daily analytics — Manut analytics Wave 2 / M3 E3.5.
+#
+# Pairs with the backend resolver at
+# `packages/backend/server/src/plugins/mongodb-connection/analytics.resolver.ts`.
+# The frontend dashboard reads `dailyStats` for time-series charts;
+# `backfillAnalytics` is an admin-recovery handle when raw data was
+# fixed by hand and needs to re-roll the aggregate window.
+
+query dailyStats($input: DailyStatsInput!) {
+  dailyStats(input: $input) {
+    day
+    metric
+    value
+  }
+}
+
+mutation backfillAnalytics($workspaceId: String!, $daysBack: Int!) {
+  backfillAnalytics(workspaceId: $workspaceId, daysBack: $daysBack)
+}

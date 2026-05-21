@@ -1101,6 +1101,19 @@ type CredentialsRequirementType {
   password: PasswordLimitsType!
 }
 
+type DailyStat {
+  day: String!
+  metric: String!
+  value: Float!
+}
+
+input DailyStatsInput {
+  from: String!
+  metrics: [String!]
+  to: String!
+  workspaceId: String!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -1470,6 +1483,15 @@ type ExpectToUpdateDocUserRoleDataType {
   spaceId: String!
 }
 
+type FacebookConnectAuthUrl {
+  url: String!
+}
+
+type FacebookConnectionType {
+  connected: Boolean!
+  displayName: String
+}
+
 enum FeatureType {
   AIEarlyAccess
   Admin
@@ -1481,6 +1503,16 @@ enum FeatureType {
   TeamPlan
   UnlimitedCopilot
   UnlimitedWorkspace
+}
+
+type FigmaConnectAuthUrl {
+  url: String!
+}
+
+type FigmaConnectionType {
+  connected: Boolean!
+  email: String
+  handle: String
 }
 
 input FinalizePlatformConnectInput {
@@ -1522,6 +1554,16 @@ type GmailMessageSummaryType {
   messageId: String!
   snippet: String!
   subject: String!
+}
+
+input GoGoCashConnectionInputType {
+  apiKey: String!
+  label: String
+}
+
+type GoGoCashConnectionType {
+  connected: Boolean!
+  label: String
 }
 
 type GoogleConnectAuthUrl {
@@ -1600,6 +1642,15 @@ enum InsightType {
   RECOMMENDATION
   TREND
   WEEKLY_STRATEGY
+}
+
+type InstagramConnectAuthUrl {
+  url: String!
+}
+
+type InstagramConnectionType {
+  connected: Boolean!
+  username: String
 }
 
 input InstallMnPluginInput {
@@ -1865,6 +1916,25 @@ type LimitedUserType {
 
   """User password has been set"""
   hasPassword: Boolean
+}
+
+type LineVoomConnectAuthUrl {
+  url: String!
+}
+
+type LineVoomConnectionType {
+  connected: Boolean!
+  displayName: String
+}
+
+type LinearConnectAuthUrl {
+  url: String!
+}
+
+type LinearConnectionType {
+  connected: Boolean!
+  displayName: String
+  organizationName: String
 }
 
 input LinkCalDAVAccountInput {
@@ -2857,6 +2927,55 @@ type MnWorkQueueIntake {
   status: MnIntakeStatus!
 }
 
+type MongoCollectionInfo {
+  consecutiveFailures: Int
+  cursorField: String
+  enabled: Boolean!
+  estimatedCount: Int
+  lastError: String
+  lastErrorAt: DateTime
+  lastSyncedAt: DateTime
+  name: String!
+}
+
+input MongoDbConnectionInputType {
+  uri: String!
+}
+
+type MongoDbConnectionTestResultType {
+  database: String
+  error: String
+  host: String
+  ok: Boolean!
+  pingMs: Int
+}
+
+type MongoDbConnectionType {
+  connected: Boolean!
+  database: String
+  host: String
+}
+
+type MongoIngestionConfig {
+  collectionName: String!
+  consecutiveFailures: Int!
+  createdAt: DateTime!
+  cursorField: String!
+  enabled: Boolean!
+  id: String!
+  lastCursorValue: String
+  lastError: String
+  lastErrorAt: DateTime
+  lastSyncedAt: DateTime
+  updatedAt: DateTime!
+  workspaceId: String!
+}
+
+type MongoSampleDocs {
+  collectionName: String!
+  documents: [String!]!
+}
+
 type Mutation {
   abortBlobUpload(key: String!, uploadId: String!, workspaceId: String!): Boolean!
   acceptInviteById(inviteId: String!, sendAcceptMail: Boolean @deprecated(reason: "never used"), workspaceId: String @deprecated(reason: "never used")): Boolean!
@@ -2916,6 +3035,7 @@ type Mutation {
   Assign or re-assign a task. XOR — at most one of { userId, agentId } may be non-null. Both null clears assignees.
   """
   assignMnTask(assigneeAgentId: ID, assigneeUserId: ID, taskId: ID!, workspaceId: ID!): Boolean!
+  backfillAnalytics(daysBack: Int!, workspaceId: String!): Int!
 
   """Ban an user"""
   banUser(id: String!): UserType!
@@ -2943,8 +3063,16 @@ type Mutation {
   """Cleanup sessions"""
   cleanupCopilotSession(options: DeleteSessionInput!): [String!]!
   completeBlobUpload(key: String!, parts: [BlobUploadPartInput!], uploadId: String, workspaceId: String!): String!
+  connectFacebook(workspaceId: String!): FacebookConnectAuthUrl!
+  connectFigma(workspaceId: String!): FigmaConnectAuthUrl!
   connectGithub(workspaceId: String!): GithubConnectAuthUrl!
   connectGoogle(scope: GoogleScope!, workspaceId: String!): GoogleConnectAuthUrl!
+  connectInstagram(workspaceId: String!): InstagramConnectAuthUrl!
+  connectLineVoom(workspaceId: String!): LineVoomConnectAuthUrl!
+  connectLinear(workspaceId: String!): LinearConnectAuthUrl!
+  connectSlack(workspaceId: String!): SlackConnectAuthUrl!
+  connectThreads(workspaceId: String!): ThreadsConnectAuthUrl!
+  connectTiktok(workspaceId: String!): TiktokConnectAuthUrl!
   createAgent(input: CreateAgentInput!): Agent!
   createBlobUpload(key: String!, mime: String!, size: Int!, workspaceId: String!): BlobUploadInit!
 
@@ -3073,6 +3201,7 @@ type Mutation {
   Delete a work product registry row. Does NOT delete the underlying artifact (doc / PR / file) — those are owned by their source-of- truth system. Requires Workspace.Settings.Update.
   """
   deleteMnWorkProduct(workProductId: ID!, workspaceId: ID!): Boolean!
+  deleteMongoIngestionConfig(collectionName: String!, workspaceId: String!): Boolean!
 
   """Delete a reply"""
   deleteReply(id: String!): Boolean!
@@ -3090,12 +3219,23 @@ type Mutation {
   Disable a plugin: terminate the worker process and mark DISABLED. Pending RPC calls reject with rpc_disposed.
   """
   disableMnPlugin(id: ID!): MnPlugin!
+  disconnectFacebook(workspaceId: String!): Boolean!
+  disconnectFigma(workspaceId: String!): Boolean!
   disconnectGithub(workspaceId: String!): Boolean!
+  disconnectGoGoCash(workspaceId: String!): Boolean!
   disconnectGoogle(scope: GoogleScope!, workspaceId: String!): Boolean!
+  disconnectInstagram(workspaceId: String!): Boolean!
+  disconnectLineVoom(workspaceId: String!): Boolean!
+  disconnectLinear(workspaceId: String!): Boolean!
+  disconnectMongoDb(workspaceId: String!): Boolean!
 
   """Disconnect a platform from the workspace (soft-delete)."""
   disconnectPlatform(connectionId: String!): Boolean!
+  disconnectPostHog(workspaceId: String!): Boolean!
   disconnectProvider(provider: String!, workspaceId: String!): Boolean!
+  disconnectSlack(workspaceId: String!): Boolean!
+  disconnectThreads(workspaceId: String!): Boolean!
+  disconnectTiktok(workspaceId: String!): Boolean!
 
   """
   M12 — enable MAXIMIZER MODE on an agent. While on, the dispatch orchestrator auto-delegates capability-matched calls to subordinates, batches the rest into 10-call heartbeat groups, forces approval for any call costing >50% of remaining monthly budget, and runs full M11 outcome verification on every DONE transition. Requires Workspace.Settings.Update.
@@ -3271,6 +3411,7 @@ type Mutation {
   sendVerifyChangeEmail(callbackUrl: String!, email: String!, token: String!): Boolean!
   sendVerifyEmail(callbackUrl: String!): Boolean!
   setBlob(blob: Upload!, workspaceId: String!): String!
+  setGoGoCashConnection(input: GoGoCashConnectionInputType!, workspaceId: String!): GoGoCashConnectionType!
 
   """
   M11 — set or clear the Definition of Done predicate list for a task. Pass `predicates: null` (or an empty array) to remove the transition guard. Returns the freshly verified outcome so the UI can render predicate-by-predicate status immediately after save.
@@ -3281,6 +3422,9 @@ type Mutation {
   Set or clear a task parent. Rejects self-parent, cycles, and chains deeper than the configured cap.
   """
   setMnTaskParent(parentTaskId: ID, taskId: ID!, workspaceId: ID!): Boolean!
+  setMongoDbConnection(input: MongoDbConnectionInputType!, workspaceId: String!): MongoDbConnectionType!
+  setMongoIngestionConfig(input: SetMongoIngestionConfigInput!, workspaceId: String!): MongoIngestionConfig!
+  setPostHogConnection(input: PostHogConnectionInputType!, workspaceId: String!): PostHogConnectionType!
 
   """Store a new memory row. Requires Workspace.Settings.Update."""
   storeMnAgentMemory(input: StoreMnAgentMemoryInput!): MnAgentMemory!
@@ -3295,6 +3439,8 @@ type Mutation {
   M13 — move a DRAFT plan to UNDER_REVIEW. Idempotent on already-UNDER_REVIEW plans is NOT supported — the service rejects any source state other than DRAFT to keep the state machine honest.
   """
   submitMnTaskPlanForReview(planId: ID!): MnTaskPlan!
+  testMongoDbConnection(input: MongoDbConnectionInputType!): MongoDbConnectionTestResultType!
+  testPostHogConnection(input: PostHogConnectionInputType!): PostHogConnectionTestResultType!
 
   """Trigger cleanup of trashed doc embeddings"""
   triggerCleanupTrashedDocEmbeddings: Boolean!
@@ -3593,6 +3739,24 @@ enum Permission {
   Owner
 }
 
+input PostHogConnectionInputType {
+  apiKey: String!
+  host: String
+}
+
+type PostHogConnectionTestResultType {
+  error: String
+  host: String
+  ok: Boolean!
+  projectCount: Int
+}
+
+type PostHogConnectionType {
+  connected: Boolean!
+  host: String
+  projectCount: Int
+}
+
 input ProposeMnOrgChangeInput {
   """
   Type-specific payload. For DELEGATION_CHANGE: { agentId, newReportsToAgentId }. For NEW_ROUTINE: { name, prompt, cronSchedule?, timezone? }. See enum docs in schema.prisma.
@@ -3659,11 +3823,15 @@ type Query {
 
   """Get current user"""
   currentUser: UserType
+  dailyStats(input: DailyStatsInput!): [DailyStat!]!
   driveFiles(pageSize: Int! = 25, query: String, workspaceId: String!): [DriveFileType!]!
   error(name: ErrorNames!): ErrorDataUnion!
+  facebookConnection(workspaceId: String!): FacebookConnectionType!
+  figmaConnection(workspaceId: String!): FigmaConnectionType!
 
   """get workspace invitation info"""
   getInviteInfo(inviteId: String!): InvitationType!
+  getMongoIngestionConfigs(workspaceId: String!): [MongoIngestionConfig!]!
 
   """
   Overview tile for the Analytics landing page: totals, recent insights, current AI spend.
@@ -3671,7 +3839,11 @@ type Query {
   getOverview(workspaceId: String!): AnalyticsOverview!
   githubConnection(workspaceId: String!): GithubConnectionType!
   gmailMessages(maxResults: Int! = 25, query: String, workspaceId: String!): [GmailMessageSummaryType!]!
+  goGoCashConnection(workspaceId: String!): GoGoCashConnectionType!
   googleConnection(scope: GoogleScope!, workspaceId: String!): GoogleConnectionType!
+  instagramConnection(workspaceId: String!): InstagramConnectionType!
+  lineVoomConnection(workspaceId: String!): LineVoomConnectionType!
+  linearConnection(workspaceId: String!): LinearConnectionType!
   listConnections(workspaceId: String!): [ConnectedAccountType!]!
 
   """AI insights timeline filtered by type."""
@@ -3679,6 +3851,7 @@ type Query {
 
   """Aggregated metrics for the dashboard charts."""
   listMetrics(input: ListMetricsInput!): [SocialMetric!]!
+  listMongoCollections(workspaceId: String!): [MongoCollectionInfo!]!
 
   """
   Fetch a single agent by id. Returns null when the agent does not exist or belongs to another workspace.
@@ -3822,11 +3995,13 @@ type Query {
   mnWorkProducts(taskId: ID!, workspaceId: ID!): [MnWorkProduct!]!
   mnWorkQueueIntakes(queueId: ID!, workspaceId: ID!): [MnWorkQueueIntake!]!
   mnWorkQueues(workspaceId: ID!): [MnWorkQueue!]!
+  mongoDbConnection(workspaceId: String!): MongoDbConnectionType!
 
   """
   List memories the current user can recall in this workspace (personal + workspace-scope). Pinned rows first, newest first.
   """
   myMemories(workspaceId: String!): [Memory!]!
+  postHogConnection(workspaceId: String!): PostHogConnectionType!
   prices: [SubscriptionPrice!]!
 
   """Get public user by id"""
@@ -3846,9 +4021,13 @@ type Query {
   """List Manut release runs for the given workspace, newest first."""
   releaseRuns(limit: Int, offset: Int, workspaceId: String!): [MnReleaseRun!]!
   revealedAccessTokens: [RevealedAccessToken!]! @deprecated(reason: "use currentUser.revealedAccessTokens")
+  sampleMongoCollection(collectionName: String!, limit: Int, workspaceId: String!): MongoSampleDocs!
 
   """server config"""
   serverConfig: ServerConfigType!
+  slackConnection(workspaceId: String!): SlackConnectionType!
+  threadsConnection(workspaceId: String!): ThreadsConnectionType!
+  tiktokConnection(workspaceId: String!): TiktokConnectionType!
 
   """Get user by email"""
   user(email: String!): UserOrLimitedUser
@@ -4163,6 +4342,21 @@ input SetMnTaskDefinitionOfDoneInput {
   taskId: ID!
 }
 
+input SetMongoIngestionConfigInput {
+  collectionName: String!
+  cursorField: String!
+  enabled: Boolean!
+}
+
+type SlackConnectAuthUrl {
+  url: String!
+}
+
+type SlackConnectionType {
+  connected: Boolean!
+  teamName: String
+}
+
 type SocialConnection {
   connectedByUserId: String!
   createdAt: DateTime!
@@ -4340,6 +4534,24 @@ type SubscriptionType {
 enum SubscriptionVariant {
   EA
   Onetime
+}
+
+type ThreadsConnectAuthUrl {
+  url: String!
+}
+
+type ThreadsConnectionType {
+  connected: Boolean!
+  username: String
+}
+
+type TiktokConnectAuthUrl {
+  url: String!
+}
+
+type TiktokConnectionType {
+  connected: Boolean!
+  displayName: String
 }
 
 enum TimeBucket {

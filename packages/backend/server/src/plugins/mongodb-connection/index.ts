@@ -16,6 +16,9 @@
  *  - `AnalyticsResolver` — `dailyStats` query + `backfillAnalytics`
  *    mutation. Permission gates: `Workspace.Read` for the query,
  *    `Workspace.Settings.Update` for the mutation.
+ *  - `MongoDbIngestionService` / `MongoDbIngestionCron` — enabled
+ *    collection configs pull raw docs into the landing table every
+ *    30 minutes.
  *  - `DailyStatType` / `DailyStatsInputType` — GraphQL ObjectType +
  *    InputType re-exported so external resolvers can compose against
  *    the daily-stats shape.
@@ -36,6 +39,9 @@ export {
   DailyStatsInputType,
   DailyStatType,
 } from './analytics.resolver';
+export { MongoDbIngestionCron } from './ingestion.cron';
+export type { IngestionResult } from './ingestion.service';
+export { MongoDbIngestionService } from './ingestion.service';
 export { MongoIngestionConfigService } from './ingestion-config.service';
 export { MongoDbConnectionModule } from './mongodb-connection.module';
 export { MongoDbConnectionService } from './mongodb-connection.service';

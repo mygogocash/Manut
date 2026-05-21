@@ -3,7 +3,7 @@ import { useMutation } from '@affine/core/components/hooks/use-mutation';
 import { useQuery } from '@affine/core/components/hooks/use-query';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useService } from '@toeverything/infra';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   deleteMongoIngestionConfigMutation,
@@ -87,7 +87,10 @@ export const MongoIngestionPanel = () => {
         .join('|'),
     [collections]
   );
-  if (serverSignature !== lastSeedRef.current) {
+  useEffect(() => {
+    if (serverSignature === lastSeedRef.current) {
+      return;
+    }
     lastSeedRef.current = serverSignature;
     const next: Record<string, LocalRowState> = {};
     for (const c of collections) {
@@ -98,12 +101,8 @@ export const MongoIngestionPanel = () => {
         serverCursorField: c.cursorField ?? DEFAULT_CURSOR_FIELD,
       };
     }
-    // Schedule the state update for the next tick to keep this
-    // branch from triggering inside render. React batches the
-    // assignment with the in-progress render — the useState setter
-    // is render-safe (it bails out if the next value equals current).
-    queueMicrotask(() => setRowStates(next));
-  }
+    setRowStates(next);
+  }, [collections, serverSignature]);
 
   const { trigger: triggerSet } = useMutation({
     mutation: setMongoIngestionConfigMutation,
@@ -364,7 +363,7 @@ const CollectionRow = ({
     setExpanded(next);
     if (next && samples === null && !sampleLoading) {
       loadSample().catch(err => {
-        console.error('Failed to load sample:', err);
+        console.warn('MongoDB sample load failed', err);
       });
     }
   }, [expanded, samples, sampleLoading, loadSample]);
@@ -381,6 +380,13 @@ const CollectionRow = ({
         {info.lastSyncedAt ? (
           <span className={styles.lastSyncedBadge}>
             synced {new Date(info.lastSyncedAt).toLocaleDateString()}
+          </span>
+        ) : null}
+        {info.lastError ? (
+          <span className={styles.failureBadge}>
+            {info.consecutiveFailures
+              ? `${info.consecutiveFailures} failed`
+              : 'failed'}
           </span>
         ) : null}
         <label className={styles.toggleLabel}>
@@ -416,6 +422,15 @@ const CollectionRow = ({
       </div>
       {expanded ? (
         <div className={styles.samplePanel}>
+          {info.lastError ? (
+            <div className={styles.errorMessage}>
+              Last sync error
+              {info.lastErrorAt
+                ? ` (${new Date(info.lastErrorAt).toLocaleString()})`
+                : ''}
+              : {info.lastError}
+            </div>
+          ) : null}
           {sampleLoading ? (
             <div className={styles.subtitle}>Loading samples…</div>
           ) : null}

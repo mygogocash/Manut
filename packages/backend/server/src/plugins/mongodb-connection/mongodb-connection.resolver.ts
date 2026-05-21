@@ -11,6 +11,7 @@ import {
 
 import { AuthenticationRequired } from '../../base';
 import { CurrentUser } from '../../core/auth';
+import { AccessController } from '../../core/permission';
 import {
   MongoDbConnectionInvalidUriError,
   MongoDbConnectionNotConnectedError,
@@ -70,7 +71,10 @@ function rethrowFriendly(err: unknown): never {
 export class MongoDbConnectionResolver {
   private readonly logger = new Logger(MongoDbConnectionResolver.name);
 
-  constructor(private readonly mongo: MongoDbConnectionService) {}
+  constructor(
+    private readonly mongo: MongoDbConnectionService,
+    private readonly ac: AccessController
+  ) {}
 
   /**
    * Persist a MongoDB URI for the workspace. Encrypts at rest.
@@ -85,6 +89,10 @@ export class MongoDbConnectionResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     try {
       const status = await this.mongo.setConnection(
         user.id,
@@ -109,6 +117,10 @@ export class MongoDbConnectionResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     return this.mongo.disconnect(user.id, workspaceId);
   }
 
@@ -143,6 +155,7 @@ export class MongoDbConnectionResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
     try {
       const status = await this.mongo.getStatus(user.id, workspaceId);
       return {

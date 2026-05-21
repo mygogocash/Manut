@@ -1211,6 +1211,20 @@ export interface CredentialsRequirementType {
   password: PasswordLimitsType;
 }
 
+export interface DailyStat {
+  __typename?: 'DailyStat';
+  day: Scalars['String']['output'];
+  metric: Scalars['String']['output'];
+  value: Scalars['Float']['output'];
+}
+
+export interface DailyStatsInput {
+  from: Scalars['String']['input'];
+  metrics?: InputMaybe<Array<Scalars['String']['input']>>;
+  to: Scalars['String']['input'];
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface DecideMnApprovalInput {
   /** Free-text note explaining the decision. Surfaced to the requesting agent so it can react. */
   decisionNote?: InputMaybe<Scalars['String']['input']>;
@@ -1655,6 +1669,17 @@ export interface ExpectToUpdateDocUserRoleDataType {
   spaceId: Scalars['String']['output'];
 }
 
+export interface FacebookConnectAuthUrl {
+  __typename?: 'FacebookConnectAuthUrl';
+  url: Scalars['String']['output'];
+}
+
+export interface FacebookConnectionType {
+  __typename?: 'FacebookConnectionType';
+  connected: Scalars['Boolean']['output'];
+  displayName: Maybe<Scalars['String']['output']>;
+}
+
 export enum FeatureType {
   AIEarlyAccess = 'AIEarlyAccess',
   Admin = 'Admin',
@@ -1666,6 +1691,18 @@ export enum FeatureType {
   TeamPlan = 'TeamPlan',
   UnlimitedCopilot = 'UnlimitedCopilot',
   UnlimitedWorkspace = 'UnlimitedWorkspace',
+}
+
+export interface FigmaConnectAuthUrl {
+  __typename?: 'FigmaConnectAuthUrl';
+  url: Scalars['String']['output'];
+}
+
+export interface FigmaConnectionType {
+  __typename?: 'FigmaConnectionType';
+  connected: Scalars['Boolean']['output'];
+  email: Maybe<Scalars['String']['output']>;
+  handle: Maybe<Scalars['String']['output']>;
 }
 
 export interface FinalizePlatformConnectInput {
@@ -1706,6 +1743,17 @@ export interface GmailMessageSummaryType {
   messageId: Scalars['String']['output'];
   snippet: Scalars['String']['output'];
   subject: Scalars['String']['output'];
+}
+
+export interface GoGoCashConnectionInputType {
+  apiKey: Scalars['String']['input'];
+  label?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface GoGoCashConnectionType {
+  __typename?: 'GoGoCashConnectionType';
+  connected: Scalars['Boolean']['output'];
+  label: Maybe<Scalars['String']['output']>;
 }
 
 export interface GoogleConnectAuthUrl {
@@ -1790,6 +1838,17 @@ export enum InsightType {
   RECOMMENDATION = 'RECOMMENDATION',
   TREND = 'TREND',
   WEEKLY_STRATEGY = 'WEEKLY_STRATEGY',
+}
+
+export interface InstagramConnectAuthUrl {
+  __typename?: 'InstagramConnectAuthUrl';
+  url: Scalars['String']['output'];
+}
+
+export interface InstagramConnectionType {
+  __typename?: 'InstagramConnectionType';
+  connected: Scalars['Boolean']['output'];
+  username: Maybe<Scalars['String']['output']>;
 }
 
 export interface InstallMnPluginInput {
@@ -2043,6 +2102,29 @@ export interface LimitedUserType {
   email: Scalars['String']['output'];
   /** User password has been set */
   hasPassword: Maybe<Scalars['Boolean']['output']>;
+}
+
+export interface LineVoomConnectAuthUrl {
+  __typename?: 'LineVoomConnectAuthUrl';
+  url: Scalars['String']['output'];
+}
+
+export interface LineVoomConnectionType {
+  __typename?: 'LineVoomConnectionType';
+  connected: Scalars['Boolean']['output'];
+  displayName: Maybe<Scalars['String']['output']>;
+}
+
+export interface LinearConnectAuthUrl {
+  __typename?: 'LinearConnectAuthUrl';
+  url: Scalars['String']['output'];
+}
+
+export interface LinearConnectionType {
+  __typename?: 'LinearConnectionType';
+  connected: Scalars['Boolean']['output'];
+  displayName: Maybe<Scalars['String']['output']>;
+  organizationName: Maybe<Scalars['String']['output']>;
 }
 
 export interface LinkCalDavAccountInput {
@@ -3024,6 +3106,60 @@ export interface MnWorkQueueIntake {
   status: MnIntakeStatus;
 }
 
+export interface MongoCollectionInfo {
+  __typename?: 'MongoCollectionInfo';
+  consecutiveFailures: Maybe<Scalars['Int']['output']>;
+  cursorField: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  estimatedCount: Maybe<Scalars['Int']['output']>;
+  lastError: Maybe<Scalars['String']['output']>;
+  lastErrorAt: Maybe<Scalars['DateTime']['output']>;
+  lastSyncedAt: Maybe<Scalars['DateTime']['output']>;
+  name: Scalars['String']['output'];
+}
+
+export interface MongoDbConnectionInputType {
+  uri: Scalars['String']['input'];
+}
+
+export interface MongoDbConnectionTestResultType {
+  __typename?: 'MongoDbConnectionTestResultType';
+  database: Maybe<Scalars['String']['output']>;
+  error: Maybe<Scalars['String']['output']>;
+  host: Maybe<Scalars['String']['output']>;
+  ok: Scalars['Boolean']['output'];
+  pingMs: Maybe<Scalars['Int']['output']>;
+}
+
+export interface MongoDbConnectionType {
+  __typename?: 'MongoDbConnectionType';
+  connected: Scalars['Boolean']['output'];
+  database: Maybe<Scalars['String']['output']>;
+  host: Maybe<Scalars['String']['output']>;
+}
+
+export interface MongoIngestionConfig {
+  __typename?: 'MongoIngestionConfig';
+  collectionName: Scalars['String']['output'];
+  consecutiveFailures: Scalars['Int']['output'];
+  createdAt: Scalars['DateTime']['output'];
+  cursorField: Scalars['String']['output'];
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['String']['output'];
+  lastCursorValue: Maybe<Scalars['String']['output']>;
+  lastError: Maybe<Scalars['String']['output']>;
+  lastErrorAt: Maybe<Scalars['DateTime']['output']>;
+  lastSyncedAt: Maybe<Scalars['DateTime']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+  workspaceId: Scalars['String']['output'];
+}
+
+export interface MongoSampleDocs {
+  __typename?: 'MongoSampleDocs';
+  collectionName: Scalars['String']['output'];
+  documents: Array<Scalars['String']['output']>;
+}
+
 export interface Mutation {
   __typename?: 'Mutation';
   abortBlobUpload: Scalars['Boolean']['output'];
@@ -3063,6 +3199,7 @@ export interface Mutation {
   archiveMnWorkQueue: MnWorkQueue;
   /** Assign or re-assign a task. XOR — at most one of { userId, agentId } may be non-null. Both null clears assignees. */
   assignMnTask: Scalars['Boolean']['output'];
+  backfillAnalytics: Scalars['Int']['output'];
   /** Ban an user */
   banUser: UserType;
   /** Begin OAuth handshake for a platform. Returns the authorization URL the client must navigate to. */
@@ -3079,8 +3216,16 @@ export interface Mutation {
   /** Cleanup sessions */
   cleanupCopilotSession: Array<Scalars['String']['output']>;
   completeBlobUpload: Scalars['String']['output'];
+  connectFacebook: FacebookConnectAuthUrl;
+  connectFigma: FigmaConnectAuthUrl;
   connectGithub: GithubConnectAuthUrl;
   connectGoogle: GoogleConnectAuthUrl;
+  connectInstagram: InstagramConnectAuthUrl;
+  connectLineVoom: LineVoomConnectAuthUrl;
+  connectLinear: LinearConnectAuthUrl;
+  connectSlack: SlackConnectAuthUrl;
+  connectThreads: ThreadsConnectAuthUrl;
+  connectTiktok: TiktokConnectAuthUrl;
   createAgent: Agent;
   createBlobUpload: BlobUploadInit;
   /** Create change password url */
@@ -3163,6 +3308,7 @@ export interface Mutation {
   deleteMnTask: Scalars['Boolean']['output'];
   /** Delete a work product registry row. Does NOT delete the underlying artifact (doc / PR / file) — those are owned by their source-of- truth system. Requires Workspace.Settings.Update. */
   deleteMnWorkProduct: Scalars['Boolean']['output'];
+  deleteMongoIngestionConfig: Scalars['Boolean']['output'];
   /** Delete a reply */
   deleteReply: Scalars['Boolean']['output'];
   /** Delete a user account */
@@ -3172,11 +3318,22 @@ export interface Mutation {
   disableMnAgentMaximizer: MnAgentMaximizerToggleResult;
   /** Disable a plugin: terminate the worker process and mark DISABLED. Pending RPC calls reject with rpc_disposed. */
   disableMnPlugin: MnPlugin;
+  disconnectFacebook: Scalars['Boolean']['output'];
+  disconnectFigma: Scalars['Boolean']['output'];
   disconnectGithub: Scalars['Boolean']['output'];
+  disconnectGoGoCash: Scalars['Boolean']['output'];
   disconnectGoogle: Scalars['Boolean']['output'];
+  disconnectInstagram: Scalars['Boolean']['output'];
+  disconnectLineVoom: Scalars['Boolean']['output'];
+  disconnectLinear: Scalars['Boolean']['output'];
+  disconnectMongoDb: Scalars['Boolean']['output'];
   /** Disconnect a platform from the workspace (soft-delete). */
   disconnectPlatform: Scalars['Boolean']['output'];
+  disconnectPostHog: Scalars['Boolean']['output'];
   disconnectProvider: Scalars['Boolean']['output'];
+  disconnectSlack: Scalars['Boolean']['output'];
+  disconnectThreads: Scalars['Boolean']['output'];
+  disconnectTiktok: Scalars['Boolean']['output'];
   /** M12 — enable MAXIMIZER MODE on an agent. While on, the dispatch orchestrator auto-delegates capability-matched calls to subordinates, batches the rest into 10-call heartbeat groups, forces approval for any call costing >50% of remaining monthly budget, and runs full M11 outcome verification on every DONE transition. Requires Workspace.Settings.Update. */
   enableMnAgentMaximizer: MnAgentMaximizerToggleResult;
   /** Enable a plugin: flip its status to LOADING and spawn the worker process. Idempotent for an already-running plugin. */
@@ -3283,10 +3440,14 @@ export interface Mutation {
   sendVerifyChangeEmail: Scalars['Boolean']['output'];
   sendVerifyEmail: Scalars['Boolean']['output'];
   setBlob: Scalars['String']['output'];
+  setGoGoCashConnection: GoGoCashConnectionType;
   /** M11 — set or clear the Definition of Done predicate list for a task. Pass `predicates: null` (or an empty array) to remove the transition guard. Returns the freshly verified outcome so the UI can render predicate-by-predicate status immediately after save. */
   setMnTaskDefinitionOfDone: MnDoDVerificationResult;
   /** Set or clear a task parent. Rejects self-parent, cycles, and chains deeper than the configured cap. */
   setMnTaskParent: Scalars['Boolean']['output'];
+  setMongoDbConnection: MongoDbConnectionType;
+  setMongoIngestionConfig: MongoIngestionConfig;
+  setPostHogConnection: PostHogConnectionType;
   /** Store a new memory row. Requires Workspace.Settings.Update. */
   storeMnAgentMemory: MnAgentMemory;
   submitAudioTranscription: Maybe<TranscriptionResultType>;
@@ -3294,6 +3455,8 @@ export interface Mutation {
   submitMnApprovalRevision: MnApproval;
   /** M13 — move a DRAFT plan to UNDER_REVIEW. Idempotent on already-UNDER_REVIEW plans is NOT supported — the service rejects any source state other than DRAFT to keep the state machine honest. */
   submitMnTaskPlanForReview: MnTaskPlan;
+  testMongoDbConnection: MongoDbConnectionTestResultType;
+  testPostHogConnection: PostHogConnectionTestResultType;
   /** Trigger cleanup of trashed doc embeddings */
   triggerCleanupTrashedDocEmbeddings: Scalars['Boolean']['output'];
   /** Trigger generate missing titles cron job */
@@ -3485,6 +3648,11 @@ export interface MutationAssignMnTaskArgs {
   workspaceId: Scalars['ID']['input'];
 }
 
+export interface MutationBackfillAnalyticsArgs {
+  daysBack: Scalars['Int']['input'];
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface MutationBanUserArgs {
   id: Scalars['String']['input'];
 }
@@ -3541,12 +3709,44 @@ export interface MutationCompleteBlobUploadArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationConnectFacebookArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationConnectFigmaArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface MutationConnectGithubArgs {
   workspaceId: Scalars['String']['input'];
 }
 
 export interface MutationConnectGoogleArgs {
   scope: GoogleScope;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationConnectInstagramArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationConnectLineVoomArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationConnectLinearArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationConnectSlackArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationConnectThreadsArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationConnectTiktokArgs {
   workspaceId: Scalars['String']['input'];
 }
 
@@ -3778,6 +3978,11 @@ export interface MutationDeleteMnWorkProductArgs {
   workspaceId: Scalars['ID']['input'];
 }
 
+export interface MutationDeleteMongoIngestionConfigArgs {
+  collectionName: Scalars['String']['input'];
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface MutationDeleteReplyArgs {
   id: Scalars['String']['input'];
 }
@@ -3798,7 +4003,19 @@ export interface MutationDisableMnPluginArgs {
   id: Scalars['ID']['input'];
 }
 
+export interface MutationDisconnectFacebookArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationDisconnectFigmaArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface MutationDisconnectGithubArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationDisconnectGoGoCashArgs {
   workspaceId: Scalars['String']['input'];
 }
 
@@ -3807,12 +4024,44 @@ export interface MutationDisconnectGoogleArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationDisconnectInstagramArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationDisconnectLineVoomArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationDisconnectLinearArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationDisconnectMongoDbArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface MutationDisconnectPlatformArgs {
   connectionId: Scalars['String']['input'];
 }
 
+export interface MutationDisconnectPostHogArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface MutationDisconnectProviderArgs {
   provider: Scalars['String']['input'];
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationDisconnectSlackArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationDisconnectThreadsArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationDisconnectTiktokArgs {
   workspaceId: Scalars['String']['input'];
 }
 
@@ -4125,6 +4374,11 @@ export interface MutationSetBlobArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface MutationSetGoGoCashConnectionArgs {
+  input: GoGoCashConnectionInputType;
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface MutationSetMnTaskDefinitionOfDoneArgs {
   input: SetMnTaskDefinitionOfDoneInput;
 }
@@ -4133,6 +4387,21 @@ export interface MutationSetMnTaskParentArgs {
   parentTaskId?: InputMaybe<Scalars['ID']['input']>;
   taskId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
+}
+
+export interface MutationSetMongoDbConnectionArgs {
+  input: MongoDbConnectionInputType;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationSetMongoIngestionConfigArgs {
+  input: SetMongoIngestionConfigInput;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface MutationSetPostHogConnectionArgs {
+  input: PostHogConnectionInputType;
+  workspaceId: Scalars['String']['input'];
 }
 
 export interface MutationStoreMnAgentMemoryArgs {
@@ -4155,6 +4424,14 @@ export interface MutationSubmitMnApprovalRevisionArgs {
 
 export interface MutationSubmitMnTaskPlanForReviewArgs {
   planId: Scalars['ID']['input'];
+}
+
+export interface MutationTestMongoDbConnectionArgs {
+  input: MongoDbConnectionInputType;
+}
+
+export interface MutationTestPostHogConnectionArgs {
+  input: PostHogConnectionInputType;
 }
 
 export interface MutationTriggerLearningExtractionForTaskArgs {
@@ -4555,6 +4832,26 @@ export enum Permission {
   Owner = 'Owner',
 }
 
+export interface PostHogConnectionInputType {
+  apiKey: Scalars['String']['input'];
+  host?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface PostHogConnectionTestResultType {
+  __typename?: 'PostHogConnectionTestResultType';
+  error: Maybe<Scalars['String']['output']>;
+  host: Maybe<Scalars['String']['output']>;
+  ok: Scalars['Boolean']['output'];
+  projectCount: Maybe<Scalars['Int']['output']>;
+}
+
+export interface PostHogConnectionType {
+  __typename?: 'PostHogConnectionType';
+  connected: Scalars['Boolean']['output'];
+  host: Maybe<Scalars['String']['output']>;
+  projectCount: Maybe<Scalars['Int']['output']>;
+}
+
 export interface ProposeMnOrgChangeInput {
   /** Type-specific payload. For DELEGATION_CHANGE: { agentId, newReportsToAgentId }. For NEW_ROUTINE: { name, prompt, cronSchedule?, timezone? }. See enum docs in schema.prisma. */
   payload: Scalars['JSONObject']['input'];
@@ -4608,20 +4905,29 @@ export interface Query {
   connections: Array<SocialConnection>;
   /** Get current user */
   currentUser: Maybe<UserType>;
+  dailyStats: Array<DailyStat>;
   driveFiles: Array<DriveFileType>;
   error: ErrorDataUnion;
+  facebookConnection: FacebookConnectionType;
+  figmaConnection: FigmaConnectionType;
   /** get workspace invitation info */
   getInviteInfo: InvitationType;
+  getMongoIngestionConfigs: Array<MongoIngestionConfig>;
   /** Overview tile for the Analytics landing page: totals, recent insights, current AI spend. */
   getOverview: AnalyticsOverview;
   githubConnection: GithubConnectionType;
   gmailMessages: Array<GmailMessageSummaryType>;
+  goGoCashConnection: GoGoCashConnectionType;
   googleConnection: GoogleConnectionType;
+  instagramConnection: InstagramConnectionType;
+  lineVoomConnection: LineVoomConnectionType;
+  linearConnection: LinearConnectionType;
   listConnections: Array<ConnectedAccountType>;
   /** AI insights timeline filtered by type. */
   listInsights: Array<SocialInsight>;
   /** Aggregated metrics for the dashboard charts. */
   listMetrics: Array<SocialMetric>;
+  listMongoCollections: Array<MongoCollectionInfo>;
   /** Fetch a single agent by id. Returns null when the agent does not exist or belongs to another workspace. */
   mnAgent: Maybe<MnAgent>;
   /** List API keys for an agent. Includes revoked keys so the audit trail stays visible. */
@@ -4692,8 +4998,10 @@ export interface Query {
   mnWorkProducts: Array<MnWorkProduct>;
   mnWorkQueueIntakes: Array<MnWorkQueueIntake>;
   mnWorkQueues: Array<MnWorkQueue>;
+  mongoDbConnection: MongoDbConnectionType;
   /** List memories the current user can recall in this workspace (personal + workspace-scope). Pinned rows first, newest first. */
   myMemories: Array<Memory>;
+  postHogConnection: PostHogConnectionType;
   prices: Array<SubscriptionPrice>;
   /** Get public user by id */
   publicUserById: Maybe<PublicUserType>;
@@ -4707,8 +5015,12 @@ export interface Query {
   releaseRuns: Array<MnReleaseRun>;
   /** @deprecated use currentUser.revealedAccessTokens */
   revealedAccessTokens: Array<RevealedAccessToken>;
+  sampleMongoCollection: MongoSampleDocs;
   /** server config */
   serverConfig: ServerConfigType;
+  slackConnection: SlackConnectionType;
+  threadsConnection: ThreadsConnectionType;
+  tiktokConnection: TiktokConnectionType;
   /** Get user by email */
   user: Maybe<UserOrLimitedUser>;
   /** Get user by email for admin */
@@ -4783,6 +5095,10 @@ export interface QueryConnectionsArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface QueryDailyStatsArgs {
+  input: DailyStatsInput;
+}
+
 export interface QueryDriveFilesArgs {
   pageSize?: Scalars['Int']['input'];
   query?: InputMaybe<Scalars['String']['input']>;
@@ -4793,8 +5109,20 @@ export interface QueryErrorArgs {
   name: ErrorNames;
 }
 
+export interface QueryFacebookConnectionArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryFigmaConnectionArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface QueryGetInviteInfoArgs {
   inviteId: Scalars['String']['input'];
+}
+
+export interface QueryGetMongoIngestionConfigsArgs {
+  workspaceId: Scalars['String']['input'];
 }
 
 export interface QueryGetOverviewArgs {
@@ -4811,8 +5139,24 @@ export interface QueryGmailMessagesArgs {
   workspaceId: Scalars['String']['input'];
 }
 
+export interface QueryGoGoCashConnectionArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface QueryGoogleConnectionArgs {
   scope: GoogleScope;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryInstagramConnectionArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryLineVoomConnectionArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryLinearConnectionArgs {
   workspaceId: Scalars['String']['input'];
 }
 
@@ -4826,6 +5170,10 @@ export interface QueryListInsightsArgs {
 
 export interface QueryListMetricsArgs {
   input: ListMetricsInput;
+}
+
+export interface QueryListMongoCollectionsArgs {
+  workspaceId: Scalars['String']['input'];
 }
 
 export interface QueryMnAgentArgs {
@@ -5020,7 +5368,15 @@ export interface QueryMnWorkQueuesArgs {
   workspaceId: Scalars['ID']['input'];
 }
 
+export interface QueryMongoDbConnectionArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
 export interface QueryMyMemoriesArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryPostHogConnectionArgs {
   workspaceId: Scalars['String']['input'];
 }
 
@@ -5047,6 +5403,24 @@ export interface QueryReleaseRunArgs {
 export interface QueryReleaseRunsArgs {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QuerySampleMongoCollectionArgs {
+  collectionName: Scalars['String']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QuerySlackConnectionArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryThreadsConnectionArgs {
+  workspaceId: Scalars['String']['input'];
+}
+
+export interface QueryTiktokConnectionArgs {
   workspaceId: Scalars['String']['input'];
 }
 
@@ -5356,6 +5730,23 @@ export interface SetMnTaskDefinitionOfDoneInput {
   taskId: Scalars['ID']['input'];
 }
 
+export interface SetMongoIngestionConfigInput {
+  collectionName: Scalars['String']['input'];
+  cursorField: Scalars['String']['input'];
+  enabled: Scalars['Boolean']['input'];
+}
+
+export interface SlackConnectAuthUrl {
+  __typename?: 'SlackConnectAuthUrl';
+  url: Scalars['String']['output'];
+}
+
+export interface SlackConnectionType {
+  __typename?: 'SlackConnectionType';
+  connected: Scalars['Boolean']['output'];
+  teamName: Maybe<Scalars['String']['output']>;
+}
+
 export interface SocialConnection {
   __typename?: 'SocialConnection';
   connectedByUserId: Scalars['String']['output'];
@@ -5541,6 +5932,28 @@ export interface SubscriptionType {
 export enum SubscriptionVariant {
   EA = 'EA',
   Onetime = 'Onetime',
+}
+
+export interface ThreadsConnectAuthUrl {
+  __typename?: 'ThreadsConnectAuthUrl';
+  url: Scalars['String']['output'];
+}
+
+export interface ThreadsConnectionType {
+  __typename?: 'ThreadsConnectionType';
+  connected: Scalars['Boolean']['output'];
+  username: Maybe<Scalars['String']['output']>;
+}
+
+export interface TiktokConnectAuthUrl {
+  __typename?: 'TiktokConnectAuthUrl';
+  url: Scalars['String']['output'];
+}
+
+export interface TiktokConnectionType {
+  __typename?: 'TiktokConnectionType';
+  connected: Scalars['Boolean']['output'];
+  displayName: Maybe<Scalars['String']['output']>;
 }
 
 export enum TimeBucket {
@@ -6746,6 +7159,30 @@ export type ValidateConfigQuery = {
     valid: boolean;
     error: string | null;
   }>;
+};
+
+export type DailyStatsQueryVariables = Exact<{
+  input: DailyStatsInput;
+}>;
+
+export type DailyStatsQuery = {
+  __typename?: 'Query';
+  dailyStats: Array<{
+    __typename?: 'DailyStat';
+    day: string;
+    metric: string;
+    value: number;
+  }>;
+};
+
+export type BackfillAnalyticsMutationVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+  daysBack: Scalars['Int']['input'];
+}>;
+
+export type BackfillAnalyticsMutation = {
+  __typename?: 'Mutation';
+  backfillAnalytics: number;
 };
 
 export type AcknowledgeInsightMutationVariables = Exact<{
@@ -9976,6 +10413,97 @@ export type MentionUserMutation = {
   mentionUser: string;
 };
 
+export type ListMongoCollectionsQueryVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+}>;
+
+export type ListMongoCollectionsQuery = {
+  __typename?: 'Query';
+  listMongoCollections: Array<{
+    __typename?: 'MongoCollectionInfo';
+    name: string;
+    estimatedCount: number | null;
+    enabled: boolean;
+    cursorField: string | null;
+    lastSyncedAt: string | null;
+    consecutiveFailures: number | null;
+    lastError: string | null;
+    lastErrorAt: string | null;
+  }>;
+};
+
+export type SampleMongoCollectionQueryVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+  collectionName: Scalars['String']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+export type SampleMongoCollectionQuery = {
+  __typename?: 'Query';
+  sampleMongoCollection: {
+    __typename?: 'MongoSampleDocs';
+    collectionName: string;
+    documents: Array<string>;
+  };
+};
+
+export type GetMongoIngestionConfigsQueryVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+}>;
+
+export type GetMongoIngestionConfigsQuery = {
+  __typename?: 'Query';
+  getMongoIngestionConfigs: Array<{
+    __typename?: 'MongoIngestionConfig';
+    id: string;
+    workspaceId: string;
+    collectionName: string;
+    enabled: boolean;
+    cursorField: string;
+    lastSyncedAt: string | null;
+    lastCursorValue: string | null;
+    consecutiveFailures: number;
+    lastError: string | null;
+    lastErrorAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+};
+
+export type SetMongoIngestionConfigMutationVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+  input: SetMongoIngestionConfigInput;
+}>;
+
+export type SetMongoIngestionConfigMutation = {
+  __typename?: 'Mutation';
+  setMongoIngestionConfig: {
+    __typename?: 'MongoIngestionConfig';
+    id: string;
+    workspaceId: string;
+    collectionName: string;
+    enabled: boolean;
+    cursorField: string;
+    lastSyncedAt: string | null;
+    lastCursorValue: string | null;
+    consecutiveFailures: number;
+    lastError: string | null;
+    lastErrorAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+};
+
+export type DeleteMongoIngestionConfigMutationVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+  collectionName: Scalars['String']['input'];
+}>;
+
+export type DeleteMongoIngestionConfigMutation = {
+  __typename?: 'Mutation';
+  deleteMongoIngestionConfig: boolean;
+};
+
 export type NotificationCountQueryVariables = Exact<{ [key: string]: never }>;
 
 export type NotificationCountQuery = {
@@ -10668,6 +11196,11 @@ export type Queries =
       response: ValidateConfigQuery;
     }
   | {
+      name: 'dailyStatsQuery';
+      variables: DailyStatsQueryVariables;
+      response: DailyStatsQuery;
+    }
+  | {
       name: 'getAnalyticsOverviewQuery';
       variables: GetAnalyticsOverviewQueryVariables;
       response: GetAnalyticsOverviewQuery;
@@ -11008,6 +11541,21 @@ export type Queries =
       response: MyMemoriesQuery;
     }
   | {
+      name: 'listMongoCollectionsQuery';
+      variables: ListMongoCollectionsQueryVariables;
+      response: ListMongoCollectionsQuery;
+    }
+  | {
+      name: 'sampleMongoCollectionQuery';
+      variables: SampleMongoCollectionQueryVariables;
+      response: SampleMongoCollectionQuery;
+    }
+  | {
+      name: 'getMongoIngestionConfigsQuery';
+      variables: GetMongoIngestionConfigsQueryVariables;
+      response: GetMongoIngestionConfigsQuery;
+    }
+  | {
       name: 'notificationCountQuery';
       variables: NotificationCountQueryVariables;
       response: NotificationCountQuery;
@@ -11123,6 +11671,11 @@ export type Mutations =
       name: 'updateAppConfigMutation';
       variables: UpdateAppConfigMutationVariables;
       response: UpdateAppConfigMutation;
+    }
+  | {
+      name: 'backfillAnalyticsMutation';
+      variables: BackfillAnalyticsMutationVariables;
+      response: BackfillAnalyticsMutation;
     }
   | {
       name: 'acknowledgeInsightMutation';
@@ -11468,6 +12021,16 @@ export type Mutations =
       name: 'mentionUserMutation';
       variables: MentionUserMutationVariables;
       response: MentionUserMutation;
+    }
+  | {
+      name: 'setMongoIngestionConfigMutation';
+      variables: SetMongoIngestionConfigMutationVariables;
+      response: SetMongoIngestionConfigMutation;
+    }
+  | {
+      name: 'deleteMongoIngestionConfigMutation';
+      variables: DeleteMongoIngestionConfigMutationVariables;
+      response: DeleteMongoIngestionConfigMutation;
     }
   | {
       name: 'publishPageMutation';

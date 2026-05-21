@@ -362,6 +362,9 @@ export interface MongoCollectionInfoDto {
   enabled: boolean;
   cursorField?: string | null;
   lastSyncedAt?: string | null;
+  consecutiveFailures?: number | null;
+  lastError?: string | null;
+  lastErrorAt?: string | null;
 }
 
 export interface MongoSampleDocsDto {
@@ -377,6 +380,9 @@ export interface MongoIngestionConfigDto {
   cursorField: string;
   lastSyncedAt?: string | null;
   lastCursorValue?: string | null;
+  consecutiveFailures: number;
+  lastError?: string | null;
+  lastErrorAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -391,6 +397,9 @@ export const listMongoCollectionsQuery = {
     enabled
     cursorField
     lastSyncedAt
+    consecutiveFailures
+    lastError
+    lastErrorAt
   }
 }`,
 };
@@ -418,6 +427,9 @@ export const getMongoIngestionConfigsQuery = {
     cursorField
     lastSyncedAt
     lastCursorValue
+    consecutiveFailures
+    lastError
+    lastErrorAt
     createdAt
     updatedAt
   }
@@ -436,6 +448,9 @@ export const setMongoIngestionConfigMutation = {
     cursorField
     lastSyncedAt
     lastCursorValue
+    consecutiveFailures
+    lastError
+    lastErrorAt
     createdAt
     updatedAt
   }
@@ -447,5 +462,30 @@ export const deleteMongoIngestionConfigMutation = {
   op: 'deleteMongoIngestionConfig',
   query: `mutation deleteMongoIngestionConfig($workspaceId: String!, $collectionName: String!) {
   deleteMongoIngestionConfig(workspaceId: $workspaceId, collectionName: $collectionName)
+}`,
+};
+export interface DailyStatDto {
+  day: string;
+  metric: string;
+  value: number;
+}
+
+export const dailyStatsQuery = {
+  id: 'dailyStatsQuery' as const,
+  op: 'dailyStats',
+  query: `query dailyStats($input: DailyStatsInput!) {
+  dailyStats(input: $input) {
+    day
+    metric
+    value
+  }
+}`,
+};
+
+export const backfillAnalyticsMutation = {
+  id: 'backfillAnalyticsMutation' as const,
+  op: 'backfillAnalytics',
+  query: `mutation backfillAnalytics($workspaceId: String!, $daysBack: Int!) {
+  backfillAnalytics(workspaceId: $workspaceId, daysBack: $daysBack)
 }`,
 };

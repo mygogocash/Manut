@@ -142,6 +142,9 @@ function rowToDto(row: MnMongoIngestionConfig): MongoIngestionConfig {
     cursorField: row.cursorField,
     lastSyncedAt: row.lastSyncedAt ?? undefined,
     lastCursorValue: row.lastCursorValue ?? undefined,
+    consecutiveFailures: row.consecutiveFailures,
+    lastError: row.lastError ?? undefined,
+    lastErrorAt: row.lastErrorAt ?? undefined,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

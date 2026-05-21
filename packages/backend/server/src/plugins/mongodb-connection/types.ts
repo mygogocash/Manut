@@ -80,6 +80,9 @@ export interface MongoCollectionInfo {
   enabled: boolean;
   cursorField?: string;
   lastSyncedAt?: Date;
+  consecutiveFailures?: number;
+  lastError?: string;
+  lastErrorAt?: Date;
 }
 
 /**
@@ -108,6 +111,9 @@ export interface MongoIngestionConfig {
   cursorField: string;
   lastSyncedAt?: Date;
   lastCursorValue?: string;
+  consecutiveFailures: number;
+  lastError?: string;
+  lastErrorAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

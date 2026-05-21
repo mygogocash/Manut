@@ -100,6 +100,15 @@ export const lastSyncedBadge = style({
   whiteSpace: 'nowrap',
 });
 
+export const failureBadge = style({
+  fontSize: 11,
+  color: cssVarV2.status.error,
+  background: cssVarV2.layer.background.error,
+  padding: '2px 8px',
+  borderRadius: 999,
+  whiteSpace: 'nowrap',
+});
+
 export const toggleLabel = style({
   display: 'inline-flex',
   alignItems: 'center',

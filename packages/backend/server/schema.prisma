@@ -3065,8 +3065,8 @@ model MnOrgChange {
 // The user connects a MongoDB cluster via the existing `mongodb-connection`
 // plugin (URI encrypted in IntegrationConnection). The ingestion-config
 // resolver then writes rows here, one per (workspace, collection) the
-// user has opted in. A separate worker (later milestone) reads enabled
-// rows, pulls Mongo documents into `mn_mongo_raw_data`, and rolls daily
+// user has opted in. The ingestion cron reads enabled rows, pulls
+// Mongo documents into `mn_mongo_raw_data`, and rolls daily
 // aggregates into `mn_analytics_daily_stats`.
 //
 // Backed by migration 20260520050000_add_mongo_ingestion_tables (idempotent).
@@ -3079,6 +3079,9 @@ model MnMongoIngestionConfig {
   mappings        Json      @default("{}") @db.JsonB
   lastSyncedAt    DateTime? @map("last_synced_at") @db.Timestamptz(3)
   lastCursorValue String?   @map("last_cursor_value") @db.VarChar
+  consecutiveFailures Int       @default(0) @map("consecutive_failures")
+  lastError       String?   @map("last_error") @db.VarChar
+  lastErrorAt     DateTime? @map("last_error_at") @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
