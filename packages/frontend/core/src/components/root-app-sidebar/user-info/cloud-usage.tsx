@@ -1,4 +1,4 @@
-import { ErrorMessage, Skeleton } from '@affine/component';
+import { Skeleton } from '@affine/component';
 import { UserQuotaService } from '@affine/core/modules/cloud';
 import { WorkspaceDialogService } from '@affine/core/modules/dialogs';
 import { useI18n } from '@affine/i18n';
@@ -35,7 +35,8 @@ export const CloudUsage = () => {
 
   if (percent === null) {
     if (quotaError) {
-      return <ErrorMessage>Failed to load quota</ErrorMessage>;
+      console.error('Failed to load user quota', quotaError);
+      return null;
     }
     return (
       <div>
