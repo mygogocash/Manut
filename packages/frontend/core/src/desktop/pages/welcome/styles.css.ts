@@ -1,4 +1,8 @@
-import { manutColor, manutRadius, manutSpace } from '@affine/component/theme';
+import {
+  manutColor,
+  manutRadius,
+  manutSpace,
+} from '@affine/component/theme/tokens';
 import { style } from '@vanilla-extract/css';
 
 /**
@@ -15,7 +19,7 @@ import { style } from '@vanilla-extract/css';
  *
  * Visual language follows the Manut warm-neutral palette with a
  * violet accent on the primary CTA. Lives under `.css.ts` and only
- * imports from `@affine/component/theme` (a leaf sub-path) — the
+ * imports from `@affine/component/theme/tokens` (a leaf sub-path) — the
  * package root would pull in DOM-typed siblings and crash
  * vanilla-extract's Node VM evaluation. See CLAUDE.md §6
  * "vanilla-extract evaluates .css.ts files in a Node VM" for the

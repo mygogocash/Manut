@@ -30,7 +30,7 @@ const FUTURE_WINDOW_DAYS = 30;
 // FIRST/repeatable).
 const REVALIDATE_INTERVAL_MS = 5 * 60 * 1000;
 
-// Notion-style Meetings panel — flattens the calendar entity's event map
+// Notion-style Calendar panel — flattens the calendar entity's event map
 // across a rolling window into a single list, grouped by recency. Falls
 // back to a connect-Google-Calendar empty state when no accounts are
 // linked, with a button that deep-links into Settings → Account →
@@ -185,9 +185,9 @@ export function MeetingsView(): ReactElement {
           <div className={styles.emptyIcon}>
             <TodayIcon />
           </div>
-          <div className={styles.emptyTitle}>No meetings yet</div>
+          <div className={styles.emptyTitle}>No calendar events yet</div>
           <div className={styles.emptyCopy}>
-            Connect Google Calendar to see your meetings.
+            Connect Google Calendar to see your events.
           </div>
           <button
             type="button"
@@ -205,7 +205,7 @@ export function MeetingsView(): ReactElement {
   return (
     <div className={styles.viewRoot} data-testid="sidebar-meetings-view">
       <div className={styles.viewHeader}>
-        <span>Meetings</span>
+        <span>Calendar</span>
       </div>
       <div className={styles.viewBody}>
         {orderedBuckets.length === 0 ? (

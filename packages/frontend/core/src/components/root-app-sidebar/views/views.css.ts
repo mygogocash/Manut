@@ -1,5 +1,5 @@
 import { cssVar } from '@toeverything/theme';
-import { style } from '@vanilla-extract/css';
+import { globalStyle, style } from '@vanilla-extract/css';
 
 // Shared styles for Meetings + Inbox sidebar views. Notion-style:
 // header row → group label → tight rows → relative time on the right.
@@ -253,4 +253,30 @@ export const errorText = style({
   padding: '8px 12px',
   fontSize: 12,
   color: cssVar('errorColor'),
+});
+
+export const searchRoot = style([
+  viewRoot,
+  {
+    minHeight: 240,
+  },
+]);
+
+globalStyle(`${searchRoot} [cmdk-list]`, {
+  maxHeight: 'none',
+  minHeight: 160,
+  height: 'auto',
+  margin: '4px 4px 8px',
+});
+
+globalStyle(`${searchRoot} [cmdk-group-heading]`, {
+  padding: '8px 10px 2px',
+  fontSize: 10,
+  letterSpacing: 0.6,
+  textTransform: 'uppercase',
+});
+
+globalStyle(`${searchRoot} [cmdk-item]`, {
+  minHeight: 34,
+  padding: '5px 8px',
 });

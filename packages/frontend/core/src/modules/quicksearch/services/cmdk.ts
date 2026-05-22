@@ -11,6 +11,7 @@ import { LinksQuickSearchSession } from '../impls/links';
 import { RecentDocsQuickSearchSession } from '../impls/recent-docs';
 import { TagsQuickSearchSession } from '../impls/tags';
 import { VerbsQuickSearchSession } from '../impls/verbs';
+import type { QuickSearchItem } from '../types/item';
 import type { QuickSearchService } from './quick-search';
 
 export class CMDKQuickSearchService extends Service {
@@ -22,129 +23,132 @@ export class CMDKQuickSearchService extends Service {
     super();
   }
 
+  createDefaultSessions() {
+    return [
+      this.framework.createEntity(RecentDocsQuickSearchSession),
+      this.framework.createEntity(CollectionsQuickSearchSession),
+      this.framework.createEntity(CommandsQuickSearchSession),
+      this.framework.createEntity(CreationQuickSearchSession),
+      this.framework.createEntity(DocsQuickSearchSession),
+      this.framework.createEntity(LinksQuickSearchSession),
+      this.framework.createEntity(TagsQuickSearchSession),
+      // M2 E2.8 §B11 — power-user verb actions (New doc, Open
+      // Settings, Sign out, etc.). Routed below in the result
+      // handler under `result.source === 'verbs'`. Listed LAST
+      // so the order in the search results matches its low
+      // group score — verbs sink to the bottom on empty-query.
+      this.framework.createEntity(VerbsQuickSearchSession),
+    ];
+  }
+
+  handleResult(result: QuickSearchItem | null) {
+    if (!result) {
+      return;
+    }
+
+    if (result.source === 'commands') {
+      result.payload.run()?.catch((err: unknown) => {
+        console.error(err);
+      });
+      return;
+    }
+
+    if (result.source === 'verbs') {
+      // Verb payloads expose a synchronous `run()`. Wrap in a try/catch so
+      // a buggy verb doesn't take down CMDK. `result.payload` is typed as
+      // `unknown` by the QuickSearch entity's wide source-type sum — narrow
+      // locally with a payload-shape check before invoking.
+      const payload = result.payload as { run?: () => void };
+      if (typeof payload?.run === 'function') {
+        try {
+          payload.run();
+        } catch (err) {
+          console.error('Verb run failed', err);
+        }
+      }
+      return;
+    }
+
+    if (result.source === 'link') {
+      const { docId, blockIds, elementIds, mode } = result.payload;
+      this.workbenchService.workbench.openDoc({
+        docId,
+        blockIds,
+        elementIds,
+        mode,
+      });
+      return;
+    }
+
+    if (result.source === 'recent-doc' || result.source === 'docs') {
+      const doc: {
+        docId?: string;
+        blockId?: string;
+        __cmdkOpenInNewTab?: boolean;
+      } = result.payload;
+
+      if (!doc.docId) {
+        return;
+      }
+
+      result.source === 'recent-doc' && track.$.cmdk.recent.recentDocs();
+      result.source === 'docs' && track.$.cmdk.results.searchResultsDocs();
+
+      const options: { docId: string; blockIds?: string[] } = {
+        docId: doc.docId,
+      };
+
+      if (doc.blockId) {
+        options.blockIds = [doc.blockId];
+      }
+
+      // Cmd+Enter on a search result opens the doc in a new tab
+      // (cmdk-only signal — set by views/container.tsx).
+      this.workbenchService.workbench.openDoc(
+        options,
+        doc.__cmdkOpenInNewTab ? { at: 'new-tab', show: true } : undefined
+      );
+      return;
+    }
+
+    if (result.source === 'collections') {
+      this.workbenchService.workbench.openCollection(
+        result.payload.collectionId
+      );
+      return;
+    }
+
+    if (result.source === 'tags') {
+      this.workbenchService.workbench.openTag(result.payload.tagId);
+      return;
+    }
+
+    if (result.source === 'creation') {
+      if (result.id === 'creation:create-page') {
+        const newDoc = this.docsService.createDoc({
+          primaryMode: 'page',
+          title: result.payload.title,
+        });
+
+        this.workbenchService.workbench.openDoc(newDoc.id);
+      } else if (result.id === 'creation:create-edgeless') {
+        const newDoc = this.docsService.createDoc({
+          primaryMode: 'edgeless',
+          title: result.payload.title,
+        });
+        this.workbenchService.workbench.openDoc(newDoc.id);
+      }
+      return;
+    }
+  }
+
   toggle() {
     if (this.quickSearchService.quickSearch.show$.value) {
       this.quickSearchService.quickSearch.hide();
     } else {
       this.quickSearchService.quickSearch.show(
-        [
-          this.framework.createEntity(RecentDocsQuickSearchSession),
-          this.framework.createEntity(CollectionsQuickSearchSession),
-          this.framework.createEntity(CommandsQuickSearchSession),
-          this.framework.createEntity(CreationQuickSearchSession),
-          this.framework.createEntity(DocsQuickSearchSession),
-          this.framework.createEntity(LinksQuickSearchSession),
-          this.framework.createEntity(TagsQuickSearchSession),
-          // M2 E2.8 §B11 — power-user verb actions (New doc, Open
-          // Settings, Sign out, etc.). Routed below in the result
-          // handler under `result.source === 'verbs'`. Listed LAST
-          // so the order in the search results matches its low
-          // group score — verbs sink to the bottom on empty-query.
-          this.framework.createEntity(VerbsQuickSearchSession),
-        ],
-        result => {
-          if (!result) {
-            return;
-          }
-
-          if (result.source === 'commands') {
-            result.payload.run()?.catch(err => {
-              console.error(err);
-            });
-            return;
-          }
-
-          if (result.source === 'verbs') {
-            // Verb payloads expose a synchronous `run()`. Wrap in
-            // a try/catch so a buggy verb doesn't take down CMDK.
-            // `result.payload` is typed as `unknown` by the
-            // QuickSearch entity's wide source-type sum (same trap
-            // as the `commands` branch above) — narrow locally with
-            // a payload-shape check before invoking.
-            const payload = result.payload as { run?: () => void };
-            if (typeof payload?.run === 'function') {
-              try {
-                payload.run();
-              } catch (err) {
-                console.error('Verb run failed', err);
-              }
-            }
-            return;
-          }
-
-          if (result.source === 'link') {
-            const { docId, blockIds, elementIds, mode } = result.payload;
-            this.workbenchService.workbench.openDoc({
-              docId,
-              blockIds,
-              elementIds,
-              mode,
-            });
-            return;
-          }
-
-          if (result.source === 'recent-doc' || result.source === 'docs') {
-            const doc: {
-              docId?: string;
-              blockId?: string;
-              __cmdkOpenInNewTab?: boolean;
-            } = result.payload;
-
-            if (!doc.docId) {
-              return;
-            }
-
-            result.source === 'recent-doc' && track.$.cmdk.recent.recentDocs();
-            result.source === 'docs' &&
-              track.$.cmdk.results.searchResultsDocs();
-
-            const options: { docId: string; blockIds?: string[] } = {
-              docId: doc.docId,
-            };
-
-            if (doc.blockId) {
-              options.blockIds = [doc.blockId];
-            }
-
-            // Cmd+Enter on a search result opens the doc in a new tab
-            // (cmdk-only signal — set by views/container.tsx).
-            this.workbenchService.workbench.openDoc(
-              options,
-              doc.__cmdkOpenInNewTab ? { at: 'new-tab', show: true } : undefined
-            );
-            return;
-          }
-
-          if (result.source === 'collections') {
-            this.workbenchService.workbench.openCollection(
-              result.payload.collectionId
-            );
-            return;
-          }
-
-          if (result.source === 'tags') {
-            this.workbenchService.workbench.openTag(result.payload.tagId);
-            return;
-          }
-
-          if (result.source === 'creation') {
-            if (result.id === 'creation:create-page') {
-              const newDoc = this.docsService.createDoc({
-                primaryMode: 'page',
-                title: result.payload.title,
-              });
-
-              this.workbenchService.workbench.openDoc(newDoc.id);
-            } else if (result.id === 'creation:create-edgeless') {
-              const newDoc = this.docsService.createDoc({
-                primaryMode: 'edgeless',
-                title: result.payload.title,
-              });
-              this.workbenchService.workbench.openDoc(newDoc.id);
-            }
-            return;
-          }
-        },
+        this.createDefaultSessions(),
+        result => this.handleResult(result),
         {
           placeholder: {
             i18nKey: 'com.affine.cmdk.docs.placeholder',

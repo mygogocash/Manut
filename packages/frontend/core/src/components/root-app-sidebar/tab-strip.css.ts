@@ -1,7 +1,7 @@
 import { cssVar } from '@toeverything/theme';
 import { style } from '@vanilla-extract/css';
 
-// Tab strip — five icon buttons sitting at the top of the sidebar.
+// Tab strip — five icon buttons sitting under the workspace switcher.
 // Brand tokens (`--manut-*`) are defined globally in
 // `packages/frontend/component/src/theme/manut-tokens.css`. We reference
 // raw CSS variables here instead of importing token objects so this file

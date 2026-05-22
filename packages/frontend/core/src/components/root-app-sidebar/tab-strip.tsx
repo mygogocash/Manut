@@ -1,5 +1,4 @@
 import { NotificationCountService } from '@affine/core/modules/notification';
-import { CMDKQuickSearchService } from '@affine/core/modules/quicksearch/services/cmdk';
 import { trackEvent } from '@affine/core/modules/telemetry';
 import {
   ChatPanelIcon,
@@ -10,14 +9,13 @@ import {
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import type { ReactElement, ReactNode } from 'react';
-import { useCallback } from 'react';
 
 import { tabBadgeDot, tabButton, tabStripRoot } from './tab-strip.css';
 import type { SidebarTab } from './use-active-tab';
 import { useActiveTab } from './use-active-tab';
 
 interface TabDescriptor {
-  id: SidebarTab | 'search';
+  id: SidebarTab;
   label: string;
   icon: ReactNode;
 }
@@ -25,20 +23,17 @@ interface TabDescriptor {
 const TABS: readonly TabDescriptor[] = [
   { id: 'home', label: 'Home', icon: <HomeIcon /> },
   { id: 'chat', label: 'Chat', icon: <ChatPanelIcon /> },
-  { id: 'meetings', label: 'Meetings', icon: <TodayIcon /> },
+  { id: 'meetings', label: 'Calendar', icon: <TodayIcon /> },
   { id: 'inbox', label: 'Inbox', icon: <InboxIcon /> },
   { id: 'search', label: 'Search', icon: <SearchIcon /> },
 ];
 
 /**
- * Five-icon tab strip at the top of the sidebar. Four of the icons swap
- * the active tab globalState — Search is an outlier that opens the CMDK
- * quick-search modal as an overlay and never owns the sidebar body. The
- * active tab is therefore preserved across Search interactions.
+ * Five-icon tab strip for the sidebar quick actions. Each icon swaps the
+ * active tab globalState so the related menu renders inside the sidebar body.
  */
 export function TabStrip(): ReactElement {
   const { activeTab, setActiveTab } = useActiveTab();
-  const cMDKQuickSearchService = useService(CMDKQuickSearchService);
   // Inbox tab decoration — show a small red dot when there are unread
   // notifications. `count$` is a `LiveData<number>` that the service polls
   // every 30s + revalidates on focus/server-start; `useLiveData` keeps the
@@ -46,10 +41,6 @@ export function TabStrip(): ReactElement {
   // required on the Observable-typed member (rxjs/finnish — CLAUDE.md §6).
   const notificationCountService = useService(NotificationCountService);
   const notificationCount = useLiveData(notificationCountService.count$);
-
-  const openSearch = useCallback(() => {
-    cMDKQuickSearchService.toggle();
-  }, [cMDKQuickSearchService]);
 
   return (
     <div
@@ -59,15 +50,14 @@ export function TabStrip(): ReactElement {
       data-testid="sidebar-tab-strip"
     >
       {TABS.map(({ id, label, icon }) => {
-        const isSearch = id === 'search';
-        const isActive = !isSearch && id === activeTab;
+        const isActive = id === activeTab;
         const showInboxDot = id === 'inbox' && notificationCount > 0;
         return (
           <button
             key={id}
             type="button"
-            role={isSearch ? 'button' : 'tab'}
-            aria-selected={isSearch ? undefined : isActive}
+            role="tab"
+            aria-selected={isActive}
             aria-label={
               showInboxDot
                 ? `${label} (${notificationCount > 99 ? '99+' : notificationCount} unread)`
@@ -83,10 +73,6 @@ export function TabStrip(): ReactElement {
               // ("sidebar") so downstream analytics can distinguish
               // this surface from future tab strips.
               trackEvent('sidebar_nav_clicked', { tab: 'sidebar', item: id });
-              if (isSearch) {
-                openSearch();
-                return;
-              }
               setActiveTab(id);
             }}
           >
