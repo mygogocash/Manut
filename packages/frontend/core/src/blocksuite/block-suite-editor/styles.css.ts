@@ -76,9 +76,10 @@ export const docPropertiesTableContainer = style({
 export const docPropertiesTable = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: 8,
+  gap: 10,
   width: '100%',
   maxWidth: cssVar('editorWidth'),
+  boxSizing: 'border-box',
   padding: `0 ${cssVar('editorSidePadding', '24px')} 24px`,
   '@container': {
     [`viewport (width <= 640px)`]: {
@@ -102,9 +103,46 @@ globalStyle(
 globalStyle(
   `${docPropertiesTable} [data-testid="property-collapsible-section-content"]`,
   {
-    gap: 4,
+    gap: 6,
   }
 );
-globalStyle(`${docPropertiesTable} [data-testid="doc-property-row"]`, {
-  minHeight: 30,
+globalStyle(`${docPropertiesTable} [data-property-collapsible]`, {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))',
+  alignItems: 'start',
+  columnGap: 24,
+  rowGap: 12,
+});
+globalStyle(
+  `${docPropertiesTable} [data-property-collapsible] > [data-testid="property-collapsible-button"], ${docPropertiesTable} [data-property-collapsible] > div:has(> [data-testid="add-property-button"])`,
+  {
+    gridColumn: '1 / -1',
+  }
+);
+globalStyle(
+  `${docPropertiesTable} [data-property-row], ${docPropertiesTable} [data-testid="database-backlink-cell"]`,
+  {
+    display: 'flex',
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    alignItems: 'stretch',
+    gap: 3,
+    minWidth: 0,
+    minHeight: 'auto',
+    listStyle: 'none',
+  }
+);
+globalStyle(`${docPropertiesTable} [data-property-name]`, {
+  width: '100%',
+  height: 'auto',
+  minHeight: 20,
+  padding: 0,
+  lineHeight: '20px',
+});
+globalStyle(`${docPropertiesTable} [data-property-value]`, {
+  width: '100%',
+  minHeight: 24,
+  flex: 'unset',
+  padding: 0,
+  alignItems: 'center',
 });

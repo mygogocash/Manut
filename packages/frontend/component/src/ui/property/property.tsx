@@ -269,6 +269,7 @@ export const PropertyRoot = forwardRef<
             shouldHide && styles.hide,
             className
           )}
+          data-property-row
           {...props}
         >
           {children}
@@ -311,6 +312,7 @@ export const PropertyName = ({
     <div
       className={clsx(styles.propertyNameContainer, className)}
       data-has-menu={hasMenu}
+      data-property-name
       onClick={handleClick}
       {...props}
     >

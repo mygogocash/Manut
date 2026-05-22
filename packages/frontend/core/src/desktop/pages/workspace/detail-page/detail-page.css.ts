@@ -68,6 +68,9 @@ globalStyle(
 globalStyle(
   `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .doc-icon-container`,
   {
+    display: 'flex',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
     paddingTop: 168,
     paddingBottom: 10,
   }
