@@ -36,7 +36,7 @@ import {
   RotateIcon,
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService, useServices } from '@toeverything/infra';
-import type { MouseEvent, ReactElement } from 'react';
+import type { MouseEvent, ReactElement, ReactNode } from 'react';
 import { memo, useCallback } from 'react';
 
 import {
@@ -71,6 +71,7 @@ import { ChatView } from './views/chat-view';
 import { HomeView } from './views/home-view';
 import { InboxView } from './views/inbox-view';
 import { MeetingsView } from './views/meetings-view';
+import { SearchView } from './views/search-view';
 
 export type RootAppSidebarProps = {
   isPublicWorkspace: boolean;
@@ -310,14 +311,15 @@ const AIChatButton = () => {
 /**
  * Renders the scrollable body content for the sidebar when the
  * `sidebar_tabs_v2` flag is on. Reads the active tab via globalState (the
- * `useActiveTab` hook) and swaps between Home / Chat / Meetings / Inbox.
- * Search is not a body view — it opens CMDK as an overlay (see
- * `tab-strip.tsx`) and never reaches this switch.
+ * `useActiveTab` hook) and swaps between Home / Chat / Calendar / Inbox /
+ * Search.
  */
 const TabbedSidebarBody = ({
   onOpenImportModal,
+  homeNavigation,
 }: {
   onOpenImportModal: () => void;
+  homeNavigation: ReactNode;
 }): ReactElement => {
   const { activeTab } = useActiveTab();
 
@@ -328,9 +330,16 @@ const TabbedSidebarBody = ({
       return <MeetingsView />;
     case 'inbox':
       return <InboxView />;
+    case 'search':
+      return <SearchView />;
     case 'home':
     default:
-      return <HomeView onOpenImportModal={onOpenImportModal} />;
+      return (
+        <HomeView
+          onOpenImportModal={onOpenImportModal}
+          navigation={homeNavigation}
+        />
+      );
   }
 };
 
@@ -396,8 +405,8 @@ export const RootAppSidebar = memo((): ReactElement => {
   const workspaceDialogService = useService(WorkspaceDialogService);
   const featureFlagService = useService(FeatureFlagService);
   // Wave-2 Sidebar Phase 2 / Epic E1.9. When false the sidebar renders the
-  // pre-flag layout unchanged; when true the TabStrip mounts above the
-  // scrollable container and the body swaps per active tab.
+  // pre-flag layout unchanged; when true the TabStrip mounts under the
+  // workspace section and the body swaps per active tab.
   const sidebarTabsV2Enabled = useLiveData(
     featureFlagService.flags.sidebar_tabs_v2.$
   );
@@ -450,15 +459,11 @@ export const RootAppSidebar = memo((): ReactElement => {
 
   return (
     <AppSidebar>
-      {/*
-       * Five-tab strip — mounted only when the `sidebar_tabs_v2` feature
-       * flag is on. Sits above every other sidebar surface so the active
-       * tab is always reachable. With the flag off the layout is
-       * byte-identical to pre-flag main.
-       */}
-      {sidebarTabsV2Enabled ? <TabStrip /> : null}
       <SidebarContainer>
-        <div className={workspaceAndUserWrapper}>
+        <div
+          className={workspaceAndUserWrapper}
+          data-testid="sidebar-workspace-section"
+        >
           <div className={workspaceWrapper}>
             <WorkspaceNavigator
               showEnableCloudButton
@@ -481,46 +486,69 @@ export const RootAppSidebar = memo((): ReactElement => {
           <UserInfo />
         </div>
         {/*
-         * Intelligence (AI chat) sits directly under the workspace switcher
-         * so the primary AI interaction is the first nav item users see —
-         * before search, before docs. AIChatButton self-gates on
-         * enableAI + serverFeatures.copilot so it renders null on
-         * deployments without copilot, keeping the layout stable.
+         * Tabs-v2 quick actions live directly under the workspace section.
+         * When the flag is off, keep the legacy primary nav exactly where it
+         * was so rollout can stay reversible.
          */}
-        <AIChatButton />
-        <div className={quickSearchAndNewPage}>
-          <QuickSearchInput
-            className={quickSearch}
-            data-testid="slider-bar-quick-search-button"
-            data-event-props="$.navigationPanel.$.quickSearch"
-            onClick={onOpenQuickSearchModal}
-          />
-          <AddPageButton />
-        </div>
-        {/*
-         * Notifications sits directly under the search bar so the
-         * scan-the-inbox affordance is right next to the find-anything
-         * affordance. Self-gates on sessionStatus so it doesn't show
-         * for unauthenticated visitors.
-         */}
-        {sessionStatus === 'authenticated' && <NotificationButton />}
-        <AllDocsButton />
-        <GraphButton />
-        <AnalyticsButton />
-        <ProjectsButton />
-        <CrmButton />
-        <RemindersButton />
-        <RoutinesButton />
-        <ReleaseRunsButton />
-        <AppSidebarJournalButton />
-        <AgentsSection />
+        {sidebarTabsV2Enabled ? (
+          <TabStrip />
+        ) : (
+          <>
+            {/*
+             * Intelligence (AI chat) sits directly under the workspace
+             * switcher in the legacy layout. Tabs-v2 moves this into the
+             * Chat quick action body.
+             */}
+            <AIChatButton />
+            <div className={quickSearchAndNewPage}>
+              <QuickSearchInput
+                className={quickSearch}
+                data-testid="slider-bar-quick-search-button"
+                data-event-props="$.navigationPanel.$.quickSearch"
+                onClick={onOpenQuickSearchModal}
+              />
+              <AddPageButton />
+            </div>
+            {/*
+             * Notifications sits directly under the search bar in the
+             * legacy layout. Tabs-v2 moves this into the Inbox quick action.
+             */}
+            {sessionStatus === 'authenticated' && <NotificationButton />}
+            <AllDocsButton />
+            <GraphButton />
+            <AnalyticsButton />
+            <ProjectsButton />
+            <CrmButton />
+            <RemindersButton />
+            <RoutinesButton />
+            <ReleaseRunsButton />
+            <AppSidebarJournalButton />
+            <AgentsSection />
+          </>
+        )}
       </SidebarContainer>
       <SidebarScrollableContainer>
         {sidebarTabsV2Enabled ? (
           // Tabs-v2: body content is owned by the active tab. Home re-uses
-          // the same section components used pre-flag; Chat / Meetings /
-          // Inbox render the M1 placeholder views.
-          <TabbedSidebarBody onOpenImportModal={onOpenImportModal} />
+          // the workspace menu + section components used pre-flag; Chat /
+          // Calendar / Inbox / Search render their related menus inline.
+          <TabbedSidebarBody
+            onOpenImportModal={onOpenImportModal}
+            homeNavigation={
+              <>
+                <AllDocsButton />
+                <GraphButton />
+                <AnalyticsButton />
+                <ProjectsButton />
+                <CrmButton />
+                <RemindersButton />
+                <RoutinesButton />
+                <ReleaseRunsButton />
+                <AppSidebarJournalButton />
+                <AgentsSection />
+              </>
+            }
+          />
         ) : (
           // Phase 1 utility footer landed via PR #116 — utility items
           // (Trash / Import / Invite / Templates / Learn-more) live in

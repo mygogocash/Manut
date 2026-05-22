@@ -56,7 +56,9 @@ export type DefaultOpenProperty =
 
 export interface WorkspacePropertiesTableProps {
   className?: string;
+  defaultExpanded?: boolean;
   defaultOpenProperty?: DefaultOpenProperty;
+  hideHeader?: boolean;
   onPropertyAdded?: (property: DocCustomPropertyInfo) => void;
   onPropertyChange?: (property: DocCustomPropertyInfo, value: unknown) => void;
   onPropertyInfoChange?: (
@@ -417,14 +419,18 @@ const WorkspaceWorkspacePropertiesTableBody = forwardRef<
 WorkspaceWorkspacePropertiesTableBody.displayName = 'PagePropertiesTableBody';
 
 const WorkspacePropertiesTableInner = ({
+  defaultExpanded,
   defaultOpenProperty,
+  hideHeader,
   onPropertyAdded,
   onPropertyChange,
   onPropertyInfoChange,
   onDatabasePropertyChange,
   className,
 }: WorkspacePropertiesTableProps) => {
-  const [expanded, setExpanded] = useState(!!defaultOpenProperty);
+  const [expanded, setExpanded] = useState(
+    defaultExpanded ?? !!defaultOpenProperty
+  );
   const defaultOpen = useMemo(() => {
     return defaultOpenProperty?.type === 'database'
       ? [
@@ -439,11 +445,13 @@ const WorkspacePropertiesTableInner = ({
   return (
     <div className={clsx(styles.root, className)}>
       <Collapsible.Root open={expanded} onOpenChange={setExpanded}>
-        <WorkspacePropertiesTableHeader
-          style={{ width: '100%' }}
-          open={expanded}
-          onOpenChange={setExpanded}
-        />
+        {!hideHeader ? (
+          <WorkspacePropertiesTableHeader
+            style={{ width: '100%' }}
+            open={expanded}
+            onOpenChange={setExpanded}
+          />
+        ) : null}
         <Collapsible.Content>
           <DocIntegrationPropertiesTable
             divider={<div className={styles.tableHeaderDivider} />}
@@ -459,6 +467,7 @@ const WorkspacePropertiesTableInner = ({
           <div className={styles.tableHeaderDivider} />
           <DocDatabaseBacklinkInfo
             onChange={onDatabasePropertyChange}
+            defaultOpenAll={!!defaultExpanded}
             defaultOpen={defaultOpen}
           />
         </Collapsible.Content>

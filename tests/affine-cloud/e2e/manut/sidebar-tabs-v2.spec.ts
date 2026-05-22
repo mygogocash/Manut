@@ -2,14 +2,14 @@
  * Manut M3 E3.6 — bug-bash launch smoke: Sidebar Tabs v2.
  *
  * Reproduces PR #121 smoke item:
- *   "sidebar_tabs_v2 flag on → 5-tab strip mounts; Search opens CMDK"
+ *   "sidebar_tabs_v2 flag on → 5-tab strip mounts under workspace; each
+ *    quick action owns the sidebar body"
  *
- * The five-icon tab strip (Home / Chat / Meetings / Inbox / Search) is
+ * The five-icon tab strip (Home / Chat / Calendar / Inbox / Search) is
  * gated behind the `sidebar_tabs_v2` feature flag (see
  * `packages/frontend/core/src/modules/feature-flag/constant.ts:332`,
- * default `false`). The Search tab opens the existing CMDK overlay
- * rather than swapping the sidebar body — confirms the outlier wiring
- * documented in `tab-strip.tsx`.
+ * default `false`). Search renders an inline CMDK surface inside the
+ * sidebar instead of opening the global CMDK overlay.
  */
 
 import { test } from '@affine-test/kit/playwright';
@@ -105,6 +105,22 @@ test.describe('@manut sidebar tabs v2', () => {
     const strip = page.getByTestId('sidebar-tab-strip');
     await expect(strip).toBeVisible({ timeout: 5_000 });
 
+    await expect(page.getByTestId('sidebar-workspace-section')).toBeVisible();
+    const stripFollowsWorkspace = await page.evaluate(() => {
+      const workspace = document.querySelector(
+        '[data-testid="sidebar-workspace-section"]'
+      );
+      const tabStrip = document.querySelector(
+        '[data-testid="sidebar-tab-strip"]'
+      );
+      if (!workspace || !tabStrip) {
+        return false;
+      }
+      const position = workspace.compareDocumentPosition(tabStrip);
+      return !!(position & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    expect(stripFollowsWorkspace).toBe(true);
+
     // All five tabs present (testid pattern: `sidebar-tab-<id>` from
     // tab-strip.tsx:64). Use individual assertions so a failing one
     // surfaces which tab is missing.
@@ -115,20 +131,35 @@ test.describe('@manut sidebar tabs v2', () => {
     await expect(page.getByTestId('sidebar-tab-search')).toBeVisible();
   });
 
-  test('sidebar > given flag on > Search tab opens CMDK overlay', async ({
+  test('sidebar > given flag on > quick actions swap sidebar body', async ({
     page,
   }) => {
     await setSidebarTabsFlag(page, true);
     await page.waitForTimeout(200);
 
+    await page.getByTestId('sidebar-tab-chat').click();
+    await expect(page.getByTestId('sidebar-chat-view')).toBeVisible({
+      timeout: 5_000,
+    });
+
+    await page.getByTestId('sidebar-tab-meetings').click();
+    await expect(page.getByTestId('sidebar-meetings-view')).toBeVisible({
+      timeout: 5_000,
+    });
+
+    await page.getByTestId('sidebar-tab-inbox').click();
+    await expect(page.getByTestId('sidebar-inbox-view')).toBeVisible({
+      timeout: 5_000,
+    });
+
     await page.getByTestId('sidebar-tab-search').click();
 
-    // CMDK overlay surfaces via `cmdk-quick-search` testid — same
-    // overlay the Cmd+K shortcut opens. Verifies the Search tab is
-    // the "outlier" the docstring describes (doesn't swap sidebar
-    // body, opens modal instead).
-    await expect(page.locator('[data-testid="cmdk-quick-search"]')).toBeVisible(
-      { timeout: 5_000 }
+    const searchView = page.getByTestId('sidebar-search-view');
+    await expect(searchView).toBeVisible({ timeout: 5_000 });
+    await expect(searchView.getByTestId('cmdk-quick-search')).toBeVisible();
+    await expect(page.getByTestId('sidebar-tab-search')).toHaveAttribute(
+      'data-active',
+      'true'
     );
   });
 });

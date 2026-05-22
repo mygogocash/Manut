@@ -1,5 +1,5 @@
 import { cssVar } from '@toeverything/theme';
-import { style, type StyleRule } from '@vanilla-extract/css';
+import { globalStyle, style, type StyleRule } from '@vanilla-extract/css';
 
 export const docEditorRoot = style({
   overflowX: 'clip',
@@ -79,10 +79,32 @@ export const docPropertiesTable = style({
   gap: 8,
   width: '100%',
   maxWidth: cssVar('editorWidth'),
-  padding: `0 ${cssVar('editorSidePadding', '24px')}`,
+  padding: `0 ${cssVar('editorSidePadding', '24px')} 24px`,
   '@container': {
     [`viewport (width <= 640px)`]: {
-      padding: '0 16px',
+      padding: '0 16px 20px',
     },
   },
+});
+
+globalStyle(
+  `${docPropertiesTable} [data-testid="property-collapsible-section-header"]`,
+  {
+    display: 'none',
+  }
+);
+globalStyle(
+  `${docPropertiesTable} [data-testid="property-collapsible-section"]`,
+  {
+    gap: 4,
+  }
+);
+globalStyle(
+  `${docPropertiesTable} [data-testid="property-collapsible-section-content"]`,
+  {
+    gap: 4,
+  }
+);
+globalStyle(`${docPropertiesTable} [data-testid="doc-property-row"]`, {
+  minHeight: 30,
 });

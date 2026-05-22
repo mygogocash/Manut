@@ -268,6 +268,8 @@ export const BlocksuiteDocEditor = forwardRef<
           <div className={styles.docPropertiesTableContainer}>
             <WorkspacePropertiesTable
               className={styles.docPropertiesTable}
+              defaultExpanded
+              hideHeader
               onDatabasePropertyChange={onDatabasePropertyChange}
               onPropertyChange={onPropertyChange}
               onPropertyAdded={onPropertyAdded}

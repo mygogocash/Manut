@@ -177,9 +177,11 @@ const DatabaseBacklinkRow = ({
 };
 
 export const DocDatabaseBacklinkInfo = ({
+  defaultOpenAll,
   defaultOpen,
   onChange,
 }: {
+  defaultOpenAll?: boolean;
   defaultOpen?: {
     databaseBlockId: string;
     rowId: string;
@@ -214,12 +216,14 @@ export const DocDatabaseBacklinkInfo = ({
         <DatabaseBacklinkRow
           key={`${docId}-${rowId}`}
           defaultOpen={
-            defaultOpen?.some(
+            defaultOpenAll ||
+            (defaultOpen?.some(
               backlink =>
                 backlink.databaseBlockId === databaseBlockId &&
                 backlink.rowId === rowId &&
                 backlink.docId === docId
-            ) ?? false
+            ) ??
+              false)
           }
           row$={row$}
           onChange={onChange}

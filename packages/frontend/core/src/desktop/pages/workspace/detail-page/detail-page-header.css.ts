@@ -1,4 +1,4 @@
-import { manutRadius } from '@affine/component/theme';
+import { manutRadius } from '@affine/component/theme/tokens';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { style } from '@vanilla-extract/css';
 

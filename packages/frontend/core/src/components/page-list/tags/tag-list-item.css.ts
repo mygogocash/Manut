@@ -1,4 +1,4 @@
-import { manutMotion, manutRadius } from '@affine/component/theme';
+import { manutMotion, manutRadius } from '@affine/component/theme/tokens';
 import { cssVar } from '@toeverything/theme';
 import { globalStyle, style } from '@vanilla-extract/css';
 export const root = style({

@@ -97,3 +97,48 @@ test('append paragraph when click editor gap', async ({ page }) => {
     'editor should should keep being focused'
   ).toBe(true);
 });
+
+test('page detail uses Notion-style content layout', async ({ page }) => {
+  await openHomePage(page);
+  await waitForEditorLoad(page);
+  await clickNewPageButton(page);
+  await waitForEditorLoad(page);
+
+  const editor = page.locator('[data-affine-editor-container].page-mode');
+  await expect(editor).toBeVisible();
+  await expect(page.getByTestId('page-info-collapse')).toHaveCount(0);
+
+  const metrics = await editor.evaluate(el => {
+    const viewport = document.querySelector<HTMLElement>(
+      '.affine-page-viewport'
+    );
+    const title = document.querySelector<HTMLElement>('.doc-title-container');
+    const icon = document.querySelector<HTMLElement>('.doc-icon-container');
+
+    if (!viewport || !title || !icon) {
+      throw new Error('document page surface did not render');
+    }
+
+    const viewportStyle = getComputedStyle(viewport);
+    const titleStyle = getComputedStyle(title);
+    const iconStyle = getComputedStyle(icon);
+
+    return {
+      editorWidth: viewportStyle
+        .getPropertyValue('--affine-editor-width')
+        .trim(),
+      sidePadding: viewportStyle
+        .getPropertyValue('--affine-editor-side-padding')
+        .trim(),
+      iconPaddingTop: iconStyle.paddingTop,
+      titleMaxWidth: titleStyle.maxWidth,
+      editorMode: el.classList.contains('page-mode'),
+    };
+  });
+
+  expect(metrics.editorMode).toBe(true);
+  expect(metrics.editorWidth).toBe('760px');
+  expect(metrics.sidePadding).toBe('40px');
+  expect(metrics.iconPaddingTop).toBe('168px');
+  expect(metrics.titleMaxWidth).toBe('760px');
+});

@@ -2,7 +2,7 @@ import { MenuItem } from '@affine/core/modules/app-sidebar/views';
 import { ExternalMenuLinkItem } from '@affine/core/modules/app-sidebar/views/menu-item/external-menu-link-item';
 import { useI18n } from '@affine/i18n';
 import { ImportIcon, JournalIcon } from '@blocksuite/icons/rc';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import {
   CollapsibleSection,
@@ -22,25 +22,30 @@ import { TrashButton } from '../trash-button';
 
 interface HomeViewProps {
   onOpenImportModal: () => void;
+  navigation?: ReactNode;
 }
 
 /**
- * Home tab — the current sidebar body (Favorites / Organize / Tags /
- * Collections / Others). Extracted into its own component so it can be
- * swapped in/out of the `SidebarScrollableContainer` when the tab strip
- * changes the active tab.
+ * Home tab — workspace navigation plus the current sidebar body
+ * (Favorites / Organize / Tags / Collections / Others). Extracted into its
+ * own component so it can be swapped in/out of the `SidebarScrollableContainer`
+ * when the tab strip changes the active tab.
  *
  * Each section is wrapped in a hidden-set check so the Customize
  * Sections popover can hide it without unmounting peers. The check is
  * O(1) (Set.has) so this stays cheap on re-renders.
  */
-export function HomeView({ onOpenImportModal }: HomeViewProps): ReactElement {
+export function HomeView({
+  onOpenImportModal,
+  navigation,
+}: HomeViewProps): ReactElement {
   const t = useI18n();
   const { hidden } = useHiddenSections();
 
   return (
     <>
       <CustomizeSectionsRow />
+      {navigation}
       {!hidden.has('favorites') && <NavigationPanelFavorites />}
       {!hidden.has('organize') && <NavigationPanelOrganize />}
       {!hidden.has('migrationFavorites') && (
