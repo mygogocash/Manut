@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-13 (v1.12.0 release handoff)
+Last updated: 2026-05-22 23:12 +07 (layout fix handoff)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,16 +12,26 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `docs/v1.12-release-and-handover-refresh` (this docs PR)
+- Branch: `codex/notion-readable-page-layout`
+- Local HEAD: `65abecbdc feat: refine sidebar tabs and page layout (#128)`
 - Upstream: `origin/main`
-- Origin HEAD: `21364d308 chore(release): consolidate pending PRs #32 #34 #35 #36 #37 into v1.11.0 release (#39)`
-- Branch state: clean baseline + the docs edits in this PR.
+- Origin HEAD: `65abecbdc feat: refine sidebar tabs and page layout (#128)`
+- Branch state: synced with `origin/main` (`0 0` ahead/behind) before this
+  layout patch; the patch is ready for PR merge.
+- Dirty state: tracked changes are
+  `packages/frontend/component/src/ui/property/property.tsx`,
+  `packages/frontend/core/src/blocksuite/block-suite-editor/styles.css.ts`,
+  `packages/frontend/core/src/desktop/pages/workspace/detail-page/detail-page.css.ts`,
+  and `docs/AI_SESSION_HANDOVER.md`. There are still `1,430` untracked
+  generated declaration artifacts under `packages/frontend/core/src/**`; do
+  not blanket-delete hand-authored `*.d.ts` files.
 - Production branch: `main`
 - Production app: https://manut.xyz (canonical;
   `affine.gogocash.co` and `manut.gogocash.co` both 301-redirect)
-- Production image lineage: post-v1.11.0 consolidation tag in the
-  GAR registry `affine-gogocash`. Refresh against the latest
-  `manut-release.yml` run for the exact tag.
+- Production image lineage: latest observed `origin/main` commit is
+  `65abecbdc`; no deploy was performed during this layout pass. Refresh the
+  release/deploy workflow for the exact deployed image before production
+  action.
 
 ## Release lineage
 
@@ -234,6 +244,12 @@ on chat memory.
   pulses on AI doc-reads via a doc-read event bus + SSE stream). The
   Knowledge Graph branch (`feat/superflow-pm-crm-reminders-ui`) has
   the implementation but did not merge in time for v1.12.0.
+- **2026-05-22 — Notion-readable page detail layout.** Created
+  `codex/notion-readable-page-layout` from `origin/main` at `65abecbdc`.
+  Page detail icon/title/content remain on the same centered document column,
+  and inline page properties now render as a left-to-right Notion-like strip
+  with property label above value. The patch is scoped to the shared property
+  row data attributes plus the page-detail property-table styles.
 
 ## Verification Already Run
 
@@ -316,6 +332,25 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
 - Post-commit state check at `2026-05-10 15:01:17 +07`: branch
   `codex/superflow-backlog-pm-crm`, local HEAD `de7b49388`, origin/main
   `788a0e0b0`, `1 1` ahead/behind.
+- 2026-05-22 23:12 layout pass: `yarn prettier --check` passed for
+  `property.tsx`, block-suite editor `styles.css.ts`, and
+  `detail-page.css.ts`.
+- 2026-05-22 23:12 layout pass: `git diff --check` passed.
+- 2026-05-22 23:12 layout pass:
+  `yarn eslint --no-cache packages/frontend/component/src/ui/property/property.tsx packages/frontend/core/src/blocksuite/block-suite-editor/styles.css.ts packages/frontend/core/src/desktop/pages/workspace/detail-page/detail-page.css.ts`
+  passed.
+- 2026-05-22 23:12 layout pass: stale generated `.js` / `.js.map` source
+  count was `0` before bundling.
+- 2026-05-22 23:12 layout pass: `yarn affine bundle -p web` passed; rspack
+  compiled web and workers successfully with the existing asset-size /
+  entrypoint-size warnings.
+- 2026-05-22 23:12 layout pass: Browser rendered a localhost fixture using
+  the compiled CSS selectors from the web bundle. Desktop and 390px mobile
+  screenshots showed the icon, title, property strip, divider, and content
+  aligned in a single readable Notion-style column.
+- 2026-05-22 23:12 layout pass: full local app visual QA was blocked because
+  the web dev server proxied `/graphql` to a missing backend, and
+  `@affine/server` could not boot without local Redis and `DATABASE_URL`.
 
 ## Open Threads
 
@@ -343,9 +378,12 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   in product.
 - Keep `docs/MANUT_CONTROL_PLANE.md` and this file in sync whenever the
   handover JSON contract changes.
-- Next concrete step: open the v1.12.0 docs PR (this branch), then cut
-  the `v1.12.0` tag once `main` is rebased / merged and the release
-  CI green-lights the image.
+- Current layout QA risk: the compiled CSS fixture verifies the changed
+  selectors, but full app browser QA needs local Redis and `DATABASE_URL` or a
+  production-like preview backend so the detail page can load without the
+  `/graphql` 500.
+- Next concrete step: after merge, run a full production-like page-detail
+  smoke with backend services available so the real `/graphql` path is covered.
 
 ## Frequent Update Protocol
 
