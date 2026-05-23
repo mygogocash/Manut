@@ -12,7 +12,8 @@ export class DailyRollupCron {
   // TODO(phase-3): aggregate prev-day events into SocialMetric rows.
   @Cron('0 2 * * *')
   async run(): Promise<void> {
-    this.logger.debug('DailyRollupCron.run: not yet implemented');
-    throw new Error('NOT_IMPLEMENTED: DailyRollupCron.run');
+    this.logger.debug(
+      'DailyRollupCron.run: skipped until phase 3 rollups ship'
+    );
   }
 }

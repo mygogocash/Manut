@@ -569,8 +569,14 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
 
   protected override render() {
     const { isLast, status } = this;
+    const content = this.item?.content ?? '';
+    const hasContent =
+      content.trim().length > 0 || !!this.item?.streamObjects?.length;
 
-    if (isLast && status === 'loading') {
+    if (
+      isLast &&
+      (status === 'loading' || (status === 'transmitting' && !hasContent))
+    ) {
       return html`<ai-loading></ai-loading>`;
     }
 
