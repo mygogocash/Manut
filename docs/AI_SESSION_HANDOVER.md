@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-23 07:24 +07 (journals page-load fix)
+Last updated: 2026-05-23 07:32 +07 (PR #130 created)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -13,27 +13,20 @@ on chat memory.
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
 - Branch: `codex/fix-calendar-accounts-toast`
-- Local HEAD: `fe992de2e fix: improve page detail property layout`
+- Local HEAD: doc-refresh commit after `0cf7b7163 fix: harden workspace UX flows`
+  (run `git rev-parse --short HEAD` for the exact self-referential handover SHA).
 - Upstream: `origin/main`
 - Origin HEAD: `fe992de2e fix: improve page detail property layout`
-- PR: none open for `codex/fix-calendar-accounts-toast` (`gh pr list --head`
-  returned `[]`).
-- Branch state: local branch currently points at `origin/main`; new fixes are
-  uncommitted local WIP.
-- Dirty state: tracked WIP includes calendar/integrations toast suppression,
-  current-user GraphQL query scope hardening, app-sidebar error boundary,
-  mobile Notion-style home layout changes, bottom-right AI chat view-mode
-  switching, page-detail emoji/title alignment, Manut-branded modal popup
-  styling, and a workbench route-classification fix for direct-loading
-  reserved pages like `/journals`. New untracked source files are
-  `packages/frontend/core/src/mobile/pages/workspace/home.css.ts` and
-  `packages/frontend/core/src/modules/cloud/stores/__tests__/current-user-query-scope.spec.ts`;
-  route-classification files under `packages/frontend/core/src/modules/workbench/`
-  are also new WIP for the journals 500 fix.
-  Additional untracked local files are `docs/PITCH_SEA_BLOCKCHAIN_WEEK.md` and
-  `emoji-title-left-alignment.png`. There are also `1,429` untracked generated
-  declaration artifacts under `packages/frontend/core/src/**`; do not
-  blanket-delete hand-authored `*.d.ts` files.
+- PR: #130 — https://github.com/mygogocash/Manut/pull/130
+- Branch state: `codex/fix-calendar-accounts-toast` pushed to origin with
+  product fixes in `0cf7b7163 fix: harden workspace UX flows`; this doc
+  refresh is the only follow-up commit after PR creation.
+- Dirty state: intended source/doc changes are committed and pushed. Remaining
+  local noise is untracked only: `.playwright-mcp/`,
+  `docs/PITCH_SEA_BLOCKCHAIN_WEEK.md`, `emoji-title-left-alignment.png`, and
+  `1,429` generated declaration artifacts under
+  `packages/frontend/core/src/**`; do not blanket-delete hand-authored
+  `*.d.ts` files.
 - Production branch: `main`
 - Production app: https://manut.xyz (canonical;
   `affine.gogocash.co` and `manut.gogocash.co` both 301-redirect)
@@ -292,6 +285,12 @@ on chat memory.
   direct workspace loads. Desktop and mobile workspace shells now use the
   helper, preventing `/workspace/:workspaceId/journals` from being treated as a
   document/share fallback and surfacing the full-page 500 route error.
+- **2026-05-23 — PR #130 created.** Committed the current workspace UX,
+  settings hardening, modal/mobile/AI-chat, page-detail, and journals route
+  fixes as `0cf7b7163 fix: harden workspace UX flows`, pushed
+  `origin/codex/fix-calendar-accounts-toast`, and opened
+  https://github.com/mygogocash/Manut/pull/130. No production deploy was
+  performed.
 
 ## Verification Already Run
 
@@ -508,18 +507,13 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   in product.
 - Keep `docs/MANUT_CONTROL_PLANE.md` and this file in sync whenever the
   handover JSON contract changes.
-- Current QA risk: mobile Notion-style home, AI chat view modes,
-  page-detail emoji alignment, modal brand styling, and the journals route fix
-  are bundle/lint verified. Emoji/modal checks used Playwright fixtures, and
-  the journals live smoke confirms the current production tab is no longer
-  stuck on the 500 page, but the combined WIP still needs browser-shot review
-  against an authenticated local/prod-like preview that includes the local
-  bundle.
-- Next concrete step: visually review mobile home, bottom-right AI chat modes,
-  page-detail emoji placement, delete/prompt/account-picker modals, and
-  `/workspace/gogocash/journals` in an authenticated local/prod-like preview,
-  then stage source changes only (exclude generated declaration artifacts and
-  unrelated local files).
+- Current QA risk: PR #130 is lint/test/bundle verified, but before merge it
+  still needs browser-shot review against an authenticated local/prod-like
+  preview that includes the PR bundle.
+- Next concrete step: watch PR #130 CI, then visually review mobile home,
+  bottom-right AI chat modes, page-detail emoji placement,
+  delete/prompt/account-picker modals, and `/workspace/gogocash/journals`
+  before merge/deploy.
 
 ## Frequent Update Protocol
 
