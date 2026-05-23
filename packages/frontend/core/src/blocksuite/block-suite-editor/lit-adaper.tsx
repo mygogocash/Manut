@@ -265,7 +265,10 @@ export const BlocksuiteDocEditor = forwardRef<
           <BlocksuiteEditorJournalDocTitle page={page} />
         )}
         {!shared && displayDocInfo ? (
-          <div className={styles.docPropertiesTableContainer}>
+          <div
+            className={styles.docPropertiesTableContainer}
+            data-doc-properties-table-container
+          >
             <WorkspacePropertiesTable
               className={styles.docPropertiesTable}
               defaultExpanded
