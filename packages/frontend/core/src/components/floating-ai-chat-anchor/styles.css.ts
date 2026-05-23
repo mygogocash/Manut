@@ -101,12 +101,7 @@ export const anchorButton = style({
 // that lock onto it (e.g. e2e tests).
 export const panel = style({
   position: 'fixed',
-  top: 16,
-  bottom: 16,
-  right: 16,
-  width: 'min(420px, calc(100vw - 32px))',
   background: cssVar('backgroundOverlayPanelColor'),
-  borderRadius: 'var(--manut-radius-card)',
   border: `0.5px solid ${cssVar('borderColor')}`,
   boxShadow: '0 12px 40px rgba(0, 0, 0, 0.18)',
   display: 'flex',
@@ -114,6 +109,49 @@ export const panel = style({
   overflow: 'hidden',
   zIndex: 101,
   pointerEvents: 'auto',
+  transition:
+    'width 180ms var(--affine-anim-curve-default), height 180ms var(--affine-anim-curve-default), border-radius 180ms var(--affine-anim-curve-default)',
+  selectors: {
+    '&[data-mode="floating"]': {
+      top: 'auto',
+      right: 16,
+      bottom: 16,
+      width: 'min(430px, calc(100vw - 32px))',
+      height: 'min(560px, calc(100vh - 32px))',
+      borderRadius: 'var(--manut-radius-card)',
+    },
+    '&[data-mode="sidebar"]': {
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: 'min(440px, calc(100vw - 64px))',
+      height: 'auto',
+      borderTop: 'none',
+      borderRight: 'none',
+      borderBottom: 'none',
+      borderRadius: 0,
+      boxShadow: '-16px 0 40px rgba(0, 0, 0, 0.16)',
+    },
+    '&[data-mode="fullscreen"]': {
+      inset: 0,
+      width: 'auto',
+      height: 'auto',
+      border: 'none',
+      borderRadius: 0,
+      boxShadow: 'none',
+    },
+  },
+  '@media': {
+    '(max-width: 768px)': {
+      top: '0 !important',
+      right: '0 !important',
+      bottom: '0 !important',
+      left: '0 !important',
+      width: 'auto !important',
+      height: 'auto !important',
+      borderRadius: '0 !important',
+    },
+  },
 });
 
 export const panelHeader = style({
@@ -132,7 +170,13 @@ export const panelTitle = style({
   color: cssVar('textPrimaryColor'),
 });
 
-export const closeButton = style({
+export const panelHeaderActions = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 4,
+});
+
+export const headerIconButton = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -148,6 +192,12 @@ export const closeButton = style({
       background: cssVar('hoverColor'),
     },
   },
+});
+
+export const closeButton = style([headerIconButton]);
+
+export const viewModeMenu = style({
+  minWidth: 180,
 });
 
 // Context chip — page icon + title + remove-context button.

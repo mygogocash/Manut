@@ -4,6 +4,7 @@ import { PageNotFound } from '@affine/core/desktop/pages/404';
 import { SharePage } from '@affine/core/desktop/pages/workspace/share/share-page';
 import { workbenchRoutes } from '@affine/core/mobile/workbench-router';
 import { ServersService } from '@affine/core/modules/cloud';
+import { isWorkbenchDocRoutePath } from '@affine/core/modules/workbench/route-classification';
 import {
   replaceWorkspaceKeyInPathname,
   resolveWorkspaceMetadataByKey,
@@ -98,10 +99,7 @@ export const Component = () => {
       match &&
       match.params.docId &&
       match.params.workspaceId &&
-      // TODO(eyhn): need a better way to check if it's a docId
-      workbenchRoutes.find(route =>
-        matchPath(route.path, '/' + match.params.docId)
-      )?.path === '/:pageId'
+      isWorkbenchDocRoutePath(workbenchRoutes, '/' + match.params.docId)
     ) {
       const resolved = resolveWorkspaceMetadataByKey(
         match.params.workspaceId,

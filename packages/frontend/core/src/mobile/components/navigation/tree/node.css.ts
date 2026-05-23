@@ -6,20 +6,20 @@ import { createVar, style } from '@vanilla-extract/css';
 export const levelIndent = createVar();
 
 export const itemRoot = style({
-  display: 'inline-flex',
+  display: 'flex',
   alignItems: 'center',
   textAlign: 'left',
   color: 'inherit',
   width: '100%',
-  minHeight: '30px',
+  minHeight: '44px',
   userSelect: 'none',
   cursor: 'pointer',
-  fontSize: cssVar('fontSm'),
+  fontSize: 17,
   position: 'relative',
   marginTop: '0px',
-  padding: '8px',
+  padding: '4px 0',
   borderRadius: 0,
-  gap: 12,
+  gap: 8,
   transition:
     'opacity 120ms ease-out, transform 200ms var(--manut-anim-curve-overshoot)',
   selectors: {
@@ -34,21 +34,13 @@ export const itemRoot = style({
       pointerEvents: 'none',
     },
   },
-
-  ':after': {
-    content: '',
-    width: `calc(100% + ${levelIndent})`,
-    height: 0.5,
-    background: cssVar('borderColor'),
-    bottom: 0,
-    position: 'absolute',
-    right: 0,
-  },
 });
 
 export const collapsedIconContainer = style({
-  width: '16px',
-  height: '16px',
+  order: -1,
+  width: '24px',
+  height: '24px',
+  flexShrink: 0,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -81,7 +73,7 @@ export const itemMain = style({
   width: 0,
   flex: 1,
   position: 'relative',
-  gap: 12,
+  gap: 10,
 });
 
 export const iconContainer = style({
@@ -90,8 +82,9 @@ export const iconContainer = style({
   alignItems: 'center',
   color: cssVarV2('icon/primary'),
 
-  width: 32,
-  height: 32,
+  width: 30,
+  height: 30,
+  flexShrink: 0,
   fontSize: 24,
 });
 
@@ -104,6 +97,9 @@ export const itemContent = style([
     alignItems: 'center',
     flex: 1,
     color: cssVarV2('text/primary'),
+    fontSize: 17,
+    lineHeight: '24px',
+    letterSpacing: 0,
   },
 ]);
 

@@ -1,5 +1,11 @@
-import { cssVar } from '@toeverything/theme';
 import { style } from '@vanilla-extract/css';
+
+import {
+  manutPrimary,
+  manutRadius,
+  manutSpace,
+  manutSurface,
+} from '../../theme/manut-tokens';
 
 // desktop
 export const desktopStyles = {
@@ -7,31 +13,44 @@ export const desktopStyles = {
     display: 'flex',
     flexDirection: 'column',
   }),
-  description: style({}),
-  header: style({}),
+  description: style({
+    color: manutSurface.inkSoft,
+  }),
+  header: style({
+    color: manutSurface.ink,
+  }),
   content: style({
     height: '100%',
     overflowY: 'auto',
-    padding: '12px 4px 20px 4px',
+    padding: `${manutSpace(2)} 4px ${manutSpace(5)} 4px`,
+    color: manutSurface.ink,
   }),
   label: style({
-    color: cssVar('textSecondaryColor'),
+    color: manutSurface.inkSoft,
     fontSize: 14,
     lineHeight: '22px',
     padding: '8px 0',
   }),
-  input: style({}),
+  input: style({
+    borderRadius: manutRadius.input,
+    selectors: {
+      '&:focus': {
+        borderColor: manutPrimary.fg,
+        boxShadow: `0 0 0 3px ${manutPrimary.bg}`,
+      },
+    },
+  }),
   inputContainer: style({}),
   footer: style({
     display: 'flex',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingTop: '40px',
+    paddingTop: manutSpace(7),
     marginTop: 'auto',
-    gap: '20px',
+    gap: manutSpace(2),
     selectors: {
       '&.modalFooterWithChildren': {
-        paddingTop: '20px',
+        paddingTop: manutSpace(4),
       },
       '&.reverse': {
         flexDirection: 'row-reverse',
@@ -39,7 +58,10 @@ export const desktopStyles = {
       },
     },
   }),
-  action: style({}),
+  action: style({
+    minWidth: 76,
+    borderRadius: manutRadius.input,
+  }),
 };
 
 // mobile
@@ -54,11 +76,12 @@ export const mobileStyles = {
     padding: '11px 22px',
     fontSize: 17,
     fontWeight: 400,
-    letterSpacing: -0.43,
+    letterSpacing: 0,
     lineHeight: '22px',
+    color: manutSurface.inkSoft,
   }),
   label: style({
-    color: cssVar('textSecondaryColor'),
+    color: manutSurface.inkSoft,
     fontSize: 14,
     lineHeight: '22px',
     padding: '8px 16px',
@@ -68,8 +91,9 @@ export const mobileStyles = {
     marginBottom: '0px !important',
     fontSize: 17,
     fontWeight: 600,
-    letterSpacing: -0.43,
+    letterSpacing: 0,
     lineHeight: '22px',
+    color: manutSurface.ink,
   }),
   inputContainer: style({
     padding: '0 16px',
@@ -78,19 +102,28 @@ export const mobileStyles = {
     height: 44,
     fontSize: 17,
     lineHeight: '22px',
+    letterSpacing: 0,
+    borderRadius: manutRadius.input,
+    selectors: {
+      '&:focus': {
+        borderColor: manutPrimary.fg,
+        boxShadow: `0 0 0 3px ${manutPrimary.bg}`,
+      },
+    },
   }),
   content: style({
     padding: '11px 22px',
     fontSize: 17,
     fontWeight: 400,
-    letterSpacing: -0.43,
+    letterSpacing: 0,
     lineHeight: '22px',
+    color: manutSurface.ink,
   }),
   footer: style({
     padding: '8px 16px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 16,
+    gap: manutSpace(2),
     selectors: {
       '&.reverse': {
         flexDirection: 'column-reverse',
@@ -100,10 +133,10 @@ export const mobileStyles = {
   action: style({
     width: '100%',
     height: 44,
-    borderRadius: 8,
+    borderRadius: manutRadius.input,
     fontSize: 17,
     fontWeight: 400,
-    letterSpacing: -0.43,
+    letterSpacing: 0,
     lineHeight: '22px',
   }),
 };
