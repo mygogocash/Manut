@@ -1,6 +1,6 @@
 import { cssVar } from '@toeverything/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
-import { globalStyle, style } from '@vanilla-extract/css';
+import { globalStyle, type GlobalStyleRule, style } from '@vanilla-extract/css';
 
 export const mainContainer = style({
   containerType: 'inline-size',
@@ -53,6 +53,33 @@ export const pageModeViewportContentBox = style({
     '--affine-editor-side-padding': '40px',
   },
 });
+export const pageModeDocumentColumnStyle = {
+  boxSizing: 'border-box',
+  width: '100%',
+  maxWidth: 'var(--affine-editor-width)',
+  marginLeft: 0,
+  marginRight: 'auto',
+  textAlign: 'left',
+} satisfies GlobalStyleRule;
+export const pageModePropertiesContainerStyle = {
+  justifyContent: 'flex-start',
+} satisfies GlobalStyleRule;
+export const pageModePropertiesGridStyle = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-start',
+  alignItems: 'flex-start',
+  columnGap: 56,
+  rowGap: 12,
+} satisfies GlobalStyleRule;
+export const pageModePropertyCellStyle = {
+  flex: '0 1 164px',
+  maxWidth: 260,
+} satisfies GlobalStyleRule;
+export const pageModePropertyFullRowStyle = {
+  flexBasis: '100%',
+  maxWidth: '100%',
+} satisfies GlobalStyleRule;
 globalStyle(
   `${pageModeViewportContentBox} >:first-child:has(>[data-affine-editor-container])`,
   { display: 'table !important', minWidth: '100%' }
@@ -68,12 +95,10 @@ globalStyle(
 globalStyle(
   `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .doc-icon-container`,
   {
+    ...pageModeDocumentColumnStyle,
     boxSizing: 'border-box',
     display: 'flex',
     width: '100%',
-    maxWidth: 'var(--affine-editor-width)',
-    marginLeft: 'auto',
-    marginRight: 'auto',
     justifyContent: 'flex-start',
     alignItems: 'center',
     paddingTop: 168,
@@ -85,6 +110,7 @@ globalStyle(
 globalStyle(
   `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .doc-title-container`,
   {
+    ...pageModeDocumentColumnStyle,
     paddingTop: 168,
     paddingBottom: 18,
     fontSize: 40,
@@ -100,6 +126,7 @@ globalStyle(
 globalStyle(
   `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .affine-page-root-block-container`,
   {
+    ...pageModeDocumentColumnStyle,
     minHeight: 'auto',
     paddingBottom: 80,
     '@container': {
@@ -113,7 +140,7 @@ globalStyle(
 globalStyle(
   `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-testid="page-editor-blank"]`,
   {
-    maxWidth: 'var(--affine-editor-width)',
+    ...pageModeDocumentColumnStyle,
   }
 );
 globalStyle(
@@ -122,6 +149,22 @@ globalStyle(
     width: '100%',
     maxWidth: 180,
   }
+);
+globalStyle(
+  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container]`,
+  pageModePropertiesContainerStyle
+);
+globalStyle(
+  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container] [data-property-collapsible]`,
+  pageModePropertiesGridStyle
+);
+globalStyle(
+  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container] [data-property-row], ${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container] [data-testid="database-backlink-cell"]`,
+  pageModePropertyCellStyle
+);
+globalStyle(
+  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container] [data-property-collapsible] > [data-testid="property-collapsible-button"], ${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container] [data-property-collapsible] > div:has(> [data-testid="add-property-button"])`,
+  pageModePropertyFullRowStyle
 );
 globalStyle(
   `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .doc-icon-container`,
