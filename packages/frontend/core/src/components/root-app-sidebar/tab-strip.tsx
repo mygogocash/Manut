@@ -1,4 +1,5 @@
 import { NotificationCountService } from '@affine/core/modules/notification';
+import { CMDKQuickSearchService } from '@affine/core/modules/quicksearch/services/cmdk';
 import { trackEvent } from '@affine/core/modules/telemetry';
 import {
   ChatPanelIcon,
@@ -11,11 +12,14 @@ import { useLiveData, useService } from '@toeverything/infra';
 import type { ReactElement, ReactNode } from 'react';
 
 import { tabBadgeDot, tabButton, tabStripRoot } from './tab-strip.css';
-import type { SidebarTab } from './use-active-tab';
+import {
+  resolveSidebarTabClick,
+  type SidebarTabButton,
+} from './tab-strip-behavior';
 import { useActiveTab } from './use-active-tab';
 
 interface TabDescriptor {
-  id: SidebarTab;
+  id: SidebarTabButton;
   label: string;
   icon: ReactNode;
 }
@@ -31,9 +35,11 @@ const TABS: readonly TabDescriptor[] = [
 /**
  * Five-icon tab strip for the sidebar quick actions. Each icon swaps the
  * active tab globalState so the related menu renders inside the sidebar body.
+ * Search is the exception: it opens the global Notion-style CMDK modal.
  */
 export function TabStrip(): ReactElement {
   const { activeTab, setActiveTab } = useActiveTab();
+  const cMDKQuickSearchService = useService(CMDKQuickSearchService);
   // Inbox tab decoration — show a small red dot when there are unread
   // notifications. `count$` is a `LiveData<number>` that the service polls
   // every 30s + revalidates on focus/server-start; `useLiveData` keeps the
@@ -50,7 +56,7 @@ export function TabStrip(): ReactElement {
       data-testid="sidebar-tab-strip"
     >
       {TABS.map(({ id, label, icon }) => {
-        const isActive = id === activeTab;
+        const isActive = id !== 'search' && id === activeTab;
         const showInboxDot = id === 'inbox' && notificationCount > 0;
         return (
           <button
@@ -73,7 +79,11 @@ export function TabStrip(): ReactElement {
               // ("sidebar") so downstream analytics can distinguish
               // this surface from future tab strips.
               trackEvent('sidebar_nav_clicked', { tab: 'sidebar', item: id });
-              setActiveTab(id);
+              const action = resolveSidebarTabClick(activeTab, id);
+              if (action.openQuickSearch) {
+                cMDKQuickSearchService.toggle();
+              }
+              setActiveTab(action.nextActiveTab);
             }}
           >
             {icon}

@@ -131,7 +131,7 @@ test.describe('@manut sidebar tabs v2', () => {
     await expect(page.getByTestId('sidebar-tab-search')).toBeVisible();
   });
 
-  test('sidebar > given flag on > quick actions swap sidebar body', async ({
+  test('sidebar > given flag on > search opens global modal instead of sidebar body', async ({
     page,
   }) => {
     await setSidebarTabsFlag(page, true);
@@ -154,12 +154,23 @@ test.describe('@manut sidebar tabs v2', () => {
 
     await page.getByTestId('sidebar-tab-search').click();
 
-    const searchView = page.getByTestId('sidebar-search-view');
-    await expect(searchView).toBeVisible({ timeout: 5_000 });
-    await expect(searchView.getByTestId('cmdk-quick-search')).toBeVisible();
+    await expect(page.getByTestId('cmdk-quick-search')).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.getByTestId('sidebar-search-view')).toHaveCount(0);
     await expect(page.getByTestId('sidebar-tab-search')).toHaveAttribute(
       'data-active',
-      'true'
+      'false'
     );
+    const searchIsOutsideSidebar = await page.evaluate(() => {
+      const search = document.querySelector(
+        '[data-testid="cmdk-quick-search"]'
+      );
+      const sidebarSearch = document.querySelector(
+        '[data-testid="sidebar-search-view"]'
+      );
+      return !!search && !sidebarSearch;
+    });
+    expect(searchIsOutsideSidebar).toBe(true);
   });
 });

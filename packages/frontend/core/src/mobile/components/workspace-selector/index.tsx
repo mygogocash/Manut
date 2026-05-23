@@ -3,8 +3,8 @@ import { WorkspacesService } from '@affine/core/modules/workspace';
 import { track } from '@affine/track';
 import { useServiceOptional } from '@toeverything/infra';
 import {
+  type ButtonHTMLAttributes,
   forwardRef,
-  type HTMLAttributes,
   useCallback,
   useEffect,
   useState,
@@ -14,9 +14,9 @@ import { CurrentWorkspaceCard } from './current-card';
 import { SelectorMenu } from './menu';
 
 export const WorkspaceSelector = forwardRef<
-  HTMLDivElement,
-  HTMLAttributes<HTMLDivElement>
->(function WorkspaceSelector({ className }, ref) {
+  HTMLButtonElement,
+  ButtonHTMLAttributes<HTMLButtonElement> & { compact?: boolean }
+>(function WorkspaceSelector({ className, compact, ...attrs }, ref) {
   const [open, setOpen] = useState(false);
   const workspaceManager = useServiceOptional(WorkspacesService);
 
@@ -47,6 +47,8 @@ export const WorkspaceSelector = forwardRef<
         ref={ref}
         onClick={openMenu}
         className={className}
+        compact={compact}
+        {...attrs}
       />
     </MobileMenu>
   );

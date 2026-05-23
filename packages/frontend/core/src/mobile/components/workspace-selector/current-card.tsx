@@ -6,25 +6,34 @@ import { UNTITLED_WORKSPACE_NAME } from '@affine/env/constant';
 import { ArrowDownSmallIcon } from '@blocksuite/icons/rc';
 import { useServiceOptional } from '@toeverything/infra';
 import clsx from 'clsx';
-import { forwardRef, type HTMLAttributes } from 'react';
+import { type ButtonHTMLAttributes, forwardRef } from 'react';
 
 import { card, dropdownIcon, label } from './card.css';
 
-export interface CurrentWorkspaceCardProps extends HTMLAttributes<HTMLDivElement> {}
+export interface CurrentWorkspaceCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  compact?: boolean;
+}
 
 export const CurrentWorkspaceCard = forwardRef<
-  HTMLDivElement,
+  HTMLButtonElement,
   CurrentWorkspaceCardProps
->(function CurrentWorkspaceCard({ onClick, className, ...attrs }, ref) {
+>(function CurrentWorkspaceCard(
+  { compact, onClick, className, ...attrs },
+  ref
+) {
   const currentWorkspace = useServiceOptional(WorkspaceService)?.workspace;
   const info = useWorkspaceInfo(currentWorkspace?.meta);
   const name = info?.name ?? UNTITLED_WORKSPACE_NAME;
 
   return (
-    <div
+    <button
       ref={ref}
+      type="button"
       onClick={onClick}
       className={clsx(card, className)}
+      data-compact={compact ? 'true' : 'false'}
+      data-testid="mobile-workspace-switcher-trigger"
+      aria-label={`Switch workspace, current workspace ${name}`}
       {...attrs}
     >
       {currentWorkspace ? (
@@ -40,10 +49,12 @@ export const CurrentWorkspaceCard = forwardRef<
       ) : (
         <Avatar size={40} rounded={3} colorfulFallback />
       )}
-      <div className={label}>
-        {name}
-        <ArrowDownSmallIcon className={dropdownIcon} />
-      </div>
-    </div>
+      {!compact ? (
+        <div className={label}>
+          {name}
+          <ArrowDownSmallIcon className={dropdownIcon} />
+        </div>
+      ) : null}
+    </button>
   );
 });

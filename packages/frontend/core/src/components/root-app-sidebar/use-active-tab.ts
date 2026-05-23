@@ -4,9 +4,10 @@ import { useCallback, useMemo } from 'react';
 import { GlobalStateService } from '../../modules/storage';
 import { WorkspaceService } from '../../modules/workspace';
 
-// Sidebar tab union — every quick action owns the sidebar body. Search uses an
-// inline CMDK surface instead of opening the global modal overlay.
-export type SidebarTab = 'home' | 'chat' | 'meetings' | 'inbox' | 'search';
+// Sidebar tab union — every quick action here owns sidebar body content.
+// Search intentionally stays out of this persisted state: clicking it opens
+// the global CMDK modal so search does not take over the sidebar.
+export type SidebarTab = 'home' | 'chat' | 'meetings' | 'inbox';
 
 const DEFAULT_TAB: SidebarTab = 'home';
 
@@ -15,7 +16,6 @@ const ALLOWED_TABS: ReadonlySet<SidebarTab> = new Set<SidebarTab>([
   'chat',
   'meetings',
   'inbox',
-  'search',
 ]);
 
 function isSidebarTab(value: unknown): value is SidebarTab {
@@ -32,8 +32,8 @@ export interface UseActiveTabResult {
  * under the workspace-scoped key `sidebar.activeTab.${workspaceId}` so each
  * workspace remembers its last-opened tab independently. Default: `'home'`.
  *
- * Every tab swaps the sidebar body; Search renders an inline CMDK instance
- * that is scoped to the sidebar.
+ * Search is not persisted as a body tab. If an older build left `search` in
+ * storage, `isSidebarTab` rejects it and the sidebar falls back to Home.
  */
 export function useActiveTab(): UseActiveTabResult {
   const globalStateService = useService(GlobalStateService);

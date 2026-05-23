@@ -1,4 +1,3 @@
-// Import is already correct, no changes needed
 import { usePageHelper } from '@affine/core/blocksuite/block-suite-page-list/utils';
 import {
   AddPageButton,
@@ -71,7 +70,6 @@ import { ChatView } from './views/chat-view';
 import { HomeView } from './views/home-view';
 import { InboxView } from './views/inbox-view';
 import { MeetingsView } from './views/meetings-view';
-import { SearchView } from './views/search-view';
 
 export type RootAppSidebarProps = {
   isPublicWorkspace: boolean;
@@ -330,8 +328,6 @@ const TabbedSidebarBody = ({
       return <MeetingsView />;
     case 'inbox':
       return <InboxView />;
-    case 'search':
-      return <SearchView />;
     case 'home':
     default:
       return (
