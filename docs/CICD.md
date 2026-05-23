@@ -105,6 +105,26 @@ file before SSHing the VM. Defensive checks at every step:
 This keeps the deploy job small and makes the handoff debuggable from
 the GHA UI without needing VM SSH.
 
+## Beta Security Gate
+
+`Manut Beta Security Gate` is the pre-beta hardening workflow. It runs
+on PRs to `main`, weekly, and on manual dispatch. It does not deploy
+or require production secrets. The gate checks:
+
+- workflow syntax with actionlint,
+- committed-secret regressions with gitleaks,
+- critical production dependency advisories with `yarn npm audit`,
+- high-confidence Semgrep security rules over backend, frontend, and
+  Manut-owned workflows,
+- custom guards for GraphQL introspection and risky GitHub Actions
+  permission patterns.
+
+The gate is intentionally separate from `Manut CI`: normal CI answers
+"does the app build?", while the beta gate answers "is this candidate
+safe enough to invite testers?". The launch-window owner records the
+final result in `docs/BETA_GO_NO_GO.md` and tracks any blocker in
+`docs/BETA_RISK_REGISTER.md`.
+
 ## Control-plane handover artifacts
 
 Manut now treats each image build as a small control-plane handover.

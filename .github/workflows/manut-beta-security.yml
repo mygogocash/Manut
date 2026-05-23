@@ -1,0 +1,231 @@
+name: 🛡️ Manut Beta Security Gate
+run-name: '🛡️ Beta Security #${{ github.run_number }} • ${{ github.event.pull_request.title || github.ref_name }} • by ${{ github.actor }}'
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # Weekly baseline before the Monday Asia/Bangkok workday.
+    - cron: '0 22 * * 0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  YARN_ENABLE_HARDENED_MODE: 0
+
+jobs:
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install actionlint
+        run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.11
+      - name: Run actionlint
+        run: '$(go env GOPATH)/bin/actionlint'
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.29.1
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install /tmp/gitleaks /usr/local/bin/gitleaks
+      - name: Scan working tree for committed secrets
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/gitleaks-source
+          mkdir -p /tmp/gitleaks-source
+          git ls-files -z --cached --others --exclude-standard \
+            | tar --null -T - -cf - \
+            | tar -C /tmp/gitleaks-source -xf -
+          gitleaks detect \
+            --source /tmp/gitleaks-source \
+            --redact \
+            --verbose \
+            --no-git \
+            --exit-code 0 \
+            --report-format json \
+            --report-path /tmp/gitleaks-report.json
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          report_path = '/tmp/gitleaks-report.json'
+          if not os.path.exists(report_path):
+              print('No gitleaks report written; treating as no findings.')
+              sys.exit(0)
+
+          with open(report_path, encoding='utf-8') as handle:
+              findings = json.load(handle)
+
+          def allowed(finding):
+              file_path = finding.get('File', '')
+              rule_id = finding.get('RuleID', '')
+              normalized = file_path.replace('\\', '/')
+
+              if (
+                  rule_id == 'private-key'
+                  and normalized.endswith('packages/backend/server/src/core/doc/__tests__/reader-from-rpc.spec.ts')
+              ):
+                  return True
+              if (
+                  rule_id == 'generic-api-key'
+                  and normalized.endswith('packages/backend/server/src/plugins/analytics/ingest/ingestion.service.ts')
+              ):
+                  return True
+              return False
+
+          unexpected = [finding for finding in findings if not allowed(finding)]
+          if unexpected:
+              for finding in unexpected[:20]:
+                  print(
+                      '::error file={file},line={line}::Unexpected secret finding ({rule})'.format(
+                          file=finding.get('File', '<unknown>'),
+                          line=finding.get('StartLine') or finding.get('Line') or 1,
+                          rule=finding.get('RuleID', '<unknown>'),
+                      )
+                  )
+              if len(unexpected) > 20:
+                  print(f'::error::{len(unexpected) - 20} additional secret findings hidden')
+              sys.exit(1)
+
+          print(f'Gitleaks findings allowed by beta baseline: {len(findings)}')
+          PY
+
+  dependency-audit:
+    name: Production dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/manut-yarn
+      - name: Fail on critical production dependency advisories
+        run: yarn npm audit --all --recursive --environment production --severity critical
+
+  static-analysis:
+    name: Static security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Semgrep
+        run: |
+          python -m venv .semgrep-venv
+          . .semgrep-venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install semgrep==1.99.0
+      - name: Run high-confidence Semgrep rules
+        run: |
+          . .semgrep-venv/bin/activate
+          semgrep scan \
+            --config p/owasp-top-ten \
+            --config p/secrets \
+            --severity ERROR \
+            --error \
+            packages/backend/server/src \
+            packages/frontend/core/src \
+            .github/workflows/manut-*.yml
+
+  custom-guards:
+    name: Manut security regression guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard GraphQL production introspection
+        run: |
+          set -euo pipefail
+          if rg -n "introspection:\\s*true|graphiql:\\s*true" packages/backend/server/src/base/graphql; then
+            echo "::error::GraphQL introspection/GraphiQL must stay gated to development only."
+            exit 1
+          fi
+      - name: Guard pull_request_target permissions
+        run: |
+          set -euo pipefail
+          files="$(rg -l "^\\s*pull_request_target:" .github/workflows || true)"
+          if [ -z "$files" ]; then
+            exit 0
+          fi
+          for file in $files; do
+            if ! awk '
+              /^permissions:[[:space:]]*[{][}][[:space:]]*$/ { found = 1 }
+              /^permissions:[[:space:]]*$/ { found = 1 }
+              END { exit found ? 0 : 1 }
+            ' "$file"; then
+              echo "::error file=$file::pull_request_target workflows must declare top-level minimum permissions."
+              exit 1
+            fi
+          done
+      - name: Guard dangerous workflow inputs
+        run: |
+          set -euo pipefail
+          if rg -n "\\$\\{\\{\\s*inputs\\.[^}]+\\}\\}" .github/workflows/manut-*.yml; then
+            echo "::warning::Workflow inputs found. Verify they are passed through env and charset-validated before shell use."
+          fi
+
+  beta-security-complete:
+    name: Beta security complete
+    needs:
+      - workflow-lint
+      - secret-scan
+      - dependency-audit
+      - static-analysis
+      - custom-guards
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Aggregate beta security results
+        env:
+          WORKFLOW_LINT: ${{ needs.workflow-lint.result }}
+          SECRET_SCAN: ${{ needs.secret-scan.result }}
+          DEPENDENCY_AUDIT: ${{ needs.dependency-audit.result }}
+          STATIC_ANALYSIS: ${{ needs.static-analysis.result }}
+          CUSTOM_GUARDS: ${{ needs.custom-guards.result }}
+        run: |
+          {
+            echo "## Manut Beta Security Gate"
+            echo ""
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Workflow lint | ${WORKFLOW_LINT} |"
+            echo "| Secret scan | ${SECRET_SCAN} |"
+            echo "| Production dependency audit | ${DEPENDENCY_AUDIT} |"
+            echo "| Static security scan | ${STATIC_ANALYSIS} |"
+            echo "| Manut custom guards | ${CUSTOM_GUARDS} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${WORKFLOW_LINT}" != "success" ] ||
+             [ "${SECRET_SCAN}" != "success" ] ||
+             [ "${DEPENDENCY_AUDIT}" != "success" ] ||
+             [ "${STATIC_ANALYSIS}" != "success" ] ||
+             [ "${CUSTOM_GUARDS}" != "success" ]; then
+            echo "::error::One or more beta security gates failed."
+            exit 1
+          fi
