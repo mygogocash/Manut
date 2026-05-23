@@ -30,6 +30,12 @@ Treat every box as a launch blocker unless explicitly marked as
 ## 2. CI gates
 
 - [ ] `Manut CI` green on `main`.
+- [ ] `Manut Beta Security Gate` green on the beta candidate commit:
+  - [ ] Workflow lint.
+  - [ ] Secret scan.
+  - [ ] Production dependency audit.
+  - [ ] Static security scan.
+  - [ ] Manut security regression guards.
 - [ ] `🏗️ Manut Build` produced the `:main-<sha>-<runid>` immutable
       image in GAR.
 - [ ] `tests/affine-cloud/e2e/manut/*.spec.ts` green in CI (the
@@ -161,6 +167,9 @@ runs immediately before flipping the switch.
 - [ ] All boxes above green (or explicitly waived in writing).
 - [ ] Production smoke (all six specs in
       [MANUT_DEPLOY_RUNBOOK.md §7](./MANUT_DEPLOY_RUNBOOK.md#7-smoke-test-sequence)) green within the last 60 min.
+- [ ] `docs/BETA_RISK_REGISTER.md` has no open P0/P1 findings.
+- [ ] `docs/BETA_GO_NO_GO.md` is filled out with commit, Railway
+      deployment id, rollback target, and launch owner.
 - [ ] No `[ERROR]` lines in Railway logs for the last 30 min.
 - [ ] Status page reads "All systems operational".
 - [ ] Comms drafts reviewed by ≥1 second pair of eyes.
