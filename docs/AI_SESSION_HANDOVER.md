@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-22 23:12 +07 (layout fix handoff)
+Last updated: 2026-05-23 07:24 +07 (journals page-load fix)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,24 +12,33 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/notion-readable-page-layout`
-- Local HEAD: `65abecbdc feat: refine sidebar tabs and page layout (#128)`
+- Branch: `codex/fix-calendar-accounts-toast`
+- Local HEAD: `fe992de2e fix: improve page detail property layout`
 - Upstream: `origin/main`
-- Origin HEAD: `65abecbdc feat: refine sidebar tabs and page layout (#128)`
-- Branch state: synced with `origin/main` (`0 0` ahead/behind) before this
-  layout patch; the patch is ready for PR merge.
-- Dirty state: tracked changes are
-  `packages/frontend/component/src/ui/property/property.tsx`,
-  `packages/frontend/core/src/blocksuite/block-suite-editor/styles.css.ts`,
-  `packages/frontend/core/src/desktop/pages/workspace/detail-page/detail-page.css.ts`,
-  and `docs/AI_SESSION_HANDOVER.md`. There are still `1,430` untracked
-  generated declaration artifacts under `packages/frontend/core/src/**`; do
-  not blanket-delete hand-authored `*.d.ts` files.
+- Origin HEAD: `fe992de2e fix: improve page detail property layout`
+- PR: none open for `codex/fix-calendar-accounts-toast` (`gh pr list --head`
+  returned `[]`).
+- Branch state: local branch currently points at `origin/main`; new fixes are
+  uncommitted local WIP.
+- Dirty state: tracked WIP includes calendar/integrations toast suppression,
+  current-user GraphQL query scope hardening, app-sidebar error boundary,
+  mobile Notion-style home layout changes, bottom-right AI chat view-mode
+  switching, page-detail emoji/title alignment, Manut-branded modal popup
+  styling, and a workbench route-classification fix for direct-loading
+  reserved pages like `/journals`. New untracked source files are
+  `packages/frontend/core/src/mobile/pages/workspace/home.css.ts` and
+  `packages/frontend/core/src/modules/cloud/stores/__tests__/current-user-query-scope.spec.ts`;
+  route-classification files under `packages/frontend/core/src/modules/workbench/`
+  are also new WIP for the journals 500 fix.
+  Additional untracked local files are `docs/PITCH_SEA_BLOCKCHAIN_WEEK.md` and
+  `emoji-title-left-alignment.png`. There are also `1,429` untracked generated
+  declaration artifacts under `packages/frontend/core/src/**`; do not
+  blanket-delete hand-authored `*.d.ts` files.
 - Production branch: `main`
 - Production app: https://manut.xyz (canonical;
   `affine.gogocash.co` and `manut.gogocash.co` both 301-redirect)
 - Production image lineage: latest observed `origin/main` commit is
-  `65abecbdc`; no deploy was performed during this layout pass. Refresh the
+  `fe992de2e`; no deploy was performed during this current WIP. Refresh the
   release/deploy workflow for the exact deployed image before production
   action.
 
@@ -250,6 +259,39 @@ on chat memory.
   and inline page properties now render as a left-to-right Notion-like strip
   with property label above value. The patch is scoped to the shared property
   row data attributes plus the page-detail property-table styles.
+- **2026-05-23 — Mobile home Notion-style UI pass.** The mobile home route now
+  uses a Notion-like workspace pill header with round notification/settings
+  actions, horizontal recents tuned for mobile cards, left-to-right navigation
+  rows with the chevron before the icon/title, and a floating bottom dock for
+  Search, Ask AI, and New Doc. Scope is mobile-only:
+  `mobile/pages/workspace/home.tsx`, new `home.css.ts`, mobile home header,
+  recent-doc card/list styles, and mobile navigation row/header styles.
+- **2026-05-23 — Settings/calendar + 500 hardening WIP.** Prior uncommitted
+  fixes on this branch suppress non-actionable calendar account load toasts,
+  add tests for that behavior, scope current-user GraphQL store queries to the
+  exact operation documents, and wrap the desktop root app sidebar in a
+  fallback error boundary so a bad sidebar read does not take down the app.
+- **2026-05-23 — Bottom-right AI chat view modes.** The floating AI chat
+  launcher now keeps the same `AIChatContent` session mounted while switching
+  between `Floating`, `Sidebar`, and `Full screen` shell modes. The mode menu
+  lives in the chat panel header and the CSS shell changes by `data-mode`
+  without remounting the chat body.
+- **2026-05-23 — Page detail emoji alignment.** The page-mode emoji icon row
+  now uses the same centered editor column width and side padding as the title,
+  so the emoji sits at the left edge above the page title instead of drifting
+  right.
+- **2026-05-23 — Modal popup brand styling.** Shared `Modal`,
+  `ConfirmModal`, and `PromptModal` surfaces now use stronger Manut glass,
+  violet-tinted overlay/edge treatment, brand ink colors, and tighter
+  Notion-like action spacing. The custom AI Strategist modal and analytics
+  account picker pattern were updated to the same Manut surface/primary token
+  language so popup-adjacent UI does not fall back to legacy gray styling.
+- **2026-05-23 — Journals page-load fix.** Added a shared workbench route
+  classifier so reserved routes such as `/journals`, `/analytics`, and nested
+  workspace pages win before the dynamic `/:pageId` document fallback during
+  direct workspace loads. Desktop and mobile workspace shells now use the
+  helper, preventing `/workspace/:workspaceId/journals` from being treated as a
+  document/share fallback and surfacing the full-page 500 route error.
 
 ## Verification Already Run
 
@@ -351,6 +393,94 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
 - 2026-05-22 23:12 layout pass: full local app visual QA was blocked because
   the web dev server proxied `/graphql` to a missing backend, and
   `@affine/server` could not boot without local Redis and `DATABASE_URL`.
+- 2026-05-23 00:09 calendar/settings + 500 hardening:
+  `yarn vitest packages/frontend/core/src/modules/cloud/stores/__tests__/current-user-query-scope.spec.ts packages/frontend/core/src/desktop/dialogs/setting/account-setting/integrations-panel.spec.tsx --run`
+  passed (`11` tests).
+- 2026-05-23 00:09 calendar/settings + 500 hardening:
+  `yarn eslint --no-cache` passed for the touched app-container,
+  integrations-panel, integrations-panel spec, cloud store files, and
+  current-user query-scope spec.
+- 2026-05-23 00:09 calendar/settings + 500 hardening:
+  `yarn prettier --check` passed for the same touched files; `git diff --check`
+  passed; stale generated `.js` / `.js.map` source count was `0`.
+- 2026-05-23 00:09 calendar/settings + 500 hardening:
+  `yarn affine bundle -p web` passed with existing asset-size warnings; live
+  authenticated smoke on `https://manut.xyz/workspace/gogocash/all` rendered
+  All docs instead of the reported 500 page.
+- 2026-05-23 00:09 mobile Notion-style UI pass:
+  `yarn prettier --check` passed for the touched mobile home/header/navigation/
+  card style files.
+- 2026-05-23 00:09 mobile Notion-style UI pass:
+  `yarn eslint --no-cache` passed for the touched mobile home/header/
+  navigation/card style files.
+- 2026-05-23 00:09 mobile Notion-style UI pass: `git diff --check` passed.
+- 2026-05-23 00:09 mobile Notion-style UI pass: `yarn affine bundle -p mobile`
+  passed; rspack compiled mobile and workers successfully with existing
+  asset-size / entrypoint-size warnings.
+- 2026-05-23 00:16 AI chat view modes:
+  `yarn prettier --check packages/frontend/core/src/components/floating-ai-chat-anchor/index.tsx packages/frontend/core/src/components/floating-ai-chat-anchor/styles.css.ts`
+  passed.
+- 2026-05-23 00:16 AI chat view modes:
+  `yarn eslint --no-cache packages/frontend/core/src/components/floating-ai-chat-anchor/index.tsx packages/frontend/core/src/components/floating-ai-chat-anchor/styles.css.ts`
+  passed.
+- 2026-05-23 00:16 AI chat view modes: `git diff --check` passed.
+- 2026-05-23 00:16 AI chat view modes: `yarn affine bundle -p web` passed;
+  rspack compiled web and workers successfully with existing asset-size /
+  entrypoint-size warnings.
+- 2026-05-23 06:18 heartbeat refresh: branch still
+  `codex/fix-calendar-accounts-toast` at `fe992de2e`, no PR is open for this
+  branch, and dirty WIP remains unchanged from the 05:48 refresh.
+- 2026-05-23 06:54 page-detail emoji alignment:
+  `yarn prettier --check packages/frontend/core/src/desktop/pages/workspace/detail-page/detail-page.css.ts`
+  passed.
+- 2026-05-23 06:54 page-detail emoji alignment:
+  `yarn eslint --no-cache packages/frontend/core/src/desktop/pages/workspace/detail-page/detail-page.css.ts`
+  passed.
+- 2026-05-23 06:54 page-detail emoji alignment:
+  `git diff --check packages/frontend/core/src/desktop/pages/workspace/detail-page/detail-page.css.ts`
+  passed; stale generated `.js` / `.js.map` source count was `0`.
+- 2026-05-23 06:54 page-detail emoji alignment: `yarn affine bundle -p web`
+  passed; rspack compiled web and workers successfully with existing
+  asset-size / entrypoint-size warnings.
+- 2026-05-23 06:54 page-detail emoji alignment: Playwright layout fixture
+  confirmed the emoji left edge and title text left edge both resolve to
+  `441px` at a 1280px viewport (`aligned: true`).
+- 2026-05-23 07:11 modal brand styling:
+  `yarn prettier --check packages/frontend/component/src/ui/modal/styles.css.ts packages/frontend/component/src/ui/modal/confirm-modal.css.ts packages/frontend/component/src/ui/modal/prompt-modal.css.ts packages/frontend/core/src/modules/analytics/views/ai-strategist/index.css.ts packages/frontend/core/src/modules/analytics/views/connections-settings/account-picker-modal.css.ts`
+  passed after one Prettier write on `confirm-modal.css.ts`.
+- 2026-05-23 07:11 modal brand styling:
+  `yarn eslint --no-cache packages/frontend/component/src/ui/modal/styles.css.ts packages/frontend/component/src/ui/modal/confirm-modal.css.ts packages/frontend/component/src/ui/modal/prompt-modal.css.ts packages/frontend/core/src/modules/analytics/views/ai-strategist/index.css.ts packages/frontend/core/src/modules/analytics/views/connections-settings/account-picker-modal.css.ts`
+  passed.
+- 2026-05-23 07:11 modal brand styling:
+  `git diff --check -- packages/frontend/component/src/ui/modal/styles.css.ts packages/frontend/component/src/ui/modal/confirm-modal.css.ts packages/frontend/component/src/ui/modal/prompt-modal.css.ts packages/frontend/core/src/modules/analytics/views/ai-strategist/index.css.ts packages/frontend/core/src/modules/analytics/views/connections-settings/account-picker-modal.css.ts`
+  passed; stale generated `.js` / `.js.map` source count was `0`.
+- 2026-05-23 07:11 modal brand styling: `yarn affine bundle -p web` passed;
+  rspack compiled web and workers successfully with existing asset-size /
+  entrypoint-size warnings.
+- 2026-05-23 07:11 modal brand styling: Playwright fixture rendered the
+  delete-confirm popup with Manut tokens; measured centered modal
+  `456px x 168px`, title color `rgb(36, 35, 41)`, description color
+  `rgb(95, 93, 102)`, 8px button radius, and violet-tinted glass background.
+- 2026-05-23 07:24 journals page-load fix: first TDD run failed because
+  `route-classification.ts` did not exist yet; after implementation,
+  `yarn vitest packages/frontend/core/src/modules/workbench/__tests__/route-classification.spec.ts --run`
+  passed (`3` tests).
+- 2026-05-23 07:24 journals page-load fix:
+  `yarn prettier --check packages/frontend/core/src/modules/workbench/route-classification.ts packages/frontend/core/src/modules/workbench/__tests__/route-classification.spec.ts packages/frontend/core/src/desktop/pages/workspace/index.tsx packages/frontend/core/src/mobile/pages/workspace/index.tsx`
+  passed.
+- 2026-05-23 07:24 journals page-load fix:
+  `yarn eslint --no-cache packages/frontend/core/src/modules/workbench/route-classification.ts packages/frontend/core/src/modules/workbench/__tests__/route-classification.spec.ts packages/frontend/core/src/desktop/pages/workspace/index.tsx packages/frontend/core/src/mobile/pages/workspace/index.tsx`
+  passed.
+- 2026-05-23 07:24 journals page-load fix:
+  `git diff --check -- packages/frontend/core/src/modules/workbench/route-classification.ts packages/frontend/core/src/modules/workbench/__tests__/route-classification.spec.ts packages/frontend/core/src/desktop/pages/workspace/index.tsx packages/frontend/core/src/mobile/pages/workspace/index.tsx`
+  passed; stale generated `.js` / `.js.map` source count was `0`.
+- 2026-05-23 07:24 journals page-load fix: `yarn affine bundle -p web` and
+  `yarn affine bundle -p mobile` both passed; rspack compiled successfully
+  with existing asset-size / entrypoint-size warnings.
+- 2026-05-23 07:24 journals page-load fix: Playwright live smoke on
+  `https://manut.xyz/workspace/gogocash/journals` showed no route error
+  (`#app` child count `3`). The user's Chrome tab also recovered after reload
+  and displayed the Journals empty state.
 
 ## Open Threads
 
@@ -378,12 +508,18 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   in product.
 - Keep `docs/MANUT_CONTROL_PLANE.md` and this file in sync whenever the
   handover JSON contract changes.
-- Current layout QA risk: the compiled CSS fixture verifies the changed
-  selectors, but full app browser QA needs local Redis and `DATABASE_URL` or a
-  production-like preview backend so the detail page can load without the
-  `/graphql` 500.
-- Next concrete step: after merge, run a full production-like page-detail
-  smoke with backend services available so the real `/graphql` path is covered.
+- Current QA risk: mobile Notion-style home, AI chat view modes,
+  page-detail emoji alignment, modal brand styling, and the journals route fix
+  are bundle/lint verified. Emoji/modal checks used Playwright fixtures, and
+  the journals live smoke confirms the current production tab is no longer
+  stuck on the 500 page, but the combined WIP still needs browser-shot review
+  against an authenticated local/prod-like preview that includes the local
+  bundle.
+- Next concrete step: visually review mobile home, bottom-right AI chat modes,
+  page-detail emoji placement, delete/prompt/account-picker modals, and
+  `/workspace/gogocash/journals` in an authenticated local/prod-like preview,
+  then stage source changes only (exclude generated declaration artifacts and
+  unrelated local files).
 
 ## Frequent Update Protocol
 

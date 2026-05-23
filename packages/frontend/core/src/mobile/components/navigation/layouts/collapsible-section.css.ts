@@ -5,19 +5,19 @@ import { style } from '@vanilla-extract/css';
 
 // content
 export const content = style({
-  paddingTop: 8,
+  paddingTop: 6,
 });
 
 // trigger
 export const triggerRoot = style({
   fontSize: cssVar('fontXs'),
-  height: 25,
+  height: 30,
   width: '100%',
   userSelect: 'none',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '0 16px',
+  padding: '0',
   borderRadius: 4,
 });
 export const triggerLabel = style([
@@ -28,7 +28,10 @@ export const triggerLabel = style([
     gap: 2,
     alignItems: 'center',
     justifyContent: 'start',
-    color: cssVarV2('text/primary'),
+    color: cssVarV2('text/secondary'),
+    fontSize: 17,
+    lineHeight: '24px',
+    letterSpacing: 0,
   },
 ]);
 export const triggerCollapseIcon = style({

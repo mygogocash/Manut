@@ -1,4 +1,4 @@
-import { useConfirmModal } from '@affine/component';
+import { Menu, MenuItem, useConfirmModal } from '@affine/component';
 import { CopilotClient } from '@affine/core/blocksuite/ai';
 import {
   AIChatContent,
@@ -34,9 +34,16 @@ import { SPRING_GENTLE, SPRING_TIGHT } from '@affine/core/utils/motion';
 import { useI18n } from '@affine/i18n';
 import { BlockStdScope } from '@blocksuite/affine/std';
 import type { Workspace } from '@blocksuite/affine/store';
-import { CloseIcon } from '@blocksuite/icons/rc';
+import {
+  CloseIcon,
+  DoneIcon,
+  ExpandFullIcon,
+  FrameIcon,
+  RightSidebarIcon,
+} from '@blocksuite/icons/rc';
 import { useFramework, useLiveData, useService } from '@toeverything/infra';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import type { SVGProps } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { trackEvent } from '../../modules/telemetry';
@@ -48,6 +55,30 @@ import { useCurrentDocContext } from './use-current-doc-context';
 import { useFloatingChatShortcut } from './use-floating-chat-shortcut';
 
 type CopilotSession = Awaited<ReturnType<CopilotClient['getSession']>>;
+type ChatViewMode = 'floating' | 'sidebar' | 'fullscreen';
+type ChatViewModeOption = {
+  id: ChatViewMode;
+  label: string;
+  Icon: (props: SVGProps<SVGSVGElement>) => JSX.Element;
+};
+
+const CHAT_VIEW_MODE_OPTIONS: ChatViewModeOption[] = [
+  {
+    id: 'sidebar',
+    label: 'Sidebar',
+    Icon: RightSidebarIcon,
+  },
+  {
+    id: 'floating',
+    label: 'Floating',
+    Icon: FrameIcon,
+  },
+  {
+    id: 'fullscreen',
+    label: 'Full screen',
+    Icon: ExpandFullIcon,
+  },
+];
 
 // Builds a minimal BlockStdScope so the Lit AIChatContent can mount without
 // being tied to a specific editor. Same pattern as the dedicated /chat route
@@ -85,6 +116,8 @@ function useCopilotClient() {
 interface FloatingAiChatAnchorInnerProps {
   open: boolean;
   onClose: () => void;
+  viewMode: ChatViewMode;
+  onViewModeChange: (mode: ChatViewMode) => void;
   contextDismissed: boolean;
   onDismissContext: () => void;
 }
@@ -96,6 +129,8 @@ interface FloatingAiChatAnchorInnerProps {
 function FloatingAiChatAnchorBody({
   open,
   onClose,
+  viewMode,
+  onViewModeChange,
   contextDismissed,
   onDismissContext,
 }: FloatingAiChatAnchorInnerProps) {
@@ -171,6 +206,13 @@ function FloatingAiChatAnchorBody({
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
 
   const currentSession = activeTabId ? (sessionMap[activeTabId] ?? null) : null;
+  const activeViewMode = useMemo(
+    () =>
+      CHAT_VIEW_MODE_OPTIONS.find(option => option.id === viewMode) ??
+      CHAT_VIEW_MODE_OPTIONS[1],
+    [viewMode]
+  );
+  const ActiveViewModeIcon = activeViewMode.Icon;
 
   // The Lit AIChatContent's `createSession` slot still needs to point at
   // ONE create function so the existing input wiring works. We thread
@@ -413,15 +455,52 @@ function FloatingAiChatAnchorBody({
         <span className={styles.panelTitle}>
           {t['com.affine.ai.chat-panel.title']()}
         </span>
-        <button
-          type="button"
-          className={styles.closeButton}
-          onClick={onClose}
-          aria-label="Close chat panel"
-          data-testid="floating-ai-chat-close"
-        >
-          <CloseIcon width={16} height={16} />
-        </button>
+        <div className={styles.panelHeaderActions}>
+          <Menu
+            contentOptions={{ align: 'end' }}
+            items={
+              <div
+                className={styles.viewModeMenu}
+                data-testid="floating-ai-chat-view-mode-menu"
+              >
+                {CHAT_VIEW_MODE_OPTIONS.map(({ id, label, Icon }) => (
+                  <MenuItem
+                    key={id}
+                    selected={id === viewMode}
+                    prefixIcon={<Icon width={16} height={16} />}
+                    suffixIcon={
+                      id === viewMode ? (
+                        <DoneIcon width={16} height={16} />
+                      ) : undefined
+                    }
+                    onClick={() => onViewModeChange(id)}
+                    data-testid={`floating-ai-chat-view-mode-${id}`}
+                  >
+                    {label}
+                  </MenuItem>
+                ))}
+              </div>
+            }
+          >
+            <button
+              type="button"
+              className={styles.headerIconButton}
+              aria-label={`AI chat view mode: ${activeViewMode.label}`}
+              data-testid="floating-ai-chat-view-mode-trigger"
+            >
+              <ActiveViewModeIcon width={16} height={16} />
+            </button>
+          </Menu>
+          <button
+            type="button"
+            className={styles.closeButton}
+            onClick={onClose}
+            aria-label="Close chat panel"
+            data-testid="floating-ai-chat-close"
+          >
+            <CloseIcon width={16} height={16} />
+          </button>
+        </div>
       </div>
 
       {/* Manut Wave 6 E2.5 — multi-tab strip. Mounts only when at least
@@ -502,6 +581,7 @@ export const FloatingAiChatAnchor = () => {
   const enabled = useLiveData(featureFlagService.flags.floating_ai_chat.$);
 
   const [open, setOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ChatViewMode>('floating');
   const [contextDismissed, setContextDismissed] = useState(false);
 
   // Reset the context-dismissed flag whenever the panel closes so the next
@@ -593,6 +673,7 @@ export const FloatingAiChatAnchor = () => {
             key="floating-chat-panel"
             className={styles.panel}
             data-open
+            data-mode={viewMode}
             role="dialog"
             aria-label="Manut AI chat"
             initial={
@@ -611,6 +692,8 @@ export const FloatingAiChatAnchor = () => {
             <FloatingAiChatAnchorBody
               open={open}
               onClose={close}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
               contextDismissed={contextDismissed}
               onDismissContext={dismissContext}
             />

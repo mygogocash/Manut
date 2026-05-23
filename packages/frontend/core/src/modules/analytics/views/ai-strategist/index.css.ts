@@ -42,9 +42,9 @@ export const primaryButton = style({
   alignItems: 'center',
   height: 32,
   padding: '0 14px',
-  borderRadius: 6,
+  borderRadius: 'var(--manut-radius-input)',
   border: 'none',
-  background: cssVar('primaryColor'),
+  background: 'var(--manut-primary-fg)',
   color: cssVar('pureWhite'),
   fontSize: 13,
   fontWeight: 500,
@@ -62,17 +62,17 @@ export const secondaryButton = style({
   alignItems: 'center',
   height: 32,
   padding: '0 14px',
-  borderRadius: 6,
-  border: `1px solid ${cssVar('borderColor')}`,
-  background: cssVar('backgroundPrimaryColor'),
-  color: cssVar('textPrimaryColor'),
+  borderRadius: 'var(--manut-radius-input)',
+  border: '1px solid var(--manut-line)',
+  background: 'var(--manut-surface-paper)',
+  color: 'var(--manut-ink)',
   fontSize: 13,
   fontWeight: 500,
   cursor: 'pointer',
   transition:
     'background-color var(--affine-anim-duration-base) var(--affine-anim-curve-default)',
   selectors: {
-    '&:hover': { background: cssVar('backgroundTertiaryColor') },
+    '&:hover': { background: 'var(--manut-surface-sunken)' },
     '&[disabled]': { opacity: 0.5, cursor: 'not-allowed' },
   },
 });
@@ -94,7 +94,7 @@ export const groupLabel = style({
   fontWeight: 600,
   color: cssVar('textSecondaryColor'),
   textTransform: 'uppercase',
-  letterSpacing: 0.4,
+  letterSpacing: 0,
 });
 
 export const list = style({
@@ -138,7 +138,12 @@ export const paragraph = style({
 export const modalBackdrop = style({
   position: 'fixed',
   inset: 0,
-  background: 'rgba(0, 0, 0, 0.4)',
+  background: [
+    'radial-gradient(circle at 50% 44%, rgba(124, 58, 237, 0.18), transparent 34%)',
+    'rgba(14, 14, 16, 0.66)',
+  ].join(', '),
+  backdropFilter: 'blur(2px)',
+  WebkitBackdropFilter: 'blur(2px)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -150,17 +155,29 @@ export const modal = style({
   flexDirection: 'column',
   gap: 12,
   padding: 20,
-  borderRadius: 10,
-  border: `1px solid ${cssVar('borderColor')}`,
-  background: cssVar('backgroundPrimaryColor'),
+  borderRadius: 'var(--manut-radius-modal)',
+  border: '1px solid var(--manut-primary-border)',
+  background: [
+    'linear-gradient(135deg, var(--manut-primary-bg), transparent 54%)',
+    'var(--manut-surface-glass-strong)',
+  ].join(', '),
+  backdropFilter:
+    'blur(var(--manut-surface-glass-blur)) saturate(var(--manut-surface-glass-saturate))',
+  WebkitBackdropFilter:
+    'blur(var(--manut-surface-glass-blur)) saturate(var(--manut-surface-glass-saturate))',
   width: 'min(420px, 92vw)',
-  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)',
+  color: 'var(--manut-ink)',
+  boxShadow: [
+    '0 24px 70px rgba(14, 14, 16, 0.22)',
+    '0 0 0 1px var(--manut-primary-border)',
+    'inset 0 1px 0 rgba(255, 255, 255, 0.56)',
+  ].join(', '),
 });
 
 export const modalTitle = style({
   fontSize: 16,
   fontWeight: 600,
-  color: cssVar('textPrimaryColor'),
+  color: 'var(--manut-ink)',
 });
 
 export const modalBody = style({
@@ -172,22 +189,25 @@ export const modalBody = style({
 export const label = style({
   fontSize: 12,
   fontWeight: 500,
-  color: cssVar('textSecondaryColor'),
+  color: 'var(--manut-ink-soft)',
 });
 
 export const input = style({
   height: 32,
   padding: '0 10px',
-  borderRadius: 6,
-  border: `1px solid ${cssVar('borderColor')}`,
-  background: cssVar('backgroundPrimaryColor'),
-  color: cssVar('textPrimaryColor'),
+  borderRadius: 'var(--manut-radius-input)',
+  border: '1px solid var(--manut-line)',
+  background: 'var(--manut-surface-paper)',
+  color: 'var(--manut-ink)',
   fontSize: 13,
   outline: 'none',
   transition:
-    'border-color var(--affine-anim-duration-base) var(--affine-anim-curve-default)',
+    'border-color var(--affine-anim-duration-base) var(--affine-anim-curve-default), box-shadow var(--affine-anim-duration-base) var(--affine-anim-curve-default)',
   selectors: {
-    '&:focus': { borderColor: cssVar('primaryColor') },
+    '&:focus': {
+      borderColor: 'var(--manut-primary-fg)',
+      boxShadow: '0 0 0 3px var(--manut-primary-bg)',
+    },
     '&[disabled]': { opacity: 0.6 },
   },
 });

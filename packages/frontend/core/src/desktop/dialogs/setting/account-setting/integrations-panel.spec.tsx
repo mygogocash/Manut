@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const gqlMock = vi.hoisted(() => vi.fn());
 const openExternal = vi.hoisted(() => vi.fn());
+const notifyError = vi.hoisted(() => vi.fn());
 const mutateAccounts = vi.hoisted(() => vi.fn(async () => undefined));
 const mutateProviders = vi.hoisted(() => vi.fn(async () => undefined));
 const workspaceState = vi.hoisted(() => ({
@@ -30,7 +31,9 @@ const queryState = vi.hoisted(() => ({
     status: string;
     lastError: string | null;
   }[],
+  accountsError: null as Error | null,
   providers: [] as string[],
+  providersError: null as Error | null,
   caldavProviders: [] as {
     id: string;
     label: string;
@@ -96,13 +99,28 @@ vi.mock('@affine/component', () => ({
   Modal: ({ open, children }: { open: boolean; children: ReactNode }) =>
     open ? <div>{children}</div> : null,
   notify: {
-    error: vi.fn(),
+    error: notifyError,
   },
 }));
 
 vi.mock('@affine/core/components/hooks/use-query', () => ({
-  useQuery: ({ query }: { query: symbol }) => {
+  useQuery: (
+    { query }: { query: symbol },
+    config?: {
+      onError?: (error: Error) => void;
+    }
+  ) => {
     if (query === calendarAccountsQuery) {
+      if (queryState.accountsError) {
+        config?.onError?.(queryState.accountsError);
+        return {
+          data: undefined,
+          error: queryState.accountsError,
+          isLoading: false,
+          mutate: mutateAccounts,
+        };
+      }
+
       return {
         data: {
           currentUser: {
@@ -111,6 +129,16 @@ vi.mock('@affine/core/components/hooks/use-query', () => ({
         },
         isLoading: false,
         mutate: mutateAccounts,
+      };
+    }
+
+    if (queryState.providersError) {
+      config?.onError?.(queryState.providersError);
+      return {
+        data: undefined,
+        error: queryState.providersError,
+        isLoading: false,
+        mutate: mutateProviders,
       };
     }
 
@@ -137,6 +165,11 @@ vi.mock('@affine/core/modules/url', () => ({
 
 vi.mock('@affine/core/modules/workspace', () => ({
   WorkspaceService: WorkspaceServiceToken,
+  buildWorkspacePath: (
+    workspaceId: string,
+    _workspaces: unknown[],
+    path = ''
+  ) => `/workspace/${workspaceId}${path}`,
 }));
 
 vi.mock('@affine/graphql', () => ({
@@ -217,8 +250,11 @@ describe('IntegrationsPanel', () => {
     mutateProviders.mockClear();
     workspaceState.flavour = 'cloud';
     queryState.accounts = [];
+    queryState.accountsError = null;
     queryState.providers = [];
+    queryState.providersError = null;
     queryState.caldavProviders = [];
+    notifyError.mockClear();
     window.history.replaceState({}, '', '/workspace/workspace-1/all');
   });
 
@@ -277,6 +313,62 @@ describe('IntegrationsPanel', () => {
     fireEvent.click(screen.getByText('Alice'));
 
     expect(onChangeSettingState).not.toHaveBeenCalled();
+  });
+
+  test('suppresses generic unavailable calendar account load toast', () => {
+    queryState.accountsError = Object.assign(
+      new Error('Unhandled error raised. Please contact us for help.'),
+      {
+        name: 'INTERNAL_SERVER_ERROR',
+        status: 500,
+        code: 'INTERNAL_SERVER_ERROR',
+        type: 'INTERNAL_SERVER_ERROR',
+      }
+    );
+
+    render(<IntegrationsPanel />);
+
+    expect(
+      screen.getByText('com.affine.integration.calendar.account.linked-empty')
+    ).toBeTruthy();
+    expect(notifyError).not.toHaveBeenCalled();
+  });
+
+  test('suppresses stale calendar schema account load toast', () => {
+    queryState.accountsError = Object.assign(
+      new Error('Cannot query field "calendarAccounts" on type "UserType".'),
+      {
+        name: 'GRAPHQL_BAD_REQUEST',
+        data: { code: 'GRAPHQL_VALIDATION_FAILED' },
+      }
+    );
+
+    render(<IntegrationsPanel />);
+
+    expect(
+      screen.getByText('com.affine.integration.calendar.account.linked-empty')
+    ).toBeTruthy();
+    expect(notifyError).not.toHaveBeenCalled();
+  });
+
+  test('keeps visible toast for actionable calendar account load errors', () => {
+    queryState.accountsError = Object.assign(
+      new Error('You must sign in first to access this resource.'),
+      {
+        name: 'AUTHENTICATION_REQUIRED',
+        status: 401,
+        code: 'AUTHENTICATION_REQUIRED',
+        type: 'AUTHENTICATION_REQUIRED',
+      }
+    );
+
+    render(<IntegrationsPanel />);
+
+    expect(notifyError).toHaveBeenCalledWith({
+      title: 'com.affine.integration.calendar.account.load-error',
+      message:
+        'AUTHENTICATION_REQUIRED: You must sign in first to access this resource.',
+    });
   });
 
   test('keeps the current page as oauth redirect in local workspaces', async () => {

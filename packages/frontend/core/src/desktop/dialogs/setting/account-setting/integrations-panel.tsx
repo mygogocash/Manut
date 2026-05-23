@@ -14,7 +14,10 @@ import {
 } from '@affine/core/components/hooks/use-query';
 import { GraphQLService } from '@affine/core/modules/cloud';
 import { UrlService } from '@affine/core/modules/url';
-import { UserFriendlyError } from '@affine/error';
+import {
+  isGraphQLSchemaValidationError,
+  UserFriendlyError,
+} from '@affine/error';
 import {
   type CalendarAccountsQuery,
   calendarAccountsQuery,
@@ -65,6 +68,26 @@ const providerMeta = {
 } satisfies Partial<
   Record<CalendarProviderType, { label: string; icon: ReactNode }>
 >;
+
+function isCalendarLoadUnavailableError(error: unknown) {
+  if (isGraphQLSchemaValidationError(error)) {
+    return true;
+  }
+
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const candidate = error as {
+    name?: string;
+    message?: string;
+  };
+
+  return (
+    candidate.name === 'INTERNAL_SERVER_ERROR' &&
+    candidate.message === 'Unhandled error raised. Please contact us for help.'
+  );
+}
 
 const CalDAVLinkDialog = ({
   open,
@@ -345,12 +368,22 @@ export const IntegrationsPanel = ({
   const [caldavDialogOpen, setCaldavDialogOpen] = useState(false);
   const canOpenCalendarSetting = workspaceService.workspace.flavour !== 'local';
   const makeConfig: <Query extends GraphQLQuery>(
-    title: string
+    title: string,
+    options?: {
+      suppressUnavailable?: boolean;
+    }
   ) => UseQueryConfig<Query> = useCallback(
-    title => ({
+    (title, options) => ({
       suspense: false,
       revalidateOnFocus: openedExternalWindow,
       onError: error => {
+        if (
+          options?.suppressUnavailable &&
+          isCalendarLoadUnavailableError(error)
+        ) {
+          console.warn('[calendar] integration schema is unavailable', error);
+          return;
+        }
         notify.error({ title, message: String(error) || undefined });
       },
     }),
@@ -365,7 +398,9 @@ export const IntegrationsPanel = ({
     { query: calendarAccountsQuery },
     useMemo(
       () =>
-        makeConfig(t['com.affine.integration.calendar.account.load-error']()),
+        makeConfig(t['com.affine.integration.calendar.account.load-error'](), {
+          suppressUnavailable: true,
+        }),
       [makeConfig, t]
     )
   );
@@ -379,7 +414,9 @@ export const IntegrationsPanel = ({
 
     useMemo(
       () =>
-        makeConfig(t['com.affine.integration.calendar.provider.load-error']()),
+        makeConfig(t['com.affine.integration.calendar.provider.load-error'](), {
+          suppressUnavailable: true,
+        }),
       [makeConfig, t]
     )
   );

@@ -39,9 +39,15 @@ export const title = style([
   {
     width: 0,
     flex: 1,
-    whiteSpace: 'nowrap',
-    textOverflow: 'ellipsis',
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 2,
+    minHeight: 38,
+    whiteSpace: 'normal',
     overflow: 'hidden',
+    fontSize: 18,
+    lineHeight: '20px',
+    letterSpacing: 0,
   },
 ]);
 export const untitled = style({

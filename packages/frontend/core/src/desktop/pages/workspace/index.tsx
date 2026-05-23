@@ -8,6 +8,7 @@ import {
 import { DndService } from '@affine/core/modules/dnd/services';
 import { GlobalContextService } from '@affine/core/modules/global-context';
 import { OpenInAppGuard } from '@affine/core/modules/open-in-app';
+import { isWorkbenchDocRoutePath } from '@affine/core/modules/workbench/route-classification';
 import {
   getAFFiNEWorkspaceSchema,
   replaceWorkspaceKeyInPathname,
@@ -97,10 +98,7 @@ export const Component = (): ReactElement => {
       match &&
       match.params.docId &&
       match.params.workspaceId &&
-      // TODO(eyhn): need a better way to check if it's a docId
-      workbenchRoutes.find(route =>
-        matchPath(route.path, '/' + match.params.docId)
-      )?.path === '/:pageId'
+      isWorkbenchDocRoutePath(workbenchRoutes, '/' + match.params.docId)
     ) {
       const resolved = resolveWorkspaceMetadataByKey(
         match.params.workspaceId,

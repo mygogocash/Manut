@@ -9,6 +9,7 @@ import {
 import { AppTabsHeader } from '@affine/core/modules/app-tabs-header';
 import { NavigationButtons } from '@affine/core/modules/navigation';
 import { WorkspaceService } from '@affine/core/modules/workspace';
+import { ErrorBoundary, type FallbackRender } from '@sentry/react';
 import {
   useLiveData,
   useService,
@@ -23,6 +24,20 @@ import {
 } from 'react';
 
 import * as styles from './styles.css';
+
+const sidebarFallbackRender: FallbackRender = () => <AppSidebarFallback />;
+
+const onSidebarError = (error: unknown, componentStack?: string) => {
+  console.error('Uncaught sidebar error:', error, componentStack);
+};
+
+const GuardedRootAppSidebar = () => {
+  return (
+    <ErrorBoundary fallback={sidebarFallbackRender} onError={onSidebarError}>
+      <RootAppSidebar />
+    </ErrorBoundary>
+  );
+};
 
 export const AppContainer = ({
   children,
@@ -78,7 +93,7 @@ const DesktopLayout = ({
         {fallback ? (
           <AppSidebarFallback />
         ) : (
-          isInWorkspace && <RootAppSidebar />
+          isInWorkspace && <GuardedRootAppSidebar />
         )}
         <MainContainer>{children}</MainContainer>
       </div>
@@ -96,7 +111,11 @@ const BrowserLayout = ({
   return (
     <div className={styles.browserAppViewContainer}>
       <OpenInAppCard />
-      {fallback ? <AppSidebarFallback /> : isInWorkspace && <RootAppSidebar />}
+      {fallback ? (
+        <AppSidebarFallback />
+      ) : (
+        isInWorkspace && <GuardedRootAppSidebar />
+      )}
       <MainContainer>{children}</MainContainer>
     </div>
   );

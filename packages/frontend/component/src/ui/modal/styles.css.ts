@@ -9,7 +9,13 @@ import {
 } from '@vanilla-extract/css';
 
 import { animationToken } from '../../theme/animation';
-import { manutGlass, manutMotion, manutRadius } from '../../theme/manut-tokens';
+import {
+  manutGlass,
+  manutMotion,
+  manutPrimary,
+  manutRadius,
+  manutSurface,
+} from '../../theme/manut-tokens';
 import { vtScopeSelector } from '../../utils/view-transition';
 export const widthVar = createVar('widthVar');
 export const heightVar = createVar('heightVar');
@@ -73,7 +79,12 @@ const modalContentViewTransitionNameSlideRight = generateIdentifier(
 export const modalOverlay = style({
   position: 'fixed',
   inset: 0,
-  backgroundColor: cssVar('backgroundModalColor'),
+  background: [
+    'radial-gradient(circle at 50% 44%, rgba(124, 58, 237, 0.18), transparent 34%)',
+    'rgba(14, 14, 16, 0.66)',
+  ].join(', '),
+  backdropFilter: 'blur(2px)',
+  WebkitBackdropFilter: 'blur(2px)',
   zIndex: cssVar('zIndexModal'),
   animation: `${overlayShow} ${animationToken.durationSlow} ${animationToken.curveDefault} forwards`,
   selectors: {
@@ -81,7 +92,10 @@ export const modalOverlay = style({
       animation: 'none',
     },
     '&.mobile': {
-      backgroundColor: cssVarV2('layer/background/mobile/modal'),
+      background: [
+        'radial-gradient(circle at 50% 44%, rgba(124, 58, 237, 0.16), transparent 34%)',
+        cssVarV2('layer/background/mobile/modal'),
+      ].join(', '),
     },
   },
 });
@@ -166,17 +180,29 @@ export const modalContent = style({
   lineHeight: '1.6',
   padding: '20px 24px',
   position: 'relative',
-  backgroundColor: manutGlass.surface,
+  color: manutSurface.ink,
+  background: [
+    `linear-gradient(135deg, ${manutPrimary.bg}, transparent 54%)`,
+    manutGlass.surfaceStrong,
+  ].join(', '),
   backdropFilter: manutGlass.backdropFilter,
   WebkitBackdropFilter: manutGlass.backdropFilter,
-  boxShadow: cssVar('popoverShadow'),
+  border: `1px solid ${manutPrimary.border}`,
+  boxShadow: [
+    '0 24px 70px rgba(14, 14, 16, 0.22)',
+    `0 0 0 1px ${manutPrimary.border}`,
+    'inset 0 1px 0 rgba(255, 255, 255, 0.56)',
+  ].join(', '),
   borderRadius: manutRadius.modal,
   // :focus-visible will set outline
   outline: 'none',
 
   '@supports': {
     'not (backdrop-filter: blur(20px))': {
-      backgroundColor: cssVar('backgroundOverlayPanelColor'),
+      background: [
+        `linear-gradient(135deg, ${manutPrimary.bg}, transparent 54%)`,
+        manutSurface.paper,
+      ].join(', '),
     },
   },
 
@@ -190,6 +216,7 @@ export const modalContent = style({
       maxWidth: '100dvw',
       maxHeight: '100dvh',
       borderRadius: 0,
+      border: 0,
     },
   },
 });
@@ -204,11 +231,13 @@ export const modalHeader = style({
   fontWeight: '600',
   lineHeight: '1.45',
   marginBottom: '12px',
+  color: manutSurface.ink,
 });
 export const modalDescription = style({
   wordBreak: 'break-word',
   whiteSpace: 'pre-wrap',
   overflowWrap: 'break-word',
+  color: manutSurface.inkSoft,
 });
 
 globalStyle(`[data-modal="false"]${modalContentWrapper}`, {

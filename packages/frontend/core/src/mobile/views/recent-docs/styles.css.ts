@@ -1,7 +1,7 @@
 import { globalStyle, style } from '@vanilla-extract/css';
 
 export const recentSection = style({
-  paddingBottom: 32,
+  paddingBottom: 28,
   selectors: {
     '&[data-state="open"]': {
       paddingBottom: 0,
@@ -10,27 +10,33 @@ export const recentSection = style({
 });
 export const scroll = style({
   width: '100%',
-  paddingTop: 8,
-  paddingBottom: 32,
+  paddingTop: 10,
+  paddingBottom: 30,
   overflowX: 'auto',
+  scrollbarWidth: 'none',
+  selectors: {
+    '&::-webkit-scrollbar': {
+      display: 'none',
+    },
+  },
 });
 
 export const list = style({
-  paddingLeft: 16,
-  paddingRight: 16,
+  paddingLeft: 20,
+  paddingRight: 20,
   display: 'flex',
-  gap: 10,
+  gap: 16,
   width: 'fit-content',
 });
 
 export const cardWrapper = style({
-  width: 172,
-  height: 210,
+  width: 176,
+  height: 194,
   flexShrink: 0,
 });
 
 export const header = style({
-  margin: '0 8px',
+  margin: '0 20px',
 });
 
 globalStyle(`${cardWrapper} > *`, {

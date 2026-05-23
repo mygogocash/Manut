@@ -1,78 +1,71 @@
 import { cssVarV2 } from '@toeverything/theme/v2';
-import { createVar, globalStyle, style } from '@vanilla-extract/css';
-
-const headerHeight = createVar('headerHeight');
-const wsSelectorHeight = createVar('wsSelectorHeight');
-const searchHeight = createVar('searchHeight');
+import { globalStyle, style } from '@vanilla-extract/css';
 
 export const root = style({
-  vars: {
-    [headerHeight]: '44px',
-    [wsSelectorHeight]: '48px',
-    [searchHeight]: '44px',
-  },
   width: '100dvw',
-});
-export const headerSettingRow = style({
-  height: 44,
-});
-export const wsSelectorAndSearch = style({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 15,
-  padding: '4px 16px 15px 16px',
+  padding: '16px 20px 10px',
 });
 
-// Manut display typography for the expanded workspace identity. Targets
-// the workspace-name label rendered inside WorkspaceSelector (sibling
-// .css.ts owned by workspace-selector module). Descendant selectors
-// (note the space between `&` and `[class*=...]`) are not valid inside
-// style({selectors:}) — vanilla-extract requires globalStyle() for any
-// selector that reaches outside the current element. CLAUDE.md §6
-// "vanilla-extract syntax" scar.
-globalStyle(`${wsSelectorAndSearch} [class*="label"]`, {
-  fontSize: 'var(--manut-display-1)',
-  fontWeight: 'var(--manut-display-weight)',
-  letterSpacing: '-0.02em',
-  lineHeight: 1.05,
-});
-
-export const float = style({
-  position: 'fixed',
-  top: 0,
-  width: '100%',
-  zIndex: 2,
-
+export const headerRow = style({
   display: 'flex',
   alignItems: 'center',
-  padding: '4px 10px 4px 16px',
-  gap: 10,
-
-  // visibility control + spring collapse motion
-  background: 'transparent',
-  transition:
-    'transform 220ms var(--manut-anim-curve-spring), opacity 220ms ease-out, background 220ms ease-out',
-  selectors: {
-    '&.dense': {
-      background: cssVarV2('layer/background/mobile/primary'),
-    },
-  },
+  justifyContent: 'space-between',
+  gap: 12,
 });
-export const floatWsSelector = style({
-  width: 0,
-  flex: 1,
-  visibility: 'hidden',
-  pointerEvents: 'none',
-  opacity: 0,
-  transform: 'translateY(-4px)',
+
+export const workspaceChip = style({
+  minWidth: 0,
+  maxWidth: 'calc(100dvw - 160px)',
+  height: 44,
+  padding: '5px 13px 5px 7px',
+  borderRadius: 22,
+  border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
+  background: cssVarV2('layer/background/mobile/secondary'),
+  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.08)',
+});
+
+globalStyle(`${workspaceChip} [data-testid="workspace-avatar"]`, {
+  width: '32px',
+  height: '32px',
+});
+
+globalStyle(`${workspaceChip} [class*="label"]`, {
+  minWidth: 0,
+  overflow: 'hidden',
+  color: cssVarV2('text/primary'),
+  fontSize: 18,
+  fontWeight: 650,
+  letterSpacing: 0,
+  lineHeight: '24px',
+  whiteSpace: 'nowrap',
+  textOverflow: 'ellipsis',
+});
+
+export const headerActions = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  flexShrink: 0,
+});
+
+export const roundAction = style({
+  position: 'relative',
+  width: 48,
+  height: 48,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
+  borderRadius: '50%',
+  padding: 0,
+  background: cssVarV2('layer/background/mobile/secondary'),
+  color: cssVarV2('icon/primary'),
+  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.08)',
   transition:
-    'opacity 220ms var(--manut-anim-curve-spring), transform 220ms var(--manut-anim-curve-spring)',
+    'transform 120ms var(--manut-anim-curve-overshoot), background-color 120ms ease-out',
   selectors: {
-    [`${float}.dense &`]: {
-      visibility: 'visible',
-      pointerEvents: 'auto',
-      opacity: 1,
-      transform: 'translateY(0)',
+    '&:active': {
+      transform: 'scale(0.94)',
     },
   },
 });
@@ -83,10 +76,12 @@ export const notificationBadge = style({
   right: -2,
   backgroundColor: cssVarV2('button/primary'),
   color: cssVarV2('text/pureWhite'),
-  width: '16px',
+  minWidth: '16px',
   height: '16px',
-  fontSize: '12px',
+  padding: '0 3px',
   lineHeight: '16px',
   borderRadius: '50%',
   textAlign: 'center',
+  fontWeight: 700,
+  boxSizing: 'border-box',
 });

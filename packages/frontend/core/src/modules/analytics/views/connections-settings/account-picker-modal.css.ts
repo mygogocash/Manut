@@ -17,17 +17,17 @@ export const row = style({
   alignItems: 'center',
   gap: 12,
   padding: '10px 12px',
-  borderRadius: 8,
-  border: `1px solid ${cssVar('borderColor')}`,
-  background: cssVar('backgroundPrimaryColor'),
+  borderRadius: 'var(--manut-radius-input)',
+  border: '1px solid var(--manut-line)',
+  background: 'var(--manut-surface-paper)',
   cursor: 'pointer',
   selectors: {
     '&:hover': {
-      background: cssVar('backgroundSecondaryColor'),
+      background: 'var(--manut-surface-sunken)',
     },
     '&[data-selected="true"]': {
-      borderColor: cssVar('primaryColor'),
-      background: cssVar('backgroundTertiaryColor'),
+      borderColor: 'var(--manut-primary-fg)',
+      background: 'var(--manut-primary-bg)',
     },
     '&[data-disabled="true"]': {
       opacity: 0.5,
@@ -55,7 +55,7 @@ export const accountMain = style({
 export const accountName = style({
   fontSize: 14,
   fontWeight: 500,
-  color: cssVar('textPrimaryColor'),
+  color: 'var(--manut-ink)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -63,7 +63,7 @@ export const accountName = style({
 
 export const accountId = style({
   fontSize: 11,
-  color: cssVar('textSecondaryColor'),
+  color: 'var(--manut-ink-soft)',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -81,10 +81,10 @@ export const button = style({
   alignItems: 'center',
   height: 32,
   padding: '0 14px',
-  borderRadius: 6,
-  border: `1px solid ${cssVar('borderColor')}`,
-  background: cssVar('backgroundPrimaryColor'),
-  color: cssVar('textPrimaryColor'),
+  borderRadius: 'var(--manut-radius-input)',
+  border: '1px solid var(--manut-line)',
+  background: 'var(--manut-surface-paper)',
+  color: 'var(--manut-ink)',
   fontSize: 13,
   fontWeight: 500,
   cursor: 'pointer',
@@ -92,7 +92,7 @@ export const button = style({
     'background-color var(--affine-anim-duration-base) var(--affine-anim-curve-default)',
   selectors: {
     '&:hover': {
-      background: cssVar('backgroundTertiaryColor'),
+      background: 'var(--manut-surface-sunken)',
     },
     '&[disabled]': {
       opacity: 0.5,
@@ -102,7 +102,7 @@ export const button = style({
 });
 
 export const buttonPrimary = style({
-  background: cssVar('primaryColor'),
+  background: 'var(--manut-primary-fg)',
   color: cssVar('pureWhite'),
   border: 'none',
   selectors: {
