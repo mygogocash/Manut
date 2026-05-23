@@ -13,14 +13,18 @@
 // workspace reads `undefined`/`null` and `tierFor` grandfathers them
 // into FREE_TIER (by design — no data migration needed).
 
+// GraphQL Int is limited to signed 32-bit values. Keep the practical
+// "unlimited" member cap inside that boundary so quota queries serialize.
+export const MANUT_UNLIMITED_MEMBER_LIMIT = 100_000;
+
 export const FREE_TIER = {
-  memberLimit: Number.MAX_SAFE_INTEGER, // unlimited (decision #26)
+  memberLimit: MANUT_UNLIMITED_MEMBER_LIMIT, // practical unlimited (decision #26)
   storageBytes: 2 * 1024 * 1024 * 1024, // 2 GB
   aiBudgetUsdCents: 500, // $5/mo
 } as const;
 
 export const PRO_TIER = {
-  memberLimit: Number.MAX_SAFE_INTEGER, // unlimited (decision #26)
+  memberLimit: MANUT_UNLIMITED_MEMBER_LIMIT, // practical unlimited (decision #26)
   storageBytes: 100 * 1024 * 1024 * 1024, // 100 GB
   aiBudgetUsdCents: 5000, // $50/mo (configurable up to $200 per #19)
 } as const;

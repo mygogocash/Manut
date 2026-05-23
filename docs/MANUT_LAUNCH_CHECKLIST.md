@@ -9,6 +9,26 @@
 Treat every box as a launch blocker unless explicitly marked as
 "nice-to-have". A red box flips the launch posture from GO to NO-GO.
 
+## Current snapshot
+
+As of 2026-05-23 12:20 +07, public-launch posture remains **NO-GO**.
+
+- `main` has green `Manut CI` run `26323515938` and green
+  `Manut Build` run `26323591394`.
+- The local beta hardening branch is `codex/fix-beta-blockers` on base
+  `234d74bcb` with uncommitted launch-readiness fixes.
+- Railway production service `Manut` is online at deployment
+  `6ccaa65a-535a-4aa9-92e6-79333ad7593a`, and `https://manut.xyz/info`
+  returned HTTP 200.
+- Latest beta-security PR runs failed before this branch's workflow fix:
+  actionlint shellcheck (`SC2046`) and Semgrep bootstrap
+  (`pkg_resources`) are fixed locally, but the GitHub gate must rerun green.
+- Recent Railway logs showed `NOT_IMPLEMENTED: HourlyRollupCron.run`;
+  hourly/daily/weekly rollup cron stubs are fixed locally to log-and-return,
+  but production must be redeployed and log-smoked before beta invites.
+- Product follow-ups that are not beta blockers are tracked in
+  [BETA_GO_NO_GO.md](./BETA_GO_NO_GO.md#pending-productfeature-follow-ups).
+
 ---
 
 ## 1. Migrations

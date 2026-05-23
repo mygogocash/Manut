@@ -2,23 +2,30 @@ import test from 'ava';
 
 import {
   FREE_TIER,
+  MANUT_UNLIMITED_MEMBER_LIMIT,
   PRO_TIER,
   storageCapMessage,
   tierFor,
 } from '../../core/quota/tiers';
 
 const GB = 1024 ** 3;
+const GRAPHQL_INT_MAX = 2_147_483_647;
 
 test('FREE_TIER > shape matches IMPLEMENTATION_PLAN §0.3 (decision #26)', t => {
-  t.is(FREE_TIER.memberLimit, Number.MAX_SAFE_INTEGER);
+  t.is(FREE_TIER.memberLimit, MANUT_UNLIMITED_MEMBER_LIMIT);
   t.is(FREE_TIER.storageBytes, 2 * GB);
   t.is(FREE_TIER.aiBudgetUsdCents, 500);
 });
 
 test('PRO_TIER > shape matches IMPLEMENTATION_PLAN §0.3 (decision #19)', t => {
-  t.is(PRO_TIER.memberLimit, Number.MAX_SAFE_INTEGER);
+  t.is(PRO_TIER.memberLimit, MANUT_UNLIMITED_MEMBER_LIMIT);
   t.is(PRO_TIER.storageBytes, 100 * GB);
   t.is(PRO_TIER.aiBudgetUsdCents, 5000);
+});
+
+test('quota graphql > given unlimited numeric value > serializes safely', t => {
+  t.true(FREE_TIER.memberLimit <= GRAPHQL_INT_MAX);
+  t.true(PRO_TIER.memberLimit <= GRAPHQL_INT_MAX);
 });
 
 test('tierFor > given undefined > returns FREE_TIER (grandfathering)', t => {

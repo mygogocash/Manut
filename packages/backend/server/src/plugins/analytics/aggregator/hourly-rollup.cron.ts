@@ -12,7 +12,8 @@ export class HourlyRollupCron {
   // TODO(phase-3): aggregate prev-hour events into SocialMetric rows.
   @Cron('0 * * * *')
   async run(): Promise<void> {
-    this.logger.debug('HourlyRollupCron.run: not yet implemented');
-    throw new Error('NOT_IMPLEMENTED: HourlyRollupCron.run');
+    this.logger.debug(
+      'HourlyRollupCron.run: skipped until phase 3 rollups ship'
+    );
   }
 }

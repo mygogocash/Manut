@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-23 07:24 +07 (journals page-load fix)
+Last updated: 2026-05-23 12:20 +07 (beta launch-readiness hardening)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,35 +12,73 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/fix-calendar-accounts-toast`
-- Local HEAD: `fe992de2e fix: improve page detail property layout`
+- Branch: `codex/fix-beta-blockers`
+- Local HEAD: `234d74bcb`
 - Upstream: `origin/main`
-- Origin HEAD: `fe992de2e fix: improve page detail property layout`
-- PR: none open for `codex/fix-calendar-accounts-toast` (`gh pr list --head`
-  returned `[]`).
-- Branch state: local branch currently points at `origin/main`; new fixes are
-  uncommitted local WIP.
-- Dirty state: tracked WIP includes calendar/integrations toast suppression,
-  current-user GraphQL query scope hardening, app-sidebar error boundary,
-  mobile Notion-style home layout changes, bottom-right AI chat view-mode
-  switching, page-detail emoji/title alignment, Manut-branded modal popup
-  styling, and a workbench route-classification fix for direct-loading
-  reserved pages like `/journals`. New untracked source files are
-  `packages/frontend/core/src/mobile/pages/workspace/home.css.ts` and
-  `packages/frontend/core/src/modules/cloud/stores/__tests__/current-user-query-scope.spec.ts`;
-  route-classification files under `packages/frontend/core/src/modules/workbench/`
-  are also new WIP for the journals 500 fix.
-  Additional untracked local files are `docs/PITCH_SEA_BLOCKCHAIN_WEEK.md` and
-  `emoji-title-left-alignment.png`. There are also `1,429` untracked generated
-  declaration artifacts under `packages/frontend/core/src/**`; do not
-  blanket-delete hand-authored `*.d.ts` files.
+- Origin HEAD: refresh before PR/deploy; latest observed `main` had green
+  `Manut CI` run `26323515938` and green `Manut Build` run `26323591394`.
+- PR: not opened yet for `codex/fix-beta-blockers`.
+- Branch state: local branch has uncommitted WIP for beta blocker fixes,
+  launch-readiness docs, analytics cron log hardening, and beta-security
+  workflow bootstrap fixes.
+- Dirty state: expected touched files include `docs/BETA_GO_NO_GO.md`,
+  `docs/BETA_RISK_REGISTER.md`, `docs/MANUT_LAUNCH_CHECKLIST.md`, this
+  handover file, `.github/workflows/manut-beta-security.yml`,
+  quota tier code/tests, AI chat UI tests/fixes, and analytics rollup cron
+  tests/fixes.
 - Production branch: `main`
 - Production app: https://manut.xyz (canonical;
   `affine.gogocash.co` and `manut.gogocash.co` both 301-redirect)
-- Production image lineage: latest observed `origin/main` commit is
-  `fe992de2e`; no deploy was performed during this current WIP. Refresh the
-  release/deploy workflow for the exact deployed image before production
-  action.
+- Production image lineage: `railway status` currently reports production
+  service `Manut` online at deployment
+  `6ccaa65a-535a-4aa9-92e6-79333ad7593a`; no deploy was performed during this
+  WIP. Refresh the exact image/tag before production action.
+
+## Current Beta Hardening Slice
+
+- Fixed beta code blocker BETA-SEC-001: default chat format control now labels
+  as `Format` instead of duplicating the model `Auto`, and contentless
+  transmitting assistant replies render the loading state.
+- Fixed beta code blocker BETA-SEC-002: practical unlimited member cap is
+  bounded at `100_000` before GraphQL `Int` serialization.
+- Fixed launch-readiness blocker BETA-SEC-003: analytics hourly/daily/weekly
+  rollup cron stubs no longer throw `NOT_IMPLEMENTED` on schedule while phase
+  3 rollups remain unimplemented.
+- Fixed beta-security gate blocker BETA-SEC-004: actionlint command is
+  shellcheck-safe, and Semgrep 1.99 bootstraps with `setuptools<81` under
+  Python 3.12 so `pkg_resources` exists.
+- Verified so far: targeted quota AVA, targeted AI Vitest, analytics rollup
+  AVA, actionlint via downloaded v1.7.11 binary, Semgrep 1.99 startup and full
+  high-confidence scan, plus earlier Prettier/ESLint/oxlint/diff-check/server
+  tsc/web-admin-mobile bundles.
+- Full `yarn test` was attempted earlier and is not green in this local
+  environment because of missing native binding `@affine/native-darwin-arm64`
+  and missing Playwright Firefox; do not present full-suite status as green.
+
+## Pending Launch Readiness
+
+- Commit/push the branch, open a PR into `main`, and require green `Manut CI`,
+  `Manut Beta Security Gate`, and `Manut Build` on the candidate.
+- Deploy the merged candidate to Railway; record exact deployment id, image/tag,
+  rollback target, primary owner, and secondary owner in
+  `docs/BETA_GO_NO_GO.md`.
+- Recheck production logs after deploy for no analytics cron
+  `NOT_IMPLEMENTED`, no GraphQL Int overflow, no new P0/P1 error class, and no
+  sustained Railway log-rate drops.
+- Run authenticated beta smoke for GraphQL workspace query, floating/full AI
+  chat, storage usage/upload fallback, auth/onboarding, invite accept, and
+  sign-out.
+
+## Pending Product/Feature Follow-Ups
+
+- PM/CRM/Reminders v1: detail/edit, Kanban, reminder rules/repeat schedules,
+  drag-drop, bulk/CSV, real-time updates, and mobile views.
+- Mount `StorageCapModal` and `AiBudgetModal` from backend quota envelopes in a
+  parent UI consumer.
+- Chat-session memory auto-ingest and pin-toggle mutation remain follow-up
+  slices; read-time memory injection already works.
+- Analytics phase-3 rollup implementation is deferred; until then the scheduled
+  rollup crons must stay inert and non-erroring.
 
 ## Release lineage
 

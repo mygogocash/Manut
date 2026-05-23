@@ -37,6 +37,12 @@ const formatMenuMiddleware = [
   shift({ crossAxis: true, padding: 8 }),
 ];
 
+export function getFormatSelectorTriggerLabel(format: OutputFormat): string {
+  const option = OUTPUT_FORMAT_OPTIONS.find(o => o.format === format);
+  if (format === DEFAULT_FORMAT) return 'Format';
+  return option?.label ?? 'Format';
+}
+
 export class FormatSelector extends SignalWatcher(
   WithDisposable(ShadowlessElement)
 ) {
@@ -112,8 +118,7 @@ export class FormatSelector extends SignalWatcher(
   accessor ariaLabel = 'Output format';
 
   private get _activeLabel(): string {
-    const option = OUTPUT_FORMAT_OPTIONS.find(o => o.format === this.format);
-    return option?.label ?? 'Auto';
+    return getFormatSelectorTriggerLabel(this.format);
   }
 
   private readonly _openMenu = (event: Event) => {
