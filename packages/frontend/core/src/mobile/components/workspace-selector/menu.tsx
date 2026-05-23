@@ -13,6 +13,7 @@ import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import { GlobalContextService } from '@affine/core/modules/global-context';
 import {
   type WorkspaceMetadata,
+  WorkspaceService,
   WorkspacesService,
 } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
@@ -25,7 +26,12 @@ import {
   SelfhostIcon,
   SignOutIcon,
 } from '@blocksuite/icons/rc';
-import { FrameworkScope, useLiveData, useService } from '@toeverything/infra';
+import {
+  FrameworkScope,
+  useLiveData,
+  useService,
+  useServiceOptional,
+} from '@toeverything/infra';
 import clsx from 'clsx';
 import { type HTMLAttributes, useCallback, useMemo } from 'react';
 
@@ -42,7 +48,11 @@ const WorkspaceItem = ({
 
   return (
     <li className={styles.wsItem}>
-      <button className={clsx(styles.wsCard, className)} {...attrs}>
+      <button
+        className={clsx(styles.wsCard, className)}
+        data-testid="mobile-workspace-item"
+        {...attrs}
+      >
         <WorkspaceAvatar
           key={workspace.id}
           meta={workspace}
@@ -276,6 +286,8 @@ const AddServer = () => {
 
 export const SelectorMenu = ({ onClose }: { onClose?: () => void }) => {
   const workspacesService = useService(WorkspacesService);
+  const currentWorkspace = useServiceOptional(WorkspaceService)?.workspace;
+  const currentWorkspaceId = currentWorkspace?.id;
   const workspaces = useLiveData(workspacesService.list.workspaces$);
   const serversService = useService(ServersService);
   const { jumpToPage } = useNavigateHelper();
@@ -309,16 +321,16 @@ export const SelectorMenu = ({ onClose }: { onClose?: () => void }) => {
   const handleClickWorkspace = useCallback(
     (workspaceMetadata: WorkspaceMetadata) => {
       const id = workspaceMetadata.id;
-      if (id !== currentWorkspace?.id) {
+      if (id !== currentWorkspaceId) {
         jumpToPage(id, 'home');
       }
       onClose?.();
     },
-    [onClose, jumpToPage]
+    [currentWorkspaceId, onClose, jumpToPage]
   );
 
   return (
-    <div className={styles.root}>
+    <div className={styles.root} data-testid="mobile-workspace-switcher-menu">
       <header className={styles.head}>
         Workspace
         <div className={styles.headActions}>

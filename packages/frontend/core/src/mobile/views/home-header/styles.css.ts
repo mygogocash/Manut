@@ -3,85 +3,125 @@ import { globalStyle, style } from '@vanilla-extract/css';
 
 export const root = style({
   width: '100dvw',
-  padding: '16px 20px 10px',
+  padding: '16px 16px 10px',
 });
 
 export const headerRow = style({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 12,
+  gap: 8,
+  minWidth: 0,
 });
 
 export const workspaceChip = style({
-  minWidth: 0,
-  maxWidth: 'calc(100dvw - 160px)',
-  height: 44,
-  padding: '5px 13px 5px 7px',
-  borderRadius: 22,
+  width: 52,
+  height: 52,
+  flex: '0 0 52px',
+  padding: 6,
+  borderRadius: '50%',
   border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
-  background: cssVarV2('layer/background/mobile/secondary'),
-  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.08)',
+  background: 'var(--manut-surface-glass-strong)',
+  backdropFilter: 'blur(18px) saturate(180%)',
+  WebkitBackdropFilter: 'blur(18px) saturate(180%)',
+  boxShadow: '0 12px 30px rgba(0, 0, 0, 0.12)',
 });
 
 globalStyle(`${workspaceChip} [data-testid="workspace-avatar"]`, {
-  width: '32px',
-  height: '32px',
+  width: '40px',
+  height: '40px',
 });
 
-globalStyle(`${workspaceChip} [class*="label"]`, {
+export const menuRail = style({
   minWidth: 0,
-  overflow: 'hidden',
-  color: cssVarV2('text/primary'),
-  fontSize: 18,
-  fontWeight: 650,
-  letterSpacing: 0,
-  lineHeight: '24px',
-  whiteSpace: 'nowrap',
-  textOverflow: 'ellipsis',
-});
-
-export const headerActions = style({
+  flex: 1,
   display: 'flex',
   alignItems: 'center',
-  gap: 12,
-  flexShrink: 0,
+  gap: 8,
+  overflowX: 'auto',
+  scrollbarWidth: 'none',
+  selectors: {
+    '&::-webkit-scrollbar': {
+      display: 'none',
+    },
+  },
 });
 
-export const roundAction = style({
+export const menuButton = style({
   position: 'relative',
-  width: 48,
-  height: 48,
+  flex: '0 0 52px',
+  height: 52,
+  minWidth: 0,
+  border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
+  borderRadius: 26,
+  padding: '0 15px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 8,
+  overflow: 'hidden',
+  background: cssVarV2('layer/background/mobile/secondary'),
+  color: cssVarV2('icon/secondary'),
+  fontFamily: 'inherit',
+  fontSize: 18,
+  fontWeight: 650,
+  lineHeight: '24px',
+  letterSpacing: 0,
+  whiteSpace: 'nowrap',
+  boxShadow: '0 8px 22px rgba(0, 0, 0, 0.08)',
+  transition:
+    'flex-basis 240ms var(--manut-anim-curve-overshoot), transform 160ms var(--manut-anim-curve-overshoot), background-color 180ms ease-out, color 180ms ease-out, box-shadow 180ms ease-out',
+  selectors: {
+    '&[data-active="true"]': {
+      flexBasis: 142,
+      background: 'rgba(243, 243, 241, 0.96)',
+      color: cssVarV2('text/primary'),
+      boxShadow: '0 10px 26px rgba(0, 0, 0, 0.10)',
+    },
+    '&:active': {
+      transform: 'scale(0.94)',
+    },
+    '&:focus-visible': {
+      outline: `2px solid ${cssVarV2('button/primary')}`,
+      outlineOffset: 2,
+    },
+  },
+});
+
+export const menuIcon = style({
+  position: 'relative',
+  width: 24,
+  height: 24,
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
-  borderRadius: '50%',
-  padding: 0,
-  background: cssVarV2('layer/background/mobile/secondary'),
-  color: cssVarV2('icon/primary'),
-  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.08)',
+  flexShrink: 0,
+  fontSize: 22,
+});
+
+export const menuLabel = style({
+  display: 'inline-flex',
+  maxWidth: 0,
+  opacity: 0,
+  transform: 'translateX(-4px)',
+  overflow: 'hidden',
   transition:
-    'transform 120ms var(--manut-anim-curve-overshoot), background-color 120ms ease-out',
+    'max-width 220ms var(--manut-anim-curve-overshoot), opacity 150ms ease-out, transform 220ms var(--manut-anim-curve-overshoot)',
   selectors: {
-    '&:active': {
-      transform: 'scale(0.94)',
+    [`${menuButton}[data-active="true"] &`]: {
+      maxWidth: 104,
+      opacity: 1,
+      transform: 'translateX(0)',
     },
   },
 });
 
 export const notificationBadge = style({
   position: 'absolute',
-  top: -2,
-  right: -2,
+  top: -1,
+  right: -1,
   backgroundColor: cssVarV2('button/primary'),
-  color: cssVarV2('text/pureWhite'),
-  minWidth: '16px',
-  height: '16px',
-  padding: '0 3px',
-  lineHeight: '16px',
+  width: 8,
+  height: 8,
   borderRadius: '50%',
-  textAlign: 'center',
-  fontWeight: 700,
-  boxSizing: 'border-box',
+  border: `1.5px solid ${cssVarV2('layer/background/mobile/secondary')}`,
 });

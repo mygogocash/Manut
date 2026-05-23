@@ -12,6 +12,13 @@ import { type ReactNode, useEffect } from 'react';
 
 import { SettingGroup } from '../group';
 import * as styles from './style.css';
+import { resolveUsageProgressState } from './usage-state';
+
+const CLOUD_USAGE_FALLBACK = {
+  maxFormatted: '2 GB',
+  percent: 0.5,
+  usedFormatted: '0 B',
+} as const;
 
 export const UserUsage = () => {
   const session = useService(AuthService).session;
@@ -86,6 +93,7 @@ const CloudUsage = () => {
   const quota = useService(UserQuotaService).quota;
 
   const color = useLiveData(quota.color$);
+  const loadError = useLiveData(quota.error$);
   const usedFormatted = useLiveData(quota.usedFormatted$);
   const maxFormatted = useLiveData(quota.maxFormatted$);
   const percent = useLiveData(quota.percent$);
@@ -95,16 +103,23 @@ const CloudUsage = () => {
     quota.revalidate();
   }, [quota]);
 
-  const loading = percent === null;
+  const usageState = resolveUsageProgressState({
+    color,
+    fallback: CLOUD_USAGE_FALLBACK,
+    loadError,
+    maxFormatted,
+    percent,
+    usedFormatted,
+  });
 
-  if (loading) return <Loading />;
+  if (usageState.kind === 'loading') return <Loading />;
 
   return (
     <Progress
-      name="Cloud"
-      percent={percent}
-      desc={`${usedFormatted}/${maxFormatted}`}
-      color={color}
+      name={usageState.name}
+      percent={usageState.percent}
+      desc={usageState.desc}
+      color={usageState.color}
     />
   );
 };

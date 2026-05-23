@@ -12,6 +12,12 @@ export const root = style({
     'calc(100dvh - 100px - env(safe-area-inset-bottom) - env(safe-area-inset-top))',
   display: 'flex',
   flexDirection: 'column',
+  width: 'min(390px, calc(100dvw - 28px))',
+  padding: '8px 0 10px',
+  borderRadius: 20,
+  background: cssVarV2('layer/background/mobile/primary'),
+  boxShadow: '0 22px 52px rgba(0, 0, 0, 0.22)',
+  overflow: 'hidden',
 });
 
 export const divider = style({
@@ -35,8 +41,10 @@ export const head = style([
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 4,
-    padding: '10px 16px',
+    padding: '12px 16px 10px',
     color: cssVarV2('text/primary'),
+    fontSize: 17,
+    lineHeight: '24px',
   },
 ]);
 export const headActions = style({
@@ -48,6 +56,7 @@ export const body = style({
   overflowY: 'auto',
   flexShrink: 0,
   flex: 1,
+  padding: '2px 0 4px',
 });
 export const wsList = style({});
 export const wsListTitle = style([
@@ -58,7 +67,7 @@ export const wsListTitle = style([
   },
 ]);
 export const wsItem = style({
-  padding: '4px 12px',
+  padding: '3px 10px',
 });
 export const wsCard = style({
   display: 'flex',
@@ -66,12 +75,21 @@ export const wsCard = style({
   border: 'none',
   background: 'none',
   width: '100%',
-  padding: 8,
-  borderRadius: 8,
-  gap: 8,
+  minHeight: 52,
+  padding: '8px 10px',
+  borderRadius: 12,
+  gap: 10,
+  color: cssVarV2('text/primary'),
+  transition:
+    'transform 150ms var(--manut-anim-curve-overshoot), background-color 150ms ease-out',
 
   ':active': {
     background: cssVarV2('layer/background/hoverOverlay'),
+    transform: 'scale(0.98)',
+  },
+  ':focus-visible': {
+    outline: `2px solid ${cssVarV2('button/primary')}`,
+    outlineOffset: -2,
   },
 });
 export const wsName = style([
