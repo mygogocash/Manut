@@ -6,7 +6,7 @@ import { SiteFooter } from '@/components/sections/site-footer';
 import { SiteNav } from '@/components/site-nav';
 import { siteConfig } from '@/lib/site';
 
-const lastUpdated = 'May 19, 2026';
+const lastUpdated = 'May 24, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -72,15 +72,25 @@ const SECTIONS: ReadonlyArray<Section> = [
     ],
   },
   {
+    id: 'google-oauth',
+    heading: '7. Google OAuth integrations',
+    body: [
+      'Manut offers optional Google OAuth integrations for sign-in and for workspace features that use Gmail, Drive, and Calendar. You authorize only the Google scopes shown on the consent screen, and Manut uses Google user data only to provide the feature you selected.',
+      'Google sign-in uses your Google profile and email to authenticate your account. Gmail, Drive, and Calendar integrations may read selected messages, files, calendars, and events so Manut can search, summarize, display, or import that information into your workspace at your request.',
+      'You can disconnect Google integrations in Manut settings or revoke Manut access from your Google Account. Disconnecting an integration stops future API access but does not automatically delete workspace content you already imported; you can delete that content from your workspace.',
+      'You are responsible for ensuring that you have the right to connect any Google account and import or process any Google user data through Manut.',
+    ],
+  },
+  {
     id: 'privacy',
-    heading: '7. Privacy',
+    heading: '8. Privacy',
     body: [
       `Our ${'Privacy Policy'} explains how we collect, use, and protect personal data. By using the Service, you agree to the Privacy Policy.`,
     ],
   },
   {
     id: 'termination',
-    heading: '8. Termination',
+    heading: '9. Termination',
     body: [
       'You can stop using the Service and delete your account at any time. We may suspend or terminate accounts that violate these Terms, or where required by law.',
       'On termination, your right to use the Service ends. We may retain backups for a limited period as described in our Privacy Policy.',
@@ -88,14 +98,14 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'warranty',
-    heading: '9. Disclaimer of warranties',
+    heading: '10. Disclaimer of warranties',
     body: [
       'The Service is provided "as is" and "as available" without warranties of any kind. We do not warrant that the Service will be uninterrupted, error-free, or secure, or that AI outputs will be accurate.',
     ],
   },
   {
     id: 'liability',
-    heading: '10. Limitation of liability',
+    heading: '11. Limitation of liability',
     body: [
       'To the maximum extent permitted by law, Manut and its affiliates will not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or data, arising from your use of the Service.',
       'Our aggregate liability for direct damages arising from the Service is limited to the amount you paid to us in the 12 months preceding the claim, or US $100, whichever is greater.',
@@ -103,17 +113,15 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'changes',
-    heading: '11. Changes to these Terms',
+    heading: '12. Changes to these Terms',
     body: [
       'We may update these Terms from time to time. Material changes will be communicated by email or an in-product notice. Continued use of the Service after changes take effect constitutes acceptance.',
     ],
   },
   {
     id: 'contact',
-    heading: '12. Contact',
-    body: [
-      `Questions about these Terms? Email ${siteConfig.email}.`,
-    ],
+    heading: '13. Contact',
+    body: [`Questions about these Terms? Email ${siteConfig.email}.`],
   },
 ];
 
