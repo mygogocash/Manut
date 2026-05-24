@@ -66,13 +66,18 @@ export function manutLandingLegalPageFile(staticPath: string, reqPath: string) {
   if (!LEGAL_ROUTE_PATHS.has(path)) {
     return null;
   }
-  return join(manutLandingDir(staticPath), path, 'index.html');
+  const landingPath = manutLandingDir(staticPath);
+  const candidates = [
+    join(landingPath, path, 'index.html'),
+    join(landingPath, `${path}.html`),
+  ];
+  return candidates.find(candidate => existsSync(candidate)) ?? null;
 }
 
 export function registerManutLegalRoutes(app: Application, staticPath: string) {
   app.get(Array.from(LEGAL_ROUTE_PATHS), (req, res, next) => {
     const candidate = manutLandingLegalPageFile(staticPath, req.path);
-    if (candidate && existsSync(candidate)) {
+    if (candidate) {
       res.sendFile(candidate);
       return;
     }
