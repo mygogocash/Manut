@@ -12,6 +12,7 @@ import {
   isManutSpaRoute,
   manutLandingDir,
   registerManutLandingRoutes,
+  registerManutLegalRoutes,
 } from './manut-landing';
 
 const staticPathRegex = /^\/(_plugin|assets|imgs|js|plugins|static)\//;
@@ -124,6 +125,7 @@ export class StaticFilesResolver implements OnModuleInit {
       );
     });
 
+    registerManutLegalRoutes(app, staticPath);
     registerManutLandingRoutes(app, basePath, staticPath);
 
     // /
