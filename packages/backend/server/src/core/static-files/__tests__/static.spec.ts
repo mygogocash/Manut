@@ -146,7 +146,7 @@ test.serial('serves exported legal pages before the SPA fallback', async t => {
 
   const staticRoot = join(fixtureRoot, 'static');
   const files: Array<[string, string]> = [
-    ['landing/privacy/index.html', 'privacy-google-legal'],
+    ['landing/privacy.html', 'privacy-google-legal'],
     ['landing/terms/index.html', 'terms-google-legal'],
   ];
   for (const [file, content] of files) {
