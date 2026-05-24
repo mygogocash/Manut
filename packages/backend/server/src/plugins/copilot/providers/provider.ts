@@ -24,6 +24,7 @@ import type { ProviderMiddlewareConfig } from '../config';
 import { CopilotContextService } from '../context/service';
 import { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
 import { PromptService } from '../prompt/service';
+import { AuthorizedRetrievalFilterService } from '../security';
 import { CopilotStorage } from '../storage';
 import {
   buildBlobContentGetter,
@@ -432,6 +433,12 @@ export abstract class CopilotProvider<C = any> {
       const docReadBus = this.moduleRef.get(DocReadEventBus, {
         strict: false,
       });
+      const authorizedRetrievalFilter = this.moduleRef.get(
+        AuthorizedRetrievalFilterService,
+        {
+          strict: false,
+        }
+      );
 
       for (const tool of options.tools) {
         const toolDef = this.getProviderSpecificTools(tool, model);
@@ -489,7 +496,8 @@ export abstract class CopilotProvider<C = any> {
               context,
               docContext,
               models,
-              docReadBus
+              docReadBus,
+              authorizedRetrievalFilter
             );
             tools.doc_semantic_search = createDocSemanticSearchTool(
               searchDocs.bind(null, options)
@@ -505,7 +513,8 @@ export abstract class CopilotProvider<C = any> {
                 ac,
                 indexerService,
                 models,
-                docReadBus
+                docReadBus,
+                authorizedRetrievalFilter
               );
               tools.doc_keyword_search = createDocKeywordSearchTool(
                 searchDocs.bind(null, options)

@@ -247,11 +247,18 @@ export class CopilotContextService implements OnApplicationBootstrap {
     signal?: AbortSignal,
     threshold: number = 0.8,
     docIds?: string[],
-    scopedThreshold: number = 0.85
+    scopedThreshold: number = 0.85,
+    allowedDocIds?: string[]
   ) {
     if (!this.embeddingClient) return [];
     const embedding = await this.embeddingClient.getEmbedding(content, signal);
     if (!embedding) return [];
+
+    const allowedDocIdSet = allowedDocIds ? new Set(allowedDocIds) : undefined;
+    const scopedDocIds =
+      docIds && allowedDocIdSet
+        ? docIds.filter(docId => allowedDocIdSet.has(docId))
+        : docIds;
 
     const [fileChunks, blobChunks, workspaceChunks, scopedWorkspaceChunks] =
       await Promise.all([
@@ -267,19 +274,24 @@ export class CopilotContextService implements OnApplicationBootstrap {
           topK * 2,
           threshold
         ),
-        this.models.copilotContext.matchWorkspaceEmbedding(
-          embedding,
-          workspaceId,
-          topK * 2,
-          threshold
-        ),
-        docIds
+        allowedDocIds?.length === 0
+          ? []
+          : this.models.copilotContext.matchWorkspaceEmbedding(
+              embedding,
+              workspaceId,
+              topK * 2,
+              threshold,
+              undefined,
+              allowedDocIds
+            ),
+        scopedDocIds?.length
           ? this.models.copilotContext.matchWorkspaceEmbedding(
               embedding,
               workspaceId,
               topK * 2,
               scopedThreshold,
-              docIds
+              scopedDocIds,
+              allowedDocIds
             )
           : null,
       ]);

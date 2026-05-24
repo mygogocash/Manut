@@ -28,6 +28,7 @@ import { EmbeddingHealthService } from './embedding-health';
 import { DistillCron } from './evolution/distill.cron';
 import { DistillService } from './evolution/distill.service';
 import { RateMessageResolver } from './evolution/rate-message.resolver';
+import { ChatRequestInterceptorService } from './interceptor';
 import { McpApiKeyService } from './mcp/auth';
 import { WorkspaceMcpController } from './mcp/controller';
 import { WorkspaceMcpProvider } from './mcp/provider';
@@ -49,6 +50,7 @@ import {
   PromptsManagementResolver,
   UserCopilotResolver,
 } from './resolver';
+import { AuthorizedRetrievalFilterService } from './security';
 import { ChatSessionService } from './session';
 import { CopilotStorage } from './storage';
 import {
@@ -90,6 +92,8 @@ import { ToolProgressService } from './ws/tool-progress.service';
     PromptService,
     ScenarioClassifier,
     CopilotStorage,
+    ChatRequestInterceptorService,
+    AuthorizedRetrievalFilterService,
     // workflow
     CopilotWorkflowService,
     ...CopilotWorkflowExecutors,

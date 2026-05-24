@@ -5,6 +5,7 @@ import type { DocReader } from '../../core/doc';
 import type { AccessController } from '../../core/permission';
 import type { Models } from '../../models';
 import { NativeLlmRequest, NativeLlmStreamEvent } from '../../native';
+import { ChatRequestInterceptorService } from '../../plugins/copilot/interceptor/request-interceptor';
 import {
   ToolCallAccumulator,
   ToolCallLoop,
@@ -310,6 +311,33 @@ test('ToolCallLoop should surface invalid JSON as tool error without executing',
   });
 });
 
+test('chat request interceptor > given disabled feature flag > then leaves final messages unchanged', async t => {
+  const interceptor = new ChatRequestInterceptorService();
+  const messages = [
+    {
+      role: 'system',
+      content: 'system prompt',
+    },
+    {
+      role: 'user',
+      content: 'hello',
+    },
+  ] as const;
+  const params = { language: 'en' };
+
+  const result = await interceptor.intercept({
+    messages: [...messages],
+    params,
+    userId: 'user-1',
+    workspaceId: 'workspace-1',
+    sessionId: 'session-1',
+    query: 'hello',
+  });
+
+  t.deepEqual(result.messages, messages);
+  t.is(result.params, params);
+});
+
 test('doc_read should return specific sync errors for unavailable docs', async t => {
   const cases = [
     {
@@ -455,6 +483,81 @@ test('document search tools should return sync error for local workspace', async
     name: 'Workspace Sync Required',
     message: LOCAL_WORKSPACE_SYNC_REQUIRED_MESSAGE,
   });
+});
+
+test('doc search tools should pass authorized doc ids before retrieval', async t => {
+  const authorizedDocIds = ['doc-allowed'];
+
+  const ac = {
+    user: () => ({
+      workspace: () => ({
+        can: async () => true,
+        docs: async (docs: Array<{ docId: string }>) =>
+          docs.filter(doc => authorizedDocIds.includes(doc.docId)),
+      }),
+    }),
+  } as unknown as AccessController;
+
+  const models = {
+    workspace: {
+      get: async () => ({ id: 'workspace-1' }),
+    },
+    copilotWorkspace: {
+      listEmbeddableDocIds: async () => ['doc-allowed', 'doc-blocked'],
+    },
+    doc: {
+      findAuthors: async () => [],
+      findMetas: async () => [],
+    },
+  } as unknown as Models;
+
+  let keywordDocIds: string[] | undefined;
+  const indexerService = {
+    searchDocsByKeyword: async (
+      _workspaceId: string,
+      _query: string,
+      options?: { docIds?: string[] }
+    ) => {
+      keywordDocIds = options?.docIds;
+      return [];
+    },
+  } as unknown as Parameters<typeof buildDocKeywordSearchGetter>[1];
+
+  let semanticDocIds: string[] | undefined;
+  const contextService = {
+    matchWorkspaceAll: async (
+      _workspaceId: string,
+      _query: string,
+      _topK: number,
+      _signal?: AbortSignal,
+      _threshold?: number,
+      _docIds?: string[],
+      _scopedThreshold?: number,
+      authorizedIds?: string[]
+    ) => {
+      semanticDocIds = authorizedIds;
+      return [];
+    },
+  } as unknown as Parameters<typeof buildDocSearchGetter>[1];
+
+  const keywordTool = createDocKeywordSearchTool(
+    buildDocKeywordSearchGetter(ac, indexerService, models).bind(null, {
+      user: 'user-1',
+      workspace: 'workspace-1',
+    })
+  );
+  const semanticTool = createDocSemanticSearchTool(
+    buildDocSearchGetter(ac, contextService, null, models).bind(null, {
+      user: 'user-1',
+      workspace: 'workspace-1',
+    })
+  );
+
+  await keywordTool.execute?.({ query: 'payroll' }, {});
+  await semanticTool.execute?.({ query: 'payroll' }, {});
+
+  t.deepEqual(keywordDocIds, authorizedDocIds);
+  t.deepEqual(semanticDocIds, authorizedDocIds);
 });
 
 test('doc_semantic_search should return empty array when nothing matches', async t => {
