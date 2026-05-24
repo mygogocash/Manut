@@ -2298,6 +2298,16 @@ test('should search docs by keyword work', async t => {
   const rows = await indexerService.searchDocsByKeyword(workspaceId, 'hello');
 
   t.is(rows.length, 4);
+  const filteredRows = await indexerService.searchDocsByKeyword(
+    workspaceId,
+    'hello',
+    { docIds: [docId2] }
+  );
+
+  t.deepEqual(
+    filteredRows.map(row => row.docId),
+    [docId2]
+  );
   t.snapshot(
     rows
       .map(row =>

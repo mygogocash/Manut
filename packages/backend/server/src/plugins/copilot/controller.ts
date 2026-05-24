@@ -46,6 +46,7 @@ import { ServerFeature, ServerService } from '../../core';
 import { CurrentUser, Public } from '../../core/auth';
 import { AiBudgetService } from '../../core/quota';
 import { CopilotContextService } from './context/service';
+import { ChatRequestInterceptorService } from './interceptor';
 import { getModelMetadata } from './model-metadata';
 import { ScenarioClassifier } from './prompt/scenario-classifier';
 import { CopilotProviderFactory } from './providers/factory';
@@ -85,7 +86,8 @@ export class CopilotController implements BeforeApplicationShutdown {
     private readonly workflow: CopilotWorkflowService,
     private readonly storage: CopilotStorage,
     private readonly scenarioClassifier: ScenarioClassifier,
-    private readonly aiBudget: AiBudgetService
+    private readonly aiBudget: AiBudgetService,
+    private readonly requestInterceptor: ChatRequestInterceptorService
   ) {}
 
   /**
@@ -319,17 +321,26 @@ export class CopilotController implements BeforeApplicationShutdown {
         }
       : {};
 
-    const finalMessage = session.finish({
+    const renderParams = {
       ...params,
       ...lastParams,
       ...contextParams,
+    };
+    const finalMessage = session.finish(renderParams);
+    const intercepted = await this.requestInterceptor.intercept({
+      messages: finalMessage,
+      params: renderParams,
+      userId: user.id,
+      workspaceId: session.config.workspaceId,
+      sessionId,
+      query: latestMessage?.content,
     });
 
     return {
       provider,
       model,
       session,
-      finalMessage,
+      finalMessage: intercepted.messages,
     };
   }
 

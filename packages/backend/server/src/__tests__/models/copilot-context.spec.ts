@@ -233,6 +233,45 @@ test('should insert embedding by doc id', async t => {
   }
 });
 
+test('match workspace embedding > given allowed doc ids > then only returns allowed docs', async t => {
+  const allowedDocId = 'allowed-doc';
+  const blockedDocId = 'blocked-doc';
+
+  for (const id of [allowedDocId, blockedDocId]) {
+    await t.context.db.snapshot.create({
+      data: {
+        workspaceId: workspace.id,
+        id,
+        blob: Buffer.from([1, 1]),
+        state: Buffer.from([1, 1]),
+        updatedAt: new Date(),
+        createdAt: new Date(),
+      },
+    });
+    await t.context.copilotContext.insertWorkspaceEmbedding(workspace.id, id, [
+      {
+        index: 0,
+        content: `content for ${id}`,
+        embedding: Array.from({ length: 1024 }, () => 1),
+      },
+    ]);
+  }
+
+  const ret = await t.context.copilotContext.matchWorkspaceEmbedding(
+    Array.from({ length: 1024 }, () => 0.9),
+    workspace.id,
+    10,
+    1,
+    undefined,
+    [allowedDocId]
+  );
+
+  t.deepEqual(
+    ret.map(chunk => chunk.docId),
+    [allowedDocId]
+  );
+});
+
 test('should check embedding table', async t => {
   {
     const ret = await t.context.copilotContext.checkEmbeddingAvailable();

@@ -6,6 +6,8 @@ import type { AccessController } from '../../../core/permission';
 import type { Models } from '../../../models';
 import type { IndexerService, SearchDoc } from '../../indexer';
 import type { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
+import type { AuthorizedRetrievalFilter } from '../security';
+import { resolveReadableDocIdsFromAccess } from '../security';
 import { workspaceSyncRequiredError } from './doc-sync';
 import { toolError } from './error';
 import { defineTool } from './tool';
@@ -15,7 +17,8 @@ export const buildDocKeywordSearchGetter = (
   ac: AccessController,
   indexerService: IndexerService,
   models: Models,
-  bus?: DocReadEventBus
+  bus?: DocReadEventBus,
+  authorization?: AuthorizedRetrievalFilter
 ) => {
   const searchDocs = async (options: CopilotChatOptions, query?: string) => {
     const queryTrimmed = query?.trim();
@@ -39,9 +42,23 @@ export const buildDocKeywordSearchGetter = (
         'You do not have permission to access this workspace.'
       );
     }
+    const authorizedDocIds = authorization
+      ? await authorization.resolveReadableDocIds({
+          userId: options.user,
+          workspaceId: options.workspace,
+        })
+      : await resolveReadableDocIdsFromAccess(ac, models, {
+          userId: options.user,
+          workspaceId: options.workspace,
+        });
+    if (!authorizedDocIds.length) {
+      return [];
+    }
+
     const docs = await indexerService.searchDocsByKeyword(
       options.workspace,
-      queryTrimmed
+      queryTrimmed,
+      { docIds: authorizedDocIds }
     );
 
     // filter current user readable docs

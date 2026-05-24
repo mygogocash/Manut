@@ -7,9 +7,12 @@ import type { AccessController } from '../../../core/permission';
 import {
   type ChunkSimilarity,
   clearEmbeddingChunk,
+  type DocChunkSimilarity,
   type Models,
 } from '../../../models';
 import type { DocReadEventBus } from '../doc-read/doc-read-event-bus.service';
+import type { AuthorizedRetrievalFilter } from '../security';
+import { resolveReadableDocIdsFromAccess } from '../security';
 import { workspaceSyncRequiredError } from './doc-sync';
 import { toolError } from './error';
 import { defineTool } from './tool';
@@ -24,7 +27,8 @@ export const buildDocSearchGetter = (
   context: CopilotContextService,
   docContext: ContextSession | null,
   models: Models,
-  bus?: DocReadEventBus
+  bus?: DocReadEventBus,
+  authorization?: AuthorizedRetrievalFilter
 ) => {
   const searchDocs = async (
     options: CopilotChatOptions,
@@ -50,18 +54,37 @@ export const buildDocSearchGetter = (
         'Doc Semantic Search Failed',
         'You do not have permission to access this workspace.'
       );
+    const authorizedDocIds = authorization
+      ? await authorization.resolveReadableDocIds({
+          userId: options.user,
+          workspaceId: options.workspace,
+        })
+      : await resolveReadableDocIdsFromAccess(ac, models, {
+          userId: options.user,
+          workspaceId: options.workspace,
+        });
+
     const [chunks, contextChunks] = await Promise.all([
-      context.matchWorkspaceAll(options.workspace, query, 10, signal),
+      context.matchWorkspaceAll(
+        options.workspace,
+        query,
+        10,
+        signal,
+        0.8,
+        undefined,
+        0.85,
+        authorizedDocIds
+      ),
       docContext?.matchFiles(query, 10, signal) ?? [],
     ]);
 
+    const docCandidateChunks = chunks.filter(
+      (chunk): chunk is DocChunkSimilarity => 'docId' in chunk
+    ) as DocChunkSimilarity[];
     const docChunks = await ac
       .user(options.user)
       .workspace(options.workspace)
-      .docs(
-        chunks.filter(c => 'docId' in c),
-        'Doc.Read'
-      );
+      .docs(docCandidateChunks, 'Doc.Read');
     const blobChunks = chunks.filter(c => 'blobId' in c);
     const fileChunks = chunks.filter(c => 'fileId' in c);
     if (contextChunks.length) {
