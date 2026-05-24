@@ -7,7 +7,10 @@ import { static as serveStatic } from 'express';
 import isMobile from 'is-mobile';
 
 import { Config } from '../../base';
-import { registerManutLandingRoutes } from '../static-files/manut-landing';
+import {
+  registerManutLandingRoutes,
+  registerManutLegalRoutes,
+} from '../static-files/manut-landing';
 import { SetupMiddleware } from './setup';
 
 @Injectable()
@@ -91,6 +94,7 @@ export class StaticFilesResolver implements OnModuleInit {
 
     // START REGION: /
     // Marketing site at / when static/landing is present (manut.xyz).
+    registerManutLegalRoutes(app, staticPath);
     registerManutLandingRoutes(app, basePath, staticPath);
 
     // do not allow '/index.html' url, redirect to '/'
