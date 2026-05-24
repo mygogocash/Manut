@@ -6,7 +6,7 @@ import { SiteFooter } from '@/components/sections/site-footer';
 import { SiteNav } from '@/components/site-nav';
 import { siteConfig } from '@/lib/site';
 
-const lastUpdated = 'May 19, 2026';
+const lastUpdated = 'May 24, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -42,15 +42,28 @@ const SECTIONS: ReadonlyArray<Section> = [
     ],
   },
   {
+    id: 'google-user-data',
+    heading: '3. Google user data and OAuth scopes',
+    body: [
+      'When you choose to sign in with Google or connect a Google integration, Manut requests only the Google user data needed to provide the feature you selected. Google sign-in uses openid, email, and profile so we can authenticate you, show your account identity, and protect your workspace.',
+      'Gmail import and AI Gmail search use https://www.googleapis.com/auth/gmail.readonly for read-only access to message metadata and message content that you explicitly ask Manut to search, summarize, or import into your workspace. Manut does not send email, modify email, delete email, or manage Gmail settings.',
+      'Google Drive import uses https://www.googleapis.com/auth/drive.readonly for read-only access to file metadata and file content that you select for preview, search, or import. Manut does not create, modify, share, or delete files in your Google Drive.',
+      'Google Calendar uses https://www.googleapis.com/auth/calendar.readonly for read-only access to calendars and events so Manut can show upcoming meetings beside your docs and let AI help prepare agendas. Manut does not create, modify, invite attendees to, or delete calendar events through this scope.',
+      'We store Google OAuth access tokens and refresh tokens encrypted and use them only to call the Google APIs needed for the connected feature. You can revoke Google access from your Google Account permissions page or disconnect Google integrations in Manut settings.',
+      'We do not sell Google user data, share it with advertisers, or use it for cross-context behavioral advertising. We do not use Google user data to train generalized AI models. We may process selected Google user data through AI providers only when you ask Manut to summarize, search, draft from, or import that data, and only to provide that requested feature.',
+      'Manut use and transfer of information received from Google APIs will adhere to the Google API Services User Data Policy, including the Limited Use requirements.',
+    ],
+  },
+  {
     id: 'legal-bases',
-    heading: '3. Legal bases (GDPR)',
+    heading: '4. Legal bases (GDPR)',
     body: [
       'We process personal data on the following legal bases under the GDPR: (a) contract — to provide the Service you signed up for; (b) legitimate interests — to secure the Service, prevent abuse, and improve features; (c) consent — for optional telemetry, marketing emails, and any AI features you opt into; (d) legal obligation — to comply with tax, accounting, and lawful requests.',
     ],
   },
   {
     id: 'ccpa',
-    heading: '4. California residents (CCPA / CPRA)',
+    heading: '5. California residents (CCPA / CPRA)',
     body: [
       'If you are a California resident, you have the right to know what personal information we collect about you, request deletion, correct inaccuracies, and opt out of "sale" or "sharing" of personal information. We do not sell personal information.',
       'Submit a request by emailing privacy@manut.xyz from the address associated with your account.',
@@ -58,7 +71,7 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'ai',
-    heading: '5. AI processing',
+    heading: '6. AI processing',
     body: [
       'When you use AI features, your prompts and the relevant workspace context are sent to third-party model providers (Google Vertex AI, Anthropic, and others) for inference. These providers process your data under their own terms; we have configured them to not retain or train on your prompts where that option is available.',
       'AI outputs are stored alongside your workspace content. You can delete AI conversations and their outputs at any time.',
@@ -66,7 +79,7 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'sharing',
-    heading: '6. How we share data',
+    heading: '7. How we share data',
     body: [
       'We share data only with: (a) service providers acting on our behalf under contract (hosting, payments, analytics, AI model providers, email delivery); (b) collaborators in your own workspace (the people you invite); (c) authorities when legally required.',
       'We do not sell personal data. We do not share data with advertisers.',
@@ -74,14 +87,14 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'retention',
-    heading: '7. Retention',
+    heading: '8. Retention',
     body: [
-      'We keep your workspace content for as long as your account is active. After you delete your account, we delete or anonymize your content within 30 days, with limited exceptions for legal retention obligations and disaster-recovery backups (which are purged within 90 days).',
+      'We keep your workspace content for as long as your account is active. After you delete your account, your workspace content and imported Google user data are deleted or anonymized within 30 days, with limited exceptions for legal retention obligations and disaster-recovery backups (which are purged within 90 days). Google user data imported into workspace content follows the same retention schedule unless you delete it sooner.',
     ],
   },
   {
     id: 'security',
-    heading: '8. Security',
+    heading: '9. Security',
     body: [
       'We encrypt data in transit (TLS 1.2+) and at rest. Access to production systems is restricted, logged, and audited. We perform regular reviews of access and security posture.',
       'No system is perfectly secure. If we discover a breach that affects your data, we will notify you in accordance with applicable law.',
@@ -89,14 +102,14 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'international',
-    heading: '9. International transfers',
+    heading: '10. International transfers',
     body: [
       'We host the Service in Google Cloud (asia-southeast1 primary, with additional regions for AI inference). If you access the Service from outside those regions, data will be transferred internationally. Where required, we use Standard Contractual Clauses or equivalent safeguards.',
     ],
   },
   {
     id: 'your-rights',
-    heading: '10. Your rights',
+    heading: '11. Your rights',
     body: [
       'Subject to applicable law, you have the right to access, correct, delete, restrict, or port your personal data, and to object to processing. To exercise these rights, email privacy@manut.xyz.',
       'You also have the right to lodge a complaint with a data protection authority in your jurisdiction.',
@@ -104,21 +117,21 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'children',
-    heading: '11. Children',
+    heading: '12. Children',
     body: [
       'The Service is not intended for children under 13 (or under the age of digital consent in your country). We do not knowingly collect personal data from children. If you believe a child has provided personal data to us, email privacy@manut.xyz and we will delete it.',
     ],
   },
   {
     id: 'changes',
-    heading: '12. Changes to this Policy',
+    heading: '13. Changes to this Policy',
     body: [
       'We may update this Policy from time to time. Material changes will be announced by email or an in-product notice at least 30 days before they take effect.',
     ],
   },
   {
     id: 'contact',
-    heading: '13. Contact',
+    heading: '14. Contact',
     body: [
       `Privacy questions: privacy@manut.xyz. General contact: ${siteConfig.email}.`,
     ],
