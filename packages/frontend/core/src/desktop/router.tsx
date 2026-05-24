@@ -101,6 +101,14 @@ export const topLevelRoutes = [
         lazy: () => import('./pages/subscribe'),
       },
       {
+        path: '/privacy',
+        lazy: () => import('./pages/legal'),
+      },
+      {
+        path: '/terms',
+        lazy: () => import('./pages/legal'),
+      },
+      {
         path: '/upgrade-to-team',
         lazy: () => import('./pages/upgrade-to-team'),
       },
