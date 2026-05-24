@@ -140,6 +140,46 @@ test.serial(
   }
 );
 
+test.serial('serves exported legal pages before the SPA fallback', async t => {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'affine-static-files-'));
+  initStaticFixture(fixtureRoot);
+
+  const staticRoot = join(fixtureRoot, 'static');
+  const files: Array<[string, string]> = [
+    ['landing/privacy/index.html', 'privacy-google-legal'],
+    ['landing/terms/index.html', 'terms-google-legal'],
+  ];
+  for (const [file, content] of files) {
+    const fullPath = join(staticRoot, file);
+    mkdirSync(dirname(fullPath), { recursive: true });
+    writeFileSync(fullPath, content);
+  }
+
+  const prevProjectRoot = env.projectRoot;
+  const prevNamespace = env.NAMESPACE;
+
+  try {
+    // @ts-expect-error test override
+    env.projectRoot = fixtureRoot;
+    // @ts-expect-error test override
+    env.NAMESPACE = Namespace.Production;
+
+    const app = await createApp();
+
+    const privacyRes = await request(app).get('/privacy').expect(200);
+    t.is(privacyRes.text, 'privacy-google-legal');
+
+    const termsRes = await request(app).get('/terms').expect(200);
+    t.is(termsRes.text, 'terms-google-legal');
+  } finally {
+    // @ts-expect-error test override
+    env.projectRoot = prevProjectRoot;
+    // @ts-expect-error test override
+    env.NAMESPACE = prevNamespace;
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
 test.serial('uses mobile root only in dev namespace for mobile UA', async t => {
   const fixtureRoot = mkdtempSync(join(tmpdir(), 'affine-static-files-'));
   initStaticFixture(fixtureRoot);
