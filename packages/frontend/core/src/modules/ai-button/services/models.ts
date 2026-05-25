@@ -21,6 +21,17 @@ export interface AIModel {
   isDefault: boolean;
 }
 
+export function resolveSelectedAIModelId(
+  models: readonly AIModel[],
+  storedModelId: string | undefined
+): string | undefined {
+  if (storedModelId && models.some(model => model.id === storedModelId)) {
+    return storedModelId;
+  }
+
+  return models.find(model => model.isDefault)?.id ?? 'auto';
+}
+
 export class AIModelService extends Service {
   modelId: Signal<string | undefined>;
 
@@ -78,6 +89,10 @@ export class AIModelService extends Service {
     // reject selections on self-hosted servers, so the chat input kept
     // reverting to Auto even after the user picked Gemini Pro / Claude.
     this.globalStateService.globalState.set(AI_MODEL_ID_KEY, modelId);
+  };
+
+  getSelectedModelId = () => {
+    return resolveSelectedAIModelId(this.models.value, this.modelId.value);
   };
 
   private readonly init = async () => {
