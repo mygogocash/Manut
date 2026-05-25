@@ -1,14 +1,11 @@
 import type { AIToolsConfigService } from '@affine/core/modules/ai-button';
+import { isAIModelProLocked } from '@affine/core/modules/ai-button/services/model-access';
 import type { AIModelService } from '@affine/core/modules/ai-button/services/models';
 import type {
   ServerService,
   SubscriptionService,
 } from '@affine/core/modules/cloud';
-import {
-  type CopilotChatHistoryFragment,
-  ServerDeploymentType,
-  SubscriptionStatus,
-} from '@affine/graphql';
+import { type CopilotChatHistoryFragment } from '@affine/graphql';
 import { I18n } from '@affine/i18n';
 import {
   menu,
@@ -453,11 +450,8 @@ export class ChatInputPreference extends SignalWatcher(
     // per request. The Pro lock chip and the Beta badge logic are preserved
     // from the flat version below.
     const allModels = this.aiModelService.models.value;
-    const isSelfHosted =
-      this.serverService.server.config$.value?.type ===
-      ServerDeploymentType.Selfhosted;
+    const serverConfig = this.serverService.server.config$.value;
     const status = this.subscriptionService.subscription.ai$.value?.status;
-    const isSubscribed = status === SubscriptionStatus.Active;
     const handleLockClick = (ev: Event) => {
       // Stop the row's select handler from also firing
       ev.stopPropagation();
@@ -488,6 +482,11 @@ export class ChatInputPreference extends SignalWatcher(
     const buildModelRow = (model: (typeof allModels)[number]) => {
       const isSelected = model.id === this.model.value?.id;
       const isBeta = BETA_MODEL_IDS.has(model.id);
+      const isLocked = isAIModelProLocked(model, {
+        serverType: serverConfig?.type,
+        serverFeatures: serverConfig?.features,
+        aiSubscriptionStatus: status,
+      });
       const betaTooltip = isBeta
         ? I18n.t('com.affine.ai.model.beta-tooltip', {
             provider: getProviderLabel(model.category),
@@ -518,13 +517,11 @@ export class ChatInputPreference extends SignalWatcher(
         `,
         postfix: html`
           <div class="ai-model-postfix" @click=${handleLockClick}>
-            ${model.isPro && !isSelfHosted && !isSubscribed
-              ? LockIcon()
-              : undefined}
+            ${isLocked ? LockIcon() : undefined}
           </div>
         `,
         select: () => {
-          if (model.isPro && !isSelfHosted && !isSubscribed) {
+          if (isLocked) {
             this.notificationService.toast(
               I18n.t('com.affine.payment.ai.pro-locked.title')
             );
