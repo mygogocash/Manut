@@ -12,6 +12,7 @@ function initStaticFixture(root: string) {
   const staticRoot = join(root, 'static');
   const files: Array<[string, string]> = [
     ['selfhost.html', 'selfhost-app'],
+    ['js/index.12345678.js', 'app-bundle'],
     ['landing/index.html', 'landing-index'],
     ['landing/privacy.html', 'privacy-google-legal'],
     ['landing/privacy-policy.html', 'privacy-policy-google-legal'],
@@ -84,3 +85,42 @@ test.serial('serves legal pages before selfhost app fallback', async t => {
     rmSync(fixtureRoot, { recursive: true, force: true });
   }
 });
+
+test.serial(
+  'returns 404 for missing selfhost static assets instead of app html',
+  async t => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'affine-selfhost-static-'));
+
+    const prevProjectRoot = env.projectRoot;
+    const prevDeploymentType = env.DEPLOYMENT_TYPE;
+
+    try {
+      initStaticFixture(fixtureRoot);
+      // @ts-expect-error test override
+      env.projectRoot = fixtureRoot;
+      // @ts-expect-error test override
+      env.DEPLOYMENT_TYPE = 'selfhosted';
+
+      const app = await createApp();
+
+      const assetRes = await request(app)
+        .get('/js/index.12345678.js')
+        .expect(200);
+      t.is(assetRes.text, 'app-bundle');
+
+      const missingRes = await request(app)
+        .get('/js/index.deadbeef.js')
+        .expect(404);
+      t.is(missingRes.text, '');
+
+      const fallbackRes = await request(app).get('/workspace/path').expect(200);
+      t.is(fallbackRes.text, 'selfhost-app');
+    } finally {
+      // @ts-expect-error test override
+      env.projectRoot = prevProjectRoot;
+      // @ts-expect-error test override
+      env.DEPLOYMENT_TYPE = prevDeploymentType;
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+  }
+);
