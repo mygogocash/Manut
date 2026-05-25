@@ -11,6 +11,8 @@ import { PrismaClient } from '@prisma/client';
 import { UserFriendlyError } from '../../base/error/def';
 import { FREE_TIER, PRO_TIER, tierFor } from './tiers';
 
+const MANUT_SELFHOST_AI_BUDGET_CENTS = Number.MAX_SAFE_INTEGER;
+
 /**
  * Structured payload thrown alongside `AiBudgetExceeded` so the frontend
  * `AiBudgetModal` can render the "$X.XX of $Y.YY used" copy without an
@@ -182,6 +184,10 @@ export class AiBudgetService {
     estimatedCostCents: number,
     now: Date = new Date()
   ): Promise<void> {
+    if (env.selfhosted) {
+      return;
+    }
+
     const capCents = await this.getCapCents(workspaceId);
     const spentCents = await this.getCurrentSpend(workspaceId, now);
     const safeEstimate =
@@ -204,6 +210,10 @@ export class AiBudgetService {
    * E3.3, this routes Pro workspaces to $50 automatically.
    */
   async getCapCents(workspaceId: string): Promise<number> {
+    if (env.selfhosted) {
+      return MANUT_SELFHOST_AI_BUDGET_CENTS;
+    }
+
     const plan = await this.getWorkspacePlan(workspaceId);
     return tierFor(plan).aiBudgetUsdCents;
   }
