@@ -46,6 +46,7 @@ on:
         default: '90'
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   GCP_PROJECT: affine-495114
   GCE_ZONE: asia-southeast1-a
   GCE_VM: affine-vm
