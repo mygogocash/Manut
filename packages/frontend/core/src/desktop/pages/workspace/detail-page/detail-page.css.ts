@@ -69,6 +69,10 @@ export const pageModeDocumentColumnStyle = {
   marginRight: 'auto',
   textAlign: 'left',
 } satisfies GlobalStyleRule;
+export const pageModeDocumentHeaderPaddingStyle = {
+  paddingLeft: 'var(--affine-editor-side-padding)',
+  paddingRight: 'var(--affine-editor-side-padding)',
+} satisfies GlobalStyleRule;
 export const pageModePropertiesContainerStyle = {
   justifyContent: 'center',
 } satisfies GlobalStyleRule;
@@ -130,18 +134,18 @@ globalStyle(
 );
 globalStyle(`${pageModeEditorSelector} .doc-icon-container`, {
   ...pageModeDocumentColumnStyle,
+  ...pageModeDocumentHeaderPaddingStyle,
   boxSizing: 'border-box',
   display: 'flex',
   width: '100%',
   justifyContent: 'flex-start',
   alignItems: 'center',
   paddingTop: 168,
-  paddingLeft: 'var(--affine-editor-side-padding)',
-  paddingRight: 'var(--affine-editor-side-padding)',
   paddingBottom: 10,
 });
 globalStyle(`${pageModeEditorSelector} .doc-title-container`, {
   ...pageModeDocumentColumnStyle,
+  ...pageModeDocumentHeaderPaddingStyle,
   paddingTop: 168,
   paddingBottom: 18,
   fontSize: 40,

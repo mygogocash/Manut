@@ -1,11 +1,17 @@
 import { cssVarV2 } from '@toeverything/theme/v2';
-import { globalStyle, style } from '@vanilla-extract/css';
+import { globalStyle, style, type StyleRule } from '@vanilla-extract/css';
 
+export const docIconPickerTriggerAlignmentStyle = {
+  justifyContent: 'flex-start',
+  padding: 0,
+  textAlign: 'left',
+} satisfies StyleRule;
 export const docIconPickerTrigger = style({
+  ...docIconPickerTriggerAlignmentStyle,
   width: 64,
   height: 64,
-  padding: 2,
   selectors: {
+    '&&': docIconPickerTriggerAlignmentStyle,
     '&[data-icon-type="emoji"], &[data-icon-type="affine-icon"]': {
       fontSize: 60,
       lineHeight: 1,
