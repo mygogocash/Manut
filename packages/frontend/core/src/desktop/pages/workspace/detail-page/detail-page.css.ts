@@ -53,153 +53,198 @@ export const pageModeViewportContentBox = style({
     '--affine-editor-side-padding': '40px',
   },
 });
+const editorContainerSelector = '[data-affine-editor-container]';
+export const pageModeEditorSelector = `${pageModeViewportContentBox} ${editorContainerSelector}`;
+export const pageModeFullScreenReadableVarsStyle = {
+  vars: {
+    '--affine-editor-width': '760px',
+    '--affine-editor-side-padding': '40px',
+  },
+} satisfies GlobalStyleRule;
 export const pageModeDocumentColumnStyle = {
   boxSizing: 'border-box',
   width: '100%',
   maxWidth: 'var(--affine-editor-width)',
-  marginLeft: 0,
+  marginLeft: 'auto',
   marginRight: 'auto',
   textAlign: 'left',
 } satisfies GlobalStyleRule;
 export const pageModePropertiesContainerStyle = {
-  justifyContent: 'flex-start',
+  justifyContent: 'center',
 } satisfies GlobalStyleRule;
 export const pageModePropertiesGridStyle = {
   display: 'flex',
-  flexWrap: 'wrap',
+  flexDirection: 'column',
+  flexWrap: 'nowrap',
   justifyContent: 'flex-start',
-  alignItems: 'flex-start',
-  columnGap: 56,
-  rowGap: 12,
+  alignItems: 'stretch',
+  gap: 4,
 } satisfies GlobalStyleRule;
 export const pageModePropertyCellStyle = {
-  flex: '0 1 164px',
-  maxWidth: 260,
+  display: 'flex',
+  flex: '0 0 auto',
+  width: '100%',
+  maxWidth: '100%',
+  flexDirection: 'row',
+  flexWrap: 'nowrap',
+  alignItems: 'center',
+  gap: 4,
+  minWidth: 0,
+  minHeight: 30,
+  listStyle: 'none',
 } satisfies GlobalStyleRule;
 export const pageModePropertyFullRowStyle = {
   flexBasis: '100%',
   maxWidth: '100%',
 } satisfies GlobalStyleRule;
+export const pageModePropertyNameStyle = {
+  width: 160,
+  flexShrink: 0,
+  minWidth: 0,
+  height: 30,
+  padding: 4,
+  lineHeight: '22px',
+} satisfies GlobalStyleRule;
+export const pageModePropertyValueStyle = {
+  width: 'auto',
+  minWidth: 0,
+  minHeight: 30,
+  flex: 1,
+  padding: 4,
+  alignItems: 'center',
+} satisfies GlobalStyleRule;
+globalStyle(`${pageModeEditorSelector}.full-screen`, {
+  ...pageModeFullScreenReadableVarsStyle,
+});
 globalStyle(
-  `${pageModeViewportContentBox} >:first-child:has(>[data-affine-editor-container])`,
+  `${pageModeViewportContentBox} >:first-child:has(>${editorContainerSelector})`,
   { display: 'table !important', minWidth: '100%' }
 );
 globalStyle(
-  `${pageModeViewportContentBox} >:first-child:has(>[data-affine-editor-container].full-screen)`,
+  `${pageModeViewportContentBox} >:first-child:has(>${editorContainerSelector}.full-screen)`,
   { display: 'block !important', width: '100%', minWidth: '100%' }
 );
 globalStyle(
   `${pageModeViewportContentBox} >:first-child:has(>[data-editor-loading="true"]) > [data-editor-loading="true"]`,
   { flex: 1, minHeight: '100%' }
 );
+globalStyle(`${pageModeEditorSelector} .doc-icon-container`, {
+  ...pageModeDocumentColumnStyle,
+  boxSizing: 'border-box',
+  display: 'flex',
+  width: '100%',
+  justifyContent: 'flex-start',
+  alignItems: 'center',
+  paddingTop: 168,
+  paddingLeft: 'var(--affine-editor-side-padding)',
+  paddingRight: 'var(--affine-editor-side-padding)',
+  paddingBottom: 10,
+});
+globalStyle(`${pageModeEditorSelector} .doc-title-container`, {
+  ...pageModeDocumentColumnStyle,
+  paddingTop: 168,
+  paddingBottom: 18,
+  fontSize: 40,
+  lineHeight: '48px',
+});
 globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .doc-icon-container`,
-  {
-    ...pageModeDocumentColumnStyle,
-    boxSizing: 'border-box',
-    display: 'flex',
-    width: '100%',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingTop: 168,
-    paddingLeft: 'var(--affine-editor-side-padding)',
-    paddingRight: 'var(--affine-editor-side-padding)',
-    paddingBottom: 10,
-  }
-);
-globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .doc-title-container`,
-  {
-    ...pageModeDocumentColumnStyle,
-    paddingTop: 168,
-    paddingBottom: 18,
-    fontSize: 40,
-    lineHeight: '48px',
-  }
-);
-globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .doc-icon-container + * .doc-title-container`,
+  `${pageModeEditorSelector} .doc-icon-container + * .doc-title-container`,
   {
     paddingTop: 0,
   }
 );
-globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .affine-page-root-block-container`,
-  {
-    ...pageModeDocumentColumnStyle,
-    minHeight: 'auto',
-    paddingBottom: 80,
-    '@container': {
-      [`viewport (width <= 640px)`]: {
-        paddingLeft: 24,
-        paddingRight: 24,
-      },
+globalStyle(`${pageModeEditorSelector} .affine-page-root-block-container`, {
+  ...pageModeDocumentColumnStyle,
+  minHeight: 'auto',
+  paddingBottom: 80,
+  '@container': {
+    [`viewport (width <= 640px)`]: {
+      paddingLeft: 24,
+      paddingRight: 24,
     },
-  }
-);
+  },
+});
+globalStyle(`${pageModeEditorSelector} [data-testid="page-editor-blank"]`, {
+  ...pageModeDocumentColumnStyle,
+});
+globalStyle(`${pageModeEditorSelector} [data-testid="add-property-button"]`, {
+  width: '100%',
+  maxWidth: 180,
+});
 globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-testid="page-editor-blank"]`,
-  {
-    ...pageModeDocumentColumnStyle,
-  }
-);
-globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-testid="add-property-button"]`,
-  {
-    width: '100%',
-    maxWidth: 180,
-  }
-);
-globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container]`,
+  `${pageModeEditorSelector} [data-doc-properties-table-container]`,
   pageModePropertiesContainerStyle
 );
 globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container] [data-property-collapsible]`,
+  `${pageModeEditorSelector} [data-doc-properties-table-container] [data-property-collapsible]`,
   pageModePropertiesGridStyle
 );
 globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container] [data-property-row], ${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container] [data-testid="database-backlink-cell"]`,
+  `${pageModeEditorSelector} [data-doc-properties-table-container] [data-property-row], ${pageModeEditorSelector} [data-doc-properties-table-container] [data-testid="database-backlink-cell"]`,
   pageModePropertyCellStyle
 );
 globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container] [data-property-collapsible] > [data-testid="property-collapsible-button"], ${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) [data-doc-properties-table-container] [data-property-collapsible] > div:has(> [data-testid="add-property-button"])`,
+  `${pageModeEditorSelector} [data-doc-properties-table-container] [data-property-name]`,
+  pageModePropertyNameStyle
+);
+globalStyle(
+  `${pageModeEditorSelector} [data-doc-properties-table-container] [data-property-value]`,
+  pageModePropertyValueStyle
+);
+globalStyle(
+  `${pageModeEditorSelector} [data-doc-properties-table-container] [data-property-collapsible] > [data-testid="property-collapsible-button"], ${pageModeEditorSelector} [data-doc-properties-table-container] [data-property-collapsible] > div:has(> [data-testid="add-property-button"])`,
   pageModePropertyFullRowStyle
 );
+globalStyle(`${pageModeEditorSelector} affine-data-view-record-detail`, {
+  padding: 0,
+  borderRadius: 0,
+});
+globalStyle(`${pageModeEditorSelector} affine-data-view-record-field`, {
+  width: '100%',
+  maxWidth: '100%',
+  flexWrap: 'nowrap',
+});
 globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .doc-icon-container`,
+  `${pageModeEditorSelector} affine-data-view-record-field .field-left`,
   {
-    '@container': {
-      [`viewport (width <= 900px)`]: {
-        paddingTop: 96,
-      },
-      [`viewport (width <= 640px)`]: {
-        paddingTop: 64,
-        paddingLeft: 24,
-        paddingRight: 24,
-      },
-    },
+    width: 160,
+    flexShrink: 0,
   }
 );
 globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .doc-title-container`,
+  `${pageModeEditorSelector} affine-data-view-record-field .field-content`,
   {
-    '@container': {
-      [`viewport (width <= 900px)`]: {
-        paddingTop: 96,
-      },
-      [`viewport (width <= 640px)`]: {
-        paddingTop: 64,
-        paddingLeft: 24,
-        paddingRight: 24,
-        fontSize: 36,
-        lineHeight: '44px',
-      },
-    },
+    minWidth: 0,
   }
 );
+globalStyle(`${pageModeEditorSelector} .doc-icon-container`, {
+  '@container': {
+    [`viewport (width <= 900px)`]: {
+      paddingTop: 96,
+    },
+    [`viewport (width <= 640px)`]: {
+      paddingTop: 64,
+      paddingLeft: 24,
+      paddingRight: 24,
+    },
+  },
+});
+globalStyle(`${pageModeEditorSelector} .doc-title-container`, {
+  '@container': {
+    [`viewport (width <= 900px)`]: {
+      paddingTop: 96,
+    },
+    [`viewport (width <= 640px)`]: {
+      paddingTop: 64,
+      paddingLeft: 24,
+      paddingRight: 24,
+      fontSize: 36,
+      lineHeight: '44px',
+    },
+  },
+});
 globalStyle(
-  `${pageModeViewportContentBox} [data-affine-editor-container]:not(.full-screen) .doc-icon-container + * .doc-title-container`,
+  `${pageModeEditorSelector} .doc-icon-container + * .doc-title-container`,
   {
     '@container': {
       [`viewport (width <= 900px)`]: {
