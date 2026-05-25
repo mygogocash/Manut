@@ -8,9 +8,8 @@ import type { MongoCollectionInfo, MongoSampleDocs } from './types';
  * narrow contract used by `MongoDbConnectionService.testConnection` so
  * the dynamic-import dance stays consistent.
  *
- * The driver is an OPTIONAL runtime dep — we never bind to its types
- * at compile time because the package may not be installed (CLAUDE.md
- * §6c). The `// @ts-expect-error` on the dynamic import is required.
+ * The driver is loaded lazily. The service uses a narrow runtime shape
+ * so tests can fake the driver without opening network connections.
  */
 interface MongoDriver {
   MongoClient: new (
@@ -104,14 +103,11 @@ export class MongoSchemaExplorerService {
   constructor(private readonly connection: MongoDbConnectionService) {}
 
   /**
-   * Lazy-load the `mongodb` driver. Returns `null` if the package isn't
-   * installed — callers map this to a friendly error.
+   * Lazy-load the `mongodb` driver. Returns `null` if the package cannot
+   * be loaded — callers map this to a non-fatal UI fallback.
    */
   private async loadDriver(): Promise<MongoDriver | null> {
     try {
-      // @ts-expect-error — `mongodb` is an optional runtime dep that
-      // may not be present. The import resolves at runtime; null
-      // means "driver not installed".
       const mod = (await import('mongodb').catch(
         () => null
       )) as MongoDriver | null;
