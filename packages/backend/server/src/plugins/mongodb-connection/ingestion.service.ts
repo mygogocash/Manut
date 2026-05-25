@@ -93,8 +93,7 @@ interface MongoDriverLike {
 }
 
 /**
- * Lazy driver loader. Returns null if the `mongodb` package is not
- * installed — keeps the dep optional at boot, just like
+ * Lazy driver loader. Keeps MongoDB out of the boot path, just like
  * `MongoDbConnectionService.testConnection`.
  *
  * Exported so tests can inject a fake driver without touching globals.
@@ -103,8 +102,6 @@ export type MongoDriverLoader = () => Promise<MongoDriverLike | null>;
 
 const defaultDriverLoader: MongoDriverLoader = async () => {
   try {
-    // @ts-expect-error — `mongodb` is an optional runtime dep that
-    // may not be present in the workspace.
     return (await import('mongodb').catch(
       () => null
     )) as MongoDriverLike | null;

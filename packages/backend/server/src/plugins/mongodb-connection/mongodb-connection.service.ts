@@ -41,19 +41,9 @@ export class MongoDbConnectionInvalidUriError extends Error {
  *    runs `db.command({ ping: 1 })`, and closes. No write paths are
  *    exercised by the scaffold.
  *
- * IMPORTANT: This scaffold deliberately does NOT import the `mongodb`
- * driver. The driver is a large native dep and we don't want to bind
- * it into the bundle on a code-path that won't run unless a workspace
- * actually configures MongoDB. The `testConnection` method uses a
- * dynamic `import('mongodb')` so the driver is loaded lazily only at
- * test time. Live-import paths in the AI tools follow-up should do
- * the same.
- *
- * If the `mongodb` package isn't yet a dependency in the server
- * workspace, `testConnection` will surface a friendly
- * "MongoDB driver not installed" error rather than crashing the
- * resolver — the connect/save path still works (we persist the URI
- * regardless of whether the driver is available).
+ * The `mongodb` driver is installed as a server dependency but still
+ * loaded lazily. Workspaces that never configure MongoDB do not open
+ * driver connections during boot.
  */
 @Injectable()
 export class MongoDbConnectionService {
@@ -194,14 +184,9 @@ export class MongoDbConnectionService {
 
     const parsed = this.parseUriForDisplay(uri);
 
-    // Lazy dynamic import: the `mongodb` driver is NOT a hard dep of
-    // @affine/server — see module-level header for the rationale. The
-    // `// @ts-expect-error` is REQUIRED because the type checker
-    // can't resolve a package that isn't installed; at runtime the
-    // dynamic import either succeeds (driver present) or fails
-    // gracefully via `.catch(() => null)`. We rely on the stable
-    // runtime contract (connect / db / command / close) which is
-    // unchanged across every published mongodb driver version.
+    // Lazy dynamic import keeps the driver out of the boot path while
+    // still allowing production deployments to explore configured
+    // MongoDB clusters.
     type MongoDriver = {
       MongoClient: new (
         uri: string,
@@ -217,9 +202,6 @@ export class MongoDbConnectionService {
 
     let driver: MongoDriver | null = null;
     try {
-      // @ts-expect-error — `mongodb` is an optional runtime dep that
-      // may not be present in the workspace. The import resolves at
-      // runtime; `null` here means "driver not installed".
       driver = (await import('mongodb').catch(
         () => null
       )) as MongoDriver | null;
