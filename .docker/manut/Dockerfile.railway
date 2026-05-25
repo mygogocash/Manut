@@ -124,7 +124,10 @@ COPY blocksuite ./blocksuite
 COPY tools ./tools
 COPY manut-landing ./manut-landing
 
-ENV HUSKY=0
+ENV HUSKY=0 \
+    ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    SENTRYCLI_SKIP_DOWNLOAD=1
 # Strip the monorepo root postinstall (yarn affine init && yarn husky)
 # AND @affine/server's prisma-generate postinstall. Both need state that
 # isn't available at install time inside the container; we run prisma
