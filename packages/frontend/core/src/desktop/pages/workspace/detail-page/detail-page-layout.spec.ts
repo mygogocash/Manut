@@ -5,9 +5,13 @@ import { describe, expect, test } from 'vitest';
 
 import {
   pageModeDocumentColumnStyle,
+  pageModeEditorSelector,
+  pageModeFullScreenReadableVarsStyle,
   pageModePropertiesContainerStyle,
   pageModePropertiesGridStyle,
   pageModePropertyCellStyle,
+  pageModePropertyNameStyle,
+  pageModePropertyValueStyle,
 } from './detail-page.css';
 
 const litAdapterSource = readFileSync(
@@ -21,22 +25,38 @@ const litAdapterSource = readFileSync(
 );
 
 describe('page detail layout', () => {
-  test('page detail layout > given page-mode document header > then title and properties use a left-aligned Notion column', () => {
+  test('page detail layout > given page-mode document header > then title, properties, and body use a readable Notion column', () => {
+    expect(pageModeEditorSelector).not.toContain(':not(.full-screen)');
+    expect(pageModeFullScreenReadableVarsStyle).toMatchObject({
+      vars: {
+        '--affine-editor-width': '760px',
+        '--affine-editor-side-padding': '40px',
+      },
+    });
     expect(pageModeDocumentColumnStyle).toMatchObject({
-      marginLeft: 0,
+      marginLeft: 'auto',
       marginRight: 'auto',
       textAlign: 'left',
     });
     expect(pageModePropertiesContainerStyle).toMatchObject({
-      justifyContent: 'flex-start',
+      justifyContent: 'center',
     });
     expect(pageModePropertiesGridStyle).toMatchObject({
       display: 'flex',
-      flexWrap: 'wrap',
-      justifyContent: 'flex-start',
+      flexDirection: 'column',
+      flexWrap: 'nowrap',
     });
     expect(pageModePropertyCellStyle).toMatchObject({
-      flex: '0 1 164px',
+      width: '100%',
+      flexDirection: 'row',
+    });
+    expect(pageModePropertyNameStyle).toMatchObject({
+      width: 160,
+      flexShrink: 0,
+    });
+    expect(pageModePropertyValueStyle).toMatchObject({
+      flex: 1,
+      width: 'auto',
     });
     expect(litAdapterSource).toContain('data-doc-properties-table-container');
   });
