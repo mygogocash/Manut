@@ -108,7 +108,7 @@ As of 2026-05-23 12:20 +07, public-launch posture remains **NO-GO**.
 - [ ] Pricing copy uses the launch-window message:
       "Bring your whole team in. No seat caps."
 - [ ] `/manifesto` route renders (E3.4 brand polish).
-- [ ] `/terms` + `/privacy` pages live (PR #118).
+- [ ] `/terms-of-service` + `/privacy-policy` pages live, with `/terms` and `/privacy` kept as legacy aliases.
 - [ ] Custom 404 page renders with personality (PR #117 / E3.4).
 - [ ] OG image + favicon + apple-touch-icon serve correctly across
       Twitter, Slack, LinkedIn link previews.

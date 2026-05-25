@@ -34,7 +34,12 @@ const SPA_ROUTE_PREFIXES = [
   '/ai-upgrade',
 ] as const;
 
-const LEGAL_ROUTE_PATHS = new Set(['/privacy', '/terms']);
+const LEGAL_ROUTE_PATHS = new Set([
+  '/privacy',
+  '/privacy-policy',
+  '/terms',
+  '/terms-of-service',
+]);
 
 export function manutLandingDir(staticPath: string) {
   return join(staticPath, 'landing');

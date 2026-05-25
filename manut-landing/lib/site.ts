@@ -88,8 +88,8 @@ export const footerNav: Record<string, ReadonlyArray<NavItem>> = {
     { href: 'mailto:partners@manut.xyz', label: 'Partners' },
   ],
   Legal: [
-    { href: '/privacy', label: 'Privacy' },
-    { href: '/terms', label: 'Terms' },
+    { href: '/privacy-policy', label: 'Privacy' },
+    { href: '/terms-of-service', label: 'Terms' },
     { href: '/security', label: 'Security' },
     {
       href: 'https://github.com/gogocash-deploy/manut/blob/main/LICENSE',

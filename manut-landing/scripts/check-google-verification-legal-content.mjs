@@ -4,8 +4,8 @@ import { join } from 'node:path';
 const root = new URL('..', import.meta.url).pathname;
 
 const files = {
-  privacy: readFileSync(join(root, 'app/privacy/page.tsx'), 'utf8'),
-  terms: readFileSync(join(root, 'app/terms/page.tsx'), 'utf8'),
+  privacy: readFileSync(join(root, 'app/privacy-policy/page.tsx'), 'utf8'),
+  terms: readFileSync(join(root, 'app/terms-of-service/page.tsx'), 'utf8'),
 };
 
 const required = {
