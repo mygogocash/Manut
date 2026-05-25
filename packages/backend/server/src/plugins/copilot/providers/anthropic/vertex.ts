@@ -10,7 +10,8 @@ import { CopilotProviderType, ModelInputType, ModelOutputType } from '../types';
 import {
   getGoogleAuth,
   getVertexAnthropicBaseUrl,
-  VertexModelListSchema,
+  getVertexPublisherModelsUrl,
+  readVertexModelListResponse,
   type VertexProviderConfig,
 } from '../utils';
 import { AnthropicProvider } from './anthropic';
@@ -162,16 +163,14 @@ export class AnthropicVertexProvider extends AnthropicProvider<AnthropicVertexCo
 
   override async refreshOnlineModels() {
     try {
-      const { baseUrl, headers } = await getGoogleAuth(
-        this.config,
-        'anthropic'
-      );
-      if (baseUrl && !this.onlineModelList.length) {
-        const { publisherModels } = await fetch(`${baseUrl}/models`, {
+      const modelsUrl = getVertexPublisherModelsUrl(this.config, 'anthropic');
+      const { headers } = await getGoogleAuth(this.config, 'anthropic');
+      if (modelsUrl && !this.onlineModelList.length) {
+        const publisherModels = await fetch(modelsUrl, {
           headers: headers(),
-        })
-          .then(r => r.json())
-          .then(r => VertexModelListSchema.parse(r));
+        }).then(readVertexModelListResponse);
+        if (!publisherModels) return;
+
         this.onlineModelList = publisherModels.map(
           model =>
             model.name.replace('publishers/anthropic/models/', '') +
@@ -179,7 +178,7 @@ export class AnthropicVertexProvider extends AnthropicProvider<AnthropicVertexCo
         );
       }
     } catch (e) {
-      this.logger.error('Failed to fetch available models', e);
+      this.logger.debug(`Skipped fetching available models: ${e}`);
     }
   }
 }
