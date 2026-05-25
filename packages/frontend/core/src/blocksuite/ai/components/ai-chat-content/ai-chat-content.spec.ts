@@ -3,7 +3,35 @@
  */
 import { describe, expect, test, vi } from 'vitest';
 
-import { AIChatContent } from './ai-chat-content';
+import { AIChatContent, getChatPanelMainClasses } from './ai-chat-content';
+
+describe('AIChatContent empty layout', () => {
+  test('getChatPanelMainClasses > given floating empty chat > then enables independent no-message layout', () => {
+    expect(
+      getChatPanelMainClasses({
+        independentMode: true,
+        hasMessages: false,
+      })
+    ).toEqual({
+      'chat-panel-main': true,
+      'independent-mode': true,
+      'no-message': true,
+    });
+  });
+
+  test('getChatPanelMainClasses > given chat has messages > then keeps transcript layout', () => {
+    expect(
+      getChatPanelMainClasses({
+        independentMode: true,
+        hasMessages: true,
+      })
+    ).toEqual({
+      'chat-panel-main': true,
+      'independent-mode': true,
+      'no-message': false,
+    });
+  });
+});
 
 describe('AIChatContent pinned scroll tracking', () => {
   test('records scroll position from the chat messages host', async () => {
