@@ -62,7 +62,10 @@ fi
 
 # 4. Run DB migrations on Railway when preDeploy did not run or failed.
 #    Idempotent; skipped on the legacy GCE deploy (PORT unset).
-if [ -n "${PORT:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
+#    Cloud Run should run migrations as a dedicated Job and set
+#    MANUT_RUN_STARTUP_MIGRATIONS=false on the service so autoscaling does
+#    not start many containers that all try to migrate at once.
+if [ "${MANUT_RUN_STARTUP_MIGRATIONS:-true}" != "false" ] && [ -n "${PORT:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
   PRISMA_BIN="./node_modules/.bin/prisma"
   if [ -x "$PRISMA_BIN" ] && [ -f "./schema.prisma" ]; then
     echo "[entrypoint] Running prisma migrate deploy..."
@@ -70,6 +73,8 @@ if [ -n "${PORT:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
   else
     echo "[entrypoint] WARN: prisma or schema.prisma missing; skipping migrate"
   fi
+elif [ "${MANUT_RUN_STARTUP_MIGRATIONS:-true}" = "false" ]; then
+  echo "[entrypoint] Startup migrations disabled by MANUT_RUN_STARTUP_MIGRATIONS=false"
 fi
 
 exec "$@"
