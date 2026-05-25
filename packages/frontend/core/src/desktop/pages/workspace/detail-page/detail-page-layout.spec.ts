@@ -3,8 +3,10 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, test } from 'vitest';
 
+import { docIconPickerTriggerAlignmentStyle } from '../../../../blocksuite/block-suite-editor/doc-icon-picker.css';
 import {
   pageModeDocumentColumnStyle,
+  pageModeDocumentHeaderPaddingStyle,
   pageModeEditorSelector,
   pageModeFullScreenReadableVarsStyle,
   pageModePropertiesContainerStyle,
@@ -59,5 +61,20 @@ describe('page detail layout', () => {
       width: 'auto',
     });
     expect(litAdapterSource).toContain('data-doc-properties-table-container');
+  });
+
+  test('page detail layout > given page-mode document icon > then icon and title share the same left edge contract', () => {
+    expect(pageModeDocumentHeaderPaddingStyle).toMatchObject({
+      paddingLeft: 'var(--affine-editor-side-padding)',
+      paddingRight: 'var(--affine-editor-side-padding)',
+    });
+  });
+
+  test('page detail layout > given page icon trigger > then emoji glyph is left anchored like Notion', () => {
+    expect(docIconPickerTriggerAlignmentStyle).toMatchObject({
+      justifyContent: 'flex-start',
+      padding: 0,
+      textAlign: 'left',
+    });
   });
 });
