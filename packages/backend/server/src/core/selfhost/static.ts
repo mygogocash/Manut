@@ -13,6 +13,18 @@ import {
 } from '../static-files/manut-landing';
 import { SetupMiddleware } from './setup';
 
+const staticPathRegex = /^\/(_plugin|assets|imgs|js|plugins|static)\//;
+
+function isMissingStaticAssetError(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const err = error as { code?: string; status?: number; statusCode?: number };
+
+  return err.code === 'ENOENT' || err.status === 404 || err.statusCode === 404;
+}
+
 @Injectable()
 export class StaticFilesResolver implements OnModuleInit {
   constructor(
@@ -100,6 +112,30 @@ export class StaticFilesResolver implements OnModuleInit {
     // do not allow '/index.html' url, redirect to '/'
     app.get(basePath + '/index.html', (_req, res) => {
       return res.redirect(basePath);
+    });
+
+    // Static asset URLs are content-addressed by the frontend bundle. If an
+    // old client requests a removed hashed file after a deploy, return 404
+    // instead of falling through to the SPA shell or marketing index.
+    app.use(basePath || '/', (req, res, next) => {
+      if (!staticPathRegex.test(req.path)) {
+        next();
+        return;
+      }
+
+      serveStatic(staticPath, {
+        redirect: false,
+        index: false,
+        fallthrough: false,
+        immutable: true,
+        dotfiles: 'ignore',
+      })(req, res, error => {
+        if (isMissingStaticAssetError(error)) {
+          res.status(404).end();
+          return;
+        }
+        next(error);
+      });
     });
 
     // serve all static files
