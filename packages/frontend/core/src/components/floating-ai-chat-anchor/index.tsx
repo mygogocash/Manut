@@ -426,7 +426,7 @@ function FloatingAiChatAnchorBody({
 
     if (!chatContent) {
       content.independentMode = true;
-      content.onboardingOffsetY = -100;
+      content.onboardingOffsetY = 0;
       chatContainerRef.current.append(content);
       setChatContent(content);
     }
