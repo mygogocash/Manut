@@ -46,5 +46,6 @@ require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "manut-gcp-pr-ci"
 require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "manut-gcp-main-staging"
 require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "manut-gcp-prod-deploy"
 require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "--require-approval"
+require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "--update-substitutions"
 
 echo "[cicd] Cloud Build CI/CD config checks passed"
