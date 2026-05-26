@@ -10,6 +10,7 @@ substitutions:
   _MIGRATION_JOB_NAME: manut-migrate
   _GAR_REPOSITORY: affine
   _IMAGE_NAME: affine-gogocash
+  _IMAGE_TAG: manual
   _RUNTIME_SERVICE_ACCOUNT: manut-cloud-run@affine-495114.iam.gserviceaccount.com
   _EXTERNAL_URL: https://manut.xyz
   _VPC_NETWORK: default
@@ -25,8 +26,12 @@ substitutions:
   _TIMEOUT: 3600s
   _DATABASE_URL_SECRET: manut-database-url
   _AFFINE_CONFIG_JSON_B64_SECRET: manut-affine-config-json-b64
-  _REDIS_PASSWORD_SECRET: manut-redis-password
+  _AFFINE_PRIVATE_KEY_SECRET: manut-affine-private-key
+  _GOOGLE_OAUTH_CLIENT_ID_SECRET: manut-google-oauth-client-id
   _GOOGLE_OAUTH_CLIENT_SECRET: manut-google-oauth-client-secret
+  _MAIL_PROVIDER: resend
+  _RESEND_FROM: noreply@gogocash.co
+  _RESEND_API_KEY_SECRET: manut-resend-api-key
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -36,7 +41,7 @@ options:
 timeout: 7200s
 
 images:
-  - $_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$SHORT_SHA
+  - $_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG
 
 steps:
   - id: build image
@@ -44,15 +49,15 @@ steps:
     args:
       - build
       - --file=.docker/manut/Dockerfile.railway
-      - --tag=$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$SHORT_SHA
-      - --build-arg=GITHUB_SHA=$SHORT_SHA
+      - --tag=$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG
+      - --build-arg=GITHUB_SHA=$_IMAGE_TAG
       - .
 
   - id: push image
     name: gcr.io/cloud-builders/docker
     args:
       - push
-      - $_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$SHORT_SHA
+      - $_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG
 
   - id: upsert migration job
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -60,11 +65,11 @@ steps:
     args:
       - -ceu
       - |
-        IMAGE="$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$SHORT_SHA"
+        IMAGE="$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG"
         COMMON_FLAGS=(
           --project="$PROJECT_ID"
           --region="$_REGION"
-          --image="$IMAGE"
+          --image="$$IMAGE"
           --service-account="$_RUNTIME_SERVICE_ACCOUNT"
           --cpu="$_CPU"
           --memory="$_MEMORY"
@@ -82,13 +87,14 @@ steps:
         )
 
         if gcloud run jobs describe "$_MIGRATION_JOB_NAME" --project="$PROJECT_ID" --region="$_REGION" >/dev/null 2>&1; then
-          gcloud run jobs update "$_MIGRATION_JOB_NAME" "${COMMON_FLAGS[@]}"
+          gcloud run jobs update "$_MIGRATION_JOB_NAME" "$${COMMON_FLAGS[@]}"
         else
-          gcloud run jobs create "$_MIGRATION_JOB_NAME" "${COMMON_FLAGS[@]}"
+          gcloud run jobs create "$_MIGRATION_JOB_NAME" "$${COMMON_FLAGS[@]}"
         fi
 
   - id: run migrations
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
     args:
       - run
       - jobs
@@ -100,13 +106,14 @@ steps:
 
   - id: deploy service
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
     args:
       - run
       - deploy
       - $_SERVICE_NAME
       - --project=$PROJECT_ID
       - --region=$_REGION
-      - --image=$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$SHORT_SHA
+      - --image=$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG
       - --service-account=$_RUNTIME_SERVICE_ACCOUNT
       - --platform=managed
       - --execution-environment=gen2
@@ -123,4 +130,5 @@ steps:
       - --subnet=$_VPC_SUBNET
       - --vpc-egress=$_VPC_EGRESS
       - --set-env-vars=AFFINE_SERVER_EXTERNAL_URL=$_EXTERNAL_URL,AFFINE_SERVER_HTTPS=true,MANUT_RUN_STARTUP_MIGRATIONS=false,REDIS_SERVER_HOST=$_REDIS_SERVER_HOST,REDIS_SERVER_PORT=$_REDIS_SERVER_PORT,REDIS_SERVER_DATABASE=0
-      - --set-secrets=DATABASE_URL=$_DATABASE_URL_SECRET:latest,AFFINE_CONFIG_JSON_B64=$_AFFINE_CONFIG_JSON_B64_SECRET:latest,REDIS_SERVER_PASSWORD=$_REDIS_PASSWORD_SECRET:latest,GOOGLE_OAUTH_CLIENT_SECRET=$_GOOGLE_OAUTH_CLIENT_SECRET:latest
+      - --set-env-vars=MAIL_PROVIDER=$_MAIL_PROVIDER,RESEND_FROM=$_RESEND_FROM
+      - --set-secrets=DATABASE_URL=$_DATABASE_URL_SECRET:latest,AFFINE_CONFIG_JSON_B64=$_AFFINE_CONFIG_JSON_B64_SECRET:latest,AFFINE_PRIVATE_KEY=$_AFFINE_PRIVATE_KEY_SECRET:latest,GOOGLE_OAUTH_CLIENT_ID=$_GOOGLE_OAUTH_CLIENT_ID_SECRET:latest,GOOGLE_OAUTH_CLIENT_SECRET=$_GOOGLE_OAUTH_CLIENT_SECRET:latest,RESEND_API_KEY=$_RESEND_API_KEY_SECRET:latest

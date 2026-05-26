@@ -9,7 +9,18 @@ deadline=$((SECONDS + TIMEOUT_SECONDS))
 
 probe() {
   local path="$1"
-  curl -fsS --max-time 10 "${BASE_URL}${path}" >/dev/null
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS --max-time 10 "${BASE_URL}${path}" >/dev/null
+  else
+    ruby -rnet/http -ruri -e '
+      uri = URI(ARGV.fetch(0))
+      response = Net::HTTP.get_response(uri)
+      unless response.is_a?(Net::HTTPSuccess)
+        warn "#{uri} returned #{response.code}"
+        exit 1
+      end
+    ' "${BASE_URL}${path}"
+  fi
 }
 
 echo "[smoke] Waiting for ${BASE_URL}/info"

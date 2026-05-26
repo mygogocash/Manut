@@ -69,18 +69,23 @@ Success means:
 
 Required Cloud Run service env vars:
 
-| Variable                       | Source              | Notes                                                            |
-| ------------------------------ | ------------------- | ---------------------------------------------------------------- |
-| `AFFINE_SERVER_EXTERNAL_URL`   | plain env           | `https://manut.xyz` for prod.                                    |
-| `AFFINE_SERVER_HTTPS`          | plain env           | `true`.                                                          |
-| `AFFINE_SERVER_PORT`           | entrypoint          | Derived from `PORT`. Do not set manually.                        |
-| `MANUT_RUN_STARTUP_MIGRATIONS` | plain env           | Set to `false` on Cloud Run service. Leave unset on Railway.     |
-| `DATABASE_URL`                 | Secret Manager      | Cloud SQL PostgreSQL URL. Prefer private IP or Cloud SQL socket. |
-| `AFFINE_CONFIG_JSON_B64`       | Secret Manager      | Short-term bridge for Vertex provider config.                    |
-| `REDIS_SERVER_HOST`            | plain env or secret | Memorystore private IP.                                          |
-| `REDIS_SERVER_PORT`            | plain env           | `6379` unless changed.                                           |
-| `REDIS_SERVER_PASSWORD`        | Secret Manager      | Only if Redis auth is enabled.                                   |
-| OAuth client secrets           | Secret Manager      | Google/LINE/Facebook/TikTok as configured.                       |
+| Variable                       | Source              | Notes                                                                          |
+| ------------------------------ | ------------------- | ------------------------------------------------------------------------------ |
+| `AFFINE_SERVER_EXTERNAL_URL`   | plain env           | `https://manut.xyz` for prod.                                                  |
+| `AFFINE_SERVER_HTTPS`          | plain env           | `true`.                                                                        |
+| `AFFINE_SERVER_PORT`           | entrypoint          | Derived from `PORT`. Do not set manually.                                      |
+| `MANUT_RUN_STARTUP_MIGRATIONS` | plain env           | Set to `false` on Cloud Run service. Leave unset on Railway.                   |
+| `AFFINE_PRIVATE_KEY`           | Secret Manager      | Required for token signing/encryption. Copy or rotate deliberately.            |
+| `DATABASE_URL`                 | Secret Manager      | Cloud SQL PostgreSQL URL. Prefer private IP or Cloud SQL socket.               |
+| `AFFINE_CONFIG_JSON_B64`       | Secret Manager      | Short-term bridge for Vertex provider config.                                  |
+| `REDIS_SERVER_HOST`            | plain env or secret | Memorystore private IP.                                                        |
+| `REDIS_SERVER_PORT`            | plain env           | `6379` unless changed.                                                         |
+| `REDIS_SERVER_PASSWORD`        | Secret Manager      | Only set this if Redis auth is enabled; omit it for auth-disabled Memorystore. |
+| `GOOGLE_OAUTH_CLIENT_ID`       | Secret Manager      | Required for Google sign-in and Google workspace integrations.                 |
+| OAuth client secrets           | Secret Manager      | Google/LINE/Facebook/TikTok as configured.                                     |
+| `MAIL_PROVIDER`                | plain env           | `resend` for Manut production parity.                                          |
+| `RESEND_FROM`                  | plain env           | Sender address.                                                                |
+| `RESEND_API_KEY`               | Secret Manager      | Required if mail is enabled.                                                   |
 
 Long-term cleanup: replace `AFFINE_CONFIG_JSON_B64` with explicit provider
 env vars or Secret Manager mounted JSON so Vertex config is not opaque base64.
