@@ -12,6 +12,7 @@ MAIN_BRANCH="${MAIN_BRANCH:-main}"
 # account. Default to the dedicated Manut Cloud Build deployer.
 SERVICE_ACCOUNT="${CLOUD_BUILD_SERVICE_ACCOUNT:-manut-cloud-build@affine-495114.iam.gserviceaccount.com}"
 GENERATED_STAGING_URL="${GENERATED_STAGING_URL:-https://manut-staging-idid7yszzq-as.a.run.app}"
+PROD_SMOKE_BASE_URL="${PROD_SMOKE_BASE_URL:-}"
 
 service_account_flag=()
 if [[ "$SERVICE_ACCOUNT" != projects/*/serviceAccounts/* ]]; then
@@ -67,22 +68,33 @@ upsert_manual_trigger() {
   local name="$1"
   local substitutions="$2"
   local id
+  local manual_update_args=()
+
+  manual_update_args=(
+    --project="$PROJECT_ID"
+    --region="$TRIGGER_REGION"
+    --description="Approval-gated production Cloud Run deploy for Manut"
+    --require-approval
+    ${service_account_flag[@]+"${service_account_flag[@]}"}
+    --git-file-source-uri="https://github.com/${REPO_OWNER}/${REPO_NAME}"
+    --git-file-source-repo-type=GITHUB
+    --git-file-source-branch="$MAIN_BRANCH"
+    --git-file-source-path=cloudbuild.manut-cloud-run.yaml
+    --source-to-build-uri="https://github.com/${REPO_OWNER}/${REPO_NAME}"
+    --source-to-build-repo-type=GITHUB
+    --source-to-build-branch="$MAIN_BRANCH"
+  )
+
   id="$(trigger_id_for_name "$name")"
   if [ -n "$id" ]; then
+    echo "[gcp] Clearing Cloud Build manual trigger substitutions for ${name} (${id})"
+    gcloud builds triggers update manual "$id" \
+      "${manual_update_args[@]}" \
+      --clear-substitutions
+
     echo "[gcp] Updating Cloud Build manual trigger ${name} (${id})"
     gcloud builds triggers update manual "$id" \
-      --project="$PROJECT_ID" \
-      --region="$TRIGGER_REGION" \
-      --description="Approval-gated production Cloud Run deploy for Manut" \
-      --require-approval \
-      ${service_account_flag[@]+"${service_account_flag[@]}"} \
-      --git-file-source-uri="https://github.com/${REPO_OWNER}/${REPO_NAME}" \
-      --git-file-source-repo-type=GITHUB \
-      --git-file-source-branch="$MAIN_BRANCH" \
-      --git-file-source-path=cloudbuild.manut-cloud-run.yaml \
-      --source-to-build-uri="https://github.com/${REPO_OWNER}/${REPO_NAME}" \
-      --source-to-build-repo-type=GITHUB \
-      --source-to-build-branch="$MAIN_BRANCH" \
+      "${manual_update_args[@]}" \
       --update-substitutions="$substitutions"
   else
     echo "[gcp] Creating Cloud Build manual trigger ${name}"
@@ -102,7 +114,10 @@ upsert_manual_trigger() {
 }
 
 staging_substitutions="_SERVICE_NAME=manut-staging,_MIGRATION_JOB_NAME=manut-staging-migrate,_IMAGE_TAG=\$SHORT_SHA,_DATABASE_URL_SECRET=manut-staging-database-url,_AFFINE_CONFIG_JSON_B64_SECRET=manut-staging-affine-config-json-b64,_AFFINE_PRIVATE_KEY_SECRET=manut-staging-affine-private-key,_GOOGLE_OAUTH_CLIENT_ID_SECRET=manut-staging-google-oauth-client-id,_GOOGLE_OAUTH_CLIENT_SECRET=manut-staging-google-oauth-client-secret,_RESEND_API_KEY_SECRET=manut-staging-resend-api-key,_EXTERNAL_URL=https://staging.manut.xyz,_REDIS_SERVER_HOST=10.47.0.3,_MIN_INSTANCES=0,_MAX_INSTANCES=5,_SMOKE_BASE_URL=${GENERATED_STAGING_URL}"
-prod_substitutions="_SERVICE_NAME=manut,_MIGRATION_JOB_NAME=manut-migrate,_IMAGE_TAG=\$SHORT_SHA,_EXTERNAL_URL=https://manut.xyz,_SMOKE_BASE_URL=https://manut.xyz"
+prod_substitutions="_SERVICE_NAME=manut,_MIGRATION_JOB_NAME=manut-migrate,_IMAGE_TAG=\$SHORT_SHA,_DATABASE_URL_SECRET=manut-database-url,_AFFINE_CONFIG_JSON_B64_SECRET=manut-affine-config-json-b64,_AFFINE_PRIVATE_KEY_SECRET=manut-affine-private-key,_GOOGLE_OAUTH_CLIENT_ID_SECRET=manut-google-oauth-client-id,_GOOGLE_OAUTH_CLIENT_SECRET=manut-google-oauth-client-secret,_RESEND_API_KEY_SECRET=manut-resend-api-key,_EXTERNAL_URL=https://manut.xyz,_REDIS_SERVER_HOST=10.47.0.3,_MIN_INSTANCES=1,_MAX_INSTANCES=20"
+if [ -n "$PROD_SMOKE_BASE_URL" ]; then
+  prod_substitutions="${prod_substitutions},_SMOKE_BASE_URL=${PROD_SMOKE_BASE_URL}"
+fi
 
 echo "[gcp] Project: ${PROJECT_ID}"
 echo "[gcp] Trigger region: ${TRIGGER_REGION}"

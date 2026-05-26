@@ -103,6 +103,11 @@ trigger, or disable it in the Cloud Build console.
 - **Production auto-deploy before cutover:** Do not create a production push
   trigger until Cloud Run owns `manut.xyz` and the database write path is
   migrated.
+- **Production smoke before DNS:** The production manual trigger must leave
+  `_SMOKE_BASE_URL` unset before DNS cutover so the deploy template resolves and
+  smokes the generated Cloud Run service URL. After `manut.xyz` points at Cloud
+  Run, operators may rerun the installer with
+  `PROD_SMOKE_BASE_URL=https://manut.xyz`.
 - **Staging TLS lag:** The staging trigger should smoke the generated Cloud Run
   URL until `staging.manut.xyz` managed TLS is `Ready=True`.
 - **GitHub App not connected:** Trigger creation may fail until the Cloud Build
