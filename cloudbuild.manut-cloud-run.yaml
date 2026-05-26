@@ -1,8 +1,7 @@
 # Cloud Build template for the Manut Cloud Run target.
 #
-# This is intentionally separate from .github/workflows/manut-build.yml.
-# The GitHub workflow remains the current production signal while this file
-# is used for the GCP cutover rehearsal and, later, the Cloud Build trigger.
+# This is the GCP-owned Cloud Run deploy template. It supports manual
+# `gcloud builds submit` rehearsals and Cloud Build triggers.
 
 substitutions:
   _REGION: asia-southeast1
@@ -32,9 +31,12 @@ substitutions:
   _MAIL_PROVIDER: resend
   _RESEND_FROM: noreply@gogocash.co
   _RESEND_API_KEY_SECRET: manut-resend-api-key
+  _SMOKE_BASE_URL: ''
+  _SMOKE_TIMEOUT_SECONDS: '120'
 
 options:
   logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
   substitutionOption: ALLOW_LOOSE
   machineType: E2_HIGHCPU_8
 
@@ -132,3 +134,26 @@ steps:
       - --set-env-vars=AFFINE_SERVER_EXTERNAL_URL=$_EXTERNAL_URL,AFFINE_SERVER_HTTPS=true,MANUT_RUN_STARTUP_MIGRATIONS=false,REDIS_SERVER_HOST=$_REDIS_SERVER_HOST,REDIS_SERVER_PORT=$_REDIS_SERVER_PORT,REDIS_SERVER_DATABASE=0
       - --set-env-vars=MAIL_PROVIDER=$_MAIL_PROVIDER,RESEND_FROM=$_RESEND_FROM
       - --set-secrets=DATABASE_URL=$_DATABASE_URL_SECRET:latest,AFFINE_CONFIG_JSON_B64=$_AFFINE_CONFIG_JSON_B64_SECRET:latest,AFFINE_PRIVATE_KEY=$_AFFINE_PRIVATE_KEY_SECRET:latest,GOOGLE_OAUTH_CLIENT_ID=$_GOOGLE_OAUTH_CLIENT_ID_SECRET:latest,GOOGLE_OAUTH_CLIENT_SECRET=$_GOOGLE_OAUTH_CLIENT_SECRET:latest,RESEND_API_KEY=$_RESEND_API_KEY_SECRET:latest
+
+  - id: smoke service
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        BASE_URL="$_SMOKE_BASE_URL"
+        if [ -z "$$BASE_URL" ]; then
+          BASE_URL="$$(gcloud run services describe "$_SERVICE_NAME" \
+            --project="$PROJECT_ID" \
+            --region="$_REGION" \
+            --format='value(status.url)')"
+        fi
+
+        if [ -z "$$BASE_URL" ]; then
+          echo "Could not resolve Cloud Run service URL for $_SERVICE_NAME" >&2
+          exit 1
+        fi
+
+        BASE_URL="$$BASE_URL" \
+          TIMEOUT_SECONDS="$_SMOKE_TIMEOUT_SECONDS" \
+          scripts/gcp/smoke-test-cloud-run.sh
