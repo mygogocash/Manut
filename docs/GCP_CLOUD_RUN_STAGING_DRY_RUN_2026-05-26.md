@@ -56,13 +56,26 @@ Cloud Run service:
 - Traffic: `100%` to latest revision
 - Ready condition: `True`
 
-HTTP smoke:
+HTTP reachability smoke:
 
 ```text
 /info 200
-/api/server-config 200
-/api/version 200
+/api/server-config reachable
+/api/version reachable
 ```
+
+Post-merge strict no-redirect probe:
+
+```text
+/info 200
+/api/server-config 302 /admin/setup
+/api/version 302 /admin/setup
+/admin/setup 200
+```
+
+This means the Cloud Run service is healthy, but the fresh staging database is
+setup-gated. Complete admin setup or restore a rehearsal database before
+treating staging browser/login flows as fully verified.
 
 Log scan:
 
