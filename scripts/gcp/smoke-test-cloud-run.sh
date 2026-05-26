@@ -9,14 +9,22 @@ deadline=$((SECONDS + TIMEOUT_SECONDS))
 
 probe() {
   local path="$1"
+  local status
   if command -v curl >/dev/null 2>&1; then
-    curl -fsS --max-time 10 "${BASE_URL}${path}" >/dev/null
+    status="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 "${BASE_URL}${path}")"
+    case "$status" in
+      2*) return 0 ;;
+      *)
+        echo "[smoke] ${BASE_URL}${path} returned HTTP ${status}" >&2
+        return 1
+        ;;
+    esac
   else
     ruby -rnet/http -ruri -e '
       uri = URI(ARGV.fetch(0))
       response = Net::HTTP.get_response(uri)
       unless response.is_a?(Net::HTTPSuccess)
-        warn "#{uri} returned #{response.code}"
+        warn "#{uri} returned HTTP #{response.code}"
         exit 1
       end
     ' "${BASE_URL}${path}"
