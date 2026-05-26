@@ -47,5 +47,12 @@ require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "manut-gcp-main-st
 require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "manut-gcp-prod-deploy"
 require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "--require-approval"
 require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "--update-substitutions"
+require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "--clear-substitutions"
+require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "PROD_SMOKE_BASE_URL"
+
+if grep -Eq 'prod_substitutions=.*_SMOKE_BASE_URL=https://manut\.xyz' "$ROOT/scripts/gcp/upsert-cloud-build-triggers.sh"; then
+  echo "[cicd] production trigger must not smoke manut.xyz before DNS cutover" >&2
+  exit 1
+fi
 
 echo "[cicd] Cloud Build CI/CD config checks passed"

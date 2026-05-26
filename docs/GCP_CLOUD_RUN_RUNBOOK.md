@@ -162,6 +162,17 @@ GENERATED_STAGING_URL=https://staging.manut.xyz \
   scripts/gcp/upsert-cloud-build-triggers.sh
 ```
 
+The production trigger intentionally leaves `_SMOKE_BASE_URL` unset before DNS
+cutover. This makes `cloudbuild.manut-cloud-run.yaml` resolve the generated
+Cloud Run service URL and prevents a false-positive smoke against the old
+Railway-backed `manut.xyz`. After DNS cutover is complete, update the trigger
+with:
+
+```bash
+PROD_SMOKE_BASE_URL=https://manut.xyz \
+  scripts/gcp/upsert-cloud-build-triggers.sh
+```
+
 The recommended trigger service account is
 `manut-cloud-build@affine-495114.iam.gserviceaccount.com`. To override it,
 pass a different service account without pasting keys:
@@ -222,22 +233,33 @@ Use a maintenance window.
 scripts/gcp/run-cloud-run-migration-job.sh
 ```
 
-6. Deploy production Cloud Run:
+6. Deploy production Cloud Run with the approval-gated manual trigger:
 
 ```bash
-gcloud builds submit --config=cloudbuild.manut-cloud-run.yaml
+gcloud builds triggers run manut-gcp-prod-deploy \
+  --branch=main \
+  --project=affine-495114 \
+  --region=global
 ```
 
-7. Smoke the Cloud Run URL before DNS.
-8. Lower DNS TTL if not already lowered.
-9. Point `manut.xyz` to Cloud Run.
-10. Run public smoke:
+7. Approve the pending build in Cloud Build.
+8. Smoke the Cloud Run URL before DNS.
+9. Lower DNS TTL if not already lowered.
+10. Point `manut.xyz` to Cloud Run.
+11. Update the trigger to smoke the public domain:
+
+```bash
+PROD_SMOKE_BASE_URL=https://manut.xyz \
+  scripts/gcp/upsert-cloud-build-triggers.sh
+```
+
+12. Run public smoke:
 
 ```bash
 BASE_URL=https://manut.xyz scripts/gcp/smoke-test-cloud-run.sh
 ```
 
-11. Verify login, workspace load, Ask AI, and mobile.
+13. Verify login, workspace load, Ask AI, and mobile.
 
 ## 8. Monitoring During First Hour
 
