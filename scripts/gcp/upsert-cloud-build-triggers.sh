@@ -32,13 +32,27 @@ upsert_github_trigger() {
   local name="$1"
   shift
   local id
+  local update_args=()
+  local arg
+
+  for arg in "$@"; do
+    case "$arg" in
+      --substitutions=*)
+        update_args+=("--update-substitutions=${arg#--substitutions=}")
+        ;;
+      *)
+        update_args+=("$arg")
+        ;;
+    esac
+  done
+
   id="$(trigger_id_for_name "$name")"
   if [ -n "$id" ]; then
     echo "[gcp] Updating Cloud Build trigger ${name} (${id})"
     gcloud builds triggers update github "$id" \
       --project="$PROJECT_ID" \
       --region="$TRIGGER_REGION" \
-      "$@"
+      "${update_args[@]}"
   else
     echo "[gcp] Creating Cloud Build trigger ${name}"
     gcloud builds triggers create github \
