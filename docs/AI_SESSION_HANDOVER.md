@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-26 21:54 +07 (GCP Cloud Run production pre-cutover)
+Last updated: 2026-05-26 21:59 +07 (GCP Cloud Run production pre-cutover)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -13,7 +13,8 @@ on chat memory.
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
 - Branch: `codex/gcp-progress-update`
-- Local HEAD: `8009e4fa7`
+- Local HEAD: doc-only progress branch; refresh with `git rev-parse --short
+HEAD` before continuing.
 - Upstream: `origin/main`
 - Origin HEAD: `8009e4fa7`, merge commit for PR #164.
 - PR: not opened yet for this doc-only progress update.
@@ -58,25 +59,32 @@ on chat memory.
   from `main` revision `8009e4fa7199ea12883e3893081c4eb07f72ffd4`.
 - Build approval was granted by `fronk.kunanon@gogocash.co` at
   `2026-05-26T14:36:38Z`.
-- Latest observed status: `WORKING`; log URL:
+- Latest observed status: `FAILURE`; log URL:
   `https://console.cloud.google.com/cloud-build/builds/5b8139b2-83d6-4ada-acd6-ab6afa10661e?project=602860445793`.
-- Target image tag:
+- Built and pushed image tag:
   `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:8009e4f`.
-- Last observed logs showed the Docker build still running after the landing
-  site Next.js build completed successfully. No production Cloud Run URL,
-  revision, migration execution, or smoke result has been recorded yet for
-  this build.
-- DNS remains untouched while this build runs; `https://manut.xyz` should be
-  treated as Railway until an explicit cutover is approved and verified.
+- Pushed image digest:
+  `sha256:2b92e4077a0666e1fba219d61f4b8f4db5cb7b3dd2ed440a857fc8f267f1d5e2`.
+- Migration execution `manut-migrate-zb42r` completed successfully in 17.95s.
+- Cloud Run service `manut` was created at
+  `https://manut-idid7yszzq-as.a.run.app`; revision `manut-00001-7l9` is ready
+  and serving 100% of Cloud Run service traffic.
+- The build failed in step 5 (`smoke service`) because
+  `/api/server-config` on the generated Cloud Run URL returned HTTP 302 to
+  `/admin/setup`, then HTML. This is consistent with the fresh GCP production
+  database not being a verified copy of Railway production data yet.
+- DNS remains untouched after the failed smoke; `https://manut.xyz` still
+  serves Railway and returns Railway headers.
 
 ## Pending Cutover Readiness
 
-- Continue monitoring build `5b8139b2-83d6-4ada-acd6-ab6afa10661e` until it
-  reaches `SUCCESS` or a terminal failure.
-- If the build succeeds, record the production Cloud Run service URL, revision,
-  image digest, migration execution name, and Cloud Build smoke outcome.
-- Run a direct smoke against the generated Cloud Run URL with
-  `BASE_URL=<run-url> TIMEOUT_SECONDS=30 scripts/gcp/smoke-test-cloud-run.sh`.
+- Treat build `5b8139b2-83d6-4ada-acd6-ab6afa10661e` as failed, not a cutover
+  candidate.
+- Decide whether to restore Railway production data into Cloud SQL or adjust
+  the pre-DNS smoke gate for a first-run `/admin/setup` redirect. Prefer data
+  migration before cutover if the goal is preserving existing workspaces.
+- After the database/cutover strategy is fixed, rerun the manual production
+  trigger and require a passing generated-URL smoke before DNS movement.
 - Do not move Cloudflare/DNS for `manut.xyz` until the generated Cloud Run URL
   passes smoke and the user explicitly approves cutover.
 - Data migration from Railway Postgres remains a separate export/restore plan.
