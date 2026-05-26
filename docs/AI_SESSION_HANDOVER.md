@@ -12,12 +12,11 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: start follow-up work from `origin/main`.
-- Local checkout after this handover refresh:
-  `codex/gcp-followup` tracking `origin/main`.
-- Upstream: `origin/main`
-- Origin HEAD: `4f7dbc212`, merge commit for PR #165.
-- PR: #165 merged the doc-only progress update into `main`.
+- Branch: start follow-up work from the latest `origin/main`; refresh before
+  edits.
+- Upstream: `origin/main`.
+- Handover refresh: PR #165 recorded the GCP progress state, and PR #166
+  corrected the post-merge workspace wording.
 - Branch state: clean except `.playwright-mcp/`, an existing untracked local
   browser artifact that should stay untouched.
 - Production branch: `main`
