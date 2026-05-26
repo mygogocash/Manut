@@ -60,12 +60,17 @@ Required prod secrets:
 ```text
 manut-database-url
 manut-affine-config-json-b64
-manut-redis-password
+manut-affine-private-key
+manut-google-oauth-client-id
 manut-google-oauth-client-secret
+manut-resend-api-key
 ```
 
 Add other OAuth and provider secrets using the same `manut-*` prefix. Do not
 paste secret values into GitHub Actions logs, issue comments, chat, or docs.
+For PostgreSQL URLs, generate URL-safe passwords or percent-encode reserved
+characters before writing `DATABASE_URL`; Prisma rejects malformed connection
+strings before attempting a network connection.
 
 Cloud Run reads these secrets at instance startup. After rotating a secret,
 deploy a new revision.
@@ -77,13 +82,13 @@ Run a staging build using the same config but different substitutions:
 ```bash
 gcloud builds submit \
   --config=cloudbuild.manut-cloud-run.yaml \
-  --substitutions=_SERVICE_NAME=manut-staging,_MIGRATION_JOB_NAME=manut-staging-migrate,_EXTERNAL_URL=https://staging.manut.xyz,_MIN_INSTANCES=0,_MAX_INSTANCES=5
+  --substitutions=_SERVICE_NAME=manut-staging,_MIGRATION_JOB_NAME=manut-staging-migrate,_IMAGE_TAG="$(git rev-parse --short HEAD)-staging-$(date -u +%Y%m%d%H%M%S)",_DATABASE_URL_SECRET=manut-staging-database-url,_AFFINE_CONFIG_JSON_B64_SECRET=manut-staging-affine-config-json-b64,_AFFINE_PRIVATE_KEY_SECRET=manut-staging-affine-private-key,_GOOGLE_OAUTH_CLIENT_ID_SECRET=manut-staging-google-oauth-client-id,_GOOGLE_OAUTH_CLIENT_SECRET=manut-staging-google-oauth-client-secret,_RESEND_API_KEY_SECRET=manut-staging-resend-api-key,_EXTERNAL_URL=https://staging.manut.xyz,_REDIS_SERVER_HOST=10.47.0.3,_MIN_INSTANCES=0,_MAX_INSTANCES=5
 ```
 
 The build must complete these steps in order:
 
 1. Build `.docker/manut/Dockerfile.railway`.
-2. Push an immutable `$SHORT_SHA` image to Artifact Registry.
+2. Push an immutable `_IMAGE_TAG` image to Artifact Registry.
 3. Create or update the migration job.
 4. Execute the migration job and wait for success.
 5. Deploy the Cloud Run service with `MANUT_RUN_STARTUP_MIGRATIONS=false`.
