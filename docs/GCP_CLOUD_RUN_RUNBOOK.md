@@ -136,7 +136,54 @@ Then manually verify:
 - Send one Claude message if Vertex Anthropic quota is enabled.
 - Confirm mobile Ask AI still opens and sends.
 
-## 5. Data Migration Rehearsal
+## 5. GCP-Owned CI/CD
+
+After staging has passed one manual Cloud Build dry run, install the Cloud
+Build triggers that move CI/CD ownership from GitHub Actions to GCP:
+
+```bash
+scripts/gcp/upsert-cloud-build-triggers.sh
+```
+
+This creates or updates:
+
+| Trigger                  | Event             | Purpose                                    |
+| ------------------------ | ----------------- | ------------------------------------------ |
+| `manut-gcp-pr-ci`        | Pull request      | Cloud Build PR validation.                 |
+| `manut-gcp-main-staging` | Push to `main`    | Build, migrate, deploy, and smoke staging. |
+| `manut-gcp-prod-deploy`  | Manual + approval | Production Cloud Run deploy after cutover. |
+
+The staging trigger smokes the generated Cloud Run URL by default because
+managed TLS for `staging.manut.xyz` can lag behind DNS. After the custom domain
+is `Ready=True`, update the trigger with:
+
+```bash
+GENERATED_STAGING_URL=https://staging.manut.xyz \
+  scripts/gcp/upsert-cloud-build-triggers.sh
+```
+
+The recommended trigger service account is
+`manut-cloud-build@affine-495114.iam.gserviceaccount.com`. To override it,
+pass a different service account without pasting keys:
+
+```bash
+CLOUD_BUILD_SERVICE_ACCOUNT=another-sa@affine-495114.iam.gserviceaccount.com \
+  scripts/gcp/upsert-cloud-build-triggers.sh
+```
+
+Rollback for any bad trigger is immediate:
+
+```bash
+gcloud builds triggers list --project=affine-495114 --region=global
+gcloud builds triggers delete TRIGGER_ID --project=affine-495114 --region=global
+```
+
+Keep the existing GitHub Actions workflows enabled as fallback until both
+`manut-gcp-pr-ci` and `manut-gcp-main-staging` have passed against real GitHub
+events. Do not replace this with a production push trigger before the database
+cutover and DNS rollback window are complete.
+
+## 6. Data Migration Rehearsal
 
 Use a rehearsal database before production cutover:
 
@@ -160,7 +207,7 @@ select 'ai_chat_histories', count(*) from ai_chat_histories;
 
 Adjust table names if upstream schema changes.
 
-## 6. Production Cutover
+## 7. Production Cutover
 
 Use a maintenance window.
 
@@ -192,7 +239,7 @@ BASE_URL=https://manut.xyz scripts/gcp/smoke-test-cloud-run.sh
 
 11. Verify login, workspace load, Ask AI, and mobile.
 
-## 7. Monitoring During First Hour
+## 8. Monitoring During First Hour
 
 Watch Cloud Run:
 
@@ -221,7 +268,7 @@ Cloud Monitoring alerts required before real cutover:
 - Vertex 429s above baseline.
 - Cloud Run instance count at max for 10 minutes.
 
-## 8. Rollback
+## 9. Rollback
 
 Rollback is DNS-first.
 
@@ -236,7 +283,7 @@ Data warning: if Cloud Run accepted writes after cutover, rolling back to
 Railway loses those writes unless they are replayed. Keep the write window
 small until Cloud Run is stable.
 
-## 9. Post-Cutover
+## 10. Post-Cutover
 
 After 24 to 48 hours of stable Cloud Run traffic:
 
@@ -244,5 +291,6 @@ After 24 to 48 hours of stable Cloud Run traffic:
 - Take final Railway backup.
 - Archive Railway environment variable names, not values.
 - Remove or pause Railway billing resources.
-- Convert manual Cloud Build usage into a protected branch trigger.
+- Retire the GitHub Actions deploy workflows after the GCP triggers have a
+  green history.
 - Add Terraform state and require plan review before infra changes.
