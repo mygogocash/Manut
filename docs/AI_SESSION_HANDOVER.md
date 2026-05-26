@@ -12,14 +12,14 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/gcp-progress-update`
-- Local HEAD: doc-only progress branch; refresh with `git rev-parse --short
-HEAD` before continuing.
+- Branch: start follow-up work from `origin/main`.
+- Local checkout after this handover refresh:
+  `codex/gcp-followup` tracking `origin/main`.
 - Upstream: `origin/main`
-- Origin HEAD: `8009e4fa7`, merge commit for PR #164.
-- PR: not opened yet for this doc-only progress update.
-- Branch state: doc-only handover refresh; `.playwright-mcp/` is an existing
-  untracked local browser artifact and should stay untouched.
+- Origin HEAD: `4f7dbc212`, merge commit for PR #165.
+- PR: #165 merged the doc-only progress update into `main`.
+- Branch state: clean except `.playwright-mcp/`, an existing untracked local
+  browser artifact that should stay untouched.
 - Production branch: `main`
 - Production app: https://manut.xyz still serves the Railway production app;
   Cloudflare/DNS has not been cut over to Cloud Run. The legacy
