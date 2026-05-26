@@ -93,16 +93,17 @@ The build must complete these steps in order:
 4. Execute the migration job and wait for success.
 5. Deploy the Cloud Run service with `MANUT_RUN_STARTUP_MIGRATIONS=false`.
 
-Run staging smoke:
+Run staging smoke. The script verifies `/info` returns JSON and GraphQL
+`serverConfig.initialized` is `true`; a 200 HTML SPA fallback is not a pass:
 
 ```bash
 BASE_URL=https://staging.manut.xyz scripts/gcp/smoke-test-cloud-run.sh
 ```
 
 If the staging domain is not mapped yet, run the same smoke against the
-generated Cloud Run URL first. Treat any `302 /admin/setup` from
-`/api/server-config` or `/api/version` as a setup-gate signal, not a successful
-API smoke.
+generated Cloud Run URL first. Treat `serverConfig.initialized: false`, any
+GraphQL `errors` payload, or any HTML response from a smoke endpoint as a
+setup/data gate signal, not a successful API smoke.
 
 Create or verify the Cloud Run domain mapping before adding DNS:
 
@@ -196,13 +197,37 @@ cutover and DNS rollback window are complete.
 
 ## 6. Data Migration Rehearsal
 
-Use a rehearsal database before production cutover:
+Use a rehearsal database before production cutover. This handles production
+data, so keep dump files encrypted or access-controlled, avoid printing
+connection strings, and delete local temporary copies after verification.
 
-1. Export Railway Postgres.
-2. Restore into staging Cloud SQL.
-3. Run `manut-staging-migrate`.
-4. Compare row counts for critical tables.
-5. Smoke login, workspace open, docs list, AI chat history, and attachments.
+1. Confirm the linked Railway project and environment:
+
+```bash
+railway status
+```
+
+2. Install a compatible PostgreSQL client locally or run one from a temporary
+   trusted container. Do not print `DATABASE_URL`; pass it only through the
+   child process environment.
+3. Export Railway Postgres to an access-controlled local file or directly to a
+   GCS object controlled by the launch operator. Example local shape:
+
+```bash
+mkdir -p .tmp/launch
+railway run --service Postgres --environment production --no-local -- \
+  pg_dump --format=custom --no-owner --no-acl "$DATABASE_URL" \
+  > .tmp/launch/railway-production.dump
+```
+
+4. Restore into a disposable rehearsal database first, not production
+   `manut`. If using Cloud SQL import, upload the dump to a restricted GCS
+   object and import from there. If using `pg_restore`, connect through an
+   approved Cloud SQL path and do not echo credentials.
+5. Run `manut-staging-migrate` or the rehearsal migration job after restore.
+6. Compare row counts for critical tables.
+7. Smoke login, workspace open, docs list, AI chat history, and attachments.
+8. Delete local dump files and revoke any temporary object access.
 
 Minimum row-count check:
 
@@ -243,7 +268,16 @@ gcloud builds triggers run manut-gcp-prod-deploy \
 ```
 
 7. Approve the pending build in Cloud Build.
-8. Smoke the Cloud Run URL before DNS.
+8. Smoke the Cloud Run URL before DNS:
+
+```bash
+BASE_URL=https://manut-idid7yszzq-as.a.run.app \
+  TIMEOUT_SECONDS=120 \
+  scripts/gcp/smoke-test-cloud-run.sh
+```
+
+This must pass with GraphQL `serverConfig.initialized: true` before DNS moves.
+
 9. Lower DNS TTL if not already lowered.
 10. Point `manut.xyz` to Cloud Run.
 11. Update the trigger to smoke the public domain:

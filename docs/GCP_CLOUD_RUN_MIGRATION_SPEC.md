@@ -59,8 +59,8 @@ Success means:
 | Cloud Run service       | `manut`                                                 | Public HTTP service for `manut.xyz`.                                       |
 | Cloud Run Job           | `manut-migrate`                                         | Runs `./node_modules/.bin/prisma migrate deploy --schema=./schema.prisma`. |
 | Artifact Registry repo  | `affine`                                                | Keeps current image path style: `affine-gogocash:<sha>`.                   |
-| Cloud SQL PostgreSQL    | `manut-postgres`                                        | Private IP preferred. Use connection pooling before aggressive autoscale.  |
-| Memorystore Redis       | `manut-redis`                                           | Standard tier for production.                                              |
+| Cloud SQL PostgreSQL    | `affine-pg`                                             | Private IP `10.47.1.3`; production database `manut`.                       |
+| Memorystore Redis       | `affine-redis`                                          | Private IP `10.47.0.3:6379`; auth disabled during current migration slice. |
 | Secret Manager secrets  | `manut-*`                                               | Runtime secrets only, no plaintext in build logs.                          |
 | Runtime service account | `manut-cloud-run@affine-495114.iam.gserviceaccount.com` | Grants only the APIs the app needs.                                        |
 | Cloud Build trigger     | `manut-cloud-run-main`                                  | Uses `cloudbuild.manut-cloud-run.yaml` after staging passes.               |
@@ -184,7 +184,9 @@ Staging validation:
 - Build and deploy to a staging Cloud Run service.
 - Run `manut-migrate` against staging Cloud SQL.
 - Run `BASE_URL=<staging-url> scripts/gcp/smoke-test-cloud-run.sh`.
-- Confirm `/info`, `/api/server-config`, and `/api/version` return 200.
+- Confirm `/info` returns JSON with `compatibility`.
+- Confirm GraphQL `serverConfig` returns JSON without errors and
+  `initialized: true`.
 - Sign in, open a workspace, open Ask AI, send one Gemini request, send one
   Claude request, and verify no console error.
 

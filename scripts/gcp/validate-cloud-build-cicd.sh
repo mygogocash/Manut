@@ -28,6 +28,7 @@ parse_yaml() {
 require_file "cloudbuild.manut-ci.yaml"
 require_file "cloudbuild.manut-cloud-run.yaml"
 require_file "scripts/gcp/upsert-cloud-build-triggers.sh"
+require_file "scripts/gcp/validate-cloud-run-smoke.sh"
 
 parse_yaml "cloudbuild.manut-ci.yaml"
 parse_yaml "cloudbuild.manut-cloud-run.yaml"
@@ -41,6 +42,8 @@ require_contains "cloudbuild.manut-ci.yaml" "yarn affine bundle -p mobile"
 require_contains "cloudbuild.manut-cloud-run.yaml" "_SMOKE_BASE_URL"
 require_contains "cloudbuild.manut-cloud-run.yaml" "scripts/gcp/smoke-test-cloud-run.sh"
 require_contains "cloudbuild.manut-cloud-run.yaml" "MANUT_RUN_STARTUP_MIGRATIONS=false"
+require_contains "scripts/gcp/smoke-test-cloud-run.sh" "serverConfig"
+require_contains "scripts/gcp/smoke-test-cloud-run.sh" "initialized"
 
 require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "manut-gcp-pr-ci"
 require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "manut-gcp-main-staging"
