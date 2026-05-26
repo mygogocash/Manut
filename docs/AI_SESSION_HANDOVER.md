@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-26 21:59 +07 (GCP Cloud Run production pre-cutover)
+Last updated: 2026-05-26 22:51 +07 (GCP Cloud Run production launch prep)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,13 +12,14 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: start follow-up work from the latest `origin/main`; refresh before
-  edits.
+- Branch: `codex/gcp-prod-launch-plan` from latest `origin/main`; refresh
+  before further edits.
 - Upstream: `origin/main`.
-- Handover refresh: PR #165 recorded the GCP progress state, and PR #166
-  corrected the post-merge workspace wording.
-- Branch state: clean except `.playwright-mcp/`, an existing untracked local
-  browser artifact that should stay untouched.
+- Handover refresh: PR #165 recorded the GCP progress state, PR #166 corrected
+  the post-merge workspace wording, and PR #167 removed stale branch drift.
+- Branch state: launch-prep WIP touches GCP docs and smoke scripts;
+  `.playwright-mcp/` is an existing untracked local browser artifact that
+  should stay untouched.
 - Production branch: `main`
 - Production app: https://manut.xyz still serves the Railway production app;
   Cloudflare/DNS has not been cut over to Cloud Run. The legacy
@@ -74,6 +75,9 @@ on chat memory.
   database not being a verified copy of Railway production data yet.
 - DNS remains untouched after the failed smoke; `https://manut.xyz` still
   serves Railway and returns Railway headers.
+- Latest launch-prep recheck: GraphQL `serverConfig` on the generated Cloud
+  Run URL returns `initialized: false`; `https://manut.xyz` still passes smoke
+  on Railway.
 
 ## Pending Cutover Readiness
 
@@ -84,6 +88,9 @@ on chat memory.
   migration before cutover if the goal is preserving existing workspaces.
 - After the database/cutover strategy is fixed, rerun the manual production
   trigger and require a passing generated-URL smoke before DNS movement.
+- The Cloud Run smoke gate is being hardened to require `/info` JSON and
+  GraphQL `serverConfig.initialized: true`; status-only API-path smoke is not
+  sufficient for launch.
 - Do not move Cloudflare/DNS for `manut.xyz` until the generated Cloud Run URL
   passes smoke and the user explicitly approves cutover.
 - Data migration from Railway Postgres remains a separate export/restore plan.
@@ -119,6 +126,17 @@ on chat memory.
 
 ## Latest Completed Work
 
+- Started launch-prep branch `codex/gcp-prod-launch-plan` from `origin/main`.
+- Added `docs/GCP_PRODUCTION_LAUNCH_SPEC.md` as the production launch
+  contract for Railway Postgres export, Cloud SQL restore, Cloud Run deploy,
+  generated-URL smoke, DNS approval, and rollback.
+- Tightened `scripts/gcp/smoke-test-cloud-run.sh` to validate JSON `/info`
+  and GraphQL `serverConfig` instead of accepting status-only HTML responses
+  from API-like paths.
+- Added `scripts/gcp/validate-cloud-run-smoke.sh` to guard healthy, HTML
+  fallback, and uninitialized-server smoke cases.
+- Updated the Cloud Run runbook/spec to reflect actual GCP resource names,
+  data-first cutover, and the stricter GraphQL smoke gate.
 - Learned Paperclip's useful product pattern as a reference concept:
   company-level control plane, goals, employees/agents, adapters, task tree,
   and durable handover evidence.
@@ -540,6 +558,21 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   `https://manut.xyz/workspace/gogocash/journals` showed no route error
   (`#app` child count `3`). The user's Chrome tab also recovered after reload
   and displayed the Journals empty state.
+- 2026-05-26 22:51 production launch prep:
+  `bash -n scripts/gcp/smoke-test-cloud-run.sh scripts/gcp/validate-cloud-run-smoke.sh`
+  passed.
+- 2026-05-26 22:51 production launch prep:
+  `scripts/gcp/validate-cloud-run-smoke.sh` passed.
+- 2026-05-26 22:51 production launch prep:
+  `BASE_URL=https://staging.manut.xyz TIMEOUT_SECONDS=20 scripts/gcp/smoke-test-cloud-run.sh`
+  passed.
+- 2026-05-26 22:51 production launch prep:
+  `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=20 scripts/gcp/smoke-test-cloud-run.sh`
+  passed against the current Railway production front door.
+- 2026-05-26 22:51 production launch prep:
+  generated production Cloud Run URL smoke failed as expected because GraphQL
+  `serverConfig.initialized` is `false`; do not cut over DNS until data restore
+  or an explicitly approved first-run setup path resolves this.
 
 ## Open Threads
 
@@ -574,11 +607,10 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   stuck on the 500 page, but the combined WIP still needs browser-shot review
   against an authenticated local/prod-like preview that includes the local
   bundle.
-- Next concrete step: visually review mobile home, bottom-right AI chat modes,
-  page-detail emoji placement, delete/prompt/account-picker modals, and
-  `/workspace/gogocash/journals` in an authenticated local/prod-like preview,
-  then stage source changes only (exclude generated declaration artifacts and
-  unrelated local files).
+- Next concrete step: complete the launch-prep PR, then rehearse Railway
+  Postgres export into a disposable Cloud SQL database and compare critical
+  row counts before requesting approval for the final production restore and
+  DNS cutover.
 
 ## Frequent Update Protocol
 

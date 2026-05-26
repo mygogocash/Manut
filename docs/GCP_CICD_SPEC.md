@@ -68,13 +68,15 @@ triggers, uses immutable commit image tags, and smokes the deployed service.
 
 - `cloudbuild.manut-cloud-run.yaml`
 - `scripts/gcp/smoke-test-cloud-run.sh`
+- `scripts/gcp/validate-cloud-run-smoke.sh`
 - `docs/GCP_CLOUD_RUN_RUNBOOK.md`
 
 **Test names:**
 
 - `cloud build deploy > given main push > then image tag comes from SHORT_SHA`
 - `cloud build deploy > given smoke base omitted > then service URL is used`
-- `cloud build deploy > given api endpoint redirects to setup > then smoke fails`
+- `cloud build deploy > given HTML from an API-like path > then smoke fails`
+- `cloud build deploy > given serverConfig.initialized false > then smoke fails`
 
 **Rollback:** disable `manut-gcp-main-staging` or `manut-gcp-prod-deploy` and
 use the previous GitHub Actions/Railway flow.
@@ -125,7 +127,8 @@ Repo validation:
 ```bash
 bash -n scripts/gcp/*.sh
 scripts/gcp/validate-cloud-build-cicd.sh
-yarn prettier --check cloudbuild.manut-ci.yaml cloudbuild.manut-cloud-run.yaml docs/GCP_CICD_SPEC.md docs/GCP_CLOUD_RUN_RUNBOOK.md scripts/gcp/validate-cloud-build-cicd.sh scripts/gcp/upsert-cloud-build-triggers.sh
+scripts/gcp/validate-cloud-run-smoke.sh
+yarn prettier --check cloudbuild.manut-ci.yaml cloudbuild.manut-cloud-run.yaml docs/GCP_CICD_SPEC.md docs/GCP_CLOUD_RUN_RUNBOOK.md docs/GCP_PRODUCTION_LAUNCH_SPEC.md scripts/gcp/validate-cloud-build-cicd.sh scripts/gcp/upsert-cloud-build-triggers.sh
 ```
 
 GCP validation:

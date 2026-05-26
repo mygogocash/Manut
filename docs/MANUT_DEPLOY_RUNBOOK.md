@@ -308,8 +308,9 @@ gcloud compute ssh affine-vm --project=affine-495114 --zone=asia-southeast1-a \
 
 After the smoke set passes, run these in the live environment:
 
-- [ ] `https://manut.xyz/api/server-config` returns 200 with
-      `deploymentType: "Affine"` and the expected feature flags.
+- [ ] `https://manut.xyz/info` returns JSON with `compatibility`.
+- [ ] `https://manut.xyz/graphql` returns `serverConfig.type: "Affine"`,
+      `serverConfig.initialized: true`, and the expected feature flags.
 - [ ] `https://manut.xyz/graphql` GET returns 200 / 400 / 405
       (server alive).
 - [ ] No `[ERROR]` lines in the Railway service logs for the last 5
