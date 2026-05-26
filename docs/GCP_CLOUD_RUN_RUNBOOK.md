@@ -99,6 +99,33 @@ Run staging smoke:
 BASE_URL=https://staging.manut.xyz scripts/gcp/smoke-test-cloud-run.sh
 ```
 
+If the staging domain is not mapped yet, run the same smoke against the
+generated Cloud Run URL first. Treat any `302 /admin/setup` from
+`/api/server-config` or `/api/version` as a setup-gate signal, not a successful
+API smoke.
+
+Create or verify the Cloud Run domain mapping before adding DNS:
+
+```bash
+gcloud beta run domain-mappings create \
+  --project=affine-495114 \
+  --region=asia-southeast1 \
+  --service=manut-staging \
+  --domain=staging.manut.xyz
+
+gcloud beta run domain-mappings describe staging.manut.xyz \
+  --project=affine-495114 \
+  --region=asia-southeast1 \
+  --format='value(status.resourceRecords)'
+```
+
+Add exactly the DNS records returned by Cloud Run in Cloudflare. Do not point
+`staging.manut.xyz` directly at the `run.app` hostname without the Cloud Run
+domain mapping; TLS and host routing must agree on `staging.manut.xyz`.
+
+Add `https://staging.manut.xyz/oauth/callback` to the Google OAuth client
+before testing Google sign-in on staging.
+
 Then manually verify:
 
 - Sign in.
