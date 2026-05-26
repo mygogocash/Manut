@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-23 12:20 +07 (beta launch-readiness hardening)
+Last updated: 2026-05-26 21:54 +07 (GCP Cloud Run production pre-cutover)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,62 +12,76 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/fix-beta-blockers`
-- Local HEAD: `234d74bcb`
+- Branch: `codex/gcp-progress-update`
+- Local HEAD: `8009e4fa7`
 - Upstream: `origin/main`
-- Origin HEAD: refresh before PR/deploy; latest observed `main` had green
-  `Manut CI` run `26323515938` and green `Manut Build` run `26323591394`.
-- PR: not opened yet for `codex/fix-beta-blockers`.
-- Branch state: local branch has uncommitted WIP for beta blocker fixes,
-  launch-readiness docs, analytics cron log hardening, and beta-security
-  workflow bootstrap fixes.
-- Dirty state: expected touched files include `docs/BETA_GO_NO_GO.md`,
-  `docs/BETA_RISK_REGISTER.md`, `docs/MANUT_LAUNCH_CHECKLIST.md`, this
-  handover file, `.github/workflows/manut-beta-security.yml`,
-  quota tier code/tests, AI chat UI tests/fixes, and analytics rollup cron
-  tests/fixes.
+- Origin HEAD: `8009e4fa7`, merge commit for PR #164.
+- PR: not opened yet for this doc-only progress update.
+- Branch state: doc-only handover refresh; `.playwright-mcp/` is an existing
+  untracked local browser artifact and should stay untouched.
 - Production branch: `main`
-- Production app: https://manut.xyz (canonical;
-  `affine.gogocash.co` and `manut.gogocash.co` both 301-redirect)
-- Production image lineage: `railway status` currently reports production
-  service `Manut` online at deployment
-  `6ccaa65a-535a-4aa9-92e6-79333ad7593a`; no deploy was performed during this
-  WIP. Refresh the exact image/tag before production action.
+- Production app: https://manut.xyz still serves the Railway production app;
+  Cloudflare/DNS has not been cut over to Cloud Run. The legacy
+  `affine.gogocash.co` and `manut.gogocash.co` hosts both 301-redirect to
+  the canonical domain.
+- GCP project: `affine-495114` (`602860445793`), region `asia-southeast1`.
+- Runtime service account:
+  `manut-cloud-run@affine-495114.iam.gserviceaccount.com`.
+- Build service account:
+  `manut-cloud-build@affine-495114.iam.gserviceaccount.com`.
 
-## Current Beta Hardening Slice
+## Current GCP Cloud Run Migration Slice
 
-- Fixed beta code blocker BETA-SEC-001: default chat format control now labels
-  as `Format` instead of duplicating the model `Auto`, and contentless
-  transmitting assistant replies render the loading state.
-- Fixed beta code blocker BETA-SEC-002: practical unlimited member cap is
-  bounded at `100_000` before GraphQL `Int` serialization.
-- Fixed launch-readiness blocker BETA-SEC-003: analytics hourly/daily/weekly
-  rollup cron stubs no longer throw `NOT_IMPLEMENTED` on schedule while phase
-  3 rollups remain unimplemented.
-- Fixed beta-security gate blocker BETA-SEC-004: actionlint command is
-  shellcheck-safe, and Semgrep 1.99 bootstraps with `setuptools<81` under
-  Python 3.12 so `pkg_resources` exists.
-- Verified so far: targeted quota AVA, targeted AI Vitest, analytics rollup
-  AVA, actionlint via downloaded v1.7.11 binary, Semgrep 1.99 startup and full
-  high-confidence scan, plus earlier Prettier/ESLint/oxlint/diff-check/server
-  tsc/web-admin-mobile bundles.
-- Full `yarn test` was attempted earlier and is not green in this local
-  environment because of missing native binding `@affine/native-darwin-arm64`
-  and missing Playwright Firefox; do not present full-suite status as green.
+- Merged PRs #159-#164 built the GCP-owned path: Cloud Run staging artifacts,
+  strict smoke status, staging activation docs, Cloud Build CI/CD, trigger
+  substitution fixes, and production-trigger smoke hardening.
+- Staging trigger `manut-gcp-main-staging` deploys `main` to Cloud Run service
+  `manut-staging`; latest verified staging build
+  `2048ae97-28df-4773-a6cf-9e5f6a34dd99` deployed revision
+  `manut-staging-00005-frr` and passed smoke on `https://staging.manut.xyz`.
+- Production trigger `manut-gcp-prod-deploy` is manual and approval-gated. It
+  now omits `_SMOKE_BASE_URL`, so pre-DNS production smoke resolves the
+  generated Cloud Run service URL instead of accidentally probing Railway.
+- Production GCP secrets exist in Secret Manager for database URL,
+  `AFFINE_CONFIG_JSON_B64`, private key, Google OAuth client ID/secret, and
+  Resend API key. Do not print secret values in logs or handovers.
+- Production Cloud SQL preparation is complete enough for the first Cloud Run
+  deployment: instance `affine-pg`, database `manut`, user `manut`, and latest
+  `manut-database-url` secret version pointing at private IP `10.47.1.3:5432`
+  with `?schema=public`.
+- Redis target for staging and production is Memorystore `affine-redis` at
+  private IP `10.47.0.3:6379`; auth is disabled.
 
-## Pending Launch Readiness
+## Active Production Deploy Monitor
 
-- Commit/push the branch, open a PR into `main`, and require green `Manut CI`,
-  `Manut Beta Security Gate`, and `Manut Build` on the candidate.
-- Deploy the merged candidate to Railway; record exact deployment id, image/tag,
-  rollback target, primary owner, and secondary owner in
-  `docs/BETA_GO_NO_GO.md`.
-- Recheck production logs after deploy for no analytics cron
-  `NOT_IMPLEMENTED`, no GraphQL Int overflow, no new P0/P1 error class, and no
-  sustained Railway log-rate drops.
-- Run authenticated beta smoke for GraphQL workspace query, floating/full AI
-  chat, storage usage/upload fallback, auth/onboarding, invite accept, and
-  sign-out.
+- Manual production build `5b8139b2-83d6-4ada-acd6-ab6afa10661e` was started
+  from `main` revision `8009e4fa7199ea12883e3893081c4eb07f72ffd4`.
+- Build approval was granted by `fronk.kunanon@gogocash.co` at
+  `2026-05-26T14:36:38Z`.
+- Latest observed status: `WORKING`; log URL:
+  `https://console.cloud.google.com/cloud-build/builds/5b8139b2-83d6-4ada-acd6-ab6afa10661e?project=602860445793`.
+- Target image tag:
+  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:8009e4f`.
+- Last observed logs showed the Docker build still running after the landing
+  site Next.js build completed successfully. No production Cloud Run URL,
+  revision, migration execution, or smoke result has been recorded yet for
+  this build.
+- DNS remains untouched while this build runs; `https://manut.xyz` should be
+  treated as Railway until an explicit cutover is approved and verified.
+
+## Pending Cutover Readiness
+
+- Continue monitoring build `5b8139b2-83d6-4ada-acd6-ab6afa10661e` until it
+  reaches `SUCCESS` or a terminal failure.
+- If the build succeeds, record the production Cloud Run service URL, revision,
+  image digest, migration execution name, and Cloud Build smoke outcome.
+- Run a direct smoke against the generated Cloud Run URL with
+  `BASE_URL=<run-url> TIMEOUT_SECONDS=30 scripts/gcp/smoke-test-cloud-run.sh`.
+- Do not move Cloudflare/DNS for `manut.xyz` until the generated Cloud Run URL
+  passes smoke and the user explicitly approves cutover.
+- Data migration from Railway Postgres remains a separate export/restore plan.
+  The current GCP production database is a fresh Cloud SQL database prepared for
+  Cloud Run migrations, not a verified copy of Railway production data.
 
 ## Pending Product/Feature Follow-Ups
 
