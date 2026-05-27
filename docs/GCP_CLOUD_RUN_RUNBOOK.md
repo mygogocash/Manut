@@ -207,10 +207,15 @@ connection strings, and delete local temporary copies after verification.
 railway status
 ```
 
-2. Install a compatible PostgreSQL client locally or run one from a temporary
+2. Confirm the Railway PostgreSQL major version and use a matching or newer
+   `pg_dump` client. Do not restore a newer-major dump into an older-major
+   Cloud SQL target. Current rehearsal evidence found Railway production on
+   PostgreSQL 18.3, while existing `affine-pg` is PostgreSQL 16; final launch
+   therefore needs a PostgreSQL 18 Cloud SQL production target.
+3. Install a compatible PostgreSQL client locally or run one from a temporary
    trusted container. Do not print `DATABASE_URL`; pass it only through the
    child process environment.
-3. Export Railway Postgres to an access-controlled local file or directly to a
+4. Export Railway Postgres to an access-controlled local file or directly to a
    GCS object controlled by the launch operator. Example local shape:
 
 ```bash
@@ -220,14 +225,14 @@ railway run --service Postgres --environment production --no-local -- \
   > .tmp/launch/railway-production.dump
 ```
 
-4. Restore into a disposable rehearsal database first, not production
+5. Restore into a disposable rehearsal database first, not production
    `manut`. If using Cloud SQL import, upload the dump to a restricted GCS
    object and import from there. If using `pg_restore`, connect through an
    approved Cloud SQL path and do not echo credentials.
-5. Run `manut-staging-migrate` or the rehearsal migration job after restore.
-6. Compare row counts for critical tables.
-7. Smoke login, workspace open, docs list, AI chat history, and attachments.
-8. Delete local dump files and revoke any temporary object access.
+6. Run `manut-staging-migrate` or the rehearsal migration job after restore.
+7. Compare row counts for critical tables.
+8. Smoke login, workspace open, docs list, AI chat history, and attachments.
+9. Delete local dump files and revoke any temporary object access.
 
 Minimum row-count check:
 

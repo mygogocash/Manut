@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-27 07:00 +07 (GCP Cloud Run data rehearsal prep)
+Last updated: 2026-05-27 07:35 +07 (GCP Cloud Run PG18 data rehearsal)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -46,10 +46,12 @@ on chat memory.
 - Production GCP secrets exist in Secret Manager for database URL,
   `AFFINE_CONFIG_JSON_B64`, private key, Google OAuth client ID/secret, and
   Resend API key. Do not print secret values in logs or handovers.
-- Production Cloud SQL preparation is complete enough for the first Cloud Run
-  deployment: instance `affine-pg`, database `manut`, user `manut`, and latest
-  `manut-database-url` secret version pointing at private IP `10.47.1.3:5432`
-  with `?schema=public`.
+- Existing production Cloud SQL preparation used instance `affine-pg`,
+  database `manut`, user `manut`, and latest `manut-database-url` secret
+  version pointing at private IP `10.47.1.3:5432` with `?schema=public`.
+  **Do not use this PostgreSQL 16 instance as the Railway restore target.**
+  Railway production is PostgreSQL 18.3, and launch needs a PostgreSQL 18 Cloud
+  SQL production target or an equivalent same-major restore path.
 - Redis target for staging and production is Memorystore `affine-redis` at
   private IP `10.47.0.3:6379`; auth is disabled.
 
@@ -83,9 +85,13 @@ on chat memory.
 
 - Treat build `5b8139b2-83d6-4ada-acd6-ab6afa10661e` as failed, not a cutover
   candidate.
-- Decide whether to restore Railway production data into Cloud SQL or adjust
-  the pre-DNS smoke gate for a first-run `/admin/setup` redirect. Prefer data
-  migration before cutover if the goal is preserving existing workspaces.
+- Data rehearsal completed against a disposable PostgreSQL 18 target. Do not
+  restore Railway production data into existing Cloud SQL instance `affine-pg`
+  (`POSTGRES_16`); create or switch production to a PostgreSQL 18 Cloud SQL
+  target first.
+- Next operator approval gate: create the final PostgreSQL 18 production target
+  and update `manut-database-url` to that target, then repeat the final
+  Railway dump/restore/migration/smoke sequence before DNS cutover.
 - After the database/cutover strategy is fixed, rerun the manual production
   trigger and require a passing generated-URL smoke before DNS movement.
 - The Cloud Run smoke gate now requires `/info` JSON and GraphQL
@@ -93,9 +99,48 @@ on chat memory.
   sufficient for launch.
 - Do not move Cloudflare/DNS for `manut.xyz` until the generated Cloud Run URL
   passes smoke and the user explicitly approves cutover.
-- Data migration from Railway Postgres remains a separate export/restore plan.
-  The current GCP production database is a fresh Cloud SQL database prepared for
-  Cloud Run migrations, not a verified copy of Railway production data.
+- Data migration from Railway Postgres remains the final cutover gate. The
+  current GCP production database is a fresh PostgreSQL 16 Cloud SQL database
+  prepared for Cloud Run migrations, not a verified copy of Railway production
+  data and not a same-major target for Railway's PostgreSQL 18.3 dump.
+
+## Completed PG18 Data Rehearsal
+
+- Railway production database version discovered during strict dump:
+  PostgreSQL 18.3. The earlier PostgreSQL 16 dump attempt failed with
+  `server version mismatch`; the valid export used `postgres:18-alpine`.
+- Valid dump object:
+  `gs://gogocash-affine-backups/manut-rehearsals/20260527001726/railway-production-pg18.sql.gz`
+  (`2.59MiB`, created `2026-05-27T00:19:15Z`).
+- Disposable Cloud SQL target:
+  `manut-pg18-rehearsal-20260527001726`, `POSTGRES_18`,
+  private IP `10.47.1.5`, database `manut`.
+- Import completed successfully into the disposable target with
+  `gcloud sql import sql`.
+- Critical row counts matched Railway source and Cloud SQL target:
+  `users=4`, `workspaces=1`, `workspace_pages=221`, `snapshots=226`,
+  `blobs=88`, `integration_connections=3`, `ai_sessions_metadata=8`,
+  `ai_sessions_messages=0`, `mn_projects=0`, `mn_tasks=0`, `mn_agents=0`,
+  `_prisma_migrations=132`.
+- Rehearsal migration job `manut-pg18-migrate-20260527001726-266m8` completed
+  successfully; Prisma reported `No pending migrations to apply`.
+- Private rehearsal Cloud Run service `manut-pg18-rehearsal` deployed revision
+  `manut-pg18-rehearsal-00001-vpf` against the restored PG18 database.
+  Authenticated probes passed:
+  `/info` returned Manut JSON, and `/graphql` returned
+  `serverConfig.initialized: true`.
+- No `severity>=ERROR` Cloud Run logs were found for the rehearsal service
+  after the authenticated probes.
+- Cleanup already done: short-lived Railway public DB URL secret
+  `manut-railway-public-url-rehearsal-20260527001410` was deleted, and the
+  invalid 20-byte first dump object was removed.
+- Left in place for operator inspection or final-target planning:
+  disposable Cloud SQL instance `manut-pg18-rehearsal-20260527001726`, secret
+  `manut-pg18-rehearsal-db-url-20260527001726`, Cloud Run jobs
+  `manut-pg18-count-20260527001726` and
+  `manut-pg18-migrate-20260527001726`, private service
+  `manut-pg18-rehearsal`, and the valid dump/count artifacts under
+  `gs://gogocash-affine-backups/manut-rehearsals/20260527001726/`.
 
 ## Pending Product/Feature Follow-Ups
 
