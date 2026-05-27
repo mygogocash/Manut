@@ -8,6 +8,7 @@ import {
   inviteByEmailsMutation,
   leaveWorkspaceMutation,
   releaseDeletedBlobsMutation,
+  resendInviteMutation,
   revokeMemberPermissionMutation,
   WorkspaceInviteLinkExpireTime,
   WorkspaceMemberStatus,
@@ -87,6 +88,91 @@ e2e('should invite a user', async t => {
   });
   t.is(getInviteInfo2.status, WorkspaceMemberStatus.Accepted);
 });
+
+e2e(
+  'workspace invitation resend > given pending email invite > then queues another invitation email',
+  async t => {
+    const { owner, workspace } = await createWorkspace();
+    const member = await app.create(Mockers.User);
+
+    await app.login(owner);
+    const invite = await app.gql({
+      query: inviteByEmailsMutation,
+      variables: {
+        emails: [member.email],
+        workspaceId: workspace.id,
+      },
+    });
+    const inviteId = invite.inviteMembers[0].inviteId!;
+    await app.queue.waitFor('notification.sendInvitation');
+
+    const queuedBefore = app.queue.count('notification.sendInvitation');
+    const { resendInvite } = await app.gql({
+      query: resendInviteMutation,
+      variables: {
+        workspaceId: workspace.id,
+        inviteId,
+      },
+    });
+
+    t.true(resendInvite);
+    t.is(app.queue.count('notification.sendInvitation'), queuedBefore + 1);
+    t.deepEqual(app.queue.last('notification.sendInvitation').payload, {
+      inviteId,
+      inviterId: owner.id,
+    });
+
+    const { getInviteInfo } = await app.gql({
+      query: getInviteInfoQuery,
+      variables: {
+        inviteId,
+      },
+    });
+    t.is(getInviteInfo.status, WorkspaceMemberStatus.Pending);
+  }
+);
+
+e2e(
+  'workspace invitation resend > given accepted email invite > then rejects without queuing email',
+  async t => {
+    const { owner, workspace } = await createWorkspace();
+    const member = await app.create(Mockers.User);
+
+    await app.login(owner);
+    const invite = await app.gql({
+      query: inviteByEmailsMutation,
+      variables: {
+        emails: [member.email],
+        workspaceId: workspace.id,
+      },
+    });
+    const inviteId = invite.inviteMembers[0].inviteId!;
+    await app.queue.waitFor('notification.sendInvitation');
+
+    await app.login(member);
+    await app.gql({
+      query: acceptInviteByInviteIdMutation,
+      variables: {
+        workspaceId: workspace.id,
+        inviteId,
+      },
+    });
+
+    await app.login(owner);
+    const queuedBefore = app.queue.count('notification.sendInvitation');
+    await t.throwsAsync(
+      app.gql({
+        query: resendInviteMutation,
+        variables: {
+          workspaceId: workspace.id,
+          inviteId,
+        },
+      })
+    );
+
+    t.is(app.queue.count('notification.sendInvitation'), queuedBefore);
+  }
+);
 
 e2e('should re-check seat when accepting an email invitation', async t => {
   const { owner, workspace } = await createWorkspace();
