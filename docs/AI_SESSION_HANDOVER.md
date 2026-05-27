@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-26 22:51 +07 (GCP Cloud Run production launch prep)
+Last updated: 2026-05-27 07:00 +07 (GCP Cloud Run data rehearsal prep)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,14 +12,14 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/gcp-prod-launch-plan` from latest `origin/main`; refresh
-  before further edits.
+- Branch: `codex/gcp-data-rehearsal-20260527` from latest `origin/main`;
+  refresh before further edits.
 - Upstream: `origin/main`.
 - Handover refresh: PR #165 recorded the GCP progress state, PR #166 corrected
-  the post-merge workspace wording, and PR #167 removed stale branch drift.
-- Branch state: launch-prep WIP touches GCP docs and smoke scripts;
-  `.playwright-mcp/` is an existing untracked local browser artifact that
-  should stay untouched.
+  the post-merge workspace wording, PR #167 removed stale branch drift, and PR
+  #168 merged the production launch smoke hardening.
+- Branch state: post-merge data rehearsal prep; `.playwright-mcp/` is an
+  existing untracked local browser artifact that should stay untouched.
 - Production branch: `main`
 - Production app: https://manut.xyz still serves the Railway production app;
   Cloudflare/DNS has not been cut over to Cloud Run. The legacy
@@ -88,8 +88,8 @@ on chat memory.
   migration before cutover if the goal is preserving existing workspaces.
 - After the database/cutover strategy is fixed, rerun the manual production
   trigger and require a passing generated-URL smoke before DNS movement.
-- The Cloud Run smoke gate is being hardened to require `/info` JSON and
-  GraphQL `serverConfig.initialized: true`; status-only API-path smoke is not
+- The Cloud Run smoke gate now requires `/info` JSON and GraphQL
+  `serverConfig.initialized: true`; status-only API-path smoke is not
   sufficient for launch.
 - Do not move Cloudflare/DNS for `manut.xyz` until the generated Cloud Run URL
   passes smoke and the user explicitly approves cutover.
@@ -137,6 +137,10 @@ on chat memory.
   fallback, and uninitialized-server smoke cases.
 - Updated the Cloud Run runbook/spec to reflect actual GCP resource names,
   data-first cutover, and the stricter GraphQL smoke gate.
+- PR #168 merged into `main` as merge commit
+  `72d32243771dadff53f3729bdd2f849c48a07f91`.
+- Created follow-up branch `codex/gcp-data-rehearsal-20260527` from merged
+  `origin/main` for the data rehearsal gate.
 - Learned Paperclip's useful product pattern as a reference concept:
   company-level control plane, goals, employees/agents, adapters, task tree,
   and durable handover evidence.
@@ -573,6 +577,21 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   generated production Cloud Run URL smoke failed as expected because GraphQL
   `serverConfig.initialized` is `false`; do not cut over DNS until data restore
   or an explicitly approved first-run setup path resolves this.
+- 2026-05-27 07:00 post-merge launch prep:
+  `gh pr view 168 --json state,mergedAt,mergeCommit` confirmed PR #168 merged
+  at `2026-05-26T23:58:20Z`.
+- 2026-05-27 07:00 post-merge launch prep:
+  `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=20 scripts/gcp/smoke-test-cloud-run.sh`
+  passed against the current Railway production front door.
+- 2026-05-27 07:00 post-merge launch prep:
+  generated production Cloud Run URL smoke still fails as expected because
+  GraphQL `serverConfig.initialized` is `false`.
+- 2026-05-27 07:00 post-merge launch prep: `railway status` shows the Manut
+  service online and a Railway build in progress after the merge; keep
+  production smoke checks active while that build settles.
+- 2026-05-27 07:00 post-merge launch prep: local `pg_dump`, `pg_restore`, and
+  `psql` are not installed; Docker is available for a PostgreSQL client
+  container if the data rehearsal is approved.
 
 ## Open Threads
 
@@ -607,10 +626,10 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   stuck on the 500 page, but the combined WIP still needs browser-shot review
   against an authenticated local/prod-like preview that includes the local
   bundle.
-- Next concrete step: complete the launch-prep PR, then rehearse Railway
-  Postgres export into a disposable Cloud SQL database and compare critical
-  row counts before requesting approval for the final production restore and
-  DNS cutover.
+- Next concrete step: get explicit approval for the Railway Postgres export
+  rehearsal, then export into a disposable Cloud SQL target and compare
+  critical row counts before requesting approval for the final production
+  restore and DNS cutover.
 
 ## Frequent Update Protocol
 
