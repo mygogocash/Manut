@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-27 07:35 +07 (GCP Cloud Run PG18 data rehearsal)
+Last updated: 2026-05-27 08:18 +07 (GCP Cloud Run PG18 production target)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,8 +12,7 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/gcp-data-rehearsal-20260527` from latest `origin/main`;
-  refresh before further edits.
+- Branch: `codex/gcp-prod-pg18-cutover` from latest `origin/main`.
 - Upstream: `origin/main`.
 - Handover refresh: PR #165 recorded the GCP progress state, PR #166 corrected
   the post-merge workspace wording, PR #167 removed stale branch drift, and PR
@@ -85,24 +84,39 @@ on chat memory.
 
 - Treat build `5b8139b2-83d6-4ada-acd6-ab6afa10661e` as failed, not a cutover
   candidate.
-- Data rehearsal completed against a disposable PostgreSQL 18 target. Do not
-  restore Railway production data into existing Cloud SQL instance `affine-pg`
-  (`POSTGRES_16`); create or switch production to a PostgreSQL 18 Cloud SQL
-  target first.
-- Next operator approval gate: create the final PostgreSQL 18 production target
-  and update `manut-database-url` to that target, then repeat the final
-  Railway dump/restore/migration/smoke sequence before DNS cutover.
-- After the database/cutover strategy is fixed, rerun the manual production
-  trigger and require a passing generated-URL smoke before DNS movement.
+- PostgreSQL 18 production target is ready: Cloud SQL instance
+  `manut-pg18-prod`, private IP `10.47.1.7`, database/user `manut`, backups
+  enabled, deletion protection enabled.
+- Latest Railway snapshot was exported with `postgres:18-alpine` and restored
+  into `manut-pg18-prod`:
+  `gs://gogocash-affine-backups/manut-cutovers/20260527010736/railway-production-pg18.sql.gz`.
+- `manut-database-url` Secret Manager version `3` now points to
+  `manut-pg18-prod`; earlier versions remain enabled for rollback.
+- Production migration execution `manut-migrate-8qgvj` completed successfully
+  against `10.47.1.7`; Prisma reported `No pending migrations to apply`.
+- Cloud Run production revision `manut-00002-q8q` was rolled with
+  `MANUT_DATA_CUTOVER_STAMP=20260527010736` and passed generated-URL smoke
+  (`/info` JSON and GraphQL `serverConfig.initialized: true`) before DNS.
+- Because this shell has no Cloudflare DNS write credential/tool, DNS was not
+  moved. To avoid a public split-brain `run.app` endpoint while Railway remains
+  live, Cloud Run service `manut` ingress is currently set to
+  `internal-and-cloud-load-balancing`; direct generated URL now returns 404.
+  Set ingress back to `all` immediately before DNS cutover.
 - The Cloud Run smoke gate now requires `/info` JSON and GraphQL
   `serverConfig.initialized: true`; status-only API-path smoke is not
   sufficient for launch.
 - Do not move Cloudflare/DNS for `manut.xyz` until the generated Cloud Run URL
   passes smoke and the user explicitly approves cutover.
-- Data migration from Railway Postgres remains the final cutover gate. The
-  current GCP production database is a fresh PostgreSQL 16 Cloud SQL database
-  prepared for Cloud Run migrations, not a verified copy of Railway production
-  data and not a same-major target for Railway's PostgreSQL 18.3 dump.
+- Data in `manut-pg18-prod` is a pre-cutover snapshot taken while Railway
+  stayed online. Before the real DNS flip, run a final write pause
+  (`railway scale --environment production --service Manut southeast-asia=0`),
+  take a fresh PG18 dump, restore it to `manut-pg18-prod` or a fresh PG18
+  target, rerun migration/smoke, then move DNS.
+- Cloud Run domain mapping for `manut.xyz` exists and is waiting for DNS /
+  certificate provisioning. Required apex records:
+  A `216.239.32.21`, `216.239.34.21`, `216.239.36.21`, `216.239.38.21`;
+  AAAA `2001:4860:4802:32::15`, `2001:4860:4802:34::15`,
+  `2001:4860:4802:36::15`, `2001:4860:4802:38::15`.
 
 ## Completed PG18 Data Rehearsal
 
