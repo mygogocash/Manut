@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-27 08:18 +07 (GCP Cloud Run PG18 production target)
+Last updated: 2026-05-27 09:25 +07 (GCP Cloud Run production launch complete)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,18 +12,18 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/gcp-prod-pg18-cutover` from latest `origin/main`.
+- Branch: `codex/gcp-prod-cutover-complete` from latest `origin/main`.
 - Upstream: `origin/main`.
 - Handover refresh: PR #165 recorded the GCP progress state, PR #166 corrected
   the post-merge workspace wording, PR #167 removed stale branch drift, and PR
   #168 merged the production launch smoke hardening.
-- Branch state: post-merge data rehearsal prep; `.playwright-mcp/` is an
-  existing untracked local browser artifact that should stay untouched.
+- Branch state: production cutover handover refresh; `.playwright-mcp/` is an
+  existing untracked local browser artifact in the main checkout that should
+  stay untouched.
 - Production branch: `main`
-- Production app: https://manut.xyz still serves the Railway production app;
-  Cloudflare/DNS has not been cut over to Cloud Run. The legacy
-  `affine.gogocash.co` and `manut.gogocash.co` hosts both 301-redirect to
-  the canonical domain.
+- Production app: https://manut.xyz now serves the GCP Cloud Run production
+  service. The legacy `affine.gogocash.co` and `manut.gogocash.co` hosts both
+  301-redirect to the canonical domain.
 - GCP project: `affine-495114` (`602860445793`), region `asia-southeast1`.
 - Runtime service account:
   `manut-cloud-run@affine-495114.iam.gserviceaccount.com`.
@@ -39,9 +39,9 @@ on chat memory.
   `manut-staging`; latest verified staging build
   `2048ae97-28df-4773-a6cf-9e5f6a34dd99` deployed revision
   `manut-staging-00005-frr` and passed smoke on `https://staging.manut.xyz`.
-- Production trigger `manut-gcp-prod-deploy` is manual and approval-gated. It
-  now omits `_SMOKE_BASE_URL`, so pre-DNS production smoke resolves the
-  generated Cloud Run service URL instead of accidentally probing Railway.
+- Production trigger `manut-gcp-prod-deploy` is manual and approval-gated.
+  After cutover it includes `_SMOKE_BASE_URL=https://manut.xyz`, so future
+  production deploys smoke the public Cloud Run domain.
 - Production GCP secrets exist in Secret Manager for database URL,
   `AFFINE_CONFIG_JSON_B64`, private key, Google OAuth client ID/secret, and
   Resend API key. Do not print secret values in logs or handovers.
@@ -54,69 +54,59 @@ on chat memory.
 - Redis target for staging and production is Memorystore `affine-redis` at
   private IP `10.47.0.3:6379`; auth is disabled.
 
-## Active Production Deploy Monitor
+## Completed Production Cutover
 
-- Manual production build `5b8139b2-83d6-4ada-acd6-ab6afa10661e` was started
-  from `main` revision `8009e4fa7199ea12883e3893081c4eb07f72ffd4`.
-- Build approval was granted by `fronk.kunanon@gogocash.co` at
-  `2026-05-26T14:36:38Z`.
-- Latest observed status: `FAILURE`; log URL:
-  `https://console.cloud.google.com/cloud-build/builds/5b8139b2-83d6-4ada-acd6-ab6afa10661e?project=602860445793`.
-- Built and pushed image tag:
-  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:8009e4f`.
-- Pushed image digest:
-  `sha256:2b92e4077a0666e1fba219d61f4b8f4db5cb7b3dd2ed440a857fc8f267f1d5e2`.
-- Migration execution `manut-migrate-zb42r` completed successfully in 17.95s.
-- Cloud Run service `manut` was created at
-  `https://manut-idid7yszzq-as.a.run.app`; revision `manut-00001-7l9` is ready
-  and serving 100% of Cloud Run service traffic.
-- The build failed in step 5 (`smoke service`) because
-  `/api/server-config` on the generated Cloud Run URL returned HTTP 302 to
-  `/admin/setup`, then HTML. This is consistent with the fresh GCP production
-  database not being a verified copy of Railway production data yet.
-- DNS remains untouched after the failed smoke; `https://manut.xyz` still
-  serves Railway and returns Railway headers.
-- Latest launch-prep recheck: GraphQL `serverConfig` on the generated Cloud
-  Run URL returns `initialized: false`; `https://manut.xyz` still passes smoke
-  on Railway.
-
-## Pending Cutover Readiness
-
-- Treat build `5b8139b2-83d6-4ada-acd6-ab6afa10661e` as failed, not a cutover
-  candidate.
-- PostgreSQL 18 production target is ready: Cloud SQL instance
-  `manut-pg18-prod`, private IP `10.47.1.7`, database/user `manut`, backups
-  enabled, deletion protection enabled.
-- Latest Railway snapshot was exported with `postgres:18-alpine` and restored
-  into `manut-pg18-prod`:
-  `gs://gogocash-affine-backups/manut-cutovers/20260527010736/railway-production-pg18.sql.gz`.
-- `manut-database-url` Secret Manager version `3` now points to
-  `manut-pg18-prod`; earlier versions remain enabled for rollback.
-- Production migration execution `manut-migrate-8qgvj` completed successfully
-  against `10.47.1.7`; Prisma reported `No pending migrations to apply`.
-- Cloud Run production revision `manut-00002-q8q` was rolled with
-  `MANUT_DATA_CUTOVER_STAMP=20260527010736` and passed generated-URL smoke
-  (`/info` JSON and GraphQL `serverConfig.initialized: true`) before DNS.
-- Because this shell has no Cloudflare DNS write credential/tool, DNS was not
-  moved. To avoid a public split-brain `run.app` endpoint while Railway remains
-  live, Cloud Run service `manut` ingress is currently set to
-  `internal-and-cloud-load-balancing`; direct generated URL now returns 404.
-  Set ingress back to `all` immediately before DNS cutover.
-- The Cloud Run smoke gate now requires `/info` JSON and GraphQL
-  `serverConfig.initialized: true`; status-only API-path smoke is not
-  sufficient for launch.
-- Do not move Cloudflare/DNS for `manut.xyz` until the generated Cloud Run URL
-  passes smoke and the user explicitly approves cutover.
-- Data in `manut-pg18-prod` is a pre-cutover snapshot taken while Railway
-  stayed online. Before the real DNS flip, run a final write pause
-  (`railway scale --environment production --service Manut southeast-asia=0`),
-  take a fresh PG18 dump, restore it to `manut-pg18-prod` or a fresh PG18
-  target, rerun migration/smoke, then move DNS.
-- Cloud Run domain mapping for `manut.xyz` exists and is waiting for DNS /
-  certificate provisioning. Required apex records:
+- Final cutover stamp: `20260527015351`.
+- Railway app writes were paused before the final dump. The `Manut` service now
+  has latest deployment `c6680ce0-8bb8-4690-83b8-25fde2efdaab` stopped/failed
+  with `running=0`; Railway Postgres and Redis remain online for rollback.
+- Final Railway PG18 dump:
+  `gs://gogocash-affine-backups/manut-cutovers/20260527015351/railway-production-final-pg18.sql.gz`.
+- Final source count artifact:
+  `gs://gogocash-affine-backups/manut-cutovers/20260527015351/railway-production-final-counts.tsv`.
+- Final Cloud SQL target is the fresh database
+  `manut_final_20260527015351` on instance `manut-pg18-prod` private IP
+  `10.47.1.7`. The earlier restored `manut` database remains available as the
+  pre-cutover snapshot.
+- Critical row counts matched Railway source and Cloud SQL target:
+  `users=4`, `workspaces=1`, `workspace_pages=221`, `snapshots=226`,
+  `blobs=88`, `integration_connections=3`, `ai_sessions_metadata=8`,
+  `ai_sessions_messages=0`, `mn_projects=0`, `mn_tasks=0`, `mn_agents=0`,
+  `_prisma_migrations=132`.
+- `manut-database-url` Secret Manager version `4` points to the final Cloud SQL
+  database. Earlier enabled versions remain available for rollback reference.
+- Production migration execution `manut-migrate-5tm2g` completed successfully
+  against `manut_final_20260527015351`; Prisma reported
+  `No pending migrations to apply`.
+- Cloud Run production revision `manut-00003-jhb` is serving 100% of service
+  traffic with image
+  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:8009e4f`
+  and `MANUT_DATA_CUTOVER_STAMP=20260527015351`.
+- Cloud Run generated URL smoke passed after restoring public invoker access:
+  `/info` returned JSON and GraphQL `serverConfig.initialized: true`.
+- Cloudflare apex DNS now uses Cloud Run DNS-only records:
   A `216.239.32.21`, `216.239.34.21`, `216.239.36.21`, `216.239.38.21`;
   AAAA `2001:4860:4802:32::15`, `2001:4860:4802:34::15`,
   `2001:4860:4802:36::15`, `2001:4860:4802:38::15`.
+- Cloudflare email/site-verification records were preserved. CAA now includes
+  `0 issue "pki.goog"` alongside the existing `letsencrypt.org` entry.
+- Public `https://manut.xyz/info` returns HTTP 200 from `Google Frontend`
+  without Railway headers. Public smoke passed for `/info` and GraphQL
+  `serverConfig.initialized: true`.
+- TLS certificate on `manut.xyz` is issued by Google Trust Services `WR3`.
+  `gcloud beta run domain-mappings describe` may lag with
+  `CertificatePending`, but public HTTPS and smoke are already passing.
+- Production trigger `manut-gcp-prod-deploy` was updated after cutover with
+  `_SMOKE_BASE_URL=https://manut.xyz`.
+- Cutover temp resources were deleted: short-lived Railway public DB URL
+  secret, short-lived final target DB URL secret, one-off count Cloud Run job,
+  and the temporary default-compute bucket object-admin IAM binding used for
+  Cloud Build dump upload.
+
+Rollback during the stability window: restore Cloudflare apex A/CNAME behavior
+to Railway (`66.33.22.31`, proxied) and redeploy or scale Railway `Manut` back
+up. If Cloud Run accepted writes after cutover, replay or explicitly waive
+those writes before DNS rollback.
 
 ## Completed PG18 Data Rehearsal
 
