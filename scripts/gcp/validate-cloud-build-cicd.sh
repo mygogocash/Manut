@@ -40,10 +40,13 @@ require_contains "cloudbuild.manut-ci.yaml" "yarn affine bundle -p admin"
 require_contains "cloudbuild.manut-ci.yaml" "yarn affine bundle -p mobile"
 
 require_contains "cloudbuild.manut-cloud-run.yaml" "_SMOKE_BASE_URL"
+require_contains "cloudbuild.manut-cloud-run.yaml" "_REQUIRED_SERVER_FEATURES"
+require_contains "cloudbuild.manut-cloud-run.yaml" "_REDIS_SERVER_HOST: 10\\.47\\.0\\.3"
 require_contains "cloudbuild.manut-cloud-run.yaml" "scripts/gcp/smoke-test-cloud-run.sh"
 require_contains "cloudbuild.manut-cloud-run.yaml" "MANUT_RUN_STARTUP_MIGRATIONS=false"
 require_contains "scripts/gcp/smoke-test-cloud-run.sh" "serverConfig"
 require_contains "scripts/gcp/smoke-test-cloud-run.sh" "initialized"
+require_contains "scripts/gcp/smoke-test-cloud-run.sh" "REQUIRED_SERVER_FEATURES"
 
 require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "manut-gcp-pr-ci"
 require_contains "scripts/gcp/upsert-cloud-build-triggers.sh" "manut-gcp-main-staging"

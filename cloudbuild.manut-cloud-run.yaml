@@ -15,7 +15,7 @@ substitutions:
   _VPC_NETWORK: default
   _VPC_SUBNET: default
   _VPC_EGRESS: private-ranges-only
-  _REDIS_SERVER_HOST: 10.0.0.2
+  _REDIS_SERVER_HOST: 10.47.0.3
   _REDIS_SERVER_PORT: '6379'
   _MIN_INSTANCES: '1'
   _MAX_INSTANCES: '20'
@@ -33,6 +33,7 @@ substitutions:
   _RESEND_API_KEY_SECRET: manut-resend-api-key
   _SMOKE_BASE_URL: ''
   _SMOKE_TIMEOUT_SECONDS: '120'
+  _REQUIRED_SERVER_FEATURES: Manut,Copilot
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -156,4 +157,5 @@ steps:
 
         BASE_URL="$$BASE_URL" \
           TIMEOUT_SECONDS="$_SMOKE_TIMEOUT_SECONDS" \
+          REQUIRED_SERVER_FEATURES="$_REQUIRED_SERVER_FEATURES" \
           scripts/gcp/smoke-test-cloud-run.sh
