@@ -5,6 +5,7 @@ BASE_URL="${BASE_URL:-https://manut.xyz}"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-120}"
 SLEEP_SECONDS="${SLEEP_SECONDS:-5}"
 REQUIRE_INITIALIZED="${REQUIRE_INITIALIZED:-true}"
+REQUIRED_SERVER_FEATURES="${REQUIRED_SERVER_FEATURES-Manut,Copilot}"
 
 if ! command -v curl >/dev/null 2>&1; then
   echo "[smoke] curl is required for Cloud Run smoke checks" >&2
@@ -74,6 +75,26 @@ probe_server_config() {
     echo "[smoke] ${BASE_URL}/graphql reports serverConfig.initialized != true" >&2
     sed -n '1,20p' "$SMOKE_BODY" >&2
     return 1
+  fi
+
+  if [ -n "$REQUIRED_SERVER_FEATURES" ]; then
+    local feature
+    local raw_features="$REQUIRED_SERVER_FEATURES"
+    local old_ifs="$IFS"
+    IFS=','
+    for feature in $raw_features; do
+      feature="${feature#"${feature%%[![:space:]]*}"}"
+      feature="${feature%"${feature##*[![:space:]]}"}"
+      [ -z "$feature" ] && continue
+
+      if ! grep -Fq "\"${feature}\"" "$SMOKE_BODY"; then
+        echo "[smoke] ${BASE_URL}/graphql is missing required server feature: ${feature}" >&2
+        sed -n '1,20p' "$SMOKE_BODY" >&2
+        IFS="$old_ifs"
+        return 1
+      fi
+    done
+    IFS="$old_ifs"
   fi
 }
 

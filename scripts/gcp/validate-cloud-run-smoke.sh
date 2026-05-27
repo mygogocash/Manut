@@ -41,10 +41,23 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    const initialized = mode === 'healthy';
+    const initialized = mode !== 'uninitialized';
+    const features =
+      mode === 'missing_manut'
+        ? ['Comment', 'Copilot']
+        : ['Comment', 'Manut', 'Copilot'];
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
     res.end(
-      `{"data":{"serverConfig":{"version":"0.26.3","type":"Affine","initialized":${initialized},"features":["Comment","Copilot"]}}}`
+      JSON.stringify({
+        data: {
+          serverConfig: {
+            version: '0.26.3',
+            type: 'Affine',
+            initialized,
+            features,
+          },
+        },
+      })
     );
     return;
   }
@@ -101,6 +114,7 @@ run_case() {
 }
 
 run_case healthy pass
+run_case missing_manut fail
 run_case html_graphql fail
 run_case uninitialized fail
 
