@@ -51,6 +51,10 @@ Success means:
   copy; GraphQL `serverConfig.initialized` is `false`.
 - Cloud SQL instance `affine-pg` is `POSTGRES_16`, private IP `10.47.1.3`,
   database `manut`.
+- Railway production Postgres is `18.3`; do not restore that dump into the
+  existing `POSTGRES_16` Cloud SQL instance. The production restore target must
+  be PostgreSQL 18, or another same-major compatible target, before final
+  cutover.
 - Memorystore Redis `affine-redis` is ready at `10.47.0.3:6379`, auth
   disabled.
 - Cloud Build triggers exist:
@@ -117,8 +121,11 @@ the weaker status-only smoke unless there is a separate manual GraphQL check.
 
 ### T2. Rehearse Data Restore
 
-**Intended behavior:** A Railway Postgres dump restores into a disposable or
-staging Cloud SQL database and passes row-count and browser smoke checks.
+**Intended behavior:** A Railway Postgres dump restores into a same-major
+PostgreSQL disposable or staging Cloud SQL database and passes row-count and
+browser smoke checks. Railway production is PostgreSQL 18.3, so the rehearsal
+and final production target must use PostgreSQL 18 unless an explicit
+cross-major migration plan is approved.
 
 **Affected files:**
 
@@ -134,8 +141,10 @@ staging Cloud SQL database and passes row-count and browser smoke checks.
 **R-tier:** R1 because it handles production data, even when restored to
 staging.
 
-**Rollback:** drop only the disposable rehearsal database. Do not overwrite the
-current Railway production database.
+**Rollback:** drop only the disposable rehearsal database or disposable
+instance. Do not overwrite the current Railway production database, and do not
+restore PostgreSQL 18 dumps into the existing PostgreSQL 16 `affine-pg`
+instance.
 
 ### T3. Production Cutover
 
