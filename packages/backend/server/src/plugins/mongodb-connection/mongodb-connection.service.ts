@@ -217,9 +217,8 @@ export class MongoDbConnectionService {
 
     let driver: MongoDriver | null = null;
     try {
-      // @ts-expect-error — `mongodb` is an optional runtime dep that
-      // may not be present in the workspace. The import resolves at
-      // runtime; `null` here means "driver not installed".
+      // `mongodb` is optional; null here means "driver not installed".
+      // eslint-disable-next-line import-x/no-extraneous-dependencies
       driver = (await import('mongodb').catch(
         () => null
       )) as MongoDriver | null;

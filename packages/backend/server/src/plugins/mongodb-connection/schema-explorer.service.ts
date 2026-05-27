@@ -109,9 +109,8 @@ export class MongoSchemaExplorerService {
    */
   private async loadDriver(): Promise<MongoDriver | null> {
     try {
-      // @ts-expect-error — `mongodb` is an optional runtime dep that
-      // may not be present. The import resolves at runtime; null
-      // means "driver not installed".
+      // `mongodb` is optional; null here means "driver not installed".
+      // eslint-disable-next-line import-x/no-extraneous-dependencies
       const mod = (await import('mongodb').catch(
         () => null
       )) as MongoDriver | null;

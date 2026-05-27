@@ -103,8 +103,8 @@ export type MongoDriverLoader = () => Promise<MongoDriverLike | null>;
 
 const defaultDriverLoader: MongoDriverLoader = async () => {
   try {
-    // @ts-expect-error — `mongodb` is an optional runtime dep that
-    // may not be present in the workspace.
+    // `mongodb` is an optional runtime dep that may not be present in the workspace.
+    // eslint-disable-next-line import-x/no-extraneous-dependencies
     return (await import('mongodb').catch(
       () => null
     )) as MongoDriverLike | null;
