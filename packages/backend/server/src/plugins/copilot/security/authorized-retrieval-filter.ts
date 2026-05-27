@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import type { AccessController } from '../../../core/permission';
-import type { Models } from '../../../models';
+import { AccessController } from '../../../core/permission';
+import { Models } from '../../../models';
 
 export interface ResolveReadableDocIdsInput {
   userId: string;
