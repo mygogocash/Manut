@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const WorkspaceServiceToken = vi.hoisted(() => class WorkspaceService {});
 const WorkbenchServiceToken = vi.hoisted(() => class WorkbenchService {});
+const useQueryMock = vi.hoisted(() => vi.fn());
 
 const FIVE_ROLES = [
   {
@@ -98,11 +99,7 @@ vi.mock('@affine/error', () => ({
 }));
 
 vi.mock('@affine/core/components/hooks/use-query', () => ({
-  useQuery: () => ({
-    data: { agentRoles: FIVE_ROLES },
-    error: undefined,
-    mutate: vi.fn(),
-  }),
+  useQuery: useQueryMock,
 }));
 
 vi.mock('@affine/core/components/hooks/use-mutation', () => ({
@@ -181,6 +178,12 @@ import { ControlPlaneRolesSettingPanel } from '../setting-panel';
 describe('Control Plane roles setting panel', () => {
   beforeEach(() => {
     triggerMock.mockReset();
+    useQueryMock.mockReset();
+    useQueryMock.mockReturnValue({
+      data: { agentRoles: FIVE_ROLES },
+      error: undefined,
+      mutate: vi.fn(),
+    });
   });
 
   afterEach(() => {
@@ -203,6 +206,23 @@ describe('Control Plane roles setting panel', () => {
       'Deployer',
       'Historian',
     ]);
+  });
+
+  test('renders a local control-plane error instead of bubbling query failures', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    useQueryMock.mockImplementation(() => {
+      throw new Error('Unhandled error raised. Please contact us for help.');
+    });
+
+    render(<ControlPlaneRolesSettingPanel />);
+
+    const alert = await screen.findByTestId('cp-roles-error-boundary');
+    expect(alert.textContent).toContain('Failed to load control plane');
+    expect(alert.textContent).toContain('Unhandled error raised');
+    expect(screen.queryByText('Something is wrong...')).toBeNull();
+    consoleError.mockRestore();
   });
 
   test('clicking Edit opens the modal with the role pre-filled', () => {
