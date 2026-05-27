@@ -23,6 +23,22 @@ function isWsTransportEnabled(): boolean {
   }
 }
 
+function isWsResponseStreamEnabled(): boolean {
+  if (!isWsTransportEnabled()) {
+    return false;
+  }
+
+  try {
+    const raw =
+      typeof localStorage !== 'undefined'
+        ? localStorage.getItem('global-state:affine-flag:ws_response_stream')
+        : null;
+    return raw ? JSON.parse(raw) === true : false;
+  } catch {
+    return false;
+  }
+}
+
 const TIMEOUT = 50000;
 
 export type TextToTextOptions = {
@@ -161,10 +177,10 @@ export function textToText({
         }
         AIProvider.LAST_ACTION_SESSIONID = sessionId;
 
-        // Manut M1 / Epic E1.11 — WS path when the flag is on. Same yielded
-        // shape as the SSE path so the join layer (line ~248 below) doesn't
-        // care which transport delivered the StreamObject chunks.
-        const useWs = isWsTransportEnabled();
+        // The public `ws_transport` canary currently supports push events and
+        // room subscription only. It does not start provider generation, so it
+        // must not replace SSE as the primary response stream.
+        const useWs = isWsResponseStreamEnabled();
         const source = useWs
           ? await openWsSource({ sessionId, signal, timeout })
           : openSseSource({
@@ -230,7 +246,7 @@ export function textToText({
       }
       AIProvider.LAST_ACTION_SESSIONID = sessionId;
 
-      const useWs = isWsTransportEnabled();
+      const useWs = isWsResponseStreamEnabled();
       const source = useWs
         ? await openWsSource({ sessionId, signal, timeout })
         : openSseSource({
