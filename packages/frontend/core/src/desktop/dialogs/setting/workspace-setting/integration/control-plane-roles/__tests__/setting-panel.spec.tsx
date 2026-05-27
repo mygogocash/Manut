@@ -14,6 +14,9 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const WorkspaceServiceToken = vi.hoisted(() => class WorkspaceService {});
 const WorkbenchServiceToken = vi.hoisted(() => class WorkbenchService {});
+const ServerServiceToken = vi.hoisted(() => class ServerService {});
+const manutFeature = vi.hoisted(() => ({ enabled: true }));
+const useQueryMock = vi.hoisted(() => vi.fn());
 
 const FIVE_ROLES = [
   {
@@ -93,16 +96,16 @@ vi.mock('@affine/core/modules/workbench', () => ({
   WorkbenchService: WorkbenchServiceToken,
 }));
 
+vi.mock('@affine/core/modules/cloud', () => ({
+  ServerService: ServerServiceToken,
+}));
+
 vi.mock('@affine/error', () => ({
   isGraphQLSchemaValidationError: () => false,
 }));
 
 vi.mock('@affine/core/components/hooks/use-query', () => ({
-  useQuery: () => ({
-    data: { agentRoles: FIVE_ROLES },
-    error: undefined,
-    mutate: vi.fn(),
-  }),
+  useQuery: useQueryMock,
 }));
 
 vi.mock('@affine/core/components/hooks/use-mutation', () => ({
@@ -120,8 +123,20 @@ vi.mock('@toeverything/infra', () => ({
     if (token === WorkbenchServiceToken) {
       return { workbench: { open: vi.fn() } };
     }
+    if (token === ServerServiceToken) {
+      const featuresStream = {
+        map: (selector: (features: { manut?: boolean }) => unknown) =>
+          selector({ manut: manutFeature.enabled }),
+      };
+      return {
+        server: {
+          ['features$']: featuresStream,
+        },
+      };
+    }
     return {};
   },
+  useLiveData: (value: unknown) => value,
 }));
 
 // Stub the integration setting wrapper so we don't need the global CSS.
@@ -180,7 +195,14 @@ import { ControlPlaneRolesSettingPanel } from '../setting-panel';
 
 describe('Control Plane roles setting panel', () => {
   beforeEach(() => {
+    manutFeature.enabled = true;
     triggerMock.mockReset();
+    useQueryMock.mockReset();
+    useQueryMock.mockReturnValue({
+      data: { agentRoles: FIVE_ROLES },
+      error: undefined,
+      mutate: vi.fn(),
+    });
   });
 
   afterEach(() => {
@@ -203,6 +225,17 @@ describe('Control Plane roles setting panel', () => {
       'Deployer',
       'Historian',
     ]);
+  });
+
+  test('shows unavailable state without querying when Manut is disabled', () => {
+    manutFeature.enabled = false;
+
+    render(<ControlPlaneRolesSettingPanel />);
+
+    expect(screen.getByRole('alert').textContent).toContain(
+      'Control Plane roles are not enabled'
+    );
+    expect(useQueryMock).not.toHaveBeenCalled();
   });
 
   test('clicking Edit opens the modal with the role pre-filled', () => {
