@@ -1,11 +1,35 @@
+import { Button } from '@affine/component';
 import {
   SettingHeader,
   SettingWrapper,
 } from '@affine/component/setting-components';
+import { SWRErrorBoundary } from '@affine/core/components/pure/swr-error-bundary';
 import { WorkspacePermissionService } from '@affine/core/modules/permissions';
 import { useLiveData, useService } from '@toeverything/infra';
+import type { FallbackProps } from 'react-error-boundary';
 
 import { AnalyticsConnectionsPanel } from './panel';
+import * as styles from './panel.css';
+
+const AnalyticsConnectionsErrorFallback = ({
+  error,
+  resetErrorBoundary,
+}: FallbackProps) => (
+  <SettingWrapper>
+    <div
+      className={styles.root}
+      data-testid="analytics-connections-error-boundary"
+    >
+      <div className={styles.errorBanner} role="alert">
+        Failed to load analytics connections:{' '}
+        {error instanceof Error ? error.message : 'Unexpected error'}
+      </div>
+      <div className={styles.inlineActions}>
+        <Button onClick={resetErrorBoundary}>Retry</Button>
+      </div>
+    </div>
+  </SettingWrapper>
+);
 
 /**
  * Workspace settings panel: Analytics → Connections.
@@ -36,9 +60,11 @@ export const WorkspaceAnalyticsConnections = () => {
         title="Connections"
         subtitle="Link your workspace's social accounts to start collecting metrics."
       />
-      <SettingWrapper>
-        <AnalyticsConnectionsPanel />
-      </SettingWrapper>
+      <SWRErrorBoundary FallbackComponent={AnalyticsConnectionsErrorFallback}>
+        <SettingWrapper>
+          <AnalyticsConnectionsPanel />
+        </SettingWrapper>
+      </SWRErrorBoundary>
     </>
   );
 };
