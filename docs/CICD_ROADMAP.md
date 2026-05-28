@@ -4,9 +4,10 @@ Where the deploy pipeline is, what's shipping, and what's queued. For
 the architecture reference (how it works), see [`CICD.md`](./CICD.md).
 For daily commands, see [`CLAUDE.md`](../CLAUDE.md) §4.
 
-Last updated: 2026-05-13 (brand-rename release wave PRs #24-#32 landed
-on `main`; pipeline status itself is unchanged — Tier 1+2 still done,
-Tier 3 still backlog).
+Last updated: 2026-05-28 (manual Cloud Run hotfix image
+`main-900ca9c438-1779933990` deployed to production revision
+`manut-00011-css`; Tier 1+2 VM pipeline status is retained below for
+legacy/GAR runbook context, Tier 3 still backlog).
 
 ---
 
@@ -21,10 +22,12 @@ Tier 3 still backlog).
   pipeline itself working as intended.
 - **Tier 3 — BACKLOG.** Slow-degradation detection, blue-green
   rollouts, multi-VM, image signing, observability stack, alerting.
-- **Production right now:** image
-  `main-393950532-25413249523`, `/info` HTTP 200, deployed via the
-  full autodeploy chain (push → CI → Build → Auto Deploy) in ~15 min
-  total wall time.
+- **Production right now:** Cloud Run service `manut` is serving revision
+  `manut-00011-css` at 100% traffic with image
+  `main-900ca9c438-1779933990` (digest
+  `sha256:7ac4fe6b3efc4f85a9dda10ce7e70cd89fc63f94b67bdca339869cdd6b8b9c0f`).
+  `/info`, GraphQL `serverConfig.version`, and `/workspace` smoke checks
+  passed after the swap.
 
 ---
 
@@ -32,8 +35,9 @@ Tier 3 still backlog).
 
 | Component                         | State                                           |
 | --------------------------------- | ----------------------------------------------- |
-| Production image                  | `main-393950532-25413249523`                    |
-| Production health                 | `/info` HTTP 200                                |
+| Production image                  | `main-900ca9c438-1779933990`                    |
+| Production revision               | Cloud Run `manut-00011-css`                     |
+| Production health                 | `/info` HTTP 200; GraphQL version 0.26.3        |
 | Auto Deploy 25413543034 wall time | 2m20s (deploy step only)                        |
 | Build 25413249523 wall time       | ~10m (warm cache)                               |
 | Last `deploy.sh` exit code        | 0 (success)                                     |
@@ -41,6 +45,15 @@ Tier 3 still backlog).
 | Post-swap smoke                   | passed (35s)                                    |
 | Prompt-seed gate                  | passed (2s)                                     |
 | Last validated chaos test         | 2026-05-06 — exit 1 as expected, prod untouched |
+
+### 2026-05-28 production hotfix note
+
+The active production deployment was a manual Cloud Build + Cloud Run hotfix
+from branch `codex/fix-resend-attachments`, not the old VM autodeploy chain.
+The hotfix fixed Settings/Analytics global 500s by packaging the MongoDB
+driver in `@affine/server` production dependencies and adding local SWR error
+boundaries around MongoDB/Analytics settings surfaces. The branch still needs a
+PR/merge into `main` so source control matches the deployed image.
 
 ### Pipeline workflows live on `main`
 

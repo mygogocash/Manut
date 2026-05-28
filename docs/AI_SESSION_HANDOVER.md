@@ -1,6 +1,7 @@
 # AI Session Handover
 
-Last updated: 2026-05-23 12:20 +07 (beta launch-readiness hardening)
+Last updated: 2026-05-28 09:20 +07 (Cloud Run production hotfix:
+MongoDB/Analytics Connections 500)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,62 +13,72 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/fix-beta-blockers`
-- Local HEAD: `234d74bcb`
-- Upstream: `origin/main`
-- Origin HEAD: refresh before PR/deploy; latest observed `main` had green
-  `Manut CI` run `26323515938` and green `Manut Build` run `26323591394`.
-- PR: not opened yet for `codex/fix-beta-blockers`.
-- Branch state: local branch has uncommitted WIP for beta blocker fixes,
-  launch-readiness docs, analytics cron log hardening, and beta-security
-  workflow bootstrap fixes.
-- Dirty state: expected touched files include `docs/BETA_GO_NO_GO.md`,
-  `docs/BETA_RISK_REGISTER.md`, `docs/MANUT_LAUNCH_CHECKLIST.md`, this
-  handover file, `.github/workflows/manut-beta-security.yml`,
-  quota tier code/tests, AI chat UI tests/fixes, and analytics rollup cron
-  tests/fixes.
-- Production branch: `main`
+- Branch: `codex/fix-resend-attachments`
+- Local HEAD: `900ca9c43` (`fix(analytics): contain connections query
+errors`)
+- Upstream: `origin/codex/fix-resend-attachments`; local branch is synced
+  with origin after the production hotfix push.
+- Origin `main`: refresh before opening/merging the PR. The current production
+  hotfix branch is ahead of `main` and must be merged so source control catches
+  up with the deployed Cloud Run image.
+- PR: none open for `codex/fix-resend-attachments` as of this refresh
+  (`gh pr list --head codex/fix-resend-attachments` returned `[]`).
+- Dirty state before this doc refresh: only untracked `.playwright-mcp/`
+  remained from prior browser tooling and should not be staged unless the user
+  explicitly asks.
+- Production branch: `main` is still the intended long-lived branch, but
+  production currently runs a manual Cloud Run hotfix image built from
+  `900ca9c43`.
 - Production app: https://manut.xyz (canonical;
   `affine.gogocash.co` and `manut.gogocash.co` both 301-redirect)
-- Production image lineage: `railway status` currently reports production
-  service `Manut` online at deployment
-  `6ccaa65a-535a-4aa9-92e6-79333ad7593a`; no deploy was performed during this
-  WIP. Refresh the exact image/tag before production action.
+- Production deploy target: Cloud Run service `manut` in project
+  `affine-495114`, region `asia-southeast1`.
+- Production revision: `manut-00011-css`, serving 100% traffic.
+- Production image:
+  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-900ca9c438-1779933990`
+- Production image digest:
+  `sha256:7ac4fe6b3efc4f85a9dda10ce7e70cd89fc63f94b67bdca339869cdd6b8b9c0f`
+- Rollback target observed before swap: revision `manut-00010-ccl`, image
+  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-a39187a3d-1779931037`.
 
-## Current Beta Hardening Slice
+## Current Production Hotfix Slice
 
-- Fixed beta code blocker BETA-SEC-001: default chat format control now labels
-  as `Format` instead of duplicating the model `Auto`, and contentless
-  transmitting assistant replies render the loading state.
-- Fixed beta code blocker BETA-SEC-002: practical unlimited member cap is
-  bounded at `100_000` before GraphQL `Int` serialization.
-- Fixed launch-readiness blocker BETA-SEC-003: analytics hourly/daily/weekly
-  rollup cron stubs no longer throw `NOT_IMPLEMENTED` on schedule while phase
-  3 rollups remain unimplemented.
-- Fixed beta-security gate blocker BETA-SEC-004: actionlint command is
-  shellcheck-safe, and Semgrep 1.99 bootstraps with `setuptools<81` under
-  Python 3.12 so `pkg_resources` exists.
-- Verified so far: targeted quota AVA, targeted AI Vitest, analytics rollup
-  AVA, actionlint via downloaded v1.7.11 binary, Semgrep 1.99 startup and full
-  high-confidence scan, plus earlier Prettier/ESLint/oxlint/diff-check/server
-  tsc/web-admin-mobile bundles.
-- Full `yarn test` was attempted earlier and is not green in this local
-  environment because of missing native binding `@affine/native-darwin-arm64`
-  and missing Playwright Firefox; do not present full-suite status as green.
+- `7ebd46e34 feat(workspace): resend pending invitations` added the resend
+  invitation UI/API follow-up requested from Settings -> Members.
+- `45a89d8d3 fix(settings): contain control plane query errors` kept Control
+  Plane Roles query failures inside the settings panel instead of global 500.
+- `a39187a3d fix(mongodb): include server driver dependency` added `mongodb`
+  to `@affine/server` production dependencies and covered it with an AVA
+  dependency/import regression test.
+- `4b3391f66 fix(mongodb): contain settings query errors` added a local
+  `SWRErrorBoundary` around the standalone MongoDB settings panel.
+- `900ca9c43 fix(analytics): contain connections query errors` added the same
+  local containment to the active Analytics Connections settings page. This is
+  the code path bundled into `manut.xyz/js/index.0dd3a9eb.js`.
+- Built precomputed `@affine/server` and `web` dist artifacts locally from
+  `900ca9c43`, then built/pushed the fullstack image with Cloud Build because
+  local Docker was not running.
+- Deployed the pushed image to Cloud Run and confirmed `manut.xyz` serves
+  `data-version="900ca9c43"`.
 
 ## Pending Launch Readiness
 
-- Commit/push the branch, open a PR into `main`, and require green `Manut CI`,
-  `Manut Beta Security Gate`, and `Manut Build` on the candidate.
-- Deploy the merged candidate to Railway; record exact deployment id, image/tag,
-  rollback target, primary owner, and secondary owner in
-  `docs/BETA_GO_NO_GO.md`.
-- Recheck production logs after deploy for no analytics cron
-  `NOT_IMPLEMENTED`, no GraphQL Int overflow, no new P0/P1 error class, and no
-  sustained Railway log-rate drops.
-- Run authenticated beta smoke for GraphQL workspace query, floating/full AI
-  chat, storage usage/upload fallback, auth/onboarding, invite accept, and
-  sign-out.
+- Open/merge a PR for `codex/fix-resend-attachments` into `main` so the
+  deployed Cloud Run hotfix is represented on the production branch.
+- Continue monitoring Cloud Run logs for the prior
+  `MongoIngestionConfigResolver.listMongoCollections` / `MongoDB driver`
+  error class; no matching logs appeared on revision `manut-00011-css` during
+  the post-deploy check window.
+- Investigate the separate Vertex model-refresh errors still present on the
+  new revision:
+  `GeminiVertexProvider.refreshOnlineModels` and
+  `AnthropicVertexProvider.refreshOnlineModels` both log
+  `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON`.
+  These are not the MongoDB/Analytics 500 fixed in this slice.
+- Authenticated browser smoke should still be repeated from a logged-in Chrome
+  profile if the user sees any remaining Settings -> Analytics Connections
+  failure, because the local CLI smoke cannot click inside the user's active
+  authenticated browser session.
 
 ## Pending Product/Feature Follow-Ups
 
@@ -82,6 +93,10 @@ on chat memory.
 
 ## Release lineage
 
+- **2026-05-28 Cloud Run hotfix** — Resend invitations, Control Plane Roles
+  query containment, MongoDB driver packaging, MongoDB settings containment,
+  and active Analytics Connections containment. Production Cloud Run revision
+  `manut-00011-css` is serving image `main-900ca9c438-1779933990`.
 - **v1.10.2** — Gmail live import + Drive picker + AI permission mode
   picker + DriveFile schema fix.
 - **v1.11.0** — Brand rename Superflow → Manut. Domain switch,
@@ -98,6 +113,20 @@ on chat memory.
 
 ## Latest Completed Work
 
+- **2026-05-28 — Production MongoDB/Analytics Connections 500 fixed and
+  deployed.** Root cause was two-layered: the production server image lacked
+  the `mongodb` runtime dependency, and SWR suspense query failures in
+  settings could bubble into the global 500 page. The fix added the server
+  dependency, backend regression coverage, local SWR error boundaries for both
+  MongoDB settings surfaces, and production image verification that
+  `import('mongodb')` works while the bundled JS contains
+  `analytics-connections-error-boundary`.
+- Cloud Run deployment completed for image `main-900ca9c438-1779933990`
+  (digest
+  `sha256:7ac4fe6b3efc4f85a9dda10ce7e70cd89fc63f94b67bdca339869cdd6b8b9c0f`).
+  Live probes after the swap returned healthy `/info`, GraphQL
+  `serverConfig.version`, `/workspace` `data-version="900ca9c43"`, and the
+  expected JS markers.
 - Learned Paperclip's useful product pattern as a reference concept:
   company-level control plane, goals, employees/agents, adapters, task tree,
   and durable handover evidence.
@@ -333,6 +362,34 @@ on chat memory.
 
 ## Verification Already Run
 
+- `yarn workspace @affine/server test src/plugins/mongodb-connection/__tests__/driver-dependency.spec.ts`
+- `yarn vitest run packages/frontend/core/src/desktop/dialogs/setting/workspace-setting/analytics-connections/__tests__/index.spec.tsx packages/frontend/core/src/desktop/dialogs/setting/workspace-setting/integration/mongodb/__tests__/setting-panel.spec.tsx`
+- `yarn prettier --check` for the touched MongoDB/Analytics settings files.
+- `yarn eslint --no-cache` for the touched MongoDB/Analytics settings files.
+- `yarn lint:ox` for the touched MongoDB/Analytics settings files.
+- `yarn affine bundle -p @affine/server`
+- `yarn affine bundle -p web` (compiled with existing asset-size warnings, no
+  errors).
+- `grep -RIl "analytics-connections-error-boundary" packages/frontend/apps/web/dist`
+  found the marker in `js/index.0dd3a9eb.js`.
+- Cloud Build image build `ed0a86bc-62f7-4c3d-b577-daecdac8d87a` succeeded and
+  pushed `main-900ca9c438-1779933990`.
+- Cloud Build image sanity check `fe4e596b-b2ce-4372-b2ed-58c5e7f62913`
+  confirmed `mongodb` imports, the analytics boundary marker exists, and
+  static HTML reports `data-version="900ca9c43"`.
+- `gcloud run services update manut --region=asia-southeast1` deployed
+  revision `manut-00011-css` at 100% traffic.
+- `curl -fsS https://manut.xyz/info` returned the Manut 0.26.3 self-hosted
+  response.
+- `curl -fsS https://manut.xyz/graphql` for `serverConfig.version` returned
+  `0.26.3`.
+- `curl -fsSL https://manut.xyz/workspace` returned
+  `data-version="900ca9c43"` and `/js/index.0dd3a9eb.js`.
+- Live JS probes found `analytics-connections-error-boundary` and
+  `mongodb-settings-error-boundary`.
+- Cloud Run logs for revision `manut-00011-css` had no matching
+  `MongoDB driver`, `listMongoCollections`, `internal_server_error`, or
+  `Unhandled error` entries during the post-deploy check window.
 - `node --check scripts/manut-release-handover.mjs`
 - `node scripts/manut-release-handover.mjs --help`
 - Generator smoke with Markdown and JSON output under `/tmp/superflow-handover-test`
