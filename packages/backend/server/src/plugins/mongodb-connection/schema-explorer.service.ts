@@ -62,7 +62,7 @@ const MAX_SAMPLE_SIZE = 20;
 export class MongoDbDriverMissingError extends Error {
   constructor() {
     super(
-      'MongoDB driver is not installed on the server. Ask an admin to add the `mongodb` package to @affine/server.'
+      'MongoDB driver is unavailable in this server build. Ask an admin to redeploy Manut with @affine/server production dependencies installed.'
     );
     this.name = 'MongoDbDriverMissingError';
   }
@@ -104,13 +104,12 @@ export class MongoSchemaExplorerService {
   constructor(private readonly connection: MongoDbConnectionService) {}
 
   /**
-   * Lazy-load the `mongodb` driver. Returns `null` if the package isn't
-   * installed — callers map this to a friendly error.
+   * Lazy-load the `mongodb` driver. Returns `null` if the production
+   * image is mispackaged — callers map this to a friendly error.
    */
   private async loadDriver(): Promise<MongoDriver | null> {
     try {
-      // `mongodb` is optional; null here means "driver not installed".
-      // eslint-disable-next-line import-x/no-extraneous-dependencies
+      // Load lazily so non-Mongo settings routes do not initialize the client.
       const mod = (await import('mongodb').catch(
         () => null
       )) as MongoDriver | null;

@@ -41,19 +41,12 @@ export class MongoDbConnectionInvalidUriError extends Error {
  *    runs `db.command({ ping: 1 })`, and closes. No write paths are
  *    exercised by the scaffold.
  *
- * IMPORTANT: This scaffold deliberately does NOT import the `mongodb`
- * driver. The driver is a large native dep and we don't want to bind
- * it into the bundle on a code-path that won't run unless a workspace
- * actually configures MongoDB. The `testConnection` method uses a
- * dynamic `import('mongodb')` so the driver is loaded lazily only at
- * test time. Live-import paths in the AI tools follow-up should do
- * the same.
- *
- * If the `mongodb` package isn't yet a dependency in the server
- * workspace, `testConnection` will surface a friendly
- * "MongoDB driver not installed" error rather than crashing the
- * resolver — the connect/save path still works (we persist the URI
- * regardless of whether the driver is available).
+ * IMPORTANT: `mongodb` is a production dependency of @affine/server,
+ * but we still load it lazily. Workspaces that never configure MongoDB
+ * should not pay connection/client setup cost during normal app usage.
+ * If a broken image ever omits the dependency again, `testConnection`
+ * returns a friendly configuration error instead of crashing the
+ * resolver.
  */
 @Injectable()
 export class MongoDbConnectionService {
@@ -217,8 +210,7 @@ export class MongoDbConnectionService {
 
     let driver: MongoDriver | null = null;
     try {
-      // `mongodb` is optional; null here means "driver not installed".
-      // eslint-disable-next-line import-x/no-extraneous-dependencies
+      // Load lazily so the driver stays off non-Mongo request paths.
       driver = (await import('mongodb').catch(
         () => null
       )) as MongoDriver | null;
@@ -229,7 +221,7 @@ export class MongoDbConnectionService {
       return {
         ok: false,
         error:
-          'MongoDB driver is not installed on the server. Ask an admin to add the `mongodb` package to @affine/server.',
+          'MongoDB driver is unavailable in this server build. Ask an admin to redeploy Manut with @affine/server production dependencies installed.',
       };
     }
 
