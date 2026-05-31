@@ -3,13 +3,14 @@ import {
   Args,
   Field,
   InputType,
+  Int,
   Mutation,
   ObjectType,
   Query,
   Resolver,
 } from '@nestjs/graphql';
 
-import { AuthenticationRequired } from '../../base';
+import { AuthenticationRequired, BadRequest } from '../../base';
 import { CurrentUser } from '../../core/auth';
 import {
   PostHogConnectionInvalidKeyError,
@@ -35,7 +36,9 @@ export class PostHogConnectionType {
   @Field(() => String, { nullable: true })
   host?: string;
 
-  @Field(() => Number, { nullable: true })
+  // Explicit Int — NEVER `@Field(() => Number)` (UndefinedTypeError
+  // startup crash). CLAUDE.md §6.
+  @Field(() => Int, { nullable: true })
   projectCount?: number;
 }
 
@@ -50,18 +53,23 @@ export class PostHogConnectionTestResultType {
   @Field(() => String, { nullable: true })
   host?: string;
 
-  @Field(() => Number, { nullable: true })
+  @Field(() => Int, { nullable: true })
   projectCount?: number;
 }
 
+// Map domain errors to the established UserFriendlyError framework
+// (BadRequest extends UserFriendlyError) so they surface as typed,
+// friendly GraphQL errors instead of the generic "Unhandled error
+// raised" that bare `throw new Error()` produces (finding #13,
+// CLAUDE.md error-mapping scar).
 function rethrowFriendly(err: unknown): never {
   if (err instanceof PostHogConnectionNotConnectedError) {
-    throw new Error(
+    throw new BadRequest(
       'PostHog is not connected. Add an API key in Settings → Analytics · Connections.'
     );
   }
   if (err instanceof PostHogConnectionInvalidKeyError) {
-    throw new Error(err.message);
+    throw new BadRequest(err.message);
   }
   throw err;
 }

@@ -3,13 +3,14 @@ import {
   Args,
   Field,
   InputType,
+  Int,
   Mutation,
   ObjectType,
   Query,
   Resolver,
 } from '@nestjs/graphql';
 
-import { AuthenticationRequired } from '../../base';
+import { AuthenticationRequired, BadRequest } from '../../base';
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
 import {
@@ -51,18 +52,25 @@ export class MongoDbConnectionTestResultType {
   @Field(() => String, { nullable: true })
   database?: string;
 
-  @Field(() => Number, { nullable: true })
+  // Explicit Int — NEVER `@Field(() => Number)` (UndefinedTypeError
+  // startup crash). CLAUDE.md §6.
+  @Field(() => Int, { nullable: true })
   pingMs?: number;
 }
 
+// Map domain errors to the established UserFriendlyError framework
+// (BadRequest extends UserFriendlyError) so they surface as typed,
+// friendly GraphQL errors instead of the generic "Unhandled error
+// raised" that bare `throw new Error()` produces (finding #13,
+// CLAUDE.md error-mapping scar).
 function rethrowFriendly(err: unknown): never {
   if (err instanceof MongoDbConnectionNotConnectedError) {
-    throw new Error(
+    throw new BadRequest(
       'MongoDB is not connected. Add a connection string in Settings → Analytics · Connections.'
     );
   }
   if (err instanceof MongoDbConnectionInvalidUriError) {
-    throw new Error(err.message);
+    throw new BadRequest(err.message);
   }
   throw err;
 }

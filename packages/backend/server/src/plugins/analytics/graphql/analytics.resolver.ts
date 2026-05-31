@@ -1,7 +1,12 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { PrismaClient } from '@prisma/client';
 
-import { EventBus } from '../../../base';
+import {
+  BadRequest,
+  EventBus,
+  InternalServerError,
+  NotFound,
+} from '../../../base';
 import { CurrentUser } from '../../../core/auth';
 import { AccessController } from '../../../core/permission';
 import {
@@ -94,7 +99,9 @@ export class AnalyticsResolver {
     _input: ListMetricsInput
   ): Promise<SocialMetricObjectType[]> {
     // TODO(phase-3): query SocialMetric by (workspaceId, platform, bucket, bucketStart range).
-    throw new Error('NOT_IMPLEMENTED: AnalyticsResolver.listMetrics');
+    // Typed friendly error so the unimplemented path doesn't surface as
+    // the generic "Unhandled error raised" (finding #13).
+    throw new InternalServerError('Metrics listing is not available yet.');
   }
 
   @Mutation(() => SocialInsightObjectType, {
@@ -123,7 +130,8 @@ export class AnalyticsResolver {
       return toInsightDto(insight);
     } catch (err) {
       if (err instanceof BudgetExceededError) {
-        throw new Error(
+        // Friendly typed error (UserFriendlyError) — finding #13.
+        throw new BadRequest(
           'Analytics AI budget exceeded for this workspace this month.'
         );
       }
@@ -143,7 +151,8 @@ export class AnalyticsResolver {
       where: { id: input.insightId },
     });
     if (!existing) {
-      throw new Error('Insight not found');
+      // Friendly typed error (UserFriendlyError) — finding #13.
+      throw new NotFound('Insight not found');
     }
 
     await this.ac

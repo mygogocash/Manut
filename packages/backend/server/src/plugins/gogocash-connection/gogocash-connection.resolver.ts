@@ -9,7 +9,7 @@ import {
   Resolver,
 } from '@nestjs/graphql';
 
-import { AuthenticationRequired } from '../../base';
+import { AuthenticationRequired, BadRequest } from '../../base';
 import { CurrentUser } from '../../core/auth';
 import {
   GoGoCashConnectionInvalidKeyError,
@@ -36,14 +36,19 @@ export class GoGoCashConnectionType {
   label?: string;
 }
 
+// Map domain errors to the established UserFriendlyError framework
+// (BadRequest extends UserFriendlyError) so they surface as typed,
+// friendly GraphQL errors instead of the generic "Unhandled error
+// raised" that bare `throw new Error()` produces (finding #13,
+// CLAUDE.md error-mapping scar).
 function rethrowFriendly(err: unknown): never {
   if (err instanceof GoGoCashConnectionNotConnectedError) {
-    throw new Error(
+    throw new BadRequest(
       'GoGoCash is not connected. Add an API key in Settings → Analytics · Connections.'
     );
   }
   if (err instanceof GoGoCashConnectionInvalidKeyError) {
-    throw new Error(err.message);
+    throw new BadRequest(err.message);
   }
   throw err;
 }
