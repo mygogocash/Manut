@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-const dockerfilePath = '.docker/manut/Dockerfile.railway';
+const dockerfilePath = '.docker/manut/Dockerfile.cloud-run';
 const dockerfile = readFileSync(dockerfilePath, 'utf8');
 
 const appBuilderStart = dockerfile.indexOf(
