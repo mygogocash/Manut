@@ -2,21 +2,22 @@ import { cssVarV2 } from '@toeverything/theme/v2';
 import { globalStyle, style } from '@vanilla-extract/css';
 
 export const root = style({
-  width: '100dvw',
-  padding: '16px 16px 10px',
+  width: '100%',
+  boxSizing: 'border-box',
+  padding: '12px 12px 10px',
 });
 
 export const headerRow = style({
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
+  gap: 6,
   minWidth: 0,
 });
 
 export const workspaceChip = style({
-  width: 52,
-  height: 52,
-  flex: '0 0 52px',
+  width: 48,
+  height: 48,
+  flex: '0 0 48px',
   padding: 6,
   borderRadius: '50%',
   border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
@@ -27,8 +28,8 @@ export const workspaceChip = style({
 });
 
 globalStyle(`${workspaceChip} [data-testid="workspace-avatar"]`, {
-  width: '40px',
-  height: '40px',
+  width: '36px',
+  height: '36px',
 });
 
 export const menuRail = style({
@@ -36,7 +37,7 @@ export const menuRail = style({
   flex: 1,
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
+  gap: 6,
   overflowX: 'auto',
   scrollbarWidth: 'none',
   selectors: {
@@ -48,12 +49,12 @@ export const menuRail = style({
 
 export const menuButton = style({
   position: 'relative',
-  flex: '0 0 52px',
-  height: 52,
+  flex: '0 0 48px',
+  height: 48,
   minWidth: 0,
   border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
   borderRadius: 26,
-  padding: '0 15px',
+  padding: '0 12px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -72,7 +73,7 @@ export const menuButton = style({
     'flex-basis 240ms var(--manut-anim-curve-overshoot), transform 160ms var(--manut-anim-curve-overshoot), background-color 180ms ease-out, color 180ms ease-out, box-shadow 180ms ease-out',
   selectors: {
     '&[data-active="true"]': {
-      flexBasis: 142,
+      flexBasis: 110,
       background: cssVarV2('layer/background/mobile/primary'),
       color: cssVarV2('text/primary'),
       boxShadow: '0 10px 26px rgba(0, 0, 0, 0.10)',
