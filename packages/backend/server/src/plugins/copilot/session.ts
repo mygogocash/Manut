@@ -29,7 +29,12 @@ import {
 import { MnHeartbeatService } from '../manut/manut-heartbeat.service';
 import { SubscriptionService } from '../payment/service';
 import { SubscriptionPlan, SubscriptionStatus } from '../payment/types';
-import { isAutoModel, isAutoPromptName, routeAutoModel } from './auto-router';
+import {
+  assertBudgetAllowed,
+  isAutoModel,
+  isAutoPromptName,
+  routeAutoModel,
+} from './auto-router';
 import { ChatMessageCache } from './message';
 import { ChatPrompt } from './prompt/chat-prompt';
 import { PromptService } from './prompt/service';
@@ -132,6 +137,19 @@ export class ChatSession implements AsyncDisposable {
     hasPayment: boolean,
     requestedModelId?: string
   ): Promise<string> {
+    // Manut M4 budget gate. Runs before any provider work so an
+    // over-budget agent/workspace is blocked at model-resolution time
+    // rather than after tokens are spent. `assertBudgetAllowed` resolves
+    // the enforcer via `moduleRef` with `strict: false`, so this is a
+    // silent no-op when the Manut module isn't loaded
+    // (`ENABLE_MANUT_MODULE=false`) — same opt-in pattern as the
+    // heartbeat hook below. Only the enforcer's `BudgetExceededError`
+    // re-throws; every other resolution failure is swallowed and allows.
+    await assertBudgetAllowed(this.moduleRef, {
+      workspaceId: this.state.workspaceId,
+      agentId: this.state.agentId ?? null,
+    });
+
     const config = this.moduleRef.get(Config, { strict: false });
     const registry = config
       ? buildProviderRegistry(config.copilot.providers)
