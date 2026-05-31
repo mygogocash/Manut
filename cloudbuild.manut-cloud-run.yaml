@@ -51,7 +51,7 @@ steps:
     name: gcr.io/cloud-builders/docker
     args:
       - build
-      - --file=.docker/manut/Dockerfile.railway
+      - --file=.docker/manut/Dockerfile.cloud-run
       - --tag=$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG
       - --build-arg=GITHUB_SHA=$_IMAGE_TAG
       - .
