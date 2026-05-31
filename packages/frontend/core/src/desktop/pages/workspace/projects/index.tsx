@@ -42,6 +42,7 @@ import {
 
 import { Header } from '../../../../components/pure/header';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
+import { formatDueDate, priorityClass, readableStatus } from './helpers';
 import * as styles from './projects.css';
 
 type ProjectsViewMode = 'list' | 'kanban';
