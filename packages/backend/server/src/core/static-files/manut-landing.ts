@@ -34,6 +34,13 @@ const SPA_ROUTE_PREFIXES = [
   '/ai-upgrade',
 ] as const;
 
+const LEGAL_ROUTE_PATHS = new Set([
+  '/privacy',
+  '/privacy-policy',
+  '/terms',
+  '/terms-of-service',
+]);
+
 export function manutLandingDir(staticPath: string) {
   return join(staticPath, 'landing');
 }
@@ -57,6 +64,30 @@ export function isManutSpaRoute(reqPath: string) {
   return SPA_ROUTE_PREFIXES.some(
     prefix => path === prefix || path.startsWith(`${prefix}/`)
   );
+}
+
+export function manutLandingLegalPageFile(staticPath: string, reqPath: string) {
+  const path = normalizePath(reqPath);
+  if (!LEGAL_ROUTE_PATHS.has(path)) {
+    return null;
+  }
+  const landingPath = manutLandingDir(staticPath);
+  const candidates = [
+    join(landingPath, path, 'index.html'),
+    join(landingPath, `${path}.html`),
+  ];
+  return candidates.find(candidate => existsSync(candidate)) ?? null;
+}
+
+export function registerManutLegalRoutes(app: Application, staticPath: string) {
+  app.get(Array.from(LEGAL_ROUTE_PATHS), (req, res, next) => {
+    const candidate = manutLandingLegalPageFile(staticPath, req.path);
+    if (candidate) {
+      res.sendFile(candidate);
+      return;
+    }
+    next();
+  });
 }
 
 export function registerManutLandingRoutes(

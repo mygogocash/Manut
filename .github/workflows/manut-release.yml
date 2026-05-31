@@ -38,9 +38,9 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
@@ -59,7 +59,7 @@ jobs:
           targets: x86_64-unknown-linux-gnu
 
       - name: Cache yarn
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .yarn/cache
@@ -68,7 +68,7 @@ jobs:
           restore-keys: yarn-${{ runner.os }}-
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -179,18 +179,18 @@ jobs:
         id: gcp-auth
         # Workload Identity Federation — see manut-autodeploy.yml.
         # No untrusted input.
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
           service_account: 'affine-gha-deployer@affine-495114.iam.gserviceaccount.com'
 
       - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker for GAR
         run: gcloud auth configure-docker ${{ env.GAR_REGION }}-docker.pkg.dev --quiet
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Extract version + compute unique image tag
         id: version
@@ -222,7 +222,7 @@ jobs:
         # FIRST RELEASE AFTER THIS CHANGE: cold cache, slow build.
         # Subsequent releases hit the warm cache.
         id: build_push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./.docker/manut/Dockerfile.fullstack
@@ -257,7 +257,7 @@ jobs:
             --output artifact/manut-handover.md \
             --json-output artifact/manut-handover.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: manut-handover
           path: |

@@ -49,6 +49,7 @@ const MANUT_PER_BLOB_LIMIT_BYTES = 1_000_000_000_000_000;
 // History retention: keep the cloud-tier value finite-but-huge for the same
 // reason (downstream comparisons + GraphQL serialisation).
 const MANUT_HISTORY_RETENTION_MS = 100 * 365 * 24 * 3600 * 1000;
+const MANUT_SELFHOST_STORAGE_QUOTA_BYTES = Number.MAX_SAFE_INTEGER;
 
 // Re-export the auto-grow helpers so any external consumer that imports
 // from this entrypoint keeps compiling. The helpers themselves are kept
@@ -98,10 +99,9 @@ export class QuotaService {
       quota = await this.models.userFeature.getQuota(userId);
     }
 
-    const unlimitedCopilot = await this.models.userFeature.has(
-      userId,
-      'unlimited_copilot'
-    );
+    const unlimitedCopilot =
+      env.selfhosted ||
+      (await this.models.userFeature.has(userId, 'unlimited_copilot'));
 
     if (!quota) {
       throw new InternalServerError(
@@ -121,7 +121,9 @@ export class QuotaService {
         ? undefined
         : quota.configs.copilotActionLimit,
       blobLimit: MANUT_PER_BLOB_LIMIT_BYTES,
-      storageQuota: FREE_TIER.storageBytes,
+      storageQuota: env.selfhosted
+        ? MANUT_SELFHOST_STORAGE_QUOTA_BYTES
+        : FREE_TIER.storageBytes,
       historyPeriod: MANUT_HISTORY_RETENTION_MS,
       memberLimit: FREE_TIER.memberLimit,
     } as UserQuotaWithUsage;
@@ -213,7 +215,9 @@ export class QuotaService {
     return {
       ...resolved,
       blobLimit: MANUT_PER_BLOB_LIMIT_BYTES,
-      storageQuota: tier.storageBytes,
+      storageQuota: env.selfhosted
+        ? MANUT_SELFHOST_STORAGE_QUOTA_BYTES
+        : tier.storageBytes,
       historyPeriod: MANUT_HISTORY_RETENTION_MS,
       memberLimit: tier.memberLimit,
     };
@@ -367,7 +371,7 @@ export class QuotaService {
 
     // quota check will be disabled for unlimited workspace
     // we save a complicated db read for used size
-    if (unlimited) {
+    if (env.selfhosted || unlimited) {
       return this.generateQuotaCalculator(0, quota.blobLimit, 0, true);
     }
 

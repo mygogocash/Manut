@@ -14,11 +14,7 @@ import { AuthenticationRequired } from '../../base';
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
 import { MongoIngestionConfigService } from './ingestion-config.service';
-import { MongoDbConnectionNotConnectedError } from './mongodb-connection.service';
-import {
-  MongoDbDriverMissingError,
-  MongoSchemaExplorerService,
-} from './schema-explorer.service';
+import { MongoSchemaExplorerService } from './schema-explorer.service';
 import type {
   MongoCollectionInfo,
   MongoIngestionConfig,
@@ -125,23 +121,6 @@ export class SetMongoIngestionConfigInputType {
   cursorField!: string;
 }
 
-/**
- * Friendly error mapper — the GraphQL layer never surfaces typed
- * exception class names to the client. Mirrors `rethrowFriendly` in
- * `mongodb-connection.resolver.ts`.
- */
-function rethrowFriendly(err: unknown): never {
-  if (err instanceof MongoDbConnectionNotConnectedError) {
-    throw new Error(
-      'MongoDB is not connected. Add a connection string in Settings → Integrations → MongoDB.'
-    );
-  }
-  if (err instanceof MongoDbDriverMissingError) {
-    throw new Error(err.message);
-  }
-  throw err;
-}
-
 @Resolver()
 export class MongoIngestionConfigResolver {
   constructor(
@@ -165,15 +144,16 @@ export class MongoIngestionConfigResolver {
       throw new AuthenticationRequired();
     }
     await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
+    const configs = await this.configs.list(workspaceId);
     try {
-      const [collections, configs] = await Promise.all([
-        this.explorer.listCollections(user.id, workspaceId),
-        this.configs.list(workspaceId),
-      ]);
+      const collections = await this.explorer.listCollections(
+        user.id,
+        workspaceId
+      );
       const configByName = new Map(configs.map(c => [c.collectionName, c]));
       return collections.map(c => mergeCollection(c, configByName.get(c.name)));
-    } catch (err) {
-      rethrowFriendly(err);
+    } catch {
+      return configs.map(configToCollectionDto);
     }
   }
 
@@ -201,8 +181,11 @@ export class MongoIngestionConfigResolver {
         limit ?? 5
       );
       return sampleToDto(result);
-    } catch (err) {
-      rethrowFriendly(err);
+    } catch {
+      return {
+        collectionName,
+        documents: [],
+      };
     }
   }
 
@@ -286,6 +269,18 @@ function mergeCollection(
     lastError: config?.lastError,
     lastErrorAt: config?.lastErrorAt,
   };
+}
+
+function configToCollectionDto(
+  row: MongoIngestionConfig
+): MongoCollectionInfoType {
+  return mergeCollection(
+    {
+      name: row.collectionName,
+      enabled: false,
+    },
+    row
+  );
 }
 
 function configToDto(row: MongoIngestionConfig): MongoIngestionConfigType {

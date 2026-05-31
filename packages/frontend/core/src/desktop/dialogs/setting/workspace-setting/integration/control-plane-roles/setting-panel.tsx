@@ -1,6 +1,6 @@
 import { Button, RadioGroup, type RadioItem } from '@affine/component';
 import { useQuery } from '@affine/core/components/hooks/use-query';
-import { SWRErrorBoundary } from '@affine/core/components/pure/swr-error-bundary';
+import { ServerService } from '@affine/core/modules/cloud';
 import {
   agentRolesQuery,
   type MnAgentRoleDto,
@@ -8,9 +8,8 @@ import {
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { isGraphQLSchemaValidationError } from '@affine/error';
-import { useService } from '@toeverything/infra';
+import { useLiveData, useService } from '@toeverything/infra';
 import { Suspense, useCallback, useMemo, useState } from 'react';
-import type { FallbackProps } from 'react-error-boundary';
 
 import { AgentsListPanel } from '../../../general-setting/control-plane-roles/agents-list';
 import { ApprovalsInbox } from '../../../general-setting/control-plane-roles/approvals-inbox';
@@ -75,22 +74,6 @@ const SkeletonList = () => (
     <div className={styles.skeletonRow} />
   </div>
 );
-
-const ControlPlaneErrorFallback = ({
-  error,
-  resetErrorBoundary,
-}: FallbackProps) => {
-  return (
-    <div
-      className={styles.errorBox}
-      role="alert"
-      data-testid="cp-roles-error-boundary"
-    >
-      <div>Failed to load control plane: {errorBoxMessage(error)}</div>
-      <Button onClick={resetErrorBoundary}>Retry</Button>
-    </div>
-  );
-};
 
 const RolesTable = ({ workspaceId, onEdit, onOpenRun }: RolesTableProps) => {
   const queryArg = {
@@ -207,9 +190,13 @@ const RolesTable = ({ workspaceId, onEdit, onOpenRun }: RolesTableProps) => {
 };
 
 export const ControlPlaneRolesSettingPanel = () => {
+  const serverService = useService(ServerService);
   const workspaceService = useService(WorkspaceService);
   const workspaceId = workspaceService.workspace.id;
   const workbench = useService(WorkbenchService).workbench;
+  const manutEnabled = useLiveData(
+    serverService.server.features$.map(features => features?.manut)
+  );
 
   const [activeSubtab, setActiveSubtab] = useState<Subtab>('roles');
   const [editingRole, setEditingRole] = useState<MnAgentRoleDto | null>(null);
@@ -244,48 +231,51 @@ export const ControlPlaneRolesSettingPanel = () => {
         desc="Edit the five operating roles (Release Captain, Builder, Verifier, Deployer, Historian). Slug is fixed; display name, adapter, and escalation are editable."
       />
 
-      <RadioGroup
-        items={SUBTAB_ITEMS}
-        value={activeSubtab}
-        onChange={(value: string) => setActiveSubtab(value as Subtab)}
-        width={200}
-      />
+      {!manutEnabled ? (
+        <div className={styles.errorBox} role="alert">
+          {CONTROL_PLANE_UNAVAILABLE_MESSAGE}
+        </div>
+      ) : (
+        <>
+          <RadioGroup
+            items={SUBTAB_ITEMS}
+            value={activeSubtab}
+            onChange={(value: string) => setActiveSubtab(value as Subtab)}
+            width={200}
+          />
 
-      <SWRErrorBoundary
-        FallbackComponent={ControlPlaneErrorFallback}
-        resetKeys={[activeSubtab, workspaceId]}
-      >
-        {activeSubtab === 'roles' ? (
-          <section className={styles.section}>
-            <div className={styles.sectionTitle}>Agent roles</div>
-            <div className={styles.muted}>
-              Each role binds to an adapter that executes its work — GitHub
-              Actions, deploy scripts, or future AI workers. Last successful run
-              links to the run details page.
-            </div>
-            <Suspense fallback={fallback}>
-              <RolesTable
-                workspaceId={workspaceId}
-                onEdit={handleEdit}
-                onOpenRun={handleOpenRun}
-              />
-            </Suspense>
-          </section>
-        ) : activeSubtab === 'agents' ? (
-          <AgentsListPanel workspaceId={workspaceId} />
-        ) : activeSubtab === 'approvals' ? (
-          <ApprovalsInbox workspaceId={workspaceId} />
-        ) : activeSubtab === 'skills' ? (
-          <SkillsListPanel workspaceId={workspaceId} />
-        ) : activeSubtab === 'plugins' ? (
-          <WorkspacePluginsPanel workspaceId={workspaceId} />
-        ) : (
-          <OrgChangesInbox workspaceId={workspaceId} />
-        )}
-      </SWRErrorBoundary>
+          {activeSubtab === 'roles' ? (
+            <section className={styles.section}>
+              <div className={styles.sectionTitle}>Agent roles</div>
+              <div className={styles.muted}>
+                Each role binds to an adapter that executes its work — GitHub
+                Actions, deploy scripts, or future AI workers. Last successful
+                run links to the run details page.
+              </div>
+              <Suspense fallback={fallback}>
+                <RolesTable
+                  workspaceId={workspaceId}
+                  onEdit={handleEdit}
+                  onOpenRun={handleOpenRun}
+                />
+              </Suspense>
+            </section>
+          ) : activeSubtab === 'agents' ? (
+            <AgentsListPanel workspaceId={workspaceId} />
+          ) : activeSubtab === 'approvals' ? (
+            <ApprovalsInbox workspaceId={workspaceId} />
+          ) : activeSubtab === 'skills' ? (
+            <SkillsListPanel workspaceId={workspaceId} />
+          ) : activeSubtab === 'plugins' ? (
+            <WorkspacePluginsPanel workspaceId={workspaceId} />
+          ) : (
+            <OrgChangesInbox workspaceId={workspaceId} />
+          )}
+        </>
+      )}
 
       <RoleEditModal
-        open={editingRole !== null}
+        open={!!manutEnabled && editingRole !== null}
         workspaceId={workspaceId}
         role={editingRole}
         onClose={handleClose}

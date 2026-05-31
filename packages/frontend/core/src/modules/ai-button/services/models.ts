@@ -1,5 +1,5 @@
 import { isGraphQLSchemaValidationError } from '@affine/error';
-import { getPromptModelsQuery, SubscriptionStatus } from '@affine/graphql';
+import { getPromptModelsQuery } from '@affine/graphql';
 import {
   createSignalFromObservable,
   type Signal,
@@ -7,8 +7,13 @@ import {
 import { signal } from '@preact/signals-core';
 import { LiveData, Service } from '@toeverything/infra';
 
-import type { GraphQLService, SubscriptionService } from '../../cloud';
+import type {
+  GraphQLService,
+  ServerService,
+  SubscriptionService,
+} from '../../cloud';
 import type { GlobalStateService } from '../../storage';
+import { isAIModelProLocked } from './model-access';
 
 const AI_MODEL_ID_KEY = 'AIModelId';
 
@@ -19,6 +24,17 @@ export interface AIModel {
   category: string;
   isPro: boolean;
   isDefault: boolean;
+}
+
+export function resolveSelectedAIModelId(
+  models: readonly AIModel[],
+  storedModelId: string | undefined
+): string | undefined {
+  if (storedModelId && models.some(model => model.id === storedModelId)) {
+    return storedModelId;
+  }
+
+  return models.find(model => model.isDefault)?.id ?? 'auto';
 }
 
 export class AIModelService extends Service {
@@ -34,6 +50,7 @@ export class AIModelService extends Service {
   constructor(
     private readonly globalStateService: GlobalStateService,
     private readonly gqlService: GraphQLService,
+    private readonly serverService: ServerService,
     private readonly subscriptionService: SubscriptionService
   ) {
     super();
@@ -80,17 +97,28 @@ export class AIModelService extends Service {
     this.globalStateService.globalState.set(AI_MODEL_ID_KEY, modelId);
   };
 
+  getSelectedModelId = () => {
+    return resolveSelectedAIModelId(this.models.value, this.modelId.value);
+  };
+
   private readonly init = async () => {
     await this.initModels();
 
     // subscribe to ai purchase status
     const sub = this.subscriptionService.subscription.ai$.subscribe(
       subscription => {
-        const isSubscribed = subscription?.status === SubscriptionStatus.Active;
         const model = this.models.value.find(
           model => model.id === this.modelId.value
         );
-        if (!isSubscribed && model?.isPro) {
+        const serverConfig = this.serverService.server.config$.value;
+        if (
+          model &&
+          isAIModelProLocked(model, {
+            serverType: serverConfig?.type,
+            serverFeatures: serverConfig?.features,
+            aiSubscriptionStatus: subscription?.status,
+          })
+        ) {
           this.resetModel();
         }
       }

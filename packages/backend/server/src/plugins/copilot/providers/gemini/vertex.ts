@@ -33,7 +33,8 @@ import type {
 import { CopilotProviderType, ModelInputType, ModelOutputType } from '../types';
 import {
   getGoogleAuth,
-  VertexModelListSchema,
+  getVertexPublisherModelsUrl,
+  readVertexModelListResponse,
   type VertexProviderConfig,
 } from '../utils';
 import { GeminiProvider } from './gemini';
@@ -181,19 +182,20 @@ export class GeminiVertexProvider extends GeminiProvider<GeminiVertexConfig> {
 
   override async refreshOnlineModels() {
     try {
-      const { baseUrl, headers } = await this.resolveVertexAuth();
-      if (baseUrl && !this.onlineModelList.length) {
-        const { publisherModels } = await fetch(`${baseUrl}/models`, {
+      const modelsUrl = getVertexPublisherModelsUrl(this.config, 'google');
+      const { headers } = await this.resolveVertexAuth();
+      if (modelsUrl && !this.onlineModelList.length) {
+        const publisherModels = await fetch(modelsUrl, {
           headers: headers(),
-        })
-          .then(r => r.json())
-          .then(r => VertexModelListSchema.parse(r));
+        }).then(readVertexModelListResponse);
+        if (!publisherModels) return;
+
         this.onlineModelList = publisherModels.map(model =>
           model.name.replace('publishers/google/models/', '')
         );
       }
     } catch (e) {
-      this.logger.error('Failed to fetch available models', e);
+      this.logger.debug(`Skipped fetching available models: ${e}`);
     }
   }
 

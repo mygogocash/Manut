@@ -1,5 +1,5 @@
 import { cssVarV2 } from '@toeverything/theme/v2';
-import { keyframes, style } from '@vanilla-extract/css';
+import { globalStyle, keyframes, style } from '@vanilla-extract/css';
 
 const surfaceIn = keyframes({
   '0%': {
@@ -209,72 +209,22 @@ export const askAiSheetTitle = style({
 
 export const askAiSheetBody = style({
   flex: 1,
-  minHeight: 160,
-});
-
-export const askAiComposer = style({
-  margin: '0 14px calc(env(safe-area-inset-bottom) + 14px)',
-  minHeight: 112,
-  borderRadius: 24,
-  border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
-  background: 'var(--manut-surface-glass-strong)',
-  boxShadow: '0 12px 36px rgba(0, 0, 0, 0.14)',
-  backdropFilter: 'blur(22px) saturate(180%)',
-  WebkitBackdropFilter: 'blur(22px) saturate(180%)',
-  overflow: 'hidden',
-  flexShrink: 0,
-});
-
-export const askAiTextarea = style({
-  width: '100%',
-  minHeight: 54,
-  resize: 'none',
-  border: 0,
-  outline: 0,
-  padding: '20px 24px 4px',
-  color: cssVarV2('text/primary'),
-  background: 'transparent',
-  fontSize: 19,
-  lineHeight: '26px',
-  letterSpacing: 0,
-  selectors: {
-    '&::placeholder': {
-      color: cssVarV2('text/placeholder'),
-    },
-  },
-});
-
-export const askAiComposerActions = style({
+  minHeight: 0,
   display: 'flex',
-  alignItems: 'center',
-  gap: 18,
-  padding: '0 18px 16px',
+  flexDirection: 'column',
+  overflow: 'hidden',
+  padding: '0 8px calc(env(safe-area-inset-bottom) + 12px)',
 });
 
-export const askAiComposerButton = style({
-  width: 32,
-  height: 32,
-  padding: 0,
-  border: 0,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: cssVarV2('icon/secondary'),
-  background: 'transparent',
+globalStyle(`${askAiSheetBody} > ai-chat-content`, {
+  flex: '1 1 auto',
+  minHeight: 0,
+  width: '100%',
+  height: '100%',
 });
 
-export const askAiSendButton = style({
-  width: 40,
-  height: 40,
-  padding: 0,
-  marginLeft: 'auto',
-  border: 0,
-  borderRadius: '50%',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  color: cssVarV2('text/disable'),
-  background: cssVarV2('button/disable'),
+globalStyle(`${askAiSheetBody} chat-panel-split-view`, {
+  minHeight: 0,
 });
 
 export const emptySurface = style({

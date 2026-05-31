@@ -141,7 +141,7 @@ export const SignInStep = ({
           {/*prettier-ignore*/}
           <Trans i18nKey="com.affine.auth.sign.message">
             By clicking &quot;Continue with Google/Email&quot; above, you acknowledge that
-            you agree to Manut&apos;s <a href="https://manut.xyz/terms" target="_blank" rel="noreferrer">Terms of Conditions</a> and <a href="https://manut.xyz/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+            you agree to Manut&apos;s <a href="https://manut.xyz/terms-of-service" target="_blank" rel="noreferrer">Terms of Conditions</a> and <a href="https://manut.xyz/privacy-policy" target="_blank" rel="noreferrer">Privacy Policy</a>.
         </Trans>
         </div>
       </AuthContent>

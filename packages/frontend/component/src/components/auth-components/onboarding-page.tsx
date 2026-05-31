@@ -74,7 +74,7 @@ export const ScrollableLayout = ({
         <div className={styles.linkGroup}>
           <a
             className={styles.link}
-            href="https://manut.xyz/terms"
+            href="https://manut.xyz/terms-of-service"
             target="_blank"
             rel="noreferrer"
           >
@@ -83,7 +83,7 @@ export const ScrollableLayout = ({
           <Divider orientation="vertical" />
           <a
             className={styles.link}
-            href="https://manut.xyz/privacy"
+            href="https://manut.xyz/privacy-policy"
             target="_blank"
             rel="noreferrer"
           >

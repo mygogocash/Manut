@@ -1,7 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-28 09:20 +07 (Cloud Run production hotfix:
-MongoDB/Analytics Connections 500)
+Last updated: 2026-05-27 09:25 +07 (GCP Cloud Run production launch complete)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -13,72 +12,139 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/fix-resend-attachments`
-- Local HEAD: `900ca9c43` (`fix(analytics): contain connections query
-errors`)
-- Upstream: `origin/codex/fix-resend-attachments`; local branch is synced
-  with origin after the production hotfix push.
-- Origin `main`: refresh before opening/merging the PR. The current production
-  hotfix branch is ahead of `main` and must be merged so source control catches
-  up with the deployed Cloud Run image.
-- PR: none open for `codex/fix-resend-attachments` as of this refresh
-  (`gh pr list --head codex/fix-resend-attachments` returned `[]`).
-- Dirty state before this doc refresh: only untracked `.playwright-mcp/`
-  remained from prior browser tooling and should not be staged unless the user
-  explicitly asks.
-- Production branch: `main` is still the intended long-lived branch, but
-  production currently runs a manual Cloud Run hotfix image built from
-  `900ca9c43`.
-- Production app: https://manut.xyz (canonical;
-  `affine.gogocash.co` and `manut.gogocash.co` both 301-redirect)
-- Production deploy target: Cloud Run service `manut` in project
-  `affine-495114`, region `asia-southeast1`.
-- Production revision: `manut-00011-css`, serving 100% traffic.
-- Production image:
-  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-900ca9c438-1779933990`
-- Production image digest:
-  `sha256:7ac4fe6b3efc4f85a9dda10ce7e70cd89fc63f94b67bdca339869cdd6b8b9c0f`
-- Rollback target observed before swap: revision `manut-00010-ccl`, image
-  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-a39187a3d-1779931037`.
+- Branch: `codex/gcp-prod-cutover-complete` from latest `origin/main`.
+- Upstream: `origin/main`.
+- Handover refresh: PR #165 recorded the GCP progress state, PR #166 corrected
+  the post-merge workspace wording, PR #167 removed stale branch drift, and PR
+  #168 merged the production launch smoke hardening.
+- Branch state: production cutover handover refresh; `.playwright-mcp/` is an
+  existing untracked local browser artifact in the main checkout that should
+  stay untouched.
+- Production branch: `main`
+- Production app: https://manut.xyz now serves the GCP Cloud Run production
+  service. The legacy `affine.gogocash.co` and `manut.gogocash.co` hosts both
+  301-redirect to the canonical domain.
+- GCP project: `affine-495114` (`602860445793`), region `asia-southeast1`.
+- Runtime service account:
+  `manut-cloud-run@affine-495114.iam.gserviceaccount.com`.
+- Build service account:
+  `manut-cloud-build@affine-495114.iam.gserviceaccount.com`.
 
-## Current Production Hotfix Slice
+## Current GCP Cloud Run Migration Slice
 
-- `7ebd46e34 feat(workspace): resend pending invitations` added the resend
-  invitation UI/API follow-up requested from Settings -> Members.
-- `45a89d8d3 fix(settings): contain control plane query errors` kept Control
-  Plane Roles query failures inside the settings panel instead of global 500.
-- `a39187a3d fix(mongodb): include server driver dependency` added `mongodb`
-  to `@affine/server` production dependencies and covered it with an AVA
-  dependency/import regression test.
-- `4b3391f66 fix(mongodb): contain settings query errors` added a local
-  `SWRErrorBoundary` around the standalone MongoDB settings panel.
-- `900ca9c43 fix(analytics): contain connections query errors` added the same
-  local containment to the active Analytics Connections settings page. This is
-  the code path bundled into `manut.xyz/js/index.0dd3a9eb.js`.
-- Built precomputed `@affine/server` and `web` dist artifacts locally from
-  `900ca9c43`, then built/pushed the fullstack image with Cloud Build because
-  local Docker was not running.
-- Deployed the pushed image to Cloud Run and confirmed `manut.xyz` serves
-  `data-version="900ca9c43"`.
+- Merged PRs #159-#164 built the GCP-owned path: Cloud Run staging artifacts,
+  strict smoke status, staging activation docs, Cloud Build CI/CD, trigger
+  substitution fixes, and production-trigger smoke hardening.
+- Staging trigger `manut-gcp-main-staging` deploys `main` to Cloud Run service
+  `manut-staging`; latest verified staging build
+  `2048ae97-28df-4773-a6cf-9e5f6a34dd99` deployed revision
+  `manut-staging-00005-frr` and passed smoke on `https://staging.manut.xyz`.
+- Production trigger `manut-gcp-prod-deploy` is manual and approval-gated.
+  After cutover it includes `_SMOKE_BASE_URL=https://manut.xyz`, so future
+  production deploys smoke the public Cloud Run domain.
+- Production GCP secrets exist in Secret Manager for database URL,
+  `AFFINE_CONFIG_JSON_B64`, private key, Google OAuth client ID/secret, and
+  Resend API key. Do not print secret values in logs or handovers.
+- Existing production Cloud SQL preparation used instance `affine-pg`,
+  database `manut`, user `manut`, and latest `manut-database-url` secret
+  version pointing at private IP `10.47.1.3:5432` with `?schema=public`.
+  **Do not use this PostgreSQL 16 instance as the Railway restore target.**
+  Railway production is PostgreSQL 18.3, and launch needs a PostgreSQL 18 Cloud
+  SQL production target or an equivalent same-major restore path.
+- Redis target for staging and production is Memorystore `affine-redis` at
+  private IP `10.47.0.3:6379`; auth is disabled.
 
-## Pending Launch Readiness
+## Completed Production Cutover
 
-- Open/merge a PR for `codex/fix-resend-attachments` into `main` so the
-  deployed Cloud Run hotfix is represented on the production branch.
-- Continue monitoring Cloud Run logs for the prior
-  `MongoIngestionConfigResolver.listMongoCollections` / `MongoDB driver`
-  error class; no matching logs appeared on revision `manut-00011-css` during
-  the post-deploy check window.
-- Investigate the separate Vertex model-refresh errors still present on the
-  new revision:
-  `GeminiVertexProvider.refreshOnlineModels` and
-  `AnthropicVertexProvider.refreshOnlineModels` both log
-  `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON`.
-  These are not the MongoDB/Analytics 500 fixed in this slice.
-- Authenticated browser smoke should still be repeated from a logged-in Chrome
-  profile if the user sees any remaining Settings -> Analytics Connections
-  failure, because the local CLI smoke cannot click inside the user's active
-  authenticated browser session.
+- Final cutover stamp: `20260527015351`.
+- Railway app writes were paused before the final dump. The `Manut` service now
+  has latest deployment `c6680ce0-8bb8-4690-83b8-25fde2efdaab` stopped/failed
+  with `running=0`; Railway Postgres and Redis remain online for rollback.
+- Final Railway PG18 dump:
+  `gs://gogocash-affine-backups/manut-cutovers/20260527015351/railway-production-final-pg18.sql.gz`.
+- Final source count artifact:
+  `gs://gogocash-affine-backups/manut-cutovers/20260527015351/railway-production-final-counts.tsv`.
+- Final Cloud SQL target is the fresh database
+  `manut_final_20260527015351` on instance `manut-pg18-prod` private IP
+  `10.47.1.7`. The earlier restored `manut` database remains available as the
+  pre-cutover snapshot.
+- Critical row counts matched Railway source and Cloud SQL target:
+  `users=4`, `workspaces=1`, `workspace_pages=221`, `snapshots=226`,
+  `blobs=88`, `integration_connections=3`, `ai_sessions_metadata=8`,
+  `ai_sessions_messages=0`, `mn_projects=0`, `mn_tasks=0`, `mn_agents=0`,
+  `_prisma_migrations=132`.
+- `manut-database-url` Secret Manager version `4` points to the final Cloud SQL
+  database. Earlier enabled versions remain available for rollback reference.
+- Production migration execution `manut-migrate-5tm2g` completed successfully
+  against `manut_final_20260527015351`; Prisma reported
+  `No pending migrations to apply`.
+- Cloud Run production revision `manut-00003-jhb` is serving 100% of service
+  traffic with image
+  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:8009e4f`
+  and `MANUT_DATA_CUTOVER_STAMP=20260527015351`.
+- Cloud Run generated URL smoke passed after restoring public invoker access:
+  `/info` returned JSON and GraphQL `serverConfig.initialized: true`.
+- Cloudflare apex DNS now uses Cloud Run DNS-only records:
+  A `216.239.32.21`, `216.239.34.21`, `216.239.36.21`, `216.239.38.21`;
+  AAAA `2001:4860:4802:32::15`, `2001:4860:4802:34::15`,
+  `2001:4860:4802:36::15`, `2001:4860:4802:38::15`.
+- Cloudflare email/site-verification records were preserved. CAA now includes
+  `0 issue "pki.goog"` alongside the existing `letsencrypt.org` entry.
+- Public `https://manut.xyz/info` returns HTTP 200 from `Google Frontend`
+  without Railway headers. Public smoke passed for `/info` and GraphQL
+  `serverConfig.initialized: true`.
+- TLS certificate on `manut.xyz` is issued by Google Trust Services `WR3`.
+  `gcloud beta run domain-mappings describe` may lag with
+  `CertificatePending`, but public HTTPS and smoke are already passing.
+- Production trigger `manut-gcp-prod-deploy` was updated after cutover with
+  `_SMOKE_BASE_URL=https://manut.xyz`.
+- Cutover temp resources were deleted: short-lived Railway public DB URL
+  secret, short-lived final target DB URL secret, one-off count Cloud Run job,
+  and the temporary default-compute bucket object-admin IAM binding used for
+  Cloud Build dump upload.
+
+Rollback during the stability window: restore Cloudflare apex A/CNAME behavior
+to Railway (`66.33.22.31`, proxied) and redeploy or scale Railway `Manut` back
+up. If Cloud Run accepted writes after cutover, replay or explicitly waive
+those writes before DNS rollback.
+
+## Completed PG18 Data Rehearsal
+
+- Railway production database version discovered during strict dump:
+  PostgreSQL 18.3. The earlier PostgreSQL 16 dump attempt failed with
+  `server version mismatch`; the valid export used `postgres:18-alpine`.
+- Valid dump object:
+  `gs://gogocash-affine-backups/manut-rehearsals/20260527001726/railway-production-pg18.sql.gz`
+  (`2.59MiB`, created `2026-05-27T00:19:15Z`).
+- Disposable Cloud SQL target:
+  `manut-pg18-rehearsal-20260527001726`, `POSTGRES_18`,
+  private IP `10.47.1.5`, database `manut`.
+- Import completed successfully into the disposable target with
+  `gcloud sql import sql`.
+- Critical row counts matched Railway source and Cloud SQL target:
+  `users=4`, `workspaces=1`, `workspace_pages=221`, `snapshots=226`,
+  `blobs=88`, `integration_connections=3`, `ai_sessions_metadata=8`,
+  `ai_sessions_messages=0`, `mn_projects=0`, `mn_tasks=0`, `mn_agents=0`,
+  `_prisma_migrations=132`.
+- Rehearsal migration job `manut-pg18-migrate-20260527001726-266m8` completed
+  successfully; Prisma reported `No pending migrations to apply`.
+- Private rehearsal Cloud Run service `manut-pg18-rehearsal` deployed revision
+  `manut-pg18-rehearsal-00001-vpf` against the restored PG18 database.
+  Authenticated probes passed:
+  `/info` returned Manut JSON, and `/graphql` returned
+  `serverConfig.initialized: true`.
+- No `severity>=ERROR` Cloud Run logs were found for the rehearsal service
+  after the authenticated probes.
+- Cleanup already done: short-lived Railway public DB URL secret
+  `manut-railway-public-url-rehearsal-20260527001410` was deleted, and the
+  invalid 20-byte first dump object was removed.
+- Left in place for operator inspection or final-target planning:
+  disposable Cloud SQL instance `manut-pg18-rehearsal-20260527001726`, secret
+  `manut-pg18-rehearsal-db-url-20260527001726`, Cloud Run jobs
+  `manut-pg18-count-20260527001726` and
+  `manut-pg18-migrate-20260527001726`, private service
+  `manut-pg18-rehearsal`, and the valid dump/count artifacts under
+  `gs://gogocash-affine-backups/manut-rehearsals/20260527001726/`.
 
 ## Pending Product/Feature Follow-Ups
 
@@ -93,10 +159,6 @@ errors`)
 
 ## Release lineage
 
-- **2026-05-28 Cloud Run hotfix** — Resend invitations, Control Plane Roles
-  query containment, MongoDB driver packaging, MongoDB settings containment,
-  and active Analytics Connections containment. Production Cloud Run revision
-  `manut-00011-css` is serving image `main-900ca9c438-1779933990`.
 - **v1.10.2** — Gmail live import + Drive picker + AI permission mode
   picker + DriveFile schema fix.
 - **v1.11.0** — Brand rename Superflow → Manut. Domain switch,
@@ -113,20 +175,21 @@ errors`)
 
 ## Latest Completed Work
 
-- **2026-05-28 — Production MongoDB/Analytics Connections 500 fixed and
-  deployed.** Root cause was two-layered: the production server image lacked
-  the `mongodb` runtime dependency, and SWR suspense query failures in
-  settings could bubble into the global 500 page. The fix added the server
-  dependency, backend regression coverage, local SWR error boundaries for both
-  MongoDB settings surfaces, and production image verification that
-  `import('mongodb')` works while the bundled JS contains
-  `analytics-connections-error-boundary`.
-- Cloud Run deployment completed for image `main-900ca9c438-1779933990`
-  (digest
-  `sha256:7ac4fe6b3efc4f85a9dda10ce7e70cd89fc63f94b67bdca339869cdd6b8b9c0f`).
-  Live probes after the swap returned healthy `/info`, GraphQL
-  `serverConfig.version`, `/workspace` `data-version="900ca9c43"`, and the
-  expected JS markers.
+- Started launch-prep branch `codex/gcp-prod-launch-plan` from `origin/main`.
+- Added `docs/GCP_PRODUCTION_LAUNCH_SPEC.md` as the production launch
+  contract for Railway Postgres export, Cloud SQL restore, Cloud Run deploy,
+  generated-URL smoke, DNS approval, and rollback.
+- Tightened `scripts/gcp/smoke-test-cloud-run.sh` to validate JSON `/info`
+  and GraphQL `serverConfig` instead of accepting status-only HTML responses
+  from API-like paths.
+- Added `scripts/gcp/validate-cloud-run-smoke.sh` to guard healthy, HTML
+  fallback, and uninitialized-server smoke cases.
+- Updated the Cloud Run runbook/spec to reflect actual GCP resource names,
+  data-first cutover, and the stricter GraphQL smoke gate.
+- PR #168 merged into `main` as merge commit
+  `72d32243771dadff53f3729bdd2f849c48a07f91`.
+- Created follow-up branch `codex/gcp-data-rehearsal-20260527` from merged
+  `origin/main` for the data rehearsal gate.
 - Learned Paperclip's useful product pattern as a reference concept:
   company-level control plane, goals, employees/agents, adapters, task tree,
   and durable handover evidence.
@@ -362,34 +425,6 @@ errors`)
 
 ## Verification Already Run
 
-- `yarn workspace @affine/server test src/plugins/mongodb-connection/__tests__/driver-dependency.spec.ts`
-- `yarn vitest run packages/frontend/core/src/desktop/dialogs/setting/workspace-setting/analytics-connections/__tests__/index.spec.tsx packages/frontend/core/src/desktop/dialogs/setting/workspace-setting/integration/mongodb/__tests__/setting-panel.spec.tsx`
-- `yarn prettier --check` for the touched MongoDB/Analytics settings files.
-- `yarn eslint --no-cache` for the touched MongoDB/Analytics settings files.
-- `yarn lint:ox` for the touched MongoDB/Analytics settings files.
-- `yarn affine bundle -p @affine/server`
-- `yarn affine bundle -p web` (compiled with existing asset-size warnings, no
-  errors).
-- `grep -RIl "analytics-connections-error-boundary" packages/frontend/apps/web/dist`
-  found the marker in `js/index.0dd3a9eb.js`.
-- Cloud Build image build `ed0a86bc-62f7-4c3d-b577-daecdac8d87a` succeeded and
-  pushed `main-900ca9c438-1779933990`.
-- Cloud Build image sanity check `fe4e596b-b2ce-4372-b2ed-58c5e7f62913`
-  confirmed `mongodb` imports, the analytics boundary marker exists, and
-  static HTML reports `data-version="900ca9c43"`.
-- `gcloud run services update manut --region=asia-southeast1` deployed
-  revision `manut-00011-css` at 100% traffic.
-- `curl -fsS https://manut.xyz/info` returned the Manut 0.26.3 self-hosted
-  response.
-- `curl -fsS https://manut.xyz/graphql` for `serverConfig.version` returned
-  `0.26.3`.
-- `curl -fsSL https://manut.xyz/workspace` returned
-  `data-version="900ca9c43"` and `/js/index.0dd3a9eb.js`.
-- Live JS probes found `analytics-connections-error-boundary` and
-  `mongodb-settings-error-boundary`.
-- Cloud Run logs for revision `manut-00011-css` had no matching
-  `MongoDB driver`, `listMongoCollections`, `internal_server_error`, or
-  `Unhandled error` entries during the post-deploy check window.
 - `node --check scripts/manut-release-handover.mjs`
 - `node scripts/manut-release-handover.mjs --help`
 - Generator smoke with Markdown and JSON output under `/tmp/superflow-handover-test`
@@ -576,6 +611,36 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   `https://manut.xyz/workspace/gogocash/journals` showed no route error
   (`#app` child count `3`). The user's Chrome tab also recovered after reload
   and displayed the Journals empty state.
+- 2026-05-26 22:51 production launch prep:
+  `bash -n scripts/gcp/smoke-test-cloud-run.sh scripts/gcp/validate-cloud-run-smoke.sh`
+  passed.
+- 2026-05-26 22:51 production launch prep:
+  `scripts/gcp/validate-cloud-run-smoke.sh` passed.
+- 2026-05-26 22:51 production launch prep:
+  `BASE_URL=https://staging.manut.xyz TIMEOUT_SECONDS=20 scripts/gcp/smoke-test-cloud-run.sh`
+  passed.
+- 2026-05-26 22:51 production launch prep:
+  `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=20 scripts/gcp/smoke-test-cloud-run.sh`
+  passed against the current Railway production front door.
+- 2026-05-26 22:51 production launch prep:
+  generated production Cloud Run URL smoke failed as expected because GraphQL
+  `serverConfig.initialized` is `false`; do not cut over DNS until data restore
+  or an explicitly approved first-run setup path resolves this.
+- 2026-05-27 07:00 post-merge launch prep:
+  `gh pr view 168 --json state,mergedAt,mergeCommit` confirmed PR #168 merged
+  at `2026-05-26T23:58:20Z`.
+- 2026-05-27 07:00 post-merge launch prep:
+  `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=20 scripts/gcp/smoke-test-cloud-run.sh`
+  passed against the current Railway production front door.
+- 2026-05-27 07:00 post-merge launch prep:
+  generated production Cloud Run URL smoke still fails as expected because
+  GraphQL `serverConfig.initialized` is `false`.
+- 2026-05-27 07:00 post-merge launch prep: `railway status` shows the Manut
+  service online and a Railway build in progress after the merge; keep
+  production smoke checks active while that build settles.
+- 2026-05-27 07:00 post-merge launch prep: local `pg_dump`, `pg_restore`, and
+  `psql` are not installed; Docker is available for a PostgreSQL client
+  container if the data rehearsal is approved.
 
 ## Open Threads
 
@@ -610,11 +675,10 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   stuck on the 500 page, but the combined WIP still needs browser-shot review
   against an authenticated local/prod-like preview that includes the local
   bundle.
-- Next concrete step: visually review mobile home, bottom-right AI chat modes,
-  page-detail emoji placement, delete/prompt/account-picker modals, and
-  `/workspace/gogocash/journals` in an authenticated local/prod-like preview,
-  then stage source changes only (exclude generated declaration artifacts and
-  unrelated local files).
+- Next concrete step: get explicit approval for the Railway Postgres export
+  rehearsal, then export into a disposable Cloud SQL target and compare
+  critical row counts before requesting approval for the final production
+  restore and DNS cutover.
 
 ## Frequent Update Protocol
 

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { AccessController } from '../../../core/permission';
 import { Models } from '../../../models';
@@ -56,7 +56,9 @@ export class AuthorizedRetrievalFilterService implements AuthorizedRetrievalFilt
   private readonly logger = new Logger(AuthorizedRetrievalFilterService.name);
 
   constructor(
+    @Inject(AccessController)
     private readonly ac: AccessController,
+    @Inject(Models)
     private readonly models: Models
   ) {}
 

@@ -50,7 +50,7 @@ jobs:
       head_sha: ${{ steps.tag.outputs.head_sha }}
       should_run: 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.HEAD_SHA }}
 
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.HEAD_SHA }}
 
@@ -95,7 +95,7 @@ jobs:
           targets: x86_64-unknown-linux-gnu
 
       - name: Cache cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -136,7 +136,7 @@ jobs:
           [ "$PRODUCED" != "server-native.node" ]     && cp "$PRODUCED" server-native.node
           touch server-native.arm64.node server-native.armv7.node
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: manut-native
           path: |
@@ -153,11 +153,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.HEAD_SHA }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
@@ -167,7 +167,7 @@ jobs:
           npm ci
           npm run build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: manut-landing
           path: manut-landing/out
@@ -180,11 +180,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.HEAD_SHA }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: manut-native
           path: packages/backend/native
@@ -218,7 +218,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: manut-dist
           path: |
@@ -242,28 +242,28 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.HEAD_SHA }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: manut-dist
           path: ./packages
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: manut-landing
           path: manut-landing/out
 
       - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
           service_account: 'affine-gha-deployer@affine-495114.iam.gserviceaccount.com'
 
       - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker for GAR
         run: gcloud auth configure-docker "${{ env.GAR_REGION }}-docker.pkg.dev" --quiet
@@ -275,11 +275,11 @@ jobs:
         run: |
           gcloud artifacts docker images delete "${CACHE_IMAGE}" --quiet --delete-tags || true
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build + push image
         id: build_push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./.docker/manut/Dockerfile.fullstack
@@ -314,14 +314,14 @@ jobs:
           } > artifact/image-tag.txt
           cat artifact/image-tag.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: image-tag
           path: artifact/image-tag.txt
           retention-days: 7
           if-no-files-found: error
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.HEAD_SHA }}
 
@@ -344,7 +344,7 @@ jobs:
             --output artifact/manut-handover.md \
             --json-output artifact/manut-handover.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: manut-handover
           path: |

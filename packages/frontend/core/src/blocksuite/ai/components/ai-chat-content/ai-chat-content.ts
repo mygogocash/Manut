@@ -60,6 +60,17 @@ const DEFAULT_CHAT_CONTEXT_VALUE: ChatContextValue = {
   html: null,
 };
 
+export function getChatPanelMainClasses(options: {
+  independentMode: boolean;
+  hasMessages: boolean;
+}) {
+  return {
+    'chat-panel-main': true,
+    'independent-mode': options.independentMode,
+    'no-message': !options.hasMessages,
+  };
+}
+
 export class AIChatContent extends SignalWatcher(
   WithDisposable(ShadowlessElement)
 ) {
@@ -101,6 +112,21 @@ export class AIChatContent extends SignalWatcher(
       padding: 8px calc(24px - var(--h-padding)) 0 calc(24px - var(--h-padding));
       max-width: 800px;
       margin: 0 auto;
+    }
+    .chat-panel-main.independent-mode.no-message {
+      justify-content: flex-start;
+      overflow-y: auto;
+      padding-top: 24px;
+      padding-bottom: 16px;
+      scrollbar-width: thin;
+    }
+    .chat-panel-main.independent-mode.no-message ai-chat-messages {
+      flex: 0 0 auto;
+      overflow: visible;
+      padding-bottom: 10px;
+    }
+    .chat-panel-main.independent-mode.no-message ai-chat-composer {
+      flex: 0 0 auto;
     }
 
     ai-chat-composer {
@@ -237,6 +263,10 @@ export class AIChatContent extends SignalWatcher(
       .chat-panel-main {
         padding: 8px calc(12px - var(--h-padding)) 0
           calc(12px - var(--h-padding));
+      }
+      .chat-panel-main.independent-mode.no-message {
+        padding-top: 20px;
+        padding-bottom: 12px;
       }
     }
   `;
@@ -758,8 +788,19 @@ export class AIChatContent extends SignalWatcher(
 
     const right = this.previewPanelContent;
 
+    const hasMessages = this.messages.length > 0;
+
     return html`<chat-panel-split-view
-      .left=${html`<div class="chat-panel-main">${left}</div>`}
+      .left=${html`<div
+        class=${classMap(
+          getChatPanelMainClasses({
+            independentMode: !!this.independentMode,
+            hasMessages,
+          })
+        )}
+      >
+        ${left}
+      </div>`}
       .right=${right}
       .open=${this.showPreviewPanel}
     >

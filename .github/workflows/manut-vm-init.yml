@@ -49,7 +49,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Validate source files exist in repo
         run: |
@@ -66,13 +66,13 @@ jobs:
 
       - name: Authenticate to GCP
         # WIF — see manut-autodeploy.yml. No untrusted input.
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: 'projects/602860445793/locations/global/workloadIdentityPools/github-actions/providers/github'
           service_account: 'affine-gha-deployer@affine-495114.iam.gserviceaccount.com'
 
       - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: scp scripts + canary overlay to /tmp on VM
         run: |

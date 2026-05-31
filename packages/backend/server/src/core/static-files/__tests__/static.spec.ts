@@ -140,6 +140,58 @@ test.serial(
   }
 );
 
+test.serial('serves exported legal pages before the SPA fallback', async t => {
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'affine-static-files-'));
+  initStaticFixture(fixtureRoot);
+
+  const staticRoot = join(fixtureRoot, 'static');
+  const files: Array<[string, string]> = [
+    ['landing/privacy.html', 'privacy-google-legal'],
+    ['landing/privacy-policy.html', 'privacy-policy-google-legal'],
+    ['landing/terms/index.html', 'terms-google-legal'],
+    ['landing/terms-of-service/index.html', 'terms-of-service-google-legal'],
+  ];
+  for (const [file, content] of files) {
+    const fullPath = join(staticRoot, file);
+    mkdirSync(dirname(fullPath), { recursive: true });
+    writeFileSync(fullPath, content);
+  }
+
+  const prevProjectRoot = env.projectRoot;
+  const prevNamespace = env.NAMESPACE;
+
+  try {
+    // @ts-expect-error test override
+    env.projectRoot = fixtureRoot;
+    // @ts-expect-error test override
+    env.NAMESPACE = Namespace.Production;
+
+    const app = await createApp();
+
+    const privacyRes = await request(app).get('/privacy').expect(200);
+    t.is(privacyRes.text, 'privacy-google-legal');
+
+    const privacyPolicyRes = await request(app)
+      .get('/privacy-policy')
+      .expect(200);
+    t.is(privacyPolicyRes.text, 'privacy-policy-google-legal');
+
+    const termsRes = await request(app).get('/terms').expect(200);
+    t.is(termsRes.text, 'terms-google-legal');
+
+    const termsOfServiceRes = await request(app)
+      .get('/terms-of-service')
+      .expect(200);
+    t.is(termsOfServiceRes.text, 'terms-of-service-google-legal');
+  } finally {
+    // @ts-expect-error test override
+    env.projectRoot = prevProjectRoot;
+    // @ts-expect-error test override
+    env.NAMESPACE = prevNamespace;
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
 test.serial('uses mobile root only in dev namespace for mobile UA', async t => {
   const fixtureRoot = mkdtempSync(join(tmpdir(), 'affine-static-files-'));
   initStaticFixture(fixtureRoot);

@@ -1,0 +1,85 @@
+# Cloud Build CI for Manut.
+#
+# This mirrors the high-signal GitHub "Manut CI" checks so Cloud Build can
+# become the owner of PR validation during the GCP migration.
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+timeout: 5400s
+
+substitutions:
+  _NODE_IMAGE: node:22-bookworm
+
+steps:
+  - id: install
+    name: $_NODE_IMAGE
+    entrypoint: bash
+    env:
+      - YARN_ENABLE_HARDENED_MODE=0
+      - HUSKY=0
+      - ELECTRON_SKIP_BINARY_DOWNLOAD=1
+      - PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+      - SENTRYCLI_SKIP_DOWNLOAD=1
+      - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+    args:
+      - -ceu
+      - |
+        corepack enable
+        corepack prepare yarn@4.13.0 --activate
+        yarn install --immutable
+
+  - id: oxlint
+    name: $_NODE_IMAGE
+    entrypoint: bash
+    env:
+      - YARN_ENABLE_HARDENED_MODE=0
+      - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+    args:
+      - -ceu
+      - |
+        corepack enable
+        corepack prepare yarn@4.13.0 --activate
+        yarn oxlint --deny-warnings
+
+  - id: graphql codegen drift
+    name: $_NODE_IMAGE
+    entrypoint: bash
+    env:
+      - YARN_ENABLE_HARDENED_MODE=0
+      - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+    args:
+      - -ceu
+      - |
+        corepack enable
+        corepack prepare yarn@4.13.0 --activate
+        before="$(mktemp -d)"
+        cp packages/common/graphql/src/schema.ts "$$before/schema.ts"
+        cp packages/common/graphql/src/graphql/index.ts "$$before/index.ts"
+
+        yarn workspace @affine/graphql build
+
+        if ! cmp -s "$$before/schema.ts" packages/common/graphql/src/schema.ts ||
+           ! cmp -s "$$before/index.ts" packages/common/graphql/src/graphql/index.ts; then
+          echo "GraphQL codegen drift detected."
+          echo "Run locally:"
+          echo "  yarn workspace @affine/graphql build"
+          echo "Then commit the regenerated schema.ts and graphql/index.ts."
+          exit 1
+        fi
+
+  - id: build web admin mobile
+    name: $_NODE_IMAGE
+    entrypoint: bash
+    env:
+      - YARN_ENABLE_HARDENED_MODE=0
+      - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+    args:
+      - -ceu
+      - |
+        corepack enable
+        corepack prepare yarn@4.13.0 --activate
+        yarn affine bundle -p web
+        yarn affine bundle -p admin
+        yarn affine bundle -p mobile

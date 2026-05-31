@@ -461,6 +461,10 @@ export const VertexModelListSchema = z.object({
   ),
 });
 
+export type VertexPublisherModel = z.infer<
+  typeof VertexModelListSchema
+>['publisherModels'][number];
+
 function normalizeUrl(baseURL?: string) {
   if (!baseURL?.trim()) {
     return undefined;
@@ -497,6 +501,35 @@ export function getVertexOpenAIBaseUrl(options: VertexProviderConfig) {
   const { location, project } = options;
   if (!location || !project) return undefined;
   return `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/endpoints/openapi`;
+}
+
+export function getVertexPublisherModelsUrl(
+  options: VertexProviderConfig,
+  publisher: string
+) {
+  const normalizedBaseUrl = normalizeUrl(options.baseURL);
+  if (normalizedBaseUrl) return `${normalizedBaseUrl}/models`;
+  const { location } = options;
+  if (!location) return undefined;
+  return `https://${location}-aiplatform.googleapis.com/v1beta1/publishers/${publisher}/models`;
+}
+
+export async function readVertexModelListResponse(response: Response) {
+  if (!response.ok) {
+    return undefined;
+  }
+
+  const contentType = response.headers.get('content-type')?.toLowerCase();
+  if (contentType && !contentType.includes('application/json')) {
+    return undefined;
+  }
+
+  try {
+    const result = VertexModelListSchema.safeParse(await response.json());
+    return result.success ? result.data.publisherModels : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getGoogleAuth(

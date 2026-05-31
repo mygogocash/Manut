@@ -1,0 +1,161 @@
+# Cloud Build template for the Manut Cloud Run target.
+#
+# This is the GCP-owned Cloud Run deploy template. It supports manual
+# `gcloud builds submit` rehearsals and Cloud Build triggers.
+
+substitutions:
+  _REGION: asia-southeast1
+  _SERVICE_NAME: manut
+  _MIGRATION_JOB_NAME: manut-migrate
+  _GAR_REPOSITORY: affine
+  _IMAGE_NAME: affine-gogocash
+  _IMAGE_TAG: manual
+  _RUNTIME_SERVICE_ACCOUNT: manut-cloud-run@affine-495114.iam.gserviceaccount.com
+  _EXTERNAL_URL: https://manut.xyz
+  _VPC_NETWORK: default
+  _VPC_SUBNET: default
+  _VPC_EGRESS: private-ranges-only
+  _REDIS_SERVER_HOST: 10.47.0.3
+  _REDIS_SERVER_PORT: '6379'
+  _MIN_INSTANCES: '1'
+  _MAX_INSTANCES: '20'
+  _CONCURRENCY: '40'
+  _CPU: '2'
+  _MEMORY: 4Gi
+  _TIMEOUT: 3600s
+  _DATABASE_URL_SECRET: manut-database-url
+  _AFFINE_CONFIG_JSON_B64_SECRET: manut-affine-config-json-b64
+  _AFFINE_PRIVATE_KEY_SECRET: manut-affine-private-key
+  _GOOGLE_OAUTH_CLIENT_ID_SECRET: manut-google-oauth-client-id
+  _GOOGLE_OAUTH_CLIENT_SECRET: manut-google-oauth-client-secret
+  _MAIL_PROVIDER: resend
+  _RESEND_FROM: noreply@gogocash.co
+  _RESEND_API_KEY_SECRET: manut-resend-api-key
+  _SMOKE_BASE_URL: ''
+  _SMOKE_TIMEOUT_SECONDS: '120'
+  _REQUIRED_SERVER_FEATURES: Manut,Copilot
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
+  substitutionOption: ALLOW_LOOSE
+  machineType: E2_HIGHCPU_8
+
+timeout: 7200s
+
+images:
+  - $_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG
+
+steps:
+  - id: build image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=.docker/manut/Dockerfile.railway
+      - --tag=$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG
+      - --build-arg=GITHUB_SHA=$_IMAGE_TAG
+      - .
+
+  - id: push image
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - $_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG
+
+  - id: upsert migration job
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        IMAGE="$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG"
+        COMMON_FLAGS=(
+          --project="$PROJECT_ID"
+          --region="$_REGION"
+          --image="$$IMAGE"
+          --service-account="$_RUNTIME_SERVICE_ACCOUNT"
+          --cpu="$_CPU"
+          --memory="$_MEMORY"
+          --task-timeout="$_TIMEOUT"
+          --max-retries=0
+          --parallelism=1
+          --tasks=1
+          --network="$_VPC_NETWORK"
+          --subnet="$_VPC_SUBNET"
+          --vpc-egress="$_VPC_EGRESS"
+          --set-env-vars=MANUT_RUN_STARTUP_MIGRATIONS=false
+          --set-secrets=DATABASE_URL=$_DATABASE_URL_SECRET:latest,AFFINE_CONFIG_JSON_B64=$_AFFINE_CONFIG_JSON_B64_SECRET:latest
+          --command=./node_modules/.bin/prisma
+          --args=migrate,deploy,--schema=./schema.prisma
+        )
+
+        if gcloud run jobs describe "$_MIGRATION_JOB_NAME" --project="$PROJECT_ID" --region="$_REGION" >/dev/null 2>&1; then
+          gcloud run jobs update "$_MIGRATION_JOB_NAME" "$${COMMON_FLAGS[@]}"
+        else
+          gcloud run jobs create "$_MIGRATION_JOB_NAME" "$${COMMON_FLAGS[@]}"
+        fi
+
+  - id: run migrations
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - execute
+      - $_MIGRATION_JOB_NAME
+      - --project=$PROJECT_ID
+      - --region=$_REGION
+      - --wait
+
+  - id: deploy service
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - $_SERVICE_NAME
+      - --project=$PROJECT_ID
+      - --region=$_REGION
+      - --image=$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG
+      - --service-account=$_RUNTIME_SERVICE_ACCOUNT
+      - --platform=managed
+      - --execution-environment=gen2
+      - --allow-unauthenticated
+      - --ingress=all
+      - --port=3010
+      - --cpu=$_CPU
+      - --memory=$_MEMORY
+      - --timeout=$_TIMEOUT
+      - --concurrency=$_CONCURRENCY
+      - --min-instances=$_MIN_INSTANCES
+      - --max-instances=$_MAX_INSTANCES
+      - --network=$_VPC_NETWORK
+      - --subnet=$_VPC_SUBNET
+      - --vpc-egress=$_VPC_EGRESS
+      - --set-env-vars=AFFINE_SERVER_EXTERNAL_URL=$_EXTERNAL_URL,AFFINE_SERVER_HTTPS=true,MANUT_RUN_STARTUP_MIGRATIONS=false,ENABLE_MANUT_MODULE=true,ENABLE_MANUT_ROUTINES=true,REDIS_SERVER_HOST=$_REDIS_SERVER_HOST,REDIS_SERVER_PORT=$_REDIS_SERVER_PORT,REDIS_SERVER_DATABASE=0
+      - --set-env-vars=MAIL_PROVIDER=$_MAIL_PROVIDER,RESEND_FROM=$_RESEND_FROM
+      - --set-secrets=DATABASE_URL=$_DATABASE_URL_SECRET:latest,AFFINE_CONFIG_JSON_B64=$_AFFINE_CONFIG_JSON_B64_SECRET:latest,AFFINE_PRIVATE_KEY=$_AFFINE_PRIVATE_KEY_SECRET:latest,GOOGLE_OAUTH_CLIENT_ID=$_GOOGLE_OAUTH_CLIENT_ID_SECRET:latest,GOOGLE_OAUTH_CLIENT_SECRET=$_GOOGLE_OAUTH_CLIENT_SECRET:latest,RESEND_API_KEY=$_RESEND_API_KEY_SECRET:latest
+
+  - id: smoke service
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        BASE_URL="$_SMOKE_BASE_URL"
+        if [ -z "$$BASE_URL" ]; then
+          BASE_URL="$$(gcloud run services describe "$_SERVICE_NAME" \
+            --project="$PROJECT_ID" \
+            --region="$_REGION" \
+            --format='value(status.url)')"
+        fi
+
+        if [ -z "$$BASE_URL" ]; then
+          echo "Could not resolve Cloud Run service URL for $_SERVICE_NAME" >&2
+          exit 1
+        fi
+
+        BASE_URL="$$BASE_URL" \
+          TIMEOUT_SECONDS="$_SMOKE_TIMEOUT_SECONDS" \
+          REQUIRED_SERVER_FEATURES="$_REQUIRED_SERVER_FEATURES" \
+          scripts/gcp/smoke-test-cloud-run.sh
