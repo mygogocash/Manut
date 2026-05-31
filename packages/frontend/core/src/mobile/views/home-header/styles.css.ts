@@ -21,7 +21,7 @@ export const workspaceChip = style({
   padding: 6,
   borderRadius: '50%',
   border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
-  background: cssVarV2('layer/background/mobile/primary'),
+  background: 'var(--manut-surface-glass-strong)',
   backdropFilter: 'blur(18px) saturate(180%)',
   WebkitBackdropFilter: 'blur(18px) saturate(180%)',
   boxShadow: '0 12px 30px rgba(0, 0, 0, 0.12)',
@@ -70,7 +70,7 @@ export const menuButton = style({
   whiteSpace: 'nowrap',
   boxShadow: '0 8px 22px rgba(0, 0, 0, 0.08)',
   transition:
-    'flex-basis 240ms cubic-bezier(0.34, 1.56, 0.64, 1), transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 180ms ease-out, color 180ms ease-out, box-shadow 180ms ease-out',
+    'flex-basis 240ms var(--manut-anim-curve-overshoot), transform 160ms var(--manut-anim-curve-overshoot), background-color 180ms ease-out, color 180ms ease-out, box-shadow 180ms ease-out',
   selectors: {
     '&[data-active="true"]': {
       flexBasis: 110,
@@ -106,7 +106,7 @@ export const menuLabel = style({
   transform: 'translateX(-4px)',
   overflow: 'hidden',
   transition:
-    'max-width 220ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 150ms ease-out, transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+    'max-width 220ms var(--manut-anim-curve-overshoot), opacity 150ms ease-out, transform 220ms var(--manut-anim-curve-overshoot)',
   selectors: {
     [`${menuButton}[data-active="true"] &`]: {
       maxWidth: 104,
