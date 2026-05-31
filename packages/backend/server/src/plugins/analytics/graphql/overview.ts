@@ -26,6 +26,22 @@ export const GOGOCASH_KPI_DEFS: ReadonlyArray<{ key: string; label: string }> =
   ];
 
 /**
+ * Attribution key the GoGoCash poller writes instance-wide KPIs under
+ * (`ingest/polling/gogocash.poller.ts` -> `INSTANCE_WIDE_BUCKET`).
+ *
+ * The KPIs in `GOGOCASH_KPI_DEFS` (total_users, signups_*, dau, mau,
+ * total_workspaces, ...) describe the WHOLE deployment, not any single
+ * workspace, so the poller persists them exactly ONCE under this reserved
+ * id rather than duplicating identical numbers under every connected
+ * workspace (finding #14 — that fan-out was a cross-tenant data-exposure
+ * bug). The overview consumer MUST therefore read these metrics from the
+ * `'__internal__'` bucket, NOT from the caller's workspaceId — keeping the
+ * two sides in lockstep. Per-workspace connection status and insights stay
+ * scoped to the real workspaceId below.
+ */
+export const INSTANCE_WIDE_METRICS_KEY = '__internal__';
+
+/**
  * Narrow Prisma surface required by `buildOverview`.
  *
  * Declaring an explicit dependency surface here (instead of taking the full
@@ -118,9 +134,16 @@ export async function buildOverview(
 
   // Pull last 24h of hourly metrics for the GoGoCash KPIs we care about.
   // We also fetch the prior 24h window so we can compute deltaPct.
+  //
+  // These KPIs are INSTANCE-WIDE, so they live under the reserved
+  // `INSTANCE_WIDE_METRICS_KEY` bucket the poller writes to — NOT under
+  // the caller's workspaceId. Reading them per-workspace would surface
+  // zeros for every workspace (the metrics simply aren't keyed there) and
+  // re-introduce the cross-tenant confusion finding #14 fixed on the write
+  // side. See INSTANCE_WIDE_METRICS_KEY above.
   const recentRows = await db.socialMetric.findMany({
     where: {
-      workspaceId,
+      workspaceId: INSTANCE_WIDE_METRICS_KEY,
       platform: 'GOGOCASH',
       bucket: 'HOUR',
       bucketStart: { gte: twoDaysAgo },
