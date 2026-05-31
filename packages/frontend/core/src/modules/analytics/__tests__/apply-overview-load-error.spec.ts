@@ -1,3 +1,4 @@
+import { DebugLogger } from '@affine/debug';
 import { describe, expect, test, vi } from 'vitest';
 
 import { applyOverviewLoadError } from '../services/analytics.service';
@@ -35,9 +36,12 @@ function makeMock() {
   };
 }
 
-// Suppress the diagnostic console.warn the helper emits on the unavailable
-// path — it would otherwise pollute the test runner output.
-const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+// Spy on the DebugLogger the helper now uses for the diagnostic on the
+// unavailable path. (The helper moved off `console.warn` to the shared
+// DebugLogger — see the no-console cleanup.)
+const errorSpy = vi
+  .spyOn(DebugLogger.prototype, 'error')
+  .mockImplementation(() => undefined);
 
 describe('applyOverviewLoadError', () => {
   test('schema-missing GRAPHQL_BAD_REQUEST -> unavailable=true, error=null, overview=null', () => {
@@ -54,7 +58,7 @@ describe('applyOverviewLoadError', () => {
     expect(data.setOverview).toHaveBeenCalledWith(null);
     expect(data.setUnavailable).toHaveBeenCalledWith(true);
     expect(data.setError).toHaveBeenCalledWith(null);
-    expect(warnSpy).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalled();
   });
 
   test('plain Error with "Cannot query field" message also flips unavailable', () => {

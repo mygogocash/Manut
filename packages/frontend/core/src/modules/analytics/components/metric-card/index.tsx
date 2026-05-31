@@ -45,7 +45,7 @@ export function MetricCard({
         <span className={deltaClass}>
           {delta === undefined ? '—' : formatDelta(delta, deltaFormat)}
         </span>
-        <span className={styles.deltaNeutral}>vs last 7d</span>
+        <span className={styles.deltaNeutral}>vs prior 24h</span>
       </div>
     </div>
   );

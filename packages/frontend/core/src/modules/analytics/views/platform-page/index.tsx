@@ -1,3 +1,4 @@
+import { DebugLogger } from '@affine/debug';
 import { useLiveData, useService } from '@toeverything/infra';
 import { useEffect, useMemo } from 'react';
 
@@ -15,6 +16,8 @@ import type { PlatformConnection } from '../../entities/platform-connection.enti
 import { AnalyticsService } from '../../services/analytics.service';
 import { ConnectionService } from '../../services/connection.service';
 import * as styles from './index.css';
+
+const logger = new DebugLogger('analytics');
 
 // Stable empty-array references for useMemo deps; see ai-strategist/index.tsx.
 const EMPTY_INSIGHTS: readonly Insight[] = Object.freeze([]);
@@ -93,13 +96,13 @@ export function PlatformPage({ platform }: PlatformPageProps) {
 
   useEffect(() => {
     analyticsService.loadOverview(workspaceId).catch(err => {
-      console.warn('[analytics] loadOverview failed', err);
+      logger.error('loadOverview failed', err);
     });
     analyticsService.loadInsights(workspaceId).catch(err => {
-      console.warn('[analytics] loadInsights failed', err);
+      logger.error('loadInsights failed', err);
     });
     connectionService.loadConnections(workspaceId).catch(err => {
-      console.warn('[analytics] loadConnections failed', err);
+      logger.error('loadConnections failed', err);
     });
   }, [analyticsService, connectionService, workspaceId]);
 

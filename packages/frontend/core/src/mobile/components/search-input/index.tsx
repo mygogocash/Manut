@@ -65,6 +65,13 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
       setWidth(containerRef.current?.offsetWidth ?? 0);
     }, []);
 
+    // Keep the internal value in sync when the controlled `value` prop
+    // changes from outside (e.g. cleared by the parent). Without this the
+    // input desyncs and keeps stale text after an external reset.
+    useEffect(() => {
+      setInputValue(value);
+    }, [value]);
+
     const emitValue = useMemo(() => {
       const cb = (value: string) => onInput?.(value);
       return debounceDuration ? debounce(cb, debounceDuration) : cb;

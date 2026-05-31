@@ -1,3 +1,4 @@
+import { DebugLogger } from '@affine/debug';
 import {
   acknowledgeInsightMutation,
   getAnalyticsOverviewQuery,
@@ -20,6 +21,8 @@ import {
   type InsightType,
 } from '../entities/insight.entity';
 import { isAnalyticsFeatureUnavailableError } from './connection.service';
+
+const logger = new DebugLogger('analytics');
 
 // SocialInsight on the wire (from `SocialInsightObjectType` in the backend
 // DTO) does NOT include `workspaceId`. The entity-level `Insight` type does
@@ -110,10 +113,7 @@ export function applyOverviewLoadError(
   if (isAnalyticsFeatureUnavailableError(err)) {
     data.setUnavailable(true);
     data.setError(null);
-    console.warn(
-      '[analytics] overview schema not available on this server',
-      err
-    );
+    logger.error('overview schema not available on this server', err);
     return;
   }
   const message = err instanceof Error ? err.message : 'Unknown error';
