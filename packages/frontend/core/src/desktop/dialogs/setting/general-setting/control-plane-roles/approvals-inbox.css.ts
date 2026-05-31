@@ -79,6 +79,10 @@ export const row = style({
     '&:hover': {
       background: cssVarV2.layer.background.hoverOverlay,
     },
+    '&:focus-visible': {
+      outline: `2px solid ${cssVarV2.button.primary}`,
+      outlineOffset: '-2px',
+    },
   },
 });
 

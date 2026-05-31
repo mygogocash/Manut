@@ -4,8 +4,6 @@ import {
   SettingWrapper,
 } from '@affine/component/setting-components';
 import { SWRErrorBoundary } from '@affine/core/components/pure/swr-error-bundary';
-import { WorkspacePermissionService } from '@affine/core/modules/permissions';
-import { useLiveData, useService } from '@toeverything/infra';
 import type { FallbackProps } from 'react-error-boundary';
 
 import { AnalyticsConnectionsPanel } from './panel';
@@ -34,26 +32,21 @@ const AnalyticsConnectionsErrorFallback = ({
 /**
  * Workspace settings panel: Analytics → Connections.
  *
- * Owner-only by visibility (the entry is hidden in the sidebar list for
- * non-owners). Renders the 6 social + 2 db connector cards shipped in
- * the Wave 7+ batch — see `./panel.tsx`. The pre-existing analytics-
- * module `ConnectionsSettings` view remains intact for callers that
- * still wire it directly.
+ * Visibility is gated to owners/admins by the sidebar list — the
+ * `workspace:analytics-connections` entry is only added in
+ * `useWorkspaceSettingList` when `isOwner || isAdmin` (see
+ * `../index.tsx`). Once visible, the panel allows any member to
+ * configure connectors; there is no per-control edit gate today, so the
+ * panel takes no `canEdit` prop. If a finer-grained member-level edit
+ * model is needed later, add a `canEdit` prop to
+ * `AnalyticsConnectionsPanel` and compute the permission here.
  *
- * `canEdit` is computed for symmetry with other workspace setting
- * panels even though the new panel currently allows all members to
- * configure connectors. When the analytics-module integration ships,
- * gate `<AnalyticsConnectionsPanel canEdit={canEdit} />` here.
+ * Renders the 6 social + 2 db connector cards shipped in the Wave 7+
+ * batch — see `./panel.tsx`. The pre-existing analytics-module
+ * `ConnectionsSettings` view remains intact for callers that still wire
+ * it directly.
  */
 export const WorkspaceAnalyticsConnections = () => {
-  const workspacePermissionService = useService(
-    WorkspacePermissionService
-  ).permission;
-  const isOwner = useLiveData(workspacePermissionService.isOwner$);
-  const isAdmin = useLiveData(workspacePermissionService.isAdmin$);
-  // Reserved for forward compatibility — see comment above.
-  void Boolean(isOwner || isAdmin);
-
   return (
     <>
       <SettingHeader

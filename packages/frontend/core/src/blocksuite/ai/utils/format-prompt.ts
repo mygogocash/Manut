@@ -29,8 +29,13 @@ export const DEFAULT_FORMAT: OutputFormat = 'auto';
 
 export const OUTPUT_FORMAT_OPTIONS: readonly OutputFormatOption[] = [
   {
+    // The menu row reads "Auto (default)" so the selected default row is
+    // legible as the neutral choice, while the chip trigger stays "Format"
+    // (see getFormatSelectorTriggerLabel) to avoid colliding with the
+    // adjacent model picker's "Auto". The trigger label is derived from
+    // DEFAULT_FORMAT, not from this `label`, so the chip is unaffected.
     format: 'auto',
-    label: 'Auto',
+    label: 'Auto (default)',
     description: 'Let the AI pick the best shape.',
     enabled: true,
   },

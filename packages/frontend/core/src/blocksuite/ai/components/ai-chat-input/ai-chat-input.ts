@@ -40,6 +40,7 @@ import {
   isChatMessage,
   StreamObjectSchema,
 } from '../ai-chat-messages';
+import { toolsConfigForSend } from './tools-config-for-send';
 import type { AIChatInputContext, AIReasoningConfig } from './type';
 
 function getFirstTwoLines(text: string) {
@@ -483,6 +484,20 @@ export class AIChatInput extends SignalWatcher(
         })
         .catch(console.error);
     }
+    // P2: restore the persisted output-format chip selection for this
+    // workspace so the chosen format survives panel close/reopen and
+    // remount. Mirrors the chatMode/enabledTools persistence in
+    // modules/ai-button/services/tools-config.ts. Only applies a stored
+    // value — a fresh workspace stays on DEFAULT_FORMAT. If a parent already
+    // controls `selectedFormat` via property binding, that binding wins
+    // because it re-applies on every render; this only seeds the uncontrolled
+    // default.
+    const storedFormat = this.aiToolsConfigService.getChatFormat(
+      this.workspaceId
+    );
+    if (storedFormat) {
+      this.selectedFormat = storedFormat;
+    }
   }
 
   protected override render() {
@@ -841,11 +856,14 @@ export class AIChatInput extends SignalWatcher(
   };
 
   // Epic E1.10 — chip dropdown callback. Updates the local accessor so
-  // the next send picks up the new suffix, and notifies the parent for
-  // persistence (when wired). Defined as an arrow so the `this` binding
+  // the next send picks up the new suffix, persists the choice per-workspace
+  // (P2), and notifies the parent. Defined as an arrow so the `this` binding
   // stays stable across re-renders.
   private readonly _handleFormatChange = (format: OutputFormat) => {
     this.selectedFormat = format;
+    // P2: persist per-workspace so the format survives close/reopen +
+    // remount. The store is the source of truth restored in firstUpdated.
+    this.aiToolsConfigService.setChatFormat(this.workspaceId, format);
     this.onFormatChange?.(format);
   };
 
@@ -967,7 +985,7 @@ export class AIChatInput extends SignalWatcher(
         where: this.trackOptions?.where,
         control: this.trackOptions?.control,
         reasoning: this._isReasoningActive,
-        toolsConfig: this.aiToolsConfigService.config.value,
+        toolsConfig: this._toolsConfigForSend(),
         modelId,
       });
 
@@ -1005,6 +1023,19 @@ export class AIChatInput extends SignalWatcher(
       this.updateContext({ abortController: null });
     }
   };
+
+  // M6: when the Image output-format chip is active, the per-request
+  // tools-config must include `imageGen` or the backend returns prose. The
+  // splice logic lives in the pure `toolsConfigForSend` helper (unit-tested
+  // in tools-config-for-send.spec.ts); this just feeds it the live config +
+  // selected format. The persisted config and the user's Mode pick are
+  // untouched — the grant is per-send and immutable.
+  private _toolsConfigForSend() {
+    return toolsConfigForSend(
+      this.aiToolsConfigService.config.value,
+      this.selectedFormat
+    );
+  }
 
   private readonly _preUpdateMessages = async (
     userInput: string,

@@ -937,6 +937,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.ai.template-insert.failed"](): string;
     /**
+      * `Good response`
+      */
+    ["com.affine.ai.feedback.thumbs-up"](): string;
+    /**
+      * `Bad response`
+      */
+    ["com.affine.ai.feedback.thumbs-down"](): string;
+    /**
       * `List view options`
       */
     ["com.affine.all-docs.display.list-view"](): string;
@@ -10105,6 +10113,22 @@ export function useAFFiNEI18N(): {
       * `Docs with this tag will show up here.`
       */
     ["com.manut.mobile.empty.tag.description"](): string;
+    /**
+      * `Mixed`
+      */
+    ["com.manut.crm.deals.mixedCurrencies"](): string;
+    /**
+      * `Days 1–28 only. Use Advanced (cron) for days 29–31.`
+      */
+    ["com.manut.reminders.rules.field.monthDay.hint"](): string;
+    /**
+      * `Budget`
+      */
+    ["com.manut.settings.workspace.budget.title"](): string;
+    /**
+      * `Work Queues`
+      */
+    ["com.manut.settings.workspace.work-queues.title"](): string;
     /**
       * `core`
       */

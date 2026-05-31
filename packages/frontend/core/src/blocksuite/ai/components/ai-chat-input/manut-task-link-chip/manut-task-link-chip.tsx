@@ -1,5 +1,5 @@
 import type { MnTaskDto } from '@affine/core/modules/manut-pm';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import * as styles from './manut-task-link-chip.css';
 
@@ -40,6 +40,12 @@ export const ManutTaskLinkChip = ({
 }: ManutTaskLinkChipProps) => {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const closePicker = useCallback(() => {
+    setIsPickerOpen(false);
+    setQuery('');
+  }, []);
 
   const togglePicker = useCallback(() => {
     setIsPickerOpen(open => !open);
@@ -53,6 +59,38 @@ export const ManutTaskLinkChip = ({
     },
     [onSelectTask]
   );
+
+  // M17 a11y: close the picker on Escape and on a click/focus outside the
+  // chip root. Listeners are only attached while the picker is open so a
+  // closed chip costs nothing. Escape returns focus to the chip's trigger so
+  // keyboard users aren't dropped at the top of the document.
+  useEffect(() => {
+    if (!isPickerOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        closePicker();
+        const trigger = rootRef.current?.querySelector('button');
+        if (trigger instanceof HTMLElement) trigger.focus();
+      }
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && rootRef.current?.contains(target)) {
+        return;
+      }
+      closePicker();
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+    };
+  }, [isPickerOpen, closePicker]);
 
   const handleClear = useCallback(
     (event: React.MouseEvent) => {
@@ -70,13 +108,21 @@ export const ManutTaskLinkChip = ({
     );
   }, [candidateTasks, query]);
 
+  const listboxId = 'manut-task-link-listbox';
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={rootRef} style={{ position: 'relative' }}>
       <button
         type="button"
         className={styles.chipRoot}
         data-bound={!!boundTask}
         onClick={togglePicker}
+        // M17 a11y: announce this as a popup-owning toggle so screen
+        // readers convey both the collapsed/expanded state and that
+        // activating it opens a listbox.
+        aria-haspopup="listbox"
+        aria-expanded={isPickerOpen}
+        aria-controls={isPickerOpen ? listboxId : undefined}
         title={
           boundTask
             ? `Linked to: ${boundTask.title}`
@@ -120,23 +166,35 @@ export const ManutTaskLinkChip = ({
               className={styles.pickerSearchInput}
               value={query}
               onChange={ev => setQuery(ev.target.value)}
+              aria-label="Search tasks"
+              aria-controls={listboxId}
             />
             {filtered.length === 0 ? (
               <div className={styles.pickerEmpty}>No matching tasks</div>
             ) : (
-              filtered.map(task => (
-                <button
-                  key={task.id}
-                  type="button"
-                  className={styles.pickerOption}
-                  onClick={() => handlePick(task.id)}
-                >
-                  <span className={styles.pickerOptionTitle}>{task.title}</span>
-                  <span className={styles.pickerOptionMeta}>
-                    {task.status} · {task.priority}
-                  </span>
-                </button>
-              ))
+              // M17 a11y: expose the option list with listbox/option roles
+              // so assistive tech announces it as a single-select list. Each
+              // row carries aria-selected so the currently-bound task reads
+              // as selected.
+              <div role="listbox" id={listboxId} aria-label="Project tasks">
+                {filtered.map(task => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    role="option"
+                    aria-selected={boundTask?.id === task.id}
+                    className={styles.pickerOption}
+                    onClick={() => handlePick(task.id)}
+                  >
+                    <span className={styles.pickerOptionTitle}>
+                      {task.title}
+                    </span>
+                    <span className={styles.pickerOptionMeta}>
+                      {task.status} · {task.priority}
+                    </span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </div>

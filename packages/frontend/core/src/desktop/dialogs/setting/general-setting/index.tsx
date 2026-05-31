@@ -176,11 +176,13 @@ export const useGeneralSettingList = (): GeneralSettingList => {
 interface GeneralSettingProps {
   activeTab: SettingTab;
   onChangeSettingState: (settingState: SettingState) => void;
+  onCloseSetting: () => void;
 }
 
 export const GeneralSetting = ({
   activeTab,
   onChangeSettingState,
+  onCloseSetting,
 }: GeneralSettingProps) => {
   switch (activeTab) {
     case 'shortcuts':
@@ -206,7 +208,7 @@ export const GeneralSetting = ({
     case 'backup':
       return <BackupSettingPanel />;
     case 'controlPlaneRoles':
-      return <ControlPlaneRolesSettingPanel />;
+      return <ControlPlaneRolesSettingPanel onCloseSetting={onCloseSetting} />;
     default:
       return null;
   }

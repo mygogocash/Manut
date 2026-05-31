@@ -11,8 +11,22 @@ import {
   submitMnApprovalRevisionMutation,
 } from '@affine/core/modules/manut-control-plane';
 import { Suspense, useCallback, useMemo, useState } from 'react';
+import { useSWRConfig } from 'swr';
 
 import * as styles from './approval-detail-drawer.css';
+
+/**
+ * SWR cache-key predicate for the comments query (M10).
+ *
+ * `useQuery` keys the comments fetch as `['cloud', query.id, variables]`.
+ * After posting a comment we revalidate by matching on `query.id` at
+ * index 1 so the new comment appears without reopening the drawer, while
+ * never touching unrelated cache entries. Pure + exported so the matching
+ * rule is unit-testable in isolation.
+ */
+export function matchesCommentsCacheKey(key: unknown): boolean {
+  return Array.isArray(key) && key[1] === mnApprovalCommentsQuery.id;
+}
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'Unexpected error';
@@ -91,6 +105,7 @@ export const ApprovalDetailDrawer = ({
   const [decisionNote, setDecisionNote] = useState('');
   const [commentDraft, setCommentDraft] = useState('');
   const [errorText, setErrorText] = useState<string | null>(null);
+  const { mutate } = useSWRConfig();
 
   const { trigger: decide, isMutating: isDeciding } = useMutation({
     mutation: decideMnApprovalMutation,
@@ -157,10 +172,15 @@ export const ApprovalDetailDrawer = ({
         input: { body: commentDraft },
       } as never);
       setCommentDraft('');
+      // Revalidate the comments query so the new comment renders without
+      // reopening the drawer (M10). useQuery keys SWR as
+      // ['cloud', query.id, variables], so matchesCommentsCacheKey matches
+      // on query.id at index 1.
+      await mutate(matchesCommentsCacheKey);
     } catch (err) {
       setErrorText(errorMessage(err));
     }
-  }, [approval.id, comment, commentDraft, workspaceId]);
+  }, [approval.id, comment, commentDraft, mutate, workspaceId]);
 
   return (
     <Modal open={open} onOpenChange={onClose} title="Approval detail">

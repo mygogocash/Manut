@@ -426,6 +426,7 @@ const RoutineCard = ({
   onHistory,
 }: RoutineCardProps) => {
   const isPaused = routine.status === 'PAUSED';
+  const isError = routine.status === 'ERROR';
   return (
     <article className={styles.card} data-testid="routine-card">
       <header className={styles.cardHeader}>
@@ -465,6 +466,12 @@ const RoutineCard = ({
         <span>·</span>
         <span>Last run: {formatRelative(routine.lastRunAt)}</span>
       </div>
+      {isError ? (
+        <div className={styles.errorState} role="alert">
+          This routine errored on its last run. Open History to see why, then
+          Retry to set it back to active.
+        </div>
+      ) : null}
       <div className={styles.cardActions}>
         <Button
           variant="primary"
@@ -481,9 +488,15 @@ const RoutineCard = ({
           size="default"
           disabled={busy}
           onClick={() => void onTogglePause(routine)}
-          data-testid={isPaused ? 'routine-resume' : 'routine-pause'}
+          data-testid={
+            isError
+              ? 'routine-retry'
+              : isPaused
+                ? 'routine-resume'
+                : 'routine-pause'
+          }
         >
-          {isPaused ? 'Resume' : 'Pause'}
+          {isError ? 'Retry' : isPaused ? 'Resume' : 'Pause'}
         </Button>
         <Button
           variant="secondary"
@@ -707,9 +720,11 @@ const RoutinesPage = () => {
   const handleTogglePause = useCallback(
     async (routine: MnRoutineDto) => {
       setBusyRoutineId(routine.id);
-      const isPaused = routine.status === 'PAUSED';
+      // An ACTIVE routine pauses; a PAUSED *or* ERRORED routine resumes
+      // (Retry). Only 'ACTIVE' should hit the pause branch.
+      const shouldResume = routine.status !== 'ACTIVE';
       try {
-        if (isPaused) {
+        if (shouldResume) {
           await (triggerResume as (args: unknown) => Promise<unknown>)({
             id: routine.id,
           });
@@ -723,7 +738,7 @@ const RoutinesPage = () => {
         await mutate();
       } catch (err) {
         notify.error({
-          title: isPaused ? 'Could not resume' : 'Could not pause',
+          title: shouldResume ? 'Could not resume' : 'Could not pause',
           message: err instanceof Error ? err.message : 'Unknown error',
         });
       } finally {

@@ -163,7 +163,18 @@ const ApprovalsTable = ({
                 data-testid="cp-approval-row"
                 data-approval-id={approval.id}
                 className={styles.row}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open approval ${approval.type
+                  .replace(/_/g, ' ')
+                  .toLowerCase()}`}
                 onClick={() => onOpenApproval(approval)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onOpenApproval(approval);
+                  }
+                }}
               >
                 <td className={tdClass}>
                   <span className={styles.typePill}>

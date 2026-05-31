@@ -116,6 +116,14 @@ export const ProfilePanel = () => {
     [handleUpdateWorkspaceName, input, name]
   );
 
+  const handleBlur = useCallback(() => {
+    // Commit pending edits when focus leaves the field, so the rename is
+    // saved without requiring Enter or the explicit Save button.
+    if (name !== input) {
+      handleUpdateWorkspaceName(input);
+    }
+  }, [handleUpdateWorkspaceName, input, name]);
+
   const handleClick = useCallback(() => {
     handleUpdateWorkspaceName(input);
   }, [handleUpdateWorkspaceName, input]);
@@ -186,6 +194,7 @@ export const ProfilePanel = () => {
             minLength={0}
             onChange={handleSetInput}
             onKeyUp={handleKeyUp}
+            onBlur={handleBlur}
           />
           {input === name ? null : (
             <Button
