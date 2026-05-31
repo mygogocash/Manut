@@ -3412,6 +3412,7 @@ export interface Mutation {
   removeWorkspaceFeature: Scalars['Boolean']['output'];
   /** Request to apply the subscription in advance */
   requestApplySubscription: Array<SubscriptionType>;
+  resendInvite: Scalars['Boolean']['output'];
   /** Resolve a comment or not */
   resolveComment: Scalars['Boolean']['output'];
   resolveMnCeoTurn: MnCeoTurn;
@@ -3421,7 +3422,6 @@ export interface Mutation {
   retryAudioTranscription: Maybe<TranscriptionResultType>;
   /** Reverse an APPLIED change when reversibility is possible. Restores underlying tables from payload.priorState; transitions to REVERTED. */
   revertMnOrgChange: MnOrgChange;
-  resendInvite: Scalars['Boolean']['output'];
   revokeDocUserRoles: Scalars['Boolean']['output'];
   revokeInviteLink: Scalars['Boolean']['output'];
   revokeMember: Scalars['Boolean']['output'];
@@ -4142,11 +4142,6 @@ export interface MutationLeaveWorkspaceArgs {
   workspaceName?: InputMaybe<Scalars['String']['input']>;
 }
 
-export interface MutationResendInviteArgs {
-  inviteId: Scalars['String']['input'];
-  workspaceId: Scalars['String']['input'];
-}
-
 export interface MutationLinkCalDavAccountArgs {
   input: LinkCalDavAccountInput;
 }
@@ -4272,6 +4267,11 @@ export interface MutationRemoveWorkspaceFeatureArgs {
 
 export interface MutationRequestApplySubscriptionArgs {
   transactionId: Scalars['String']['input'];
+}
+
+export interface MutationResendInviteArgs {
+  inviteId: Scalars['String']['input'];
+  workspaceId: Scalars['String']['input'];
 }
 
 export interface MutationResolveCommentArgs {
@@ -10648,16 +10648,6 @@ export type RevokeMemberPermissionMutation = {
   revokeMember: boolean;
 };
 
-export type ResendInviteMutationVariables = Exact<{
-  workspaceId: Scalars['String']['input'];
-  inviteId: Scalars['String']['input'];
-}>;
-
-export type ResendInviteMutation = {
-  __typename?: 'Mutation';
-  resendInvite: boolean;
-};
-
 export type RevokePublicPageMutationVariables = Exact<{
   workspaceId: Scalars['String']['input'];
   pageId: Scalars['String']['input'];
@@ -11027,6 +11017,16 @@ export type CreateInviteLinkMutation = {
     link: string;
     expireTime: string;
   };
+};
+
+export type ResendInviteMutationVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+  inviteId: Scalars['String']['input'];
+}>;
+
+export type ResendInviteMutation = {
+  __typename?: 'Mutation';
+  resendInvite: boolean;
 };
 
 export type RevokeInviteLinkMutationVariables = Exact<{
@@ -12089,11 +12089,6 @@ export type Mutations =
       response: RevokeMemberPermissionMutation;
     }
   | {
-      name: 'resendInviteMutation';
-      variables: ResendInviteMutationVariables;
-      response: ResendInviteMutation;
-    }
-  | {
       name: 'revokePublicPageMutation';
       variables: RevokePublicPageMutationVariables;
       response: RevokePublicPageMutation;
@@ -12217,6 +12212,11 @@ export type Mutations =
       name: 'createInviteLinkMutation';
       variables: CreateInviteLinkMutationVariables;
       response: CreateInviteLinkMutation;
+    }
+  | {
+      name: 'resendInviteMutation';
+      variables: ResendInviteMutationVariables;
+      response: ResendInviteMutation;
     }
   | {
       name: 'revokeInviteLinkMutation';
