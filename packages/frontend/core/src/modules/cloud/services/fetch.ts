@@ -78,7 +78,7 @@ export class FetchService extends Service {
         typeof location !== 'undefined' &&
         location.protocol === 'https:' &&
         baseUrl.startsWith('https:')
-          ? ' The browser could not reach the server — if the address bar shows "Not secure", fix DNS for this domain (use the Railway CNAME, not an A record to Railway\'s IP) and wait for a valid TLS certificate.'
+          ? ' The browser could not reach the server — if the address bar shows "Not secure", check this domain\'s DNS records and wait for a valid TLS certificate.'
           : '';
 
       throw new UserFriendlyError({

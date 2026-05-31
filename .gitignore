@@ -113,3 +113,6 @@ blocksuite/**/src/**/*.js
 blocksuite/**/src/**/*.js.map
 # Worker entrypoints and other intentional .js files in src (mostly under
 # apps/) are listed here as escape hatches if tsc-emit ever moves elsewhere.
+
+# Manut bug-hunt raw audit dumps (large; contain secret copies — keep local only)
+docs/manut-bughunt/*.json
