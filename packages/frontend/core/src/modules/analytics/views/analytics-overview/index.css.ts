@@ -98,3 +98,10 @@ export const connectionHandle = style({
   color: cssVar('textSecondaryColor'),
   fontWeight: 400,
 });
+
+export const emptyHint = style({
+  marginTop: 8,
+  fontSize: 12,
+  color: cssVar('textSecondaryColor'),
+  opacity: 0.8,
+});

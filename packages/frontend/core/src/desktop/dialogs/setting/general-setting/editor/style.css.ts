@@ -17,7 +17,7 @@ export const preViewLabelWrapper = style({
 });
 
 export const menu = style({
-  background: 'white',
+  background: cssVarV2('layer/background/overlayPanel'),
   width: '250px',
   maxHeight: '30vh',
   overflowY: 'auto',

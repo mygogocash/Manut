@@ -57,6 +57,20 @@ export const ProfilePanel = () => {
         const reducedFile = await validateAndReduceImage(file);
         const blobs = workspace.docCollection.blobSync;
         const blobId = await blobs.set(reducedFile);
+        // `blobs.set` only persists the blob to the local peer and schedules
+        // the cloud upload in the background — it does NOT wait for the upload
+        // to finish. If we commit the avatar key to the workspace meta before
+        // the bytes have reached the cloud, other devices (and this device
+        // after a cache clear) will 404 on the blob and silently fall back to
+        // the colored placeholder (BUG #4). Force-await the cloud upload so the
+        // key is never committed ahead of a successful upload.
+        // `blobSync.upload` resolves to `null` for local-only workspaces whose
+        // blob source exposes no `upload` (no cloud peer) — that's fine, there
+        // is nothing to wait for in that case.
+        const uploadResult = blobs.upload(blobId);
+        if (uploadResult) {
+          await uploadResult;
+        }
         workspace.setAvatar(blobId);
       } catch (error) {
         console.error(error);

@@ -5,9 +5,28 @@ import { style } from '@vanilla-extract/css';
  * translated offscreen + `inert` when no node is selected. See the JSX in
  * `node-detail-panel.tsx` for the inert/aria-hidden wiring.
  *
- * Backdrop blur sells a "frosted glass" overlay over the starfield; we keep
- * it dark regardless of theme because the graph background is space-black on
- * both themes (the nebula + nodes are the only theme-tinted layer).
+ * INTENTIONAL DARK GLASS — do not "fix" the white literals below.
+ *
+ * This panel is a self-contained dark frosted-glass card: its own surface is
+ * `rgba(20,20,30,0.72)` (`root`, below) with `backdropFilter: blur`, and all
+ * its foreground (`#fff` title, `rgba(255,255,255,*)` body text/borders, the
+ * `#0b0b14`-on-near-white `primaryButton`) is light-on-its-own-dark-surface.
+ * Because the card carries its OWN dark background, those whites read with
+ * high contrast in BOTH light and dark themes — they are deliberate, not a
+ * theme bug.
+ *
+ * NOTE: the KG canvas behind it (`graph-view.tsx`) IS theme-tinted — its
+ * container is `var(--affine-background-primary-color)` (light/near-white in
+ * light mode) and the nebula / starfield / labels branch on `isDarkBackground`.
+ * The panel does not match that because it is an opaque-ish overlay card, not
+ * a transparent layer; a dark card over a light canvas is a valid contrast
+ * combination (same pattern as a dark tooltip on a light page).
+ *
+ * Do NOT swap these literals for light-theme `cssVarV2` tokens (e.g.
+ * `text/primary`): in light mode those resolve to dark ink, which would be
+ * invisible against this card's own dark `rgba(20,20,30,...)` surface. If you
+ * ever want the card to follow the theme, you must retint the `root` surface
+ * AND every foreground token together as one unit — never piecemeal.
  */
 export const root = style({
   position: 'absolute',
