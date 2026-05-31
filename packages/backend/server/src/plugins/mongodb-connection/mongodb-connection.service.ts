@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { Models } from '../../models';
+import {
+  assertSafeOutboundHost,
+  BlockedHostError,
+} from '../connections/ssrf-guard';
 import type {
   MongoDbConnectionStatus,
   MongoDbConnectionTestResult,
@@ -77,6 +81,21 @@ export class MongoDbConnectionService {
       throw new MongoDbConnectionInvalidUriError(
         'must start with mongodb:// or mongodb+srv://'
       );
+    }
+
+    // SSRF guard: reject loopback / private / metadata hosts before the
+    // URI is ever stored (the stored URI is later opened by
+    // testConnection + the schema explorer). BlockedHostError is mapped
+    // to a friendly BadRequest by the resolver.
+    try {
+      this.assertOutboundUriAllowed(uri);
+    } catch (err) {
+      if (err instanceof BlockedHostError) {
+        throw new MongoDbConnectionInvalidUriError(
+          'host is not allowed (private, loopback, or reserved address)'
+        );
+      }
+      throw err;
     }
 
     // Parse for display only — discard if invalid; the driver will
@@ -185,6 +204,21 @@ export class MongoDbConnectionService {
       };
     }
 
+    // SSRF guard before opening any socket — block private/loopback/
+    // metadata targets a user could probe via this stateless test path.
+    try {
+      this.assertOutboundUriAllowed(uri);
+    } catch (err) {
+      if (err instanceof BlockedHostError) {
+        return {
+          ok: false,
+          error:
+            'That MongoDB host is not allowed. Use a publicly reachable cluster, not a private, loopback, or reserved address.',
+        };
+      }
+      throw err;
+    }
+
     const parsed = this.parseUriForDisplay(uri);
 
     // Lazy dynamic import: the `mongodb` driver is NOT a hard dep of
@@ -289,6 +323,31 @@ export class MongoDbConnectionService {
     }
 
     return decrypted.accessToken;
+  }
+
+  /**
+   * SSRF guard for a MongoDB connection string. Mongo URIs can carry
+   * multiple comma-separated hosts (replica sets) and an optional
+   * `mongodb+srv` scheme, neither of which the WHATWG URL parser
+   * handles — so we extract every host from the authority by hand and
+   * run each through the shared host guard. Throws BlockedHostError
+   * when any host is loopback / private / link-local / metadata.
+   * Public so the schema explorer can re-check a stored URI before it
+   * opens a client (defense in depth).
+   */
+  assertOutboundUriAllowed(uri: string): void {
+    const withoutScheme = uri.replace(/^mongodb(\+srv)?:\/\//i, '');
+    const authority = withoutScheme.split(/[/?]/)[0] ?? '';
+    const hostSection = authority.includes('@')
+      ? authority.slice(authority.lastIndexOf('@') + 1)
+      : authority;
+    const hosts = hostSection
+      .split(',')
+      .map(hostPort => hostPort.replace(/:\d+$/, '').trim())
+      .filter(Boolean);
+    for (const host of hosts) {
+      assertSafeOutboundHost(host);
+    }
   }
 
   /**

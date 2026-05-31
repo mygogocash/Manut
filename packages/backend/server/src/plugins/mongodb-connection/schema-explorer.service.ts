@@ -145,6 +145,10 @@ export class MongoSchemaExplorerService {
     const { MongoClient } = driver;
     let client: MongoClientInstance | null = null;
     try {
+      // SSRF defense-in-depth: re-check the stored URI's host(s) before
+      // reconnecting (a BlockedHostError is mapped to the generic
+      // connection error below).
+      this.connection.assertOutboundUriAllowed(uri);
       client = new MongoClient(uri, {
         serverSelectionTimeoutMS: 5_000,
         connectTimeoutMS: 5_000,
@@ -196,7 +200,7 @@ export class MongoSchemaExplorerService {
         enabled: false,
       }));
     } catch (err) {
-      throw new Error(this.sanitiseDriverError(err));
+      throw this.connectionError(err, workspaceId);
     } finally {
       if (client) {
         await client.close().catch(() => {
@@ -231,6 +235,8 @@ export class MongoSchemaExplorerService {
     const { MongoClient } = driver;
     let client: MongoClientInstance | null = null;
     try {
+      // SSRF defense-in-depth (see listCollections).
+      this.connection.assertOutboundUriAllowed(uri);
       client = new MongoClient(uri, {
         serverSelectionTimeoutMS: 5_000,
         connectTimeoutMS: 5_000,
@@ -247,7 +253,7 @@ export class MongoSchemaExplorerService {
       const documents = docs.map(d => JSON.stringify(sanitiseDoc(d)));
       return { collectionName, documents };
     } catch (err) {
-      throw new Error(this.sanitiseDriverError(err));
+      throw this.connectionError(err, workspaceId);
     } finally {
       if (client) {
         await client.close().catch(() => {
@@ -258,14 +264,21 @@ export class MongoSchemaExplorerService {
   }
 
   /**
-   * Strip any `mongodb://` / `mongodb+srv://` URIs from driver error
-   * messages — the credentials live inside the URI and must NEVER be
-   * propagated. Same regex used by
-   * `MongoDbConnectionService.testConnection`.
+   * Map a driver error to a SINGLE generic message. Raw driver text is
+   * never propagated to the client: beyond the URI/password it leaks
+   * internal topology (resolved IPs, replica-set member hostnames, DNS
+   * detail) and turns the picker into a network-mapping oracle
+   * (finding #18). We log only the error class server-side.
    */
-  private sanitiseDriverError(err: unknown): string {
-    const raw = err instanceof Error ? err.message : String(err);
-    return raw.replace(/mongodb(\+srv)?:\/\/[^\s]+/gi, 'mongodb://***');
+  private connectionError(err: unknown, workspaceId: string): Error {
+    this.logger.warn(
+      `MongoDB schema-explorer call failed for workspace ${workspaceId}: ${
+        err instanceof Error ? err.name : 'unknown error'
+      }`
+    );
+    return new Error(
+      'Could not connect to MongoDB. Check the connection and that the cluster is reachable.'
+    );
   }
 }
 

@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { Models } from '../../models';
+import {
+  assertSafeOutboundUrl,
+  BlockedHostError,
+} from '../connections/ssrf-guard';
 import { readPostHogConnectionEnv } from './manut-pro-config';
 import {
   POSTHOG_DEFAULT_HOST,
@@ -79,6 +83,19 @@ export class PostHogConnectionService {
     }
 
     const normalisedHost = this.normaliseHost(host ?? this.getDefaultHost());
+
+    // SSRF guard: reject private/loopback/metadata hosts before storing
+    // (the host is later fetched by the test probe + future read tools).
+    try {
+      assertSafeOutboundUrl(normalisedHost);
+    } catch (err) {
+      if (err instanceof BlockedHostError) {
+        throw new PostHogConnectionInvalidKeyError(
+          'host is not allowed (private, loopback, or reserved address)'
+        );
+      }
+      throw err;
+    }
 
     await this.models.integrationConnection.upsert({
       userId,
@@ -170,6 +187,21 @@ export class PostHogConnectionService {
       };
     }
     const normalisedHost = this.normaliseHost(host ?? this.getDefaultHost());
+
+    // SSRF guard before any outbound request to the user-supplied host.
+    try {
+      assertSafeOutboundUrl(normalisedHost);
+    } catch (err) {
+      if (err instanceof BlockedHostError) {
+        return {
+          ok: false,
+          host: normalisedHost,
+          error:
+            'That host is not allowed. Use a public PostHog host, not a private, loopback, or reserved address.',
+        };
+      }
+      throw err;
+    }
 
     try {
       const url = `${normalisedHost}/api/projects/`;
