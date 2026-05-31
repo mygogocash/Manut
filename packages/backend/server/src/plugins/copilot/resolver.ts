@@ -4,6 +4,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import {
   Args,
   Field,
+  Float,
   ID,
   InputType,
   Mutation,
@@ -229,10 +230,13 @@ class QueryChatSessionsInput implements Partial<ListSessionOptions> {
   @Field(() => Boolean, { nullable: true })
   pinned: boolean | undefined;
 
-  @Field(() => Number, { nullable: true })
+  // Pagination ints — use SafeIntResolver (the canonical numeric @Field token
+  // in this file, see CopilotQuotaType.used) instead of the bare `() => Number`
+  // form the project's @Field scar warns against.
+  @Field(() => SafeIntResolver, { nullable: true })
   limit: number | undefined;
 
-  @Field(() => Number, { nullable: true })
+  @Field(() => SafeIntResolver, { nullable: true })
   skip: number | undefined;
 }
 
@@ -353,7 +357,7 @@ class CopilotHistoriesType implements Omit<ChatHistory, 'userId'> {
   @Field(() => String, { nullable: true })
   pinnedDocId!: string | null;
 
-  @Field(() => Number, {
+  @Field(() => SafeIntResolver, {
     description: 'The number of tokens used in the session',
   })
   tokens!: number;
@@ -408,7 +412,7 @@ class CopilotModelType {
   })
   tier!: ModelTier;
 
-  @Field(() => Number, {
+  @Field(() => Float, {
     description:
       'USD per 1k input tokens, list-price approximation. Used by the auto-router and surfaced in the UI for cost-awareness.',
   })

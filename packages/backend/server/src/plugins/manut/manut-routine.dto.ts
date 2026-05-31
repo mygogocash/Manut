@@ -3,6 +3,7 @@ import {
   GraphQLISODateTime,
   ID,
   InputType,
+  Int,
   ObjectType,
   registerEnumType,
 } from '@nestjs/graphql';
@@ -110,7 +111,7 @@ export class MnRoutineRunObjectType {
   @Field(() => String, { nullable: true })
   errorMessage!: string | null;
 
-  @Field(() => Number, { nullable: true })
+  @Field(() => Int, { nullable: true })
   durationMs!: number | null;
 
   @Field(() => GraphQLISODateTime, { nullable: true })

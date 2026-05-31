@@ -12,7 +12,7 @@ import {
 } from '@nestjs/graphql';
 import { PrismaClient } from '@prisma/client';
 
-import { AuthenticationRequired } from '../../base';
+import { AuthenticationRequired, BadRequest } from '../../base';
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
 import { MongoDbAggregationService } from './aggregation.service';
@@ -144,7 +144,8 @@ export class AnalyticsResolver {
     const from = this.parseDay(input.from, 'from');
     const to = this.parseDay(input.to, 'to');
     if (from > to) {
-      throw new Error('`from` must be on or before `to`.');
+      // Friendly typed error (UserFriendlyError) — finding #13.
+      throw new BadRequest('`from` must be on or before `to`.');
     }
 
     const metricsFilter = (input.metrics ?? []).filter(m => m.length > 0);
@@ -195,7 +196,8 @@ export class AnalyticsResolver {
       .assert('Workspace.Settings.Update');
 
     if (!Number.isFinite(daysBack) || daysBack <= 0) {
-      throw new Error('daysBack must be a positive integer.');
+      // Friendly typed error (UserFriendlyError) — finding #13.
+      throw new BadRequest('daysBack must be a positive integer.');
     }
     // Soft cap so a typo (e.g. 365_000) can't run for an hour against
     // every row in the table. 365 days is more than any realistic
@@ -230,12 +232,13 @@ export class AnalyticsResolver {
    * make boundary days off-by-one for clients in negative timezones.
    */
   private parseDay(value: string, fieldName: string): Date {
+    // Friendly typed errors (UserFriendlyError) — finding #13.
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      throw new Error(`\`${fieldName}\` must be in YYYY-MM-DD format.`);
+      throw new BadRequest(`\`${fieldName}\` must be in YYYY-MM-DD format.`);
     }
     const date = new Date(`${value}T00:00:00.000Z`);
     if (Number.isNaN(date.getTime())) {
-      throw new Error(`\`${fieldName}\` is not a valid date.`);
+      throw new BadRequest(`\`${fieldName}\` is not a valid date.`);
     }
     return date;
   }

@@ -17,6 +17,77 @@ export type SendOptions = Omit<SendMailOptions, 'to' | 'subject' | 'html'> & {
   html: string;
 };
 
+type MailAttachment = NonNullable<SendOptions['attachments']>[number];
+type ResendAttachment = {
+  content?: string;
+  contentId?: string;
+  contentType?: string;
+  filename?: string;
+  path?: string;
+};
+
+function attachmentContentToBase64(attachment: MailAttachment) {
+  const { content } = attachment;
+
+  if (content === undefined || content === null) {
+    return undefined;
+  }
+
+  if (Buffer.isBuffer(content)) {
+    return content.toString('base64');
+  }
+
+  if (content instanceof Uint8Array) {
+    return Buffer.from(content).toString('base64');
+  }
+
+  if (typeof content === 'string') {
+    if (attachment.encoding?.toLowerCase() === 'base64') {
+      return content;
+    }
+
+    const encoding =
+      attachment.encoding && Buffer.isEncoding(attachment.encoding)
+        ? attachment.encoding
+        : 'utf8';
+    return Buffer.from(content, encoding).toString('base64');
+  }
+
+  return null;
+}
+
+function toResendAttachment(attachment: MailAttachment) {
+  const resendAttachment: ResendAttachment = {};
+
+  if (typeof attachment.filename === 'string') {
+    resendAttachment.filename = attachment.filename;
+  }
+
+  if (typeof attachment.contentType === 'string') {
+    resendAttachment.contentType = attachment.contentType;
+  }
+
+  if (typeof attachment.cid === 'string') {
+    resendAttachment.contentId = attachment.cid;
+  }
+
+  if (typeof attachment.path === 'string') {
+    resendAttachment.path = attachment.path;
+    return resendAttachment;
+  }
+
+  const content = attachmentContentToBase64(attachment);
+  if (content === null) {
+    return null;
+  }
+  if (content !== undefined) {
+    resendAttachment.content = content;
+    return resendAttachment;
+  }
+
+  return null;
+}
+
 function configToSMTPOptions(
   config: AppConfig['mailer']['SMTP']
 ): SMTPTransport.Options {
@@ -186,12 +257,18 @@ export class MailSender {
     apiKey: string
   ): Promise<boolean | null> {
     metrics.mail.counter('send_total').add(1, { name });
+    let attachments: ResendAttachment[] | undefined;
+
     if (options.attachments?.length) {
-      metrics.mail.counter('failed_total').add(1, { name });
-      this.logger.error(
-        `Resend mail [${name}] has attachments; attachment delivery is not supported by this transport yet.`
-      );
-      return false;
+      const converted = options.attachments.map(toResendAttachment);
+      if (converted.some(attachment => attachment === null)) {
+        metrics.mail.counter('failed_total').add(1, { name });
+        this.logger.error(
+          `Resend mail [${name}] has unsupported attachment content.`
+        );
+        return false;
+      }
+      attachments = converted as ResendAttachment[];
     }
 
     try {
@@ -206,6 +283,7 @@ export class MailSender {
           to: [options.to],
           subject: options.subject,
           html: options.html,
+          ...(attachments?.length ? { attachments } : {}),
         }),
       });
       if (!res.ok) {

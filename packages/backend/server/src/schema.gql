@@ -3383,6 +3383,7 @@ type Mutation {
   Reverse an APPLIED change when reversibility is possible. Restores underlying tables from payload.priorState; transitions to REVERTED.
   """
   revertMnOrgChange(orgChangeId: ID!, workspaceId: ID!): MnOrgChange!
+  resendInvite(inviteId: String!, workspaceId: String!): Boolean!
   revokeDocUserRoles(input: RevokeDocUserRoleInput!): Boolean!
   revokeInviteLink(workspaceId: String!): Boolean!
   revokeMember(userId: String!, workspaceId: String!): Boolean!

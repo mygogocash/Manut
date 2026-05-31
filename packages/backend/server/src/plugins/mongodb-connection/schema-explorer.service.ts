@@ -8,8 +8,9 @@ import type { MongoCollectionInfo, MongoSampleDocs } from './types';
  * narrow contract used by `MongoDbConnectionService.testConnection` so
  * the dynamic-import dance stays consistent.
  *
- * The driver is loaded lazily. The service uses a narrow runtime shape
- * so tests can fake the driver without opening network connections.
+ * The driver is an OPTIONAL runtime dep — we never bind to its types
+ * at compile time because the package may not be installed (CLAUDE.md
+ * §6c). The `// @ts-expect-error` on the dynamic import is required.
  */
 interface MongoDriver {
   MongoClient: new (
@@ -61,7 +62,7 @@ const MAX_SAMPLE_SIZE = 20;
 export class MongoDbDriverMissingError extends Error {
   constructor() {
     super(
-      'MongoDB driver is not installed on the server. Ask an admin to add the `mongodb` package to @affine/server.'
+      'MongoDB driver is unavailable in this server build. Ask an admin to redeploy Manut with @affine/server production dependencies installed.'
     );
     this.name = 'MongoDbDriverMissingError';
   }
@@ -103,11 +104,12 @@ export class MongoSchemaExplorerService {
   constructor(private readonly connection: MongoDbConnectionService) {}
 
   /**
-   * Lazy-load the `mongodb` driver. Returns `null` if the package cannot
-   * be loaded — callers map this to a non-fatal UI fallback.
+   * Lazy-load the `mongodb` driver. Returns `null` if the production
+   * image is mispackaged — callers map this to a friendly error.
    */
   private async loadDriver(): Promise<MongoDriver | null> {
     try {
+      // Load lazily so non-Mongo settings routes do not initialize the client.
       const mod = (await import('mongodb').catch(
         () => null
       )) as MongoDriver | null;
@@ -143,6 +145,10 @@ export class MongoSchemaExplorerService {
     const { MongoClient } = driver;
     let client: MongoClientInstance | null = null;
     try {
+      // SSRF defense-in-depth: re-check the stored URI's host(s) before
+      // reconnecting (a BlockedHostError is mapped to the generic
+      // connection error below).
+      this.connection.assertOutboundUriAllowed(uri);
       client = new MongoClient(uri, {
         serverSelectionTimeoutMS: 5_000,
         connectTimeoutMS: 5_000,
@@ -194,7 +200,7 @@ export class MongoSchemaExplorerService {
         enabled: false,
       }));
     } catch (err) {
-      throw new Error(this.sanitiseDriverError(err));
+      throw this.connectionError(err, workspaceId);
     } finally {
       if (client) {
         await client.close().catch(() => {
@@ -229,6 +235,8 @@ export class MongoSchemaExplorerService {
     const { MongoClient } = driver;
     let client: MongoClientInstance | null = null;
     try {
+      // SSRF defense-in-depth (see listCollections).
+      this.connection.assertOutboundUriAllowed(uri);
       client = new MongoClient(uri, {
         serverSelectionTimeoutMS: 5_000,
         connectTimeoutMS: 5_000,
@@ -245,7 +253,7 @@ export class MongoSchemaExplorerService {
       const documents = docs.map(d => JSON.stringify(sanitiseDoc(d)));
       return { collectionName, documents };
     } catch (err) {
-      throw new Error(this.sanitiseDriverError(err));
+      throw this.connectionError(err, workspaceId);
     } finally {
       if (client) {
         await client.close().catch(() => {
@@ -256,14 +264,21 @@ export class MongoSchemaExplorerService {
   }
 
   /**
-   * Strip any `mongodb://` / `mongodb+srv://` URIs from driver error
-   * messages — the credentials live inside the URI and must NEVER be
-   * propagated. Same regex used by
-   * `MongoDbConnectionService.testConnection`.
+   * Map a driver error to a SINGLE generic message. Raw driver text is
+   * never propagated to the client: beyond the URI/password it leaks
+   * internal topology (resolved IPs, replica-set member hostnames, DNS
+   * detail) and turns the picker into a network-mapping oracle
+   * (finding #18). We log only the error class server-side.
    */
-  private sanitiseDriverError(err: unknown): string {
-    const raw = err instanceof Error ? err.message : String(err);
-    return raw.replace(/mongodb(\+srv)?:\/\/[^\s]+/gi, 'mongodb://***');
+  private connectionError(err: unknown, workspaceId: string): Error {
+    this.logger.warn(
+      `MongoDB schema-explorer call failed for workspace ${workspaceId}: ${
+        err instanceof Error ? err.name : 'unknown error'
+      }`
+    );
+    return new Error(
+      'Could not connect to MongoDB. Check the connection and that the cluster is reachable.'
+    );
   }
 }
 

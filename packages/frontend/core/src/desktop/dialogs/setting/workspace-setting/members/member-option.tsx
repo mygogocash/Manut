@@ -76,6 +76,27 @@ export const MemberOptions = ({
     });
   }, [openRemoveConfirmModal, member, t]);
 
+  const handleResendInvite = useCallback(() => {
+    membersService
+      .resendInvite(member.inviteId)
+      .then(result => {
+        if (result) {
+          notify.success({
+            title: t['com.affine.payment.member.team.resend.notify.title'](),
+            message: t['com.affine.payment.member.team.resend.notify.message']({
+              name: member.name || member.email || member.id,
+            }),
+          });
+        }
+      })
+      .catch(error => {
+        notify.error({
+          title: 'Operation failed',
+          message: error.message,
+        });
+      });
+  }, [member, membersService, t]);
+
   const handleApprove = useCallback(() => {
     membersService
       .approveMember(member.id)
@@ -217,6 +238,13 @@ export const MemberOptions = ({
             member.status === WorkspaceMemberStatus.NeedMoreSeatAndReview),
       },
       {
+        label: t['com.affine.payment.member.team.resend'](),
+        onClick: handleResendInvite,
+        show:
+          (isAdmin || isOwner) &&
+          member.status === WorkspaceMemberStatus.Pending,
+      },
+      {
         label: t['com.affine.payment.member.team.revoke'](),
         onClick: handleRevoke,
         show:
@@ -268,6 +296,7 @@ export const MemberOptions = ({
     handleChangeToCollaborator,
     handleDecline,
     handleRemove,
+    handleResendInvite,
     handleRetryPayment,
     handleRevoke,
     isAdmin,

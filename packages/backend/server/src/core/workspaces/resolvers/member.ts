@@ -52,6 +52,7 @@ import {
   WorkspaceInviteLinkExpireTime,
   WorkspaceType,
 } from '../types';
+import { getResendInvitePayload } from './member-resend';
 
 /**
  * Workspace team resolver
@@ -266,6 +267,26 @@ export class WorkspaceMemberResolver {
     });
 
     return results;
+  }
+
+  @Mutation(() => Boolean)
+  async resendInvite(
+    @CurrentUser() me: CurrentUser,
+    @Args('workspaceId') workspaceId: string,
+    @Args('inviteId') inviteId: string
+  ) {
+    await this.ac
+      .user(me.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Users.Manage');
+
+    const role = await this.models.workspaceUser.getById(inviteId);
+    this.event.emit(
+      'workspace.members.invite',
+      getResendInvitePayload(role, workspaceId, me.id)
+    );
+
+    return true;
   }
 
   @ResolveField(() => InviteLink, {

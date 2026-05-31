@@ -259,8 +259,15 @@ export class TextStreamParser {
                   return `\n${String(asRecord(item)?.changedContent ?? '')}\n`;
                 })
                 .join('');
-              this.docEditFootnotes[this.docEditFootnotes.length - 1].result =
-                result;
+              // A `doc_edit` tool-result can arrive without a preceding
+              // tool-call (out-of-order / duplicated SSE). When that happens
+              // `docEditFootnotes` is empty; guard the access so we don't
+              // throw a TypeError out of the un-guarded parse() loop and
+              // surface a red chat-error banner.
+              const last = this.docEditFootnotes.at(-1);
+              if (last) {
+                last.result = result;
+              }
             } else {
               this.docEditFootnotes.pop();
             }

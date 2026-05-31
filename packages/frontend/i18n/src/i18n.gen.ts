@@ -5609,6 +5609,20 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.payment.member.team.retry-payment.update-payment"](): string;
     /**
+      * `Resend invitation`
+      */
+    ["com.affine.payment.member.team.resend"](): string;
+    /**
+      * `We sent another invitation to {{name}}`
+      */
+    ["com.affine.payment.member.team.resend.notify.message"](options: {
+        readonly name: string;
+    }): string;
+    /**
+      * `Invitation resent`
+      */
+    ["com.affine.payment.member.team.resend.notify.title"](): string;
+    /**
       * `Revoke invitation`
       */
     ["com.affine.payment.member.team.revoke"](): string;

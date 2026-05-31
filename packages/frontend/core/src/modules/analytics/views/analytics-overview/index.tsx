@@ -49,11 +49,9 @@ export function AnalyticsOverview() {
 
   useEffect(() => {
     analyticsService.loadOverview(workspaceId).catch(err => {
-       
       console.warn('[analytics] loadOverview failed', err);
     });
     connectionService.loadConnections(workspaceId).catch(err => {
-       
       console.warn('[analytics] loadConnections failed', err);
     });
   }, [analyticsService, connectionService, workspaceId]);
@@ -98,7 +96,9 @@ export function AnalyticsOverview() {
         <div className={styles.empty}>Could not load analytics: {error}</div>
       ) : empty ? (
         <div className={styles.empty} data-testid="analytics-overview-empty">
-          No data yet — connect a platform or wait 5 minutes for the next sync.
+          {connections.length > 0
+            ? 'Connected — awaiting first sync. Metrics appear after the next ingestion (usually within 5 minutes).'
+            : 'No data yet — connect a data source under Settings → Data connections, or wait 5 minutes for the next sync.'}
         </div>
       ) : (
         <>
@@ -131,7 +131,7 @@ export function AnalyticsOverview() {
         </>
       )}
 
-      <div className={styles.sectionLabel}>Connections</div>
+      <div className={styles.sectionLabel}>Social platforms</div>
       <div className={styles.insightsList}>
         {connections.length > 0 ? (
           connections.map(conn => (
@@ -149,8 +149,12 @@ export function AnalyticsOverview() {
           ))
         ) : (
           <div className={styles.empty}>
-            No platforms connected yet. Open Workspace Settings → Connections to
-            link your social accounts.
+            No social platforms connected yet. Open Workspace Settings →
+            Connections to link accounts like Facebook, Instagram, or TikTok.
+            <div className={styles.emptyHint}>
+              Data sources such as MongoDB or PostHog are managed separately
+              under Settings → Data connections.
+            </div>
           </div>
         )}
       </div>

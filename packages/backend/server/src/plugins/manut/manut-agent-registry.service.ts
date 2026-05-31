@@ -9,6 +9,7 @@ import type { MnAgentRole } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 
 import type { UpdateMnAgentRoleInput } from './manut-agent-registry.dto';
+import { withControlPlaneErrorMapping } from './manut-control-plane-errors';
 
 /**
  * Canonical 5 operating roles from the Manut control plane spec
@@ -80,10 +81,15 @@ export class MnAgentRegistryService {
    * presentation. Empty array when seedDefaults has not run.
    */
   async listRoles(workspaceId: string): Promise<MnAgentRole[]> {
-    return this.db.mnAgentRole.findMany({
-      where: { workspaceId },
-      orderBy: { slug: 'asc' },
-    });
+    // Map P2021/P2022 (control plane not provisioned) to a friendly typed
+    // error instead of a bare Prisma error that surfaces as the generic
+    // "Unhandled error raised". See HANDOFF.md Bug #1.
+    return withControlPlaneErrorMapping(() =>
+      this.db.mnAgentRole.findMany({
+        where: { workspaceId },
+        orderBy: { slug: 'asc' },
+      })
+    );
   }
 
   /**
@@ -95,24 +101,26 @@ export class MnAgentRegistryService {
    * before importing a handover).
    */
   async seedDefaults(workspaceId: string): Promise<void> {
-    for (const seed of DEFAULT_AGENT_ROLE_SEEDS) {
-      await this.db.mnAgentRole.upsert({
-        where: {
-          workspaceId_slug: { workspaceId, slug: seed.slug },
-        },
-        create: {
-          id: randomUUID(),
-          workspaceId,
-          slug: seed.slug,
-          displayName: seed.displayName,
-          adapter: seed.adapter,
-          responsibility: seed.responsibility,
-          escalation: seed.escalation,
-        },
-        // Do not overwrite edits on subsequent seeds — only create-if-missing.
-        update: {},
-      });
-    }
+    await withControlPlaneErrorMapping(async () => {
+      for (const seed of DEFAULT_AGENT_ROLE_SEEDS) {
+        await this.db.mnAgentRole.upsert({
+          where: {
+            workspaceId_slug: { workspaceId, slug: seed.slug },
+          },
+          create: {
+            id: randomUUID(),
+            workspaceId,
+            slug: seed.slug,
+            displayName: seed.displayName,
+            adapter: seed.adapter,
+            responsibility: seed.responsibility,
+            escalation: seed.escalation,
+          },
+          // Do not overwrite edits on subsequent seeds — create-if-missing only.
+          update: {},
+        });
+      }
+    });
   }
 
   /**
@@ -129,30 +137,32 @@ export class MnAgentRegistryService {
       throw new BadRequestException('slug is immutable');
     }
 
-    const existing = await this.db.mnAgentRole.findFirst({
-      where: { workspaceId, slug },
-    });
-    if (!existing) {
-      throw new NotFoundException(`Agent role '${slug}' not found`);
-    }
+    return withControlPlaneErrorMapping(async () => {
+      const existing = await this.db.mnAgentRole.findFirst({
+        where: { workspaceId, slug },
+      });
+      if (!existing) {
+        throw new NotFoundException(`Agent role '${slug}' not found`);
+      }
 
-    const data: Record<string, unknown> = {};
-    if (input.displayName !== undefined && input.displayName !== null) {
-      data.displayName = input.displayName;
-    }
-    if (input.adapter !== undefined && input.adapter !== null) {
-      data.adapter = input.adapter;
-    }
-    if (input.responsibility !== undefined && input.responsibility !== null) {
-      data.responsibility = input.responsibility;
-    }
-    if (input.escalation !== undefined) {
-      data.escalation = input.escalation;
-    }
+      const data: Record<string, unknown> = {};
+      if (input.displayName !== undefined && input.displayName !== null) {
+        data.displayName = input.displayName;
+      }
+      if (input.adapter !== undefined && input.adapter !== null) {
+        data.adapter = input.adapter;
+      }
+      if (input.responsibility !== undefined && input.responsibility !== null) {
+        data.responsibility = input.responsibility;
+      }
+      if (input.escalation !== undefined) {
+        data.escalation = input.escalation;
+      }
 
-    return this.db.mnAgentRole.update({
-      where: { id: existing.id },
-      data,
+      return this.db.mnAgentRole.update({
+        where: { id: existing.id },
+        data,
+      });
     });
   }
 
@@ -167,18 +177,20 @@ export class MnAgentRegistryService {
     slug: string,
     runId: string
   ): Promise<void> {
-    const existing = await this.db.mnAgentRole.findFirst({
-      where: { workspaceId, slug },
-    });
-    if (!existing) {
-      return;
-    }
-    await this.db.mnAgentRole.update({
-      where: { id: existing.id },
-      data: {
-        lastSuccessfulRunId: runId,
-        lastSeenAt: new Date(),
-      },
+    await withControlPlaneErrorMapping(async () => {
+      const existing = await this.db.mnAgentRole.findFirst({
+        where: { workspaceId, slug },
+      });
+      if (!existing) {
+        return;
+      }
+      await this.db.mnAgentRole.update({
+        where: { id: existing.id },
+        data: {
+          lastSuccessfulRunId: runId,
+          lastSeenAt: new Date(),
+        },
+      });
     });
   }
 }

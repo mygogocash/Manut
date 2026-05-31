@@ -73,7 +73,7 @@ export const menuButton = style({
   selectors: {
     '&[data-active="true"]': {
       flexBasis: 142,
-      background: 'rgba(243, 243, 241, 0.96)',
+      background: cssVarV2('layer/background/mobile/primary'),
       color: cssVarV2('text/primary'),
       boxShadow: '0 10px 26px rgba(0, 0, 0, 0.10)',
     },

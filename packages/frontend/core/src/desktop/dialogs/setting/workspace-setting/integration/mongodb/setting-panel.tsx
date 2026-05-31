@@ -1,9 +1,11 @@
 import { Button } from '@affine/component';
 import { useMutation } from '@affine/core/components/hooks/use-mutation';
 import { useQuery } from '@affine/core/components/hooks/use-query';
+import { SWRErrorBoundary } from '@affine/core/components/pure/swr-error-bundary';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useService } from '@toeverything/infra';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import type { FallbackProps } from 'react-error-boundary';
 
 import {
   disconnectMongoDbMutation,
@@ -29,10 +31,45 @@ import * as styles from './setting-panel.css';
  * autocomplete history or screen-share. A "Test" button runs
  * `db.command({ ping: 1 })` against a candidate URI before persistence.
  */
+const MongoDbSettingsErrorFallback = ({
+  error,
+  resetErrorBoundary,
+}: FallbackProps) => (
+  <div className={styles.root} data-testid="mongodb-settings-error-boundary">
+    <IntegrationSettingHeader
+      icon={<MongoDbLogoIcon />}
+      name="MongoDB"
+      desc="Connect a MongoDB cluster to query analytics from your own collections."
+    />
+    <div className={styles.errorMessage} role="alert">
+      Failed to load MongoDB settings:{' '}
+      {error instanceof Error ? error.message : 'Unexpected error'}
+    </div>
+    <div className={styles.actionsRow}>
+      <Button onClick={resetErrorBoundary}>Retry</Button>
+    </div>
+  </div>
+);
+
 export const MongoDbSettingPanel = () => {
   const workspaceService = useService(WorkspaceService);
   const workspaceId = workspaceService.workspace.id;
 
+  return (
+    <SWRErrorBoundary
+      FallbackComponent={MongoDbSettingsErrorFallback}
+      resetKeys={[workspaceId]}
+    >
+      <MongoDbSettingPanelContent workspaceId={workspaceId} />
+    </SWRErrorBoundary>
+  );
+};
+
+const MongoDbSettingPanelContent = ({
+  workspaceId,
+}: {
+  workspaceId: string;
+}) => {
   const [uri, setUri] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

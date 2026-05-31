@@ -18,8 +18,9 @@ import { MONGODB_PROVIDER_NAME } from './types';
  *  - @Injectable() on the provider (v1.12.0 DI scar).
  *  - PrismaClient is a RUNTIME import (no `import type` for DI targets).
  *  - The `mongodb` driver is loaded lazily via dynamic import — same as
- *    `MongoDbConnectionService.testConnection` — so the dep is optional
- *    at boot. Without the driver, runs short-circuit with a warning.
+ *    `MongoDbConnectionService.testConnection` — so non-Mongo request
+ *    paths do not initialize the client. A mispackaged image without
+ *    the driver short-circuits ingestion with a warning.
  *  - URIs are NEVER logged: we decrypt via `IntegrationConnectionModel`
  *    and pass straight to `new MongoClient(uri, …)`. Only the parsed
  *    host (already on the IntegrationConnection row) gets logged.
@@ -93,8 +94,8 @@ interface MongoDriverLike {
 }
 
 /**
- * Lazy driver loader. Keeps MongoDB out of the boot path, just like
- * `MongoDbConnectionService.testConnection`.
+ * Lazy driver loader. Returns null if the production image is
+ * mispackaged without `mongodb`.
  *
  * Exported so tests can inject a fake driver without touching globals.
  */
@@ -102,6 +103,7 @@ export type MongoDriverLoader = () => Promise<MongoDriverLike | null>;
 
 const defaultDriverLoader: MongoDriverLoader = async () => {
   try {
+    // Load lazily so scheduled ingestion is the only path that initializes it.
     return (await import('mongodb').catch(
       () => null
     )) as MongoDriverLike | null;
@@ -155,7 +157,7 @@ export class MongoDbIngestionService {
       // No driver — record the failure as an error per config row and
       // bail out. This is treated the same as a connection failure for
       // the circuit-breaker.
-      const message = 'mongodb driver not installed on the server';
+      const message = 'mongodb driver unavailable in this server build';
       for (const cfg of configs) {
         result.errors.push(`${cfg.collectionName}: ${message}`);
         await this.recordFailure(cfg, message);

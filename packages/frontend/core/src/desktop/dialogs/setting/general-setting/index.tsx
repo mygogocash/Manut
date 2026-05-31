@@ -81,7 +81,7 @@ export const useGeneralSettingList = (): GeneralSettingList => {
       },
       {
         key: 'personalize',
-        title: 'Personalize',
+        title: t['com.affine.personalize.title'](),
         icon: <AiOutlineIcon />,
         testId: 'personalize-panel-trigger',
       },
@@ -146,7 +146,7 @@ export const useGeneralSettingList = (): GeneralSettingList => {
     settings.push(
       {
         key: 'controlPlaneRoles',
-        title: 'Control Plane Roles',
+        title: t['com.manut.control-plane.roles.tab.title'](),
         icon: <AiOutlineIcon />,
         testId: 'control-plane-roles-trigger',
       },
@@ -158,7 +158,7 @@ export const useGeneralSettingList = (): GeneralSettingList => {
       },
       {
         key: 'about',
-        title: 'About Manut',
+        title: t['com.affine.aboutAFFiNE.title'](),
         icon: <InformationIcon />,
         testId: 'about-panel-trigger',
       }

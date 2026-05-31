@@ -1348,7 +1348,7 @@ Expand task-level detail when bundle starts (per "Sub-agent handoff conventions"
 ### Access + secrets
 
 - **Railway CLI token** at `~/.railway/config.json` → `.user.accessToken`. Use it for direct GraphQL: `curl -X POST https://backboard.railway.com/graphql/v2 -H "Authorization: Bearer $TOKEN" ...`. Examples in the session history.
-- **Prod DB** (Railway Postgres) accessible via public proxy: `postgresql://postgres:zKmMjRHqlQiAAuzRCvqMrKahkwLjHleH@autorack.proxy.rlwy.net:40907/railway`. Use for `prisma migrate deploy` from local.
+- **Prod DB** (Railway Postgres) accessible via public proxy: `postgresql://postgres:<REDACTED — ROTATE THIS CREDENTIAL>@<railway-pg-proxy-host>:<port>/railway`. Use for `prisma migrate deploy` from local.
 - **Resend** (mailer) already set on Railway: `MAIL_PROVIDER=resend`, `RESEND_API_KEY`, `RESEND_FROM=noreply@gogocash.co`. Domain `gogocash.co` verified in Resend.
 - **GitHub gh CLI** authenticated. Use for `gh pr create`, `gh run list`, `gh api`.
 - **Exa API key** — to be added in B9; user provides.

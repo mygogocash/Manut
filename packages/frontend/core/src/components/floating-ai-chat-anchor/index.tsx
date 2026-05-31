@@ -426,6 +426,9 @@ function FloatingAiChatAnchorBody({
 
     if (!chatContent) {
       content.independentMode = true;
+      // Was -100 (tuned for the tall /chat page). In the short, overflow:hidden
+      // floating window that 100px offset becomes a ~200px composer pad that
+      // pushes the empty state under the header. 0 keeps it inside the panel.
       content.onboardingOffsetY = 0;
       chatContainerRef.current.append(content);
       setChatContent(content);

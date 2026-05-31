@@ -693,8 +693,10 @@ export class AIChatContent extends SignalWatcher(
       ></ai-chat-messages>
       <ai-chat-composer
         style=${styleMap({
-          [this.onboardingOffsetY > 0 ? 'paddingTop' : 'paddingBottom']:
-            `${this.messages.length === 0 ? Math.abs(this.onboardingOffsetY) * 2 : 0}px`,
+          // Guard against a host that never set onboardingOffsetY: an undefined
+          // value makes Math.abs(undefined) NaN and emits paddingBottom:"NaNpx".
+          [(this.onboardingOffsetY ?? 0) > 0 ? 'paddingTop' : 'paddingBottom']:
+            `${this.messages.length === 0 ? Math.abs(this.onboardingOffsetY ?? 0) * 2 : 0}px`,
         })}
         .affineFeatureFlagService=${this.affineFeatureFlagService}
         .independentMode=${this.independentMode}

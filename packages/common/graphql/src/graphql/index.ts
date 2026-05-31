@@ -3086,6 +3086,14 @@ export const revokeMemberPermissionMutation = {
 }`,
 };
 
+export const resendInviteMutation = {
+  id: 'resendInviteMutation' as const,
+  op: 'resendInvite',
+  query: `mutation resendInvite($workspaceId: String!, $inviteId: String!) {
+  resendInvite(workspaceId: $workspaceId, inviteId: $inviteId)
+}`,
+};
+
 export const revokePublicPageMutation = {
   id: 'revokePublicPageMutation' as const,
   op: 'revokePublicPage',

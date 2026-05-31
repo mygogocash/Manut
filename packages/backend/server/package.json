@@ -96,7 +96,7 @@
     "js-yaml": "^4.1.1",
     "jsonwebtoken": "^9.0.3",
     "lodash-es": "^4.17.23",
-    "mongodb": "^6.21.0",
+    "mongodb": "^7.2.0",
     "mustache": "^4.2.0",
     "nanoid": "^5.1.6",
     "nest-winston": "^1.9.7",

@@ -12,8 +12,11 @@ export default {
   extensions: {
     ts: 'module',
   },
-  nodeArguments: ['--import', 'tsx/esm'],
+  nodeArguments: ['--import', './swc-esm-register.mjs'],
   workerThreads: false,
+  // ^ swc-esm-register loads an SWC-based loader that emits decorator
+  //   metadata (which the previous tsx/esm/esbuild loader did not),
+  //   required for NestJS @nestjs/graphql @Field() resolution.
   watchMode: {
     ignoreChanges: ['**/*.gen.*'],
   },

@@ -6,7 +6,7 @@ import { MongoDbIngestionService } from './ingestion.service';
 /**
  * Manut Analytics — MongoDB ingestion cron.
  *
- * Runs every 15 minutes and drives `runForAll` on the underlying
+ * Runs every 30 minutes and drives `runForAll` on the underlying
  * `MongoDbIngestionService`. The service owns per-workspace iteration,
  * bounded concurrency (5 in parallel), failure isolation, and the
  * circuit-breaker on `consecutive_failures`. This shell does one job:
@@ -16,7 +16,7 @@ import { MongoDbIngestionService } from './ingestion.service';
  *  - @Injectable() on the cron class (v1.12.0 DI scar)
  *  - MongoDbIngestionService is a runtime import (no `import type` for
  *    a DI target)
- *  - 15-min cadence matches the per-workspace doc-limit (1000 docs per
+ *  - 30-min cadence matches the per-workspace doc-limit (1000 docs per
  *    run) — at this combination a normal workspace catches up to its
  *    Mongo cluster within an hour even at the cold-start, then idles
  *    on the cursor's $gt window

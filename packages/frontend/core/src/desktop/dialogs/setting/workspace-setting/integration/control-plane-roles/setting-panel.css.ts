@@ -95,6 +95,10 @@ export const link = style({
 });
 
 export const errorBox = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 12,
   fontSize: 12,
   lineHeight: '18px',
   color: cssVarV2.status.error,

@@ -168,7 +168,9 @@ export const ConnectionsSettingPanel = ({
           setError(CONNECTIONS_UNAVAILABLE_MESSAGE);
         } else {
           setError(
-            err instanceof Error ? err.message : 'Failed to disconnect provider.'
+            err instanceof Error
+              ? err.message
+              : 'Failed to disconnect provider.'
           );
         }
       } finally {
@@ -201,7 +203,7 @@ export const ConnectionsSettingPanel = ({
             margin: '0 0 4px 0',
           }}
         >
-          Connections
+          Data connections
         </h2>
         <p
           style={{
@@ -210,7 +212,9 @@ export const ConnectionsSettingPanel = ({
             margin: 0,
           }}
         >
-          Connect external services to import and sync data into AFFiNE.
+          Connect external data sources to import and sync data into AFFiNE.
+          Social platforms (Facebook, Instagram, TikTok) are managed from the
+          Analytics overview.
         </p>
       </div>
 
@@ -224,7 +228,9 @@ export const ConnectionsSettingPanel = ({
             fontSize: '13px',
           }}
         >
-          {schemaUnavailable && !error ? CONNECTIONS_UNAVAILABLE_MESSAGE : error}
+          {schemaUnavailable && !error
+            ? CONNECTIONS_UNAVAILABLE_MESSAGE
+            : error}
         </div>
       ) : null}
 

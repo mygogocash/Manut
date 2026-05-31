@@ -456,6 +456,8 @@ export const EditorChatPanel = ({ editor, onLoad }: SidebarTabProps) => {
     };
 
     if (!chatContent) {
+      content.independentMode = true;
+      content.onboardingOffsetY = 0;
       chatContainerRef.current.append(content);
       setChatContent(content);
       onLoad?.(content);

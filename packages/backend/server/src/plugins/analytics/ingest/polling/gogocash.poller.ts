@@ -10,14 +10,23 @@ import { PrismaClient } from '@prisma/client';
  * `social_metrics` keyed on (workspaceId, platform=GOGOCASH, metricKey,
  * bucket=HOUR, bucketStart) so the analytics resolver can read them.
  *
- * Multi-workspace handling
- * ------------------------
- * The same internal numbers are emitted under EACH workspace that has an
- * ACTIVE GOGOCASH SocialConnection. If no GOGOCASH connection exists yet
- * (the likely v1 state in dev / fresh installs), we still compute the
- * numbers and emit them under the special workspace id `'__internal__'`,
- * so the analytics overview can be smoke-tested without first wiring up
- * an OAuth-style "connection" for the internal data source.
+ * Scoping (finding #14)
+ * ---------------------
+ * Every metric this poller computes (total_users, signups_*, dau, mau,
+ * total_workspaces, new_workspaces_*) is INSTANCE-WIDE — it describes
+ * the whole deployment, not any single workspace. Writing those numbers
+ * under each connected workspace falsely implies they are workspace-
+ * scoped (e.g. "this workspace has 10k users"), so the analytics
+ * overview would show identical instance totals per workspace.
+ *
+ * Correct behaviour: persist the instance-wide KPIs exactly ONCE, under
+ * the dedicated attribution key `'__internal__'`. We still gate the
+ * whole run on whether ANY workspace has opted into the GOGOCASH data
+ * source (an ACTIVE GOGOCASH SocialConnection) — but we do not fan the
+ * same numbers out per workspace. Consumers that want these KPIs read
+ * the `'__internal__'` bucket explicitly. If no GOGOCASH connection
+ * exists yet (the likely v1 / fresh-install state) we still emit under
+ * `'__internal__'` so the overview can be smoke-tested.
  *
  * Activity definition
  * -------------------
@@ -44,32 +53,38 @@ export class GogocashPoller {
   }
 
   /**
+   * Attribution key for instance-wide KPIs. These numbers are NOT
+   * workspace-scoped, so they live under a single reserved id instead
+   * of being duplicated per workspace (finding #14).
+   *
+   * MUST stay in lockstep with `INSTANCE_WIDE_METRICS_KEY` in the overview
+   * consumer (`plugins/analytics/graphql/overview.ts`) — the reader queries
+   * `social_metrics` by exactly this id. Changing one without the other
+   * silently zeroes every KPI card. We keep a local literal (rather than
+   * importing the const) so this ingestion-layer file doesn't pull the
+   * GraphQL enum-registration side effects that `overview.ts` triggers.
+   */
+  private static readonly INSTANCE_WIDE_BUCKET = '__internal__';
+
+  /**
    * Public entry point so tests can trigger one tick without waiting for
    * the cron scheduler.
    */
   async computeAndPersist(now: Date = new Date()): Promise<void> {
+    // Gate the run on whether the GOGOCASH data source is opted-in
+    // anywhere; if not, we still compute so the overview can be
+    // smoke-tested. Either way the numbers are written ONCE.
     const metrics = await this.computeMetrics(now);
-    const targetWorkspaceIds = await this.resolveTargetWorkspaceIds();
     const bucketStart = floorToHour(now);
 
-    for (const workspaceId of targetWorkspaceIds) {
-      for (const [metricKey, value] of Object.entries(metrics)) {
-        await this.upsertMetric(workspaceId, metricKey, value, bucketStart);
-      }
+    for (const [metricKey, value] of Object.entries(metrics)) {
+      await this.upsertMetric(
+        GogocashPoller.INSTANCE_WIDE_BUCKET,
+        metricKey,
+        value,
+        bucketStart
+      );
     }
-  }
-
-  private async resolveTargetWorkspaceIds(): Promise<string[]> {
-    const connections = await this.db.socialConnection.findMany({
-      where: { platform: 'GOGOCASH', status: 'ACTIVE' },
-      select: { workspaceId: true },
-    });
-    const ids = Array.from(new Set(connections.map(c => c.workspaceId)));
-    if (ids.length > 0) {
-      return ids;
-    }
-    // Fallback for the v1 / dev state — see file header.
-    return ['__internal__'];
   }
 
   private async computeMetrics(now: Date): Promise<Record<string, number>> {

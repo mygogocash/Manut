@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { Models } from '../../models';
+import {
+  assertSafeOutboundHost,
+  BlockedHostError,
+} from '../connections/ssrf-guard';
 import type {
   MongoDbConnectionStatus,
   MongoDbConnectionTestResult,
@@ -41,9 +45,12 @@ export class MongoDbConnectionInvalidUriError extends Error {
  *    runs `db.command({ ping: 1 })`, and closes. No write paths are
  *    exercised by the scaffold.
  *
- * The `mongodb` driver is installed as a server dependency but still
- * loaded lazily. Workspaces that never configure MongoDB do not open
- * driver connections during boot.
+ * IMPORTANT: `mongodb` is a production dependency of @affine/server,
+ * but we still load it lazily. Workspaces that never configure MongoDB
+ * should not pay connection/client setup cost during normal app usage.
+ * If a broken image ever omits the dependency again, `testConnection`
+ * returns a friendly configuration error instead of crashing the
+ * resolver.
  */
 @Injectable()
 export class MongoDbConnectionService {
@@ -74,6 +81,21 @@ export class MongoDbConnectionService {
       throw new MongoDbConnectionInvalidUriError(
         'must start with mongodb:// or mongodb+srv://'
       );
+    }
+
+    // SSRF guard: reject loopback / private / metadata hosts before the
+    // URI is ever stored (the stored URI is later opened by
+    // testConnection + the schema explorer). BlockedHostError is mapped
+    // to a friendly BadRequest by the resolver.
+    try {
+      this.assertOutboundUriAllowed(uri);
+    } catch (err) {
+      if (err instanceof BlockedHostError) {
+        throw new MongoDbConnectionInvalidUriError(
+          'host is not allowed (private, loopback, or reserved address)'
+        );
+      }
+      throw err;
     }
 
     // Parse for display only — discard if invalid; the driver will
@@ -182,11 +204,31 @@ export class MongoDbConnectionService {
       };
     }
 
+    // SSRF guard before opening any socket — block private/loopback/
+    // metadata targets a user could probe via this stateless test path.
+    try {
+      this.assertOutboundUriAllowed(uri);
+    } catch (err) {
+      if (err instanceof BlockedHostError) {
+        return {
+          ok: false,
+          error:
+            'That MongoDB host is not allowed. Use a publicly reachable cluster, not a private, loopback, or reserved address.',
+        };
+      }
+      throw err;
+    }
+
     const parsed = this.parseUriForDisplay(uri);
 
-    // Lazy dynamic import keeps the driver out of the boot path while
-    // still allowing production deployments to explore configured
-    // MongoDB clusters.
+    // Lazy dynamic import: the `mongodb` driver is NOT a hard dep of
+    // @affine/server — see module-level header for the rationale. The
+    // `// @ts-expect-error` is REQUIRED because the type checker
+    // can't resolve a package that isn't installed; at runtime the
+    // dynamic import either succeeds (driver present) or fails
+    // gracefully via `.catch(() => null)`. We rely on the stable
+    // runtime contract (connect / db / command / close) which is
+    // unchanged across every published mongodb driver version.
     type MongoDriver = {
       MongoClient: new (
         uri: string,
@@ -202,6 +244,7 @@ export class MongoDbConnectionService {
 
     let driver: MongoDriver | null = null;
     try {
+      // Load lazily so the driver stays off non-Mongo request paths.
       driver = (await import('mongodb').catch(
         () => null
       )) as MongoDriver | null;
@@ -212,7 +255,7 @@ export class MongoDbConnectionService {
       return {
         ok: false,
         error:
-          'MongoDB driver is not installed on the server. Ask an admin to add the `mongodb` package to @affine/server.',
+          'MongoDB driver is unavailable in this server build. Ask an admin to redeploy Manut with @affine/server production dependencies installed.',
       };
     }
 
@@ -280,6 +323,31 @@ export class MongoDbConnectionService {
     }
 
     return decrypted.accessToken;
+  }
+
+  /**
+   * SSRF guard for a MongoDB connection string. Mongo URIs can carry
+   * multiple comma-separated hosts (replica sets) and an optional
+   * `mongodb+srv` scheme, neither of which the WHATWG URL parser
+   * handles — so we extract every host from the authority by hand and
+   * run each through the shared host guard. Throws BlockedHostError
+   * when any host is loopback / private / link-local / metadata.
+   * Public so the schema explorer can re-check a stored URI before it
+   * opens a client (defense in depth).
+   */
+  assertOutboundUriAllowed(uri: string): void {
+    const withoutScheme = uri.replace(/^mongodb(\+srv)?:\/\//i, '');
+    const authority = withoutScheme.split(/[/?]/)[0] ?? '';
+    const hostSection = authority.includes('@')
+      ? authority.slice(authority.lastIndexOf('@') + 1)
+      : authority;
+    const hosts = hostSection
+      .split(',')
+      .map(hostPort => hostPort.replace(/:\d+$/, '').trim())
+      .filter(Boolean);
+    for (const host of hosts) {
+      assertSafeOutboundHost(host);
+    }
   }
 
   /**

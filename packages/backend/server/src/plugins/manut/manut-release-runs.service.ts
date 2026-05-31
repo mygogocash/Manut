@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
+import { withControlPlaneErrorMapping } from './manut-control-plane-errors';
+
 /**
  * Canonical task tree slugs for a release run. Order matches the
  * `taskTree` array shape emitted by scripts/manut-release-handover.mjs:
@@ -65,49 +67,51 @@ export class MnReleaseRunsService {
 
     const generatedAt = parsed.generatedAt;
 
-    const run = await this.db.mnReleaseRun.upsert({
-      where: {
-        workspaceId_ghRunId: {
+    return withControlPlaneErrorMapping(async () => {
+      const run = await this.db.mnReleaseRun.upsert({
+        where: {
+          workspaceId_ghRunId: {
+            workspaceId,
+            ghRunId: parsed.ghRunId,
+          },
+        },
+        create: {
+          id: randomUUID(),
           workspaceId,
           ghRunId: parsed.ghRunId,
+          ghRunUrl: parsed.ghRunUrl,
+          mode: parsed.mode,
+          status: parsed.status,
+          version: parsed.version,
+          shortSha: parsed.shortSha,
+          headSha: parsed.headSha,
+          imageTag: parsed.imageTag,
+          imageDigest: parsed.imageDigest,
+          registry: parsed.registry,
+          deployUrl: parsed.deployUrl,
+          actor: parsed.actor,
+          generatedAt,
         },
-      },
-      create: {
-        id: randomUUID(),
-        workspaceId,
-        ghRunId: parsed.ghRunId,
-        ghRunUrl: parsed.ghRunUrl,
-        mode: parsed.mode,
-        status: parsed.status,
-        version: parsed.version,
-        shortSha: parsed.shortSha,
-        headSha: parsed.headSha,
-        imageTag: parsed.imageTag,
-        imageDigest: parsed.imageDigest,
-        registry: parsed.registry,
-        deployUrl: parsed.deployUrl,
-        actor: parsed.actor,
-        generatedAt,
-      },
-      update: {
-        ghRunUrl: parsed.ghRunUrl,
-        mode: parsed.mode,
-        status: parsed.status,
-        version: parsed.version,
-        shortSha: parsed.shortSha,
-        headSha: parsed.headSha,
-        imageTag: parsed.imageTag,
-        imageDigest: parsed.imageDigest,
-        registry: parsed.registry,
-        deployUrl: parsed.deployUrl,
-        actor: parsed.actor,
-        generatedAt,
-      },
+        update: {
+          ghRunUrl: parsed.ghRunUrl,
+          mode: parsed.mode,
+          status: parsed.status,
+          version: parsed.version,
+          shortSha: parsed.shortSha,
+          headSha: parsed.headSha,
+          imageTag: parsed.imageTag,
+          imageDigest: parsed.imageDigest,
+          registry: parsed.registry,
+          deployUrl: parsed.deployUrl,
+          actor: parsed.actor,
+          generatedAt,
+        },
+      });
+
+      await this.upsertDefaultTasks(run.id, parsed.taskLabels);
+
+      return run;
     });
-
-    await this.upsertDefaultTasks(run.id, parsed.taskLabels);
-
-    return run;
   }
 
   /**
@@ -118,12 +122,14 @@ export class MnReleaseRunsService {
     const take = clampInt(options.limit, 1, 100, 50);
     const skip = Math.max(0, options.offset ?? 0);
 
-    return this.db.mnReleaseRun.findMany({
-      where: { workspaceId },
-      orderBy: [{ generatedAt: 'desc' }, { createdAt: 'desc' }],
-      take,
-      skip,
-    });
+    return withControlPlaneErrorMapping(() =>
+      this.db.mnReleaseRun.findMany({
+        where: { workspaceId },
+        orderBy: [{ generatedAt: 'desc' }, { createdAt: 'desc' }],
+        take,
+        skip,
+      })
+    );
   }
 
   /**
@@ -132,15 +138,17 @@ export class MnReleaseRunsService {
    * Includes the task list so resolvers don't need a second round-trip.
    */
   async getRun(workspaceId: string, runId: string) {
-    const run = await this.db.mnReleaseRun.findUnique({
-      where: { id: runId },
-      include: { tasks: { orderBy: { sortOrder: 'asc' } } },
+    return withControlPlaneErrorMapping(async () => {
+      const run = await this.db.mnReleaseRun.findUnique({
+        where: { id: runId },
+        include: { tasks: { orderBy: { sortOrder: 'asc' } } },
+      });
+
+      if (!run) return null;
+      if (run.workspaceId !== workspaceId) return null;
+
+      return run;
     });
-
-    if (!run) return null;
-    if (run.workspaceId !== workspaceId) return null;
-
-    return run;
   }
 
   /**
@@ -153,10 +161,12 @@ export class MnReleaseRunsService {
    * workspaceId from the parent MnReleaseRun.
    */
   async listTasks(runId: string, workspaceId: string) {
-    return this.db.mnReleaseTask.findMany({
-      where: { runId, run: { workspaceId } },
-      orderBy: { sortOrder: 'asc' },
-    });
+    return withControlPlaneErrorMapping(() =>
+      this.db.mnReleaseTask.findMany({
+        where: { runId, run: { workspaceId } },
+        orderBy: { sortOrder: 'asc' },
+      })
+    );
   }
 
   private async upsertDefaultTasks(runId: string, taskLabels: string[]) {

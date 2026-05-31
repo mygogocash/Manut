@@ -3421,6 +3421,7 @@ export interface Mutation {
   retryAudioTranscription: Maybe<TranscriptionResultType>;
   /** Reverse an APPLIED change when reversibility is possible. Restores underlying tables from payload.priorState; transitions to REVERTED. */
   revertMnOrgChange: MnOrgChange;
+  resendInvite: Scalars['Boolean']['output'];
   revokeDocUserRoles: Scalars['Boolean']['output'];
   revokeInviteLink: Scalars['Boolean']['output'];
   revokeMember: Scalars['Boolean']['output'];
@@ -4139,6 +4140,11 @@ export interface MutationLeaveWorkspaceArgs {
   sendLeaveMail?: InputMaybe<Scalars['Boolean']['input']>;
   workspaceId: Scalars['String']['input'];
   workspaceName?: InputMaybe<Scalars['String']['input']>;
+}
+
+export interface MutationResendInviteArgs {
+  inviteId: Scalars['String']['input'];
+  workspaceId: Scalars['String']['input'];
 }
 
 export interface MutationLinkCalDavAccountArgs {
@@ -10642,6 +10648,16 @@ export type RevokeMemberPermissionMutation = {
   revokeMember: boolean;
 };
 
+export type ResendInviteMutationVariables = Exact<{
+  workspaceId: Scalars['String']['input'];
+  inviteId: Scalars['String']['input'];
+}>;
+
+export type ResendInviteMutation = {
+  __typename?: 'Mutation';
+  resendInvite: boolean;
+};
+
 export type RevokePublicPageMutationVariables = Exact<{
   workspaceId: Scalars['String']['input'];
   pageId: Scalars['String']['input'];
@@ -12071,6 +12087,11 @@ export type Mutations =
       name: 'revokeMemberPermissionMutation';
       variables: RevokeMemberPermissionMutationVariables;
       response: RevokeMemberPermissionMutation;
+    }
+  | {
+      name: 'resendInviteMutation';
+      variables: ResendInviteMutationVariables;
+      response: ResendInviteMutation;
     }
   | {
       name: 'revokePublicPageMutation';
