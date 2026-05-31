@@ -1,0 +1,3 @@
+mutation resendInvite($workspaceId: String!, $inviteId: String!) {
+  resendInvite(workspaceId: $workspaceId, inviteId: $inviteId)
+}
