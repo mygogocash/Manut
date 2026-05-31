@@ -140,6 +140,13 @@ const MobileAskAIPanel = ({
   }, []);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+    createSession().catch(console.error);
+  }, [open, createSession]);
+
+  useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => {
       chatContainerRef.current

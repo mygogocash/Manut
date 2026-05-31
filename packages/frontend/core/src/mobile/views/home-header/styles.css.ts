@@ -20,6 +20,7 @@ export const workspaceChip = style({
   flex: '0 0 48px',
   padding: 6,
   borderRadius: '50%',
+  overflow: 'hidden',
   border: `0.5px solid ${cssVarV2('layer/insideBorder/border')}`,
   background: 'var(--manut-surface-glass-strong)',
   backdropFilter: 'blur(18px) saturate(180%)',
@@ -30,6 +31,7 @@ export const workspaceChip = style({
 globalStyle(`${workspaceChip} [data-testid="workspace-avatar"]`, {
   width: '36px',
   height: '36px',
+  borderRadius: '50%',
 });
 
 export const menuRail = style({
@@ -58,7 +60,6 @@ export const menuButton = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  gap: 8,
   overflow: 'hidden',
   background: cssVarV2('layer/background/mobile/secondary'),
   color: cssVarV2('icon/secondary'),
@@ -77,6 +78,7 @@ export const menuButton = style({
       background: cssVarV2('layer/background/mobile/primary'),
       color: cssVarV2('text/primary'),
       boxShadow: '0 10px 26px rgba(0, 0, 0, 0.10)',
+      gap: 8,
     },
     '&:active': {
       transform: 'scale(0.94)',
