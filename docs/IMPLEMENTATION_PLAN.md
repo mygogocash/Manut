@@ -118,6 +118,10 @@ Every feature gates gracefully on its secret being unset. Operators can populate
   made in another tab or by another collaborator appear without requiring a full
   page reload. Full subscription/socket events can still replace the fallback
   later, but are no longer required for the v1 completion lane.
+- **PM/CRM/Reminders mobile layout fallbacks are now wired.** At 640px and
+  below, dense Manut views stack toolbars/actions, make tabs scroll-safe, switch
+  rows and forms to one column, and narrow Kanban columns to fit a phone
+  viewport without page-level horizontal overflow.
 
 ---
 

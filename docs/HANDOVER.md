@@ -244,9 +244,11 @@ live VM state.
   Accounts, Contacts, Deals, and Activities to CSV. PM exports loaded project
   lists and project-detail task lists to CSV. Reminders exports active reminder
   tabs and reminder rules to CSV. Loaded PM/CRM/Reminders data queries now
-  refresh every 30 seconds through SWR as the v1 realtime fallback. Remaining
-  v1 follow-ups are mobile-specific layouts and future non-EMAIL reminder
-  channels; full subscriptions remain optional.
+  refresh every 30 seconds through SWR as the v1 realtime fallback. The three
+  surfaces also have 640px responsive layout fallbacks for stacked toolbars,
+  scroll-safe tabs, dense rows, forms, cards, and Kanban columns. Remaining v1
+  follow-up is future non-EMAIL reminder channels; full subscriptions remain
+  optional.
 - Chat model picker: 10 frontier models on `optionalModels` (Gemini 2.5/3.1
   family, Claude Sonnet 4/4.5/Opus 4, Llama 4 Scout/Maverick). Default is
   `gemini-2.5-flash`. Moonshot Kimi, xAI Grok, and Alibaba Qwen provider
