@@ -120,7 +120,7 @@ docs, and roadmap docs.
 ## Current Slice
 
 Active slice: **Lane 5 — Analytics and Social Integrations / rollups,
-`listMetrics`, platform deep dives, and approval/legal readiness**.
+platform deep dives, and approval/legal readiness**.
 
 Exit criteria:
 
@@ -195,6 +195,10 @@ Completed in this branch:
   validates the LINE Login code but persists the configured Messaging API
   channel token/id as the workspace connection, and LINE webhook ingestion uses
   the webhook `destination` channel id before falling back to legacy source ids.
+- Lane 5 — Metrics Listing: `listMetrics` now enforces Workspace.Read, validates
+  the requested time window, queries `social_metrics` by workspace/platform/
+  bucket/range, returns rows in chart-safe order, and caps the response at 5000
+  rows.
 
 Known verification blocker:
 
