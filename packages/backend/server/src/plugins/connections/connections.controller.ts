@@ -11,6 +11,7 @@ import type { Response } from 'express';
 
 import { URLHelper, UseNamedGuard } from '../../base';
 import { CurrentUser, Public } from '../../core/auth';
+import { jsonForInlineScript } from '../oauth-callback-script';
 import { ConnectionsService } from './connections.service';
 
 const POSTMESSAGE_TYPE = 'affine:connection-oauth-result';
@@ -104,15 +105,13 @@ export class ConnectionsController {
         code,
         state
       );
-      return res
-        .status(HttpStatus.OK)
-        .send(
-          this.renderResultPage({
-            ok: true,
-            provider,
-            displayName,
-          })
-        );
+      return res.status(HttpStatus.OK).send(
+        this.renderResultPage({
+          ok: true,
+          provider,
+          displayName,
+        })
+      );
     } catch (err) {
       // Log the full error server-side for debugging; the user-visible page
       // gets a generic code so we don't echo provider tokens / codes that
@@ -139,12 +138,11 @@ export class ConnectionsController {
       : `error=${encodeURIComponent(result.error)}`;
     const fallbackUrl = `/settings?tab=connections&${fallbackQuery}`;
 
-    // JSON-stringify the payload server-side so the client can parse safely
-    // without any inline string interpolation that could be DOM-injected.
-    const payload = JSON.stringify({
+    const payload = jsonForInlineScript({
       type: POSTMESSAGE_TYPE,
       ...result,
     });
+    const safeFallbackUrl = jsonForInlineScript(fallbackUrl);
 
     return `<!doctype html>
 <html lang="en">
@@ -161,7 +159,7 @@ export class ConnectionsController {
   <script>
   (function () {
     var payload = ${payload};
-    var fallbackUrl = ${JSON.stringify(fallbackUrl)};
+    var fallbackUrl = ${safeFallbackUrl};
     try {
       if (window.opener && window.opener !== window) {
         // Restrict the message to the same origin the popup loaded from.

@@ -27,6 +27,18 @@ const LINE_VOOM_AUTH_URL = 'https://access.line.me/oauth2/v2.1/authorize';
 const LINE_VOOM_TOKEN_URL = 'https://api.line.me/oauth2/v2.1/token';
 const LINE_VOOM_PROFILE_URL = 'https://api.line.me/v2/profile';
 
+function formatLineVoomHttpFailure(
+  operation: 'token exchange' | 'profile fetch',
+  response: Response
+): string {
+  return `LINE VOOM ${operation} failed: ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+}
+
+function sanitizeProviderErrorCode(error: string): string {
+  const safe = error.replace(/[^\w.-]/g, '').slice(0, 80);
+  return safe || 'provider_error';
+}
+
 export class LineVoomOAuthNotConfiguredError extends Error {
   constructor() {
     super(
@@ -278,10 +290,7 @@ export class LineVoomOAuthService {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(
-        `LINE VOOM token exchange failed: ${response.status} ${text}`
-      );
+      throw new Error(formatLineVoomHttpFailure('token exchange', response));
     }
 
     const parsed = (await response.json()) as
@@ -290,7 +299,7 @@ export class LineVoomOAuthService {
 
     if ('error' in parsed && parsed.error) {
       throw new Error(
-        `LINE VOOM token exchange failed: ${parsed.error}${parsed.error_description ? ` — ${parsed.error_description}` : ''}`
+        `LINE VOOM token exchange failed: ${sanitizeProviderErrorCode(parsed.error)}`
       );
     }
 
@@ -311,10 +320,7 @@ export class LineVoomOAuthService {
       },
     });
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(
-        `LINE VOOM profile fetch failed: ${response.status} ${text}`
-      );
+      throw new Error(formatLineVoomHttpFailure('profile fetch', response));
     }
     return (await response.json()) as LineVoomProfileResponse;
   }

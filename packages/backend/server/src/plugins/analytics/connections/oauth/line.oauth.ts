@@ -50,6 +50,10 @@ interface LineProfileResponse {
   pictureUrl?: string;
 }
 
+function lineHttpFailure(label: string, response: Response): string {
+  return `${label} failed: ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+}
+
 @Injectable()
 export class LineOAuthService {
   private readonly logger = new Logger(LineOAuthService.name);
@@ -79,9 +83,10 @@ export class LineOAuthService {
       client_id: channelId,
       redirect_uri: redirectUri,
       state,
-      scope: (scopes && scopes.length > 0 ? scopes : ['profile', 'openid']).join(
-        ' '
-      ),
+      scope: (scopes && scopes.length > 0
+        ? scopes
+        : ['profile', 'openid']
+      ).join(' '),
     });
     return `${LINE_AUTHORIZE_URL}?${params.toString()}`;
   }
@@ -183,10 +188,7 @@ export class LineOAuthService {
       body: body.toString(),
     });
     if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      throw new Error(
-        `LINE OAuth revoke failed: ${response.status} ${response.statusText} ${text.slice(0, 200)}`
-      );
+      throw new Error(lineHttpFailure('LINE OAuth revoke', response));
     }
   }
 
@@ -211,23 +213,21 @@ export class LineOAuthService {
       body: body.toString(),
     });
     if (!response.ok) {
-      const text = await response.text().catch(() => '');
       throw new Error(
-        `LINE OAuth request to ${url} failed: ${response.status} ${response.statusText} ${text.slice(0, 200)}`
+        lineHttpFailure(`LINE OAuth request to ${url}`, response)
       );
     }
     return (await response.json()) as T;
   }
 
-  private async fetchProfile(accessToken: string): Promise<LineProfileResponse> {
+  private async fetchProfile(
+    accessToken: string
+  ): Promise<LineProfileResponse> {
     const response = await fetch(LINE_PROFILE_URL, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      throw new Error(
-        `LINE profile fetch failed: ${response.status} ${response.statusText} ${text.slice(0, 200)}`
-      );
+      throw new Error(lineHttpFailure('LINE profile fetch', response));
     }
     return (await response.json()) as LineProfileResponse;
   }
