@@ -97,7 +97,7 @@ DEPLOY_PRUNE_BEFORE_PULL="${DEPLOY_PRUNE_BEFORE_PULL:-1}"
 # copilot/prompt/prompts.ts. To add or remove a checked prompt, edit the
 # array below — this is the single source of truth for the gate.
 EXPECTED_PROMPTS=(
-  'Chat With AFFiNE AI'
+  'Chat With Manut AI'
   'Auto Tag'
   'Summary as title'
 )
