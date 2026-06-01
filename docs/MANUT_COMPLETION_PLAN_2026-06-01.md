@@ -147,6 +147,10 @@ docs, and roadmap docs.
     launch inputs.
 - Add Cloud Monitoring alerts, load-test staging, Terraform for manual GCP
   resources, status page wiring, and long-tail CI/CD Tier 3 work.
+  - Status page runbook is now drafted in
+    [STATUS_PAGE_RUNBOOK.md](./STATUS_PAGE_RUNBOOK.md), with provider/API-token
+    fields intentionally left as TBD until the launch operator selects the
+    approved provider and secret path.
 
 ## Current Slice
 
@@ -258,6 +262,14 @@ Completed in this branch:
   launch comms template now require Cloud Run revision/image/migration-job/log/
   smoke evidence and no longer treat Railway deployment ids as current launch
   proof.
+- Lane 6 — Staging Load-Test Template: added a dry-run-first repo script for
+  low-impact staging checks, with explicit `BASE_URL` for real runs, local curl
+  stop conditions, optional `autocannon`/`k6` command expectations, and a
+  production-domain refusal guard.
+- Lane 6 — Monitoring Templates: added repo-only Terraform scaffolds for Cloud
+  Run, Cloud SQL, Redis, and Vertex/provider error alerts under `infra/gcp/`,
+  with alerts disabled by default until notification channels, Terraform state,
+  resource ids, and the provider error metric are operator-approved.
 - Lane 6 — Rename Drift Cleanup: admin/operator UI labels and hardcoded core
   web copy now use Manut/Manut Cloud where visible to users or operators, while
   internal ids, package names, and upstream URLs remain unchanged.
