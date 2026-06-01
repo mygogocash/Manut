@@ -48,7 +48,7 @@ docs, and roadmap docs.
 - Add ACL/rate-limit checks for stateless connection-test mutations.
 - Gate paid recommendation generation on settings-update permission.
 
-### PR 4 — Routines Honesty
+### PR 4 — Routines Honesty — Done
 
 - Either implement a bounded, tested Vertex-backed routine runner, or relabel
   the live "Run now" CTA as a preview queue action.
@@ -90,7 +90,7 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 2 / PR 4 — Routines Honesty**.
+Active slice: **Lane 3 — AI Chat Upgrade**.
 
 Exit criteria:
 
@@ -107,3 +107,6 @@ Completed in this branch:
   LINE provider error redaction, inline OAuth callback payload escaping,
   stateless connection-test ACL/throttle checks, and content-recommendation
   settings-update gate.
+- Lane 2 / PR 4 — Routines Honesty: relabeled routine execution as a preview
+  queue action and clarified worker output so users are not told Vertex/AI work
+  ran.
