@@ -366,8 +366,8 @@ const RunHistoryModal = ({ open, routine, onClose }: RunHistoryModalProps) => {
     >
       <div className={styles.modalBody}>
         <div className={styles.banner}>
-          PR 1 stores a queued run record but doesn&apos;t execute against
-          Vertex yet — that lands in PR 4.
+          Run history currently shows queued preview records. No Vertex/AI
+          execution has run yet.
         </div>
         {error ? (
           <div className={styles.errorState}>{error.message}</div>
@@ -481,7 +481,7 @@ const RoutineCard = ({
           onClick={() => void onRunNow(routine)}
           data-testid="routine-run-now"
         >
-          Run now
+          Queue preview
         </Button>
         <Button
           variant="secondary"
@@ -701,13 +701,14 @@ const RoutinesPage = () => {
           id: routine.id,
         });
         notify.success({
-          title: 'Run queued',
-          message: 'Execution will happen once the Vertex runner lands (PR 4).',
+          title: 'Preview queued',
+          message:
+            'This records the routine request. No Vertex/AI execution runs yet.',
         });
         await mutate();
       } catch (err) {
         notify.error({
-          title: 'Could not run routine',
+          title: 'Could not queue preview',
           message: err instanceof Error ? err.message : 'Unknown error',
         });
       } finally {
@@ -839,9 +840,8 @@ const RoutinesPage = () => {
 
           <div className={styles.banner}>
             Routines are gated behind <code>ENABLE_MANUT_ROUTINES=true</code>{' '}
-            during PR&nbsp;1. PR&nbsp;2 syncs them with Anthropic
-            scheduled-tasks; PR&nbsp;3 exposes them to Claude Code via MCP;
-            PR&nbsp;4 wires real Vertex execution into the Run-now button.
+            and currently queue preview run records only. Vertex/AI execution is
+            not run from this page yet.
           </div>
 
           {error ? (

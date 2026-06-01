@@ -29,7 +29,7 @@ registerEnumType(MnRoutineStatus, {
 registerEnumType(MnRoutineRunTrigger, {
   name: 'MnRoutineRunTrigger',
   description:
-    'How a run was started: MANUAL (Run-now button), SCHEDULED (cron fired), MCP (Claude Code via MCP server).',
+    'How a run was started: MANUAL (Queue preview button), SCHEDULED (cron fired), MCP (Claude Code via MCP server).',
 });
 
 registerEnumType(MnRoutineRunStatus, {

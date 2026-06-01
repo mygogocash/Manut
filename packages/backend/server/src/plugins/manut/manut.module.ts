@@ -338,8 +338,8 @@ export class ManutModule {
     //   - MnRoutineResolver    (PR 1) — GraphQL surface
     //   - MnRoutineCron        (PR 2) — @Cron(EVERY_MINUTE) scheduler
     //                                   that fires due routines via BullMQ
-    //   - MnRoutineJob         (PR 2) — BullMQ consumer (stub body;
-    //                                   real Vertex execution lands in PR 4)
+    //   - MnRoutineJob         (preview) — BullMQ consumer that acknowledges
+    //                                   queued runs without Vertex execution
     if (isManutRoutinesEnabled()) {
       providers.push(
         MnRoutineService,

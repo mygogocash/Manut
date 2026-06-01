@@ -262,13 +262,12 @@ export class MnRoutineService {
     });
   }
 
-  // ---------- Manual trigger (PR 1: stub) ----------
+  // ---------- Manual preview queue ----------
 
   /**
-   * Create a `QUEUED` run record. PR 1 does not actually execute against
-   * Vertex — that lands in PR 4. The frontend can still render the run
-   * row so the UX feels complete; the run sits at QUEUED until PR 4
-   * wires the worker.
+   * Create a `QUEUED` run record. This is intentionally a preview queue
+   * action: it records user intent and lets the worker acknowledge the run,
+   * but it does not execute the prompt against Vertex yet.
    */
   async createManualRun(
     userId: string,
