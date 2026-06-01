@@ -135,9 +135,8 @@ docs, and roadmap docs.
   - Admin/operator UI and hardcoded core web copy are now refreshed for Manut
     branding in setup, sidebar/about labels, custom-key disclaimers, first-run
     seed text, cloud sync labels, and diagnostic error copy.
-  - Remaining rename-drift candidates are native/mobile shell metadata,
-    payment catalog labels that may be tied to provider state, and GitHub/docs
-    contributor entrypoints.
+  - Remaining rename-drift candidate is payment catalog labels that may be tied
+    to provider state and should move only with Stripe/provider confirmation.
 - Refresh or archive stale beta/Railway launch docs.
   - Production deploy runbook and launch readiness checklist are refreshed for
     Cloud Run, Cloud Build, Cloud SQL, Secret Manager, and Cloud Monitoring.
@@ -278,6 +277,11 @@ Completed in this branch:
   sync-required tool errors, slash-menu AI grouping, and Connections panel copy
   now use Manut-facing names. Internal protocol keys such as
   `affine_workspace_*`, package names, and upstream URLs remain unchanged.
+- Lane 6 — Native and Contributor Entry Branding: mobile package/readme copy,
+  Electron tray/dialog/metainfo copy, issue templates, CI setup docs, and
+  contributor reference docs now use Manut-facing names. Compatibility-bound
+  package names, app ids, file extensions, deeplink schemes, and upstream
+  attribution URLs remain unchanged.
 - Lane 1 — Backend Startup DI Gates: focused invitation resend e2e initially
   failed before executing tests on missing `AccessController` and
   `PromptService` DI metadata. `ConnectionsModule` now imports

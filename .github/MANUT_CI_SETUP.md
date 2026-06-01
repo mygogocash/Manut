@@ -1,4 +1,4 @@
-# Superflow CI/CD Setup
+# Manut CI/CD Setup
 
 The three workflows in this directory (`superflow-ci.yml`,
 `superflow-release.yml`, `superflow-deploy.yml`) need one GitHub
@@ -22,10 +22,10 @@ the `affine-495114` project:
 
 ```bash
 PROJECT=affine-495114
-SA_NAME=superflow-ci
+SA_NAME=manut-ci
 
 gcloud iam service-accounts create $SA_NAME \
-  --display-name="Superflow CI/CD" \
+  --display-name="Manut CI/CD" \
   --project=$PROJECT
 
 SA_EMAIL="${SA_NAME}@${PROJECT}.iam.gserviceaccount.com"
@@ -37,14 +37,14 @@ for role in artifactregistry.writer artifactregistry.reader \
     --role="roles/${role}"
 done
 
-gcloud iam service-accounts keys create superflow-ci.json \
+gcloud iam service-accounts keys create manut-ci.json \
   --iam-account=$SA_EMAIL
 ```
 
-Then add the contents of `superflow-ci.json` as the `GCP_SA_KEY` secret
-under https://github.com/mygogocash/Superflow/settings/secrets/actions
+Then add the contents of `manut-ci.json` as the `GCP_SA_KEY` secret
+under https://github.com/mygogocash/Manut/settings/secrets/actions
 
-**After adding the secret, delete the local `superflow-ci.json` file.**
+**After adding the secret, delete the local `manut-ci.json` file.**
 
 ## Workflow summary
 
@@ -62,7 +62,7 @@ git push origin v1.9.0
 # release.yml fires; image lands in GAR within ~15 min
 ```
 
-After it lands, go to **Actions → Superflow Deploy → Run workflow**,
+After it lands, go to **Actions → Manut Deploy → Run workflow**,
 fill in the tag, and click Run. The deploy takes ~2 min and ends with
 a smoke test of `https://manut.xyz/info`.
 
