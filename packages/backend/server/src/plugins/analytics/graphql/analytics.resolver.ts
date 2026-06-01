@@ -13,9 +13,11 @@ import {
   AcknowledgeInsightInput,
   AnalyticsOverviewObjectType,
   InsightType,
+  ListEventsInput,
   ListInsightsInput,
   ListMetricsInput,
   RunContentRecommendationInput,
+  SocialEventObjectType,
   SocialInsightObjectType,
   SocialMetricObjectType,
 } from './analytics.dto';
@@ -128,6 +130,57 @@ export class AnalyticsResolver {
     }));
   }
 
+  @Query(() => [SocialEventObjectType], {
+    description: 'Newest normalized social events for platform deep dives.',
+  })
+  async listEvents(
+    @CurrentUser() user: CurrentUser,
+    @Args('input', { type: () => ListEventsInput })
+    input: ListEventsInput
+  ): Promise<SocialEventObjectType[]> {
+    await this.ac
+      .user(user.id)
+      .workspace(input.workspaceId)
+      .assert('Workspace.Read');
+
+    if (
+      !Number.isFinite(input.from.getTime()) ||
+      !Number.isFinite(input.to.getTime()) ||
+      input.from.getTime() >= input.to.getTime()
+    ) {
+      throw new BadRequest('Events range must have from before to.');
+    }
+
+    const rows = await this.db.socialEvent.findMany({
+      where: {
+        workspaceId: input.workspaceId,
+        ...(input.platform ? { platform: input.platform as never } : {}),
+        occurredAt: { gte: input.from, lt: input.to },
+      },
+      orderBy: { occurredAt: 'desc' },
+      take: Math.max(1, Math.min(input.limit ?? 50, 200)),
+      select: {
+        id: true,
+        platform: true,
+        eventType: true,
+        externalId: true,
+        occurredAt: true,
+        receivedAt: true,
+        payload: true,
+      },
+    });
+
+    return rows.map(row => ({
+      id: row.id,
+      platform: row.platform as SocialEventObjectType['platform'],
+      eventType: row.eventType,
+      externalId: row.externalId,
+      occurredAt: row.occurredAt,
+      receivedAt: row.receivedAt,
+      payload: toJsonObject(row.payload),
+    }));
+  }
+
   @Mutation(() => SocialInsightObjectType, {
     description:
       'Run the on-demand Content Recommendation prompt — gemini-2.5-flash, ~3K in / 0.5K out.',
@@ -213,4 +266,11 @@ export class AnalyticsResolver {
       // Never let event publishing failures break the mutation.
     }
   }
+}
+
+function toJsonObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
 }

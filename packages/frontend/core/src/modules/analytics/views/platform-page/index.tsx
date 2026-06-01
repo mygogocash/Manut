@@ -10,6 +10,7 @@ import { TrendChart } from '../../components/trend-chart';
 import type {
   AnalyticsKpi,
   MetricSeries,
+  SocialEvent,
   SocialMetric,
   SocialPlatform,
 } from '../../entities/analytics-data.entity';
@@ -17,6 +18,7 @@ import type { Insight } from '../../entities/insight.entity';
 import type { PlatformConnection } from '../../entities/platform-connection.entity';
 import { AnalyticsService } from '../../services/analytics.service';
 import { ConnectionService } from '../../services/connection.service';
+import { buildEventMessage } from './events';
 import * as styles from './index.css';
 import { buildMetricKpis, buildMetricSeries } from './metrics';
 
@@ -43,18 +45,6 @@ const isKnownPlatform = (slug: string | undefined): slug is SocialPlatform => {
 interface PlatformPageProps {
   platform: string;
 }
-
-interface RecentEvent {
-  id: string;
-  ts: string;
-  type: string;
-  message: string;
-}
-
-// TODO(analytics): replace with `loadRecentEvents(workspaceId, platform)`
-// query once backend Round C exposes social_events. For now we render
-// "No recent events yet" so the section ships without invented data.
-const MOCK_RECENT_EVENTS: RecentEvent[] = [];
 
 function pointsFromSparkline(
   sparkline: number[]
@@ -99,6 +89,9 @@ export function PlatformPage({ platform }: PlatformPageProps) {
   const [metricRows, setMetricRows] = useState<SocialMetric[]>([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [recentEvents, setRecentEvents] = useState<SocialEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
 
   useEffect(() => {
     analyticsService.loadOverview(workspaceId).catch(err => {
@@ -154,6 +147,47 @@ export function PlatformPage({ platform }: PlatformPageProps) {
       .finally(() => {
         if (!cancelled) {
           setMetricsLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [analyticsService, platformKey, workspaceId]);
+
+  useEffect(() => {
+    if (!platformKey) {
+      setRecentEvents([]);
+      return;
+    }
+    let cancelled = false;
+    const to = new Date();
+    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+    setEventsLoading(true);
+    setEventsError(null);
+    analyticsService
+      .loadRecentEvents(workspaceId, {
+        platform: platformKey,
+        from,
+        to,
+        limit: 20,
+      })
+      .then(events => {
+        if (!cancelled) {
+          setRecentEvents(events);
+        }
+      })
+      .catch(err => {
+        logger.error('loadRecentEvents failed', err);
+        if (!cancelled) {
+          setRecentEvents([]);
+          setEventsError(
+            err instanceof Error ? err.message : 'Could not load recent events'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setEventsLoading(false);
         }
       });
     return () => {
@@ -278,17 +312,23 @@ export function PlatformPage({ platform }: PlatformPageProps) {
 
       <div className={styles.sectionLabel}>Recent events</div>
       <div className={styles.eventsList}>
-        {MOCK_RECENT_EVENTS.length === 0 ? (
+        {eventsLoading && recentEvents.length === 0 ? (
+          <div className={styles.skeletonBlock} />
+        ) : eventsError ? (
+          <div className={styles.empty}>{eventsError}</div>
+        ) : recentEvents.length === 0 ? (
           <div className={styles.empty}>
             No recent events yet for this platform.
           </div>
         ) : (
-          MOCK_RECENT_EVENTS.map(ev => (
+          recentEvents.map(ev => (
             <div key={ev.id} className={styles.eventRow}>
-              <span className={styles.eventType}>{ev.type}</span>
-              <span className={styles.eventMessage}>{ev.message}</span>
+              <span className={styles.eventType}>{ev.eventType}</span>
+              <span className={styles.eventMessage}>
+                {buildEventMessage(ev)}
+              </span>
               <span className={styles.eventTime}>
-                {new Date(ev.ts).toLocaleString()}
+                {new Date(ev.occurredAt).toLocaleString()}
               </span>
             </div>
           ))

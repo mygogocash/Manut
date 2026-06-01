@@ -70,6 +70,13 @@ export const eventRow = style({
   borderRadius: 8,
   border: `1px solid ${cssVar('borderColor')}`,
   background: cssVar('backgroundPrimaryColor'),
+  '@media': {
+    'screen and (max-width: 720px)': {
+      alignItems: 'flex-start',
+      flexDirection: 'column',
+      gap: 4,
+    },
+  },
 });
 
 export const eventType = style({
@@ -86,11 +93,13 @@ export const eventMessage = style({
   color: cssVar('textPrimaryColor'),
   flex: 1,
   minWidth: 0,
+  overflowWrap: 'anywhere',
 });
 
 export const eventTime = style({
   fontSize: 11,
   color: cssVar('textSecondaryColor'),
+  whiteSpace: 'nowrap',
 });
 
 export const insightsList = style({

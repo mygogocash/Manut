@@ -102,6 +102,9 @@ docs, and roadmap docs.
 - Token refresh cron and anomaly-detector ingestion wiring. — Done
 - `insightCreated` equivalent socket event. — Done via authenticated SSE at
   `/api/workspace/:workspaceId/analytics/insights-stream`.
+- Platform recent-event deep dives. — Done via `listEvents`, with
+  Workspace.Read enforcement, range validation, bounded results, and frontend
+  rendering from normalized `social_events` payloads.
 - Remove or revise LINE VOOM claims if partner/API access is unavailable.
 - Fix LINE channel-mode ingestion mismatch. — Done for the v1 channel path:
   connection completion validates LINE Login, stores configured Messaging API
@@ -207,10 +210,14 @@ Completed in this branch:
   for the selected platform, render latest metric rows as KPI cards, and build
   trend charts from real `social_metrics` rows instead of relying on the
   mock-backed legacy analytics entity.
+- Lane 5 — Platform Recent Events: platform pages now call `listEvents` for
+  the selected platform, render newest normalized `social_events` rows, and
+  keep raw webhook payloads out of the GraphQL/UI surface.
 
 Known verification blocker:
 
 - `node_modules/.bin/tsc --noEmit -p packages/frontend/core/tsconfig.json`
   currently reports pre-existing Blocksuite project-reference/decorator errors
   in chat-panel files. Focused Vitest, eslint/oxlint, and
-  `yarn affine bundle -p web` passed for the status chip slice.
+  `yarn affine bundle -p web` passed for the current analytics frontend
+  slices.

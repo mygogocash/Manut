@@ -145,12 +145,15 @@ Every feature gates gracefully on its secret being unset. Operators can populate
 - **Analytics metric rollups are now scheduled.** Hourly rollups backfill HOUR
   metric rows from `social_events`, daily rollups aggregate HOUR rows into DAY
   rows, and weekly rollups aggregate DAY rows into WEEK rows with idempotent
-  `social_metrics` upserts. Remaining analytics integration risk has moved to
+  `social_metrics` upserts.
 - **Platform pages now use live metric rows for performance/trends.**
   `AnalyticsService.loadMetrics` calls `listMetrics`, and the platform view
-  derives KPI cards and trend charts from real `social_metrics` data. Remaining
-  analytics integration risk has moved to recent-events deep dives, LINE VOOM
-  availability confirmation, and external approval/legal readiness.
+  derives KPI cards and trend charts from real `social_metrics` data.
+- **Platform pages now use live recent events.** `AnalyticsService` calls
+  `listEvents`, and the platform view renders newest normalized `social_events`
+  rows without exposing raw webhook bodies. Remaining analytics integration risk
+  has moved to LINE VOOM availability confirmation and external
+  approval/legal readiness.
 
 ---
 
