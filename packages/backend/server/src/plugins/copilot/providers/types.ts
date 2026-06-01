@@ -76,6 +76,7 @@ export const PromptToolsSchema = z
     'docCreate',
     'docUpdate',
     'docUpdateMeta',
+    'docHybridSearch',
     'docKeywordSearch',
     // work with embeddings
     'docSemanticSearch',

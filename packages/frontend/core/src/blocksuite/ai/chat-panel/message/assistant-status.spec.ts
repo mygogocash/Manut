@@ -32,6 +32,20 @@ describe('summarizeAssistantStatusChips', () => {
     ]);
   });
 
+  test('given a hybrid search tool result > returns source and tool chips', () => {
+    expect(
+      summarizeAssistantStatusChips([
+        {
+          type: 'tool-result',
+          toolCallId: 'tool-1',
+          toolName: 'docHybridSearch',
+          args: {},
+          result: { results: [] },
+        },
+      ]).some(chip => chip.kind === 'sources')
+    ).toBe(true);
+  });
+
   test('given a camelCase write tool result > returns changes chip', () => {
     expect(
       summarizeAssistantStatusChips([

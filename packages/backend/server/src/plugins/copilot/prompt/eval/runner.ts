@@ -142,6 +142,7 @@ function runChatPromptEval(): PromptEvalResult[] {
   }
 
   const optionalModels = prompt.optionalModels ?? [];
+  const promptTools = prompt.config?.tools ?? [];
   const checks: PromptEvalResult[] = [
     result(
       'chat-prompt',
@@ -163,6 +164,14 @@ function runChatPromptEval(): PromptEvalResult[] {
         `chat-prompt-forbidden-model-${modelId}`,
         !optionalModels.includes(modelId),
         `expected optionalModels not to include ${modelId}`
+      )
+    ),
+    ...chatPromptEvalConfig.requiredTools.map(tool =>
+      result(
+        'chat-prompt',
+        `chat-prompt-tool-${tool}`,
+        promptTools.includes(tool),
+        `expected prompt config tools to include ${tool}`
       )
     ),
   ];

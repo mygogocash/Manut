@@ -221,6 +221,10 @@ export class TextStreamParser {
             result += `\nCrawling the web "${chunk.input.url}"\n`;
             break;
           }
+          case 'doc_hybrid_search': {
+            result += `\nSearching workspace sources for "${chunk.input.query}"\n`;
+            break;
+          }
           case 'doc_keyword_search': {
             result += `\nSearching the keyword "${chunk.input.query}"\n`;
             break;
@@ -286,6 +290,20 @@ export class TextStreamParser {
                   typeof message === 'string' ? message : 'Unknown error'
                 }`
               );
+            }
+            break;
+          }
+          case 'doc_hybrid_search': {
+            const output = chunk.output;
+            if (Array.isArray(output)) {
+              result += `\nFound ${output.length} workspace source${output.length !== 1 ? 's' : ''} related to “${chunk.input.query}”.\n`;
+              result += `\n${this.getKeywordSearchLinks(
+                output.filter(
+                  item =>
+                    typeof item?.docId === 'string' &&
+                    typeof item?.title === 'string'
+                )
+              )}\n`;
             }
             break;
           }

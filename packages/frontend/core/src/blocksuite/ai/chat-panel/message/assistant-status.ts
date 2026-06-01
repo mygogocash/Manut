@@ -15,6 +15,7 @@ export type AssistantStatusChip = {
 const SOURCE_TOOLS = new Set([
   'blobread',
   'calendarsearch',
+  'dochybridsearch',
   'dockeywordsearch',
   'docread',
   'docsemanticsearch',

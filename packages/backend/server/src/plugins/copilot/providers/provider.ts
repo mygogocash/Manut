@@ -55,6 +55,7 @@ import {
   createDocComposeTool,
   createDocCreateTool,
   createDocEditTool,
+  createDocHybridSearchTool,
   createDocKeywordSearchTool,
   createDocReadTool,
   createDocSemanticSearchTool,
@@ -501,6 +502,40 @@ export abstract class CopilotProvider<C = any> {
             );
             tools.doc_semantic_search = createDocSemanticSearchTool(
               searchDocs.bind(null, options)
+            );
+            break;
+          }
+          case 'docHybridSearch': {
+            const docContext = options.session
+              ? await context.getBySessionId(options.session)
+              : null;
+            const searchSemanticDocs = buildDocSearchGetter(
+              ac,
+              context,
+              docContext,
+              models,
+              docReadBus,
+              authorizedRetrievalFilter
+            );
+            const searchKeywordDocs = this.AFFiNEConfig.indexer.enabled
+              ? buildDocKeywordSearchGetter(
+                  ac,
+                  this.moduleRef.get(IndexerService, { strict: false }),
+                  models,
+                  docReadBus,
+                  authorizedRetrievalFilter
+                )
+              : null;
+            tools.doc_hybrid_search = createDocHybridSearchTool(
+              async (query, signal) => {
+                const [keywordDocs, semanticChunks] = await Promise.all([
+                  searchKeywordDocs
+                    ? searchKeywordDocs(options, query)
+                    : Promise.resolve([]),
+                  searchSemanticDocs(options, query, signal),
+                ]);
+                return { keywordDocs, semanticChunks };
+              }
             );
             break;
           }

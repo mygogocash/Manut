@@ -122,8 +122,8 @@ import { ToolProgressService } from './ws/tool-progress.service';
     McpApiKeyService,
     // Knowledge Graph activation pulses — bus is in-memory pub/sub
     // consumed by the SSE controller below and emitted from copilot
-    // tools (doc_read, doc_keyword_search, doc_semantic_search,
-    // doc_edit).
+    // tools (doc_read, doc_hybrid_search, doc_keyword_search,
+    // doc_semantic_search, doc_edit).
     DocReadEventBus,
     // Manut Wave 4 (M5b) — Memory MVP services. Order matters for
     // readability only; NestJS DI resolves independent of array order.
