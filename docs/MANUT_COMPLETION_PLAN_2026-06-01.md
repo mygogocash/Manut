@@ -60,7 +60,7 @@ docs, and roadmap docs.
 - Improve Auto model routing with eval coverage. — Done
 - Render tool/source status chips in the assistant transcript. — Done
 - Add hybrid keyword + semantic retrieval with citation metadata. — Done
-- Add shadow response verification for workspace-grounded answers.
+- Add shadow response verification for workspace-grounded answers. — Done
 - Harden memory preferences and provider cache behavior after evals exist.
 
 ## Lane 4 — Product Feature Completion
@@ -90,8 +90,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 3 — AI Chat Upgrade / shadow response verification for
-workspace-grounded answers**.
+Active slice: **Lane 3 — AI Chat Upgrade / memory preferences and provider
+cache behavior**.
 
 Exit criteria:
 
@@ -131,6 +131,10 @@ Completed in this branch:
   to combine keyword and semantic workspace results with reciprocal-rank
   fusion, citation-ready result metadata, prompt-eval coverage, Read-mode
   tool defaults, assistant source chips, and a dedicated tool-result card.
+- Lane 3 — Shadow Grounding Verification: object-stream chat saves now run a
+  non-blocking verifier over workspace-source tool results and final citation
+  footnotes, logging warnings for missing inline citations, missing reference
+  lists, invalid reference JSON, or citations unsupported by retrieved sources.
 
 Known verification blocker:
 

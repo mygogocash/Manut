@@ -104,6 +104,11 @@ Response verification should not destroy streaming latency. Roll it out in three
 
 This preserves the current chat UX while building evidence that the verifier improves quality.
 
+Current implementation status: object-stream chat saves now run a shadow-only
+verifier after the answer is complete. It compares workspace-source tool
+results with final footnote definitions and logs missing or unsupported
+citation warnings without changing the user's streamed answer.
+
 ## Latency Strategy
 
 - Keep Time To First Token fast by preserving current streaming.
@@ -326,6 +331,7 @@ Future DB-backed additions should wait until the stream/source contract proves s
 
 - Intended behavior: Workspace answers use `docHybridSearch` to run keyword + semantic retrieval, merge with RRF, optionally rerank, and expose source links in the assistant message.
 - Implementation status: first slice shipped in `doc-hybrid-search.ts`, including prompt config, Read-mode defaults, stream rendering, and deterministic merge tests.
+- Verification status: first shadow verifier slice shipped in `grounding-verifier.ts`, covering missing inline citations, missing reference lists, invalid reference JSON, and unsupported doc/attachment citations.
 - Test names:
   - `doc retrieval > given exact term > then keyword result outranks semantic-only result`
   - `doc retrieval > given paraphrase > then semantic result is retained`

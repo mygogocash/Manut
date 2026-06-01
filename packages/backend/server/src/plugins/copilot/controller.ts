@@ -49,6 +49,7 @@ import { CopilotContextService } from './context/service';
 import { ChatRequestInterceptorService } from './interceptor';
 import { getModelMetadata } from './model-metadata';
 import { selectAutoModelForScenario } from './prompt/auto-model-selection';
+import { verifyWorkspaceGrounding } from './prompt/grounding-verifier';
 import { appendPermissionModeAddendum } from './prompt/mode-addendum';
 import { ScenarioClassifier } from './prompt/scenario-classifier';
 import { CopilotProviderFactory } from './providers/factory';
@@ -226,6 +227,21 @@ export class CopilotController implements BeforeApplicationShutdown {
     );
 
     return merge(source$.pipe(finalize(() => subject$.next(null))), ping$);
+  }
+
+  private verifyGroundingInShadow(
+    sessionId: string,
+    content: string,
+    streamObjects: StreamObject[]
+  ) {
+    const result = verifyWorkspaceGrounding({ content, streamObjects });
+    if (result.status !== 'warn') return;
+
+    this.logger.warn(
+      `Workspace grounding verification warning for session ${sessionId}: ${result.warnings.join(
+        ','
+      )}; unsupported=${result.unsupportedCitations.join(',') || 'none'}`
+    );
   }
 
   /**
@@ -536,6 +552,13 @@ export class CopilotController implements BeforeApplicationShutdown {
                 const parser = new StreamObjectParser();
                 const streamObjects = parser.mergeTextDelta(result);
                 const content = parser.mergeContent(streamObjects);
+                if (!endBeforePromiseResolve) {
+                  this.verifyGroundingInShadow(
+                    sessionId,
+                    content,
+                    streamObjects
+                  );
+                }
                 session.push({
                   role: 'assistant',
                   content: endBeforePromiseResolve

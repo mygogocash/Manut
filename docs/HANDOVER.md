@@ -254,6 +254,10 @@ live VM state.
   preferred Read-mode search tool. It fuses keyword + semantic retrieval with
   citation-ready source metadata, while the older keyword/semantic tools remain
   available as lower-level fallbacks.
+- AI grounding verification: object-stream chat saves run a shadow-only
+  verifier over workspace search results and final footnote definitions. It
+  logs missing/unsupported citation warnings but does not block or rewrite
+  answers yet.
 - FOSS/self-host limits: Manut hides the license tab and lifts self-host
   seat limits through `QuotaService.getWorkspaceQuota`.
 - Analytics: GoGoCash overview and AI insight pieces exist, but
