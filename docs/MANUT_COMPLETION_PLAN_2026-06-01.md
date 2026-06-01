@@ -57,7 +57,7 @@ docs, and roadmap docs.
 
 - Add prompt-eval fixtures and a repeatable runner. — Done
 - Tighten Read/Edit/Agent prompt addenda. — Done
-- Improve Auto model routing with eval coverage.
+- Improve Auto model routing with eval coverage. — Done
 - Render tool/source status chips in the assistant transcript.
 - Add hybrid keyword + semantic retrieval with citation metadata.
 - Add shadow response verification for workspace-grounded answers.
@@ -90,7 +90,7 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 3 — AI Chat Upgrade / Auto routing tightening**.
+Active slice: **Lane 3 — AI Chat Upgrade / tool and source status chips**.
 
 Exit criteria:
 
@@ -118,3 +118,7 @@ Completed in this branch:
 - Lane 3 — Prompt Addenda: backend now injects short Read/Edit/Agent
   `<mode_guidelines>` based on the same `toolsConfig` write flags the frontend
   Mode picker sends, and eval coverage checks all three addenda.
+- Lane 3 — Auto Routing: `modelId=auto` now combines scenario classification
+  with the existing high-signal auto-router so long-context chat goes to
+  Gemini Pro, code-heavy chat goes to Claude Sonnet, image-attached text chat
+  stays on Gemini Flash, and complex text uses the Pro scenario default.

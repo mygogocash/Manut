@@ -1,3 +1,4 @@
+import { selectAutoModelForScenario } from '../auto-model-selection.js';
 import {
   getModeAddendum,
   getPermissionModeAddendum,
@@ -5,6 +6,7 @@ import {
 import { type Prompt, prompts } from '../prompts.js';
 import { ScenarioClassifier } from '../scenario-classifier.js';
 import {
+  autoModelEvalCases,
   chatPromptEvalConfig,
   type MessageSubstringScope,
   modeAddendumEvalCases,
@@ -12,7 +14,11 @@ import {
   scenarioEvalCases,
 } from './fixtures.js';
 
-export type PromptEvalArea = 'scenario' | 'mode-addendum' | 'chat-prompt';
+export type PromptEvalArea =
+  | 'scenario'
+  | 'auto-routing'
+  | 'mode-addendum'
+  | 'chat-prompt';
 
 export type PromptEvalResult = {
   readonly id: string;
@@ -63,6 +69,31 @@ function runScenarioEval(): PromptEvalResult[] {
       testCase.id,
       actual === testCase.expected,
       `expected ${testCase.expected}, got ${actual}`
+    );
+  });
+}
+
+function runAutoRoutingEval(): PromptEvalResult[] {
+  return autoModelEvalCases.map(testCase => {
+    const actual = selectAutoModelForScenario({
+      scenario: testCase.scenario,
+      content: testCase.content,
+      attachments: testCase.attachments,
+      scenariosConfig: {
+        scenarios: {
+          chat: 'gemini-2.5-flash',
+          quick_text_generation: 'gemini-2.5-flash',
+          complex_text_generation: 'gemini-2.5-pro',
+          image: 'gpt-image-1',
+        },
+      },
+    });
+
+    return result(
+      'auto-routing',
+      testCase.id,
+      actual === testCase.expectedModel,
+      `expected ${testCase.expectedModel}, got ${actual}`
     );
   });
 }
@@ -154,6 +185,7 @@ function runChatPromptEval(): PromptEvalResult[] {
 export function runPromptEval(): PromptEvalReport {
   const results = [
     ...runScenarioEval(),
+    ...runAutoRoutingEval(),
     ...runModeAddendumEval(),
     ...runChatPromptEval(),
   ];
