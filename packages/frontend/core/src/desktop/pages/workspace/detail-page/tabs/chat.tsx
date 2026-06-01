@@ -165,7 +165,7 @@ export const EditorChatPanel = ({ editor, onLoad }: SidebarTabProps) => {
       const nextSession = await AIProvider.session.createSessionWithHistory({
         docId: doc.id,
         workspaceId: doc.workspace.id,
-        promptName: 'Chat With AFFiNE AI',
+        promptName: 'Chat With Manut AI',
         reuseLatestChat: false,
         ...options,
       });
@@ -209,7 +209,7 @@ export const EditorChatPanel = ({ editor, onLoad }: SidebarTabProps) => {
       const nextSession = await AIProvider.session.createSessionWithHistory({
         docId: doc.id,
         workspaceId: doc.workspace.id,
-        promptName: 'Chat With AFFiNE AI',
+        promptName: 'Chat With Manut AI',
         reuseLatestChat: false,
       });
       if (requestSeq === sessionLoadSeqRef.current) {

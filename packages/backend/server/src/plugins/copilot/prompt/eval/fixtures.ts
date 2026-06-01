@@ -214,7 +214,7 @@ export const permissionModeEvalCases = [
 ] satisfies readonly PermissionModeEvalCase[];
 
 export const chatPromptEvalConfig = {
-  promptName: 'Chat With AFFiNE AI',
+  promptName: 'Chat With Manut AI',
   expectedModel: 'gemini-2.5-flash',
   requiredTools: ['docHybridSearch'],
   requiredOptionalModels: [

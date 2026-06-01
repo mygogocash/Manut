@@ -12,6 +12,37 @@ import { IntegrationSettingHeader } from '../setting';
 import MCPIcon from './MCP.inline.svg';
 import * as styles from './setting-panel.css';
 
+type BuildMcpServerConfigJsonInput = {
+  baseUrl: string;
+  token: string;
+  workspaceId: string;
+  workspaceName: string | undefined;
+};
+
+export function buildMcpServerConfigJson({
+  baseUrl,
+  token,
+  workspaceId,
+  workspaceName,
+}: BuildMcpServerConfigJsonInput) {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        [`affine_workspace_${workspaceId}`]: {
+          type: 'streamable-http',
+          url: `${baseUrl}/api/workspaces/${workspaceId}/mcp`,
+          note: `Read docs from Manut workspace "${workspaceName}"`,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      },
+    },
+    null,
+    2
+  );
+}
+
 export const McpServerSettingPanel = () => {
   return <McpServerSetting />;
 };
@@ -53,22 +84,12 @@ const McpServerSetting = () => {
 
   const code = useMemo(() => {
     return displayedToken
-      ? JSON.stringify(
-          {
-            mcpServers: {
-              [`affine_workspace_${workspaceService.workspace.id}`]: {
-                type: 'streamable-http',
-                url: `${serverService.server.baseUrl}/api/workspaces/${workspaceService.workspace.id}/mcp`,
-                note: `Read docs from AFFiNE workspace "${workspaceName}"`,
-                headers: {
-                  Authorization: `Bearer ${displayedToken.token}`,
-                },
-              },
-            },
-          },
-          null,
-          2
-        )
+      ? buildMcpServerConfigJson({
+          baseUrl: serverService.server.baseUrl,
+          token: displayedToken.token,
+          workspaceId: workspaceService.workspace.id,
+          workspaceName,
+        })
       : null;
   }, [displayedToken, workspaceName, workspaceService, serverService]);
 

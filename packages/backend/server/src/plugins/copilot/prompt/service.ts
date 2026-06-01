@@ -318,7 +318,7 @@ export class PromptService implements OnApplicationBootstrap {
    */
   private injectAutoPrompt() {
     if (this.inMemoryPrompts.has('auto')) return;
-    const baseChat = this.inMemoryPrompts.get('Chat With AFFiNE AI');
+    const baseChat = this.inMemoryPrompts.get('Chat With Manut AI');
     if (!baseChat) return;
     const autoPrompt = this.clonePrompt(baseChat);
     autoPrompt.name = 'auto';

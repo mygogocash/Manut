@@ -36,7 +36,7 @@ const ALL_PROVIDERS: ProviderInfo[] = [
   {
     name: 'linear',
     displayName: 'Linear',
-    description: 'Sync issues and projects from Linear into AFFiNE.',
+    description: 'Sync issues and projects from Linear into Manut.',
     icon: '📐',
   },
   {
@@ -212,7 +212,7 @@ export const ConnectionsSettingPanel = ({
             margin: 0,
           }}
         >
-          Connect external data sources to import and sync data into AFFiNE.
+          Connect external data sources to import and sync data into Manut.
           Social platforms (Facebook, Instagram, TikTok) are managed from the
           Analytics overview.
         </p>

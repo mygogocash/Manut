@@ -156,7 +156,7 @@ export async function switchDefaultChatModel(model: string) {
   await runPrisma(async client => {
     const promptId = await client.aiPrompt
       .findFirst({
-        where: { name: 'Chat With AFFiNE AI' },
+        where: { name: 'Chat With Manut AI' },
         select: { id: true },
       })
       .then(f => f!.id);

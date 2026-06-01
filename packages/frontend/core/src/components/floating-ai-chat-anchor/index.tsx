@@ -231,7 +231,7 @@ function FloatingAiChatAnchorBody({
       }
       const session = await client.createSessionWithHistory({
         workspaceId,
-        promptName: 'Chat With AFFiNE AI' satisfies PromptKey,
+        promptName: 'Chat With Manut AI' satisfies PromptKey,
         reuseLatestChat: false,
         // Auto-attach the active doc so the AI sees its content as
         // context. Re-attaching on every send is handled by the chat
@@ -284,7 +284,7 @@ function FloatingAiChatAnchorBody({
       try {
         const session = await client.createSessionWithHistory({
           workspaceId,
-          promptName: 'Chat With AFFiNE AI' satisfies PromptKey,
+          promptName: 'Chat With Manut AI' satisfies PromptKey,
           reuseLatestChat: false,
           docId: docContext?.docId,
         });

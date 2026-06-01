@@ -115,7 +115,7 @@ const MobileAskAIPanel = ({
       }
       const session = await client.createSessionWithHistory({
         workspaceId,
-        promptName: 'Chat With AFFiNE AI' satisfies PromptKey,
+        promptName: 'Chat With Manut AI' satisfies PromptKey,
         reuseLatestChat: false,
         ...options,
       });

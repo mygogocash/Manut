@@ -4,7 +4,7 @@ import type { ToolsConfig } from '../types.js';
 /**
  * Maps a chat mode name to a system-prompt addendum string.
  *
- * Modes are appended to the system prompt of the "Chat With AFFiNE AI"
+ * Modes are appended to the system prompt of the "Chat With Manut AI"
  * prompt template via the {{modeAddendum}} placeholder. Unknown modes and
  * the "default" mode return an empty string so the prompt is unchanged.
  */
