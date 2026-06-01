@@ -140,10 +140,10 @@ live VM state.
 1. Analytics is partially live. The GoGoCash overview path, connections,
    token refresh cron, ingestion-anomaly wiring, Meta account picker, live
    insight SSE stream, and v1 LINE Messaging API channel-mode connection/webhook
-   path are now wired. Rollups, `listMetrics`, some platform deep-dive surfaces,
-   legal/approval pages, and LINE VOOM availability confirmation remain
-   incomplete. Do not hand it over as a complete multi-platform analytics
-   system.
+   path are now wired. `listMetrics` now reads `social_metrics` with ACL/range
+   validation. Rollups, some platform deep-dive surfaces, legal/approval pages,
+   and LINE VOOM availability confirmation remain incomplete. Do not hand it
+   over as a complete multi-platform analytics system.
 
 2. PM/CRM/Reminders are past the v0 list/create state on this QA branch:
    reminder rules materialize scheduled reminders, loaded PM/CRM/Reminders

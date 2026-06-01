@@ -138,9 +138,12 @@ Every feature gates gracefully on its secret being unset. Operators can populate
   LINE connection completion validates the LINE Login code, persists configured
   Messaging API channel credentials instead of the user OAuth token, and webhook
   ingestion resolves the channel by `destination` before legacy source ids.
-  Remaining analytics integration risk has moved to rollups/`listMetrics`,
-  platform deep dives, LINE VOOM availability confirmation, and external
-  approval/legal readiness.
+- **Analytics `listMetrics` now reads real metric rows.** The resolver enforces
+  Workspace.Read, validates non-empty time windows, filters `social_metrics` by
+  workspace/platform/bucket/range, sorts by time/key, and caps each response at
+  5000 rows. Remaining analytics integration risk has moved to rollups, platform
+  deep dives, LINE VOOM availability confirmation, and external approval/legal
+  readiness.
 
 ---
 

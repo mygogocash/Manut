@@ -584,6 +584,13 @@ GraphQL `@Subscription` transport is still not configured on Apollo; if the app
 later standardizes on `graphql-ws`, this SSE endpoint can be replaced by an
 `insightCreated(workspaceId)` subscription with the same payload shape.
 
+### Metrics listing — Done
+
+`listMetrics` now reads from `social_metrics` instead of returning a placeholder 500. It enforces `Workspace.Read`, rejects empty/reversed time windows with a
+typed user-facing error, filters by workspace/platform/bucket/time range, sorts
+by `bucketStart` then `metricKey`, and caps responses at 5000 rows until a
+cursor-based pagination contract is added.
+
 ### Pick-account UX after Meta OAuth — Done
 
 The callback can now post `analytics:oauth:choose-account` to the opener, the

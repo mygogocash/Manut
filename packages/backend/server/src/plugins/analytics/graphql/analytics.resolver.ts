@@ -1,7 +1,7 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { PrismaClient } from '@prisma/client';
 
-import { BadRequest, InternalServerError, NotFound } from '../../../base';
+import { BadRequest, NotFound } from '../../../base';
 import { CurrentUser } from '../../../core/auth';
 import { AccessController } from '../../../core/permission';
 import {
@@ -90,14 +90,42 @@ export class AnalyticsResolver {
     description: 'Aggregated metrics for the dashboard charts.',
   })
   async listMetrics(
-    @CurrentUser() _user: CurrentUser,
+    @CurrentUser() user: CurrentUser,
     @Args('input', { type: () => ListMetricsInput })
-    _input: ListMetricsInput
+    input: ListMetricsInput
   ): Promise<SocialMetricObjectType[]> {
-    // TODO(phase-3): query SocialMetric by (workspaceId, platform, bucket, bucketStart range).
-    // Typed friendly error so the unimplemented path doesn't surface as
-    // the generic "Unhandled error raised" (finding #13).
-    throw new InternalServerError('Metrics listing is not available yet.');
+    await this.ac
+      .user(user.id)
+      .workspace(input.workspaceId)
+      .assert('Workspace.Read');
+
+    if (
+      !Number.isFinite(input.from.getTime()) ||
+      !Number.isFinite(input.to.getTime()) ||
+      input.from.getTime() >= input.to.getTime()
+    ) {
+      throw new BadRequest('Metrics range must have from before to.');
+    }
+
+    const rows = await this.db.socialMetric.findMany({
+      where: {
+        workspaceId: input.workspaceId,
+        ...(input.platform ? { platform: input.platform as never } : {}),
+        bucket: input.bucket as never,
+        bucketStart: { gte: input.from, lt: input.to },
+      },
+      orderBy: [{ bucketStart: 'asc' }, { metricKey: 'asc' }],
+      take: 5000,
+    });
+
+    return rows.map(row => ({
+      id: row.id,
+      platform: row.platform as SocialMetricObjectType['platform'],
+      metricKey: row.metricKey,
+      bucket: row.bucket as SocialMetricObjectType['bucket'],
+      bucketStart: row.bucketStart,
+      value: row.value,
+    }));
   }
 
   @Mutation(() => SocialInsightObjectType, {
