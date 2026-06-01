@@ -26,14 +26,14 @@ docs, and roadmap docs.
 
 ## Lane 2 — Backend QA Batch
 
-### PR 1 — Connection Resolver Authorization
+### PR 1 — Connection Resolver Authorization — Done
 
 - Add `Workspace.Settings.Update` checks to connection write mutations.
 - Add `Workspace.Read` checks to connection read queries.
 - Cover PostHog, GoGoCash, Facebook OAuth, and generic connections.
 - Verify with focused no-database resolver tests and backend typecheck.
 
-### PR 2 — Social Connection Bridge
+### PR 2 — Social Connection Bridge — Done
 
 - Upsert `SocialConnection` from the social OAuth callback path while retaining
   the existing `IntegrationConnection` rows.
@@ -90,10 +90,16 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 2 / PR 1 — Connection Resolver Authorization**.
+Active slice: **Lane 2 / PR 3 — Token and OAuth Hardening**.
 
 Exit criteria:
 
-- Focused resolver authorization tests pass.
+- Focused OAuth/token hardening tests pass.
 - Backend typecheck passes or any pre-existing environment blocker is recorded.
 - No unrelated files are staged.
+
+Completed in this branch:
+
+- Lane 2 / PR 1 — Connection Resolver Authorization.
+- Lane 2 / PR 2 — Social Connection Bridge for Facebook, Instagram, Threads,
+  TikTok, and LINE VOOM callback paths, plus settings-card health labels.

@@ -27,6 +27,12 @@ export class InstagramConnectionType {
   @Field()
   connected!: boolean;
 
+  @Field(() => Boolean, { nullable: true })
+  verified?: boolean;
+
+  @Field(() => String, { nullable: true })
+  healthStatus?: 'saved' | 'verified' | 'expired' | 'error';
+
   // Explicit @Field(() => String) for nullable union — CLAUDE.md §6.
   @Field(() => String, { nullable: true })
   username?: string;
@@ -102,6 +108,8 @@ export class InstagramOAuthResolver {
       return {
         connected: status.connected,
         username: status.username,
+        verified: status.verified,
+        healthStatus: status.healthStatus,
       };
     } catch (err) {
       this.logger.error(

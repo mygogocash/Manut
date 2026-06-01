@@ -68,6 +68,7 @@ import {
   type MongoDbConnectionDto,
   mongoDbConnectionQuery,
   type MongoDbConnectionTestResultDto,
+  type OAuthConnectionHealthStatus,
   type PostHogConnectionDto,
   postHogConnectionQuery,
   type PostHogConnectionTestResultDto,
@@ -119,6 +120,7 @@ interface CardShellProps {
   name: string;
   connected: boolean;
   connectedLabel?: string | null;
+  connectionHealth?: OAuthConnectionHealthStatus | null;
   description: string;
   busy?: boolean;
   action: ReactNode;
@@ -131,12 +133,15 @@ const CardShell = ({
   name,
   connected,
   connectedLabel,
+  connectionHealth,
   description,
   busy,
   action,
   body,
   footerNote,
 }: CardShellProps) => {
+  const badge = resolveConnectionBadge(connected, connectionHealth);
+
   return (
     <article
       className={styles.card}
@@ -160,8 +165,8 @@ const CardShell = ({
         {body}
       </div>
       <footer className={styles.cardFooter}>
-        <span className={styles.badge} data-tone={connected ? 'connected' : ''}>
-          {connected ? 'Connected' : 'Not connected'}
+        <span className={styles.badge} data-tone={badge.tone}>
+          {badge.label}
         </span>
         {action}
       </footer>
@@ -169,6 +174,27 @@ const CardShell = ({
     </article>
   );
 };
+
+function resolveConnectionBadge(
+  connected: boolean,
+  health: OAuthConnectionHealthStatus | null | undefined
+): { label: string; tone: '' | 'connected' | 'warning' } {
+  if (!connected) {
+    return { label: 'Not connected', tone: '' };
+  }
+  switch (health) {
+    case 'verified':
+      return { label: 'Verified', tone: 'connected' };
+    case 'saved':
+      return { label: 'Saved', tone: 'warning' };
+    case 'expired':
+      return { label: 'Expired', tone: 'warning' };
+    case 'error':
+      return { label: 'Needs attention', tone: 'warning' };
+    default:
+      return { label: 'Connected', tone: 'connected' };
+  }
+}
 
 // ----------------------------------------------------------------------------
 // OAuth provider card — Facebook / Instagram / Threads / TikTok / LINE VOOM
@@ -184,9 +210,13 @@ interface OAuthCardProps {
   query: { id: string; op: string; query: string };
   connectMutation: { id: string; op: string; query: string };
   disconnectMutation: { id: string; op: string; query: string };
-  selectConnectionFromData: (
-    data: unknown
-  ) => { connected: boolean; label?: string | null } | undefined;
+  selectConnectionFromData: (data: unknown) =>
+    | {
+        connected: boolean;
+        label?: string | null;
+        healthStatus?: OAuthConnectionHealthStatus | null;
+      }
+    | undefined;
   selectUrlFromMutationResult: (data: unknown) => string | undefined;
   // For the "not configured" empty state.
   envVarsNeeded: string[];
@@ -334,6 +364,7 @@ const OAuthCard = ({
       name={name}
       connected={connection.connected}
       connectedLabel={connection.label ?? undefined}
+      connectionHealth={connection.healthStatus ?? undefined}
       description={description}
       busy={busy}
       action={action}
@@ -734,7 +765,11 @@ const facebookSelectors = {
       data as { facebookConnection?: FacebookConnectionDto } | undefined
     )?.facebookConnection;
     if (!conn) return undefined;
-    return { connected: conn.connected, label: conn.displayName };
+    return {
+      connected: conn.connected,
+      label: conn.displayName,
+      healthStatus: conn.healthStatus,
+    };
   },
   url: (data: unknown) =>
     (data as { connectFacebook?: { url?: string } } | undefined)
@@ -750,6 +785,7 @@ const instagramSelectors = {
     return {
       connected: conn.connected,
       label: conn.username ? `@${conn.username}` : undefined,
+      healthStatus: conn.healthStatus,
     };
   },
   url: (data: unknown) =>
@@ -766,6 +802,7 @@ const threadsSelectors = {
     return {
       connected: conn.connected,
       label: conn.username ? `@${conn.username}` : undefined,
+      healthStatus: conn.healthStatus,
     };
   },
   url: (data: unknown) =>
@@ -779,7 +816,11 @@ const tiktokSelectors = {
       data as { tiktokConnection?: TiktokConnectionDto } | undefined
     )?.tiktokConnection;
     if (!conn) return undefined;
-    return { connected: conn.connected, label: conn.displayName };
+    return {
+      connected: conn.connected,
+      label: conn.displayName,
+      healthStatus: conn.healthStatus,
+    };
   },
   url: (data: unknown) =>
     (data as { connectTiktok?: { url?: string } } | undefined)?.connectTiktok
@@ -792,7 +833,11 @@ const lineVoomSelectors = {
       data as { lineVoomConnection?: LineVoomConnectionDto } | undefined
     )?.lineVoomConnection;
     if (!conn) return undefined;
-    return { connected: conn.connected, label: conn.displayName };
+    return {
+      connected: conn.connected,
+      label: conn.displayName,
+      healthStatus: conn.healthStatus,
+    };
   },
   url: (data: unknown) =>
     (data as { connectLineVoom?: { url?: string } } | undefined)

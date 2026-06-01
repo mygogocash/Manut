@@ -6,7 +6,8 @@ import '../config';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaClient, SocialPlatform } from '@prisma/client';
 
-import { Config } from '../../../base';
+import { Config, CryptoHelper } from '../../../base';
+import { LEGACY_SOCIAL_TOKEN_PREFIX } from './social-connection-bridge';
 
 /**
  * Public interface for the analytics token store.
@@ -71,7 +72,8 @@ export class TokenStore implements ITokenStore, OnModuleInit {
 
   constructor(
     private readonly config: Config,
-    private readonly db: PrismaClient
+    private readonly db: PrismaClient,
+    private readonly crypto: CryptoHelper
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -155,6 +157,19 @@ export class TokenStore implements ITokenStore, OnModuleInit {
       throw new Error(
         'TokenStore.decrypt: ciphertext must be a non-empty string'
       );
+    }
+
+    if (ciphertext.startsWith(LEGACY_SOCIAL_TOKEN_PREFIX)) {
+      const plaintext = this.crypto.decrypt(
+        ciphertext.slice(LEGACY_SOCIAL_TOKEN_PREFIX.length)
+      );
+      await this.writeAuditRow(context, 'TOKEN_DECRYPT').catch(err =>
+        this.logger.error(
+          'Audit write failed',
+          err instanceof Error ? err.stack : String(err)
+        )
+      );
+      return plaintext;
     }
 
     const client = this.requireClient();

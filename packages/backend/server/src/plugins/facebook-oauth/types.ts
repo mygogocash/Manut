@@ -36,6 +36,10 @@ export const FACEBOOK_PROVIDER_NAME = 'facebook';
 export interface FacebookConnectionStatus {
   /** True when a stored token row exists for this user+workspace. */
   connected: boolean;
+  /** True only when the mirrored analytics SocialConnection is ACTIVE. */
+  verified?: boolean;
+  /** Saved means credentials exist but the analytics mirror is missing/paused. */
+  healthStatus?: 'saved' | 'verified' | 'expired' | 'error';
   /**
    * The Facebook account display name (e.g. "Jane Doe" or a Page
    * name). Returned for the "Connected as Jane Doe" UI label.

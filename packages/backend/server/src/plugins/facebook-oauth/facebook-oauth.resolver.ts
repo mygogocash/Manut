@@ -28,6 +28,12 @@ export class FacebookConnectionType {
   @Field()
   connected!: boolean;
 
+  @Field(() => Boolean, { nullable: true })
+  verified?: boolean;
+
+  @Field(() => String, { nullable: true })
+  healthStatus?: 'saved' | 'verified' | 'expired' | 'error';
+
   // MANUT v1.13.0+: explicit @Field(() => String) for the nullable
   // displayName. NestJS metadata reflection cannot infer a GraphQL
   // type from `string | null | undefined` — CLAUDE.md §6 documents
@@ -121,6 +127,8 @@ export class FacebookOAuthResolver {
       return {
         connected: status.connected,
         displayName: status.displayName,
+        verified: status.verified,
+        healthStatus: status.healthStatus,
       };
     } catch (err) {
       this.logger.error(

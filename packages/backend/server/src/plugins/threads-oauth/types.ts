@@ -28,6 +28,8 @@ export const THREADS_PROVIDER_NAME = 'threads';
 
 export interface ThreadsConnectionStatus {
   connected: boolean;
+  verified?: boolean;
+  healthStatus?: 'saved' | 'verified' | 'expired' | 'error';
   username?: string;
 }
 

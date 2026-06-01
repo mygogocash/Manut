@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
+import { SocialPlatform } from '@prisma/client';
 
 import { SessionCache } from '../../base';
 import { Models } from '../../models';
+import { SocialConnectionBridgeService } from '../analytics/connections/social-connection-bridge';
 import {
   isThreadsOAuthConfigured,
   readThreadsOAuthEnv,
@@ -61,7 +63,8 @@ export class ThreadsOAuthService {
 
   constructor(
     private readonly models: Models,
-    private readonly cache: SessionCache
+    private readonly cache: SessionCache,
+    private readonly socialBridge: SocialConnectionBridgeService
   ) {}
 
   isConfigured(): boolean {
@@ -129,6 +132,8 @@ export class ThreadsOAuthService {
     const tokens = await this.exchangeCode(code, state.redirectUri);
     const userInfo = await this.fetchUserInfo(tokens.access_token);
 
+    const scopes = THREADS_OAUTH_SCOPES.split(/[\s,]+/).filter(Boolean);
+
     await this.models.integrationConnection.upsert({
       userId: state.userId,
       workspaceId: state.workspaceId,
@@ -138,12 +143,23 @@ export class ThreadsOAuthService {
       accessToken: tokens.access_token,
       refreshToken: undefined,
       tokenExpiresAt: undefined,
-      scopes: THREADS_OAUTH_SCOPES.split(/[\s,]+/).filter(Boolean),
+      scopes,
       metadata: {
         username: userInfo.username,
         avatarUrl: userInfo.threads_profile_picture_url,
         biography: userInfo.threads_biography,
       },
+    });
+    await this.socialBridge.upsertFromIntegration({
+      userId: state.userId,
+      workspaceId: state.workspaceId,
+      platform: SocialPlatform.THREADS,
+      externalAccountId: userInfo.id,
+      externalAccountName: userInfo.username,
+      accessToken: tokens.access_token,
+      refreshToken: null,
+      expiresAt: null,
+      scopes,
     });
 
     this.logger.log(
@@ -165,7 +181,13 @@ export class ThreadsOAuthService {
     if (!conn) {
       return { connected: false };
     }
-    return { connected: true, username: conn.displayName };
+    const health = await this.socialBridge.getHealthForIntegration({
+      userId,
+      workspaceId,
+      platform: SocialPlatform.THREADS,
+      externalAccountId: conn.externalId,
+    });
+    return { connected: true, username: conn.displayName, ...health };
   }
 
   async disconnect(userId: string, workspaceId: string): Promise<boolean> {
@@ -175,6 +197,11 @@ export class ThreadsOAuthService {
         workspaceId,
         THREADS_PROVIDER_NAME
       );
+      await this.socialBridge.pauseFromIntegration({
+        userId,
+        workspaceId,
+        platform: SocialPlatform.THREADS,
+      });
       return true;
     } catch (err) {
       if (
