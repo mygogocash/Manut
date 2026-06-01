@@ -2,6 +2,10 @@ import { describe, expect, test } from 'vitest';
 
 import type { SocialMetric } from '../entities/analytics-data.entity';
 import {
+  buildEventMessage,
+  type PlatformRecentEvent,
+} from '../views/platform-page/events';
+import {
   buildMetricKpis,
   buildMetricSeries,
 } from '../views/platform-page/metrics';
@@ -68,5 +72,56 @@ describe('platform-page metric helpers', () => {
         ],
       },
     ]);
+  });
+});
+
+describe('platform-page recent event helpers', () => {
+  test('buildEventMessage prefers readable payload text fields', () => {
+    const event: PlatformRecentEvent = {
+      id: 'event-1',
+      platform: 'LINE_VOOM',
+      eventType: 'message.received',
+      externalId: 'line-1',
+      occurredAt: '2026-06-01T12:00:00.000Z',
+      receivedAt: '2026-06-01T12:00:02.000Z',
+      payload: {
+        text: 'Sawadee from LINE',
+      },
+    };
+
+    expect(buildEventMessage(event)).toBe('Sawadee from LINE');
+  });
+
+  test('buildEventMessage summarizes metrics without exposing raw JSON', () => {
+    const event: PlatformRecentEvent = {
+      id: 'event-2',
+      platform: 'TIKTOK',
+      eventType: 'metric.snapshot',
+      externalId: 'tt-1',
+      occurredAt: '2026-06-01T12:00:00.000Z',
+      receivedAt: '2026-06-01T12:00:02.000Z',
+      payload: {
+        metrics: {
+          views: 1200,
+          likes: 48,
+        },
+      },
+    };
+
+    expect(buildEventMessage(event)).toBe('Views 1,200 · Likes 48');
+  });
+
+  test('buildEventMessage falls back to event type and external id', () => {
+    const event: PlatformRecentEvent = {
+      id: 'event-3',
+      platform: 'FACEBOOK',
+      eventType: 'post.created',
+      externalId: 'fb-post-1',
+      occurredAt: '2026-06-01T12:00:00.000Z',
+      receivedAt: '2026-06-01T12:00:02.000Z',
+      payload: {},
+    };
+
+    expect(buildEventMessage(event)).toBe('Post created · fb-post-1');
   });
 });

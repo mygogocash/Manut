@@ -8,6 +8,7 @@ import {
   ObjectType,
   registerEnumType,
 } from '@nestjs/graphql';
+import { GraphQLJSONObject } from 'graphql-scalars';
 
 import { SocialPlatform } from '../connections/connection.entity';
 
@@ -70,6 +71,30 @@ export class SocialMetricObjectType {
 
   @Field(() => Float)
   value!: number;
+}
+
+@ObjectType('SocialEvent')
+export class SocialEventObjectType {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => SocialPlatform)
+  platform!: SocialPlatform;
+
+  @Field(() => String)
+  eventType!: string;
+
+  @Field(() => String)
+  externalId!: string;
+
+  @Field(() => GraphQLISODateTime)
+  occurredAt!: Date;
+
+  @Field(() => GraphQLISODateTime)
+  receivedAt!: Date;
+
+  @Field(() => GraphQLJSONObject)
+  payload!: Record<string, unknown>;
 }
 
 @ObjectType('SocialInsight')
@@ -189,6 +214,24 @@ export class ListMetricsInput {
 
   @Field(() => GraphQLISODateTime)
   to!: Date;
+}
+
+@InputType()
+export class ListEventsInput {
+  @Field(() => String)
+  workspaceId!: string;
+
+  @Field(() => SocialPlatform, { nullable: true })
+  platform?: SocialPlatform;
+
+  @Field(() => GraphQLISODateTime)
+  from!: Date;
+
+  @Field(() => GraphQLISODateTime)
+  to!: Date;
+
+  @Field(() => Int, { defaultValue: 50 })
+  limit!: number;
 }
 
 @InputType()

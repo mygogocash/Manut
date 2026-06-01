@@ -15,6 +15,7 @@ import type { Server } from '../../cloud/entities/server';
 import { GraphQLService } from '../../cloud/services/graphql';
 import type {
   MetricBucket,
+  SocialEvent,
   SocialMetric,
   SocialPlatform,
 } from '../entities/analytics-data.entity';
@@ -55,6 +56,16 @@ type WireSocialMetric = {
   value: number;
 };
 
+type WireSocialEvent = {
+  id: string;
+  platform: GqlSocialPlatform;
+  eventType: string;
+  externalId: string;
+  occurredAt: string;
+  receivedAt: string;
+  payload: Record<string, unknown>;
+};
+
 const listMetricsQuery = {
   id: 'analyticsListMetricsQuery' as const,
   op: 'listMetrics',
@@ -66,6 +77,22 @@ const listMetricsQuery = {
     bucket
     bucketStart
     value
+  }
+}`,
+};
+
+const listEventsQuery = {
+  id: 'analyticsListEventsQuery' as const,
+  op: 'listEvents',
+  query: `query analyticsListEvents($input: ListEventsInput!) {
+  listEvents(input: $input) {
+    id
+    platform
+    eventType
+    externalId
+    occurredAt
+    receivedAt
+    payload
   }
 }`,
 };
@@ -294,6 +321,41 @@ export class AnalyticsService extends Service {
       bucket: row.bucket,
       bucketStart: row.bucketStart,
       value: row.value,
+    }));
+  };
+
+  loadRecentEvents = async (
+    workspaceId: string,
+    options: {
+      platform?: SocialPlatform;
+      from: Date;
+      to: Date;
+      limit?: number;
+    }
+  ): Promise<SocialEvent[]> => {
+    const data = (await (
+      await this.graphql()
+    ).gql({
+      query: listEventsQuery as never,
+      variables: {
+        input: {
+          workspaceId,
+          platform: options.platform,
+          from: options.from.toISOString(),
+          to: options.to.toISOString(),
+          limit: options.limit ?? 20,
+        },
+      },
+    } as never)) as { listEvents: WireSocialEvent[] };
+
+    return (data.listEvents ?? []).map(row => ({
+      id: row.id,
+      platform: row.platform as SocialPlatform,
+      eventType: row.eventType,
+      externalId: row.externalId,
+      occurredAt: row.occurredAt,
+      receivedAt: row.receivedAt,
+      payload: row.payload ?? {},
     }));
   };
 

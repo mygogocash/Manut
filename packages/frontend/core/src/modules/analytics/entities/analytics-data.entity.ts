@@ -73,6 +73,17 @@ export interface SocialMetric {
   value: number;
 }
 
+// keep in sync with backend DTO: SocialEventObjectType
+export interface SocialEvent {
+  id: string;
+  platform: SocialPlatform;
+  eventType: string;
+  externalId: string;
+  occurredAt: string;
+  receivedAt: string;
+  payload: Record<string, unknown>;
+}
+
 const MOCK_KPIS: KpiSnapshot[] = [
   {
     platform: 'ALL',

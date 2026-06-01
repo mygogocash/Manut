@@ -436,6 +436,9 @@ Even with 10× safety margin for spikes / retries / future prompt growth, **well
 - **Real-time**: webhooks for `message`, `follow`, `unfollow`, `postback`
 - **Polling**: LINE Insight API for impressions, reach (Voom-specific data may be limited by Official Account tier)
 - **Constraint**: confirm with LINE Thailand whether GoGoCash's LINE OA tier supports Voom analytics before promising it in v1
+- **Deep-dive UI**: Recent events are sourced from normalized
+  `social_events` rows through `listEvents`; Voom-only analytics claims remain
+  gated until partner/API access is confirmed.
 
 ### GoGoCash internal
 
