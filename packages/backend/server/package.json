@@ -22,7 +22,8 @@
     "predeploy": "yarn prisma migrate deploy && yarn cli run",
     "postinstall": "prisma generate",
     "manut:export-workspace": "tsx src/scripts/manut-export-workspace.ts",
-    "manut:import-workspace": "tsx src/scripts/manut-import-workspace.ts"
+    "manut:import-workspace": "tsx src/scripts/manut-import-workspace.ts",
+    "manut:eval-ai-chat": "r ./src/plugins/copilot/prompt/eval/run.ts"
   },
   "dependencies": {
     "@affine/s3-compat": "workspace:*",
