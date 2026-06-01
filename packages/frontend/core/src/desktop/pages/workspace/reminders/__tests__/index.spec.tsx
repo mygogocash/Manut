@@ -17,6 +17,7 @@ const useQueryState = vi.hoisted(() => ({
   isLoading: false,
   error: null as Error | null,
 }));
+const queryCalls = vi.hoisted(() => [] as Array<{ id: string; config: any }>);
 const triggerCreate = vi.hoisted(() => vi.fn(async () => undefined));
 const triggerCancel = vi.hoisted(() => vi.fn(async () => undefined));
 const mutateQuery = vi.hoisted(() => vi.fn(async () => undefined));
@@ -83,7 +84,11 @@ vi.mock('@affine/component', () => ({
 }));
 
 vi.mock('@affine/core/components/hooks/use-query', () => ({
-  useQuery: (arg: { query: { id: string } }) => {
+  useQuery: (
+    arg: { query: { id: string } },
+    config?: Record<string, unknown>
+  ) => {
+    queryCalls.push({ id: arg.query.id, config });
     if (arg.query.id === 'mnReminderRulesQuery') {
       return {
         data: { mnReminderRules: [] },
@@ -180,6 +185,7 @@ describe('RemindersPage', () => {
     useQueryState.data = { mnReminders: [] };
     useQueryState.isLoading = false;
     useQueryState.error = null;
+    queryCalls.length = 0;
     triggerCreate.mockClear();
     triggerCancel.mockClear();
     mutateQuery.mockClear();
@@ -200,6 +206,22 @@ describe('RemindersPage', () => {
     expect(screen.queryByTestId('reminders-loading')).toBeNull();
     expect(screen.queryByTestId('reminders-error')).toBeNull();
     expect(screen.queryByTestId('reminder-card')).toBeNull();
+  });
+
+  test('keeps reminder and rule queries on a live refresh interval', () => {
+    render(<Component />);
+
+    const dataQueries = queryCalls.filter(call =>
+      ['mnRemindersQuery', 'mnReminderRulesQuery'].includes(call.id)
+    );
+    expect(dataQueries.length).toBe(2);
+    expect(
+      dataQueries.every(
+        call =>
+          call.config?.refreshInterval === 30_000 &&
+          call.config?.suspense === false
+      )
+    ).toBe(true);
   });
 
   test('enables CSV export when the active reminder tab has rows', () => {

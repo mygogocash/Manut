@@ -68,6 +68,7 @@ import {
   KanbanBoard,
   type KanbanColumn,
   type KanbanOnMoveArgs,
+  MANUT_LIVE_QUERY_OPTIONS,
 } from '../../../../modules/manut-shared';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
 import { AccountDetailBody } from './account-detail';
@@ -382,13 +383,16 @@ const AccountsTabInner = ({ workspaceId }: AccountsTabProps) => {
   // so we co-load those queries in the accounts tab too. Each is small;
   // we also use the SWR cache so contacts/deals tabs hit the same fetch.
   const { data, mutate } = useQuery(
-    toQueryArg(mnCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: contactsData, mutate: mutateContacts } = useQuery(
-    toQueryArg(mnCrmContactsQuery, { workspaceId })
+    toQueryArg(mnCrmContactsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: dealsData, mutate: mutateDeals } = useQuery(
-    toQueryArg(mnCrmDealsQuery, { workspaceId })
+    toQueryArg(mnCrmDealsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
 
   const accounts = useMemo(
@@ -669,10 +673,12 @@ const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
   const [editing, setEditing] = useState(false);
 
   const { data: contactsData, mutate } = useQuery(
-    toQueryArg(mnCrmContactsQuery, { workspaceId })
+    toQueryArg(mnCrmContactsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: accountsData } = useQuery(
-    toQueryArg(mnCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
 
   const contacts = useMemo(
@@ -1008,17 +1014,21 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   >({});
 
   const { data: dealsData, mutate } = useQuery(
-    toQueryArg(mnCrmDealsQuery, { workspaceId })
+    toQueryArg(mnCrmDealsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: stagesData, mutate: mutateStages } = useQuery(
-    toQueryArg(mnCrmDealStagesQuery, { workspaceId })
+    toQueryArg(mnCrmDealStagesQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: accountsData } = useQuery(
-    toQueryArg(mnCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   // Activity history is rendered inline in the detail panel.
   const { data: activitiesData } = useQuery(
-    toQueryArg(mnCrmActivitiesQuery, { workspaceId })
+    toQueryArg(mnCrmActivitiesQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
 
   // Quick-action: move stage from the detail panel or kanban drag without
@@ -1621,19 +1631,23 @@ const ActivitiesTabInner = ({ workspaceId }: ActivitiesTabProps) => {
   const [editing, setEditing] = useState(false);
 
   const { data, mutate } = useQuery(
-    toQueryArg(mnCrmActivitiesQuery, { workspaceId })
+    toQueryArg(mnCrmActivitiesQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   // Co-load the link-resolution sources. The list of activities is bounded
   // at 200 server-side; accounts/contacts/deals are typically smaller and
   // already cached by the other tabs, so this is essentially free.
   const { data: accountsData } = useQuery(
-    toQueryArg(mnCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: contactsData } = useQuery(
-    toQueryArg(mnCrmContactsQuery, { workspaceId })
+    toQueryArg(mnCrmContactsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: dealsData } = useQuery(
-    toQueryArg(mnCrmDealsQuery, { workspaceId })
+    toQueryArg(mnCrmDealsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
 
   const activities = useMemo(

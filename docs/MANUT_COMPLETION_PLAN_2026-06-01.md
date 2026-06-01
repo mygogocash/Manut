@@ -80,8 +80,11 @@ docs, and roadmap docs.
     lists, reusing the same CSV escaping and spreadsheet formula guard.
   - Reminders CSV export is now done for active reminder tabs and the rule
     list, also using shared CSV escaping and spreadsheet formula neutralization.
-  - Remaining: real-time refresh/subscriptions, mobile-specific
-    PM/CRM/Reminders layouts, and future non-EMAIL reminder channels.
+  - Realtime fallback refresh is now done: PM, CRM, and Reminders data queries
+    opt into a shared 30-second SWR refresh interval so concurrent edits become
+    visible without manual reloads while full subscriptions remain optional.
+  - Remaining: mobile-specific PM/CRM/Reminders layouts and future non-EMAIL
+    reminder channels.
 - Knowledge Graph: review the existing lobe/pulse branch, add reduced-motion
   and accessibility coverage, then decide whether to merge for the next release.
 
@@ -105,8 +108,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 4 — Product Feature Completion / realtime refresh and
-mobile layout gap selection**.
+Active slice: **Lane 4 — Product Feature Completion / mobile layout gap
+selection**.
 
 Exit criteria:
 
@@ -162,6 +165,9 @@ Completed in this branch:
   enabled DATETIME reminder rules, creates one scheduled reminder per matching
   rule/minute with `MnReminderRun` dedupe, marks successful runs, and leaves the
   UI channel picker aligned with the backend-supported `EMAIL` enum.
+- Lane 4 — Realtime Refresh Fallback: PM, CRM, and Reminders frontend queries
+  now share a 30-second SWR refresh interval so loaded workspace data catches up
+  automatically after external edits or another tab changes the same records.
 
 Known verification blocker:
 

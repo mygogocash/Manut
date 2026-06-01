@@ -21,6 +21,7 @@ import {
   type UpdateMnReminderRuleInput,
   updateMnReminderRuleMutation,
 } from '@affine/core/modules/manut-reminders';
+import { MANUT_LIVE_QUERY_OPTIONS } from '@affine/core/modules/manut-shared';
 import {
   ViewBody,
   ViewHeader,
@@ -417,6 +418,7 @@ const RemindersPage = () => {
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
   const { data, isLoading, error, mutate } = useQuery(queryArg, {
+    ...MANUT_LIVE_QUERY_OPTIONS,
     suspense: false,
   });
 
@@ -443,7 +445,10 @@ const RemindersPage = () => {
     isLoading: rulesLoading,
     error: rulesError,
     mutate: rulesMutate,
-  } = useQuery(ruleQueryArg, { suspense: false });
+  } = useQuery(ruleQueryArg, {
+    ...MANUT_LIVE_QUERY_OPTIONS,
+    suspense: false,
+  });
 
   const rules = useMemo<MnReminderRuleDto[]>(() => {
     const typed = rulesData as unknown as RulesResponse | undefined;

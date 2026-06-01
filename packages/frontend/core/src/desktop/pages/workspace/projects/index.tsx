@@ -18,6 +18,7 @@ import {
   KanbanBoard,
   type KanbanColumn,
   type KanbanOnMoveArgs,
+  MANUT_LIVE_QUERY_OPTIONS,
 } from '@affine/core/modules/manut-shared';
 import {
   ViewBody,
@@ -443,7 +444,7 @@ const ProjectTaskLoader = ({ project, onLoaded }: ProjectTaskLoaderProps) => {
     variables: { projectId: project.id },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
-  const { data } = useQuery(queryArg);
+  const { data } = useQuery(queryArg, MANUT_LIVE_QUERY_OPTIONS);
   const tasks =
     (data as unknown as { mnTasks?: MnTaskDto[] } | undefined)?.mnTasks ?? [];
 
@@ -715,7 +716,7 @@ const ProjectsList = ({
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
-  const { data, error, mutate } = useQuery(queryArg);
+  const { data, error, mutate } = useQuery(queryArg, MANUT_LIVE_QUERY_OPTIONS);
 
   const projects = (
     data as unknown as { mnProjects?: MnProjectDto[] } | undefined
@@ -768,7 +769,7 @@ const ProjectsKanban = ({
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
-  const { data, error, mutate } = useQuery(queryArg);
+  const { data, error, mutate } = useQuery(queryArg, MANUT_LIVE_QUERY_OPTIONS);
 
   const projects = (
     data as unknown as { mnProjects?: MnProjectDto[] } | undefined

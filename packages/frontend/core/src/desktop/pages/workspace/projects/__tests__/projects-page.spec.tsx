@@ -11,6 +11,7 @@ const queryState = vi.hoisted(() => ({
   projects: [] as unknown[],
   tasks: [] as unknown[],
 }));
+const queryCalls = vi.hoisted(() => [] as Array<{ id: string; config: any }>);
 
 vi.mock('@affine/core/modules/workspace', () => ({
   WorkspaceService: WorkspaceServiceToken,
@@ -48,7 +49,11 @@ vi.mock('../../../../../components/pure/header', () => ({
 }));
 
 vi.mock('@affine/core/components/hooks/use-query', () => ({
-  useQuery: ({ query }: { query: { id: string } }) => {
+  useQuery: (
+    { query }: { query: { id: string } },
+    config?: Record<string, unknown>
+  ) => {
+    queryCalls.push({ id: query.id, config });
     if (query.id === 'mnTasksQuery') {
       return {
         data: { mnTasks: queryState.tasks },
@@ -115,6 +120,7 @@ describe('Manut projects page', () => {
   beforeEach(() => {
     queryState.projects = [];
     queryState.tasks = [];
+    queryCalls.length = 0;
   });
 
   afterEach(() => cleanup());
@@ -126,6 +132,18 @@ describe('Manut projects page', () => {
     expect(empty).toBeTruthy();
     expect(empty.textContent).toContain('No projects yet');
     expect(empty.textContent).toContain('Create your first project');
+  });
+
+  test('enables live refresh for project queries', () => {
+    render(<Component />);
+
+    const projectQueries = queryCalls.filter(
+      call => call.id === 'mnProjectsQuery'
+    );
+    expect(projectQueries.length).toBeGreaterThan(0);
+    expect(
+      projectQueries.every(call => call.config?.refreshInterval === 30_000)
+    ).toBe(true);
   });
 
   test('renders the list/kanban view toggle in the header', () => {

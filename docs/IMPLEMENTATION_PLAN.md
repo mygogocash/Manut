@@ -113,6 +113,11 @@ Every feature gates gracefully on its secret being unset. Operators can populate
   buckets and reminder rules export from loaded client data using the shared
   CSV helper. CSV import and bulk mutation flows remain separate follow-ups;
   current work only covers safe export.
+- **Realtime fallback refresh is now wired for PM/CRM/Reminders.** These loaded
+  workspace-data surfaces use a shared 30-second SWR refresh interval so changes
+  made in another tab or by another collaborator appear without requiring a full
+  page reload. Full subscription/socket events can still replace the fallback
+  later, but are no longer required for the v1 completion lane.
 
 ---
 
