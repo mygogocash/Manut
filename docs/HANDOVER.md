@@ -249,6 +249,12 @@ live VM state.
   scroll-safe tabs, dense rows, forms, cards, and Kanban columns. Remaining v1
   follow-up is future non-EMAIL reminder channels; full subscriptions remain
   optional.
+- Knowledge Graph: the lobe/pulse graph and node-detail panel branches are
+  already merged into the current line through PR #183 / `454b0e747`. Current
+  graph code includes reduced-motion handling, hidden-tab pause/resume,
+  idle/rest-loop gating, the `MAX_PHYSICS_NODES` cap, canvas `role="img"` /
+  `aria-label`, and a visually-hidden keyboard/screen-reader list that opens
+  the same detail panel as canvas selection.
 - Chat model picker: 10 frontier models on `optionalModels` (Gemini 2.5/3.1
   family, Claude Sonnet 4/4.5/Opus 4, Llama 4 Scout/Maverick). Default is
   `gemini-2.5-flash`. Moonshot Kimi, xAI Grok, and Alibaba Qwen provider

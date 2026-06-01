@@ -122,6 +122,11 @@ Every feature gates gracefully on its secret being unset. Operators can populate
   below, dense Manut views stack toolbars/actions, make tabs scroll-safe, switch
   rows and forms to one column, and narrow Kanban columns to fit a phone
   viewport without page-level horizontal overflow.
+- **Knowledge Graph lobe/pulse branch is already merged.** PR #183 brought in
+  the brain-style lobes, synaptic doc-read pulses, node detail panel,
+  reduced-motion handling, hidden-tab/rest-loop pause gates, physics cap, and
+  canvas accessibility mirror list. A source-level regression contract now
+  guards those release criteria.
 
 ---
 
