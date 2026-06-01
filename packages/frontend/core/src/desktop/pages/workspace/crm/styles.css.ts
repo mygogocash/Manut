@@ -48,6 +48,14 @@ export const actionRow = style({
   paddingTop: 8,
 });
 
+export const actionButtons = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: 8,
+  flexWrap: 'wrap',
+});
+
 export const listWrapper = style({
   display: 'flex',
   flexDirection: 'column',

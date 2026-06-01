@@ -240,9 +240,10 @@ live VM state.
   `ServerFeature.Superflow` on the sidebar. Detail/edit, PM/CRM Kanban,
   CRM deal drag/drop, task drag/drop, and reminder rule CRUD are present.
   Reminder DATETIME rules now materialize scheduled reminders through the
-  minute cron with `MnReminderRun` dedupe. Remaining v1 follow-ups are
-  bulk/CSV flows, realtime refresh/subscriptions, mobile-specific layouts,
-  and future non-EMAIL reminder channels.
+  minute cron with `MnReminderRun` dedupe. CRM tabs can export loaded
+  Accounts, Contacts, Deals, and Activities to CSV. Remaining v1 follow-ups
+  are PM/Reminders CSV flows, realtime refresh/subscriptions, mobile-specific
+  layouts, and future non-EMAIL reminder channels.
 - Chat model picker: 10 frontier models on `optionalModels` (Gemini 2.5/3.1
   family, Claude Sonnet 4/4.5/Opus 4, Llama 4 Scout/Maverick). Default is
   `gemini-2.5-flash`. Moonshot Kimi, xAI Grok, and Alibaba Qwen provider
