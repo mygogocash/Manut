@@ -104,8 +104,11 @@ Every feature gates gracefully on its secret being unset. Operators can populate
   migration intentionally expands `MnNotificationChannel`.
 - **CRM CSV export is the first completed bulk/CSV slice.** Accounts,
   Contacts, Deals, and Activities export from already-loaded tab data on the
-  client, with stable headers, relationship labels, and CSV escaping. PM and
-  Reminders CSV/import flows remain follow-ups.
+  client, with stable headers, relationship labels, and CSV escaping.
+- **PM CSV export now shares the CRM export guardrails.** Project lists and
+  project-detail task lists export from loaded client data using the shared
+  CSV helper, including relationship-safe stable headers and spreadsheet
+  formula neutralization. Reminders CSV/import remains the only open CSV lane.
 
 ---
 

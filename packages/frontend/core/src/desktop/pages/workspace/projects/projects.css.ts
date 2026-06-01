@@ -43,6 +43,12 @@ export const list = style({
   gap: 12,
 });
 
+export const listToolbar = style({
+  display: 'flex',
+  justifyContent: 'flex-end',
+  gap: 8,
+});
+
 export const card = style({
   display: 'flex',
   flexDirection: 'column',
@@ -181,6 +187,14 @@ export const taskFooterRow = style({
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 8,
+});
+
+export const taskFooterActions = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: 8,
+  flexWrap: 'wrap',
 });
 
 export const emptyState = style({
