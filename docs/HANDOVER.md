@@ -43,6 +43,10 @@ changing, building, or deploying the project.
 - `docs/CICD.md` - deploy architecture and operator commands.
 - `docs/CICD_ROADMAP.md` - current pipeline status, shipped tiers, backlog,
   and last validation notes.
+- `docs/GCP_CLOUD_RUN_RUNBOOK.md` and `docs/MANUT_DEPLOY_RUNBOOK.md` -
+  current Cloud Run deploy, migration, smoke, and rollback operator paths.
+- `docs/MANUT_LAUNCH_CHECKLIST.md` - launch-window gates, now refreshed to
+  treat Cloud Run revision/log evidence as the active production source.
 - `docs/MANUT_CONTROL_PLANE.md` - Manut-native operating model for
   agent/company-style coordination, release handover artifacts, and future
   AFFiNE-facing control-plane work.
@@ -56,8 +60,11 @@ changing, building, or deploying the project.
   control-plane handovers for CI build/release artifacts. Still emits
   filenames `superflow-handover.{md,json}` until the workflow-filename
   migration in `CLAUDE.md` §9.
+- `scripts/gcp/*.sh` and `cloudbuild.manut-cloud-run.yaml` - executable GCP
+  Cloud Run deploy, smoke, trigger, and migration-job helpers.
 - `scripts/vm/deploy.sh`, `scripts/vm/rollback.sh`,
-  `scripts/vm/compose.canary.yml` - executable VM runbook.
+  `scripts/vm/compose.canary.yml` - legacy VM runbook. Keep for rollback
+  archaeology only unless `docs/CICD_ROADMAP.md` says the VM path is active.
 - `.github/workflows/superflow-*.yml` - CI, build, deploy, rollback,
   VM init, and release automation. Workflow filenames retain the old
   prefix; the display names ("Manut CI", "Manut Build", etc.) were
@@ -105,35 +112,46 @@ incident notes.
 
 ## Deployment Path
 
-Normal path:
+Normal production path:
 
-1. Push to `main`.
-2. `superflow-ci.yml` (display name "Manut CI") validates lint/codegen/bundles.
-3. `superflow-build.yml` (display name "Manut Build") builds and pushes an
-   immutable GAR image tag.
-4. The build workflow uploads `image-tag` and `superflow-handover`
-   artifacts so the image handoff has both machine and operator context.
-5. `superflow-autodeploy.yml` (display name "Manut Auto Deploy") runs
-   VM-side `deploy.sh`.
-6. `deploy.sh` sidecar-smokes the new image on port 3011 before swapping
-   production, then runs post-swap `/info` and prompt-seed checks.
+1. Push the approved commit to `main`.
+2. Cloud Build trigger `manut-gcp-pr-ci` / required CI validates the commit.
+3. Cloud Build trigger `manut-gcp-main-staging` keeps staging current.
+4. The launch operator manually runs and approves `manut-gcp-prod-deploy`.
+5. `cloudbuild.manut-cloud-run.yaml` builds the image, pushes to Artifact
+   Registry, creates or updates `manut-migrate`, executes the migration job,
+   deploys Cloud Run service `manut`, and smokes the generated Cloud Run URL.
+6. After DNS cutover, `scripts/gcp/smoke-test-cloud-run.sh` must pass against
+   `https://manut.xyz`.
 
-Manual deploy of an existing image:
-
-```bash
-gh workflow run superflow-deploy.yml -f tag=<image-tag>
-```
-
-Rollback:
+Manual production deploy trigger:
 
 ```bash
-gh workflow run superflow-rollback.yml
+gcloud builds triggers run manut-gcp-prod-deploy \
+  --branch=main \
+  --project=affine-495114 \
+  --region=global
 ```
 
-Current deploy scripts use `/srv/affine/compose/compose.yml.previous.bak`
-as the rollback snapshot. Older docs still mention
-`compose.yml.pre-<tag>.bak`; treat those as historical unless you verify the
-live VM state.
+Manual public smoke:
+
+```bash
+BASE_URL=https://manut.xyz TIMEOUT_SECONDS=120 \
+  scripts/gcp/smoke-test-cloud-run.sh
+```
+
+Rollback is Cloud Run revision-first when the database remains compatible:
+
+```bash
+gcloud run services update-traffic manut \
+  --project=affine-495114 \
+  --region=asia-southeast1 \
+  --to-revisions=<previous-revision>=100
+```
+
+Use the DNS/Railway rollback path from
+`docs/GCP_CLOUD_RUN_RUNBOOK.md#9-rollback` only when the launch operator has
+kept Railway online and write-safe for the stability window.
 
 ## High-Risk Findings
 
@@ -175,7 +193,10 @@ live VM state.
      in v1.11.0) still centers `GCP_SA_KEY`, while the current
      pipeline docs describe WIF. Refresh during the next pipeline
      audit pass.
-   - Some rollback examples still mention `compose.yml.pre-*`.
+   - Some beta-era docs still mention Railway deploy ids or Railway log checks.
+     `docs/MANUT_DEPLOY_RUNBOOK.md` and
+     `docs/MANUT_LAUNCH_CHECKLIST.md` are refreshed; archive or refresh the
+     remaining beta docs before using them as launch evidence.
 
 ## Closed During 2026-05-13 Review (v1.12.0)
 
