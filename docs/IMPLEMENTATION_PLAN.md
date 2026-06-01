@@ -159,6 +159,10 @@ Every feature gates gracefully on its secret being unset. Operators can populate
   Privacy copy explicitly covers Facebook, Instagram, Threads, TikTok, and LINE
   integration data handling; remaining approval risk is external dashboard
   configuration and platform review.
+- **LINE copy is conservative until VOOM API access is confirmed.** Product UI
+  now says LINE Official Account for the connection and recommendation surfaces,
+  and the connection copy says VOOM post analytics stay hidden until LINE
+  confirms API access.
 
 ---
 

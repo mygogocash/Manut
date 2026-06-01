@@ -147,7 +147,8 @@ live VM state.
    required by Meta review now exist at `/legal/privacy`, `/legal/terms`, and
    `/legal/data-deletion-instructions`. External approval dashboard setup,
    submission artifacts, and LINE VOOM availability confirmation remain
-   incomplete. Do not hand it over as a complete
+   incomplete; the product UI now labels LINE as Official Account and keeps
+   VOOM post analytics gated until access is confirmed. Do not hand it over as a complete
    multi-platform analytics system.
 
 2. PM/CRM/Reminders are past the v0 list/create state on this QA branch:

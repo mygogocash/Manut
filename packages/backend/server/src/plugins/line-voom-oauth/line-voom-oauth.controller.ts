@@ -78,7 +78,7 @@ export class LineVoomOAuthController {
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Connecting LINE VOOM…</title>
+  <title>Connecting LINE Official Account...</title>
   <meta name="referrer" content="strict-origin" />
   <style>body{font:14px system-ui,sans-serif;padding:24px;color:#333}</style>
 </head>
