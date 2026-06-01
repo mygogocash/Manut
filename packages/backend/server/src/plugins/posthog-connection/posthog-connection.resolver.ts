@@ -12,6 +12,7 @@ import {
 
 import { AuthenticationRequired, BadRequest } from '../../base';
 import { CurrentUser } from '../../core/auth';
+import { AccessController } from '../../core/permission';
 import {
   PostHogConnectionInvalidKeyError,
   PostHogConnectionNotConnectedError,
@@ -78,7 +79,10 @@ function rethrowFriendly(err: unknown): never {
 export class PostHogConnectionResolver {
   private readonly logger = new Logger(PostHogConnectionResolver.name);
 
-  constructor(private readonly posthog: PostHogConnectionService) {}
+  constructor(
+    private readonly posthog: PostHogConnectionService,
+    private readonly ac: AccessController
+  ) {}
 
   @Mutation(() => PostHogConnectionType)
   async setPostHogConnection(
@@ -89,6 +93,10 @@ export class PostHogConnectionResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     try {
       const status = await this.posthog.setConnection(
         user.id,
@@ -114,6 +122,10 @@ export class PostHogConnectionResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     return this.posthog.disconnect(user.id, workspaceId);
   }
 
@@ -142,6 +154,7 @@ export class PostHogConnectionResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
     try {
       const status = await this.posthog.getStatus(user.id, workspaceId);
       return {

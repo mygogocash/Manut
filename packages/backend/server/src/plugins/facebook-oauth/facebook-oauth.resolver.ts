@@ -10,6 +10,7 @@ import {
 
 import { AuthenticationRequired, URLHelper } from '../../base';
 import { CurrentUser } from '../../core/auth';
+import { AccessController } from '../../core/permission';
 import {
   FacebookOAuthNotConfiguredError,
   FacebookOAuthNotConnectedError,
@@ -59,7 +60,8 @@ export class FacebookOAuthResolver {
 
   constructor(
     private readonly facebook: FacebookOAuthService,
-    private readonly url: URLHelper
+    private readonly url: URLHelper,
+    private readonly ac: AccessController
   ) {}
 
   @Mutation(() => FacebookConnectAuthUrl)
@@ -70,6 +72,10 @@ export class FacebookOAuthResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
 
     try {
       const redirectUri = this.facebook.resolveRedirectUri(
@@ -94,6 +100,10 @@ export class FacebookOAuthResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     return this.facebook.disconnect(user.id, workspaceId);
   }
 
@@ -105,6 +115,7 @@ export class FacebookOAuthResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
     try {
       const status = await this.facebook.getStatus(user.id, workspaceId);
       return {

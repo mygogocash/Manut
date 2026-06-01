@@ -10,6 +10,7 @@ import {
 
 import { AuthenticationRequired } from '../../base';
 import { CurrentUser } from '../../core/auth';
+import { AccessController } from '../../core/permission';
 import { ConnectionsService } from './connections.service';
 
 @ObjectType()
@@ -32,7 +33,10 @@ export class ConnectedAccountType {
 
 @Resolver()
 export class ConnectionsResolver {
-  constructor(private readonly connections: ConnectionsService) {}
+  constructor(
+    private readonly connections: ConnectionsService,
+    private readonly ac: AccessController
+  ) {}
 
   @Query(() => [ConnectedAccountType])
   async listConnections(
@@ -42,6 +46,7 @@ export class ConnectionsResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
     return this.connections.listConnections(user.id, workspaceId);
   }
 
@@ -54,6 +59,10 @@ export class ConnectionsResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     return this.connections.disconnectProvider(user.id, workspaceId, provider);
   }
 }
