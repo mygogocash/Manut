@@ -87,8 +87,12 @@ docs, and roadmap docs.
     styles stack dense toolbars, tabs, task rows, CRM rows, reminder cards, and
     form grids without requiring horizontal page overflow.
   - Remaining: future non-EMAIL reminder channels.
-- Knowledge Graph: review the existing lobe/pulse branch, add reduced-motion
-  and accessibility coverage, then decide whether to merge for the next release.
+- Knowledge Graph: reviewed the lobe/pulse branches. Both
+  `feat/knowledge-graph-brain-and-pulses` and
+  `feat/knowledge-graph-node-detail-panel` are already ancestors of this branch
+  through PR #183 / `454b0e747`; no additional merge is needed for the next
+  release. Reduced-motion, hidden-tab pause, rest-gate, physics cap, and canvas
+  accessibility contracts are covered.
 
 ## Lane 5 — Analytics and Social Integrations
 
@@ -110,8 +114,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 4 — Product Feature Completion / Knowledge Graph merge
-decision**.
+Active slice: **Lane 5 — Analytics and Social Integrations / approval and
+ingestion gap selection**.
 
 Exit criteria:
 
@@ -174,6 +178,10 @@ Completed in this branch:
   shared Kanban board now include 640px responsive rules for stacked actions,
   one-column dense rows/forms, scroll-safe tab strips, and narrower page
   padding.
+- Lane 4 — Knowledge Graph Decision: the lobe/pulse and node-detail branches
+  were already merged through the QA-audit frontend wave, and a regression
+  contract now locks the canvas a11y, reduced-motion, hidden-tab pause,
+  rest-gate, and physics-cap safeguards.
 
 Known verification blocker:
 
