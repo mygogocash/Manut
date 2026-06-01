@@ -600,6 +600,14 @@ weekly cron aggregates DAY rows into WEEK rows. All writes use the existing
 `social_metrics` unique key, so reruns rewrite the same bucket instead of
 duplicating metrics.
 
+### Platform metric deep dives — Done for metric rows
+
+The platform page no longer depends on the mock-backed analytics entity for
+performance/trend data. It calls `listMetrics` for the selected platform,
+derives KPI cards from the latest metric row per key, and builds trend charts
+from real `social_metrics` rows. Recent events remain intentionally empty until
+a dedicated `listEvents` read contract lands.
+
 ### Pick-account UX after Meta OAuth — Done
 
 The callback can now post `analytics:oauth:choose-account` to the opener, the

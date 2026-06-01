@@ -1,6 +1,6 @@
 import { DebugLogger } from '@affine/debug';
 import { useLiveData, useService } from '@toeverything/infra';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { WorkspaceService } from '../../../workspace';
 import { ConnectionStatusBadge } from '../../components/connection-status-badge';
@@ -9,6 +9,8 @@ import { MetricCard } from '../../components/metric-card';
 import { TrendChart } from '../../components/trend-chart';
 import type {
   AnalyticsKpi,
+  MetricSeries,
+  SocialMetric,
   SocialPlatform,
 } from '../../entities/analytics-data.entity';
 import type { Insight } from '../../entities/insight.entity';
@@ -16,6 +18,7 @@ import type { PlatformConnection } from '../../entities/platform-connection.enti
 import { AnalyticsService } from '../../services/analytics.service';
 import { ConnectionService } from '../../services/connection.service';
 import * as styles from './index.css';
+import { buildMetricKpis, buildMetricSeries } from './metrics';
 
 const logger = new DebugLogger('analytics');
 
@@ -93,6 +96,9 @@ export function PlatformPage({ platform }: PlatformPageProps) {
     useLiveData(analyticsService.insights.insights$) ?? EMPTY_INSIGHTS;
   const connections =
     useLiveData(connectionService.entity.connections$) ?? EMPTY_CONNECTIONS;
+  const [metricRows, setMetricRows] = useState<SocialMetric[]>([]);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
 
   useEffect(() => {
     analyticsService.loadOverview(workspaceId).catch(err => {
@@ -114,6 +120,47 @@ export function PlatformPage({ platform }: PlatformPageProps) {
     [platform]
   );
 
+  useEffect(() => {
+    if (!platformKey) {
+      setMetricRows([]);
+      return;
+    }
+    let cancelled = false;
+    const to = new Date();
+    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+    setMetricsLoading(true);
+    setMetricsError(null);
+    analyticsService
+      .loadMetrics(workspaceId, {
+        platform: platformKey,
+        bucket: 'HOUR',
+        from,
+        to,
+      })
+      .then(rows => {
+        if (!cancelled) {
+          setMetricRows(rows);
+        }
+      })
+      .catch(err => {
+        logger.error('loadMetrics failed', err);
+        if (!cancelled) {
+          setMetricRows([]);
+          setMetricsError(
+            err instanceof Error ? err.message : 'Could not load metrics'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setMetricsLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [analyticsService, platformKey, workspaceId]);
+
   const platformKpis = useMemo(
     () =>
       platformKey
@@ -121,6 +168,29 @@ export function PlatformPage({ platform }: PlatformPageProps) {
         : [],
     [overview, platformKey]
   );
+
+  const metricKpis = useMemo(() => buildMetricKpis(metricRows), [metricRows]);
+
+  const displayKpis = platformKpis.length > 0 ? platformKpis : metricKpis;
+
+  const metricSeries = useMemo(
+    () => buildMetricSeries(metricRows),
+    [metricRows]
+  );
+
+  const overviewSeries = useMemo<MetricSeries[]>(
+    () =>
+      platformKpis
+        .filter(k => k.sparkline.length > 1)
+        .map(kpi => ({
+          name: kpi.label,
+          platform: platformKey ?? 'ALL',
+          points: pointsFromSparkline(kpi.sparkline),
+        })),
+    [platformKey, platformKpis]
+  );
+
+  const trendSeries = metricSeries.length > 0 ? metricSeries : overviewSeries;
 
   const platformInsights = useMemo(
     () =>
@@ -159,15 +229,17 @@ export function PlatformPage({ platform }: PlatformPageProps) {
       </div>
 
       <div className={styles.sectionLabel}>Performance</div>
-      {overviewLoading && platformKpis.length === 0 ? (
+      {(overviewLoading || metricsLoading) && displayKpis.length === 0 ? (
         <div className={styles.kpiGrid}>
           <div className={styles.skeletonBlock} />
           <div className={styles.skeletonBlock} />
           <div className={styles.skeletonBlock} />
         </div>
-      ) : platformKpis.length > 0 ? (
+      ) : metricsError ? (
+        <div className={styles.empty}>{metricsError}</div>
+      ) : displayKpis.length > 0 ? (
         <div className={styles.kpiGrid}>
-          {platformKpis.map(kpi => (
+          {displayKpis.map(kpi => (
             <MetricCard
               key={kpi.key}
               label={kpi.label}
@@ -190,17 +262,15 @@ export function PlatformPage({ platform }: PlatformPageProps) {
 
       <div className={styles.sectionLabel}>Trends</div>
       <div className={styles.chartGrid}>
-        {platformKpis.some(k => k.sparkline.length > 1) ? (
-          platformKpis
-            .filter(k => k.sparkline.length > 1)
-            .map(kpi => (
-              <TrendChart
-                key={kpi.key}
-                title={kpi.label}
-                subtitle="Last 24 hours"
-                points={pointsFromSparkline(kpi.sparkline)}
-              />
-            ))
+        {trendSeries.length > 0 ? (
+          trendSeries.map(series => (
+            <TrendChart
+              key={series.name}
+              title={series.name}
+              subtitle="Last 7 days"
+              points={series.points}
+            />
+          ))
         ) : (
           <div className={styles.empty}>No trend data yet</div>
         )}

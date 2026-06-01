@@ -13,6 +13,11 @@ import { filter, firstValueFrom } from 'rxjs';
 import type { EventSourceService, WorkspaceServerService } from '../../cloud';
 import type { Server } from '../../cloud/entities/server';
 import { GraphQLService } from '../../cloud/services/graphql';
+import type {
+  MetricBucket,
+  SocialMetric,
+  SocialPlatform,
+} from '../entities/analytics-data.entity';
 import { AnalyticsDataEntity } from '../entities/analytics-data.entity';
 import {
   type Insight,
@@ -39,6 +44,30 @@ type WireSocialInsight = {
   modelUsed: string;
   createdAt: string;
   acknowledgedAt: string | null;
+};
+
+type WireSocialMetric = {
+  id: string;
+  platform: GqlSocialPlatform;
+  metricKey: string;
+  bucket: MetricBucket;
+  bucketStart: string;
+  value: number;
+};
+
+const listMetricsQuery = {
+  id: 'analyticsListMetricsQuery' as const,
+  op: 'listMetrics',
+  query: `query analyticsListMetrics($input: ListMetricsInput!) {
+  listMetrics(input: $input) {
+    id
+    platform
+    metricKey
+    bucket
+    bucketStart
+    value
+  }
+}`,
 };
 
 function toEntityInsight(
@@ -232,6 +261,40 @@ export class AnalyticsService extends Service {
     } finally {
       this.insights.setLoading(false);
     }
+  };
+
+  loadMetrics = async (
+    workspaceId: string,
+    options: {
+      platform?: SocialPlatform;
+      bucket: MetricBucket;
+      from: Date;
+      to: Date;
+    }
+  ): Promise<SocialMetric[]> => {
+    const data = (await (
+      await this.graphql()
+    ).gql({
+      query: listMetricsQuery as never,
+      variables: {
+        input: {
+          workspaceId,
+          platform: options.platform,
+          bucket: options.bucket,
+          from: options.from.toISOString(),
+          to: options.to.toISOString(),
+        },
+      },
+    } as never)) as { listMetrics: WireSocialMetric[] };
+
+    return (data.listMetrics ?? []).map(row => ({
+      id: row.id,
+      platform: row.platform as SocialPlatform,
+      metricKey: row.metricKey,
+      bucket: row.bucket,
+      bucketStart: row.bucketStart,
+      value: row.value,
+    }));
   };
 
   /**
