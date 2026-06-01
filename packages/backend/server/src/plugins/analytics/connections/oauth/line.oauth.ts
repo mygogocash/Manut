@@ -69,6 +69,11 @@ export class LineOAuthService {
         'LINE OAuth not configured: missing analyticsLine.channelSecret. Calls will throw at runtime until configured.'
       );
     }
+    if (!this.config.analytics?.line?.channelAccessToken) {
+      this.logger.warn(
+        'LINE Messaging API not configured: missing analyticsLine.channelAccessToken. LINE channel-mode connection will throw at runtime until configured.'
+      );
+    }
   }
 
   /**
@@ -128,6 +133,24 @@ export class LineOAuthService {
         : undefined,
       externalAccountId: profile.userId,
       externalAccountName: profile.displayName,
+    };
+  }
+
+  /**
+   * Return the Messaging API channel credentials used for v1 LINE analytics.
+   *
+   * LINE Login proves the connecting user owns/admins the flow, but the poller
+   * and webhooks must use the Official Account / Messaging API channel token,
+   * not the short-lived LINE Login user token.
+   */
+  getMessagingChannelConnection(): OAuthTokenResult {
+    const channelId = this.requireConfig('channelId');
+    const channelAccessToken = this.requireConfig('channelAccessToken');
+    return {
+      accessToken: channelAccessToken,
+      scopes: ['messaging-api'],
+      externalAccountId: channelId,
+      externalAccountName: 'LINE Messaging API Channel',
     };
   }
 
@@ -196,7 +219,9 @@ export class LineOAuthService {
   // private helpers
   // -------------------------------------------------------------------------
 
-  private requireConfig(key: 'channelId' | 'channelSecret'): string {
+  private requireConfig(
+    key: 'channelId' | 'channelSecret' | 'channelAccessToken'
+  ): string {
     const value = this.config.analytics?.line?.[key];
     if (!value) {
       throw new Error(

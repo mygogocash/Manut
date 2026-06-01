@@ -134,8 +134,13 @@ Every feature gates gracefully on its secret being unset. Operators can populate
   `/api/workspace/:workspaceId/analytics/insights-stream`. Content
   recommendations, trend detection, and anomaly detection publish to it, and
   the AI Strategist UI consumes it through `AnalyticsService.subscribeToInsights`.
-  Remaining analytics integration risk has moved to LINE channel-mode
-  correctness and external platform approval/legal readiness.
+- **LINE channel-mode correction is now wired for the v1 Messaging API path.**
+  LINE connection completion validates the LINE Login code, persists configured
+  Messaging API channel credentials instead of the user OAuth token, and webhook
+  ingestion resolves the channel by `destination` before legacy source ids.
+  Remaining analytics integration risk has moved to rollups/`listMetrics`,
+  platform deep dives, LINE VOOM availability confirmation, and external
+  approval/legal readiness.
 
 ---
 
