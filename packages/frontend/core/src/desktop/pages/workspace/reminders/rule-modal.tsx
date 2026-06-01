@@ -38,13 +38,8 @@ const DEFAULT_CRON = '0 9 * * 1';
 
 const CHANNELS: ReadonlyArray<{
   value: MnNotificationChannel;
-  labelKey:
-    | 'com.manut.reminders.rules.channel.email'
-    | 'com.manut.reminders.rules.channel.inApp';
-}> = [
-  { value: 'EMAIL', labelKey: 'com.manut.reminders.rules.channel.email' },
-  { value: 'IN_APP', labelKey: 'com.manut.reminders.rules.channel.inApp' },
-];
+  labelKey: 'com.manut.reminders.rules.channel.email';
+}> = [{ value: 'EMAIL', labelKey: 'com.manut.reminders.rules.channel.email' }];
 
 /**
  * Convert a friendly preset to a 5-field cron expression

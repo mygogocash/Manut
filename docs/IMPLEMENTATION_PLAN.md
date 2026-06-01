@@ -96,6 +96,12 @@ Every feature gates gracefully on its secret being unset. Operators can populate
 - **Pin-toggle mutation surface** in E2.5 tabbed chat: pin glyph reflects state but doesn't toggle on click. Requires a popover or right-click menu — deferred to a small next-slice PR.
 - **StorageCapModal + AiBudgetModal** components exist and are tested at the backend layer but aren't yet rendered by a parent consumer. Modal mount wiring lands in a follow-up; backend error envelope (`STORAGE_CAP` / `AI_BUDGET`) is in place.
 - **HTTP 402 vs 413** for quota errors: HTTP status stays at 402 (shared GraphQL `quota_exceeded` class). Promoting to 413 per the plan is a separate R1 deferred.
+- **Reminder rules are now live enough for v1 scheduling.** The UI, GraphQL
+  CRUD, and minute-cron materialization path exist. The cron evaluates enabled
+  DATETIME rules, creates one scheduled reminder per matching rule/minute, and
+  uses `MnReminderRun.dedupeKey` to avoid duplicate reminders. Current backend
+  enum supports `EMAIL` only; the rule modal hides unsupported channels until a
+  migration intentionally expands `MnNotificationChannel`.
 
 ---
 

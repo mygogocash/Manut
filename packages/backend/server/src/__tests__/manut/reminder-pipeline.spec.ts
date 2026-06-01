@@ -1,6 +1,7 @@
 import {
   MnNotificationChannel,
   MnNotificationDeliveryStatus,
+  MnReminderRuleTrigger,
   MnReminderStatus,
 } from '@prisma/client';
 import test from 'ava';
@@ -22,6 +23,7 @@ test('Manut reminder cron creates a delivery and enqueues due reminders', async 
   const db = {
     mnReminder: {
       findMany: async () => [reminder],
+      findUnique: async () => reminder,
       updateMany: async (args: any) => {
         t.deepEqual(args, {
           where: { id: reminder.id, status: MnReminderStatus.SCHEDULED },
@@ -87,6 +89,10 @@ test('Manut reminder cron reuses pending delivery and skips terminal delivery st
         { ...reminder, id: 'reminder-2' },
         { ...reminder, id: 'reminder-3' },
       ],
+      findUnique: async ({ where }: any) => ({
+        ...reminder,
+        id: where.id,
+      }),
       updateMany: async () => ({ count: 1 }),
       update: async (args: any) => {
         reminderUpdates.push(args);
@@ -148,6 +154,109 @@ test('Manut reminder cron reuses pending delivery and skips terminal delivery st
   t.true(reminderUpdates[0].data.completedAt instanceof Date);
 });
 
+test('Manut reminder cron materializes matching DATETIME reminder rules once per minute', async t => {
+  const now = new Date('2026-06-01T09:00:30.000Z');
+  const scheduledFor = new Date('2026-06-01T09:00:00.000Z');
+  const rule = {
+    id: 'rule-1',
+    workspaceId: 'workspace-1',
+    name: 'Weekly Monday standup',
+    enabled: true,
+    trigger: MnReminderRuleTrigger.DATETIME,
+    cronExpression: '0 9 * * 1',
+    timezone: null,
+    config: {
+      body: 'Plan your week.',
+      channel: MnNotificationChannel.EMAIL,
+    },
+    lastEvaluatedAt: null,
+    createdByUserId: 'user-1',
+  };
+  const reminderCreates: any[] = [];
+  const runCreates: any[] = [];
+  const runUpdates: any[] = [];
+  const ruleUpdates: any[] = [];
+
+  const db = {
+    mnReminderRule: {
+      findMany: async (args: any) => {
+        t.like(args, {
+          where: {
+            enabled: true,
+            trigger: MnReminderRuleTrigger.DATETIME,
+          },
+        });
+        return [rule];
+      },
+      update: async (args: any) => {
+        ruleUpdates.push(args);
+      },
+    },
+    mnReminderRun: {
+      create: async (args: any) => {
+        runCreates.push(args);
+        return { id: 'run-1' };
+      },
+      update: async (args: any) => {
+        runUpdates.push(args);
+      },
+    },
+    mnReminder: {
+      create: async (args: any) => {
+        reminderCreates.push(args);
+        return { id: 'reminder-from-rule' };
+      },
+      findMany: async () => [],
+      findUnique: async () => null,
+    },
+    mnNotificationDelivery: {
+      findFirst: async () => null,
+      create: async () =>
+        t.fail('rule-created reminders should not be enqueued until next scan'),
+    },
+  };
+  const queue = {
+    add: async () =>
+      t.fail('rule-created reminders should not enqueue in the same scan'),
+  };
+
+  const cron = new MnReminderCron(db as any, queue as any);
+
+  await cron.runOnce(now);
+
+  t.like(runCreates[0], {
+    data: {
+      ruleId: rule.id,
+      dedupeKey: scheduledFor.toISOString(),
+      scheduledFor,
+      startedAt: now,
+    },
+  });
+  t.like(reminderCreates[0], {
+    data: {
+      workspaceId: rule.workspaceId,
+      userId: rule.createdByUserId,
+      title: rule.name,
+      body: rule.config.body,
+      fireAt: scheduledFor,
+      channel: MnNotificationChannel.EMAIL,
+      status: MnReminderStatus.SCHEDULED,
+      ruleId: rule.id,
+    },
+  });
+  t.like(runUpdates[0], {
+    where: { id: 'run-1' },
+    data: {
+      success: true,
+      finishedAt: now,
+    },
+  });
+  t.like(ruleUpdates[0], {
+    where: { id: rule.id },
+    data: { lastEvaluatedAt: now },
+  });
+});
+
 test('Manut reminder cron skips reminders claimed by another worker', async t => {
   const queue = {
     add: async () => t.fail('unclaimed reminders must not be enqueued'),
@@ -162,6 +271,12 @@ test('Manut reminder cron skips reminders claimed by another worker', async t =>
           fireAt: new Date('2026-05-09T00:00:00.000Z'),
         },
       ],
+      findUnique: async () => ({
+        id: 'reminder-1',
+        workspaceId: 'workspace-1',
+        channel: MnNotificationChannel.EMAIL,
+        fireAt: new Date('2026-05-09T00:00:00.000Z'),
+      }),
       updateMany: async () => ({ count: 0 }),
       update: async () => t.fail('unclaimed reminders must not be updated'),
     },

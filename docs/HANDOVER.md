@@ -236,9 +236,13 @@ live VM state.
   `manut-*.yml` in v1.11.0.
 - PM/CRM/Reminders: v0 frontend shipped in v1.12.0 — list and create flows
   for `/projects`, `/crm` (Accounts/Contacts/Deals/Activities tabs), and
-  `/reminders` (Due now/Upcoming/Done tabs). Gated by
-  `ServerFeature.Superflow` on the sidebar. Detail/edit, Kanban, reminder
-  rules, drag-drop, bulk, real-time, and mobile remain v1 follow-ups.
+  `/reminders` (Due now/Upcoming/Done/Rules tabs). Gated by
+  `ServerFeature.Superflow` on the sidebar. Detail/edit, PM/CRM Kanban,
+  CRM deal drag/drop, task drag/drop, and reminder rule CRUD are present.
+  Reminder DATETIME rules now materialize scheduled reminders through the
+  minute cron with `MnReminderRun` dedupe. Remaining v1 follow-ups are
+  bulk/CSV flows, realtime refresh/subscriptions, mobile-specific layouts,
+  and future non-EMAIL reminder channels.
 - Chat model picker: 10 frontier models on `optionalModels` (Gemini 2.5/3.1
   family, Claude Sonnet 4/4.5/Opus 4, Llama 4 Scout/Maverick). Default is
   `gemini-2.5-flash`. Moonshot Kimi, xAI Grok, and Alibaba Qwen provider
