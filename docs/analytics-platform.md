@@ -9,7 +9,7 @@
 
 ## 1. Goal
 
-Give every workspace member a single Analytics surface that aggregates real-time data from **Facebook, Instagram, Threads, TikTok, LINE Voom, and the GoGoCash internal user base** — and uses AI to produce strategic recommendations the team can act on.
+Give every workspace member a single Analytics surface that aggregates real-time data from **Facebook, Instagram, Threads, TikTok, LINE Official Account Messaging API channels, and the GoGoCash internal user base** — and uses AI to produce strategic recommendations the team can act on. LINE VOOM post analytics stay behind a confirmation gate until LINE Thailand or partner API access confirms a programmatic surface.
 
 Workspace members should consume Analytics without re-authenticating to any platform. The workspace Owner connects each integration once; everyone in the workspace reads the aggregated data and AI insights.
 
@@ -28,7 +28,7 @@ Workspace members should consume Analytics without re-authenticating to any plat
 
 ### In scope (v1)
 
-- Workspace-level OAuth connections for: Facebook, Instagram, Threads, TikTok, LINE Voom
+- Workspace-level OAuth connections for: Facebook, Instagram, Threads, TikTok, LINE Official Account Messaging API channels
 - GoGoCash internal user-base ingestion (Postgres-direct)
 - Real-time webhook ingestion where supported, polling fallback elsewhere
 - Normalized event store + pre-aggregated metrics (hourly / daily / weekly buckets)
@@ -430,7 +430,7 @@ Even with 10× safety margin for spikes / retries / future prompt growth, **well
 - **Polling**: `/v2/video/list/` (Display API) for publish detection at ~15 min cadence. `/v2/research/video/query/` for deep analytics (Research API, partner-gated).
 - **Constraint**: free Display API has ~10 fields. If partner approval is delayed, we ship "post visibility only" and mark deeper analytics as "pending API access" in UI. UI must label TikTok metric freshness as "near real-time (15 min)".
 
-### LINE Voom
+### LINE Official Account / VOOM
 
 - **Connect**: LINE Messaging API channel OAuth
 - **Real-time**: webhooks for `message`, `follow`, `unfollow`, `postback`

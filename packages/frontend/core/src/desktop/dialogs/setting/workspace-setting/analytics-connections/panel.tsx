@@ -3,7 +3,7 @@
  *
  * Single panel that lists all 8 connectors built in the Wave 7+ batch:
  *   - 5 OAuth social platforms (Facebook, Instagram, Threads, TikTok,
- *     LINE VOOM) — Connect button opens the consent URL in a popup
+ *     LINE Official Account) — Connect button opens the consent URL in a popup
  *   - 1 internal API-key social (GoGoCash) — Connect opens an inline
  *     form with an API key input
  *   - 2 database connectors (MongoDB, PostHog) — Connect opens an
@@ -22,6 +22,7 @@
 import { Button } from '@affine/component';
 import { useMutation } from '@affine/core/components/hooks/use-mutation';
 import { useQuery } from '@affine/core/components/hooks/use-query';
+import { LINE_CONNECTION_CARD_COPY } from '@affine/core/modules/analytics/entities/platform-copy';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useService } from '@toeverything/infra';
 import {
@@ -1009,8 +1010,8 @@ export const AnalyticsConnectionsPanel = () => {
           ]}
         />
         <OAuthCard
-          name="LINE VOOM"
-          description="Connect a LINE account to surface VOOM profile + post analytics."
+          name={LINE_CONNECTION_CARD_COPY.name}
+          description={LINE_CONNECTION_CARD_COPY.description}
           logo={
             <BrandPlate
               glyph={<LineVoomLogoIcon width={20} height={20} />}

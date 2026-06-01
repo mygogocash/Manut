@@ -42,7 +42,7 @@ function sanitizeProviderErrorCode(error: string): string {
 export class LineVoomOAuthNotConfiguredError extends Error {
   constructor() {
     super(
-      'LINE VOOM OAuth client is not configured. Set LINE_OAUTH_CLIENT_ID and LINE_OAUTH_CLIENT_SECRET.'
+      'LINE Official Account OAuth client is not configured. Set LINE_OAUTH_CLIENT_ID and LINE_OAUTH_CLIENT_SECRET.'
     );
     this.name = 'LineVoomOAuthNotConfiguredError';
   }
@@ -50,7 +50,7 @@ export class LineVoomOAuthNotConfiguredError extends Error {
 
 export class LineVoomOAuthNotConnectedError extends Error {
   constructor() {
-    super('LINE VOOM is not connected for this workspace');
+    super('LINE Official Account is not connected for this workspace');
     this.name = 'LineVoomOAuthNotConnectedError';
   }
 }

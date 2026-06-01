@@ -15,6 +15,7 @@ import { WorkspaceService } from '../../../workspace';
 import { InsightCard } from '../../components/insight-card';
 import type { SocialPlatform } from '../../entities/analytics-data.entity';
 import type { Insight } from '../../entities/insight.entity';
+import { ANALYTICS_PLATFORM_LABELS } from '../../entities/platform-copy';
 import { AnalyticsService } from '../../services/analytics.service';
 import * as styles from './index.css';
 
@@ -32,7 +33,7 @@ const RECOMMENDATION_PLATFORMS: ReadonlyArray<{
   { value: 'FACEBOOK', label: 'Facebook' },
   { value: 'TIKTOK', label: 'TikTok' },
   { value: 'THREADS', label: 'Threads' },
-  { value: 'LINE_VOOM', label: 'LINE VOOM' },
+  { value: 'LINE_VOOM', label: ANALYTICS_PLATFORM_LABELS.LINE_VOOM },
 ];
 
 // Stable empty-array reference so `useMemo` deps don't re-trigger on every

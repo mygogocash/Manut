@@ -109,7 +109,9 @@ docs, and roadmap docs.
 - Platform recent-event deep dives. — Done via `listEvents`, with
   Workspace.Read enforcement, range validation, bounded results, and frontend
   rendering from normalized `social_events` payloads.
-- Remove or revise LINE VOOM claims if partner/API access is unavailable.
+- Remove or revise LINE VOOM claims if partner/API access is unavailable. —
+  Done for user-facing copy: labels now use LINE Official Account wording and
+  VOOM post analytics are described as hidden until LINE confirms API access.
 - Fix LINE channel-mode ingestion mismatch. — Done for the v1 channel path:
   connection completion validates LINE Login, stores configured Messaging API
   channel credentials, and webhook ingestion resolves by webhook `destination`
@@ -221,6 +223,9 @@ Completed in this branch:
   `/legal/privacy`, `/legal/terms`, and `/legal/data-deletion-instructions`;
   the privacy page explicitly names Facebook, Instagram, Threads, TikTok, and
   LINE integration data handling.
+- Lane 5 — LINE Copy Honesty: frontend labels and connection-card copy now use
+  LINE Official Account wording; VOOM post analytics are explicitly marked as
+  gated on confirmed API access instead of promised in the product UI.
 
 Known verification blocker:
 

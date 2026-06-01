@@ -2,6 +2,7 @@ import { Modal } from '@affine/component';
 import { useCallback, useState } from 'react';
 
 import type { SocialPlatform } from '../../entities/analytics-data.entity';
+import { ANALYTICS_PLATFORM_ACCOUNT_LABELS } from '../../entities/platform-copy';
 import type { PendingAccountChoice } from '../../services/connection.service';
 import * as styles from './account-picker-modal.css';
 
@@ -19,14 +20,7 @@ export interface AccountPickerModalProps {
   onCancel: () => void;
 }
 
-const PLATFORM_LABEL: Record<SocialPlatform, string> = {
-  FACEBOOK: 'Facebook Page',
-  INSTAGRAM: 'Instagram Business Account',
-  THREADS: 'Threads Profile',
-  TIKTOK: 'TikTok Account',
-  LINE_VOOM: 'LINE VOOM Account',
-  GOGOCASH: 'GoGoCash',
-};
+const PLATFORM_LABEL = ANALYTICS_PLATFORM_ACCOUNT_LABELS;
 
 /**
  * Picker shown after a Meta OAuth flow returns multiple accessible accounts.
