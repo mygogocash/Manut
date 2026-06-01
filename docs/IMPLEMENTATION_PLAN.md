@@ -88,7 +88,7 @@ Every feature gates gracefully on its secret being unset. Operators can populate
 
 ### Deviations from the plan worth noting
 
-- **B9 P1 tools** (`web_search` / `memory_search` / `tabs_browse`) folded into existing surfaces: web search already shipped via `exa-search.ts` + `exa-crawl.ts`; memory is injected via prompt service per chat turn (commit `eb92e4b53` `injectMemoriesIntoMessages`); cross-doc reads are covered by `doc-read` tool. Dedicated named tools are nice-to-have, not blocking.
+- **B9 P1 tools** (`web_search` / `memory_search` / `tabs_browse`) folded into existing surfaces: web search already shipped via `exa-search.ts` + `exa-crawl.ts`; memory is injected per chat turn through `ChatRequestInterceptorService` with `toolsConfig.memory=false` as a request-level opt-out; cross-doc reads are covered by `doc-read` and `doc-hybrid-search`. Dedicated named tools are nice-to-have, not blocking.
 - **Token-by-token AI streaming typewriter** declined in E2.7: SSE deltas already arrive at typewriter cadence; layering a JS interval on top would conflict with tool-call / reasoning block rendering. Shipped the visual signal (blinking violet cursor) instead.
 - **SSE deletion** deferred per decision #23 dual-write window — WS lands in `51e9e9ae3` flag-gated; SSE path stays for 30 days before removal.
 - **`lib/` is gitignored** in this repo. Two parallel agents (E2.7 `motion.ts`, B8 `modes.ts`) initially wrote to `lib/` and the files weren't picked up by git. Moved to `utils/` in both cases; documented in commit messages. Future agents must avoid `lib/`.
@@ -817,10 +817,10 @@ Format optimized for AI sub-agent handoff. Each task is self-contained with file
   - Verification: seed 10 memories, query similar → top-K most-relevant returned in order
 
 - **T-1.5.1.e** — Inject memories into chat system prompt
-  - File: extend `packages/backend/server/src/plugins/copilot/prompt/service.ts` (where CHAT_PROMPT is resolved per-request)
-  - On each new chat turn: call retrieve service → format top-5 memories as `<memory>...</memory>` blocks in system prompt
+  - Files: `packages/backend/server/src/plugins/copilot/prompt/service.ts` and `packages/backend/server/src/plugins/copilot/interceptor/request-interceptor.ts`
+  - On each new chat turn: call retrieve service → format top-5 memories as `<memory>...</memory>` blocks in system prompt unless `toolsConfig.memory=false`
   - Effort: 1d
-  - Verification: log the resolved system prompt; memory blocks appear when relevant
+  - Verification: `request-interceptor.spec.ts` covers default injection, opt-out, and failure fallback
 
 ---
 

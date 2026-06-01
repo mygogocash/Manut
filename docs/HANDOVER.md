@@ -258,6 +258,15 @@ live VM state.
   verifier over workspace search results and final footnote definitions. It
   logs missing/unsupported citation warnings but does not block or rewrite
   answers yet.
+- AI memory: chat-turn memory injection is wired through
+  `ChatRequestInterceptorService`. It retrieves relevant user/workspace
+  memories by default, honors `toolsConfig.memory=false`, and falls back to the
+  original prompt if memory retrieval fails.
+- AI prompt cache discipline: `planPromptCache` is planner-only. It marks only
+  stable Anthropic/Anthropic Vertex system-prefixes as eligible and refuses
+  dynamic private context such as memories, retrieved docs, or workspace-source
+  tool results. Provider requests intentionally omit cache metadata until the
+  native request contract supports it.
 - FOSS/self-host limits: Manut hides the license tab and lifts self-host
   seat limits through `QuotaService.getWorkspaceQuota`.
 - Analytics: GoGoCash overview and AI insight pieces exist, but

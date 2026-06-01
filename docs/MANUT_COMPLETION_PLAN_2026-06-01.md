@@ -61,7 +61,8 @@ docs, and roadmap docs.
 - Render tool/source status chips in the assistant transcript. — Done
 - Add hybrid keyword + semantic retrieval with citation metadata. — Done
 - Add shadow response verification for workspace-grounded answers. — Done
-- Harden memory preferences and provider cache behavior after evals exist.
+- Harden memory preferences and provider cache behavior after evals exist. —
+  Done
 
 ## Lane 4 — Product Feature Completion
 
@@ -90,14 +91,18 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 3 — AI Chat Upgrade / memory preferences and provider
-cache behavior**.
+Active slice: **Lane 4 — Product Feature Completion / PM, CRM, and Reminders
+v1 gap audit**.
 
 Exit criteria:
 
-- AI chat prompt-eval spec and `manut:eval-ai-chat` pass.
-- Backend typecheck passes or any pre-existing environment blocker is recorded.
-- Changed TypeScript files pass eslint and oxlint.
+- Identify the exact shipped v0 surfaces and v1 gaps for Projects, CRM, and
+  Reminders.
+- Choose the smallest next production-safe vertical slice.
+- Add or update focused tests before changing behavior.
+- Backend/frontend typecheck passes or any pre-existing environment blocker is
+  recorded.
+- Changed TypeScript files pass eslint, oxlint, and Prettier.
 - No unrelated files are staged.
 
 Completed in this branch:
@@ -135,6 +140,12 @@ Completed in this branch:
   non-blocking verifier over workspace-source tool results and final citation
   footnotes, logging warnings for missing inline citations, missing reference
   lists, invalid reference JSON, or citations unsupported by retrieved sources.
+- Lane 3 — Memory and Cache Hardening: the chat request interceptor now
+  injects relevant user/workspace memories by default, honors
+  `toolsConfig.memory=false` as an opt-out, falls back to the original prompt
+  on memory failures, and includes a prompt-cache planner that only marks
+  stable Anthropic prefixes as cacheable while refusing dynamic private
+  context.
 
 Known verification blocker:
 
