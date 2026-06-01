@@ -1,3 +1,4 @@
+import type { ToolsConfig } from '../../types.js';
 import type { ClassifyInput, ScenarioKey } from '../scenario-classifier.js';
 
 type EvalAttachment = NonNullable<ClassifyInput['attachments']>[number];
@@ -13,6 +14,15 @@ export type ModeAddendumEvalCase = {
   readonly mode: string | null | undefined;
   readonly expectedSubstring: string;
   readonly expectedEmpty?: boolean;
+};
+
+export type PermissionModeEvalCase = {
+  readonly id: string;
+  readonly toolsConfig: Pick<
+    ToolsConfig,
+    'editingDocs' | 'composingDocs' | 'editingDataViews'
+  >;
+  readonly expectedSubstring: string;
 };
 
 export type MessageSubstringScope = 'all' | 'system' | 'user';
@@ -129,6 +139,36 @@ export const modeAddendumEvalCases = [
     expectedEmpty: true,
   },
 ] satisfies readonly ModeAddendumEvalCase[];
+
+export const permissionModeEvalCases = [
+  {
+    id: 'read-mode-addendum',
+    toolsConfig: {
+      editingDocs: false,
+      composingDocs: false,
+      editingDataViews: false,
+    },
+    expectedSubstring: 'Read mode',
+  },
+  {
+    id: 'edit-current-doc-addendum',
+    toolsConfig: {
+      editingDocs: true,
+      composingDocs: false,
+      editingDataViews: false,
+    },
+    expectedSubstring: 'Edit current doc mode',
+  },
+  {
+    id: 'full-agent-addendum',
+    toolsConfig: {
+      editingDocs: true,
+      composingDocs: true,
+      editingDataViews: true,
+    },
+    expectedSubstring: 'Full Agent mode',
+  },
+] satisfies readonly PermissionModeEvalCase[];
 
 export const chatPromptEvalConfig = {
   promptName: 'Chat With AFFiNE AI',

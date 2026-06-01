@@ -56,7 +56,7 @@ docs, and roadmap docs.
 ## Lane 3 — AI Chat Upgrade
 
 - Add prompt-eval fixtures and a repeatable runner. — Done
-- Tighten Read/Edit/Agent prompt addenda.
+- Tighten Read/Edit/Agent prompt addenda. — Done
 - Improve Auto model routing with eval coverage.
 - Render tool/source status chips in the assistant transcript.
 - Add hybrid keyword + semantic retrieval with citation metadata.
@@ -90,8 +90,7 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 3 — AI Chat Upgrade / prompt addenda and Auto routing
-tightening**.
+Active slice: **Lane 3 — AI Chat Upgrade / Auto routing tightening**.
 
 Exit criteria:
 
@@ -116,3 +115,6 @@ Completed in this branch:
   a focused AVA spec, and `yarn workspace @affine/server manut:eval-ai-chat`
   so chat prompt/model/citation/routing invariants are checked before prompt
   tuning.
+- Lane 3 — Prompt Addenda: backend now injects short Read/Edit/Agent
+  `<mode_guidelines>` based on the same `toolsConfig` write flags the frontend
+  Mode picker sends, and eval coverage checks all three addenda.

@@ -1,10 +1,14 @@
-import { getModeAddendum } from '../mode-addendum.js';
+import {
+  getModeAddendum,
+  getPermissionModeAddendum,
+} from '../mode-addendum.js';
 import { type Prompt, prompts } from '../prompts.js';
 import { ScenarioClassifier } from '../scenario-classifier.js';
 import {
   chatPromptEvalConfig,
   type MessageSubstringScope,
   modeAddendumEvalCases,
+  permissionModeEvalCases,
   scenarioEvalCases,
 } from './fixtures.js';
 
@@ -64,7 +68,7 @@ function runScenarioEval(): PromptEvalResult[] {
 }
 
 function runModeAddendumEval(): PromptEvalResult[] {
-  return modeAddendumEvalCases.map(testCase => {
+  const legacyModeResults = modeAddendumEvalCases.map(testCase => {
     const addendum = getModeAddendum(testCase.mode);
     const pass = testCase.expectedEmpty
       ? addendum === ''
@@ -79,6 +83,18 @@ function runModeAddendumEval(): PromptEvalResult[] {
         : `expected addendum to include "${testCase.expectedSubstring}", got "${addendum}"`
     );
   });
+
+  const permissionModeResults = permissionModeEvalCases.map(testCase => {
+    const addendum = getPermissionModeAddendum(testCase.toolsConfig);
+    return result(
+      'mode-addendum',
+      testCase.id,
+      addendum.includes(testCase.expectedSubstring),
+      `expected permission mode addendum to include "${testCase.expectedSubstring}", got "${addendum}"`
+    );
+  });
+
+  return [...legacyModeResults, ...permissionModeResults];
 }
 
 function runChatPromptEval(): PromptEvalResult[] {
