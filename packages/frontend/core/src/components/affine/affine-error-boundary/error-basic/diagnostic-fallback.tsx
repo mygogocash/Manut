@@ -106,7 +106,7 @@ export const DiagnosticErrorFallback: FC<DiagnosticErrorFallbackProps> = ({
       <div className={styles.container}>
         <h1 className={styles.title}>Something went wrong</h1>
         <p className={styles.description}>
-          AFFiNE ran into an unexpected error and couldn&apos;t continue. Reload
+          Manut ran into an unexpected error and couldn&apos;t continue. Reload
           the page to recover. If the problem persists, copy the diagnostic info
           below and share it with support.
         </p>

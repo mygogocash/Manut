@@ -1,6 +1,8 @@
 # Manut Launch Comms Template
 
-> **Status:** drafts. Replace bracketed placeholders before sending.
+> **Status:** drafts. Replace bracketed placeholders before sending. Do not
+> send launch comms until `docs/BETA_GO_NO_GO.md` records the current Cloud Run
+> revision, image, migration job, rollback target, and smoke/log evidence.
 > **Tone:** technical, concise, no buzzwords. Manut is the AI workspace
 > intelligent Gen Z grads actually want to use — write like that
 > reader is reading.
@@ -150,8 +152,9 @@ What we're not doing: not pitching this as Notion / Mem / Obsidian
 replacement. It's for small teams that already know how to think
 and want the AI to keep up rather than steer.
 
-Source: forked from github.com/toeverything/AFFiNE; our changes
-live in feat/manut-wave2-cloud (199 files, 5 migrations).
+Source: forked from github.com/toeverything/AFFiNE. Launch branch,
+release tag, Cloud Run revision, and migration count: [fill from
+current go/no-go sheet].
 
 Happy to answer anything. Especially curious where this falls
 over for you.
@@ -291,8 +294,11 @@ manut.xyz
 Manut is live.
 
 URL: manut.xyz
-PR: #121 (25 commits, 199 files, 5 migrations)
-Smoke: manut/*.spec.ts all green
+Commit: [sha]
+Image: [Artifact Registry tag or digest]
+Cloud Run revision: [manut-xxxxx]
+Migration job: [manut-migrate execution id, exit 0]
+Smoke: [scripts/gcp/smoke-test-cloud-run.sh result + manual smoke summary]
 On-call: [name] (primary), [name] (secondary)
 Status page: status.manut.xyz
 
@@ -331,7 +337,7 @@ When editing the drafts above, keep these constraints:
 | T-24h     | Final smoke run + rollback rehearsal                                                                         | on-call      |
 | T-1h      | Status page → "Maintenance" while we cut the deploy                                                          | on-call      |
 | T-30m     | Run the 11-section launch checklist                                                                          | launch owner |
-| T-0       | Railway redeploy + smoke spec sweep                                                                          | on-call      |
+| T-0       | Cloud Build / Cloud Run deploy, migration job, and smoke sweep                                               | on-call      |
 | T+5m      | Tweet the launch thread                                                                                      | launch owner |
 | T+10m     | Post Show HN                                                                                                 | launch owner |
 | T+15m     | Send the existing-users email                                                                                | launch owner |

@@ -25,6 +25,10 @@ docs, and roadmap docs.
   deployment path. — Done for the production deploy runbook and launch
   readiness checklist; Railway is now documented only as source-data or
   rollback context where applicable.
+- Fix backend startup gates surfaced by focused invite/email verification. —
+  Done for the current DI blockers: `ConnectionsModule` imports
+  `PermissionModule`, and `ChatRequestInterceptorService` uses a runtime
+  `PromptService` import so Nest can resolve constructor metadata.
 
 ## Lane 2 — Backend QA Batch
 
@@ -88,7 +92,11 @@ docs, and roadmap docs.
   - Mobile-specific PM/CRM/Reminders layouts are now done: narrow viewport
     styles stack dense toolbars, tabs, task rows, CRM rows, reminder cards, and
     form grids without requiring horizontal page overflow.
-  - Remaining: future non-EMAIL reminder channels.
+  - Remaining: future non-EMAIL reminder channels. Current audit confirms this
+    should stay deferred until provider selection, credentials, consent,
+    unsubscribe/compliance, status callbacks, retry/rate-limit, and cost-control
+    work is approved; adding enum values alone would expose a broken delivery
+    contract.
 - Knowledge Graph: reviewed the lobe/pulse branches. Both
   `feat/knowledge-graph-brain-and-pulses` and
   `feat/knowledge-graph-node-detail-panel` are already ancestors of this branch
@@ -124,9 +132,17 @@ docs, and roadmap docs.
 - Add loading states, honest error panels, first-run onboarding, and better
   integrations copy.
 - Sweep remaining AFFiNE/Superflow user-facing rename drift.
+  - Admin/operator UI and hardcoded core web copy are now refreshed for Manut
+    branding in setup, sidebar/about labels, custom-key disclaimers, first-run
+    seed text, cloud sync labels, and diagnostic error copy.
+  - Remaining rename-drift candidates are AI prompt identity/seed gates,
+    native/mobile shell metadata, MCP/tool-facing display names, and GitHub/docs
+    contributor entrypoints.
 - Refresh or archive stale beta/Railway launch docs.
   - Production deploy runbook and launch readiness checklist are refreshed for
     Cloud Run, Cloud Build, Cloud SQL, Secret Manager, and Cloud Monitoring.
+  - Beta go/no-go, risk register, pentest plan, and launch comms template are
+    refreshed for Cloud Run revision/image/migration-job/log/smoke evidence.
     Remaining beta-era docs can be archived or refreshed as they become active
     launch inputs.
 - Add Cloud Monitoring alerts, load-test staging, Terraform for manual GCP
@@ -134,8 +150,9 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 6 — UX, Rename, Docs, and Ops / Cloud Run operator-doc
-refresh**.
+Active slice: **Lane 6 — UX, Rename, Docs, and Ops / beta-doc refresh and
+rename-drift cleanup**, plus backend startup gates found during invite/email
+verification.
 
 Exit criteria:
 
@@ -237,9 +254,25 @@ Completed in this branch:
   Manager, Cloud Monitoring, and Cloud Run log smoke as the active production
   path; Railway remains only as explicitly historical source-data or rollback
   context.
+- Lane 6 — Beta Launch Docs: beta go/no-go, risk register, pentest plan, and
+  launch comms template now require Cloud Run revision/image/migration-job/log/
+  smoke evidence and no longer treat Railway deployment ids as current launch
+  proof.
+- Lane 6 — Rename Drift Cleanup: admin/operator UI labels and hardcoded core
+  web copy now use Manut/Manut Cloud where visible to users or operators, while
+  internal ids, package names, and upstream URLs remain unchanged.
+- Lane 1 — Backend Startup DI Gates: focused invitation resend e2e initially
+  failed before executing tests on missing `AccessController` and
+  `PromptService` DI metadata. `ConnectionsModule` now imports
+  `PermissionModule`, and `ChatRequestInterceptorService` imports
+  `PromptService` at runtime.
 
 Known verification blocker:
 
+- `yarn workspace @affine/server e2e src/__tests__/e2e/workspace/member.spec.ts --match='workspace invitation resend*'`
+  now passes the fixed DI boot blockers but cannot complete in this local
+  environment because Redis is not listening on `127.0.0.1:6379` and
+  `DATABASE_URL` is unset.
 - `node_modules/.bin/tsc --noEmit -p packages/frontend/core/tsconfig.json`
   currently reports pre-existing Blocksuite project-reference/decorator errors
   in chat-panel files. Focused Vitest, eslint/oxlint, and
