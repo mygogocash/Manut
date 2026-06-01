@@ -281,3 +281,32 @@ export const dangerButton = style({
     },
   },
 });
+
+// Actionable contact email / phone / website links rendered in list rows.
+export const contactLink = style({
+  display: 'block',
+  fontSize: 13,
+  color: cssVarV2.text.link,
+  textDecoration: 'none',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  selectors: {
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
+});
+
+// Actionable link used inside the detail panel field value slot.
+export const detailLink = style({
+  fontSize: 14,
+  color: cssVarV2.text.link,
+  textDecoration: 'none',
+  wordBreak: 'break-word',
+  selectors: {
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
+});

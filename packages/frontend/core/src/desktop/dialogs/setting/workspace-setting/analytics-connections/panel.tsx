@@ -848,13 +848,13 @@ const postHogSelectors = {
       data as { postHogConnection?: PostHogConnectionDto } | undefined
     )?.postHogConnection;
     if (!conn) return undefined;
-    const projects =
-      typeof conn.projectCount === 'number'
-        ? ` (${conn.projectCount} projects)`
-        : '';
+    // `projectCount` is not persisted by the backend (always undefined), so
+    // the previous `(N projects)` suffix never rendered and was misleading.
+    // Drop it — show only the host. If the backend starts persisting a
+    // project count, re-add a verified suffix here.
     return {
       connected: conn.connected,
-      label: conn.host ? `${conn.host}${projects}` : undefined,
+      label: conn.host ? conn.host : undefined,
     };
   },
   setResult: (data: unknown) => {

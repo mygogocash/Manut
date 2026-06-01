@@ -260,6 +260,7 @@ const SettingModalInner = ({
                         <GeneralSetting
                           activeTab={settingState.activeTab}
                           onChangeSettingState={setSettingState}
+                          onCloseSetting={onCloseSetting}
                         />
                       ) : null}
                     </motion.div>

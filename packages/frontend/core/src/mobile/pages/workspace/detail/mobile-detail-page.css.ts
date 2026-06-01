@@ -111,6 +111,47 @@ globalStyle('.affine-page-root-block-container', {
   },
 });
 
+export const notFound = style({
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 10,
+  padding: '24px 28px',
+  textAlign: 'center',
+  color: cssVarV2('text/secondary'),
+});
+
+export const notFoundIcon = style({
+  width: 52,
+  height: 52,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: 16,
+  color: cssVarV2('icon/secondary'),
+  fontSize: 38,
+});
+
+export const notFoundTitle = style({
+  margin: 0,
+  color: cssVarV2('text/primary'),
+  fontSize: 22,
+  lineHeight: '28px',
+  fontWeight: 700,
+  letterSpacing: 0,
+});
+
+export const notFoundCopy = style({
+  maxWidth: 280,
+  margin: 0,
+  color: cssVarV2('text/secondary'),
+  fontSize: 16,
+  lineHeight: '24px',
+  letterSpacing: 0,
+});
+
 export const journalIconButton = style({
   position: 'absolute',
   zIndex: 1,

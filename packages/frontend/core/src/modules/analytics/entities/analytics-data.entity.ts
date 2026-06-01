@@ -1,4 +1,7 @@
+import { DebugLogger } from '@affine/debug';
 import { Entity, LiveData } from '@toeverything/infra';
+
+const logger = new DebugLogger('analytics');
 
 export type SocialPlatform =
   | 'FACEBOOK'
@@ -163,9 +166,8 @@ export class AnalyticsDataEntity extends Entity {
     this.loading$.next(true);
     this.error$.next(null);
     try {
-       
-      console.warn(
-        '[analytics] AnalyticsDataEntity.load (mock) — used only by platform-page until it migrates to the GoGoCash overview path.'
+      logger.warn(
+        'AnalyticsDataEntity.load (mock) — used only by platform-page until it migrates to the GoGoCash overview path.'
       );
       await new Promise(resolve => setTimeout(resolve, 50));
       this.kpis$.next(MOCK_KPIS);

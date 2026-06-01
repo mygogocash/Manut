@@ -113,4 +113,9 @@ export const skeletonBlock = style({
   borderRadius: 10,
   background: cssVar('backgroundTertiaryColor'),
   animation: `${skeletonShimmer} 1.4s ease-in-out infinite`,
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      animation: 'none',
+    },
+  },
 });

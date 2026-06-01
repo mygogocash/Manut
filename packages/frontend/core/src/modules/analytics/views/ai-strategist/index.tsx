@@ -1,3 +1,5 @@
+import { Modal } from '@affine/component';
+import { DebugLogger } from '@affine/debug';
 import type { SocialPlatform as GqlSocialPlatform } from '@affine/graphql';
 import { useLiveData, useService } from '@toeverything/infra';
 import {
@@ -15,6 +17,8 @@ import type { SocialPlatform } from '../../entities/analytics-data.entity';
 import type { Insight } from '../../entities/insight.entity';
 import { AnalyticsService } from '../../services/analytics.service';
 import * as styles from './index.css';
+
+const logger = new DebugLogger('analytics');
 
 // Platforms the recommendation prompt can target. Mirrors the GraphQL
 // `SocialPlatform` enum. GOGOCASH is internal/diagnostic so we omit it
@@ -183,8 +187,7 @@ export function AIStrategist() {
 
   useEffect(() => {
     analyticsService.loadInsights(workspaceId).catch(err => {
-       
-      console.warn('[analytics] loadInsights failed', err);
+      logger.error('loadInsights failed', err);
     });
     const unsub = analyticsService.subscribeToInsights(workspaceId, insight => {
       freshIdsRef.current.add(insight.id);
@@ -206,8 +209,7 @@ export function AIStrategist() {
       try {
         await analyticsService.acknowledgeInsight(insightId);
       } catch (err) {
-         
-        console.warn('[analytics] acknowledgeInsight failed', err);
+        logger.error('acknowledgeInsight failed', err);
       } finally {
         setBusyAcknowledgeId(null);
       }
@@ -321,75 +323,76 @@ export function AIStrategist() {
         </div>
       )}
 
-      {recModalOpen ? (
-        <div
-          className={styles.modalBackdrop}
-          onClick={() => (!recBusy ? setRecModalOpen(false) : undefined)}
-          data-testid="analytics-content-recommendation-modal"
-        >
-          <div
-            className={styles.modal}
-            onClick={e => e.stopPropagation()}
-            role="dialog"
-            aria-labelledby="rec-modal-title"
+      {/*
+        Shared Modal (Radix Dialog) provides focus-trap, Escape-to-close,
+        aria-modal, and click-outside for free. `persistent` while busy
+        keeps the dialog open mid-generation (Escape/click-outside no-op),
+        matching the previous hand-rolled `!recBusy` guard. The platform
+        <select> is auto-focused on open (Radix focuses the first tabbable
+        element unless disabled).
+      */}
+      <Modal
+        open={recModalOpen}
+        onOpenChange={setRecModalOpen}
+        persistent={recBusy}
+        width={420}
+        title="Generate Content Recommendation"
+        contentOptions={{
+          'data-testid': 'analytics-content-recommendation-modal',
+        }}
+      >
+        <div className={styles.modalBody}>
+          <label className={styles.label} htmlFor="rec-platform">
+            Platform
+          </label>
+          <select
+            id="rec-platform"
+            className={styles.input}
+            value={recPlatform}
+            onChange={e => setRecPlatform(e.target.value as SocialPlatform)}
+            disabled={recBusy}
+            data-testid="analytics-content-recommendation-platform"
           >
-            <div id="rec-modal-title" className={styles.modalTitle}>
-              Generate Content Recommendation
-            </div>
-            <div className={styles.modalBody}>
-              <label className={styles.label} htmlFor="rec-platform">
-                Platform
-              </label>
-              <select
-                id="rec-platform"
-                className={styles.input}
-                value={recPlatform}
-                onChange={e => setRecPlatform(e.target.value as SocialPlatform)}
-                disabled={recBusy}
-                data-testid="analytics-content-recommendation-platform"
-              >
-                {RECOMMENDATION_PLATFORMS.map(p => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-              <label className={styles.label} htmlFor="rec-tone">
-                Tone (optional)
-              </label>
-              <input
-                id="rec-tone"
-                className={styles.input}
-                placeholder="e.g. playful, professional, urgent"
-                value={recTone}
-                onChange={e => setRecTone(e.target.value)}
-                disabled={recBusy}
-                data-testid="analytics-content-recommendation-tone"
-              />
-              {recError ? <div className={styles.error}>{recError}</div> : null}
-            </div>
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => setRecModalOpen(false)}
-                disabled={recBusy}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={() => void handleRunRecommendation()}
-                disabled={recBusy}
-                data-testid="analytics-content-recommendation-submit"
-              >
-                {recBusy ? 'Generating…' : 'Generate'}
-              </button>
-            </div>
-          </div>
+            {RECOMMENDATION_PLATFORMS.map(p => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          <label className={styles.label} htmlFor="rec-tone">
+            Tone (optional)
+          </label>
+          <input
+            id="rec-tone"
+            className={styles.input}
+            placeholder="e.g. playful, professional, urgent"
+            value={recTone}
+            onChange={e => setRecTone(e.target.value)}
+            disabled={recBusy}
+            data-testid="analytics-content-recommendation-tone"
+          />
+          {recError ? <div className={styles.error}>{recError}</div> : null}
         </div>
-      ) : null}
+        <div className={styles.modalActions}>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={() => setRecModalOpen(false)}
+            disabled={recBusy}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={() => void handleRunRecommendation()}
+            disabled={recBusy}
+            data-testid="analytics-content-recommendation-submit"
+          >
+            {recBusy ? 'Generating…' : 'Generate'}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

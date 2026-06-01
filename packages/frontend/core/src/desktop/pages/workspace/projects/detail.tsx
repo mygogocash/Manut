@@ -56,84 +56,18 @@ import { useParams } from 'react-router-dom';
 import { Header } from '../../../../components/pure/header';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
 import * as styles from './detail.css';
+import {
+  dueAtInputValue,
+  dueAtToIso,
+  formatDueDate,
+  priorityClass,
+  readablePriority,
+  readableStatus,
+} from './helpers';
 import * as listStyles from './projects.css';
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'Unexpected error';
-}
-
-function formatDueDate(value: string | null): string {
-  if (!value) return '';
-  const t = Date.parse(value);
-  if (isNaN(t)) return '';
-  const d = new Date(t);
-  const now = new Date();
-  return d.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: d.getFullYear() === now.getFullYear() ? undefined : 'numeric',
-  });
-}
-
-function dueAtInputValue(value: string | null): string {
-  if (!value) return '';
-  const t = Date.parse(value);
-  if (isNaN(t)) return '';
-  const d = new Date(t);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function priorityClass(priority: MnTaskPriority): string {
-  switch (priority) {
-    case 'URGENT':
-      return listStyles.priorityUrgent;
-    case 'HIGH':
-      return listStyles.priorityHigh;
-    case 'MEDIUM':
-      return listStyles.priorityMedium;
-    case 'LOW':
-      return listStyles.priorityLow;
-    case 'NONE':
-    default:
-      return listStyles.priorityNone;
-  }
-}
-
-function readableStatus(value: MnTaskStatus): string {
-  switch (value) {
-    case 'IN_PROGRESS':
-      return 'In progress';
-    case 'BACKLOG':
-      return 'Backlog';
-    case 'TODO':
-      return 'To do';
-    case 'DONE':
-      return 'Done';
-    case 'CANCELLED':
-      return 'Cancelled';
-    default:
-      return value;
-  }
-}
-
-function readablePriority(value: MnTaskPriority): string {
-  switch (value) {
-    case 'NONE':
-      return 'No priority';
-    case 'LOW':
-      return 'Low';
-    case 'MEDIUM':
-      return 'Medium';
-    case 'HIGH':
-      return 'High';
-    case 'URGENT':
-      return 'Urgent';
-    default:
-      return value;
-  }
 }
 
 // -------------------- Project edit modal --------------------
@@ -361,7 +295,7 @@ const EditTaskModal: FC<EditTaskModalProps> = ({
           description: description.trim() ? description.trim() : null,
           status,
           priority,
-          dueAt: dueAt ? new Date(dueAt).toISOString() : null,
+          dueAt: dueAtToIso(dueAt),
           assigneeUserId: trimmedAssignee ? trimmedAssignee : null,
         };
         const response = (await (
@@ -582,7 +516,7 @@ const NewTaskModal: FC<NewTaskModalProps> = ({
       setError(null);
       setSubmitting(true);
       try {
-        const dueIso = dueAt ? new Date(dueAt).toISOString() : null;
+        const dueIso = dueAtToIso(dueAt);
         const input: CreateMnTaskInput = {
           title: trimmed,
           status,

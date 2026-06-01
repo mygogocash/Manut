@@ -139,7 +139,16 @@ const AgentsTable = ({
                 key={agent.id}
                 data-testid="cp-agent-row"
                 className={styles.row}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open agent ${agent.name}`}
                 onClick={() => onOpenAgent(agent)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onOpenAgent(agent);
+                  }
+                }}
               >
                 <td className={`${tdClass} ${styles.nameCell}`}>
                   <div data-testid="cp-agent-name">{agent.name}</div>

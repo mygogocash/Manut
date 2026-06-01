@@ -15,8 +15,17 @@ const AI_TOOLS_CONFIG_KEY = 'AIToolsConfig';
 // selections without cross-talk.
 const CHAT_MODE_KEY_PREFIX = 'chatMode.';
 const CHAT_ENABLED_TOOLS_KEY_PREFIX = 'chatEnabledTools.';
+// P2: per-workspace output-format chip selection (Auto / List / Table /
+// Code / Image). Stored under its own key so it survives panel close/reopen
+// independently of the chatMode + enabledTools selections.
+const CHAT_FORMAT_KEY_PREFIX = 'chatFormat.';
 
 export type ChatModePreset = 'read' | 'edit' | 'agent';
+
+// Mirrors OutputFormat in
+// blocksuite/ai/utils/format-prompt.ts. Kept as a local literal union so
+// this service (modules/ai-button) doesn't import a blocksuite-layer module.
+export type ChatFormatPreset = 'auto' | 'list' | 'table' | 'code' | 'image';
 
 function chatModeKey(workspaceId: string): string {
   return CHAT_MODE_KEY_PREFIX + workspaceId;
@@ -26,8 +35,22 @@ function chatEnabledToolsKey(workspaceId: string): string {
   return CHAT_ENABLED_TOOLS_KEY_PREFIX + workspaceId;
 }
 
+function chatFormatKey(workspaceId: string): string {
+  return CHAT_FORMAT_KEY_PREFIX + workspaceId;
+}
+
 function isChatModePreset(value: unknown): value is ChatModePreset {
   return value === 'read' || value === 'edit' || value === 'agent';
+}
+
+function isChatFormatPreset(value: unknown): value is ChatFormatPreset {
+  return (
+    value === 'auto' ||
+    value === 'list' ||
+    value === 'table' ||
+    value === 'code' ||
+    value === 'image'
+  );
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -152,6 +175,26 @@ export class AIToolsConfigService extends Service {
   watchEnabledTools(workspaceId: string) {
     return this.globalStateService.globalState.watch<string[]>(
       chatEnabledToolsKey(workspaceId)
+    );
+  }
+
+  // P2: read the persisted output-format chip selection for a workspace.
+  // Returns `undefined` if the user hasn't picked one yet, so the caller can
+  // apply its own default (DEFAULT_FORMAT in format-prompt.ts).
+  getChatFormat(workspaceId: string): ChatFormatPreset | undefined {
+    const raw = this.globalStateService.globalState.get<unknown>(
+      chatFormatKey(workspaceId)
+    );
+    return isChatFormatPreset(raw) ? raw : undefined;
+  }
+
+  setChatFormat(workspaceId: string, format: ChatFormatPreset): void {
+    this.globalStateService.globalState.set(chatFormatKey(workspaceId), format);
+  }
+
+  watchChatFormat(workspaceId: string) {
+    return this.globalStateService.globalState.watch<ChatFormatPreset>(
+      chatFormatKey(workspaceId)
     );
   }
 }

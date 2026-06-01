@@ -123,6 +123,11 @@ export const skeletonBlock = style({
   borderRadius: 10,
   background: cssVar('backgroundTertiaryColor'),
   animation: `${skeletonShimmer} 1.4s ease-in-out infinite`,
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      animation: 'none',
+    },
+  },
 });
 
 export const paragraph = style({
@@ -133,52 +138,9 @@ export const paragraph = style({
   },
 });
 
-/* Modal */
-
-export const modalBackdrop = style({
-  position: 'fixed',
-  inset: 0,
-  background: [
-    'radial-gradient(circle at 50% 44%, rgba(124, 58, 237, 0.18), transparent 34%)',
-    'rgba(14, 14, 16, 0.66)',
-  ].join(', '),
-  backdropFilter: 'blur(2px)',
-  WebkitBackdropFilter: 'blur(2px)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 100,
-});
-
-export const modal = style({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 12,
-  padding: 20,
-  borderRadius: 'var(--manut-radius-modal)',
-  border: '1px solid var(--manut-primary-border)',
-  background: [
-    'linear-gradient(135deg, var(--manut-primary-bg), transparent 54%)',
-    'var(--manut-surface-glass-strong)',
-  ].join(', '),
-  backdropFilter:
-    'blur(var(--manut-surface-glass-blur)) saturate(var(--manut-surface-glass-saturate))',
-  WebkitBackdropFilter:
-    'blur(var(--manut-surface-glass-blur)) saturate(var(--manut-surface-glass-saturate))',
-  width: 'min(420px, 92vw)',
-  color: 'var(--manut-ink)',
-  boxShadow: [
-    '0 24px 70px rgba(14, 14, 16, 0.22)',
-    '0 0 0 1px var(--manut-primary-border)',
-    'inset 0 1px 0 rgba(255, 255, 255, 0.56)',
-  ].join(', '),
-});
-
-export const modalTitle = style({
-  fontSize: 16,
-  fontWeight: 600,
-  color: 'var(--manut-ink)',
-});
+/* Modal — backdrop/container/title now provided by the shared
+   `@affine/component` Modal (Radix Dialog). Only the body + form-field
+   styles below remain local. */
 
 export const modalBody = style({
   display: 'flex',

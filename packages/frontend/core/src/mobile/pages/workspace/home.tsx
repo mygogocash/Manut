@@ -1,4 +1,5 @@
 import {
+  notify,
   SafeArea,
   startScopedViewTransition,
   useConfirmModal,
@@ -35,6 +36,7 @@ import { TemplateDocService } from '@affine/core/modules/template-doc';
 import { AppThemeService } from '@affine/core/modules/theme';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
+import { useI18n } from '@affine/i18n';
 import track from '@affine/track';
 import {
   AiIcon,
@@ -79,6 +81,7 @@ const MobileAskAIPanel = ({
   open: boolean;
   onClose: () => void;
 }) => {
+  const t = useI18n();
   const framework = useFramework();
   const workspaceService = useService(WorkspaceService);
   const workspaceId = workspaceService.workspace.id;
@@ -103,6 +106,7 @@ const MobileAskAIPanel = ({
   );
   const [isBodyProvided, setIsBodyProvided] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+  const sheetRef = useRef<HTMLElement | null>(null);
 
   const createSession = useCallback(
     async (options: Partial<BlockSuitePresets.AICreateSessionOptions> = {}) => {
@@ -121,6 +125,45 @@ const MobileAskAIPanel = ({
     [client, currentSession, workspaceId]
   );
 
+  // M9 — fully reset the chat surface so reopening the panel (or hitting
+  // "Start new chat") begins a fresh conversation instead of resuming the
+  // last one. createSession short-circuits when currentSession is set, so we
+  // must clear both the session and the appended AIChatContent element.
+  const resetChat = useCallback(() => {
+    (chatContent as unknown as HTMLElement | null)?.remove();
+    setChatContent(null);
+    setCurrentSession(null);
+    setIsBodyProvided(false);
+  }, [chatContent]);
+
+  // WIRE History — there is no dedicated mobile history view; the shared
+  // AIChatContent surfaces its recent-sessions strip whenever the chat is
+  // empty. Resetting to a fresh empty session is the honest way to expose
+  // history on mobile: the strip lets the user jump back into a prior chat.
+  const openHistory = useCallback(() => {
+    resetChat();
+  }, [resetChat]);
+
+  // Load a prior session when the user taps a recent-chat chip.
+  const onOpenSession = useCallback(
+    (sessionId: string) => {
+      client
+        .getSession(workspaceId, sessionId)
+        .then(session => {
+          if (session) setCurrentSession(session);
+        })
+        .catch(console.error);
+    },
+    [client, workspaceId]
+  );
+
+  // P2 — surface a friendly error instead of opening a blank sheet when the
+  // session create request fails.
+  const handleClose = useCallback(() => {
+    resetChat();
+    onClose();
+  }, [onClose, resetChat]);
+
   const onContextChange = useCallback((_context: Partial<ChatContextValue>) => {
     // AIChatContent owns the visible message state. This callback keeps the
     // mobile sheet compatible with the shared chat runtime contract.
@@ -129,9 +172,9 @@ const MobileAskAIPanel = ({
   const onOpenDoc = useCallback(
     (docId: string) => {
       workbench.openDoc({ docId, fromTab: 'true' });
-      onClose();
+      handleClose();
     },
-    [onClose, workbench]
+    [handleClose, workbench]
   );
 
   const onChatContainerRef = useCallback((node: HTMLDivElement | null) => {
@@ -143,15 +186,49 @@ const MobileAskAIPanel = ({
     if (!open) {
       return;
     }
-    createSession().catch(console.error);
-  }, [open, createSession]);
+    createSession().catch(error => {
+      console.error(error);
+      notify.error({
+        title: t['com.manut.mobile.ai.error.sessionFailed.title'](),
+        message: t['com.manut.mobile.ai.error.sessionFailed.message'](),
+      });
+      handleClose();
+    });
+  }, [open, createSession, handleClose, t]);
 
+  // M4 — modal behavior: lock body scroll while the sheet is open and close
+  // on Escape (mirrors the body-scroll-lock pattern in components/page).
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        handleClose();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open, handleClose]);
+
+  // M4 — initial focus. Prefer the chat input; fall back to the sheet itself
+  // so focus never sits behind the overlay on an inert background element.
   useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => {
-      chatContainerRef.current
-        ?.querySelector<HTMLTextAreaElement>('[data-testid="chat-panel-input"]')
-        ?.focus();
+      const input =
+        chatContainerRef.current?.querySelector<HTMLTextAreaElement>(
+          '[data-testid="chat-panel-input"]'
+        );
+      if (input) {
+        input.focus();
+      } else {
+        sheetRef.current?.focus();
+      }
     }, 120);
     return () => window.clearTimeout(id);
   }, [chatContent, open]);
@@ -187,6 +264,7 @@ const MobileAskAIPanel = ({
     content.onAISubscribe = handleAISubscribe;
     content.createSession = createSession;
     content.onOpenDoc = onOpenDoc;
+    content.onOpenSession = onOpenSession;
 
     if (!chatContent) {
       content.independentMode = true;
@@ -209,6 +287,7 @@ const MobileAskAIPanel = ({
     notificationService,
     onContextChange,
     onOpenDoc,
+    onOpenSession,
     open,
     reasoningConfig,
     searchMenuConfig,
@@ -225,11 +304,18 @@ const MobileAskAIPanel = ({
   if (!open) return null;
 
   return (
-    <div className={styles.askAiOverlay} role="presentation" onClick={onClose}>
+    <div
+      className={styles.askAiOverlay}
+      role="presentation"
+      onClick={handleClose}
+    >
       <section
+        ref={sheetRef}
         className={styles.askAiSheet}
         role="dialog"
-        aria-label="Manut AI chat"
+        aria-modal="true"
+        aria-label={t['com.manut.mobile.ai.title']()}
+        tabIndex={-1}
         data-testid="mobile-ask-ai-panel"
         onClick={event => event.stopPropagation()}
       >
@@ -237,7 +323,9 @@ const MobileAskAIPanel = ({
           <button
             className={styles.askAiSheetIconButton}
             type="button"
-            aria-label="Open AI history"
+            aria-label={t['com.manut.mobile.ai.history']()}
+            data-testid="mobile-ask-ai-history"
+            onClick={openHistory}
           >
             <HistoryIcon width={24} height={24} />
           </button>
@@ -245,13 +333,15 @@ const MobileAskAIPanel = ({
             <span className={styles.askAiSheetAvatar}>
               <AiIcon width={32} height={32} />
             </span>
-            <span className={styles.askAiSheetTitle}>Manut AI</span>
+            <span className={styles.askAiSheetTitle}>
+              {t['com.manut.mobile.ai.title']()}
+            </span>
           </div>
           <button
             className={styles.askAiSheetIconButton}
             type="button"
-            aria-label="Close Manut AI"
-            onClick={onClose}
+            aria-label={t['com.manut.mobile.ai.close']()}
+            onClick={handleClose}
           >
             <CloseIcon width={24} height={24} />
           </button>
@@ -368,6 +458,7 @@ const HomeSurface = () => {
 };
 
 const ChatsSurface = ({ onStartChat }: { onStartChat: () => void }) => {
+  const t = useI18n();
   return (
     <div
       key="chats"
@@ -379,27 +470,26 @@ const ChatsSurface = ({ onStartChat }: { onStartChat: () => void }) => {
         <span className={styles.emptySurfaceIcon}>
           <AiIcon />
         </span>
-        <h2 className={styles.emptySurfaceTitle}>No chats yet</h2>
+        <h2 className={styles.emptySurfaceTitle}>
+          {t['com.manut.mobile.chats.empty.title']()}
+        </h2>
         <p className={styles.emptySurfaceCopy}>
-          Search across your workspace, create docs, and more with Manut AI.
+          {t['com.manut.mobile.chats.empty.description']()}
         </p>
         <button
           type="button"
           className={styles.emptySurfaceAction}
           onClick={onStartChat}
         >
-          Start new chat
+          {t['com.manut.mobile.chats.startNew']()}
         </button>
       </div>
     </div>
   );
 };
 
-const MeetingsSurface = ({
-  onCreateMeetingNote,
-}: {
-  onCreateMeetingNote: () => void;
-}) => {
+const MeetingsSurface = ({ onCreateNote }: { onCreateNote: () => void }) => {
+  const t = useI18n();
   return (
     <div
       key="meetings"
@@ -409,25 +499,29 @@ const MeetingsSurface = ({
     >
       <div className={styles.menuSection}>
         <section className={styles.menuGroup}>
-          <div className={styles.menuGroupTitle}>Today</div>
+          <div className={styles.menuGroupTitle}>
+            {t['com.manut.mobile.calendar.today']()}
+          </div>
           <button
             type="button"
             className={styles.menuRow}
-            onClick={onCreateMeetingNote}
+            onClick={onCreateNote}
           >
             <span className={styles.menuRowIcon}>
               <PlusIcon />
             </span>
-            New meeting note
+            {t['com.manut.mobile.calendar.newNote']()}
           </button>
         </section>
         <section className={styles.menuGroup}>
-          <div className={styles.menuGroupTitle}>This week</div>
+          <div className={styles.menuGroupTitle}>
+            {t['com.manut.mobile.calendar.thisWeek']()}
+          </div>
           <div className={styles.menuRow}>
             <span className={styles.menuRowIcon}>
               <TodayIcon />
             </span>
-            Meeting notes will appear here
+            {t['com.manut.mobile.calendar.empty']()}
           </div>
         </section>
       </div>
@@ -436,6 +530,7 @@ const MeetingsSurface = ({
 };
 
 const InboxSurface = () => {
+  const t = useI18n();
   return (
     <div
       key="inbox"
@@ -447,9 +542,11 @@ const InboxSurface = () => {
         <span className={styles.emptySurfaceIcon}>
           <InboxIcon />
         </span>
-        <h2 className={styles.emptySurfaceTitle}>Inbox zero</h2>
+        <h2 className={styles.emptySurfaceTitle}>
+          {t['com.manut.mobile.inbox.empty.title']()}
+        </h2>
         <p className={styles.emptySurfaceCopy}>
-          Mentions, invitations, and workspace updates will show up here.
+          {t['com.manut.mobile.inbox.empty.description']()}
         </p>
       </div>
     </div>
@@ -469,7 +566,7 @@ const MobileHomeSurface = ({
     case 'chats':
       return <ChatsSurface onStartChat={onStartChat} />;
     case 'meetings':
-      return <MeetingsSurface onCreateMeetingNote={onCreatePage} />;
+      return <MeetingsSurface onCreateNote={onCreatePage} />;
     case 'inbox':
       return <InboxSurface />;
     case 'home':

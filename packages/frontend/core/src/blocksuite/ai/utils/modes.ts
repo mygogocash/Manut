@@ -109,7 +109,17 @@ export const MODE_TOOL_SET: Record<ChatMode, readonly AIToolName[]> = {
   agent: AGENT_TOOLS,
 };
 
-export const DEFAULT_MODE: ChatMode = 'edit';
+// M5: default to 'read' so a fresh/empty config is consistently
+// Read-only across BOTH the Mode picker label and the Advanced
+// submenu's default checked set. The label derives from the
+// tools-config write flags (all default false -> deriveMode() ->
+// "read-only"); the Advanced default set is defaultEnabledTools(
+// DEFAULT_MODE). With 'edit' here the two disagreed — the label read
+// "Read-only" while the submenu pre-checked Edit-mode write tools.
+// 'read' matches the documented "existing users get read-only on
+// upgrade" intent (see editingDocs/composingDocs/editingDataViews
+// defaulting to false in modules/ai-button/services/tools-config.ts).
+export const DEFAULT_MODE: ChatMode = 'read';
 
 // The full set of tools the Advanced view lists, in display order.
 // Same order as the AIToolName union so the checkbox grid is stable.

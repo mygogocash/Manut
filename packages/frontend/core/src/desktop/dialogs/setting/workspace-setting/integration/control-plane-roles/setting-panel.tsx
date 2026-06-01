@@ -189,7 +189,18 @@ const RolesTable = ({ workspaceId, onEdit, onOpenRun }: RolesTableProps) => {
   );
 };
 
-export const ControlPlaneRolesSettingPanel = () => {
+interface ControlPlaneRolesSettingPanelProps {
+  /**
+   * Closes the surrounding settings modal. Threaded from the settings
+   * dialog so opening a release run navigates the workbench instead of
+   * loading the run behind the still-open modal (H6).
+   */
+  onCloseSetting?: () => void;
+}
+
+export const ControlPlaneRolesSettingPanel = ({
+  onCloseSetting,
+}: ControlPlaneRolesSettingPanelProps = {}) => {
   const serverService = useService(ServerService);
   const workspaceService = useService(WorkspaceService);
   const workspaceId = workspaceService.workspace.id;
@@ -216,9 +227,12 @@ export const ControlPlaneRolesSettingPanel = () => {
 
   const handleOpenRun = useCallback(
     (runId: string) => {
+      // Close the settings modal first so the run page isn't loaded
+      // behind it, then navigate the active workbench view to the run.
+      onCloseSetting?.();
       workbench.open(`/release-runs/${runId}`);
     },
-    [workbench]
+    [onCloseSetting, workbench]
   );
 
   const fallback = useMemo(() => <SkeletonList />, []);

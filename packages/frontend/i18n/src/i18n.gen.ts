@@ -937,6 +937,14 @@ export function useAFFiNEI18N(): {
       */
     ["com.affine.ai.template-insert.failed"](): string;
     /**
+      * `Good response`
+      */
+    ["com.affine.ai.feedback.thumbs-up"](): string;
+    /**
+      * `Bad response`
+      */
+    ["com.affine.ai.feedback.thumbs-down"](): string;
+    /**
       * `List view options`
       */
     ["com.affine.all-docs.display.list-view"](): string;
@@ -9978,6 +9986,149 @@ export function useAFFiNEI18N(): {
       * `Reminders`
       */
     ["com.manut.reminders.title"](): string;
+    /**
+      * `Knowledge graph: {{docs}} documents, {{links}} links`
+      */
+    ["com.manut.knowledgeGraph.canvas.summary"](options: Readonly<{
+        docs: string;
+        links: string;
+    }>): string;
+    /**
+      * `Open document: {{title}}`
+      */
+    ["com.manut.knowledgeGraph.canvas.openDocItem"](options: {
+        readonly title: string;
+    }): string;
+    /**
+      * `Manut AI`
+      */
+    ["com.manut.mobile.ai.title"](): string;
+    /**
+      * `Open AI history`
+      */
+    ["com.manut.mobile.ai.history"](): string;
+    /**
+      * `Close Manut AI`
+      */
+    ["com.manut.mobile.ai.close"](): string;
+    /**
+      * `Couldn't start chat`
+      */
+    ["com.manut.mobile.ai.error.sessionFailed.title"](): string;
+    /**
+      * `Something went wrong starting the AI session. Please try again.`
+      */
+    ["com.manut.mobile.ai.error.sessionFailed.message"](): string;
+    /**
+      * `No chats yet`
+      */
+    ["com.manut.mobile.chats.empty.title"](): string;
+    /**
+      * `Search across your workspace, create docs, and more with Manut AI.`
+      */
+    ["com.manut.mobile.chats.empty.description"](): string;
+    /**
+      * `Start new chat`
+      */
+    ["com.manut.mobile.chats.startNew"](): string;
+    /**
+      * `Today`
+      */
+    ["com.manut.mobile.calendar.today"](): string;
+    /**
+      * `This week`
+      */
+    ["com.manut.mobile.calendar.thisWeek"](): string;
+    /**
+      * `New note`
+      */
+    ["com.manut.mobile.calendar.newNote"](): string;
+    /**
+      * `Notes will appear here`
+      */
+    ["com.manut.mobile.calendar.empty"](): string;
+    /**
+      * `Inbox zero`
+      */
+    ["com.manut.mobile.inbox.empty.title"](): string;
+    /**
+      * `Mentions, invitations, and workspace updates will show up here.`
+      */
+    ["com.manut.mobile.inbox.empty.description"](): string;
+    /**
+      * `Home menu`
+      */
+    ["com.manut.mobile.menu.nav"](): string;
+    /**
+      * `Home`
+      */
+    ["com.manut.mobile.menu.home"](): string;
+    /**
+      * `Chats`
+      */
+    ["com.manut.mobile.menu.chats"](): string;
+    /**
+      * `Calendar`
+      */
+    ["com.manut.mobile.menu.calendar"](): string;
+    /**
+      * `Inbox`
+      */
+    ["com.manut.mobile.menu.inbox"](): string;
+    /**
+      * `Inbox ({{count}} unread)`
+      */
+    ["com.manut.mobile.menu.inboxUnread"](options: {
+        readonly count: string;
+    }): string;
+    /**
+      * `Page not found`
+      */
+    ["com.manut.mobile.notFound.title"](): string;
+    /**
+      * `The page you're looking for doesn't exist or may have been moved.`
+      */
+    ["com.manut.mobile.notFound.description"](): string;
+    /**
+      * `Back to home`
+      */
+    ["com.manut.mobile.notFound.backHome"](): string;
+    /**
+      * `Doc not found`
+      */
+    ["com.manut.mobile.doc.notFound.title"](): string;
+    /**
+      * `This doc doesn't exist or you don't have access to it.`
+      */
+    ["com.manut.mobile.doc.notFound.description"](): string;
+    /**
+      * `No docs yet`
+      */
+    ["com.manut.mobile.empty.docs.title"](): string;
+    /**
+      * `Docs added to this collection will show up here.`
+      */
+    ["com.manut.mobile.empty.collection.description"](): string;
+    /**
+      * `Docs with this tag will show up here.`
+      */
+    ["com.manut.mobile.empty.tag.description"](): string;
+    /**
+      * `Mixed`
+      */
+    ["com.manut.crm.deals.mixedCurrencies"](): string;
+    /**
+      * `Days 1–28 only. Use Advanced (cron) for days 29–31.`
+      */
+    ["com.manut.reminders.rules.field.monthDay.hint"](): string;
+    /**
+      * `Budget`
+      */
+    ["com.manut.settings.workspace.budget.title"](): string;
+    /**
+      * `Work Queues`
+      */
+    ["com.manut.settings.workspace.work-queues.title"](): string;
     /**
       * `core`
       */

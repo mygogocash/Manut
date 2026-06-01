@@ -108,6 +108,61 @@ export function labelPropagation(
 }
 
 /**
+ * A node's current per-axis velocity. Only the velocity components are
+ * needed to decide whether the simulation has settled — position is
+ * irrelevant. Kept structural so the caller can pass its live physics
+ * nodes directly without copying.
+ */
+export interface VelocityLike {
+  vx: number;
+  vy: number;
+}
+
+/**
+ * Kinetic-energy settle gate. The force-directed loop should stop
+ * scheduling new frames once the graph is effectively still AND nothing
+ * is animating on top of it. Returns `true` when the SUM of node velocity
+ * magnitudes falls below `epsilon` and there are no active pulses.
+ *
+ * Active pulses always keep the loop alive (return `false`) so their
+ * animation can run to completion regardless of physics state.
+ *
+ * Pure — no DOM, no rAF. Unit-tested in `__tests__/graph-math-rest.spec.ts`.
+ */
+export function isAtRest(
+  velocities: readonly VelocityLike[],
+  hasActivePulses: boolean,
+  epsilon: number
+): boolean {
+  if (hasActivePulses) return false;
+  let total = 0;
+  for (const v of velocities) {
+    total += Math.sqrt(v.vx * v.vx + v.vy * v.vy);
+    // Early-out: once we're over the threshold the answer can't change.
+    if (total >= epsilon) return false;
+  }
+  return total < epsilon;
+}
+
+/**
+ * SSR-safe `prefers-reduced-motion` check. Returns `true` when the user
+ * has asked the OS to minimise non-essential motion, so the graph can
+ * render a single static frame instead of running a continuous rAF loop.
+ *
+ * `win` is injectable for testing; defaults to the global `window`. When
+ * there is no window (SSR / Node) or no `matchMedia`, returns `false`
+ * (motion allowed) so the server render path never throws.
+ */
+export function prefersReducedMotion(
+  win: (Window & typeof globalThis) | undefined = typeof window !== 'undefined'
+    ? window
+    : undefined
+): boolean {
+  if (!win || typeof win.matchMedia !== 'function') return false;
+  return win.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
  * Deterministic curvature offset per edge — same edge always gets the same
  * curve direction and magnitude across re-renders.
  */

@@ -1,3 +1,4 @@
+import { DebugLogger } from '@affine/debug';
 import {
   beginPlatformConnectMutation,
   cancelPlatformConnectMutation,
@@ -17,6 +18,8 @@ import {
   type PlatformConnection,
   PlatformConnectionEntity,
 } from '../entities/platform-connection.entity';
+
+const logger = new DebugLogger('analytics');
 
 const POPUP_FEATURES =
   'popup,width=520,height=720,menubar=no,toolbar=no,location=no,status=no';
@@ -180,14 +183,11 @@ export class ConnectionService extends Service {
         // so the view renders a friendly notice instead of the generic
         // "Unhandled error raised" banner.
         this.entity.setUnavailable(true);
-        console.warn(
-          '[analytics] connections schema not available on this server',
-          err
-        );
+        logger.error('connections schema not available on this server', err);
       } else {
         const message = err instanceof Error ? err.message : 'Unknown error';
         this.entity.setError(message);
-        console.warn('[analytics] loadConnections failed', err);
+        logger.error('loadConnections failed', err);
       }
       // Don't throw — empty connection list is the natural fallback.
     } finally {
@@ -352,7 +352,7 @@ export class ConnectionService extends Service {
       });
     } catch (err) {
       // Best-effort. The cache row will TTL-expire either way.
-      console.warn(`[analytics] cancelPendingOAuth(${pendingId}) failed`, err);
+      logger.error(`cancelPendingOAuth(${pendingId}) failed`, err);
     }
   };
 

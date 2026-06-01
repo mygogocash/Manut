@@ -62,12 +62,20 @@ export class AIModelService extends Service {
     this.disposables.push(cleanup);
 
     this.init().catch(err => {
+      // P2: ANY init failure — schema validation (module disabled / version
+      // skew), network, timeout, or a generic error — must still leave the
+      // picker with at least the synthetic Auto entry. Otherwise `models`
+      // stays empty and the picker trigger renders a blank button. Selecting
+      // Auto sends modelId='auto', which the backend resolves server-side, so
+      // the fallback is safe even when the real model list never loaded.
+      // Schema-validation failures get a quieter warn (expected on installs
+      // without the copilot module); everything else is logged as an error.
       if (isGraphQLSchemaValidationError(err)) {
-        // Backend missing the copilot prompt-models field (module disabled
-        // or version skew). Surface a synthetic Auto entry so the picker
-        // doesn't render an empty dropdown — selecting Auto sends
-        // modelId='auto' which the backend resolves server-side.
         console.warn('[ai] models query unavailable — using fallback');
+      } else {
+        console.error('[ai] models init failed — using Auto fallback', err);
+      }
+      if (this.models.value.length === 0) {
         this.models.value = [
           {
             id: 'auto',
@@ -78,9 +86,7 @@ export class AIModelService extends Service {
             isDefault: true,
           },
         ];
-        return;
       }
-      console.error(err);
     });
   }
 

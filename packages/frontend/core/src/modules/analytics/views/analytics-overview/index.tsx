@@ -1,3 +1,4 @@
+import { DebugLogger } from '@affine/debug';
 import { useLiveData, useService } from '@toeverything/infra';
 import { useEffect } from 'react';
 
@@ -8,6 +9,8 @@ import { TrendChart } from '../../components/trend-chart';
 import { AnalyticsService } from '../../services/analytics.service';
 import { ConnectionService } from '../../services/connection.service';
 import * as styles from './index.css';
+
+const logger = new DebugLogger('analytics');
 
 function formatDelta(deltaPct: number | null): number | undefined {
   if (deltaPct === null || Number.isNaN(deltaPct)) return undefined;
@@ -49,10 +52,10 @@ export function AnalyticsOverview() {
 
   useEffect(() => {
     analyticsService.loadOverview(workspaceId).catch(err => {
-      console.warn('[analytics] loadOverview failed', err);
+      logger.error('loadOverview failed', err);
     });
     connectionService.loadConnections(workspaceId).catch(err => {
-      console.warn('[analytics] loadConnections failed', err);
+      logger.error('loadConnections failed', err);
     });
   }, [analyticsService, connectionService, workspaceId]);
 
@@ -71,13 +74,24 @@ export function AnalyticsOverview() {
       </div>
 
       {loading && !overview ? (
+        // Mirror the real KPI + chart layout so swapping skeleton → content
+        // doesn't shift the page (low CLS).
         <div
           className={styles.skeleton}
           data-testid="analytics-overview-loading"
         >
-          <div className={styles.skeletonBlock} />
-          <div className={styles.skeletonBlock} />
-          <div className={styles.skeletonBlock} />
+          <div className={styles.skeletonSectionLabel} />
+          <div className={styles.skeletonKpiGrid}>
+            <div className={styles.skeletonBlock} />
+            <div className={styles.skeletonBlock} />
+            <div className={styles.skeletonBlock} />
+            <div className={styles.skeletonBlock} />
+          </div>
+          <div className={styles.skeletonSectionLabel} />
+          <div className={styles.skeletonChartGrid}>
+            <div className={styles.skeletonChartBlock} />
+            <div className={styles.skeletonChartBlock} />
+          </div>
         </div>
       ) : unavailable ? (
         // Schema-missing fallback: the deployed server doesn't expose
@@ -98,7 +112,7 @@ export function AnalyticsOverview() {
         <div className={styles.empty} data-testid="analytics-overview-empty">
           {connections.length > 0
             ? 'Connected — awaiting first sync. Metrics appear after the next ingestion (usually within 5 minutes).'
-            : 'No data yet — connect a data source under Settings → Data connections, or wait 5 minutes for the next sync.'}
+            : 'No data yet — connect a data source under Workspace Settings → Connections, or wait 5 minutes for the next sync.'}
         </div>
       ) : (
         <>
@@ -152,8 +166,8 @@ export function AnalyticsOverview() {
             No social platforms connected yet. Open Workspace Settings →
             Connections to link accounts like Facebook, Instagram, or TikTok.
             <div className={styles.emptyHint}>
-              Data sources such as MongoDB or PostHog are managed separately
-              under Settings → Data connections.
+              Data sources such as MongoDB or PostHog are managed in the same
+              Workspace Settings → Connections panel.
             </div>
           </div>
         )}

@@ -78,6 +78,7 @@ import { ContactDetailBody } from './contact-detail';
 import { ContactEditModal } from './contact-edit-modal';
 import { DealDetailBody } from './deal-detail';
 import { DealEditModal } from './deal-edit-modal';
+import { summarizeDealColumn, toExternalHref } from './deal-totals';
 import { DetailPanel } from './detail-panel';
 import * as styles from './styles.css';
 
@@ -423,7 +424,15 @@ const AccountsTabInner = ({ workspaceId }: AccountsTabProps) => {
                   <div className={styles.rowSubtitle}>{account.industry}</div>
                 ) : null}
                 {account.website ? (
-                  <div className={styles.rowSubtitle}>{account.website}</div>
+                  <a
+                    className={styles.contactLink}
+                    href={toExternalHref(account.website)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={event => event.stopPropagation()}
+                  >
+                    {account.website}
+                  </a>
                 ) : null}
               </div>
               <div className={styles.rowMeta}>
@@ -695,10 +704,22 @@ const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
                     {contactFullName(contact)}
                   </div>
                   {contact.email ? (
-                    <div className={styles.rowSubtitle}>{contact.email}</div>
+                    <a
+                      className={styles.contactLink}
+                      href={`mailto:${contact.email}`}
+                      onClick={event => event.stopPropagation()}
+                    >
+                      {contact.email}
+                    </a>
                   ) : null}
                   {contact.phone ? (
-                    <div className={styles.rowSubtitle}>{contact.phone}</div>
+                    <a
+                      className={styles.contactLink}
+                      href={`tel:${contact.phone}`}
+                      onClick={event => event.stopPropagation()}
+                    >
+                      {contact.phone}
+                    </a>
                   ) : null}
                 </div>
                 <div className={styles.rowMeta}>
@@ -992,16 +1013,23 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
       const cards = dealsWithOverrides
         .filter(deal => deal.stageId === stage.id)
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-      const sum = cards.reduce((acc, deal) => acc + (deal.value ?? 0), 0);
-      const summary = `${cards.length} • ${formatCurrency(sum, cards[0]?.currency ?? null)}`;
+      // Only show a currency-formatted total when every card in the column
+      // shares one currency — a raw sum across mixed currencies formatted
+      // with the first card's currency would be a bogus number.
+      const { count, total, currency } = summarizeDealColumn(cards);
+      const totalLabel =
+        total !== null && currency
+          ? formatCurrency(total, currency)
+          : t['com.manut.crm.deals.mixedCurrencies']();
+      const summary = `${count} • ${totalLabel}`;
       return {
         id: stage.id,
         label: stage.name,
         cards,
-        meta: cards.length > 0 ? summary : `${cards.length}`,
+        meta: count > 0 ? summary : `${count}`,
       };
     });
-  }, [dealsWithOverrides, stagesSorted]);
+  }, [dealsWithOverrides, stagesSorted, t]);
 
   // When the underlying deal's stage matches its override, drop the
   // override so we stop double-applying the same change.

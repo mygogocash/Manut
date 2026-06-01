@@ -486,6 +486,9 @@ export const RuleModal = ({
                     </option>
                   ))}
                 </select>
+                <div className={styles.fieldHint}>
+                  {t['com.manut.reminders.rules.field.monthDay.hint']()}
+                </div>
               </div>
             ) : null}
 

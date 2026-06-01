@@ -5,6 +5,7 @@ import { PeekViewService } from '@affine/core/modules/peek-view';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { DebugLogger } from '@affine/debug';
+import { useI18n } from '@affine/i18n';
 import { useLiveData, useService } from '@toeverything/infra';
 import {
   type CSSProperties,
@@ -24,9 +25,12 @@ import {
 import { subscribeDocReadStream } from '../services/doc-read-stream';
 import {
   curveOffsetFor,
+  isAtRest,
   labelPropagation,
   lobeColour,
+  prefersReducedMotion,
 } from '../utils/graph-math';
+import * as styles from './graph-view.css';
 import { NodeDetailPanel } from './node-detail-panel';
 
 const logger = new DebugLogger('knowledge-graph');
@@ -112,6 +116,24 @@ const CENTER_PULL = 0.0006;
 const CLUSTER_COHESION = 0.0035;
 /** Cap on per-axis velocity to prevent runaway. */
 const MAX_VELOCITY = 1.4;
+
+/**
+ * Kinetic-energy threshold below which the simulation is considered settled.
+ * Once the SUM of node velocity magnitudes drops under this (and no pulses
+ * are in flight) we stop scheduling rAF frames entirely — a settled graph
+ * costs 0% CPU until the next interaction, data change, or activation pulse.
+ */
+const REST_EPSILON = 0.05;
+/**
+ * Above this node count we skip the O(n²) all-pairs repulsion entirely and
+ * fall back to edge-spring + cluster-cohesion + centre-pull only. On a big
+ * workspace (hundreds of docs) the all-pairs loop is the single biggest CPU
+ * cost; springs + cohesion already keep connected components apart, so the
+ * layout stays legible without melting the CPU. The threshold is generous
+ * (the loop is cheap up to a few hundred nodes) — past it, repulsion is the
+ * thing we shed first.
+ */
+const MAX_PHYSICS_NODES = 300;
 
 const BG_STAR_FAR_COUNT = 90;
 const BG_STAR_NEAR_COUNT = 35;
@@ -258,6 +280,7 @@ function isDarkBackground(el: HTMLElement): boolean {
  * between updates rather than snapping to rest.
  */
 export const KnowledgeGraphView = () => {
+  const t = useI18n();
   const docsService = useService(DocsService);
   const docsSearchService = useService(DocsSearchService);
   const workbenchService = useService(WorkbenchService);
@@ -266,6 +289,14 @@ export const KnowledgeGraphView = () => {
   const docs = useLiveData(docsService.list.docs$);
   const nonTrashIds = useLiveData(docsService.list.nonTrashDocsIds$);
 
+  /**
+   * Installed by the simulation effect; lets imperative handlers (drag,
+   * pulse spawn, selection, data change) re-arm the rAF loop after it has
+   * settled. No-op until the effect mounts. Calling it when the loop is
+   * already running is harmless (the loop guards against double-scheduling).
+   */
+  const wakeRef = useRef<() => void>(() => {});
+
   // Selected node id for the right-side preview panel. `null` = panel hidden.
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Mirror into a ref so the long-lived canvas draw loop (which only mounts
@@ -273,6 +304,8 @@ export const KnowledgeGraphView = () => {
   const selectedIdRef = useRef<string | null>(null);
   useEffect(() => {
     selectedIdRef.current = selectedId;
+    // Selection ring needs a repaint even when the graph has settled.
+    wakeRef.current();
   }, [selectedId]);
 
   const docTitlesById = useMemo(() => {
@@ -416,6 +449,9 @@ export const KnowledgeGraphView = () => {
       nodes,
       edges: stateRef.current.edges,
     };
+    // New / removed nodes — re-arm the loop so the layout re-settles and the
+    // new node set renders even if the graph had gone quiescent.
+    wakeRef.current();
   }, [docTitlesById]);
 
   // When edges change: run label propagation, compute per-node degree, and
@@ -458,6 +494,9 @@ export const KnowledgeGraphView = () => {
       edges,
       clusterCentroids: new Map(),
     };
+    // Edge / cluster change — re-arm so springs + cohesion re-settle and the
+    // new edges render.
+    wakeRef.current();
   }, [edges]);
 
   // Subscribe to AI doc-read activations and spawn pulses from each event.
@@ -527,6 +566,8 @@ export const KnowledgeGraphView = () => {
           merged.splice(0, merged.length - PULSE_MAX_CONCURRENT);
         }
         pulsesRef.current = merged;
+        // A new pulse must animate — re-arm the loop if it had settled.
+        wakeRef.current();
       });
     } catch (err) {
       logger.error(
@@ -567,14 +608,53 @@ export const KnowledgeGraphView = () => {
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // A resize clears the backing store — repaint even if settled.
+      wakeRef.current();
     };
     resize();
 
     const ro = new ResizeObserver(resize);
     ro.observe(container);
 
-    const step = () => {
-      const tSec = performance.now() / 1000;
+    // ─── Motion & lifecycle gating ──────────────────────────────────────────
+    // H5: when the user prefers reduced motion we render a SINGLE static
+    //     frame (no twinkle / drift / pulse, no continuous rAF). H4: when the
+    //     graph has settled (kinetic energy below epsilon, no pulses) OR the
+    //     tab is hidden, we stop scheduling frames entirely so a background
+    //     tab or an idle graph costs no CPU. `wakeRef` re-arms the loop on
+    //     interaction, data change, or a new activation pulse.
+    let reduceMotion = prefersReducedMotion();
+    // Frozen clock for reduced-motion static frames — keeps twinkle/drift
+    // sinusoids pinned to a fixed phase instead of advancing every frame.
+    const STATIC_T_SEC = 0;
+
+    // `scheduled` tracks whether a frame is already queued so wake() never
+    // double-schedules. The loop sets it false right before it decides
+    // whether to continue.
+    let scheduled = false;
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      animationRef.current = requestAnimationFrame(frame);
+    };
+    // Re-arm after the loop has settled. Exposed via wakeRef so drag / data /
+    // pulse handlers can restart motion. No-op while a frame is already queued.
+    const wake = () => {
+      if (reduceMotion) {
+        // Reduced motion never runs a continuous loop — just repaint once so
+        // the static layout reflects any new nodes / drag position.
+        if (!scheduled) {
+          scheduled = true;
+          animationRef.current = requestAnimationFrame(frame);
+        }
+        return;
+      }
+      if (document.hidden) return; // resumes via visibilitychange instead
+      schedule();
+    };
+
+    const step = (animate: boolean) => {
+      const tSec = animate ? performance.now() / 1000 : STATIC_T_SEC;
 
       const { nodes, edges } = stateRef.current;
       const w = container.clientWidth;
@@ -583,22 +663,27 @@ export const KnowledgeGraphView = () => {
       const cy = h / 2;
 
       // ─── Physics ─────────────────────────────────────────────────────────
-      // Repulsion (all pairs).
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const a = nodes[i];
-          const b = nodes[j];
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const distSq = dx * dx + dy * dy + 0.01;
-          const dist = Math.sqrt(distSq);
-          const force = REPULSION / distSq;
-          const fx = (dx / dist) * force;
-          const fy = (dy / dist) * force;
-          a.vx -= fx;
-          a.vy -= fy;
-          b.vx += fx;
-          b.vy += fy;
+      // Repulsion (all pairs) — O(n²). H4: skip entirely on large graphs so a
+      // big workspace doesn't melt the CPU. Edge springs + cluster cohesion
+      // still keep components apart; we only shed the pairwise term, which is
+      // the dominant cost past a few hundred nodes.
+      if (nodes.length <= MAX_PHYSICS_NODES) {
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i];
+            const b = nodes[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const distSq = dx * dx + dy * dy + 0.01;
+            const dist = Math.sqrt(distSq);
+            const force = REPULSION / distSq;
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            a.vx -= fx;
+            a.vy -= fy;
+            b.vx += fx;
+            b.vy += fy;
+          }
         }
       }
 
@@ -809,7 +894,7 @@ export const KnowledgeGraphView = () => {
       //     curve from source to target over PULSE_DURATION_MS, fading out
       //     as it goes. Done in 'lighter' compositing so multiple pulses
       //     on overlapping edges accumulate into a brighter flare.
-      if (pulsesRef.current.length > 0) {
+      if (animate && pulsesRef.current.length > 0) {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         const nowMs = performance.now();
@@ -967,14 +1052,66 @@ export const KnowledgeGraphView = () => {
           ctx.restore();
         }
       }
-
-      animationRef.current = requestAnimationFrame(step);
     };
 
-    animationRef.current = requestAnimationFrame(step);
+    // rAF entry point. Runs one physics+render step, then decides whether to
+    // schedule another frame. Stops scheduling (H4 settle gate) once the
+    // graph is at rest with no pulses in flight; restarts via wake().
+    const frame = () => {
+      scheduled = false;
+      if (document.hidden) return; // visibilitychange will resume us
+      if (reduceMotion) {
+        // Single static frame — physics integrates toward a layout but we
+        // never auto-reschedule. wake() repaints on data / drag changes.
+        step(false);
+        return;
+      }
+      step(true);
+      const settled = isAtRest(
+        stateRef.current.nodes,
+        pulsesRef.current.length > 0,
+        REST_EPSILON
+      );
+      // Keep running while a drag is active so the dragged node tracks the
+      // pointer smoothly even after the rest of the graph settles.
+      if (!settled || draggingRef.current) {
+        schedule();
+      }
+    };
+
+    // Expose wake() so imperative handlers (drag, pulse, data change) can
+    // re-arm the loop after it settles.
+    wakeRef.current = wake;
+
+    // Pause/resume on tab visibility (H4). When the tab is hidden we let the
+    // loop stop; on re-show we re-arm it (motion preference permitting).
+    const onVisibility = () => {
+      if (document.hidden) return;
+      wake();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    // React to a live change of the prefers-reduced-motion setting (H5). When
+    // the user toggles it on, drop to a single static frame; when off, resume
+    // continuous motion.
+    let mql: MediaQueryList | null = null;
+    const onMotionChange = (e: MediaQueryListEvent) => {
+      reduceMotion = e.matches;
+      wake();
+    };
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+      mql.addEventListener('change', onMotionChange);
+    }
+
+    // Kick off the first frame.
+    wake();
 
     return () => {
       ro.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+      mql?.removeEventListener('change', onMotionChange);
+      wakeRef.current = () => {};
       if (animationRef.current !== null) {
         cancelAnimationFrame(animationRef.current);
       }
@@ -1020,12 +1157,19 @@ export const KnowledgeGraphView = () => {
           node.x = e.clientX - rect.left + drag.offsetX;
           node.y = e.clientY - rect.top + drag.offsetY;
         }
+        // Dragging is user interaction — re-arm the loop if it had settled
+        // so the drag (and resulting layout reflow) actually renders.
+        wakeRef.current();
         return;
       }
       const hit = findHit(e.clientX, e.clientY);
+      const prevHover = hoverIdRef.current;
       hoverIdRef.current = hit?.node.id ?? null;
       const canvas = canvasRef.current;
       if (canvas) canvas.style.cursor = hit ? 'pointer' : 'grab';
+      // Hover changed — repaint so the highlight (or its removal) shows even
+      // if the simulation had settled.
+      if (prevHover !== hoverIdRef.current) wakeRef.current();
     },
     [findHit]
   );
@@ -1047,6 +1191,8 @@ export const KnowledgeGraphView = () => {
         offsetX: hit.node.x - (e.clientX - rect.left),
         offsetY: hit.node.y - (e.clientY - rect.top),
       };
+      // Drag started — re-arm the loop so the node tracks the pointer.
+      wakeRef.current();
     },
     [findHit]
   );
@@ -1144,6 +1290,21 @@ export const KnowledgeGraphView = () => {
   );
   const onPanelClose = useCallback(() => setSelectedId(null), []);
 
+  // M15 a11y: selecting a doc from the keyboard list opens the SAME detail
+  // panel a canvas click opens — single selection path, reused here.
+  const onSelectFromList = useCallback((docId: string) => {
+    setSelectedId(docId);
+  }, []);
+
+  // Screen-reader summary of the graph: "Knowledge graph: N documents,
+  // M links". `t.t(key, options)` (not `t[key]({...})`) keeps TS happy on
+  // freshly-added keys without re-running i18n codegen — same pattern the
+  // detail panel uses.
+  const graphSummary = t.t('com.manut.knowledgeGraph.canvas.summary', {
+    docs: String(docTitlesById.size),
+    links: String(edges.length),
+  });
+
   return (
     <div ref={containerRef} style={containerStyle}>
       <div style={titleStyle}>Knowledge Graph</div>
@@ -1154,11 +1315,48 @@ export const KnowledgeGraphView = () => {
       <canvas
         ref={canvasRef}
         style={canvasStyle}
+        role="img"
+        aria-label={graphSummary}
+        tabIndex={0}
         onPointerMove={onPointerMove}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       />
+      {/* Visually-hidden, keyboard-navigable mirror of the canvas. A live
+          summary plus one focusable button per doc; activating a button opens
+          the same NodeDetailPanel as a canvas click. This is the keyboard /
+          screen-reader path for an otherwise opaque <canvas>. */}
+      <div
+        className={styles.visuallyHidden}
+        role="status"
+        aria-live="polite"
+        data-testid="knowledge-graph-a11y-summary"
+      >
+        {graphSummary}
+      </div>
+      {panelNodes.length > 0 && (
+        <ul
+          className={styles.a11yList}
+          aria-label={graphSummary}
+          data-testid="knowledge-graph-a11y-list"
+        >
+          {panelNodes.map(n => (
+            <li key={n.id} className={styles.visuallyHidden}>
+              <button
+                type="button"
+                className={styles.a11yItem}
+                onClick={() => onSelectFromList(n.id)}
+                data-testid="knowledge-graph-a11y-item"
+              >
+                {t.t('com.manut.knowledgeGraph.canvas.openDocItem', {
+                  title: n.title,
+                })}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {isEmpty && <div style={emptyStateStyle}>{emptyStateMessage}</div>}
       <NodeDetailPanel
         selectedId={selectedId}

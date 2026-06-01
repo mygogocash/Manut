@@ -29,6 +29,11 @@ export const card = style({
 
 export const cardFresh = style({
   animation: `${fadeIn} var(--affine-anim-duration-base) var(--affine-anim-curve-default)`,
+  '@media': {
+    '(prefers-reduced-motion: reduce)': {
+      animation: 'none',
+    },
+  },
 });
 
 export const headerRow = style({

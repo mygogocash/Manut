@@ -20,13 +20,14 @@ import { JournalService } from '@affine/core/modules/journal';
 import { WorkbenchService } from '@affine/core/modules/workbench';
 import { ViewService } from '@affine/core/modules/workbench/services/view';
 import { WorkspaceService } from '@affine/core/modules/workspace';
-import { i18nTime } from '@affine/i18n';
+import { i18nTime, useI18n } from '@affine/i18n';
 import { DisposableGroup } from '@blocksuite/affine/global/disposable';
 import { RefNodeSlotsProvider } from '@blocksuite/affine/inlines/reference';
 import {
   customImageProxyMiddleware,
   ImageProxyService,
 } from '@blocksuite/affine/shared/adapters';
+import { InformationIcon } from '@blocksuite/icons/rc';
 import {
   FrameworkScope,
   useLiveData,
@@ -221,10 +222,27 @@ const getSkeleton = (back: boolean) => (
     <PageDetailLoading />
   </>
 );
+const DocNotFound = () => {
+  const t = useI18n();
+  return (
+    <div className={styles.notFound} data-testid="mobile-doc-not-found">
+      <span className={styles.notFoundIcon}>
+        <InformationIcon />
+      </span>
+      <h2 className={styles.notFoundTitle}>
+        {t['com.manut.mobile.doc.notFound.title']()}
+      </h2>
+      <p className={styles.notFoundCopy}>
+        {t['com.manut.mobile.doc.notFound.description']()}
+      </p>
+    </div>
+  );
+};
+
 const getNotFound = (back: boolean) => (
   <>
     <PageHeader back={back} className={styles.header} />
-    Page Not Found (TODO)
+    <DocNotFound />
   </>
 );
 const skeleton = getSkeleton(false);

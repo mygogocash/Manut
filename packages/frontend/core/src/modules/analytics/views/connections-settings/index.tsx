@@ -1,4 +1,5 @@
 import { useConfirmModal } from '@affine/component';
+import { DebugLogger } from '@affine/debug';
 import { CloseIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import { useCallback, useEffect, useState } from 'react';
@@ -13,6 +14,8 @@ import {
 } from '../../services/connection.service';
 import { AccountPickerModal } from './account-picker-modal';
 import * as styles from './index.css';
+
+const logger = new DebugLogger('analytics');
 
 interface PendingPickerState {
   pendingId: string;
@@ -93,7 +96,7 @@ export function ConnectionsSettings({
 
   useEffect(() => {
     connectionService.loadConnections(workspaceId).catch(err => {
-      console.warn('[analytics] loadConnections failed', err);
+      logger.error('loadConnections failed', err);
     });
   }, [connectionService, workspaceId]);
 
@@ -121,7 +124,7 @@ export function ConnectionsSettings({
           setErrorMessage(result.error);
         }
       } catch (err) {
-        console.warn(`[analytics] beginOAuth(${platform}) failed`, err);
+        logger.error(`beginOAuth(${platform}) failed`, err);
         setErrorMessage(
           err instanceof Error ? err.message : 'Failed to start OAuth'
         );
@@ -178,10 +181,7 @@ export function ConnectionsSettings({
           try {
             await connectionService.disconnect(connection.id);
           } catch (err) {
-            console.warn(
-              `[analytics] disconnect(${connection.id}) failed`,
-              err
-            );
+            logger.error(`disconnect(${connection.id}) failed`, err);
             setErrorMessage(
               err instanceof Error
                 ? err.message

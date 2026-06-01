@@ -23,13 +23,11 @@ import {
   useState,
 } from 'react';
 
+import { calcRowsById } from './calc-rows';
 import * as styles from './styles.css';
 import { DocCardTags } from './tag';
 
-export const calcRowsById = (id: string, min = 2, max = 8) => {
-  const code = id.charCodeAt(0);
-  return Math.floor((code % (max - min)) + min);
-};
+export { calcRowsById };
 
 export interface DocCardProps extends Omit<WorkbenchLinkProps, 'to'> {
   meta: {
@@ -65,6 +63,16 @@ export const DocCard = forwardRef<HTMLAnchorElement, DocCardProps>(
     // users see no overlay at all (the preview is decorative; the card
     // body already shows the same snippet, so we don't lose information).
     const prefersReducedMotion = useReducedMotion();
+    // Only wire the hover-preview machinery on devices that actually have a
+    // hover-capable pointer. On touch (`hover: none`) the preview never fires
+    // anyway, so reading matchMedia once at mount lets us short-circuit the
+    // timers entirely instead of shipping dead listeners.
+    const [hoverCapable] = useState(
+      () =>
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(hover: hover)').matches
+    );
     const [showHoverPreview, setShowHoverPreview] = useState(false);
     const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -76,12 +84,12 @@ export const DocCard = forwardRef<HTMLAnchorElement, DocCardProps>(
     }, []);
 
     const handleHoverStart = useCallback(() => {
-      if (prefersReducedMotion) return;
+      if (prefersReducedMotion || !hoverCapable) return;
       clearHoverTimer();
       hoverTimerRef.current = setTimeout(() => {
         setShowHoverPreview(true);
       }, HOVER_PREVIEW_DELAY_MS);
-    }, [clearHoverTimer, prefersReducedMotion]);
+    }, [clearHoverTimer, hoverCapable, prefersReducedMotion]);
 
     const handleHoverEnd = useCallback(() => {
       clearHoverTimer();

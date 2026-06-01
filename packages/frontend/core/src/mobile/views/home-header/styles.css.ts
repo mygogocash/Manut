@@ -73,11 +73,18 @@ export const menuButton = style({
   transition:
     'flex-basis 240ms var(--manut-anim-curve-overshoot), transform 160ms var(--manut-anim-curve-overshoot), background-color 180ms ease-out, color 180ms ease-out, box-shadow 180ms ease-out',
   selectors: {
+    // P9 — the active pill previously used the same fill as the page
+    // background, so it visually receded (worst in dark mode). Give it the
+    // elevated glass-strong surface used by the workspace chip plus an accent
+    // border so the active tab reads as prominent.
     '&[data-active="true"]': {
       flexBasis: 110,
-      background: cssVarV2('layer/background/mobile/primary'),
+      background: 'var(--manut-surface-glass-strong)',
+      backdropFilter: 'blur(18px) saturate(180%)',
+      WebkitBackdropFilter: 'blur(18px) saturate(180%)',
+      border: `1px solid ${cssVarV2('button/primary')}`,
       color: cssVarV2('text/primary'),
-      boxShadow: '0 10px 26px rgba(0, 0, 0, 0.10)',
+      boxShadow: '0 12px 30px rgba(0, 0, 0, 0.16)',
       gap: 8,
     },
     '&:active': {

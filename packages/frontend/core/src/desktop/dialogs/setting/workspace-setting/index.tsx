@@ -11,6 +11,7 @@ import {
   CollaborationIcon,
   DataPanelIcon,
   IntegrationsIcon,
+  LayerIcon,
   PaymentIcon,
   PropertyIcon,
   SaveIcon,
@@ -22,12 +23,14 @@ import { useMemo } from 'react';
 import type { SettingSidebarItem, SettingState } from '../types';
 import { WorkspaceAnalyticsConnections } from './analytics-connections';
 import { WorkspaceSettingBilling } from './billing';
+import { BudgetDashboard } from './budget/budget-dashboard';
 import { IntegrationSetting } from './integration';
 import { WorkspaceSettingLicense } from './license';
 import { MembersPanel } from './members';
 import { WorkspaceSettingDetail } from './preference';
 import { WorkspaceSettingProperties } from './properties';
 import { WorkspaceSettingStorage } from './storage';
+import { WorkQueuesPanel } from './work-queues/work-queues-panel';
 
 export const WorkspaceSetting = ({
   activeTab,
@@ -40,6 +43,7 @@ export const WorkspaceSetting = ({
   onCloseSetting: () => void;
   onChangeSettingState: (settingState: SettingState) => void;
 }) => {
+  const workspaceId = useService(WorkspaceService).workspace.id;
   switch (activeTab) {
     case 'workspace:preference':
       return <WorkspaceSettingDetail onCloseSetting={onCloseSetting} />;
@@ -64,6 +68,10 @@ export const WorkspaceSetting = ({
       return <EmbeddingSettings />;
     case 'workspace:analytics-connections':
       return <WorkspaceAnalyticsConnections />;
+    case 'workspace:budget':
+      return <BudgetDashboard workspaceId={workspaceId} />;
+    case 'workspace:workQueues':
+      return <WorkQueuesPanel workspaceId={workspaceId} />;
     default:
       return null;
   }
@@ -144,6 +152,18 @@ export const useWorkspaceSettingList = (): SettingSidebarItem[] => {
           ](),
         icon: <AiEmbeddingIcon />,
         testId: 'workspace-setting:embedding',
+      },
+      {
+        key: 'workspace:budget',
+        title: t['com.manut.settings.workspace.budget.title'](),
+        icon: <PaymentIcon />,
+        testId: 'workspace-setting:budget',
+      },
+      {
+        key: 'workspace:workQueues',
+        title: t['com.manut.settings.workspace.work-queues.title'](),
+        icon: <LayerIcon />,
+        testId: 'workspace-setting:work-queues',
       },
       showBilling && {
         key: 'workspace:billing' as SettingTab,
