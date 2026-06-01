@@ -352,7 +352,9 @@ Reuses the connections plugin pattern (`packages/backend/server/src/plugins/conn
 - `packages/backend/server/src/plugins/github-oauth/github-oauth.resolver.ts` — GraphQL: `githubConnection`, `connectGithub` mutation
 - `packages/backend/server/src/plugins/copilot/tools/github.ts` — exposes `github_search_issues`, `github_read_issue`, `github_search_repos`, `github_read_pr` as AI tools
 
-Env required: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`. Add to Railway via `set_variables` mutation.
+Env required: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`. Add to
+GCP Secret Manager using the `manut-*` secret naming contract, then deploy a
+new Cloud Run revision so the service reads the values at startup.
 
 ### A3. Memory system (decision #5 + #6 + #12)
 
@@ -857,7 +859,8 @@ Format optimized for AI sub-agent handoff. Each task is self-contained with file
   - File (new): `packages/backend/server/migrations/<ts>_add_mn_agent_memory_embedding/migration.sql`
   - Steps: `CREATE EXTENSION IF NOT EXISTS vector;` + `ALTER TABLE mn_agent_memories ADD COLUMN embedding vector(768); ADD COLUMN scope varchar NOT NULL DEFAULT 'user'; ADD COLUMN pinned boolean NOT NULL DEFAULT false;`
   - Use idempotent guards (same pattern as `20260518230000`)
-  - Apply to prod via local `prisma migrate deploy` against Railway proxy
+  - Apply to production through the approved Cloud Run migration job, not by
+    running local `prisma migrate deploy` against a public database proxy.
   - Effort: 0.5d · Skill: DB / Prisma
   - Verification: `\d mn_agent_memories` on prod shows the new columns; pgvector extension active
 
@@ -942,8 +945,9 @@ Format optimized for AI sub-agent handoff. Each task is self-contained with file
 
 **Tasks:**
 
-- **T-1.7.1.a** — Provision Exa API key + Railway env
-  - Set `EXA_API_KEY` on Manut service via Railway GraphQL `variableUpsert`
+- **T-1.7.1.a** — Provision Exa API key + GCP Secret Manager env
+  - Store `EXA_API_KEY` through the Manut GCP secret contract and deploy a new
+    Cloud Run revision.
   - Update `.env.example` + ops doc
   - Effort: 0.25d · Skill: ops
   - Verification: `curl https://api.exa.ai/...` with the key returns valid JSON
@@ -1414,9 +1418,16 @@ Expand task-level detail when bundle starts (per "Sub-agent handoff conventions"
 
 ### Access + secrets
 
-- **Railway CLI token** at `~/.railway/config.json` → `.user.accessToken`. Use it for direct GraphQL: `curl -X POST https://backboard.railway.com/graphql/v2 -H "Authorization: Bearer $TOKEN" ...`. Examples in the session history.
-- **Prod DB** (Railway Postgres) accessible via public proxy: `postgresql://postgres:<REDACTED — ROTATE THIS CREDENTIAL>@<railway-pg-proxy-host>:<port>/railway`. Use for `prisma migrate deploy` from local.
-- **Resend** (mailer) already set on Railway: `MAIL_PROVIDER=resend`, `RESEND_API_KEY`, `RESEND_FROM=noreply@gogocash.co`. Domain `gogocash.co` verified in Resend.
+- **Cloud Run deploy:** use the approval-gated `manut-gcp-prod-deploy` Cloud
+  Build trigger for production releases.
+- **Prod DB:** production database access goes through approved Cloud SQL paths
+  and the `manut-migrate` Cloud Run job. Do not publish or use ad hoc public
+  database proxy URLs as an operator shortcut.
+- **Secrets:** use GCP Secret Manager with the `manut-*` naming contract. After
+  any secret rotation, deploy a new Cloud Run revision so instances reload the
+  values.
+- **Resend:** mailer credentials live in Secret Manager, and the domain
+  `gogocash.co` is verified in Resend.
 - **GitHub gh CLI** authenticated. Use for `gh pr create`, `gh run list`, `gh api`.
 - **Exa API key** — to be added in B9; user provides.
 - **Stripe API key** — to be added in M3; user provides.

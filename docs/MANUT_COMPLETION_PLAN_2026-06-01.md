@@ -22,7 +22,9 @@ docs, and roadmap docs.
 - Re-run Cloud Run smoke for `Manut,Copilot`.
 - Confirm the rollback target before every production traffic flip.
 - Update stale Railway references in operator docs to the current GCP Cloud Run
-  deployment path.
+  deployment path. — Done for the production deploy runbook and launch
+  readiness checklist; Railway is now documented only as source-data or
+  rollback context where applicable.
 
 ## Lane 2 — Backend QA Batch
 
@@ -123,13 +125,17 @@ docs, and roadmap docs.
   integrations copy.
 - Sweep remaining AFFiNE/Superflow user-facing rename drift.
 - Refresh or archive stale beta/Railway launch docs.
+  - Production deploy runbook and launch readiness checklist are refreshed for
+    Cloud Run, Cloud Build, Cloud SQL, Secret Manager, and Cloud Monitoring.
+    Remaining beta-era docs can be archived or refreshed as they become active
+    launch inputs.
 - Add Cloud Monitoring alerts, load-test staging, Terraform for manual GCP
   resources, status page wiring, and long-tail CI/CD Tier 3 work.
 
 ## Current Slice
 
-Active slice: **Lane 5 — Analytics and Social Integrations / approval/legal
-readiness and remaining platform-specific polish**.
+Active slice: **Lane 6 — UX, Rename, Docs, and Ops / Cloud Run operator-doc
+refresh**.
 
 Exit criteria:
 
@@ -226,6 +232,11 @@ Completed in this branch:
 - Lane 5 — LINE Copy Honesty: frontend labels and connection-card copy now use
   LINE Official Account wording; VOOM post analytics are explicitly marked as
   gated on confirmed API access instead of promised in the product UI.
+- Lane 6 — Cloud Run Operator Docs: the production deploy runbook and launch
+  readiness checklist now use Cloud Build, Cloud Run, Cloud SQL, Secret
+  Manager, Cloud Monitoring, and Cloud Run log smoke as the active production
+  path; Railway remains only as explicitly historical source-data or rollback
+  context.
 
 Known verification blocker:
 
