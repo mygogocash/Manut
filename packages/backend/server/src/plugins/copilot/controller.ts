@@ -48,6 +48,7 @@ import { AiBudgetService } from '../../core/quota';
 import { CopilotContextService } from './context/service';
 import { ChatRequestInterceptorService } from './interceptor';
 import { getModelMetadata } from './model-metadata';
+import { appendPermissionModeAddendum } from './prompt/mode-addendum';
 import { ScenarioClassifier } from './prompt/scenario-classifier';
 import { CopilotProviderFactory } from './providers/factory';
 import type { CopilotProvider } from './providers/provider';
@@ -282,7 +283,8 @@ export class CopilotController implements BeforeApplicationShutdown {
     query: Record<string, string | string[]>,
     outputType: ModelOutputType
   ) {
-    let { messageId, retry, modelId, params } = ChatQuerySchema.parse(query);
+    let { messageId, retry, modelId, params, toolsConfig } =
+      ChatQuerySchema.parse(query);
 
     if (modelId === 'auto') {
       modelId = await this.resolveAutoModelId(sessionId, messageId);
@@ -326,7 +328,10 @@ export class CopilotController implements BeforeApplicationShutdown {
       ...lastParams,
       ...contextParams,
     };
-    const finalMessage = session.finish(renderParams);
+    const finalMessage = appendPermissionModeAddendum(
+      session.finish(renderParams),
+      toolsConfig
+    );
     const intercepted = await this.requestInterceptor.intercept({
       messages: finalMessage,
       params: renderParams,
