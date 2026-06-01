@@ -1,9 +1,8 @@
 # Manut Bug Hunt — Live Status (2026-05-31)
 
-> 👉 **2026-06-01 update:** a newer QA-audit fix marathon is in progress —
-> see **[`QA_FIX_HANDOFF.md`](./QA_FIX_HANDOFF.md)**. 3 frontend waves are
-> committed + pushed + bundle-verified on `fix/qa-audit-2026-05-31`; the backend
-> batch + prod deploy remain.
+> 👉 **2026-06-01 update:** QA-audit fix marathon — **frontend SHIPPED to prod**
+> (`manut.xyz` → revision `manut-00015-wix`, via PR #183). The **backend batch** is
+> the only remaining work. Full handoff: **[`QA_FIX_HANDOFF.md`](./QA_FIX_HANDOFF.md)**.
 
 ## ✅✅ FINAL VERIFICATION (all green, independently re-confirmed in a clean context)
 

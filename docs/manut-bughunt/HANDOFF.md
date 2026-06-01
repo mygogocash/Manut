@@ -1,10 +1,9 @@
 # Manut Bug Hunt — Handoff & Execution Plan
 
-> 👉 **NEWER WORK (2026-06-01):** the QA-audit fix marathon is the latest state —
-> see **[`QA_FIX_HANDOFF.md`](./QA_FIX_HANDOFF.md)** (3 frontend waves committed +
-> pushed + bundle-verified on `fix/qa-audit-2026-05-31`; backend batch + prod
-> deploy remain). This doc remains the source for the earlier control-plane
-> bug-hunt + deploy/CICD context.
+> 👉 **NEWER WORK (2026-06-01):** QA-audit fix marathon — **frontend SHIPPED to
+> prod** (`manut.xyz` → `manut-00015-wix`, via PR #183); the **backend batch** is the
+> only thing left. Full handoff: **[`QA_FIX_HANDOFF.md`](./QA_FIX_HANDOFF.md)**. This
+> doc remains the source for the earlier control-plane bug-hunt + deploy/CICD context.
 
 > Generated mid-session after a multi-agent investigation (2 workflows, 14 agents,
 > ~4M subagent tokens). The session context became saturated (tool outputs started
