@@ -102,6 +102,10 @@ Every feature gates gracefully on its secret being unset. Operators can populate
   uses `MnReminderRun.dedupeKey` to avoid duplicate reminders. Current backend
   enum supports `EMAIL` only; the rule modal hides unsupported channels until a
   migration intentionally expands `MnNotificationChannel`.
+- **CRM CSV export is the first completed bulk/CSV slice.** Accounts,
+  Contacts, Deals, and Activities export from already-loaded tab data on the
+  client, with stable headers, relationship labels, and CSV escaping. PM and
+  Reminders CSV/import flows remain follow-ups.
 
 ---
 

@@ -176,6 +176,7 @@ vi.mock('@affine/i18n', () => ({
 
 vi.mock('@blocksuite/icons/rc', () => ({
   CollaborationIcon: () => <span>collab-icon</span>,
+  DownloadIcon: () => <span>download-icon</span>,
 }));
 
 vi.mock('../../../../../components/pure/header', () => ({
@@ -257,6 +258,18 @@ describe('CrmPage', () => {
 
     expect(screen.getByText('Acme Inc.')).toBeTruthy();
     expect(screen.queryByTestId('crm-accounts-empty')).toBeNull();
+  });
+
+  test('enables CSV export when accounts are returned', () => {
+    queryState.accounts = [makeAccount()];
+
+    render(<Component />);
+
+    const exportButton = screen.getByTestId(
+      'crm-export-accounts'
+    ) as HTMLButtonElement;
+    expect(exportButton).toBeTruthy();
+    expect(exportButton.disabled).toBe(false);
   });
 
   test('renders a Kanban column per deal stage with linked deals', () => {
