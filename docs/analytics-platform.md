@@ -603,13 +603,13 @@ within the refresh window, routes Meta/TikTok/LINE refreshes through the
 platform OAuth services, persists rotated tokens, and marks refresh failures as
 `EXPIRED` with audit logs.
 
-### LINE channel-mode correction
+### LINE channel-mode correction — Done for v1 channel credentials
 
-The approval plan calls for Messaging API channel credentials as the v1 LINE
-path, while parts of the current code still assume LINE Login/user OAuth
-semantics. Next slice: make the LINE poller use configured channel access
-tokens and make webhook lookup resolve by channel/destination, not source user
-identity. Keep VOOM-specific claims behind the LINE Thailand confirmation.
+The v1 LINE path now validates the LINE Login OAuth code, then persists the
+configured Messaging API channel token/id as the workspace `SocialConnection`.
+Webhook ingestion resolves connections by LINE webhook `destination` first, then
+falls back to the legacy source user/group/room id for older rows. Keep
+VOOM-specific claims behind the LINE Thailand confirmation.
 
 ---
 

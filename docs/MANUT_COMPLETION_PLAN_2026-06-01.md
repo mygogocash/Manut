@@ -103,9 +103,10 @@ docs, and roadmap docs.
 - `insightCreated` equivalent socket event. — Done via authenticated SSE at
   `/api/workspace/:workspaceId/analytics/insights-stream`.
 - Remove or revise LINE VOOM claims if partner/API access is unavailable.
-- Fix LINE channel-mode ingestion mismatch: current code still leans on LINE
-  Login/user OAuth in places while the approval plan calls for Messaging API
-  channel credentials as v1.
+- Fix LINE channel-mode ingestion mismatch. — Done for the v1 channel path:
+  connection completion validates LINE Login, stores configured Messaging API
+  channel credentials, and webhook ingestion resolves by webhook `destination`
+  before falling back to source identity.
 
 ## Lane 6 — UX, Rename, Docs, and Ops
 
@@ -118,8 +119,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 5 — Analytics and Social Integrations / LINE
-channel-mode correction**.
+Active slice: **Lane 5 — Analytics and Social Integrations / rollups,
+`listMetrics`, platform deep dives, and approval/legal readiness**.
 
 Exit criteria:
 
@@ -190,6 +191,10 @@ Completed in this branch:
   event bus, authenticated SSE endpoint, frontend EventSource subscriber, and
   publisher hooks for content recommendations, trend detection, and anomaly
   detection so AI Strategist pages can update without manual refresh.
+- Lane 5 — LINE Channel Mode Correction: LINE connection completion now
+  validates the LINE Login code but persists the configured Messaging API
+  channel token/id as the workspace connection, and LINE webhook ingestion uses
+  the webhook `destination` channel id before falling back to legacy source ids.
 
 Known verification blocker:
 

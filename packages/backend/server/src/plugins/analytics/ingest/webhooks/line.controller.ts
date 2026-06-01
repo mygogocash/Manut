@@ -27,10 +27,10 @@ import { IngestionService } from '../ingestion.service';
  *   1. Compute HMAC-SHA256(channelSecret, rawBody), base64-encode it,
  *      and timing-safe-compare to the X-Line-Signature header.
  *      Reject with 401 (no body) on missing or bad signature.
- *   2. Parse JSON. For each event, look up the SocialConnection by
- *      (externalAccountId from event.source, platform=LINE_VOOM). If
- *      not found, log + skip — could be a webhook for a disconnected
- *      channel.
+ *   2. Parse JSON. For each event, look up the SocialConnection by webhook
+ *      destination first (the Messaging API channel/bot id), falling back to
+ *      event.source for older LINE Login rows. If not found, log + skip —
+ *      could be a webhook for a disconnected channel.
  *   3. Map via LineMapper.toSocialEvent and call
  *      IngestionService.normalizeAndStore. The Round A scaffolding for
  *      that service throws NOT_IMPLEMENTED — we log + swallow so we
@@ -105,14 +105,21 @@ export class LineWebhookController {
       return { ok: true };
     }
 
+    const destination =
+      typeof body.destination === 'string' && body.destination
+        ? body.destination
+        : undefined;
+
     // Process events in parallel but never let one failure block the response.
     await Promise.all(
-      events.map(rawEvent => this.processEvent(rawEvent).catch(err => {
-        this.logger.error(
-          'LINE webhook: event processing failed',
-          err instanceof Error ? err.stack : String(err)
-        );
-      }))
+      events.map(rawEvent =>
+        this.processEvent(rawEvent, destination).catch(err => {
+          this.logger.error(
+            'LINE webhook: event processing failed',
+            err instanceof Error ? err.stack : String(err)
+          );
+        })
+      )
     );
 
     return { ok: true };
@@ -141,25 +148,30 @@ export class LineWebhookController {
     }
   }
 
-  private async processEvent(rawEvent: unknown): Promise<void> {
+  private async processEvent(
+    rawEvent: unknown,
+    destination?: string
+  ): Promise<void> {
     const event = (rawEvent ?? {}) as {
       source?: { userId?: string; groupId?: string; roomId?: string };
     };
 
     const externalAccountId =
-      event.source?.userId ??
-      event.source?.groupId ??
-      event.source?.roomId;
+      event.source?.userId ?? event.source?.groupId ?? event.source?.roomId;
 
-    if (!externalAccountId) {
-      this.logger.debug('LINE webhook: event has no source id, skipping');
+    const lookupId = destination || externalAccountId;
+
+    if (!lookupId) {
+      this.logger.debug(
+        'LINE webhook: event has no destination/source id, skipping'
+      );
       return;
     }
 
-    const connection = await this.findConnection(externalAccountId);
+    const connection = await this.findConnection(lookupId);
     if (!connection) {
       this.logger.debug(
-        `LINE webhook: no connection for externalAccountId=${externalAccountId}, skipping`
+        `LINE webhook: no connection for externalAccountId=${lookupId}, skipping`
       );
       return;
     }
