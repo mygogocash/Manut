@@ -58,11 +58,11 @@ Workspace members should consume Analytics without re-authenticating to any plat
 
 **Single permission tier.** If you can see the workspace, you can see Analytics — same model as workspace docs.
 
-| Role | Can connect platforms | Can view dashboards | Can run on-demand AI | Can see cost meter |
-|---|---|---|---|---|
-| Workspace Owner | ✅ | ✅ | ✅ | ✅ |
-| Workspace Admin | ✅ | ✅ | ✅ | ✅ |
-| Workspace Member | ❌ | ✅ | ✅ (counts against budget) | ❌ |
+| Role             | Can connect platforms | Can view dashboards | Can run on-demand AI       | Can see cost meter |
+| ---------------- | --------------------- | ------------------- | -------------------------- | ------------------ |
+| Workspace Owner  | ✅                    | ✅                  | ✅                         | ✅                 |
+| Workspace Admin  | ✅                    | ✅                  | ✅                         | ✅                 |
+| Workspace Member | ❌                    | ✅                  | ✅ (counts against budget) | ❌                 |
 
 Disconnecting a platform requires Owner-only confirmation (R1 — affects whole workspace).
 
@@ -320,11 +320,11 @@ model SocialAiBudget {
 
 ### Webhook signature verification (mandatory, fail-closed)
 
-| Platform | Header | Algorithm |
-|---|---|---|
-| Meta (FB/IG/Threads) | `X-Hub-Signature-256` | HMAC-SHA256 with app secret |
-| TikTok | `X-Tt-Signature` | HMAC-SHA256 |
-| LINE | `X-Line-Signature` | HMAC-SHA256 with channel secret |
+| Platform             | Header                | Algorithm                       |
+| -------------------- | --------------------- | ------------------------------- |
+| Meta (FB/IG/Threads) | `X-Hub-Signature-256` | HMAC-SHA256 with app secret     |
+| TikTok               | `X-Tt-Signature`      | HMAC-SHA256                     |
+| LINE                 | `X-Line-Signature`    | HMAC-SHA256 with channel secret |
 
 Webhook controllers MUST reject unsigned or bad-signed requests with **401**, with no body details. Log the rejection (no request body) and rate-limit the source.
 
@@ -336,34 +336,38 @@ Webhook controllers MUST reject unsigned or bad-signed requests with **401**, wi
 
 Per [CLAUDE.md §5d](../CLAUDE.md), Vertex Gemini and Claude are already wired via `getGoogleAuth`. **No new providers needed.**
 
-| Use | Model | Why |
-|---|---|---|
-| Weekly Strategy | `claude-sonnet-4.5` | Deeper reasoning + cross-platform synthesis |
-| Hourly Trends | `gemini-2.5-flash` | Cheap, fast |
-| Content Recommendation | `gemini-2.5-flash` | Latency-sensitive, on-demand |
-| Anomaly Alert | `gemini-2.5-flash` | Quick classification |
+| Use                    | Model               | Why                                         |
+| ---------------------- | ------------------- | ------------------------------------------- |
+| Weekly Strategy        | `claude-sonnet-4.5` | Deeper reasoning + cross-platform synthesis |
+| Hourly Trends          | `gemini-2.5-flash`  | Cheap, fast                                 |
+| Content Recommendation | `gemini-2.5-flash`  | Latency-sensitive, on-demand                |
+| Anomaly Alert          | `gemini-2.5-flash`  | Quick classification                        |
 
 ### Prompts (added to `prompts.ts` per [§5c four-step dance](../CLAUDE.md))
 
 #### `Analytics: Weekly Strategy`
+
 - Model: `claude-sonnet-4.5`
 - Schedule: Sundays 06:00 workspace timezone
 - Input: 7 days of metrics + top 20 events per platform (~30 K tokens, summarized)
 - Output: 1500-token markdown — exec summary, per-platform observations, 3–5 recommended actions
 
 #### `Analytics: Trend Detection`
+
 - Model: `gemini-2.5-flash`
 - Schedule: hourly cron
 - Input: last 24 h of metrics + 7-day baseline deltas (~5 K tokens)
 - Output: 500-token markdown — emits insight only when meaningful trend detected
 
 #### `Analytics: Content Recommendation`
+
 - Model: `gemini-2.5-flash`
 - Trigger: user clicks "Suggest content"
 - Input: top-performing posts (last 30 d) + user tone preferences (~3 K tokens)
 - Output: 3 content ideas with rationale
 
 #### `Analytics: Anomaly Alert`
+
 - Model: `gemini-2.5-flash`
 - Trigger: real-time when metric crosses threshold (z-score > 3 vs 30-day mean)
 - Input: spiking metric + recent context (~3 K tokens)
@@ -374,16 +378,17 @@ All four follow the four-step dance: edit `prompts.ts` → rebuild server bundle
 ### Cost math (per workspace, monthly)
 
 Pricing (Vertex Model Garden, May 2026 rates):
+
 - `gemini-2.5-flash`: $0.075/M input, $0.30/M output
 - `claude-sonnet-4.5`: $3/M input, $15/M output
 
-| Job | Calls/mo | Tokens (in / out) | Cost/mo |
-|---|---|---|---|
-| Weekly Strategy | 4 | 30 K / 1.5 K | $0.45 |
-| Trend Detection | 720 | 5 K / 0.3 K | $0.34 |
-| Content Recommendation | ~50 | 2 K / 0.5 K | $0.02 |
-| Anomaly Alerts | ~50 | 3 K / 0.2 K | $0.02 |
-| **Total** | | | **~$0.85/mo** |
+| Job                    | Calls/mo | Tokens (in / out) | Cost/mo       |
+| ---------------------- | -------- | ----------------- | ------------- |
+| Weekly Strategy        | 4        | 30 K / 1.5 K      | $0.45         |
+| Trend Detection        | 720      | 5 K / 0.3 K       | $0.34         |
+| Content Recommendation | ~50      | 2 K / 0.5 K       | $0.02         |
+| Anomaly Alerts         | ~50      | 3 K / 0.2 K       | $0.02         |
+| **Total**              |          |                   | **~$0.85/mo** |
 
 Even with 10× safety margin for spikes / retries / future prompt growth, **well under $10/workspace/month**. The $100 cap is a runaway-prevention guardrail, not a real constraint.
 
@@ -399,35 +404,41 @@ Even with 10× safety margin for spikes / retries / future prompt growth, **well
 ## 8. Platform-specific notes
 
 ### Facebook (Pages API)
+
 - **Connect**: Meta OAuth scopes `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `read_insights`
 - **Real-time**: Page subscription webhooks (`feed`, `mention`, `messages`)
 - **Polling**: `/{page-id}/insights` for page_views, impressions
 - **Approval**: Meta App Review + Business Verification (1–3 weeks)
 
 ### Instagram (Business / Creator only via Meta)
+
 - **Connect**: same Meta OAuth, scopes `instagram_basic`, `instagram_manage_insights`, `pages_show_list`
 - **Real-time**: webhooks for `comments`, `mentions`, `story_insights`
 - **Polling**: `/{ig-user-id}/insights` for follower count, reach
 - **Constraint**: only Business/Creator IG accounts work — block personal accounts in UI with clear message
 
 ### Threads
+
 - **Connect**: separate OAuth on the Threads API
 - **Real-time**: webhook support thin as of v1 — poll-first, webhook-augment if available
 - **Polling**: `/me/threads`, `/me/threads_insights`
 
 ### TikTok
+
 - **Connect**: TikTok for Developers OAuth — scopes depend on partner tier
 - **Real-time**: only `video.upload.failed` is emitted publicly. `video.upload` / `video.publish` are partner-only. Treat publish as a polling concern, not a webhook concern, in v1.
 - **Polling**: `/v2/video/list/` (Display API) for publish detection at ~15 min cadence. `/v2/research/video/query/` for deep analytics (Research API, partner-gated).
 - **Constraint**: free Display API has ~10 fields. If partner approval is delayed, we ship "post visibility only" and mark deeper analytics as "pending API access" in UI. UI must label TikTok metric freshness as "near real-time (15 min)".
 
 ### LINE Voom
+
 - **Connect**: LINE Messaging API channel OAuth
 - **Real-time**: webhooks for `message`, `follow`, `unfollow`, `postback`
 - **Polling**: LINE Insight API for impressions, reach (Voom-specific data may be limited by Official Account tier)
 - **Constraint**: confirm with LINE Thailand whether GoGoCash's LINE OA tier supports Voom analytics before promising it in v1
 
 ### GoGoCash internal
+
 - **Connect**: no-op — uses workspace context
 - **Real-time**: Postgres LISTEN/NOTIFY on `users` + `workspaces` tables (or 5-minute Bull cron if LISTEN/NOTIFY not feasible)
 - **Polling**: standard Prisma queries
@@ -438,6 +449,7 @@ Even with 10× safety margin for spikes / retries / future prompt growth, **well
 ## 9. Phased delivery plan
 
 ### Phase 0 — Approval prep (parallel with Phase 1, day 1)
+
 - File Meta App Review (FB + IG + Threads, single Meta app)
 - Apply for TikTok Developer partner status
 - Open / verify LINE Developers channel for Voom
@@ -445,6 +457,7 @@ Even with 10× safety margin for spikes / retries / future prompt growth, **well
 - **Duration**: 1–3 weeks calendar (mostly waiting on approvals)
 
 ### Phase 1 — Foundation (week 1, no external blockers)
+
 - Prisma schema + idempotent migration
 - KMS-backed token store + audit log
 - Backend `analytics.module.ts` scaffolding
@@ -454,6 +467,7 @@ Even with 10× safety margin for spikes / retries / future prompt growth, **well
 - E2E: connect dummy GoGoCash → see metrics on overview
 
 ### Phase 2 — LINE + AI Strategist (week 2)
+
 - LINE OAuth + webhook + poller
 - All 4 AI prompts wired (`prompts.ts` + four-step dance)
 - AI insight UI (timeline + dashboard cards)
@@ -461,17 +475,20 @@ Even with 10× safety margin for spikes / retries / future prompt growth, **well
 - E2E: weekly strategy generates from GoGoCash + LINE data
 
 ### Phase 3 — Meta family (week 3–4, gated on Meta approval)
+
 - Single Meta OAuth flow, three platforms behind it (FB, IG, Threads)
 - Webhook controller with signature verification
 - Per-platform deep-dive views
 - E2E: post on FB → event surfaces in Analytics within 60 s
 
 ### Phase 4 — TikTok (week 5, gated on partner status)
+
 - TikTok OAuth + webhook + poller
 - Display-API fallback if partner status delayed
 - E2E: TikTok video event flows through
 
 ### Phase 5 — Polish (week 6)
+
 - Insight acknowledgment + action tracking
 - Budget alerts (80 % notification + 100 % hard stop)
 - Performance pass: dashboard P95 < 2 s
@@ -484,22 +501,22 @@ Even with 10× safety margin for spikes / retries / future prompt growth, **well
 
 ## 10. Risks & mitigations
 
-| # | Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|---|
-| 1 | Meta App Review rejected | Medium | Critical | Submit Phase 0 day 1; have policy URL + privacy doc + 2 test users ready; allow 2 review cycles in plan |
-| 2 | TikTok partner status denied | High | Major | Display API fallback in v1; "Coming soon" tile for deep analytics; resubmit quarterly |
-| 3 | LINE Voom metrics too thin | Medium | Major | Confirm with LINE Thailand BEFORE building; fall back to Messaging API surface metrics |
-| 4 | Token leak | Low | Critical | KMS encryption, audit log, scoped IAM, log scrubber, rotation |
-| 5 | AI runaway costs | Low | Major | Soft + hard budget caps, daily cost monitoring, per-call cost recorded |
-| 6 | Webhook flood (DDoS / runaway) | Medium | Major | Per-connection rate limit at controller, queue drain throttle, Sentry alert on backlog > 1000 |
-| 7 | Schema migration breaks prod | Low | Critical | Idempotent migrations, backup before deploy, feature flag for rollback |
-| 8 | Cross-tenant data leak | Low | Critical | Workspace-scoped queries enforced at resolver layer; integration test with multi-workspace fixture |
-| 9 | Stale tokens silently fail | High | Minor | Daily refresh cron, alert on expiry < 7 d, status badge in UI |
-| 10 | Vendor API breaking change | Medium | Minor | Per-platform contract tests, error.code-bucketed Sentry alerts, kill-switch per platform |
-| 11 | Sub-agent edits dropped during multi-agent dev | Medium | Major | Per [CLAUDE.md §5 lessons](../CLAUDE.md): each agent owns disjoint files, parent verifies wiring with `git diff` before commit |
-| 12 | **TikTok publish webhook does not exist** for non-partner apps. Only `video.upload.failed` is emitted publicly. PRD §8 originally implied real-time `video.publish` events; reality is partner-status-gated. | High | Major | Phase 4 ships polling-first against `/v2/video/list/`; webhook augmentation only after partner status. UI labels TikTok metrics "near real-time (15 min)" not "real-time". |
-| 13 | **Meta data-deletion endpoint is mandatory** before App Review submission. Either a callback URL or instructions URL must be configured. PRD originally missed this. | Certain | Critical | Phase 0 must register an instructions URL (lower-effort flavor) before the review submission. Callback URL flavor is a Phase 5 polish item. See [analytics-approvals.md](./analytics-approvals.md) §1. |
-| 14 | **Meta `pages_manage_metadata`** may fail least-privilege review since we only use it to subscribe to webhooks, not mutate page metadata. | Medium | Major | If rejected, fall back to polling-only Meta integration and break the < 60 s real-time target documented in §9 Phase 3. Submit with explicit justification ("required for webhook subscription only — no metadata writes performed; happy to demonstrate"). |
+| #   | Risk                                                                                                                                                                                                         | Likelihood | Impact   | Mitigation                                                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Meta App Review rejected                                                                                                                                                                                     | Medium     | Critical | Submit Phase 0 day 1; have policy URL + privacy doc + 2 test users ready; allow 2 review cycles in plan                                                                                                                                                     |
+| 2   | TikTok partner status denied                                                                                                                                                                                 | High       | Major    | Display API fallback in v1; "Coming soon" tile for deep analytics; resubmit quarterly                                                                                                                                                                       |
+| 3   | LINE Voom metrics too thin                                                                                                                                                                                   | Medium     | Major    | Confirm with LINE Thailand BEFORE building; fall back to Messaging API surface metrics                                                                                                                                                                      |
+| 4   | Token leak                                                                                                                                                                                                   | Low        | Critical | KMS encryption, audit log, scoped IAM, log scrubber, rotation                                                                                                                                                                                               |
+| 5   | AI runaway costs                                                                                                                                                                                             | Low        | Major    | Soft + hard budget caps, daily cost monitoring, per-call cost recorded                                                                                                                                                                                      |
+| 6   | Webhook flood (DDoS / runaway)                                                                                                                                                                               | Medium     | Major    | Per-connection rate limit at controller, queue drain throttle, Sentry alert on backlog > 1000                                                                                                                                                               |
+| 7   | Schema migration breaks prod                                                                                                                                                                                 | Low        | Critical | Idempotent migrations, backup before deploy, feature flag for rollback                                                                                                                                                                                      |
+| 8   | Cross-tenant data leak                                                                                                                                                                                       | Low        | Critical | Workspace-scoped queries enforced at resolver layer; integration test with multi-workspace fixture                                                                                                                                                          |
+| 9   | Stale tokens silently fail                                                                                                                                                                                   | High       | Minor    | Daily refresh cron, alert on expiry < 7 d, status badge in UI                                                                                                                                                                                               |
+| 10  | Vendor API breaking change                                                                                                                                                                                   | Medium     | Minor    | Per-platform contract tests, error.code-bucketed Sentry alerts, kill-switch per platform                                                                                                                                                                    |
+| 11  | Sub-agent edits dropped during multi-agent dev                                                                                                                                                               | Medium     | Major    | Per [CLAUDE.md §5 lessons](../CLAUDE.md): each agent owns disjoint files, parent verifies wiring with `git diff` before commit                                                                                                                              |
+| 12  | **TikTok publish webhook does not exist** for non-partner apps. Only `video.upload.failed` is emitted publicly. PRD §8 originally implied real-time `video.publish` events; reality is partner-status-gated. | High       | Major    | Phase 4 ships polling-first against `/v2/video/list/`; webhook augmentation only after partner status. UI labels TikTok metrics "near real-time (15 min)" not "real-time".                                                                                  |
+| 13  | **Meta data-deletion endpoint is mandatory** before App Review submission. Either a callback URL or instructions URL must be configured. PRD originally missed this.                                         | Certain    | Critical | Phase 0 must register an instructions URL (lower-effort flavor) before the review submission. Callback URL flavor is a Phase 5 polish item. See [analytics-approvals.md](./analytics-approvals.md) §1.                                                      |
+| 14  | **Meta `pages_manage_metadata`** may fail least-privilege review since we only use it to subscribe to webhooks, not mutate page metadata.                                                                    | Medium     | Major    | If rejected, fall back to polling-only Meta integration and break the < 60 s real-time target documented in §9 Phase 3. Submit with explicit justification ("required for webhook subscription only — no metadata writes performed; happy to demonstrate"). |
 
 ---
 
@@ -508,6 +525,7 @@ Even with 10× safety margin for spikes / retries / future prompt growth, **well
 ### Verification (per [CLAUDE.md §3](../CLAUDE.md))
 
 Backend:
+
 - [ ] `yarn tsc --noEmit` clean across `@affine/server`
 - [ ] `yarn ava packages/backend/server/src/plugins/analytics/__tests__` passes
 - [ ] `yarn prisma generate` clean
@@ -515,11 +533,13 @@ Backend:
 - [ ] Webhook controllers reject unsigned requests (security test)
 
 Frontend:
+
 - [ ] `tsc --noEmit` clean for `@affine/core` and `@affine/web`
 - [ ] `yarn affine bundle -p web` succeeds (no compiled-with-errors)
 - [ ] `affine bundle -p admin` and `-p mobile` clean if reachable
 
 Integration / smoke:
+
 - [ ] `/browse` smoke: open Analytics → connect dummy GoGoCash → see metrics
 - [ ] Webhook signature verification rejects unsigned
 - [ ] Budget cap triggers at $80 (notification) and $100 (hard stop)
@@ -552,46 +572,44 @@ Integration / smoke:
 These items were intentionally deferred from the integration round (Round D).
 They are tracked here so the next round can pick them up without re-discovery.
 
-### Subscription transport for `insightCreated`
+### Live insight transport for `insightCreated` — Done via SSE
 
-`runContentRecommendation` currently returns the new insight inline. The PRD
-also calls for an `insightCreated(workspaceId)` GraphQL subscription so the
-dashboard updates live when the trend / anomaly crons fire. The codebase
-does not yet wire `@Subscription` resolvers — there is no `graphql-ws` /
-subscription transport configured on the Apollo server. The resolver
-publishes via the typed `EventBus` so consumers can listen via the existing
-socket infrastructure once the GraphQL subscription transport is enabled.
-Plan: register a typed `analytics.insight.created` event, enable the
-subscription transport in the Apollo config, and add a `@Subscription`
-resolver that filters by `workspaceId`.
+`runContentRecommendation`, trend detection, and anomaly detection now publish
+workspace-scoped insight events through the existing authenticated SSE pattern:
+`/api/workspace/:workspaceId/analytics/insights-stream`. The frontend
+`AnalyticsService.subscribeToInsights` consumes that stream, parses only typed
+`insight` frames, and de-dupes in `InsightEntity.addInsightToTop`.
 
-### Pick-account UX after Meta OAuth
+GraphQL `@Subscription` transport is still not configured on Apollo; if the app
+later standardizes on `graphql-ws`, this SSE endpoint can be replaced by an
+`insightCreated(workspaceId)` subscription with the same payload shape.
 
-`ConnectionService.completeOAuth` currently picks the FIRST accessible
-account when a Meta OAuth completes (FB Page / IG Business / Threads
-profile). The right UX is a pick step between the OAuth callback and the
-upsert. Plan: have the callback return the account list to the opener
-window via `postMessage`; the connections settings view renders a picker;
-on confirm, the client calls a new `selectMetaAccount` mutation that
-finishes the upsert.
+### Pick-account UX after Meta OAuth — Done
 
-### IngestionService → AnomalyDetectorService wiring
+The callback can now post `analytics:oauth:choose-account` to the opener, the
+Connections settings view renders an account picker modal, and the frontend
+finalizes or cancels the pending OAuth session via GraphQL mutations.
 
-`AnomalyDetectorService.checkMetric` is implemented (Round C) but not yet
-wired into the ingestion path because `IngestionService.normalizeAndStore`
-is still a stub. When phase-2 implements the stub, it must call
-`anomalyDetectorService.checkMetric({ workspaceId, platform, metricKey,
-bucket, value, bucketStart })` after each metric write. The contract
-expectation is captured as a TODO in `ingestion.service.ts`.
+### IngestionService → AnomalyDetectorService wiring — Done
 
-### Token refresh cron
+`IngestionService.normalizeAndStore` now persists normalized events, extracts
+conservative metric writes, and best-effort calls
+`AnomalyDetectorService.checkMetric` after each metric write.
 
-PRD §6 calls for a weekly cron that refreshes long-lived tokens before
-expiry. The OAuth services expose `refreshToken()` per platform, but no
-cron yet calls them. Plan: add `connections/refresh-tokens.cron.ts`
-that selects connections with `expiresAt < now() + 14 days`, refreshes
-in batches, and on failure flips status to `EXPIRED` via
-`ConnectionService.markExpired`.
+### Token refresh cron — Done
+
+`connections/refresh.cron.ts` runs daily, selects ACTIVE connections expiring
+within the refresh window, routes Meta/TikTok/LINE refreshes through the
+platform OAuth services, persists rotated tokens, and marks refresh failures as
+`EXPIRED` with audit logs.
+
+### LINE channel-mode correction
+
+The approval plan calls for Messaging API channel credentials as the v1 LINE
+path, while parts of the current code still assume LINE Login/user OAuth
+semantics. Next slice: make the LINE poller use configured channel access
+tokens and make webhook lookup resolve by channel/destination, not source user
+identity. Keep VOOM-specific claims behind the LINE Thailand confirmation.
 
 ---
 

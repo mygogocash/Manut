@@ -127,6 +127,15 @@ Every feature gates gracefully on its secret being unset. Operators can populate
   reduced-motion handling, hidden-tab/rest-loop pause gates, physics cap, and
   canvas accessibility mirror list. A source-level regression contract now
   guards those release criteria.
+- **Analytics live insight updates now use SSE instead of GraphQL
+  subscriptions.** Apollo subscription transport is still not configured, so
+  this branch added a workspace-scoped Analytics insight event bus and
+  authenticated SSE endpoint at
+  `/api/workspace/:workspaceId/analytics/insights-stream`. Content
+  recommendations, trend detection, and anomaly detection publish to it, and
+  the AI Strategist UI consumes it through `AnalyticsService.subscribeToInsights`.
+  Remaining analytics integration risk has moved to LINE channel-mode
+  correctness and external platform approval/legal readiness.
 
 ---
 

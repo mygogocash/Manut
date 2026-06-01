@@ -98,10 +98,14 @@ docs, and roadmap docs.
 
 - Confirm Meta, TikTok, and LINE ownership/approval state.
 - Finish platform approval checklist and legal/compliance pages.
-- Add Meta account picker after OAuth.
-- Add token refresh cron and anomaly-detector ingestion wiring.
-- Add `insightCreated` subscription or equivalent socket event.
+- Meta account picker after OAuth. — Done
+- Token refresh cron and anomaly-detector ingestion wiring. — Done
+- `insightCreated` equivalent socket event. — Done via authenticated SSE at
+  `/api/workspace/:workspaceId/analytics/insights-stream`.
 - Remove or revise LINE VOOM claims if partner/API access is unavailable.
+- Fix LINE channel-mode ingestion mismatch: current code still leans on LINE
+  Login/user OAuth in places while the approval plan calls for Messaging API
+  channel credentials as v1.
 
 ## Lane 6 — UX, Rename, Docs, and Ops
 
@@ -114,8 +118,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 5 — Analytics and Social Integrations / approval and
-ingestion gap selection**.
+Active slice: **Lane 5 — Analytics and Social Integrations / LINE
+channel-mode correction**.
 
 Exit criteria:
 
@@ -182,6 +186,10 @@ Completed in this branch:
   were already merged through the QA-audit frontend wave, and a regression
   contract now locks the canvas a11y, reduced-motion, hidden-tab pause,
   rest-gate, and physics-cap safeguards.
+- Lane 5 — Live Insight Stream: added a workspace-scoped Analytics insight
+  event bus, authenticated SSE endpoint, frontend EventSource subscriber, and
+  publisher hooks for content recommendations, trend detection, and anomaly
+  detection so AI Strategist pages can update without manual refresh.
 
 Known verification blocker:
 

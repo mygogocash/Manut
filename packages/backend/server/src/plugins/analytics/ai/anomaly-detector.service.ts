@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 
 import { PromptService } from '../../copilot/prompt/service';
 import { CopilotProviderFactory } from '../../copilot/providers/factory';
+import { AnalyticsInsightEventBus } from '../insight-event-bus.service';
 import { BudgetService } from './budget.service';
 
 const ESTIMATED_COST_USD = 0.005; // gemini-2.5-flash, ~500 in / 200 out
@@ -50,7 +51,8 @@ export class AnomalyDetectorService {
     private readonly db: PrismaClient,
     private readonly budget: BudgetService,
     private readonly promptService: PromptService,
-    private readonly providerFactory: CopilotProviderFactory
+    private readonly providerFactory: CopilotProviderFactory,
+    private readonly insightBus: AnalyticsInsightEventBus
   ) {}
 
   /**
@@ -61,9 +63,7 @@ export class AnomalyDetectorService {
    * Side-effect-free in the common path (most metrics are not anomalous, so
    * we return null without touching the budget or insight table).
    */
-  async checkMetric(
-    metric: AnomalyMetricInput
-  ): Promise<SocialInsight | null> {
+  async checkMetric(metric: AnomalyMetricInput): Promise<SocialInsight | null> {
     const stats = await this.computeBaseline(metric);
     if (!stats) return null;
 
@@ -89,7 +89,9 @@ export class AnomalyDetectorService {
       this.logger.warn(`Prompt not found: ${PROMPT_NAME}`);
       return null;
     }
-    const provider = await this.providerFactory.getProviderByModel(prompt.model);
+    const provider = await this.providerFactory.getProviderByModel(
+      prompt.model
+    );
     if (!provider) {
       this.logger.warn(`No provider for model ${prompt.model}`);
       return null;
@@ -129,6 +131,8 @@ export class AnomalyDetectorService {
       `Created ANOMALY insight (${severity}) for workspace ${metric.workspaceId} on ${metric.platform}/${metric.metricKey} z=${z.toFixed(2)} ($${costUsd.toFixed(4)})`
     );
 
+    this.insightBus.emit(metric.workspaceId, insight);
+
     return insight;
   }
 
@@ -142,9 +146,7 @@ export class AnomalyDetectorService {
     stddev: number;
     n: number;
   } | null> {
-    const thirtyDaysAgo = new Date(
-      Date.now() - 30 * 24 * 60 * 60 * 1000
-    );
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     const rows = await this.db.socialMetric.findMany({
       where: {
@@ -161,8 +163,7 @@ export class AnomalyDetectorService {
     if (n < 5) return null;
 
     const mean = rows.reduce((s, r) => s + r.value, 0) / n;
-    const variance =
-      rows.reduce((s, r) => s + (r.value - mean) ** 2, 0) / n;
+    const variance = rows.reduce((s, r) => s + (r.value - mean) ** 2, 0) / n;
     const stddev = Math.sqrt(variance);
     if (stddev === 0) return null;
 
