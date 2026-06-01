@@ -1,5 +1,10 @@
 # Manut Bug Hunt — Live Status (2026-05-31)
 
+> 👉 **2026-06-01 update:** a newer QA-audit fix marathon is in progress —
+> see **[`QA_FIX_HANDOFF.md`](./QA_FIX_HANDOFF.md)**. 3 frontend waves are
+> committed + pushed + bundle-verified on `fix/qa-audit-2026-05-31`; the backend
+> batch + prod deploy remain.
+
 ## ✅✅ FINAL VERIFICATION (all green, independently re-confirmed in a clean context)
 
 - `@affine/server` `tsc --noEmit`: **0 errors**
