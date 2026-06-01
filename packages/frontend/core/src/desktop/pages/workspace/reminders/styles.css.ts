@@ -17,6 +17,14 @@ export const toolbar = style({
   gap: 8,
 });
 
+export const toolbarActions = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: 8,
+  flexWrap: 'wrap',
+});
+
 export const tabsList = style({
   display: 'inline-flex',
   alignItems: 'center',

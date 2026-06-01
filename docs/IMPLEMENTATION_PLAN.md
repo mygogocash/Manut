@@ -108,7 +108,11 @@ Every feature gates gracefully on its secret being unset. Operators can populate
 - **PM CSV export now shares the CRM export guardrails.** Project lists and
   project-detail task lists export from loaded client data using the shared
   CSV helper, including relationship-safe stable headers and spreadsheet
-  formula neutralization. Reminders CSV/import remains the only open CSV lane.
+  formula neutralization.
+- **Reminders CSV export closes the client-side CSV lane.** Active reminder
+  buckets and reminder rules export from loaded client data using the shared
+  CSV helper. CSV import and bulk mutation flows remain separate follow-ups;
+  current work only covers safe export.
 
 ---
 

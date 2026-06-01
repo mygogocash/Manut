@@ -28,12 +28,14 @@ vi.mock('@affine/component', () => ({
     onClick,
     disabled,
     loading,
+    prefix: _prefix,
     ...rest
   }: {
     children: ReactNode;
     onClick?: MouseEventHandler<HTMLButtonElement>;
     disabled?: boolean;
     loading?: boolean;
+    prefix?: ReactNode;
   } & HTMLAttributes<HTMLButtonElement>) => (
     <button {...rest} disabled={disabled} onClick={onClick}>
       {loading ? 'loading…' : children}
@@ -144,6 +146,7 @@ vi.mock('@affine/i18n', () => ({
 }));
 
 vi.mock('@blocksuite/icons/rc', () => ({
+  DownloadIcon: () => <span>download-icon</span>,
   TodayIcon: () => <span>today-icon</span>,
 }));
 
@@ -197,6 +200,37 @@ describe('RemindersPage', () => {
     expect(screen.queryByTestId('reminders-loading')).toBeNull();
     expect(screen.queryByTestId('reminders-error')).toBeNull();
     expect(screen.queryByTestId('reminder-card')).toBeNull();
+  });
+
+  test('enables CSV export when the active reminder tab has rows', () => {
+    useQueryState.data = {
+      mnReminders: [
+        {
+          id: 'r1',
+          workspaceId: 'w1',
+          userId: 'u1',
+          title: 'Due reminder',
+          body: null,
+          channel: 'EMAIL',
+          status: 'SCHEDULED',
+          relatedEntityType: null,
+          relatedEntityId: null,
+          ruleId: null,
+          completedAt: null,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+          fireAt: '2020-01-01T00:00:00Z',
+        },
+      ],
+    };
+
+    render(<Component />);
+
+    const exportButton = screen.getByTestId(
+      'reminders-export-csv'
+    ) as HTMLButtonElement;
+    expect(exportButton).toBeTruthy();
+    expect(exportButton.disabled).toBe(false);
   });
 
   test('shows the loading skeleton when the query is loading and there is no data yet', () => {

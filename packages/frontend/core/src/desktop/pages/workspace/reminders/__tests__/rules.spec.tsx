@@ -35,12 +35,14 @@ vi.mock('@affine/component', () => ({
     onClick,
     disabled,
     loading,
+    prefix: _prefix,
     ...rest
   }: {
     children: ReactNode;
     onClick?: MouseEventHandler<HTMLButtonElement>;
     disabled?: boolean;
     loading?: boolean;
+    prefix?: ReactNode;
   } & HTMLAttributes<HTMLButtonElement>) => (
     <button {...rest} disabled={disabled} onClick={onClick}>
       {loading ? 'loading…' : children}
@@ -145,6 +147,7 @@ vi.mock('@affine/i18n', () => ({
 }));
 
 vi.mock('@blocksuite/icons/rc', () => ({
+  DownloadIcon: () => <span>download-icon</span>,
   TodayIcon: () => <span>today-icon</span>,
 }));
 
