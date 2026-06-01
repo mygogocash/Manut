@@ -119,8 +119,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 5 — Analytics and Social Integrations / platform deep
-dives and approval/legal readiness**.
+Active slice: **Lane 5 — Analytics and Social Integrations / approval/legal
+readiness and remaining platform-specific polish**.
 
 Exit criteria:
 
@@ -203,6 +203,10 @@ Completed in this branch:
   crons. Hourly rollups backfill metrics from `social_events`, daily rollups
   aggregate HOUR rows into DAY rows, and weekly rollups aggregate DAY rows into
   WEEK rows with idempotent upserts.
+- Lane 5 — Platform Metric Deep Dives: platform pages now call `listMetrics`
+  for the selected platform, render latest metric rows as KPI cards, and build
+  trend charts from real `social_metrics` rows instead of relying on the
+  mock-backed legacy analytics entity.
 
 Known verification blocker:
 
