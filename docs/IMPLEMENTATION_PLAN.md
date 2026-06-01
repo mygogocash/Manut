@@ -141,9 +141,13 @@ Every feature gates gracefully on its secret being unset. Operators can populate
 - **Analytics `listMetrics` now reads real metric rows.** The resolver enforces
   Workspace.Read, validates non-empty time windows, filters `social_metrics` by
   workspace/platform/bucket/range, sorts by time/key, and caps each response at
-  5000 rows. Remaining analytics integration risk has moved to rollups, platform
-  deep dives, LINE VOOM availability confirmation, and external approval/legal
-  readiness.
+  5000 rows.
+- **Analytics metric rollups are now scheduled.** Hourly rollups backfill HOUR
+  metric rows from `social_events`, daily rollups aggregate HOUR rows into DAY
+  rows, and weekly rollups aggregate DAY rows into WEEK rows with idempotent
+  `social_metrics` upserts. Remaining analytics integration risk has moved to
+  platform deep dives, LINE VOOM availability confirmation, and external
+  approval/legal readiness.
 
 ---
 

@@ -13,6 +13,7 @@ import { isAnalyticsModuleEnabled } from './feature-flag';
 export { isAnalyticsModuleEnabled } from './feature-flag';
 import { DailyRollupCron } from './aggregator/daily-rollup.cron';
 import { HourlyRollupCron } from './aggregator/hourly-rollup.cron';
+import { MetricRollupService } from './aggregator/metric-rollup.service';
 import { WeeklyRollupCron } from './aggregator/weekly-rollup.cron';
 import { AnomalyDetectorService } from './ai/anomaly-detector.service';
 import { BudgetService } from './ai/budget.service';
@@ -95,8 +96,8 @@ export class AnalyticsModule {
         TikTokMapper,
         LineMapper,
         ThreadsMapper,
-        // aggregator cron stubs (Round A — register so cron decorators are
-        // alive; their handler bodies are empty until phase 3).
+        // aggregator cron jobs
+        MetricRollupService,
         HourlyRollupCron,
         DailyRollupCron,
         WeeklyRollupCron,
