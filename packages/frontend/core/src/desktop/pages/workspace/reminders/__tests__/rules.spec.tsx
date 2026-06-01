@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type * as Infra from '@toeverything/infra';
 import type { HTMLAttributes, MouseEventHandler, ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -239,6 +239,22 @@ describe('RemindersPage > Rules tab', () => {
     expect(card).toBeTruthy();
     expect((card as HTMLElement).dataset.ruleId).toBe('rule-1');
     expect(screen.getByText('Weekly Monday standup')).toBeTruthy();
+  });
+
+  test('new rule modal only offers backend-supported reminder channels', async () => {
+    render(<Component />);
+
+    fireEvent.click(screen.getByTestId('reminders-tab-rules'));
+    fireEvent.click(await screen.findByTestId('reminders-new-rule'));
+    await screen.findByTestId('modal');
+
+    const channelSelect = document.querySelector(
+      '#sf-rule-channel'
+    ) as HTMLSelectElement | null;
+    expect(channelSelect).toBeTruthy();
+    expect(
+      Array.from(channelSelect?.options ?? []).map(option => option.value)
+    ).toEqual(['EMAIL']);
   });
 });
 

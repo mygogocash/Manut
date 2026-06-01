@@ -68,6 +68,14 @@ docs, and roadmap docs.
 
 - PM/CRM/Reminders v1: detail/edit, Kanban, reminder rules, drag-drop,
   bulk/CSV, real-time updates, and mobile views.
+  - Gap audit: project detail/edit, task create/edit/delete, PM Kanban,
+    CRM detail/edit, CRM deal Kanban, reminder rule UI, and reminder rule
+    resolvers are already present.
+  - Reminder rule materialization is now done: the minute cron creates a
+    scheduled reminder once per matching DATETIME rule/minute using
+    `MnReminderRun` dedupe.
+  - Remaining: bulk/CSV flows, real-time refresh/subscriptions, mobile-specific
+    PM/CRM/Reminders layouts, and future non-EMAIL reminder channels.
 - Knowledge Graph: review the existing lobe/pulse branch, add reduced-motion
   and accessibility coverage, then decide whether to merge for the next release.
 
@@ -92,12 +100,10 @@ docs, and roadmap docs.
 ## Current Slice
 
 Active slice: **Lane 4 — Product Feature Completion / PM, CRM, and Reminders
-v1 gap audit**.
+bulk/CSV and realtime gap selection**.
 
 Exit criteria:
 
-- Identify the exact shipped v0 surfaces and v1 gaps for Projects, CRM, and
-  Reminders.
 - Choose the smallest next production-safe vertical slice.
 - Add or update focused tests before changing behavior.
 - Backend/frontend typecheck passes or any pre-existing environment blocker is
@@ -146,6 +152,10 @@ Completed in this branch:
   on memory failures, and includes a prompt-cache planner that only marks
   stable Anthropic prefixes as cacheable while refusing dynamic private
   context.
+- Lane 4 — Reminder Rule Materialization: the reminder cron now evaluates
+  enabled DATETIME reminder rules, creates one scheduled reminder per matching
+  rule/minute with `MnReminderRun` dedupe, marks successful runs, and leaves the
+  UI channel picker aligned with the backend-supported `EMAIL` enum.
 
 Known verification blocker:
 

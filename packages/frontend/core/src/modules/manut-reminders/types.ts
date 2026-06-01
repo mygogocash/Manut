@@ -14,7 +14,7 @@ export type MnReminderStatus =
   | 'CANCELLED'
   | 'FAILED';
 
-export type MnNotificationChannel = 'EMAIL' | 'IN_APP';
+export type MnNotificationChannel = 'EMAIL';
 
 export interface MnReminderDto {
   id: string;
