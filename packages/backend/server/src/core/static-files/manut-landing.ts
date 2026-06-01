@@ -37,6 +37,9 @@ const SPA_ROUTE_PREFIXES = [
 const LEGAL_ROUTE_PATHS = new Set([
   '/privacy',
   '/privacy-policy',
+  '/legal/privacy',
+  '/legal/terms',
+  '/legal/data-deletion-instructions',
   '/terms',
   '/terms-of-service',
 ]);

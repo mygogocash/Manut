@@ -154,6 +154,11 @@ Every feature gates gracefully on its secret being unset. Operators can populate
   rows without exposing raw webhook bodies. Remaining analytics integration risk
   has moved to LINE VOOM availability confirmation and external
   approval/legal readiness.
+- **Legal approval pages now exist.** Landing/static routing serves
+  `/legal/privacy`, `/legal/terms`, and `/legal/data-deletion-instructions`.
+  Privacy copy explicitly covers Facebook, Instagram, Threads, TikTok, and LINE
+  integration data handling; remaining approval risk is external dashboard
+  configuration and platform review.
 
 ---
 

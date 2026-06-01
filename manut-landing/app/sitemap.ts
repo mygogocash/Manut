@@ -7,7 +7,13 @@ export const dynamic = 'force-static';
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   const sections = ['about-manut', 'features', 'ai', 'pricing', 'faq'];
-  const legalPages = ['terms-of-service', 'privacy-policy'];
+  const legalPages = [
+    'terms-of-service',
+    'privacy-policy',
+    'legal/terms',
+    'legal/privacy',
+    'legal/data-deletion-instructions',
+  ];
   return [
     {
       url: siteConfig.url,

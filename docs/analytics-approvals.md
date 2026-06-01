@@ -34,7 +34,8 @@ app, against the same screencast bundle.
       in **Development mode** (Standard Access scopes only).
 - [ ] Set **Privacy Policy URL** to `https://manut.xyz/legal/privacy`.
       Page must explicitly cover ingestion of FB/IG/Threads data —
-      generic privacy boilerplate fails review.
+      generic privacy boilerplate fails review. Engineering page route exists;
+      set this URL in the Meta dashboard after deploy.
 - [ ] Set **Terms of Service URL**: `https://manut.xyz/legal/terms`.
 - [ ] Set **Data Deletion**: pick ONE of (a) Data Deletion Callback URL —
       `https://manut.xyz/api/integrations/meta/data-deletion`,
@@ -44,6 +45,8 @@ app, against the same screencast bundle.
       Recommendation: ship **(b) instructions** for v1, upgrade to (a)
       callback in Phase 5 (PRD §9). Source:
       https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback/
+      Engineering page route exists; set the instructions URL in the Meta
+      dashboard after deploy.
 - [ ] App Icon: 1024×1024 PNG, no Meta brand assets, no "Login with FB"
       buttons, no minor faces.
 - [ ] Category: **Business and Pages**.
@@ -568,15 +571,15 @@ approvals needed).
 
 ## 6. Open contact items / "who to ping"
 
-| Owner                             | Action                                                                                                                                                                                                                                                         | Notes                                                           |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| **GoGoCash BD lead**              | Contact LINE Thailand (`partner@linecorp.com.th` or via the LINE for Business Thailand portal) for VOOM analytics API confirmation (§3.2)                                                                                                                      | Highest-uncertainty item in the whole stack. Send before Day 1. |
-| **GoGoCash legal / compliance**   | Confirm Thailand-specific document set for Meta Business Verification (§1.2 VERIFY). Confirm DBD Affidavit copies are < 90 days old.                                                                                                                           | Block on first attempt; fall back to Meta support if rejected.  |
-| **GoGoCash GCP admin**            | Run §4 `gcloud kms` commands. R1 — ask before granting IAM bindings.                                                                                                                                                                                           | One-time, < 1 hour total work.                                  |
-| **GoGoCash design/marketing**     | Produce the 1024×1024 Meta app icon, the 240×240 TikTok logo, the 512×512 LINE channel icon. None can contain platform brand assets.                                                                                                                           | Day 0–1.                                                        |
-| **GoGoCash legal**                | Author the data-deletion-instructions page at `/legal/data-deletion-instructions` (§1.1) and update privacy policy to name FB/IG/Threads/TikTok/LINE explicitly (§1.4).                                                                                        | Day 0–1. Required before Meta submission.                       |
-| **AFFiNE engineering**            | Build the data-deletion callback endpoint as Phase 5 polish (§1.1 option a), so that v2.1 can move from instructions URL to callback URL without a Meta re-review.                                                                                             | Phase 5 — not blocking v1.                                      |
-| **Anthropic-style honesty check** | If LINE Voom API turns out not to exist, **update PRD §8** to remove the "real-time webhooks for Voom posts" claim and replace with "Messaging API insights only; Voom analytics deep-link to LINE Studio". Don't ship a UI that promises data we can't fetch. | Whoever lands the LINE response.                                |
+| Owner                             | Action                                                                                                                                                                                                                                                         | Notes                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **GoGoCash BD lead**              | Contact LINE Thailand (`partner@linecorp.com.th` or via the LINE for Business Thailand portal) for VOOM analytics API confirmation (§3.2)                                                                                                                      | Highest-uncertainty item in the whole stack. Send before Day 1.         |
+| **GoGoCash legal / compliance**   | Confirm Thailand-specific document set for Meta Business Verification (§1.2 VERIFY). Confirm DBD Affidavit copies are < 90 days old.                                                                                                                           | Block on first attempt; fall back to Meta support if rejected.          |
+| **GoGoCash GCP admin**            | Run §4 `gcloud kms` commands. R1 — ask before granting IAM bindings.                                                                                                                                                                                           | One-time, < 1 hour total work.                                          |
+| **GoGoCash design/marketing**     | Produce the 1024×1024 Meta app icon, the 240×240 TikTok logo, the 512×512 LINE channel icon. None can contain platform brand assets.                                                                                                                           | Day 0–1.                                                                |
+| **GoGoCash legal**                | Review the implemented `/legal/data-deletion-instructions`, `/legal/privacy`, and `/legal/terms` pages. Privacy copy now names FB/IG/Threads/TikTok/LINE explicitly.                                                                                           | Engineering done; legal approval still required before Meta submission. |
+| **AFFiNE engineering**            | Build the data-deletion callback endpoint as Phase 5 polish (§1.1 option a), so that v2.1 can move from instructions URL to callback URL without a Meta re-review.                                                                                             | Phase 5 — not blocking v1.                                              |
+| **Anthropic-style honesty check** | If LINE Voom API turns out not to exist, **update PRD §8** to remove the "real-time webhooks for Voom posts" claim and replace with "Messaging API insights only; Voom analytics deep-link to LINE Studio". Don't ship a UI that promises data we can't fetch. | Whoever lands the LINE response.                                        |
 
 ---
 

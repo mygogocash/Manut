@@ -37,6 +37,7 @@ const SECTIONS: ReadonlyArray<Section> = [
       'Account data: name, email, password hash, OAuth tokens for connected providers (e.g., Google). Used to authenticate you and personalize the workspace.',
       'Workspace content: docs, databases, whiteboard artifacts, file uploads. Stored encrypted at rest. We do not read your content except as needed to provide the Service (e.g., AI features you trigger, indexing for search you opted into).',
       'Usage telemetry: page views, feature interactions, AI prompts and outputs, error reports. Used to improve the Service and debug issues. You can opt out of optional telemetry in account settings.',
+      'Social analytics integration data: if you connect Facebook, Instagram, Threads, TikTok, or LINE, Manut may store provider account identifiers, encrypted access tokens, webhook events, post or message metadata, normalized engagement metrics, and sync status so we can show workspace analytics and AI recommendations you request.',
       'Billing data: card details are handled by our payment processor (Stripe) and are not stored on our servers. We retain transaction records for accounting and tax purposes.',
       'Device and log data: IP address, browser type, timestamps. Used for security, fraud prevention, and operational logs.',
     ],
@@ -55,15 +56,25 @@ const SECTIONS: ReadonlyArray<Section> = [
     ],
   },
   {
+    id: 'social-integrations',
+    heading: '4. Social analytics integrations',
+    body: [
+      'Facebook, Instagram, and Threads integrations use Meta account, page, post, comment, webhook, and insight data only to connect the accounts you authorize, display analytics inside your workspace, and generate analytics insights you request.',
+      'TikTok integrations use TikTok account, video, metric, and webhook data only to connect the account you authorize and display available video or profile analytics inside your workspace.',
+      'LINE integrations use LINE Official Account, Messaging API, webhook, follow/unfollow, message, and postback data only to connect the channel you authorize and display available channel analytics inside your workspace. LINE VOOM-specific metrics are shown only when the account tier or partner API access makes them available.',
+      'You can disconnect social integrations in settings. To request deletion of provider data already stored in Manut, follow the data deletion instructions at /legal/data-deletion-instructions.',
+    ],
+  },
+  {
     id: 'legal-bases',
-    heading: '4. Legal bases (GDPR)',
+    heading: '5. Legal bases (GDPR)',
     body: [
       'We process personal data on the following legal bases under the GDPR: (a) contract — to provide the Service you signed up for; (b) legitimate interests — to secure the Service, prevent abuse, and improve features; (c) consent — for optional telemetry, marketing emails, and any AI features you opt into; (d) legal obligation — to comply with tax, accounting, and lawful requests.',
     ],
   },
   {
     id: 'ccpa',
-    heading: '5. California residents (CCPA / CPRA)',
+    heading: '6. California residents (CCPA / CPRA)',
     body: [
       'If you are a California resident, you have the right to know what personal information we collect about you, request deletion, correct inaccuracies, and opt out of "sale" or "sharing" of personal information. We do not sell personal information.',
       'Submit a request by emailing privacy@manut.xyz from the address associated with your account.',
@@ -71,7 +82,7 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'ai',
-    heading: '6. AI processing',
+    heading: '7. AI processing',
     body: [
       'When you use AI features, your prompts and the relevant workspace context are sent to third-party model providers (Google Vertex AI, Anthropic, and others) for inference. These providers process your data under their own terms; we have configured them to not retain or train on your prompts where that option is available.',
       'AI outputs are stored alongside your workspace content. You can delete AI conversations and their outputs at any time.',
@@ -79,7 +90,7 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'sharing',
-    heading: '7. How we share data',
+    heading: '8. How we share data',
     body: [
       'We share data only with: (a) service providers acting on our behalf under contract (hosting, payments, analytics, AI model providers, email delivery); (b) collaborators in your own workspace (the people you invite); (c) authorities when legally required.',
       'We do not sell personal data. We do not share data with advertisers.',
@@ -87,14 +98,14 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'retention',
-    heading: '8. Retention',
+    heading: '9. Retention',
     body: [
       'We keep your workspace content for as long as your account is active. After you delete your account, your workspace content and imported Google user data are deleted or anonymized within 30 days, with limited exceptions for legal retention obligations and disaster-recovery backups (which are purged within 90 days). Google user data imported into workspace content follows the same retention schedule unless you delete it sooner.',
     ],
   },
   {
     id: 'security',
-    heading: '9. Security',
+    heading: '10. Security',
     body: [
       'We encrypt data in transit (TLS 1.2+) and at rest. Access to production systems is restricted, logged, and audited. We perform regular reviews of access and security posture.',
       'No system is perfectly secure. If we discover a breach that affects your data, we will notify you in accordance with applicable law.',
@@ -102,14 +113,14 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'international',
-    heading: '10. International transfers',
+    heading: '11. International transfers',
     body: [
       'We host the Service in Google Cloud (asia-southeast1 primary, with additional regions for AI inference). If you access the Service from outside those regions, data will be transferred internationally. Where required, we use Standard Contractual Clauses or equivalent safeguards.',
     ],
   },
   {
     id: 'your-rights',
-    heading: '11. Your rights',
+    heading: '12. Your rights',
     body: [
       'Subject to applicable law, you have the right to access, correct, delete, restrict, or port your personal data, and to object to processing. To exercise these rights, email privacy@manut.xyz.',
       'You also have the right to lodge a complaint with a data protection authority in your jurisdiction.',
@@ -117,21 +128,21 @@ const SECTIONS: ReadonlyArray<Section> = [
   },
   {
     id: 'children',
-    heading: '12. Children',
+    heading: '13. Children',
     body: [
       'The Service is not intended for children under 13 (or under the age of digital consent in your country). We do not knowingly collect personal data from children. If you believe a child has provided personal data to us, email privacy@manut.xyz and we will delete it.',
     ],
   },
   {
     id: 'changes',
-    heading: '13. Changes to this Policy',
+    heading: '14. Changes to this Policy',
     body: [
       'We may update this Policy from time to time. Material changes will be announced by email or an in-product notice at least 30 days before they take effect.',
     ],
   },
   {
     id: 'contact',
-    heading: '14. Contact',
+    heading: '15. Contact',
     body: [
       `Privacy questions: privacy@manut.xyz. General contact: ${siteConfig.email}.`,
     ],
