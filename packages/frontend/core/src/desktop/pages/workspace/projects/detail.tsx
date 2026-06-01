@@ -27,6 +27,7 @@ import {
   updateMnTaskMutation,
   updateMnTaskStatusMutation,
 } from '@affine/core/modules/manut-pm';
+import { MANUT_LIVE_QUERY_OPTIONS } from '@affine/core/modules/manut-shared';
 import {
   ViewBody,
   ViewHeader,
@@ -790,7 +791,7 @@ const ProjectTasks: FC<ProjectTasksProps> = ({
     variables: { projectId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
-  const { data, error, mutate } = useQuery(queryArg);
+  const { data, error, mutate } = useQuery(queryArg, MANUT_LIVE_QUERY_OPTIONS);
 
   const tasks = (data as unknown as { mnTasks?: MnTaskDto[] } | undefined)
     ?.mnTasks;
@@ -931,7 +932,7 @@ const ProjectDetailBody: FC<ProjectDetailBodyProps> = ({
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
-  const { data, error, mutate } = useQuery(queryArg);
+  const { data, error, mutate } = useQuery(queryArg, MANUT_LIVE_QUERY_OPTIONS);
 
   const project = useMemo(() => {
     const projects = (
