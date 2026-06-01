@@ -55,7 +55,7 @@ docs, and roadmap docs.
 
 ## Lane 3 — AI Chat Upgrade
 
-- Add prompt-eval fixtures and a repeatable runner.
+- Add prompt-eval fixtures and a repeatable runner. — Done
 - Tighten Read/Edit/Agent prompt addenda.
 - Improve Auto model routing with eval coverage.
 - Render tool/source status chips in the assistant transcript.
@@ -90,12 +90,14 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 3 — AI Chat Upgrade**.
+Active slice: **Lane 3 — AI Chat Upgrade / prompt addenda and Auto routing
+tightening**.
 
 Exit criteria:
 
-- Focused OAuth/token hardening tests pass.
+- AI chat prompt-eval spec and `manut:eval-ai-chat` pass.
 - Backend typecheck passes or any pre-existing environment blocker is recorded.
+- Changed TypeScript files pass eslint and oxlint.
 - No unrelated files are staged.
 
 Completed in this branch:
@@ -110,3 +112,7 @@ Completed in this branch:
 - Lane 2 / PR 4 — Routines Honesty: relabeled routine execution as a preview
   queue action and clarified worker output so users are not told Vertex/AI work
   ran.
+- Lane 3 — AI Chat Eval Foundation: added deterministic prompt-eval fixtures,
+  a focused AVA spec, and `yarn workspace @affine/server manut:eval-ai-chat`
+  so chat prompt/model/citation/routing invariants are checked before prompt
+  tuning.
