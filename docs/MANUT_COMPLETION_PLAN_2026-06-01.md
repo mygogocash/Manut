@@ -83,8 +83,10 @@ docs, and roadmap docs.
   - Realtime fallback refresh is now done: PM, CRM, and Reminders data queries
     opt into a shared 30-second SWR refresh interval so concurrent edits become
     visible without manual reloads while full subscriptions remain optional.
-  - Remaining: mobile-specific PM/CRM/Reminders layouts and future non-EMAIL
-    reminder channels.
+  - Mobile-specific PM/CRM/Reminders layouts are now done: narrow viewport
+    styles stack dense toolbars, tabs, task rows, CRM rows, reminder cards, and
+    form grids without requiring horizontal page overflow.
+  - Remaining: future non-EMAIL reminder channels.
 - Knowledge Graph: review the existing lobe/pulse branch, add reduced-motion
   and accessibility coverage, then decide whether to merge for the next release.
 
@@ -108,8 +110,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 4 — Product Feature Completion / mobile layout gap
-selection**.
+Active slice: **Lane 4 — Product Feature Completion / Knowledge Graph merge
+decision**.
 
 Exit criteria:
 
@@ -168,6 +170,10 @@ Completed in this branch:
 - Lane 4 — Realtime Refresh Fallback: PM, CRM, and Reminders frontend queries
   now share a 30-second SWR refresh interval so loaded workspace data catches up
   automatically after external edits or another tab changes the same records.
+- Lane 4 — Mobile Layout Fallbacks: PM, CRM, Reminders, project detail, and the
+  shared Kanban board now include 640px responsive rules for stacked actions,
+  one-column dense rows/forms, scroll-safe tab strips, and narrower page
+  padding.
 
 Known verification blocker:
 

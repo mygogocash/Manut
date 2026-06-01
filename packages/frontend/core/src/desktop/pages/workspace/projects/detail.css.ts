@@ -15,6 +15,11 @@ export const scroll = style({
   flex: 1,
   overflow: 'auto',
   padding: '24px 32px 64px 32px',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      padding: '16px 16px 56px',
+    },
+  },
 });
 
 export const inner = style({
@@ -40,6 +45,11 @@ export const headerTopRow = style({
   alignItems: 'flex-start',
   justifyContent: 'space-between',
   gap: 16,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexDirection: 'column',
+    },
+  },
 });
 
 export const headerInfo = style({
@@ -55,12 +65,24 @@ export const headerActions = style({
   alignItems: 'center',
   gap: 8,
   flexShrink: 0,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexWrap: 'wrap',
+      width: '100%',
+    },
+  },
 });
 
 export const titleRow = style({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'flex-start',
+      flexDirection: 'column',
+    },
+  },
 });
 
 export const nameInput = style({
@@ -74,6 +96,12 @@ export const nameInput = style({
   padding: '4px 0',
   fontFamily: 'inherit',
   borderBottom: '1px solid transparent',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      fontSize: 20,
+      lineHeight: '28px',
+    },
+  },
   selectors: {
     '&:focus': {
       borderBottomColor: cssVarV2.layer.insideBorder.primaryBorder,
@@ -132,6 +160,12 @@ export const sectionHeader = style({
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'stretch',
+      flexDirection: 'column',
+    },
+  },
 });
 
 export const loading = style({
@@ -179,6 +213,7 @@ export const taskMetaRow = style({
   fontSize: 11,
   lineHeight: '16px',
   color: cssVarV2.text.secondary,
+  flexWrap: 'wrap',
 });
 
 export const taskRowClickable = style({

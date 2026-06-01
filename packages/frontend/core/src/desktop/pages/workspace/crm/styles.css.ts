@@ -8,12 +8,24 @@ export const root = style({
   minHeight: 0,
   padding: '12px 24px 24px',
   gap: 16,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      padding: '12px 16px 20px',
+    },
+  },
 });
 
 export const tabsList = style({
   display: 'flex',
   gap: 8,
   borderBottom: `1px solid ${cssVarV2.layer.insideBorder.border}`,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      overflowX: 'auto',
+      paddingBottom: 2,
+      width: '100%',
+    },
+  },
 });
 
 export const tabsContent = style({
@@ -31,6 +43,11 @@ export const tabTrigger = style({
   borderBottom: '2px solid transparent',
   color: cssVarV2.text.secondary,
   cursor: 'pointer',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexShrink: 0,
+    },
+  },
   selectors: {
     '&[data-state="active"]': {
       color: cssVarV2.text.primary,
@@ -46,6 +63,12 @@ export const actionRow = style({
   alignItems: 'center',
   gap: 12,
   paddingTop: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'stretch',
+      flexDirection: 'column',
+    },
+  },
 });
 
 export const actionButtons = style({
@@ -54,6 +77,12 @@ export const actionButtons = style({
   justifyContent: 'flex-end',
   gap: 8,
   flexWrap: 'wrap',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      justifyContent: 'flex-start',
+      width: '100%',
+    },
+  },
 });
 
 export const listWrapper = style({
@@ -72,6 +101,11 @@ export const listRow = style({
   background: cssVarV2.layer.background.secondary,
   borderRadius: 8,
   border: `1px solid ${cssVarV2.layer.insideBorder.border}`,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      gridTemplateColumns: '1fr',
+    },
+  },
 });
 
 export const rowTitle = style({
@@ -91,6 +125,12 @@ export const rowMeta = style({
   color: cssVarV2.text.secondary,
   textAlign: 'right',
   alignSelf: 'center',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignSelf: 'flex-start',
+      textAlign: 'left',
+    },
+  },
 });
 
 export const emptyState = style({
@@ -147,6 +187,12 @@ export const formActions = style({
   justifyContent: 'flex-end',
   gap: 8,
   marginTop: 16,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexWrap: 'wrap',
+      justifyContent: 'flex-start',
+    },
+  },
 });
 
 export const sectionLabel = style({
@@ -252,12 +298,23 @@ export const detailHeader = style({
   gap: 12,
   paddingBottom: 12,
   borderBottom: `1px solid ${cssVarV2.layer.insideBorder.border}`,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexDirection: 'column',
+    },
+  },
 });
 
 export const detailActions = style({
   display: 'flex',
   gap: 8,
   flexShrink: 0,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexWrap: 'wrap',
+      width: '100%',
+    },
+  },
 });
 
 export const detailLinkedList = style({
@@ -274,6 +331,13 @@ export const detailLinkedRow = style({
   gap: 8,
   fontSize: 13,
   color: cssVarV2.text.primary,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'flex-start',
+      flexDirection: 'column',
+      gap: 2,
+    },
+  },
 });
 
 export const detailLinkedMeta = style({
@@ -299,6 +363,12 @@ export const contactLink = style({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      whiteSpace: 'normal',
+      wordBreak: 'break-word',
+    },
+  },
   selectors: {
     '&:hover': {
       textDecoration: 'underline',
