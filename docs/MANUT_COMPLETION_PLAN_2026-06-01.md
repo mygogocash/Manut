@@ -98,6 +98,10 @@ docs, and roadmap docs.
 
 - Confirm Meta, TikTok, and LINE ownership/approval state.
 - Finish platform approval checklist and legal/compliance pages.
+  - Legal/compliance pages are now implemented for `/legal/privacy`,
+    `/legal/terms`, and `/legal/data-deletion-instructions`.
+  - Remaining approval work is external setup/review: configure Meta/TikTok/LINE
+    app dashboards, submit review artifacts, and confirm LINE VOOM API access.
 - Meta account picker after OAuth. — Done
 - Token refresh cron and anomaly-detector ingestion wiring. — Done
 - `insightCreated` equivalent socket event. — Done via authenticated SSE at
@@ -213,6 +217,10 @@ Completed in this branch:
 - Lane 5 — Platform Recent Events: platform pages now call `listEvents` for
   the selected platform, render newest normalized `social_events` rows, and
   keep raw webhook payloads out of the GraphQL/UI surface.
+- Lane 5 — Legal Approval Pages: landing/static routes now serve
+  `/legal/privacy`, `/legal/terms`, and `/legal/data-deletion-instructions`;
+  the privacy page explicitly names Facebook, Instagram, Threads, TikTok, and
+  LINE integration data handling.
 
 Known verification blocker:
 

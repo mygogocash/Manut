@@ -143,9 +143,11 @@ live VM state.
    path are now wired. `listMetrics` now reads `social_metrics` with ACL/range
    validation. Hourly/daily/weekly metric rollups are wired with idempotent
    upserts. Platform pages now render KPI/trend data from real metric rows and
-   newest normalized `social_events` rows via `listEvents`. Legal/approval
-   pages and LINE VOOM availability confirmation remain incomplete. Do not
-   hand it over as a complete
+   newest normalized `social_events` rows via `listEvents`. The legal pages
+   required by Meta review now exist at `/legal/privacy`, `/legal/terms`, and
+   `/legal/data-deletion-instructions`. External approval dashboard setup,
+   submission artifacts, and LINE VOOM availability confirmation remain
+   incomplete. Do not hand it over as a complete
    multi-platform analytics system.
 
 2. PM/CRM/Reminders are past the v0 list/create state on this QA branch:

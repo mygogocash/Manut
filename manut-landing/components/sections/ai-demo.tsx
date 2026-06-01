@@ -70,16 +70,16 @@ const FEATURES = [
 
 export function AiDemo() {
   const [mode, setMode] = useState<Mode>('agent');
-  const [typed, setTyped] = useState(false);
+  const [typedMode, setTypedMode] = useState<Mode | null>(null);
 
   // Run the typing animation each time mode changes.
   useEffect(() => {
-    setTyped(false);
-    const t = setTimeout(() => setTyped(true), 1400);
+    const t = setTimeout(() => setTypedMode(mode), 1400);
     return () => clearTimeout(t);
   }, [mode]);
 
   const enabledTools = useMemo(() => new Set(MODE_TOOLS[mode]), [mode]);
+  const typed = typedMode === mode;
 
   return (
     <section

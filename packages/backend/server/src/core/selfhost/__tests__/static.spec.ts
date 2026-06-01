@@ -16,6 +16,12 @@ function initStaticFixture(root: string) {
     ['landing/index.html', 'landing-index'],
     ['landing/privacy.html', 'privacy-google-legal'],
     ['landing/privacy-policy.html', 'privacy-policy-google-legal'],
+    ['landing/legal/privacy/index.html', 'legal-privacy-google-social'],
+    ['landing/legal/terms/index.html', 'legal-terms-google-social'],
+    [
+      'landing/legal/data-deletion-instructions/index.html',
+      'legal-data-deletion-instructions',
+    ],
     ['landing/terms/index.html', 'terms-google-legal'],
     ['landing/terms-of-service/index.html', 'terms-of-service-google-legal'],
   ];
@@ -74,6 +80,19 @@ test.serial('serves legal pages before selfhost app fallback', async t => {
       .get('/terms-of-service')
       .expect(200);
     t.is(termsOfServiceRes.text, 'terms-of-service-google-legal');
+
+    const legalPrivacyRes = await request(app)
+      .get('/legal/privacy')
+      .expect(200);
+    t.is(legalPrivacyRes.text, 'legal-privacy-google-social');
+
+    const legalTermsRes = await request(app).get('/legal/terms').expect(200);
+    t.is(legalTermsRes.text, 'legal-terms-google-social');
+
+    const dataDeletionRes = await request(app)
+      .get('/legal/data-deletion-instructions')
+      .expect(200);
+    t.is(dataDeletionRes.text, 'legal-data-deletion-instructions');
 
     const fallbackRes = await request(app).get('/workspace/path').expect(200);
     t.is(fallbackRes.text, 'selfhost-app');
