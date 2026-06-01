@@ -1,14 +1,12 @@
 # Manut Handover
 
-Last reviewed: 2026-05-13 after the v1.12.0 cut. v1.12.0 is the first
-release on the renamed stack — it ships the v0 Projects, CRM, and
-Reminders frontend, expands the chat model picker with frontier models,
-and unbreaks the Settings → Connections panel. v1.11.0 (the immediately
-prior release) was the brand rename and post-rebrand documentation
-cleanup. A handful of internal identifiers — workflow filenames were
-renamed in v1.11.0, the GAR Docker image name `affine-gogocash`, and
-legacy GraphQL `@ObjectType('Superflow*')` decorators are still on the
-old names with a documented migration plan; see `CLAUDE.md` §9.
+Last reviewed: 2026-06-01 during the QA-audit completion branch. Since the
+v1.12.0 cut, this branch has closed several v1 follow-ups: PM/CRM/Reminders
+CSV export, reminder rule materialization, 30-second live refresh fallback,
+mobile layout fallbacks, Knowledge Graph reduced-motion/accessibility
+contracts, and the Analytics live insight SSE stream. v1.12.0 remains the
+latest documented release cut in `docs/RELEASES/` until this branch is merged
+and released.
 
 This document is the tracked handover entry point for the GoGoCash Manut
 fork of AFFiNE 0.26.3. It summarizes what a successor needs before
@@ -139,22 +137,20 @@ live VM state.
 
 ## High-Risk Findings
 
-1. Analytics is partially live. The GoGoCash overview path is wired to the
-   backend (and the Connections panel was unbroken in v1.12.0 by fixing
-   the module gate to read `globalThis.env.selfhosted` instead of the
-   raw `DEPLOYMENT_TYPE` env var), but several platform pages, ingestion
-   paths, rollups, and event lists are still explicitly marked as
-   Round-A stubs or mock-backed. Do not hand it over as a complete
-   multi-platform analytics system.
+1. Analytics is partially live. The GoGoCash overview path, connections,
+   token refresh cron, ingestion-anomaly wiring, Meta account picker, and
+   live insight SSE stream are now wired. Rollups, `listMetrics`, some platform
+   deep-dive surfaces, legal/approval pages, and LINE channel-mode correctness
+   remain incomplete. Do not hand it over as a complete multi-platform
+   analytics system.
 
-2. PM/CRM/Reminders are v0 — list and create surfaces only. Detail and
-   edit views, Kanban for tasks/deals, reminder rules and repeat
-   schedules, drag-drop reordering, bulk operations / CSV, real-time
-   updates, and mobile views are all v1 follow-ups. Internal branches
-   are tracking each; none had merged at the v1.12.0 cut. Treat the v0
-   surface as the canonical create flow and continue using the
-   underlying GraphQL APIs for richer interactions until the v1
-   surfaces ship.
+2. PM/CRM/Reminders are past the v0 list/create state on this QA branch:
+   reminder rules materialize scheduled reminders, loaded PM/CRM/Reminders
+   data can export CSV, detail/Kanban surfaces exist, 30-second refresh
+   fallback is wired, and mobile layout fallbacks were added. Remaining known
+   follow-ups are non-EMAIL reminder channels, CSV import/bulk mutation flows,
+   provider delivery receipts, and replacing refresh polling with true
+   subscriptions where needed.
 
 3. CRM cross-workspace integrity is guarded in resolver code but not
    enforced by composite foreign keys. Keep service-level checks before

@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 
 import { PromptService } from '../../copilot/prompt/service';
 import { CopilotProviderFactory } from '../../copilot/providers/factory';
+import { AnalyticsInsightEventBus } from '../insight-event-bus.service';
 import { BudgetService } from './budget.service';
 
 const ESTIMATED_COST_USD = 0.02; // gemini-2.5-flash, ~3K in / 0.5K out
@@ -28,7 +29,8 @@ export class TrendDetectorService {
     private readonly db: PrismaClient,
     private readonly budget: BudgetService,
     private readonly promptService: PromptService,
-    private readonly providerFactory: CopilotProviderFactory
+    private readonly providerFactory: CopilotProviderFactory,
+    private readonly insightBus: AnalyticsInsightEventBus
   ) {}
 
   // Hourly — top of the hour. Idempotent: a no-trend tick simply doesn't
@@ -91,7 +93,9 @@ export class TrendDetectorService {
       this.logger.warn(`Prompt not found: ${PROMPT_NAME}`);
       return;
     }
-    const provider = await this.providerFactory.getProviderByModel(prompt.model);
+    const provider = await this.providerFactory.getProviderByModel(
+      prompt.model
+    );
     if (!provider) {
       this.logger.warn(`No provider for model ${prompt.model}`);
       return;
@@ -121,7 +125,7 @@ export class TrendDetectorService {
 
     const platforms = Array.from(new Set(deltas.map(d => d.platform)));
 
-    await this.db.socialInsight.create({
+    const insight = await this.db.socialInsight.create({
       data: {
         workspaceId,
         insightType: 'TREND',
@@ -137,6 +141,8 @@ export class TrendDetectorService {
     this.logger.log(
       `Created TREND insight for workspace ${workspaceId} ($${costUsd.toFixed(4)})`
     );
+
+    this.insightBus.emit(workspaceId, insight);
   }
 
   /**

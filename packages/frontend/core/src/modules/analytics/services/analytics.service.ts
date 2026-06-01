@@ -10,7 +10,7 @@ import {
 import { Service } from '@toeverything/infra';
 import { filter, firstValueFrom } from 'rxjs';
 
-import type { WorkspaceServerService } from '../../cloud';
+import type { EventSourceService, WorkspaceServerService } from '../../cloud';
 import type { Server } from '../../cloud/entities/server';
 import { GraphQLService } from '../../cloud/services/graphql';
 import { AnalyticsDataEntity } from '../entities/analytics-data.entity';
@@ -21,6 +21,7 @@ import {
   type InsightType,
 } from '../entities/insight.entity';
 import { isAnalyticsFeatureUnavailableError } from './connection.service';
+import { subscribeInsightStream } from './insight-stream';
 
 const logger = new DebugLogger('analytics');
 
@@ -131,7 +132,10 @@ export class AnalyticsService extends Service {
   readonly data = this.framework.createEntity(AnalyticsDataEntity);
   readonly insights = this.framework.createEntity(InsightEntity);
 
-  constructor(private readonly serverService: WorkspaceServerService) {
+  constructor(
+    private readonly serverService: WorkspaceServerService,
+    private readonly eventSourceService: EventSourceService
+  ) {
     super();
   }
 
@@ -290,27 +294,23 @@ export class AnalyticsService extends Service {
   };
 
   /**
-   * Subscribe to InsightCreated events for a workspace. Best-effort: the
-   * current GraphQLService only exposes query/mutation transports. If a
-   * websocket transport is not available we log a warning and return a
-   * no-op unsubscribe. The view falls back to its initial `loadInsights`
-   * call until the subscription transport lands.
-   *
-   * TODO(analytics): once the cloud module exposes a graphql-ws client,
-   * wire this through it. The subscription document is already shipped.
+   * Subscribe to live insight events for a workspace. GraphQL
+   * subscriptions are still not wired in this app, so production uses the
+   * same authenticated SSE transport pattern as doc-read and approvals.
    */
   subscribeToInsights = (
-    _workspaceId: string,
-    _callback: (insight: Insight) => void
+    workspaceId: string,
+    callback: (insight: Insight) => void
   ): InsightSubscriptionUnsubscribe => {
-    // GraphQLService doesn't expose a graphql-ws transport yet, so this
-    // would always fall back to no-op anyway. Made explicit to avoid the
-    // type cast through `this.graphql` and keep the public surface stable.
-    // The view relies on the initial `loadInsights` call to populate.
-    // Re-instate the wire-through once the cloud module ships a
-    // subscription transport (INSIGHT_CREATED_SUBSCRIPTION already shipped).
+    const unsubscribe = subscribeInsightStream(
+      this.eventSourceService,
+      workspaceId,
+      insight => {
+        this.insights.addInsightToTop(insight);
+        callback(insight);
+      }
+    );
     void INSIGHT_CREATED_SUBSCRIPTION;
-    void toEntityInsight;
-    return () => {};
+    return unsubscribe;
   };
 }

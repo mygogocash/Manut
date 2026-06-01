@@ -36,6 +36,8 @@ import { TikTokPoller } from './ingest/polling/tiktok.poller';
 import { LineWebhookController } from './ingest/webhooks/line.controller';
 import { MetaWebhookController } from './ingest/webhooks/meta.controller';
 import { TikTokWebhookController } from './ingest/webhooks/tiktok.controller';
+import { AnalyticsInsightEventBus } from './insight-event-bus.service';
+import { AnalyticsInsightsStreamController } from './insight-stream.controller';
 import { LineMapper } from './normalizer/platform-mappers/line.mapper';
 import { MetaMapper } from './normalizer/platform-mappers/meta.mapper';
 import { ThreadsMapper } from './normalizer/platform-mappers/threads.mapper';
@@ -104,6 +106,7 @@ export class AnalyticsModule {
         TrendDetectorService,
         AnomalyDetectorService,
         // graphql
+        AnalyticsInsightEventBus,
         AnalyticsResolver,
       ],
       controllers: [
@@ -111,6 +114,7 @@ export class AnalyticsModule {
         TikTokWebhookController,
         LineWebhookController,
         OAuthCallbackController,
+        AnalyticsInsightsStreamController,
       ],
     };
   }
