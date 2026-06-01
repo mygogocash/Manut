@@ -58,7 +58,7 @@ docs, and roadmap docs.
 - Add prompt-eval fixtures and a repeatable runner. — Done
 - Tighten Read/Edit/Agent prompt addenda. — Done
 - Improve Auto model routing with eval coverage. — Done
-- Render tool/source status chips in the assistant transcript.
+- Render tool/source status chips in the assistant transcript. — Done
 - Add hybrid keyword + semantic retrieval with citation metadata.
 - Add shadow response verification for workspace-grounded answers.
 - Harden memory preferences and provider cache behavior after evals exist.
@@ -90,7 +90,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 3 — AI Chat Upgrade / tool and source status chips**.
+Active slice: **Lane 3 — AI Chat Upgrade / hybrid retrieval and citation
+metadata**.
 
 Exit criteria:
 
@@ -122,3 +123,14 @@ Completed in this branch:
   with the existing high-signal auto-router so long-context chat goes to
   Gemini Pro, code-heavy chat goes to Claude Sonnet, image-attached text chat
   stays on Gemini Flash, and complex text uses the Pro scenario default.
+- Lane 3 — Tool/Source Status Chips: assistant transcript now summarizes tool
+  use, checked sources, write actions, and tool failures from merged
+  `StreamObject` chunks; the previous write chip now recognizes camelCase tool
+  names and completed `tool-result` chunks.
+
+Known verification blocker:
+
+- `node_modules/.bin/tsc --noEmit -p packages/frontend/core/tsconfig.json`
+  currently reports pre-existing Blocksuite project-reference/decorator errors
+  in chat-panel files. Focused Vitest, eslint/oxlint, and
+  `yarn affine bundle -p web` passed for the status chip slice.
