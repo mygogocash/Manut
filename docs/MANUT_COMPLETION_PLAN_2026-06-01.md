@@ -78,9 +78,10 @@ docs, and roadmap docs.
     from the loaded tab data, with stable headers and CSV escaping.
   - PM CSV export is now done for loaded project lists and project-detail task
     lists, reusing the same CSV escaping and spreadsheet formula guard.
-  - Remaining: Reminders CSV flows, real-time refresh/subscriptions,
-    mobile-specific PM/CRM/Reminders layouts, and future non-EMAIL reminder
-    channels.
+  - Reminders CSV export is now done for active reminder tabs and the rule
+    list, also using shared CSV escaping and spreadsheet formula neutralization.
+  - Remaining: real-time refresh/subscriptions, mobile-specific
+    PM/CRM/Reminders layouts, and future non-EMAIL reminder channels.
 - Knowledge Graph: review the existing lobe/pulse branch, add reduced-motion
   and accessibility coverage, then decide whether to merge for the next release.
 
@@ -104,8 +105,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 4 — Product Feature Completion / Reminders CSV, realtime
-refresh, and mobile layout gap selection**.
+Active slice: **Lane 4 — Product Feature Completion / realtime refresh and
+mobile layout gap selection**.
 
 Exit criteria:
 
