@@ -45,7 +45,7 @@ const CloudWorkspaceStatus = () => {
   return (
     <>
       <CloudWorkspaceIcon />
-      Cloud
+      Manut Cloud
     </>
   );
 };
@@ -126,10 +126,10 @@ const useSyncEngineSyncProgress = (meta: WorkspaceMetadata) => {
     content = 'Sync disconnected due to unexpected issues, reconnecting.';
   } else if (syncing) {
     content =
-      `Syncing with AFFiNE Cloud` +
+      `Syncing with Manut Cloud` +
       (progress ? ` (${Math.floor(progress * 100)}%)` : '');
   } else {
-    content = 'Synced with AFFiNE Cloud';
+    content = 'Synced with Manut Cloud';
   }
 
   const CloudWorkspaceSyncStatus = () => {
@@ -390,7 +390,7 @@ export const WorkspaceCard = forwardRef<
                 className={styles.enableCloudButton}
                 onClick={onEnableCloud}
               >
-                Enable Cloud
+                Enable Manut Cloud
               </Button>
             ) : null}
 

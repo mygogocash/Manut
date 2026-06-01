@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import type { PromptService } from '../prompt';
+import { PromptService } from '../prompt';
 import type { PromptMessage, PromptParams } from '../providers/types';
 import type { ToolsConfig } from '../types';
 
@@ -31,12 +31,7 @@ export interface ChatRequestInterceptorResult {
 export class ChatRequestInterceptorService {
   private readonly logger = new Logger(ChatRequestInterceptorService.name);
 
-  constructor(
-    private readonly promptService?: Pick<
-      PromptService,
-      'injectMemoriesIntoMessages'
-    >
-  ) {}
+  constructor(private readonly promptService?: PromptService) {}
 
   async intercept(
     input: ChatRequestInterceptorInput
