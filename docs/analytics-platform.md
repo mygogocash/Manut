@@ -591,6 +591,15 @@ typed user-facing error, filters by workspace/platform/bucket/time range, sorts
 by `bucketStart` then `metricKey`, and caps responses at 5000 rows until a
 cursor-based pagination contract is added.
 
+### Metric rollups — Done
+
+`MetricRollupService` now owns the scheduled aggregation path. The hourly cron
+backfills HOUR rows from numeric `social_events.payload.metrics` and follower
+gain/loss events, the daily cron aggregates HOUR rows into DAY rows, and the
+weekly cron aggregates DAY rows into WEEK rows. All writes use the existing
+`social_metrics` unique key, so reruns rewrite the same bucket instead of
+duplicating metrics.
+
 ### Pick-account UX after Meta OAuth — Done
 
 The callback can now post `analytics:oauth:choose-account` to the opener, the

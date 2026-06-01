@@ -119,8 +119,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 5 — Analytics and Social Integrations / rollups,
-platform deep dives, and approval/legal readiness**.
+Active slice: **Lane 5 — Analytics and Social Integrations / platform deep
+dives and approval/legal readiness**.
 
 Exit criteria:
 
@@ -199,6 +199,10 @@ Completed in this branch:
   the requested time window, queries `social_metrics` by workspace/platform/
   bucket/range, returns rows in chart-safe order, and caps the response at 5000
   rows.
+- Lane 5 — Metric Rollups: added `MetricRollupService` and wired the scheduled
+  crons. Hourly rollups backfill metrics from `social_events`, daily rollups
+  aggregate HOUR rows into DAY rows, and weekly rollups aggregate DAY rows into
+  WEEK rows with idempotent upserts.
 
 Known verification blocker:
 
