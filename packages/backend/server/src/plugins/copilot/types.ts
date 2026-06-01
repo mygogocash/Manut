@@ -44,6 +44,7 @@ const ToolsConfigSchema = z.preprocess(
       editingDocs: z.boolean().optional(),
       composingDocs: z.boolean().optional(),
       editingDataViews: z.boolean().optional(),
+      memory: z.boolean().optional(),
       enabledTools: z.array(z.string()).optional(),
     })
     .passthrough()

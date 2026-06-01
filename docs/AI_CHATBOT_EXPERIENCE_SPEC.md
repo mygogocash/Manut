@@ -109,11 +109,21 @@ verifier after the answer is complete. It compares workspace-source tool
 results with final footnote definitions and logs missing or unsupported
 citation warnings without changing the user's streamed answer.
 
+Memory implementation status: the existing memory retrieval pipeline is now
+wired through `ChatRequestInterceptorService` on each chat turn. Relevant
+user/workspace memories are injected into the provider message list by default;
+clients can opt out per request with `toolsConfig.memory=false`. Retrieval or
+injection failures remain best-effort and fall back to the original prompt.
+
 ## Latency Strategy
 
 - Keep Time To First Token fast by preserving current streaming.
 - Put static prompt prefixes first only where provider request builders can preserve exact prefix identity.
 - Cache stable tool schemas/system prompts, not user text, retrieved private docs, or mutable workspace state.
+- Current cache implementation is planner-only: `planPromptCache` identifies
+  stable Anthropic/Anthropic Vertex prefixes and refuses dynamic private
+  context, but provider requests do not attach cache metadata until the native
+  request contract can carry it safely.
 - Use background verification and memory distillation for expensive work.
 - Treat vLLM suffix/speculative decoding as optional infrastructure for future self-hosted model nodes. It does not apply to the current Vertex-first stack unless we introduce a vLLM deployment.
 
@@ -404,10 +414,16 @@ Future DB-backed additions should wait until the stream/source contract proves s
 ### T10 - Chat Request Interceptor Service
 
 - Intended behavior: Identity, memory, retrieval hints, and provider options are assembled in one non-destructive wrapper before provider calls.
+- Implementation status: first memory slice is live in the interceptor. It
+  injects memories by default, honors `toolsConfig.memory=false`, and preserves
+  messages/params on failures.
 - Test names:
   - `chat request interceptor > given missing identity context > then returns original prompt params`
   - `chat request interceptor > given workspace user > then injects allowlisted identity params`
   - `chat request interceptor > given disabled feature flag > then leaves final messages unchanged`
+  - `ChatRequestInterceptorService.intercept__given_memory_enabled_and_query__then_injects_relevant_memories`
+  - `ChatRequestInterceptorService.intercept__given_memory_opt_out__then_preserves_messages_without_retrieval`
+  - `ChatRequestInterceptorService.intercept__given_memory_injection_failure__then_returns_original_request`
 - Affected files:
   - `packages/backend/server/src/plugins/copilot/controller.ts`
   - new `packages/backend/server/src/plugins/copilot/interceptor/`
@@ -464,6 +480,9 @@ Future DB-backed additions should wait until the stream/source contract proves s
 ### T14 - Memory Tier Hardening
 
 - Intended behavior: Short-term scratchpad, durable memory, and shared knowledge have explicit lifetimes and user controls.
+- Implementation status: chat-turn memory retrieval is wired with an explicit
+  request-level opt-out. Scratchpad TTL and richer frontend memory preferences
+  remain future slices.
 - Test names:
   - `chat scratchpad > given session ttl expiry > then drops tool state`
   - `memory preferences > given forget request > then excludes memory from retrieval`
@@ -478,6 +497,10 @@ Future DB-backed additions should wait until the stream/source contract proves s
 ### T15 - Prompt Cache and Provider Prefix Discipline
 
 - Intended behavior: Stable provider prefixes maximize cache hits without caching private dynamic content incorrectly.
+- Implementation status: `planPromptCache` now marks stable Anthropic prefixes
+  as eligible, refuses retrieved private context, and returns disabled plans
+  for unsupported providers. Provider request builders still omit cache
+  metadata.
 - Test names:
   - `prompt cache planner > given stable system prompt > then marks cacheable prefix`
   - `prompt cache planner > given retrieved private doc > then refuses cache marker`

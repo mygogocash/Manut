@@ -361,6 +361,7 @@ export class CopilotController implements BeforeApplicationShutdown {
       workspaceId: session.config.workspaceId,
       sessionId,
       query: latestMessage?.content,
+      toolsConfig,
     });
 
     return {
