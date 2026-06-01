@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
+import { SocialPlatform } from '@prisma/client';
 
 import { SessionCache } from '../../base';
 import { Models } from '../../models';
+import { SocialConnectionBridgeService } from '../analytics/connections/social-connection-bridge';
 import {
   isFacebookOAuthConfigured,
   readFacebookOAuthEnv,
@@ -84,7 +86,8 @@ export class FacebookOAuthService {
 
   constructor(
     private readonly models: Models,
-    private readonly cache: SessionCache
+    private readonly cache: SessionCache,
+    private readonly socialBridge: SocialConnectionBridgeService
   ) {}
 
   /**
@@ -171,6 +174,11 @@ export class FacebookOAuthService {
     const tokens = await this.exchangeCode(code, state.redirectUri);
     const userInfo = await this.fetchUserInfo(tokens.access_token);
 
+    const scopes = FACEBOOK_OAUTH_SCOPES.split(/[\s,]+/).filter(Boolean);
+    const tokenExpiresAt = tokens.expires_in
+      ? new Date(Date.now() + tokens.expires_in * 1000)
+      : undefined;
+
     await this.models.integrationConnection.upsert({
       userId: state.userId,
       workspaceId: state.workspaceId,
@@ -181,17 +189,26 @@ export class FacebookOAuthService {
       // Graph API doesn't ship refresh tokens; persist `undefined` so
       // the row reads as "no refresh" rather than empty string.
       refreshToken: undefined,
-      tokenExpiresAt: tokens.expires_in
-        ? new Date(Date.now() + tokens.expires_in * 1000)
-        : undefined,
+      tokenExpiresAt,
       // Graph API doesn't echo scopes in the token response — persist
       // the static request set for audit/UI.
-      scopes: FACEBOOK_OAUTH_SCOPES.split(/[\s,]+/).filter(Boolean),
+      scopes,
       metadata: {
         name: userInfo.name,
         email: userInfo.email,
         avatarUrl: userInfo.picture?.data.url,
       },
+    });
+    await this.socialBridge.upsertFromIntegration({
+      userId: state.userId,
+      workspaceId: state.workspaceId,
+      platform: SocialPlatform.FACEBOOK,
+      externalAccountId: userInfo.id,
+      externalAccountName: userInfo.name,
+      accessToken: tokens.access_token,
+      refreshToken: null,
+      expiresAt: tokenExpiresAt ?? null,
+      scopes,
     });
 
     this.logger.log(
@@ -213,9 +230,16 @@ export class FacebookOAuthService {
     if (!conn) {
       return { connected: false };
     }
+    const health = await this.socialBridge.getHealthForIntegration({
+      userId,
+      workspaceId,
+      platform: SocialPlatform.FACEBOOK,
+      externalAccountId: conn.externalId,
+    });
     return {
       connected: true,
       displayName: conn.displayName,
+      ...health,
     };
   }
 
@@ -226,6 +250,11 @@ export class FacebookOAuthService {
         workspaceId,
         FACEBOOK_PROVIDER_NAME
       );
+      await this.socialBridge.pauseFromIntegration({
+        userId,
+        workspaceId,
+        platform: SocialPlatform.FACEBOOK,
+      });
       return true;
     } catch (err) {
       if (

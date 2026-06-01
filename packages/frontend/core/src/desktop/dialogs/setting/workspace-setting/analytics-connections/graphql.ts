@@ -19,8 +19,16 @@
 // `{ url }` + a `disconnect*` mutation returning Boolean.
 // ============================================================================
 
+export type OAuthConnectionHealthStatus =
+  | 'saved'
+  | 'verified'
+  | 'expired'
+  | 'error';
+
 export interface FacebookConnectionDto {
   connected: boolean;
+  verified?: boolean | null;
+  healthStatus?: OAuthConnectionHealthStatus | null;
   displayName?: string | null;
 }
 
@@ -30,6 +38,8 @@ export const facebookConnectionQuery = {
   query: `query facebookConnection($workspaceId: String!) {
   facebookConnection(workspaceId: $workspaceId) {
     connected
+    verified
+    healthStatus
     displayName
   }
 }`,
@@ -55,6 +65,8 @@ export const disconnectFacebookMutation = {
 
 export interface InstagramConnectionDto {
   connected: boolean;
+  verified?: boolean | null;
+  healthStatus?: OAuthConnectionHealthStatus | null;
   username?: string | null;
 }
 
@@ -64,6 +76,8 @@ export const instagramConnectionQuery = {
   query: `query instagramConnection($workspaceId: String!) {
   instagramConnection(workspaceId: $workspaceId) {
     connected
+    verified
+    healthStatus
     username
   }
 }`,
@@ -89,6 +103,8 @@ export const disconnectInstagramMutation = {
 
 export interface ThreadsConnectionDto {
   connected: boolean;
+  verified?: boolean | null;
+  healthStatus?: OAuthConnectionHealthStatus | null;
   username?: string | null;
 }
 
@@ -98,6 +114,8 @@ export const threadsConnectionQuery = {
   query: `query threadsConnection($workspaceId: String!) {
   threadsConnection(workspaceId: $workspaceId) {
     connected
+    verified
+    healthStatus
     username
   }
 }`,
@@ -123,6 +141,8 @@ export const disconnectThreadsMutation = {
 
 export interface TiktokConnectionDto {
   connected: boolean;
+  verified?: boolean | null;
+  healthStatus?: OAuthConnectionHealthStatus | null;
   displayName?: string | null;
 }
 
@@ -132,6 +152,8 @@ export const tiktokConnectionQuery = {
   query: `query tiktokConnection($workspaceId: String!) {
   tiktokConnection(workspaceId: $workspaceId) {
     connected
+    verified
+    healthStatus
     displayName
   }
 }`,
@@ -157,6 +179,8 @@ export const disconnectTiktokMutation = {
 
 export interface LineVoomConnectionDto {
   connected: boolean;
+  verified?: boolean | null;
+  healthStatus?: OAuthConnectionHealthStatus | null;
   displayName?: string | null;
 }
 
@@ -166,6 +190,8 @@ export const lineVoomConnectionQuery = {
   query: `query lineVoomConnection($workspaceId: String!) {
   lineVoomConnection(workspaceId: $workspaceId) {
     connected
+    verified
+    healthStatus
     displayName
   }
 }`,

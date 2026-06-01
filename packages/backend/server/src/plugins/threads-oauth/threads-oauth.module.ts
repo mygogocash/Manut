@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ServerConfigModule } from '../../core';
 import { AuthModule } from '../../core/auth';
 import { PermissionModule } from '../../core/permission';
+import { SocialConnectionBridgeService } from '../analytics/connections/social-connection-bridge';
 import { ThreadsOAuthController } from './threads-oauth.controller';
 import { ThreadsOAuthResolver } from './threads-oauth.resolver';
 import { ThreadsOAuthService } from './threads-oauth.service';
@@ -28,7 +29,11 @@ import { ThreadsOAuthService } from './threads-oauth.service';
  */
 @Module({
   imports: [AuthModule, ServerConfigModule, PermissionModule],
-  providers: [ThreadsOAuthService, ThreadsOAuthResolver],
+  providers: [
+    ThreadsOAuthService,
+    ThreadsOAuthResolver,
+    SocialConnectionBridgeService,
+  ],
   controllers: [ThreadsOAuthController],
   exports: [ThreadsOAuthService],
 })

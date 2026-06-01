@@ -23,6 +23,8 @@ export const INSTAGRAM_PROVIDER_NAME = 'instagram';
 
 export interface InstagramConnectionStatus {
   connected: boolean;
+  verified?: boolean;
+  healthStatus?: 'saved' | 'verified' | 'expired' | 'error';
   username?: string;
 }
 

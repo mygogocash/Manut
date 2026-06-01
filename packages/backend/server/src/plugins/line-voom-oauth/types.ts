@@ -31,6 +31,8 @@ export const LINE_VOOM_PROVIDER_NAME = 'line-voom';
 
 export interface LineVoomConnectionStatus {
   connected: boolean;
+  verified?: boolean;
+  healthStatus?: 'saved' | 'verified' | 'expired' | 'error';
   displayName?: string;
 }
 

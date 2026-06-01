@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ServerConfigModule } from '../../core';
 import { AuthModule } from '../../core/auth';
 import { PermissionModule } from '../../core/permission';
+import { SocialConnectionBridgeService } from '../analytics/connections/social-connection-bridge';
 import { TiktokOAuthController } from './tiktok-oauth.controller';
 import { TiktokOAuthResolver } from './tiktok-oauth.resolver';
 import { TiktokOAuthService } from './tiktok-oauth.service';
@@ -30,7 +31,11 @@ import { TiktokOAuthService } from './tiktok-oauth.service';
  */
 @Module({
   imports: [AuthModule, ServerConfigModule, PermissionModule],
-  providers: [TiktokOAuthService, TiktokOAuthResolver],
+  providers: [
+    TiktokOAuthService,
+    TiktokOAuthResolver,
+    SocialConnectionBridgeService,
+  ],
   controllers: [TiktokOAuthController],
   exports: [TiktokOAuthService],
 })

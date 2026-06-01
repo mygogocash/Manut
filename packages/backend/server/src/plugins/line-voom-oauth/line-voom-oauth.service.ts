@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
+import { SocialPlatform } from '@prisma/client';
 
 import { SessionCache } from '../../base';
 import { Models } from '../../models';
+import { SocialConnectionBridgeService } from '../analytics/connections/social-connection-bridge';
 import {
   isLineVoomOAuthConfigured,
   readLineVoomOAuthEnv,
@@ -61,7 +63,8 @@ export class LineVoomOAuthService {
 
   constructor(
     private readonly models: Models,
-    private readonly cache: SessionCache
+    private readonly cache: SessionCache,
+    private readonly socialBridge: SocialConnectionBridgeService
   ) {}
 
   isConfigured(): boolean {
@@ -134,6 +137,9 @@ export class LineVoomOAuthService {
     const tokens = await this.exchangeCode(code, state.redirectUri);
     const profile = await this.fetchProfile(tokens.access_token);
 
+    const scopes = tokens.scope.split(/\s+/).filter(Boolean);
+    const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+
     await this.models.integrationConnection.upsert({
       userId: state.userId,
       workspaceId: state.workspaceId,
@@ -142,13 +148,24 @@ export class LineVoomOAuthService {
       displayName: profile.displayName,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
-      tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-      scopes: tokens.scope.split(/\s+/).filter(Boolean),
+      tokenExpiresAt,
+      scopes,
       metadata: {
         displayName: profile.displayName,
         avatarUrl: profile.pictureUrl,
         statusMessage: profile.statusMessage,
       },
+    });
+    await this.socialBridge.upsertFromIntegration({
+      userId: state.userId,
+      workspaceId: state.workspaceId,
+      platform: SocialPlatform.LINE_VOOM,
+      externalAccountId: profile.userId,
+      externalAccountName: profile.displayName,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresAt: tokenExpiresAt,
+      scopes,
     });
 
     this.logger.log(
@@ -173,7 +190,13 @@ export class LineVoomOAuthService {
     if (!conn) {
       return { connected: false };
     }
-    return { connected: true, displayName: conn.displayName };
+    const health = await this.socialBridge.getHealthForIntegration({
+      userId,
+      workspaceId,
+      platform: SocialPlatform.LINE_VOOM,
+      externalAccountId: conn.externalId,
+    });
+    return { connected: true, displayName: conn.displayName, ...health };
   }
 
   async disconnect(userId: string, workspaceId: string): Promise<boolean> {
@@ -183,6 +206,11 @@ export class LineVoomOAuthService {
         workspaceId,
         LINE_VOOM_PROVIDER_NAME
       );
+      await this.socialBridge.pauseFromIntegration({
+        userId,
+        workspaceId,
+        platform: SocialPlatform.LINE_VOOM,
+      });
       return true;
     } catch (err) {
       if (

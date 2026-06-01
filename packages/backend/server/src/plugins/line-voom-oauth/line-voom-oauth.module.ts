@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ServerConfigModule } from '../../core';
 import { AuthModule } from '../../core/auth';
 import { PermissionModule } from '../../core/permission';
+import { SocialConnectionBridgeService } from '../analytics/connections/social-connection-bridge';
 import { LineVoomOAuthController } from './line-voom-oauth.controller';
 import { LineVoomOAuthResolver } from './line-voom-oauth.resolver';
 import { LineVoomOAuthService } from './line-voom-oauth.service';
@@ -34,7 +35,11 @@ import { LineVoomOAuthService } from './line-voom-oauth.service';
  */
 @Module({
   imports: [AuthModule, ServerConfigModule, PermissionModule],
-  providers: [LineVoomOAuthService, LineVoomOAuthResolver],
+  providers: [
+    LineVoomOAuthService,
+    LineVoomOAuthResolver,
+    SocialConnectionBridgeService,
+  ],
   controllers: [LineVoomOAuthController],
   exports: [LineVoomOAuthService],
 })
