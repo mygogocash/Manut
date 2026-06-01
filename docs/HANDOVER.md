@@ -250,6 +250,10 @@ live VM state.
 - AI write tools: gated by `AIToolsConfig` flags and the chat Mode picker.
   Backend production gates should be checked before assuming all write tools
   are available in every environment.
+- AI workspace grounding: `docHybridSearch` / `doc_hybrid_search` is the
+  preferred Read-mode search tool. It fuses keyword + semantic retrieval with
+  citation-ready source metadata, while the older keyword/semantic tools remain
+  available as lower-level fallbacks.
 - FOSS/self-host limits: Manut hides the license tab and lifts self-host
   seat limits through `QuotaService.getWorkspaceQuota`.
 - Analytics: GoGoCash overview and AI insight pieces exist, but

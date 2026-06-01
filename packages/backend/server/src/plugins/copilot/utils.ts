@@ -107,7 +107,11 @@ export function getTools(
       case 'searchWorkspace':
         if (value === false) {
           result = result.filter(tool => {
-            return tool !== 'docKeywordSearch' && tool !== 'docSemanticSearch';
+            return (
+              tool !== 'docHybridSearch' &&
+              tool !== 'docKeywordSearch' &&
+              tool !== 'docSemanticSearch'
+            );
           });
         }
         break;

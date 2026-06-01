@@ -247,7 +247,7 @@ Audit for "self-host" mentions:
 
 ### A1. Tool-using agent
 
-Backend tools live in `packages/backend/server/src/plugins/copilot/tools/`. **Existing (already shipped):** `doc-read`, `doc-edit`, `doc-create`, `doc-update`, `doc-update-meta`, `data-view-filter`, `data-view-autofill-column`, `doc-keyword-search`, `doc-semantic-search`.
+Backend tools live in `packages/backend/server/src/plugins/copilot/tools/`. **Existing (already shipped):** `doc-read`, `doc-edit`, `doc-create`, `doc-update`, `doc-update-meta`, `data-view-filter`, `data-view-autofill-column`, `doc-hybrid-search`, `doc-keyword-search`, `doc-semantic-search`.
 
 **New P1 tools (Weeks 2-3):**
 
@@ -263,7 +263,7 @@ Backend tools live in `packages/backend/server/src/plugins/copilot/tools/`. **Ex
 **Mode + tool UX (hybrid pattern, decision #10):**
 
 - Modes select preset tool collections:
-  - **Read** → `doc-read`, `doc-keyword-search`, `doc-semantic-search`, `web_search`, `memory_search`
+  - **Read** → `doc-read`, `doc-hybrid-search`, `doc-keyword-search`, `doc-semantic-search`, `web_search`, `memory_search`
   - **Edit** → Read tools + `doc-edit`, `data-view-filter`
   - **Agent** → Edit tools + `doc-create`, `doc-update`, `data-view-autofill-column`, `code_run`, `image_gen`, `tabs_browse`
 - Advanced toggle (caret in chat input header) reveals per-tool checkboxes for fine-tune

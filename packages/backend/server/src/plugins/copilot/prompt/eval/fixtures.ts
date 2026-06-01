@@ -216,6 +216,7 @@ export const permissionModeEvalCases = [
 export const chatPromptEvalConfig = {
   promptName: 'Chat With AFFiNE AI',
   expectedModel: 'gemini-2.5-flash',
+  requiredTools: ['docHybridSearch'],
   requiredOptionalModels: [
     'gemini-2.5-flash',
     'gemini-2.5-pro',
@@ -238,6 +239,11 @@ export const chatPromptEvalConfig = {
       scope: 'system',
       substring:
         "prioritize searching the user's workspace rather than the web",
+    },
+    {
+      id: 'hybrid-search-tool-preferred',
+      scope: 'system',
+      substring: 'doc_hybrid_search',
     },
     {
       id: 'current-doc-read-before-answering',

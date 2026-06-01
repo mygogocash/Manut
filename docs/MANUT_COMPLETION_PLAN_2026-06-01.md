@@ -59,7 +59,7 @@ docs, and roadmap docs.
 - Tighten Read/Edit/Agent prompt addenda. — Done
 - Improve Auto model routing with eval coverage. — Done
 - Render tool/source status chips in the assistant transcript. — Done
-- Add hybrid keyword + semantic retrieval with citation metadata.
+- Add hybrid keyword + semantic retrieval with citation metadata. — Done
 - Add shadow response verification for workspace-grounded answers.
 - Harden memory preferences and provider cache behavior after evals exist.
 
@@ -90,8 +90,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 3 — AI Chat Upgrade / hybrid retrieval and citation
-metadata**.
+Active slice: **Lane 3 — AI Chat Upgrade / shadow response verification for
+workspace-grounded answers**.
 
 Exit criteria:
 
@@ -127,6 +127,10 @@ Completed in this branch:
   use, checked sources, write actions, and tool failures from merged
   `StreamObject` chunks; the previous write chip now recognizes camelCase tool
   names and completed `tool-result` chunks.
+- Lane 3 — Hybrid Retrieval: added `docHybridSearch` / `doc_hybrid_search`
+  to combine keyword and semantic workspace results with reciprocal-rank
+  fusion, citation-ready result metadata, prompt-eval coverage, Read-mode
+  tool defaults, assistant source chips, and a dedicated tool-result card.
 
 Known verification blocker:
 

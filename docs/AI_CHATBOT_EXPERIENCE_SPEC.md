@@ -150,7 +150,7 @@ This preserves the current chat UX while building evidence that the verifier imp
 
 ### R4. Workspace Grounding and Citations
 
-- Use keyword search by default for exact terms and semantic search for meaning-level matches.
+- Use `docHybridSearch` by default for workspace-grounded questions; it combines exact keyword search and semantic search before returning sources to the model.
 - Merge keyword and semantic candidates with reciprocal rank fusion before giving them to the model.
 - Add a rerank step only when candidate ambiguity is high or the query asks a nuanced cross-doc question.
 - Answers that use retrieved docs should expose source chips or footnotes that open the referenced doc.
@@ -226,6 +226,7 @@ No new database table is required for the first implementation slice.
 Useful in-memory / persisted shapes:
 
 - `StreamObject`: extend with optional source/progress metadata only after backend and frontend schemas are updated together.
+- `HybridSearchResult`: backend tool result shape for fused workspace sources. It carries `matchedBy`, `score`, `rank`, `snippet`, and a `citation` object for document or attachment footnotes without adding a database table.
 - `AIToolsConfig.enabledTools`: remains the per-request allowlist.
 - `chatMode.<workspaceId>` and `chatEnabledTools.<workspaceId>` remain the per-workspace frontend preference keys.
 - Prompt eval datasets can start as versioned JSON fixtures in the repo.
@@ -323,7 +324,8 @@ Future DB-backed additions should wait until the stream/source contract proves s
 
 ### T5 - Hybrid Retrieval With Citation Contract
 
-- Intended behavior: Workspace answers use keyword + semantic retrieval, merge with RRF, optionally rerank, and expose source links in the assistant message.
+- Intended behavior: Workspace answers use `docHybridSearch` to run keyword + semantic retrieval, merge with RRF, optionally rerank, and expose source links in the assistant message.
+- Implementation status: first slice shipped in `doc-hybrid-search.ts`, including prompt config, Read-mode defaults, stream rendering, and deterministic merge tests.
 - Test names:
   - `doc retrieval > given exact term > then keyword result outranks semantic-only result`
   - `doc retrieval > given paraphrase > then semantic result is retained`
@@ -332,7 +334,7 @@ Future DB-backed additions should wait until the stream/source contract proves s
 - Affected files:
   - `packages/backend/server/src/plugins/copilot/tools/doc-keyword-search.ts`
   - `packages/backend/server/src/plugins/copilot/tools/doc-semantic-search.ts`
-  - new retrieval helper under `packages/backend/server/src/plugins/copilot/tools/`
+  - `packages/backend/server/src/plugins/copilot/tools/doc-hybrid-search.ts`
   - `packages/frontend/core/src/blocksuite/ai/chat-panel/message/assistant.ts`
 - R-tier: R2
 - Rollback: remove merged retrieval helper and return to separate existing tools.

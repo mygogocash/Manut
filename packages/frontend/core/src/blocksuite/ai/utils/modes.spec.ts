@@ -47,4 +47,8 @@ describe('modes', () => {
   test('defaultEnabledTools > given DEFAULT_MODE > equals the read tool set', () => {
     expect(defaultEnabledTools(DEFAULT_MODE)).toEqual([...MODE_TOOL_SET.read]);
   });
+
+  test('defaultEnabledTools > given DEFAULT_MODE > enables hybrid workspace search', () => {
+    expect(defaultEnabledTools(DEFAULT_MODE)).toContain('docHybridSearch');
+  });
 });

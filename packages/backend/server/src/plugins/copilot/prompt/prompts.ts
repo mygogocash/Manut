@@ -2306,6 +2306,7 @@ Before starting Tool calling, you need to follow:
 - DO NOT explain what operation you will perform.
 - DO NOT embed a tool call mid-sentence.
 - When searching for unknown information, personal information or keyword, prioritize searching the user's workspace rather than the web.
+- Prefer the doc_hybrid_search tool first for workspace-grounded answers because it combines exact keyword and semantic matches and returns citation-ready sources.
 - Depending on the complexity of the question and the information returned by the search tools, you can call different tools multiple times to search.
 - Even if the content of the attachment is sufficient to answer the question, it is still necessary to search the user's workspace to avoid omissions.
 </tool-calling-guidelines>
@@ -2392,6 +2393,7 @@ Below is the user's query. Please respond in the user's preferred language witho
       'docUpdate',
       'docUpdateMeta',
       // 'sectionEdit',
+      'docHybridSearch',
       'docKeywordSearch',
       'docSemanticSearch',
       'webSearch',
