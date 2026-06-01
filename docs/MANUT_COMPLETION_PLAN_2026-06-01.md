@@ -76,7 +76,9 @@ docs, and roadmap docs.
     `MnReminderRun` dedupe.
   - CRM CSV export is now done for Accounts, Contacts, Deals, and Activities
     from the loaded tab data, with stable headers and CSV escaping.
-  - Remaining: PM/Reminders CSV flows, real-time refresh/subscriptions,
+  - PM CSV export is now done for loaded project lists and project-detail task
+    lists, reusing the same CSV escaping and spreadsheet formula guard.
+  - Remaining: Reminders CSV flows, real-time refresh/subscriptions,
     mobile-specific PM/CRM/Reminders layouts, and future non-EMAIL reminder
     channels.
 - Knowledge Graph: review the existing lobe/pulse branch, add reduced-motion
@@ -102,8 +104,8 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 4 — Product Feature Completion / PM and Reminders CSV,
-realtime refresh, and mobile layout gap selection**.
+Active slice: **Lane 4 — Product Feature Completion / Reminders CSV, realtime
+refresh, and mobile layout gap selection**.
 
 Exit criteria:
 
