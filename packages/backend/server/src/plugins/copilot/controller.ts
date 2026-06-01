@@ -48,6 +48,7 @@ import { AiBudgetService } from '../../core/quota';
 import { CopilotContextService } from './context/service';
 import { ChatRequestInterceptorService } from './interceptor';
 import { getModelMetadata } from './model-metadata';
+import { selectAutoModelForScenario } from './prompt/auto-model-selection';
 import { appendPermissionModeAddendum } from './prompt/mode-addendum';
 import { ScenarioClassifier } from './prompt/scenario-classifier';
 import { CopilotProviderFactory } from './providers/factory';
@@ -268,7 +269,12 @@ export class CopilotController implements BeforeApplicationShutdown {
       const scenariosConfig = this.config.copilot.scenarios as
         | { scenarios?: Record<string, string | undefined> }
         | undefined;
-      return scenariosConfig?.scenarios?.[scenario] ?? undefined;
+      return selectAutoModelForScenario({
+        scenario,
+        content,
+        attachments,
+        scenariosConfig,
+      });
     } catch (err) {
       this.logger.warn(
         `Auto model classification failed for session ${sessionId}: ${err instanceof Error ? err.message : String(err)}`

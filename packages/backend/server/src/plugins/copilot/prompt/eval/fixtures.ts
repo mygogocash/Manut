@@ -9,6 +9,14 @@ export type ScenarioEvalCase = {
   readonly expected: ScenarioKey;
 };
 
+export type AutoModelEvalCase = {
+  readonly id: string;
+  readonly scenario: ScenarioKey;
+  readonly content: string;
+  readonly attachments?: ClassifyInput['attachments'];
+  readonly expectedModel: string;
+};
+
 export type ModeAddendumEvalCase = {
   readonly id: string;
   readonly mode: string | null | undefined;
@@ -114,6 +122,41 @@ export const scenarioEvalCases = [
     expected: 'chat',
   },
 ] satisfies readonly ScenarioEvalCase[];
+
+export const autoModelEvalCases = [
+  {
+    id: 'long-chat-routes-to-pro',
+    scenario: 'chat',
+    content: 'context '.repeat(16_000),
+    expectedModel: 'gemini-2.5-pro',
+  },
+  {
+    id: 'code-routes-to-claude',
+    scenario: 'quick_text_generation',
+    content:
+      'Please refactor this function:\n```ts\nexport function sum(items: number[]) { return items.reduce((a, b) => a + b, 0); }\n```',
+    expectedModel: 'claude-sonnet-4-5@20250929',
+  },
+  {
+    id: 'image-input-routes-to-gemini-text-model',
+    scenario: 'image',
+    content: 'convert this image into a cleaner icon',
+    attachments: [
+      {
+        attachment: 'handle://image-1',
+        mimeType: 'image/png',
+      } as unknown as EvalAttachment,
+    ],
+    expectedModel: 'gemini-2.5-flash',
+  },
+  {
+    id: 'complex-text-uses-pro-scenario-model',
+    scenario: 'complex_text_generation',
+    content:
+      'Please create a presentation outline for our AI chat launch covering citations, mobile, safety and rollout.',
+    expectedModel: 'gemini-2.5-pro',
+  },
+] satisfies readonly AutoModelEvalCase[];
 
 export const modeAddendumEvalCases = [
   {

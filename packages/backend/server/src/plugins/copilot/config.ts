@@ -306,7 +306,7 @@ defineModuleConfig('copilot', {
         embedding: 'gemini-embedding-001',
         image: 'gpt-image-1',
         coding: 'claude-sonnet-4-5@20250929',
-        complex_text_generation: 'gemini-2.5-flash',
+        complex_text_generation: 'gemini-2.5-pro',
         quick_decision_making: 'gemini-2.5-flash',
         quick_text_generation: 'gemini-2.5-flash',
         polish_and_summarize: 'gemini-2.5-flash',
