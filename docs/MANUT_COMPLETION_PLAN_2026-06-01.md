@@ -135,8 +135,8 @@ docs, and roadmap docs.
   - Admin/operator UI and hardcoded core web copy are now refreshed for Manut
     branding in setup, sidebar/about labels, custom-key disclaimers, first-run
     seed text, cloud sync labels, and diagnostic error copy.
-  - Remaining rename-drift candidates are AI prompt identity/seed gates,
-    native/mobile shell metadata, MCP/tool-facing display names, and GitHub/docs
+  - Remaining rename-drift candidates are native/mobile shell metadata,
+    payment catalog labels that may be tied to provider state, and GitHub/docs
     contributor entrypoints.
 - Refresh or archive stale beta/Railway launch docs.
   - Production deploy runbook and launch readiness checklist are refreshed for
@@ -273,6 +273,11 @@ Completed in this branch:
 - Lane 6 — Rename Drift Cleanup: admin/operator UI labels and hardcoded core
   web copy now use Manut/Manut Cloud where visible to users or operators, while
   internal ids, package names, and upstream URLs remain unchanged.
+- Lane 6 — AI/MCP Branding Cleanup: canonical seeded chat prompts, frontend
+  chat prompt callers, prompt seed gates, MCP server metadata, MCP config notes,
+  sync-required tool errors, slash-menu AI grouping, and Connections panel copy
+  now use Manut-facing names. Internal protocol keys such as
+  `affine_workspace_*`, package names, and upstream URLs remain unchanged.
 - Lane 1 — Backend Startup DI Gates: focused invitation resend e2e initially
   failed before executing tests on missing `AccessController` and
   `PromptService` DI metadata. `ConnectionsModule` now imports
