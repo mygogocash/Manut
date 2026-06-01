@@ -9,6 +9,7 @@ import {
 import type { Response } from 'express';
 
 import { Public } from '../../core/auth';
+import { jsonForInlineScript } from '../oauth-callback-script';
 import { TiktokOAuthService } from './tiktok-oauth.service';
 
 const POSTMESSAGE_TYPE = 'affine:tiktok-oauth-result';
@@ -67,10 +68,11 @@ export class TiktokOAuthController {
       : `error=${encodeURIComponent(result.error)}`;
     const fallbackUrl = `/?settings=analytics-connections&${fallbackQuery}`;
 
-    const payload = JSON.stringify({
+    const payload = jsonForInlineScript({
       type: POSTMESSAGE_TYPE,
       ...result,
     });
+    const safeFallbackUrl = jsonForInlineScript(fallbackUrl);
 
     return `<!doctype html>
 <html lang="en">
@@ -85,7 +87,7 @@ export class TiktokOAuthController {
   <script>
   (function () {
     var payload = ${payload};
-    var fallbackUrl = ${JSON.stringify(fallbackUrl)};
+    var fallbackUrl = ${safeFallbackUrl};
     try {
       if (window.opener && window.opener !== window) {
         window.opener.postMessage(payload, window.location.origin);

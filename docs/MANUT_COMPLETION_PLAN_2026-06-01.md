@@ -40,7 +40,7 @@ docs, and roadmap docs.
 - Add a verified/health signal so settings cards distinguish saved credentials
   from verified credentials.
 
-### PR 3 — Token and OAuth Hardening
+### PR 3 — Token and OAuth Hardening — Done
 
 - Re-check token freshness after refresh-lock waits.
 - Remove raw LINE provider response bodies from user-visible errors.
@@ -90,7 +90,7 @@ docs, and roadmap docs.
 
 ## Current Slice
 
-Active slice: **Lane 2 / PR 3 — Token and OAuth Hardening**.
+Active slice: **Lane 2 / PR 4 — Routines Honesty**.
 
 Exit criteria:
 
@@ -103,3 +103,7 @@ Completed in this branch:
 - Lane 2 / PR 1 — Connection Resolver Authorization.
 - Lane 2 / PR 2 — Social Connection Bridge for Facebook, Instagram, Threads,
   TikTok, and LINE VOOM callback paths, plus settings-card health labels.
+- Lane 2 / PR 3 — Token and OAuth Hardening: stale-token refresh-lock guard,
+  LINE provider error redaction, inline OAuth callback payload escaping,
+  stateless connection-test ACL/throttle checks, and content-recommendation
+  settings-update gate.

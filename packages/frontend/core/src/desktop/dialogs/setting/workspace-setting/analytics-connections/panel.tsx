@@ -517,7 +517,7 @@ const InlineFormCard = ({
     setTestResult(null);
     try {
       const result = await (triggerTest as (args: unknown) => Promise<unknown>)(
-        { input: buildInput(values) }
+        { workspaceId, input: buildInput(values) }
       );
       const parsed = selectTestResult(result);
       if (!parsed) {
@@ -548,7 +548,14 @@ const InlineFormCard = ({
     } finally {
       setBusy(false);
     }
-  }, [testMutation, selectTestResult, triggerTest, buildInput, values]);
+  }, [
+    testMutation,
+    selectTestResult,
+    triggerTest,
+    workspaceId,
+    buildInput,
+    values,
+  ]);
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {

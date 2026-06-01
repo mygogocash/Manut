@@ -9,6 +9,7 @@ import {
 import type { Response } from 'express';
 
 import { Public } from '../../core/auth';
+import { jsonForInlineScript } from '../oauth-callback-script';
 import { LinearOAuthService } from './linear-oauth.service';
 
 const POSTMESSAGE_TYPE = 'affine:linear-oauth-result';
@@ -88,10 +89,11 @@ export class LinearOAuthController {
       : `error=${encodeURIComponent(result.error)}`;
     const fallbackUrl = `/?settings=integrations&${fallbackQuery}`;
 
-    const payload = JSON.stringify({
+    const payload = jsonForInlineScript({
       type: POSTMESSAGE_TYPE,
       ...result,
     });
+    const safeFallbackUrl = jsonForInlineScript(fallbackUrl);
 
     return `<!doctype html>
 <html lang="en">
@@ -106,7 +108,7 @@ export class LinearOAuthController {
   <script>
   (function () {
     var payload = ${payload};
-    var fallbackUrl = ${JSON.stringify(fallbackUrl)};
+    var fallbackUrl = ${safeFallbackUrl};
     try {
       if (window.opener && window.opener !== window) {
         window.opener.postMessage(payload, window.location.origin);

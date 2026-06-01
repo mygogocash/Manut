@@ -296,8 +296,8 @@ export const setMongoDbConnectionMutation = {
 export const testMongoDbConnectionMutation = {
   id: 'testMongoDbConnectionMutation' as const,
   op: 'testMongoDbConnection',
-  query: `mutation testMongoDbConnection($input: MongoDbConnectionInputType!) {
-  testMongoDbConnection(input: $input) {
+  query: `mutation testMongoDbConnection($workspaceId: String!, $input: MongoDbConnectionInputType!) {
+  testMongoDbConnection(workspaceId: $workspaceId, input: $input) {
     ok
     error
     host
@@ -355,8 +355,8 @@ export const setPostHogConnectionMutation = {
 export const testPostHogConnectionMutation = {
   id: 'testPostHogConnectionMutation' as const,
   op: 'testPostHogConnection',
-  query: `mutation testPostHogConnection($input: PostHogConnectionInputType!) {
-  testPostHogConnection(input: $input) {
+  query: `mutation testPostHogConnection($workspaceId: String!, $input: PostHogConnectionInputType!) {
+  testPostHogConnection(workspaceId: $workspaceId, input: $input) {
     ok
     error
     host

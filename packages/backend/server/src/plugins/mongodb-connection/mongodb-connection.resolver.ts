@@ -10,7 +10,7 @@ import {
   Resolver,
 } from '@nestjs/graphql';
 
-import { AuthenticationRequired, BadRequest } from '../../base';
+import { AuthenticationRequired, BadRequest, Throttle } from '../../base';
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
 import {
@@ -138,13 +138,19 @@ export class MongoDbConnectionResolver {
    * saves.
    */
   @Mutation(() => MongoDbConnectionTestResultType)
+  @Throttle('default', { limit: 10 })
   async testMongoDbConnection(
     @CurrentUser() user: CurrentUser | null,
+    @Args('workspaceId') workspaceId: string,
     @Args('input') input: MongoDbConnectionInputType
   ): Promise<MongoDbConnectionTestResultType> {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     const result = await this.mongo.testConnection(input.uri);
     return {
       ok: result.ok,

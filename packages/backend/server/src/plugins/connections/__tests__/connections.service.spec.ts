@@ -335,15 +335,12 @@ test('disconnectProvider: should re-throw on infra errors', async t => {
 
   // Non-P2025 error means infra failure (DB unreachable, etc) — surfacing
   // as `false` would mask production incidents from operators.
-  models.integrationConnection.delete.rejects(
-    new Error('connection refused')
-  );
+  models.integrationConnection.delete.rejects(new Error('connection refused'));
 
   const service = new ConnectionsService(models as any, cache as any);
-  await t.throwsAsync(
-    service.disconnectProvider('user-1', 'ws-1', 'google'),
-    { message: 'connection refused' }
-  );
+  await t.throwsAsync(service.disconnectProvider('user-1', 'ws-1', 'google'), {
+    message: 'connection refused',
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -439,6 +436,46 @@ test('getAccessToken: refreshes via provider and stores new tokens', async t => 
     t.is(args[3].accessToken, 'newly-issued');
     t.is(args[3].refreshToken, 'rotated-refresh');
   } finally {
+    providerRegistry.delete(providerName);
+  }
+});
+
+test('getAccessToken: does not return a stale token after waiting on refresh lock', async t => {
+  const clock = Sinon.useFakeTimers({
+    now: new Date('2026-06-01T00:00:00Z'),
+    toFake: ['Date', 'setTimeout'],
+  });
+  const cache = makeCache();
+  const models = makeModels();
+  const providerName = `locked-refresh-${randomUUID()}`;
+  const provider = makeProvider(providerName);
+  (provider as any).refreshAccessToken = Sinon.stub().resolves({
+    accessToken: 'new-token',
+    expiresAt: new Date(Date.now() + 3600_000),
+    scopes: ['read'],
+  });
+  providerRegistry.set(providerName, provider as any);
+  cache.store.set(`CONN_REFRESH_LOCK:user-1:ws-1:${providerName}`, 1);
+
+  models.integrationConnection.getByProvider.resolves({ id: 'c' });
+  models.integrationConnection.decryptTokens.returns({
+    accessToken: 'still-expired',
+    refreshToken: 'refresh-1',
+    tokenExpiresAt: new Date(Date.now() - 60_000),
+  });
+
+  try {
+    const service = new ConnectionsService(models as any, cache as any);
+    const pending = service.getAccessToken('user-1', 'ws-1', providerName);
+
+    await clock.tickAsync(1_500);
+
+    await t.throwsAsync(pending, {
+      instanceOf: ConnectionTokenExpiredError,
+    });
+    t.false((provider as any).refreshAccessToken.called);
+  } finally {
+    clock.restore();
     providerRegistry.delete(providerName);
   }
 });

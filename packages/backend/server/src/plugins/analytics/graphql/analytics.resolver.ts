@@ -116,7 +116,7 @@ export class AnalyticsResolver {
     await this.ac
       .user(user.id)
       .workspace(input.workspaceId)
-      .assert('Workspace.Read');
+      .assert('Workspace.Settings.Update');
 
     try {
       const insight = await this.strategist.generateContentRecommendation(

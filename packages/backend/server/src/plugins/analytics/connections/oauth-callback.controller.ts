@@ -2,6 +2,7 @@ import { Controller, Get, Logger, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 
 import { Public } from '../../../core/auth';
+import { jsonForInlineScript } from '../../oauth-callback-script';
 import { ConnectionService } from './connection.service';
 
 interface PendingAccountChoice {
@@ -156,26 +157,7 @@ export class OAuthCallbackController {
       out.accounts = body.accounts; // already sanitised + capped by caller
     }
 
-    const payload = JSON.stringify(out);
-
-    // JSON.stringify alone is NOT safe to embed in <script>: a `</script>`
-    // inside the payload would terminate the script tag. Replace HTML and
-    // line-terminator chars with JS unicode escapes — the result is still
-    // valid JSON parsed identically by JSON.parse / postMessage, but cannot
-    // break out of the script context.
-    // Rewrite the LITERAL U+2028 / U+2029 codepoints to their 6-char
-    // escape sequence form. These bytes are valid inside JSON strings
-    // but ARE line terminators in JavaScript itself, so without escaping
-    // they would close the inline <script> line and break parsing. The
-    // `new RegExp` form is used so we never have to embed the literal
-    // U+2028 / U+2029 codepoints in the source file (which would also
-    // terminate this very line comment in any tool that honors U+2028).
-    const safePayload = payload
-      .replace(/</g, '\\u003c')
-      .replace(/>/g, '\\u003e')
-      .replace(/&/g, '\\u0026')
-      .replace(new RegExp('\\u2028', 'g'), '\\u2028')
-      .replace(new RegExp('\\u2029', 'g'), '\\u2029');
+    const safePayload = jsonForInlineScript(out);
 
     const html = `<!doctype html><meta charset="utf-8"><title>OAuth complete</title><script>(function(){try{window.opener&&window.opener.postMessage(${safePayload},window.location.origin);}catch(e){}window.close();})();</script><p>You can close this window.</p>`;
     res.status(200).type('text/html').send(html);

@@ -10,7 +10,7 @@ import {
   Resolver,
 } from '@nestjs/graphql';
 
-import { AuthenticationRequired, BadRequest } from '../../base';
+import { AuthenticationRequired, BadRequest, Throttle } from '../../base';
 import { CurrentUser } from '../../core/auth';
 import { AccessController } from '../../core/permission';
 import {
@@ -130,13 +130,19 @@ export class PostHogConnectionResolver {
   }
 
   @Mutation(() => PostHogConnectionTestResultType)
+  @Throttle('default', { limit: 10 })
   async testPostHogConnection(
     @CurrentUser() user: CurrentUser | null,
+    @Args('workspaceId') workspaceId: string,
     @Args('input') input: PostHogConnectionInputType
   ): Promise<PostHogConnectionTestResultType> {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     const result = await this.posthog.testConnection(input.apiKey, input.host);
     return {
       ok: result.ok,
