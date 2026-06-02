@@ -473,15 +473,22 @@ validate_prompts_seeded() {
   set -e
   unset DB_PASS
 
-  if (( rc != 0 )); then
-    log "psql check failed (rc=${rc}): ${out}"
-    return 3
-  fi
-
   # psql -tA emits one count on its own line. Strip whitespace and
   # validate it's an integer.
   local actual
   actual=$(printf '%s' "$out" | tr -d '[:space:]')
+  if (( rc != 0 )); then
+    # Docker/timeout can report a non-zero wrapper status even after psql
+    # emitted the expected count. Prefer the self-validating DB result when
+    # it is complete and numeric; otherwise this remains an infra failure.
+    if [[ "$actual" =~ ^[0-9]+$ ]] && (( actual == expected_count )); then
+      log "PROMPT-SEED OK — ${actual}/${expected_count} canonical prompts present (psql wrapper rc=${rc})"
+      return 0
+    fi
+    log "psql check failed (rc=${rc}): ${out}"
+    return 3
+  fi
+
   if ! [[ "$actual" =~ ^[0-9]+$ ]]; then
     log "psql returned non-numeric output: ${out}"
     return 3

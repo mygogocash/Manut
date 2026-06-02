@@ -42,6 +42,36 @@ scripts/gcp/smoke-test-cloud-run.sh` passed, `/info` reports
     follow-up branch is not deployed; launch still requires a fresh Cloud Build
     image, migration-job run, and post-deploy smoke before claiming production
     contains these branch changes.
+- Production deployment verification on 2026-06-02:
+  - PR #185 merged to `main` as `9da65ae8f2c1a4cf539cf2b24b865d7bce5e4d7b`.
+  - Main CI run `26790920840` and CodeQL run `26790920444` completed
+    successfully for the merge commit.
+  - Manut Build run `26791041596` completed successfully and pushed
+    `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-9da65ae8f-26791041596`
+    with digest `sha256:9c80dd364657d0cef7558bcf3c5638103efb09837f23425c28130a92c7bf7e3f`.
+  - First deploy run `26791480886` failed before production swap because
+    Prisma blocked on a historical failed migration row for
+    `20260518230000_add_mn_m12_m13_m15_m17_research_milestones`.
+    The row was verified to contain only the old duplicate-column failure,
+    then marked `rolled_back` with Prisma migrate resolve.
+  - Second deploy run `26791699640` applied the idempotent migration and
+    swapped production to the new image, but the prompt-seed psql wrapper
+    returned `rc=124` after already emitting count `3`; manual DB verification
+    confirmed all three canonical prompts existed.
+  - `scripts/vm/deploy.sh` was hardened and installed on the VM so a complete
+    numeric prompt count matching the expected total is accepted even if the
+    wrapper exits non-zero.
+  - Final deploy run `26791969196` completed successfully:
+    sidecar `/info` validated, migrations completed, production `/info`
+    became healthy on `main-9da65ae8f-26791041596`, prompt seed reported
+    `PROMPT-SEED OK — 3/3`, and `deploy.sh` exited `0`.
+  - Public smoke passed after deploy: `https://manut.xyz/info` returned
+    `Manut 0.26.3 Server`; GraphQL `serverConfig.initialized=true` and
+    `features=["Comment","Manut","Copilot","OAuth","LocalWorkspace","CopilotEmbedding"]`.
+  - VM evidence confirmed `affine_server` is running image
+    `main-9da65ae8f-26791041596`, and the migration table contains the old
+    rolled-back row plus a new finished row for
+    `20260518230000_add_mn_m12_m13_m15_m17_research_milestones`.
 - Update stale Railway references in operator docs to the current GCP Cloud Run
   deployment path. — Done for the production deploy runbook and launch
   readiness checklist; Railway is now documented only as source-data or
@@ -174,9 +204,8 @@ scripts/gcp/smoke-test-cloud-run.sh` passed, `/info` reports
 
 ## Current Slice
 
-Active slice: **Lane 6 — UX, Rename, Docs, and Ops / beta-doc refresh and
-rename-drift cleanup**, plus backend startup gates found during invite/email
-verification.
+Active slice: **Post-PR #185 production deploy evidence refresh**, plus
+deploy-script prompt-seed gate hardening found during production validation.
 
 Exit criteria:
 
@@ -321,6 +350,12 @@ Completed in this branch:
   passes public `/info` + GraphQL `serverConfig` smoke for `Manut,Copilot`.
   This is production evidence for image `0220ad1`, not a deploy of this
   follow-up branch.
+- PR #185 Production Deploy: production is now running
+  `main-9da65ae8f-26791041596` from merge commit `9da65ae8`, with final deploy
+  workflow `26791969196` green, public `/info` healthy, GraphQL
+  `serverConfig` initialized with `Manut` and `Copilot`, prompt seed `3/3`, and
+  the previously failed Prisma migration repaired via a rolled-back historical
+  row plus a new finished application row.
 
 Known verification blocker:
 
