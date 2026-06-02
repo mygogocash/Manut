@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-05-27 09:25 +07 (GCP Cloud Run production launch complete)
+Last updated: 2026-06-02 08:12 +07 (PR #185 production deploy complete)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,17 +12,17 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/gcp-prod-cutover-complete` from latest `origin/main`.
+- Branch: `codex/deploy-evidence-followup` from latest `origin/main`.
 - Upstream: `origin/main`.
-- Handover refresh: PR #165 recorded the GCP progress state, PR #166 corrected
-  the post-merge workspace wording, PR #167 removed stale branch drift, and PR
-  #168 merged the production launch smoke hardening.
-- Branch state: production cutover handover refresh; `.playwright-mcp/` is an
-  existing untracked local browser artifact in the main checkout that should
-  stay untouched.
+- Handover refresh: PR #185 merged the Manut AI, analytics, ops, and UI
+  follow-ups. This follow-up branch records production deployment evidence and
+  hardens the VM prompt-seed gate observed during deploy validation.
+- Branch state: one deploy-script hardening patch plus docs evidence refresh.
 - Production branch: `main`
-- Production app: https://manut.xyz now serves the GCP Cloud Run production
-  service. The legacy `affine.gogocash.co` and `manut.gogocash.co` hosts both
+- Production app: https://manut.xyz serves Manut production on the GCE VM
+  safe-deploy path. Latest verified image is
+  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-9da65ae8f-26791041596`.
+  The legacy `affine.gogocash.co` and `manut.gogocash.co` hosts both
   301-redirect to the canonical domain.
 - GCP project: `affine-495114` (`602860445793`), region `asia-southeast1`.
 - Runtime service account:
@@ -174,6 +174,37 @@ those writes before DNS rollback.
   merge in the v1.12.0 window.
 
 ## Latest Completed Work
+
+- PR #185 merged to `main` as
+  `9da65ae8f2c1a4cf539cf2b24b865d7bce5e4d7b`.
+- Main CI run `26790920840` and CodeQL run `26790920444` completed
+  successfully for merge commit `9da65ae8`.
+- Manut Build run `26791041596` completed successfully and pushed image tag
+  `main-9da65ae8f-26791041596` with digest
+  `sha256:9c80dd364657d0cef7558bcf3c5638103efb09837f23425c28130a92c7bf7e3f`.
+- Production deploy run `26791480886` stopped before production swap because
+  Prisma blocked on historical failed migration
+  `20260518230000_add_mn_m12_m13_m15_m17_research_milestones`.
+- Verified that failed migration had only hit the old duplicate
+  `mn_agents.maximizer_mode` column and had not created the later tables/enums.
+  Marked the failed row rolled back with Prisma migrate resolve.
+- Production deploy run `26791699640` applied the now-idempotent migration and
+  swapped production to `main-9da65ae8f-26791041596`, then hit a false negative
+  in the prompt-seed psql wrapper: it emitted count `3` but returned `rc=124`.
+- Hardened `scripts/vm/deploy.sh` so a complete numeric prompt count matching
+  the expected count is accepted even when the Docker/timeout wrapper exits
+  non-zero, while non-numeric output and mismatches still fail.
+- Installed the patched deploy script on `/srv/affine/scripts/deploy.sh` and
+  syntax-checked it on the VM.
+- Final production deploy run `26791969196` completed successfully:
+  sidecar `/info` validated, migrations completed, production `/info` became
+  healthy on `main-9da65ae8f-26791041596`, prompt seed returned
+  `PROMPT-SEED OK — 3/3`, and `deploy.sh` exited `0`.
+- Post-deploy public smoke passed: `https://manut.xyz/info` returned
+  `Manut 0.26.3 Server`; GraphQL `serverConfig.initialized=true` and
+  `features` includes `Manut` and `Copilot`.
+- Production DB evidence confirms the historical migration row is rolled back
+  and the new row for the same migration finished at `2026-06-02T01:01:00.758Z`.
 
 - Started launch-prep branch `codex/gcp-prod-launch-plan` from `origin/main`.
 - Added `docs/GCP_PRODUCTION_LAUNCH_SPEC.md` as the production launch
@@ -425,6 +456,37 @@ those writes before DNS rollback.
 
 ## Verification Already Run
 
+- `gh pr view 185` confirmed PR #185 merged to `main`.
+- `gh run view 26790920840` confirmed Manut CI success on merge commit
+  `9da65ae8`.
+- `gh run view 26790920444` confirmed CodeQL success on merge commit
+  `9da65ae8`.
+- `gh run view 26791041596` confirmed Manut Build success and published image
+  tag `main-9da65ae8f-26791041596`.
+- GAR image describe resolved
+  `main-9da65ae8f-26791041596` to digest
+  `sha256:9c80dd364657d0cef7558bcf3c5638103efb09837f23425c28130a92c7bf7e3f`.
+- `prisma migrate resolve --rolled-back
+20260518230000_add_mn_m12_m13_m15_m17_research_milestones` ran on the
+  production VM after verifying the failed row represented only the historical
+  duplicate-column failure.
+- `bash -n scripts/vm/deploy.sh` passed locally after prompt-seed gate
+  hardening.
+- Patched `scripts/vm/deploy.sh` was installed to
+  `/srv/affine/scripts/deploy.sh` and `sudo bash -n` passed on the VM.
+- `gh run view 26791969196` confirmed manual production deploy success with
+  `deploy.sh exit code: 0`.
+- Deploy run `26791969196` log evidence: sidecar `/info` validated, migrations
+  completed, `PRODUCTION HEALTHY on main-9da65ae8f-26791041596`, and
+  `PROMPT-SEED OK — 3/3 canonical prompts present`.
+- `curl -fsS https://manut.xyz/info` returned
+  `{"compatibility":"0.26.3","message":"Manut 0.26.3 Server","type":"selfhosted","flavor":"allinone"}`.
+- Public GraphQL smoke returned `serverConfig.initialized=true` and
+  `features=["Comment","Manut","Copilot","OAuth","LocalWorkspace","CopilotEmbedding"]`.
+- VM image check confirmed `affine_server` is running
+  `main-9da65ae8f-26791041596`.
+- Prompt metadata query confirmed `Auto Tag`, `Chat With Manut AI`, and
+  `Summary as title` are present in `ai_prompts_metadata`.
 - `node --check scripts/manut-release-handover.mjs`
 - `node scripts/manut-release-handover.mjs --help`
 - Generator smoke with Markdown and JSON output under `/tmp/superflow-handover-test`
@@ -711,6 +773,7 @@ gh pr view 13 --json state,mergeStateStatus,statusCheckRollup,url
 gh pr view 14 --json state,mergeStateStatus,statusCheckRollup,url
 gh pr view 15 --json state,mergedAt,mergeCommit,url
 gh pr view 16 --json state,mergedAt,mergeCommit,url
+gh pr view 185 --json state,mergedAt,mergeCommit,url
 gh run view 25558581821 --json status,conclusion,jobs,url
 gh run view 25558739931 --json status,conclusion,jobs,url
 gh run view 25559360466 --json status,conclusion,jobs,url
@@ -718,7 +781,12 @@ gh run view 25559581702 --json status,conclusion,jobs,url
 gh run view 25559646582 --json status,conclusion,jobs,url
 gh run view 25585897582 --json status,conclusion,jobs,url
 gh run view 25586178501 --json status,conclusion,jobs,url
+gh run view 26790920840 --json status,conclusion,jobs,url
+gh run view 26790920444 --json status,conclusion,jobs,url
+gh run view 26791041596 --json status,conclusion,jobs,url
+gh run view 26791969196 --json status,conclusion,jobs,url
 gh run list --branch main --limit 10 --json databaseId,workflowName,status,conclusion,headSha,url
 curl -fsS https://manut.xyz/info
+curl -fsS https://manut.xyz/graphql -H 'content-type: application/json' --data '{"query":"query { serverConfig { initialized features } }"}'
 sed -n '1,240p' docs/AI_SESSION_HANDOVER.md
 ```
