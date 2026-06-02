@@ -239,6 +239,10 @@ Completed in this branch:
   with the existing high-signal auto-router so long-context chat goes to
   Gemini Pro, code-heavy chat goes to Claude Sonnet, image-attached text chat
   stays on Gemini Flash, and complex text uses the Pro scenario default.
+- Lane 3 — Model Catalogue Safety: the chat picker now exposes only stable
+  Vertex-backed entries; Gemini 3.1 previews and Claude 4.6/4.7
+  default-version IDs remain provider-side only until authenticated
+  production send/stream smoke confirms them.
 - Lane 3 — Tool/Source Status Chips: assistant transcript now summarizes tool
   use, checked sources, write actions, and tool failures from merged
   `StreamObject` chunks; the previous write chip now recognizes camelCase tool
