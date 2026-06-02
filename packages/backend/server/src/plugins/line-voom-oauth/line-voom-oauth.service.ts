@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import { Injectable, Logger } from '@nestjs/common';
+import { SocialPlatform } from '@prisma/client';
 
 import { SessionCache } from '../../base';
 import { Models } from '../../models';
+import { SocialConnectionBridgeService } from '../analytics/connections/social-connection-bridge';
 import {
   isLineVoomOAuthConfigured,
   readLineVoomOAuthEnv,
@@ -25,10 +27,22 @@ const LINE_VOOM_AUTH_URL = 'https://access.line.me/oauth2/v2.1/authorize';
 const LINE_VOOM_TOKEN_URL = 'https://api.line.me/oauth2/v2.1/token';
 const LINE_VOOM_PROFILE_URL = 'https://api.line.me/v2/profile';
 
+function formatLineVoomHttpFailure(
+  operation: 'token exchange' | 'profile fetch',
+  response: Response
+): string {
+  return `LINE VOOM ${operation} failed: ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+}
+
+function sanitizeProviderErrorCode(error: string): string {
+  const safe = error.replace(/[^\w.-]/g, '').slice(0, 80);
+  return safe || 'provider_error';
+}
+
 export class LineVoomOAuthNotConfiguredError extends Error {
   constructor() {
     super(
-      'LINE VOOM OAuth client is not configured. Set LINE_OAUTH_CLIENT_ID and LINE_OAUTH_CLIENT_SECRET.'
+      'LINE Official Account OAuth client is not configured. Set LINE_OAUTH_CLIENT_ID and LINE_OAUTH_CLIENT_SECRET.'
     );
     this.name = 'LineVoomOAuthNotConfiguredError';
   }
@@ -36,7 +50,7 @@ export class LineVoomOAuthNotConfiguredError extends Error {
 
 export class LineVoomOAuthNotConnectedError extends Error {
   constructor() {
-    super('LINE VOOM is not connected for this workspace');
+    super('LINE Official Account is not connected for this workspace');
     this.name = 'LineVoomOAuthNotConnectedError';
   }
 }
@@ -61,7 +75,8 @@ export class LineVoomOAuthService {
 
   constructor(
     private readonly models: Models,
-    private readonly cache: SessionCache
+    private readonly cache: SessionCache,
+    private readonly socialBridge: SocialConnectionBridgeService
   ) {}
 
   isConfigured(): boolean {
@@ -134,6 +149,9 @@ export class LineVoomOAuthService {
     const tokens = await this.exchangeCode(code, state.redirectUri);
     const profile = await this.fetchProfile(tokens.access_token);
 
+    const scopes = tokens.scope.split(/\s+/).filter(Boolean);
+    const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+
     await this.models.integrationConnection.upsert({
       userId: state.userId,
       workspaceId: state.workspaceId,
@@ -142,13 +160,24 @@ export class LineVoomOAuthService {
       displayName: profile.displayName,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
-      tokenExpiresAt: new Date(Date.now() + tokens.expires_in * 1000),
-      scopes: tokens.scope.split(/\s+/).filter(Boolean),
+      tokenExpiresAt,
+      scopes,
       metadata: {
         displayName: profile.displayName,
         avatarUrl: profile.pictureUrl,
         statusMessage: profile.statusMessage,
       },
+    });
+    await this.socialBridge.upsertFromIntegration({
+      userId: state.userId,
+      workspaceId: state.workspaceId,
+      platform: SocialPlatform.LINE_VOOM,
+      externalAccountId: profile.userId,
+      externalAccountName: profile.displayName,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresAt: tokenExpiresAt,
+      scopes,
     });
 
     this.logger.log(
@@ -173,7 +202,13 @@ export class LineVoomOAuthService {
     if (!conn) {
       return { connected: false };
     }
-    return { connected: true, displayName: conn.displayName };
+    const health = await this.socialBridge.getHealthForIntegration({
+      userId,
+      workspaceId,
+      platform: SocialPlatform.LINE_VOOM,
+      externalAccountId: conn.externalId,
+    });
+    return { connected: true, displayName: conn.displayName, ...health };
   }
 
   async disconnect(userId: string, workspaceId: string): Promise<boolean> {
@@ -183,6 +218,11 @@ export class LineVoomOAuthService {
         workspaceId,
         LINE_VOOM_PROVIDER_NAME
       );
+      await this.socialBridge.pauseFromIntegration({
+        userId,
+        workspaceId,
+        platform: SocialPlatform.LINE_VOOM,
+      });
       return true;
     } catch (err) {
       if (
@@ -250,10 +290,7 @@ export class LineVoomOAuthService {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(
-        `LINE VOOM token exchange failed: ${response.status} ${text}`
-      );
+      throw new Error(formatLineVoomHttpFailure('token exchange', response));
     }
 
     const parsed = (await response.json()) as
@@ -262,7 +299,7 @@ export class LineVoomOAuthService {
 
     if ('error' in parsed && parsed.error) {
       throw new Error(
-        `LINE VOOM token exchange failed: ${parsed.error}${parsed.error_description ? ` — ${parsed.error_description}` : ''}`
+        `LINE VOOM token exchange failed: ${sanitizeProviderErrorCode(parsed.error)}`
       );
     }
 
@@ -283,10 +320,7 @@ export class LineVoomOAuthService {
       },
     });
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(
-        `LINE VOOM profile fetch failed: ${response.status} ${text}`
-      );
+      throw new Error(formatLineVoomHttpFailure('profile fetch', response));
     }
     return (await response.json()) as LineVoomProfileResponse;
   }

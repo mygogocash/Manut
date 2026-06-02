@@ -28,9 +28,9 @@ const ROUTINE_SCAN_BATCH_SIZE = 100;
  * column changes the scanner picks up on the next tick. No external
  * scheduler key to keep in sync.
  *
- * PR 2 stops at enqueueing. The actual Vertex execution lives in the
- * consumer (`MnRoutineJob`) and is intentionally a no-op stub until
- * PR 4 replaces its body with the real runner.
+ * This path currently stops at enqueueing a preview run. The consumer
+ * (`MnRoutineJob`) acknowledges the queue action but intentionally does not
+ * execute the prompt against Vertex yet.
  */
 @Injectable()
 export class MnRoutineCron {
@@ -153,8 +153,8 @@ export class MnRoutineCron {
     // Enqueue to BullMQ happens AFTER the transaction. If enqueue
     // fails (Redis hiccup), the QUEUED MnRoutineRun row already
     // exists and serves as a recovery breadcrumb: an operator can
-    // re-enqueue it manually, and PR 4 will add a startup sweep for
-    // orphaned QUEUED rows. The alternative — rolling back the
+    // re-enqueue it manually, and a future bounded runner can add a startup
+    // sweep for orphaned QUEUED rows. The alternative — rolling back the
     // transaction on enqueue failure — risks a tight retry loop if
     // Redis is flapping.
     const run = await this.db.$transaction(async tx => {
@@ -190,8 +190,8 @@ export class MnRoutineCron {
     // Enqueue the executor. Deterministic jobId (run.id) so BullMQ
     // retries from the consumer side won't double-fire. If this call
     // throws (Redis transient), the run row stays QUEUED and is
-    // visible to operators / the PR 4 sweep — we surface the error
-    // to the per-routine catch in runOnce rather than swallowing.
+    // visible to operators / a future sweep — we surface the error to the
+    // per-routine catch in runOnce rather than swallowing.
     await this.queue.add(
       'superflow.executeRoutine',
       { routineId: routine.id, runId: run.id },

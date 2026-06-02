@@ -3,10 +3,15 @@
  */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const WorkspaceServiceToken = vi.hoisted(() => class WorkspaceService {});
 const WorkbenchServiceToken = vi.hoisted(() => class WorkbenchService {});
+const queryState = vi.hoisted(() => ({
+  projects: [] as unknown[],
+  tasks: [] as unknown[],
+}));
+const queryCalls = vi.hoisted(() => [] as Array<{ id: string; config: any }>);
 
 vi.mock('@affine/core/modules/workspace', () => ({
   WorkspaceService: WorkspaceServiceToken,
@@ -44,11 +49,24 @@ vi.mock('../../../../../components/pure/header', () => ({
 }));
 
 vi.mock('@affine/core/components/hooks/use-query', () => ({
-  useQuery: () => ({
-    data: { mnProjects: [] },
-    error: undefined,
-    mutate: vi.fn(),
-  }),
+  useQuery: (
+    { query }: { query: { id: string } },
+    config?: Record<string, unknown>
+  ) => {
+    queryCalls.push({ id: query.id, config });
+    if (query.id === 'mnTasksQuery') {
+      return {
+        data: { mnTasks: queryState.tasks },
+        error: undefined,
+        mutate: vi.fn(),
+      };
+    }
+    return {
+      data: { mnProjects: queryState.projects },
+      error: undefined,
+      mutate: vi.fn(),
+    };
+  },
   useQueryImmutable: () => ({
     data: { mnProjects: [] },
     error: undefined,
@@ -84,7 +102,27 @@ vi.mock('@toeverything/infra', () => ({
 
 import { Component } from '../index';
 
+function makeProject(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'project-1',
+    workspaceId: 'workspace-test',
+    name: 'Launch checklist',
+    description: 'Stuff to ship',
+    status: 'ACTIVE',
+    sortOrder: 0,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
 describe('Manut projects page', () => {
+  beforeEach(() => {
+    queryState.projects = [];
+    queryState.tasks = [];
+    queryCalls.length = 0;
+  });
+
   afterEach(() => cleanup());
 
   test('renders the empty state when there are no projects', () => {
@@ -94,6 +132,18 @@ describe('Manut projects page', () => {
     expect(empty).toBeTruthy();
     expect(empty.textContent).toContain('No projects yet');
     expect(empty.textContent).toContain('Create your first project');
+  });
+
+  test('enables live refresh for project queries', () => {
+    render(<Component />);
+
+    const projectQueries = queryCalls.filter(
+      call => call.id === 'mnProjectsQuery'
+    );
+    expect(projectQueries.length).toBeGreaterThan(0);
+    expect(
+      projectQueries.every(call => call.config?.refreshInterval === 30_000)
+    ).toBe(true);
   });
 
   test('renders the list/kanban view toggle in the header', () => {
@@ -122,5 +172,17 @@ describe('Manut projects page', () => {
         'active'
       ]
     ).toBe('false');
+  });
+
+  test('enables project CSV export when projects are returned', () => {
+    queryState.projects = [makeProject()];
+
+    render(<Component />);
+
+    const exportButton = screen.getByTestId(
+      'manut-pm-export-projects'
+    ) as HTMLButtonElement;
+    expect(exportButton).toBeTruthy();
+    expect(exportButton.disabled).toBe(false);
   });
 });

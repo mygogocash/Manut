@@ -48,6 +48,9 @@ import { AiBudgetService } from '../../core/quota';
 import { CopilotContextService } from './context/service';
 import { ChatRequestInterceptorService } from './interceptor';
 import { getModelMetadata } from './model-metadata';
+import { selectAutoModelForScenario } from './prompt/auto-model-selection';
+import { verifyWorkspaceGrounding } from './prompt/grounding-verifier';
+import { appendPermissionModeAddendum } from './prompt/mode-addendum';
 import { ScenarioClassifier } from './prompt/scenario-classifier';
 import { CopilotProviderFactory } from './providers/factory';
 import type { CopilotProvider } from './providers/provider';
@@ -226,6 +229,21 @@ export class CopilotController implements BeforeApplicationShutdown {
     return merge(source$.pipe(finalize(() => subject$.next(null))), ping$);
   }
 
+  private verifyGroundingInShadow(
+    sessionId: string,
+    content: string,
+    streamObjects: StreamObject[]
+  ) {
+    const result = verifyWorkspaceGrounding({ content, streamObjects });
+    if (result.status !== 'warn') return;
+
+    this.logger.warn(
+      `Workspace grounding verification warning for session ${sessionId}: ${result.warnings.join(
+        ','
+      )}; unsupported=${result.unsupportedCitations.join(',') || 'none'}`
+    );
+  }
+
   /**
    * For the synthetic "auto" model id, classify the user's latest message
    * into a scenario and look up the scenario's mapped model from the
@@ -267,7 +285,12 @@ export class CopilotController implements BeforeApplicationShutdown {
       const scenariosConfig = this.config.copilot.scenarios as
         | { scenarios?: Record<string, string | undefined> }
         | undefined;
-      return scenariosConfig?.scenarios?.[scenario] ?? undefined;
+      return selectAutoModelForScenario({
+        scenario,
+        content,
+        attachments,
+        scenariosConfig,
+      });
     } catch (err) {
       this.logger.warn(
         `Auto model classification failed for session ${sessionId}: ${err instanceof Error ? err.message : String(err)}`
@@ -282,7 +305,8 @@ export class CopilotController implements BeforeApplicationShutdown {
     query: Record<string, string | string[]>,
     outputType: ModelOutputType
   ) {
-    let { messageId, retry, modelId, params } = ChatQuerySchema.parse(query);
+    let { messageId, retry, modelId, params, toolsConfig } =
+      ChatQuerySchema.parse(query);
 
     if (modelId === 'auto') {
       modelId = await this.resolveAutoModelId(sessionId, messageId);
@@ -326,7 +350,10 @@ export class CopilotController implements BeforeApplicationShutdown {
       ...lastParams,
       ...contextParams,
     };
-    const finalMessage = session.finish(renderParams);
+    const finalMessage = appendPermissionModeAddendum(
+      session.finish(renderParams),
+      toolsConfig
+    );
     const intercepted = await this.requestInterceptor.intercept({
       messages: finalMessage,
       params: renderParams,
@@ -334,6 +361,7 @@ export class CopilotController implements BeforeApplicationShutdown {
       workspaceId: session.config.workspaceId,
       sessionId,
       query: latestMessage?.content,
+      toolsConfig,
     });
 
     return {
@@ -525,6 +553,13 @@ export class CopilotController implements BeforeApplicationShutdown {
                 const parser = new StreamObjectParser();
                 const streamObjects = parser.mergeTextDelta(result);
                 const content = parser.mergeContent(streamObjects);
+                if (!endBeforePromiseResolve) {
+                  this.verifyGroundingInShadow(
+                    sessionId,
+                    content,
+                    streamObjects
+                  );
+                }
                 session.push({
                   role: 'assistant',
                   content: endBeforePromiseResolve

@@ -34,6 +34,7 @@ export type AIToolName =
   | 'docCreate'
   | 'docUpdate'
   | 'docUpdateMeta'
+  | 'docHybridSearch'
   | 'docKeywordSearch'
   | 'docSemanticSearch'
   | 'webSearch'
@@ -69,6 +70,7 @@ export type ChatMode = 'read' | 'edit' | 'agent';
 
 const READ_TOOLS: readonly AIToolName[] = [
   'docRead',
+  'docHybridSearch',
   'docKeywordSearch',
   'docSemanticSearch',
   'webSearch',
@@ -125,6 +127,7 @@ export const DEFAULT_MODE: ChatMode = 'read';
 // Same order as the AIToolName union so the checkbox grid is stable.
 export const ALL_TOOLS: readonly AIToolName[] = [
   'docRead',
+  'docHybridSearch',
   'docKeywordSearch',
   'docSemanticSearch',
   'webSearch',
@@ -151,6 +154,7 @@ export const ALL_TOOLS: readonly AIToolName[] = [
 // without updating this map still produces a clickable row).
 export const TOOL_LABELS: Partial<Record<AIToolName, string>> = {
   docRead: 'Read docs',
+  docHybridSearch: 'Hybrid search',
   docKeywordSearch: 'Keyword search',
   docSemanticSearch: 'Semantic search',
   webSearch: 'Web search',

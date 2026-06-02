@@ -10,6 +10,7 @@ import {
 
 import { AuthenticationRequired, URLHelper } from '../../base';
 import { CurrentUser } from '../../core/auth';
+import { AccessController } from '../../core/permission';
 import {
   FacebookOAuthNotConfiguredError,
   FacebookOAuthNotConnectedError,
@@ -26,6 +27,12 @@ export class FacebookConnectAuthUrl {
 export class FacebookConnectionType {
   @Field()
   connected!: boolean;
+
+  @Field(() => Boolean, { nullable: true })
+  verified?: boolean;
+
+  @Field(() => String, { nullable: true })
+  healthStatus?: 'saved' | 'verified' | 'expired' | 'error';
 
   // MANUT v1.13.0+: explicit @Field(() => String) for the nullable
   // displayName. NestJS metadata reflection cannot infer a GraphQL
@@ -59,7 +66,8 @@ export class FacebookOAuthResolver {
 
   constructor(
     private readonly facebook: FacebookOAuthService,
-    private readonly url: URLHelper
+    private readonly url: URLHelper,
+    private readonly ac: AccessController
   ) {}
 
   @Mutation(() => FacebookConnectAuthUrl)
@@ -70,6 +78,10 @@ export class FacebookOAuthResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
 
     try {
       const redirectUri = this.facebook.resolveRedirectUri(
@@ -94,6 +106,10 @@ export class FacebookOAuthResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     return this.facebook.disconnect(user.id, workspaceId);
   }
 
@@ -105,11 +121,14 @@ export class FacebookOAuthResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
     try {
       const status = await this.facebook.getStatus(user.id, workspaceId);
       return {
         connected: status.connected,
         displayName: status.displayName,
+        verified: status.verified,
+        healthStatus: status.healthStatus,
       };
     } catch (err) {
       this.logger.error(

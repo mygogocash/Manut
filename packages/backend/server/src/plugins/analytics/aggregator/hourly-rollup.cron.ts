@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
+import { MetricRollupService } from './metric-rollup.service';
+
 /**
  * Roll up the previous hour of social_events into social_metrics rows
  * (bucket = HOUR). Idempotent — re-running rewrites the same bucketStart.
@@ -9,11 +11,11 @@ import { Cron } from '@nestjs/schedule';
 export class HourlyRollupCron {
   private readonly logger = new Logger(HourlyRollupCron.name);
 
-  // TODO(phase-3): aggregate prev-hour events into SocialMetric rows.
+  constructor(private readonly rollups: MetricRollupService) {}
+
   @Cron('0 * * * *')
-  async run(): Promise<void> {
-    this.logger.debug(
-      'HourlyRollupCron.run: skipped until phase 3 rollups ship'
-    );
+  async run(now = new Date()): Promise<void> {
+    const count = await this.rollups.rollupPreviousHour(now);
+    this.logger.debug(`HourlyRollupCron.run: upserted ${count} metric rows`);
   }
 }

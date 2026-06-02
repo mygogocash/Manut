@@ -2,12 +2,15 @@
  * @vitest-environment happy-dom
  */
 
-import { render, screen } from '@testing-library/react';
-import { describe, expect, test, vi } from 'vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 const WorkspaceServiceToken = vi.hoisted(() => class WorkspaceService {});
 const WorkbenchServiceToken = vi.hoisted(() => class WorkbenchService {});
 const workbenchOpen = vi.hoisted(() => vi.fn());
+const queryState = vi.hoisted(() => ({
+  tasks: [] as unknown[],
+}));
 
 // react-router-dom mock — controls the :projectId param the detail page reads.
 const mockedParams = vi.hoisted(() => ({ projectId: 'project-1' }));
@@ -57,7 +60,7 @@ vi.mock('@affine/core/components/hooks/use-query', () => ({
     const id = arg?.query?.id;
     if (id === 'mnTasksQuery') {
       return {
-        data: { mnTasks: [] },
+        data: { mnTasks: queryState.tasks },
         error: undefined,
         mutate: vi.fn(),
       };
@@ -128,6 +131,12 @@ vi.mock('@toeverything/infra', () => ({
 import { Component } from '../detail';
 
 describe('Manut project detail page', () => {
+  beforeEach(() => {
+    queryState.tasks = [];
+  });
+
+  afterEach(() => cleanup());
+
   test('renders the page shell without crashing', () => {
     render(<Component />);
     expect(screen.getByTestId('manut-pm-detail-page')).toBeTruthy();
@@ -146,5 +155,32 @@ describe('Manut project detail page', () => {
     const statusBadges = screen.getAllByTestId('manut-pm-detail-status');
     expect(statusBadges.length).toBeGreaterThan(0);
     expect(statusBadges[0]?.textContent).toContain('Active');
+  });
+
+  test('enables task CSV export when tasks are returned', () => {
+    queryState.tasks = [
+      {
+        id: 'task-1',
+        projectId: 'project-1',
+        title: 'Ship CSV',
+        description: null,
+        status: 'TODO',
+        priority: 'HIGH',
+        dueAt: null,
+        listSortOrder: 0,
+        assigneeUserId: null,
+        createdByUserId: null,
+        createdAt: '2026-06-01T00:00:00.000Z',
+        updatedAt: '2026-06-01T00:00:00.000Z',
+      },
+    ];
+
+    render(<Component />);
+
+    const exportButton = screen.getByTestId(
+      'manut-pm-export-tasks'
+    ) as HTMLButtonElement;
+    expect(exportButton).toBeTruthy();
+    expect(exportButton.disabled).toBe(false);
   });
 });

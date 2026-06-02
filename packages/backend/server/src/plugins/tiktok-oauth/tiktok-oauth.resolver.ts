@@ -27,6 +27,12 @@ export class TiktokConnectionType {
   @Field()
   connected!: boolean;
 
+  @Field(() => Boolean, { nullable: true })
+  verified?: boolean;
+
+  @Field(() => String, { nullable: true })
+  healthStatus?: 'saved' | 'verified' | 'expired' | 'error';
+
   // Explicit @Field(() => String) for nullable union — CLAUDE.md §6.
   @Field(() => String, { nullable: true })
   displayName?: string;
@@ -102,6 +108,8 @@ export class TiktokOAuthResolver {
       return {
         connected: status.connected,
         displayName: status.displayName,
+        verified: status.verified,
+        healthStatus: status.healthStatus,
       };
     } catch (err) {
       this.logger.error(

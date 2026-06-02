@@ -1,14 +1,12 @@
 # Manut Handover
 
-Last reviewed: 2026-05-13 after the v1.12.0 cut. v1.12.0 is the first
-release on the renamed stack — it ships the v0 Projects, CRM, and
-Reminders frontend, expands the chat model picker with frontier models,
-and unbreaks the Settings → Connections panel. v1.11.0 (the immediately
-prior release) was the brand rename and post-rebrand documentation
-cleanup. A handful of internal identifiers — workflow filenames were
-renamed in v1.11.0, the GAR Docker image name `affine-gogocash`, and
-legacy GraphQL `@ObjectType('Superflow*')` decorators are still on the
-old names with a documented migration plan; see `CLAUDE.md` §9.
+Last reviewed: 2026-06-01 during the QA-audit completion branch. Since the
+v1.12.0 cut, this branch has closed several v1 follow-ups: PM/CRM/Reminders
+CSV export, reminder rule materialization, 30-second live refresh fallback,
+mobile layout fallbacks, Knowledge Graph reduced-motion/accessibility
+contracts, and the Analytics live insight SSE stream. v1.12.0 remains the
+latest documented release cut in `docs/RELEASES/` until this branch is merged
+and released.
 
 This document is the tracked handover entry point for the GoGoCash Manut
 fork of AFFiNE 0.26.3. It summarizes what a successor needs before
@@ -45,6 +43,10 @@ changing, building, or deploying the project.
 - `docs/CICD.md` - deploy architecture and operator commands.
 - `docs/CICD_ROADMAP.md` - current pipeline status, shipped tiers, backlog,
   and last validation notes.
+- `docs/GCP_CLOUD_RUN_RUNBOOK.md` and `docs/MANUT_DEPLOY_RUNBOOK.md` -
+  current Cloud Run deploy, migration, smoke, and rollback operator paths.
+- `docs/MANUT_LAUNCH_CHECKLIST.md` - launch-window gates, now refreshed to
+  treat Cloud Run revision/log evidence as the active production source.
 - `docs/MANUT_CONTROL_PLANE.md` - Manut-native operating model for
   agent/company-style coordination, release handover artifacts, and future
   AFFiNE-facing control-plane work.
@@ -58,8 +60,11 @@ changing, building, or deploying the project.
   control-plane handovers for CI build/release artifacts. Still emits
   filenames `superflow-handover.{md,json}` until the workflow-filename
   migration in `CLAUDE.md` §9.
+- `scripts/gcp/*.sh` and `cloudbuild.manut-cloud-run.yaml` - executable GCP
+  Cloud Run deploy, smoke, trigger, and migration-job helpers.
 - `scripts/vm/deploy.sh`, `scripts/vm/rollback.sh`,
-  `scripts/vm/compose.canary.yml` - executable VM runbook.
+  `scripts/vm/compose.canary.yml` - legacy VM runbook. Keep for rollback
+  archaeology only unless `docs/CICD_ROADMAP.md` says the VM path is active.
 - `.github/workflows/superflow-*.yml` - CI, build, deploy, rollback,
   VM init, and release automation. Workflow filenames retain the old
   prefix; the display names ("Manut CI", "Manut Build", etc.) were
@@ -107,54 +112,70 @@ incident notes.
 
 ## Deployment Path
 
-Normal path:
+Normal production path:
 
-1. Push to `main`.
-2. `superflow-ci.yml` (display name "Manut CI") validates lint/codegen/bundles.
-3. `superflow-build.yml` (display name "Manut Build") builds and pushes an
-   immutable GAR image tag.
-4. The build workflow uploads `image-tag` and `superflow-handover`
-   artifacts so the image handoff has both machine and operator context.
-5. `superflow-autodeploy.yml` (display name "Manut Auto Deploy") runs
-   VM-side `deploy.sh`.
-6. `deploy.sh` sidecar-smokes the new image on port 3011 before swapping
-   production, then runs post-swap `/info` and prompt-seed checks.
+1. Push the approved commit to `main`.
+2. Cloud Build trigger `manut-gcp-pr-ci` / required CI validates the commit.
+3. Cloud Build trigger `manut-gcp-main-staging` keeps staging current.
+4. The launch operator manually runs and approves `manut-gcp-prod-deploy`.
+5. `cloudbuild.manut-cloud-run.yaml` builds the image, pushes to Artifact
+   Registry, creates or updates `manut-migrate`, executes the migration job,
+   deploys Cloud Run service `manut`, and smokes the generated Cloud Run URL.
+6. After DNS cutover, `scripts/gcp/smoke-test-cloud-run.sh` must pass against
+   `https://manut.xyz`.
 
-Manual deploy of an existing image:
-
-```bash
-gh workflow run superflow-deploy.yml -f tag=<image-tag>
-```
-
-Rollback:
+Manual production deploy trigger:
 
 ```bash
-gh workflow run superflow-rollback.yml
+gcloud builds triggers run manut-gcp-prod-deploy \
+  --branch=main \
+  --project=affine-495114 \
+  --region=global
 ```
 
-Current deploy scripts use `/srv/affine/compose/compose.yml.previous.bak`
-as the rollback snapshot. Older docs still mention
-`compose.yml.pre-<tag>.bak`; treat those as historical unless you verify the
-live VM state.
+Manual public smoke:
+
+```bash
+BASE_URL=https://manut.xyz TIMEOUT_SECONDS=120 \
+  scripts/gcp/smoke-test-cloud-run.sh
+```
+
+Rollback is Cloud Run revision-first when the database remains compatible:
+
+```bash
+gcloud run services update-traffic manut \
+  --project=affine-495114 \
+  --region=asia-southeast1 \
+  --to-revisions=<previous-revision>=100
+```
+
+Use the DNS/Railway rollback path from
+`docs/GCP_CLOUD_RUN_RUNBOOK.md#9-rollback` only when the launch operator has
+kept Railway online and write-safe for the stability window.
 
 ## High-Risk Findings
 
-1. Analytics is partially live. The GoGoCash overview path is wired to the
-   backend (and the Connections panel was unbroken in v1.12.0 by fixing
-   the module gate to read `globalThis.env.selfhosted` instead of the
-   raw `DEPLOYMENT_TYPE` env var), but several platform pages, ingestion
-   paths, rollups, and event lists are still explicitly marked as
-   Round-A stubs or mock-backed. Do not hand it over as a complete
+1. Analytics is partially live. The GoGoCash overview path, connections,
+   token refresh cron, ingestion-anomaly wiring, Meta account picker, live
+   insight SSE stream, and v1 LINE Messaging API channel-mode connection/webhook
+   path are now wired. `listMetrics` now reads `social_metrics` with ACL/range
+   validation. Hourly/daily/weekly metric rollups are wired with idempotent
+   upserts. Platform pages now render KPI/trend data from real metric rows and
+   newest normalized `social_events` rows via `listEvents`. The legal pages
+   required by Meta review now exist at `/legal/privacy`, `/legal/terms`, and
+   `/legal/data-deletion-instructions`. External approval dashboard setup,
+   submission artifacts, and LINE VOOM availability confirmation remain
+   incomplete; the product UI now labels LINE as Official Account and keeps
+   VOOM post analytics gated until access is confirmed. Do not hand it over as a complete
    multi-platform analytics system.
 
-2. PM/CRM/Reminders are v0 — list and create surfaces only. Detail and
-   edit views, Kanban for tasks/deals, reminder rules and repeat
-   schedules, drag-drop reordering, bulk operations / CSV, real-time
-   updates, and mobile views are all v1 follow-ups. Internal branches
-   are tracking each; none had merged at the v1.12.0 cut. Treat the v0
-   surface as the canonical create flow and continue using the
-   underlying GraphQL APIs for richer interactions until the v1
-   surfaces ship.
+2. PM/CRM/Reminders are past the v0 list/create state on this QA branch:
+   reminder rules materialize scheduled reminders, loaded PM/CRM/Reminders
+   data can export CSV, detail/Kanban surfaces exist, 30-second refresh
+   fallback is wired, and mobile layout fallbacks were added. Remaining known
+   follow-ups are non-EMAIL reminder channels, CSV import/bulk mutation flows,
+   provider delivery receipts, and replacing refresh polling with true
+   subscriptions where needed.
 
 3. CRM cross-workspace integrity is guarded in resolver code but not
    enforced by composite foreign keys. Keep service-level checks before
@@ -172,7 +193,10 @@ live VM state.
      in v1.11.0) still centers `GCP_SA_KEY`, while the current
      pipeline docs describe WIF. Refresh during the next pipeline
      audit pass.
-   - Some rollback examples still mention `compose.yml.pre-*`.
+   - Some beta-era docs still mention Railway deploy ids or Railway log checks.
+     `docs/MANUT_DEPLOY_RUNBOOK.md` and
+     `docs/MANUT_LAUNCH_CHECKLIST.md` are refreshed; archive or refresh the
+     remaining beta docs before using them as launch evidence.
 
 ## Closed During 2026-05-13 Review (v1.12.0)
 
@@ -236,9 +260,25 @@ live VM state.
   `manut-*.yml` in v1.11.0.
 - PM/CRM/Reminders: v0 frontend shipped in v1.12.0 — list and create flows
   for `/projects`, `/crm` (Accounts/Contacts/Deals/Activities tabs), and
-  `/reminders` (Due now/Upcoming/Done tabs). Gated by
-  `ServerFeature.Superflow` on the sidebar. Detail/edit, Kanban, reminder
-  rules, drag-drop, bulk, real-time, and mobile remain v1 follow-ups.
+  `/reminders` (Due now/Upcoming/Done/Rules tabs). Gated by
+  `ServerFeature.Superflow` on the sidebar. Detail/edit, PM/CRM Kanban,
+  CRM deal drag/drop, task drag/drop, and reminder rule CRUD are present.
+  Reminder DATETIME rules now materialize scheduled reminders through the
+  minute cron with `MnReminderRun` dedupe. CRM tabs can export loaded
+  Accounts, Contacts, Deals, and Activities to CSV. PM exports loaded project
+  lists and project-detail task lists to CSV. Reminders exports active reminder
+  tabs and reminder rules to CSV. Loaded PM/CRM/Reminders data queries now
+  refresh every 30 seconds through SWR as the v1 realtime fallback. The three
+  surfaces also have 640px responsive layout fallbacks for stacked toolbars,
+  scroll-safe tabs, dense rows, forms, cards, and Kanban columns. Remaining v1
+  follow-up is future non-EMAIL reminder channels; full subscriptions remain
+  optional.
+- Knowledge Graph: the lobe/pulse graph and node-detail panel branches are
+  already merged into the current line through PR #183 / `454b0e747`. Current
+  graph code includes reduced-motion handling, hidden-tab pause/resume,
+  idle/rest-loop gating, the `MAX_PHYSICS_NODES` cap, canvas `role="img"` /
+  `aria-label`, and a visually-hidden keyboard/screen-reader list that opens
+  the same detail panel as canvas selection.
 - Chat model picker: 10 frontier models on `optionalModels` (Gemini 2.5/3.1
   family, Claude Sonnet 4/4.5/Opus 4, Llama 4 Scout/Maverick). Default is
   `gemini-2.5-flash`. Moonshot Kimi, xAI Grok, and Alibaba Qwen provider
@@ -250,6 +290,23 @@ live VM state.
 - AI write tools: gated by `AIToolsConfig` flags and the chat Mode picker.
   Backend production gates should be checked before assuming all write tools
   are available in every environment.
+- AI workspace grounding: `docHybridSearch` / `doc_hybrid_search` is the
+  preferred Read-mode search tool. It fuses keyword + semantic retrieval with
+  citation-ready source metadata, while the older keyword/semantic tools remain
+  available as lower-level fallbacks.
+- AI grounding verification: object-stream chat saves run a shadow-only
+  verifier over workspace search results and final footnote definitions. It
+  logs missing/unsupported citation warnings but does not block or rewrite
+  answers yet.
+- AI memory: chat-turn memory injection is wired through
+  `ChatRequestInterceptorService`. It retrieves relevant user/workspace
+  memories by default, honors `toolsConfig.memory=false`, and falls back to the
+  original prompt if memory retrieval fails.
+- AI prompt cache discipline: `planPromptCache` is planner-only. It marks only
+  stable Anthropic/Anthropic Vertex system-prefixes as eligible and refuses
+  dynamic private context such as memories, retrieved docs, or workspace-source
+  tool results. Provider requests intentionally omit cache metadata until the
+  native request contract supports it.
 - FOSS/self-host limits: Manut hides the license tab and lifts self-host
   seat limits through `QuotaService.getWorkspaceQuota`.
 - Analytics: GoGoCash overview and AI insight pieces exist, but

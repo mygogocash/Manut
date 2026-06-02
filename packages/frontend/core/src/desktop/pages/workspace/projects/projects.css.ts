@@ -9,6 +9,12 @@ export const root = style({
   width: '100%',
   maxWidth: 960,
   margin: '0 auto',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      padding: '12px 16px',
+      maxWidth: '100%',
+    },
+  },
 });
 
 export const toolbar = style({
@@ -16,6 +22,12 @@ export const toolbar = style({
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 12,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'stretch',
+      flexDirection: 'column',
+    },
+  },
 });
 
 export const titleBlock = style({
@@ -43,6 +55,17 @@ export const list = style({
   gap: 12,
 });
 
+export const listToolbar = style({
+  display: 'flex',
+  justifyContent: 'flex-end',
+  gap: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      justifyContent: 'flex-start',
+    },
+  },
+});
+
 export const card = style({
   display: 'flex',
   flexDirection: 'column',
@@ -68,6 +91,12 @@ export const cardHeader = style({
       background: cssVarV2.layer.background.secondary,
     },
   },
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'flex-start',
+      flexDirection: 'column',
+    },
+  },
 });
 
 export const cardHeaderInfo = style({
@@ -82,6 +111,12 @@ export const cardHeaderTitleRow = style({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
+  minWidth: 0,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexWrap: 'wrap',
+    },
+  },
 });
 
 export const cardName = style({
@@ -89,6 +124,9 @@ export const cardName = style({
   lineHeight: '20px',
   fontWeight: 500,
   color: cssVarV2.text.primary,
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 });
 
 export const cardDescription = style({
@@ -104,6 +142,12 @@ export const cardActions = style({
   display: 'flex',
   alignItems: 'center',
   gap: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      justifyContent: 'flex-end',
+      width: '100%',
+    },
+  },
 });
 
 export const taskCount = style({
@@ -153,6 +197,13 @@ export const taskRow = style({
   borderRadius: 6,
   border: `1px solid ${cssVarV2.layer.insideBorder.border}`,
   background: cssVarV2.layer.background.primary,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'stretch',
+      display: 'flex',
+      flexDirection: 'column',
+    },
+  },
 });
 
 export const taskTitle = style({
@@ -162,6 +213,11 @@ export const taskTitle = style({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      whiteSpace: 'normal',
+    },
+  },
 });
 
 export const taskTitleDone = style({
@@ -174,6 +230,11 @@ export const taskMeta = style({
   lineHeight: '16px',
   color: cssVarV2.text.secondary,
   whiteSpace: 'nowrap',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      whiteSpace: 'normal',
+    },
+  },
 });
 
 export const taskFooterRow = style({
@@ -181,6 +242,26 @@ export const taskFooterRow = style({
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'stretch',
+      flexDirection: 'column',
+    },
+  },
+});
+
+export const taskFooterActions = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: 8,
+  flexWrap: 'wrap',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      justifyContent: 'flex-start',
+      width: '100%',
+    },
+  },
 });
 
 export const emptyState = style({
@@ -194,6 +275,11 @@ export const emptyState = style({
   border: `1px dashed ${cssVarV2.layer.insideBorder.border}`,
   borderRadius: 8,
   color: cssVarV2.text.secondary,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      padding: '32px 16px',
+    },
+  },
 });
 
 export const emptyStateTitle = style({
@@ -220,6 +306,12 @@ export const errorBox = style({
   lineHeight: '18px',
   color: cssVarV2.status.error,
   background: cssVarV2.layer.background.error,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'stretch',
+      flexDirection: 'column',
+    },
+  },
 });
 
 export const skeletonRow = style({
@@ -259,6 +351,11 @@ export const fieldHorizontal = style({
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',
   gap: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      gridTemplateColumns: '1fr',
+    },
+  },
 });
 
 export const formActions = style({
@@ -267,6 +364,12 @@ export const formActions = style({
   justifyContent: 'flex-end',
   gap: 8,
   paddingTop: 12,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexWrap: 'wrap',
+      justifyContent: 'flex-start',
+    },
+  },
 });
 
 export const formError = style({
@@ -319,6 +422,11 @@ export const inlineSelect = style({
   padding: '0 6px',
   color: cssVarV2.text.primary,
   background: cssVarV2.layer.background.primary,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      width: '100%',
+    },
+  },
 });
 
 export const priorityNone = style({
@@ -362,6 +470,11 @@ export const iconButton = style({
       opacity: 0.5,
     },
   },
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignSelf: 'flex-end',
+    },
+  },
 });
 
 export const viewToggleGroup = style({
@@ -371,6 +484,12 @@ export const viewToggleGroup = style({
   borderRadius: 6,
   border: `1px solid ${cssVarV2.layer.insideBorder.border}`,
   background: cssVarV2.layer.background.secondary,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      display: 'flex',
+      width: '100%',
+    },
+  },
 });
 
 export const viewToggleButton = style({
@@ -382,6 +501,11 @@ export const viewToggleButton = style({
   background: 'transparent',
   color: cssVarV2.text.secondary,
   cursor: 'pointer',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flex: 1,
+    },
+  },
   selectors: {
     '&[data-active="true"]': {
       background: cssVarV2.layer.background.primary,

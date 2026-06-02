@@ -30,6 +30,7 @@ import {
 import { AIChatErrorRenderer } from '../../messages/error';
 import { type AIError } from '../../provider';
 import { mergeStreamContent } from '../../utils/stream-objects';
+import { summarizeAssistantStatusChips } from './assistant-status';
 
 export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
   static override styles = css`
@@ -61,14 +62,21 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
         background-color: var(--affine-background-overlay-panel-color);
       }
     }
-    /* ε-AI-INTEL v1.10: chip surfaced when the assistant's stream contains
-       a tool-call for a write tool. Lets the user see at-a-glance that AI
-       made a change in this turn. */
-    .ai-write-chip {
+    /* ε-AI-INTEL v1.14: compact status chips summarise what the assistant
+       used in this turn: tools, sources, writes, and failures. Derived from
+       StreamObject tool-call / tool-result chunks, so completed tools remain
+       visible after mergeStreamObjects replaces the original call chunk. */
+    .ai-status-chips {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .ai-status-chip {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      margin-top: 6px;
       padding: 2px 8px;
       border-radius: 10px;
       font-size: var(--affine-font-xs);
@@ -76,6 +84,18 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       font-weight: 500;
       color: var(--affine-text-secondary-color);
       background: var(--affine-hover-color);
+    }
+    .ai-status-chip[data-kind='writes'] {
+      color: var(--manut-accent-violet-fg, var(--affine-text-primary-color));
+      background: var(--manut-accent-violet-bg, var(--affine-hover-color));
+    }
+    .ai-status-chip[data-kind='failures'] {
+      color: var(--affine-error-color);
+      background: color-mix(
+        in srgb,
+        var(--affine-error-color) 10%,
+        transparent
+      );
     }
     /* Manut M2 E2.4 — self-evolution feedback chips. One pair per
        assistant reply: thumbs-up / thumbs-down. Clicking flips the
@@ -286,7 +306,7 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
         : this.renderRichText(content)}
       ${this.renderStreamingCursor()}
       ${shouldRenderError ? AIChatErrorRenderer(error, host) : nothing}
-      ${this.renderWriteChip()} ${this.renderFeedbackChips()}
+      ${this.renderStatusChips()} ${this.renderFeedbackChips()}
       ${this.renderEditorActions()}
     `;
   }
@@ -447,34 +467,22 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
   // `sourceId`, then re-introduce the optimistic emit here with the
   // same id. Until then, do not emit from the frontend.
 
-  // ε-AI-INTEL v1.10: render a "AI made changes" chip whenever the
-  // assistant's stream contains a tool-call for a write tool. Backend
-  // tool keys use snake_case (doc_edit, section_edit, doc_create, ...),
-  // so we match against that set. Counting tool-results would over-count
-  // when the model retries, so we count tool-calls.
-  private renderWriteChip() {
-    const streamObjects = this.item.streamObjects;
-    if (!streamObjects?.length) return nothing;
-    const writeToolNames = new Set([
-      'doc_edit',
-      'section_edit',
-      'doc_create',
-      'doc_update',
-      'doc_update_meta',
-      'doc_compose',
-      'data_view_filter',
-      'data_view_autofill_column',
-    ]);
-    const hasWriteCall = streamObjects.some(
-      obj => obj.type === 'tool-call' && writeToolNames.has(obj.toolName)
-    );
-    if (!hasWriteCall) return nothing;
-    return html`<div
-      class="ai-write-chip"
-      data-testid="ai-write-tool-chip"
-      aria-label=${I18n.t('com.affine.ai.intelligence.tool-call.changes-made')}
-    >
-      ${I18n.t('com.affine.ai.intelligence.tool-call.changes-made')}
+  private renderStatusChips() {
+    const chips = summarizeAssistantStatusChips(this.item.streamObjects);
+    if (!chips.length) return nothing;
+    return html`<div class="ai-status-chips" data-testid="ai-status-chips">
+      ${chips.map(
+        chip =>
+          html`<div
+            class="ai-status-chip"
+            data-kind=${chip.kind}
+            data-testid=${chip.testId}
+            aria-label=${chip.label}
+            title=${chip.label}
+          >
+            ${chip.label}
+          </div>`
+      )}
     </div>`;
   }
 

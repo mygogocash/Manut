@@ -8,6 +8,7 @@ import { WorkspaceService } from '../../../workspace';
 import { ConnectionStatusBadge } from '../../components/connection-status-badge';
 import type { SocialPlatform } from '../../entities/analytics-data.entity';
 import type { PlatformConnection } from '../../entities/platform-connection.entity';
+import { ANALYTICS_PLATFORM_LABELS } from '../../entities/platform-copy';
 import {
   ConnectionService,
   type PendingAccountChoice,
@@ -32,14 +33,7 @@ const ALL_PLATFORMS: SocialPlatform[] = [
   'GOGOCASH',
 ];
 
-const PLATFORM_LABEL: Record<SocialPlatform, string> = {
-  FACEBOOK: 'Facebook',
-  INSTAGRAM: 'Instagram',
-  THREADS: 'Threads',
-  TIKTOK: 'TikTok',
-  LINE_VOOM: 'LINE VOOM',
-  GOGOCASH: 'GoGoCash',
-};
+const PLATFORM_LABEL = ANALYTICS_PLATFORM_LABELS;
 
 interface ConnectionsSettingsProps {
   /**

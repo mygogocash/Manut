@@ -10,6 +10,7 @@ export const sharedEffectElementTags = [
   'tool-call-card',
   'tool-result-card',
   'tool-call-failed',
+  'doc-hybrid-search-result',
   'doc-semantic-search-result',
   'doc-keyword-search-result',
   'doc-read-result',

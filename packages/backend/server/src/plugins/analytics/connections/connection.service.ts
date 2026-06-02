@@ -277,13 +277,17 @@ export class ConnectionService {
     let refreshTokenPlain: string | undefined;
 
     if (payload.platform === PrismaSocialPlatform.LINE_VOOM) {
-      const result = await this.lineOAuth.exchangeCode(code, callbackUrl);
+      // Validate the OAuth code/user flow, then bind the workspace to the
+      // configured Messaging API channel. The analytics poller/webhook path
+      // needs the channel token, not a LINE Login user token.
+      await this.lineOAuth.exchangeCode(code, callbackUrl);
+      const result = this.lineOAuth.getMessagingChannelConnection();
       token = result.accessToken;
-      refreshTokenPlain = result.refreshToken;
+      refreshTokenPlain = undefined;
       scopes = result.scopes;
       externalAccountId = result.externalAccountId;
       externalAccountName = result.externalAccountName;
-      expiresAt = result.expiresAt ?? null;
+      expiresAt = null;
     } else if (payload.platform === PrismaSocialPlatform.TIKTOK) {
       const result = await this.tiktokOAuth.exchangeCode(code, callbackUrl);
       token = result.accessToken;

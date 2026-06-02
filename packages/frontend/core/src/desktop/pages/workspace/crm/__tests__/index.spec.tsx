@@ -15,6 +15,7 @@ const queryState = vi.hoisted(() => ({
   stages: [] as unknown[],
   activities: [] as unknown[],
 }));
+const queryCalls = vi.hoisted(() => [] as Array<{ id: string; config: any }>);
 // Tracks every useMutation trigger call so tests can assert that a
 // specific mutation fired with the expected payload. Keyed by mutation
 // `id` so tests don't have to thread the same trigger fn through React.
@@ -105,7 +106,11 @@ vi.mock('@affine/component', () => ({
 }));
 
 vi.mock('@affine/core/components/hooks/use-query', () => ({
-  useQuery: ({ query }: { query: { id: string } }) => {
+  useQuery: (
+    { query }: { query: { id: string } },
+    config?: Record<string, unknown>
+  ) => {
+    queryCalls.push({ id: query.id, config });
     switch (query.id) {
       case 'mnCrmAccountsQuery':
         return {
@@ -176,6 +181,7 @@ vi.mock('@affine/i18n', () => ({
 
 vi.mock('@blocksuite/icons/rc', () => ({
   CollaborationIcon: () => <span>collab-icon</span>,
+  DownloadIcon: () => <span>download-icon</span>,
 }));
 
 vi.mock('../../../../../components/pure/header', () => ({
@@ -224,6 +230,7 @@ describe('CrmPage', () => {
     queryState.deals = [];
     queryState.stages = [];
     queryState.activities = [];
+    queryCalls.length = 0;
     mutationState.calls = [];
     mutationState.triggerImpl.mockClear();
     mutationState.triggerImpl.mockImplementation(async () => ({
@@ -244,6 +251,24 @@ describe('CrmPage', () => {
     expect(screen.getByText('com.manut.crm.tab.activities')).toBeTruthy();
   });
 
+  test('enables live refresh for CRM workspace data queries', () => {
+    render(<Component />);
+
+    const dataQueries = queryCalls.filter(call =>
+      [
+        'mnCrmAccountsQuery',
+        'mnCrmContactsQuery',
+        'mnCrmDealStagesQuery',
+        'mnCrmDealsQuery',
+        'mnCrmActivitiesQuery',
+      ].includes(call.id)
+    );
+    expect(dataQueries.length).toBeGreaterThan(0);
+    expect(
+      dataQueries.every(call => call.config?.refreshInterval === 30_000)
+    ).toBe(true);
+  });
+
   test('shows the accounts empty state when no accounts exist', () => {
     render(<Component />);
 
@@ -257,6 +282,18 @@ describe('CrmPage', () => {
 
     expect(screen.getByText('Acme Inc.')).toBeTruthy();
     expect(screen.queryByTestId('crm-accounts-empty')).toBeNull();
+  });
+
+  test('enables CSV export when accounts are returned', () => {
+    queryState.accounts = [makeAccount()];
+
+    render(<Component />);
+
+    const exportButton = screen.getByTestId(
+      'crm-export-accounts'
+    ) as HTMLButtonElement;
+    expect(exportButton).toBeTruthy();
+    expect(exportButton.disabled).toBe(false);
   });
 
   test('renders a Kanban column per deal stage with linked deals', () => {

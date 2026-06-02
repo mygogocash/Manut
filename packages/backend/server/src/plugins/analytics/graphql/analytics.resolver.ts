@@ -1,25 +1,23 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { PrismaClient } from '@prisma/client';
 
-import {
-  BadRequest,
-  EventBus,
-  InternalServerError,
-  NotFound,
-} from '../../../base';
+import { BadRequest, NotFound } from '../../../base';
 import { CurrentUser } from '../../../core/auth';
 import { AccessController } from '../../../core/permission';
 import {
   BudgetExceededError,
   StrategistService,
 } from '../ai/strategist.service';
+import { AnalyticsInsightEventBus } from '../insight-event-bus.service';
 import {
   AcknowledgeInsightInput,
   AnalyticsOverviewObjectType,
   InsightType,
+  ListEventsInput,
   ListInsightsInput,
   ListMetricsInput,
   RunContentRecommendationInput,
+  SocialEventObjectType,
   SocialInsightObjectType,
   SocialMetricObjectType,
 } from './analytics.dto';
@@ -37,7 +35,7 @@ export class AnalyticsResolver {
     private readonly db: PrismaClient,
     private readonly ac: AccessController,
     private readonly strategist: StrategistService,
-    private readonly event: EventBus
+    private readonly insightBus: AnalyticsInsightEventBus
   ) {}
 
   @Query(() => AnalyticsOverviewObjectType, {
@@ -94,14 +92,93 @@ export class AnalyticsResolver {
     description: 'Aggregated metrics for the dashboard charts.',
   })
   async listMetrics(
-    @CurrentUser() _user: CurrentUser,
+    @CurrentUser() user: CurrentUser,
     @Args('input', { type: () => ListMetricsInput })
-    _input: ListMetricsInput
+    input: ListMetricsInput
   ): Promise<SocialMetricObjectType[]> {
-    // TODO(phase-3): query SocialMetric by (workspaceId, platform, bucket, bucketStart range).
-    // Typed friendly error so the unimplemented path doesn't surface as
-    // the generic "Unhandled error raised" (finding #13).
-    throw new InternalServerError('Metrics listing is not available yet.');
+    await this.ac
+      .user(user.id)
+      .workspace(input.workspaceId)
+      .assert('Workspace.Read');
+
+    if (
+      !Number.isFinite(input.from.getTime()) ||
+      !Number.isFinite(input.to.getTime()) ||
+      input.from.getTime() >= input.to.getTime()
+    ) {
+      throw new BadRequest('Metrics range must have from before to.');
+    }
+
+    const rows = await this.db.socialMetric.findMany({
+      where: {
+        workspaceId: input.workspaceId,
+        ...(input.platform ? { platform: input.platform as never } : {}),
+        bucket: input.bucket as never,
+        bucketStart: { gte: input.from, lt: input.to },
+      },
+      orderBy: [{ bucketStart: 'asc' }, { metricKey: 'asc' }],
+      take: 5000,
+    });
+
+    return rows.map(row => ({
+      id: row.id,
+      platform: row.platform as SocialMetricObjectType['platform'],
+      metricKey: row.metricKey,
+      bucket: row.bucket as SocialMetricObjectType['bucket'],
+      bucketStart: row.bucketStart,
+      value: row.value,
+    }));
+  }
+
+  @Query(() => [SocialEventObjectType], {
+    description: 'Newest normalized social events for platform deep dives.',
+  })
+  async listEvents(
+    @CurrentUser() user: CurrentUser,
+    @Args('input', { type: () => ListEventsInput })
+    input: ListEventsInput
+  ): Promise<SocialEventObjectType[]> {
+    await this.ac
+      .user(user.id)
+      .workspace(input.workspaceId)
+      .assert('Workspace.Read');
+
+    if (
+      !Number.isFinite(input.from.getTime()) ||
+      !Number.isFinite(input.to.getTime()) ||
+      input.from.getTime() >= input.to.getTime()
+    ) {
+      throw new BadRequest('Events range must have from before to.');
+    }
+
+    const rows = await this.db.socialEvent.findMany({
+      where: {
+        workspaceId: input.workspaceId,
+        ...(input.platform ? { platform: input.platform as never } : {}),
+        occurredAt: { gte: input.from, lt: input.to },
+      },
+      orderBy: { occurredAt: 'desc' },
+      take: Math.max(1, Math.min(input.limit ?? 50, 200)),
+      select: {
+        id: true,
+        platform: true,
+        eventType: true,
+        externalId: true,
+        occurredAt: true,
+        receivedAt: true,
+        payload: true,
+      },
+    });
+
+    return rows.map(row => ({
+      id: row.id,
+      platform: row.platform as SocialEventObjectType['platform'],
+      eventType: row.eventType,
+      externalId: row.externalId,
+      occurredAt: row.occurredAt,
+      receivedAt: row.receivedAt,
+      payload: toJsonObject(row.payload),
+    }));
   }
 
   @Mutation(() => SocialInsightObjectType, {
@@ -116,7 +193,7 @@ export class AnalyticsResolver {
     await this.ac
       .user(user.id)
       .workspace(input.workspaceId)
-      .assert('Workspace.Read');
+      .assert('Workspace.Settings.Update');
 
     try {
       const insight = await this.strategist.generateContentRecommendation(
@@ -124,7 +201,9 @@ export class AnalyticsResolver {
         input.tone
       );
 
-      // Notify subscribers (see insightCreated subscription wiring TODO below).
+      // Notify subscribers via the existing SSE transport. We still keep the
+      // GraphQL subscription document on the frontend as a future transport
+      // target, but SSE is the production path for this release.
       this.publishInsight(insight.workspaceId, insight);
 
       return toInsightDto(insight);
@@ -172,30 +251,26 @@ export class AnalyticsResolver {
   }
 
   // --------------------------------------------------------------------
-  // GraphQL Subscriptions: insightCreated(workspaceId)
+  // Live transport: insightCreated(workspaceId)
   //
-  // The codebase doesn't currently wire @Subscription resolvers (no
-  // graphql-ws / subscription transport on the apollo server config). For
-  // now we publish via the typed EventBus so consumers can subscribe via
-  // the existing socket infrastructure once the GraphQL subscription
-  // transport is enabled. When that lands, replace `publishInsight` with
-  // a `@Subscription` resolver that filters by workspaceId.
+  // The codebase still does not wire GraphQL @Subscription resolvers, so the
+  // analytics UI uses the existing authenticated SSE pattern instead.
   // --------------------------------------------------------------------
-  private publishInsight(workspaceId: string, insight: unknown): void {
-    // We use `emitDetached` so the ack of the http mutation isn't held up
-    // by event-side listeners. The event name is namespaced under
-    // 'analytics.insight.created' — register that event in the typed
-    // Events map when subscriptions are wired.
+  private publishInsight(
+    workspaceId: string,
+    insight: Parameters<AnalyticsInsightEventBus['emit']>[1]
+  ): void {
     try {
-      // EventBus.emit requires the event name to exist on the typed
-      // Events map. We avoid registering a new typed event here (out of
-      // scope for this round); instead we log so wiring is observable and
-      // skip the actual emit until subscriptions are wired.
-      void this.event;
-      void workspaceId;
-      void insight;
+      this.insightBus.emit(workspaceId, insight);
     } catch {
       // Never let event publishing failures break the mutation.
     }
   }
+}
+
+function toJsonObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
 }

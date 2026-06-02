@@ -20,7 +20,7 @@ import {
 } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
-import { CollaborationIcon } from '@blocksuite/icons/rc';
+import { CollaborationIcon, DownloadIcon } from '@blocksuite/icons/rc';
 import { useService } from '@toeverything/infra';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
@@ -68,6 +68,7 @@ import {
   KanbanBoard,
   type KanbanColumn,
   type KanbanOnMoveArgs,
+  MANUT_LIVE_QUERY_OPTIONS,
 } from '../../../../modules/manut-shared';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
 import { AccountDetailBody } from './account-detail';
@@ -76,6 +77,14 @@ import { ActivityDetailBody } from './activity-detail';
 import { ActivityEditModal } from './activity-edit-modal';
 import { ContactDetailBody } from './contact-detail';
 import { ContactEditModal } from './contact-edit-modal';
+import {
+  buildCrmAccountsCsv,
+  buildCrmActivitiesCsv,
+  buildCrmContactsCsv,
+  buildCrmDealsCsv,
+  crmExportFilename,
+  downloadCsv,
+} from './csv-export';
 import { DealDetailBody } from './deal-detail';
 import { DealEditModal } from './deal-edit-modal';
 import { summarizeDealColumn, toExternalHref } from './deal-totals';
@@ -168,6 +177,44 @@ const CrmHeader = () => {
     />
   );
 };
+
+type CrmExportEntity = 'accounts' | 'contacts' | 'deals' | 'activities';
+
+interface CsvExportButtonProps {
+  disabled: boolean;
+  onClick: () => void;
+  testId: string;
+}
+
+const CsvExportButton = ({
+  disabled,
+  onClick,
+  testId,
+}: CsvExportButtonProps) => (
+  <Button
+    disabled={disabled}
+    prefix={<DownloadIcon />}
+    onClick={onClick}
+    data-testid={testId}
+  >
+    Export CSV
+  </Button>
+);
+
+function exportCrmCsv(entity: CrmExportEntity, csv: string, rowCount: number) {
+  try {
+    downloadCsv(crmExportFilename(entity), csv);
+    notify.success({
+      title: 'CSV exported',
+      message: `${rowCount} ${entity} row${rowCount === 1 ? '' : 's'} exported.`,
+    });
+  } catch (err) {
+    notify.error({
+      title: 'Could not export CSV',
+      message: getErrorMessage(err, 'The browser blocked the download.'),
+    });
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Skeletons / fallbacks
@@ -336,13 +383,16 @@ const AccountsTabInner = ({ workspaceId }: AccountsTabProps) => {
   // so we co-load those queries in the accounts tab too. Each is small;
   // we also use the SWR cache so contacts/deals tabs hit the same fetch.
   const { data, mutate } = useQuery(
-    toQueryArg(mnCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: contactsData, mutate: mutateContacts } = useQuery(
-    toQueryArg(mnCrmContactsQuery, { workspaceId })
+    toQueryArg(mnCrmContactsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: dealsData, mutate: mutateDeals } = useQuery(
-    toQueryArg(mnCrmDealsQuery, { workspaceId })
+    toQueryArg(mnCrmDealsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
 
   const accounts = useMemo(
@@ -382,6 +432,10 @@ const AccountsTabInner = ({ workspaceId }: AccountsTabProps) => {
     await Promise.all([mutate(), mutateContacts(), mutateDeals()]);
   }, [mutate, mutateContacts, mutateDeals]);
 
+  const handleExport = useCallback(() => {
+    exportCrmCsv('accounts', buildCrmAccountsCsv(accounts), accounts.length);
+  }, [accounts]);
+
   const handleRowKey = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>, accountId: string) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -398,9 +452,16 @@ const AccountsTabInner = ({ workspaceId }: AccountsTabProps) => {
         <div className={styles.placeholderText}>
           {t['com.manut.crm.accounts.subtitle']()}
         </div>
-        <Button variant="primary" onClick={() => setCreating(true)}>
-          {t['com.manut.crm.accounts.create']()}
-        </Button>
+        <div className={styles.actionButtons}>
+          <CsvExportButton
+            disabled={accounts.length === 0}
+            onClick={handleExport}
+            testId="crm-export-accounts"
+          />
+          <Button variant="primary" onClick={() => setCreating(true)}>
+            {t['com.manut.crm.accounts.create']()}
+          </Button>
+        </div>
       </div>
       {accounts.length === 0 ? (
         <div className={styles.emptyState} data-testid="crm-accounts-empty">
@@ -612,10 +673,12 @@ const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
   const [editing, setEditing] = useState(false);
 
   const { data: contactsData, mutate } = useQuery(
-    toQueryArg(mnCrmContactsQuery, { workspaceId })
+    toQueryArg(mnCrmContactsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: accountsData } = useQuery(
-    toQueryArg(mnCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
 
   const contacts = useMemo(
@@ -659,6 +722,14 @@ const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
     await mutate();
   }, [mutate]);
 
+  const handleExport = useCallback(() => {
+    exportCrmCsv(
+      'contacts',
+      buildCrmContactsCsv(contacts, accountById),
+      contacts.length
+    );
+  }, [accountById, contacts]);
+
   const handleRowKey = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>, contactId: string) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -675,9 +746,16 @@ const ContactsTabInner = ({ workspaceId }: ContactsTabProps) => {
         <div className={styles.placeholderText}>
           {t['com.manut.crm.contacts.subtitle']()}
         </div>
-        <Button variant="primary" onClick={() => setCreating(true)}>
-          {t['com.manut.crm.contacts.create']()}
-        </Button>
+        <div className={styles.actionButtons}>
+          <CsvExportButton
+            disabled={contacts.length === 0}
+            onClick={handleExport}
+            testId="crm-export-contacts"
+          />
+          <Button variant="primary" onClick={() => setCreating(true)}>
+            {t['com.manut.crm.contacts.create']()}
+          </Button>
+        </div>
       </div>
       {contacts.length === 0 ? (
         <div className={styles.emptyState} data-testid="crm-contacts-empty">
@@ -936,17 +1014,21 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   >({});
 
   const { data: dealsData, mutate } = useQuery(
-    toQueryArg(mnCrmDealsQuery, { workspaceId })
+    toQueryArg(mnCrmDealsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: stagesData, mutate: mutateStages } = useQuery(
-    toQueryArg(mnCrmDealStagesQuery, { workspaceId })
+    toQueryArg(mnCrmDealStagesQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: accountsData } = useQuery(
-    toQueryArg(mnCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   // Activity history is rendered inline in the detail panel.
   const { data: activitiesData } = useQuery(
-    toQueryArg(mnCrmActivitiesQuery, { workspaceId })
+    toQueryArg(mnCrmActivitiesQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
 
   // Quick-action: move stage from the detail panel or kanban drag without
@@ -989,6 +1071,10 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
   const accountById = useMemo(
     () => new Map(accounts.map(account => [account.id, account])),
     [accounts]
+  );
+  const stageById = useMemo(
+    () => new Map(stages.map(stage => [stage.id, stage])),
+    [stages]
   );
 
   const dealsWithOverrides = useMemo<DealKanbanCard[]>(() => {
@@ -1075,6 +1161,14 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
     await mutate();
   }, [mutate]);
 
+  const handleExport = useCallback(() => {
+    exportCrmCsv(
+      'deals',
+      buildCrmDealsCsv(deals, { accounts: accountById, stages: stageById }),
+      deals.length
+    );
+  }, [accountById, deals, stageById]);
+
   const handleMove = useCallback(
     async ({ cardId, fromColumn, toColumn }: KanbanOnMoveArgs) => {
       if (fromColumn === toColumn) return;
@@ -1155,13 +1249,20 @@ const DealsTabInner = ({ workspaceId }: DealsTabProps) => {
         <div className={styles.placeholderText}>
           {t['com.manut.crm.deals.subtitle']()}
         </div>
-        <Button
-          variant="primary"
-          onClick={() => setCreating(true)}
-          disabled={stagesSorted.length === 0}
-        >
-          {t['com.manut.crm.deals.create']()}
-        </Button>
+        <div className={styles.actionButtons}>
+          <CsvExportButton
+            disabled={deals.length === 0}
+            onClick={handleExport}
+            testId="crm-export-deals"
+          />
+          <Button
+            variant="primary"
+            onClick={() => setCreating(true)}
+            disabled={stagesSorted.length === 0}
+          >
+            {t['com.manut.crm.deals.create']()}
+          </Button>
+        </div>
       </div>
       {stagesSorted.length === 0 ? (
         <div className={styles.emptyState} data-testid="crm-deals-empty">
@@ -1530,19 +1631,23 @@ const ActivitiesTabInner = ({ workspaceId }: ActivitiesTabProps) => {
   const [editing, setEditing] = useState(false);
 
   const { data, mutate } = useQuery(
-    toQueryArg(mnCrmActivitiesQuery, { workspaceId })
+    toQueryArg(mnCrmActivitiesQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   // Co-load the link-resolution sources. The list of activities is bounded
   // at 200 server-side; accounts/contacts/deals are typically smaller and
   // already cached by the other tabs, so this is essentially free.
   const { data: accountsData } = useQuery(
-    toQueryArg(mnCrmAccountsQuery, { workspaceId })
+    toQueryArg(mnCrmAccountsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: contactsData } = useQuery(
-    toQueryArg(mnCrmContactsQuery, { workspaceId })
+    toQueryArg(mnCrmContactsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
   const { data: dealsData } = useQuery(
-    toQueryArg(mnCrmDealsQuery, { workspaceId })
+    toQueryArg(mnCrmDealsQuery, { workspaceId }),
+    MANUT_LIVE_QUERY_OPTIONS
   );
 
   const activities = useMemo(
@@ -1626,6 +1731,18 @@ const ActivitiesTabInner = ({ workspaceId }: ActivitiesTabProps) => {
     await mutate();
   }, [mutate]);
 
+  const handleExport = useCallback(() => {
+    exportCrmCsv(
+      'activities',
+      buildCrmActivitiesCsv(sorted, {
+        accounts: accountById,
+        contacts: contactById,
+        deals: dealById,
+      }),
+      sorted.length
+    );
+  }, [accountById, contactById, dealById, sorted]);
+
   const handleRowKey = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>, activityId: string) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -1642,9 +1759,16 @@ const ActivitiesTabInner = ({ workspaceId }: ActivitiesTabProps) => {
         <div className={styles.placeholderText}>
           {t['com.manut.crm.activities.subtitle']()}
         </div>
-        <Button variant="primary" onClick={() => setCreating(true)}>
-          {t['com.manut.crm.activities.create']()}
-        </Button>
+        <div className={styles.actionButtons}>
+          <CsvExportButton
+            disabled={sorted.length === 0}
+            onClick={handleExport}
+            testId="crm-export-activities"
+          />
+          <Button variant="primary" onClick={() => setCreating(true)}>
+            {t['com.manut.crm.activities.create']()}
+          </Button>
+        </div>
       </div>
       {sorted.length === 0 ? (
         <div className={styles.emptyState} data-testid="crm-activities-empty">

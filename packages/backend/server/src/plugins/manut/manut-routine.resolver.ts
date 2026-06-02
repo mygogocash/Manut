@@ -133,7 +133,7 @@ export class MnRoutineResolver {
 
   @Mutation(() => MnRoutineRunObjectType, {
     description:
-      'Manually trigger a routine. PR 1 creates a QUEUED run record without executing — Vertex execution lands in PR 4.',
+      'Queue a routine preview run record. This does not execute against Vertex yet.',
   })
   @Throttle('default', { limit: 10 })
   async runMnRoutine(

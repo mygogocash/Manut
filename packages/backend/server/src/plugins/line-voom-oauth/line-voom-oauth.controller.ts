@@ -9,6 +9,7 @@ import {
 import type { Response } from 'express';
 
 import { Public } from '../../core/auth';
+import { jsonForInlineScript } from '../oauth-callback-script';
 import { LineVoomOAuthService } from './line-voom-oauth.service';
 
 const POSTMESSAGE_TYPE = 'affine:line-voom-oauth-result';
@@ -67,16 +68,17 @@ export class LineVoomOAuthController {
       : `error=${encodeURIComponent(result.error)}`;
     const fallbackUrl = `/?settings=analytics-connections&${fallbackQuery}`;
 
-    const payload = JSON.stringify({
+    const payload = jsonForInlineScript({
       type: POSTMESSAGE_TYPE,
       ...result,
     });
+    const safeFallbackUrl = jsonForInlineScript(fallbackUrl);
 
     return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Connecting LINE VOOM…</title>
+  <title>Connecting LINE Official Account...</title>
   <meta name="referrer" content="strict-origin" />
   <style>body{font:14px system-ui,sans-serif;padding:24px;color:#333}</style>
 </head>
@@ -85,7 +87,7 @@ export class LineVoomOAuthController {
   <script>
   (function () {
     var payload = ${payload};
-    var fallbackUrl = ${JSON.stringify(fallbackUrl)};
+    var fallbackUrl = ${safeFallbackUrl};
     try {
       if (window.opener && window.opener !== window) {
         window.opener.postMessage(payload, window.location.origin);

@@ -10,6 +10,8 @@ const CONN_STATE_KEY = 'CONN_OAUTH_STATE';
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const REFRESH_LOCK_TTL_MS = 30 * 1000; // 30s — long enough for any refresh, short enough to recover from a crashed holder
 const REFRESH_SKEW_MS = 60 * 1000; // refresh tokens 60s before expiry
+const REFRESH_LOCK_WAIT_MS = 250;
+const REFRESH_LOCK_WAIT_ATTEMPTS = 5;
 
 export interface OAuthStartState {
   userId: string;
@@ -185,11 +187,7 @@ export class ConnectionsService {
       this.models.integrationConnection.decryptTokens(connection);
     if (!decrypted) return null;
 
-    const expiresAt = decrypted.tokenExpiresAt;
-    const isExpiringSoon =
-      expiresAt && expiresAt.getTime() - Date.now() < REFRESH_SKEW_MS;
-
-    if (!isExpiringSoon) {
+    if (!this.isExpiringSoon(decrypted.tokenExpiresAt)) {
       return decrypted.accessToken;
     }
 
@@ -222,17 +220,23 @@ export class ConnectionsService {
     });
 
     if (!acquired) {
-      // Another request is refreshing. Wait briefly and re-read.
-      await new Promise(r => setTimeout(r, 250));
-      const fresh = await this.models.integrationConnection.getByProvider(
-        userId,
-        workspaceId,
-        providerName
-      );
-      const decrypted =
-        this.models.integrationConnection.decryptTokens(fresh);
-      if (!decrypted) throw new ConnectionTokenExpiredError(providerName);
-      return decrypted.accessToken;
+      // Another request is refreshing. Wait briefly and re-read, but never
+      // return a token that is still expired/inside the refresh skew window.
+      for (let attempt = 0; attempt < REFRESH_LOCK_WAIT_ATTEMPTS; attempt++) {
+        await new Promise(r => setTimeout(r, REFRESH_LOCK_WAIT_MS));
+        const fresh = await this.models.integrationConnection.getByProvider(
+          userId,
+          workspaceId,
+          providerName
+        );
+        const decrypted =
+          this.models.integrationConnection.decryptTokens(fresh);
+        if (!decrypted) throw new ConnectionTokenExpiredError(providerName);
+        if (!this.isExpiringSoon(decrypted.tokenExpiresAt)) {
+          return decrypted.accessToken;
+        }
+      }
+      throw new ConnectionTokenExpiredError(providerName);
     }
 
     try {
@@ -251,5 +255,9 @@ export class ConnectionsService {
     } finally {
       await this.cache.delete(lockKey);
     }
+  }
+
+  private isExpiringSoon(expiresAt: Date | null | undefined): boolean {
+    return !!expiresAt && expiresAt.getTime() - Date.now() < REFRESH_SKEW_MS;
   }
 }

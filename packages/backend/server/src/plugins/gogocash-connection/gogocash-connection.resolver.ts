@@ -11,6 +11,7 @@ import {
 
 import { AuthenticationRequired, BadRequest } from '../../base';
 import { CurrentUser } from '../../core/auth';
+import { AccessController } from '../../core/permission';
 import {
   GoGoCashConnectionInvalidKeyError,
   GoGoCashConnectionNotConnectedError,
@@ -57,7 +58,10 @@ function rethrowFriendly(err: unknown): never {
 export class GoGoCashConnectionResolver {
   private readonly logger = new Logger(GoGoCashConnectionResolver.name);
 
-  constructor(private readonly gogocash: GoGoCashConnectionService) {}
+  constructor(
+    private readonly gogocash: GoGoCashConnectionService,
+    private readonly ac: AccessController
+  ) {}
 
   @Mutation(() => GoGoCashConnectionType)
   async setGoGoCashConnection(
@@ -68,6 +72,10 @@ export class GoGoCashConnectionResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     try {
       const status = await this.gogocash.setConnection(
         user.id,
@@ -92,6 +100,10 @@ export class GoGoCashConnectionResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac
+      .user(user.id)
+      .workspace(workspaceId)
+      .assert('Workspace.Settings.Update');
     return this.gogocash.disconnect(user.id, workspaceId);
   }
 
@@ -103,6 +115,7 @@ export class GoGoCashConnectionResolver {
     if (!user) {
       throw new AuthenticationRequired();
     }
+    await this.ac.user(user.id).workspace(workspaceId).assert('Workspace.Read');
     try {
       const status = await this.gogocash.getStatus(user.id, workspaceId);
       return {

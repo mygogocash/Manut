@@ -526,9 +526,7 @@ export class WorkspaceMcpProvider {
                 })),
                 'Doc.Read'
               );
-            const accessibleDocIds = new Set(
-              accessibleDocs.map(d => d.docId)
-            );
+            const accessibleDocIds = new Set(accessibleDocs.map(d => d.docId));
 
             const databases = result.nodes
               .filter(n => {
@@ -542,7 +540,8 @@ export class WorkspaceMcpProvider {
                 let additional: Record<string, unknown> = {};
                 try {
                   const raw = n.fields.additional?.[0] as string | undefined;
-                  if (raw) additional = JSON.parse(raw) as Record<string, unknown>;
+                  if (raw)
+                    additional = JSON.parse(raw) as Record<string, unknown>;
                 } catch {
                   // ignore parse errors
                 }
@@ -627,11 +626,17 @@ export class WorkspaceMcpProvider {
         },
       });
 
-      tools.push(createDocument, updateDocument, updateDocumentMeta, listDatabases, queryDatabase);
+      tools.push(
+        createDocument,
+        updateDocument,
+        updateDocumentMeta,
+        listDatabases,
+        queryDatabase
+      );
     }
 
     return {
-      name: `AFFiNE MCP Server for Workspace ${workspaceId}`,
+      name: `Manut MCP Server for Workspace ${workspaceId}`,
       version: '1.0.1',
       tools,
     };

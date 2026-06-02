@@ -7,7 +7,7 @@ import {
 import { Permission, WorkspaceMemberStatus } from '@affine/graphql';
 import { useI18n } from '@affine/i18n';
 import { useLiveData, useService } from '@toeverything/infra';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 export const MemberOptions = ({
   member,
@@ -27,6 +27,8 @@ export const MemberOptions = ({
   const permission = useService(WorkspacePermissionService).permission;
   const isTeam = useLiveData(permission.isTeam$);
   const { openConfirmModal } = useConfirmModal();
+  const [isResendingInvite, setIsResendingInvite] = useState(false);
+  const isResendingInviteRef = useRef(false);
 
   const openRemoveConfirmModal = useCallback(
     (successNotify: { title: string; message: string }) => {
@@ -77,6 +79,13 @@ export const MemberOptions = ({
   }, [openRemoveConfirmModal, member, t]);
 
   const handleResendInvite = useCallback(() => {
+    if (isResendingInviteRef.current) {
+      return;
+    }
+
+    isResendingInviteRef.current = true;
+    setIsResendingInvite(true);
+
     membersService
       .resendInvite(member.inviteId)
       .then(result => {
@@ -94,6 +103,10 @@ export const MemberOptions = ({
           title: 'Operation failed',
           message: error.message,
         });
+      })
+      .finally(() => {
+        isResendingInviteRef.current = false;
+        setIsResendingInvite(false);
       });
   }, [member, membersService, t]);
 
@@ -212,7 +225,14 @@ export const MemberOptions = ({
     });
   }, [goToTeamBilling, isOwner, openConfirmModal, t]);
 
-  const operationButtonInfo = useMemo(() => {
+  const operationButtonInfo = useMemo<
+    {
+      disabled?: boolean;
+      label: string;
+      onClick: () => void;
+      show: boolean;
+    }[]
+  >(() => {
     return [
       {
         label: t['com.affine.payment.member.team.retry-payment'](),
@@ -239,6 +259,7 @@ export const MemberOptions = ({
       },
       {
         label: t['com.affine.payment.member.team.resend'](),
+        disabled: isResendingInvite,
         onClick: handleResendInvite,
         show:
           (isAdmin || isOwner) &&
@@ -301,6 +322,7 @@ export const MemberOptions = ({
     handleRevoke,
     isAdmin,
     isOwner,
+    isResendingInvite,
     isTeam,
     member.permission,
     member.status,
@@ -311,7 +333,11 @@ export const MemberOptions = ({
     <>
       {operationButtonInfo.map(item =>
         item.show ? (
-          <MenuItem key={item.label} onSelect={item.onClick}>
+          <MenuItem
+            disabled={item.disabled}
+            key={item.label}
+            onSelect={item.onClick}
+          >
             {item.label}
           </MenuItem>
         ) : null

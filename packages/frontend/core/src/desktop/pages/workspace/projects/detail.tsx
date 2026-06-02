@@ -27,6 +27,7 @@ import {
   updateMnTaskMutation,
   updateMnTaskStatusMutation,
 } from '@affine/core/modules/manut-pm';
+import { MANUT_LIVE_QUERY_OPTIONS } from '@affine/core/modules/manut-shared';
 import {
   ViewBody,
   ViewHeader,
@@ -38,6 +39,7 @@ import { WorkspaceService } from '@affine/core/modules/workspace';
 import {
   ArrowLeftBigIcon,
   DeleteIcon,
+  DownloadIcon,
   EditIcon,
   PlusIcon,
 } from '@blocksuite/icons/rc';
@@ -55,6 +57,7 @@ import { useParams } from 'react-router-dom';
 
 import { Header } from '../../../../components/pure/header';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
+import { buildPmTasksCsv, downloadCsv, pmExportFilename } from './csv-export';
 import * as styles from './detail.css';
 import {
   dueAtInputValue,
@@ -772,12 +775,14 @@ const TaskRow: FC<TaskRowProps> = ({
 
 interface ProjectTasksProps {
   projectId: string;
+  projectName: string;
   onAddTaskClick: () => void;
   onEditTask: (task: MnTaskDto) => void;
 }
 
 const ProjectTasks: FC<ProjectTasksProps> = ({
   projectId,
+  projectName,
   onAddTaskClick,
   onEditTask,
 }) => {
@@ -786,7 +791,7 @@ const ProjectTasks: FC<ProjectTasksProps> = ({
     variables: { projectId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
-  const { data, error, mutate } = useQuery(queryArg);
+  const { data, error, mutate } = useQuery(queryArg, MANUT_LIVE_QUERY_OPTIONS);
 
   const tasks = (data as unknown as { mnTasks?: MnTaskDto[] } | undefined)
     ?.mnTasks;
@@ -833,6 +838,25 @@ const ProjectTasks: FC<ProjectTasksProps> = ({
     [mutate, triggerDelete]
   );
 
+  const handleExport = useCallback(() => {
+    if (!tasks || tasks.length === 0) return;
+    try {
+      downloadCsv(
+        pmExportFilename('tasks'),
+        buildPmTasksCsv(tasks, projectName)
+      );
+      notify.success({
+        title: 'CSV exported',
+        message: `${tasks.length} task${tasks.length === 1 ? '' : 's'} exported.`,
+      });
+    } catch (err) {
+      notify.error({
+        title: 'Could not export tasks',
+        message: errorMessage(err),
+      });
+    }
+  }, [projectName, tasks]);
+
   if (error) {
     return (
       <div className={listStyles.errorBox} role="alert">
@@ -875,9 +899,18 @@ const ProjectTasks: FC<ProjectTasksProps> = ({
         <span className={listStyles.taskMeta}>
           {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
         </span>
-        <Button prefix={<PlusIcon />} onClick={onAddTaskClick}>
-          Add task
-        </Button>
+        <div className={listStyles.taskFooterActions}>
+          <Button
+            prefix={<DownloadIcon />}
+            onClick={handleExport}
+            data-testid="manut-pm-export-tasks"
+          >
+            Export CSV
+          </Button>
+          <Button prefix={<PlusIcon />} onClick={onAddTaskClick}>
+            Add task
+          </Button>
+        </div>
       </div>
     </>
   );
@@ -899,7 +932,7 @@ const ProjectDetailBody: FC<ProjectDetailBodyProps> = ({
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
-  const { data, error, mutate } = useQuery(queryArg);
+  const { data, error, mutate } = useQuery(queryArg, MANUT_LIVE_QUERY_OPTIONS);
 
   const project = useMemo(() => {
     const projects = (
@@ -1059,6 +1092,7 @@ const ProjectDetailBody: FC<ProjectDetailBodyProps> = ({
           >
             <ProjectTasks
               projectId={project.id}
+              projectName={project.name}
               onAddTaskClick={() => setCreatingTask(true)}
               onEditTask={setEditingTask}
             />

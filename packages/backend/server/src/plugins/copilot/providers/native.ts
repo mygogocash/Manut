@@ -426,6 +426,14 @@ function pickAttachmentFootnote(value: unknown): AttachmentFootnote | null {
   return { blobId, fileName, fileType };
 }
 
+function pickToolResultCitation(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+  const citation = (value as Record<string, unknown>).citation;
+  return citation ?? value;
+}
+
 function collectAttachmentFootnotes(
   event: NormalizedToolResultEvent
 ): AttachmentFootnote[] {
@@ -434,9 +442,13 @@ function collectAttachmentFootnotes(
     return item ? [item] : [];
   }
 
-  if (event.name === 'doc_semantic_search' && Array.isArray(event.output)) {
+  if (
+    (event.name === 'doc_semantic_search' ||
+      event.name === 'doc_hybrid_search') &&
+    Array.isArray(event.output)
+  ) {
     return event.output
-      .map(item => pickAttachmentFootnote(item))
+      .map(item => pickAttachmentFootnote(pickToolResultCitation(item)))
       .filter((item): item is AttachmentFootnote => item !== null);
   }
 

@@ -194,6 +194,12 @@ export class ChatContentStreamObjects extends WithDisposable(
             .notificationService=${this.notificationService}
           ></doc-edit-tool>
         `;
+      case 'doc_hybrid_search':
+        return html`<doc-hybrid-search-result
+          .data=${streamObject}
+          .width=${this.width}
+          .peekViewService=${this.peekViewService}
+        ></doc-hybrid-search-result>`;
       case 'doc_semantic_search':
         return html`<doc-semantic-search-result
           .data=${streamObject}
@@ -290,6 +296,12 @@ export class ChatContentStreamObjects extends WithDisposable(
             .notificationService=${this.notificationService}
           ></doc-edit-tool>
         `;
+      case 'doc_hybrid_search':
+        return html`<doc-hybrid-search-result
+          .data=${streamObject}
+          .width=${this.width}
+          .peekViewService=${this.peekViewService}
+        ></doc-hybrid-search-result>`;
       case 'doc_semantic_search':
         return html`<doc-semantic-search-result
           .data=${streamObject}

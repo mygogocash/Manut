@@ -3,7 +3,7 @@
  *
  * Single panel that lists all 8 connectors built in the Wave 7+ batch:
  *   - 5 OAuth social platforms (Facebook, Instagram, Threads, TikTok,
- *     LINE VOOM) — Connect button opens the consent URL in a popup
+ *     LINE Official Account) — Connect button opens the consent URL in a popup
  *   - 1 internal API-key social (GoGoCash) — Connect opens an inline
  *     form with an API key input
  *   - 2 database connectors (MongoDB, PostHog) — Connect opens an
@@ -22,6 +22,7 @@
 import { Button } from '@affine/component';
 import { useMutation } from '@affine/core/components/hooks/use-mutation';
 import { useQuery } from '@affine/core/components/hooks/use-query';
+import { LINE_CONNECTION_CARD_COPY } from '@affine/core/modules/analytics/entities/platform-copy';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useService } from '@toeverything/infra';
 import {
@@ -68,6 +69,7 @@ import {
   type MongoDbConnectionDto,
   mongoDbConnectionQuery,
   type MongoDbConnectionTestResultDto,
+  type OAuthConnectionHealthStatus,
   type PostHogConnectionDto,
   postHogConnectionQuery,
   type PostHogConnectionTestResultDto,
@@ -119,6 +121,7 @@ interface CardShellProps {
   name: string;
   connected: boolean;
   connectedLabel?: string | null;
+  connectionHealth?: OAuthConnectionHealthStatus | null;
   description: string;
   busy?: boolean;
   action: ReactNode;
@@ -131,12 +134,15 @@ const CardShell = ({
   name,
   connected,
   connectedLabel,
+  connectionHealth,
   description,
   busy,
   action,
   body,
   footerNote,
 }: CardShellProps) => {
+  const badge = resolveConnectionBadge(connected, connectionHealth);
+
   return (
     <article
       className={styles.card}
@@ -160,8 +166,8 @@ const CardShell = ({
         {body}
       </div>
       <footer className={styles.cardFooter}>
-        <span className={styles.badge} data-tone={connected ? 'connected' : ''}>
-          {connected ? 'Connected' : 'Not connected'}
+        <span className={styles.badge} data-tone={badge.tone}>
+          {badge.label}
         </span>
         {action}
       </footer>
@@ -169,6 +175,27 @@ const CardShell = ({
     </article>
   );
 };
+
+function resolveConnectionBadge(
+  connected: boolean,
+  health: OAuthConnectionHealthStatus | null | undefined
+): { label: string; tone: '' | 'connected' | 'warning' } {
+  if (!connected) {
+    return { label: 'Not connected', tone: '' };
+  }
+  switch (health) {
+    case 'verified':
+      return { label: 'Verified', tone: 'connected' };
+    case 'saved':
+      return { label: 'Saved', tone: 'warning' };
+    case 'expired':
+      return { label: 'Expired', tone: 'warning' };
+    case 'error':
+      return { label: 'Needs attention', tone: 'warning' };
+    default:
+      return { label: 'Connected', tone: 'connected' };
+  }
+}
 
 // ----------------------------------------------------------------------------
 // OAuth provider card — Facebook / Instagram / Threads / TikTok / LINE VOOM
@@ -184,9 +211,13 @@ interface OAuthCardProps {
   query: { id: string; op: string; query: string };
   connectMutation: { id: string; op: string; query: string };
   disconnectMutation: { id: string; op: string; query: string };
-  selectConnectionFromData: (
-    data: unknown
-  ) => { connected: boolean; label?: string | null } | undefined;
+  selectConnectionFromData: (data: unknown) =>
+    | {
+        connected: boolean;
+        label?: string | null;
+        healthStatus?: OAuthConnectionHealthStatus | null;
+      }
+    | undefined;
   selectUrlFromMutationResult: (data: unknown) => string | undefined;
   // For the "not configured" empty state.
   envVarsNeeded: string[];
@@ -334,6 +365,7 @@ const OAuthCard = ({
       name={name}
       connected={connection.connected}
       connectedLabel={connection.label ?? undefined}
+      connectionHealth={connection.healthStatus ?? undefined}
       description={description}
       busy={busy}
       action={action}
@@ -486,7 +518,7 @@ const InlineFormCard = ({
     setTestResult(null);
     try {
       const result = await (triggerTest as (args: unknown) => Promise<unknown>)(
-        { input: buildInput(values) }
+        { workspaceId, input: buildInput(values) }
       );
       const parsed = selectTestResult(result);
       if (!parsed) {
@@ -517,7 +549,14 @@ const InlineFormCard = ({
     } finally {
       setBusy(false);
     }
-  }, [testMutation, selectTestResult, triggerTest, buildInput, values]);
+  }, [
+    testMutation,
+    selectTestResult,
+    triggerTest,
+    workspaceId,
+    buildInput,
+    values,
+  ]);
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -734,7 +773,11 @@ const facebookSelectors = {
       data as { facebookConnection?: FacebookConnectionDto } | undefined
     )?.facebookConnection;
     if (!conn) return undefined;
-    return { connected: conn.connected, label: conn.displayName };
+    return {
+      connected: conn.connected,
+      label: conn.displayName,
+      healthStatus: conn.healthStatus,
+    };
   },
   url: (data: unknown) =>
     (data as { connectFacebook?: { url?: string } } | undefined)
@@ -750,6 +793,7 @@ const instagramSelectors = {
     return {
       connected: conn.connected,
       label: conn.username ? `@${conn.username}` : undefined,
+      healthStatus: conn.healthStatus,
     };
   },
   url: (data: unknown) =>
@@ -766,6 +810,7 @@ const threadsSelectors = {
     return {
       connected: conn.connected,
       label: conn.username ? `@${conn.username}` : undefined,
+      healthStatus: conn.healthStatus,
     };
   },
   url: (data: unknown) =>
@@ -779,7 +824,11 @@ const tiktokSelectors = {
       data as { tiktokConnection?: TiktokConnectionDto } | undefined
     )?.tiktokConnection;
     if (!conn) return undefined;
-    return { connected: conn.connected, label: conn.displayName };
+    return {
+      connected: conn.connected,
+      label: conn.displayName,
+      healthStatus: conn.healthStatus,
+    };
   },
   url: (data: unknown) =>
     (data as { connectTiktok?: { url?: string } } | undefined)?.connectTiktok
@@ -792,7 +841,11 @@ const lineVoomSelectors = {
       data as { lineVoomConnection?: LineVoomConnectionDto } | undefined
     )?.lineVoomConnection;
     if (!conn) return undefined;
-    return { connected: conn.connected, label: conn.displayName };
+    return {
+      connected: conn.connected,
+      label: conn.displayName,
+      healthStatus: conn.healthStatus,
+    };
   },
   url: (data: unknown) =>
     (data as { connectLineVoom?: { url?: string } } | undefined)
@@ -957,8 +1010,8 @@ export const AnalyticsConnectionsPanel = () => {
           ]}
         />
         <OAuthCard
-          name="LINE VOOM"
-          description="Connect a LINE account to surface VOOM profile + post analytics."
+          name={LINE_CONNECTION_CARD_COPY.name}
+          description={LINE_CONNECTION_CARD_COPY.description}
           logo={
             <BrandPlate
               glyph={<LineVoomLogoIcon width={20} height={20} />}

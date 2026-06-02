@@ -9,6 +9,11 @@ export const board = style({
   overflowX: 'auto',
   paddingBottom: 8,
   alignItems: 'flex-start',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      gridAutoColumns: 'minmax(220px, calc(100vw - 48px))',
+    },
+  },
 });
 
 export const column = style({

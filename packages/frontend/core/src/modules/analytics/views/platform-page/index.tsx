@@ -1,6 +1,6 @@
 import { DebugLogger } from '@affine/debug';
 import { useLiveData, useService } from '@toeverything/infra';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { WorkspaceService } from '../../../workspace';
 import { ConnectionStatusBadge } from '../../components/connection-status-badge';
@@ -9,13 +9,19 @@ import { MetricCard } from '../../components/metric-card';
 import { TrendChart } from '../../components/trend-chart';
 import type {
   AnalyticsKpi,
+  MetricSeries,
+  SocialEvent,
+  SocialMetric,
   SocialPlatform,
 } from '../../entities/analytics-data.entity';
 import type { Insight } from '../../entities/insight.entity';
 import type { PlatformConnection } from '../../entities/platform-connection.entity';
 import { AnalyticsService } from '../../services/analytics.service';
 import { ConnectionService } from '../../services/connection.service';
+import { buildEventMessage } from './events';
 import * as styles from './index.css';
+import { buildMetricKpis, buildMetricSeries } from './metrics';
+import { platformDisplayLabel, platformSlugToKey } from './platform';
 
 const logger = new DebugLogger('analytics');
 
@@ -23,35 +29,9 @@ const logger = new DebugLogger('analytics');
 const EMPTY_INSIGHTS: readonly Insight[] = Object.freeze([]);
 const EMPTY_CONNECTIONS: readonly PlatformConnection[] = Object.freeze([]);
 
-const KNOWN_PLATFORMS = new Set<SocialPlatform>([
-  'FACEBOOK',
-  'INSTAGRAM',
-  'THREADS',
-  'TIKTOK',
-  'LINE_VOOM',
-  'GOGOCASH',
-]);
-
-const isKnownPlatform = (slug: string | undefined): slug is SocialPlatform => {
-  if (!slug) return false;
-  return KNOWN_PLATFORMS.has(slug.toUpperCase() as SocialPlatform);
-};
-
 interface PlatformPageProps {
   platform: string;
 }
-
-interface RecentEvent {
-  id: string;
-  ts: string;
-  type: string;
-  message: string;
-}
-
-// TODO(analytics): replace with `loadRecentEvents(workspaceId, platform)`
-// query once backend Round C exposes social_events. For now we render
-// "No recent events yet" so the section ships without invented data.
-const MOCK_RECENT_EVENTS: RecentEvent[] = [];
 
 function pointsFromSparkline(
   sparkline: number[]
@@ -75,9 +55,13 @@ function filterKpisForPlatform(
   platform: SocialPlatform
 ): AnalyticsKpi[] {
   const slug = platform.toLowerCase();
+  const kebabSlug = slug.replaceAll('_', '-');
   return kpis.filter(
     k =>
-      k.key.toLowerCase().includes(slug) || k.label.toLowerCase().includes(slug)
+      k.key.toLowerCase().includes(slug) ||
+      k.key.toLowerCase().includes(kebabSlug) ||
+      k.label.toLowerCase().includes(slug) ||
+      k.label.toLowerCase().includes(kebabSlug)
   );
 }
 
@@ -93,6 +77,12 @@ export function PlatformPage({ platform }: PlatformPageProps) {
     useLiveData(analyticsService.insights.insights$) ?? EMPTY_INSIGHTS;
   const connections =
     useLiveData(connectionService.entity.connections$) ?? EMPTY_CONNECTIONS;
+  const [metricRows, setMetricRows] = useState<SocialMetric[]>([]);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [recentEvents, setRecentEvents] = useState<SocialEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
 
   useEffect(() => {
     analyticsService.loadOverview(workspaceId).catch(err => {
@@ -106,13 +96,89 @@ export function PlatformPage({ platform }: PlatformPageProps) {
     });
   }, [analyticsService, connectionService, workspaceId]);
 
-  const platformKey = useMemo(
-    () =>
-      isKnownPlatform(platform)
-        ? (platform.toUpperCase() as SocialPlatform)
-        : null,
-    [platform]
-  );
+  const platformKey = useMemo(() => platformSlugToKey(platform), [platform]);
+
+  useEffect(() => {
+    if (!platformKey) {
+      setMetricRows([]);
+      return;
+    }
+    let cancelled = false;
+    const to = new Date();
+    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+    setMetricsLoading(true);
+    setMetricsError(null);
+    analyticsService
+      .loadMetrics(workspaceId, {
+        platform: platformKey,
+        bucket: 'HOUR',
+        from,
+        to,
+      })
+      .then(rows => {
+        if (!cancelled) {
+          setMetricRows(rows);
+        }
+      })
+      .catch(err => {
+        logger.error('loadMetrics failed', err);
+        if (!cancelled) {
+          setMetricRows([]);
+          setMetricsError(
+            err instanceof Error ? err.message : 'Could not load metrics'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setMetricsLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [analyticsService, platformKey, workspaceId]);
+
+  useEffect(() => {
+    if (!platformKey) {
+      setRecentEvents([]);
+      return;
+    }
+    let cancelled = false;
+    const to = new Date();
+    const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+    setEventsLoading(true);
+    setEventsError(null);
+    analyticsService
+      .loadRecentEvents(workspaceId, {
+        platform: platformKey,
+        from,
+        to,
+        limit: 20,
+      })
+      .then(events => {
+        if (!cancelled) {
+          setRecentEvents(events);
+        }
+      })
+      .catch(err => {
+        logger.error('loadRecentEvents failed', err);
+        if (!cancelled) {
+          setRecentEvents([]);
+          setEventsError(
+            err instanceof Error ? err.message : 'Could not load recent events'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setEventsLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [analyticsService, platformKey, workspaceId]);
 
   const platformKpis = useMemo(
     () =>
@@ -121,6 +187,29 @@ export function PlatformPage({ platform }: PlatformPageProps) {
         : [],
     [overview, platformKey]
   );
+
+  const metricKpis = useMemo(() => buildMetricKpis(metricRows), [metricRows]);
+
+  const displayKpis = platformKpis.length > 0 ? platformKpis : metricKpis;
+
+  const metricSeries = useMemo(
+    () => buildMetricSeries(metricRows),
+    [metricRows]
+  );
+
+  const overviewSeries = useMemo<MetricSeries[]>(
+    () =>
+      platformKpis
+        .filter(k => k.sparkline.length > 1)
+        .map(kpi => ({
+          name: kpi.label,
+          platform: platformKey ?? 'ALL',
+          points: pointsFromSparkline(kpi.sparkline),
+        })),
+    [platformKey, platformKpis]
+  );
+
+  const trendSeries = metricSeries.length > 0 ? metricSeries : overviewSeries;
 
   const platformInsights = useMemo(
     () =>
@@ -148,7 +237,9 @@ export function PlatformPage({ platform }: PlatformPageProps) {
     <div className={styles.root} data-testid={`analytics-platform-${platform}`}>
       <div className={styles.headerRow}>
         <div>
-          <div className={styles.title}>{platformKey}</div>
+          <div className={styles.title}>
+            {platformDisplayLabel(platformKey)}
+          </div>
           <div className={styles.subtitle}>
             {connection?.externalAccountName ??
               connection?.accountHandle ??
@@ -159,15 +250,17 @@ export function PlatformPage({ platform }: PlatformPageProps) {
       </div>
 
       <div className={styles.sectionLabel}>Performance</div>
-      {overviewLoading && platformKpis.length === 0 ? (
+      {(overviewLoading || metricsLoading) && displayKpis.length === 0 ? (
         <div className={styles.kpiGrid}>
           <div className={styles.skeletonBlock} />
           <div className={styles.skeletonBlock} />
           <div className={styles.skeletonBlock} />
         </div>
-      ) : platformKpis.length > 0 ? (
+      ) : metricsError ? (
+        <div className={styles.empty}>{metricsError}</div>
+      ) : displayKpis.length > 0 ? (
         <div className={styles.kpiGrid}>
-          {platformKpis.map(kpi => (
+          {displayKpis.map(kpi => (
             <MetricCard
               key={kpi.key}
               label={kpi.label}
@@ -190,17 +283,15 @@ export function PlatformPage({ platform }: PlatformPageProps) {
 
       <div className={styles.sectionLabel}>Trends</div>
       <div className={styles.chartGrid}>
-        {platformKpis.some(k => k.sparkline.length > 1) ? (
-          platformKpis
-            .filter(k => k.sparkline.length > 1)
-            .map(kpi => (
-              <TrendChart
-                key={kpi.key}
-                title={kpi.label}
-                subtitle="Last 24 hours"
-                points={pointsFromSparkline(kpi.sparkline)}
-              />
-            ))
+        {trendSeries.length > 0 ? (
+          trendSeries.map(series => (
+            <TrendChart
+              key={series.name}
+              title={series.name}
+              subtitle="Last 7 days"
+              points={series.points}
+            />
+          ))
         ) : (
           <div className={styles.empty}>No trend data yet</div>
         )}
@@ -208,17 +299,23 @@ export function PlatformPage({ platform }: PlatformPageProps) {
 
       <div className={styles.sectionLabel}>Recent events</div>
       <div className={styles.eventsList}>
-        {MOCK_RECENT_EVENTS.length === 0 ? (
+        {eventsLoading && recentEvents.length === 0 ? (
+          <div className={styles.skeletonBlock} />
+        ) : eventsError ? (
+          <div className={styles.empty}>{eventsError}</div>
+        ) : recentEvents.length === 0 ? (
           <div className={styles.empty}>
             No recent events yet for this platform.
           </div>
         ) : (
-          MOCK_RECENT_EVENTS.map(ev => (
+          recentEvents.map(ev => (
             <div key={ev.id} className={styles.eventRow}>
-              <span className={styles.eventType}>{ev.type}</span>
-              <span className={styles.eventMessage}>{ev.message}</span>
+              <span className={styles.eventType}>{ev.eventType}</span>
+              <span className={styles.eventMessage}>
+                {buildEventMessage(ev)}
+              </span>
               <span className={styles.eventTime}>
-                {new Date(ev.ts).toLocaleString()}
+                {new Date(ev.occurredAt).toLocaleString()}
               </span>
             </div>
           ))

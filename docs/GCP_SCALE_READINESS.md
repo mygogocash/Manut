@@ -150,6 +150,31 @@ Stop the test if:
 - Cloud Run reaches max instances and queueing begins.
 - Vertex 429s persist after backoff.
 
+Repo template:
+
+```bash
+DRY_RUN=1 BASE_URL=https://staging.manut.xyz scripts/gcp/load-test-staging.sh
+```
+
+The template is dry-run-first and requires `BASE_URL` for real runs:
+
+```bash
+DRY_RUN=0 BASE_URL=https://staging.manut.xyz scripts/gcp/load-test-staging.sh
+```
+
+Defaults are intentionally low impact: `RPS=1`, `CONCURRENCY=2`,
+`DURATION_SECONDS=60`, and `PATHS="/info /api/server-config"`. The implemented
+execution path uses `curl` only, prints the exact optional `autocannon` and
+`k6` follow-up expectations, and enforces local stop conditions for request
+failure rate and sample p95 latency. Operator-only stop conditions still need
+Cloud Monitoring during the run: Cloud SQL connection cap, Cloud Run max
+instance queueing, Redis health, and Vertex 429s.
+
+The script refuses a real run against `https://manut.xyz` unless
+`ALLOW_PROD_LOAD_TEST=1` is set for an approved production test window. Keep the
+first real run on staging. Add authenticated workspace or AI paths only after a
+staging test account, provider quota, and rollback window are confirmed.
+
 ## Operational Checklist
 
 Weekly:

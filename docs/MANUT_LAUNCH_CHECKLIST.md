@@ -11,22 +11,25 @@ Treat every box as a launch blocker unless explicitly marked as
 
 ## Current snapshot
 
-As of 2026-05-23 12:20 +07, public-launch posture remains **NO-GO**.
+As of 2026-06-01, public-launch posture remains **NO-GO** until the current
+Cloud Run revision, production migrations, and launch-window smoke checks are
+reverified.
 
-- `main` has green `Manut CI` run `26323515938` and green
-  `Manut Build` run `26323591394`.
-- The local beta hardening branch is `codex/fix-beta-blockers` on base
-  `234d74bcb` with uncommitted launch-readiness fixes.
-- Railway production service `Manut` is online at deployment
-  `6ccaa65a-535a-4aa9-92e6-79333ad7593a`, and `https://manut.xyz/info`
-  returned HTTP 200.
-- Latest beta-security PR runs failed before this branch's workflow fix:
-  actionlint shellcheck (`SC2046`) and Semgrep bootstrap
-  (`pkg_resources`) are fixed locally, but the GitHub gate must rerun green.
-- Recent Railway logs showed `NOT_IMPLEMENTED: HourlyRollupCron.run`;
-  hourly/daily/weekly rollup cron stubs are fixed locally to log-and-return,
-  but production must be redeployed and log-smoked before beta invites.
-- Product follow-ups that are not beta blockers are tracked in
+- Production evidence now comes from the GCP Cloud Run stack: Cloud Run service
+  `manut`, Cloud Run migration job `manut-migrate`, Cloud SQL, Memorystore, GCS,
+  Secret Manager, and Artifact Registry in project `affine-495114`.
+- Historical Railway deployment ids and Railway log excerpts in older docs are
+  no longer valid launch evidence. Railway remains relevant only as
+  pre-cutover source data or a rollback target when the launch operator
+  explicitly keeps it available.
+- `https://manut.xyz/info` returning HTTP 200 is not enough by itself; the
+  launch smoke must also verify `/info` JSON and GraphQL
+  `serverConfig.initialized: true` through
+  `scripts/gcp/smoke-test-cloud-run.sh`.
+- The prior `NOT_IMPLEMENTED: HourlyRollupCron.run` launch blocker has been
+  addressed in code, but the current Cloud Run revision still needs a fresh
+  log smoke before beta or public invites.
+- Product follow-ups that are not launch blockers are tracked in
   [BETA_GO_NO_GO.md](./BETA_GO_NO_GO.md#pending-productfeature-follow-ups).
 
 ---
@@ -69,7 +72,8 @@ As of 2026-05-23 12:20 +07, public-launch posture remains **NO-GO**.
 ## 3. Secrets + environment
 
 - [ ] Production secrets populated (or features gracefully
-      degrading per [MANUT_DEPLOY_RUNBOOK.md §2](./MANUT_DEPLOY_RUNBOOK.md#2-secrets-to-populate)):
+      degrading per
+      [MANUT_DEPLOY_RUNBOOK.md §2](./MANUT_DEPLOY_RUNBOOK.md#2-secrets-and-runtime-config)):
   - [ ] `STRIPE_SECRET_KEY`
   - [ ] `STRIPE_WEBHOOK_SECRET`
   - [ ] `MANUT_PRO_PRICE_ID`
@@ -93,10 +97,13 @@ As of 2026-05-23 12:20 +07, public-launch posture remains **NO-GO**.
   - [ ] `/upgrade` viewed → checkout clicked
 - [ ] Mixpanel sees `signup_completed`, `workspace_created`,
       `floating_chat_opened`, `chat_message_sent` in staging.
-- [ ] Railway service has alerts wired for:
+- [ ] Cloud Monitoring alerts wired for the Cloud Run production service,
+      Cloud SQL, Redis, and Vertex AI:
   - [ ] 5xx rate above 1% over 5 min
   - [ ] Boot failures (`UndefinedTypeError`, `UnknownDependenciesException`)
-  - [ ] Memory > 80% of allocated for 5 min
+  - [ ] Cloud Run memory > 80% of allocated for 5 min
+  - [ ] Cloud SQL CPU or connection pressure above launch thresholds
+  - [ ] Vertex 429/5xx spikes above baseline
 - [ ] Sentry (or equivalent) capturing exceptions; release tag
       matches the deployed SHA.
 
@@ -138,9 +145,9 @@ As of 2026-05-23 12:20 +07, public-launch posture remains **NO-GO**.
 - [ ] Pager rotation tested — a deliberate "test page" reaches the
       primary within 60s.
 - [ ] On-call has the rollback command (see
-      [MANUT_DEPLOY_RUNBOOK.md §8](./MANUT_DEPLOY_RUNBOOK.md#8-rollback-procedure))
+      [MANUT_DEPLOY_RUNBOOK.md §7](./MANUT_DEPLOY_RUNBOOK.md#7-rollback))
       pinned or memorised.
-- [ ] On-call knows the smoke-test sequence (§7 of the runbook).
+- [ ] On-call knows the production smoke sequence (§5 of the runbook).
 
 ## 8. Status page
 
@@ -165,7 +172,8 @@ As of 2026-05-23 12:20 +07, public-launch posture remains **NO-GO**.
   - [ ] "What happens when I hit the $5/mo AI budget?"
   - [ ] "Can I self-host?" — answer: no, Manut is cloud-only.
   - [ ] "What's the difference between Manut and Notion / Obsidian / Mem?"
-  - [ ] "Where's my data stored?" — answer: Railway-hosted Postgres + GCS, US region.
+  - [ ] "Where's my data stored?" — answer: GCP Cloud SQL + GCS, with
+        production resources in the approved GCP project/region.
 - [ ] Office hours for launch week scheduled.
 - [ ] Pre-canned responses for "Stripe checkout error" and
       "workspace creation timed out" in the support tool.
@@ -185,12 +193,13 @@ These are the last-mile sanity checks the launch-window owner
 runs immediately before flipping the switch.
 
 - [ ] All boxes above green (or explicitly waived in writing).
-- [ ] Production smoke (all six specs in
-      [MANUT_DEPLOY_RUNBOOK.md §7](./MANUT_DEPLOY_RUNBOOK.md#7-smoke-test-sequence)) green within the last 60 min.
+- [ ] Production Cloud Run smoke and manual confirmations in
+      [MANUT_DEPLOY_RUNBOOK.md §5](./MANUT_DEPLOY_RUNBOOK.md#5-production-smoke)
+      green within the last 60 min.
 - [ ] `docs/BETA_RISK_REGISTER.md` has no open P0/P1 findings.
-- [ ] `docs/BETA_GO_NO_GO.md` is filled out with commit, Railway
-      deployment id, rollback target, and launch owner.
-- [ ] No `[ERROR]` lines in Railway logs for the last 30 min.
+- [ ] `docs/BETA_GO_NO_GO.md` is filled out with commit, Cloud Run revision,
+      image digest, rollback target, and launch owner.
+- [ ] No `[ERROR]` lines in Cloud Run logs for the last 30 min.
 - [ ] Status page reads "All systems operational".
 - [ ] Comms drafts reviewed by ≥1 second pair of eyes.
 - [ ] Launch announcement timed for max audience overlap (HN +
@@ -206,7 +215,7 @@ If any box is red, launch posture is **NO-GO** until resolved.
 After the first 24h:
 
 - [ ] Pull funnel numbers from Mixpanel; flag any cliff >50%.
-- [ ] Review every Sentry / Railway error class that's new since
+- [ ] Review every Sentry / Cloud Run error class that's new since
       launch.
 - [ ] Tally Hacker News + Twitter responses; reply to top-10 with
       "thank you, will look" or "filing as issue".

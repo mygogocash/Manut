@@ -88,7 +88,7 @@ Every feature gates gracefully on its secret being unset. Operators can populate
 
 ### Deviations from the plan worth noting
 
-- **B9 P1 tools** (`web_search` / `memory_search` / `tabs_browse`) folded into existing surfaces: web search already shipped via `exa-search.ts` + `exa-crawl.ts`; memory is injected via prompt service per chat turn (commit `eb92e4b53` `injectMemoriesIntoMessages`); cross-doc reads are covered by `doc-read` tool. Dedicated named tools are nice-to-have, not blocking.
+- **B9 P1 tools** (`web_search` / `memory_search` / `tabs_browse`) folded into existing surfaces: web search already shipped via `exa-search.ts` + `exa-crawl.ts`; memory is injected per chat turn through `ChatRequestInterceptorService` with `toolsConfig.memory=false` as a request-level opt-out; cross-doc reads are covered by `doc-read` and `doc-hybrid-search`. Dedicated named tools are nice-to-have, not blocking.
 - **Token-by-token AI streaming typewriter** declined in E2.7: SSE deltas already arrive at typewriter cadence; layering a JS interval on top would conflict with tool-call / reasoning block rendering. Shipped the visual signal (blinking violet cursor) instead.
 - **SSE deletion** deferred per decision #23 dual-write window — WS lands in `51e9e9ae3` flag-gated; SSE path stays for 30 days before removal.
 - **`lib/` is gitignored** in this repo. Two parallel agents (E2.7 `motion.ts`, B8 `modes.ts`) initially wrote to `lib/` and the files weren't picked up by git. Moved to `utils/` in both cases; documented in commit messages. Future agents must avoid `lib/`.
@@ -96,6 +96,73 @@ Every feature gates gracefully on its secret being unset. Operators can populate
 - **Pin-toggle mutation surface** in E2.5 tabbed chat: pin glyph reflects state but doesn't toggle on click. Requires a popover or right-click menu — deferred to a small next-slice PR.
 - **StorageCapModal + AiBudgetModal** components exist and are tested at the backend layer but aren't yet rendered by a parent consumer. Modal mount wiring lands in a follow-up; backend error envelope (`STORAGE_CAP` / `AI_BUDGET`) is in place.
 - **HTTP 402 vs 413** for quota errors: HTTP status stays at 402 (shared GraphQL `quota_exceeded` class). Promoting to 413 per the plan is a separate R1 deferred.
+- **Reminder rules are now live enough for v1 scheduling.** The UI, GraphQL
+  CRUD, and minute-cron materialization path exist. The cron evaluates enabled
+  DATETIME rules, creates one scheduled reminder per matching rule/minute, and
+  uses `MnReminderRun.dedupeKey` to avoid duplicate reminders. Current backend
+  enum supports `EMAIL` only; the rule modal hides unsupported channels until a
+  migration intentionally expands `MnNotificationChannel`.
+- **CRM CSV export is the first completed bulk/CSV slice.** Accounts,
+  Contacts, Deals, and Activities export from already-loaded tab data on the
+  client, with stable headers, relationship labels, and CSV escaping.
+- **PM CSV export now shares the CRM export guardrails.** Project lists and
+  project-detail task lists export from loaded client data using the shared
+  CSV helper, including relationship-safe stable headers and spreadsheet
+  formula neutralization.
+- **Reminders CSV export closes the client-side CSV lane.** Active reminder
+  buckets and reminder rules export from loaded client data using the shared
+  CSV helper. CSV import and bulk mutation flows remain separate follow-ups;
+  current work only covers safe export.
+- **Realtime fallback refresh is now wired for PM/CRM/Reminders.** These loaded
+  workspace-data surfaces use a shared 30-second SWR refresh interval so changes
+  made in another tab or by another collaborator appear without requiring a full
+  page reload. Full subscription/socket events can still replace the fallback
+  later, but are no longer required for the v1 completion lane.
+- **PM/CRM/Reminders mobile layout fallbacks are now wired.** At 640px and
+  below, dense Manut views stack toolbars/actions, make tabs scroll-safe, switch
+  rows and forms to one column, and narrow Kanban columns to fit a phone
+  viewport without page-level horizontal overflow.
+- **Knowledge Graph lobe/pulse branch is already merged.** PR #183 brought in
+  the brain-style lobes, synaptic doc-read pulses, node detail panel,
+  reduced-motion handling, hidden-tab/rest-loop pause gates, physics cap, and
+  canvas accessibility mirror list. A source-level regression contract now
+  guards those release criteria.
+- **Analytics live insight updates now use SSE instead of GraphQL
+  subscriptions.** Apollo subscription transport is still not configured, so
+  this branch added a workspace-scoped Analytics insight event bus and
+  authenticated SSE endpoint at
+  `/api/workspace/:workspaceId/analytics/insights-stream`. Content
+  recommendations, trend detection, and anomaly detection publish to it, and
+  the AI Strategist UI consumes it through `AnalyticsService.subscribeToInsights`.
+- **LINE channel-mode correction is now wired for the v1 Messaging API path.**
+  LINE connection completion validates the LINE Login code, persists configured
+  Messaging API channel credentials instead of the user OAuth token, and webhook
+  ingestion resolves the channel by `destination` before legacy source ids.
+- **Analytics `listMetrics` now reads real metric rows.** The resolver enforces
+  Workspace.Read, validates non-empty time windows, filters `social_metrics` by
+  workspace/platform/bucket/range, sorts by time/key, and caps each response at
+  5000 rows.
+- **Analytics metric rollups are now scheduled.** Hourly rollups backfill HOUR
+  metric rows from `social_events`, daily rollups aggregate HOUR rows into DAY
+  rows, and weekly rollups aggregate DAY rows into WEEK rows with idempotent
+  `social_metrics` upserts.
+- **Platform pages now use live metric rows for performance/trends.**
+  `AnalyticsService.loadMetrics` calls `listMetrics`, and the platform view
+  derives KPI cards and trend charts from real `social_metrics` data.
+- **Platform pages now use live recent events.** `AnalyticsService` calls
+  `listEvents`, and the platform view renders newest normalized `social_events`
+  rows without exposing raw webhook bodies. Remaining analytics integration risk
+  has moved to LINE VOOM availability confirmation and external
+  approval/legal readiness.
+- **Legal approval pages now exist.** Landing/static routing serves
+  `/legal/privacy`, `/legal/terms`, and `/legal/data-deletion-instructions`.
+  Privacy copy explicitly covers Facebook, Instagram, Threads, TikTok, and LINE
+  integration data handling; remaining approval risk is external dashboard
+  configuration and platform review.
+- **LINE copy is conservative until VOOM API access is confirmed.** Product UI
+  now says LINE Official Account for the connection and recommendation surfaces,
+  and the connection copy says VOOM post analytics stay hidden until LINE
+  confirms API access.
 
 ---
 
@@ -247,7 +314,7 @@ Audit for "self-host" mentions:
 
 ### A1. Tool-using agent
 
-Backend tools live in `packages/backend/server/src/plugins/copilot/tools/`. **Existing (already shipped):** `doc-read`, `doc-edit`, `doc-create`, `doc-update`, `doc-update-meta`, `data-view-filter`, `data-view-autofill-column`, `doc-keyword-search`, `doc-semantic-search`.
+Backend tools live in `packages/backend/server/src/plugins/copilot/tools/`. **Existing (already shipped):** `doc-read`, `doc-edit`, `doc-create`, `doc-update`, `doc-update-meta`, `data-view-filter`, `data-view-autofill-column`, `doc-hybrid-search`, `doc-keyword-search`, `doc-semantic-search`.
 
 **New P1 tools (Weeks 2-3):**
 
@@ -263,7 +330,7 @@ Backend tools live in `packages/backend/server/src/plugins/copilot/tools/`. **Ex
 **Mode + tool UX (hybrid pattern, decision #10):**
 
 - Modes select preset tool collections:
-  - **Read** → `doc-read`, `doc-keyword-search`, `doc-semantic-search`, `web_search`, `memory_search`
+  - **Read** → `doc-read`, `doc-hybrid-search`, `doc-keyword-search`, `doc-semantic-search`, `web_search`, `memory_search`
   - **Edit** → Read tools + `doc-edit`, `data-view-filter`
   - **Agent** → Edit tools + `doc-create`, `doc-update`, `data-view-autofill-column`, `code_run`, `image_gen`, `tabs_browse`
 - Advanced toggle (caret in chat input header) reveals per-tool checkboxes for fine-tune
@@ -285,7 +352,9 @@ Reuses the connections plugin pattern (`packages/backend/server/src/plugins/conn
 - `packages/backend/server/src/plugins/github-oauth/github-oauth.resolver.ts` — GraphQL: `githubConnection`, `connectGithub` mutation
 - `packages/backend/server/src/plugins/copilot/tools/github.ts` — exposes `github_search_issues`, `github_read_issue`, `github_search_repos`, `github_read_pr` as AI tools
 
-Env required: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`. Add to Railway via `set_variables` mutation.
+Env required: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`. Add to
+GCP Secret Manager using the `manut-*` secret naming contract, then deploy a
+new Cloud Run revision so the service reads the values at startup.
 
 ### A3. Memory system (decision #5 + #6 + #12)
 
@@ -790,7 +859,8 @@ Format optimized for AI sub-agent handoff. Each task is self-contained with file
   - File (new): `packages/backend/server/migrations/<ts>_add_mn_agent_memory_embedding/migration.sql`
   - Steps: `CREATE EXTENSION IF NOT EXISTS vector;` + `ALTER TABLE mn_agent_memories ADD COLUMN embedding vector(768); ADD COLUMN scope varchar NOT NULL DEFAULT 'user'; ADD COLUMN pinned boolean NOT NULL DEFAULT false;`
   - Use idempotent guards (same pattern as `20260518230000`)
-  - Apply to prod via local `prisma migrate deploy` against Railway proxy
+  - Apply to production through the approved Cloud Run migration job, not by
+    running local `prisma migrate deploy` against a public database proxy.
   - Effort: 0.5d · Skill: DB / Prisma
   - Verification: `\d mn_agent_memories` on prod shows the new columns; pgvector extension active
 
@@ -817,10 +887,10 @@ Format optimized for AI sub-agent handoff. Each task is self-contained with file
   - Verification: seed 10 memories, query similar → top-K most-relevant returned in order
 
 - **T-1.5.1.e** — Inject memories into chat system prompt
-  - File: extend `packages/backend/server/src/plugins/copilot/prompt/service.ts` (where CHAT_PROMPT is resolved per-request)
-  - On each new chat turn: call retrieve service → format top-5 memories as `<memory>...</memory>` blocks in system prompt
+  - Files: `packages/backend/server/src/plugins/copilot/prompt/service.ts` and `packages/backend/server/src/plugins/copilot/interceptor/request-interceptor.ts`
+  - On each new chat turn: call retrieve service → format top-5 memories as `<memory>...</memory>` blocks in system prompt unless `toolsConfig.memory=false`
   - Effort: 1d
-  - Verification: log the resolved system prompt; memory blocks appear when relevant
+  - Verification: `request-interceptor.spec.ts` covers default injection, opt-out, and failure fallback
 
 ---
 
@@ -875,8 +945,9 @@ Format optimized for AI sub-agent handoff. Each task is self-contained with file
 
 **Tasks:**
 
-- **T-1.7.1.a** — Provision Exa API key + Railway env
-  - Set `EXA_API_KEY` on Manut service via Railway GraphQL `variableUpsert`
+- **T-1.7.1.a** — Provision Exa API key + GCP Secret Manager env
+  - Store `EXA_API_KEY` through the Manut GCP secret contract and deploy a new
+    Cloud Run revision.
   - Update `.env.example` + ops doc
   - Effort: 0.25d · Skill: ops
   - Verification: `curl https://api.exa.ai/...` with the key returns valid JSON
@@ -1347,9 +1418,16 @@ Expand task-level detail when bundle starts (per "Sub-agent handoff conventions"
 
 ### Access + secrets
 
-- **Railway CLI token** at `~/.railway/config.json` → `.user.accessToken`. Use it for direct GraphQL: `curl -X POST https://backboard.railway.com/graphql/v2 -H "Authorization: Bearer $TOKEN" ...`. Examples in the session history.
-- **Prod DB** (Railway Postgres) accessible via public proxy: `postgresql://postgres:<REDACTED — ROTATE THIS CREDENTIAL>@<railway-pg-proxy-host>:<port>/railway`. Use for `prisma migrate deploy` from local.
-- **Resend** (mailer) already set on Railway: `MAIL_PROVIDER=resend`, `RESEND_API_KEY`, `RESEND_FROM=noreply@gogocash.co`. Domain `gogocash.co` verified in Resend.
+- **Cloud Run deploy:** use the approval-gated `manut-gcp-prod-deploy` Cloud
+  Build trigger for production releases.
+- **Prod DB:** production database access goes through approved Cloud SQL paths
+  and the `manut-migrate` Cloud Run job. Do not publish or use ad hoc public
+  database proxy URLs as an operator shortcut.
+- **Secrets:** use GCP Secret Manager with the `manut-*` naming contract. After
+  any secret rotation, deploy a new Cloud Run revision so instances reload the
+  values.
+- **Resend:** mailer credentials live in Secret Manager, and the domain
+  `gogocash.co` is verified in Resend.
 - **GitHub gh CLI** authenticated. Use for `gh pr create`, `gh run list`, `gh api`.
 - **Exa API key** — to be added in B9; user provides.
 - **Stripe API key** — to be added in M3; user provides.

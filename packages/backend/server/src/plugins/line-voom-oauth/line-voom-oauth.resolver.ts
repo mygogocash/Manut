@@ -27,6 +27,12 @@ export class LineVoomConnectionType {
   @Field()
   connected!: boolean;
 
+  @Field(() => Boolean, { nullable: true })
+  verified?: boolean;
+
+  @Field(() => String, { nullable: true })
+  healthStatus?: 'saved' | 'verified' | 'expired' | 'error';
+
   // Explicit @Field(() => String) for nullable union — CLAUDE.md §6.
   @Field(() => String, { nullable: true })
   displayName?: string;
@@ -35,12 +41,12 @@ export class LineVoomConnectionType {
 function rethrowFriendly(err: unknown): never {
   if (err instanceof LineVoomOAuthNotConnectedError) {
     throw new Error(
-      'LINE VOOM account is not connected. Connect it in Settings → Analytics · Connections.'
+      'LINE Official Account is not connected. Connect it in Settings → Analytics · Connections.'
     );
   }
   if (err instanceof LineVoomOAuthNotConfiguredError) {
     throw new Error(
-      'LINE VOOM OAuth client is not configured on this server. Ask an admin to set LINE_OAUTH_CLIENT_ID and LINE_OAUTH_CLIENT_SECRET.'
+      'LINE Official Account OAuth client is not configured on this server. Ask an admin to set LINE_OAUTH_CLIENT_ID and LINE_OAUTH_CLIENT_SECRET.'
     );
   }
   throw err;
@@ -102,6 +108,8 @@ export class LineVoomOAuthResolver {
       return {
         connected: status.connected,
         displayName: status.displayName,
+        verified: status.verified,
+        healthStatus: status.healthStatus,
       };
     } catch (err) {
       this.logger.error(

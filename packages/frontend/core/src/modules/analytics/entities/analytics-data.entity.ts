@@ -61,6 +61,29 @@ export interface MetricSeries {
   points: MetricPoint[];
 }
 
+export type MetricBucket = 'HOUR' | 'DAY' | 'WEEK';
+
+// keep in sync with backend DTO: SocialMetricObjectType
+export interface SocialMetric {
+  id: string;
+  platform: SocialPlatform;
+  metricKey: string;
+  bucket: MetricBucket;
+  bucketStart: string;
+  value: number;
+}
+
+// keep in sync with backend DTO: SocialEventObjectType
+export interface SocialEvent {
+  id: string;
+  platform: SocialPlatform;
+  eventType: string;
+  externalId: string;
+  occurredAt: string;
+  receivedAt: string;
+  payload: Record<string, unknown>;
+}
+
 const MOCK_KPIS: KpiSnapshot[] = [
   {
     platform: 'ALL',

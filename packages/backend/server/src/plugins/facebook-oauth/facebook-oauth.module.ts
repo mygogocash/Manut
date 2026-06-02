@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ServerConfigModule } from '../../core';
 import { AuthModule } from '../../core/auth';
 import { PermissionModule } from '../../core/permission';
+import { SocialConnectionBridgeService } from '../analytics/connections/social-connection-bridge';
 import { FacebookOAuthController } from './facebook-oauth.controller';
 import { FacebookOAuthResolver } from './facebook-oauth.resolver';
 import { FacebookOAuthService } from './facebook-oauth.service';
@@ -33,7 +34,11 @@ import { FacebookOAuthService } from './facebook-oauth.service';
  */
 @Module({
   imports: [AuthModule, ServerConfigModule, PermissionModule],
-  providers: [FacebookOAuthService, FacebookOAuthResolver],
+  providers: [
+    FacebookOAuthService,
+    FacebookOAuthResolver,
+    SocialConnectionBridgeService,
+  ],
   controllers: [FacebookOAuthController],
   exports: [FacebookOAuthService],
 })

@@ -34,6 +34,8 @@ export const TIKTOK_PROVIDER_NAME = 'tiktok';
 
 export interface TiktokConnectionStatus {
   connected: boolean;
+  verified?: boolean;
+  healthStatus?: 'saved' | 'verified' | 'expired' | 'error';
   displayName?: string;
 }
 

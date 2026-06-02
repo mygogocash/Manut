@@ -93,9 +93,14 @@ jobs:
                   and normalized.endswith('packages/backend/server/src/core/doc/__tests__/reader-from-rpc.spec.ts')
               ):
                   return True
-              if (
-                  rule_id == 'generic-api-key'
-                  and normalized.endswith('packages/backend/server/src/plugins/analytics/ingest/ingestion.service.ts')
+              analytics_metric_key_files = (
+                  'packages/backend/server/src/plugins/analytics/aggregator/__tests__/metric-rollup.service.spec.ts',
+                  'packages/backend/server/src/plugins/analytics/aggregator/metric-rollup.service.ts',
+                  'packages/backend/server/src/plugins/analytics/ingest/ingestion.service.ts',
+                  'packages/frontend/core/src/modules/analytics/__tests__/platform-page-metrics.spec.ts',
+              )
+              if rule_id == 'generic-api-key' and normalized.endswith(
+                  analytics_metric_key_files
               ):
                   return True
               return False

@@ -21,6 +21,7 @@ import {
   type UpdateMnReminderRuleInput,
   updateMnReminderRuleMutation,
 } from '@affine/core/modules/manut-reminders';
+import { MANUT_LIVE_QUERY_OPTIONS } from '@affine/core/modules/manut-shared';
 import {
   ViewBody,
   ViewHeader,
@@ -29,13 +30,19 @@ import {
 } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { useI18n } from '@affine/i18n';
-import { TodayIcon } from '@blocksuite/icons/rc';
+import { DownloadIcon, TodayIcon } from '@blocksuite/icons/rc';
 import { useService } from '@toeverything/infra';
 import clsx from 'clsx';
 import { useCallback, useMemo, useState } from 'react';
 
 import { Header } from '../../../../components/pure/header';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
+import {
+  buildReminderCsv,
+  buildReminderRulesCsv,
+  downloadCsv,
+  reminderExportFilename,
+} from './csv-export';
 import { RuleList } from './rule-list';
 import { RuleModal } from './rule-modal';
 import * as styles from './styles.css';
@@ -411,6 +418,7 @@ const RemindersPage = () => {
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
   const { data, isLoading, error, mutate } = useQuery(queryArg, {
+    ...MANUT_LIVE_QUERY_OPTIONS,
     suspense: false,
   });
 
@@ -437,7 +445,10 @@ const RemindersPage = () => {
     isLoading: rulesLoading,
     error: rulesError,
     mutate: rulesMutate,
-  } = useQuery(ruleQueryArg, { suspense: false });
+  } = useQuery(ruleQueryArg, {
+    ...MANUT_LIVE_QUERY_OPTIONS,
+    suspense: false,
+  });
 
   const rules = useMemo<MnReminderRuleDto[]>(() => {
     const typed = rulesData as unknown as RulesResponse | undefined;
@@ -675,16 +686,48 @@ const RemindersPage = () => {
     );
   };
 
-  const activeReminderList: MnReminderDto[] =
-    activeTab === 'due'
-      ? bucketed.due
-      : activeTab === 'upcoming'
-        ? bucketed.upcoming
-        : activeTab === 'done'
-          ? bucketed.done
-          : [];
+  const activeReminderList = useMemo<MnReminderDto[]>(() => {
+    if (activeTab === 'due') return bucketed.due;
+    if (activeTab === 'upcoming') return bucketed.upcoming;
+    if (activeTab === 'done') return bucketed.done;
+    return [];
+  }, [activeTab, bucketed]);
   const activeReminderTab: ReminderTabKey =
     activeTab === 'rules' ? 'due' : (activeTab as ReminderTabKey);
+  const activeExportCount =
+    activeTab === 'rules' ? rules.length : activeReminderList.length;
+  const handleExport = useCallback(() => {
+    try {
+      if (activeTab === 'rules') {
+        downloadCsv(
+          reminderExportFilename('rules'),
+          buildReminderRulesCsv(rules)
+        );
+        notify.success({
+          title: 'CSV exported',
+          message: `${rules.length} reminder rule${
+            rules.length === 1 ? '' : 's'
+          } exported.`,
+        });
+        return;
+      }
+      downloadCsv(
+        reminderExportFilename('reminders'),
+        buildReminderCsv(activeReminderList)
+      );
+      notify.success({
+        title: 'CSV exported',
+        message: `${activeReminderList.length} reminder${
+          activeReminderList.length === 1 ? '' : 's'
+        } exported.`,
+      });
+    } catch (err) {
+      notify.error({
+        title: 'Could not export CSV',
+        message: err instanceof Error ? err.message : 'Download failed.',
+      });
+    }
+  }, [activeReminderList, activeTab, rules]);
 
   const headerTitle = t['com.manut.reminders.title']();
 
@@ -754,17 +797,28 @@ const RemindersPage = () => {
                 <span className={styles.tabCount}>{rules.length}</span>
               </button>
             </div>
-            <Button
-              variant="primary"
-              onClick={handleNewClick}
-              data-testid={
-                activeTab === 'rules' ? 'reminders-new-rule' : 'reminders-new'
-              }
-            >
-              {activeTab === 'rules'
-                ? t['com.manut.reminders.rules.action.new']()
-                : t['com.manut.reminders.action.new']()}
-            </Button>
+            <div className={styles.toolbarActions}>
+              <Button
+                variant="secondary"
+                prefix={<DownloadIcon />}
+                disabled={activeExportCount === 0}
+                onClick={handleExport}
+                data-testid="reminders-export-csv"
+              >
+                Export CSV
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleNewClick}
+                data-testid={
+                  activeTab === 'rules' ? 'reminders-new-rule' : 'reminders-new'
+                }
+              >
+                {activeTab === 'rules'
+                  ? t['com.manut.reminders.rules.action.new']()
+                  : t['com.manut.reminders.action.new']()}
+              </Button>
+            </div>
           </div>
           {activeTab === 'rules' ? (
             rulesError ? (

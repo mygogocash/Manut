@@ -7,6 +7,7 @@ export * from './data-view-autofill-column';
 export * from './data-view-filter';
 export * from './doc-compose';
 export * from './doc-edit';
+export * from './doc-hybrid-search';
 export * from './doc-keyword-search';
 export * from './doc-read';
 export * from './doc-semantic-search';

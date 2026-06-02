@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
+import { PromptService } from '../prompt';
 import type { PromptMessage, PromptParams } from '../providers/types';
+import type { ToolsConfig } from '../types';
 
 export interface ChatRequestInterceptorInput {
   messages: PromptMessage[];
@@ -9,6 +11,7 @@ export interface ChatRequestInterceptorInput {
   workspaceId: string;
   sessionId: string;
   query?: string;
+  toolsConfig?: ToolsConfig;
 }
 
 export interface ChatRequestInterceptorResult {
@@ -26,12 +29,51 @@ export interface ChatRequestInterceptorResult {
  */
 @Injectable()
 export class ChatRequestInterceptorService {
+  private readonly logger = new Logger(ChatRequestInterceptorService.name);
+
+  constructor(private readonly promptService?: PromptService) {}
+
   async intercept(
     input: ChatRequestInterceptorInput
   ): Promise<ChatRequestInterceptorResult> {
+    const messages = await this.injectMemories(input);
+
     return {
-      messages: input.messages,
+      messages,
       params: input.params,
     };
+  }
+
+  private async injectMemories(
+    input: ChatRequestInterceptorInput
+  ): Promise<PromptMessage[]> {
+    if (!this.promptService) {
+      return input.messages;
+    }
+    if (input.toolsConfig?.memory === false) {
+      return input.messages;
+    }
+
+    const query = input.query?.trim();
+    if (!query) {
+      return input.messages;
+    }
+
+    try {
+      return await this.promptService.injectMemoriesIntoMessages(
+        input.messages,
+        {
+          workspaceId: input.workspaceId,
+          userId: input.userId,
+          query,
+          topK: 5,
+        }
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Memory interceptor failed for session ${input.sessionId}: ${err instanceof Error ? err.message : String(err)}`
+      );
+      return input.messages;
+    }
   }
 }

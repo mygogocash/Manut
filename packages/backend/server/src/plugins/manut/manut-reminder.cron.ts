@@ -1,7 +1,11 @@
+import { randomUUID } from 'node:crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import {
+  MnNotificationChannel,
   MnNotificationDeliveryStatus,
+  MnReminderRuleTrigger,
   MnReminderStatus,
   PrismaClient,
 } from '@prisma/client';
@@ -9,6 +13,7 @@ import {
 import { JobQueue } from '../../base';
 
 const REMINDER_SCAN_BATCH_SIZE = 100;
+const REMINDER_RULE_SCAN_BATCH_SIZE = 100;
 
 @Injectable()
 export class MnReminderCron {
@@ -33,6 +38,8 @@ export class MnReminderCron {
   }
 
   async runOnce(now = new Date()) {
+    await this.materializeDueReminderRules(now);
+
     const reminders = await this.db.mnReminder.findMany({
       where: {
         status: MnReminderStatus.SCHEDULED,
@@ -55,6 +62,83 @@ export class MnReminderCron {
           error instanceof Error ? error.stack : String(error)
         );
         await this.markReminderFailed(reminder.id);
+      }
+    }
+  }
+
+  private async materializeDueReminderRules(now: Date) {
+    if (!this.db.mnReminderRule || !this.db.mnReminderRun) {
+      return;
+    }
+
+    const scheduledFor = truncateToMinute(now);
+    const rules = await this.db.mnReminderRule.findMany({
+      where: {
+        enabled: true,
+        trigger: MnReminderRuleTrigger.DATETIME,
+        cronExpression: { not: null },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: REMINDER_RULE_SCAN_BATCH_SIZE,
+    });
+
+    for (const rule of rules) {
+      if (!cronMatchesDate(rule.cronExpression, scheduledFor)) {
+        continue;
+      }
+
+      const dedupeKey = scheduledFor.toISOString();
+      let runId: string | null = null;
+
+      try {
+        const run = await this.db.mnReminderRun.create({
+          data: {
+            id: randomUUID(),
+            ruleId: rule.id,
+            dedupeKey,
+            scheduledFor,
+            startedAt: now,
+          },
+        });
+        runId = run.id;
+
+        const config = normalizeRuleConfig(rule.config);
+        await this.db.mnReminder.create({
+          data: {
+            id: randomUUID(),
+            workspaceId: rule.workspaceId,
+            userId: rule.createdByUserId,
+            title: rule.name,
+            body: config.body,
+            fireAt: scheduledFor,
+            channel: config.channel,
+            status: MnReminderStatus.SCHEDULED,
+            ruleId: rule.id,
+          },
+        });
+
+        await this.db.mnReminderRun.update({
+          where: { id: run.id },
+          data: {
+            success: true,
+            finishedAt: now,
+          },
+        });
+        await this.db.mnReminderRule.update({
+          where: { id: rule.id },
+          data: { lastEvaluatedAt: now },
+        });
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          continue;
+        }
+        this.logger.error(
+          `Failed to materialize Manut reminder rule ${rule.id}`,
+          error instanceof Error ? error.stack : String(error)
+        );
+        if (runId) {
+          await this.markRuleRunFailed(runId, error, now);
+        }
       }
     }
   }
@@ -137,4 +221,121 @@ export class MnReminderCron {
       );
     }
   }
+
+  private async markRuleRunFailed(runId: string, error: unknown, now: Date) {
+    try {
+      await this.db.mnReminderRun.update({
+        where: { id: runId },
+        data: {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          finishedAt: now,
+        },
+      });
+    } catch (markError) {
+      this.logger.error(
+        `Failed to mark Manut reminder run ${runId} as failed`,
+        markError instanceof Error ? markError.stack : String(markError)
+      );
+    }
+  }
+}
+
+function truncateToMinute(value: Date) {
+  const next = new Date(value);
+  next.setUTCSeconds(0, 0);
+  return next;
+}
+
+function normalizeRuleConfig(config: unknown): {
+  body: string | null;
+  channel: MnNotificationChannel;
+} {
+  const object =
+    config && typeof config === 'object' && !Array.isArray(config)
+      ? (config as Record<string, unknown>)
+      : {};
+  const body = typeof object.body === 'string' ? object.body : null;
+  const channel = MnNotificationChannel.EMAIL;
+  return { body, channel };
+}
+
+function cronMatchesDate(expression: string | null, date: Date): boolean {
+  if (!expression) {
+    return false;
+  }
+
+  const parts = expression.trim().split(/\s+/);
+  const fields = parts.length === 6 ? parts.slice(1) : parts;
+  if (fields.length !== 5) {
+    return false;
+  }
+
+  const [minute, hour, dayOfMonth, month, dayOfWeek] = fields;
+  return (
+    cronFieldMatches(minute, date.getUTCMinutes(), 0, 59) &&
+    cronFieldMatches(hour, date.getUTCHours(), 0, 23) &&
+    cronFieldMatches(dayOfMonth, date.getUTCDate(), 1, 31) &&
+    cronFieldMatches(month, date.getUTCMonth() + 1, 1, 12) &&
+    cronFieldMatches(dayOfWeek, date.getUTCDay(), 0, 7, true)
+  );
+}
+
+function cronFieldMatches(
+  field: string,
+  value: number,
+  min: number,
+  max: number,
+  sundaySeven = false
+): boolean {
+  if (field === '*' || field === '?') {
+    return true;
+  }
+
+  return field.split(',').some(part => {
+    if (part.includes('/')) {
+      const [base, stepValue] = part.split('/');
+      const step = Number(stepValue);
+      if (!Number.isInteger(step) || step <= 0) {
+        return false;
+      }
+      if (base === '*') {
+        return (value - min) % step === 0;
+      }
+      return cronFieldMatches(base, value, min, max, sundaySeven);
+    }
+
+    if (part.includes('-')) {
+      const [startValue, endValue] = part.split('-');
+      const start = normalizeCronNumber(startValue, sundaySeven);
+      const end = normalizeCronNumber(endValue, sundaySeven);
+      if (!isCronNumberInRange(start, min, max)) return false;
+      if (!isCronNumberInRange(end, min, max)) return false;
+      return value >= start && value <= end;
+    }
+
+    const exact = normalizeCronNumber(part, sundaySeven);
+    return isCronNumberInRange(exact, min, max) && value === exact;
+  });
+}
+
+function normalizeCronNumber(value: string | undefined, sundaySeven: boolean) {
+  const parsed = Number(value);
+  if (sundaySeven && parsed === 7) {
+    return 0;
+  }
+  return parsed;
+}
+
+function isCronNumberInRange(value: number, min: number, max: number) {
+  return Number.isInteger(value) && value >= min && value <= max;
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return (
+    !!error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'P2002'
+  );
 }

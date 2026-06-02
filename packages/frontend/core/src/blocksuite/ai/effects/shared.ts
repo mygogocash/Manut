@@ -12,6 +12,7 @@ import {
 } from '../components/ai-tools/code-artifact';
 import { DocComposeTool } from '../components/ai-tools/doc-compose';
 import { DocEditTool } from '../components/ai-tools/doc-edit';
+import { DocHybridSearchResult } from '../components/ai-tools/doc-hybrid-search-result';
 import { DocKeywordSearchResult } from '../components/ai-tools/doc-keyword-search-result';
 import { DocReadResult } from '../components/ai-tools/doc-read-result';
 import { DocSemanticSearchResult } from '../components/ai-tools/doc-semantic-search-result';
@@ -45,6 +46,7 @@ const sharedElements = {
   'tool-call-card': ToolCallCard,
   'tool-result-card': ToolResultCard,
   'tool-call-failed': ToolFailedCard,
+  'doc-hybrid-search-result': DocHybridSearchResult,
   'doc-semantic-search-result': DocSemanticSearchResult,
   'doc-keyword-search-result': DocKeywordSearchResult,
   'doc-read-result': DocReadResult,

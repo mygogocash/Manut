@@ -104,11 +104,26 @@ Response verification should not destroy streaming latency. Roll it out in three
 
 This preserves the current chat UX while building evidence that the verifier improves quality.
 
+Current implementation status: object-stream chat saves now run a shadow-only
+verifier after the answer is complete. It compares workspace-source tool
+results with final footnote definitions and logs missing or unsupported
+citation warnings without changing the user's streamed answer.
+
+Memory implementation status: the existing memory retrieval pipeline is now
+wired through `ChatRequestInterceptorService` on each chat turn. Relevant
+user/workspace memories are injected into the provider message list by default;
+clients can opt out per request with `toolsConfig.memory=false`. Retrieval or
+injection failures remain best-effort and fall back to the original prompt.
+
 ## Latency Strategy
 
 - Keep Time To First Token fast by preserving current streaming.
 - Put static prompt prefixes first only where provider request builders can preserve exact prefix identity.
 - Cache stable tool schemas/system prompts, not user text, retrieved private docs, or mutable workspace state.
+- Current cache implementation is planner-only: `planPromptCache` identifies
+  stable Anthropic/Anthropic Vertex prefixes and refuses dynamic private
+  context, but provider requests do not attach cache metadata until the native
+  request contract can carry it safely.
 - Use background verification and memory distillation for expensive work.
 - Treat vLLM suffix/speculative decoding as optional infrastructure for future self-hosted model nodes. It does not apply to the current Vertex-first stack unless we introduce a vLLM deployment.
 
@@ -150,7 +165,7 @@ This preserves the current chat UX while building evidence that the verifier imp
 
 ### R4. Workspace Grounding and Citations
 
-- Use keyword search by default for exact terms and semantic search for meaning-level matches.
+- Use `docHybridSearch` by default for workspace-grounded questions; it combines exact keyword search and semantic search before returning sources to the model.
 - Merge keyword and semantic candidates with reciprocal rank fusion before giving them to the model.
 - Add a rerank step only when candidate ambiguity is high or the query asks a nuanced cross-doc question.
 - Answers that use retrieved docs should expose source chips or footnotes that open the referenced doc.
@@ -226,6 +241,7 @@ No new database table is required for the first implementation slice.
 Useful in-memory / persisted shapes:
 
 - `StreamObject`: extend with optional source/progress metadata only after backend and frontend schemas are updated together.
+- `HybridSearchResult`: backend tool result shape for fused workspace sources. It carries `matchedBy`, `score`, `rank`, `snippet`, and a `citation` object for document or attachment footnotes without adding a database table.
 - `AIToolsConfig.enabledTools`: remains the per-request allowlist.
 - `chatMode.<workspaceId>` and `chatEnabledTools.<workspaceId>` remain the per-workspace frontend preference keys.
 - Prompt eval datasets can start as versioned JSON fixtures in the repo.
@@ -323,7 +339,9 @@ Future DB-backed additions should wait until the stream/source contract proves s
 
 ### T5 - Hybrid Retrieval With Citation Contract
 
-- Intended behavior: Workspace answers use keyword + semantic retrieval, merge with RRF, optionally rerank, and expose source links in the assistant message.
+- Intended behavior: Workspace answers use `docHybridSearch` to run keyword + semantic retrieval, merge with RRF, optionally rerank, and expose source links in the assistant message.
+- Implementation status: first slice shipped in `doc-hybrid-search.ts`, including prompt config, Read-mode defaults, stream rendering, and deterministic merge tests.
+- Verification status: first shadow verifier slice shipped in `grounding-verifier.ts`, covering missing inline citations, missing reference lists, invalid reference JSON, and unsupported doc/attachment citations.
 - Test names:
   - `doc retrieval > given exact term > then keyword result outranks semantic-only result`
   - `doc retrieval > given paraphrase > then semantic result is retained`
@@ -332,7 +350,7 @@ Future DB-backed additions should wait until the stream/source contract proves s
 - Affected files:
   - `packages/backend/server/src/plugins/copilot/tools/doc-keyword-search.ts`
   - `packages/backend/server/src/plugins/copilot/tools/doc-semantic-search.ts`
-  - new retrieval helper under `packages/backend/server/src/plugins/copilot/tools/`
+  - `packages/backend/server/src/plugins/copilot/tools/doc-hybrid-search.ts`
   - `packages/frontend/core/src/blocksuite/ai/chat-panel/message/assistant.ts`
 - R-tier: R2
 - Rollback: remove merged retrieval helper and return to separate existing tools.
@@ -396,10 +414,16 @@ Future DB-backed additions should wait until the stream/source contract proves s
 ### T10 - Chat Request Interceptor Service
 
 - Intended behavior: Identity, memory, retrieval hints, and provider options are assembled in one non-destructive wrapper before provider calls.
+- Implementation status: first memory slice is live in the interceptor. It
+  injects memories by default, honors `toolsConfig.memory=false`, and preserves
+  messages/params on failures.
 - Test names:
   - `chat request interceptor > given missing identity context > then returns original prompt params`
   - `chat request interceptor > given workspace user > then injects allowlisted identity params`
   - `chat request interceptor > given disabled feature flag > then leaves final messages unchanged`
+  - `ChatRequestInterceptorService.intercept__given_memory_enabled_and_query__then_injects_relevant_memories`
+  - `ChatRequestInterceptorService.intercept__given_memory_opt_out__then_preserves_messages_without_retrieval`
+  - `ChatRequestInterceptorService.intercept__given_memory_injection_failure__then_returns_original_request`
 - Affected files:
   - `packages/backend/server/src/plugins/copilot/controller.ts`
   - new `packages/backend/server/src/plugins/copilot/interceptor/`
@@ -456,6 +480,9 @@ Future DB-backed additions should wait until the stream/source contract proves s
 ### T14 - Memory Tier Hardening
 
 - Intended behavior: Short-term scratchpad, durable memory, and shared knowledge have explicit lifetimes and user controls.
+- Implementation status: chat-turn memory retrieval is wired with an explicit
+  request-level opt-out. Scratchpad TTL and richer frontend memory preferences
+  remain future slices.
 - Test names:
   - `chat scratchpad > given session ttl expiry > then drops tool state`
   - `memory preferences > given forget request > then excludes memory from retrieval`
@@ -470,6 +497,10 @@ Future DB-backed additions should wait until the stream/source contract proves s
 ### T15 - Prompt Cache and Provider Prefix Discipline
 
 - Intended behavior: Stable provider prefixes maximize cache hits without caching private dynamic content incorrectly.
+- Implementation status: `planPromptCache` now marks stable Anthropic prefixes
+  as eligible, refuses retrieved private context, and returns disabled plans
+  for unsupported providers. Provider request builders still omit cache
+  metadata.
 - Test names:
   - `prompt cache planner > given stable system prompt > then marks cacheable prefix`
   - `prompt cache planner > given retrieved private doc > then refuses cache marker`

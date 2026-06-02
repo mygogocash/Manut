@@ -3,7 +3,7 @@ import { Text } from '@blocksuite/affine/store';
 
 import type { DocsService } from '../doc';
 
-const WELCOME_DOC_TITLE = 'Getting started with GoGoCash AFFiNE';
+const WELCOME_DOC_TITLE = 'Getting started with Manut';
 
 interface SeedSection {
   heading: string;
@@ -18,7 +18,7 @@ const WELCOME_SECTIONS: SeedSection[] = [
   {
     heading: 'Welcome',
     paragraphs: [
-      'Welcome to GoGoCash AFFiNE - your all-in-one workspace for docs, tasks, whiteboards, and AI.',
+      'Welcome to Manut - your all-in-one workspace for docs, tasks, whiteboards, and AI.',
       'This document is a quick tour. Edit it freely, or delete it when you are ready.',
     ],
   },

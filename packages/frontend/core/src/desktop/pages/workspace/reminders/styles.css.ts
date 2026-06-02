@@ -8,6 +8,11 @@ export const root = style({
   padding: '16px 24px 24px',
   height: '100%',
   overflow: 'auto',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      padding: '12px 16px 20px',
+    },
+  },
 });
 
 export const toolbar = style({
@@ -15,6 +20,26 @@ export const toolbar = style({
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'stretch',
+      flexDirection: 'column',
+    },
+  },
+});
+
+export const toolbarActions = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  gap: 8,
+  flexWrap: 'wrap',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      justifyContent: 'flex-start',
+      width: '100%',
+    },
+  },
 });
 
 export const tabsList = style({
@@ -25,6 +50,12 @@ export const tabsList = style({
   borderRadius: 8,
   background: cssVarV2.layer.background.secondary,
   border: `1px solid ${cssVarV2.layer.insideBorder.border}`,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      overflowX: 'auto',
+      width: '100%',
+    },
+  },
 });
 
 export const tabButton = style({
@@ -38,6 +69,7 @@ export const tabButton = style({
   fontWeight: 500,
   cursor: 'pointer',
   color: cssVarV2.text.secondary,
+  flexShrink: 0,
   transition:
     'background-color 100ms var(--manut-anim-curve-overshoot), color 100ms var(--manut-anim-curve-overshoot)',
   selectors: {
@@ -79,6 +111,11 @@ export const cardHeader = style({
   alignItems: 'flex-start',
   justifyContent: 'space-between',
   gap: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexDirection: 'column',
+    },
+  },
 });
 
 export const cardTitle = style({
@@ -116,6 +153,11 @@ export const cardActions = style({
   alignItems: 'center',
   gap: 8,
   marginTop: 4,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexWrap: 'wrap',
+    },
+  },
 });
 
 export const badge = style({
@@ -183,6 +225,11 @@ export const emptyState = style({
   color: cssVarV2.text.secondary,
   fontSize: 13,
   lineHeight: '20px',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      padding: '28px 16px',
+    },
+  },
 });
 
 export const errorState = style({
@@ -265,6 +312,12 @@ export const modalActions = style({
   alignItems: 'center',
   justifyContent: 'flex-end',
   gap: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      flexWrap: 'wrap',
+      justifyContent: 'flex-start',
+    },
+  },
 });
 
 export const fieldError = style({
@@ -299,6 +352,12 @@ export const modeToggle = style({
   background: cssVarV2.layer.background.secondary,
   border: `1px solid ${cssVarV2.layer.insideBorder.border}`,
   alignSelf: 'flex-start',
+  '@media': {
+    'screen and (max-width: 640px)': {
+      maxWidth: '100%',
+      overflowX: 'auto',
+    },
+  },
 });
 
 export const modeButton = style({
@@ -334,6 +393,11 @@ export const presetGrid = style({
   display: 'grid',
   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   gap: 12,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      gridTemplateColumns: '1fr',
+    },
+  },
 });
 
 export const summary = style({
@@ -351,4 +415,10 @@ export const enabledRow = style({
   alignItems: 'center',
   justifyContent: 'space-between',
   gap: 8,
+  '@media': {
+    'screen and (max-width: 640px)': {
+      alignItems: 'flex-start',
+      flexDirection: 'column',
+    },
+  },
 });

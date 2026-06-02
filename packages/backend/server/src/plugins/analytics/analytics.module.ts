@@ -13,6 +13,7 @@ import { isAnalyticsModuleEnabled } from './feature-flag';
 export { isAnalyticsModuleEnabled } from './feature-flag';
 import { DailyRollupCron } from './aggregator/daily-rollup.cron';
 import { HourlyRollupCron } from './aggregator/hourly-rollup.cron';
+import { MetricRollupService } from './aggregator/metric-rollup.service';
 import { WeeklyRollupCron } from './aggregator/weekly-rollup.cron';
 import { AnomalyDetectorService } from './ai/anomaly-detector.service';
 import { BudgetService } from './ai/budget.service';
@@ -36,6 +37,8 @@ import { TikTokPoller } from './ingest/polling/tiktok.poller';
 import { LineWebhookController } from './ingest/webhooks/line.controller';
 import { MetaWebhookController } from './ingest/webhooks/meta.controller';
 import { TikTokWebhookController } from './ingest/webhooks/tiktok.controller';
+import { AnalyticsInsightEventBus } from './insight-event-bus.service';
+import { AnalyticsInsightsStreamController } from './insight-stream.controller';
 import { LineMapper } from './normalizer/platform-mappers/line.mapper';
 import { MetaMapper } from './normalizer/platform-mappers/meta.mapper';
 import { ThreadsMapper } from './normalizer/platform-mappers/threads.mapper';
@@ -93,8 +96,8 @@ export class AnalyticsModule {
         TikTokMapper,
         LineMapper,
         ThreadsMapper,
-        // aggregator cron stubs (Round A — register so cron decorators are
-        // alive; their handler bodies are empty until phase 3).
+        // aggregator cron jobs
+        MetricRollupService,
         HourlyRollupCron,
         DailyRollupCron,
         WeeklyRollupCron,
@@ -104,6 +107,7 @@ export class AnalyticsModule {
         TrendDetectorService,
         AnomalyDetectorService,
         // graphql
+        AnalyticsInsightEventBus,
         AnalyticsResolver,
       ],
       controllers: [
@@ -111,6 +115,7 @@ export class AnalyticsModule {
         TikTokWebhookController,
         LineWebhookController,
         OAuthCallbackController,
+        AnalyticsInsightsStreamController,
       ],
     };
   }

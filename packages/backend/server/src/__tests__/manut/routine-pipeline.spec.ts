@@ -329,9 +329,9 @@ test('cron paginates across multiple batches (P1: no routine starvation)', async
 
 test('cron P2: enqueue failure leaves a QUEUED run row visible for recovery', async t => {
   // The transaction has already committed (claim + run create). If
-  // queue.add then throws (Redis hiccup), the QUEUED MnRoutineRun row
-  // must still exist — the per-routine catch in runOnce should log
-  // the error but NOT delete the row. PR 4's startup sweep picks it up.
+  // queue.add then throws (Redis hiccup), the QUEUED MnRoutineRun row must
+  // still exist — the per-routine catch in runOnce should log the error but
+  // NOT delete the row. A future runner sweep can pick it up.
   const routine = makeRoutine({
     cronSchedule: '*/2 * * * *',
     lastRunAt: new Date('2026-05-09T00:00:00.000Z'),
@@ -374,7 +374,7 @@ test('cron P2: enqueue failure leaves a QUEUED run row visible for recovery', as
 
 // --- Job consumer tests ---
 
-test('job consumer marks queued run as SUCCEEDED with PR 4 stub output', async t => {
+test('job consumer marks queued preview as SUCCESS without claiming Vertex execution', async t => {
   const queuedRun = {
     id: 'run-1',
     routineId: 'routine-1',
@@ -405,8 +405,8 @@ test('job consumer marks queued run as SUCCEEDED with PR 4 stub output', async t
   t.is(updatedWith.data.durationMs, 0);
   t.regex(
     updatedWith.data.output as string,
-    /PR 4/,
-    'output references the next-PR runner'
+    /No Vertex\/AI execution was run/,
+    'output must be honest that this is only a preview acknowledgement'
   );
   t.truthy(updatedWith.data.startedAt);
   t.truthy(updatedWith.data.finishedAt);

@@ -90,6 +90,7 @@ export const footerNav: Record<string, ReadonlyArray<NavItem>> = {
   Legal: [
     { href: '/privacy-policy', label: 'Privacy' },
     { href: '/terms-of-service', label: 'Terms' },
+    { href: '/legal/data-deletion-instructions', label: 'Data deletion' },
     { href: '/security', label: 'Security' },
     {
       href: 'https://github.com/gogocash-deploy/manut/blob/main/LICENSE',

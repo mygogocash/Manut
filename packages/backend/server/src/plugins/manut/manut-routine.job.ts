@@ -13,19 +13,19 @@ declare global {
 }
 
 /**
- * BullMQ consumer for routine ticks (PR 2 stub).
+ * BullMQ consumer for routine ticks (preview queue mode).
  *
  * The cron scanner (`MnRoutineCron`) creates an `MnRoutineRun` with
  * `status=QUEUED` for every fire and enqueues one of these jobs. PR 2
- * intentionally does not execute the prompt against Vertex — that
- * runner lands in PR 4 and will replace this method's body.
+ * intentionally does not execute the prompt against Vertex. Until a bounded,
+ * tested runner lands, this worker records that the queue action was accepted
+ * and keeps the user-visible output explicit.
  *
- * For PR 2 the consumer marks the run as `SUCCEEDED` with an
- * explanatory `output`. Rationale: leaving runs `QUEUED` forever
- * confuses the History modal and accumulates state PR 4 then has to
- * scrub. Marking them SUCCEEDED with a clear stub message gives users
- * an honest signal ("the schedule fired") and PR 4 picks up from a
- * clean slate.
+ * The consumer marks the run as `SUCCESS` with an explanatory `output`.
+ * Rationale: leaving runs `QUEUED` forever confuses the History modal and
+ * accumulates state. Marking them complete with a clear preview message gives
+ * users an honest signal ("the queue accepted this") without claiming AI work
+ * happened.
  *
  * §6 NestJS DI traps: `@Injectable()` is present and `PrismaClient` is
  * a runtime import (not `import type`). Both checks pass.
@@ -66,7 +66,7 @@ export class MnRoutineJob {
         finishedAt: startedAt,
         durationMs: 0,
         output:
-          'Scheduled tick acknowledged. Vertex execution lands in PR 4 of the Routines stack.',
+          'Routine preview queued and acknowledged. No Vertex/AI execution was run.',
       },
     });
   }

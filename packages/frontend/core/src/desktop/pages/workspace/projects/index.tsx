@@ -18,6 +18,7 @@ import {
   KanbanBoard,
   type KanbanColumn,
   type KanbanOnMoveArgs,
+  MANUT_LIVE_QUERY_OPTIONS,
 } from '@affine/core/modules/manut-shared';
 import {
   ViewBody,
@@ -28,7 +29,7 @@ import {
 } from '@affine/core/modules/workbench';
 import { WorkspaceService } from '@affine/core/modules/workspace';
 import { isGraphQLSchemaValidationError } from '@affine/error';
-import { FolderIcon, PlusIcon } from '@blocksuite/icons/rc';
+import { DownloadIcon, FolderIcon, PlusIcon } from '@blocksuite/icons/rc';
 import { useService } from '@toeverything/infra';
 import {
   type ChangeEvent,
@@ -42,6 +43,11 @@ import {
 
 import { Header } from '../../../../components/pure/header';
 import { AllDocSidebarTabs } from '../layouts/all-doc-sidebar-tabs';
+import {
+  buildPmProjectsCsv,
+  downloadCsv,
+  pmExportFilename,
+} from './csv-export';
 import { formatDueDate, priorityClass, readableStatus } from './helpers';
 import * as styles from './projects.css';
 
@@ -182,6 +188,42 @@ function errorMessage(err: unknown): string {
   if (isGraphQLSchemaValidationError(err)) return PROJECTS_UNAVAILABLE_MESSAGE;
   return err instanceof Error ? err.message : 'Unexpected error';
 }
+
+interface ProjectsExportToolbarProps {
+  projects: readonly MnProjectDto[];
+}
+
+const ProjectsExportToolbar = ({ projects }: ProjectsExportToolbarProps) => {
+  const handleExport = useCallback(() => {
+    try {
+      downloadCsv(pmExportFilename('projects'), buildPmProjectsCsv(projects));
+      notify.success({
+        title: 'CSV exported',
+        message: `${projects.length} project${
+          projects.length === 1 ? '' : 's'
+        } exported.`,
+      });
+    } catch (err) {
+      notify.error({
+        title: 'Could not export projects',
+        message: errorMessage(err),
+      });
+    }
+  }, [projects]);
+
+  return (
+    <div className={styles.listToolbar}>
+      <Button
+        prefix={<DownloadIcon />}
+        disabled={projects.length === 0}
+        onClick={handleExport}
+        data-testid="manut-pm-export-projects"
+      >
+        Export CSV
+      </Button>
+    </div>
+  );
+};
 
 interface NewProjectModalProps {
   open: boolean;
@@ -402,7 +444,7 @@ const ProjectTaskLoader = ({ project, onLoaded }: ProjectTaskLoaderProps) => {
     variables: { projectId: project.id },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
-  const { data } = useQuery(queryArg);
+  const { data } = useQuery(queryArg, MANUT_LIVE_QUERY_OPTIONS);
   const tasks =
     (data as unknown as { mnTasks?: MnTaskDto[] } | undefined)?.mnTasks ?? [];
 
@@ -674,7 +716,7 @@ const ProjectsList = ({
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
-  const { data, error, mutate } = useQuery(queryArg);
+  const { data, error, mutate } = useQuery(queryArg, MANUT_LIVE_QUERY_OPTIONS);
 
   const projects = (
     data as unknown as { mnProjects?: MnProjectDto[] } | undefined
@@ -698,15 +740,18 @@ const ProjectsList = ({
   }
 
   return (
-    <div className={styles.list}>
-      {projects.map(project => (
-        <ProjectCard
-          key={project.id}
-          project={project}
-          onOpen={onOpenProject}
-        />
-      ))}
-    </div>
+    <>
+      <ProjectsExportToolbar projects={projects} />
+      <div className={styles.list}>
+        {projects.map(project => (
+          <ProjectCard
+            key={project.id}
+            project={project}
+            onOpen={onOpenProject}
+          />
+        ))}
+      </div>
+    </>
   );
 };
 
@@ -724,7 +769,7 @@ const ProjectsKanban = ({
     variables: { workspaceId },
   } as unknown as NonNullable<Parameters<typeof useQuery>[0]>;
 
-  const { data, error, mutate } = useQuery(queryArg);
+  const { data, error, mutate } = useQuery(queryArg, MANUT_LIVE_QUERY_OPTIONS);
 
   const projects = (
     data as unknown as { mnProjects?: MnProjectDto[] } | undefined
@@ -738,7 +783,12 @@ const ProjectsKanban = ({
     return <EmptyState onCreate={onCreateProject} />;
   }
 
-  return <TasksKanbanView projects={projects} workspaceId={workspaceId} />;
+  return (
+    <>
+      <ProjectsExportToolbar projects={projects} />
+      <TasksKanbanView projects={projects} workspaceId={workspaceId} />
+    </>
+  );
 };
 
 const ProjectsPage = () => {

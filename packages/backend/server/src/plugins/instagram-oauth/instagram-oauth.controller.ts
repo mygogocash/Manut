@@ -9,6 +9,7 @@ import {
 import type { Response } from 'express';
 
 import { Public } from '../../core/auth';
+import { jsonForInlineScript } from '../oauth-callback-script';
 import { InstagramOAuthService } from './instagram-oauth.service';
 
 const POSTMESSAGE_TYPE = 'affine:instagram-oauth-result';
@@ -73,10 +74,11 @@ export class InstagramOAuthController {
       : `error=${encodeURIComponent(result.error)}`;
     const fallbackUrl = `/?settings=analytics-connections&${fallbackQuery}`;
 
-    const payload = JSON.stringify({
+    const payload = jsonForInlineScript({
       type: POSTMESSAGE_TYPE,
       ...result,
     });
+    const safeFallbackUrl = jsonForInlineScript(fallbackUrl);
 
     return `<!doctype html>
 <html lang="en">
@@ -91,7 +93,7 @@ export class InstagramOAuthController {
   <script>
   (function () {
     var payload = ${payload};
-    var fallbackUrl = ${JSON.stringify(fallbackUrl)};
+    var fallbackUrl = ${safeFallbackUrl};
     try {
       if (window.opener && window.opener !== window) {
         window.opener.postMessage(payload, window.location.origin);
