@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, test } from 'vitest';
 
 import type { SocialMetric } from '../entities/analytics-data.entity';
@@ -9,6 +12,10 @@ import {
   buildMetricKpis,
   buildMetricSeries,
 } from '../views/platform-page/metrics';
+import {
+  platformDisplayLabel,
+  platformSlugToKey,
+} from '../views/platform-page/platform';
 
 const rows: SocialMetric[] = [
   {
@@ -123,5 +130,33 @@ describe('platform-page recent event helpers', () => {
     };
 
     expect(buildEventMessage(event)).toBe('Post created · fb-post-1');
+  });
+});
+
+describe('platform-page platform helpers', () => {
+  test('platformSlugToKey accepts route slugs and enum keys', () => {
+    expect(platformSlugToKey('line-voom')).toBe('LINE_VOOM');
+    expect(platformSlugToKey('line_voom')).toBe('LINE_VOOM');
+    expect(platformSlugToKey('LINE_VOOM')).toBe('LINE_VOOM');
+    expect(platformSlugToKey('facebook')).toBe('FACEBOOK');
+    expect(platformSlugToKey('unknown')).toBeNull();
+  });
+
+  test('platformDisplayLabel uses product-facing labels', () => {
+    expect(platformDisplayLabel('LINE_VOOM')).toBe('LINE Official Account');
+    expect(platformDisplayLabel('TIKTOK')).toBe('TikTok');
+  });
+
+  test('platform styles keep chart grids within narrow mobile viewports', () => {
+    const source = readFileSync(
+      fileURLToPath(
+        new URL('../views/platform-page/index.css.ts', import.meta.url)
+      ),
+      'utf8'
+    );
+
+    expect(source).toContain('export const chartGrid');
+    expect(source).toContain('max-width: 720px');
+    expect(source).toContain("gridTemplateColumns: 'minmax(0, 1fr)'");
   });
 });

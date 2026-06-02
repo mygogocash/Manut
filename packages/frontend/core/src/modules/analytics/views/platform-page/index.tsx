@@ -21,26 +21,13 @@ import { ConnectionService } from '../../services/connection.service';
 import { buildEventMessage } from './events';
 import * as styles from './index.css';
 import { buildMetricKpis, buildMetricSeries } from './metrics';
+import { platformDisplayLabel, platformSlugToKey } from './platform';
 
 const logger = new DebugLogger('analytics');
 
 // Stable empty-array references for useMemo deps; see ai-strategist/index.tsx.
 const EMPTY_INSIGHTS: readonly Insight[] = Object.freeze([]);
 const EMPTY_CONNECTIONS: readonly PlatformConnection[] = Object.freeze([]);
-
-const KNOWN_PLATFORMS = new Set<SocialPlatform>([
-  'FACEBOOK',
-  'INSTAGRAM',
-  'THREADS',
-  'TIKTOK',
-  'LINE_VOOM',
-  'GOGOCASH',
-]);
-
-const isKnownPlatform = (slug: string | undefined): slug is SocialPlatform => {
-  if (!slug) return false;
-  return KNOWN_PLATFORMS.has(slug.toUpperCase() as SocialPlatform);
-};
 
 interface PlatformPageProps {
   platform: string;
@@ -68,9 +55,13 @@ function filterKpisForPlatform(
   platform: SocialPlatform
 ): AnalyticsKpi[] {
   const slug = platform.toLowerCase();
+  const kebabSlug = slug.replaceAll('_', '-');
   return kpis.filter(
     k =>
-      k.key.toLowerCase().includes(slug) || k.label.toLowerCase().includes(slug)
+      k.key.toLowerCase().includes(slug) ||
+      k.key.toLowerCase().includes(kebabSlug) ||
+      k.label.toLowerCase().includes(slug) ||
+      k.label.toLowerCase().includes(kebabSlug)
   );
 }
 
@@ -105,13 +96,7 @@ export function PlatformPage({ platform }: PlatformPageProps) {
     });
   }, [analyticsService, connectionService, workspaceId]);
 
-  const platformKey = useMemo(
-    () =>
-      isKnownPlatform(platform)
-        ? (platform.toUpperCase() as SocialPlatform)
-        : null,
-    [platform]
-  );
+  const platformKey = useMemo(() => platformSlugToKey(platform), [platform]);
 
   useEffect(() => {
     if (!platformKey) {
@@ -252,7 +237,9 @@ export function PlatformPage({ platform }: PlatformPageProps) {
     <div className={styles.root} data-testid={`analytics-platform-${platform}`}>
       <div className={styles.headerRow}>
         <div>
-          <div className={styles.title}>{platformKey}</div>
+          <div className={styles.title}>
+            {platformDisplayLabel(platformKey)}
+          </div>
           <div className={styles.subtitle}>
             {connection?.externalAccountName ??
               connection?.accountHandle ??

@@ -21,6 +21,27 @@ docs, and roadmap docs.
   MongoDB, and control-plane tables.
 - Re-run Cloud Run smoke for `Manut,Copilot`.
 - Confirm the rollback target before every production traffic flip.
+- Read-only production verification on 2026-06-01:
+  - Cloud Run service `manut` is Ready on revision `manut-00015-wix`, image
+    `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:0220ad1`.
+  - Migration jobs `manut-migrate`, `manut-staging-migrate`, and
+    `manut-pg18-migrate-20260527001726` report Ready; latest production
+    execution `manut-migrate-8zhq8` completed successfully on
+    2026-05-27T11:55:24Z.
+  - Required production Secret Manager names are present for database URL,
+    config JSON, private key, Google OAuth client id/secret, and Resend API key
+    without exposing secret values.
+  - `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=120
+scripts/gcp/smoke-test-cloud-run.sh` passed, `/info` reports
+    `Manut 0.26.3 Server`, GraphQL `serverConfig.initialized=true`, and
+    `serverConfig.features` includes `Manut` and `Copilot`.
+  - Cloud Run domain mapping for `manut.xyz` is Ready; no Cloud Run
+    `severity>=ERROR` entries were returned for service `manut` since
+    2026-06-01T00:00:00Z.
+  - This verifies the currently deployed production revision only. The current
+    follow-up branch is not deployed; launch still requires a fresh Cloud Build
+    image, migration-job run, and post-deploy smoke before claiming production
+    contains these branch changes.
 - Update stale Railway references in operator docs to the current GCP Cloud Run
   deployment path. — Done for the production deploy runbook and launch
   readiness checklist; Railway is now documented only as source-data or
@@ -242,6 +263,10 @@ Completed in this branch:
   for the selected platform, render latest metric rows as KPI cards, and build
   trend charts from real `social_metrics` rows instead of relying on the
   mock-backed legacy analytics entity.
+- Lane 5 — Platform Route and Mobile Hardening: platform pages now normalize
+  enum keys, snake-case slugs, and kebab-case slugs such as `line-voom` to the
+  same platform key, render product-facing platform labels, and keep chart grids
+  within narrow mobile viewports.
 - Lane 5 — Platform Recent Events: platform pages now call `listEvents` for
   the selected platform, render newest normalized `social_events` rows, and
   keep raw webhook payloads out of the GraphQL/UI surface.
@@ -287,6 +312,15 @@ Completed in this branch:
   `PromptService` DI metadata. `ConnectionsModule` now imports
   `PermissionModule`, and `ChatRequestInterceptorService` imports
   `PromptService` at runtime.
+- Lane 1 — Invitation Resend UI Guard: pending-invite resend actions now use a
+  synchronous in-flight guard and disabled menu state so duplicate activations
+  cannot enqueue duplicate resend requests while the first request is pending.
+- Lane 1 — Production Read-Only Smoke: GCP read-only verification confirms the
+  currently deployed production revision is healthy on Cloud Run, has the
+  expected secret references, has a successful latest migration execution, and
+  passes public `/info` + GraphQL `serverConfig` smoke for `Manut,Copilot`.
+  This is production evidence for image `0220ad1`, not a deploy of this
+  follow-up branch.
 
 Known verification blocker:
 

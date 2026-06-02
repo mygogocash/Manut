@@ -54,6 +54,11 @@ export const chartGrid = style({
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
   gap: 12,
+  '@media': {
+    'screen and (max-width: 720px)': {
+      gridTemplateColumns: 'minmax(0, 1fr)',
+    },
+  },
 });
 
 export const eventsList = style({
