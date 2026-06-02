@@ -222,7 +222,14 @@ export const chatPromptEvalConfig = {
     'gemini-2.5-pro',
     'claude-sonnet-4-5@20250929',
   ],
-  forbiddenOptionalModels: ['gpt-5-mini'],
+  forbiddenOptionalModels: [
+    'gpt-5-mini',
+    'gemini-3.1-flash-lite-preview',
+    'gemini-3.1-pro-preview',
+    'claude-sonnet-4-6',
+    'claude-opus-4-6',
+    'claude-opus-4-7',
+  ],
   requiredSubstrings: [
     {
       id: 'citation-footnotes-required',

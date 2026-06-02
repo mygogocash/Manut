@@ -2212,16 +2212,11 @@ const CHAT_PROMPT: Omit<Prompt, 'name'> = {
     // Google Gemini (Vertex)
     'gemini-2.5-flash',
     'gemini-2.5-pro',
-    'gemini-3.1-flash-lite-preview',
-    'gemini-3.1-pro-preview',
-    // Anthropic Claude (Vertex). IDs without `@<date>` use publisher
-    // versionId='default' — see anthropic/vertex.ts.
+    // Anthropic Claude (Vertex). Keep user-facing entries on pinned stable
+    // model versions until preview/default-version IDs pass production smoke.
     'claude-sonnet-4-5@20250929',
-    'claude-sonnet-4-6',
     'claude-opus-4@20250514',
     'claude-opus-4-1@20250805',
-    'claude-opus-4-6',
-    'claude-opus-4-7',
     // Meta Llama 4 (Vertex Model Garden)
     'llama-4-scout-17b-16e-instruct-maas',
     'llama-4-maverick-17b-128e-instruct-maas',
@@ -2401,11 +2396,7 @@ Below is the user's query. Please respond in the user's preferred language witho
       'codeArtifact',
       'blobRead',
     ],
-    proModels: [
-      'gemini-2.5-pro',
-      'gemini-3.1-pro-preview',
-      'claude-sonnet-4-5@20250929',
-    ],
+    proModels: ['gemini-2.5-pro', 'claude-sonnet-4-5@20250929'],
   },
 };
 

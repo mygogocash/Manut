@@ -279,11 +279,14 @@ kept Railway online and write-safe for the stability window.
   idle/rest-loop gating, the `MAX_PHYSICS_NODES` cap, canvas `role="img"` /
   `aria-label`, and a visually-hidden keyboard/screen-reader list that opens
   the same detail panel as canvas selection.
-- Chat model picker: 10 frontier models on `optionalModels` (Gemini 2.5/3.1
-  family, Claude Sonnet 4/4.5/Opus 4, Llama 4 Scout/Maverick). Default is
-  `gemini-2.5-flash`. Moonshot Kimi, xAI Grok, and Alibaba Qwen provider
-  implementations exist (v1.12.0) but require provider config on the VM
-  before they render in the picker.
+- Chat model picker: stable Vertex-backed models on `optionalModels`
+  (`gemini-2.5-flash`, `gemini-2.5-pro`,
+  `claude-sonnet-4-5@20250929`, pinned Claude Opus 4 variants, and
+  Llama 4 Scout/Maverick). Default is `gemini-2.5-flash`. Gemini 3.1
+  previews, Claude 4.6/4.7 default-version IDs, Moonshot Kimi, xAI Grok,
+  and Alibaba Qwen provider implementations exist but require provider
+  config/quota plus authenticated production smoke before they should render
+  in the picker.
 - Gmail/Drive: v1.10.2 adds live Gmail import and Drive picker on top of the
   Google OAuth scaffold. Required env vars are `GOOGLE_OAUTH_CLIENT_ID`,
   `GOOGLE_OAUTH_CLIENT_SECRET`, and optional `GOOGLE_OAUTH_REDIRECT_URI`.

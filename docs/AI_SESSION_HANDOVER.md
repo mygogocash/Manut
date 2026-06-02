@@ -392,9 +392,11 @@ those writes before DNS rollback.
   toggles the flag based on `ENABLE_MANUT_MODULE=true` (legacy
   `ENABLE_SUPERFLOW_MODULE` fallback). PR #25 fixed the
   `useSuperflowEnabled` hook's ServerFeature shape access. The chat
-  picker's `optionalModels` now exposes 10 frontier models; Moonshot,
-  xAI, and Alibaba provider implementations are wired but off until
-  provider config is populated on the VM.
+  picker's `optionalModels` was later narrowed to stable Vertex-backed
+  entries (`gemini-2.5-flash`, `gemini-2.5-pro`,
+  `claude-sonnet-4-5@20250929`, pinned Claude Opus 4 variants, and
+  Llama 4 Scout/Maverick) after preview/default-version IDs could not
+  be authenticated-smoked from Codex.
 - **2026-05-13 — Analytics Connections panel unbroken on production.**
   PR #33 fixed the `isAnalyticsModuleEnabled()` gate predicate to read
   `globalThis.env.selfhosted` (matching `/info`) instead of the raw
@@ -724,10 +726,10 @@ packages/backend/server/src/mails/index.tsx` fixed import order.
   `feat/superflow-pm-crm-reminders-ui` but did not merge for v1.12.0.
   The branch has Phase 1 (layout) and Phase 2 (pulses) commits. Next
   step is a review pass and a merge decision before v1.13.0.
-- Moonshot, xAI, and Alibaba providers are wired but the chat picker
-  doesn't render them until provider config (`apiKey`, `baseUrl`) is
-  populated on the VM. Document the rollout step before exposing them
-  in product.
+- Moonshot, xAI, Alibaba, Gemini 3.1 preview, and Claude 4.6/4.7
+  provider entries are wired but should stay out of the chat picker until
+  provider config/quota and authenticated send/stream smoke pass in
+  production.
 - Keep `docs/MANUT_CONTROL_PLANE.md` and this file in sync whenever the
   handover JSON contract changes.
 - Current QA risk: mobile Notion-style home, AI chat view modes,
