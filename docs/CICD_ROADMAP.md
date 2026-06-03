@@ -4,20 +4,22 @@ Where the deploy pipeline is, what's shipping, and what's queued. For
 the architecture reference (how it works), see [`CICD.md`](./CICD.md).
 For daily commands, see [`CLAUDE.md`](../CLAUDE.md) §4.
 
-Last updated: 2026-06-03 (docs continuity refresh for
-`codex/fix-ux-ui-bughunt`; the production snapshot below was not revalidated
-in this docs-only pass. Re-run live smoke before treating any production image,
-revision, or deploy-chain number as current).
+Last updated: 2026-06-03 16:48 +07 (post-merge/build continuity refresh for
+PR #188; production has not been deployed from the new Build #141 image. Re-run
+live smoke before treating any production image, revision, or deploy-chain
+number as current).
 
 ---
 
 ## TL;DR
 
-- **Current branch — NOT DEPLOYED.** `codex/fix-ux-ui-bughunt` is committed at
-  `b57f4ae1f fix(manut): resolve ux bughunt regressions`. It fixes the
-  2026-06-02 UX/UI bughunt findings locally and needs PR review, bundle/image
-  build, authenticated browser smoke, and the normal production gate before
-  any production swap.
+- **Latest merge — NOT DEPLOYED.** PR #188 merged
+  `codex/fix-ux-ui-bughunt` to `main` at
+  `35bc631166d5c3d82f892793283ba990f417a54d`. It fixes the 2026-06-02 UX/UI
+  bughunt findings, and PR checks, main CI, CodeQL, and Build #141 are green.
+  Build #141 pushed image tag `main-35bc63116-26876250444`. Authenticated
+  browser smoke and the normal production gate are still required before any
+  production swap.
 - **Tier 1 — DONE.** Smoke-then-swap pipeline with sidecar validation
   and auto-rollback is live. Production never gets a broken image.
 - **Tier 2 — DONE.** Build/deploy split, registry buildx cache,
@@ -61,21 +63,26 @@ driver in `@affine/server` production dependencies and adding local SWR error
 boundaries around MongoDB/Analytics settings surfaces. The branch still needs a
 PR/merge into `main` so source control matches the deployed image.
 
-### 2026-06-03 UX/UI bughunt branch note
+### 2026-06-03 UX/UI bughunt merge note
 
-The current docs/code branch is `codex/fix-ux-ui-bughunt` at
-`b57f4ae1f`. It has not been deployed. Before a release operator ships it:
+PR #188 merged the docs/code branch `codex/fix-ux-ui-bughunt` into `main`.
+Merge commit `35bc631166d5c3d82f892793283ba990f417a54d` has passed:
 
-1. Re-run the targeted backend and frontend regression tests listed in
-   `docs/AI_SESSION_HANDOVER.md`.
-2. Rebuild the server/web/mobile/admin bundles that the fullstack Dockerfile
-   copies into the image.
-3. Run authenticated smoke for the fixed surfaces: invite acceptance, Google
+1. PR checks: Manut CI, CodeQL, Beta Security Gate, and `manut-gcp-pr-ci`.
+2. Main push checks: Manut CI and CodeQL.
+3. Build #141 / run `26876250444`: native, landing, server/frontend bundle,
+   source-drift check, Docker push, and artifact-publish stages.
+
+Build #141 pushed image tag `main-35bc63116-26876250444`. It has not been
+deployed to production. Before a release operator ships it:
+
+1. Run authenticated smoke for the fixed surfaces: invite acceptance, Google
    integration errors, AI object-stream actions, AI source cards, mobile Ask
    AI, floating AI tabs, hidden Budget/Work Queue settings deep links, and
    analytics connection error copy.
-4. Update this roadmap with the actual build id, image tag, revision, smoke
-   evidence, and rollback target after deployment.
+2. Deploy only after staging or equivalent smoke passes.
+3. Update this roadmap with the actual production revision, smoke evidence,
+   image digest, and rollback target after deployment.
 
 ### Pipeline workflows live on `main`
 

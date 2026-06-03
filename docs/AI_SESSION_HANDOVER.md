@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-06-03 12:35 +07 (UX/UI bughunt fix branch committed)
+Last updated: 2026-06-03 16:48 +07 (UX/UI bughunt PR merged and build passed)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,16 +12,17 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/fix-ux-ui-bughunt` from latest `origin/main`.
+- Branch: `codex/ux-bughunt-merge-handoff` from latest `origin/main`.
 - Upstream: `origin/main`.
-- Handover refresh: current branch implements the 2026-06-02 Manut UX/UI
-  bughunt fixes and records the continuation state for the next team.
-- Branch state: clean after commit
-  `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
+- Handover refresh: PR #188 merged the 2026-06-02 Manut UX/UI bughunt fixes to
+  `main`; this branch records the post-merge/build continuation state.
+- Merge state: PR #188 merged at
+  `35bc631166d5c3d82f892793283ba990f417a54d`.
 - Production branch: `main`
-- Production app: https://manut.xyz serves Manut production on the GCE VM
-  safe-deploy path. Latest verified image is
-  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-9da65ae8f-26791041596`.
+- Production app: https://manut.xyz serves Manut production. Latest build from
+  `main` is
+  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-35bc63116-26876250444`,
+  but production has not been deployed from that image yet.
   The legacy `affine.gogocash.co` and `manut.gogocash.co` hosts both
   301-redirect to the canonical domain.
 - GCP project: `affine-495114` (`602860445793`), region `asia-southeast1`.
@@ -32,7 +33,12 @@ on chat memory.
 
 ## Current Continuation Slice - 2026-06-03 UX/UI Bughunt Fix
 
-- Commit: `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
+- Implementation commit:
+  `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
+- Handover commit: `77ece66c3 docs(manut): refresh ux bughunt handoff`.
+- Merge commit: `35bc631166d5c3d82f892793283ba990f417a54d` via PR #188.
+- Build: GitHub Actions `Manut Build` run `26876250444` / Build #141 passed
+  and pushed image tag `main-35bc63116-26876250444`.
 - Source report:
   `docs/manut-bughunt/UX_UI_BUGHUNT_2026-06-02.md`.
 - Implementation plan/spec:
@@ -56,22 +62,26 @@ on chat memory.
   - `yarn prettier --check ...`
   - `git diff --check`
   - Husky/lint-staged during the commit.
+  - PR #188 checks passed: Manut CI, CodeQL, Beta Security Gate, and
+    `manut-gcp-pr-ci`.
+  - Main push checks passed for merge commit `35bc63116`: Manut CI and CodeQL.
+  - Build #141 passed native, landing, server/frontend bundle, source-drift,
+    Docker push, and artifact-publish stages.
 - Not done yet:
-  - No staging or production deploy has been run from this branch.
+  - No staging or production deploy has been run from image
+    `main-35bc63116-26876250444`.
   - No live authenticated browser smoke has been run after these fixes.
   - Full frontend project-reference typecheck is still blocked by the known
     prebuild-state `TS6305` missing `blocksuite/**/dist/*.d.ts` outputs.
 - Next operator path:
-  1. Open or update the PR from `codex/fix-ux-ui-bughunt`.
-  2. Re-run the targeted backend/frontend tests above.
-  3. Bundle the affected deploy artifacts before image build; remember
-     `.docker/gogocash/Dockerfile.fullstack` copies prebuilt `dist/`.
-  4. Smoke authenticated flows before prod: mobile Ask AI, floating AI tabs,
+  1. Run authenticated smoke before prod: mobile Ask AI, floating AI tabs,
      settings direct links for hidden Budget/Work Queues, Google integration
      friendly errors, invite acceptance, AI sources, and analytics connection
      errors.
-  5. Deploy only after staging or equivalent browser smoke passes; rollback is
+  2. Deploy only after staging or equivalent browser smoke passes; rollback is
      code-only because this slice adds no migrations.
+  3. After deploy, update `docs/CICD_ROADMAP.md` with the production revision,
+     image digest, public smoke evidence, and rollback target.
 
 ## Current GCP Cloud Run Migration Slice
 

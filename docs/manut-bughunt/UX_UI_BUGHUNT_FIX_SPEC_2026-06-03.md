@@ -6,7 +6,10 @@ Fix the current UX/UI bughunt findings from `docs/manut-bughunt/UX_UI_BUGHUNT_20
 
 - Branch: `codex/fix-ux-ui-bughunt`
 - Commit: `b57f4ae1f fix(manut): resolve ux bughunt regressions`
-- Status: implemented and locally verified; not deployed.
+- Status: implemented, merged via PR #188, build-verified, and not deployed.
+- Merge: `35bc631166d5c3d82f892793283ba990f417a54d`.
+- Build: GitHub Actions `Manut Build` run `26876250444` / Build #141 passed
+  and pushed image tag `main-35bc63116-26876250444`.
 - Backend coverage added:
   `packages/backend/server/src/__tests__/manut/ux-bughunt-regressions.spec.ts`.
 - Frontend coverage added:
@@ -18,8 +21,8 @@ Fix the current UX/UI bughunt findings from `docs/manut-bughunt/UX_UI_BUGHUNT_20
   - Scoped frontend `yarn eslint --no-cache ...`
   - `yarn prettier --check ...`
   - `git diff --check`
-- Remaining validation before release: PR review, bundle/image build,
-  authenticated browser smoke, and production deploy evidence update.
+- Remaining validation before release: authenticated browser smoke, production
+  deploy, public smoke, and production deploy evidence update.
 
 # Business Goals
 

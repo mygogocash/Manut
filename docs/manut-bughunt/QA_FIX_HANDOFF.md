@@ -1,9 +1,9 @@
 # Manut QA-Audit Fix Marathon — Handoff for the Next AI
 
-> 👉 **NEWER WORK (2026-06-03):** the active continuation branch is
-> `codex/fix-ux-ui-bughunt`, committed at
-> `b57f4ae1f fix(manut): resolve ux bughunt regressions`. For the current
-> UX/UI bughunt branch status, use
+> 👉 **NEWER WORK (2026-06-03):** `codex/fix-ux-ui-bughunt` merged via PR #188
+> at `35bc631166d5c3d82f892793283ba990f417a54d`. Build #141 pushed
+> `main-35bc63116-26876250444`, but production is not deployed from that image.
+> For the current UX/UI bughunt status, use
 > **[`UX_UI_BUGHUNT_2026-06-02.md`](./UX_UI_BUGHUNT_2026-06-02.md)** and
 > **[`UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md`](./UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md)**.
 > This QA handoff remains useful for earlier May 31 audit context, but its
