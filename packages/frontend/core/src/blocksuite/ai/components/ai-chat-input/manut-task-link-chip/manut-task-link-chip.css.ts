@@ -67,6 +67,11 @@ export const pickerRoot = style({
   minWidth: 240,
 });
 
+export const cockpitSlot = style({
+  padding: 8,
+  paddingBottom: 0,
+});
+
 export const pickerSearchInput = style({
   width: '100%',
   padding: '6px 8px',

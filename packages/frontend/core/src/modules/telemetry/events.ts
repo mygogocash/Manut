@@ -43,6 +43,21 @@ export interface TelemetryEvents {
     toolName: string;
     success: boolean;
   };
+  ai_agent_completion_event: {
+    action:
+      | 'approval_created'
+      | 'approval_resolved'
+      | 'doc_saved'
+      | 'edit_applied'
+      | 'retry_after_failure'
+      | 'source_opened'
+      | 'task_linked'
+      | 'work_product_created';
+    surface: 'chat' | 'task_cockpit';
+    mode: 'agent' | 'edit' | 'read' | 'unknown';
+    toolName?: string;
+    status?: string;
+  };
   floating_chat_opened: {
     from: 'shortcut' | 'button' | 'deeplink';
   };

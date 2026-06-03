@@ -1,9 +1,12 @@
 import type { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import type { PeekViewService } from '@affine/core/modules/peek-view';
+import { trackEvent } from '@affine/core/modules/telemetry';
 import type { AppThemeService } from '@affine/core/modules/theme';
+import { getAFFiNEWorkspaceSchema } from '@affine/core/modules/workspace';
 import type { CopilotChatHistoryFragment } from '@affine/graphql';
 import { I18n } from '@affine/i18n';
 import { WithDisposable } from '@blocksuite/affine/global/lit';
+import { RefNodeSlotsProvider } from '@blocksuite/affine/inlines/reference';
 import { isInsidePageEditor } from '@blocksuite/affine/shared/utils';
 import {
   type BlockStdScope,
@@ -11,11 +14,14 @@ import {
   ShadowlessElement,
 } from '@blocksuite/affine/std';
 import type { ExtensionType } from '@blocksuite/affine/store';
+import { MarkdownTransformer } from '@blocksuite/affine/widgets/linked-doc';
 import type { NotificationService } from '@blocksuite/affine-shared/services';
+import { PageIcon } from '@blocksuite/icons/lit';
 import type { Signal } from '@preact/signals-core';
 import { css, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 
+import { getStoreManager } from '../../../manager/store';
 import {
   EdgelessEditorActions,
   PageEditorActions,
@@ -30,7 +36,11 @@ import {
 import { AIChatErrorRenderer } from '../../messages/error';
 import { type AIError } from '../../provider';
 import { mergeStreamContent } from '../../utils/stream-objects';
-import { summarizeAssistantStatusChips } from './assistant-status';
+import {
+  extractAgentPlanSteps,
+  summarizeAssistantStatusChips,
+  summarizeAssistantTimelineItems,
+} from './assistant-status';
 
 export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
   static override styles = css`
@@ -89,6 +99,14 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       color: var(--manut-accent-violet-fg, var(--affine-text-primary-color));
       background: var(--manut-accent-violet-bg, var(--affine-hover-color));
     }
+    .ai-status-chip[data-kind='approvals'] {
+      color: var(--affine-warning-color, var(--affine-text-primary-color));
+      background: color-mix(
+        in srgb,
+        var(--affine-warning-color, #f5a623) 12%,
+        transparent
+      );
+    }
     .ai-status-chip[data-kind='failures'] {
       color: var(--affine-error-color);
       background: color-mix(
@@ -96,6 +114,106 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
         var(--affine-error-color) 10%,
         transparent
       );
+    }
+    .ai-agent-plan-card {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--affine-border-color);
+      background: var(--affine-background-secondary-color);
+    }
+    .ai-agent-plan-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--affine-text-primary-color);
+      font-size: var(--affine-font-sm);
+      font-weight: 600;
+      line-height: 18px;
+    }
+    .ai-agent-plan-badge {
+      flex: 0 0 auto;
+      padding: 1px 6px;
+      border-radius: 6px;
+      color: var(--manut-accent-violet-fg, var(--affine-text-primary-color));
+      background: var(--manut-accent-violet-bg, var(--affine-hover-color));
+      font-size: var(--affine-font-xs);
+      line-height: 16px;
+      font-weight: 500;
+    }
+    .ai-agent-plan-list {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      padding-left: 18px;
+      color: var(--affine-text-secondary-color);
+      font-size: var(--affine-font-sm);
+      line-height: 19px;
+    }
+    .ai-agent-plan-list li::marker {
+      color: var(--manut-accent-violet-fg, var(--affine-text-primary-color));
+      font-weight: 600;
+    }
+    .ai-tool-timeline {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--affine-border-color);
+      background: var(--affine-background-secondary-color);
+    }
+    .ai-tool-timeline-row {
+      display: grid;
+      grid-template-columns: 12px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      color: var(--affine-text-secondary-color);
+      font-size: var(--affine-font-xs);
+      line-height: 16px;
+    }
+    .ai-tool-timeline-marker {
+      width: 8px;
+      height: 8px;
+      margin-top: 4px;
+      border-radius: 50%;
+      background: var(--affine-text-tertiary-color);
+    }
+    .ai-tool-timeline-row[data-status='running'] .ai-tool-timeline-marker {
+      background: var(--affine-brand-color);
+    }
+    .ai-tool-timeline-row[data-status='completed'] .ai-tool-timeline-marker {
+      background: var(--affine-success-color, #27ae60);
+    }
+    .ai-tool-timeline-row[data-status='awaiting-approval']
+      .ai-tool-timeline-marker {
+      background: var(--affine-warning-color, #f5a623);
+    }
+    .ai-tool-timeline-row[data-status='failed'] .ai-tool-timeline-marker {
+      background: var(--affine-error-color);
+    }
+    .ai-tool-timeline-label {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: baseline;
+      min-width: 0;
+    }
+    .ai-tool-timeline-name {
+      color: var(--affine-text-primary-color);
+      font-weight: 600;
+    }
+    .ai-tool-timeline-status {
+      color: var(--affine-text-tertiary-color);
+    }
+    .ai-tool-timeline-detail {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--affine-text-tertiary-color);
     }
     /* Manut M2 E2.4 — self-evolution feedback chips. One pair per
        assistant reply: thumbs-up / thumbs-down. Clicking flips the
@@ -145,6 +263,51 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
     .ai-feedback-button[disabled] {
       cursor: default;
       opacity: 0.55;
+    }
+    .ai-save-doc-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .ai-save-doc-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 0 10px;
+      border-radius: var(--manut-radius-input, 8px);
+      border: 1px solid var(--affine-border-color);
+      background: var(--affine-background-overlay-panel-color);
+      color: var(--affine-text-primary-color);
+      font-size: var(--affine-font-sm);
+      font-weight: 500;
+      line-height: 20px;
+      cursor: pointer;
+      transition:
+        background-color var(--affine-anim-duration-base, 200ms)
+          var(--affine-anim-curve-default, ease),
+        color var(--affine-anim-duration-base, 200ms)
+          var(--affine-anim-curve-default, ease),
+        border-color var(--affine-anim-duration-base, 200ms)
+          var(--affine-anim-curve-default, ease);
+    }
+    .ai-save-doc-button:hover:not([disabled]) {
+      background: var(--affine-hover-color);
+    }
+    .ai-save-doc-button[data-state='saved'] {
+      border-color: var(--manut-accent-violet-border);
+      color: var(--manut-accent-violet-fg, var(--affine-text-primary-color));
+      background: var(--manut-accent-violet-bg, var(--affine-hover-color));
+    }
+    .ai-save-doc-button[disabled] {
+      cursor: default;
+      opacity: 0.65;
+    }
+    .ai-save-doc-button svg {
+      width: 16px;
+      height: 16px;
+      color: currentColor;
+      flex: 0 0 auto;
     }
     /* Manut M2 E2.7 — typewriter cursor for streaming AI responses.
        The CopilotClient already delivers text deltas at the SSE
@@ -270,6 +433,15 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
   @state()
   accessor feedbackRating: 'positive' | 'negative' | 'pending' | null = null;
 
+  @state()
+  accessor savedDocId: string | null = null;
+
+  @state()
+  accessor savedDocMessageKey: string | null = null;
+
+  @state()
+  accessor savingDocMessageKey: string | null = null;
+
   get state() {
     const { isLast, status } = this;
     return isLast
@@ -300,15 +472,65 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
     const shouldRenderError = isLast && status === 'error' && !!error;
 
     return html`
-      ${this.renderImages()}
+      ${this.renderImages()} ${this.renderAgentPlanCard()}
       ${streamObjects?.length
         ? this.renderStreamObjects(streamObjects)
         : this.renderRichText(content)}
-      ${this.renderStreamingCursor()}
+      ${this.renderStreamingCursor()} ${this.renderToolTimeline()}
       ${shouldRenderError ? AIChatErrorRenderer(error, host) : nothing}
       ${this.renderStatusChips()} ${this.renderFeedbackChips()}
       ${this.renderEditorActions()}
     `;
+  }
+
+  private getAssistantMarkdownText() {
+    const { content, streamObjects } = this.item;
+    return streamObjects?.length ? mergeStreamContent(streamObjects) : content;
+  }
+
+  private renderAgentPlanCard() {
+    const steps = extractAgentPlanSteps(this.getAssistantMarkdownText());
+    if (!steps.length) return nothing;
+    return html`<section
+      class="ai-agent-plan-card"
+      data-testid="ai-agent-plan-card"
+      aria-label="Agent plan"
+    >
+      <div class="ai-agent-plan-heading">
+        <span>Agent plan</span>
+        <span class="ai-agent-plan-badge">Beta</span>
+      </div>
+      <ol class="ai-agent-plan-list">
+        ${steps.map(step => html`<li>${step}</li>`)}
+      </ol>
+    </section>`;
+  }
+
+  private renderToolTimeline() {
+    const items = summarizeAssistantTimelineItems(this.item.streamObjects);
+    if (!items.length) return nothing;
+    return html`<div class="ai-tool-timeline" data-testid="ai-tool-timeline">
+      ${items.map(
+        item =>
+          html`<div
+            class="ai-tool-timeline-row"
+            data-kind=${item.kind}
+            data-status=${item.status}
+            data-testid="ai-tool-timeline-row"
+          >
+            <span class="ai-tool-timeline-marker" aria-hidden="true"></span>
+            <span class="ai-tool-timeline-label">
+              <span class="ai-tool-timeline-name">${item.label}</span>
+              <span class="ai-tool-timeline-status">${item.status}</span>
+              ${item.detail
+                ? html`<span class="ai-tool-timeline-detail">
+                    ${item.detail}
+                  </span>`
+                : nothing}
+            </span>
+          </div>`
+      )}
+    </div>`;
   }
 
   // Manut M2 E2.7 — typewriter cursor for streaming responses. We mount
@@ -486,6 +708,179 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
     </div>`;
   }
 
+  private getMessageSaveKey() {
+    if (!isChatMessage(this.item)) return null;
+    return this.item.id || this.item.createdAt || this.item.content;
+  }
+
+  private cleanDocTitle(value: string | undefined) {
+    const title = value
+      ?.replace(/^[\s#>*-]+/, '')
+      .replace(/[*_`[\]]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!title) return 'AI generated doc';
+    return title.slice(0, 80);
+  }
+
+  private getSaveAsDocPayload(): { markdown: string; title: string } | null {
+    const { content, streamObjects } = this.item;
+    const composeResult = streamObjects?.find(
+      streamObject =>
+        streamObject.type === 'tool-result' &&
+        streamObject.toolName === 'doc_compose' &&
+        streamObject.result &&
+        typeof streamObject.result === 'object' &&
+        'markdown' in streamObject.result &&
+        typeof streamObject.result.markdown === 'string'
+    );
+    if (composeResult?.type === 'tool-result') {
+      const result = composeResult.result as {
+        markdown: string;
+        title?: string;
+      };
+      const title =
+        typeof composeResult.args?.title === 'string'
+          ? composeResult.args.title
+          : result.title;
+      return {
+        markdown: result.markdown,
+        title: this.cleanDocTitle(title),
+      };
+    }
+
+    const textMarkdown = streamObjects?.length
+      ? mergeStreamContent(streamObjects)
+      : content;
+    if (textMarkdown.trim()) {
+      const heading = textMarkdown
+        .split('\n')
+        .map(line => line.trim())
+        .find(line => line.length > 0);
+      return {
+        markdown: textMarkdown,
+        title: this.cleanDocTitle(heading),
+      };
+    }
+
+    return null;
+  }
+
+  private openSavedDoc(docId: string) {
+    trackEvent('ai_agent_completion_event', {
+      action: 'source_opened',
+      surface: 'chat',
+      mode: 'unknown',
+      status: 'saved_doc',
+    });
+    if (this.onOpenDoc) {
+      this.onOpenDoc(docId, this.session?.sessionId);
+      return;
+    }
+    const { host } = this;
+    host?.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.next({
+      pageId: docId,
+      openMode: 'open-in-active-view',
+      host,
+    });
+  }
+
+  private async handleSaveAsDoc(markdown: string, title: string) {
+    const { host } = this;
+    const messageKey = this.getMessageSaveKey();
+    if (!host || !messageKey || this.savingDocMessageKey === messageKey) {
+      return;
+    }
+
+    this.savingDocMessageKey = messageKey;
+    try {
+      const docId = await MarkdownTransformer.importMarkdownToDoc({
+        collection: host.store.workspace,
+        schema: getAFFiNEWorkspaceSchema(),
+        markdown,
+        fileName: title,
+        extensions: getStoreManager().config.init().value.get('store'),
+      });
+      if (!docId) {
+        throw new Error('save-as-doc-empty-result');
+      }
+      this.savedDocId = docId;
+      this.savedDocMessageKey = messageKey;
+      trackEvent('ai_agent_completion_event', {
+        action: 'doc_saved',
+        surface: 'chat',
+        mode: 'unknown',
+        status: 'success',
+      });
+      this.notificationService.notify({
+        title: 'Doc saved',
+        message: 'AI output was saved as a new doc.',
+        accent: 'success',
+        actions: [
+          {
+            key: 'open-doc',
+            label: 'Open',
+            onClick: () => this.openSavedDoc(docId),
+          },
+        ],
+        onClose: function (): void {},
+      });
+    } catch (error) {
+      console.error(error);
+      trackEvent('ai_agent_completion_event', {
+        action: 'doc_saved',
+        surface: 'chat',
+        mode: 'unknown',
+        status: 'failed',
+      });
+      this.notificationService.toast('Failed to save document');
+    } finally {
+      if (this.savingDocMessageKey === messageKey) {
+        this.savingDocMessageKey = null;
+      }
+    }
+  }
+
+  private renderSaveAsDocAction() {
+    const { host, independentMode, isLast, status } = this;
+    if (!host || !independentMode) return nothing;
+    if (isLast && status !== 'success' && status !== 'idle') return nothing;
+
+    const payload = this.getSaveAsDocPayload();
+    if (!payload?.markdown.trim()) return nothing;
+
+    const messageKey = this.getMessageSaveKey();
+    const isSaving = !!messageKey && this.savingDocMessageKey === messageKey;
+    const savedDocId =
+      messageKey && this.savedDocMessageKey === messageKey
+        ? this.savedDocId
+        : null;
+    const label = savedDocId
+      ? 'Open saved doc'
+      : isSaving
+        ? 'Saving...'
+        : 'Save as doc';
+
+    return html`<div class="ai-save-doc-actions">
+      <button
+        type="button"
+        class="ai-save-doc-button"
+        data-state=${savedDocId ? 'saved' : isSaving ? 'saving' : 'idle'}
+        data-testid="ai-save-as-doc-button"
+        ?disabled=${isSaving}
+        aria-label=${label}
+        title=${label}
+        @click=${() =>
+          savedDocId
+            ? this.openSavedDoc(savedDocId)
+            : this.handleSaveAsDoc(payload.markdown, payload.title)}
+      >
+        ${PageIcon({ width: '16', height: '16' })}
+        <span>${label}</span>
+      </button>
+    </div>`;
+  }
+
   private renderImages() {
     const { item } = this;
     if (!item.attachments) return nothing;
@@ -523,6 +918,21 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
     ></chat-content-rich-text>`;
   }
 
+  private handleRetry() {
+    const hasFailedTool = summarizeAssistantTimelineItems(
+      this.item.streamObjects
+    ).some(item => item.status === 'failed');
+    if (hasFailedTool) {
+      trackEvent('ai_agent_completion_event', {
+        action: 'retry_after_failure',
+        surface: 'chat',
+        mode: 'unknown',
+        status: 'requested',
+      });
+    }
+    this.retry();
+  }
+
   private renderEditorActions() {
     const { item, isLast, status, host, session } = this;
 
@@ -558,9 +968,10 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
         .isLast=${isLast}
         .messageId=${messageId}
         .withMargin=${true}
-        .retry=${() => this.retry()}
+        .retry=${() => this.handleRetry()}
         .notificationService=${this.notificationService}
       ></chat-copy-more>
+      ${this.renderSaveAsDocAction()}
       ${isLast && showActions
         ? html`<chat-action-list
             .actions=${actions}

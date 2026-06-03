@@ -1,6 +1,14 @@
-import type { MnTaskDto } from '@affine/core/modules/manut-pm';
+import type { MnApprovalDto } from '@affine/core/modules/manut-control-plane';
+import type {
+  MnDoDVerificationResult,
+  MnTaskDto,
+  MnTaskPlanDto,
+  MnWorkProductDto,
+} from '@affine/core/modules/manut-pm';
+import { trackEvent } from '@affine/core/modules/telemetry';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { AgentTaskCockpitPanel } from './agent-task-cockpit';
 import * as styles from './manut-task-link-chip.css';
 
 interface ManutTaskLinkChipProps {
@@ -19,6 +27,12 @@ interface ManutTaskLinkChipProps {
   onSelectTask: (taskId: string) => void;
   /** Called when the user clears the binding. */
   onClearTask: () => void;
+  cockpitPlans?: readonly MnTaskPlanDto[];
+  cockpitApprovals?: readonly MnApprovalDto[];
+  cockpitWorkProducts?: readonly MnWorkProductDto[];
+  cockpitVerification?: MnDoDVerificationResult | null;
+  onOpenTask?: (taskId: string) => void;
+  onVerifyTaskDone?: (taskId: string) => void;
 }
 
 /**
@@ -35,8 +49,14 @@ interface ManutTaskLinkChipProps {
 export const ManutTaskLinkChip = ({
   boundTask,
   candidateTasks,
+  cockpitApprovals,
+  cockpitPlans,
+  cockpitVerification,
+  cockpitWorkProducts,
   onSelectTask,
   onClearTask,
+  onOpenTask,
+  onVerifyTaskDone,
 }: ManutTaskLinkChipProps) => {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -55,6 +75,12 @@ export const ManutTaskLinkChip = ({
     (taskId: string) => {
       setIsPickerOpen(false);
       setQuery('');
+      trackEvent('ai_agent_completion_event', {
+        action: 'task_linked',
+        surface: 'chat',
+        mode: 'unknown',
+        status: 'selected',
+      });
       onSelectTask(taskId);
     },
     [onSelectTask]
@@ -158,6 +184,19 @@ export const ManutTaskLinkChip = ({
               '0 4px 12px var(--affine-shadow-color, rgba(0,0,0,0.08))',
           }}
         >
+          {boundTask ? (
+            <div className={styles.cockpitSlot}>
+              <AgentTaskCockpitPanel
+                task={boundTask}
+                plans={cockpitPlans}
+                approvals={cockpitApprovals}
+                workProducts={cockpitWorkProducts}
+                verification={cockpitVerification}
+                onOpenTask={onOpenTask}
+                onVerifyDone={onVerifyTaskDone}
+              />
+            </div>
+          ) : null}
           <div className={styles.pickerRoot}>
             <input
               type="text"

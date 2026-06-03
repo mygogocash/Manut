@@ -104,10 +104,37 @@ export const scenarioEvalCases = [
     expected: 'complex_text_generation',
   },
   {
+    id: 'full-agent-task-completion-routes-to-complex-generation',
+    input: {
+      content:
+        'Please plan and complete this Manut task from the available workspace evidence. ' +
+        'First inspect related notes and sources, then draft the launch update, save the produced work as a doc, ' +
+        'link it back to the task, report any approval needed for write tools, and include verification evidence ' +
+        'so I can see whether the definition of done is satisfied before we close the task.',
+    },
+    expected: 'complex_text_generation',
+  },
+  {
+    id: 'thai-mixed-language-summary-routes-to-polish-and-summarize',
+    input: {
+      content:
+        'ช่วย summarize เอกสารล่าสุดของโปรเจกต์ Manut AI เป็น bullet สั้นๆ พร้อม next steps สำหรับทีมพรุ่งนี้',
+    },
+    expected: 'polish_and_summarize',
+  },
+  {
     id: 'medium-writing-routes-to-quick-generation',
     input: {
       content:
         'Write a short update for the product team about why AI answers should show sources and tool status in the transcript.',
+    },
+    expected: 'quick_text_generation',
+  },
+  {
+    id: 'source-grounded-research-routes-to-quick-generation',
+    input: {
+      content:
+        'Research this product question with workspace sources first, show source chips, and give me a concise answer with citations.',
     },
     expected: 'quick_text_generation',
   },
@@ -154,6 +181,13 @@ export const autoModelEvalCases = [
     scenario: 'complex_text_generation',
     content:
       'Please create a presentation outline for our AI chat launch covering citations, mobile, safety and rollout.',
+    expectedModel: 'gemini-2.5-pro',
+  },
+  {
+    id: 'full-agent-task-completion-uses-pro-scenario-model',
+    scenario: 'complex_text_generation',
+    content:
+      'Plan the task, gather evidence, draft the work product, and verify whether the definition of done is satisfied.',
     expectedModel: 'gemini-2.5-pro',
   },
 ] satisfies readonly AutoModelEvalCase[];
@@ -210,6 +244,24 @@ export const permissionModeEvalCases = [
       editingDataViews: true,
     },
     expectedSubstring: 'Full Agent mode',
+  },
+  {
+    id: 'full-agent-plan-first-guidance',
+    toolsConfig: {
+      editingDocs: true,
+      composingDocs: true,
+      editingDataViews: true,
+    },
+    expectedSubstring: 'short executable plan',
+  },
+  {
+    id: 'full-agent-evidence-before-writes-guidance',
+    toolsConfig: {
+      editingDocs: true,
+      composingDocs: true,
+      editingDataViews: true,
+    },
+    expectedSubstring: 'Read evidence before writes',
   },
 ] satisfies readonly PermissionModeEvalCase[];
 
