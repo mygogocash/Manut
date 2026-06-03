@@ -39,6 +39,9 @@ test('getPermissionModeAddendum__given_full_agent_flags__then_returns_agent_guid
   t.regex(addendum, /Full Agent mode/);
   t.regex(addendum, /tool results/);
   t.regex(addendum, /source-grounded/);
+  t.regex(addendum, /short executable plan/);
+  t.regex(addendum, /Read evidence before writes/);
+  t.regex(addendum, /produced work/);
 });
 
 test('appendPermissionModeAddendum__given_system_message__then_appends_mode_guidelines_without_mutating_original', t => {

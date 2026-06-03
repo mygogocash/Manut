@@ -109,4 +109,83 @@ describe('ChatMessageAssistant loading state', () => {
       title: 'Launch Brief',
     });
   });
+
+  test('ChatMessageAssistant > given plan text > renders agent plan card', () => {
+    const container = document.createElement('div');
+    const assistant = Object.create(
+      ChatMessageAssistant.prototype
+    ) as ChatMessageAssistant;
+    Object.defineProperty(assistant, 'item', {
+      value: {
+        id: 'message-1',
+        role: 'assistant',
+        content:
+          'Plan:\n1. Search workspace sources.\n2. Draft the update.\n3. Save as doc.',
+        createdAt: new Date(0).toISOString(),
+      },
+      writable: true,
+    });
+
+    render(
+      (ChatMessageAssistant.prototype as any).renderAgentPlanCard.call(
+        assistant
+      ),
+      container
+    );
+
+    expect(
+      container.querySelector('[data-testid="ai-agent-plan-card"]')
+    ).not.toBeNull();
+    expect(container.textContent).toContain('Search workspace sources.');
+  });
+
+  test('ChatMessageAssistant > given tool stream objects > renders execution timeline', () => {
+    const container = document.createElement('div');
+    const assistant = Object.create(
+      ChatMessageAssistant.prototype
+    ) as ChatMessageAssistant;
+    Object.defineProperty(assistant, 'item', {
+      value: {
+        id: 'message-1',
+        role: 'assistant',
+        content: '',
+        createdAt: new Date(0).toISOString(),
+        streamObjects: [
+          {
+            type: 'tool-result',
+            toolCallId: 'tool-1',
+            toolName: 'docHybridSearch',
+            args: { query: 'launch plan' },
+            result: { results: [] },
+          },
+          {
+            type: 'tool-result',
+            toolCallId: 'tool-2',
+            toolName: 'docUpdate',
+            args: { docId: 'doc-1' },
+            result: {
+              type: 'awaiting-approval',
+              approvalId: 'approval-1',
+            },
+          },
+        ],
+      },
+      writable: true,
+    });
+
+    render(
+      (ChatMessageAssistant.prototype as any).renderToolTimeline.call(
+        assistant
+      ),
+      container
+    );
+
+    expect(
+      container.querySelector('[data-testid="ai-tool-timeline"]')
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-status="awaiting-approval"]')
+    ).not.toBeNull();
+    expect(container.textContent).toContain('Searched workspace');
+  });
 });

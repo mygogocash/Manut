@@ -1,5 +1,6 @@
 import type { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import type { PeekViewService } from '@affine/core/modules/peek-view';
+import { trackEvent } from '@affine/core/modules/telemetry';
 import type { AppThemeService } from '@affine/core/modules/theme';
 import { getAFFiNEWorkspaceSchema } from '@affine/core/modules/workspace';
 import type { CopilotChatHistoryFragment } from '@affine/graphql';
@@ -35,7 +36,11 @@ import {
 import { AIChatErrorRenderer } from '../../messages/error';
 import { type AIError } from '../../provider';
 import { mergeStreamContent } from '../../utils/stream-objects';
-import { summarizeAssistantStatusChips } from './assistant-status';
+import {
+  extractAgentPlanSteps,
+  summarizeAssistantStatusChips,
+  summarizeAssistantTimelineItems,
+} from './assistant-status';
 
 export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
   static override styles = css`
@@ -94,6 +99,14 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       color: var(--manut-accent-violet-fg, var(--affine-text-primary-color));
       background: var(--manut-accent-violet-bg, var(--affine-hover-color));
     }
+    .ai-status-chip[data-kind='approvals'] {
+      color: var(--affine-warning-color, var(--affine-text-primary-color));
+      background: color-mix(
+        in srgb,
+        var(--affine-warning-color, #f5a623) 12%,
+        transparent
+      );
+    }
     .ai-status-chip[data-kind='failures'] {
       color: var(--affine-error-color);
       background: color-mix(
@@ -101,6 +114,106 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
         var(--affine-error-color) 10%,
         transparent
       );
+    }
+    .ai-agent-plan-card {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--affine-border-color);
+      background: var(--affine-background-secondary-color);
+    }
+    .ai-agent-plan-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--affine-text-primary-color);
+      font-size: var(--affine-font-sm);
+      font-weight: 600;
+      line-height: 18px;
+    }
+    .ai-agent-plan-badge {
+      flex: 0 0 auto;
+      padding: 1px 6px;
+      border-radius: 6px;
+      color: var(--manut-accent-violet-fg, var(--affine-text-primary-color));
+      background: var(--manut-accent-violet-bg, var(--affine-hover-color));
+      font-size: var(--affine-font-xs);
+      line-height: 16px;
+      font-weight: 500;
+    }
+    .ai-agent-plan-list {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      padding-left: 18px;
+      color: var(--affine-text-secondary-color);
+      font-size: var(--affine-font-sm);
+      line-height: 19px;
+    }
+    .ai-agent-plan-list li::marker {
+      color: var(--manut-accent-violet-fg, var(--affine-text-primary-color));
+      font-weight: 600;
+    }
+    .ai-tool-timeline {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--affine-border-color);
+      background: var(--affine-background-secondary-color);
+    }
+    .ai-tool-timeline-row {
+      display: grid;
+      grid-template-columns: 12px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      color: var(--affine-text-secondary-color);
+      font-size: var(--affine-font-xs);
+      line-height: 16px;
+    }
+    .ai-tool-timeline-marker {
+      width: 8px;
+      height: 8px;
+      margin-top: 4px;
+      border-radius: 50%;
+      background: var(--affine-text-tertiary-color);
+    }
+    .ai-tool-timeline-row[data-status='running'] .ai-tool-timeline-marker {
+      background: var(--affine-brand-color);
+    }
+    .ai-tool-timeline-row[data-status='completed'] .ai-tool-timeline-marker {
+      background: var(--affine-success-color, #27ae60);
+    }
+    .ai-tool-timeline-row[data-status='awaiting-approval']
+      .ai-tool-timeline-marker {
+      background: var(--affine-warning-color, #f5a623);
+    }
+    .ai-tool-timeline-row[data-status='failed'] .ai-tool-timeline-marker {
+      background: var(--affine-error-color);
+    }
+    .ai-tool-timeline-label {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      align-items: baseline;
+      min-width: 0;
+    }
+    .ai-tool-timeline-name {
+      color: var(--affine-text-primary-color);
+      font-weight: 600;
+    }
+    .ai-tool-timeline-status {
+      color: var(--affine-text-tertiary-color);
+    }
+    .ai-tool-timeline-detail {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--affine-text-tertiary-color);
     }
     /* Manut M2 E2.4 — self-evolution feedback chips. One pair per
        assistant reply: thumbs-up / thumbs-down. Clicking flips the
@@ -359,15 +472,65 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
     const shouldRenderError = isLast && status === 'error' && !!error;
 
     return html`
-      ${this.renderImages()}
+      ${this.renderImages()} ${this.renderAgentPlanCard()}
       ${streamObjects?.length
         ? this.renderStreamObjects(streamObjects)
         : this.renderRichText(content)}
-      ${this.renderStreamingCursor()}
+      ${this.renderStreamingCursor()} ${this.renderToolTimeline()}
       ${shouldRenderError ? AIChatErrorRenderer(error, host) : nothing}
       ${this.renderStatusChips()} ${this.renderFeedbackChips()}
       ${this.renderEditorActions()}
     `;
+  }
+
+  private getAssistantMarkdownText() {
+    const { content, streamObjects } = this.item;
+    return streamObjects?.length ? mergeStreamContent(streamObjects) : content;
+  }
+
+  private renderAgentPlanCard() {
+    const steps = extractAgentPlanSteps(this.getAssistantMarkdownText());
+    if (!steps.length) return nothing;
+    return html`<section
+      class="ai-agent-plan-card"
+      data-testid="ai-agent-plan-card"
+      aria-label="Agent plan"
+    >
+      <div class="ai-agent-plan-heading">
+        <span>Agent plan</span>
+        <span class="ai-agent-plan-badge">Beta</span>
+      </div>
+      <ol class="ai-agent-plan-list">
+        ${steps.map(step => html`<li>${step}</li>`)}
+      </ol>
+    </section>`;
+  }
+
+  private renderToolTimeline() {
+    const items = summarizeAssistantTimelineItems(this.item.streamObjects);
+    if (!items.length) return nothing;
+    return html`<div class="ai-tool-timeline" data-testid="ai-tool-timeline">
+      ${items.map(
+        item =>
+          html`<div
+            class="ai-tool-timeline-row"
+            data-kind=${item.kind}
+            data-status=${item.status}
+            data-testid="ai-tool-timeline-row"
+          >
+            <span class="ai-tool-timeline-marker" aria-hidden="true"></span>
+            <span class="ai-tool-timeline-label">
+              <span class="ai-tool-timeline-name">${item.label}</span>
+              <span class="ai-tool-timeline-status">${item.status}</span>
+              ${item.detail
+                ? html`<span class="ai-tool-timeline-detail">
+                    ${item.detail}
+                  </span>`
+                : nothing}
+            </span>
+          </div>`
+      )}
+    </div>`;
   }
 
   // Manut M2 E2.7 — typewriter cursor for streaming responses. We mount
@@ -604,6 +767,12 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
   }
 
   private openSavedDoc(docId: string) {
+    trackEvent('ai_agent_completion_event', {
+      action: 'source_opened',
+      surface: 'chat',
+      mode: 'unknown',
+      status: 'saved_doc',
+    });
     if (this.onOpenDoc) {
       this.onOpenDoc(docId, this.session?.sessionId);
       return;
@@ -637,6 +806,12 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       }
       this.savedDocId = docId;
       this.savedDocMessageKey = messageKey;
+      trackEvent('ai_agent_completion_event', {
+        action: 'doc_saved',
+        surface: 'chat',
+        mode: 'unknown',
+        status: 'success',
+      });
       this.notificationService.notify({
         title: 'Doc saved',
         message: 'AI output was saved as a new doc.',
@@ -652,6 +827,12 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       });
     } catch (error) {
       console.error(error);
+      trackEvent('ai_agent_completion_event', {
+        action: 'doc_saved',
+        surface: 'chat',
+        mode: 'unknown',
+        status: 'failed',
+      });
       this.notificationService.toast('Failed to save document');
     } finally {
       if (this.savingDocMessageKey === messageKey) {
@@ -737,6 +918,21 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
     ></chat-content-rich-text>`;
   }
 
+  private handleRetry() {
+    const hasFailedTool = summarizeAssistantTimelineItems(
+      this.item.streamObjects
+    ).some(item => item.status === 'failed');
+    if (hasFailedTool) {
+      trackEvent('ai_agent_completion_event', {
+        action: 'retry_after_failure',
+        surface: 'chat',
+        mode: 'unknown',
+        status: 'requested',
+      });
+    }
+    this.retry();
+  }
+
   private renderEditorActions() {
     const { item, isLast, status, host, session } = this;
 
@@ -772,7 +968,7 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
         .isLast=${isLast}
         .messageId=${messageId}
         .withMargin=${true}
-        .retry=${() => this.retry()}
+        .retry=${() => this.handleRetry()}
         .notificationService=${this.notificationService}
       ></chat-copy-more>
       ${this.renderSaveAsDocAction()}

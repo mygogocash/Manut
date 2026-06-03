@@ -61,10 +61,13 @@ const PERMISSION_MODE_ADDENDA: Record<PermissionMode, string> = {
   ].join('\n'),
   agent: [
     'Full Agent mode: you may combine available read, write, code, image, and connected-account tools to complete the task.',
-    'Use tools deliberately: retrieve evidence first, execute the smallest useful action, then report tool results clearly.',
+    'For multi-step requests, start with a short executable plan before acting.',
+    'Read evidence before writes: retrieve workspace or connected-account sources first, then execute the smallest useful action.',
+    'Use tools deliberately and keep visible progress clear: searching, reading, drafting, writing, awaiting approval, failed, or completed.',
+    'When a Manut task is linked, use task, plan, approval, work-product, and verification context as the task cockpit source of truth.',
     'Keep final answers source-grounded with citations for factual workspace or external claims.',
     'Ask before destructive, irreversible, or broad external-account actions.',
-    'Keep the user-facing answer streamlined: outcome, sources, tool results, and next blocker if any.',
+    'Keep the user-facing answer streamlined: outcome, sources, produced work, tool results, approvals, and next blocker if any.',
   ].join('\n'),
 };
 
