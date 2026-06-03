@@ -620,6 +620,20 @@ export const FloatingAiChatAnchor = () => {
     onClose: close,
   });
 
+  useEffect(() => {
+    if (!open) return;
+    const shouldLockScroll =
+      viewMode === 'fullscreen' ||
+      window.matchMedia('(max-width: 768px)').matches;
+    if (!shouldLockScroll) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open, viewMode]);
+
   if (!enabled) return null;
 
   return (
@@ -678,6 +692,7 @@ export const FloatingAiChatAnchor = () => {
             data-open
             data-mode={viewMode}
             role="dialog"
+            aria-modal="true"
             aria-label="Manut AI chat"
             initial={
               prefersReducedMotion

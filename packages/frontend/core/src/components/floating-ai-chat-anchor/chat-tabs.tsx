@@ -1,7 +1,7 @@
 import { SPRING_WOBBLY } from '@affine/core/utils/motion';
 import { CloseIcon, PinedIcon, PinIcon, PlusIcon } from '@blocksuite/icons/rc';
 import { motion, useReducedMotion } from 'framer-motion';
-import { type MouseEvent, useCallback, useId } from 'react';
+import { useCallback, useId } from 'react';
 
 import * as styles from './chat-tabs.css';
 import type { ChatTabSnapshot } from './use-chat-tabs';
@@ -43,13 +43,8 @@ export const ChatTabs = ({
   onCreate,
   isCreating,
 }: ChatTabsProps) => {
-  // Each tab's close button must NOT bubble into the surrounding select
-  // handler — otherwise clicking × would also activate the tab right
-  // before it gets removed, which causes a redundant re-render. Memoise
-  // the per-tab callback factories so the JSX stays stable.
   const handleClose = useCallback(
-    (id: string) => (event: MouseEvent<HTMLButtonElement>) => {
-      event.stopPropagation();
+    (id: string) => () => {
       onClose(id);
     },
     [onClose]
@@ -83,31 +78,38 @@ export const ChatTabs = ({
         const isPinned = tab.pinnedDocId !== null;
         const title = tab.title?.trim() || 'New chat';
         return (
-          <button
+          <div
             key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            aria-label={`Chat tab: ${title}`}
+            role="presentation"
             data-active={isActive}
-            data-testid="floating-ai-chat-tab"
             data-tab-id={tab.id}
             className={styles.tab}
-            onClick={handleSelect(tab.id)}
-            title={title}
           >
-            <span
-              className={styles.tabPinIcon}
-              data-pinned={isPinned}
-              aria-hidden="true"
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-label={`Chat tab: ${title}`}
+              data-active={isActive}
+              data-testid="floating-ai-chat-tab"
+              data-tab-id={tab.id}
+              className={styles.tabSelectButton}
+              onClick={handleSelect(tab.id)}
+              title={title}
             >
-              {isPinned ? (
-                <PinedIcon width={12} height={12} />
-              ) : (
-                <PinIcon width={12} height={12} />
-              )}
-            </span>
-            <span className={styles.tabTitle}>{title}</span>
+              <span
+                className={styles.tabPinIcon}
+                data-pinned={isPinned}
+                aria-hidden="true"
+              >
+                {isPinned ? (
+                  <PinedIcon width={12} height={12} />
+                ) : (
+                  <PinIcon width={12} height={12} />
+                )}
+              </span>
+              <span className={styles.tabTitle}>{title}</span>
+            </button>
             <button
               type="button"
               className={styles.tabCloseButton}
@@ -132,7 +134,7 @@ export const ChatTabs = ({
                 }
               />
             ) : null}
-          </button>
+          </div>
         );
       })}
       <button

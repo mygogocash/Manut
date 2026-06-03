@@ -38,6 +38,13 @@ export class ToolResultCard extends SignalWatcher(
         gap: 8px;
         margin-right: 3px;
         cursor: pointer;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
       }
 
       .ai-icon {
@@ -96,10 +103,17 @@ export class ToolResultCard extends SignalWatcher(
         margin-top: 16px;
         display: block;
         cursor: default;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
       }
 
       .result-item[href],
-      .result-item[data-clickable] {
+      .result-item[data-clickable='true'] {
         cursor: pointer;
       }
 
@@ -159,8 +173,8 @@ export class ToolResultCard extends SignalWatcher(
 
       .result-item[href]:hover .result-title,
       .result-item[href]:hover .result-content,
-      .result-item[data-clickable]:hover .result-title,
-      .result-item[data-clickable]:hover .result-content {
+      .result-item[data-clickable='true']:hover .result-title,
+      .result-item[data-clickable='true']:hover .result-content {
         color: ${unsafeCSSVarV2('text/primary')};
       }
 
@@ -257,42 +271,22 @@ export class ToolResultCard extends SignalWatcher(
   protected override render() {
     return html`
       <div class="ai-tool-result-wrapper">
-        <div class="ai-tool-header" @click=${this.toggleCard}>
+        <button
+          type="button"
+          class="ai-tool-header"
+          aria-expanded=${String(!this.isCollapsed)}
+          @click=${this.toggleCard}
+        >
           <div class="ai-icon">${this.icon}</div>
           <div class="ai-tool-name">${this.name}</div>
           ${this.isCollapsed
             ? this.renderFooterIcons()
             : html` <div class="ai-icon">${ToggleDownIcon()}</div> `}
-        </div>
+        </button>
         <div class="ai-tool-results" data-collapsed=${this.isCollapsed}>
           <div class="ai-tool-result-collapse-wrapper">
             <div class="ai-tool-results-content">
-              ${this.results.map(
-                result => html`
-                  <a
-                    class="result-item"
-                    data-clickable=${!!result.onClick}
-                    href=${ifDefined(result.href)}
-                    target=${ifDefined(result.href ? '_blank' : undefined)}
-                    rel=${ifDefined(
-                      result.href ? 'noopener noreferrer' : undefined
-                    )}
-                    @click=${result.onClick}
-                  >
-                    <div class="result-header">
-                      <div class="result-title">${result.title}</div>
-                      <div class="result-icon">
-                        ${this.renderIcon(result.icon)}
-                      </div>
-                    </div>
-                    ${result.content
-                      ? html`<div class="result-content">
-                          ${result.content}
-                        </div>`
-                      : nothing}
-                  </a>
-                `
-              )}
+              ${this.results.map(result => this.renderResult(result))}
             </div>
           </div>
         </div>
@@ -322,6 +316,48 @@ export class ToolResultCard extends SignalWatcher(
         )}
       </div>
     `;
+  }
+
+  private renderResult(result: ToolResult) {
+    const content = html`
+      <div class="result-header">
+        <div class="result-title">${result.title}</div>
+        <div class="result-icon">${this.renderIcon(result.icon)}</div>
+      </div>
+      ${result.content
+        ? html`<div class="result-content">${result.content}</div>`
+        : nothing}
+    `;
+
+    if (result.href) {
+      return html`
+        <a
+          class="result-item"
+          data-clickable=${ifDefined(result.onClick ? 'true' : undefined)}
+          href=${result.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          @click=${result.onClick}
+        >
+          ${content}
+        </a>
+      `;
+    }
+
+    if (result.onClick) {
+      return html`
+        <button
+          type="button"
+          class="result-item"
+          data-clickable="true"
+          @click=${result.onClick}
+        >
+          ${content}
+        </button>
+      `;
+    }
+
+    return html`<div class="result-item">${content}</div>`;
   }
 
   buildUrl(imageUrl: string) {

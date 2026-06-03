@@ -3,7 +3,7 @@ import { LiveData, useLiveData, useService } from '@toeverything/infra';
 import { type PropsWithChildren, useCallback, useMemo } from 'react';
 
 import { cacheKey } from './constants';
-import { tabItem } from './styles.css';
+import { tabItem, tabItemWrapper } from './styles.css';
 
 export interface TabItemProps extends PropsWithChildren {
   id: string;
@@ -27,14 +27,18 @@ export const TabItem = ({ id, label, children, onClick }: TabItemProps) => {
   }, [globalCache, id, isActive, onClick]);
 
   return (
-    <li
-      className={tabItem}
-      role="tab"
-      aria-label={label}
-      data-active={isActive}
-      onClick={handleClick}
-    >
-      {children}
+    <li className={tabItemWrapper} role="presentation">
+      <button
+        className={tabItem}
+        type="button"
+        role="tab"
+        aria-label={label}
+        aria-selected={isActive}
+        data-active={isActive}
+        onClick={handleClick}
+      >
+        {children}
+      </button>
     </li>
   );
 };

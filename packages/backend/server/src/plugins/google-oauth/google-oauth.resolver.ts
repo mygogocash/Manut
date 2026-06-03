@@ -10,7 +10,7 @@ import {
   Resolver,
 } from '@nestjs/graphql';
 
-import { AuthenticationRequired, URLHelper } from '../../base';
+import { AuthenticationRequired, BadRequest, URLHelper } from '../../base';
 import { CurrentUser } from '../../core/auth';
 import { type DriveFile, DriveService } from './drive.service';
 import { type GmailMessageSummary, GmailService } from './gmail.service';
@@ -112,17 +112,17 @@ export class DriveFileType implements DriveFile {
  */
 function rethrowFriendly(err: unknown): never {
   if (err instanceof GoogleOAuthNotConnectedError) {
-    throw new Error(
+    throw new BadRequest(
       'Google account is not connected for this workspace. Connect it in Settings → Integrations.'
     );
   }
   if (err instanceof GoogleOAuthNotConfiguredError) {
-    throw new Error(
+    throw new BadRequest(
       'Google OAuth client is not configured on this server. Ask an admin to set GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET.'
     );
   }
   if (err instanceof GoogleOAuthRefreshFailedError) {
-    throw new Error(
+    throw new BadRequest(
       'Could not refresh Google access — please reconnect your Google account in Settings → Integrations.'
     );
   }

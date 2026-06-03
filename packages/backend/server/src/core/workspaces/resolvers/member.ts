@@ -576,6 +576,7 @@ export class WorkspaceMemberResolver {
         // if status is pending, should accept the invitation directly
         if (role.status === WorkspaceMemberStatus.Pending) {
           await this.acceptInvitationByEmail(role);
+          return true;
         } else {
           throw new AlreadyInSpace({ spaceId: invitation.workspaceId });
         }

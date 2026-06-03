@@ -215,23 +215,15 @@ const MobileAskAIPanel = ({
     };
   }, [open, handleClose]);
 
-  // M4 — initial focus. Prefer the chat input; fall back to the sheet itself
-  // so focus never sits behind the overlay on an inert background element.
+  // Initial focus stays on the dialog surface so opening Ask AI on mobile does
+  // not immediately summon the virtual keyboard.
   useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => {
-      const input =
-        chatContainerRef.current?.querySelector<HTMLTextAreaElement>(
-          '[data-testid="chat-panel-input"]'
-        );
-      if (input) {
-        input.focus();
-      } else {
-        sheetRef.current?.focus();
-      }
+      sheetRef.current?.focus({ preventScroll: true });
     }, 120);
     return () => window.clearTimeout(id);
-  }, [chatContent, open]);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !isBodyProvided || !chatContainerRef.current) return;

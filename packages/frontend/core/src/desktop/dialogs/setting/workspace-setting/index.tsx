@@ -1,8 +1,8 @@
+import { SettingHeader } from '@affine/component/setting-components';
 import { useWorkspaceInfo } from '@affine/core/components/hooks/use-workspace-info';
 import { ServerService } from '@affine/core/modules/cloud';
 import type { SettingTab } from '@affine/core/modules/dialogs/constant';
 import { WorkspacePermissionService } from '@affine/core/modules/permissions';
-import { WorkspaceService } from '@affine/core/modules/workspace';
 import { EmbeddingSettings } from '@affine/core/modules/workspace-indexer-embedding';
 import { ServerDeploymentType } from '@affine/graphql';
 import { useI18n } from '@affine/i18n';
@@ -11,7 +11,6 @@ import {
   CollaborationIcon,
   DataPanelIcon,
   IntegrationsIcon,
-  LayerIcon,
   PaymentIcon,
   PropertyIcon,
   SaveIcon,
@@ -23,14 +22,54 @@ import { useMemo } from 'react';
 import type { SettingSidebarItem, SettingState } from '../types';
 import { WorkspaceAnalyticsConnections } from './analytics-connections';
 import { WorkspaceSettingBilling } from './billing';
-import { BudgetDashboard } from './budget/budget-dashboard';
 import { IntegrationSetting } from './integration';
 import { WorkspaceSettingLicense } from './license';
 import { MembersPanel } from './members';
 import { WorkspaceSettingDetail } from './preference';
 import { WorkspaceSettingProperties } from './properties';
 import { WorkspaceSettingStorage } from './storage';
-import { WorkQueuesPanel } from './work-queues/work-queues-panel';
+
+const UnavailableOperationalSetting = ({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}) => {
+  return (
+    <>
+      <SettingHeader
+        title={title}
+        subtitle="Operational settings unavailable"
+      />
+      <div
+        role="status"
+        style={{
+          padding: '16px 20px',
+          borderRadius: '8px',
+          border: '1px solid var(--affine-border-color)',
+          backgroundColor: 'var(--affine-background-secondary-color)',
+          fontSize: '14px',
+          lineHeight: '20px',
+          color: 'var(--affine-text-primary-color)',
+        }}
+      >
+        <p style={{ margin: 0, fontWeight: 600 }}>
+          This panel is not connected yet.
+        </p>
+        <p
+          style={{
+            marginTop: '8px',
+            marginBottom: 0,
+            color: 'var(--affine-text-secondary-color)',
+          }}
+        >
+          {subtitle}
+        </p>
+      </div>
+    </>
+  );
+};
 
 export const WorkspaceSetting = ({
   activeTab,
@@ -43,7 +82,7 @@ export const WorkspaceSetting = ({
   onCloseSetting: () => void;
   onChangeSettingState: (settingState: SettingState) => void;
 }) => {
-  const workspaceId = useService(WorkspaceService).workspace.id;
+  const t = useI18n();
   switch (activeTab) {
     case 'workspace:preference':
       return <WorkspaceSettingDetail onCloseSetting={onCloseSetting} />;
@@ -69,9 +108,19 @@ export const WorkspaceSetting = ({
     case 'workspace:analytics-connections':
       return <WorkspaceAnalyticsConnections />;
     case 'workspace:budget':
-      return <BudgetDashboard workspaceId={workspaceId} />;
+      return (
+        <UnavailableOperationalSetting
+          title={t['com.manut.settings.workspace.budget.title']()}
+          subtitle="Budget data is not wired to a live fetcher in this build, so spend and quota state are hidden instead of shown as empty."
+        />
+      );
     case 'workspace:workQueues':
-      return <WorkQueuesPanel workspaceId={workspaceId} />;
+      return (
+        <UnavailableOperationalSetting
+          title={t['com.manut.settings.workspace.work-queues.title']()}
+          subtitle="Work Queues need a project selector and live queue fetchers before they can be managed from settings."
+        />
+      );
     default:
       return null;
   }
@@ -152,18 +201,6 @@ export const useWorkspaceSettingList = (): SettingSidebarItem[] => {
           ](),
         icon: <AiEmbeddingIcon />,
         testId: 'workspace-setting:embedding',
-      },
-      {
-        key: 'workspace:budget',
-        title: t['com.manut.settings.workspace.budget.title'](),
-        icon: <PaymentIcon />,
-        testId: 'workspace-setting:budget',
-      },
-      {
-        key: 'workspace:workQueues',
-        title: t['com.manut.settings.workspace.work-queues.title'](),
-        icon: <LayerIcon />,
-        testId: 'workspace-setting:work-queues',
       },
       showBilling && {
         key: 'workspace:billing' as SettingTab,

@@ -106,6 +106,7 @@ export const panel = style({
   boxShadow: '0 12px 40px rgba(0, 0, 0, 0.18)',
   display: 'flex',
   flexDirection: 'column',
+  boxSizing: 'border-box',
   overflow: 'hidden',
   zIndex: 101,
   pointerEvents: 'auto',
@@ -150,6 +151,8 @@ export const panel = style({
       width: 'auto !important',
       height: 'auto !important',
       borderRadius: '0 !important',
+      padding:
+        'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)',
     },
   },
 });

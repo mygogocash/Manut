@@ -41,15 +41,14 @@ export const tab = style({
   position: 'relative',
   display: 'inline-flex',
   alignItems: 'center',
-  gap: 6,
-  padding: '4px 8px 4px 10px',
+  gap: 2,
+  padding: '0 4px 0 0',
   borderRadius: 'var(--manut-radius-input)',
   background: 'transparent',
   border: `0.5px solid ${cssVar('borderColor')}`,
   color: cssVar('textSecondaryColor'),
   fontSize: 12,
   fontWeight: 500,
-  cursor: 'pointer',
   flexShrink: 0,
   maxWidth: 160,
   minWidth: 0,
@@ -70,6 +69,23 @@ export const tab = style({
     '&[data-active="true"]:hover': {
       background: 'var(--manut-accent-violet-bg)',
     },
+  },
+});
+
+export const tabSelectButton = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  minWidth: 0,
+  flex: 1,
+  padding: '5px 4px 5px 10px',
+  border: 'none',
+  background: 'transparent',
+  color: 'inherit',
+  font: 'inherit',
+  cursor: 'pointer',
+  borderRadius: 'var(--manut-radius-input)',
+  selectors: {
     '&:focus-visible': {
       outline: '2px solid var(--manut-accent-violet-fg)',
       outlineOffset: 1,
@@ -125,8 +141,8 @@ export const tabCloseButton = style({
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: 14,
-  height: 14,
+  width: 28,
+  height: 28,
   border: 'none',
   background: 'transparent',
   color: 'inherit',
@@ -144,6 +160,12 @@ export const tabCloseButton = style({
       outline: '1px solid var(--manut-accent-violet-fg)',
       outlineOffset: 1,
       opacity: 1,
+    },
+  },
+  '@media': {
+    '(max-width: 768px)': {
+      width: 44,
+      height: 44,
     },
   },
 });

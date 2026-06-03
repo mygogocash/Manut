@@ -13,6 +13,8 @@ import { useLiveData, useService } from '@toeverything/infra';
 import clsx from 'clsx';
 import {
   type HTMLAttributes,
+  type KeyboardEvent,
+  type MouseEvent,
   type ReactNode,
   Suspense,
   useCallback,
@@ -115,12 +117,28 @@ type SettingSidebarItemProps = {
   beta?: boolean;
 } & HTMLAttributes<HTMLDivElement>;
 
+const activateOnEnterOrSpace = (
+  event: KeyboardEvent<HTMLDivElement>,
+  onClick?: HTMLAttributes<HTMLDivElement>['onClick']
+) => {
+  if (event.key !== 'Enter' && event.key !== ' ') {
+    return;
+  }
+  if (event.defaultPrevented) {
+    return;
+  }
+  event.preventDefault();
+  onClick?.(event as unknown as MouseEvent<HTMLDivElement>);
+};
+
 const SettingSidebarItem = ({
   isActive,
   icon,
   title,
   testId,
   beta,
+  onClick,
+  onKeyDown,
   ...props
 }: SettingSidebarItemProps) => {
   return (
@@ -128,9 +146,17 @@ const SettingSidebarItem = ({
       {...props}
       title={title}
       data-testid={testId}
+      role="button"
+      tabIndex={0}
+      aria-current={isActive ? 'page' : undefined}
       className={clsx(style.sidebarSelectItem, {
         active: isActive,
       })}
+      onClick={onClick}
+      onKeyDown={event => {
+        onKeyDown?.(event);
+        activateOnEnterOrSpace(event, onClick);
+      }}
     >
       <div className={style.sidebarSelectItemIcon}>{icon}</div>
       <div className={style.sidebarSelectItemName}>{title}</div>
