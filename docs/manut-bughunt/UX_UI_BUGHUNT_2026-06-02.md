@@ -19,6 +19,14 @@ Implementation branch: `codex/fix-ux-ui-bughunt`.
 Implementation commit:
 `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
 
+Merge/build status:
+
+- PR #188 merged to `main` at
+  `35bc631166d5c3d82f892793283ba990f417a54d`.
+- Build #141 / run `26876250444` passed and pushed image tag
+  `main-35bc63116-26876250444`.
+- Production has not been deployed from that image.
+
 Fixed:
 
 - P1 invite acceptance fallthrough now returns immediately after accepting a pending email role.
@@ -43,17 +51,12 @@ Known remaining verification gap:
 
 Next continuation checklist:
 
-1. Open or update the PR for `codex/fix-ux-ui-bughunt`.
-2. Re-run the targeted backend/frontend tests above after any merge conflict
-   resolution.
-3. Bundle server/web/mobile/admin as needed before building a fullstack image;
-   the Dockerfile copies prebuilt `dist/` artifacts.
-4. Run authenticated browser smoke for invite acceptance, Google integration
+1. Run authenticated browser smoke for invite acceptance, Google integration
    friendly errors, AI object-stream actions, AI source cards, mobile Ask AI,
    floating AI tabs, hidden Budget/Work Queue settings deep links, and analytics
    connection error copy.
-5. Deploy only after smoke passes, then update `docs/CICD_ROADMAP.md` with the
-   real build id, image tag, revision, public smoke evidence, and rollback
+2. Deploy only after smoke passes, then update `docs/CICD_ROADMAP.md` with the
+   real production revision, image digest, public smoke evidence, and rollback
    target.
 
 ## Highest Priority Findings

@@ -38,10 +38,10 @@ scripts/gcp/smoke-test-cloud-run.sh` passed, `/info` reports
   - Cloud Run domain mapping for `manut.xyz` is Ready; no Cloud Run
     `severity>=ERROR` entries were returned for service `manut` since
     2026-06-01T00:00:00Z.
-  - This verifies the currently deployed production revision only. The current
-    follow-up branch is not deployed; launch still requires a fresh Cloud Build
-    image, migration-job run, and post-deploy smoke before claiming production
-    contains these branch changes.
+  - This verifies the production revision deployed as of 2026-06-02 only.
+    Later follow-up images are not automatically deployed; launch still
+    requires an explicit deploy, migration-job run when applicable, and
+    post-deploy smoke before claiming production contains those changes.
 - Production deployment verification on 2026-06-02:
   - PR #185 merged to `main` as `9da65ae8f2c1a4cf539cf2b24b865d7bce5e4d7b`.
   - Main CI run `26790920840` and CodeQL run `26790920444` completed

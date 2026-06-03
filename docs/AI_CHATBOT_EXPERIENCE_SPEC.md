@@ -8,8 +8,12 @@
 > `b57f4ae1f` implemented two adjacent AI-chat UX safeguards: Copilot
 > `/chat/:sessionId/stream-object` now shares the AI budget preflight/spend
 > accounting path, and AI source/tool result cards now have keyboard-friendly
-> controls. This does not complete the full citations drawer or eval roadmap
-> below; continue those as separate R1 slices with authenticated chat smoke.
+> controls. PR #188 merged this to `main` at
+> `35bc631166d5c3d82f892793283ba990f417a54d`; Build #141 passed and pushed
+> image tag `main-35bc63116-26876250444`, but production has not been deployed
+> from that image. This does not complete the full citations drawer or eval
+> roadmap below; continue those as separate R1 slices with authenticated chat
+> smoke.
 
 ## Goal
 

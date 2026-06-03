@@ -4,9 +4,12 @@ Keep the Manut AI chat model picker limited to stable, Vertex-backed models that
 
 ## Continuation Note - 2026-06-03
 
-- Current working branch: `codex/fix-ux-ui-bughunt`.
+- Latest related PR: #188, merged to `main` at
+  `35bc631166d5c3d82f892793283ba990f417a54d`.
 - Latest related commit: `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
-- Deployment status: not deployed from this branch.
+- Build status: Build #141 / run `26876250444` passed and pushed image tag
+  `main-35bc63116-26876250444`.
+- Deployment status: not deployed from the Build #141 image.
 - Operator reminder: before exposing or re-adding any preview/default-version
   model in production, run authenticated chat smoke for that exact model from
   `https://manut.xyz` or staging, then update this spec with the working model

@@ -1,12 +1,12 @@
 # Manut Handover
 
-Last reviewed: 2026-06-03 during the UX/UI bughunt fix branch. Since the
-v1.12.0 cut, Manut has closed several v1 follow-ups and the current branch
-`codex/fix-ux-ui-bughunt` now contains commit
-`b57f4ae1f fix(manut): resolve ux bughunt regressions`. This branch is
-committed locally but has not been deployed. v1.12.0 remains the latest
-documented release cut in `docs/RELEASES/` until this branch is merged and
-released.
+Last reviewed: 2026-06-03 16:48 +07 after PR #188 merged. Since the
+v1.12.0 cut, Manut has closed several v1 follow-ups and the UX/UI bughunt
+branch `codex/fix-ux-ui-bughunt` merged to `main` as
+`35bc631166d5c3d82f892793283ba990f417a54d`. Build #141 succeeded and pushed
+image tag `main-35bc63116-26876250444`, but production has not been deployed
+from that image. v1.12.0 remains the latest documented release cut in
+`docs/RELEASES/` until the next release note is added.
 
 This document is the tracked handover entry point for the GoGoCash Manut
 fork of AFFiNE 0.26.3. It summarizes what a successor needs before
@@ -26,10 +26,12 @@ changing, building, or deploying the project.
 - Production status source: `docs/CICD_ROADMAP.md` records the latest
   validated production image and deploy chain; refresh it before
   trusting numbers from a stale handover.
-- Active continuation branch: `codex/fix-ux-ui-bughunt`, commit
-  `b57f4ae1f`. It is docs/code complete for the 2026-06-02 UX/UI bughunt
-  but still needs PR review, bundle/image build, and staging or equivalent
-  browser smoke before production.
+- Latest merged continuation: PR #188 from `codex/fix-ux-ui-bughunt` merged
+  to `main` at `35bc631166d5c3d82f892793283ba990f417a54d`. It is
+  docs/code complete for the 2026-06-02 UX/UI bughunt, and GitHub PR checks,
+  main CI, CodeQL, and Build #141 are green. The build image is
+  `main-35bc63116-26876250444`. Authenticated browser smoke and production
+  deploy remain pending.
 - Branch model: Manut work lands on `main`; upstream AFFiNE workflows
   for `canary`/`master` are not the Manut deploy path.
 - Feature gate: the Projects/CRM/Reminders frontend nav and the
@@ -164,12 +166,16 @@ Use the DNS/Railway rollback path from
 `docs/GCP_CLOUD_RUN_RUNBOOK.md#9-rollback` only when the launch operator has
 kept Railway online and write-safe for the stability window.
 
-## Active Branch Handoff - 2026-06-03 UX/UI Bughunt
+## Latest Merge Handoff - 2026-06-03 UX/UI Bughunt
 
 - Branch: `codex/fix-ux-ui-bughunt`
-- Commit: `b57f4ae1f fix(manut): resolve ux bughunt regressions`
+- Implementation commit: `b57f4ae1f fix(manut): resolve ux bughunt regressions`
+- Handover commit: `77ece66c3 docs(manut): refresh ux bughunt handoff`
+- Merge commit: `35bc631166d5c3d82f892793283ba990f417a54d` via PR #188.
+- Build: GitHub Actions `Manut Build` run `26876250444` / Build #141 passed.
+  Artifact tag: `main-35bc63116-26876250444`.
 - Not deployed: production `https://manut.xyz` has not been swapped to this
-  branch.
+  image.
 - Verified locally:
   - `yarn workspace @affine/server test src/__tests__/manut/ux-bughunt-regressions.spec.ts --timeout=1m`
   - `yarn workspace @affine/server tsc --noEmit`
@@ -177,10 +183,18 @@ kept Railway online and write-safe for the stability window.
   - scoped frontend `yarn eslint --no-cache ...`
   - `yarn prettier --check ...`
   - `git diff --check`
+- Verified in CI:
+  - PR #188 checks passed: Manut CI, CodeQL, Beta Security Gate, and
+    `manut-gcp-pr-ci`.
+  - Main push checks for merge commit `35bc63116` passed: Manut CI and CodeQL.
+  - Build #141 passed native, landing, server/frontend bundle, source-drift,
+    Docker push, and artifact-publish stages.
 - Known gap: full frontend project-reference typecheck still needs the
   prebuild/dist declaration outputs restored before it can be a useful gate.
-- Continue with PR review, deploy artifact bundling, browser smoke, and then
-  the normal Cloud Run or VM safe-deploy path recorded in the runbooks.
+- Continue with authenticated browser smoke for the changed flows, then the
+  normal Cloud Run deploy path recorded in the runbooks. Update
+  `docs/CICD_ROADMAP.md` with the real production revision, public smoke, and
+  rollback target only after deployment.
 
 ## High-Risk Findings
 
