@@ -28,6 +28,12 @@ Fix the current UX/UI bughunt findings from `docs/manut-bughunt/UX_UI_BUGHUNT_20
 - Remaining validation before release: authenticated browser smoke, production
   deploy, and production deploy evidence update. Public pre-release smoke passed
   on 2026-06-03 18:24 +07.
+- Follow-up AI chat state: PR #191 later merged Save as doc for generated AI
+  content, and PR #192 later merged the Full Agent beta plan/timeline/task
+  cockpit UI. Those changes do not remove this bughunt slice's remaining
+  release gates: authenticated browser smoke, production deploy, and deploy
+  evidence update are still required before claiming the live product contains
+  them.
 
 # Business Goals
 

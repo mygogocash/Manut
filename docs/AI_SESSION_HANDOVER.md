@@ -1,6 +1,7 @@
 # AI Session Handover
 
-Last updated: 2026-06-03 18:24 +07 (Build #142 verified; public smoke passed; authenticated smoke still blocked)
+Last updated: 2026-06-03 22:16 +07 (PR #191/#192 merged; main CI/CodeQL green;
+Build #144 in progress; production deploy still pending)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,19 +13,22 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/release-gate-handoff` from latest `origin/main`.
+- Branch: `codex/update-ai-full-agent-docs` from latest `origin/main`.
 - Upstream: `origin/main`.
-- Handover refresh: PR #188 merged the 2026-06-02 Manut UX/UI bughunt fixes to
-  `main`; PR #189 merged the post-merge/build handover refresh. This branch
-  records the current release-gate continuation state.
-- Merge state: PR #188 merged at
-  `35bc631166d5c3d82f892793283ba990f417a54d`; PR #189 merged at
-  `ac059984949b0400ef0219bcea4df398ca73f057`.
+- Handover refresh: PR #191 added Save as doc for generated AI content and PR
+  #192 added the first Full Agent beta UX/cockpit slice. This branch records
+  the post-merge docs state and next launch gates.
+- Merge state: PR #191 merged at
+  `c7334e953d1da3357086b1afb328d6977b322e51`; PR #192 merged at
+  `c0674d559db5d530586546b91d02758ac4033e44`.
 - Production branch: `main`
-- Production app: https://manut.xyz serves Manut production. Latest build from
-  `main` is
-  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-ac0599849-26877703841`,
-  but production has not been deployed from that image yet.
+- Production app: https://manut.xyz serves Manut production. The latest
+  completed main build recorded before the Full Agent merge is Build #143 from
+  PR #190 / commit `faf46da747f89f2c184f61ca95bbf84100c9a27e`. Main CI run
+  `26893957469` and CodeQL run `26893953860` passed for PR #192 merge commit
+  `c0674d559db5d530586546b91d02758ac4033e44`; Build #144 / run
+  `26894183272` was still in progress at 2026-06-03 22:16 +07. Production has
+  not been deployed from the PR #191/#192 code state.
   The legacy `affine.gogocash.co` and `manut.gogocash.co` hosts both
   301-redirect to the canonical domain.
 - GCP project: `affine-495114` (`602860445793`), region `asia-southeast1`.
@@ -33,7 +37,65 @@ on chat memory.
 - Build service account:
   `manut-cloud-build@affine-495114.iam.gserviceaccount.com`.
 
-## Current Continuation Slice - 2026-06-03 UX/UI Bughunt Fix
+## Current Continuation Slice - 2026-06-03 AI Chat Full Agent Beta
+
+- Save-doc implementation: PR #191
+  `fix(ai): add save button for generated docs` merged commit
+  `c7334e953d1da3357086b1afb328d6977b322e51`.
+- Full Agent beta implementation: PR #192
+  `feat(ai): add full agent beta cockpit` merged as
+  `c0674d559db5d530586546b91d02758ac4033e44`.
+- Scope shipped:
+  - Independent/floating AI generated content exposes Save as doc so AI-created
+    drafts can be persisted instead of disappearing from chat.
+  - Assistant replies can render agent plan cards, tool timeline rows, source
+    and action chips, approval-needed states, failure/retry states, and
+    completion actions.
+  - The compact task cockpit component shows bound task, plan, status,
+    approvals, work products, execution-lock state, and verify-done evidence
+    from existing Manut task DTOs. It is an orchestration/readout surface, not
+    a new autonomous runtime or database table.
+  - Prompt guidance now pushes Full Agent toward plan first, evidence before
+    writes, deliberate tool use, approval-gated writes, and report of changed
+    work, produced docs, approvals, blockers, and next actions.
+  - Prompt eval fixtures now cover planning, Thai/mixed-language prompts,
+    source-grounded research, structured output, and task-completion cases.
+  - Completion telemetry now records non-sensitive events for doc saved, edit
+    applied, source opened, task linked, approval created/resolved, work
+    product created, retry after failure, and related work-product actions.
+- Verification already passed before merge:
+  - `yarn vitest packages/frontend/core/src/blocksuite/ai/chat-panel/message/assistant-status.spec.ts packages/frontend/core/src/blocksuite/ai/chat-panel/message/assistant.spec.ts packages/frontend/core/src/blocksuite/ai/components/ai-chat-input/manut-task-link-chip/agent-task-cockpit.spec.tsx --run`
+  - `yarn workspace @affine/server test src/plugins/copilot/prompt/__tests__/mode-addendum.spec.ts src/plugins/copilot/prompt/__tests__/prompt-eval.spec.ts`
+  - Focused frontend `yarn eslint --no-cache ...`
+  - Focused frontend `yarn oxlint -c .oxlintrc.json --disable-nested-config --deny-warnings ...`
+  - `yarn affine bundle -p web` passed with existing asset-size warnings.
+  - PR #191 and PR #192 checks passed: Manut CI, CodeQL, Beta Security Gate,
+    and `manut-gcp-pr-ci`.
+- Not done yet:
+  - No production deploy or authenticated browser smoke has been run for the PR
+    #191/#192 main state.
+  - Main CI run `26893957469` and CodeQL run `26893953860` are green for PR
+    #192 merge commit `c0674d559db5d530586546b91d02758ac4033e44`, but Build
+    #144 / run `26894183272` was still in progress at 2026-06-03 22:16 +07.
+  - The task cockpit still needs live chat-shell binding to current Manut task,
+    plan, approval, work-product, and verify-done data in the next product
+    slice.
+  - The citations/source drawer remains separate work; current source chips are
+    not the full inspectable evidence surface.
+- Next operator path:
+  1. Wait for Build #144 / run `26894183272` for
+     `c0674d559db5d530586546b91d02758ac4033e44`; record the final build URL,
+     image tag/digest, and any artifact-publish result before launch.
+  2. Run authenticated smoke for floating chat, full chat, Full Agent mode, Save
+     as doc, source chips, task link/cockpit, approval toggle path, and a retry
+     after a failed tool.
+  3. Deploy only after staging or equivalent authenticated smoke passes; update
+     `docs/CICD_ROADMAP.md` with production revision, image digest, migration
+     job, smoke evidence, and rollback target after deployment.
+  4. Continue development with live cockpit data wiring, inspectable
+     source/citation drawer, and beta completion-metric review.
+
+## Prior Continuation Slice - 2026-06-03 UX/UI Bughunt Fix
 
 - Implementation commit:
   `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
@@ -46,9 +108,10 @@ on chat memory.
   `ac059984949b0400ef0219bcea4df398ca73f057` via PR #189.
 - Product-code build: GitHub Actions `Manut Build` run `26876250444` /
   Build #141 passed and pushed image tag `main-35bc63116-26876250444`.
-- Latest main build: GitHub Actions `Manut Build` run `26877703841` /
-  Build #142 passed and pushed image tag `main-ac0599849-26877703841`
-  from the docs-only handover merge.
+- Follow-up docs-only main build: GitHub Actions `Manut Build` run
+  `26886777151` / Build #143 passed for PR #190 merge commit
+  `faf46da747f89f2c184f61ca95bbf84100c9a27e`. This was the latest completed
+  main build before PR #191/#192; it was not deployed to production.
 - Source report:
   `docs/manut-bughunt/UX_UI_BUGHUNT_2026-06-02.md`.
 - Implementation plan/spec:
@@ -228,6 +291,13 @@ those writes before DNS rollback.
   parent UI consumer.
 - Chat-session memory auto-ingest and pin-toggle mutation remain follow-up
   slices; read-time memory injection already works.
+- Full Agent cockpit live binding remains a follow-up slice. PR #192 shipped
+  the readout component and telemetry events; the next slice should connect the
+  live Manut task, `MnTaskPlan`, approval, work-product, execution-lock, and
+  verify-done data into the chat shell.
+- Inspectable source/citation drawer remains a follow-up slice. PR #192 source
+  chips improve visible state, but snippet-level evidence inspection and
+  unsupported-claim surfacing are still separate work.
 - Analytics phase-3 rollup implementation is deferred; until then the scheduled
   rollup crons must stay inert and non-erroring.
 

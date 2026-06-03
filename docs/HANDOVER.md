@@ -1,12 +1,12 @@
 # Manut Handover
 
-Last reviewed: 2026-06-03 16:48 +07 after PR #188 merged. Since the
-v1.12.0 cut, Manut has closed several v1 follow-ups and the UX/UI bughunt
-branch `codex/fix-ux-ui-bughunt` merged to `main` as
-`35bc631166d5c3d82f892793283ba990f417a54d`. Build #141 succeeded and pushed
-image tag `main-35bc63116-26876250444`, but production has not been deployed
-from that image. v1.12.0 remains the latest documented release cut in
-`docs/RELEASES/` until the next release note is added.
+Last reviewed: 2026-06-03 22:16 +07 after PR #191 and PR #192 merged. Since
+the v1.12.0 cut, Manut has closed several v1 follow-ups, the UX/UI bughunt
+branch merged through PR #188, the AI Save as doc fix merged through PR #191,
+and the Full Agent beta cockpit slice merged through PR #192 as
+`c0674d559db5d530586546b91d02758ac4033e44`. Production has not been deployed
+from the PR #191/#192 main state. v1.12.0 remains the latest documented release
+cut in `docs/RELEASES/` until the next release note is added.
 
 This document is the tracked handover entry point for the GoGoCash Manut
 fork of AFFiNE 0.26.3. It summarizes what a successor needs before
@@ -26,12 +26,14 @@ changing, building, or deploying the project.
 - Production status source: `docs/CICD_ROADMAP.md` records the latest
   validated production image and deploy chain; refresh it before
   trusting numbers from a stale handover.
-- Latest merged continuation: PR #188 from `codex/fix-ux-ui-bughunt` merged
-  to `main` at `35bc631166d5c3d82f892793283ba990f417a54d`. It is
-  docs/code complete for the 2026-06-02 UX/UI bughunt, and GitHub PR checks,
-  main CI, CodeQL, and Build #141 are green. The build image is
-  `main-35bc63116-26876250444`. Authenticated browser smoke and production
-  deploy remain pending.
+- Latest merged continuation: PR #192 from `codex/ai-full-agent-beta` merged
+  to `main` at `c0674d559db5d530586546b91d02758ac4033e44` after PR #191
+  merged the AI Save as doc fix at
+  `c7334e953d1da3357086b1afb328d6977b322e51`. PR-level Manut CI, CodeQL, Beta
+  Security Gate, and `manut-gcp-pr-ci` are green for both. Main CI run
+  `26893957469` and CodeQL run `26893953860` are green for `c0674d559`; Build
+  #144 / run `26894183272` was still in progress at 2026-06-03 22:16 +07.
+  Authenticated browser smoke and production deploy remain pending.
 - Branch model: Manut work lands on `main`; upstream AFFiNE workflows
   for `canary`/`master` are not the Manut deploy path.
 - Feature gate: the Projects/CRM/Reminders frontend nav and the
@@ -51,6 +53,8 @@ changing, building, or deploying the project.
   and last validation notes.
 - `docs/AI_SESSION_HANDOVER.md` - fast-resume state for the active AI session,
   including the current branch, commit, verification, and next operator path.
+- `docs/AI_CHATBOT_EXPERIENCE_SPEC.md` - current AI chat/Full Agent beta
+  contract, implementation status, and next beta slices.
 - `docs/manut-bughunt/UX_UI_BUGHUNT_2026-06-02.md` - current bughunt findings
   and fix status for the UX/UI branch.
 - `docs/manut-bughunt/UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md` - implementation
@@ -166,7 +170,48 @@ Use the DNS/Railway rollback path from
 `docs/GCP_CLOUD_RUN_RUNBOOK.md#9-rollback` only when the launch operator has
 kept Railway online and write-safe for the stability window.
 
-## Latest Merge Handoff - 2026-06-03 UX/UI Bughunt
+## Latest Merge Handoff - 2026-06-03 AI Save Doc And Full Agent Beta
+
+- Save-doc branch: `codex/ai-save-generated-doc`
+- Save-doc commit: `c7334e953d1da3357086b1afb328d6977b322e51`
+  `fix(ai): add save button for generated docs`
+- Full Agent branch: `codex/ai-full-agent-beta`
+- Full Agent commit: `9e664420e7e5beffbb4e5a3625008d71b12670fa`
+  `feat(ai): add full agent beta cockpit`
+- Merge commit: `c0674d559db5d530586546b91d02758ac4033e44` via PR #192.
+- Shipped:
+  - Save as doc action for generated AI drafts.
+  - Agent plan cards, tool timeline rows, source/action chips, and clearer
+    failed/awaiting-approval states in the assistant transcript.
+  - Compact Manut task cockpit readout for bound task, current plan, approvals,
+    work products, execution status, and verify-done evidence.
+  - Full Agent prompt addenda that prefer plan-act-report, evidence before
+    writes, deliberate tool use, and explicit completion reporting.
+  - Prompt eval coverage for planning, Thai/mixed-language, source-grounded
+    research, structured output, and task-completion cases.
+  - Non-sensitive completion telemetry for saved docs, edits, source opens,
+    task links, approvals, work products, and retries after failure.
+- Verified before merge:
+  - Focused frontend Vitest for assistant status, assistant rendering, and task
+    cockpit.
+  - Focused backend prompt AVA specs for mode addenda and prompt evals.
+  - Focused eslint/oxlint/Prettier checks for touched frontend files.
+  - `yarn affine bundle -p web` passed with existing asset-size warnings.
+  - PR #191 and PR #192 checks passed: Manut CI, CodeQL, Beta Security Gate,
+    and `manut-gcp-pr-ci`.
+- Not deployed: production `https://manut.xyz` has not been swapped to this
+  main state.
+- Current gap: main CI run `26893957469` and CodeQL run `26893953860` are green
+  for `c0674d559`, but Build #144 / run `26894183272` was still in progress at
+  2026-06-03 22:16 +07. Record the final build, image tag/digest, and artifact
+  result before treating it as a launch candidate.
+- Continue with authenticated browser smoke for floating chat, full chat, Save
+  as doc, Full Agent mode, task link/cockpit, approval toggle path, source
+  chips, and retry after failed tool. Next product slice should bind the
+  cockpit to live Manut task/plan/approval/work-product data and build the
+  inspectable citation drawer.
+
+## Prior Merge Handoff - 2026-06-03 UX/UI Bughunt
 
 - Branch: `codex/fix-ux-ui-bughunt`
 - Implementation commit: `b57f4ae1f fix(manut): resolve ux bughunt regressions`
@@ -335,7 +380,14 @@ kept Railway online and write-safe for the stability window.
   `GOOGLE_OAUTH_CLIENT_SECRET`, and optional `GOOGLE_OAUTH_REDIRECT_URI`.
 - AI write tools: gated by `AIToolsConfig` flags and the chat Mode picker.
   Backend production gates should be checked before assuming all write tools
-  are available in every environment.
+  are available in every environment. PR #191 adds a Save as doc action for
+  generated AI drafts so independent/floating chat output can be persisted.
+- AI Full Agent beta: PR #192 adds plan cards, tool timeline rows,
+  source/action chips, approval-needed and failed states, completion actions,
+  productivity empty-state prompts, task-cockpit readout components, prompt
+  evals, and non-sensitive completion telemetry. It reuses existing Manut task,
+  plan, approval, work-product, execution-lock, and verify-done DTOs; it does
+  not add a separate autonomous runtime or database table.
 - AI workspace grounding: `docHybridSearch` / `doc_hybrid_search` is the
   preferred Read-mode search tool. It fuses keyword + semantic retrieval with
   citation-ready source metadata, while the older keyword/semantic tools remain
