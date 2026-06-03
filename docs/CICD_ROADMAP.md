@@ -4,22 +4,21 @@ Where the deploy pipeline is, what's shipping, and what's queued. For
 the architecture reference (how it works), see [`CICD.md`](./CICD.md).
 For daily commands, see [`CLAUDE.md`](../CLAUDE.md) §4.
 
-Last updated: 2026-06-03 16:48 +07 (post-merge/build continuity refresh for
-PR #188; production has not been deployed from the new Build #141 image. Re-run
-live smoke before treating any production image, revision, or deploy-chain
-number as current).
+Last updated: 2026-06-03 18:24 +07 (Build #142 verified after PR #189; public
+smoke passed; production has not been deployed from the latest main image. Run
+authenticated smoke before any production swap).
 
 ---
 
 ## TL;DR
 
-- **Latest merge — NOT DEPLOYED.** PR #188 merged
+- **Latest main image — NOT DEPLOYED.** PR #188 merged
   `codex/fix-ux-ui-bughunt` to `main` at
-  `35bc631166d5c3d82f892793283ba990f417a54d`. It fixes the 2026-06-02 UX/UI
-  bughunt findings, and PR checks, main CI, CodeQL, and Build #141 are green.
-  Build #141 pushed image tag `main-35bc63116-26876250444`. Authenticated
-  browser smoke and the normal production gate are still required before any
-  production swap.
+  `35bc631166d5c3d82f892793283ba990f417a54d`. PR #189 merged the handover
+  refresh at `ac059984949b0400ef0219bcea4df398ca73f057`. PR checks, main CI,
+  CodeQL, Build #141, and Build #142 are green. Build #142 pushed image tag
+  `main-ac0599849-26877703841`. Authenticated browser smoke and the normal
+  production gate are still required before any production swap.
 - **Tier 1 — DONE.** Smoke-then-swap pipeline with sidecar validation
   and auto-rollback is live. Production never gets a broken image.
 - **Tier 2 — DONE.** Build/deploy split, registry buildx cache,
@@ -73,8 +72,20 @@ Merge commit `35bc631166d5c3d82f892793283ba990f417a54d` has passed:
 3. Build #141 / run `26876250444`: native, landing, server/frontend bundle,
    source-drift check, Docker push, and artifact-publish stages.
 
-Build #141 pushed image tag `main-35bc63116-26876250444`. It has not been
-deployed to production. Before a release operator ships it:
+PR #189 then merged the handover branch `codex/ux-bughunt-merge-handoff` into
+`main`. Merge commit `ac059984949b0400ef0219bcea4df398ca73f057` passed Manut
+CI, CodeQL, and Build #142 / run `26877703841`. Build #142 pushed image tag
+`main-ac0599849-26877703841`; this is the latest main image and contains the
+same product-code fixes plus docs updates.
+
+Public pre-release smoke passed on 2026-06-03 18:24 +07:
+`BASE_URL=https://manut.xyz TIMEOUT_SECONDS=30 SLEEP_SECONDS=1 scripts/gcp/smoke-test-cloud-run.sh`.
+Public `/sign-in` browser smoke mounted the app and reached the verification
+code step for a disposable email address; authenticated smoke remains blocked
+until an inbox/code, smoke account, or signed-in browser session is available.
+
+Build #142 has not been deployed to production. Before a release operator ships
+it:
 
 1. Run authenticated smoke for the fixed surfaces: invite acceptance, Google
    integration errors, AI object-stream actions, AI source cards, mobile Ask

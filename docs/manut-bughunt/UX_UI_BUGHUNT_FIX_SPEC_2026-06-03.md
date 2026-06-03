@@ -10,6 +10,10 @@ Fix the current UX/UI bughunt findings from `docs/manut-bughunt/UX_UI_BUGHUNT_20
 - Merge: `35bc631166d5c3d82f892793283ba990f417a54d`.
 - Build: GitHub Actions `Manut Build` run `26876250444` / Build #141 passed
   and pushed image tag `main-35bc63116-26876250444`.
+- Latest main image: PR #189 merged the handover refresh at
+  `ac059984949b0400ef0219bcea4df398ca73f057`; GitHub Actions `Manut Build`
+  run `26877703841` / Build #142 passed and pushed image tag
+  `main-ac0599849-26877703841`.
 - Backend coverage added:
   `packages/backend/server/src/__tests__/manut/ux-bughunt-regressions.spec.ts`.
 - Frontend coverage added:
@@ -22,7 +26,8 @@ Fix the current UX/UI bughunt findings from `docs/manut-bughunt/UX_UI_BUGHUNT_20
   - `yarn prettier --check ...`
   - `git diff --check`
 - Remaining validation before release: authenticated browser smoke, production
-  deploy, public smoke, and production deploy evidence update.
+  deploy, and production deploy evidence update. Public pre-release smoke passed
+  on 2026-06-03 18:24 +07.
 
 # Business Goals
 
