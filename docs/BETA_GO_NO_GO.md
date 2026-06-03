@@ -10,6 +10,13 @@ This table is intentionally still `TBD` until the exact committed branch,
 Cloud Run revision, migration job, and rollback target are selected for beta
 testers.
 
+Current context: PR #191 (`c7334e953d1da3357086b1afb328d6977b322e51`) and PR
+#192 (`c0674d559db5d530586546b91d02758ac4033e44`) are merged to `main`. PR-level
+CI/security checks are green, and post-merge main CI/CodeQL are green for PR
+#192, but Build #144 is still in progress. This sheet stays `NO-GO` until the
+exact launch candidate has completed build, Cloud Run deploy, authenticated
+smoke, logs review, and rollback-owner selection.
+
 | Field                    | Value               |
 | ------------------------ | ------------------- |
 | Date                     | TBD                 |
@@ -26,29 +33,29 @@ testers.
 
 ## Current Cloud Run readiness snapshot
 
-| Check                 | Required launch evidence                                                                                        | Status  | Next action                                                                                      |
-| --------------------- | --------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
-| Candidate CI          | Green `Manut CI`, `Manut Beta Security Gate`, and bundle/build evidence on the candidate commit.                | Pending | Record workflow URLs for the exact commit above.                                                 |
-| Cloud Run revision    | `gcloud run services describe manut --region asia-southeast1 --project affine-495114` shows the intended image. | Pending | Record the revision name, image tag/digest, traffic split, and service URL.                      |
-| Migration job         | `manut-migrate` Cloud Run job completed with exit code 0 for the candidate image.                               | Pending | Record job execution id and log link.                                                            |
-| Public smoke          | `scripts/gcp/smoke-test-cloud-run.sh` passes against `https://manut.xyz` or the generated Cloud Run URL.        | Pending | Attach smoke command, timestamp, and result.                                                     |
-| Cloud Run logs        | No new P0/P1 error class, GraphQL startup crash, migration failure, or sustained 5xx in the last 30 minutes.    | Pending | Check Cloud Run service and job logs before sending invites.                                     |
-| Historical beta fixes | 2026-05-23 `codex/fix-beta-blockers` closed AI UI, quota serialization, analytics cron, and workflow issues.    | Closed  | Historical source data only; do not use the old Railway deployment/log evidence as launch proof. |
+| Check                 | Required launch evidence                                                                                        | Status  | Next action                                                                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Candidate CI          | Green `Manut CI`, `Manut Beta Security Gate`, and bundle/build evidence on the candidate commit.                | Pending | PR #191/#192 checks and main CI/CodeQL are green; wait for Build #144 and record workflow/build URLs for the exact launch commit. |
+| Cloud Run revision    | `gcloud run services describe manut --region asia-southeast1 --project affine-495114` shows the intended image. | Pending | Record the revision name, image tag/digest, traffic split, and service URL.                                                       |
+| Migration job         | `manut-migrate` Cloud Run job completed with exit code 0 for the candidate image.                               | Pending | Record job execution id and log link.                                                                                             |
+| Public smoke          | `scripts/gcp/smoke-test-cloud-run.sh` passes against `https://manut.xyz` or the generated Cloud Run URL.        | Pending | Attach smoke command, timestamp, and result.                                                                                      |
+| Cloud Run logs        | No new P0/P1 error class, GraphQL startup crash, migration failure, or sustained 5xx in the last 30 minutes.    | Pending | Check Cloud Run service and job logs before sending invites.                                                                      |
+| Historical beta fixes | 2026-05-23 `codex/fix-beta-blockers` closed AI UI, quota serialization, analytics cron, and workflow issues.    | Closed  | Historical source data only; do not use the old Railway deployment/log evidence as launch proof.                                  |
 
 ## Required gates
 
-| Gate                     | Required evidence                                                       | Status  | Notes                                                                                           |
-| ------------------------ | ----------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
-| Manut CI                 | Green workflow URL                                                      | Pending | Candidate commit must pass.                                                                     |
-| Manut Beta Security Gate | Green workflow URL                                                      | Pending | Candidate commit must pass actionlint, Semgrep, dependency, and custom security checks.         |
-| Cloud Run health         | `/info` 200, revision healthy, and intended image receiving traffic     | Pending | Railway deployment ids are historical only and are not valid launch evidence.                   |
-| GraphQL smoke            | Authenticated workspace query succeeds; no new 5xx/GraphQL errors       | Pending | Check Cloud Run service logs.                                                                   |
-| AI chat smoke            | Floating and full chat send/receive works; provider errors are friendly | Pending | Include desktop and mobile screenshots if UI changed.                                           |
-| Storage/upload smoke     | Storage usage loads; quota and upload failure states are usable         | Pending | Covers known storage-loading concern.                                                           |
-| Auth/onboarding smoke    | Signup/login, workspace creation, sign-out, invite accept               | Pending | Use a fresh beta tester account.                                                                |
-| Production logs          | No new P0/P1 error class in last 30 minutes                             | Pending | Recheck Cloud Run service/job logs and Sentry evidence.                                         |
-| Risk register            | No open P0/P1; P2 blockers explicitly waived or fixed                   | Pending | Code blockers in `BETA_RISK_REGISTER.md` are closed; production smoke evidence still required.  |
-| Rollback                 | Rollback target and owner confirmed                                     | Pending | Owner can route traffic back to the previous Cloud Run revision within 10 minutes when DB-safe. |
+| Gate                     | Required evidence                                                       | Status  | Notes                                                                                                                            |
+| ------------------------ | ----------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Manut CI                 | Green workflow URL                                                      | Pending | Candidate commit must pass.                                                                                                      |
+| Manut Beta Security Gate | Green workflow URL                                                      | Pending | Candidate commit must pass actionlint, Semgrep, dependency, and custom security checks.                                          |
+| Cloud Run health         | `/info` 200, revision healthy, and intended image receiving traffic     | Pending | Railway deployment ids are historical only and are not valid launch evidence.                                                    |
+| GraphQL smoke            | Authenticated workspace query succeeds; no new 5xx/GraphQL errors       | Pending | Check Cloud Run service logs.                                                                                                    |
+| AI chat smoke            | Floating and full chat send/receive works; provider errors are friendly | Pending | Include Save as doc, Full Agent plan/timeline, task cockpit, source chips, approval toggle path, and desktop/mobile screenshots. |
+| Storage/upload smoke     | Storage usage loads; quota and upload failure states are usable         | Pending | Covers known storage-loading concern.                                                                                            |
+| Auth/onboarding smoke    | Signup/login, workspace creation, sign-out, invite accept               | Pending | Use a fresh beta tester account.                                                                                                 |
+| Production logs          | No new P0/P1 error class in last 30 minutes                             | Pending | Recheck Cloud Run service/job logs and Sentry evidence.                                                                          |
+| Risk register            | No open P0/P1; P2 blockers explicitly waived or fixed                   | Pending | Code blockers in `BETA_RISK_REGISTER.md` are closed; production smoke evidence still required.                                   |
+| Rollback                 | Rollback target and owner confirmed                                     | Pending | Owner can route traffic back to the previous Cloud Run revision within 10 minutes when DB-safe.                                  |
 
 ## Decision
 
@@ -58,8 +65,9 @@ Reason:
 
 - Current Cloud Run revision, image, migration-job, log, and smoke evidence are
   not recorded in this sheet yet.
-- Candidate CI and Beta Security Gate evidence are not recorded for the exact
-  launch commit.
+- Build/image evidence is not recorded for the exact post-merge launch commit,
+  even though PR #191/#192 PR-level checks and post-merge main CI/CodeQL are
+  green.
 - Production smoke/log evidence must be collected after the candidate Cloud Run
   revision is deployed.
 - Rollback owner/target and beta tester smoke account remain unset.
@@ -74,9 +82,10 @@ Reason:
 3. Recheck Cloud Run service and job logs for no analytics-cron
    `NOT_IMPLEMENTED`, no GraphQL Int overflow, no new P0/P1 error class, and
    no sustained 5xx.
-4. Run authenticated beta smoke: GraphQL workspace query, floating/full AI
-   chat, storage usage/upload fallback, auth/onboarding, invite accept, and
-   sign-out.
+4. Run authenticated beta smoke: GraphQL workspace query, floating/full AI chat,
+   Save as doc, Full Agent plan/timeline, task link/cockpit, source chips,
+   approval toggle path, retry after failed tool, storage usage/upload fallback,
+   auth/onboarding, invite accept, and sign-out.
 5. Fill the final Candidate table above with exact commit, revision, migration,
    smoke, and rollback evidence.
 
@@ -85,16 +94,18 @@ Reason:
 These are not beta-security blockers unless they break the smoke paths above,
 but they should stay visible for beta planning.
 
-| Follow-up                                               | Source                                          | Beta posture                                                         |
-| ------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------- |
-| PM/CRM/Reminders detail/edit views                      | `docs/HANDOVER.md` v1 list                      | Defer; v0 list/create flows are the shipped beta scope.              |
-| Kanban for tasks and deals                              | `docs/RELEASES/v1.12.0.md`                      | Defer unless beta testers need board workflows.                      |
-| Reminder rules and repeat schedules                     | `docs/RELEASES/v1.12.0.md`                      | Defer; manual reminders remain acceptable for beta.                  |
-| Drag-drop, bulk ops, CSV import/export                  | `docs/RELEASES/v1.12.0.md`                      | Defer; capture tester requests as product feedback.                  |
-| Real-time updates and mobile PM/CRM views               | `docs/HANDOVER.md` v1 list                      | Defer; use desktop smoke for beta readiness.                         |
-| StorageCapModal and AiBudgetModal parent wiring         | `docs/IMPLEMENTATION_PLAN.md`                   | Product follow-up; backend envelopes exist, UI mount still pending.  |
-| Chat-session memory auto-ingest and pin-toggle mutation | `docs/IMPLEMENTATION_PLAN.md`                   | Product follow-up; read-time memory injection already works.         |
-| Analytics phase-3 rollup implementation                 | Historical Railway log review / analytics TODOs | Defer implementation; scheduled stubs must stay no-op until shipped. |
+| Follow-up                                               | Source                                          | Beta posture                                                                                                                                                        |
+| ------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PM/CRM/Reminders detail/edit views                      | `docs/HANDOVER.md` v1 list                      | Defer; v0 list/create flows are the shipped beta scope.                                                                                                             |
+| Kanban for tasks and deals                              | `docs/RELEASES/v1.12.0.md`                      | Defer unless beta testers need board workflows.                                                                                                                     |
+| Reminder rules and repeat schedules                     | `docs/RELEASES/v1.12.0.md`                      | Defer; manual reminders remain acceptable for beta.                                                                                                                 |
+| Drag-drop, bulk ops, CSV import/export                  | `docs/RELEASES/v1.12.0.md`                      | Defer; capture tester requests as product feedback.                                                                                                                 |
+| Real-time updates and mobile PM/CRM views               | `docs/HANDOVER.md` v1 list                      | Defer; use desktop smoke for beta readiness.                                                                                                                        |
+| StorageCapModal and AiBudgetModal parent wiring         | `docs/IMPLEMENTATION_PLAN.md`                   | Product follow-up; backend envelopes exist, UI mount still pending.                                                                                                 |
+| Chat-session memory auto-ingest and pin-toggle mutation | `docs/IMPLEMENTATION_PLAN.md`                   | Product follow-up; read-time memory injection already works.                                                                                                        |
+| Full Agent cockpit live binding and metrics review      | `docs/AI_CHATBOT_EXPERIENCE_SPEC.md`            | Product follow-up; PR #192 shipped the readout component and telemetry events, but live task/plan/approval/work-product binding and beta metric review remain next. |
+| Inspectable source/citation drawer                      | `docs/AI_CHATBOT_EXPERIENCE_SPEC.md`            | Product follow-up; PR #192 source chips improve status, but snippet-level evidence inspection is still separate work.                                               |
+| Analytics phase-3 rollup implementation                 | Historical Railway log review / analytics TODOs | Defer implementation; scheduled stubs must stay no-op until shipped.                                                                                                |
 
 ## Post-beta monitoring
 

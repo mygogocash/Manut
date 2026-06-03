@@ -15,6 +15,18 @@
 > roadmap below; continue those as separate R1 slices with authenticated chat
 > smoke.
 
+> **2026-06-03 Full Agent beta update:** PR #191
+> (`c7334e953d1da3357086b1afb328d6977b322e51`) and PR #192
+> (`9e664420e7e5beffbb4e5a3625008d71b12670fa`, merged by
+> `c0674d559db5d530586546b91d02758ac4033e44`) are now merged to `main`.
+> The beta keeps existing public contracts and adds Save as doc for generated
+> AI content, agent plan cards, tool timelines, approval/failure status chips,
+> completion actions/telemetry, task-cockpit readout components, productivity
+> empty-state prompts, and prompt evals for planning, Thai/mixed-language,
+> source-grounded research, and task completion. Production has not been
+> deployed from this main state yet, and authenticated AI chat smoke remains
+> the next launch gate.
+
 ## Goal
 
 Turn the Claude-course lessons into a Manut-native AI chat experience: fast by default, explicit about what it can do, grounded in workspace context, transparent when tools run, and evaluated before prompt changes ship.
@@ -131,6 +143,15 @@ wired through `ChatRequestInterceptorService` on each chat turn. Relevant
 user/workspace memories are injected into the provider message list by default;
 clients can opt out per request with `toolsConfig.memory=false`. Retrieval or
 injection failures remain best-effort and fall back to the original prompt.
+
+Full Agent beta implementation status: the first beta slice now implements the
+visible plan-act-report foundation without creating a separate autonomous
+runtime. The assistant transcript can render plan cards, stream-object-derived
+tool timelines, approval-needed and failed states, source/action chips, and
+completion actions such as Save as doc, Open doc, source inspection, retry, and
+task-link telemetry. The compact task cockpit is a readout surface over
+existing Manut task, plan, approvals, work-product, execution-lock, and
+verify-done DTOs; it does not introduce a new persistence model.
 
 ## Latency Strategy
 
@@ -311,6 +332,10 @@ Future DB-backed additions should wait until the stream/source contract proves s
 ### T2 - Tighten Mode Addenda
 
 - Intended behavior: Read/Edit/Agent modes steer behavior through the system prompt as clearly as the tool allowlist already gates capability.
+- Implementation status: PR #192 tightened Full Agent guidance so multi-step
+  work starts with a short executable plan, reads evidence before writes, uses
+  tools deliberately, respects approval-gated write tools, and reports produced
+  work, approvals, blockers, and next actions.
 - Test names:
   - `mode addendum > given read mode > then write tools require user opt-in`
   - `mode addendum > given edit mode > then current-doc scope is explicit`
@@ -340,6 +365,11 @@ Future DB-backed additions should wait until the stream/source contract proves s
 ### T4 - Render Tool Progress and Source State
 
 - Intended behavior: The chat transcript shows meaningful live statuses for search/read/edit/run-code/generate-image instead of hiding tool work behind a spinner.
+- Implementation status: PR #192 renders agent plan cards, richer tool timeline
+  rows, approval-needed and failed status chips, source/action chips, and
+  write-result actions from existing stream objects. It also records
+  non-sensitive completion telemetry for saved docs, opened docs, retries,
+  source opens, task links, approval states, and work products.
 - Test names:
   - `ws transport > given tool-progress event > then yields progress stream object`
   - `assistant message > given read tool call > then renders source status chip`
@@ -551,6 +581,23 @@ Minimum checks for each implementation PR:
 - `git diff --check`
 - For visible chat UI changes: local browser proof across floating, sidebar, and fullscreen modes
 - Before deploy: `yarn affine bundle -p web`; add `-p @affine/server` when backend copilot code changes
+
+## Next Beta Steps
+
+1. Bind the task cockpit into the live chat shell with current Manut task,
+   `MnTaskPlan`, approval, work-product, execution-lock, and verify-done data
+   instead of relying only on presentational DTO props.
+2. Build the inspectable source/citation surface with snippets, doc-open
+   actions, and unsupported-claim evidence from the shadow verifier.
+3. Run authenticated smoke for floating chat, full chat, Full Agent mode, Save
+   as doc, source chips, task link/cockpit, and the approval-toggle path before
+   any production swap.
+4. Review completion telemetry after beta use: doc saved, edit applied, source
+   opened, task linked, approval created/resolved, work product created, and
+   retry after failure.
+5. Continue the stronger retrieval authorization work by pushing allowed doc
+   filters into retrieval before vector/keyword scanning, not only after
+   candidates return.
 
 ## Rollback
 

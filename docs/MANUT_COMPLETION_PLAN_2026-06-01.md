@@ -120,6 +120,16 @@ scripts/gcp/smoke-test-cloud-run.sh` passed, `/info` reports
 - Add shadow response verification for workspace-grounded answers. — Done
 - Harden memory preferences and provider cache behavior after evals exist. —
   Done
+- Add Save as doc for generated AI drafts. — Done via PR #191
+- Add Full Agent beta plan-act-report UX and compact task cockpit readout. —
+  Done via PR #192
+- Review beta completion metrics after live use. — Pending; PR #192 records the
+  first non-sensitive telemetry events but no dashboard or beta analysis is
+  complete yet.
+- Bind the compact task cockpit to live Manut task/plan/approval/work-product
+  data in the chat shell. — Pending follow-up
+- Build the inspectable citation/source drawer with snippets and doc-open
+  actions. — Pending follow-up
 
 ## Lane 4 — Product Feature Completion
 
@@ -204,8 +214,9 @@ scripts/gcp/smoke-test-cloud-run.sh` passed, `/info` reports
 
 ## Current Slice
 
-Active slice: **Post-PR #185 production deploy evidence refresh**, plus
-deploy-script prompt-seed gate hardening found during production validation.
+Active slice: **Post-PR #191/#192 AI Chat Full Agent beta docs refresh**, plus
+launch-gate tracking for post-merge main CI/build, authenticated AI smoke, and
+production deploy evidence.
 
 Exit criteria:
 
@@ -261,6 +272,18 @@ Completed in this branch:
   on memory failures, and includes a prompt-cache planner that only marks
   stable Anthropic prefixes as cacheable while refusing dynamic private
   context.
+- Lane 3 — Save Generated AI Drafts: PR #191 adds a Save as doc action for
+  generated AI content so users can persist independent/floating chat drafts.
+- Lane 3 — Full Agent Beta UX Foundation: PR #192 adds plan cards, richer tool
+  timeline rows, source/action chips, awaiting-approval and failed states,
+  completion actions, productivity empty-state prompts, prompt evals for
+  planning/Thai/source-grounded/task-completion cases, and non-sensitive
+  completion telemetry.
+- Lane 3 — Compact Task Cockpit Readout: PR #192 adds the presentational Manut
+  task cockpit surface for bound task, current plan, execution status,
+  approvals, produced work, execution-lock state, and verify-done evidence. It
+  reuses existing Manut DTOs and does not create a new autonomous runtime or
+  database table.
 - Lane 4 — Reminder Rule Materialization: the reminder cron now evaluates
   enabled DATETIME reminder rules, creates one scheduled reminder per matching
   rule/minute with `MnReminderRun` dedupe, marks successful runs, and leaves the
@@ -360,6 +383,17 @@ Completed in this branch:
   `serverConfig` initialized with `Manut` and `Copilot`, prompt seed `3/3`, and
   the previously failed Prisma migration repaired via a rolled-back historical
   row plus a new finished application row.
+- PR #191 AI Save as Doc: merged to `main` at
+  `c7334e953d1da3357086b1afb328d6977b322e51` with green PR-level Manut CI,
+  CodeQL, Beta Security Gate, and `manut-gcp-pr-ci`.
+- PR #192 Full Agent Beta: merged to `main` at
+  `c0674d559db5d530586546b91d02758ac4033e44` with green PR-level Manut CI,
+  CodeQL, Beta Security Gate, `manut-gcp-pr-ci`, focused frontend/backend
+  tests, and `yarn affine bundle -p web` before merge. Main CI run
+  `26893957469` and CodeQL run `26893953860` are green for this commit; Build
+  #144 / run `26894183272` was still in progress at 2026-06-03 22:16 +07. No
+  production deploy or authenticated smoke had been run for the PR #191/#192
+  code state.
 
 Known verification blocker:
 
@@ -372,3 +406,6 @@ Known verification blocker:
   in chat-panel files. Focused Vitest, eslint/oxlint, and
   `yarn affine bundle -p web` passed for the current analytics frontend
   slices.
+- Authenticated AI smoke for the PR #191/#192 main state is still pending:
+  floating chat, full chat, Save as doc, Full Agent mode, task link/cockpit,
+  source chips, approval toggle path, and retry after failed tool.

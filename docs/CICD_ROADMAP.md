@@ -4,21 +4,25 @@ Where the deploy pipeline is, what's shipping, and what's queued. For
 the architecture reference (how it works), see [`CICD.md`](./CICD.md).
 For daily commands, see [`CLAUDE.md`](../CLAUDE.md) §4.
 
-Last updated: 2026-06-03 18:24 +07 (Build #142 verified after PR #189; public
-smoke passed; production has not been deployed from the latest main image. Run
-authenticated smoke before any production swap).
+Last updated: 2026-06-03 22:16 +07 (PR #191/#192 merged; main CI/CodeQL for
+`c0674d559` passed; Build #144 is in progress; production has not been
+deployed from the latest AI beta code state. Run authenticated smoke before any
+production swap).
 
 ---
 
 ## TL;DR
 
-- **Latest main image — NOT DEPLOYED.** PR #188 merged
-  `codex/fix-ux-ui-bughunt` to `main` at
-  `35bc631166d5c3d82f892793283ba990f417a54d`. PR #189 merged the handover
-  refresh at `ac059984949b0400ef0219bcea4df398ca73f057`. PR checks, main CI,
-  CodeQL, Build #141, and Build #142 are green. Build #142 pushed image tag
-  `main-ac0599849-26877703841`. Authenticated browser smoke and the normal
-  production gate are still required before any production swap.
+- **Latest merged main code — NOT DEPLOYED.** PR #191 merged the AI Save as doc
+  fix at `c7334e953d1da3357086b1afb328d6977b322e51`; PR #192 merged the Full
+  Agent beta cockpit slice at
+  `c0674d559db5d530586546b91d02758ac4033e44`. PR-level Manut CI, CodeQL, Beta
+  Security Gate, and `manut-gcp-pr-ci` are green for both. Main CI run
+  `26893957469` and CodeQL run `26893953860` are green for `c0674d559`; Build
+  #144 / run `26894183272` was still in progress at 2026-06-03 22:16 +07, so no
+  post-PR #192 main build image is recorded here yet. Authenticated browser
+  smoke and the normal production gate are still required before any production
+  swap.
 - **Tier 1 — DONE.** Smoke-then-swap pipeline with sidecar validation
   and auto-rollback is live. Production never gets a broken image.
 - **Tier 2 — DONE.** Build/deploy split, registry buildx cache,
@@ -75,8 +79,11 @@ Merge commit `35bc631166d5c3d82f892793283ba990f417a54d` has passed:
 PR #189 then merged the handover branch `codex/ux-bughunt-merge-handoff` into
 `main`. Merge commit `ac059984949b0400ef0219bcea4df398ca73f057` passed Manut
 CI, CodeQL, and Build #142 / run `26877703841`. Build #142 pushed image tag
-`main-ac0599849-26877703841`; this is the latest main image and contains the
-same product-code fixes plus docs updates.
+`main-ac0599849-26877703841`; it contains the same product-code fixes plus docs
+updates. A later docs-only PR #190 produced Build #143 / run `26886777151` for
+commit `faf46da747f89f2c184f61ca95bbf84100c9a27e`. The PR #191/#192 code state
+is represented by Build #144, which was still in progress at 2026-06-03 22:16
++07.
 
 Public pre-release smoke passed on 2026-06-03 18:24 +07:
 `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=30 SLEEP_SECONDS=1 scripts/gcp/smoke-test-cloud-run.sh`.
@@ -84,8 +91,8 @@ Public `/sign-in` browser smoke mounted the app and reached the verification
 code step for a disposable email address; authenticated smoke remains blocked
 until an inbox/code, smoke account, or signed-in browser session is available.
 
-Build #142 has not been deployed to production. Before a release operator ships
-it:
+Build #142 and Build #143 have not been deployed to production. For the current
+PR #191/#192 launch candidate, wait for Build #144 and then:
 
 1. Run authenticated smoke for the fixed surfaces: invite acceptance, Google
    integration errors, AI object-stream actions, AI source cards, mobile Ask
@@ -94,6 +101,54 @@ it:
 2. Deploy only after staging or equivalent smoke passes.
 3. Update this roadmap with the actual production revision, smoke evidence,
    image digest, and rollback target after deployment.
+
+### 2026-06-03 AI chat Save as doc and Full Agent beta merge note
+
+PR #191 merged `codex/ai-save-generated-doc` into `main` at
+`c7334e953d1da3357086b1afb328d6977b322e51`. It added the Save as doc action so
+AI-generated drafts can be persisted from chat instead of being stranded in the
+transcript.
+
+PR #192 merged `codex/ai-full-agent-beta` into `main` at
+`c0674d559db5d530586546b91d02758ac4033e44`. It shipped the first Full Agent
+beta UX foundation:
+
+1. Agent plan cards, tool timeline rows, source/action chips, and clearer
+   awaiting-approval/failed states.
+2. Compact Manut task cockpit readout for bound task, current plan, approvals,
+   work products, execution status, and verify-done evidence.
+3. Full Agent prompt guidance for plan first, evidence before writes, approval
+   gates, produced work, blockers, and next actions.
+4. Prompt eval fixtures for planning, Thai/mixed-language prompts,
+   source-grounded research, structured output, and task completion.
+5. Non-sensitive completion telemetry for doc saved, edit applied, source
+   opened, task linked, approval created/resolved, work product created, and
+   retry after failure.
+
+Verification before merge:
+
+1. Focused frontend Vitest passed for assistant status, assistant rendering,
+   and task cockpit specs.
+2. Focused backend prompt AVA specs passed for mode addenda and prompt evals.
+3. Focused eslint/oxlint/Prettier checks passed for touched frontend files.
+4. `yarn affine bundle -p web` passed with existing asset-size warnings.
+5. PR #191 and PR #192 checks passed: Manut CI, CodeQL, Beta Security Gate, and
+   `manut-gcp-pr-ci`.
+
+Main CI run `26893957469` and CodeQL run `26893953860` are green for merge
+commit `c0674d559db5d530586546b91d02758ac4033e44`. Build #144 / run
+`26894183272` was still in progress at 2026-06-03 22:16 +07. Record the final
+build result, image tag/digest, and artifact-publish evidence before treating
+this as a beta launch candidate.
+
+Before release from the PR #191/#192 code state:
+
+1. Run authenticated smoke for floating chat, full chat, Save as doc, Full
+   Agent mode, task link/cockpit, approval toggle path, source chips, and retry
+   after a failed tool.
+2. Deploy only after staging or equivalent smoke passes.
+3. Update this roadmap with the production Cloud Run revision, image digest,
+   migration job, smoke evidence, and rollback target after deployment.
 
 ### Pipeline workflows live on `main`
 
