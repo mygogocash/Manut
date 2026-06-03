@@ -1,9 +1,11 @@
 import type { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import type { PeekViewService } from '@affine/core/modules/peek-view';
 import type { AppThemeService } from '@affine/core/modules/theme';
+import { getAFFiNEWorkspaceSchema } from '@affine/core/modules/workspace';
 import type { CopilotChatHistoryFragment } from '@affine/graphql';
 import { I18n } from '@affine/i18n';
 import { WithDisposable } from '@blocksuite/affine/global/lit';
+import { RefNodeSlotsProvider } from '@blocksuite/affine/inlines/reference';
 import { isInsidePageEditor } from '@blocksuite/affine/shared/utils';
 import {
   type BlockStdScope,
@@ -11,11 +13,14 @@ import {
   ShadowlessElement,
 } from '@blocksuite/affine/std';
 import type { ExtensionType } from '@blocksuite/affine/store';
+import { MarkdownTransformer } from '@blocksuite/affine/widgets/linked-doc';
 import type { NotificationService } from '@blocksuite/affine-shared/services';
+import { PageIcon } from '@blocksuite/icons/lit';
 import type { Signal } from '@preact/signals-core';
 import { css, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 
+import { getStoreManager } from '../../../manager/store';
 import {
   EdgelessEditorActions,
   PageEditorActions,
@@ -146,6 +151,51 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
       cursor: default;
       opacity: 0.55;
     }
+    .ai-save-doc-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .ai-save-doc-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      padding: 0 10px;
+      border-radius: var(--manut-radius-input, 8px);
+      border: 1px solid var(--affine-border-color);
+      background: var(--affine-background-overlay-panel-color);
+      color: var(--affine-text-primary-color);
+      font-size: var(--affine-font-sm);
+      font-weight: 500;
+      line-height: 20px;
+      cursor: pointer;
+      transition:
+        background-color var(--affine-anim-duration-base, 200ms)
+          var(--affine-anim-curve-default, ease),
+        color var(--affine-anim-duration-base, 200ms)
+          var(--affine-anim-curve-default, ease),
+        border-color var(--affine-anim-duration-base, 200ms)
+          var(--affine-anim-curve-default, ease);
+    }
+    .ai-save-doc-button:hover:not([disabled]) {
+      background: var(--affine-hover-color);
+    }
+    .ai-save-doc-button[data-state='saved'] {
+      border-color: var(--manut-accent-violet-border);
+      color: var(--manut-accent-violet-fg, var(--affine-text-primary-color));
+      background: var(--manut-accent-violet-bg, var(--affine-hover-color));
+    }
+    .ai-save-doc-button[disabled] {
+      cursor: default;
+      opacity: 0.65;
+    }
+    .ai-save-doc-button svg {
+      width: 16px;
+      height: 16px;
+      color: currentColor;
+      flex: 0 0 auto;
+    }
     /* Manut M2 E2.7 — typewriter cursor for streaming AI responses.
        The CopilotClient already delivers text deltas at the SSE
        token cadence (typically 8-15ms per chunk on Vertex), so the
@@ -269,6 +319,15 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
   // flight; `positive`/`negative` = settled.
   @state()
   accessor feedbackRating: 'positive' | 'negative' | 'pending' | null = null;
+
+  @state()
+  accessor savedDocId: string | null = null;
+
+  @state()
+  accessor savedDocMessageKey: string | null = null;
+
+  @state()
+  accessor savingDocMessageKey: string | null = null;
 
   get state() {
     const { isLast, status } = this;
@@ -486,6 +545,161 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
     </div>`;
   }
 
+  private getMessageSaveKey() {
+    if (!isChatMessage(this.item)) return null;
+    return this.item.id || this.item.createdAt || this.item.content;
+  }
+
+  private cleanDocTitle(value: string | undefined) {
+    const title = value
+      ?.replace(/^[\s#>*-]+/, '')
+      .replace(/[*_`[\]]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!title) return 'AI generated doc';
+    return title.slice(0, 80);
+  }
+
+  private getSaveAsDocPayload(): { markdown: string; title: string } | null {
+    const { content, streamObjects } = this.item;
+    const composeResult = streamObjects?.find(
+      streamObject =>
+        streamObject.type === 'tool-result' &&
+        streamObject.toolName === 'doc_compose' &&
+        streamObject.result &&
+        typeof streamObject.result === 'object' &&
+        'markdown' in streamObject.result &&
+        typeof streamObject.result.markdown === 'string'
+    );
+    if (composeResult?.type === 'tool-result') {
+      const result = composeResult.result as {
+        markdown: string;
+        title?: string;
+      };
+      const title =
+        typeof composeResult.args?.title === 'string'
+          ? composeResult.args.title
+          : result.title;
+      return {
+        markdown: result.markdown,
+        title: this.cleanDocTitle(title),
+      };
+    }
+
+    const textMarkdown = streamObjects?.length
+      ? mergeStreamContent(streamObjects)
+      : content;
+    if (textMarkdown.trim()) {
+      const heading = textMarkdown
+        .split('\n')
+        .map(line => line.trim())
+        .find(line => line.length > 0);
+      return {
+        markdown: textMarkdown,
+        title: this.cleanDocTitle(heading),
+      };
+    }
+
+    return null;
+  }
+
+  private openSavedDoc(docId: string) {
+    if (this.onOpenDoc) {
+      this.onOpenDoc(docId, this.session?.sessionId);
+      return;
+    }
+    const { host } = this;
+    host?.std.getOptional(RefNodeSlotsProvider)?.docLinkClicked.next({
+      pageId: docId,
+      openMode: 'open-in-active-view',
+      host,
+    });
+  }
+
+  private async handleSaveAsDoc(markdown: string, title: string) {
+    const { host } = this;
+    const messageKey = this.getMessageSaveKey();
+    if (!host || !messageKey || this.savingDocMessageKey === messageKey) {
+      return;
+    }
+
+    this.savingDocMessageKey = messageKey;
+    try {
+      const docId = await MarkdownTransformer.importMarkdownToDoc({
+        collection: host.store.workspace,
+        schema: getAFFiNEWorkspaceSchema(),
+        markdown,
+        fileName: title,
+        extensions: getStoreManager().config.init().value.get('store'),
+      });
+      if (!docId) {
+        throw new Error('save-as-doc-empty-result');
+      }
+      this.savedDocId = docId;
+      this.savedDocMessageKey = messageKey;
+      this.notificationService.notify({
+        title: 'Doc saved',
+        message: 'AI output was saved as a new doc.',
+        accent: 'success',
+        actions: [
+          {
+            key: 'open-doc',
+            label: 'Open',
+            onClick: () => this.openSavedDoc(docId),
+          },
+        ],
+        onClose: function (): void {},
+      });
+    } catch (error) {
+      console.error(error);
+      this.notificationService.toast('Failed to save document');
+    } finally {
+      if (this.savingDocMessageKey === messageKey) {
+        this.savingDocMessageKey = null;
+      }
+    }
+  }
+
+  private renderSaveAsDocAction() {
+    const { host, independentMode, isLast, status } = this;
+    if (!host || !independentMode) return nothing;
+    if (isLast && status !== 'success' && status !== 'idle') return nothing;
+
+    const payload = this.getSaveAsDocPayload();
+    if (!payload?.markdown.trim()) return nothing;
+
+    const messageKey = this.getMessageSaveKey();
+    const isSaving = !!messageKey && this.savingDocMessageKey === messageKey;
+    const savedDocId =
+      messageKey && this.savedDocMessageKey === messageKey
+        ? this.savedDocId
+        : null;
+    const label = savedDocId
+      ? 'Open saved doc'
+      : isSaving
+        ? 'Saving...'
+        : 'Save as doc';
+
+    return html`<div class="ai-save-doc-actions">
+      <button
+        type="button"
+        class="ai-save-doc-button"
+        data-state=${savedDocId ? 'saved' : isSaving ? 'saving' : 'idle'}
+        data-testid="ai-save-as-doc-button"
+        ?disabled=${isSaving}
+        aria-label=${label}
+        title=${label}
+        @click=${() =>
+          savedDocId
+            ? this.openSavedDoc(savedDocId)
+            : this.handleSaveAsDoc(payload.markdown, payload.title)}
+      >
+        ${PageIcon({ width: '16', height: '16' })}
+        <span>${label}</span>
+      </button>
+    </div>`;
+  }
+
   private renderImages() {
     const { item } = this;
     if (!item.attachments) return nothing;
@@ -561,6 +775,7 @@ export class ChatMessageAssistant extends WithDisposable(ShadowlessElement) {
         .retry=${() => this.retry()}
         .notificationService=${this.notificationService}
       ></chat-copy-more>
+      ${this.renderSaveAsDocAction()}
       ${isLast && showActions
         ? html`<chat-action-list
             .actions=${actions}
