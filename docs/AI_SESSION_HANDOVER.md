@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-06-03 16:48 +07 (UX/UI bughunt PR merged and build passed)
+Last updated: 2026-06-03 18:24 +07 (Build #142 verified; public smoke passed; authenticated smoke still blocked)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,16 +12,18 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/ux-bughunt-merge-handoff` from latest `origin/main`.
+- Branch: `codex/release-gate-handoff` from latest `origin/main`.
 - Upstream: `origin/main`.
 - Handover refresh: PR #188 merged the 2026-06-02 Manut UX/UI bughunt fixes to
-  `main`; this branch records the post-merge/build continuation state.
+  `main`; PR #189 merged the post-merge/build handover refresh. This branch
+  records the current release-gate continuation state.
 - Merge state: PR #188 merged at
-  `35bc631166d5c3d82f892793283ba990f417a54d`.
+  `35bc631166d5c3d82f892793283ba990f417a54d`; PR #189 merged at
+  `ac059984949b0400ef0219bcea4df398ca73f057`.
 - Production branch: `main`
 - Production app: https://manut.xyz serves Manut production. Latest build from
   `main` is
-  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-35bc63116-26876250444`,
+  `asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:main-ac0599849-26877703841`,
   but production has not been deployed from that image yet.
   The legacy `affine.gogocash.co` and `manut.gogocash.co` hosts both
   301-redirect to the canonical domain.
@@ -35,10 +37,18 @@ on chat memory.
 
 - Implementation commit:
   `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
-- Handover commit: `77ece66c3 docs(manut): refresh ux bughunt handoff`.
-- Merge commit: `35bc631166d5c3d82f892793283ba990f417a54d` via PR #188.
-- Build: GitHub Actions `Manut Build` run `26876250444` / Build #141 passed
-  and pushed image tag `main-35bc63116-26876250444`.
+- PR #188 handover commit: `77ece66c3 docs(manut): refresh ux bughunt handoff`.
+- PR #189 handover commit:
+  `d1d787685 docs(manut): record ux bughunt merge evidence`.
+- Product-code merge commit:
+  `35bc631166d5c3d82f892793283ba990f417a54d` via PR #188.
+- Handover merge commit:
+  `ac059984949b0400ef0219bcea4df398ca73f057` via PR #189.
+- Product-code build: GitHub Actions `Manut Build` run `26876250444` /
+  Build #141 passed and pushed image tag `main-35bc63116-26876250444`.
+- Latest main build: GitHub Actions `Manut Build` run `26877703841` /
+  Build #142 passed and pushed image tag `main-ac0599849-26877703841`
+  from the docs-only handover merge.
 - Source report:
   `docs/manut-bughunt/UX_UI_BUGHUNT_2026-06-02.md`.
 - Implementation plan/spec:
@@ -67,17 +77,28 @@ on chat memory.
   - Main push checks passed for merge commit `35bc63116`: Manut CI and CodeQL.
   - Build #141 passed native, landing, server/frontend bundle, source-drift,
     Docker push, and artifact-publish stages.
+  - PR #189 merged the handover refresh; main push checks passed for merge
+    commit `ac0599849`: Manut CI and CodeQL.
+  - Build #142 passed native, landing, server/frontend bundle, source-drift,
+    Docker push, and artifact-publish stages. Artifact image tag:
+    `main-ac0599849-26877703841`.
+  - Public pre-release smoke passed on 2026-06-03 18:24 +07:
+    `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=30 SLEEP_SECONDS=1 scripts/gcp/smoke-test-cloud-run.sh`.
+  - Public browser smoke loaded `https://manut.xyz/sign-in`; the app mounted and
+    showed Google plus email sign-in controls. A disposable email attempt reached
+    the verification-code screen, so authenticated smoke still needs a real
+    inbox/code or existing signed-in browser session.
 - Not done yet:
   - No staging or production deploy has been run from image
-    `main-35bc63116-26876250444`.
+    `main-ac0599849-26877703841`.
   - No live authenticated browser smoke has been run after these fixes.
   - Full frontend project-reference typecheck is still blocked by the known
     prebuild-state `TS6305` missing `blocksuite/**/dist/*.d.ts` outputs.
 - Next operator path:
-  1. Run authenticated smoke before prod: mobile Ask AI, floating AI tabs,
-     settings direct links for hidden Budget/Work Queues, Google integration
-     friendly errors, invite acceptance, AI sources, and analytics connection
-     errors.
+  1. Unblock authenticated smoke with a smoke account, verification code, or
+     browser session. Then run: mobile Ask AI, floating AI tabs, settings direct
+     links for hidden Budget/Work Queues, Google integration friendly errors,
+     invite acceptance, AI sources, and analytics connection errors.
   2. Deploy only after staging or equivalent browser smoke passes; rollback is
      code-only because this slice adds no migrations.
   3. After deploy, update `docs/CICD_ROADMAP.md` with the production revision,

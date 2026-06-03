@@ -1,8 +1,10 @@
 # Manut Bug Hunt — Live Status (2026-05-31)
 
 > 👉 **2026-06-03 current continuation:** `codex/fix-ux-ui-bughunt` merged via
-> PR #188 at `35bc631166d5c3d82f892793283ba990f417a54d`; Build #141 pushed
-> `main-35bc63116-26876250444`, but production is not deployed from that image.
+> PR #188 at `35bc631166d5c3d82f892793283ba990f417a54d`; product-code Build #141 pushed
+> `main-35bc63116-26876250444`. PR #189 then merged the handover refresh and
+> Build #142 pushed latest main image `main-ac0599849-26877703841`; production
+> is not deployed from that latest image.
 > Continue from **[`UX_UI_BUGHUNT_2026-06-02.md`](./UX_UI_BUGHUNT_2026-06-02.md)**
 > and
 > **[`UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md`](./UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md)**.

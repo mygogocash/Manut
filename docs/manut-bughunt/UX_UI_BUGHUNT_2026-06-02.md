@@ -25,7 +25,13 @@ Merge/build status:
   `35bc631166d5c3d82f892793283ba990f417a54d`.
 - Build #141 / run `26876250444` passed and pushed image tag
   `main-35bc63116-26876250444`.
-- Production has not been deployed from that image.
+- PR #189 merged the handover refresh at
+  `ac059984949b0400ef0219bcea4df398ca73f057`; Build #142 / run
+  `26877703841` passed and pushed latest main image tag
+  `main-ac0599849-26877703841`.
+- Production has not been deployed from the latest main image. Public smoke
+  passed on 2026-06-03 18:24 +07; authenticated smoke remains blocked pending a
+  smoke account, verification code, or signed-in browser session.
 
 Fixed:
 
