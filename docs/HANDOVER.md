@@ -1,12 +1,12 @@
 # Manut Handover
 
-Last reviewed: 2026-06-01 during the QA-audit completion branch. Since the
-v1.12.0 cut, this branch has closed several v1 follow-ups: PM/CRM/Reminders
-CSV export, reminder rule materialization, 30-second live refresh fallback,
-mobile layout fallbacks, Knowledge Graph reduced-motion/accessibility
-contracts, and the Analytics live insight SSE stream. v1.12.0 remains the
-latest documented release cut in `docs/RELEASES/` until this branch is merged
-and released.
+Last reviewed: 2026-06-03 during the UX/UI bughunt fix branch. Since the
+v1.12.0 cut, Manut has closed several v1 follow-ups and the current branch
+`codex/fix-ux-ui-bughunt` now contains commit
+`b57f4ae1f fix(manut): resolve ux bughunt regressions`. This branch is
+committed locally but has not been deployed. v1.12.0 remains the latest
+documented release cut in `docs/RELEASES/` until this branch is merged and
+released.
 
 This document is the tracked handover entry point for the GoGoCash Manut
 fork of AFFiNE 0.26.3. It summarizes what a successor needs before
@@ -26,6 +26,10 @@ changing, building, or deploying the project.
 - Production status source: `docs/CICD_ROADMAP.md` records the latest
   validated production image and deploy chain; refresh it before
   trusting numbers from a stale handover.
+- Active continuation branch: `codex/fix-ux-ui-bughunt`, commit
+  `b57f4ae1f`. It is docs/code complete for the 2026-06-02 UX/UI bughunt
+  but still needs PR review, bundle/image build, and staging or equivalent
+  browser smoke before production.
 - Branch model: Manut work lands on `main`; upstream AFFiNE workflows
   for `canary`/`master` are not the Manut deploy path.
 - Feature gate: the Projects/CRM/Reminders frontend nav and the
@@ -43,6 +47,13 @@ changing, building, or deploying the project.
 - `docs/CICD.md` - deploy architecture and operator commands.
 - `docs/CICD_ROADMAP.md` - current pipeline status, shipped tiers, backlog,
   and last validation notes.
+- `docs/AI_SESSION_HANDOVER.md` - fast-resume state for the active AI session,
+  including the current branch, commit, verification, and next operator path.
+- `docs/manut-bughunt/UX_UI_BUGHUNT_2026-06-02.md` - current bughunt findings
+  and fix status for the UX/UI branch.
+- `docs/manut-bughunt/UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md` - implementation
+  spec, risk notes, tests, acceptance criteria, and rollback for the bughunt
+  fix branch.
 - `docs/GCP_CLOUD_RUN_RUNBOOK.md` and `docs/MANUT_DEPLOY_RUNBOOK.md` -
   current Cloud Run deploy, migration, smoke, and rollback operator paths.
 - `docs/MANUT_LAUNCH_CHECKLIST.md` - launch-window gates, now refreshed to
@@ -152,6 +163,24 @@ gcloud run services update-traffic manut \
 Use the DNS/Railway rollback path from
 `docs/GCP_CLOUD_RUN_RUNBOOK.md#9-rollback` only when the launch operator has
 kept Railway online and write-safe for the stability window.
+
+## Active Branch Handoff - 2026-06-03 UX/UI Bughunt
+
+- Branch: `codex/fix-ux-ui-bughunt`
+- Commit: `b57f4ae1f fix(manut): resolve ux bughunt regressions`
+- Not deployed: production `https://manut.xyz` has not been swapped to this
+  branch.
+- Verified locally:
+  - `yarn workspace @affine/server test src/__tests__/manut/ux-bughunt-regressions.spec.ts --timeout=1m`
+  - `yarn workspace @affine/server tsc --noEmit`
+  - `yarn vitest run packages/frontend/core/src/__tests__/manut-ux-bughunt.spec.ts`
+  - scoped frontend `yarn eslint --no-cache ...`
+  - `yarn prettier --check ...`
+  - `git diff --check`
+- Known gap: full frontend project-reference typecheck still needs the
+  prebuild/dist declaration outputs restored before it can be a useful gate.
+- Continue with PR review, deploy artifact bundling, browser smoke, and then
+  the normal Cloud Run or VM safe-deploy path recorded in the runbooks.
 
 ## High-Risk Findings
 

@@ -60,6 +60,64 @@ function formatLastSync(iso: string | null | undefined): string {
   return `Synced ${days}d ago`;
 }
 
+function normalizeConnectionError(error: string | null | undefined): string {
+  const raw = error?.trim();
+  if (!raw) {
+    return 'Connection failed. Try reconnecting.';
+  }
+
+  const message = raw.toLowerCase();
+  if (
+    message.includes('invalid_grant') ||
+    message.includes('refresh token') ||
+    message.includes('access token') ||
+    message.includes('token expired') ||
+    message.includes('expired token')
+  ) {
+    return 'Connection expired. Reconnect the account.';
+  }
+
+  if (
+    message.includes('unauthorized') ||
+    message.includes('forbidden') ||
+    message.includes('permission') ||
+    message.includes('401') ||
+    message.includes('403')
+  ) {
+    return 'Connection is not authorized. Reconnect the account.';
+  }
+
+  if (
+    message.includes('rate limit') ||
+    message.includes('too many requests') ||
+    message.includes('429')
+  ) {
+    return 'Provider rate limit reached. Try again later.';
+  }
+
+  if (
+    message.includes('timeout') ||
+    message.includes('network') ||
+    message.includes('fetch failed') ||
+    message.includes('econn') ||
+    message.includes('unreachable') ||
+    message.includes('502') ||
+    message.includes('503')
+  ) {
+    return 'Provider unreachable. Try again later.';
+  }
+
+  if (
+    message.includes('not configured') ||
+    message.includes('missing client') ||
+    message.includes('missing credentials')
+  ) {
+    return 'OAuth client is not configured. Ask an admin to configure it.';
+  }
+
+  return 'Connection failed. Try reconnecting.';
+}
+
 export function ConnectionsSettings({
   canEdit = true,
 }: ConnectionsSettingsProps) {
@@ -82,6 +140,9 @@ export function ConnectionsSettings({
   );
 
   const displayedError = errorMessage ?? entityError;
+  const friendlyDisplayedError = displayedError
+    ? normalizeConnectionError(displayedError)
+    : null;
 
   const dismissError = useCallback(() => {
     setErrorMessage(null);
@@ -220,9 +281,11 @@ export function ConnectionsSettings({
           Only workspace owners and admins can change connections.
         </div>
       ) : null}
-      {!unavailable && displayedError ? (
+      {!unavailable && displayedError && friendlyDisplayedError ? (
         <div className={styles.bannerError} role="alert">
-          <span className={styles.bannerErrorText}>{displayedError}</span>
+          <span className={styles.bannerErrorText} title={displayedError}>
+            {friendlyDisplayedError}
+          </span>
           <button
             type="button"
             className={styles.bannerErrorDismiss}
@@ -255,6 +318,9 @@ export function ConnectionsSettings({
               null;
             const lastSync = connection?.lastSyncAt ?? connection?.lastSyncedAt;
             const isBroken = status === 'EXPIRED' || status === 'ERROR';
+            const friendlyLastError = normalizeConnectionError(
+              connection?.lastError
+            );
             const bannerClass =
               status === 'EXPIRED'
                 ? styles.rowBannerWarning
@@ -315,8 +381,11 @@ export function ConnectionsSettings({
                   )}
                 </div>
                 {isBroken && connection?.lastError ? (
-                  <div className={`${styles.rowBanner} ${bannerClass}`}>
-                    {connection.lastError}
+                  <div
+                    className={`${styles.rowBanner} ${bannerClass}`}
+                    title={connection.lastError}
+                  >
+                    {friendlyLastError}
                   </div>
                 ) : null}
               </div>

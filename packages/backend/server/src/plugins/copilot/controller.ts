@@ -515,6 +515,11 @@ export class CopilotController implements BeforeApplicationShutdown {
       info.model = model;
       info.finalMessage = finalMessage.filter(m => m.role !== 'system');
       metrics.ai.counter('chat_object_stream_calls').add(1, { model });
+
+      const workspaceId = session.config.workspaceId;
+      const estimatedCents = this.estimateChatCostCents(model, finalMessage);
+      await this.aiBudget.assertWithinCap(workspaceId, estimatedCents);
+
       this.ongoingStreamCount$.next(this.ongoingStreamCount$.value + 1);
 
       const { signal, onConnectionClosed } = getSignal(req);
@@ -576,6 +581,19 @@ export class CopilotController implements BeforeApplicationShutdown {
                       err
                     )
                   );
+                if (!endBeforePromiseResolve) {
+                  const outputCents = this.estimateChatCostCents(model, [
+                    { content },
+                  ]);
+                  const realisedCents = estimatedCents + outputCents;
+                  void this.aiBudget
+                    .recordSpend(workspaceId, realisedCents)
+                    .catch(err =>
+                      this.logger.warn(
+                        `Failed to record AI budget spend for workspace ${workspaceId}: ${err instanceof Error ? err.message : String(err)}`
+                      )
+                    );
+                }
               }),
               ignoreElements()
             )

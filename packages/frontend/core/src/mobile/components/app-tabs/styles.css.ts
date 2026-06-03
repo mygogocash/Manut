@@ -47,19 +47,30 @@ export const appTabsInner = style({
   height: `calc(${globalVars.appTabHeight} + 2px)`,
   padding: '13px 16px',
 });
-export const tabItem = style({
+export const tabItemWrapper = style({
+  display: 'flex',
+  width: 0,
+  flex: 1,
+  minWidth: 0,
+});
+
+const tabItemBase = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: 0,
+  width: '100%',
   flex: 1,
-  height: 36,
+  minWidth: 0,
+  minHeight: 44,
   padding: 3,
   fontSize: 30,
   color: cssVarV2.icon.primary,
   lineHeight: 0,
   borderRadius: 'var(--manut-radius-input)',
   backgroundColor: 'transparent',
+  border: 0,
+  textDecoration: 'none',
+  cursor: 'pointer',
   transition: 'transform 100ms var(--manut-anim-curve-overshoot)',
 
   selectors: {
@@ -72,3 +83,6 @@ export const tabItem = style({
     },
   },
 });
+
+export const tabItem = tabItemBase;
+export const tabLink = tabItemBase;

@@ -1,6 +1,11 @@
 import { Tooltip } from '@affine/component';
 import clsx from 'clsx';
-import type { HTMLAttributes, MouseEvent, ReactNode } from 'react';
+import type {
+  HTMLAttributes,
+  KeyboardEvent,
+  MouseEvent,
+  ReactNode,
+} from 'react';
 import { useCallback } from 'react';
 
 import {
@@ -36,6 +41,7 @@ export const IntegrationCard = ({
   cloudOnlyTooltip,
   cloudOnlyLabel,
   onClick,
+  onKeyDown,
   children,
   ...props
 }: IntegrationCardProps) => {
@@ -49,6 +55,23 @@ export const IntegrationCard = ({
       onClick?.(event);
     },
     [cloudOnly, onClick]
+  );
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLElement>) => {
+      onKeyDown?.(event);
+      if (cloudOnly || !onClick) {
+        return;
+      }
+      if (event.defaultPrevented) {
+        return;
+      }
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        event.currentTarget.click();
+      }
+    },
+    [cloudOnly, onClick, onKeyDown]
   );
 
   const badge = cloudOnly ? (
@@ -73,7 +96,10 @@ export const IntegrationCard = ({
         {...props}
         data-cloud-only={cloudOnly ? 'true' : undefined}
         aria-disabled={cloudOnly || undefined}
+        role={onClick && !cloudOnly ? 'button' : undefined}
+        tabIndex={onClick && !cloudOnly ? 0 : undefined}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
       >
         {badge}
         {children}

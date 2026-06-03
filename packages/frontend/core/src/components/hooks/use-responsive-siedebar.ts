@@ -46,6 +46,12 @@ export const useResponsiveSidebar = (
 
       if (previousWidth === null) {
         previousWidthRef.current = width;
+        if (width <= hideThreshold) {
+          handleHideSidebar();
+        }
+        if (!BUILD_CONFIG.isElectron) {
+          handleFloatSidebar(width <= floatThreshold);
+        }
         return;
       }
 

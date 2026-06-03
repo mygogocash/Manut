@@ -179,11 +179,12 @@ const SettingModalInner = ({
       (settingState.activeTab === 'plans' ||
         settingState.activeTab === 'workspace:billing')
     ) {
-      setSettingState({ activeTab: 'workspace:license' });
+      setSettingState({ activeTab: 'workspace:preference' });
     }
   }, [isSelfhosted, settingState.activeTab]);
 
   useEffect(() => {
+    let didScrollToAnchor = false;
     if (settingState.scrollAnchor) {
       flushSync(() => {
         const target = modalContentRef.current?.querySelector(
@@ -191,10 +192,13 @@ const SettingModalInner = ({
         );
         if (target) {
           target.scrollIntoView();
+          didScrollToAnchor = true;
         }
       });
     }
-    modalContentWrapperRef.current?.scrollTo({ top: 0 });
+    if (!didScrollToAnchor) {
+      modalContentWrapperRef.current?.scrollTo({ top: 0 });
+    }
   }, [settingState]);
   // Manut motion polish — fade-cross between settings panels. The
   // previous behaviour was an instant snap which felt cheap next to the

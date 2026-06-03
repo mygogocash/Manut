@@ -4,6 +4,13 @@
 > **Date:** 2026-05-24
 > **R-tier:** R1 overall because this affects the primary AI response path, model routing, tool use, and workspace trust. Individual slices below are mostly R2.
 
+> **2026-06-03 continuation note:** `codex/fix-ux-ui-bughunt` commit
+> `b57f4ae1f` implemented two adjacent AI-chat UX safeguards: Copilot
+> `/chat/:sessionId/stream-object` now shares the AI budget preflight/spend
+> accounting path, and AI source/tool result cards now have keyboard-friendly
+> controls. This does not complete the full citations drawer or eval roadmap
+> below; continue those as separate R1 slices with authenticated chat smoke.
+
 ## Goal
 
 Turn the Claude-course lessons into a Manut-native AI chat experience: fast by default, explicit about what it can do, grounded in workspace context, transparent when tools run, and evaluated before prompt changes ship.
@@ -108,6 +115,12 @@ Current implementation status: object-stream chat saves now run a shadow-only
 verifier after the answer is complete. It compares workspace-source tool
 results with final footnote definitions and logs missing or unsupported
 citation warnings without changing the user's streamed answer.
+
+Current UX bughunt status: object-stream budget accounting is now covered by a
+focused backend regression test, and source-card keyboard accessibility is
+covered by a focused frontend regression test. The next trust improvement is
+still an inspectable citations/source surface with snippets and doc-open
+actions, not only status chips.
 
 Memory implementation status: the existing memory retrieval pipeline is now
 wired through `ChatRequestInterceptorService` on each chat turn. Relevant

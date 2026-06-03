@@ -33,9 +33,16 @@ globalStyle('html', {
   background: cssVarV2('layer/background/secondary'),
 });
 
-globalStyle('a:focus', {
+globalStyle('a:focus:not(:focus-visible)', {
   outline: 'none',
 });
-globalStyle('button:focus', {
+globalStyle('button:focus:not(:focus-visible)', {
   outline: 'none',
 });
+globalStyle(
+  'a:focus-visible, button:focus-visible, [role="tab"]:focus-visible',
+  {
+    outline: `2px solid ${cssVarV2('button/primary')}`,
+    outlineOffset: 2,
+  }
+);

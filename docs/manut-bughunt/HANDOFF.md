@@ -1,6 +1,17 @@
 # Manut Bug Hunt — Handoff & Execution Plan
 
-> 👉 **NEWER WORK (2026-06-01):** the QA-audit fix marathon is the latest state —
+> 👉 **NEWER WORK (2026-06-03):** the current continuation branch is
+> `codex/fix-ux-ui-bughunt`, committed at
+> `b57f4ae1f fix(manut): resolve ux bughunt regressions`. Use
+> **[`UX_UI_BUGHUNT_2026-06-02.md`](./UX_UI_BUGHUNT_2026-06-02.md)** for the
+> current findings/fix status and
+> **[`UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md`](./UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md)**
+> for the implementation plan, tests, and rollback. This file is historical for
+> the earlier control-plane bughunt and should not be treated as current branch
+> state.
+
+> 👉 **NEWER WORK (2026-06-01):** the QA-audit fix marathon was the newer state
+> at the time —
 > see **[`QA_FIX_HANDOFF.md`](./QA_FIX_HANDOFF.md)** (3 frontend waves committed +
 > pushed + bundle-verified on `fix/qa-audit-2026-05-31`; backend batch + prod
 > deploy remain). This doc remains the source for the earlier control-plane
@@ -18,6 +29,8 @@
 - Parse: `node -e 'const d=JSON.parse(require("fs").readFileSync("docs/manut-bughunt/wf2-sweep.json","utf8"));const g=[...d.result.targeted,...d.result.sweep];g.forEach(x=>x.findings.forEach(f=>console.log(f.severity,"|",f.title)))'`
 
 ## User decisions (locked)
+
+Historical for this earlier session only; later sessions did commit fixes.
 
 1. **Migration drift** → harden code so it degrades gracefully **+ write a runbook + a startup smoke test** that asserts gated tables exist when `ENABLE_MANUT_MODULE=true`.
 2. **Landing** → **work in the tree, NO commits**. Leave everything uncommitted for review.
