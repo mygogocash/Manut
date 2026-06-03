@@ -1,6 +1,6 @@
 # AI Session Handover
 
-Last updated: 2026-06-02 08:12 +07 (PR #185 production deploy complete)
+Last updated: 2026-06-03 12:35 +07 (UX/UI bughunt fix branch committed)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -12,12 +12,12 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/deploy-evidence-followup` from latest `origin/main`.
+- Branch: `codex/fix-ux-ui-bughunt` from latest `origin/main`.
 - Upstream: `origin/main`.
-- Handover refresh: PR #185 merged the Manut AI, analytics, ops, and UI
-  follow-ups. This follow-up branch records production deployment evidence and
-  hardens the VM prompt-seed gate observed during deploy validation.
-- Branch state: one deploy-script hardening patch plus docs evidence refresh.
+- Handover refresh: current branch implements the 2026-06-02 Manut UX/UI
+  bughunt fixes and records the continuation state for the next team.
+- Branch state: clean after commit
+  `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
 - Production branch: `main`
 - Production app: https://manut.xyz serves Manut production on the GCE VM
   safe-deploy path. Latest verified image is
@@ -29,6 +29,49 @@ on chat memory.
   `manut-cloud-run@affine-495114.iam.gserviceaccount.com`.
 - Build service account:
   `manut-cloud-build@affine-495114.iam.gserviceaccount.com`.
+
+## Current Continuation Slice - 2026-06-03 UX/UI Bughunt Fix
+
+- Commit: `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
+- Source report:
+  `docs/manut-bughunt/UX_UI_BUGHUNT_2026-06-02.md`.
+- Implementation plan/spec:
+  `docs/manut-bughunt/UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md`.
+- Product code touched:
+  - Backend invite acceptance, Google OAuth error mapping, and Copilot
+    object-stream budget accounting.
+  - Settings honesty for Budget/Work Queues, settings anchor behavior,
+    responsive sidebar first-load behavior, mobile Ask AI focus/scroll
+    behavior, floating AI tab semantics, AI source-card accessibility,
+    mobile focus indicators/tab semantics, analytics connection error copy,
+    and self-hosted billing redirect copy.
+- Regression tests added:
+  - `packages/backend/server/src/__tests__/manut/ux-bughunt-regressions.spec.ts`
+  - `packages/frontend/core/src/__tests__/manut-ux-bughunt.spec.ts`
+- Verification already passed:
+  - `yarn workspace @affine/server test src/__tests__/manut/ux-bughunt-regressions.spec.ts --timeout=1m`
+  - `yarn workspace @affine/server tsc --noEmit`
+  - `yarn vitest run packages/frontend/core/src/__tests__/manut-ux-bughunt.spec.ts`
+  - Scoped frontend `yarn eslint --no-cache ...`
+  - `yarn prettier --check ...`
+  - `git diff --check`
+  - Husky/lint-staged during the commit.
+- Not done yet:
+  - No staging or production deploy has been run from this branch.
+  - No live authenticated browser smoke has been run after these fixes.
+  - Full frontend project-reference typecheck is still blocked by the known
+    prebuild-state `TS6305` missing `blocksuite/**/dist/*.d.ts` outputs.
+- Next operator path:
+  1. Open or update the PR from `codex/fix-ux-ui-bughunt`.
+  2. Re-run the targeted backend/frontend tests above.
+  3. Bundle the affected deploy artifacts before image build; remember
+     `.docker/gogocash/Dockerfile.fullstack` copies prebuilt `dist/`.
+  4. Smoke authenticated flows before prod: mobile Ask AI, floating AI tabs,
+     settings direct links for hidden Budget/Work Queues, Google integration
+     friendly errors, invite acceptance, AI sources, and analytics connection
+     errors.
+  5. Deploy only after staging or equivalent browser smoke passes; rollback is
+     code-only because this slice adds no migrations.
 
 ## Current GCP Cloud Run Migration Slice
 

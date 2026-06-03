@@ -2,6 +2,18 @@
 
 Keep the Manut AI chat model picker limited to stable, Vertex-backed models that are safe to recommend today.
 
+## Continuation Note - 2026-06-03
+
+- Current working branch: `codex/fix-ux-ui-bughunt`.
+- Latest related commit: `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
+- Deployment status: not deployed from this branch.
+- Operator reminder: before exposing or re-adding any preview/default-version
+  model in production, run authenticated chat smoke for that exact model from
+  `https://manut.xyz` or staging, then update this spec with the working model
+  id, provider route, region, and failure/rollback notes.
+- Conservative default remains `gemini-2.5-flash` unless a later verified
+  model-catalogue PR says otherwise.
+
 # Business Goals
 
 - Reduce user confusion from model options that may fail at send time.

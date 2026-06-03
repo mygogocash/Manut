@@ -4,15 +4,20 @@ Where the deploy pipeline is, what's shipping, and what's queued. For
 the architecture reference (how it works), see [`CICD.md`](./CICD.md).
 For daily commands, see [`CLAUDE.md`](../CLAUDE.md) §4.
 
-Last updated: 2026-05-28 (manual Cloud Run hotfix image
-`main-900ca9c438-1779933990` deployed to production revision
-`manut-00011-css`; Tier 1+2 VM pipeline status is retained below for
-legacy/GAR runbook context, Tier 3 still backlog).
+Last updated: 2026-06-03 (docs continuity refresh for
+`codex/fix-ux-ui-bughunt`; the production snapshot below was not revalidated
+in this docs-only pass. Re-run live smoke before treating any production image,
+revision, or deploy-chain number as current).
 
 ---
 
 ## TL;DR
 
+- **Current branch — NOT DEPLOYED.** `codex/fix-ux-ui-bughunt` is committed at
+  `b57f4ae1f fix(manut): resolve ux bughunt regressions`. It fixes the
+  2026-06-02 UX/UI bughunt findings locally and needs PR review, bundle/image
+  build, authenticated browser smoke, and the normal production gate before
+  any production swap.
 - **Tier 1 — DONE.** Smoke-then-swap pipeline with sidecar validation
   and auto-rollback is live. Production never gets a broken image.
 - **Tier 2 — DONE.** Build/deploy split, registry buildx cache,
@@ -27,7 +32,8 @@ legacy/GAR runbook context, Tier 3 still backlog).
   `main-900ca9c438-1779933990` (digest
   `sha256:7ac4fe6b3efc4f85a9dda10ce7e70cd89fc63f94b67bdca339869cdd6b8b9c0f`).
   `/info`, GraphQL `serverConfig.version`, and `/workspace` smoke checks
-  passed after the swap.
+  passed after the swap. This is the last production snapshot recorded in this
+  roadmap, not a fresh 2026-06-03 live verification.
 
 ---
 
@@ -54,6 +60,22 @@ The hotfix fixed Settings/Analytics global 500s by packaging the MongoDB
 driver in `@affine/server` production dependencies and adding local SWR error
 boundaries around MongoDB/Analytics settings surfaces. The branch still needs a
 PR/merge into `main` so source control matches the deployed image.
+
+### 2026-06-03 UX/UI bughunt branch note
+
+The current docs/code branch is `codex/fix-ux-ui-bughunt` at
+`b57f4ae1f`. It has not been deployed. Before a release operator ships it:
+
+1. Re-run the targeted backend and frontend regression tests listed in
+   `docs/AI_SESSION_HANDOVER.md`.
+2. Rebuild the server/web/mobile/admin bundles that the fullstack Dockerfile
+   copies into the image.
+3. Run authenticated smoke for the fixed surfaces: invite acceptance, Google
+   integration errors, AI object-stream actions, AI source cards, mobile Ask
+   AI, floating AI tabs, hidden Budget/Work Queue settings deep links, and
+   analytics connection error copy.
+4. Update this roadmap with the actual build id, image tag, revision, smoke
+   evidence, and rollback target after deployment.
 
 ### Pipeline workflows live on `main`
 

@@ -1,5 +1,13 @@
 # Manut Bug Hunt — Live Status (2026-05-31)
 
+> 👉 **2026-06-03 current continuation:** `codex/fix-ux-ui-bughunt` is now
+> committed at `b57f4ae1f fix(manut): resolve ux bughunt regressions`.
+> Continue from **[`UX_UI_BUGHUNT_2026-06-02.md`](./UX_UI_BUGHUNT_2026-06-02.md)**
+> and
+> **[`UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md`](./UX_UI_BUGHUNT_FIX_SPEC_2026-06-03.md)**.
+> This file is retained for the 2026-05-31 control-plane/status trail and should
+> not be used as the active branch status without revalidation.
+
 > 👉 **2026-06-01 update:** a newer QA-audit fix marathon is in progress —
 > see **[`QA_FIX_HANDOFF.md`](./QA_FIX_HANDOFF.md)**. 3 frontend waves are
 > committed + pushed + bundle-verified on `fix/qa-audit-2026-05-31`; the backend

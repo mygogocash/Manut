@@ -2,6 +2,25 @@
 
 Fix the current UX/UI bughunt findings from `docs/manut-bughunt/UX_UI_BUGHUNT_2026-06-02.md` with production-safe, reversible changes. The work focuses on honest settings states, mobile responsiveness, accessible controls, actionable provider errors, invite-state correctness, and AI budget/source transparency.
 
+## Implementation Result - 2026-06-03
+
+- Branch: `codex/fix-ux-ui-bughunt`
+- Commit: `b57f4ae1f fix(manut): resolve ux bughunt regressions`
+- Status: implemented and locally verified; not deployed.
+- Backend coverage added:
+  `packages/backend/server/src/__tests__/manut/ux-bughunt-regressions.spec.ts`.
+- Frontend coverage added:
+  `packages/frontend/core/src/__tests__/manut-ux-bughunt.spec.ts`.
+- Verification passed:
+  - `yarn workspace @affine/server test src/__tests__/manut/ux-bughunt-regressions.spec.ts --timeout=1m`
+  - `yarn workspace @affine/server tsc --noEmit`
+  - `yarn vitest run packages/frontend/core/src/__tests__/manut-ux-bughunt.spec.ts`
+  - Scoped frontend `yarn eslint --no-cache ...`
+  - `yarn prettier --check ...`
+  - `git diff --check`
+- Remaining validation before release: PR review, bundle/image build,
+  authenticated browser smoke, and production deploy evidence update.
+
 # Business Goals
 
 - Reduce confusing or false UI states in Settings, AI chat, mobile navigation, and integrations.
