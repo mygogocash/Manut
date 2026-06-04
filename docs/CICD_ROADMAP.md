@@ -4,25 +4,25 @@ Where the deploy pipeline is, what's shipping, and what's queued. For
 the architecture reference (how it works), see [`CICD.md`](./CICD.md).
 For daily commands, see [`CLAUDE.md`](../CLAUDE.md) §4.
 
-Last updated: 2026-06-03 22:16 +07 (PR #191/#192 merged; main CI/CodeQL for
-`c0674d559` passed; Build #144 is in progress; production has not been
-deployed from the latest AI beta code state. Run authenticated smoke before any
-production swap).
+Last updated: 2026-06-04 07:05 +07 (Build #145 and manual deploy run
+`26920813335` succeeded for `main-19531362b-26895527260`; public smoke passed;
+authenticated AI smoke and operator log review remain pending before beta
+invites).
 
 ---
 
 ## TL;DR
 
-- **Latest merged main code — NOT DEPLOYED.** PR #191 merged the AI Save as doc
-  fix at `c7334e953d1da3357086b1afb328d6977b322e51`; PR #192 merged the Full
-  Agent beta cockpit slice at
-  `c0674d559db5d530586546b91d02758ac4033e44`. PR-level Manut CI, CodeQL, Beta
-  Security Gate, and `manut-gcp-pr-ci` are green for both. Main CI run
-  `26893957469` and CodeQL run `26893953860` are green for `c0674d559`; Build
-  #144 / run `26894183272` was still in progress at 2026-06-03 22:16 +07, so no
-  post-PR #192 main build image is recorded here yet. Authenticated browser
-  smoke and the normal production gate are still required before any production
-  swap.
+- **Latest AI beta code — DEPLOYED, smoke incomplete.** PR #191 merged the AI
+  Save as doc fix at `c7334e953d1da3357086b1afb328d6977b322e51`; PR #192
+  merged the Full Agent beta cockpit slice at
+  `c0674d559db5d530586546b91d02758ac4033e44`; PR #193 refreshed the post-merge
+  docs at `19531362be8c6ca2748f819448bce7821636d9e1`. Build #145 / run
+  `26895527260` passed and pushed `main-19531362b-26895527260`. Manual deploy
+  run `26920813335` succeeded with `deploy.sh exit code: 0`, migration
+  completion, post-swap `/info` health, and prompt seed `3/3`. Public smoke
+  passed against `https://manut.xyz`. Authenticated AI browser smoke and
+  operator log review are still required before beta invites.
 - **Tier 1 — DONE.** Smoke-then-swap pipeline with sidecar validation
   and auto-rollback is live. Production never gets a broken image.
 - **Tier 2 — DONE.** Build/deploy split, registry buildx cache,
@@ -32,30 +32,31 @@ production swap).
   pipeline itself working as intended.
 - **Tier 3 — BACKLOG.** Slow-degradation detection, blue-green
   rollouts, multi-VM, image signing, observability stack, alerting.
-- **Production right now:** Cloud Run service `manut` is serving revision
-  `manut-00011-css` at 100% traffic with image
-  `main-900ca9c438-1779933990` (digest
-  `sha256:7ac4fe6b3efc4f85a9dda10ce7e70cd89fc63f94b67bdca339869cdd6b8b9c0f`).
-  `/info`, GraphQL `serverConfig.version`, and `/workspace` smoke checks
-  passed after the swap. This is the last production snapshot recorded in this
-  roadmap, not a fresh 2026-06-03 live verification.
+- **Production right now:** the manual Manut Deploy workflow has production on
+  image `main-19531362b-26895527260` (digest
+  `sha256:ce9e7922717ea5542f872af7aa386aa56b7535eb7ccece86cf7f7c50541d2e84`).
+  The deploy run swapped from `main-2cb0d4223-26794170785`, completed the
+  migration phase, validated `/info`, and reported `PROMPT-SEED OK - 3/3`.
+  Public smoke passed after the swap. This was the VM safe-deploy
+  smoke-then-swap path (`manut-deploy.yml` -> `/srv/affine/scripts/deploy.sh`),
+  not a new Cloud Run revision rollout.
 
 ---
 
 ## Where we are (snapshot)
 
-| Component                         | State                                           |
-| --------------------------------- | ----------------------------------------------- |
-| Production image                  | `main-900ca9c438-1779933990`                    |
-| Production revision               | Cloud Run `manut-00011-css`                     |
-| Production health                 | `/info` HTTP 200; GraphQL version 0.26.3        |
-| Auto Deploy 25413543034 wall time | 2m20s (deploy step only)                        |
-| Build 25413249523 wall time       | ~10m (warm cache)                               |
-| Last `deploy.sh` exit code        | 0 (success)                                     |
-| Sidecar smoke                     | passed (15s)                                    |
-| Post-swap smoke                   | passed (35s)                                    |
-| Prompt-seed gate                  | passed (2s)                                     |
-| Last validated chaos test         | 2026-05-06 — exit 1 as expected, prod untouched |
+| Component                      | State                                           |
+| ------------------------------ | ----------------------------------------------- |
+| Production image               | `main-19531362b-26895527260`                    |
+| Production revision            | VM compose deployment via `manut-deploy.yml`    |
+| Production health              | `/info` smoke passed; prompt seed `3/3`         |
+| Manual Deploy 26920813335 time | 5m21s job wall time; 278s deploy duration       |
+| Build 26895527260 wall time    | Build #145 completed successfully               |
+| Last `deploy.sh` exit code     | 0 (success)                                     |
+| Sidecar smoke                  | passed before production swap                   |
+| Post-swap smoke                | passed on `https://manut.xyz/info`              |
+| Prompt-seed gate               | passed (`3/3`)                                  |
+| Last validated chaos test      | 2026-05-06 — exit 1 as expected, prod untouched |
 
 ### 2026-05-28 production hotfix note
 
@@ -82,8 +83,8 @@ CI, CodeQL, and Build #142 / run `26877703841`. Build #142 pushed image tag
 `main-ac0599849-26877703841`; it contains the same product-code fixes plus docs
 updates. A later docs-only PR #190 produced Build #143 / run `26886777151` for
 commit `faf46da747f89f2c184f61ca95bbf84100c9a27e`. The PR #191/#192 code state
-is represented by Build #144, which was still in progress at 2026-06-03 22:16
-+07.
+was represented by Build #144 / run `26894183272`, which passed and pushed
+image tag `main-c0674d559-26894183272`.
 
 Public pre-release smoke passed on 2026-06-03 18:24 +07:
 `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=30 SLEEP_SECONDS=1 scripts/gcp/smoke-test-cloud-run.sh`.
@@ -91,16 +92,19 @@ Public `/sign-in` browser smoke mounted the app and reached the verification
 code step for a disposable email address; authenticated smoke remains blocked
 until an inbox/code, smoke account, or signed-in browser session is available.
 
-Build #142 and Build #143 have not been deployed to production. For the current
-PR #191/#192 launch candidate, wait for Build #144 and then:
+Build #142 and Build #143 were not deployed to production. The later PR #193
+docs refresh produced Build #145 / run `26895527260`, and manual deploy run
+`26920813335` deployed image `main-19531362b-26895527260` to production. Before
+beta invites:
 
 1. Run authenticated smoke for the fixed surfaces: invite acceptance, Google
    integration errors, AI object-stream actions, AI source cards, mobile Ask
    AI, floating AI tabs, hidden Budget/Work Queue settings deep links, and
    analytics connection error copy.
-2. Deploy only after staging or equivalent smoke passes.
-3. Update this roadmap with the actual production revision, smoke evidence,
-   image digest, and rollback target after deployment.
+2. Review production logs/Sentry through an authenticated operator surface.
+3. Confirm rollback owner and secondary owner. The previous image was
+   `main-2cb0d4223-26794170785`, and the workflow snapshot is
+   `compose.yml.previous.bak`.
 
 ### 2026-06-03 AI chat Save as doc and Full Agent beta merge note
 
@@ -137,18 +141,36 @@ Verification before merge:
 
 Main CI run `26893957469` and CodeQL run `26893953860` are green for merge
 commit `c0674d559db5d530586546b91d02758ac4033e44`. Build #144 / run
-`26894183272` was still in progress at 2026-06-03 22:16 +07. Record the final
-build result, image tag/digest, and artifact-publish evidence before treating
-this as a beta launch candidate.
+`26894183272` passed and pushed `main-c0674d559-26894183272`. PR #193 then
+merged the docs refresh at `19531362be8c6ca2748f819448bce7821636d9e1`, and
+Build #145 / run `26895527260` passed and pushed
+`main-19531362b-26895527260`.
 
-Before release from the PR #191/#192 code state:
+Manual deploy run `26920813335` deployed `main-19531362b-26895527260` via the
+VM safe-deploy path. Evidence recorded from the workflow logs:
+
+1. Previous production image: `main-2cb0d4223-26794170785`.
+2. Deployed image digest:
+   `sha256:ce9e7922717ea5542f872af7aa386aa56b7535eb7ccece86cf7f7c50541d2e84`.
+3. Sidecar `/info` validation passed before swap.
+4. Migration phase completed before production recreate.
+5. Post-swap production health reported
+   `PRODUCTION HEALTHY on main-19531362b-26895527260`.
+6. Prompt-seed gate reported `PROMPT-SEED OK - 3/3`.
+7. `deploy.sh exit code: 0`; no rollback occurred.
+8. Public smoke passed after deploy:
+   `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=120 SLEEP_SECONDS=1 scripts/gcp/smoke-test-cloud-run.sh`.
+
+Before beta release from the deployed AI beta state:
 
 1. Run authenticated smoke for floating chat, full chat, Save as doc, Full
    Agent mode, task link/cockpit, approval toggle path, source chips, and retry
    after a failed tool.
-2. Deploy only after staging or equivalent smoke passes.
-3. Update this roadmap with the production Cloud Run revision, image digest,
-   migration job, smoke evidence, and rollback target after deployment.
+2. Review production logs/Sentry with an authenticated operator account; local
+   `gcloud` verification in this session was blocked by non-interactive auth
+   refresh.
+3. Confirm rollback owner/secondary owner and keep
+   `main-2cb0d4223-26794170785` as the recorded previous image for this deploy.
 
 ### Pipeline workflows live on `main`
 

@@ -72,6 +72,24 @@ scripts/gcp/smoke-test-cloud-run.sh` passed, `/info` reports
     `main-9da65ae8f-26791041596`, and the migration table contains the old
     rolled-back row plus a new finished row for
     `20260518230000_add_mn_m12_m13_m15_m17_research_milestones`.
+- Production deployment verification on 2026-06-04:
+  - PR #191 AI Save as doc and PR #192 Full Agent Beta were already merged;
+    PR #193 then merged the post-merge docs refresh at
+    `19531362be8c6ca2748f819448bce7821636d9e1`.
+  - Build #145 / run `26895527260` completed successfully and pushed
+    `main-19531362b-26895527260`.
+  - Manual deploy run `26920813335` completed successfully through
+    `.github/workflows/manut-deploy.yml` and `/srv/affine/scripts/deploy.sh`.
+    The deploy swapped from `main-2cb0d4223-26794170785` to
+    `main-19531362b-26895527260`, deployed digest
+    `sha256:ce9e7922717ea5542f872af7aa386aa56b7535eb7ccece86cf7f7c50541d2e84`,
+    completed migration, reported
+    `PRODUCTION HEALTHY on main-19531362b-26895527260`, passed prompt seed
+    `3/3`, and exited `0`.
+  - Public smoke passed after deploy:
+    `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=120 SLEEP_SECONDS=1 scripts/gcp/smoke-test-cloud-run.sh`.
+  - Remaining beta gate: authenticated AI smoke, production log/Sentry review,
+    and rollback owner selection.
 - Update stale Railway references in operator docs to the current GCP Cloud Run
   deployment path. — Done for the production deploy runbook and launch
   readiness checklist; Railway is now documented only as source-data or
@@ -390,10 +408,16 @@ Completed in this branch:
   `c0674d559db5d530586546b91d02758ac4033e44` with green PR-level Manut CI,
   CodeQL, Beta Security Gate, `manut-gcp-pr-ci`, focused frontend/backend
   tests, and `yarn affine bundle -p web` before merge. Main CI run
-  `26893957469` and CodeQL run `26893953860` are green for this commit; Build
-  #144 / run `26894183272` was still in progress at 2026-06-03 22:16 +07. No
-  production deploy or authenticated smoke had been run for the PR #191/#192
-  code state.
+  `26893957469` and CodeQL run `26893953860` are green for this commit.
+  Build #144 / run `26894183272` passed and pushed
+  `main-c0674d559-26894183272`.
+- PR #193 AI deploy evidence docs: merged to `main` at
+  `19531362be8c6ca2748f819448bce7821636d9e1`. Build #145 / run
+  `26895527260` passed, and manual deploy run `26920813335` deployed
+  `main-19531362b-26895527260` to production with public smoke passing.
+  Authenticated AI smoke remains pending for floating chat, full chat, Save as
+  doc, Full Agent mode, task link/cockpit, source chips, approval toggle path,
+  and retry after failed tool.
 
 Known verification blocker:
 
@@ -406,6 +430,6 @@ Known verification blocker:
   in chat-panel files. Focused Vitest, eslint/oxlint, and
   `yarn affine bundle -p web` passed for the current analytics frontend
   slices.
-- Authenticated AI smoke for the PR #191/#192 main state is still pending:
+- Authenticated AI smoke for the deployed AI beta state is still pending:
   floating chat, full chat, Save as doc, Full Agent mode, task link/cockpit,
   source chips, approval toggle path, and retry after failed tool.

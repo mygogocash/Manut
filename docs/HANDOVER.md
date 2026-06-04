@@ -1,12 +1,15 @@
 # Manut Handover
 
-Last reviewed: 2026-06-03 22:16 +07 after PR #191 and PR #192 merged. Since
-the v1.12.0 cut, Manut has closed several v1 follow-ups, the UX/UI bughunt
-branch merged through PR #188, the AI Save as doc fix merged through PR #191,
-and the Full Agent beta cockpit slice merged through PR #192 as
-`c0674d559db5d530586546b91d02758ac4033e44`. Production has not been deployed
-from the PR #191/#192 main state. v1.12.0 remains the latest documented release
-cut in `docs/RELEASES/` until the next release note is added.
+Last reviewed: 2026-06-04 07:05 +07 after Build #145 and manual deploy run
+`26920813335` succeeded. Since the v1.12.0 cut, Manut has closed several v1
+follow-ups, the UX/UI bughunt branch merged through PR #188, the AI Save as doc
+fix merged through PR #191, the Full Agent beta cockpit slice merged through PR
+#192 as `c0674d559db5d530586546b91d02758ac4033e44`, and the post-merge docs
+refresh merged through PR #193 as
+`19531362be8c6ca2748f819448bce7821636d9e1`. Production now runs
+`main-19531362b-26895527260`; public smoke passed, but authenticated AI smoke is
+still pending. v1.12.0 remains the latest documented release cut in
+`docs/RELEASES/` until the next release note is added.
 
 This document is the tracked handover entry point for the GoGoCash Manut
 fork of AFFiNE 0.26.3. It summarizes what a successor needs before
@@ -29,11 +32,13 @@ changing, building, or deploying the project.
 - Latest merged continuation: PR #192 from `codex/ai-full-agent-beta` merged
   to `main` at `c0674d559db5d530586546b91d02758ac4033e44` after PR #191
   merged the AI Save as doc fix at
-  `c7334e953d1da3357086b1afb328d6977b322e51`. PR-level Manut CI, CodeQL, Beta
-  Security Gate, and `manut-gcp-pr-ci` are green for both. Main CI run
-  `26893957469` and CodeQL run `26893953860` are green for `c0674d559`; Build
-  #144 / run `26894183272` was still in progress at 2026-06-03 22:16 +07.
-  Authenticated browser smoke and production deploy remain pending.
+  `c7334e953d1da3357086b1afb328d6977b322e51`; PR #193 then merged the
+  post-merge docs refresh at `19531362be8c6ca2748f819448bce7821636d9e1`.
+  Build #145 / run `26895527260` passed and pushed
+  `main-19531362b-26895527260`. Manual deploy run `26920813335` succeeded via
+  the VM safe-deploy path with `deploy.sh exit code: 0`, prompt seed `3/3`, and
+  public smoke passing after the swap. Authenticated browser smoke and operator
+  log review remain pending before beta invites.
 - Branch model: Manut work lands on `main`; upstream AFFiNE workflows
   for `canary`/`master` are not the Manut deploy path.
 - Feature gate: the Projects/CRM/Reminders frontend nav and the
@@ -80,12 +85,11 @@ changing, building, or deploying the project.
 - `scripts/gcp/*.sh` and `cloudbuild.manut-cloud-run.yaml` - executable GCP
   Cloud Run deploy, smoke, trigger, and migration-job helpers.
 - `scripts/vm/deploy.sh`, `scripts/vm/rollback.sh`,
-  `scripts/vm/compose.canary.yml` - legacy VM runbook. Keep for rollback
-  archaeology only unless `docs/CICD_ROADMAP.md` says the VM path is active.
-- `.github/workflows/superflow-*.yml` - CI, build, deploy, rollback,
-  VM init, and release automation. Workflow filenames retain the old
-  prefix; the display names ("Manut CI", "Manut Build", etc.) were
-  updated during the rebrand.
+  `scripts/vm/compose.canary.yml` - active safe-deploy path for the latest
+  recorded production swap when triggered by `.github/workflows/manut-deploy.yml`.
+  Recheck `docs/CICD_ROADMAP.md` before assuming Cloud Run or VM is current.
+- `.github/workflows/manut-*.yml` - current CI, build, deploy, rollback, VM
+  init, beta security, and release automation.
 
 ## Code Layout After Rebrand
 
@@ -129,25 +133,28 @@ incident notes.
 
 ## Deployment Path
 
-Normal production path:
+Current production path for the latest recorded deploy:
 
 1. Push the approved commit to `main`.
-2. Cloud Build trigger `manut-gcp-pr-ci` / required CI validates the commit.
-3. Cloud Build trigger `manut-gcp-main-staging` keeps staging current.
-4. The launch operator manually runs and approves `manut-gcp-prod-deploy`.
-5. `cloudbuild.manut-cloud-run.yaml` builds the image, pushes to Artifact
-   Registry, creates or updates `manut-migrate`, executes the migration job,
-   deploys Cloud Run service `manut`, and smokes the generated Cloud Run URL.
-6. After DNS cutover, `scripts/gcp/smoke-test-cloud-run.sh` must pass against
-   `https://manut.xyz`.
+2. `Manut CI`, CodeQL, Beta Security Gate, and `Manut Build` validate and push
+   the image tag.
+3. The launch operator manually triggers `.github/workflows/manut-deploy.yml`
+   with the chosen image tag.
+4. The workflow verifies the tag in Artifact Registry, SSHes to `affine-vm`,
+   and runs `/srv/affine/scripts/deploy.sh`.
+5. `deploy.sh` runs the smoke-then-swap contract with sidecar validation,
+   migration, post-swap `/info` health, prompt-seed verification, and
+   auto-rollback on failure.
+6. After the workflow succeeds, run public smoke against `https://manut.xyz` and
+   then authenticated product smoke for the touched surfaces.
 
 Manual production deploy trigger:
 
 ```bash
-gcloud builds triggers run manut-gcp-prod-deploy \
-  --branch=main \
-  --project=affine-495114 \
-  --region=global
+gh workflow run manut-deploy.yml \
+  --ref main \
+  -f tag=<image-tag> \
+  -f smoke_timeout_secs=120
 ```
 
 Manual public smoke:
@@ -157,18 +164,16 @@ BASE_URL=https://manut.xyz TIMEOUT_SECONDS=120 \
   scripts/gcp/smoke-test-cloud-run.sh
 ```
 
-Rollback is Cloud Run revision-first when the database remains compatible:
+Rollback for the current VM deploy path uses the Manut Rollback workflow or the
+saved compose snapshot. For the latest deploy, the previous image was
+`main-2cb0d4223-26794170785` and the snapshot was `compose.yml.previous.bak`.
 
 ```bash
-gcloud run services update-traffic manut \
-  --project=affine-495114 \
-  --region=asia-southeast1 \
-  --to-revisions=<previous-revision>=100
+gh workflow run manut-rollback.yml --ref main
 ```
 
-Use the DNS/Railway rollback path from
-`docs/GCP_CLOUD_RUN_RUNBOOK.md#9-rollback` only when the launch operator has
-kept Railway online and write-safe for the stability window.
+Use the Cloud Run or DNS/Railway rollback paths only when the active production
+surface has intentionally moved back to those runbooks.
 
 ## Latest Merge Handoff - 2026-06-03 AI Save Doc And Full Agent Beta
 
@@ -179,6 +184,7 @@ kept Railway online and write-safe for the stability window.
 - Full Agent commit: `9e664420e7e5beffbb4e5a3625008d71b12670fa`
   `feat(ai): add full agent beta cockpit`
 - Merge commit: `c0674d559db5d530586546b91d02758ac4033e44` via PR #192.
+- Deploy commit: `19531362be8c6ca2748f819448bce7821636d9e1` via PR #193.
 - Shipped:
   - Save as doc action for generated AI drafts.
   - Agent plan cards, tool timeline rows, source/action chips, and clearer
@@ -199,17 +205,20 @@ kept Railway online and write-safe for the stability window.
   - `yarn affine bundle -p web` passed with existing asset-size warnings.
   - PR #191 and PR #192 checks passed: Manut CI, CodeQL, Beta Security Gate,
     and `manut-gcp-pr-ci`.
-- Not deployed: production `https://manut.xyz` has not been swapped to this
-  main state.
-- Current gap: main CI run `26893957469` and CodeQL run `26893953860` are green
-  for `c0674d559`, but Build #144 / run `26894183272` was still in progress at
-  2026-06-03 22:16 +07. Record the final build, image tag/digest, and artifact
-  result before treating it as a launch candidate.
-- Continue with authenticated browser smoke for floating chat, full chat, Save
+- Deployed: Build #145 / run `26895527260` pushed
+  `main-19531362b-26895527260`, and manual deploy run `26920813335` swapped
+  production to that tag with digest
+  `sha256:ce9e7922717ea5542f872af7aa386aa56b7535eb7ccece86cf7f7c50541d2e84`.
+  Previous image: `main-2cb0d4223-26794170785`; prompt seed `3/3`; public
+  smoke passed; no rollback occurred.
+- Current gap: authenticated browser smoke for floating chat, full chat, Save
   as doc, Full Agent mode, task link/cockpit, approval toggle path, source
-  chips, and retry after failed tool. Next product slice should bind the
-  cockpit to live Manut task/plan/approval/work-product data and build the
-  inspectable citation drawer.
+  chips, and retry after failed tool. Operator log review also remains pending
+  because local `gcloud` verification was blocked by non-interactive auth
+  refresh in the deploy-monitoring session.
+- Next product slice should bind the cockpit to live Manut
+  task/plan/approval/work-product data and build the inspectable citation
+  drawer.
 
 ## Prior Merge Handoff - 2026-06-03 UX/UI Bughunt
 
