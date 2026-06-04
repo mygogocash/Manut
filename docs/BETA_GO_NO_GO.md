@@ -1,61 +1,62 @@
 # Manut Beta Go/No-Go
 
 > Purpose: final sign-off sheet for inviting beta testers.
-> Fill this out for the exact commit, image, Cloud Run revision, migration job,
-> and smoke evidence that will be used by beta testers.
+> Fill this out for the exact commit, image, deploy surface, migration step, and
+> smoke evidence that will be used by beta testers.
 
 ## Candidate
 
-This table is intentionally still `TBD` until the exact committed branch,
-Cloud Run revision, migration job, and rollback target are selected for beta
-testers.
+This table now records the deployed AI beta image candidate. It still remains
+`NO-GO` for beta invites until authenticated AI smoke, operator log review, and
+rollback-owner selection are complete.
 
 Current context: PR #191 (`c7334e953d1da3357086b1afb328d6977b322e51`) and PR
-#192 (`c0674d559db5d530586546b91d02758ac4033e44`) are merged to `main`. PR-level
-CI/security checks are green, and post-merge main CI/CodeQL are green for PR
-#192, but Build #144 is still in progress. This sheet stays `NO-GO` until the
-exact launch candidate has completed build, Cloud Run deploy, authenticated
-smoke, logs review, and rollback-owner selection.
+#192 (`c0674d559db5d530586546b91d02758ac4033e44`) are merged to `main`; PR #193
+(`19531362be8c6ca2748f819448bce7821636d9e1`) refreshed the post-merge docs.
+Build #145 / run `26895527260` passed, and manual deploy run `26920813335`
+swapped production to `main-19531362b-26895527260`. Public smoke passed after
+deploy. This sheet stays `NO-GO` until authenticated smoke, logs review, and
+rollback-owner selection are finished.
 
-| Field                    | Value               |
-| ------------------------ | ------------------- |
-| Date                     | TBD                 |
-| Commit                   | TBD                 |
-| Branch                   | `main`              |
-| Image tag or digest      | TBD                 |
-| Cloud Run service        | `manut`             |
-| Cloud Run revision       | TBD                 |
-| Cloud Run migration job  | `manut-migrate`     |
-| Production URL           | `https://manut.xyz` |
-| Rollback target revision | TBD                 |
-| Primary owner            | TBD                 |
-| Secondary owner          | TBD                 |
+| Field                     | Value                                                                                                    |
+| ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Date                      | 2026-06-04                                                                                               |
+| Commit                    | `19531362be8c6ca2748f819448bce7821636d9e1`                                                               |
+| Branch                    | `main`                                                                                                   |
+| Image tag or digest       | `main-19531362b-26895527260` / `sha256:ce9e7922717ea5542f872af7aa386aa56b7535eb7ccece86cf7f7c50541d2e84` |
+| Production deploy surface | VM safe-deploy workflow `manut-deploy.yml` -> `/srv/affine/scripts/deploy.sh`                            |
+| Production revision       | N/A for this VM compose deploy                                                                           |
+| Migration step            | Deploy workflow migration phase completed before production recreate                                     |
+| Production URL            | `https://manut.xyz`                                                                                      |
+| Rollback target           | `main-2cb0d4223-26794170785` / `compose.yml.previous.bak`                                                |
+| Primary owner             | TBD                                                                                                      |
+| Secondary owner           | TBD                                                                                                      |
 
-## Current Cloud Run readiness snapshot
+## Current launch readiness snapshot
 
-| Check                 | Required launch evidence                                                                                        | Status  | Next action                                                                                                                       |
-| --------------------- | --------------------------------------------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Candidate CI          | Green `Manut CI`, `Manut Beta Security Gate`, and bundle/build evidence on the candidate commit.                | Pending | PR #191/#192 checks and main CI/CodeQL are green; wait for Build #144 and record workflow/build URLs for the exact launch commit. |
-| Cloud Run revision    | `gcloud run services describe manut --region asia-southeast1 --project affine-495114` shows the intended image. | Pending | Record the revision name, image tag/digest, traffic split, and service URL.                                                       |
-| Migration job         | `manut-migrate` Cloud Run job completed with exit code 0 for the candidate image.                               | Pending | Record job execution id and log link.                                                                                             |
-| Public smoke          | `scripts/gcp/smoke-test-cloud-run.sh` passes against `https://manut.xyz` or the generated Cloud Run URL.        | Pending | Attach smoke command, timestamp, and result.                                                                                      |
-| Cloud Run logs        | No new P0/P1 error class, GraphQL startup crash, migration failure, or sustained 5xx in the last 30 minutes.    | Pending | Check Cloud Run service and job logs before sending invites.                                                                      |
-| Historical beta fixes | 2026-05-23 `codex/fix-beta-blockers` closed AI UI, quota serialization, analytics cron, and workflow issues.    | Closed  | Historical source data only; do not use the old Railway deployment/log evidence as launch proof.                                  |
+| Check                 | Required launch evidence                                                                                     | Status  | Next action                                                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Candidate CI          | Green `Manut CI`, `Manut Beta Security Gate`, and bundle/build evidence on the candidate commit.             | Passed  | Build #145 / run `26895527260` passed for `19531362be8c6ca2748f819448bce7821636d9e1`.                                            |
+| Production deploy     | Manual deploy workflow shows intended image, sidecar validation, migration, post-swap health, and exit 0.    | Passed  | Run `26920813335` deployed `main-19531362b-26895527260`; no rollback occurred.                                                   |
+| Migration step        | Migration phase completed for the candidate image.                                                           | Passed  | Workflow logs reported migration completion before `affine_server` recreate.                                                     |
+| Public smoke          | `scripts/gcp/smoke-test-cloud-run.sh` passes against `https://manut.xyz`.                                    | Passed  | Passed with `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=120 SLEEP_SECONDS=1 scripts/gcp/smoke-test-cloud-run.sh`.                |
+| Operator logs         | No new P0/P1 error class, GraphQL startup crash, migration failure, or sustained 5xx in the last 30 minutes. | Pending | Check production logs/Sentry from an authenticated operator surface; local `gcloud` was blocked by non-interactive auth refresh. |
+| Historical beta fixes | 2026-05-23 `codex/fix-beta-blockers` closed AI UI, quota serialization, analytics cron, and workflow issues. | Closed  | Historical source data only; do not use the old Railway deployment/log evidence as launch proof.                                 |
 
 ## Required gates
 
 | Gate                     | Required evidence                                                       | Status  | Notes                                                                                                                            |
 | ------------------------ | ----------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Manut CI                 | Green workflow URL                                                      | Pending | Candidate commit must pass.                                                                                                      |
-| Manut Beta Security Gate | Green workflow URL                                                      | Pending | Candidate commit must pass actionlint, Semgrep, dependency, and custom security checks.                                          |
-| Cloud Run health         | `/info` 200, revision healthy, and intended image receiving traffic     | Pending | Railway deployment ids are historical only and are not valid launch evidence.                                                    |
-| GraphQL smoke            | Authenticated workspace query succeeds; no new 5xx/GraphQL errors       | Pending | Check Cloud Run service logs.                                                                                                    |
+| Manut CI                 | Green workflow URL                                                      | Passed  | Main CI and candidate build evidence are recorded for the deployed commit.                                                       |
+| Manut Beta Security Gate | Green workflow URL                                                      | Passed  | PR-level security checks passed before merge; re-run if product code changes.                                                    |
+| Production health        | `/info` 200, prompt seed healthy, and intended image receiving traffic  | Passed  | Manual deploy run `26920813335` and post-deploy public smoke passed.                                                             |
+| GraphQL smoke            | Authenticated workspace query succeeds; no new 5xx/GraphQL errors       | Pending | Check production logs and run an authenticated workspace query.                                                                  |
 | AI chat smoke            | Floating and full chat send/receive works; provider errors are friendly | Pending | Include Save as doc, Full Agent plan/timeline, task cockpit, source chips, approval toggle path, and desktop/mobile screenshots. |
 | Storage/upload smoke     | Storage usage loads; quota and upload failure states are usable         | Pending | Covers known storage-loading concern.                                                                                            |
 | Auth/onboarding smoke    | Signup/login, workspace creation, sign-out, invite accept               | Pending | Use a fresh beta tester account.                                                                                                 |
-| Production logs          | No new P0/P1 error class in last 30 minutes                             | Pending | Recheck Cloud Run service/job logs and Sentry evidence.                                                                          |
+| Production logs          | No new P0/P1 error class in last 30 minutes                             | Pending | Recheck production service logs and Sentry evidence.                                                                             |
 | Risk register            | No open P0/P1; P2 blockers explicitly waived or fixed                   | Pending | Code blockers in `BETA_RISK_REGISTER.md` are closed; production smoke evidence still required.                                   |
-| Rollback                 | Rollback target and owner confirmed                                     | Pending | Owner can route traffic back to the previous Cloud Run revision within 10 minutes when DB-safe.                                  |
+| Rollback                 | Rollback target and owner confirmed                                     | Partial | Previous image is `main-2cb0d4223-26794170785`; primary and secondary owners are still TBD.                                      |
 
 ## Decision
 
@@ -63,31 +64,23 @@ Launch posture: `NO-GO`
 
 Reason:
 
-- Current Cloud Run revision, image, migration-job, log, and smoke evidence are
-  not recorded in this sheet yet.
-- Build/image evidence is not recorded for the exact post-merge launch commit,
-  even though PR #191/#192 PR-level checks and post-merge main CI/CodeQL are
-  green.
-- Production smoke/log evidence must be collected after the candidate Cloud Run
-  revision is deployed.
-- Rollback owner/target and beta tester smoke account remain unset.
+- Authenticated AI chat, GraphQL, storage/upload, auth/onboarding, and invite
+  accept smoke are not recorded yet.
+- Operator log/Sentry review is not recorded yet.
+- Rollback owners and beta tester smoke account remain unset.
 
 ## Pending launch readiness
 
-1. Select the exact candidate commit and require green `Manut CI`,
-   `Manut Beta Security Gate`, and bundle/build evidence.
-2. Deploy through the approved GCP Cloud Build / Cloud Run path and record the
-   image tag or digest, Cloud Run revision, service URL, migration job
-   execution, rollback revision, primary owner, and secondary owner.
-3. Recheck Cloud Run service and job logs for no analytics-cron
-   `NOT_IMPLEMENTED`, no GraphQL Int overflow, no new P0/P1 error class, and
-   no sustained 5xx.
-4. Run authenticated beta smoke: GraphQL workspace query, floating/full AI chat,
+1. Run authenticated beta smoke: GraphQL workspace query, floating/full AI chat,
    Save as doc, Full Agent plan/timeline, task link/cockpit, source chips,
    approval toggle path, retry after failed tool, storage usage/upload fallback,
    auth/onboarding, invite accept, and sign-out.
-5. Fill the final Candidate table above with exact commit, revision, migration,
-   smoke, and rollback evidence.
+2. Recheck production service logs and Sentry for no analytics-cron
+   `NOT_IMPLEMENTED`, no GraphQL Int overflow, no new P0/P1 error class, and
+   no sustained 5xx.
+3. Confirm primary and secondary rollback owners for
+   `main-2cb0d4223-26794170785` / `compose.yml.previous.bak`.
+4. Fill the final smoke rows above with exact authenticated browser evidence.
 
 ## Pending product/feature follow-ups
 
@@ -111,7 +104,7 @@ but they should stay visible for beta planning.
 
 During the first 24 hours after inviting testers:
 
-- Check Cloud Run errors and 5xx/4xx trends every 2 hours.
+- Check production service errors and 5xx/4xx trends every 2 hours.
 - Review AI provider failures, GraphQL errors, and storage/upload errors.
 - Watch signup to first-chat funnel and workspace creation failures.
 - Add every new P1/P2 issue to `BETA_RISK_REGISTER.md` within the same day.

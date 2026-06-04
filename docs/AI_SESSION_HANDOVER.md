@@ -1,7 +1,8 @@
 # AI Session Handover
 
-Last updated: 2026-06-03 22:16 +07 (PR #191/#192 merged; main CI/CodeQL green;
-Build #144 in progress; production deploy still pending)
+Last updated: 2026-06-04 07:05 +07 (Build #145 and manual deploy run
+`26920813335` succeeded; public smoke passed; authenticated AI smoke still
+pending)
 
 This file is the fast-resume handover for AI sessions in the Manut
 AFFiNE fork (historically Superflow — the brand rename completed in
@@ -13,31 +14,36 @@ on chat memory.
 ## Current Workspace
 
 - Repo: `/Users/kunanonjarat/Developer/AFFiNE-canary`
-- Branch: `codex/update-ai-full-agent-docs` from latest `origin/main`.
+- Branch: `codex/record-ai-deploy-evidence` from latest `origin/main`.
 - Upstream: `origin/main`.
-- Handover refresh: PR #191 added Save as doc for generated AI content and PR
-  #192 added the first Full Agent beta UX/cockpit slice. This branch records
-  the post-merge docs state and next launch gates.
+- Handover refresh: PR #191 added Save as doc for generated AI content, PR #192
+  added the first Full Agent beta UX/cockpit slice, and PR #193 refreshed the
+  post-merge docs state. This branch records the production deploy evidence and
+  the remaining authenticated smoke gates.
 - Merge state: PR #191 merged at
   `c7334e953d1da3357086b1afb328d6977b322e51`; PR #192 merged at
-  `c0674d559db5d530586546b91d02758ac4033e44`.
+  `c0674d559db5d530586546b91d02758ac4033e44`; PR #193 merged at
+  `19531362be8c6ca2748f819448bce7821636d9e1`.
 - Production branch: `main`
-- Production app: https://manut.xyz serves Manut production. The latest
-  completed main build recorded before the Full Agent merge is Build #143 from
-  PR #190 / commit `faf46da747f89f2c184f61ca95bbf84100c9a27e`. Main CI run
-  `26893957469` and CodeQL run `26893953860` passed for PR #192 merge commit
-  `c0674d559db5d530586546b91d02758ac4033e44`; Build #144 / run
-  `26894183272` was still in progress at 2026-06-03 22:16 +07. Production has
-  not been deployed from the PR #191/#192 code state.
-  The legacy `affine.gogocash.co` and `manut.gogocash.co` hosts both
-  301-redirect to the canonical domain.
+- Production app: https://manut.xyz serves Manut production. Manual deploy run
+  `26920813335` succeeded on 2026-06-04 and swapped production from
+  `main-2cb0d4223-26794170785` to `main-19531362b-26895527260`. The deployed
+  image digest is
+  `sha256:ce9e7922717ea5542f872af7aa386aa56b7535eb7ccece86cf7f7c50541d2e84`.
+  The deploy workflow reported `deploy.sh exit code: 0`, migration completion,
+  post-swap `/info` health, and `PROMPT-SEED OK - 3/3`. Public smoke passed
+  after deploy with
+  `BASE_URL=https://manut.xyz TIMEOUT_SECONDS=120 SLEEP_SECONDS=1 scripts/gcp/smoke-test-cloud-run.sh`.
+  Authenticated AI browser smoke is still pending. The legacy
+  `affine.gogocash.co` and `manut.gogocash.co` hosts both 301-redirect to the
+  canonical domain.
 - GCP project: `affine-495114` (`602860445793`), region `asia-southeast1`.
 - Runtime service account:
   `manut-cloud-run@affine-495114.iam.gserviceaccount.com`.
 - Build service account:
   `manut-cloud-build@affine-495114.iam.gserviceaccount.com`.
 
-## Current Continuation Slice - 2026-06-03 AI Chat Full Agent Beta
+## Current Continuation Slice - 2026-06-04 AI Chat Full Agent Beta Deploy
 
 - Save-doc implementation: PR #191
   `fix(ai): add save button for generated docs` merged commit
@@ -45,6 +51,8 @@ on chat memory.
 - Full Agent beta implementation: PR #192
   `feat(ai): add full agent beta cockpit` merged as
   `c0674d559db5d530586546b91d02758ac4033e44`.
+- Post-merge docs refresh: PR #193 merged as
+  `19531362be8c6ca2748f819448bce7821636d9e1`.
 - Scope shipped:
   - Independent/floating AI generated content exposes Save as doc so AI-created
     drafts can be persisted instead of disappearing from chat.
@@ -71,27 +79,36 @@ on chat memory.
   - `yarn affine bundle -p web` passed with existing asset-size warnings.
   - PR #191 and PR #192 checks passed: Manut CI, CodeQL, Beta Security Gate,
     and `manut-gcp-pr-ci`.
+- Build/deploy evidence after merge:
+  - Build #144 / run `26894183272` passed for PR #192 merge commit
+    `c0674d559db5d530586546b91d02758ac4033e44` and pushed image tag
+    `main-c0674d559-26894183272`.
+  - PR #193 checks passed, then Build #145 / run `26895527260` passed for
+    commit `19531362be8c6ca2748f819448bce7821636d9e1` and pushed image tag
+    `main-19531362b-26895527260`.
+  - Manual deploy run `26920813335` succeeded with previous image
+    `main-2cb0d4223-26794170785`, deployed image digest
+    `sha256:ce9e7922717ea5542f872af7aa386aa56b7535eb7ccece86cf7f7c50541d2e84`,
+    migration completion, `PRODUCTION HEALTHY on main-19531362b-26895527260`,
+    `PROMPT-SEED OK - 3/3`, and `deploy.sh exit code: 0`.
+  - Public smoke passed after deploy against `https://manut.xyz`.
 - Not done yet:
-  - No production deploy or authenticated browser smoke has been run for the PR
-    #191/#192 main state.
-  - Main CI run `26893957469` and CodeQL run `26893953860` are green for PR
-    #192 merge commit `c0674d559db5d530586546b91d02758ac4033e44`, but Build
-    #144 / run `26894183272` was still in progress at 2026-06-03 22:16 +07.
+  - Authenticated browser smoke has not been run for the deployed AI beta state.
   - The task cockpit still needs live chat-shell binding to current Manut task,
     plan, approval, work-product, and verify-done data in the next product
     slice.
   - The citations/source drawer remains separate work; current source chips are
     not the full inspectable evidence surface.
 - Next operator path:
-  1. Wait for Build #144 / run `26894183272` for
-     `c0674d559db5d530586546b91d02758ac4033e44`; record the final build URL,
-     image tag/digest, and any artifact-publish result before launch.
-  2. Run authenticated smoke for floating chat, full chat, Full Agent mode, Save
+  1. Run authenticated smoke for floating chat, full chat, Full Agent mode, Save
      as doc, source chips, task link/cockpit, approval toggle path, and a retry
      after a failed tool.
-  3. Deploy only after staging or equivalent authenticated smoke passes; update
-     `docs/CICD_ROADMAP.md` with production revision, image digest, migration
-     job, smoke evidence, and rollback target after deployment.
+  2. Review production logs/Sentry through an authenticated operator surface;
+     local `gcloud` verification was blocked by non-interactive auth refresh in
+     this session.
+  3. Confirm rollback ownership before inviting beta users. The recorded
+     previous image is `main-2cb0d4223-26794170785`, and the deploy workflow
+     snapshot is `compose.yml.previous.bak`.
   4. Continue development with live cockpit data wiring, inspectable
      source/citation drawer, and beta completion-metric review.
 
