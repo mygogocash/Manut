@@ -1,28 +1,23 @@
-import { MenuItem } from '@affine/core/modules/app-sidebar/views';
-import { ExternalMenuLinkItem } from '@affine/core/modules/app-sidebar/views/menu-item/external-menu-link-item';
-import { useI18n } from '@affine/i18n';
-import { ImportIcon, JournalIcon } from '@blocksuite/icons/rc';
 import type { ReactElement, ReactNode } from 'react';
+import { Fragment, useMemo } from 'react';
 
 import {
-  CollapsibleSection,
   NavigationPanelCollections,
   NavigationPanelFavorites,
   NavigationPanelMigrationFavorites,
   NavigationPanelOrganize,
   NavigationPanelTags,
 } from '../../../desktop/components/navigation-panel';
-import { InviteMembersButton } from '../invite-members-button';
+import { CustomizeSectionsRow } from '../section-visibility-editor';
 import {
-  CustomizeSectionsRow,
-  useHiddenSections,
-} from '../section-visibility-editor';
-import { TemplateDocEntrance } from '../template-doc-entrance';
-import { TrashButton } from '../trash-button';
+  getVisibleSidebarMenuItems,
+  type SidebarMenuItem,
+} from '../sidebar-menu-customization';
+import { useSidebarMenuPreferences } from '../use-sidebar-menu-preferences';
 
 interface HomeViewProps {
   onOpenImportModal: () => void;
-  navigation?: ReactNode;
+  menuItems?: SidebarMenuItem<ReactNode>[];
 }
 
 /**
@@ -36,46 +31,34 @@ interface HomeViewProps {
  * O(1) (Set.has) so this stays cheap on re-renders.
  */
 export function HomeView({
-  onOpenImportModal,
-  navigation,
+  onOpenImportModal: _onOpenImportModal,
+  menuItems = [],
 }: HomeViewProps): ReactElement {
-  const t = useI18n();
-  const { hidden } = useHiddenSections();
+  const { preferences } = useSidebarMenuPreferences();
+  const sectionItems = useMemo<SidebarMenuItem<ReactNode>[]>(
+    () => [
+      { key: 'favorites', value: <NavigationPanelFavorites /> },
+      { key: 'organize', value: <NavigationPanelOrganize /> },
+      {
+        key: 'migrationFavorites',
+        value: <NavigationPanelMigrationFavorites />,
+      },
+      { key: 'tags', value: <NavigationPanelTags /> },
+      { key: 'collections', value: <NavigationPanelCollections /> },
+    ],
+    []
+  );
+  const visibleItems = getVisibleSidebarMenuItems(
+    [...menuItems, ...sectionItems],
+    preferences
+  );
 
   return (
     <>
       <CustomizeSectionsRow />
-      {navigation}
-      {!hidden.has('favorites') && <NavigationPanelFavorites />}
-      {!hidden.has('organize') && <NavigationPanelOrganize />}
-      {!hidden.has('migrationFavorites') && (
-        <NavigationPanelMigrationFavorites />
-      )}
-      {!hidden.has('tags') && <NavigationPanelTags />}
-      {!hidden.has('collections') && <NavigationPanelCollections />}
-      {!hidden.has('others') && (
-        <CollapsibleSection
-          path={['others']}
-          title={t['com.affine.rootAppSidebar.others']()}
-          contentStyle={{ padding: '6px 8px 0 8px' }}
-        >
-          <TrashButton />
-          <MenuItem
-            data-testid="slider-bar-import-button"
-            icon={<ImportIcon />}
-            onClick={onOpenImportModal}
-          >
-            <span data-testid="import-modal-trigger">{t['Import']()}</span>
-          </MenuItem>
-          <InviteMembersButton />
-          <TemplateDocEntrance />
-          <ExternalMenuLinkItem
-            href="https://affine.pro/blog?tag=Release+Note"
-            icon={<JournalIcon />}
-            label={t['com.affine.app-sidebar.learn-more']()}
-          />
-        </CollapsibleSection>
-      )}
+      {visibleItems.map(({ key, value }) => (
+        <Fragment key={key}>{value}</Fragment>
+      ))}
     </>
   );
 }

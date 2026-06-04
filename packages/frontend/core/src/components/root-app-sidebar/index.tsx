@@ -36,7 +36,7 @@ import {
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService, useServices } from '@toeverything/infra';
 import type { MouseEvent, ReactElement, ReactNode } from 'react';
-import { memo, useCallback } from 'react';
+import { Fragment, memo, useCallback, useMemo } from 'react';
 
 import {
   NavigationPanelCollections,
@@ -59,12 +59,18 @@ import { InviteMembersButton } from './invite-members-button';
 import { AppSidebarJournalButton } from './journal-button';
 import { NotificationButton } from './notification-button';
 import { SidebarAudioPlayer } from './sidebar-audio-player';
+import {
+  getVisibleSidebarMenuItems,
+  type SidebarMenuItem,
+  type SidebarMenuPreferences,
+} from './sidebar-menu-customization';
 import { TabStrip } from './tab-strip';
 import { newPillButton, newPillIcon } from './tab-strip.css';
 import { TemplateDocEntrance } from './template-doc-entrance';
 import { TrashButton } from './trash-button';
 import { UpdaterButton } from './updater-button';
 import { useActiveTab } from './use-active-tab';
+import { useSidebarMenuPreferences } from './use-sidebar-menu-preferences';
 import UserInfo from './user-info';
 import { ChatView } from './views/chat-view';
 import { HomeView } from './views/home-view';
@@ -278,6 +284,15 @@ const ReleaseRunsButton = () => {
   );
 };
 
+function renderSidebarMenuItems(
+  items: readonly SidebarMenuItem<ReactNode>[],
+  preferences: SidebarMenuPreferences | undefined
+): ReactElement[] {
+  return getVisibleSidebarMenuItems(items, preferences).map(
+    ({ key, value }) => <Fragment key={key}>{value}</Fragment>
+  );
+}
+
 const AIChatButton = () => {
   const t = useI18n();
   const featureFlagService = useService(FeatureFlagService);
@@ -314,10 +329,10 @@ const AIChatButton = () => {
  */
 const TabbedSidebarBody = ({
   onOpenImportModal,
-  homeNavigation,
+  homeMenuItems,
 }: {
   onOpenImportModal: () => void;
-  homeNavigation: ReactNode;
+  homeMenuItems: SidebarMenuItem<ReactNode>[];
 }): ReactElement => {
   const { activeTab } = useActiveTab();
 
@@ -333,7 +348,7 @@ const TabbedSidebarBody = ({
       return (
         <HomeView
           onOpenImportModal={onOpenImportModal}
-          navigation={homeNavigation}
+          menuItems={homeMenuItems}
         />
       );
   }
@@ -400,6 +415,7 @@ export const RootAppSidebar = memo((): ReactElement => {
   const t = useI18n();
   const workspaceDialogService = useService(WorkspaceDialogService);
   const featureFlagService = useService(FeatureFlagService);
+  const { preferences } = useSidebarMenuPreferences();
   // Wave-2 Sidebar Phase 2 / Epic E1.9. When false the sidebar renders the
   // pre-flag layout unchanged; when true the TabStrip mounts under the
   // workspace section and the body swaps per active tab.
@@ -453,6 +469,105 @@ export const RootAppSidebar = memo((): ReactElement => {
     });
   }, [workspaceDialogService, handleOpenDocs]);
 
+  const homeMenuItems = useMemo<SidebarMenuItem<ReactNode>[]>(
+    () => [
+      { key: 'allDocs', value: <AllDocsButton /> },
+      { key: 'graph', value: <GraphButton /> },
+      { key: 'analytics', value: <AnalyticsButton /> },
+      { key: 'projects', value: <ProjectsButton /> },
+      { key: 'crm', value: <CrmButton /> },
+      { key: 'reminders', value: <RemindersButton /> },
+      { key: 'routines', value: <RoutinesButton /> },
+      { key: 'releaseRuns', value: <ReleaseRunsButton /> },
+      { key: 'journals', value: <AppSidebarJournalButton /> },
+      { key: 'agents', value: <AgentsSection /> },
+    ],
+    []
+  );
+
+  const legacyMenuItems = useMemo<SidebarMenuItem<ReactNode>[]>(
+    () => [
+      { key: 'aiChat', value: <AIChatButton /> },
+      {
+        key: 'quickSearchAndNewDoc',
+        value: (
+          <div className={quickSearchAndNewPage}>
+            <QuickSearchInput
+              className={quickSearch}
+              data-testid="slider-bar-quick-search-button"
+              data-event-props="$.navigationPanel.$.quickSearch"
+              onClick={onOpenQuickSearchModal}
+            />
+            <AddPageButton />
+          </div>
+        ),
+      },
+      {
+        key: 'notifications',
+        value:
+          sessionStatus === 'authenticated' ? <NotificationButton /> : null,
+      },
+      ...homeMenuItems,
+    ],
+    [homeMenuItems, onOpenQuickSearchModal, sessionStatus]
+  );
+
+  const sectionMenuItems = useMemo<SidebarMenuItem<ReactNode>[]>(
+    () => [
+      { key: 'favorites', value: <NavigationPanelFavorites /> },
+      { key: 'organize', value: <NavigationPanelOrganize /> },
+      {
+        key: 'migrationFavorites',
+        value: <NavigationPanelMigrationFavorites />,
+      },
+      { key: 'tags', value: <NavigationPanelTags /> },
+      { key: 'collections', value: <NavigationPanelCollections /> },
+    ],
+    []
+  );
+
+  const utilityMenuItems = useMemo<SidebarMenuItem<ReactNode>[]>(
+    () => [
+      { key: 'trash', value: <TrashButton /> },
+      {
+        key: 'import',
+        value: (
+          <MenuItem
+            data-testid="slider-bar-import-button"
+            icon={<ImportIcon />}
+            onClick={onOpenImportModal}
+          >
+            <span data-testid="import-modal-trigger">{t['Import']()}</span>
+          </MenuItem>
+        ),
+      },
+      { key: 'inviteMembers', value: <InviteMembersButton /> },
+      { key: 'templates', value: <TemplateDocEntrance /> },
+      {
+        key: 'learnMore',
+        value: (
+          <ExternalMenuLinkItem
+            href="https://affine.pro/blog?tag=Release+Note"
+            icon={<JournalIcon />}
+            label={t['com.affine.app-sidebar.learn-more']()}
+          />
+        ),
+      },
+      ...(sidebarTabsV2Enabled
+        ? [{ key: 'newDoc', value: <NewDocPill /> } as const]
+        : []),
+      {
+        key: 'downloadApp',
+        value: BUILD_CONFIG.isElectron ? (
+          <UpdaterButton />
+        ) : (
+          <AppDownloadButton />
+        ),
+      },
+    ],
+    [onOpenImportModal, sidebarTabsV2Enabled, t]
+  );
+
   return (
     <AppSidebar>
       <SidebarContainer>
@@ -489,38 +604,7 @@ export const RootAppSidebar = memo((): ReactElement => {
         {sidebarTabsV2Enabled ? (
           <TabStrip />
         ) : (
-          <>
-            {/*
-             * Intelligence (AI chat) sits directly under the workspace
-             * switcher in the legacy layout. Tabs-v2 moves this into the
-             * Chat quick action body.
-             */}
-            <AIChatButton />
-            <div className={quickSearchAndNewPage}>
-              <QuickSearchInput
-                className={quickSearch}
-                data-testid="slider-bar-quick-search-button"
-                data-event-props="$.navigationPanel.$.quickSearch"
-                onClick={onOpenQuickSearchModal}
-              />
-              <AddPageButton />
-            </div>
-            {/*
-             * Notifications sits directly under the search bar in the
-             * legacy layout. Tabs-v2 moves this into the Inbox quick action.
-             */}
-            {sessionStatus === 'authenticated' && <NotificationButton />}
-            <AllDocsButton />
-            <GraphButton />
-            <AnalyticsButton />
-            <ProjectsButton />
-            <CrmButton />
-            <RemindersButton />
-            <RoutinesButton />
-            <ReleaseRunsButton />
-            <AppSidebarJournalButton />
-            <AgentsSection />
-          </>
+          renderSidebarMenuItems(legacyMenuItems, preferences)
         )}
       </SidebarContainer>
       <SidebarScrollableContainer>
@@ -530,20 +614,7 @@ export const RootAppSidebar = memo((): ReactElement => {
           // Calendar / Inbox / Search render their related menus inline.
           <TabbedSidebarBody
             onOpenImportModal={onOpenImportModal}
-            homeNavigation={
-              <>
-                <AllDocsButton />
-                <GraphButton />
-                <AnalyticsButton />
-                <ProjectsButton />
-                <CrmButton />
-                <RemindersButton />
-                <RoutinesButton />
-                <ReleaseRunsButton />
-                <AppSidebarJournalButton />
-                <AgentsSection />
-              </>
-            }
+            homeMenuItems={homeMenuItems}
           />
         ) : (
           // Phase 1 utility footer landed via PR #116 — utility items
@@ -551,13 +622,7 @@ export const RootAppSidebar = memo((): ReactElement => {
           // the persistent bottom container below, so the scrollable
           // body is just primary nav sections. Settings moved to the
           // user-avatar dropdown (decision #20, account-menu.tsx).
-          <>
-            <NavigationPanelFavorites />
-            <NavigationPanelOrganize />
-            <NavigationPanelMigrationFavorites />
-            <NavigationPanelTags />
-            <NavigationPanelCollections />
-          </>
+          renderSidebarMenuItems(sectionMenuItems, preferences)
         )}
       </SidebarScrollableContainer>
       {/*
@@ -567,32 +632,8 @@ export const RootAppSidebar = memo((): ReactElement => {
        * avatar dropdown (decision #20).
        */}
       <SidebarContainer className={bottomContainer}>
-        <TrashButton />
-        <MenuItem
-          data-testid="slider-bar-import-button"
-          icon={<ImportIcon />}
-          onClick={onOpenImportModal}
-        >
-          <span data-testid="import-modal-trigger">{t['Import']()}</span>
-        </MenuItem>
-        <InviteMembersButton />
-        <TemplateDocEntrance />
-        <ExternalMenuLinkItem
-          href="https://affine.pro/blog?tag=Release+Note"
-          icon={<JournalIcon />}
-          label={t['com.affine.app-sidebar.learn-more']()}
-        />
-        {/*
-         * Tabs-v2 only — full-width "+ New" pill rendered above the
-         * audio-player / updater row. Behaviorally identical to the no-ask
-         * branch of the top-bar AddPageButton; the surface exists so a
-         * primary quick-create is always one click from the sidebar
-         * bottom (Notion-style). Flag-off layout stays byte-identical
-         * since this branch never renders.
-         */}
-        {sidebarTabsV2Enabled ? <NewDocPill /> : null}
+        {renderSidebarMenuItems(utilityMenuItems, preferences)}
         <SidebarAudioPlayer />
-        {BUILD_CONFIG.isElectron ? <UpdaterButton /> : <AppDownloadButton />}
       </SidebarContainer>
     </AppSidebar>
   );
