@@ -200,7 +200,6 @@ export const sectionEditorRow = style({
   justifyContent: 'space-between',
   padding: '6px 8px',
   borderRadius: 'var(--manut-radius-input)',
-  cursor: 'pointer',
   transition:
     'background var(--affine-anim-duration-fast) var(--affine-anim-curve-default)',
   selectors: {
@@ -210,10 +209,60 @@ export const sectionEditorRow = style({
   },
 });
 
+export const sectionEditorToggleButton = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 8,
+  minWidth: 0,
+  flex: '1 1 auto',
+  height: 28,
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+  color: 'inherit',
+  cursor: 'pointer',
+  textAlign: 'left',
+});
+
 export const sectionEditorLabel = style({
   fontSize: 13,
   fontWeight: 500,
   color: cssVar('textPrimaryColor'),
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+});
+
+export const sectionEditorActions = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 2,
+  flexShrink: 0,
+});
+
+export const sectionEditorMoveButton = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  width: 20,
+  height: 20,
+  padding: 0,
+  border: 'none',
+  borderRadius: 'var(--manut-radius-input)',
+  background: 'transparent',
+  color: cssVar('iconColor'),
+  cursor: 'pointer',
+  selectors: {
+    '&:hover:not(:disabled)': {
+      background: cssVar('hoverColor'),
+    },
+    '&:disabled': {
+      color: cssVar('textDisableColor'),
+      cursor: 'default',
+    },
+  },
 });
 
 export const sectionEditorEye = style({
