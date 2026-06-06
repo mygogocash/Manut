@@ -68,7 +68,9 @@ ready. The build must:
 4. Execute migrations and wait for success.
 5. Deploy Cloud Run service `manut` with
    `MANUT_RUN_STARTUP_MIGRATIONS=false`.
-6. Smoke the generated Cloud Run URL before relying on public DNS.
+6. Route 100% traffic to the latest ready revision.
+7. Verify the serving revision digest matches the just-built image tag.
+8. Smoke the generated Cloud Run URL before relying on public DNS.
 
 For local emergency builds, follow the manual bundle and Docker guidance in
 [GCP_CLOUD_RUN_RUNBOOK.md](./GCP_CLOUD_RUN_RUNBOOK.md#4-build-and-deploy-staging)
@@ -108,6 +110,9 @@ Expected checks:
 - GraphQL `serverConfig.initialized` is `true`.
 - Required server features include `Manut` and `Copilot`.
 - No GraphQL `errors` payload is returned by the smoke query.
+- Cloud Run traffic is 100% on the latest ready revision.
+- The serving revision image digest matches the image tag from the current
+  Cloud Build run.
 
 Manual confirmations after automated smoke:
 

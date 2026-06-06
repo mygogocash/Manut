@@ -136,12 +136,55 @@ steps:
       - --set-env-vars=MAIL_PROVIDER=$_MAIL_PROVIDER,RESEND_FROM=$_RESEND_FROM
       - --set-secrets=DATABASE_URL=$_DATABASE_URL_SECRET:latest,AFFINE_CONFIG_JSON_B64=$_AFFINE_CONFIG_JSON_B64_SECRET:latest,AFFINE_PRIVATE_KEY=$_AFFINE_PRIVATE_KEY_SECRET:latest,GOOGLE_OAUTH_CLIENT_ID=$_GOOGLE_OAUTH_CLIENT_ID_SECRET:latest,GOOGLE_OAUTH_CLIENT_SECRET=$_GOOGLE_OAUTH_CLIENT_SECRET:latest,RESEND_API_KEY=$_RESEND_API_KEY_SECRET:latest
 
+  - id: route latest traffic
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - services
+      - update-traffic
+      - $_SERVICE_NAME
+      - --project=$PROJECT_ID
+      - --region=$_REGION
+      - --to-latest
+
   - id: smoke service
     name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     entrypoint: bash
     args:
       - -ceu
       - |
+        EXPECTED_IMAGE="$_REGION-docker.pkg.dev/$PROJECT_ID/$_GAR_REPOSITORY/$_IMAGE_NAME:$_IMAGE_TAG"
+        EXPECTED_DIGEST="$$(gcloud artifacts docker images describe "$$EXPECTED_IMAGE" \
+          --project="$PROJECT_ID" \
+          --format='value(image_summary.fully_qualified_digest)')"
+
+        TRAFFIC_STATE="$$(gcloud run services describe "$_SERVICE_NAME" \
+          --project="$PROJECT_ID" \
+          --region="$_REGION" \
+          --format='value(status.latestReadyRevisionName,status.traffic[0].revisionName,status.traffic[0].percent)')"
+        read -r LATEST_READY_REVISION TRAFFIC_REVISION TRAFFIC_PERCENT <<< "$$TRAFFIC_STATE"
+
+        if [ -z "$$LATEST_READY_REVISION" ] || [ -z "$$TRAFFIC_REVISION" ]; then
+          echo "Could not resolve active Cloud Run revision for $_SERVICE_NAME" >&2
+          exit 1
+        fi
+
+        if [ "$$LATEST_READY_REVISION" != "$$TRAFFIC_REVISION" ] || [ "$$TRAFFIC_PERCENT" != "100" ]; then
+          echo "Cloud Run traffic is not fully routed to latest ready revision: latest=$$LATEST_READY_REVISION traffic=$$TRAFFIC_REVISION percent=$$TRAFFIC_PERCENT" >&2
+          exit 1
+        fi
+
+        ACTIVE_DIGEST="$$(gcloud run revisions describe "$$TRAFFIC_REVISION" \
+          --project="$PROJECT_ID" \
+          --region="$_REGION" \
+          --format='value(status.imageDigest)')"
+
+        if [ "$$ACTIVE_DIGEST" != "$$EXPECTED_DIGEST" ]; then
+          echo "Cloud Run traffic revision image digest mismatch: expected=$$EXPECTED_DIGEST active=$$ACTIVE_DIGEST revision=$$TRAFFIC_REVISION" >&2
+          exit 1
+        fi
+
         BASE_URL="$_SMOKE_BASE_URL"
         if [ -z "$$BASE_URL" ]; then
           BASE_URL="$$(gcloud run services describe "$_SERVICE_NAME" \
