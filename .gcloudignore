@@ -1,0 +1,47 @@
+.git
+.gitignore
+.gcloudignore
+
+# Local dependency/build artifacts
+node_modules/
+target/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/install-state.gz
+.pnp.*
+
+# Test and browser artifacts
+test-results/
+playwright-report/
+coverage/
+.coverage
+.playwright-mcp/
+.claude/
+
+# Local build outputs are rebuilt inside Docker.
+**/.next/
+**/out/
+**/.turbo/
+**/.cache/
+
+# OS noise
+.DS_Store
+
+# Local secrets and credentials must never be uploaded to Cloud Build.
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/.npmrc
+!/.npmrc
+!**/.npmrc.example
+
+# Keep Docker build behavior aligned with .dockerignore.
+**/*.map
+!packages/backend/server/dist/main.js.map
+packages/**/src/**/*.js
+blocksuite/**/src/**/*.js
