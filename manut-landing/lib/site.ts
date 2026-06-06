@@ -42,6 +42,7 @@ export const siteConfig = {
     'manut.xyz',
   ],
   url: 'https://manut.xyz',
+  appUrl: 'https://app.manut.xyz',
   domain: 'manut.xyz',
   locale: 'en_US',
   twitter: '@manut',
@@ -116,7 +117,7 @@ export const plans: ReadonlyArray<Plan> = [
       'Community support',
     ],
     cta: {
-      href: '/sign-in',
+      href: siteConfig.appUrl,
       label: 'Start free',
     },
   },
@@ -137,7 +138,7 @@ export const plans: ReadonlyArray<Plan> = [
       'SSO via Google, GitHub, and email',
       'Priority email support',
     ],
-    cta: { href: '/sign-in', label: 'Start free trial' },
+    cta: { href: siteConfig.appUrl, label: 'Start free trial' },
   },
   {
     id: 'enterprise',
@@ -203,7 +204,7 @@ export const quickAnswers: ReadonlyArray<FaqItem> = [
   {
     question: 'Where do I sign up?',
     answer:
-      'Create a free workspace at https://manut.xyz/sign-in — Google or email, 30 seconds to your first doc.',
+      'Create a free workspace at https://app.manut.xyz — Google or email, 30 seconds to your first doc.',
   },
 ];
 
@@ -211,7 +212,7 @@ export const faqs: ReadonlyArray<FaqItem> = [
   {
     question: 'How do I get started?',
     answer:
-      'Sign up at manut.xyz/sign-in with Google or email. Your workspace is ready in 30 seconds — no credit card, no setup wizard you can’t skip.',
+      'Sign up at app.manut.xyz with Google or email. Your workspace is ready in 30 seconds — no credit card, no setup wizard you can’t skip.',
   },
   {
     question: 'What’s included in the Free tier?',

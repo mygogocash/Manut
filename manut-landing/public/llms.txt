@@ -8,7 +8,7 @@ Manut is a team workspace that combines notes, project databases, infinite white
 
 ## Who is Manut for?
 
-Students, startups, and product teams who want Notion-class docs plus real AI automation without per-seat lock-in. Works in the browser — sign up at manut.xyz/sign-in.
+Students, startups, and product teams who want Notion-class docs plus real AI automation without per-seat lock-in. Works in the browser — sign up at app.manut.xyz.
 
 ## Pricing
 
@@ -19,7 +19,7 @@ Students, startups, and product teams who want Notion-class docs plus real AI au
 ## Key facts
 
 - Website: https://manut.xyz
-- Sign up: https://manut.xyz/sign-in
+- Sign up: https://app.manut.xyz
 - Source: https://github.com/gogocash-deploy/manut
 - Support: hello@manut.xyz
 - Offline: yes (CRDT sync)

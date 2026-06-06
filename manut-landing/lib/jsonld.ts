@@ -35,7 +35,7 @@ function websiteSchema(): Schema {
     publisher: { '@type': 'Organization', name: siteConfig.name },
     potentialAction: {
       '@type': 'ReadAction',
-      target: `${siteConfig.url}/sign-in`,
+      target: siteConfig.appUrl,
       name: 'Start free workspace',
     },
   };
@@ -80,10 +80,7 @@ function softwareApplicationSchema(): Schema {
       price: plan.priceMonthly,
       priceCurrency: 'USD',
       description: plan.blurb,
-      url:
-        plan.id === 'enterprise'
-          ? `mailto:sales@manut.xyz`
-          : `${siteConfig.url}/sign-in`,
+      url: plan.cta.href,
     })),
     featureList: [
       'Collaborative docs',

@@ -76,7 +76,7 @@ export function SiteNav() {
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Link
-            href="/sign-in"
+            href={siteConfig.appUrl}
             className="hidden text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:inline-flex"
           >
             Sign in
@@ -120,7 +120,7 @@ export function SiteNav() {
                   GitHub
                 </Link>
                 <Link
-                  href="/sign-in"
+                  href={siteConfig.appUrl}
                   className="py-4 text-lg font-medium tracking-tight"
                 >
                   Sign in

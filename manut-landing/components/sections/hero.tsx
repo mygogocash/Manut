@@ -58,7 +58,7 @@ export function Hero() {
 
           <div className="mt-8 flex w-full flex-col gap-3 sm:mt-9 sm:flex-row sm:flex-wrap sm:justify-center">
             <ButtonLink
-              href="/sign-in"
+              href={siteConfig.appUrl}
               size="lg"
               className="h-12 w-full min-h-11 rounded-full bg-foreground px-6 text-base text-background shadow-[0_12px_40px_-12px_oklch(0.18_0.01_260/0.55)] hover:bg-foreground/90 sm:w-auto"
             >

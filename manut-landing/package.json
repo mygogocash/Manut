@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test:app-links": "node scripts/check-app-redirect-links.mjs",
     "test:google-legal": "node scripts/check-google-verification-legal-content.mjs",
     "lint": "eslint"
   },
