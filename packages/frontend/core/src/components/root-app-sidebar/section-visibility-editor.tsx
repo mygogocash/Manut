@@ -68,6 +68,7 @@ function getMenuDescriptors(
     },
     { key: 'import', label: t['Import']() },
     { key: 'inviteMembers', label: t['Invite Members']() },
+    { key: 'connectGithub', label: 'Connect GitHub' },
     { key: 'templates', label: t['Template']() },
     { key: 'learnMore', label: t['com.affine.app-sidebar.learn-more']() },
     ...(sidebarTabsV2Enabled

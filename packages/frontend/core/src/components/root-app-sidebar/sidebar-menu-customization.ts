@@ -22,6 +22,7 @@ export type SidebarMenuItemKey =
   | 'trash'
   | 'import'
   | 'inviteMembers'
+  | 'connectGithub'
   | 'templates'
   | 'learnMore'
   | 'newDoc'
@@ -66,6 +67,7 @@ export const DEFAULT_SIDEBAR_MENU_ORDER: readonly SidebarMenuItemKey[] = [
   'trash',
   'import',
   'inviteMembers',
+  'connectGithub',
   'templates',
   'learnMore',
   'newDoc',

@@ -3,6 +3,7 @@ import {
   AddPageButton,
   AppDownloadButton,
   AppSidebar,
+  CategoryDivider,
   MenuItem,
   MenuLinkItem,
   QuickSearchInput,
@@ -48,6 +49,7 @@ import {
 import { WorkbenchService } from '../../modules/workbench';
 import { WorkspaceNavigator } from '../workspace-selector';
 import { AgentsSection } from './agents-section';
+import { ConnectGithubButton } from './connect-github-button';
 import {
   bottomContainer,
   quickSearch,
@@ -413,6 +415,8 @@ export const RootAppSidebar = memo((): ReactElement => {
 
   const sessionStatus = useLiveData(authService.session.status$);
   const t = useI18n();
+  const workspaceService = useService(WorkspaceService);
+  const isCloudWorkspace = workspaceService.workspace.flavour !== 'local';
   const workspaceDialogService = useService(WorkspaceDialogService);
   const featureFlagService = useService(FeatureFlagService);
   const { preferences } = useSidebarMenuPreferences();
@@ -541,7 +545,6 @@ export const RootAppSidebar = memo((): ReactElement => {
           </MenuItem>
         ),
       },
-      { key: 'inviteMembers', value: <InviteMembersButton /> },
       { key: 'templates', value: <TemplateDocEntrance /> },
       {
         key: 'learnMore',
@@ -567,6 +570,16 @@ export const RootAppSidebar = memo((): ReactElement => {
     ],
     [onOpenImportModal, sidebarTabsV2Enabled, t]
   );
+
+  const tryMenuItems = useMemo<SidebarMenuItem<ReactNode>[]>(
+    () => [
+      { key: 'inviteMembers', value: <InviteMembersButton /> },
+      { key: 'connectGithub', value: <ConnectGithubButton /> },
+    ],
+    []
+  );
+
+  const tryMenuElements = renderSidebarMenuItems(tryMenuItems, preferences);
 
   return (
     <AppSidebar>
@@ -632,6 +645,13 @@ export const RootAppSidebar = memo((): ReactElement => {
        * avatar dropdown (decision #20).
        */}
       <SidebarContainer className={bottomContainer}>
+        {isCloudWorkspace && tryMenuElements.length > 0 ? (
+          <CategoryDivider
+            label="Try"
+            data-testid="sidebar-try-section-label"
+          />
+        ) : null}
+        {tryMenuElements}
         {renderSidebarMenuItems(utilityMenuItems, preferences)}
         <SidebarAudioPlayer />
       </SidebarContainer>

@@ -10,7 +10,6 @@ import {
   useState,
 } from 'react';
 
-import { CALENDAR_INTEGRATION_SCROLL_ANCHOR } from '../../navigation-constants';
 import { SubPageProvider, useSubPageIsland } from '../../sub-page';
 import {
   IntegrationCard,
@@ -20,6 +19,7 @@ import {
 import { getAllowedIntegrationList } from './constants';
 import { type IntegrationItem } from './constants';
 import { list } from './index.css';
+import { getIntegrationIdForScrollAnchor } from './scroll-anchor';
 
 export const IntegrationSetting = ({
   scrollAnchor,
@@ -37,20 +37,21 @@ export const IntegrationSetting = ({
   );
 
   useEffect(() => {
-    if (scrollAnchor !== CALENDAR_INTEGRATION_SCROLL_ANCHOR) {
+    const integrationId = getIntegrationIdForScrollAnchor(scrollAnchor);
+    if (!integrationId) {
       return;
     }
 
-    const hasCalendarSetting = integrationList.some(
+    const hasIntegrationSetting = integrationList.some(
       item =>
-        item.id === 'calendar' &&
+        item.id === integrationId &&
         'setting' in item &&
-        // Only auto-open the calendar subpage when it's actually
-        // available — not when it's gated behind cloud signin.
+        // Only auto-open the subpage when it's actually available,
+        // not when it's gated behind cloud signin.
         !(item.requiresCloud && !isCloudWorkspace)
     );
-    if (hasCalendarSetting) {
-      setOpened('calendar');
+    if (hasIntegrationSetting) {
+      setOpened(integrationId);
     }
   }, [integrationList, scrollAnchor, isCloudWorkspace]);
 

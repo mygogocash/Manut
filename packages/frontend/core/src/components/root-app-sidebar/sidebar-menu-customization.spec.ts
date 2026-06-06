@@ -22,6 +22,15 @@ describe('sidebar menu customization preferences', () => {
     expect(new Set(preferences.order).size).toBe(preferences.order.length);
   });
 
+  test('defaultSidebarMenuOrder__given_try_actions__then_places_connect_github_after_invite_members', () => {
+    expect(DEFAULT_SIDEBAR_MENU_ORDER).toContain('inviteMembers');
+    expect(DEFAULT_SIDEBAR_MENU_ORDER).toContain('connectGithub');
+    expect(
+      DEFAULT_SIDEBAR_MENU_ORDER.indexOf('connectGithub') -
+        DEFAULT_SIDEBAR_MENU_ORDER.indexOf('inviteMembers')
+    ).toBe(1);
+  });
+
   test('toggleSidebarMenuItem__given_visible_item__then_hides_and_restores_without_reordering', () => {
     const hidden = toggleSidebarMenuItem(
       { order: ['crm', 'allDocs'] },
