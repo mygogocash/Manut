@@ -100,7 +100,7 @@ __metadata:
     "@playwright/test": "npm:=1.58.2"
     "@toeverything/infra": "workspace:*"
     express: "npm:^5.1.0"
-    http-proxy-middleware: "npm:^4.1.1"
+    http-proxy-middleware: "npm:^4.2.0"
   peerDependencies:
     "@playwright/test": "*"
     express: "*"
@@ -947,7 +947,7 @@ __metadata:
     "@node-rs/argon2": "npm:^2.0.2"
     "@node-rs/crc32": "npm:^1.10.6"
     "@opentelemetry/api": "npm:^1.9.0"
-    "@opentelemetry/core": "npm:^2.2.0"
+    "@opentelemetry/core": "npm:^2.8.0"
     "@opentelemetry/exporter-prometheus": "npm:^0.217.0"
     "@opentelemetry/exporter-zipkin": "npm:^2.6.0"
     "@opentelemetry/host-metrics": "npm:^0.38.3"
@@ -1009,7 +1009,7 @@ __metadata:
     ioredis: "npm:^5.8.2"
     is-mobile: "npm:^5.0.0"
     jose: "npm:^6.1.3"
-    js-yaml: "npm:^4.2.0"
+    js-yaml: "npm:^4.3.0"
     jsonwebtoken: "npm:^9.0.3"
     lodash-es: "npm:^4.17.23"
     mongodb: "npm:^7.2.0"
@@ -1020,7 +1020,7 @@ __metadata:
     nodemailer: "npm:^9.0.1"
     nodemon: "npm:^3.1.14"
     on-headers: "npm:^1.1.0"
-    piscina: "npm:^5.1.4"
+    piscina: "npm:^5.2.0"
     prisma: "npm:^6.6.0"
     react: "npm:^19.2.1"
     react-dom: "npm:19.2.1"
@@ -3262,7 +3262,7 @@ __metadata:
     "@types/js-yaml": "npm:^4.0.9"
     "@types/lodash-es": "npm:^4.17.12"
     fflate: "npm:^0.8.2"
-    js-yaml: "npm:^4.2.0"
+    js-yaml: "npm:^4.3.0"
     lit: "npm:^3.2.0"
     lodash-es: "npm:^4.17.23"
     mammoth: "npm:^1.11.0"
@@ -9854,14 +9854,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@opentelemetry/core@npm:^2.2.0":
-  version: 2.8.0
-  resolution: "@opentelemetry/core@npm:2.8.0"
+"@opentelemetry/core@npm:^2.8.0":
+  version: 2.9.0
+  resolution: "@opentelemetry/core@npm:2.9.0"
   dependencies:
     "@opentelemetry/semantic-conventions": "npm:^1.29.0"
   peerDependencies:
     "@opentelemetry/api": ">=1.0.0 <1.10.0"
-  checksum: 10/47f1a492d02c1f468390ce9ee45d55bbc940e96ec26d5356abd9903f6c332adddd23ed1a6a6c8871b54efc1536f235b7d5304c83e5dfeb459ae5ab980dc67c70
+  checksum: 10/07de59f6a0c35cf59330f6f1a766dc8a47d739d173f00f34265ccd42118ade665eebfde32973d0d76a6e926b8503403971fc6a16da31e757ea70a82675a2a84b
   languageName: node
   linkType: hard
 
@@ -25840,16 +25840,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"http-proxy-middleware@npm:^4.1.1":
-  version: 4.1.1
-  resolution: "http-proxy-middleware@npm:4.1.1"
+"http-proxy-middleware@npm:^4.2.0":
+  version: 4.2.0
+  resolution: "http-proxy-middleware@npm:4.2.0"
   dependencies:
     debug: "npm:^4.4.3"
-    httpxy: "npm:^0.5.3"
+    httpxy: "npm:^0.5.4"
     is-glob: "npm:^4.0.3"
     is-plain-obj: "npm:^4.1.0"
     micromatch: "npm:^4.0.8"
-  checksum: 10/286450e8736a4f2f20a68252f8c84ecbcdba777398108466bd16cd6e95f9f1c490798e7fd5f32cce8a86f6eaf80b862c276fa38dbf97a2cc145c08868bd87e21
+  checksum: 10/ea3f08f527e120f0616418896ec2fefdaed67b437a0a301dbccdf0db9b5327a75349245566dafbc489eb6703a204bb7503fc67478b73738732819681ea69022b
   languageName: node
   linkType: hard
 
@@ -25894,10 +25894,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"httpxy@npm:^0.5.3":
-  version: 0.5.3
-  resolution: "httpxy@npm:0.5.3"
-  checksum: 10/0c46bd2c603b6c13ca5511cace37746ee8781a109dd692656ba1d33a0067ee50661838c143dd9139f7b36495eed2cf8a19370d3da6b7ffe2a2334583de132144
+"httpxy@npm:^0.5.4":
+  version: 0.5.5
+  resolution: "httpxy@npm:0.5.5"
+  checksum: 10/6ad32b51d509480f7cb37b30197efeb05cb8c6f4806b052e7b05cf02577d59b48f92d0f4e52874e0d38fd3a7863aed13c2b06c521346b06db3f33a014af2bd52
   languageName: node
   linkType: hard
 
@@ -27034,14 +27034,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"js-yaml@npm:^4.2.0":
-  version: 4.2.0
-  resolution: "js-yaml@npm:4.2.0"
+"js-yaml@npm:^4.3.0":
+  version: 4.3.0
+  resolution: "js-yaml@npm:4.3.0"
   dependencies:
     argparse: "npm:^2.0.1"
   bin:
     js-yaml: bin/js-yaml.js
-  checksum: 10/51de2067a2b44b07ba5206132e56005f8b568ff279bb4d2f645068958c56fa4827d40a6841c983234671fa0a134bf094d0b0717873c2a3d319185297af145a6d
+  checksum: 10/2bcec3a8118d7f744badeb04e14366578d234a736f353d41fe35d2305e4ce2409a8e041d277f07cd6bbc8aaa12128d650a68ce43247072519bede20962d2126f
   languageName: node
   linkType: hard
 
@@ -31214,7 +31214,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"piscina@npm:^5.1.4":
+"piscina@npm:^5.2.0":
   version: 5.2.0
   resolution: "piscina@npm:5.2.0"
   dependencies:
