@@ -17,7 +17,7 @@
     "@playwright/test": "=1.58.2",
     "@toeverything/infra": "workspace:*",
     "express": "^5.1.0",
-    "http-proxy-middleware": "^4.1.1"
+    "http-proxy-middleware": "^4.2.0"
   },
   "peerDependencies": {
     "@playwright/test": "*",
