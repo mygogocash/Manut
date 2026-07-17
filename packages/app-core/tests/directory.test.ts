@@ -8,6 +8,7 @@ import {
   directoryParamsSchema,
   getDirectoryDepartments,
   getDirectoryEmployee,
+  getDirectoryOrgChart,
   listDirectory,
 } from "../src/directory/directory";
 
@@ -159,5 +160,36 @@ describe("directory contracts", () => {
       "/directory/11111111-1111-4111-8111-111111111111",
       { signal },
     );
+  });
+
+  it("loads the org chart without sensitive fields", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: employee.id,
+          name: "Person",
+          jobTitle: "Coordinator",
+          department: "Operations",
+          avatarUrl: null,
+          reportingTo: null,
+          entity: employee.entity,
+          salary: "strip-me",
+        },
+      ],
+    });
+    const client = { get } as unknown as ApiClient;
+
+    await expect(getDirectoryOrgChart(client)).resolves.toEqual([
+      {
+        id: employee.id,
+        name: "Person",
+        jobTitle: "Coordinator",
+        department: "Operations",
+        avatarUrl: null,
+        reportingTo: null,
+        entity: employee.entity,
+      },
+    ]);
+    expect(get).toHaveBeenCalledWith("/directory/org-chart", undefined);
   });
 });

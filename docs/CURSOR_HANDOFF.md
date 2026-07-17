@@ -128,13 +128,13 @@ D1 (optional non-authoritative edge metadata only)
 
 | Workstream                           | State                                     | Evidence and remaining condition                                                                                                                                                                              |
 | ------------------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Offline backup and archive refs      | **Locally complete**                      | Bare mirror verified; both local archive refs resolve to `eb797d30`. Remote publication remains pending.                                                                                                      |
-| Clean-room tree boundary             | **Phase A gates green locally**           | Source remote removed; replacement tree (1,611 files) and build artifacts (7,441 files) pass HMAC credential boundary. Full Node 24 gate sequence verified 2026-07-17. Staging and replacement commit remain. |
-| GitHub detachment/private/protection | **Blocked externally**                    | Current GitHub authentication is invalid. Fork detachment, visibility, protection, PR metadata export, obsolete PR closure, push, and PR creation remain.                                                     |
+| Offline backup and archive refs      | **Remote + local complete**               | Bare mirror verified; local and remote `archive/affine-2026-07-16` + `affine-before-intranet-2026-07-16` peel to `eb797d30`.                                                                                    |
+| Clean-room tree boundary             | **Replacement PR open**                   | Commits `7d8b17a2` + `640c505a` (+ follow-ups) on `claude/intranet-full-hardening`; PR `#208` opened against `main`.                                                                                           |
+| GitHub detachment/private/protection | **Mostly complete; protection blocked**   | `fork=false`, private, About cleared to Manut Intranet, topics reset. Classic branch protection / rulesets return 403 on GitHub Free org plan — needs Pro or public (keep private; upgrade plan).             |
 | Source-organization removal          | **Phase A sweep complete locally**        | Credentials, branding, proprietary AI/marketing modules, identity-bearing migrations, and seeds were removed or replaced. HMAC provenance scan and comment sweep passed 2026-07-17.                           |
 | API strictness and hardening         | **Implemented locally**                   | Strict TypeScript, webhook bytes, purge lifecycle, lifecycle-safe auth/RBAC, atomic Leave state changes, live-socket revalidation, Performance scoping, and profile projection are implemented.               |
 | Universal Expo foundation            | **Implemented**                           | Expo SDK 57, shared API/session runtime, app-core/UI packages, auth transports, app shell, Expo Doctor, and three-platform exports pass. This is a foundation, not full route parity.                         |
-| Approved web route parity            | **In progress**                           | 103 routes inventoried: 13 foundations, 74 pending, 16 removed. Directory, Leave, and Settings have functional slices, but no blanket parity claim is allowed.                                                |
+| Approved web route parity            | **In progress (Phase 1 advanced)**        | Performance read-only appraisals, My Portal hub, leave history pagination, directory org chart, dashboard KPIs, and local settings preferences landed as foundation slices. Waves 2–4 and Expo E2E cutover remain. |
 | Cloudflare edge layer                | **Locally implemented**                   | Worker auth, SPA assets, R2, Durable Objects, Queues, Workflows, Container/Hyperdrive boundaries, tests, and dry-run bundle exist. Fresh resources are not provisioned.                                       |
 | Clean PostgreSQL baseline            | **Implemented**                           | One sanitized baseline plus hash manifest, setup/assert scripts, and migration harness exist. Local Docker replay is blocked; CI PostgreSQL 16 lane is ready.                                                 |
 | Dependency upgrades                  | **Mostly implemented**                    | Requested upgrades, compatibility pins, Expo, and Cloudflare packages are present. Legacy Next/Tailwind/Vite/jsdom bridge packages remain until parity.                                                       |
@@ -315,23 +315,24 @@ Important parity distinction:
   not source dashboard feature parity.
 - Directory provides redaction-aware employee search, runtime department
   filters, pagination, retry, lifecycle-safe manager projection, abort-safe
-  transitions, permission-tiered query caches, and an employee detail sheet
-  (reports, roles, timezone; metadata stripped; sensitive fields still
-  API-gated). Org-chart behavior remains pending.
+  transitions, permission-tiered query caches, an employee detail sheet, and a
+  read-only org-chart view. Full visual tree parity remains pending.
 - Leave provides live exact-decimal balances, carried-balance semantics,
   applicable LeaveType choices, validation, retry, an accessible universal
-  request dialog, self-scoped request history, and cancel for
+  request dialog, paginated self-scoped request history, and cancel for
   pending/approved requests (with confirm). Calendar, team/HR actions, and
   subroutes remain pending. Its route admits only `leave:read`/`leave:hr-read`
   users because the current page requires the balances endpoint.
-- My Portal and Performance remain route/shell foundations that render
-  migration placeholders; Performance API actor scoping is already hardened.
-- Settings now loads the authenticated profile, displays the public entity
-  projection, updates phone-directory privacy pessimistically, retries failed
-  reads, synchronously redacts Directory cache entries, and routes password
-  changes without browser globals. Preferences, integrations, and admin system
-  settings remain pending, so the route stays `foundation` rather than
-  parity-complete.
+- My Portal is a hub with profile header, leave-balance widgets, and
+  permission-gated deep links (not full legacy tab parity).
+- Performance provides read-only appraisal list/detail via app-core; cycle
+  admin, review submit, and goal writes remain pending. API actor scoping is
+  already hardened.
+- Dashboard loads `GET /dashboard/stats` for permission-gated KPIs and pending
+  actions; charts/wall/compose remain pending.
+- Settings loads the authenticated profile, privacy controls, password
+  navigation, and local device preferences. Integrations OAuth and admin
+  system settings remain pending, so the route stays `foundation`.
 - Accepted auth transitions bind React Query state to the current principal and
   authorization fingerprint before protected descendants render. Transient
   verification preserves the existing principal cache; identity or permission
@@ -550,13 +551,21 @@ Migration order:
 1. Finish Phase 1 behavior: dashboard, directory, employee portal,
    Performance, Leave, and the remaining Settings preferences/integration
    slices. Preserve the accepted Settings profile/privacy slice.
+   **Status 2026-07-17:** Performance appraisals (read-only), My Portal hub,
+   leave history pagination, directory org chart, dashboard KPIs/pending
+   actions, and local Settings preferences are in Expo as `foundation`
+   slices. Integrations OAuth, leave subroutes, and full dashboard charts
+   remain. Move Playwright employee/leave coverage from `:3000` to Expo
+   `:8081` as authenticated secrets become available.
 2. HR/people and approvals: HRMS, travel, visa, expenses, cash advance,
    payroll, benefits, attendance, learning, career, applications, office,
-   employees, roles, and related approval screens.
+   employees, roles, and related approval screens. **Not started.**
 3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
+   **Not started.**
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
+   **Not started.**
 
 For each route slice:
 
@@ -707,11 +716,15 @@ After authenticated GitHub authority is restored:
 
 ## External blockers to preserve explicitly
 
-- GitHub CLI authentication is currently invalid.
+- GitHub Free org plan cannot enable private-repo branch protection / rulesets
+  (403); upgrade `mygogocash` to Pro (or GitHub Team) before requiring
+  `Validate` on `main`.
 - No fresh Manut Cloudflare account/resource authority is available locally.
 - No fresh Manut Expo organization is available locally.
 - The dedicated E2E Supabase project and secrets are not configured.
 - Provider-side revocation and negative authentication evidence are absent.
+- Phase C (`apps/web` retirement) and merge remain blocked until Expo route
+  parity + browser E2E acceptance and Phase E evidence exist.
 - A locally running Cursor worker was observed with a provider credential in
   its process arguments. Do not copy the value into logs or Git. Rotate it and
   restart the worker with a safer secret transport before relying on that

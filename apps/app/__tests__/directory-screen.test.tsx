@@ -15,7 +15,7 @@ import { DirectoryScreen } from "@/features/directory/directory-screen";
 import { runLockedTransition } from "@/features/directory/transition-lock";
 
 const mockGet = jest.fn();
-let mockPermissions: string[] = [];
+let mockPermissions: string[] = ["directory:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
   useApiClient: () => ({ get: mockGet }),
@@ -274,5 +274,52 @@ describe("DirectoryScreen", () => {
       screen.getByRole("button", { name: "Close directory profile" }),
     );
     expect(screen.queryByText("Directory profile")).toBeNull();
+  });
+
+  it("loads a read-only org chart view", async () => {
+    mockGet.mockImplementation((path: string) => {
+      if (path === "/directory/org-chart") {
+        return Promise.resolve({
+          data: [
+            {
+              id: employee.id,
+              name: "Person",
+              jobTitle: "Coordinator",
+              department: "Operations",
+              avatarUrl: null,
+              reportingTo: null,
+              entity: employee.entity,
+            },
+            {
+              id: "22222222-2222-4222-8222-222222222222",
+              name: "Report One",
+              jobTitle: "Analyst",
+              department: "Operations",
+              avatarUrl: null,
+              reportingTo: employee.id,
+              entity: employee.entity,
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected GET ${path}`);
+    });
+
+    await renderScreen();
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole("button", { name: "Filter by org chart" }),
+      );
+    });
+
+    expect(
+      await screen.findByLabelText("Organization chart", {}, { timeout: 10_000 }),
+    ).toBeTruthy();
+    expect(screen.getByText("Report One")).toBeTruthy();
+    expect(screen.getByText("Reports: 1")).toBeTruthy();
+    expect(mockGet).toHaveBeenCalledWith(
+      "/directory/org-chart",
+      expect.objectContaining({ signal: expect.any(Object) }),
+    );
   });
 });

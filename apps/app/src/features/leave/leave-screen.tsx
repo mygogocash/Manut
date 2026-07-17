@@ -470,12 +470,13 @@ export function LeaveScreen() {
   const { user, hasPermission } = useAuth();
   const canRequest = hasPermission("leave:request");
   const employeeId = user?.id;
+  const [historyPage, setHistoryPage] = useState(1);
   const selfRequestParams = useMemo(
     () =>
       employeeId
-        ? { employeeId, page: 1, limit: 20 }
+        ? { employeeId, page: historyPage, limit: 20 }
         : null,
-    [employeeId],
+    [employeeId, historyPage],
   );
   const [requestOpen, setRequestOpen] = useState(false);
   const [draft, setDraft] = useState<RequestDraft>(emptyDraft);
@@ -727,33 +728,75 @@ export function LeaveScreen() {
                 You have not submitted any leave requests yet.
               </Text>
             ) : (
-              <View
-                accessibilityLabel="My leave request history"
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: spacing.lg,
-                }}
-              >
-                {requests.map((request) => (
-                  <RequestHistoryCard
-                    key={request.id}
-                    request={request}
-                    canRequest={canRequest}
-                    confirming={confirmingCancelId === request.id}
-                    cancelling={
-                      cancelMutation.isPending &&
-                      cancelMutation.variables === request.id
-                    }
-                    onAskCancel={() => {
-                      cancelMutation.reset();
-                      setSuccessMessage(null);
-                      setConfirmingCancelId(request.id);
+              <View style={{ gap: spacing.lg }}>
+                <View
+                  accessibilityLabel="My leave request history"
+                  style={{
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: spacing.lg,
+                  }}
+                >
+                  {requests.map((request) => (
+                    <RequestHistoryCard
+                      key={request.id}
+                      request={request}
+                      canRequest={canRequest}
+                      confirming={confirmingCancelId === request.id}
+                      cancelling={
+                        cancelMutation.isPending &&
+                        cancelMutation.variables === request.id
+                      }
+                      onAskCancel={() => {
+                        cancelMutation.reset();
+                        setSuccessMessage(null);
+                        setConfirmingCancelId(request.id);
+                      }}
+                      onConfirmCancel={() => cancelMutation.mutate(request.id)}
+                      onKeep={() => setConfirmingCancelId(null)}
+                    />
+                  ))}
+                </View>
+                {requestsQuery.data &&
+                requestsQuery.data.meta.totalPages > 1 ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: spacing.md,
                     }}
-                    onConfirmCancel={() => cancelMutation.mutate(request.id)}
-                    onKeep={() => setConfirmingCancelId(null)}
-                  />
-                ))}
+                  >
+                    <Button
+                      label="Previous page"
+                      pendingLabel="Loading…"
+                      accessibilityLabel="Previous leave history page"
+                      disabled={
+                        historyPage <= 1 || requestsQuery.isFetching
+                      }
+                      onPress={() => {
+                        setHistoryPage((current) => Math.max(1, current - 1));
+                      }}
+                    />
+                    <Text selectable style={{ color: colors.textMuted }}>
+                      Page {requestsQuery.data.meta.page} of{" "}
+                      {requestsQuery.data.meta.totalPages}
+                    </Text>
+                    <Button
+                      label="Next page"
+                      pendingLabel="Loading…"
+                      accessibilityLabel="Next leave history page"
+                      disabled={
+                        historyPage >=
+                          requestsQuery.data.meta.totalPages ||
+                        requestsQuery.isFetching
+                      }
+                      onPress={() => {
+                        setHistoryPage((current) => current + 1);
+                      }}
+                    />
+                  </View>
+                ) : null}
               </View>
             )}
           </Card>

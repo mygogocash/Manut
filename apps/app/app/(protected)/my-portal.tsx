@@ -1,10 +1,5 @@
-import { FoundationPage } from "@/components/foundation-page";
+import { MyPortalScreen } from "@/features/my-portal/my-portal-screen";
 
 export default function MyPortalRoute() {
-  return (
-    <FoundationPage
-      title="My Portal"
-      description="The employee portal route is ready for web-first module migration."
-    />
-  );
+  return <MyPortalScreen />;
 }

@@ -75,6 +75,7 @@ export {
   DIRECTORY_DEPARTMENTS_QUERY_KEY,
   DIRECTORY_DETAIL_QUERY_ROOT,
   DIRECTORY_LIST_QUERY_ROOT,
+  DIRECTORY_ORG_CHART_QUERY_KEY,
   departmentSchema,
   directoryDetailQueryKey,
   directoryEmployeeDetailSchema,
@@ -86,7 +87,9 @@ export {
   directoryParamsSchema,
   getDirectoryDepartments,
   getDirectoryEmployee,
+  getDirectoryOrgChart,
   listDirectory,
+  orgChartNodeSchema,
 } from "./directory/directory";
 export {
   createLeaveRequest,
@@ -136,6 +139,7 @@ export type {
   DirectoryList,
   DirectoryManager,
   DirectoryParams,
+  OrgChartNode,
 } from "./directory/directory";
 export type {
   MyProfile,
@@ -144,3 +148,45 @@ export type {
   UpdatedMyProfile,
   UpdateMyProfileInput,
 } from "./profile/profile";
+export {
+  PERFORMANCE_APPRAISALS_QUERY_ROOT,
+  PERFORMANCE_DETAIL_QUERY_ROOT,
+  appraisalGoalSchema,
+  appraisalListParamsSchema,
+  appraisalSchema,
+  appraisalStatusSchema,
+  getAppraisal,
+  goalStatusSchema,
+  listAppraisals,
+  performanceAppraisalsQueryKey,
+  performanceDetailQueryKey,
+} from "./performance/performance";
+export type {
+  Appraisal,
+  AppraisalGoal,
+  AppraisalList,
+  AppraisalListParams,
+  AppraisalStatus,
+} from "./performance/performance";
+export {
+  DASHBOARD_STATS_QUERY_KEY,
+  dashboardKpisSchema,
+  dashboardPendingActionSchema,
+  dashboardStatsSchema,
+  getDashboardStats,
+} from "./dashboard/dashboard";
+export type {
+  DashboardKpis,
+  DashboardPendingAction,
+  DashboardStats,
+} from "./dashboard/dashboard";
+export {
+  DEFAULT_LOCAL_PREFERENCES,
+  localPreferencesSchema,
+  mergeLocalPreferences,
+  parseLocalPreferences,
+} from "./settings/preferences";
+export type {
+  LocalPreferences,
+  LocalPreferencesInput,
+} from "./settings/preferences";

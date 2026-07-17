@@ -234,3 +234,36 @@ export async function getDirectoryEmployee(
   );
   return directoryEmployeeDetailResponseSchema.parse(response).data;
 }
+
+// Strip unexpected extras (e.g. compensation) from org-chart receipts.
+export const orgChartNodeSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1),
+  jobTitle: nullableText,
+  department: nullableText,
+  avatarUrl: nullableText,
+  reportingTo: z.string().uuid().nullable(),
+  entity: directoryEntitySchema.nullable(),
+});
+
+const orgChartResponseSchema = z
+  .object({ data: z.array(orgChartNodeSchema) })
+  .strict();
+
+export type OrgChartNode = z.infer<typeof orgChartNodeSchema>;
+
+export const DIRECTORY_ORG_CHART_QUERY_KEY = [
+  "directory",
+  "org-chart",
+] as const;
+
+export async function getDirectoryOrgChart(
+  client: ApiClient,
+  signal?: RequestAbortSignal,
+): Promise<OrgChartNode[]> {
+  const response = await client.get<unknown>(
+    "/directory/org-chart",
+    signal ? { signal } : undefined,
+  );
+  return orgChartResponseSchema.parse(response).data;
+}

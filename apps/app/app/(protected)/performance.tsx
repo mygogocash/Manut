@@ -1,10 +1,5 @@
-import { FoundationPage } from "@/components/foundation-page";
+import { PerformanceScreen } from "@/features/performance/performance-screen";
 
 export default function PerformanceRoute() {
-  return (
-    <FoundationPage
-      title="Performance"
-      description="Employees with performance:read can reach this shared route on web, iOS, and Android."
-    />
-  );
+  return <PerformanceScreen />;
 }

@@ -212,16 +212,32 @@ for (const absolute of candidates) {
 
 const baseSha = process.env.CREDENTIAL_SCAN_BASE_SHA;
 if (baseSha) {
+  // Scan added/changed content only. Pure deletions from a clean-room clear
+  // commit can exceed maxBuffer and are not new provenance risk.
   const diff = spawnSync(
     "git",
-    ["diff", "--no-ext-diff", `${baseSha}...HEAD`],
+    [
+      "diff",
+      "--no-ext-diff",
+      "--diff-filter=ACMR",
+      `${baseSha}...HEAD`,
+    ],
     {
       cwd: root,
       encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
+      maxBuffer: 256 * 1024 * 1024,
     },
   );
-  if (diff.status !== 0) process.exit(diff.status ?? 1);
+  if (diff.error) {
+    console.error(
+      `Credential scan git diff failed: ${diff.error.message}`,
+    );
+    process.exit(1);
+  }
+  if (diff.status !== 0) {
+    process.stderr.write(diff.stderr);
+    process.exit(diff.status ?? 1);
+  }
   const match = matchFingerprint(diff.stdout);
   if (match) findings.push(`commit range: fingerprint ${match.slice(0, 12)}`);
 }

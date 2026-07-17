@@ -11,7 +11,10 @@ test("employee can navigate to Performance", async ({ page }) => {
   await performanceLink.click();
 
   await expect(page).toHaveURL((url) => url.pathname === "/performance");
+  // Legacy Next uses "Performance Review"; Expo foundation uses "Performance".
   await expect(
-    page.getByRole("heading", { name: "Performance Review", exact: true }),
+    page.getByRole("heading", {
+      name: /^(Performance Review|Performance)$/,
+    }),
   ).toBeVisible();
 });

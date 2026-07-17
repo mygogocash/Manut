@@ -21,6 +21,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 
+import { SettingsPreferencesPanel } from "@/features/settings/settings-preferences-panel";
 import { useApiClient } from "@/providers/api-client-provider";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -198,11 +199,15 @@ export function SettingsProfileScreen() {
       contentContainerStyle={{
         flexGrow: 1,
         alignItems: "center",
+        gap: spacing.xl,
         padding: spacing.xxl,
         backgroundColor: colors.canvas,
       }}
     >
       <ProfileContent profile={profileQuery.data} />
+      <View style={{ width: "100%", maxWidth: 720 }}>
+        <SettingsPreferencesPanel />
+      </View>
     </ScrollView>
   );
 }

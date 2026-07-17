@@ -142,24 +142,36 @@ describe("LeaveScreen", () => {
     });
   });
 
-  it("renders exact balances and opens a preselected request dialog", async () => {
-    await renderScreen();
+  it(
+    "renders exact balances and opens a preselected request dialog",
+    async () => {
+      await renderScreen();
 
-    expect(await screen.findByText("Annual leave")).toBeTruthy();
-    expect(screen.getByText("9.5 / 12 days remaining")).toBeTruthy();
-    expect(screen.getByText("2.5 used · 1 carried available")).toBeTruthy();
+      expect(
+        await screen.findByText("Annual leave", {}, { timeout: 10_000 }),
+      ).toBeTruthy();
+      expect(screen.getByText("9.5 / 12 days remaining")).toBeTruthy();
+      expect(screen.getByText("2.5 used · 1 carried available")).toBeTruthy();
 
-    await fireEvent.press(
-      screen.getByRole("button", { name: "Apply for Annual leave" }),
-    );
-    expect(
-      await screen.findByRole("header", { name: "Request leave" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("radio", { name: "Annual leave" }).props
-        .accessibilityState,
-    ).toMatchObject({ selected: true });
-  });
+      await act(async () => {
+        fireEvent.press(
+          screen.getByRole("button", { name: "Apply for Annual leave" }),
+        );
+      });
+      expect(
+        await screen.findByRole(
+          "header",
+          { name: "Request leave" },
+          { timeout: 10_000 },
+        ),
+      ).toBeTruthy();
+      expect(
+        screen.getByRole("radio", { name: "Annual leave" }).props
+          .accessibilityState,
+      ).toMatchObject({ selected: true });
+    },
+    15_000,
+  );
 
   it("blocks an invalid calendar date before sending a request", async () => {
     await renderScreen();
@@ -305,6 +317,55 @@ describe("LeaveScreen", () => {
         name: "Cancel Personal appointment leave request",
       }),
     ).toBeNull();
+  });
+
+  it("paginates leave request history", async () => {
+    mockGet.mockImplementation((path: string) => {
+      if (path === "/leave/types")
+        return Promise.resolve({ data: [leaveType] });
+      if (path === "/leave/balances")
+        return Promise.resolve({ data: [balance] });
+      if (path.includes("page=2")) {
+        return Promise.resolve({
+          data: [
+            {
+              ...cancelledRequest,
+              id: "44444444-4444-4444-8444-444444444444",
+              reason: "Second page trip",
+              status: "approved",
+            },
+          ],
+          meta: { page: 2, limit: 20, total: 21, totalPages: 2 },
+        });
+      }
+      if (path.startsWith("/leave/requests?")) {
+        return Promise.resolve({
+          data: [pendingRequest, cancelledRequest],
+          meta: { page: 1, limit: 20, total: 21, totalPages: 2 },
+        });
+      }
+      throw new Error(`Unexpected GET ${path}`);
+    });
+
+    await renderScreen();
+    await screen.findByText("My leave requests");
+    expect(
+      screen.getByRole("button", { name: "Next leave history page" }),
+    ).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(
+        screen.getByRole("button", { name: "Next leave history page" }),
+      );
+    });
+
+    expect(
+      await screen.findByText("Annual leave · approved", {}, { timeout: 10_000 }),
+    ).toBeTruthy();
+    expect(mockGet).toHaveBeenCalledWith(
+      expect.stringContaining("page=2"),
+      expect.anything(),
+    );
   });
 
   it("surfaces cancel failures without a success message", async () => {

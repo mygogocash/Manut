@@ -162,7 +162,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/dashboard",
-      "note": "A universal Expo route foundation exists; behavioral parity is not yet claimed."
+      "note": "Expo wires GET /dashboard/stats for permission-gated KPIs and pending actions; charts, wall, and compose flows remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/dataroom/page.tsx",
@@ -186,7 +186,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/directory",
-      "note": "The universal Expo route now has strict redaction-aware DTOs, live employee search, runtime department filters, pagination, retry, and cache isolation. Detail and org-chart behavior remain before parity can be claimed."
+      "note": "Expo has redaction-aware list/detail plus a read-only org-chart view. Full visual tree parity and sensitive-field org rules remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/docs/page.tsx",
@@ -370,7 +370,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/leave",
-      "note": "The universal Expo route now has strict leave DTOs, exact balance cards, validation, and a functional self-service request dialog. Request history, cancellation, calendar, team/HR actions, and subroutes remain before parity can be claimed."
+      "note": "Expo has balances, request create/cancel, and paginated self history. Calendar, team/HR actions, and leave subroutes remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/policies/page.tsx",
@@ -498,7 +498,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/my-portal",
-      "note": "A universal Expo route foundation exists; behavioral parity is not yet claimed."
+      "note": "Expo hub with profile header, leave balance widgets, and permission-gated deep links; full legacy tab parity not yet claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/office/page.tsx",
@@ -562,7 +562,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/performance",
-      "note": "A universal Expo route foundation exists; behavioral parity is not yet claimed."
+      "note": "Expo read-only appraisals list/detail via app-core; cycles, review submit, and goal writes not yet claimed as parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/policies/page.tsx",
@@ -666,7 +666,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/settings",
-      "note": "The universal Expo route now has authenticated profile reads, public entity projection, pessimistic phone-directory privacy updates, immediate cache redaction, retry, and password navigation. Preferences, integrations, and admin settings remain before parity can be claimed."
+      "note": "Expo has profile/privacy plus local device preferences. Integrations OAuth and admin system settings remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/[id]/page.tsx",

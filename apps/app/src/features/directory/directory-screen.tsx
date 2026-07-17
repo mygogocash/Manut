@@ -1,13 +1,16 @@
 import {
   ApiError,
   DIRECTORY_DEPARTMENTS_QUERY_KEY,
+  DIRECTORY_ORG_CHART_QUERY_KEY,
   directoryDetailQueryKey,
   directoryListQueryKey,
   getDirectoryDepartments,
   getDirectoryEmployee,
+  getDirectoryOrgChart,
   listDirectory,
   type DirectoryEmployee,
   type DirectoryEmployeeDetail,
+  type OrgChartNode,
 } from "@manut/app-core";
 import {
   Button,
@@ -326,9 +329,58 @@ function EmployeeCard({
   );
 }
 
+function OrgChartList({ nodes }: { nodes: OrgChartNode[] }) {
+  const roots = nodes.filter((node) => node.reportingTo === null);
+  const byManager = new Map<string, OrgChartNode[]>();
+  for (const node of nodes) {
+    if (!node.reportingTo) continue;
+    const existing = byManager.get(node.reportingTo) ?? [];
+    existing.push(node);
+    byManager.set(node.reportingTo, existing);
+  }
+
+  function renderBranch(node: OrgChartNode, depth: number) {
+    const reports = byManager.get(node.id) ?? [];
+    return (
+      <View key={node.id} style={{ gap: spacing.sm, marginLeft: depth * 16 }}>
+        <Card title={node.name} description={node.jobTitle ?? "No title"}>
+          <Text selectable style={{ color: colors.textMuted }}>
+            {node.department ?? "No department"}
+            {node.entity ? ` · ${node.entity.name}` : ""}
+          </Text>
+          {reports.length > 0 ? (
+            <Text selectable style={{ color: colors.textMuted }}>
+              Reports: {reports.length}
+            </Text>
+          ) : null}
+        </Card>
+        {reports.map((report) => renderBranch(report, depth + 1))}
+      </View>
+    );
+  }
+
+  if (nodes.length === 0) {
+    return (
+      <Card title="Org chart empty">
+        <Text selectable style={{ color: colors.textMuted }}>
+          No active employees are available for the org chart.
+        </Text>
+      </Card>
+    );
+  }
+
+  const forest = roots.length > 0 ? roots : nodes;
+  return (
+    <View accessibilityLabel="Organization chart" style={{ gap: spacing.md }}>
+      {forest.map((node) => renderBranch(node, 0))}
+    </View>
+  );
+}
+
 export function DirectoryScreen() {
   const api = useApiClient();
   const { hasPermission } = useAuth();
+  const [viewMode, setViewMode] = useState<"list" | "org">("list");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState<string | undefined>();
@@ -354,10 +406,17 @@ export function DirectoryScreen() {
       listDirectory(api, params, signal).finally(() => {
         transitionRef.current = false;
       }),
+    enabled: viewMode === "list",
   });
   const departmentsQuery = useQuery({
     queryKey: DIRECTORY_DEPARTMENTS_QUERY_KEY,
     queryFn: ({ signal }) => getDirectoryDepartments(api, signal),
+    enabled: viewMode === "list",
+  });
+  const orgChartQuery = useQuery({
+    queryKey: DIRECTORY_ORG_CHART_QUERY_KEY,
+    queryFn: ({ signal }) => getDirectoryOrgChart(api, signal),
+    enabled: viewMode === "org",
   });
   const showLimitedDirectoryBanner =
     hasPermission("directory:read") && !canViewSensitive;
@@ -394,148 +453,192 @@ export function DirectoryScreen() {
           </Text>
         </View>
 
-        {showLimitedDirectoryBanner ? (
-          <Card
-            title="Standard directory view"
-            description="Private phone numbers and compensation fields are hidden."
+        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          <FilterChip
+            label="list"
+            selected={viewMode === "list"}
+            onPress={() => setViewMode("list")}
           />
-        ) : null}
+          <FilterChip
+            label="org chart"
+            selected={viewMode === "org"}
+            onPress={() => setViewMode("org")}
+          />
+        </View>
 
-        {directoryQuery.isFetching ? (
-          <StatusMessage tone="warning">
-            Updating directory results…
-          </StatusMessage>
-        ) : null}
-
-        {directoryQuery.data ? (
-          <StatusMessage tone="success">
-            {`Showing ${directoryQuery.data.data.length} of ${directoryQuery.data.meta.total} employees. Page ${directoryQuery.data.meta.page} of ${Math.max(directoryQuery.data.meta.totalPages, 1)}.`}
-          </StatusMessage>
-        ) : null}
-
-        <TextField
-          label="Search directory"
-          placeholder="Name, email, or department"
-          value={search}
-          onChangeText={(next) => {
-            setSearch(next);
-            setPage(1);
-          }}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-        />
-
-        {departmentsQuery.data && departmentsQuery.data.length > 0 ? (
-          <ScrollView
-            horizontal
-            keyboardShouldPersistTaps="handled"
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: spacing.sm }}
-          >
-            <FilterChip
-              label="all departments"
-              selected={!department}
-              disabled={isTransitioning || !department}
-              onPress={() => {
-                startTransition(() => {
-                  setDepartment(undefined);
-                  setPage(1);
-                });
-              }}
-            />
-            {departmentsQuery.data.map((item) => (
-              <FilterChip
-                key={item.name}
-                label={item.name}
-                selected={department === item.name}
-                disabled={isTransitioning || department === item.name}
+        {viewMode === "org" ? (
+          orgChartQuery.isPending ? (
+            <LoadingState label="Loading org chart…" />
+          ) : orgChartQuery.isError ? (
+            <Card title="Org chart unavailable">
+              <StatusMessage>
+                {errorMessage(orgChartQuery.error)}
+              </StatusMessage>
+              <Button
+                label="Retry"
+                pendingLabel="Retrying…"
+                accessibilityLabel="Retry org chart"
+                pending={orgChartQuery.isFetching}
                 onPress={() => {
-                  startTransition(() => {
-                    setDepartment(item.name);
-                    setPage(1);
-                  });
+                  void orgChartQuery.refetch();
                 }}
               />
-            ))}
-          </ScrollView>
+            </Card>
+          ) : (
+            <OrgChartList nodes={orgChartQuery.data ?? []} />
+          )
         ) : null}
 
-        {directoryQuery.isError ? (
-          <Card title="Directory unavailable">
-            <StatusMessage>{errorMessage(directoryQuery.error)}</StatusMessage>
-            <Button
-              label="Retry"
-              pendingLabel="Retrying…"
-              accessibilityLabel="Retry directory"
-              pending={directoryQuery.isFetching}
-              onPress={async () => {
-                await directoryQuery.refetch();
-              }}
-            />
-          </Card>
-        ) : directoryQuery.isPending || !directoryQuery.data ? (
-          <Card
-            title="Loading directory results"
-            description="Your search and filter controls will stay available."
-          />
-        ) : directoryQuery.data.data.length > 0 ? (
-          <View style={{ gap: spacing.md }}>
-            {directoryQuery.data.data.map((employee) => (
-              <EmployeeCard
-                key={employee.id}
-                employee={employee}
-                onOpen={() => setSelectedEmployeeId(employee.id)}
+        {viewMode === "list" ? (
+          <>
+            {showLimitedDirectoryBanner ? (
+              <Card
+                title="Standard directory view"
+                description="Private phone numbers and compensation fields are hidden."
               />
-            ))}
-          </View>
-        ) : (
-          <Card
-            title="No employees found"
-            description="Try a different search or department filter."
-          />
-        )}
+            ) : null}
 
-        {directoryQuery.data ? (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: spacing.md,
-            }}
-          >
-            <Button
-              label="Previous"
-              pendingLabel="Previous"
-              accessibilityLabel="Previous page"
-              disabled={isTransitioning || directoryQuery.data.meta.page <= 1}
-              onPress={() =>
-                startTransition(() =>
-                  setPage((current) => Math.max(1, current - 1)),
-                )
-              }
-              style={{ flex: 1 }}
+            {directoryQuery.isFetching ? (
+              <StatusMessage tone="warning">
+                Updating directory results…
+              </StatusMessage>
+            ) : null}
+
+            {directoryQuery.data ? (
+              <StatusMessage tone="success">
+                {`Showing ${directoryQuery.data.data.length} of ${directoryQuery.data.meta.total} employees. Page ${directoryQuery.data.meta.page} of ${Math.max(directoryQuery.data.meta.totalPages, 1)}.`}
+              </StatusMessage>
+            ) : null}
+
+            <TextField
+              label="Search directory"
+              placeholder="Name, email, or department"
+              value={search}
+              onChangeText={(next) => {
+                setSearch(next);
+                setPage(1);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
             />
-            <Text selectable style={{ color: colors.textMuted }}>
-              Page {directoryQuery.data.meta.page} of{" "}
-              {Math.max(directoryQuery.data.meta.totalPages, 1)}
-            </Text>
-            <Button
-              label="Next"
-              pendingLabel="Next"
-              accessibilityLabel="Next page"
-              disabled={
-                isTransitioning ||
-                directoryQuery.data.meta.page >=
-                  directoryQuery.data.meta.totalPages
-              }
-              onPress={() =>
-                startTransition(() => setPage((current) => current + 1))
-              }
-              style={{ flex: 1 }}
-            />
-          </View>
+
+            {departmentsQuery.data && departmentsQuery.data.length > 0 ? (
+              <ScrollView
+                horizontal
+                keyboardShouldPersistTaps="handled"
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: spacing.sm }}
+              >
+                <FilterChip
+                  label="all departments"
+                  selected={!department}
+                  disabled={isTransitioning || !department}
+                  onPress={() => {
+                    startTransition(() => {
+                      setDepartment(undefined);
+                      setPage(1);
+                    });
+                  }}
+                />
+                {departmentsQuery.data.map((item) => (
+                  <FilterChip
+                    key={item.name}
+                    label={item.name}
+                    selected={department === item.name}
+                    disabled={isTransitioning || department === item.name}
+                    onPress={() => {
+                      startTransition(() => {
+                        setDepartment(item.name);
+                        setPage(1);
+                      });
+                    }}
+                  />
+                ))}
+              </ScrollView>
+            ) : null}
+
+            {directoryQuery.isError ? (
+              <Card title="Directory unavailable">
+                <StatusMessage>
+                  {errorMessage(directoryQuery.error)}
+                </StatusMessage>
+                <Button
+                  label="Retry"
+                  pendingLabel="Retrying…"
+                  accessibilityLabel="Retry directory"
+                  pending={directoryQuery.isFetching}
+                  onPress={async () => {
+                    await directoryQuery.refetch();
+                  }}
+                />
+              </Card>
+            ) : directoryQuery.isPending || !directoryQuery.data ? (
+              <Card
+                title="Loading directory results"
+                description="Your search and filter controls will stay available."
+              />
+            ) : directoryQuery.data.data.length > 0 ? (
+              <View style={{ gap: spacing.md }}>
+                {directoryQuery.data.data.map((employee) => (
+                  <EmployeeCard
+                    key={employee.id}
+                    employee={employee}
+                    onOpen={() => setSelectedEmployeeId(employee.id)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <Card
+                title="No employees found"
+                description="Try a different search or department filter."
+              />
+            )}
+
+            {directoryQuery.data ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: spacing.md,
+                }}
+              >
+                <Button
+                  label="Previous"
+                  pendingLabel="Previous"
+                  accessibilityLabel="Previous page"
+                  disabled={
+                    isTransitioning || directoryQuery.data.meta.page <= 1
+                  }
+                  onPress={() =>
+                    startTransition(() =>
+                      setPage((current) => Math.max(1, current - 1)),
+                    )
+                  }
+                  style={{ flex: 1 }}
+                />
+                <Text selectable style={{ color: colors.textMuted }}>
+                  Page {directoryQuery.data.meta.page} of{" "}
+                  {Math.max(directoryQuery.data.meta.totalPages, 1)}
+                </Text>
+                <Button
+                  label="Next"
+                  pendingLabel="Next"
+                  accessibilityLabel="Next page"
+                  disabled={
+                    isTransitioning ||
+                    directoryQuery.data.meta.page >=
+                      directoryQuery.data.meta.totalPages
+                  }
+                  onPress={() =>
+                    startTransition(() => setPage((current) => current + 1))
+                  }
+                  style={{ flex: 1 }}
+                />
+              </View>
+            ) : null}
+          </>
         ) : null}
       </View>
     </ScrollView>

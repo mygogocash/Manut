@@ -11,18 +11,18 @@ DECLARE
     'document_snapshot_title',
     'document_snapshot_kind'
   ];
-  column_name text;
+  required_column text;
 BEGIN
-  FOREACH column_name IN ARRAY required_columns LOOP
+  FOREACH required_column IN ARRAY required_columns LOOP
     IF NOT EXISTS (
       SELECT 1
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = 'legal_signatures'
-        AND information_schema.columns.column_name = column_name
-        AND is_nullable = 'NO'
+      FROM information_schema.columns AS cols
+      WHERE cols.table_schema = 'public'
+        AND cols.table_name = 'legal_signatures'
+        AND cols.column_name = required_column
+        AND cols.is_nullable = 'NO'
     ) THEN
-      RAISE EXCEPTION 'required immutable artifact column % is missing or nullable', column_name;
+      RAISE EXCEPTION 'required immutable artifact column % is missing or nullable', required_column;
     END IF;
   END LOOP;
 
