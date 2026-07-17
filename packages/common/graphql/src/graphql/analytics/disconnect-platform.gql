@@ -1,3 +1,0 @@
-mutation disconnectPlatform($connectionId: String!) {
-  disconnectPlatform(connectionId: $connectionId)
-}

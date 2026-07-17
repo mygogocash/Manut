@@ -1,8 +1,0 @@
-mutation beginPlatformConnect(
-  $workspaceId: String!
-  $platform: SocialPlatform!
-) {
-  beginPlatformConnect(workspaceId: $workspaceId, platform: $platform) {
-    url
-  }
-}

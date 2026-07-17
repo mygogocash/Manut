@@ -1,3 +1,0 @@
-mutation rateMessage($messageId: String!, $rating: String!) {
-  rateMessage(messageId: $messageId, rating: $rating)
-}
