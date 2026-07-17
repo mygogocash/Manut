@@ -80,3 +80,28 @@ secrets and the independent dedicated-project marker. Never bypass that guard.
   imports, assets, generated output, or deployment configuration.
 - GitHub Actions must be commit-SHA pinned, read-only by default, and must never
   use `pull_request_target`.
+
+## Learned User Preferences
+
+- Use Node `24.18.0` and pnpm `11.13.1` (`source ~/.nvm/nvm.sh && nvm use` /
+  `.nvmrc`) before installs, gates, and package scripts in this repo.
+- When a commit request supplies an authoritative staged-file list, commit only
+  those staged portions — do not stage or include additional files.
+- Never paste raw credential values; report paths or HMACs only.
+- Do not run destructive git cleanup in this worktree (`git reset --hard`,
+  `git checkout --`, `git clean -fd`) or broad publishes (`git push --all`,
+  `git push --mirror`).
+
+## Learned Workspace Facts
+
+- Work only in this clean-room checkout
+  (`manut-intranet-full-hardening`); do not continue in the original
+  audited-source worktree.
+- This checkout is a linked worktree sharing a Git object store with the
+  audited-source tree — unrelated local branches may belong to other worktrees;
+  do not delete them. Scope history and secret scans to the replacement range,
+  not every local ref.
+- Continuation and phase guidance live in `docs/CURSOR_HANDOFF.md` (with
+  `docs/ROUTE_DISPOSITION.md`, `docs/CREDENTIAL_BOUNDARY.md`, and related docs).
+- The configured publish remote for this replacement work is `manut`; use
+  `claude/<slug>` branches (for example `claude/intranet-full-hardening`).
