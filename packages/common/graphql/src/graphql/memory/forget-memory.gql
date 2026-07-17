@@ -1,3 +1,0 @@
-mutation forgetMemory($id: ID!) {
-  forgetMemory(id: $id)
-}

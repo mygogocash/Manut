@@ -1,118 +1,72 @@
-# See http://help.github.com/ignore-files/ for more about ignoring files.
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-.yarn/versions
-
-# compiled output
-*dist
-/tmp
-/out-tsc
-.nyc_output
-.coverage
-.swc
-
 # dependencies
-node_modules
+node_modules/
+.pnpm-store/
 
-# IDEs and editors
-**/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# build output
+dist/
+.next/
+.turbo/
+out/
+.expo/
+.wrangler/
+dist-android/
+dist-ios/
+artifacts/
+bom.cdx.json
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.template.json
-!.vscode/launch.template.json
-!.vscode/extensions.json
+# env files
+.env
+.env.local
+.env.test
+.env.development
+.env.production
+.env.*.local
+.env.production
+.env.development
+.env.e2e
+.env.e2e.local
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 
-# Kiro
-.kiro
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# misc
-/.sass-cache
-/connect.lock
-coverage
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-.pnpm-debug.log
-/typings
-tsconfig.tsbuildinfo
-.context
-/*.md
-!/README.md
-
-# System Files
+# OS
 .DS_Store
 Thumbs.db
 
-# env
-*.env.local
-*.local.env
-.history
+# Prisma
+packages/database/src/generated/
 
-.next
-.vercel
-out/
-storybook-static
+# agents/skills
+skills-lock.json
+.agents/
 
-test-results
-playwright-report
-playwright/.cache
-download
+# debug
+npm-debug.log*
+pnpm-debug.log*
 
-# Cache
-.eslintcache
-next-env.d.ts
-.rollup.cache
+# testing
+coverage/
+playwright-report/
+test-results/
+.playwright/
+blob-report/
+tsconfig.tsbuildinfo
+.cursor
+e2e/.artifacts/
+apps/edge/worker-configuration.d.ts
 
-# Rust
-target
-*.node
-tsconfig.node.tsbuildinfo
-lib
-# manut-landing keeps its data spine (siteConfig, plans, faqs, jsonld) in
-# a project-local lib/ directory. The generic `lib` rule above would
-# silently hide it and break the build. Unignore explicitly.
-!manut-landing/lib/
-!manut-landing/lib/**
-affine.db
-apps/web/next-routes.conf
-.nx
-
-packages/frontend/templates/edgeless
-packages/frontend/core/public/static/templates
-
-# script
-af
-af.cmd
-*.resolved
-
-# playwright
-storageState.json
-.gstack/
-
-# AFFiNE-fork local artifacts
-.claude/worktrees/
-
-# Stale tsc emit shadows .css.ts/.tsx via rspack's resolve.extensions order
-# (.js comes before .tsx). One stray src/**/index.css.js makes vanilla-extract
-# silently skip the styles and React fails to mount. Keep these wiped.
-packages/**/src/**/*.js
-packages/**/src/**/*.js.map
-blocksuite/**/src/**/*.js
-blocksuite/**/src/**/*.js.map
-# Worker entrypoints and other intentional .js files in src (mostly under
-# apps/) are listed here as escape hatches if tsc-emit ever moves elsewhere.
-
-# Manut bug-hunt raw audit dumps (large; contain secret copies — keep local only)
-docs/manut-bughunt/*.json
+# native signing and provider configuration
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+GoogleService-Info.plist
+google-services.json
+credentials.json

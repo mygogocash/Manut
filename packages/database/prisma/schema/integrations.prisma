@@ -1,0 +1,36 @@
+model UserGoogleConnection {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @unique @map("user_id") @db.Uuid
+  accountEmail       String    @map("account_email")
+  accessToken        String    @map("access_token")
+  refreshToken       String    @map("refresh_token")
+  scope              String
+  expiresAt          DateTime  @map("expires_at")
+  tokenType          String    @default("Bearer") @map("token_type")
+  encryptionVersion  Int       @default(1) @map("encryption_version")
+  /// Cursor for the periodic Gmail → Sales CRM sync worker. Each run
+  /// lists messages newer than this timestamp, logs them as
+  /// CrmActivity rows for any matched contact, then advances the
+  /// cursor. Null until the first sync has run for the user — the
+  /// worker seeds it at "24h ago" so first runs don't drown the
+  /// pipeline.
+  lastCrmEmailSyncAt DateTime? @map("last_crm_email_sync_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_google_connections")
+}
+
+model GoogleOauthState {
+  state     String   @id
+  userId    String   @map("user_id") @db.Uuid
+  redirect  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+
+  @@index([userId])
+  @@map("google_oauth_states")
+}

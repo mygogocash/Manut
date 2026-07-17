@@ -1,0 +1,267 @@
+model LegalDocument {
+  id                    String    @id @default(uuid()) @db.Uuid
+  title                 String
+  // 'license' | 'agreement' | 'nda' | 'policy' | 'other'
+  kind                  String
+  // contract / licence number, internal reference
+  reference             String?
+  // free-text counterparty names (legal hates rigid party tables here)
+  parties               String[]
+  ownerId               String?   @map("owner_id") @db.Uuid
+  entityId              String?   @map("entity_id")
+  effectiveDate         DateTime? @map("effective_date") @db.Date
+  expiryDate            DateTime? @map("expiry_date") @db.Date
+  // days before expiry to start nagging the owner
+  renewalLeadDays       Int       @default(30) @map("renewal_lead_days")
+  // 'active' | 'expired' | 'archived' | 'draft'
+  status                String    @default("active")
+  fileUrl               String?   @map("file_url")
+  fileName              String?   @map("file_name")
+  // The only signing workflow allowed to complete this document. This CAS
+  // boundary prevents an older batch from marking a newer batch complete.
+  currentSigningBatchId String?   @map("current_signing_batch_id") @db.Uuid
+  // Free-text grouping label so legal can organise documents into
+  // folders ("Token Agreements", "Service Contracts", "NDAs", …).
+  // Nullable — un-foldered rows show up under an "Ungrouped" bucket.
+  folder                String?
+  // Alert category for the configurable Legal notification settings
+  // (2026-06-12): contract_expiry | contract_review | initial_drafting
+  // | licence_renewal | compliance_filing | counterparty_review. Null =
+  // untagged → excluded from the alert digest.
+  alertCategory         String?   @map("alert_category")
+  notes                 String?
+  // Visibility controls who outside the Legal team can see this row.
+  // 'private'  — only users with legal:read (current behaviour).
+  // 'public'   — every active employee (with legal:view-shared).
+  // 'restricted' — only people / departments / groups listed in
+  //              `shares`, plus the document's owner.
+  visibility            String    @default("private")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  owner       User?                     @relation("LegalDocumentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  entity      Entity?                   @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  signatures  LegalSignature[]
+  attachments LegalDocumentAttachment[]
+  shares      LegalDocumentShare[]
+
+  @@index([expiryDate])
+  @@index([kind, status])
+  @@index([entityId])
+  @@index([folder])
+  @@index([visibility])
+  @@index([currentSigningBatchId])
+  @@map("legal_documents")
+}
+
+// Sharing grants for legal documents whose visibility is "restricted".
+// Each row is one of:
+//   - user share       (`type = 'user'`,       `userId` set)
+//   - department share (`type = 'department'`, `department` set)
+//   - group share      (`type = 'group'`,      `groupId` set)
+// (`visibility = 'public'` documents do not need rows here — every
+// employee gets read access by the visibility check alone.)
+model LegalDocumentShare {
+  id          String   @id @default(uuid()) @db.Uuid
+  documentId  String   @map("document_id") @db.Uuid
+  type        String
+  userId      String?  @map("user_id") @db.Uuid
+  department  String?
+  groupId     String?  @map("group_id") @db.Uuid
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  document  LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user      User?         @relation("LegalDocumentShareUser", fields: [userId], references: [id], onDelete: Cascade)
+  group     UserGroup?    @relation("LegalDocumentShareGroup", fields: [groupId], references: [id], onDelete: Cascade)
+  createdBy User?         @relation("LegalDocumentShareCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([userId])
+  @@index([department])
+  @@index([groupId])
+  @@map("legal_document_shares")
+}
+
+// Supporting documents that extend a parent LegalDocument as a single
+// contract set — addenda, amendments, renewal letters, signed PDFs
+// returned from outside the system, etc. The main agreement keeps its
+// primary file on `LegalDocument.fileUrl`; this table holds everything
+// else. Each attachment can carry its own optional `effectiveDate` and
+// `expiryDate`; the service layer computes an "effective expiry" for
+// the parent document as max(parent.expiryDate, max(attachment.expiryDate)).
+model LegalDocumentAttachment {
+  id            String    @id @default(uuid()) @db.Uuid
+  documentId    String    @map("document_id") @db.Uuid
+  // 'addendum' | 'amendment' | 'renewal' | 'signed-pdf' | 'supplement' | 'other'
+  kind          String    @default("other")
+  // Free-text label, e.g. "Addendum No. 1 - signed 2026-04-30".
+  label         String?
+  fileUrl       String    @map("file_url")
+  fileName      String    @map("file_name")
+  effectiveDate DateTime? @map("effective_date") @db.Date
+  expiryDate    DateTime? @map("expiry_date") @db.Date
+  notes         String?
+  uploadedById  String?   @map("uploaded_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  document   LegalDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy User?         @relation("LegalDocAttachmentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([expiryDate])
+  @@map("legal_document_attachments")
+}
+
+model LegalSignature {
+  id                       String    @id @default(uuid()) @db.Uuid
+  documentId               String    @map("document_id") @db.Uuid
+  // One workflow can contain sequential or parallel recipients. Keeping a
+  // stable batch boundary prevents historical/cancelled requests on the same
+  // document from blocking the active workflow.
+  batchId                  String    @default(uuid()) @map("batch_id") @db.Uuid
+  // External signer identity for this in-house signing workflow.
+  signerEmail              String    @map("signer_email")
+  signerName               String    @map("signer_name")
+  // Random token used for the public /sign/:token URL. Generated server-side.
+  token                    String    @unique
+  // 'pending' | 'sent' | 'viewed' | 'signed' | 'declined' | 'cancelled'
+  status                   String    @default("pending")
+  // Plain message included in the invite email body.
+  inviteMessage            String?   @map("invite_message")
+  sentAt                   DateTime? @map("sent_at")
+  viewedAt                 DateTime? @map("viewed_at")
+  signedAt                 DateTime? @map("signed_at")
+  declinedAt               DateTime? @map("declined_at")
+  declineReason            String?   @map("decline_reason")
+  // Typed signature value (the signer's typed full name) and the method
+  // they used. v1 is "typed"; v2 may add "drawn" with a stored image URL.
+  signatureText            String?   @map("signature_text")
+  signatureMethod          String?   @map("signature_method")
+  // Audit trail captured when the signer hits Sign.
+  signedIp                 String?   @map("signed_ip")
+  signedUserAgent          String?   @map("signed_user_agent")
+  // Optional invite expiry — null = no expiry.
+  expiresAt                DateTime? @map("expires_at")
+  // 1-based recipient routing order. Equal numbers sign in parallel.
+  signingOrder             Int       @default(1) @map("signing_order")
+  // Optional retained signed-document record. This stays provider-neutral
+  // so completed legal evidence can be preserved independently of the flow.
+  signedPdfUrl             String?   @map("signed_pdf_url")
+  // Immutable artifact identity captured before invitations are created.
+  // Public signing reads this path (never LegalDocument.fileUrl) and verifies
+  // the bytes against the stored SHA-256 before issuing a download URL.
+  documentSnapshotBucket   String    @map("document_snapshot_bucket")
+  documentSnapshotPath     String    @map("document_snapshot_path")
+  documentSnapshotUploadId String    @map("document_snapshot_upload_id") @db.Uuid
+  documentSnapshotSha256   String    @map("document_snapshot_sha256") @db.VarChar(64)
+  documentSnapshotSize     Int       @map("document_snapshot_size")
+  documentSnapshotMimeType String    @map("document_snapshot_mime_type")
+  documentSnapshotFileName String    @map("document_snapshot_file_name")
+  documentSnapshotTitle    String    @map("document_snapshot_title")
+  documentSnapshotKind     String    @map("document_snapshot_kind")
+  createdById              String    @map("created_by_id") @db.Uuid
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  document               LegalDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  createdBy              User          @relation("LegalSignatureCreator", fields: [createdById], references: [id])
+  documentSnapshotUpload FileUpload    @relation("LegalSignatureDocumentSnapshot", fields: [documentSnapshotUploadId], references: [id], onDelete: Restrict)
+
+  @@index([documentId])
+  @@index([documentId, batchId])
+  @@index([documentSnapshotUploadId])
+  @@index([status])
+  @@index([token])
+  @@map("legal_signatures")
+}
+
+// Legal notice board — official internal announcements published by
+// the legal / compliance team (changes in authorised persons, employee
+// handbook updates, company-wide policies, etc.). Distinct from
+// `CompanyNews` (social) and `WallPost` (chatter) so we can enforce
+// required acknowledgments and keep an audit trail for compliance.
+model LegalAnnouncement {
+  id          String    @id @default(uuid()) @db.Uuid
+  title       String
+  // Rich text body (TipTap HTML), same renderer as company news.
+  body        String
+  // 'policy' | 'authorized-persons' | 'handbook' | 'compliance' | 'other'
+  kind        String    @default("other")
+  // Optional entity scope — NULL means visible to every employee.
+  entityId    String?   @map("entity_id")
+  // 'draft' | 'published' | 'archived'
+  status      String    @default("draft")
+  publishedAt DateTime? @map("published_at")
+  // After this date the announcement is still readable but no longer
+  // counted as outstanding. NULL = no auto-expiry.
+  expiresAt   DateTime? @map("expires_at")
+  // When true, employees in scope are tracked and the dashboard
+  // surfaces a banner until they acknowledge.
+  requiresAck Boolean   @default(false) @map("requires_ack")
+  pinned      Boolean   @default(false)
+  authorId    String    @map("author_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  entity      Entity?                       @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  author      User                          @relation("LegalAnnouncementAuthor", fields: [authorId], references: [id])
+  attachments LegalAnnouncementAttachment[]
+  acks        LegalAnnouncementAck[]
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([entityId])
+  @@index([kind])
+  @@map("legal_announcements")
+}
+
+model LegalAnnouncementAttachment {
+  id             String   @id @default(uuid()) @db.Uuid
+  announcementId String   @map("announcement_id") @db.Uuid
+  fileUrl        String   @map("file_url")
+  fileName       String   @map("file_name")
+  uploadedAt     DateTime @default(now()) @map("uploaded_at")
+
+  announcement LegalAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@map("legal_announcement_attachments")
+}
+
+// One row per employee who marked the announcement as read. The
+// composite primary key makes the ack idempotent and the indexed
+// `userId` lets us answer "what announcements does this user still
+// need to ack" cheaply.
+model LegalAnnouncementAck {
+  announcementId String   @map("announcement_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  ackedAt        DateTime @default(now()) @map("acked_at")
+  ackedIp        String?  @map("acked_ip")
+
+  announcement LegalAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         User              @relation("LegalAnnouncementAcker", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, userId])
+  @@index([userId])
+  @@map("legal_announcement_acks")
+}
+
+// Configurable Legal notification settings (2026-06-12) — singleton row
+// (the unique `singleton` enforces one). The expiry-alert digest fans out
+// to `recipients` (replacing the old per-owner emails) and includes only
+// documents whose `alertCategory` toggle below is enabled. Mirrors the IT
+// Helpdesk settings pattern.
+model LegalNotificationSettings {
+  id                       String   @id @default(uuid()) @db.Uuid
+  singleton                Boolean  @unique @default(true)
+  recipients               String[] @default([])
+  notifyContractExpiry     Boolean  @default(true) @map("notify_contract_expiry")
+  notifyContractReview     Boolean  @default(true) @map("notify_contract_review")
+  notifyInitialDrafting    Boolean  @default(true) @map("notify_initial_drafting")
+  notifyLicenceRenewal     Boolean  @default(true) @map("notify_licence_renewal")
+  notifyComplianceFiling   Boolean  @default(true) @map("notify_compliance_filing")
+  notifyCounterpartyReview Boolean  @default(true) @map("notify_counterparty_review")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@map("legal_notification_settings")
+}

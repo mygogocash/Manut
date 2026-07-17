@@ -1,171 +1,65 @@
-<div align="center">
+# Manut Intranet
 
-# Manut
+Manut Intranet is a private employee operations platform. This repository is
+web-first today and intentionally uses an Expo universal application so the
+same screens, domain services, authentication decisions, and route policies can
+ship to Android and iOS later without a second frontend rewrite.
 
-**AI-powered knowledge base. Agents, avatars, and Vertex AI on top of AFFiNE.**
+## Architecture
 
-[Live demo](https://manut.gogocash.co) · [Issues](https://github.com/mygogocash/Manut/issues) · [Upstream AFFiNE](https://github.com/toeverything/AFFiNE)
+| Layer               | Current responsibility                                          | Direction                                                               |
+| ------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `apps/app`          | Expo Router universal web/native shell                          | Primary frontend                                                        |
+| `packages/app-core` | Platform-neutral auth, API, and RBAC contracts                  | Shared by web, Android, and iOS                                         |
+| `packages/ui`       | Universal React Native tokens and components                    | Shared by web, Android, and iOS                                         |
+| `apps/edge`         | Cloudflare Worker, static assets, security headers, API gateway | Public request boundary                                                 |
+| `apps/api`          | Strict TypeScript business API                                  | Runs behind the gateway; Node-only work moves to a Cloudflare Container |
+| `apps/web`          | Existing Next.js parity reference                               | Retired route-by-route after Expo acceptance                            |
+| `packages/database` | Prisma schema and immutable migration baseline                  | Postgres through Cloudflare Hyperdrive                                  |
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Rust](https://img.shields.io/badge/Rust-1.94+-000000?logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+Cloudflare R2 is the file-storage target. Durable Objects own reconnectable
+state, Queues/Workflows own asynchronous jobs, and D1 may hold edge-local
+coordination data only; Postgres remains the authoritative business database.
 
-</div>
-
----
-
-## What is Manut
-
-Manut is GoGoCash's fork of [AFFiNE](https://github.com/toeverything/AFFiNE) 0.26.3 — a privacy-first, open-source workspace where docs, whiteboards, and tables hyper-merge into one canvas. On top of upstream AFFiNE, Manut adds:
-
-- **Projects, CRM, and Reminders (v0)** — three new workspace modules in the sidebar (`/projects`, `/crm`, `/reminders`). Projects show expandable cards with inline tasks (status/priority/dueAt). CRM has Accounts/Contacts/Deals/Activities tabs. Reminders has Due now/Upcoming/Done tabs. All backed by gated GraphQL APIs.
-- **Agents (Beta)** — Notion-style agents in the sidebar, Perplexity-style agent detail page. Per-agent description, instructions, files, skills, links, and sub-agents that report up.
-- **Picrew-style avatars** — 8-tab 2D character builder (Hair · Accessory · Eyes · Brow · Mouth · Facial Hair · Clothes · Skin) for AI agents, persisted as JSONB.
-- **Vertex AI integration** — Anthropic Claude + Google Gemini through one service account. The URL builder now includes the `/projects/{project}/locations/{location}` prefix (fixes `RESOURCE_PROJECT_INVALID`).
-- **Frontier model picker** — 10 model entries on `optionalModels` covering Gemini 2.5/3.1, Claude Sonnet 4/4.5/Opus 4, and Llama 4 Scout/Maverick on Vertex Model Garden. Moonshot, xAI, and Alibaba provider implementations also ship in v1.12.0 (off by default — enable via provider config).
-- **Gmail and Drive integration** — live import of Gmail messages into AFFiNE docs and a Drive file picker; OAuth tokens refreshed automatically with a 5-minute leeway.
-- **Self-host AI unlock** — model picker no longer locks Pro models on self-hosted instances. No subscription gate on `setModel`. Seat-cap lifted on self-hosted via `QuotaService.getWorkspaceQuota`.
-- **Notion-style chat composer** — suggested prompts render in a grid _below_ the chat input, not stacked above.
-- **Slash menu fix** — `affine:note` no longer crashes the slash menu with a duplicate-id error (`addFactory({ override: true })`).
-- **Native binary rebuild** — `server-native.x64.node` rebuilt with full LLM dispatch (`llm_dispatch_stream`) for AI streaming.
-
-## Live demo
-
-[https://manut.gogocash.co](https://manut.gogocash.co)
-
-## Tech stack
-
-| Layer        | Tech                                                            |
-| ------------ | --------------------------------------------------------------- |
-| **Frontend** | React 19 · BlockSuite · Lit · vanilla-extract · rspack          |
-| **Backend**  | NestJS · GraphQL · Prisma · PostgreSQL · Redis                  |
-| **AI**       | Vertex AI (Anthropic Claude + Google Gemini) · Manticore search |
-| **Native**   | Rust 1.94 + napi-rs (`server-native.{x64,arm64}.node`)          |
-| **Infra**    | Docker buildx (linux/amd64) · GCE · Caddy · Cloudflare          |
-
-## Self-host with Docker
-
-```yaml
-# compose.yml — minimal
-services:
-  affine_server:
-    image: asia-southeast1-docker.pkg.dev/affine-495114/affine/affine-gogocash:v1.12.0
-    depends_on: [postgres, redis]
-    environment:
-      DATABASE_URL: postgres://affine:affine@postgres:5432/affine
-      REDIS_SERVER_HOST: redis
-      AFFINE_CONFIG_PATH: /root/.affine/config
-    volumes:
-      - ./config:/root/.affine/config
-    ports:
-      - '3010:3010'
-
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: affine
-      POSTGRES_PASSWORD: affine
-      POSTGRES_DB: affine
-    volumes:
-      - ./pg-data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:7-alpine
-```
-
-For the full reference compose (with Caddy reverse proxy + Vertex config), see [`.docker/manut/`](.docker/manut/).
-
-### Vertex AI configuration
-
-Drop a service-account JSON at `./config/affine-config/google-auth.json` and set in `config.json`:
-
-```json
-{
-  "copilot": {
-    "providers": {
-      "geminiVertex": { "project": "your-gcp-project", "location": "us-central1" },
-      "anthropicVertex": { "project": "your-gcp-project", "location": "us-east5" }
-    }
-  }
-}
-```
-
-## Build from source
+## Local development
 
 ```bash
-# Prereqs: Node 22, Yarn 4.13, Rust 1.94+, Docker, pkg-config, openssl
-git clone https://github.com/mygogocash/Manut.git
-cd Manut
-
 corepack enable
-yarn install
-yarn affine init
-yarn build
-
-# Build the linux/amd64 image
-docker buildx build --platform linux/amd64 \
-  --no-cache \
-  -f .docker/manut/Dockerfile.fullstack \
-  -t manut:local .
+pnpm install --frozen-lockfile
+cp .env.example .env
+pnpm db:generate
+pnpm dev
 ```
 
-The Dockerfile expects pre-built artifacts:
+Useful focused commands:
 
-- `packages/backend/server/dist/main.js`
-- `packages/backend/server/dist/server-native.{x64,arm64,armv7}.node`
-- `packages/frontend/apps/web/dist/`
-- `packages/frontend/admin/dist/`
-- `packages/frontend/apps/mobile/dist/`
-
-Run `yarn build` (or the relevant per-package build) to produce these before `docker buildx build`.
-
-## What's NOT changed from upstream
-
-Manut tracks upstream AFFiNE closely. Untouched areas include:
-
-- BlockSuite editor + whiteboard core
-- Workspace sync (Y.js / WebRTC)
-- All upstream block types (text, code, image, attachment, embed, database, etc.)
-- Auth flow + OAuth providers
-- Mobile app
-
-## Repo layout
-
-```
-.
-├── packages/
-│   ├── backend/
-│   │   ├── server/        ← NestJS + Prisma + GraphQL
-│   │   └── native/        ← Rust napi-rs (server-native.*.node)
-│   └── frontend/
-│       ├── apps/
-│       │   ├── web/       ← Main desktop SPA
-│       │   ├── mobile/    ← Mobile bundle
-│       │   └── electron/  ← Desktop app
-│       ├── admin/         ← Admin panel
-│       └── core/          ← Shared modules (agents/, ai-button/, blocksuite/...)
-├── blocksuite/            ← BlockSuite editor (vendored, modified)
-├── tools/                 ← Build / CI / dev scripts
-└── .docker/manut/         ← Manut Docker recipes
+```bash
+pnpm dev:app          # Expo universal app
+pnpm dev:api          # business API
+pnpm dev:edge         # Cloudflare gateway
+pnpm --filter @manut/app export:web
+pnpm --filter @manut/app export:ios
+pnpm --filter @manut/app export:android
 ```
 
-## Roadmap
+## Verification
 
-- [ ] PM/CRM/Reminders v1 — detail and edit views, Kanban for tasks and deals, reminder rules editor with repeat schedules, drag-drop reordering, bulk operations and CSV import/export
-- [ ] Knowledge Graph brain redesign — multi-lobe layout with curved Bezier dendrite edges, synaptic pulses on AI doc-reads via a `DocReadEventBus` and per-workspace SSE stream
-- [ ] ARM64 native binary (currently x64-only — `ring` crate cross-compile blocker)
-- [ ] Migrate the Picrew avatar picker to use server-side rendering for SEO
-- [ ] Agent → Skills marketplace (per-skill schema + sandbox)
-- [ ] Sub-agent execution graph (DAG + per-step audit trail)
-- [ ] Hosted multi-tenant deployment
+Every pull request must pass generated database types, strict API and root
+TypeScript, zero-warning lint, unit tests, web bundle limits, migration safety,
+credential/Gitleaks scans, and authenticated Playwright tests against the
+dedicated E2E project.
 
-## Credits
+Continue implementation from the canonical
+[Cursor handoff](docs/CURSOR_HANDOFF.md). See also the
+[credential boundary](docs/CREDENTIAL_BOUNDARY.md),
+[repository migration](docs/REPOSITORY_MIGRATION.md),
+[authentication and RBAC](docs/AUTH_RBAC.md), and
+[dependency upgrade scope](docs/DEPENDENCY_UPGRADE_SCOPE.md).
 
-Manut stands on the shoulders of [AFFiNE](https://github.com/toeverything/AFFiNE) by [toeverything](https://github.com/toeverything). All upstream features and contributors are credited there. We rebase on upstream regularly and keep the diff minimal.
+## Deployment boundary
 
-Avatar rendering uses [`avataaars@2.0.0`](https://github.com/fangpenlin/avataaars) (MIT).
-
-## License
-
-MIT — same as upstream AFFiNE. See [LICENSE](LICENSE).
+No application deployment is active in this migration. The disabled workflow
+stubs are documentation only. This repository does not change domains,
+databases, the running `manut.xyz` service, or production infrastructure.
+Cloudflare enablement and any mobile-store release require separate reviewed
+cutovers with newly issued Manut credentials.

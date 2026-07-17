@@ -1,0 +1,469 @@
+model ChartOfAccount {
+  id        String    @id @default(cuid())
+  entityId  String    @map("entity_id")
+  code      String    @db.VarChar(20)
+  name      String
+  nameTh    String?   @map("name_th")
+  type      String
+  parentId  String?   @map("parent_id")
+  balance   Decimal   @default(0) @db.Decimal(18, 2)
+  isActive  Boolean   @default(true) @map("is_active")
+  deletedAt DateTime? @map("deleted_at")
+
+  entity        Entity             @relation(fields: [entityId], references: [id])
+  parent        ChartOfAccount?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children      ChartOfAccount[]   @relation("AccountHierarchy")
+  journalLines  JournalEntryLine[]
+  bankSuggested BankTransaction[]  @relation("BankSuggested")
+  bankMapped    BankTransaction[]  @relation("BankMapped")
+
+  @@unique([entityId, code])
+  @@map("chart_of_accounts")
+}
+
+model JournalEntry {
+  id            String    @id @default(cuid())
+  entityId      String    @map("entity_id")
+  entryNo       String    @map("entry_no")
+  date          DateTime  @db.Date
+  description   String?
+  // Thai-language mirror of `description`. HR/admin imports the GL
+  // twice — once per language — and the importer fills whichever
+  // column matches the chosen language. UI flips between the two via
+  // a toggle. Null on rows that have only been imported in the other
+  // language so far.
+  descriptionTh String?   @map("description_th")
+  reference     String?
+  status        String    @default("draft")
+  fromExpense   String?   @map("from_expense") @db.Uuid
+  createdBy     String    @map("created_by") @db.Uuid
+  approvedBy    String?   @map("approved_by") @db.Uuid
+  approvedAt    DateTime? @map("approved_at")
+  postedAt      DateTime? @map("posted_at")
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  entity   Entity             @relation(fields: [entityId], references: [id])
+  creator  User               @relation("JournalCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  approver User?              @relation("JournalApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  lines    JournalEntryLine[]
+  invoices Invoice[]
+
+  @@index([entityId, status])
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id        String  @id @default(uuid()) @db.Uuid
+  entryId   String  @map("entry_id")
+  accountId String  @map("account_id")
+  debit     Decimal @default(0) @db.Decimal(18, 2)
+  credit    Decimal @default(0) @db.Decimal(18, 2)
+  memo      String?
+
+  entry   JournalEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account ChartOfAccount @relation(fields: [accountId], references: [id])
+
+  @@index([entryId])
+  @@map("journal_entry_lines")
+}
+
+model Invoice {
+  id           String    @id @default(cuid())
+  entityId     String    @map("entity_id")
+  invoiceNo    String    @map("invoice_no")
+  type         String
+  counterparty String
+  amount       Decimal   @db.Decimal(15, 2)
+  currency     String
+  issueDate    DateTime  @map("issue_date") @db.Date
+  dueDate      DateTime  @map("due_date") @db.Date
+  paidDate     DateTime? @map("paid_date") @db.Date
+  status       String    @default("draft")
+  linkedJeId   String?   @map("linked_je_id")
+  notes        String?
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  entity   Entity        @relation(fields: [entityId], references: [id])
+  linkedJe JournalEntry? @relation(fields: [linkedJeId], references: [id])
+
+  @@unique([entityId, invoiceNo])
+  @@map("invoices")
+}
+
+model BankTransaction {
+  id               String   @id @default(uuid()) @db.Uuid
+  entityId         String   @map("entity_id")
+  date             DateTime @db.Date
+  description      String
+  amount           Decimal  @db.Decimal(15, 2)
+  balance          Decimal? @db.Decimal(15, 2)
+  reference        String?
+  bankAccount      String?  @map("bank_account")
+  suggestedAccount String?  @map("suggested_account")
+  mappedAccount    String?  @map("mapped_account")
+  jeRef            String?  @map("je_ref")
+  status           String   @default("unmatched")
+  importedAt       DateTime @default(now()) @map("imported_at")
+
+  entity    Entity          @relation(fields: [entityId], references: [id])
+  suggested ChartOfAccount? @relation("BankSuggested", fields: [suggestedAccount], references: [id])
+  mapped    ChartOfAccount? @relation("BankMapped", fields: [mappedAccount], references: [id])
+
+  @@index([entityId, date])
+  @@map("bank_transactions")
+}
+
+model ExchangeRate {
+  id            String   @id @default(uuid()) @db.Uuid
+  baseCurrency  String   @map("base_currency") @db.VarChar(10)
+  currency      String   @db.VarChar(10)
+  rate          Decimal  @db.Decimal(18, 8)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  source        String?  @db.VarChar(50) // manual, api, import
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([baseCurrency, currency, effectiveDate])
+  @@index([baseCurrency, currency])
+  @@map("exchange_rates")
+}
+
+model ExpenseCategory {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  glAccountId     String?  @map("gl_account_id")
+  isActive        Boolean  @default(true) @map("is_active")
+  spendingLimit   Decimal? @map("spending_limit") @db.Decimal(15, 2)
+  limitPeriod     String?  @map("limit_period") @db.VarChar(20) // monthly, quarterly, yearly
+  receiptRequired Boolean  @default(false) @map("receipt_required")
+  // Allowance categories (e.g. Thailand Travel, Phone Bill) bypass the
+  // manager-approval chain on submit. The report short-circuits to
+  // `reimbursed` and the finance-desk recipients (HR/finance admin)
+  // receive a one-row notification email instead of
+  // landing in someone's approver inbox.
+  isAllowance     Boolean  @default(false) @map("is_allowance")
+
+  expenses         Expense[]         @relation("ExpenseCategory")
+  cashAdvanceItems CashAdvanceItem[]
+
+  @@map("expense_categories")
+}
+
+// Vendors / clients / suppliers / contacts directory. Mirrors the
+// vendor/contact import format used by finance exports. Records are
+// entity-scoped so the same shape supports multiple entities.
+model Vendor {
+  id               String   @id @default(uuid()) @db.Uuid
+  entityId         String   @map("entity_id")
+  // 'Supplier' | 'Client' | 'Client, Supplier' | 'Individual' | 'Cash Sale' etc.
+  contactType      String?  @map("contact_type")
+  // Free-text contact code from an import (e.g. "AC0001"). Not unique
+  // because imported identifiers can overlap across entities.
+  contactId        String?  @map("contact_id")
+  // 'Corporation' | 'Individual' | 'Foreign' (free text — source may add new buckets).
+  businessType     String?  @map("business_type")
+  businessLocation String?  @map("business_location")
+  name             String
+  addressTh        String?  @map("address_th")
+  addressEn        String?  @map("address_en")
+  address2         String?
+  address3         String?
+  zipCode          String?  @map("zip_code")
+  taxId            String?  @map("tax_id")
+  branchCode       String?  @map("branch_code")
+  branch           String?
+  contactName      String?  @map("contact_name")
+  email            String?
+  mobile           String?
+  creditDays       Int?     @map("credit_days")
+  phone            String?
+  faxNumber        String?  @map("fax_number")
+  notes            String?
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  entity Entity @relation(fields: [entityId], references: [id])
+
+  @@index([entityId, isActive])
+  @@index([entityId, name])
+  @@index([contactId])
+  @@index([taxId])
+  @@map("vendors")
+}
+
+/// Cash Advance Request — employee asks HR / finance for an advance
+/// (typically against future salary) so they can pay something now
+/// and clear receipts later. Mirrors the company's existing Excel
+/// form: header (employee + bank/cash mode), line items (each with
+/// requested + approved amount), and an approval trail.
+///
+/// Status lifecycle:
+///   draft → submitted → approved → disbursed → cleared
+///                    └→ rejected
+///
+/// `approvedTotal` is the sum of `approvedAmount` across items at
+/// approve time. Snapshotted on the request row so finance reports
+/// don't re-aggregate from line items.
+model CashAdvanceRequest {
+  id                   String    @id @default(uuid()) @db.Uuid
+  /// Friendly serial for UI / email subjects (CA-123). UUID stays
+  /// primary key so URLs don't leak ordering.
+  requestNumber        Int       @unique @default(autoincrement()) @map("request_number")
+  employeeId           String    @map("employee_id") @db.Uuid
+  entityId             String?   @map("entity_id")
+  requestDate          DateTime  @default(now()) @map("request_date") @db.Date
+  position             String?
+  department           String?
+  directManager        String?   @map("direct_manager")
+  /// 'cash' | 'bank-transfer' — drives which bank fields are required.
+  payoutMode           String    @default("bank-transfer") @map("payout_mode")
+  bankName             String?   @map("bank_name")
+  bankCountry          String?   @map("bank_country")
+  bankAccountNo        String?   @map("bank_account_no")
+  swiftCode            String?   @map("swift_code")
+  currency             String    @default("THB") @db.VarChar(10)
+  /// 'draft' | 'submitted' | 'approved' | 'rejected' | 'disbursed' | 'cleared'
+  /// While in the approval chain the request stays 'submitted' and
+  /// `currentStepOrder` points at the pending step.
+  status               String    @default("draft")
+  currentStepOrder     Int?      @map("current_step_order")
+  requestedTotal       Decimal   @default(0) @map("requested_total") @db.Decimal(15, 2)
+  approvedTotal        Decimal   @default(0) @map("approved_total") @db.Decimal(15, 2)
+  notes                String?
+  rejectReason         String?   @map("reject_reason")
+  submittedAt          DateTime? @map("submitted_at")
+  approvedById         String?   @map("approved_by") @db.Uuid
+  approvedAt           DateTime? @map("approved_at")
+  disbursedAt          DateTime? @map("disbursed_at")
+  /// Finance-uploaded payout proof (bank slip, transfer receipt, etc.)
+  /// required before marking disbursed. Stored in the private
+  /// `documents` bucket; served via a signed-URL route.
+  disbursementProofUrl      String?   @map("disbursement_proof_url")
+  disbursementProofUploadId String?   @unique(map: "cash_advance_requests_disbursement_proof_upload_id_key") @map("disbursement_proof_upload_id") @db.Uuid
+  clearedAt                 DateTime? @map("cleared_at")
+  deletedAt                 DateTime? @map("deleted_at")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  employee                 User                          @relation("CashAdvanceRequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  entity                   Entity?                       @relation("CashAdvanceRequestEntity", fields: [entityId], references: [id], onDelete: SetNull)
+  approver                 User?                         @relation("CashAdvanceRequestApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  disbursementProofUpload  FileUpload?                   @relation("CashAdvanceDisbursementProof", fields: [disbursementProofUploadId], references: [id], onDelete: Restrict)
+  items                    CashAdvanceItem[]
+  approvalDecisions        CashAdvanceApprovalDecision[]
+
+  @@index([employeeId, status])
+  @@index([entityId])
+  @@index([status])
+  @@index([requestDate])
+  @@index([deletedAt])
+  @@map("cash_advance_requests")
+}
+
+/// Configurable approval-chain step for cash advances (mirrors
+/// TravelApprovalStep). Steps run in `order`; each carries optional
+/// conditions — amount band (compared against requestedTotal in the
+/// request's own currency), submitter skip/only-when, and payout-mode
+/// filter — so a step only fires when its conditions match.
+model CashAdvanceApprovalStep {
+  id                   String   @id @default(uuid()) @db.Uuid
+  order                Int      @unique
+  name                 String   @db.VarChar(100)
+  description          String?
+  /// 'manager' (employee.reportingTo) | 'user' (fixed approverUserId)
+  approverType         String   @default("manager") @map("approver_type")
+  approverUserId       String?  @map("approver_user_id") @db.Uuid
+  skipWhenSubmitterIds Json     @default("[]") @map("skip_when_submitter_ids")
+  onlyWhenSubmitterIds Json     @default("[]") @map("only_when_submitter_ids")
+  /// [] = any payout mode, else subset of 'cash' | 'bank-transfer'
+  payoutModeFilter     Json     @default("[]") @map("payout_mode_filter")
+  amountMin            Decimal? @map("amount_min") @db.Decimal(15, 2)
+  amountMax            Decimal? @map("amount_max") @db.Decimal(15, 2)
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  approverUser User? @relation("CashAdvanceApprovalStepUser", fields: [approverUserId], references: [id], onDelete: SetNull)
+
+  @@map("cash_advance_approval_steps")
+}
+
+/// Per-request snapshot of a chain step + its decision (mirrors
+/// TravelApprovalDecision). status: pending | approved | rejected.
+model CashAdvanceApprovalDecision {
+  id             String    @id @default(uuid()) @db.Uuid
+  requestId      String    @map("cash_advance_request_id") @db.Uuid
+  order          Int
+  name           String    @db.VarChar(100)
+  approverType   String    @map("approver_type")
+  approverUserId String?   @map("approver_user_id") @db.Uuid
+  status         String    @default("pending")
+  decidedById    String?   @map("decided_by_id") @db.Uuid
+  decidedAt      DateTime? @map("decided_at")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  request      CashAdvanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approverUser User?              @relation("CashAdvanceApprovalDecisionApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
+  decidedBy    User?              @relation("CashAdvanceApprovalDecisionDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([requestId, order])
+  @@index([approverUserId, status])
+  @@index([requestId])
+  @@map("cash_advance_approval_decisions")
+}
+
+/// Line item under a cash-advance request. `requestedAmount` is what
+/// the employee asked for; `approvedAmount` is what HR / finance
+/// actually authorises (may be lower). Stored as Decimal so the
+/// running total never drifts due to FP rounding.
+model CashAdvanceItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  requestId       String   @map("request_id") @db.Uuid
+  /// 1-based display order. Renumbered on every save so deleting row 2
+  /// doesn't leave a hole.
+  position        Int      @default(1)
+  description     String
+  /// Optional GL category — reuses the shared ExpenseCategory list so
+  /// cash advances code to the same buckets as expenses. Nullable: a
+  /// pre-spend advance may not know its category yet.
+  categoryId      String?  @map("category_id")
+  requestedAmount Decimal  @default(0) @map("requested_amount") @db.Decimal(15, 2)
+  approvedAmount  Decimal  @default(0) @map("approved_amount") @db.Decimal(15, 2)
+  /// Optional supporting receipt/quote (private `receipts` bucket path).
+  /// Served via a signed URL; null until the requester attaches one.
+  receiptUrl      String?  @map("receipt_url")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  request  CashAdvanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  category ExpenseCategory?   @relation(fields: [categoryId], references: [id])
+
+  @@index([requestId, position])
+  @@map("cash_advance_items")
+}
+
+// ─── Expenses ────────────────────────────────────────────────────────────
+// The expense module: line items grouped into monthly reports, routed through
+// an admin-managed approval chain. `ExpenseCategory` (line-item lookup) and
+// `ExchangeRate` are shared with cash-advance. (The short-lived v2 analytics
+// overhaul was removed and this — formerly "v1" — is now the sole module.)
+
+model Expense {
+  id              String    @id @default(uuid()) @db.Uuid
+  employeeId      String    @map("employee_id") @db.Uuid
+  entityId        String    @map("entity_id")
+  categoryId      String?   @map("category_id")
+  travelRequestId String?   @map("travel_request_id") @db.Uuid
+  reportId        String?   @map("report_id") @db.Uuid
+  description     String
+  amount          Decimal   @db.Decimal(15, 2)
+  currency        String
+  date            DateTime  @db.Date
+  receiptUrl      String?   @map("receipt_url")
+  status          String    @default("pending")
+  approvedBy      String?   @map("approved_by") @db.Uuid
+  approvedAt      DateTime? @map("approved_at")
+  rejectReason    String?   @map("reject_reason")
+  reimbursedAt    DateTime? @map("reimbursed_at")
+  notes           String?
+  jeRef           String?   @map("je_ref")
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  employee      User             @relation("ExpenseEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  entity        Entity           @relation("ExpenseEntity", fields: [entityId], references: [id])
+  category      ExpenseCategory? @relation("ExpenseCategory", fields: [categoryId], references: [id])
+  approver      User?            @relation("ExpenseApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  travelRequest TravelRequest?   @relation("ExpenseTravel", fields: [travelRequestId], references: [id], onDelete: SetNull)
+  report        ExpenseReport?   @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([travelRequestId])
+  @@index([reportId])
+  @@index([deletedAt])
+  @@map("expenses")
+}
+
+model ExpenseReport {
+  id               String    @id @default(uuid()) @db.Uuid
+  employeeId       String    @map("employee_id") @db.Uuid
+  entityId         String    @map("entity_id")
+  period           String    @db.VarChar(7)
+  title            String
+  category         String    @default("general")
+  status           String    @default("draft")
+  currentStepOrder Int?      @map("current_step_order")
+  submittedAt      DateTime? @map("submitted_at")
+  approvedBy       String?   @map("approved_by") @db.Uuid
+  approvedAt       DateTime? @map("approved_at")
+  approvedTotal    Decimal?  @map("approved_total") @db.Decimal(15, 2)
+  rejectReason     String?   @map("reject_reason")
+  reimbursedAt     DateTime? @map("reimbursed_at")
+  notes            String?
+  deletedAt        DateTime? @map("deleted_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  employee          User                      @relation("ExpenseReportEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  entity            Entity                    @relation("ExpenseReportEntity", fields: [entityId], references: [id])
+  approver          User?                     @relation("ExpenseReportApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  expenses          Expense[]
+  approvalDecisions ExpenseApprovalDecision[]
+
+  @@index([employeeId, period])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("expense_reports")
+}
+
+model ExpenseApprovalStep {
+  id                   String   @id @default(uuid()) @db.Uuid
+  order                Int      @unique
+  name                 String   @db.VarChar(100)
+  description          String?
+  approverType         String   @default("manager") @map("approver_type")
+  approverUserId       String?  @map("approver_user_id") @db.Uuid
+  skipWhenSubmitterIds Json     @default("[]") @map("skip_when_submitter_ids")
+  onlyWhenSubmitterIds Json     @default("[]") @map("only_when_submitter_ids")
+  categoryFilter       Json     @default("[]") @map("category_filter")
+  amountMinBaht        Decimal? @map("amount_min_baht") @db.Decimal(15, 2)
+  amountMaxBaht        Decimal? @map("amount_max_baht") @db.Decimal(15, 2)
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  approverUser User? @relation("ExpenseApprovalStepUser", fields: [approverUserId], references: [id], onDelete: SetNull)
+
+  @@map("expense_approval_steps")
+}
+
+model ExpenseApprovalDecision {
+  id              String    @id @default(uuid()) @db.Uuid
+  expenseReportId String    @map("expense_report_id") @db.Uuid
+  order           Int
+  name            String    @db.VarChar(100)
+  approverType    String    @map("approver_type")
+  approverUserId  String?   @map("approver_user_id") @db.Uuid
+  status          String    @default("pending")
+  decidedById     String?   @map("decided_by_id") @db.Uuid
+  decidedAt       DateTime? @map("decided_at")
+  approvedAmount  Decimal?  @map("approved_amount") @db.Decimal(15, 2)
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  expenseReport ExpenseReport @relation(fields: [expenseReportId], references: [id], onDelete: Cascade)
+  approverUser  User?         @relation("ExpenseApprovalDecisionApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
+  decidedBy     User?         @relation("ExpenseApprovalDecisionDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([expenseReportId, order])
+  @@index([approverUserId, status])
+  @@index([expenseReportId])
+  @@map("expense_approval_decisions")
+}

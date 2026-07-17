@@ -1,0 +1,1972 @@
+import type { InputJsonValue } from "@manut/database";
+
+import { PERMISSIONS } from "@/common/constants/permissions";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from "@/common/exceptions/http-exception";
+import { logger } from "@/common/utils/logger";
+import { prisma } from "@/infrastructure/database/prisma";
+import {
+  createSignedUrl,
+  deleteFile,
+  requireRegisteredStorageUrl,
+  STORAGE_BUCKETS,
+  uploadFile,
+} from "@/infrastructure/storage/supabase-storage";
+import {
+  actorFromId,
+  trackPayrollImportedServer,
+  trackPayrollRunCompleted,
+  trackPayrollRunStarted,
+} from "@/lib/events";
+import { createExchangeRateService } from "@/modules/exchange-rates/exchange-rates.service";
+import { payrollRepository } from "@/modules/payroll/payroll.repository";
+import type {
+  ConsultantInvoiceQuery,
+  CreateConsultantInvoiceInput,
+  CreatePayrollRunInput,
+  CreatePayslipInput,
+  HrPayslipQuery,
+  PayrollRunQuery,
+  PayslipCompanyInput,
+  PrepareImportRunInput,
+  UpdatePayslipInput,
+} from "@/modules/payroll/payroll.validation";
+import {
+  payslipPassword,
+  protectPayslip,
+} from "@/modules/payroll/payslip-crypto";
+import {
+  buildBulkPayslipZip,
+  buildPayslipPdfBuffer,
+  buildPayslipWorkbookBuffer,
+  type ExportFormat,
+  type PayslipExportInput,
+} from "@/modules/payroll/payslip-generator";
+import { uploadsRepository } from "@/modules/uploads/uploads.repository";
+
+interface AllowanceDeductionBreakdown {
+  meal: number;
+  transportation: number;
+  telephone: number;
+  // May-2026 template adds House Allowance and renames Wifi (India
+  // Team) → Internet Bills + Telephone → Phone Allowance. The legacy
+  // `wifi` key is kept for backward compatibility with older rows that
+  // already serialised under that shape.
+  house: number;
+  internet: number;
+  overtime: number;
+  wifi: number;
+  otherIncome: number;
+  reimbursement: number;
+  flatAllowance: number;
+  tax: number;
+  ssf: number;
+  otherDeduction: number;
+  flatDeduction: number;
+}
+
+function pickString(row: Record<string, unknown>, ...keys: string[]): string {
+  for (const k of keys) {
+    const v = row[k];
+    if (v === null || v === undefined) continue;
+    const s = String(v).trim();
+    if (s.length > 0) return s;
+  }
+  return "";
+}
+
+/**
+ * Coerce a spreadsheet cell to a number. Excel/SheetJS hand back values
+ * like `" 300,000.00 "` for currency-formatted columns — `Number(...)`
+ * on that string is NaN because of the thousands separator and the
+ * surrounding whitespace, which made HR's template produce "Missing or
+ * invalid base salary" for every row. Strip non-numeric noise first.
+ */
+function coerceNumber(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  // Trim, drop NBSP / thin space, drop currency symbols, drop digit
+  // group separators (commas + apostrophes). Keep the sign and dot.
+  const cleaned = String(v)
+    .replace(/\s/g, "")
+    .replace(/[,'_]/g, "")
+    .replace(/[^\d.\-+eE]/g, "");
+  if (cleaned === "" || cleaned === "-" || cleaned === "+") return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pickNumber(row: Record<string, unknown>, ...keys: string[]): number {
+  for (const k of keys) {
+    const n = coerceNumber(row[k]);
+    if (n !== null) return n;
+  }
+  return 0;
+}
+
+function normaliseName(s: string): string {
+  return s.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Sort the tokens of a name so "Tran Van Hai" and "Hai Tran Van" hash
+ * to the same key. Lets HR spreadsheets that flip surname/given-name
+ * order still resolve to the right user without manual editing.
+ */
+function tokenSetKey(s: string): string {
+  return normaliseName(s).split(" ").filter(Boolean).sort().join(" ");
+}
+
+/**
+ * Resolve a parsed import row to a user. Tries — in order — id lookup,
+ * email lookup, exact normalised name match, then token-set match (any
+ * order of given/surname tokens). Returns `undefined` if no candidate
+ * fits or if the token-set match is ambiguous.
+ */
+function matchImportRowToUser<
+  T extends { id: string; name: string; email: string },
+>(
+  row: {
+    employeeId?: string;
+    employeeEmail?: string;
+    employeeName?: string;
+  },
+  byId: Map<string, T>,
+  byEmail: Map<string, T>,
+  byNormalisedName: Map<string, T>,
+  byTokenSet: Map<string, T[]>,
+): T | undefined {
+  if (row.employeeId) {
+    const hit = byId.get(row.employeeId);
+    if (hit) return hit;
+  }
+  if (row.employeeEmail) {
+    const hit = byEmail.get(row.employeeEmail.toLowerCase());
+    if (hit) return hit;
+  }
+  if (row.employeeName) {
+    const exact = byNormalisedName.get(normaliseName(row.employeeName));
+    if (exact) return exact;
+    const tokenHits = byTokenSet.get(tokenSetKey(row.employeeName));
+    if (tokenHits && tokenHits.length === 1) return tokenHits[0];
+  }
+  return undefined;
+}
+
+// Admin-managed company legal block printed in the payslip footer.
+// Stored as a single global SystemSetting; the default is Manut Thailand
+// (HR feedback 2026-06-04) until edited in Payslip Management.
+const PAYSLIP_COMPANY_KEY = "payslip.company";
+export interface PayslipCompany {
+  legalName: string;
+  address: string;
+  phone: string;
+}
+const DEFAULT_PAYSLIP_COMPANY: PayslipCompany = {
+  legalName: "Manut (Thailand) Co., Ltd.",
+  address:
+    "150 T-Place Building, 7th Floor, Rooms 702-703, Soi Sukhumvit 55 " +
+    "(Thong Lo), Khlong Tan Nuea, Watthana, Bangkok, 10110, Thailand",
+  phone: "+6620590383",
+};
+
+export class PayrollService {
+  /** Read the global payslip company block (falls back to the default). */
+  async getPayslipCompany(): Promise<PayslipCompany> {
+    const row = await prisma.systemSetting.findUnique({
+      where: { key: PAYSLIP_COMPANY_KEY },
+    });
+    const value = row?.value;
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const v = value as Record<string, unknown>;
+      return {
+        legalName:
+          typeof v.legalName === "string"
+            ? v.legalName
+            : DEFAULT_PAYSLIP_COMPANY.legalName,
+        address:
+          typeof v.address === "string"
+            ? v.address
+            : DEFAULT_PAYSLIP_COMPANY.address,
+        phone:
+          typeof v.phone === "string" ? v.phone : DEFAULT_PAYSLIP_COMPANY.phone,
+      };
+    }
+    return DEFAULT_PAYSLIP_COMPANY;
+  }
+
+  /** Admin upsert of the global payslip company block. */
+  async setPayslipCompany(input: PayslipCompanyInput): Promise<PayslipCompany> {
+    const legalName = (input.legalName ?? "").trim();
+    const address = (input.address ?? "").trim();
+    const phone = (input.phone ?? "").trim();
+    await prisma.systemSetting.upsert({
+      where: { key: PAYSLIP_COMPANY_KEY },
+      create: {
+        key: PAYSLIP_COMPANY_KEY,
+        value: { legalName, address, phone },
+      },
+      update: { value: { legalName, address, phone } },
+    });
+    return { legalName, address, phone };
+  }
+
+  /**
+   * Plain employees with `payroll:read` only see runs that contain
+   * their own payslip — and inside the detail view, only their own
+   * payslip row. HR/admin holders (`payroll:create`, `payroll:approve`,
+   * `payroll:hr-admin`) see the full company ledger.
+   */
+  private static isPayrollManager(actorPermissions: string[]): boolean {
+    return (
+      actorPermissions.includes(PERMISSIONS.PAYROLL_CREATE) ||
+      actorPermissions.includes(PERMISSIONS.PAYROLL_APPROVE) ||
+      actorPermissions.includes(PERMISSIONS.PAYROLL_HR_ADMIN)
+    );
+  }
+
+  private static requirePayrollManager(actorPermissions: string[]): void {
+    if (!PayrollService.isPayrollManager(actorPermissions)) {
+      throw new ForbiddenException("Payroll manager permission required");
+    }
+  }
+
+  async listRuns(
+    query: PayrollRunQuery,
+    actorId: string,
+    actorPermissions: string[],
+  ) {
+    const { page, limit, ...filters } = query;
+    const canManage = PayrollService.isPayrollManager(actorPermissions);
+    const scopedFilters = canManage
+      ? filters
+      : { ...filters, employeeIdScope: actorId };
+    const { data, total } = await payrollRepository.findRuns(
+      scopedFilters,
+      page,
+      limit,
+    );
+
+    return {
+      data,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  // Re-aggregate the run's headline totals from the persisted payslips,
+  // converting every off-currency slip into the entity currency via the
+  // latest exchange rates. Used to backfill runs created before the FX
+  // headline fix landed, and from the "Recalculate totals" button on
+  // the run detail sheet.
+  async recalculateRunTotals(runId: string) {
+    const run = await payrollRepository.findRunById(runId);
+    if (!run) throw new NotFoundException("Payroll run not found");
+    const recalc = await payrollRepository.sumPayslipTotalsForRun(runId);
+    await payrollRepository.setRunTotals(runId, recalc);
+    return {
+      runId,
+      totalGross: recalc.totalGross,
+      totalNet: recalc.totalNet,
+      totalTax: recalc.totalTax,
+      currencyTotals: recalc.currencyTotals,
+      missingFxFor: recalc.missingFxFor,
+    };
+  }
+
+  // Returns the run with `entityCurrency` + per-payslip
+  // `grossPayInEntityCurrency` / `netPayInEntityCurrency` / `fxRate`
+  // attached. Lets the Run Details sheet render a "Total Payout (THB)"
+  // column whose sum matches the FX-converted headline Total Net, so
+  // HR doesn't have to eyeball three native-currency columns plus a
+  // separately-summed headline.
+  private async enrichPayslipsWithEntityCurrency<
+    R extends {
+      entity: { currency: string };
+      payslips: Array<{
+        grossPay: unknown;
+        netPay: unknown;
+        grossPayBase?: unknown;
+        netPayBase?: unknown;
+        currency: string;
+      }>;
+    },
+  >(run: R) {
+    const entityCurrency = run.entity.currency;
+    const fx = createExchangeRateService();
+    const payslips = await Promise.all(
+      run.payslips.map(async (p) => {
+        const gross = Number(p.grossPay ?? 0);
+        const net = Number(p.netPay ?? 0);
+        // When the bulk importer stored
+        // HR's pre-converted equivalents we use them verbatim so the
+        // "Total Payout (entityCurrency)" column in the detail sheet
+        // matches the spreadsheet exactly and never depends on whether
+        // an ExchangeRate row exists.
+        if (p.netPayBase != null && p.grossPayBase != null) {
+          const grossBase = Number(p.grossPayBase);
+          const netBase = Number(p.netPayBase);
+          return {
+            ...p,
+            grossPayInEntityCurrency: grossBase,
+            netPayInEntityCurrency: netBase,
+            fxRate: net > 0 ? netBase / net : null,
+            fxSource: "import" as const,
+            fxBridge: null,
+          };
+        }
+        if (p.currency === entityCurrency) {
+          return {
+            ...p,
+            grossPayInEntityCurrency: gross,
+            netPayInEntityCurrency: net,
+            fxRate: 1,
+            fxSource: "identity" as const,
+          };
+        }
+        const lookup = await fx.resolveRate(p.currency, entityCurrency);
+        const { rate, source } = lookup;
+        if (source === "missing") {
+          // Headline aggregation already logs the missing pair; the row
+          // gets a null marker so the UI can show "—" instead of
+          // pretending the conversion succeeded with a phantom 1:1 rate.
+          return {
+            ...p,
+            grossPayInEntityCurrency: null,
+            netPayInEntityCurrency: null,
+            fxRate: null,
+            fxSource: "missing" as const,
+            fxBridge: null,
+          };
+        }
+        return {
+          ...p,
+          grossPayInEntityCurrency: gross * rate,
+          netPayInEntityCurrency: net * rate,
+          fxRate: rate,
+          fxSource: source,
+          fxBridge: lookup.bridge ?? null,
+        };
+      }),
+    );
+    return { ...run, entityCurrency, payslips };
+  }
+
+  async getRunById(id: string, actorId: string, actorPermissions: string[]) {
+    const run = await payrollRepository.findRunById(id);
+    if (!run) throw new NotFoundException("Payroll run not found");
+    if (PayrollService.isPayrollManager(actorPermissions)) {
+      // Overlay fresh FX-aware totals on every detail open so HR doesn't
+      // have to click "Recalculate totals" after each FX-rate change or
+      // post-deploy. The aggregate is cheap (one Prisma read + N FX
+      // lookups, all cached per-request via ExchangeRateService) and the
+      // result is layered onto the in-memory run without writing to the
+      // DB — explicit Recalculate stays for persisting headline values
+      // that other surfaces (cron digest, list view) read.
+      const fresh = await payrollRepository.sumPayslipTotalsForRun(id);
+      const enriched = await this.enrichPayslipsWithEntityCurrency(run);
+      return {
+        ...enriched,
+        totalGross: fresh.totalGross,
+        totalNet: fresh.totalNet,
+        totalTax: fresh.totalTax,
+        currencyTotals: fresh.currencyTotals,
+        missingFxFor: fresh.missingFxFor,
+      };
+    }
+    // Plain employees: keep run metadata but show only their own payslip
+    // line. If they have no payslip in this run, 404 — pretend it
+    // doesn't exist rather than leaking the run's existence.
+    const myPayslips = run.payslips.filter((p) => p.employeeId === actorId);
+    if (myPayslips.length === 0) {
+      throw new NotFoundException("Payroll run not found");
+    }
+    // Run-level totals are aggregated across all payslips and would
+    // leak company-wide figures, so collapse them to the actor's slice.
+    const myGross = myPayslips.reduce(
+      (sum, p) => sum + Number(p.grossPay ?? 0),
+      0,
+    );
+    const myNet = myPayslips.reduce((sum, p) => sum + Number(p.netPay ?? 0), 0);
+    const sliced = await this.enrichPayslipsWithEntityCurrency({
+      ...run,
+      payslips: myPayslips,
+    });
+    return {
+      ...sliced,
+      totalGross: myGross,
+      totalNet: myNet,
+      totalTax: myGross - myNet,
+      // Plain employees should never see the run-wide currency rollup.
+      currencyTotals: null,
+    };
+  }
+
+  async createRun(userId: string, input: CreatePayrollRunInput) {
+    const existing = await payrollRepository.findExistingRun(
+      input.entityId,
+      input.period,
+    );
+    if (existing) {
+      throw new ConflictException(
+        `Payroll run already exists for entity ${input.entityId} period ${input.period}`,
+      );
+    }
+
+    const employees = await payrollRepository.findEmployeesByEntity(
+      input.entityId,
+      input.employeeId,
+    );
+    if (employees.length === 0) {
+      throw new BadRequestException(
+        input.employeeId
+          ? "No active full-time employee found for this entity with the given ID"
+          : "No active full-time employees found for this entity",
+      );
+    }
+
+    let entityCode: "TH" | "IN" | "VN" | "ID" = "TH";
+    let trackingActor: Awaited<ReturnType<typeof actorFromId>> = null;
+    try {
+      const entity = await prisma.entity.findUnique({
+        where: { id: input.entityId },
+        select: { code: true },
+      });
+      entityCode = (entity?.code as "TH" | "IN" | "VN" | "ID") ?? "TH";
+      trackingActor = await actorFromId(userId);
+      if (trackingActor) {
+        trackPayrollRunStarted(trackingActor, {
+          period: input.period,
+          target_entity_code: entityCode,
+        });
+      }
+    } catch {
+      // analytics is best-effort
+    }
+
+    const payslips = employees.map((emp) => {
+      const baseSalary = Number(emp.salary ?? 0);
+      const grossPay = baseSalary;
+      const netPay = baseSalary;
+
+      return {
+        employeeId: emp.id,
+        baseSalary,
+        allowances: null,
+        deductions: null,
+        grossPay,
+        netPay,
+        currency: emp.currency ?? "USD",
+      };
+    });
+
+    const result = await payrollRepository.createRunWithPayslips(
+      {
+        entityId: input.entityId,
+        period: input.period,
+        runBy: userId,
+        notes: input.notes,
+      },
+      payslips,
+    );
+
+    // createRunWithPayslips stores a raw mixed-currency sum on the run
+    // row. Re-aggregate with FX so the headline totals match the
+    // entity currency across every payslip (THB + converted USD/INR
+    // for a MANUT-Thailand run, etc.).
+    const recalc = await payrollRepository.sumPayslipTotalsForRun(result.id);
+    await payrollRepository.setRunTotals(result.id, recalc);
+
+    try {
+      if (trackingActor) {
+        trackPayrollRunCompleted(trackingActor, {
+          period: input.period,
+          target_entity_code: entityCode,
+          employee_count: payslips.length,
+        });
+      }
+    } catch {
+      // analytics is best-effort
+    }
+
+    return {
+      ...result,
+      totalGross: recalc.totalGross,
+      totalNet: recalc.totalNet,
+      totalTax: recalc.totalTax,
+    };
+  }
+
+  async approveRun(runId: string, approverId: string) {
+    const run = await payrollRepository.findRunById(runId);
+    if (!run) throw new NotFoundException("Payroll run not found");
+    if (run.status !== "draft") {
+      throw new BadRequestException(
+        `Cannot approve a run with status "${run.status}"`,
+      );
+    }
+
+    return payrollRepository.approveRun(runId, approverId);
+  }
+
+  /**
+   * HR-admin destructive delete. Drops the run and its payslips
+   * (cascade). The 404 for unknown ids stays in the service so the
+   * controller doesn't have to round-trip another findRunById.
+   */
+  async deleteRun(runId: string) {
+    const run = await payrollRepository.findRunById(runId);
+    if (!run) throw new NotFoundException("Payroll run not found");
+    await payrollRepository.deleteRun(runId);
+    return { id: runId };
+  }
+
+  /**
+   * Inline-edit a single payslip inside a draft run. Approved/paid runs
+   * are locked — HR has to revert them to draft (out of scope here) or
+   * create a corrective run instead.
+   *
+   * If `grossPay` / `netPay` are not supplied the service recomputes
+   * them from `baseSalary + sum(allowances) - sum(deductions)` so the
+   * imported numbers stay consistent with HR's spreadsheet conventions
+   * (`grossPay = base + allowances`, `netPay = gross - deductions`).
+   *
+   * Run-level totals (`totalGross`, `totalNet`, `totalTax`) are
+   * re-aggregated from the surviving payslips after the update so the
+   * summary card in the detail sheet stays in sync.
+   */
+  /**
+   * HR's "+ New payslip" create. Computes gross/net from the parts
+   * when the caller omits the totals (so the dialog can stay focused
+   * on the structured Thai payroll fields and let the server roll up
+   * the math). Locks the parent run to draft so committed runs don't
+   * silently mutate.
+   */
+  async createPayslip(runId: string, input: CreatePayslipInput) {
+    const run = await payrollRepository.findRunById(runId);
+    if (!run) throw new NotFoundException("Payroll run not found");
+    if (run.status !== "draft") {
+      throw new BadRequestException(
+        `Cannot add payslips to a run with status "${run.status}". Revert to draft first.`,
+      );
+    }
+
+    const sumValues = (m: Record<string, number> | undefined): number => {
+      if (!m) return 0;
+      let total = 0;
+      for (const v of Object.values(m)) {
+        if (typeof v === "number" && Number.isFinite(v)) total += v;
+      }
+      return total;
+    };
+
+    const allowanceSum = sumValues(input.allowances ?? undefined);
+    const deductionSum = sumValues(input.deductions ?? undefined);
+    const grossPay =
+      input.grossPay !== undefined
+        ? input.grossPay
+        : input.baseSalary + allowanceSum;
+    const netPay =
+      input.netPay !== undefined ? input.netPay : grossPay - deductionSum;
+
+    const created = await payrollRepository.createPayslip({
+      payrollRunId: runId,
+      employeeId: input.employeeId,
+      baseSalary: input.baseSalary,
+      allowances: input.allowances ?? null,
+      deductions: input.deductions ?? null,
+      currency: input.currency,
+      grossPay,
+      netPay,
+    });
+
+    const totals = await payrollRepository.sumPayslipTotalsForRun(runId);
+    await payrollRepository.setRunTotals(runId, totals);
+
+    return created;
+  }
+
+  async updatePayslip(
+    runId: string,
+    payslipId: string,
+    input: UpdatePayslipInput,
+  ) {
+    const existing = await payrollRepository.findPayslipById(payslipId);
+    if (!existing) throw new NotFoundException("Payslip not found");
+    if (existing.payrollRunId !== runId) {
+      throw new BadRequestException("Payslip does not belong to this run");
+    }
+
+    const run = await payrollRepository.findRunById(runId);
+    if (!run) throw new NotFoundException("Payroll run not found");
+    if (run.status !== "draft") {
+      throw new BadRequestException(
+        `Cannot edit payslips on a run with status "${run.status}". Revert to draft first.`,
+      );
+    }
+
+    // baseSalary/grossPay/netPay are Decimal columns over the wire; coerce
+    // to plain numbers so the arithmetic below behaves.
+    const baseSalary =
+      input.baseSalary ?? Number(existing.baseSalary as unknown as string);
+    const allowances =
+      input.allowances === undefined
+        ? (existing.allowances as Record<string, number> | null)
+        : input.allowances;
+    const deductions =
+      input.deductions === undefined
+        ? (existing.deductions as Record<string, number> | null)
+        : input.deductions;
+    const currency = input.currency ?? existing.currency;
+
+    const sumValues = (m: Record<string, number> | null): number => {
+      if (!m) return 0;
+      let total = 0;
+      for (const v of Object.values(m)) {
+        if (typeof v === "number" && Number.isFinite(v)) total += v;
+      }
+      return total;
+    };
+
+    const allowanceSum = sumValues(allowances ?? null);
+    const deductionSum = sumValues(deductions ?? null);
+    const grossPay =
+      input.grossPay !== undefined ? input.grossPay : baseSalary + allowanceSum;
+    const netPay =
+      input.netPay !== undefined ? input.netPay : grossPay - deductionSum;
+
+    const updated = await payrollRepository.updatePayslip(payslipId, {
+      baseSalary,
+      allowances:
+        allowances === null
+          ? undefined
+          : (allowances as unknown as InputJsonValue),
+      deductions:
+        deductions === null
+          ? undefined
+          : (deductions as unknown as InputJsonValue),
+      currency,
+      grossPay,
+      netPay,
+    });
+
+    const totals = await payrollRepository.sumPayslipTotalsForRun(runId);
+    await payrollRepository.setRunTotals(runId, totals);
+
+    return updated;
+  }
+
+  async listConsultantInvoices(
+    query: ConsultantInvoiceQuery,
+    actorId: string,
+    actorPermissions: string[],
+  ) {
+    const { page, limit, ...filters } = query;
+    // Mirror the payslip ownership rule: payroll managers see every
+    // invoice; a plain `payroll:read` consultant only sees their own.
+    const canManage = PayrollService.isPayrollManager(actorPermissions);
+    const scopedFilters = canManage
+      ? filters
+      : { ...filters, consultantIdScope: actorId };
+    const { data, total } = await payrollRepository.findConsultantInvoices(
+      scopedFilters,
+      page,
+      limit,
+    );
+
+    return {
+      data,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async createConsultantInvoice(input: CreateConsultantInvoiceInput) {
+    const whtAmount = (input.amount * input.whtRate) / 100;
+    const netAmount = input.amount - whtAmount;
+
+    return payrollRepository.createConsultantInvoice({
+      entityId: input.entityId,
+      consultantId: input.consultantId,
+      invoiceNo: input.invoiceNo,
+      amount: input.amount,
+      whtRate: input.whtRate,
+      whtAmount,
+      netAmount,
+      period: input.period,
+    });
+  }
+
+  // ── Per-run payslip bulk import ──────────────────────────────────────
+
+  /**
+   * Validate spreadsheet rows against an existing payroll run. Caller
+   * supplies the runId; we resolve every employee, reject rows with bad
+   * numbers, and reject rows that would duplicate an existing payslip
+   * inside the same run (the schema has a unique constraint on
+   * `(payrollRunId, employeeId)`).
+   */
+  async previewPayslipImport(
+    runId: string,
+    rows: Array<Record<string, unknown>>,
+  ) {
+    const run = await payrollRepository.findRunById(runId);
+    if (!run) throw new NotFoundException("Payroll run not found");
+
+    // The payroll import ships per-row
+    // "Total Payout INR / USD / THB" columns where exactly one matches
+    // the row's native currency and the entity-currency one holds the
+    // pre-converted equivalent (FX baked in by HR's spreadsheet formulas).
+    // We read that pre-converted value here so the run headline can sum
+    // it directly instead of re-running FX through ExchangeRate.
+    const entityCurrency = run.entity.currency;
+    const baseColumnName = `Total Payout ${entityCurrency}`;
+
+    const valid: Array<{
+      rowNumber: number;
+      employeeId: string;
+      employeeName: string;
+      baseSalary: number;
+      allowances: number;
+      deductions: number;
+      tax: number;
+      grossPay: number;
+      netPay: number;
+      grossPayBase: number | null;
+      netPayBase: number | null;
+      currency: string;
+      breakdown: AllowanceDeductionBreakdown;
+      // Snapshots — point-in-time copy of the HR spreadsheet cells.
+      // Persisted on the payslip so the Run Details sheet doesn't have
+      // to fall back to the live `users` row (which is empty for
+      // contractor placeholders).
+      position: string | null;
+      department: string | null;
+      startDate: string | null;
+      /**
+       * Populated when two or more spreadsheet rows for the same person
+       * were folded into this entry. Contains every contributing row
+       * number (including the primary) in upload order. The preview UI
+       * surfaces this so HR can see which rows got merged.
+       */
+      mergedFromRows?: number[];
+    }> = [];
+    const errors: Array<{ row: number; message: string }> = [];
+    const warnings: Array<{ row: number; message: string }> = [];
+
+    const parsed: Array<{
+      rowNumber: number;
+      // Exactly one of these resolves the employee.
+      employeeId?: string;
+      employeeEmail?: string;
+      employeeName?: string;
+      baseSalary: number;
+      allowances: number;
+      deductions: number;
+      tax: number;
+      currency: string;
+      breakdown: AllowanceDeductionBreakdown;
+      /**
+       * Verbatim "Total Payout {entityCurrency}" cell when the row supplied
+       * one. We keep it raw here so the merge / native-vs-base resolution
+       * below stays predictable; conversion to per-payslip `netPayBase` +
+       * `grossPayBase` happens after merge.
+       */
+      totalPayoutBase: number | null;
+      position: string | null;
+      department: string | null;
+      startDate: string | null;
+    }> = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowNumber = i + 1;
+      const row = rows[i]!;
+
+      const employeeId = pickString(
+        row,
+        "employeeId",
+        "employee_id",
+        "Employee ID",
+        "Employee Id",
+      );
+      const employeeEmail = pickString(
+        row,
+        "employeeEmail",
+        "Email",
+        "email",
+      ).toLowerCase();
+      const employeeName = pickString(
+        row,
+        "employeeName",
+        "Employee Name",
+        "Name",
+        "name",
+      );
+      if (!employeeId && !employeeEmail && !employeeName) {
+        errors.push({
+          row: rowNumber,
+          message: "Missing employee — provide ID, email, or full name",
+        });
+        continue;
+      }
+
+      const baseSalary = pickNumber(
+        row,
+        "Basic Salary",
+        "basic_salary",
+        "baseSalary",
+        "base_salary",
+        "Base Salary",
+        "Salary (fiat)",
+        "Salary",
+        "salary",
+      );
+      if (!Number.isFinite(baseSalary) || baseSalary <= 0) {
+        errors.push({
+          row: rowNumber,
+          message: "Missing or invalid base salary",
+        });
+        continue;
+      }
+
+      // Template-column allowances. HR template (May-2026 rev) ships
+      // separate columns under a grouped Allowances header:
+      //   Meal Allowance / Transportation Allowance / Phone Allowance /
+      //   House Allowance, plus a top-level Internet Bills column.
+      // Older sheets still using Meal / Transportation / Telephone /
+      // Wifi (India Team) keep working via the alias list.
+      const meal = pickNumber(row, "Meal Allowance", "Meal", "meal");
+      const transportation = pickNumber(
+        row,
+        "Transportation Allowance",
+        "Transportation",
+        "transportation",
+        "Transport",
+      );
+      const telephone = pickNumber(
+        row,
+        "Phone Allowance",
+        "Telephone",
+        "telephone",
+        "Phone",
+      );
+      const house = pickNumber(row, "House Allowance", "house", "House");
+      const internet = pickNumber(
+        row,
+        "Internet Bills",
+        "Wifi (India Team)",
+        "Wifi",
+        "wifi",
+        "Internet",
+      );
+      const overtime = pickNumber(row, "Overtime", "overtime", "OT");
+      const otherIncome = pickNumber(
+        row,
+        "Other income",
+        "Other Income",
+        "other income",
+        "Others income",
+      );
+      const reimbursement = pickNumber(row, "Reimbursement", "reimbursement");
+      const flatAllowance = pickNumber(
+        row,
+        "allowances",
+        "Allowances",
+        "allowance",
+      );
+      const allowanceTotal =
+        meal +
+        transportation +
+        telephone +
+        house +
+        internet +
+        overtime +
+        otherIncome +
+        reimbursement +
+        flatAllowance;
+
+      const tax = pickNumber(row, "tax", "Tax");
+      const ssf = pickNumber(row, "ssf", "SSF");
+      const otherDeduction = pickNumber(
+        row,
+        "Other Deduction",
+        "otherDeduction",
+        "other_deduction",
+      );
+      const flatDeduction = pickNumber(
+        row,
+        "deductions",
+        "Deductions",
+        "deduction",
+      );
+      const deductionTotal = ssf + otherDeduction + flatDeduction;
+
+      if (
+        [
+          meal,
+          transportation,
+          telephone,
+          house,
+          internet,
+          overtime,
+          otherIncome,
+          reimbursement,
+          flatAllowance,
+          tax,
+          ssf,
+          otherDeduction,
+          flatDeduction,
+        ].some((n) => !Number.isFinite(n) || n < 0)
+      ) {
+        errors.push({
+          row: rowNumber,
+          message: "Allowance / deduction / tax cells must be non-negative",
+        });
+        continue;
+      }
+
+      const currencyRaw = pickString(row, "currency", "Currency").toUpperCase();
+      const currency = currencyRaw.length === 3 ? currencyRaw : "THB";
+
+      // HR template stores the row's net-payout-in-entity-currency under a
+      // header that depends on the run's entity (e.g. "Total Payout THB"
+      // for Manut Thailand). Read just that one cell — the other currency
+      // columns are informational only and never feed the headline.
+      const totalPayoutBaseRaw = pickNumber(
+        row,
+        baseColumnName,
+        baseColumnName.toLowerCase(),
+      );
+      const totalPayoutBase =
+        Number.isFinite(totalPayoutBaseRaw) && totalPayoutBaseRaw > 0
+          ? totalPayoutBaseRaw
+          : null;
+
+      // Snapshot fields — verbatim cells from the HR template. Stored
+      // as null when blank so the Run Details sheet can fall back to
+      // the live `users` row instead of rendering an empty box.
+      // Aliases cover both the old (Position / Start Date) and the
+      // May-2026 (Designation / Date of Joining) header revisions.
+      const position = pickString(
+        row,
+        "Designation",
+        "designation",
+        "Position",
+        "position",
+      );
+      const department = pickString(row, "Department", "department");
+      const startDate = pickString(
+        row,
+        "Date of Joining",
+        "date of joining",
+        "Start Date",
+        "startDate",
+        "start_date",
+      );
+
+      parsed.push({
+        rowNumber,
+        employeeId: employeeId || undefined,
+        employeeEmail: employeeEmail || undefined,
+        employeeName: employeeName || undefined,
+        totalPayoutBase,
+        baseSalary,
+        allowances: allowanceTotal,
+        deductions: deductionTotal,
+        tax,
+        currency,
+        breakdown: {
+          meal,
+          transportation,
+          telephone,
+          house,
+          internet,
+          overtime,
+          // `wifi` retained for compatibility with old payslips that
+          // already serialised under this key. New imports populate
+          // `internet` and leave `wifi` at 0 — the generator reads
+          // whichever has a value (max), so historic rows still print.
+          wifi: 0,
+          otherIncome,
+          reimbursement,
+          flatAllowance,
+          tax,
+          ssf,
+          otherDeduction,
+          flatDeduction,
+        },
+        position: position || null,
+        department: department || null,
+        startDate: startDate || null,
+      });
+    }
+
+    if (parsed.length > 0) {
+      const ids = Array.from(
+        new Set(parsed.map((p) => p.employeeId).filter(Boolean) as string[]),
+      );
+      const emails = Array.from(
+        new Set(parsed.map((p) => p.employeeEmail).filter(Boolean) as string[]),
+      );
+      const needsNameLookup = parsed.some(
+        (p) => !p.employeeId && !p.employeeEmail && p.employeeName,
+      );
+
+      const [byId, byEmail, allActive] = await Promise.all([
+        payrollRepository.findUsersByIds(ids),
+        payrollRepository.findUsersByEmails(emails),
+        needsNameLookup
+          ? payrollRepository.findUsersForBulkMatch()
+          : Promise.resolve(
+              [] as Array<{ id: string; name: string; email: string }>,
+            ),
+      ]);
+      const userById = new Map(byId.map((u) => [u.id, u] as const));
+      const userByEmail = new Map(
+        byEmail.map((u) => [u.email.toLowerCase(), u] as const),
+      );
+      const userByNormalisedName = new Map(
+        allActive.map((u) => [normaliseName(u.name), u] as const),
+      );
+      // Bucket users by sorted-token-set so "Tran Van Hai" and "Hai
+      // Tran Van" both map to the same key. Only used as a fallback
+      // when there is exactly one candidate — ambiguous keys fall
+      // through to the unresolved-row error path.
+      const userByTokenSet = new Map<
+        string,
+        Array<{ id: string; name: string; email: string }>
+      >();
+      for (const u of allActive) {
+        const key = tokenSetKey(u.name);
+        const bucket = userByTokenSet.get(key) ?? [];
+        bucket.push(u);
+        userByTokenSet.set(key, bucket);
+      }
+
+      // Resolve every row to an employeeId, collecting unresolved as errors.
+      const resolved: Array<{
+        rowNumber: number;
+        employeeId: string;
+        employeeName: string;
+      }> = [];
+      const resolvedRows: typeof parsed = [];
+      for (const p of parsed) {
+        const user = matchImportRowToUser(
+          p,
+          userById,
+          userByEmail,
+          userByNormalisedName,
+          userByTokenSet,
+        );
+        if (!user) {
+          errors.push({
+            row: p.rowNumber,
+            message: `Could not match employee — ${
+              p.employeeId
+                ? `id ${p.employeeId}`
+                : p.employeeEmail || p.employeeName || "(blank)"
+            }`,
+          });
+          continue;
+        }
+        resolved.push({
+          rowNumber: p.rowNumber,
+          employeeId: user.id,
+          employeeName: user.name,
+        });
+        resolvedRows.push({ ...p, employeeId: user.id });
+      }
+
+      // NOTE: We deliberately do NOT error on "this employee already
+      // has a payslip in this run". The bulk-import commit is a replace
+      // operation — it deletes every existing payslip on the run and
+      // re-inserts what's in the spreadsheet — so a pre-existing
+      // payslip is fine.
+      //
+      // Two rows for the same person inside the SAME upload behave like
+      // this:
+      //   - Same currency → folded into one payslip (HR's spreadsheets
+      //     sometimes split one person across rows for base + retro top-up).
+      //     baseSalary / allowances / deductions / tax and every breakdown
+      //     bucket are summed; a warning is emitted on the secondary rows.
+      //   - Different currency → kept as SEPARATE payslips. HR pays a few
+      //     contractors a THB retainer plus a USD performance fee in the
+      //     same period and the xlsx lists each currency on its own row;
+      //     the schema's `@@unique([run, employee, currency])` lets both
+      //     land. Merging across currencies would mix units (50k THB +
+      //     7k USD ≠ 57k of anything) and was the source of the by-currency
+      //     rollup corruption we hit on the Jan-2026 MANUT-Thailand run.
+      const indexByEmployeeCurrency = new Map<string, number>();
+      const employeeCurrencyKey = (employeeId: string, currency: string) =>
+        `${employeeId}|${currency}`;
+
+      for (let i = 0; i < resolvedRows.length; i++) {
+        const p = resolvedRows[i]!;
+        const r = resolved[i]!;
+        const key = employeeCurrencyKey(p.employeeId!, p.currency);
+        const existingIndex = indexByEmployeeCurrency.get(key);
+        if (existingIndex !== undefined) {
+          const existing = valid[existingIndex]!;
+          existing.baseSalary += p.baseSalary;
+          existing.allowances += p.allowances;
+          existing.deductions += p.deductions;
+          existing.tax += p.tax;
+          for (const k of Object.keys(
+            existing.breakdown,
+          ) as (keyof AllowanceDeductionBreakdown)[]) {
+            existing.breakdown[k] += p.breakdown[k] ?? 0;
+          }
+          existing.grossPay = existing.baseSalary + existing.allowances;
+          existing.netPay =
+            existing.grossPay - existing.deductions - existing.tax;
+          // Roll up the per-row base-currency cells when both halves of the
+          // merged pair supplied one. If either side is null we drop the
+          // base columns rather than carry a half-computed value into the
+          // headline.
+          if (existing.netPayBase != null && p.totalPayoutBase != null) {
+            existing.netPayBase += p.totalPayoutBase;
+          } else {
+            existing.netPayBase = null;
+          }
+          if (existing.grossPayBase != null && p.totalPayoutBase != null) {
+            const impliedRate =
+              p.baseSalary + p.allowances - p.deductions - p.tax > 0
+                ? p.totalPayoutBase /
+                  (p.baseSalary + p.allowances - p.deductions - p.tax)
+                : 0;
+            existing.grossPayBase +=
+              (p.baseSalary + p.allowances) * impliedRate;
+          } else {
+            existing.grossPayBase = null;
+          }
+          existing.mergedFromRows = [
+            ...(existing.mergedFromRows ?? [existing.rowNumber]),
+            p.rowNumber,
+          ];
+          warnings.push({
+            row: p.rowNumber,
+            message: `Merged with row ${existing.rowNumber} for ${r.employeeName} (${p.currency}) — values summed.`,
+          });
+          if (existing.netPay < 0) {
+            errors.push({
+              row: existing.rowNumber,
+              message:
+                "Merged net pay is negative — review the duplicate rows for this employee.",
+            });
+          }
+          continue;
+        }
+
+        const grossPay = p.baseSalary + p.allowances;
+        const netPay = grossPay - p.deductions - p.tax;
+        if (netPay < 0) {
+          errors.push({
+            row: p.rowNumber,
+            message:
+              "Net pay would be negative — fix base / allowances / deductions / tax",
+          });
+          continue;
+        }
+        // Resolve the row's base-currency equivalents. For rows already
+        // priced in the entity currency we just mirror the native values
+        // — no FX needed. Otherwise we trust HR's pre-converted cell when
+        // present and back out the implied per-row rate to convert gross
+        // (the template only ships a net-payout column, not gross).
+        let netPayBase: number | null = null;
+        let grossPayBase: number | null = null;
+        if (p.currency === entityCurrency) {
+          netPayBase = netPay;
+          grossPayBase = grossPay;
+        } else if (p.totalPayoutBase != null && netPay > 0) {
+          netPayBase = p.totalPayoutBase;
+          const impliedRate = p.totalPayoutBase / netPay;
+          grossPayBase = grossPay * impliedRate;
+        }
+        valid.push({
+          rowNumber: p.rowNumber,
+          employeeId: p.employeeId!,
+          employeeName: r.employeeName,
+          baseSalary: p.baseSalary,
+          allowances: p.allowances,
+          deductions: p.deductions,
+          tax: p.tax,
+          grossPay,
+          netPay,
+          grossPayBase,
+          netPayBase,
+          currency: p.currency,
+          breakdown: { ...p.breakdown },
+          position: p.position,
+          department: p.department,
+          startDate: p.startDate,
+        });
+        indexByEmployeeCurrency.set(key, valid.length - 1);
+      }
+    }
+
+    return {
+      valid,
+      errors,
+      warnings,
+      totalRows: rows.length,
+      validCount: valid.length,
+      errorCount: errors.length,
+      warningCount: warnings.length,
+    };
+  }
+
+  async commitPayslipImport(
+    runId: string,
+    rows: Array<Record<string, unknown>>,
+  ) {
+    const run = await payrollRepository.findRunById(runId);
+    if (!run) throw new NotFoundException("Payroll run not found");
+    if (run.status !== "draft") {
+      throw new BadRequestException(
+        `Cannot import payslips into a run with status "${run.status}"`,
+      );
+    }
+
+    const preview = await this.previewPayslipImport(runId, rows);
+    if (preview.errorCount > 0) {
+      throw new BadRequestException(
+        `${preview.errorCount} rows have errors. Fix them and try again.`,
+      );
+    }
+    if (preview.validCount === 0) {
+      return {
+        imported: 0,
+        totalGross: Number(run.totalGross),
+        totalNet: Number(run.totalNet),
+        totalTax: Number(run.totalTax),
+      };
+    }
+
+    // Tax isn't a Payslip column — the schema folds it into the
+    // `deductions` JSON. We fold it there for the per-employee row but
+    // accumulate it separately so the parent run's `totalTax` stays
+    // correct.
+    const payslipRows = preview.valid.map((p) => {
+      const b = p.breakdown;
+      const allowanceItems: Record<string, number> = {};
+      if (b.meal > 0) allowanceItems.meal = b.meal;
+      if (b.transportation > 0) {
+        allowanceItems.transportation = b.transportation;
+      }
+      if (b.telephone > 0) allowanceItems.telephone = b.telephone;
+      if (b.wifi > 0) allowanceItems.wifi = b.wifi;
+      if (b.otherIncome > 0) allowanceItems.otherIncome = b.otherIncome;
+      if (b.reimbursement > 0) allowanceItems.reimbursement = b.reimbursement;
+      if (b.flatAllowance > 0) allowanceItems.allowance = b.flatAllowance;
+
+      const deductionItems: Record<string, number> = {};
+      if (b.tax > 0) deductionItems.tax = b.tax;
+      if (b.ssf > 0) deductionItems.ssf = b.ssf;
+      if (b.otherDeduction > 0) {
+        deductionItems.otherDeduction = b.otherDeduction;
+      }
+      if (b.flatDeduction > 0) deductionItems.deduction = b.flatDeduction;
+
+      return {
+        employeeId: p.employeeId,
+        baseSalary: p.baseSalary,
+        allowances:
+          Object.keys(allowanceItems).length > 0
+            ? { ...allowanceItems, total: p.allowances }
+            : null,
+        deductions:
+          Object.keys(deductionItems).length > 0
+            ? { ...deductionItems, total: p.deductions + p.tax }
+            : null,
+        grossPay: p.grossPay,
+        netPay: p.netPay,
+        grossPayBase: p.grossPayBase,
+        netPayBase: p.netPayBase,
+        tax: p.tax,
+        currency: p.currency,
+        positionSnapshot: p.position,
+        departmentSnapshot: p.department,
+        startDateSnapshot: p.startDate,
+      };
+    });
+
+    // Replace-all semantics. The spreadsheet is the source of truth for
+    // the run, so we wipe any prior payslips (whether seeded by
+    // createRun or carried over from a previous import attempt) and
+    // re-insert the canonical set. Lets HR re-upload a corrected file
+    // without hitting the @@unique([payrollRunId, employeeId]) constraint.
+    //
+    // Bucket totals by currency: a MANUT-Thailand run that pays a USD
+    // contractor + an INR contractor used to sum 100,000 THB + 8,000
+    // USD + 40,000 INR into a single `totalNet` cell. Now we split:
+    // `currencyTotals` keeps the full per-currency rollup, and the
+    // legacy headline columns (totalGross / totalTax / totalNet) only
+    // sum the rows whose currency matches the run's entity currency —
+    // which is what HR was eyeballing anyway.
+    const currencyTotals: Record<
+      string,
+      { gross: number; tax: number; net: number; count: number }
+    > = {};
+    for (const p of preview.valid) {
+      const bucket = (currencyTotals[p.currency] ??= {
+        gross: 0,
+        tax: 0,
+        net: 0,
+        count: 0,
+      });
+      bucket.gross += p.grossPay;
+      bucket.tax += p.tax;
+      bucket.net += p.netPay;
+      bucket.count += 1;
+    }
+
+    // Write the payslips first; then re-aggregate via the FX-aware
+    // recalc so the headline Total Gross / Total Tax / Total Net are
+    // expressed in the entity currency across ALL payslips, not just
+    // the entity-currency ones. We can't FX-convert inside the same
+    // transaction as the inserts because the recalc has to read the
+    // freshly persisted rows.
+    await payrollRepository.runTransaction([
+      payrollRepository.buildDeleteAllPayslipsInput(runId),
+      payrollRepository.buildCreatePayslipsManyInput(runId, payslipRows),
+    ]);
+    const recalc = await payrollRepository.sumPayslipTotalsForRun(runId);
+    await payrollRepository.setRunTotals(runId, recalc);
+
+    return {
+      imported: preview.validCount,
+      totalGross: recalc.totalGross,
+      totalNet: recalc.totalNet,
+      totalTax: recalc.totalTax,
+      currencyTotals: recalc.currencyTotals,
+      missingFxFor: recalc.missingFxFor,
+    };
+  }
+
+  /**
+   * Bulk-import entrypoint — the dialog has parsed the spreadsheet but
+   * does NOT know which entity the rows belong to. We resolve as many
+   * rows as we can (id / email / name / token-set), pick the dominant
+   * `entityId` from the matched users, and either reuse the existing
+   * draft run for (entity, period) or create an empty one. The dialog
+   * then proceeds to the payslip preview/commit step against the
+   * returned runId.
+   *
+   * Period is canonical YYYY-MM on the wire. The UI surfaces MM-YYYY,
+   * the validation enforces YYYY-MM here so downstream code (totals
+   * queries, reports, the existing unique index) stays consistent.
+   */
+  async prepareRunFromImport(input: PrepareImportRunInput, userId: string) {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(input.period)) {
+      throw new BadRequestException("Period must be YYYY-MM");
+    }
+    if (input.identifiers.length === 0) {
+      throw new BadRequestException(
+        "Spreadsheet has no rows — upload a file with at least one employee",
+      );
+    }
+
+    const allActive = await payrollRepository.findUsersForImportMatch();
+    const userByEmail = new Map(
+      allActive.map((u) => [u.email.toLowerCase(), u] as const),
+    );
+    const userByNormalisedName = new Map(
+      allActive.map((u) => [normaliseName(u.name), u] as const),
+    );
+    const userByTokenSet = new Map<string, Array<(typeof allActive)[number]>>();
+    for (const u of allActive) {
+      const key = tokenSetKey(u.name);
+      const bucket = userByTokenSet.get(key) ?? [];
+      bucket.push(u);
+      userByTokenSet.set(key, bucket);
+    }
+    const userById = new Map<string, (typeof allActive)[number]>();
+
+    // Tally entityId across matched rows. Whichever entity owns the
+    // majority wins — gives HR room to make spelling typos in a row or
+    // two without flipping the run onto a different entity.
+    const entityTally = new Map<string, number>();
+    let matched = 0;
+    for (const r of input.identifiers) {
+      const user = matchImportRowToUser(
+        { employeeEmail: r.email, employeeName: r.name },
+        userById,
+        userByEmail,
+        userByNormalisedName,
+        userByTokenSet,
+      );
+      if (!user) continue;
+      matched += 1;
+      if (user.entityId) {
+        entityTally.set(
+          user.entityId,
+          (entityTally.get(user.entityId) ?? 0) + 1,
+        );
+      }
+    }
+
+    if (entityTally.size === 0) {
+      throw new BadRequestException(
+        "Could not match any employee in the spreadsheet to an entity — check the Employee Name / Email columns",
+      );
+    }
+
+    const [topEntityId] = [...entityTally.entries()].sort(
+      (a, b) => b[1] - a[1],
+    )[0]!;
+
+    const existing = await payrollRepository.findExistingRun(
+      topEntityId,
+      input.period,
+    );
+    if (existing && existing.status !== "draft") {
+      throw new ConflictException(
+        `Payroll run for this entity and period is already ${existing.status} — create a new period or revert the run first`,
+      );
+    }
+
+    const entityCodeRow = await prisma.entity.findUnique({
+      where: { id: topEntityId },
+      select: { code: true, name: true },
+    });
+
+    let runId: string;
+    if (existing) {
+      runId = existing.id;
+    } else {
+      const created = await payrollRepository.createEmptyRun({
+        entityId: topEntityId,
+        period: input.period,
+        runBy: userId,
+      });
+      runId = created.id;
+
+      // Best-effort analytics, matches createRun.
+      try {
+        const trackingActor = await actorFromId(userId);
+        if (trackingActor) {
+          trackPayrollRunStarted(trackingActor, {
+            period: input.period,
+            target_entity_code:
+              (entityCodeRow?.code as "TH" | "IN" | "VN" | "ID") ?? "TH",
+          });
+        }
+      } catch {
+        // analytics is best-effort
+      }
+    }
+
+    return {
+      runId,
+      entityId: topEntityId,
+      entityCode: entityCodeRow?.code ?? null,
+      entityName: entityCodeRow?.name ?? null,
+      period: input.period,
+      matchedCount: matched,
+      totalRows: input.identifiers.length,
+      reused: !!existing,
+    };
+  }
+
+  async previewImport(rows: Array<Record<string, unknown>>) {
+    const valid: Array<Record<string, unknown>> = [];
+    const errors: Array<{ row: number; message: string }> = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]!;
+      const email = String(row.email || row.Email || "").trim();
+      const grossSalary = Number(
+        row.grossSalary || row["Gross Salary"] || row.gross_salary || 0,
+      );
+
+      if (!email) {
+        errors.push({ row: i + 1, message: "Missing email" });
+        continue;
+      }
+      if (!grossSalary || grossSalary <= 0) {
+        errors.push({ row: i + 1, message: "Invalid gross salary" });
+        continue;
+      }
+
+      valid.push({ ...row, email, grossSalary, rowIndex: i + 1 });
+    }
+
+    return {
+      valid,
+      errors,
+      totalRows: rows.length,
+      validCount: valid.length,
+      errorCount: errors.length,
+    };
+  }
+
+  async commitImport(rows: Array<Record<string, unknown>>, createdBy: string) {
+    const preview = await this.previewImport(rows);
+    if (preview.errorCount > 0) {
+      throw new BadRequestException(
+        `${preview.errorCount} rows have errors. Fix them and try again.`,
+      );
+    }
+
+    try {
+      const trackingActor = await actorFromId(createdBy);
+      if (trackingActor) {
+        trackPayrollImportedServer(trackingActor, {
+          row_count: preview.totalRows,
+          error_count: preview.errorCount,
+        });
+      }
+    } catch {
+      // analytics is best-effort
+    }
+
+    return {
+      imported: preview.validCount,
+      message: `${preview.validCount} payroll records staged for review`,
+    };
+  }
+
+  // ─── Employee-facing payslips ─────────────────────────────
+
+  /**
+   * /my-portal "My Payslip" tab — every payslip across every run for
+   * one employee. No permission gate beyond auth: the caller's own id
+   * is the scope key.
+   */
+  async listMyPayslips(employeeId: string) {
+    return payrollRepository.findPayslipsByEmployeeId(employeeId);
+  }
+
+  /**
+   * HR-only diagnostic. Surfaces why a specific employee sees an
+   * empty /my-portal "My Payslip" tab — typically because a stale
+   * bulk import bound their Payslip rows to a different User.id
+   * whose name token-set matches (e.g. "Alex Lopez" vs
+   * "Alex Morgan"). Output lets HR pick the misbound row and
+   * rebind it with a one-line SQL UPDATE.
+   *
+   * Returns:
+   * - `target`: the user lookup result for `email` (id, name,
+   *   isActive). `found: false` when no user matches.
+   * - `ownPayslipCount`: how many Payslip rows currently point at
+   *   the target user's id.
+   * - `candidates`: every OTHER user whose name shares the same
+   *   sorted-token-set as the target (so "Alex Morgan" matches
+   *   "Morgan Alex" and "Alex  Morgan "), with their payslip
+   *   counts. The misbound user typically shows up here with a
+   *   non-zero count.
+   */
+  async diagnoseEmployeePayslips(email: string) {
+    const normalisedEmail = email.trim().toLowerCase();
+    if (!normalisedEmail) {
+      throw new BadRequestException("Query param `email` is required");
+    }
+    const target = await prisma.user.findUnique({
+      where: { email: normalisedEmail },
+      select: { id: true, name: true, email: true, isActive: true },
+    });
+    if (!target) {
+      return { found: false as const, email: normalisedEmail };
+    }
+    const ownPayslipCount = await prisma.payslip.count({
+      where: { employeeId: target.id },
+    });
+    const allUsers = await prisma.user.findMany({
+      select: { id: true, name: true, email: true, isActive: true },
+    });
+    const targetTokens = tokenSetKey(target.name);
+    const candidateUsers = allUsers.filter(
+      (u) => u.id !== target.id && tokenSetKey(u.name) === targetTokens,
+    );
+    const candidates = await Promise.all(
+      candidateUsers.map(async (u) => ({
+        user: u,
+        payslipCount: await prisma.payslip.count({
+          where: { employeeId: u.id },
+        }),
+      })),
+    );
+    return {
+      found: true as const,
+      target,
+      ownPayslipCount,
+      candidates,
+    };
+  }
+
+  /**
+   * Resolve a 5-minute signed URL for the caller's own payslip PDF.
+   * Throws 404 when:
+   *   • the payslip doesn't exist,
+   *   • it isn't theirs (defence-in-depth — the route already filters
+   *     to req.user!.id),
+   *   • the row has no `documentUrl` attached yet.
+   */
+  async getMyPayslipDownloadUrl(employeeId: string, payslipId: string) {
+    const slip = await payrollRepository.findPayslipById(payslipId);
+    if (!slip || slip.employeeId !== employeeId) {
+      throw new NotFoundException("Payslip not found");
+    }
+    if (!slip.documentUrl) {
+      throw new NotFoundException("No payslip document attached yet");
+    }
+    const parsed = await requireRegisteredStorageUrl(slip.documentUrl, {
+      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
+      purpose: "payslip-document",
+      linkedTo: "payslip",
+      linkedId: payslipId,
+    });
+    const url = await createSignedUrl(parsed.bucket, parsed.path, 300);
+    return { url };
+  }
+
+  /**
+   * HR upload path. Stores the PDF on the `documents` bucket (private)
+   * and writes the public URL onto the Payslip row. The /my-portal
+   * download endpoint mints a fresh signed URL on each request, so
+   * the persisted URL is just an addressable handle (the bucket is
+   * private; no public access).
+   */
+  async attachPayslipDocument(
+    runId: string,
+    payslipId: string,
+    actorId: string,
+    file: {
+      buffer: Buffer;
+      originalName: string;
+      mimeType: string;
+      size: number;
+    },
+    actorPermissions: string[],
+  ) {
+    PayrollService.requirePayrollManager(actorPermissions);
+    const slip = await payrollRepository.findPayslipById(payslipId);
+    if (!slip) throw new NotFoundException("Payslip not found");
+    if (slip.payrollRunId !== runId) {
+      throw new BadRequestException("Payslip does not belong to this run");
+    }
+    const uploaded = await uploadFile(STORAGE_BUCKETS.DOCUMENTS, actorId, file);
+    let updated: Awaited<ReturnType<typeof payrollRepository.updatePayslip>>;
+    try {
+      await uploadsRepository.create({
+        filename: file.originalName.replace(/[^a-zA-Z0-9._-]/g, "_"),
+        originalName: file.originalName,
+        mimeType: file.mimeType,
+        size: file.size,
+        path: uploaded.path,
+        bucket: uploaded.bucket,
+        uploadedBy: actorId,
+        purpose: "payslip-document",
+        linkedTo: "payslip",
+        linkedId: payslipId,
+      });
+      updated = await payrollRepository.updatePayslip(payslipId, {
+        documentUrl: uploaded.url,
+      });
+    } catch (error) {
+      try {
+        await deleteFile(uploaded.bucket, uploaded.path);
+      } catch (cleanupError) {
+        logger.warn("payslip upload cleanup failed", {
+          cleanupError,
+          path: uploaded.path,
+        });
+      }
+      throw error;
+    }
+
+    await this.deleteRegisteredPayslipDocument(slip.documentUrl, payslipId);
+    return updated;
+  }
+
+  /**
+   * HR-facing flat list (HRMS → Payslip Management). Returns rows
+   * across every employee + run with the filters applied. Manager
+   * authorization is repeated here so callers cannot bypass the route.
+   */
+  async listPayslipsForHr(query: HrPayslipQuery, actorPermissions: string[]) {
+    PayrollService.requirePayrollManager(actorPermissions);
+    return payrollRepository.findPayslipsForHr(query);
+  }
+
+  /**
+   * HR-side signed-URL download. Mirrors `getMyPayslipDownloadUrl`
+   * but without the employee-id ownership check, so it requires a payroll
+   * manager capability at both the route and service layers. 404 when the
+   * row has no PDF attached.
+   */
+  async getPayslipDownloadUrlForHr(
+    payslipId: string,
+    actorPermissions: string[],
+  ) {
+    PayrollService.requirePayrollManager(actorPermissions);
+    const slip = await payrollRepository.findPayslipById(payslipId);
+    if (!slip) throw new NotFoundException("Payslip not found");
+    if (!slip.documentUrl) {
+      throw new NotFoundException("No payslip document attached yet");
+    }
+    const parsed = await requireRegisteredStorageUrl(slip.documentUrl, {
+      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
+      purpose: "payslip-document",
+      linkedTo: "payslip",
+      linkedId: payslipId,
+    });
+    const url = await createSignedUrl(parsed.bucket, parsed.path, 300);
+    return { url };
+  }
+
+  private async deleteRegisteredPayslipDocument(
+    documentUrl: string | null | undefined,
+    payslipId: string,
+  ): Promise<void> {
+    if (!documentUrl) return;
+
+    try {
+      const parsed = await requireRegisteredStorageUrl(documentUrl, {
+        allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
+        purpose: "payslip-document",
+        linkedTo: "payslip",
+        linkedId: payslipId,
+      });
+      await deleteFile(parsed.bucket, parsed.path);
+    } catch (error) {
+      // Legacy rows may pre-date the upload registry. Never turn an
+      // unproven URL into a service-role delete primitive.
+      if (error instanceof BadRequestException) return;
+      // The URL mutation has already committed. Cleanup failures must not
+      // report the whole operation as failed and invite a duplicate retry.
+      logger.warn("payslip document cleanup failed", { error, payslipId });
+    }
+  }
+
+  async removePayslipDocument(
+    runId: string,
+    payslipId: string,
+    actorPermissions: string[],
+  ) {
+    PayrollService.requirePayrollManager(actorPermissions);
+    const slip = await payrollRepository.findPayslipById(payslipId);
+    if (!slip) throw new NotFoundException("Payslip not found");
+    if (slip.payrollRunId !== runId) {
+      throw new BadRequestException("Payslip does not belong to this run");
+    }
+    const updated = await payrollRepository.updatePayslip(payslipId, {
+      documentUrl: null,
+    });
+    await this.deleteRegisteredPayslipDocument(slip.documentUrl, payslipId);
+    return updated;
+  }
+
+  // ── Payslip document generation ───────────────────────────────
+
+  /**
+   * Employee-facing variant of `exportPayslipDocument`. Same renderer,
+   * stricter gating: caller must own the payslip AND the run must be
+   * approved or paid. Draft runs stay hidden because the numbers
+   * aren't HR-blessed yet — letting employees pull a PDF/xlsx off a
+   * draft would surface numbers that may still change.
+   */
+  async exportMyPayslipDocument(
+    employeeId: string,
+    payslipId: string,
+    format: ExportFormat,
+  ) {
+    const slip = await prisma.payslip.findUnique({
+      where: { id: payslipId },
+      include: {
+        employee: {
+          select: { id: true, name: true, email: true, dateOfBirth: true },
+        },
+        payrollRun: {
+          select: {
+            period: true,
+            status: true,
+            entity: { select: { name: true } },
+          },
+        },
+      },
+    });
+    if (!slip || slip.employeeId !== employeeId) {
+      throw new NotFoundException("Payslip not found");
+    }
+    if (!["approved", "paid"].includes(slip.payrollRun.status)) {
+      throw new ForbiddenException(
+        "This payslip is not yet released. Wait until HR approves the payroll run.",
+      );
+    }
+    const input: PayslipExportInput = {
+      payslip: slip,
+      entityName: slip.payrollRun.entity.name,
+      period: slip.payrollRun.period,
+      company: await this.getPayslipCompany(),
+    };
+    const filenameSafe = (slip.employee.name ?? "Unknown").replace(
+      /[/\\:*?"<>|]/g,
+      "_",
+    );
+    const filename = `${slip.payrollRun.period}-${filenameSafe}.${format}`;
+    const rendered =
+      format === "xlsx"
+        ? buildPayslipWorkbookBuffer(input)
+        : await buildPayslipPdfBuffer(input);
+    // Protect the employee's own download with their DOB (DDMMYYYY). If
+    // no DOB is on file we serve the file unprotected (and the UI warns).
+    const { buffer, protected: isProtected } = await protectPayslip(
+      rendered,
+      format,
+      payslipPassword(slip.employee.dateOfBirth),
+    );
+    return { buffer, filename, protected: isProtected };
+  }
+
+  /**
+   * Render a single payslip as either an Excel workbook or a PDF.
+   * Mirrors the payroll export layout cell-for-cell
+   * so finance can drop the generated file into the archival folder
+   * alongside historical hand-uploaded payslips.
+   */
+  async exportPayslipDocument(
+    payslipId: string,
+    format: ExportFormat,
+    actorPermissions: string[],
+  ) {
+    PayrollService.requirePayrollManager(actorPermissions);
+    const slip = await prisma.payslip.findUnique({
+      where: { id: payslipId },
+      include: {
+        employee: { select: { id: true, name: true, email: true } },
+        payrollRun: {
+          select: {
+            period: true,
+            entity: { select: { name: true } },
+          },
+        },
+      },
+    });
+    if (!slip) throw new NotFoundException("Payslip not found");
+
+    const input: PayslipExportInput = {
+      payslip: slip,
+      entityName: slip.payrollRun.entity.name,
+      period: slip.payrollRun.period,
+      company: await this.getPayslipCompany(),
+    };
+    const filenameSafe = (slip.employee.name ?? "Unknown").replace(
+      /[/\\:*?"<>|]/g,
+      "_",
+    );
+    const filename = `${slip.payrollRun.period}-${filenameSafe}.${format}`;
+    const buffer =
+      format === "xlsx"
+        ? buildPayslipWorkbookBuffer(input)
+        : await buildPayslipPdfBuffer(input);
+    return { buffer, filename };
+  }
+
+  /**
+   * Render every payslip in a payroll run as a single zip archive. HR
+   * clicks "Generate all" to ship a month's worth of payslips at once.
+   */
+  async exportRunPayslipsZip(
+    runId: string,
+    format: ExportFormat,
+    actorPermissions: string[],
+  ) {
+    PayrollService.requirePayrollManager(actorPermissions);
+    const run = await payrollRepository.findRunById(runId);
+    if (!run) throw new NotFoundException("Payroll run not found");
+
+    const slips = await prisma.payslip.findMany({
+      where: { payrollRunId: runId },
+      include: {
+        employee: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: [{ employee: { name: "asc" } }, { currency: "asc" }],
+    });
+    if (slips.length === 0) {
+      throw new BadRequestException(
+        "This payroll run has no payslips to export yet",
+      );
+    }
+
+    const entityName = run.entity?.name ?? "";
+    const company = await this.getPayslipCompany();
+    const inputs: PayslipExportInput[] = slips.map((s) => ({
+      payslip: s,
+      entityName,
+      period: run.period,
+      company,
+    }));
+    const buffer = await buildBulkPayslipZip(inputs, format);
+    const filename = `payslips-${run.period}-${entityName.replace(/\s+/g, "_")}.zip`;
+    return { buffer, filename };
+  }
+
+  /**
+   * HRMS Payslip Management bulk delete. Drops the selected rows and
+   * sweeps any attached PDFs from the `documents` bucket. Storage
+   * deletes are best-effort (deleteFile logs + swallows errors) so a
+   * missing or already-removed object can't block the DB delete.
+   */
+  async bulkDeletePayslips(ids: string[], actorPermissions: string[]) {
+    PayrollService.requirePayrollManager(actorPermissions);
+    if (ids.length === 0) {
+      return { deletedCount: 0 };
+    }
+    const slips = await payrollRepository.findPayslipDocumentUrls(ids);
+    const registeredFiles = await Promise.all(
+      slips.map(async (slip) => {
+        if (!slip.documentUrl) return null;
+        try {
+          const registered = await requireRegisteredStorageUrl(
+            slip.documentUrl,
+            {
+              allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
+              purpose: "payslip-document",
+              linkedTo: "payslip",
+              linkedId: slip.id,
+            },
+          );
+          return { ...registered, payslipId: slip.id };
+        } catch (error) {
+          // Legacy/corrupt rows must not turn a shared-bucket URL into a
+          // service-role delete primitive. Delete the payslip row, but leave
+          // unproven storage untouched for an operator to reconcile.
+          if (error instanceof BadRequestException) return null;
+          throw error;
+        }
+      }),
+    );
+    const result = await payrollRepository.bulkDeletePayslips(ids);
+    await Promise.all(
+      registeredFiles
+        .filter(
+          (
+            p,
+          ): p is {
+            bucket: typeof STORAGE_BUCKETS.DOCUMENTS;
+            path: string;
+            uploadId: string;
+            payslipId: string;
+          } => p !== null,
+        )
+        .map(async ({ bucket, path, payslipId }) => {
+          try {
+            await deleteFile(bucket, path);
+          } catch (error) {
+            // Rows are already deleted. Keep cleanup best-effort so a retry
+            // cannot turn a completed delete into a misleading failure.
+            logger.warn("payslip document cleanup failed", {
+              error,
+              payslipId,
+            });
+          }
+        }),
+    );
+    return { deletedCount: result.count };
+  }
+}
+
+export const payrollService = new PayrollService();

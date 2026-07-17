@@ -1,0 +1,520 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "manut-intranet-edge-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-17",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "../app/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/health"],
+  },
+  "vars": {
+    "API_ORIGIN": "",
+    "AUTH_JWKS_URL": "",
+    "AUTH_ISSUER": "",
+    "AUTH_AUDIENCE": "authenticated",
+    "ENABLE_CONTAINER_BOUNDARY": "false",
+    "ENABLE_CRON_BOUNDARY": "false",
+    "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+    "ENABLE_LOCAL_R2_STREAMING": "true",
+    "ENABLE_WORKFLOW_BOUNDARY": "false",
+    "R2_BUCKET_NAME": "manut-intranet-uploads-local",
+  },
+  "secrets": {
+    "required": [
+      "EDGE_SIGNING_KEY",
+      "R2_ACCESS_KEY_ID",
+      "R2_ACCOUNT_ID",
+      "R2_SECRET_ACCESS_KEY",
+    ],
+  },
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "manut-intranet-uploads-local",
+      "preview_bucket_name": "manut-intranet-uploads-local-preview",
+    },
+  ],
+  "ratelimits": [
+    {
+      "name": "API_RATE_LIMITER",
+      "namespace_id": "471001",
+      "simple": {
+        "limit": 120,
+        "period": 60,
+      },
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "REALTIME_ROOMS",
+        "class_name": "RealtimeRoom",
+      },
+      {
+        "name": "QUEUE_LEDGER",
+        "class_name": "QueueLedger",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "edge-v1",
+      "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
+    },
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOB_QUEUE",
+        "queue": "manut-intranet-jobs-local",
+      },
+      {
+        "binding": "DEAD_LETTER_QUEUE",
+        "queue": "manut-intranet-jobs-local-dlq",
+      },
+    ],
+    "consumers": [
+      {
+        "queue": "manut-intranet-jobs-local",
+        "dead_letter_queue": "manut-intranet-jobs-local-dlq",
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+      },
+    ],
+  },
+  "workflows": [
+    {
+      "binding": "BACKGROUND_WORKFLOW",
+      "name": "manut-intranet-background-local",
+      "class_name": "BackgroundWorkflow",
+    },
+  ],
+  // Keep remote schedules/resources explicitly empty until their separate
+  // provisioning work is approved. Runtime stubs return 503 while disabled.
+  "triggers": {
+    "crons": [],
+  },
+  "containers": [],
+  "hyperdrive": [],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 0.1,
+      "invocation_logs": true,
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01,
+    },
+  },
+  // Named environments intentionally repeat every non-inheritable binding.
+  // Resource names are unique per environment and are provisioning contracts,
+  // not existing account or resource identifiers. Feature boundaries remain
+  // disabled until a separate, approved provisioning change supplies them.
+  "env": {
+    "development": {
+      "name": "manut-intranet-edge-development",
+      "vars": {
+        "API_ORIGIN": "",
+        "AUTH_JWKS_URL": "",
+        "AUTH_ISSUER": "",
+        "AUTH_AUDIENCE": "authenticated",
+        "ENABLE_CONTAINER_BOUNDARY": "false",
+        "ENABLE_CRON_BOUNDARY": "false",
+        "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+        "ENABLE_LOCAL_R2_STREAMING": "false",
+        "ENABLE_WORKFLOW_BOUNDARY": "false",
+        "R2_BUCKET_NAME": "manut-intranet-uploads-development",
+      },
+      "secrets": {
+        "required": [
+          "EDGE_SIGNING_KEY",
+          "R2_ACCESS_KEY_ID",
+          "R2_ACCOUNT_ID",
+          "R2_SECRET_ACCESS_KEY",
+        ],
+      },
+      "r2_buckets": [
+        {
+          "binding": "UPLOADS",
+          "bucket_name": "manut-intranet-uploads-development",
+          "preview_bucket_name": "manut-intranet-uploads-development-preview",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "API_RATE_LIMITER",
+          "namespace_id": "471101",
+          "simple": { "limit": 120, "period": 60 },
+        },
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "REALTIME_ROOMS", "class_name": "RealtimeRoom" },
+          { "name": "QUEUE_LEDGER", "class_name": "QueueLedger" },
+        ],
+      },
+      "migrations": [
+        {
+          "tag": "edge-v1",
+          "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "JOB_QUEUE",
+            "queue": "manut-intranet-jobs-development",
+          },
+          {
+            "binding": "DEAD_LETTER_QUEUE",
+            "queue": "manut-intranet-jobs-development-dlq",
+          },
+        ],
+        "consumers": [
+          {
+            "queue": "manut-intranet-jobs-development",
+            "dead_letter_queue": "manut-intranet-jobs-development-dlq",
+            "max_batch_size": 10,
+            "max_batch_timeout": 5,
+            "max_retries": 3,
+          },
+        ],
+      },
+      "workflows": [
+        {
+          "binding": "BACKGROUND_WORKFLOW",
+          "name": "manut-intranet-background-development",
+          "class_name": "BackgroundWorkflow",
+        },
+      ],
+      "triggers": { "crons": [] },
+      "containers": [],
+      "hyperdrive": [],
+    },
+    "preview": {
+      "name": "manut-intranet-edge-preview",
+      "vars": {
+        "API_ORIGIN": "",
+        "AUTH_JWKS_URL": "",
+        "AUTH_ISSUER": "",
+        "AUTH_AUDIENCE": "authenticated",
+        "ENABLE_CONTAINER_BOUNDARY": "false",
+        "ENABLE_CRON_BOUNDARY": "false",
+        "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+        "ENABLE_LOCAL_R2_STREAMING": "false",
+        "ENABLE_WORKFLOW_BOUNDARY": "false",
+        "R2_BUCKET_NAME": "manut-intranet-uploads-preview",
+      },
+      "secrets": {
+        "required": [
+          "EDGE_SIGNING_KEY",
+          "R2_ACCESS_KEY_ID",
+          "R2_ACCOUNT_ID",
+          "R2_SECRET_ACCESS_KEY",
+        ],
+      },
+      "r2_buckets": [
+        {
+          "binding": "UPLOADS",
+          "bucket_name": "manut-intranet-uploads-preview",
+          "preview_bucket_name": "manut-intranet-uploads-preview-local",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "API_RATE_LIMITER",
+          "namespace_id": "471201",
+          "simple": { "limit": 120, "period": 60 },
+        },
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "REALTIME_ROOMS", "class_name": "RealtimeRoom" },
+          { "name": "QUEUE_LEDGER", "class_name": "QueueLedger" },
+        ],
+      },
+      "migrations": [
+        {
+          "tag": "edge-v1",
+          "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "JOB_QUEUE",
+            "queue": "manut-intranet-jobs-preview",
+          },
+          {
+            "binding": "DEAD_LETTER_QUEUE",
+            "queue": "manut-intranet-jobs-preview-dlq",
+          },
+        ],
+        "consumers": [
+          {
+            "queue": "manut-intranet-jobs-preview",
+            "dead_letter_queue": "manut-intranet-jobs-preview-dlq",
+            "max_batch_size": 10,
+            "max_batch_timeout": 5,
+            "max_retries": 3,
+          },
+        ],
+      },
+      "workflows": [
+        {
+          "binding": "BACKGROUND_WORKFLOW",
+          "name": "manut-intranet-background-preview",
+          "class_name": "BackgroundWorkflow",
+        },
+      ],
+      "triggers": { "crons": [] },
+      "containers": [],
+      "hyperdrive": [],
+    },
+    "e2e": {
+      "name": "manut-intranet-edge-e2e",
+      "vars": {
+        "API_ORIGIN": "",
+        "AUTH_JWKS_URL": "",
+        "AUTH_ISSUER": "",
+        "AUTH_AUDIENCE": "authenticated",
+        "ENABLE_CONTAINER_BOUNDARY": "false",
+        "ENABLE_CRON_BOUNDARY": "false",
+        "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+        "ENABLE_LOCAL_R2_STREAMING": "false",
+        "ENABLE_WORKFLOW_BOUNDARY": "false",
+        "R2_BUCKET_NAME": "manut-intranet-uploads-e2e",
+      },
+      "secrets": {
+        "required": [
+          "EDGE_SIGNING_KEY",
+          "R2_ACCESS_KEY_ID",
+          "R2_ACCOUNT_ID",
+          "R2_SECRET_ACCESS_KEY",
+        ],
+      },
+      "r2_buckets": [
+        {
+          "binding": "UPLOADS",
+          "bucket_name": "manut-intranet-uploads-e2e",
+          "preview_bucket_name": "manut-intranet-uploads-e2e-preview",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "API_RATE_LIMITER",
+          "namespace_id": "471301",
+          "simple": { "limit": 120, "period": 60 },
+        },
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "REALTIME_ROOMS", "class_name": "RealtimeRoom" },
+          { "name": "QUEUE_LEDGER", "class_name": "QueueLedger" },
+        ],
+      },
+      "migrations": [
+        {
+          "tag": "edge-v1",
+          "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
+        },
+      ],
+      "queues": {
+        "producers": [
+          { "binding": "JOB_QUEUE", "queue": "manut-intranet-jobs-e2e" },
+          {
+            "binding": "DEAD_LETTER_QUEUE",
+            "queue": "manut-intranet-jobs-e2e-dlq",
+          },
+        ],
+        "consumers": [
+          {
+            "queue": "manut-intranet-jobs-e2e",
+            "dead_letter_queue": "manut-intranet-jobs-e2e-dlq",
+            "max_batch_size": 10,
+            "max_batch_timeout": 5,
+            "max_retries": 3,
+          },
+        ],
+      },
+      "workflows": [
+        {
+          "binding": "BACKGROUND_WORKFLOW",
+          "name": "manut-intranet-background-e2e",
+          "class_name": "BackgroundWorkflow",
+        },
+      ],
+      "triggers": { "crons": [] },
+      "containers": [],
+      "hyperdrive": [],
+    },
+    "staging": {
+      "name": "manut-intranet-edge-staging",
+      "vars": {
+        "API_ORIGIN": "",
+        "AUTH_JWKS_URL": "",
+        "AUTH_ISSUER": "",
+        "AUTH_AUDIENCE": "authenticated",
+        "ENABLE_CONTAINER_BOUNDARY": "false",
+        "ENABLE_CRON_BOUNDARY": "false",
+        "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+        "ENABLE_LOCAL_R2_STREAMING": "false",
+        "ENABLE_WORKFLOW_BOUNDARY": "false",
+        "R2_BUCKET_NAME": "manut-intranet-uploads-staging",
+      },
+      "secrets": {
+        "required": [
+          "EDGE_SIGNING_KEY",
+          "R2_ACCESS_KEY_ID",
+          "R2_ACCOUNT_ID",
+          "R2_SECRET_ACCESS_KEY",
+        ],
+      },
+      "r2_buckets": [
+        {
+          "binding": "UPLOADS",
+          "bucket_name": "manut-intranet-uploads-staging",
+          "preview_bucket_name": "manut-intranet-uploads-staging-preview",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "API_RATE_LIMITER",
+          "namespace_id": "471401",
+          "simple": { "limit": 120, "period": 60 },
+        },
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "REALTIME_ROOMS", "class_name": "RealtimeRoom" },
+          { "name": "QUEUE_LEDGER", "class_name": "QueueLedger" },
+        ],
+      },
+      "migrations": [
+        {
+          "tag": "edge-v1",
+          "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "JOB_QUEUE",
+            "queue": "manut-intranet-jobs-staging",
+          },
+          {
+            "binding": "DEAD_LETTER_QUEUE",
+            "queue": "manut-intranet-jobs-staging-dlq",
+          },
+        ],
+        "consumers": [
+          {
+            "queue": "manut-intranet-jobs-staging",
+            "dead_letter_queue": "manut-intranet-jobs-staging-dlq",
+            "max_batch_size": 10,
+            "max_batch_timeout": 5,
+            "max_retries": 3,
+          },
+        ],
+      },
+      "workflows": [
+        {
+          "binding": "BACKGROUND_WORKFLOW",
+          "name": "manut-intranet-background-staging",
+          "class_name": "BackgroundWorkflow",
+        },
+      ],
+      "triggers": { "crons": [] },
+      "containers": [],
+      "hyperdrive": [],
+    },
+    "production": {
+      "name": "manut-intranet-edge-production",
+      "vars": {
+        "API_ORIGIN": "",
+        "AUTH_JWKS_URL": "",
+        "AUTH_ISSUER": "",
+        "AUTH_AUDIENCE": "authenticated",
+        "ENABLE_CONTAINER_BOUNDARY": "false",
+        "ENABLE_CRON_BOUNDARY": "false",
+        "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+        "ENABLE_LOCAL_R2_STREAMING": "false",
+        "ENABLE_WORKFLOW_BOUNDARY": "false",
+        "R2_BUCKET_NAME": "manut-intranet-uploads-production",
+      },
+      "secrets": {
+        "required": [
+          "EDGE_SIGNING_KEY",
+          "R2_ACCESS_KEY_ID",
+          "R2_ACCOUNT_ID",
+          "R2_SECRET_ACCESS_KEY",
+        ],
+      },
+      "r2_buckets": [
+        {
+          "binding": "UPLOADS",
+          "bucket_name": "manut-intranet-uploads-production",
+          "preview_bucket_name": "manut-intranet-uploads-production-preview",
+        },
+      ],
+      "ratelimits": [
+        {
+          "name": "API_RATE_LIMITER",
+          "namespace_id": "471501",
+          "simple": { "limit": 120, "period": 60 },
+        },
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "REALTIME_ROOMS", "class_name": "RealtimeRoom" },
+          { "name": "QUEUE_LEDGER", "class_name": "QueueLedger" },
+        ],
+      },
+      "migrations": [
+        {
+          "tag": "edge-v1",
+          "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
+        },
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "JOB_QUEUE",
+            "queue": "manut-intranet-jobs-production",
+          },
+          {
+            "binding": "DEAD_LETTER_QUEUE",
+            "queue": "manut-intranet-jobs-production-dlq",
+          },
+        ],
+        "consumers": [
+          {
+            "queue": "manut-intranet-jobs-production",
+            "dead_letter_queue": "manut-intranet-jobs-production-dlq",
+            "max_batch_size": 10,
+            "max_batch_timeout": 5,
+            "max_retries": 3,
+          },
+        ],
+      },
+      "workflows": [
+        {
+          "binding": "BACKGROUND_WORKFLOW",
+          "name": "manut-intranet-background-production",
+          "class_name": "BackgroundWorkflow",
+        },
+      ],
+      "triggers": { "crons": [] },
+      "containers": [],
+      "hyperdrive": [],
+    },
+  },
+}

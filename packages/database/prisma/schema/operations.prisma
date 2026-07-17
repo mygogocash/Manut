@@ -1,0 +1,1400 @@
+model Partner {
+  id                 String    @id @default(cuid())
+  slug               String    @unique
+  company            String
+  type               String
+  status             String    @default("prospect")
+  region             String?
+  country            String?
+  website            String?
+  description        String?
+  contractValue      Decimal?  @map("contract_value") @db.Decimal(15, 2)
+  contractStart      DateTime? @map("contract_start") @db.Date
+  contractEnd        DateTime? @map("contract_end") @db.Date
+  notes              String?
+  // Partner CRM list layout mirrors the Projects dashboard.
+  // These columns drive the same "roll-out tracking" view the sales team
+  // uses for projects, scoped to a partnership instead of a project.
+  productionLiveDate DateTime? @map("production_live_date") @db.Date
+  goLiveDate         DateTime? @map("go_live_date") @db.Date
+  revisedGoLiveDate  DateTime? @map("revised_go_live_date") @db.Date
+  // Marketing CRM — campaign cadence shown + inline-edited on the
+  // overview. `past` = most recent campaign, `next` = upcoming one.
+  pastCampaignDate   DateTime? @map("past_campaign_date") @db.Date
+  nextCampaignDate   DateTime? @map("next_campaign_date") @db.Date
+  dependency         String?
+  comment            String?
+  // Manual ordering (drag-to-reorder on /partners). Lower values first;
+  // createdAt is the deterministic tie-breaker.
+  sortOrder          Int       @default(0) @map("sort_order")
+  // Relationship / account manager. Free of any business-logic gating
+  // (any active user is selectable); when set, surfaces in the
+  // Owner column on the list view.
+  ownerId            String?   @map("owner_id") @db.Uuid
+  // Owning department — drawn from the same whitelist as Project
+  // department so HR / BD / Marketing can share filters across modules.
+  department         String?
+  // Partner CRM owns its native `partner_*` workspace, so the retired
+  // redirect shim no longer needs a primary-project foreign key.
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  contacts        PartnerContact[]
+  // Optional many-to-one back-link for BD reporting (which projects
+  // mention this partner). No cascade — deleting a Project sets the
+  // FK on the Project side to NULL, not the Partner here.
+  projects        Project[]        @relation("PartnerProjects")
+  // Partner-native task tables prevent project deletion from cascading
+  // into an independently owned partner workspace.
+  partnerTasks    PartnerTask[]
+  partnerColumns  PartnerColumn[]
+  partnerMembers  PartnerMember[]
+  deals           Deal[]
+  // Sales CRM soft link to sales accounts. Records stay separate.
+  crmAccounts     Account[]        @relation("PartnerAccounts")
+  // Sales Revenue CRM — independent parallel soft link.
+  revenueAccounts RevenueAccount[] @relation("PartnerRevenueAccounts")
+  owner           User?            @relation("PartnerOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([sortOrder])
+  @@index([ownerId])
+  @@index([department])
+  @@map("partners")
+}
+
+model PartnerContact {
+  id        String  @id @default(uuid()) @db.Uuid
+  partnerId String  @map("partner_id")
+  name      String
+  title     String?
+  email     String?
+  phone     String?
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@map("partner_contacts")
+}
+
+// ─── Partner-native workspace ─────────────────────────────
+//
+// These tables let the Partner CRM own its
+// own board (tasks / columns / members / comments) without
+// reaching through `Partner.primaryProjectId` into the Project
+// graph.
+//
+// Shape mirrors the equivalent Project tables one-for-one to keep
+// the eventual UI port mechanical. Cascade rules: deleting a
+// Partner wipes its workspace (intentional — the Partner row is
+// the workspace's identity). Member / task / comment cascades
+// follow the Project precedent.
+
+model PartnerMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  partnerId String   @map("partner_id")
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, userId])
+  @@map("partner_members")
+}
+
+model PartnerColumn {
+  id        String @id @default(uuid()) @db.Uuid
+  partnerId String @map("partner_id")
+  key       String
+  label     String
+  color     String @default("bg-zinc-500")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, key])
+  @@index([partnerId])
+  @@map("partner_columns")
+}
+
+model PartnerTask {
+  id           String    @id @default(uuid()) @db.Uuid
+  partnerId    String    @map("partner_id")
+  parentTaskId String?   @map("parent_task_id") @db.Uuid
+  title        String
+  description  String?
+  status       String    @default("todo")
+  priority     String    @default("medium")
+  ownerId      String?   @map("owner_id") @db.Uuid
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  sortOrder    Int       @default(0) @map("sort_order")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  partner   Partner               @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  owner     User?                 @relation("PartnerTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  parent    PartnerTask?          @relation("PartnerTaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks  PartnerTask[]         @relation("PartnerTaskSubtasks")
+  comments  PartnerTaskComment[]
+  assignees PartnerTaskAssignee[]
+  resources PartnerTaskResource[]
+
+  @@index([partnerId])
+  @@index([parentTaskId])
+  @@map("partner_tasks")
+}
+
+// File / link attachments on a Marketing-CRM task card (images, docs,
+// external links). `kind` = "file" (Supabase storage url) | "link".
+// `createdBy` is a plain user id (no relation) to keep the User model
+// untouched — the UI only needs the label + url.
+model PartnerTaskResource {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  kind      String
+  label     String
+  url       String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String   @map("created_by") @db.Uuid
+
+  task PartnerTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("partner_task_resources")
+}
+
+model PartnerTaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task   PartnerTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User        @relation("PartnerTaskCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([authorId])
+  @@map("partner_task_comments")
+}
+
+model PartnerTaskAssignee {
+  id            String   @id @default(uuid()) @db.Uuid
+  taskId        String   @map("task_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  allocationPct Int?     @map("allocation_pct")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  task PartnerTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User        @relation("PartnerTaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("partner_task_assignees")
+}
+
+model Deal {
+  id          String    @id @default(cuid())
+  company     String
+  contact     String?
+  value       Decimal   @db.Decimal(15, 2)
+  stage       String    @default("lead")
+  probability Int       @default(10)
+  closeDate   DateTime? @map("close_date") @db.Date
+  type        String?
+  country     String?
+  notes       String?
+  partnerId   String?   @map("partner_id")
+  ownerId     String    @map("owner_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  partner Partner? @relation(fields: [partnerId], references: [id])
+  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([stage])
+  @@map("deals")
+}
+
+model Project {
+  id                  String    @id @default(cuid())
+  name                String
+  slug                String    @unique
+  description         String?
+  status              String    @default("not_yet_started")
+  ownerId             String    @map("owner_id") @db.Uuid
+  partnerId           String?   @map("partner_id")
+  startDate           DateTime? @map("start_date") @db.Date
+  endDate             DateTime? @map("end_date") @db.Date
+  budget              Decimal?  @db.Decimal(15, 2)
+  progress            Int       @default(0)
+  // Admin-defined custom fields. Stored
+  // as a JSON array of `{ id, label, value }` objects so each project
+  // can attach arbitrary metadata (campaign tag, channel, KPI, etc.)
+  // without a schema migration. Tighter typing (date / number / link)
+  // is a follow-up.
+  customFields        Json      @default("[]") @map("custom_fields")
+  // Structured roll-out tracking columns for the project dashboard. These replace
+  // the loosely-typed Progress + Due Date columns that were dropped.
+  //
+  // `production_live` is a date so the dashboard can
+  // record *when* a project went live in production. `null` = not
+  // yet live (replacing the old `false`).
+  productionLiveDate  DateTime? @map("production_live_date") @db.Date
+  goLiveDate          DateTime? @map("go_live_date") @db.Date
+  revisedGoLiveDate   DateTime? @map("revised_go_live_date") @db.Date
+  // Agreement signing state shown
+  // after Rev. GoLive on the Project CRM list. Free-text from a fixed
+  // frontend whitelist (`signed` / `not_signed`); null = not set.
+  agreement           String?
+  dependency          String?
+  comment             String?
+  // Manual ordering for the list view (BD-driven drag-to-reorder).
+  // Lower values render first; ties break on createdAt desc.
+  sortOrder           Int       @default(0) @map("sort_order")
+  // Owning team. `general` projects live on /projects (BD dashboard),
+  // `it` projects live on the IT Helpdesk → Projects tab with the same
+  // schema + UI but scoped to IT team visibility. Adding a new team
+  // value here means surfacing a matching filter / tab in the UI.
+  team                String    @default("general")
+  // Owning department — free-form label drawn from the shared
+  // `PROJECT_DEPARTMENTS` list (Management / Marketing / HR / etc.).
+  // Nullable so existing rows + non-departmental projects stay valid.
+  // Tracked alongside `team` so multiple departments can collaborate
+  // on the same BD workspace.
+  department          String?
+  // Workstream tags a Legal Task to
+  // the broader programme it belongs to (e.g. "Token Launch",
+  // "Partnerships", "Compliance"). Free-text for now; promote to a
+  // controlled vocabulary if the legal team starts collecting a
+  // stable taxonomy. Nullable so non-Legal projects stay valid.
+  workstream          String?
+  // `details` is the long-form
+  // narrative the Legal team uses to keep context on a Legal Task
+  // (counterparty notes, deal mechanics, link to drive, etc.).
+  // Distinct from `description` which is the short summary; this
+  // field is the long body. Postgres `TEXT` for unbounded length.
+  // Nullable so non-Legal projects stay valid.
+  details             String?   @db.Text
+  // HR CRM uses Project rows to track
+  // operational HR tasks (visa runs, admin tickets, F&A approvals)
+  // rather than long-lived projects. `taskType` is the issue category
+  // and `assignedTeam` is the inbox the task should land in. Both are
+  // free-text from a fixed whitelist on the frontend; null for
+  // non-HR projects.
+  taskType            String?   @map("task_type")
+  assignedTeam        String?   @map("assigned_team")
+  // Auto-assign default for NEW tasks on this project (shared-board CRMs:
+  // general / hr / product / legal / accounting). `mode`: none | creator |
+  // owner | user; resolved in projects.service.addTask when the creator
+  // leaves the assignee blank. IT CRM keeps its own copy on it_projects.
+  defaultAssigneeMode String    @default("none") @map("default_assignee_mode")
+  defaultAssigneeId   String?   @map("default_assignee_id") @db.Uuid
+  // Go-live deadline-reminder debounce for shared-board CRMs (general / hr),
+  // whose projects live here rather than in a native table. Fired rung markers
+  // (e.g. "golive-7", "golive-overdue"); the generalized CRM deadline cron
+  // reads/writes these. IT keeps its own copy on it_projects.
+  remindersSent       Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt  DateTime? @map("last_reminder_sent_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  owner      User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  partner    Partner?           @relation("PartnerProjects", fields: [partnerId], references: [id])
+  tasks      ProjectTask[]
+  members    ProjectMember[]
+  columns    ProjectColumn[]
+  milestones ProjectMilestone[]
+
+  @@index([sortOrder])
+  @@index([team])
+  @@index([department])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id")
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model ProjectColumn {
+  id        String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id")
+  key       String
+  label     String
+  color     String @default("bg-zinc-500")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key])
+  @@index([projectId])
+  @@map("project_columns")
+}
+
+model ProjectTask {
+  id                 String    @id @default(uuid()) @db.Uuid
+  projectId          String    @map("project_id")
+  milestoneId        String?   @map("milestone_id") @db.Uuid
+  parentTaskId       String?   @map("parent_task_id") @db.Uuid
+  title              String
+  description        String?
+  status             String    @default("todo")
+  priority           String    @default("P1")
+  ownerId            String?   @map("owner_id") @db.Uuid
+  startDate          DateTime? @map("start_date") @db.Date
+  endDate            DateTime? @map("end_date") @db.Date
+  sortOrder          Int       @default(0) @map("sort_order")
+  // Task-deadline reminder debounce ladder. The generalized CRM cron scans
+  // project_tasks WHERE project.team IN the enabled board CRMs (it / general /
+  // hr …). Fired rung markers, e.g. "due-3" / "due-overdue"; keeps the daily
+  // cron idempotent.
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  project      Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone    ProjectMilestone?       @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  owner        User?                   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  parent       ProjectTask?            @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks     ProjectTask[]           @relation("TaskSubtasks")
+  comments     ProjectTaskComment[]
+  activities   ProjectTaskActivity[]
+  assignees    ProjectTaskAssignee[]
+  dependencies ProjectTaskDependency[] @relation("DependentTask")
+  dependents   ProjectTaskDependency[] @relation("BlockingTask")
+  resources    ProjectTaskResource[]
+
+  @@index([projectId])
+  @@index([parentTaskId])
+  @@index([milestoneId])
+  @@map("project_tasks")
+}
+
+model ProjectTaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task   ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User        @relation("ProjectTaskCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("project_task_comments")
+}
+
+model ProjectTaskActivity {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  actorId   String   @map("actor_id") @db.Uuid
+  kind      String
+  field     String?
+  oldValue  String?  @map("old_value") @db.Text
+  newValue  String?  @map("new_value") @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  task  ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor User        @relation("ProjectTaskActivityActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("project_task_activities")
+}
+
+model ProjectMilestone {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @map("project_id")
+  title       String
+  description String?
+  // `not_started` | `in_progress` | `done` | `blocked`
+  status      String    @default("not_started")
+  ownerId     String?   @map("owner_id") @db.Uuid
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  sortOrder   Int       @default(0) @map("sort_order")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  project Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner   User?         @relation("ProjectMilestoneOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  tasks   ProjectTask[]
+
+  @@index([projectId])
+  @@map("project_milestones")
+}
+
+model ProjectTaskAssignee {
+  id            String   @id @default(uuid()) @db.Uuid
+  taskId        String   @map("task_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  // 0..100 — capacity planning. `null` = unspecified.
+  allocationPct Int?     @map("allocation_pct")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  task ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User        @relation("ProjectTaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+  @@map("project_task_assignees")
+}
+
+model ProjectTaskDependency {
+  id              String   @id @default(uuid()) @db.Uuid
+  // `taskId` is blocked by `dependsOnTaskId`. UI label maps:
+  //   blocking    = SELECT … WHERE depends_on_task_id = :id  (tasks I block)
+  //   blocked_by  = SELECT … WHERE task_id = :id             (tasks blocking me)
+  taskId          String   @map("task_id") @db.Uuid
+  dependsOnTaskId String   @map("depends_on_task_id") @db.Uuid
+  // `finish_to_start` (default) | `start_to_start` | `finish_to_finish` | `start_to_finish`
+  type            String   @default("finish_to_start")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  task          ProjectTask @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnTask ProjectTask @relation("BlockingTask", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnTaskId])
+  @@index([taskId])
+  @@index([dependsOnTaskId])
+  @@map("project_task_dependencies")
+}
+
+model ProjectTaskResource {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  // `file` (Supabase storage url) | `link` (external) | `doc` (internal docs module ref)
+  kind      String
+  label     String
+  url       String   @db.Text
+  // Optional ref to internal docs module entry when `kind = doc`.
+  docId     String?  @map("doc_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  createdBy String   @map("created_by") @db.Uuid
+
+  task    ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  creator User        @relation("ProjectTaskResourceCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("project_task_resources")
+}
+
+// ─── IT CRM workspace ───────────────────────────────────────
+//
+// IT CRM uses a standalone workspace and is moving
+// off the shared `projects` table (filtered by `team="it"`) into
+// dedicated tables, same template as Partner phases 1-4. MVP shape
+// matches Partner: project + member + column + task + comment +
+// assignee. Milestones / dependencies / resources / activities /
+// custom fields land in Phase 1b if IT users need them.
+//
+// Cascade rules mirror the Partner workspace: deleting an
+// `ItProject` wipes its children; member / task / comment cascades
+// follow the same precedent. No cross-module FK — IT CRM rows
+// have no relation to Partner, Account, Project, or anything
+// outside this graph.
+
+model ItProject {
+  id                  String    @id @default(cuid())
+  name                String
+  slug                String    @unique
+  description         String?
+  status              String    @default("not_yet_started")
+  ownerId             String    @map("owner_id") @db.Uuid
+  startDate           DateTime? @map("start_date") @db.Date
+  endDate             DateTime? @map("end_date") @db.Date
+  productionLiveDate  DateTime? @map("production_live_date") @db.Date
+  goLiveDate          DateTime? @map("go_live_date") @db.Date
+  revisedGoLiveDate   DateTime? @map("revised_go_live_date") @db.Date
+  dependency          String?
+  comment             String?
+  sortOrder           Int       @default(0) @map("sort_order")
+  department          String?
+  // Intelligence fields for IT CRM dashboard metrics.
+  // `statusChangedAt` is stamped whenever `status` changes so the
+  // dashboard computes stage-aging / cycle-time directly instead of
+  // inferring from `updatedAt` (which any edit bumps). `healthStatus`
+  // is a manual RAG rating — "green" | "yellow" | "red" — driving the
+  // portfolio heat-map exhibit; null = not yet rated. `effortPoints` is
+  // relative sizing (story points / person-days) for velocity + load.
+  statusChangedAt     DateTime? @map("status_changed_at")
+  healthStatus        String?   @map("health_status")
+  effortPoints        Int?      @map("effort_points")
+  // Reversible archive (orthogonal to `status`): a set `archivedAt` hides the
+  // project from the default IT CRM list (Active tab) while preserving its real
+  // status. Null = active. Mirrors the SurveyForm archive convention; NOT the
+  // hard-delete path. The dashboard analytics still count archived projects as
+  // historical record. Archive state lives on this native row only — it does
+  // not propagate to the shared `projects` board mirror.
+  archivedAt          DateTime? @map("archived_at")
+  // Auto-assign default for NEW tasks on this project (IT CRM only). `mode`
+  // decides who a task's owner defaults to when the creator leaves it blank:
+  //   none    – no default (current behaviour)
+  //   creator – whoever creates the task
+  //   owner   – the project owner
+  //   user    – the specific `defaultAssigneeId` below
+  // Resolved at task-create time in projects.service.addTask (the shared board
+  // is the live writer). `defaultAssigneeId` is a plain user id with no FK —
+  // matches the PartnerTaskResource.createdBy precedent — so it is validated
+  // (must be an active user) before it is applied.
+  defaultAssigneeMode String    @default("none") @map("default_assignee_mode")
+  defaultAssigneeId   String?   @map("default_assignee_id") @db.Uuid
+  // Deadline-reminder debounce ladder. `remindersSent` holds the fired rung
+  // markers (e.g. "golive-7", "golive-overdue") so the daily cron is
+  // idempotent — re-running the same day is a no-op. Reset to [] in
+  // ItCrmService.update() whenever a go-live date is edited, so a slipped
+  // deadline re-arms its countdown. See it-crm.reminders.ts.
+  remindersSent       Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt  DateTime? @map("last_reminder_sent_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  owner   User              @relation("ItProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members ItProjectMember[]
+  columns ItProjectColumn[]
+  tasks   ItProjectTask[]
+
+  @@index([sortOrder])
+  @@index([department])
+  @@index([archivedAt])
+  @@map("it_projects")
+}
+
+model ItProjectMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id")
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project ItProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User      @relation("ItProjectMembership", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("it_project_members")
+}
+
+model ItProjectColumn {
+  id        String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id")
+  key       String
+  label     String
+  color     String @default("bg-zinc-500")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  project ItProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key])
+  @@index([projectId])
+  @@map("it_project_columns")
+}
+
+model ItProjectTask {
+  id              String    @id @default(uuid()) @db.Uuid
+  projectId       String    @map("project_id")
+  parentTaskId    String?   @map("parent_task_id") @db.Uuid
+  title           String
+  description     String?
+  status          String    @default("todo")
+  priority        String    @default("medium")
+  ownerId         String?   @map("owner_id") @db.Uuid
+  startDate       DateTime? @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  sortOrder       Int       @default(0) @map("sort_order")
+  // Flow metrics for the IT CRM dashboard.
+  // `statusChangedAt` = last status transition; `completedAt` = when the
+  // task entered the terminal `done` column (cleared if it moves back
+  // out). Together they give precise cycle-time + throughput instead of
+  // approximating from `updatedAt`. `effortPoints` = relative size for
+  // velocity / burndown.
+  statusChangedAt DateTime? @map("status_changed_at")
+  completedAt     DateTime? @map("completed_at")
+  effortPoints    Int?      @map("effort_points")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  project   ItProject               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner     User?                   @relation("ItProjectTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  parent    ItProjectTask?          @relation("ItProjectTaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks  ItProjectTask[]         @relation("ItProjectTaskSubtasks")
+  comments  ItProjectTaskComment[]
+  assignees ItProjectTaskAssignee[]
+
+  @@index([projectId])
+  @@index([parentTaskId])
+  @@map("it_project_tasks")
+}
+
+model ItProjectTaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task   ItProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User          @relation("ItProjectTaskCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([authorId])
+  @@map("it_project_task_comments")
+}
+
+model ItProjectTaskAssignee {
+  id            String   @id @default(uuid()) @db.Uuid
+  taskId        String   @map("task_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  allocationPct Int?     @map("allocation_pct")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  task ItProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User          @relation("ItProjectTaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("it_project_task_assignees")
+}
+
+// Per-user CRM update notifications. Written when a CRM task changes status,
+// is (re)assigned, or gets a comment — for the task owner/assignees + an
+// admin-configured list, minus the actor. Surfaced in the notification bell +
+// emailed. `module` discriminates the source CRM (it | general | product |
+// legal | accounting | hr | qa | marketing | sales | sales-revenue) so one
+// table + one cron + one bell read serve every CRM. IDs are plain columns (no
+// FK relations) to keep the User/Project graph untouched, matching the
+// PartnerTaskResource.createdBy precedent; deleting a user/project leaves a
+// harmless orphan row that ages out of the bell window.
+model CrmNotification {
+  id        String    @id @default(uuid()) @db.Uuid
+  module    String    @default("it")
+  userId    String    @map("user_id") @db.Uuid
+  type      String // "task_status" | "task_assigned" | "task_comment"
+  title     String
+  body      String?   @db.Text
+  linkUrl   String?   @map("link_url")
+  projectId String?   @map("project_id")
+  taskId    String?   @map("task_id") @db.Uuid
+  actorId   String?   @map("actor_id") @db.Uuid
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@map("crm_notifications")
+}
+
+// ─── QA CRM workspace ───────────────────────────────────────
+//
+// QA CRM uses the same standalone workspace shape as IT/Partner —
+// project + member + column + task + comment + assignee — but the
+// Task model extends with the QA team's Excel template fields:
+// issueDate, product, issueType, observation, expectation, eta,
+// qaComment. Priority enum is `P0|P1|P2`; status enum mirrors the
+// seeded column keys `open|clarified|exception|closed`.
+//
+// No data copy in Phase 1 — QA CRM is greenfield, no shared
+// `projects WHERE team='qa'` rows to migrate. The `eta` field is
+// free-form text per the team's existing template (not validated
+// as a date).
+
+model QaProject {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  status      String    @default("active")
+  ownerId     String    @map("owner_id") @db.Uuid
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  comment     String?
+  sortOrder   Int       @default(0) @map("sort_order")
+  department  String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  owner   User              @relation("QaProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members QaProjectMember[]
+  columns QaProjectColumn[]
+  tasks   QaProjectTask[]
+
+  @@index([sortOrder])
+  @@index([department])
+  @@map("qa_projects")
+}
+
+model QaProjectMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id")
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project QaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User      @relation("QaProjectMembership", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("qa_project_members")
+}
+
+model QaProjectColumn {
+  id        String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id")
+  key       String
+  label     String
+  color     String @default("bg-zinc-500")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  project QaProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key])
+  @@index([projectId])
+  @@map("qa_project_columns")
+}
+
+model QaProjectTask {
+  id           String    @id @default(uuid()) @db.Uuid
+  projectId    String    @map("project_id")
+  parentTaskId String?   @map("parent_task_id") @db.Uuid
+  title        String
+  description  String?
+  status       String    @default("open")
+  priority     String    @default("P1")
+  ownerId      String?   @map("owner_id") @db.Uuid
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  sortOrder    Int       @default(0) @map("sort_order")
+  // QA template fields — direct port of the team's Excel columns.
+  // `qaComment` is the long-form Comment column (distinct from the
+  // workspace's threaded `QaProjectTaskComment`). `partner` matches
+  // the import spreadsheet column that sits between Date and
+  // Product — free-text counterparty / vendor /
+  // partner the issue applies to.
+  issueDate    DateTime? @map("issue_date") @db.Date
+  partner      String?
+  product      String?
+  issueType    String?   @map("issue_type")
+  observation  String?   @db.Text
+  expectation  String?   @db.Text
+  eta          String?
+  qaComment    String?   @map("qa_comment") @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  project   QaProject               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner     User?                   @relation("QaProjectTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  parent    QaProjectTask?          @relation("QaProjectTaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks  QaProjectTask[]         @relation("QaProjectTaskSubtasks")
+  comments  QaProjectTaskComment[]
+  assignees QaProjectTaskAssignee[]
+
+  @@index([projectId])
+  @@index([parentTaskId])
+  @@index([product])
+  @@index([partner])
+  @@index([priority])
+  @@index([status])
+  @@map("qa_project_tasks")
+}
+
+model QaProjectTaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task   QaProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User          @relation("QaProjectTaskCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([authorId])
+  @@map("qa_project_task_comments")
+}
+
+model QaProjectTaskAssignee {
+  id            String   @id @default(uuid()) @db.Uuid
+  taskId        String   @map("task_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  allocationPct Int?     @map("allocation_pct")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  task QaProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User          @relation("QaProjectTaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("qa_project_task_assignees")
+}
+
+// ─── Legal CRM workspace ────────────────────────────────────
+//
+// Legal CRM uses the same standalone workspace shape as IT / QA / Partner
+// — project + member + column + task + comment + assignee — plus
+// the Legal-only fields the team already uses: `workstream` (tag)
+// and `details` (long-form context introduced in #619).
+
+model LegalProject {
+  id                  String    @id @default(cuid())
+  name                String
+  slug                String    @unique
+  description         String?
+  status              String    @default("not_yet_started")
+  ownerId             String    @map("owner_id") @db.Uuid
+  startDate           DateTime? @map("start_date") @db.Date
+  endDate             DateTime? @map("end_date") @db.Date
+  productionLiveDate  DateTime? @map("production_live_date") @db.Date
+  goLiveDate          DateTime? @map("go_live_date") @db.Date
+  revisedGoLiveDate   DateTime? @map("revised_go_live_date") @db.Date
+  dependency          String?
+  comment             String?
+  sortOrder           Int       @default(0) @map("sort_order")
+  department          String?
+  // Legal team specifics — `workstream` is the programme tag
+  // (e.g. Token Launch / Partnerships / Compliance), `details` is
+  // the long-form narrative the team logged in #619.
+  workstream          String?
+  details             String?   @db.Text
+  priority            String    @default("medium")
+  // Auto-assign default for NEW tasks (Phase C pt2). `mode`: none|creator|
+  // owner|user; resolved in projects.service.addTask (team='legal') from THIS
+  // native row, not the shared mirror (which never copies these).
+  defaultAssigneeMode String    @default("none") @map("default_assignee_mode")
+  defaultAssigneeId   String?   @map("default_assignee_id") @db.Uuid
+  // Go-live deadline-reminder debounce ladder (Phase C pt2). The generalized
+  // CRM cron scans this native table directly (the shared mirror is lazy +
+  // never carries these), fired rung markers e.g. "golive-7"/"golive-overdue".
+  remindersSent       Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt  DateTime? @map("last_reminder_sent_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  owner   User                 @relation("LegalProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members LegalProjectMember[]
+  columns LegalProjectColumn[]
+  tasks   LegalProjectTask[]
+
+  @@index([sortOrder])
+  @@index([department])
+  @@map("legal_projects")
+}
+
+model LegalProjectMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id")
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project LegalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User         @relation("LegalProjectMembership", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("legal_project_members")
+}
+
+model LegalProjectColumn {
+  id        String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id")
+  key       String
+  label     String
+  color     String @default("bg-zinc-500")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  project LegalProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key])
+  @@index([projectId])
+  @@map("legal_project_columns")
+}
+
+model LegalProjectTask {
+  id           String    @id @default(uuid()) @db.Uuid
+  projectId    String    @map("project_id")
+  parentTaskId String?   @map("parent_task_id") @db.Uuid
+  title        String
+  description  String?
+  status       String    @default("todo")
+  priority     String    @default("medium")
+  ownerId      String?   @map("owner_id") @db.Uuid
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  sortOrder    Int       @default(0) @map("sort_order")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  project   LegalProject               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner     User?                      @relation("LegalProjectTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  parent    LegalProjectTask?          @relation("LegalProjectTaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks  LegalProjectTask[]         @relation("LegalProjectTaskSubtasks")
+  comments  LegalProjectTaskComment[]
+  assignees LegalProjectTaskAssignee[]
+
+  @@index([projectId])
+  @@index([parentTaskId])
+  @@map("legal_project_tasks")
+}
+
+model LegalProjectTaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task   LegalProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User             @relation("LegalProjectTaskCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([authorId])
+  @@map("legal_project_task_comments")
+}
+
+model LegalProjectTaskAssignee {
+  id            String   @id @default(uuid()) @db.Uuid
+  taskId        String   @map("task_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  allocationPct Int?     @map("allocation_pct")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  task LegalProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User             @relation("LegalProjectTaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("legal_project_task_assignees")
+}
+
+// ─── Accounting CRM workspace ─────────────────────────────────
+//
+// Mirrors the Legal CRM standalone workspace: project + member + column + task +
+// comment + assignee — with `workstream` + `details` for the flat
+// flat accounting checklist.
+
+model AccountingProject {
+  id                  String    @id @default(cuid())
+  name                String
+  slug                String    @unique
+  description         String?
+  status              String    @default("not_yet_started")
+  ownerId             String    @map("owner_id") @db.Uuid
+  startDate           DateTime? @map("start_date") @db.Date
+  endDate             DateTime? @map("end_date") @db.Date
+  productionLiveDate  DateTime? @map("production_live_date") @db.Date
+  goLiveDate          DateTime? @map("go_live_date") @db.Date
+  revisedGoLiveDate   DateTime? @map("revised_go_live_date") @db.Date
+  dependency          String?
+  comment             String?
+  sortOrder           Int       @default(0) @map("sort_order")
+  department          String?
+  workstream          String?
+  details             String?   @db.Text
+  priority            String    @default("medium")
+  // Auto-assign default for NEW tasks (Phase C pt2). `mode`: none|creator|
+  // owner|user; resolved in projects.service.addTask (team='accounting') from
+  // THIS native row, not the shared mirror (which never copies these).
+  defaultAssigneeMode String    @default("none") @map("default_assignee_mode")
+  defaultAssigneeId   String?   @map("default_assignee_id") @db.Uuid
+  // Go-live deadline-reminder debounce ladder (Phase C pt2). The generalized
+  // CRM cron scans this native table directly (the shared mirror is lazy +
+  // never carries these), fired rung markers e.g. "golive-7"/"golive-overdue".
+  remindersSent       Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt  DateTime? @map("last_reminder_sent_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  owner   User                      @relation("AccountingProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members AccountingProjectMember[]
+  columns AccountingProjectColumn[]
+  tasks   AccountingProjectTask[]
+
+  @@index([sortOrder])
+  @@index([department])
+  @@map("accounting_projects")
+}
+
+model AccountingProjectMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id")
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project AccountingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User              @relation("AccountingProjectMembership", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("accounting_project_members")
+}
+
+model AccountingProjectColumn {
+  id        String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id")
+  key       String
+  label     String
+  color     String @default("bg-zinc-500")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  project AccountingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key])
+  @@index([projectId])
+  @@map("accounting_project_columns")
+}
+
+model AccountingProjectTask {
+  id           String    @id @default(uuid()) @db.Uuid
+  projectId    String    @map("project_id")
+  parentTaskId String?   @map("parent_task_id") @db.Uuid
+  title        String
+  description  String?
+  status       String    @default("todo")
+  priority     String    @default("medium")
+  ownerId      String?   @map("owner_id") @db.Uuid
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  sortOrder    Int       @default(0) @map("sort_order")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  project   AccountingProject               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner     User?                           @relation("AccountingProjectTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  parent    AccountingProjectTask?          @relation("AccountingProjectTaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks  AccountingProjectTask[]         @relation("AccountingProjectTaskSubtasks")
+  comments  AccountingProjectTaskComment[]
+  assignees AccountingProjectTaskAssignee[]
+
+  @@index([projectId])
+  @@index([parentTaskId])
+  @@map("accounting_project_tasks")
+}
+
+model AccountingProjectTaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task   AccountingProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User                  @relation("AccountingProjectTaskCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([authorId])
+  @@map("accounting_project_task_comments")
+}
+
+model AccountingProjectTaskAssignee {
+  id            String   @id @default(uuid()) @db.Uuid
+  taskId        String   @map("task_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  allocationPct Int?     @map("allocation_pct")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  task AccountingProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User                  @relation("AccountingProjectTaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("accounting_project_task_assignees")
+}
+
+// ─── Product CRM workspace ────────────────────────────────────
+//
+// Product CRM uses the same standalone workspace shape as IT/Legal/QA/Partner.
+
+model ProductProject {
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  description        String?
+  status             String    @default("not_yet_started")
+  ownerId            String    @map("owner_id") @db.Uuid
+  startDate          DateTime? @map("start_date") @db.Date
+  endDate            DateTime? @map("end_date") @db.Date
+  productionLiveDate DateTime? @map("production_live_date") @db.Date
+  goLiveDate         DateTime? @map("go_live_date") @db.Date
+  revisedGoLiveDate  DateTime? @map("revised_go_live_date") @db.Date
+  dependency         String?
+  comment            String?
+  sortOrder          Int       @default(0) @map("sort_order")
+  department         String?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  owner   User                   @relation("ProductProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members ProductProjectMember[]
+  columns ProductProjectColumn[]
+  tasks   ProductProjectTask[]
+
+  @@index([sortOrder])
+  @@index([department])
+  @@map("product_projects")
+}
+
+model ProductProjectMember {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id")
+  userId    String   @map("user_id") @db.Uuid
+  role      String   @default("member")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project ProductProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User           @relation("ProductProjectMembership", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("product_project_members")
+}
+
+model ProductProjectColumn {
+  id        String @id @default(uuid()) @db.Uuid
+  projectId String @map("project_id")
+  key       String
+  label     String
+  color     String @default("bg-zinc-500")
+  sortOrder Int    @default(0) @map("sort_order")
+
+  project ProductProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key])
+  @@index([projectId])
+  @@map("product_project_columns")
+}
+
+model ProductProjectTask {
+  id           String    @id @default(uuid()) @db.Uuid
+  projectId    String    @map("project_id")
+  parentTaskId String?   @map("parent_task_id") @db.Uuid
+  title        String
+  description  String?
+  status       String    @default("todo")
+  priority     String    @default("medium")
+  ownerId      String?   @map("owner_id") @db.Uuid
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  sortOrder    Int       @default(0) @map("sort_order")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  project   ProductProject               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner     User?                        @relation("ProductProjectTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  parent    ProductProjectTask?          @relation("ProductProjectTaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks  ProductProjectTask[]         @relation("ProductProjectTaskSubtasks")
+  comments  ProductProjectTaskComment[]
+  assignees ProductProjectTaskAssignee[]
+
+  @@index([projectId])
+  @@index([parentTaskId])
+  @@map("product_project_tasks")
+}
+
+model ProductProjectTaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task   ProductProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User               @relation("ProductProjectTaskCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([authorId])
+  @@map("product_project_task_comments")
+}
+
+model ProductProjectTaskAssignee {
+  id            String   @id @default(uuid()) @db.Uuid
+  taskId        String   @map("task_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  allocationPct Int?     @map("allocation_pct")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  task ProductProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User               @relation("ProductProjectTaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("product_project_task_assignees")
+}
+
+model Office {
+  id       String  @id @default(cuid())
+  name     String
+  address  String?
+  city     String
+  country  String
+  timezone String?
+  capacity Int     @default(0)
+  isActive Boolean @default(true) @map("is_active")
+
+  desks  OfficeDesk[]
+  rooms  MeetingRoom[]
+  assets Asset[]
+
+  @@map("offices")
+}
+
+model OfficeDesk {
+  id       String  @id @default(uuid()) @db.Uuid
+  officeId String  @map("office_id")
+  name     String
+  floor    String?
+  zone     String?
+  isActive Boolean @default(true) @map("is_active")
+
+  office   Office        @relation(fields: [officeId], references: [id])
+  bookings DeskBooking[]
+
+  @@map("office_desks")
+}
+
+model DeskBooking {
+  id         String   @id @default(uuid()) @db.Uuid
+  deskId     String   @map("desk_id") @db.Uuid
+  employeeId String   @map("employee_id") @db.Uuid
+  date       DateTime @db.Date
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  desk     OfficeDesk @relation(fields: [deskId], references: [id])
+  employee User       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([deskId, date])
+  @@map("desk_bookings")
+}
+
+model MeetingRoom {
+  id        String  @id @default(uuid()) @db.Uuid
+  officeId  String  @map("office_id")
+  name      String
+  capacity  Int     @default(0)
+  amenities String?
+  // Public preview image (Supabase `uploads` bucket) so staff can see
+  // what the room looks like before booking.
+  imageUrl  String? @map("image_url")
+  isActive  Boolean @default(true) @map("is_active")
+
+  office   Office        @relation(fields: [officeId], references: [id])
+  bookings RoomBooking[]
+
+  @@map("meeting_rooms")
+}
+
+model RoomBooking {
+  id             String   @id @default(uuid()) @db.Uuid
+  roomId         String   @map("room_id") @db.Uuid
+  employeeId     String   @map("employee_id") @db.Uuid
+  date           DateTime @db.Date
+  // "HH:MM" start. Bookings now support arbitrary 15 / 30 / 60 min
+  // durations — the closing slot is held on `endTime`. Legacy hourly
+  // rows were backfilled to `endTime = timeSlot + 60min`.
+  timeSlot       String   @map("time_slot")
+  endTime        String?  @map("end_time")
+  title          String?
+  // Brief description of the conference / meeting purpose. Separate from
+  // `title` so the UI can render a one-line label and a longer note.
+  description    String?
+  // Headcount — validated against MeetingRoom.capacity at booking time.
+  attendeesCount Int?     @map("attendees_count")
+  // Multi-day bookings get split into one row per day sharing this
+  // UUID. Single-day reservations stay `null`. Used to bulk-cancel
+  // and to render the "spans N days" hint on the detail dialog.
+  seriesId       String?  @map("series_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  room     MeetingRoom @relation(fields: [roomId], references: [id])
+  employee User        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, date])
+  @@index([seriesId])
+  @@map("room_bookings")
+}
+
+model Asset {
+  id           String    @id @default(uuid()) @db.Uuid
+  officeId     String    @map("office_id")
+  name         String
+  // Canonical category ("laptop" / "mobile" / "monitor" / "peripheral" /
+  // "usb_accessory" / "software" / "furniture" / "other"). Kept on the
+  // existing `type` column to avoid renaming — UI maps labels.
+  type         String
+  serialNo     String?   @map("serial_no")
+  assignedTo   String?   @map("assigned_to") @db.Uuid
+  purchaseDate DateTime? @map("purchase_date") @db.Date
+  purchaseCost Decimal?  @map("purchase_cost") @db.Decimal(15, 2)
+  status       String    @default("available")
+  notes        String?
+
+  // Hardware metadata accepted by the asset import format.
+  manufacturer      String?
+  model             String?
+  colour            String?
+  subType           String?   @map("sub_type")
+  operatingSystem   String?   @map("operating_system")
+  description       String?
+  supportLink       String?   @map("support_link")
+  activeServiceDate DateTime? @map("active_service_date") @db.Date
+  department        String?
+  // Sticker / QR code printed on the asset. Generated as
+  // `<serialNo>-<YYYYMMDD>` when blank, but writeable so finance can
+  // override with their own asset-register code.
+  assetCode         String?   @map("asset_code")
+  // Software-specific (folded into Asset for v1; carve out into a
+  // SoftwareLicense model later if licensing/seat tracking lands).
+  version           String?
+  // Accounting / fixed-asset register fields.
+  quantity          Int       @default(1)
+  usefulLifeMonths  Int?      @map("useful_life_months")
+  bookValue         Decimal?  @map("book_value") @db.Decimal(15, 2)
+  disposalDate      DateTime? @map("disposal_date") @db.Date
+  sellingPrice      Decimal?  @map("selling_price") @db.Decimal(15, 2)
+
+  office   Office @relation(fields: [officeId], references: [id])
+  assignee User?  @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([status])
+  @@index([assetCode])
+  @@map("assets")
+}
+
+// ── Voucher CRM ──────────────────────────────────────────
+// Flat per-partner voucher ledger (Redeemed / Issued / Refund).
+// Unlike the project-workspace CRMs this is a single table; the UI
+// shows a grand-total row summing each numeric column server-side.
+model VoucherEntry {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  partner   String   @db.VarChar(200)
+  country   String?  @db.VarChar(120)
+  redeemed  Int      @default(0)
+  issued    Int      @default(0)
+  refund    Int      @default(0)
+  sortOrder Int      @default(0) @map("sort_order")
+  addedBy   String?  @map("added_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  creator User? @relation("VoucherEntryCreator", fields: [addedBy], references: [id], onDelete: SetNull)
+
+  @@index([partner])
+  @@map("voucher_entries")
+}

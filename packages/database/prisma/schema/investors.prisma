@@ -1,0 +1,238 @@
+model Investor {
+  id              String    @id @default(cuid())
+  name            String
+  type            String
+  contactName     String?   @map("contact_name")
+  contactEmail    String?   @map("contact_email")
+  contactPhone    String?   @map("contact_phone")
+  website         String?
+  location        String?
+  notes           Json?
+  visibility      String    @default("team")
+  // Pipeline stage key — references InvestorPipelineStage.key (no FK so
+  // stages stay freely editable). Default is the leftmost intake stage.
+  status          String    @default("investors")
+  // Pipeline-tracking fields aligned with the investor import/export
+  // column set. `title` is the key
+  // contact's title; `linkedinUrl` accepts either a profile or
+  // company URL; `revenueStream` / `nextAction` / `crossSell` /
+  // `region` are free-text. `actInvestment` (actual) + `estInvestment`
+  // (estimate) replace the original single `estCommission` field;
+  // both are text because imports can contain
+  // "TBD" / "—" / amount strings interchangeably. `notesText` is
+  // the long-form pipeline note (the legacy JSON `notes` column
+  // stays for structured back-compat).
+  title           String?
+  linkedinUrl     String?   @map("linkedin_url")
+  revenueStream   String?   @map("revenue_stream")
+  lastContactDate DateTime? @map("last_contact_date") @db.Date
+  nextAction      String?   @map("next_action")
+  actInvestment   String?   @map("act_investment")
+  estInvestment   String?   @map("est_investment")
+  crossSell       String?   @map("cross_sell")
+  region          String?
+  notesText       String?   @map("notes_text")
+  // Manual ordering for the Investor Dashboard grid. Lower values
+  // render first; ties fall back to `createdAt desc` so fresh
+  // inserts surface above older zeros. Mirrors the legal_projects +
+  // crm_accounts sortOrder pattern.
+  sortOrder       Int       @default(0) @map("sort_order")
+  addedBy         String    @map("added_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  adder       User               @relation(fields: [addedBy], references: [id], onDelete: Cascade)
+  investments Investment[]
+  tasks       InvestorTask[]
+  activities  InvestorActivity[]
+
+  @@map("investors")
+}
+
+// Investor-scoped to-do. Mirrors CrmTask but anchored to a single
+// Investor (Investor CRM "Tasks" tab). status: open | done | cancelled.
+model InvestorTask {
+  id          String    @id @default(cuid())
+  subject     String
+  status      String    @default("open")
+  dueDate     DateTime  @map("due_date") @db.Date
+  investorId  String    @map("investor_id")
+  ownerId     String    @map("owner_id") @db.Uuid
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  investor Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  owner    User     @relation("InvestorTaskOwner", fields: [ownerId], references: [id])
+
+  @@index([investorId])
+  @@index([ownerId, status, dueDate])
+  @@map("investor_tasks")
+}
+
+// Investor-scoped logged interaction (Investor CRM "Activities" tab).
+// type: call | email | meeting | note.
+model InvestorActivity {
+  id           String   @id @default(cuid())
+  type         String
+  subject      String
+  body         String?
+  occurredAt   DateTime @map("occurred_at")
+  durationMins Int?     @map("duration_mins")
+  investorId   String   @map("investor_id")
+  ownerId      String   @map("owner_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  investor Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+  owner    User     @relation("InvestorActivityOwner", fields: [ownerId], references: [id])
+
+  @@index([investorId])
+  @@index([occurredAt])
+  @@map("investor_activities")
+}
+
+// Configurable investor type / category (Family Office, Private Equity,
+// VC, SWF, ...). `key` is the value stored on Investor.type (no FK so
+// types stay freely editable — mirrors InvestorPipelineStage). Admins
+// manage the list via the Investors tab "Manage types" UI.
+model InvestorTypeOption {
+  key       String   @id
+  label     String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sortOrder])
+  @@map("investor_type_options")
+}
+
+// Investor CRM "Leads" tab — a raw fundraising prospect not yet promoted
+// to a tracked Investor. status: new | qualified | converted | disqualified.
+model InvestorLead {
+  id        String   @id @default(cuid())
+  name      String
+  company   String?
+  email     String?
+  phone     String?
+  source    String?
+  status    String   @default("new")
+  notes     String?
+  ownerId   String   @map("owner_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  owner User @relation("InvestorLeadOwner", fields: [ownerId], references: [id])
+
+  @@index([ownerId, status])
+  @@map("investor_leads")
+}
+
+// Investor CRM "Accounts" tab — an investor organisation / fund.
+model InvestorAccount {
+  id        String   @id @default(cuid())
+  name      String
+  type      String?
+  website   String?
+  location  String?
+  region    String?
+  notes     String?
+  ownerId   String   @map("owner_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  owner    User              @relation("InvestorAccountOwner", fields: [ownerId], references: [id])
+  contacts InvestorContact[]
+
+  @@index([ownerId])
+  @@map("investor_accounts")
+}
+
+// Investor CRM "Contacts" tab — a person, optionally tied to an account.
+model InvestorContact {
+  id        String   @id @default(cuid())
+  firstName String   @map("first_name")
+  lastName  String?  @map("last_name")
+  email     String?
+  phone     String?
+  title     String?
+  accountId String?  @map("account_id")
+  ownerId   String   @map("owner_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  owner   User             @relation("InvestorContactOwner", fields: [ownerId], references: [id])
+  account InvestorAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([accountId])
+  @@map("investor_contacts")
+}
+
+// Configurable fundraising pipeline columns for the Investor CRM board.
+// `key` is the stable identity stored on Investor.status; `label` is the
+// editable display name. Admins can rename / recolor / reorder / add /
+// delete via the board's Manage stages UI (mirrors OpportunityStageConfig).
+model InvestorPipelineStage {
+  key       String   @id
+  label     String
+  color     String   @default("border-t-zinc-500")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sortOrder])
+  @@map("investor_pipeline_stages")
+}
+
+model Investment {
+  id         String   @id @default(uuid()) @db.Uuid
+  investorId String   @map("investor_id")
+  type       String
+  amount     Decimal  @db.Decimal(15, 2)
+  currency   String   @default("USD")
+  valuation  Decimal? @db.Decimal(15, 2)
+  shares     Int?
+  date       DateTime @db.Date
+  round      String?
+  status     String   @default("committed")
+  terms      Json?
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  investor Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
+
+  @@map("investments")
+}
+
+model DataRoomDocument {
+  id          String   @id @default(uuid()) @db.Uuid
+  category    String
+  name        String
+  description String?
+  fileUrl     String   @map("file_url")
+  fileSize    Int?     @map("file_size")
+  mimeType    String?  @map("mime_type")
+  version     Int      @default(1)
+  uploadedBy  String   @map("uploaded_by") @db.Uuid
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+
+  uploader User @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@map("data_room_documents")
+}
+
+model InvestorUpdate {
+  id        String    @id @default(uuid()) @db.Uuid
+  title     String
+  content   String
+  period    String
+  status    String    @default("draft")
+  sentAt    DateTime? @map("sent_at")
+  sentBy    String?   @map("sent_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  sender User? @relation(fields: [sentBy], references: [id], onDelete: SetNull)
+
+  @@map("investor_updates")
+}

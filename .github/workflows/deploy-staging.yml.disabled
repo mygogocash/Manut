@@ -1,0 +1,6 @@
+# Disabled deployment boundary
+
+This file is intentionally not a GitHub Actions workflow because its extension
+is `.disabled`. The imported staging deployment was removed during the
+repository migration. A future preview environment must use newly issued Manut
+credentials and the Cloudflare-first architecture documented in this repo.

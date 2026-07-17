@@ -1,0 +1,848 @@
+{
+  "schemaVersion": 1,
+  "sourceSnapshot": "371349fd43fd7c7c7717054beec97bfb023885ca",
+  "sourceCommand": "git ls-tree -r --name-only 371349fd -- apps/web/src/app | rg '/page\\.tsx$' | sort",
+  "routeCount": 103,
+  "uniqueSourcePathCount": 103,
+  "dispositionCounts": {
+    "migrate": 79,
+    "remove-as-provenance": 16,
+    "replace": 8
+  },
+  "statusCounts": {
+    "foundation": 13,
+    "pending": 74,
+    "removed": 16
+  },
+  "statusSemantics": {
+    "foundation": "A target Expo route foundation exists, but behavioral parity is not claimed.",
+    "pending": "Approved functionality is not yet represented by a target Expo route.",
+    "removed": "The source route is intentionally excluded and must not be reintroduced."
+  },
+  "routes": [
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/accounting-crm/page.tsx",
+      "sourceRoute": "/accounting-crm",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/accounting-crm",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/accounting/page.tsx",
+      "sourceRoute": "/accounting",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/accounting",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/admin/aria-insights/page.tsx",
+      "sourceRoute": "/admin/aria-insights",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/admin/aria-knowledge/page.tsx",
+      "sourceRoute": "/admin/aria-knowledge",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/admin/docusign/oauth/callback/page.tsx",
+      "sourceRoute": "/admin/docusign/oauth/callback",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "External signing-provider integration removed; in-house signing remains."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/admin/docusign/page.tsx",
+      "sourceRoute": "/admin/docusign",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "External signing-provider integration removed; in-house signing remains."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/admin/form-config/page.tsx",
+      "sourceRoute": "/admin/form-config",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/admin/form-config",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/admin/page.tsx",
+      "sourceRoute": "/admin",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/admin",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/applications/page.tsx",
+      "sourceRoute": "/applications",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/applications",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/aria/knowledge/[id]/page.tsx",
+      "sourceRoute": "/aria/knowledge/[id]",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/aria/page.tsx",
+      "sourceRoute": "/aria",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/benefits/page.tsx",
+      "sourceRoute": "/benefits",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/benefits",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/blog-management/page.tsx",
+      "sourceRoute": "/blog-management",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/blog-management",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/careers/page.tsx",
+      "sourceRoute": "/careers",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/careers",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/cash-advance/approval/page.tsx",
+      "sourceRoute": "/cash-advance/approval",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/cash-advance/approval",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/cash-advance/page.tsx",
+      "sourceRoute": "/cash-advance",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/cash-advance",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/certificates/page.tsx",
+      "sourceRoute": "/certificates",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/certificates",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/dashboard/page.tsx",
+      "sourceRoute": "/dashboard",
+      "disposition": "migrate",
+      "status": "foundation",
+      "targetRoute": "/dashboard",
+      "note": "Expo wires GET /dashboard/stats for permission-gated KPIs and pending actions; charts, wall, and compose flows remain before parity."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/dataroom/page.tsx",
+      "sourceRoute": "/dataroom",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/dataroom",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/deals/page.tsx",
+      "sourceRoute": "/deals",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/deals",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/directory/page.tsx",
+      "sourceRoute": "/directory",
+      "disposition": "migrate",
+      "status": "foundation",
+      "targetRoute": "/directory",
+      "note": "Expo has redaction-aware list/detail plus a read-only org-chart view. Full visual tree parity and sensitive-field org rules remain before parity can be claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/docs/page.tsx",
+      "sourceRoute": "/docs",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/docs",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/drive/page.tsx",
+      "sourceRoute": "/drive",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/drive",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/employees/page.tsx",
+      "sourceRoute": "/employees",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/employees",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/expenses/[reportId]/page.tsx",
+      "sourceRoute": "/expenses/[reportId]",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/expenses/[reportId]",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/expenses/approval/page.tsx",
+      "sourceRoute": "/expenses/approval",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/expenses/approval",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/expenses/page.tsx",
+      "sourceRoute": "/expenses",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/expenses",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/gmail/page.tsx",
+      "sourceRoute": "/gmail",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/gmail",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/hr-crm/page.tsx",
+      "sourceRoute": "/hr-crm",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/hr-crm",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/hrms/esop/[employeeId]/page.tsx",
+      "sourceRoute": "/hrms/esop/[employeeId]",
+      "disposition": "replace",
+      "status": "pending",
+      "targetRoute": "/hrms/grants/[employeeId]",
+      "note": "Replace the source-specific grant surface with a generic Manut grant route."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/hrms/page.tsx",
+      "sourceRoute": "/hrms",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/hrms",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/investor-crm/page.tsx",
+      "sourceRoute": "/investor-crm",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/investor-crm",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/investor-updates/page.tsx",
+      "sourceRoute": "/investor-updates",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/investor-updates",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/investors/page.tsx",
+      "sourceRoute": "/investors",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/investors",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/it-crm/dashboard/page.tsx",
+      "sourceRoute": "/it-crm/dashboard",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/it-crm/dashboard",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/it-crm/page.tsx",
+      "sourceRoute": "/it-crm",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/it-crm",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/it-helpdesk/page.tsx",
+      "sourceRoute": "/it-helpdesk",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/it-helpdesk",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/it-operations/access/page.tsx",
+      "sourceRoute": "/it-operations/access",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/it-operations/access",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/it-operations/billing/page.tsx",
+      "sourceRoute": "/it-operations/billing",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/it-operations/billing",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/it-operations/page.tsx",
+      "sourceRoute": "/it-operations",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/it-operations",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/learning/page.tsx",
+      "sourceRoute": "/learning",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/learning",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/leave/approval/page.tsx",
+      "sourceRoute": "/leave/approval",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/leave/approval",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/leave/holidays/page.tsx",
+      "sourceRoute": "/leave/holidays",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/leave/holidays",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/leave/page.tsx",
+      "sourceRoute": "/leave",
+      "disposition": "migrate",
+      "status": "foundation",
+      "targetRoute": "/leave",
+      "note": "Expo has balances, request create/cancel, and paginated self history. Calendar, team/HR actions, and leave subroutes remain before parity can be claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/leave/policies/page.tsx",
+      "sourceRoute": "/leave/policies",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/leave/policies",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/legal-crm/page.tsx",
+      "sourceRoute": "/legal-crm",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/legal-crm",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/legal/announcements/[id]/page.tsx",
+      "sourceRoute": "/legal/announcements/[id]",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/legal/announcements/[id]",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/legal/announcements/page.tsx",
+      "sourceRoute": "/legal/announcements",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/legal/announcements",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/legal/page.tsx",
+      "sourceRoute": "/legal",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/legal",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/legal/shared/page.tsx",
+      "sourceRoute": "/legal/shared",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/legal/shared",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/campaigns/[id]/page.tsx",
+      "sourceRoute": "/marketing-analytics/campaigns/[id]",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/campaigns/page.tsx",
+      "sourceRoute": "/marketing-analytics/campaigns",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/page.tsx",
+      "sourceRoute": "/marketing-analytics",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/raw/page.tsx",
+      "sourceRoute": "/marketing-analytics/raw",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/reports/page.tsx",
+      "sourceRoute": "/marketing-analytics/reports",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/settings/page.tsx",
+      "sourceRoute": "/marketing-analytics/settings",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/traffic/[partnerId]/page.tsx",
+      "sourceRoute": "/marketing-analytics/traffic/[partnerId]",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/traffic/page.tsx",
+      "sourceRoute": "/marketing-analytics/traffic",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/messages/page.tsx",
+      "sourceRoute": "/messages",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/messages",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/my-portal/page.tsx",
+      "sourceRoute": "/my-portal",
+      "disposition": "migrate",
+      "status": "foundation",
+      "targetRoute": "/my-portal",
+      "note": "Expo hub with profile header, leave balance widgets, and permission-gated deep links; full legacy tab parity not yet claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/office/page.tsx",
+      "sourceRoute": "/office",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/office",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/partners/[partnerId]/page.tsx",
+      "sourceRoute": "/partners/[partnerId]",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/partners/[partnerId]",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/partners/campaigns/page.tsx",
+      "sourceRoute": "/partners/campaigns",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/partners/dashboard/page.tsx",
+      "sourceRoute": "/partners/dashboard",
+      "disposition": "remove-as-provenance",
+      "status": "removed",
+      "targetRoute": null,
+      "note": "Excluded legacy provenance; no target route is permitted."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/partners/page.tsx",
+      "sourceRoute": "/partners",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/partners",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/payroll/approval/page.tsx",
+      "sourceRoute": "/payroll/approval",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/payroll/approval",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/payroll/page.tsx",
+      "sourceRoute": "/payroll",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/payroll",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/performance/page.tsx",
+      "sourceRoute": "/performance",
+      "disposition": "migrate",
+      "status": "foundation",
+      "targetRoute": "/performance",
+      "note": "Expo read-only appraisals list/detail via app-core; cycles, review submit, and goal writes not yet claimed as parity."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/policies/page.tsx",
+      "sourceRoute": "/policies",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/policies",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/pr-management/page.tsx",
+      "sourceRoute": "/pr-management",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/pr-management",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/product-crm/page.tsx",
+      "sourceRoute": "/product-crm",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/product-crm",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/projects/[projectId]/page.tsx",
+      "sourceRoute": "/projects/[projectId]",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/projects/[projectId]",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/projects/dashboard/page.tsx",
+      "sourceRoute": "/projects/dashboard",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/projects/dashboard",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/projects/page.tsx",
+      "sourceRoute": "/projects",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/projects",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/qa-crm/[projectId]/page.tsx",
+      "sourceRoute": "/qa-crm/[projectId]",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/qa-crm/[projectId]",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/qa-crm/page.tsx",
+      "sourceRoute": "/qa-crm",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/qa-crm",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/revenue/page.tsx",
+      "sourceRoute": "/revenue",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/revenue",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/roles/page.tsx",
+      "sourceRoute": "/roles",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/roles",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/sales-revenue/page.tsx",
+      "sourceRoute": "/sales-revenue",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/sales-revenue",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/sales/page.tsx",
+      "sourceRoute": "/sales",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/sales",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/settings/page.tsx",
+      "sourceRoute": "/settings",
+      "disposition": "migrate",
+      "status": "foundation",
+      "targetRoute": "/settings",
+      "note": "Expo has profile/privacy plus local device preferences. Integrations OAuth and admin system settings remain before parity can be claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/[id]/page.tsx",
+      "sourceRoute": "/survey-forms/[id]",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/survey-forms/[id]",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/[id]/respond/page.tsx",
+      "sourceRoute": "/survey-forms/[id]/respond",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/survey-forms/[id]/respond",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/new/page.tsx",
+      "sourceRoute": "/survey-forms/new",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/survey-forms/new",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/page.tsx",
+      "sourceRoute": "/survey-forms",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/survey-forms",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/survey/[id]/page.tsx",
+      "sourceRoute": "/survey/[id]",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/survey/[id]",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/survey/[id]/respond/page.tsx",
+      "sourceRoute": "/survey/[id]/respond",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/survey/[id]/respond",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/survey/new/page.tsx",
+      "sourceRoute": "/survey/new",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/survey/new",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/survey/page.tsx",
+      "sourceRoute": "/survey",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/survey",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/travel/approval/page.tsx",
+      "sourceRoute": "/travel/approval",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/travel/approval",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/travel/page.tsx",
+      "sourceRoute": "/travel",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/travel",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/visa/checklist-templates/page.tsx",
+      "sourceRoute": "/visa/checklist-templates",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/visa/checklist-templates",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/visa/knowledge-base/page.tsx",
+      "sourceRoute": "/visa/knowledge-base",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/visa/knowledge-base",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/visa/page.tsx",
+      "sourceRoute": "/visa",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/visa",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/(dashboard)/voucher-crm/page.tsx",
+      "sourceRoute": "/voucher-crm",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/voucher-crm",
+      "note": "Approved route remains in the universal migration queue."
+    },
+    {
+      "sourcePath": "apps/web/src/app/auth/callback/page.tsx",
+      "sourceRoute": "/auth/callback",
+      "disposition": "replace",
+      "status": "foundation",
+      "targetRoute": "/auth/callback",
+      "note": "A universal Expo route foundation exists; behavioral parity is not yet claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/change-password/page.tsx",
+      "sourceRoute": "/change-password",
+      "disposition": "replace",
+      "status": "foundation",
+      "targetRoute": "/change-password",
+      "note": "A universal Expo route foundation exists; behavioral parity is not yet claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/forgot-password/page.tsx",
+      "sourceRoute": "/forgot-password",
+      "disposition": "replace",
+      "status": "foundation",
+      "targetRoute": "/forgot-password",
+      "note": "A universal Expo route foundation exists; behavioral parity is not yet claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/magic-link/page.tsx",
+      "sourceRoute": "/magic-link",
+      "disposition": "replace",
+      "status": "foundation",
+      "targetRoute": "/magic-link",
+      "note": "A universal Expo route foundation exists; behavioral parity is not yet claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/page.tsx",
+      "sourceRoute": "/",
+      "disposition": "replace",
+      "status": "foundation",
+      "targetRoute": "/",
+      "note": "A universal Expo route foundation exists; behavioral parity is not yet claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/reset-password/page.tsx",
+      "sourceRoute": "/reset-password",
+      "disposition": "replace",
+      "status": "foundation",
+      "targetRoute": "/reset-password",
+      "note": "A universal Expo route foundation exists; behavioral parity is not yet claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/sign-in/page.tsx",
+      "sourceRoute": "/sign-in",
+      "disposition": "replace",
+      "status": "foundation",
+      "targetRoute": "/sign-in",
+      "note": "A universal Expo route foundation exists; behavioral parity is not yet claimed."
+    },
+    {
+      "sourcePath": "apps/web/src/app/sign/[token]/page.tsx",
+      "sourceRoute": "/sign/[token]",
+      "disposition": "migrate",
+      "status": "pending",
+      "targetRoute": "/sign/[token]",
+      "note": "Approved route remains in the universal migration queue."
+    }
+  ]
+}
