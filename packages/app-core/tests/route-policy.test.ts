@@ -84,4 +84,38 @@ describe("route policy resolution", () => {
       }),
     ).toMatchObject({ allowed: false, reason: "employee-boundary" });
   });
+
+  it("keeps employee-only accounts away from admin employees and roles", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/employees",
+        permissions: ["user:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/roles",
+        permissions: ["role:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+  });
+
+  it("allows non-employee admins with user:read and role:read", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/employees",
+        permissions: ["user:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/roles",
+        permissions: ["role:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
 });

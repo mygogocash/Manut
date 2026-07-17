@@ -24,12 +24,20 @@ import { useApiClient } from "@/providers/api-client-provider";
 
 type PortalLink = {
   label: string;
-  href: "/leave" | "/performance" | "/settings" | "/directory";
+  href:
+    | "/leave"
+    | "/performance"
+    | "/settings"
+    | "/directory"
+    | "/travel"
+    | "/expenses";
   permission: string | null;
 };
 
 const PORTAL_LINKS: PortalLink[] = [
   { label: "Leave", href: "/leave", permission: "leave:read" },
+  { label: "Travel", href: "/travel", permission: "travel:read" },
+  { label: "Expenses", href: "/expenses", permission: "expense:read" },
   {
     label: "Performance",
     href: "/performance",

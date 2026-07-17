@@ -190,3 +190,80 @@ export type {
   LocalPreferences,
   LocalPreferencesInput,
 } from "./settings/preferences";
+export {
+  addTravelAttachments,
+  addTravelAttachmentsInputSchema,
+  approveTravelRequest,
+  canCancelTravelRequest,
+  cancelTravelRequest,
+  createTravelRequest,
+  createTravelRequestInputSchema,
+  getTravelRequests,
+  rejectTravelRequest,
+  rejectTravelRequestInputSchema,
+  TRAVEL_REQUESTS_QUERY_ROOT,
+  travelCategorySchema,
+  travelDateSchema,
+  travelRequestListParamsSchema,
+  travelRequestSchema,
+  travelRequestsQueryKey,
+  travelRequestStatusSchema,
+} from "./travel/travel";
+export type {
+  AddTravelAttachmentsInput,
+  CreatedTravelRequest,
+  CreateTravelRequestInput,
+  RejectTravelRequestInput,
+  TravelCategory,
+  TravelRequest,
+  TravelRequestList,
+  TravelRequestListParams,
+  TravelRequestStatus,
+} from "./travel/travel";
+export {
+  addExpenseLine,
+  addExpenseLineInputSchema,
+  canSubmitExpenseReport,
+  createExpenseReport,
+  createExpenseReportInputSchema,
+  EXPENSE_FORM_ENTITIES_QUERY_KEY,
+  EXPENSE_REPORT_DETAIL_QUERY_ROOT,
+  EXPENSE_REPORTS_QUERY_ROOT,
+  expensePeriodSchema,
+  expenseReportCategorySchema,
+  expenseReportDetailQueryKey,
+  expenseReportListParamsSchema,
+  expenseReportSchema,
+  expenseReportsQueryKey,
+  expenseReportStatusSchema,
+  getExpenseReport,
+  listExpenseFormEntities,
+  listExpenseReports,
+  submitExpenseReport,
+} from "./expenses/expenses";
+export type {
+  AddExpenseLineInput,
+  CreateExpenseReportInput,
+  ExpenseFormEntity,
+  ExpenseLine,
+  ExpenseReport,
+  ExpenseReportCategory,
+  ExpenseReportDetail,
+  ExpenseReportList,
+  ExpenseReportListParams,
+  ExpenseReportStatus,
+} from "./expenses/expenses";
+export {
+  ADMIN_USERS_QUERY_ROOT,
+  adminUserListParamsSchema,
+  adminUserSchema,
+  adminUsersQueryKey,
+  listAdminUsers,
+} from "./admin/admin-users";
+export type {
+  AdminUser,
+  AdminUserList,
+  AdminUserListParams,
+} from "./admin/admin-users";
+export { ROLES_QUERY_KEY, listRoles, roleSchema } from "./admin/roles";
+export type { Role } from "./admin/roles";

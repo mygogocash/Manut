@@ -559,7 +559,12 @@ Migration order:
    `:8081` as authenticated secrets become available.
 2. HR/people and approvals: HRMS, travel, visa, expenses, cash advance,
    payroll, benefits, attendance, learning, career, applications, office,
-   employees, roles, and related approval screens. **Not started.**
+   employees, roles, and related approval screens.
+   **Status 2026-07-17:** Wave 2 — Travel (self list/create/cancel + inbox
+   approve/reject + URL attachments), Expenses (self list/detail + draft
+   create/line/submit with optional receipt URL), and admin Employees/Roles
+   (read-only) are `foundation`. R2 uploads, dedicated approval routes, FX,
+   and `/hrms` ESOP/onboarding/attendance still pending.
 3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
    **Not started.**

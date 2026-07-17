@@ -208,9 +208,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/employees/page.tsx",
       "sourceRoute": "/employees",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/employees",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only admin employee list (search/active filter) via app-core /admin/users. Create, role assign, reset password, and delete remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/expenses/[reportId]/page.tsx",
@@ -232,9 +232,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/expenses/page.tsx",
       "sourceRoute": "/expenses",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/expenses",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has self expense-report list/detail plus draft create, line add (optional receipt URL), and submit via app-core. Native R2 receipt upload, FX, approvals, and /expenses/approval remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/gmail/page.tsx",
@@ -640,9 +640,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/roles/page.tsx",
       "sourceRoute": "/roles",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/roles",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only role catalog via app-core. Create, clone, permission edit, and member assignment remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/sales-revenue/page.tsx",
@@ -744,9 +744,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/travel/page.tsx",
       "sourceRoute": "/travel",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/travel",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has self list/create/cancel, pending inbox approve/reject (viewerCanAct), and URL attachments via app-core. Hotels/flights, R2 file upload, and dedicated /travel/approval remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/visa/checklist-templates/page.tsx",

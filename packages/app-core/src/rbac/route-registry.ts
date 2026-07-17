@@ -171,6 +171,20 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     employeeAllowed: true,
     prefix: true,
   },
+  {
+    path: "/employees",
+    access: "protected",
+    permissions: ["user:read"],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/roles",
+    access: "protected",
+    permissions: ["role:read"],
+    employeeAllowed: false,
+    prefix: true,
+  },
 ];
 
 export interface RouteOverride {

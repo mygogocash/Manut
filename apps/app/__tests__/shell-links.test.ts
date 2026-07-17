@@ -11,6 +11,43 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
+  it("keeps Travel visible when travel:read is granted", () => {
+    const links = allowedShellLinks(["travel:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/travel",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Expenses visible when expense:read is granted", () => {
+    const links = allowedShellLinks(["expense:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/expenses",
+      "/settings",
+    ]);
+  });
+
+  it("keeps admin Employees and Roles off employee-only shells", () => {
+    const links = allowedShellLinks(["user:read", "role:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);
+  });
+
+  it("shows admin Employees and Roles for non-employee accounts", () => {
+    const links = allowedShellLinks(["user:read", "role:read"], false);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/employees",
+      "/roles",
+      "/settings",
+    ]);
+  });
+
   it("does not expose links whose route policy is unsatisfied", () => {
     const links = allowedShellLinks(["home:read", "directory:read"], false);
 
@@ -22,3 +59,4 @@ describe("allowedShellLinks", () => {
     ]);
   });
 });
+
