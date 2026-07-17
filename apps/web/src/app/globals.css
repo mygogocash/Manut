@@ -1,0 +1,271 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@plugin "@tailwindcss/typography";
+@plugin "tailwind-scrollbar";
+
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  :root {
+    /* Cream / bronze / gold "quiet luxury" palette
+       Shared product design tokens.
+       Maps: --bg #F4F2EC, --tx #0D0B07, --acc #8B6B3D, --acc2 #C8A84B,
+       --gr #2D6A4F, --amber #D24726, --red #C0392B, --blue #1A3A5C */
+    --background: 45 27% 94%;
+    --background-secondary: 47 22% 92%;
+    --surface: 0 0% 100%;
+    --surface-secondary: 60 14% 98%;
+    --foreground: 36 33% 4%;
+    --foreground-secondary: 30 10% 21%;
+    --muted: 47 22% 92%;
+    --muted-foreground: 36 9% 65%;
+    --primary: 33 39% 39%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 45 56% 54%;
+    --secondary: 47 22% 92%;
+    --secondary-foreground: 36 33% 4%;
+    --accent: 45 50% 92%;
+    --accent-foreground: 33 39% 39%;
+    --success: 152 41% 30%;
+    --success-foreground: 0 0% 100%;
+    --warning: 12 70% 49%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 6 64% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --info: 211 56% 23%;
+    --info-foreground: 0 0% 100%;
+    --border: 36 25% 88%;
+    --input: 36 25% 88%;
+    --ring: 33 39% 39%;
+    --card: 0 0% 100%;
+    --card-foreground: 36 33% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 36 33% 4%;
+    --sidebar-background: 36 33% 4%;
+    --sidebar-foreground: 0 0% 100% / 0.5;
+    --sidebar-foreground-strong: 45 27% 94%;
+    --sidebar-primary: 45 56% 54%;
+    --sidebar-primary-foreground: 36 33% 4%;
+    --sidebar-accent: 45 56% 54% / 0.1;
+    --sidebar-accent-foreground: 45 70% 80%;
+    --sidebar-border: 0 0% 100% / 0.06;
+    --sidebar-ring: 45 56% 54%;
+    --chart-1: 33 39% 39%;
+    --chart-2: 45 56% 54%;
+    --chart-3: 152 41% 30%;
+    --chart-4: 12 70% 49%;
+    --chart-5: 6 64% 46%;
+    --radius: 10px;
+
+    --shadow-sm:
+      0 1px 2px rgba(13, 11, 7, 0.04), 0 2px 8px rgba(13, 11, 7, 0.04);
+    --shadow-md:
+      0 2px 4px rgba(13, 11, 7, 0.05), 0 6px 20px rgba(13, 11, 7, 0.06);
+    --shadow-lg:
+      0 8px 24px rgba(13, 11, 7, 0.1), 0 2px 6px rgba(13, 11, 7, 0.06);
+    --shadow-xl: 0 20px 60px rgba(13, 11, 7, 0.18);
+
+    --font-sans: "DM Sans", system-ui, sans-serif;
+    --font-serif: "DM Serif Display", Georgia, serif;
+    --font-mono: "DM Mono", monospace;
+  }
+
+  .dark {
+    /* Dark cream — warm-black surfaces, gold accents.
+       Tuned 2026-05-07 for clearer contrast: status badges, primary
+       gradients and ring focus were inheriting the light-mode tokens
+       (dark green / dark gold) which collapsed onto the warm-black
+       surface. We brighten primary / status hues here so badges and
+       avatars read at WCAG AA on the dark surface. */
+    --background: 36 33% 4%;
+    --background-secondary: 30 15% 8%;
+    --surface: 30 10% 11%;
+    --surface-secondary: 30 10% 16%;
+    --foreground: 45 27% 96%;
+    --foreground-secondary: 36 12% 80%;
+    --muted: 30 10% 24%;
+    --muted-foreground: 36 12% 68%;
+    --primary: 33 45% 48%;
+    --primary-foreground: 36 33% 6%;
+    --primary-light: 45 50% 56%;
+    --secondary: 30 10% 18%;
+    --secondary-foreground: 45 27% 96%;
+    --accent: 30 10% 18%;
+    --accent-foreground: 45 65% 70%;
+    --success: 152 55% 55%;
+    --success-foreground: 36 33% 6%;
+    --warning: 35 90% 60%;
+    --warning-foreground: 36 33% 6%;
+    --destructive: 6 75% 60%;
+    --destructive-foreground: 36 33% 6%;
+    --info: 211 70% 64%;
+    --info-foreground: 36 33% 6%;
+    --border: 45 27% 96% / 0.1;
+    --input: 30 15% 14%;
+    --ring: 45 65% 62%;
+    --card: 30 10% 13%;
+    --card-foreground: 45 27% 96%;
+    --popover: 30 10% 13%;
+    --popover-foreground: 45 27% 96%;
+    --sidebar-background: 36 33% 2%;
+    --sidebar-foreground: 45 27% 96% / 0.6;
+    --sidebar-foreground-strong: 45 27% 96%;
+    --sidebar-primary: 45 65% 62%;
+    --sidebar-primary-foreground: 36 33% 6%;
+    --sidebar-accent: 45 65% 62% / 0.14;
+    --sidebar-accent-foreground: 45 80% 78%;
+    --sidebar-border: 45 27% 96% / 0.08;
+    --sidebar-ring: 45 65% 62%;
+    --chart-1: 45 65% 62%;
+    --chart-2: 33 50% 55%;
+    --chart-3: 152 55% 55%;
+    --chart-4: 35 90% 60%;
+    --chart-5: 6 75% 60%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    @apply font-sans;
+  }
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-background-secondary: hsl(var(--background-secondary));
+  --color-surface: hsl(var(--surface));
+  --color-surface-secondary: hsl(var(--surface-secondary));
+  --color-foreground: hsl(var(--foreground));
+  --color-foreground-secondary: hsl(var(--foreground-secondary));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-light: hsl(var(--primary-light));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-info: hsl(var(--info));
+  --color-info-foreground: hsl(var(--info-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-sidebar: hsl(var(--sidebar-background));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-foreground-strong: hsl(var(--sidebar-foreground-strong));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-4xl: 24px;
+
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+
+  --spacing-sidebar: 220px;
+  --spacing-topbar: 50px;
+
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-slide-in: slide-in 0.2s ease-out;
+
+  @keyframes fade-in {
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-in {
+    0% {
+      transform: translateY(-10px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes birthday-confetti-fall {
+    0% {
+      transform: translateY(-8px) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(72px) rotate(240deg);
+      opacity: 0;
+    }
+  }
+  @keyframes birthday-widget-pop {
+    0% {
+      transform: scale(0.995);
+    }
+    35% {
+      transform: scale(1.005);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+}
+
+.birthday-confetti-piece {
+  animation: birthday-confetti-fall 1.75s ease-out forwards;
+}
+
+.birthday-widget-celebrate {
+  animation: birthday-widget-pop 1.5s ease-out;
+}

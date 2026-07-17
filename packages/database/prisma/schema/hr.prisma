@@ -1,0 +1,1340 @@
+// ─── Survey Forms (Google-Forms-style) ───────────────────
+//
+// Lightweight, in-platform survey builder. HR composes a form with mixed
+// question types, targets a slice of the workforce, publishes it,
+// and we collect responses + render analytics. Models are
+// intentionally separate from `SurveyDefinition` / `SurveyWave` —
+// those carry pulse-survey conventions (sections schema, demographic
+// columns) that aren't a fit for ad-hoc form responses.
+
+model SurveyForm {
+  id                String    @id @default(uuid()) @db.Uuid
+  title             String    @db.VarChar(200)
+  description       String?
+  status            String    @default("draft") @db.VarChar(20) // draft | published | closed
+  isAnonymous       Boolean   @default(false) @map("is_anonymous")
+  // Targeting. When `targetAll` is true the targeting arrays are
+  // ignored and every active employee can respond. Otherwise the
+  // visible audience is the union of the three lists.
+  targetAll         Boolean   @default(true) @map("target_all")
+  targetEntityIds   Json      @default("[]") @map("target_entity_ids")
+  targetDepartments Json      @default("[]") @map("target_departments")
+  targetUserIds     Json      @default("[]") @map("target_user_ids")
+  publishedAt       DateTime? @map("published_at")
+  closedAt          DateTime? @map("closed_at")
+  // Optional open/close window. A published form is only "available" to
+  // respondents between startDate and endDate (inclusive); HR can extend
+  // endDate after publishing. Null = no bound on that side.
+  startDate         DateTime? @map("start_date") @db.Date
+  endDate           DateTime? @map("end_date") @db.Date
+  // Orthogonal to status — archiving hides a form from the active lists
+  // (and the notification bell) without changing its lifecycle state.
+  archivedAt        DateTime? @map("archived_at")
+  createdById       String    @map("created_by_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  createdBy User                 @relation("SurveyFormCreator", fields: [createdById], references: [id])
+  questions SurveyFormQuestion[]
+  responses SurveyFormResponse[]
+
+  @@index([status])
+  @@index([createdById])
+  @@index([archivedAt])
+  @@index([endDate])
+  @@map("survey_forms")
+}
+
+model SurveyFormQuestion {
+  id           String  @id @default(uuid()) @db.Uuid
+  surveyFormId String  @map("survey_form_id") @db.Uuid
+  order        Int
+  // type: short_text | long_text | single_choice | multi_choice
+  //       | rating | date | number
+  type         String  @db.VarChar(30)
+  prompt       String
+  helperText   String? @map("helper_text")
+  required     Boolean @default(false)
+  // For choice questions: array of strings, displayed in order.
+  options      Json    @default("[]")
+  // Free-form per-type knobs (e.g. {"min": 1, "max": 5} for rating).
+  settings     Json    @default("{}")
+
+  surveyForm SurveyForm         @relation(fields: [surveyFormId], references: [id], onDelete: Cascade)
+  answers    SurveyFormAnswer[]
+
+  @@index([surveyFormId, order])
+  @@map("survey_form_questions")
+}
+
+model SurveyFormResponse {
+  id           String   @id @default(uuid()) @db.Uuid
+  surveyFormId String   @map("survey_form_id") @db.Uuid
+  // Null when the survey is anonymous. Multiple anonymous responses
+  // from the same user are allowed; non-anonymous surveys enforce
+  // one-response-per-user via `@@unique` below.
+  respondentId String?  @map("respondent_id") @db.Uuid
+  submittedAt  DateTime @default(now()) @map("submitted_at")
+
+  surveyForm SurveyForm         @relation(fields: [surveyFormId], references: [id], onDelete: Cascade)
+  respondent User?              @relation("SurveyFormRespondent", fields: [respondentId], references: [id], onDelete: SetNull)
+  answers    SurveyFormAnswer[]
+
+  @@unique([surveyFormId, respondentId])
+  @@index([surveyFormId])
+  @@map("survey_form_responses")
+}
+
+model SurveyFormAnswer {
+  id         String @id @default(uuid()) @db.Uuid
+  responseId String @map("response_id") @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  // Polymorphic value:
+  //   - text/textarea → string
+  //   - single_choice → string
+  //   - multi_choice  → string[]
+  //   - rating/number → number
+  //   - date          → "YYYY-MM-DD" string
+  value      Json
+
+  response SurveyFormResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question SurveyFormQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+  @@index([questionId])
+  @@map("survey_form_answers")
+}
+
+// ─── Survey (standalone form builder) ────────────────────
+//
+// Full clone of the Survey Forms engine above, exposed as the
+// top-level "Survey" module (/survey). Independent tables so surveys
+// and awards never share data.
+
+model Survey {
+  id                String    @id @default(uuid()) @db.Uuid
+  title             String    @db.VarChar(200)
+  description       String?
+  status            String    @default("draft") @db.VarChar(20) // draft | published | closed
+  isAnonymous       Boolean   @default(false) @map("is_anonymous")
+  targetAll         Boolean   @default(true) @map("target_all")
+  targetEntityIds   Json      @default("[]") @map("target_entity_ids")
+  targetDepartments Json      @default("[]") @map("target_departments")
+  targetUserIds     Json      @default("[]") @map("target_user_ids")
+  publishedAt       DateTime? @map("published_at")
+  closedAt          DateTime? @map("closed_at")
+  startDate         DateTime? @map("start_date") @db.Date
+  endDate           DateTime? @map("end_date") @db.Date
+  archivedAt        DateTime? @map("archived_at")
+  createdById       String    @map("created_by_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  createdBy User             @relation("SurveyCreator", fields: [createdById], references: [id])
+  questions SurveyQuestion[]
+  responses SurveyResponse[]
+
+  @@index([status])
+  @@index([createdById])
+  @@index([archivedAt])
+  @@index([endDate])
+  @@map("surveys")
+}
+
+model SurveyQuestion {
+  id         String  @id @default(uuid()) @db.Uuid
+  surveyId   String  @map("survey_id") @db.Uuid
+  order      Int
+  type       String  @db.VarChar(30)
+  prompt     String
+  helperText String? @map("helper_text")
+  required   Boolean @default(false)
+  options    Json    @default("[]")
+  settings   Json    @default("{}")
+
+  survey  Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  answers SurveyAnswer[]
+
+  @@index([surveyId, order])
+  @@map("survey_questions")
+}
+
+model SurveyResponse {
+  id           String   @id @default(uuid()) @db.Uuid
+  surveyId     String   @map("survey_id") @db.Uuid
+  respondentId String?  @map("respondent_id") @db.Uuid
+  submittedAt  DateTime @default(now()) @map("submitted_at")
+
+  survey     Survey         @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  respondent User?          @relation("SurveyRespondent", fields: [respondentId], references: [id], onDelete: SetNull)
+  answers    SurveyAnswer[]
+
+  @@unique([surveyId, respondentId])
+  @@index([surveyId])
+  @@map("survey_responses")
+}
+
+model SurveyAnswer {
+  id         String @id @default(uuid()) @db.Uuid
+  responseId String @map("response_id") @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  value      Json
+
+  response SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+  @@index([questionId])
+  @@map("survey_answers")
+}
+
+// ─── Travel Management ──────────────────────────────────
+
+model TravelRequest {
+  id                      String    @id @default(uuid()) @db.Uuid
+  requestCode             String    @unique @map("request_code") @db.VarChar(20)
+  employeeId              String    @map("employee_id") @db.Uuid
+  entityId                String?   @map("entity_id")
+  origin                  String?
+  destination             String
+  purpose                 String
+  departureDate           DateTime  @map("departure_date") @db.Date
+  returnDate              DateTime  @map("return_date") @db.Date
+  estimatedBudget         Decimal?  @map("estimated_budget") @db.Decimal(15, 2)
+  cashAdvance             Decimal?  @map("cash_advance") @db.Decimal(15, 2)
+  currency                String    @default("USD")
+  // Categorises the trip for amount-band approval routing. Drives which
+  // `TravelApprovalStep` rows match via `categoryFilter`. Free string
+  // so HR can extend without a migration; default `general` keeps
+  // pre-feature requests on the universal chain.
+  category                String    @default("general")
+  // Flight booking preferences captured at submission time. Surfaced on
+  // the request detail sheet so the travel desk has the full brief
+  // without needing a separate clarification round with the applicant.
+  //
+  //   flightType:               one_way | round_trip | multi_trip
+  //   seatingPreference:        window | aisle | other
+  //   hotelLocationPreference:  near_meeting | near_airport
+  //
+  // All values are stored as free strings rather than enums so the
+  // travel desk can extend the menus without a migration; the UI is
+  // the source of truth for the canonical labels.
+  flightType              String?   @map("flight_type")
+  departureTimePreference String?   @map("departure_time_preference")
+  returnTimePreference    String?   @map("return_time_preference")
+  mealPreference          String?   @map("meal_preference")
+  seatingPreference       String?   @map("seating_preference")
+  seatingPreferenceOther  String?   @map("seating_preference_other")
+  dummyTicketRequired     Boolean   @default(false) @map("dummy_ticket_required")
+  visaRequired            Boolean   @default(false) @map("visa_required")
+  hotelRequired           Boolean   @default(false) @map("hotel_required")
+  hotelLocationPreference String?   @map("hotel_location_preference")
+  preferredHotel          String?   @map("preferred_hotel")
+  hotelDetails            String?   @map("hotel_details")
+  notes                   String?
+  attachments             Json      @default("[]")
+  delegatedToId           String?   @map("delegated_to") @db.Uuid
+  status                  String    @default("draft")
+  currentStepOrder        Int?      @map("current_step_order")
+  approvedBy              String?   @map("approved_by") @db.Uuid
+  approvedAt              DateTime? @map("approved_at")
+  rejectReason            String?   @map("reject_reason")
+  submittedAt             DateTime? @map("submitted_at")
+  deletedAt               DateTime? @map("deleted_at")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  employee          User                     @relation("TravelRequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver          User?                    @relation("TravelRequestApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  delegate          User?                    @relation("TravelRequestDelegate", fields: [delegatedToId], references: [id], onDelete: SetNull)
+  entity            Entity?                  @relation(fields: [entityId], references: [id])
+  expenses          Expense[]                @relation("ExpenseTravel")
+  approvalDecisions TravelApprovalDecision[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([departureDate])
+  @@index([deletedAt])
+  @@map("travel_requests")
+}
+
+// Org-wide travel approval chain (admin-managed). Each row is one stage.
+// Stages execute in ascending `order`; on submission they are snapshotted
+// into `TravelApprovalDecision` rows so editing the chain later does not
+// retroactively change in-flight requests.
+model TravelApprovalStep {
+  id                   String   @id @default(uuid()) @db.Uuid
+  order                Int      @unique
+  name                 String   @db.VarChar(100)
+  description          String?
+  approverType         String   @default("manager") @map("approver_type") // manager | user
+  approverUserId       String?  @map("approver_user_id") @db.Uuid
+  // Submitter-conditional routing. Stored as JSON arrays of User ids
+  // so the chain admin can carve out exceptions without an extra
+  // table:
+  //   - `skipWhenSubmitterIds` — submitter ids for whom this step is
+  //     skipped entirely (e.g. a named approver should not approve
+  //     their own travel request).
+  //   - `onlyWhenSubmitterIds` — when non-empty, the step only fires
+  //     for these submitters (e.g. an executive-only approval step when
+  //     that executive submits, while others use the prior step).
+  // Both arrays are optional and default to empty.
+  skipWhenSubmitterIds Json     @default("[]") @map("skip_when_submitter_ids")
+  onlyWhenSubmitterIds Json     @default("[]") @map("only_when_submitter_ids")
+  // Amount-band + category routing:
+  //   - `categoryFilter` JSON String[] — apply only to these
+  //     TravelRequest.category values (empty = match all).
+  //   - `amountMinBaht` / `amountMaxBaht` — apply only when the
+  //     request's cashAdvance, converted to THB via the latest
+  //     ExchangeRate, falls inside [min, max]. Either bound can be
+  //     null (open-ended). If FX conversion fails, the step is
+  //     treated as not matching so the request still routes through
+  //     unconditional steps.
+  categoryFilter       Json     @default("[]") @map("category_filter")
+  amountMinBaht        Decimal? @map("amount_min_baht") @db.Decimal(15, 2)
+  amountMaxBaht        Decimal? @map("amount_max_baht") @db.Decimal(15, 2)
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  approverUser User? @relation("TravelApprovalStepUser", fields: [approverUserId], references: [id], onDelete: SetNull)
+
+  @@map("travel_approval_steps")
+}
+
+// Per-request snapshot of the chain. `decidedById` is the user who acted
+// on this stage (may differ from `approverUserId` once role-based stages
+// land). Pending = waiting for that stage; skipped = stage condition not
+// met when the request was submitted (kept for an audit trail).
+model TravelApprovalDecision {
+  id              String    @id @default(uuid()) @db.Uuid
+  travelRequestId String    @map("travel_request_id") @db.Uuid
+  order           Int
+  name            String    @db.VarChar(100)
+  approverType    String    @map("approver_type")
+  approverUserId  String?   @map("approver_user_id") @db.Uuid
+  status          String    @default("pending")
+  decidedById     String?   @map("decided_by_id") @db.Uuid
+  decidedAt       DateTime? @map("decided_at")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  travelRequest TravelRequest @relation(fields: [travelRequestId], references: [id], onDelete: Cascade)
+  approverUser  User?         @relation("TravelApprovalDecisionApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
+  decidedBy     User?         @relation("TravelApprovalDecisionDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([travelRequestId, order])
+  @@index([approverUserId, status])
+  @@index([travelRequestId])
+  @@map("travel_approval_decisions")
+}
+
+// ─── Leave Management ───────────────────────────────────
+
+model LeaveType {
+  id               String  @id @default(cuid())
+  // entityId nullable so a row with entityId=null is a "global" policy
+  // visible to every employee. Entity-scoped rows only apply to staff
+  // of that entity.
+  entityId         String? @map("entity_id")
+  name             String  @db.VarChar(100)
+  code             String  @db.VarChar(20)
+  description      String?
+  category         String  @default("other") // sick | casual | earned | unpaid | other
+  daysPerYear      Int     @default(0) @map("days_per_year")
+  requiresApproval Boolean @default(true) @map("requires_approval")
+  isPaid           Boolean @default(true) @map("is_paid")
+  isActive         Boolean @default(true) @map("is_active")
+
+  entity       Entity?               @relation(fields: [entityId], references: [id], onDelete: Restrict)
+  balances     LeaveBalance[]
+  requests     LeaveRequest[]
+  transactions BalanceTransaction[]
+  approvers    LeavePolicyApprover[]
+
+  @@unique([entityId, code])
+  @@unique([entityId, name])
+  @@index([entityId, isActive])
+  @@map("leave_types")
+}
+
+// Per-policy ordered approver chain. Mirrors TravelApprovalStep but
+// scoped to a single leave type. When a leave request is submitted,
+// the approver(s) for that policy decide it. Manager type resolves to
+// the submitter's reportingTo at request time.
+model LeavePolicyApprover {
+  id             String   @id @default(uuid()) @db.Uuid
+  leaveTypeId    String   @map("leave_type_id")
+  order          Int
+  approverType   String   @default("manager") @map("approver_type") // manager | user
+  approverUserId String?  @map("approver_user_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  leaveType    LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  approverUser User?     @relation("LeavePolicyApproverUser", fields: [approverUserId], references: [id], onDelete: SetNull)
+
+  @@unique([leaveTypeId, order])
+  @@index([leaveTypeId])
+  @@index([approverUserId])
+  @@map("leave_policy_approvers")
+}
+
+model LeaveBalance {
+  id            String    @id @default(uuid()) @db.Uuid
+  employeeId    String    @map("employee_id") @db.Uuid
+  leaveTypeId   String    @map("leave_type_id")
+  year          Int
+  entitled      Decimal   @default(0) @db.Decimal(4, 1)
+  /// Days consumed from the entitlement bucket. Historical balances
+  /// (pre carried-bucket split) folded carried-over days into this
+  /// column; new approvals route to `carriedUsed` when the request is
+  /// flagged `source = "carried"`.
+  used          Decimal   @default(0) @db.Decimal(4, 1)
+  carried       Decimal   @default(0) @db.Decimal(4, 1)
+  /// Days consumed from the carried-over bucket. Stays in lockstep
+  /// with `used`: an approved request decrements one of the two based
+  /// on `LeaveRequest.source`.
+  carriedUsed   Decimal   @default(0) @map("carried_used") @db.Decimal(4, 1)
+  /// HR-set deadline for using the carried bucket — e.g. 2025 carry-
+  /// over expires 31-Mar-2026. After this date the carried bucket
+  /// stops being a valid `source` for new leave requests.
+  carriedExpiry DateTime? @map("carried_expiry") @db.Date
+  adjustment    Decimal   @default(0) @db.Decimal(4, 1)
+
+  employee  User      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@map("leave_balances")
+}
+
+model BalanceTransaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  employeeId  String   @map("employee_id") @db.Uuid
+  leaveTypeId String   @map("leave_type_id")
+  year        Int
+  type        String   @db.VarChar(30)
+  amount      Decimal  @db.Decimal(4, 1)
+  description String?
+  referenceId String?  @map("reference_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  employee  User      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  @@index([employeeId, leaveTypeId, year])
+  @@map("balance_transactions")
+}
+
+model LeaveRequest {
+  id               String    @id @default(uuid()) @db.Uuid
+  employeeId       String    @map("employee_id") @db.Uuid
+  leaveTypeId      String    @map("leave_type_id")
+  entityId         String?   @map("entity_id")
+  startDate        DateTime  @map("start_date") @db.Date
+  endDate          DateTime  @map("end_date") @db.Date
+  /// `full_day` (default) or `half_day` — half-day requests always use 0.5 days.
+  durationType     String    @default("full_day") @map("duration_type")
+  /// When `durationType = half_day`: `am` or `pm`.
+  halfDayPeriod    String?   @map("half_day_period")
+  days             Decimal   @db.Decimal(4, 1)
+  /// Which bucket the days come out of when the request is approved:
+  /// `entitled` (default) decrements `LeaveBalance.used`; `carried`
+  /// decrements `LeaveBalance.carriedUsed` and requires the balance's
+  /// `carriedExpiry` to be in the future.
+  source           String    @default("entitled")
+  reason           String?
+  status           String    @default("pending")
+  // Tracks which approval-chain step is currently waiting for action
+  // while the request sits in `status = "pending"`. Null on creation
+  // for legacy rows; lazy-snapshotted on first approve/reject if so.
+  currentStepOrder Int?      @map("current_step_order")
+  approvedBy       String?   @map("approved_by") @db.Uuid
+  approvedAt       DateTime? @map("approved_at")
+  rejectReason     String?   @map("reject_reason")
+  delegatedToId    String?   @map("delegated_to") @db.Uuid
+  reminderCount    Int       @default(0) @map("reminder_count")
+  lastReminderAt   DateTime? @map("last_reminder_at")
+  deletedAt        DateTime? @map("deleted_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  employee          User                    @relation("LeaveRequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType         LeaveType               @relation(fields: [leaveTypeId], references: [id])
+  approver          User?                   @relation("LeaveRequestApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  delegate          User?                   @relation("LeaveRequestDelegate", fields: [delegatedToId], references: [id], onDelete: SetNull)
+  entity            Entity?                 @relation(fields: [entityId], references: [id])
+  approvalDecisions LeaveApprovalDecision[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([delegatedToId])
+  @@index([deletedAt])
+  @@map("leave_requests")
+}
+
+// Org-wide leave approval chain (admin-managed). Mirrors the travel and
+// expense chains — each row is one ordered stage, snapshotted to
+// `LeaveApprovalDecision` rows on submit so chain edits never rewrite
+// in-flight requests.
+model LeaveApprovalStep {
+  id                   String   @id @default(uuid()) @db.Uuid
+  order                Int      @unique
+  name                 String   @db.VarChar(100)
+  description          String?
+  approverType         String   @default("manager") @map("approver_type") // manager | user
+  approverUserId       String?  @map("approver_user_id") @db.Uuid
+  skipWhenSubmitterIds Json     @default("[]") @map("skip_when_submitter_ids")
+  onlyWhenSubmitterIds Json     @default("[]") @map("only_when_submitter_ids")
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  approverUser User? @relation("LeaveApprovalStepUser", fields: [approverUserId], references: [id], onDelete: SetNull)
+
+  @@map("leave_approval_steps")
+}
+
+// Per-request snapshot of the chain. Mirrors travel/expense decisions.
+model LeaveApprovalDecision {
+  id             String    @id @default(uuid()) @db.Uuid
+  leaveRequestId String    @map("leave_request_id") @db.Uuid
+  order          Int
+  name           String    @db.VarChar(100)
+  approverType   String    @map("approver_type")
+  approverUserId String?   @map("approver_user_id") @db.Uuid
+  status         String    @default("pending")
+  decidedById    String?   @map("decided_by_id") @db.Uuid
+  decidedAt      DateTime? @map("decided_at")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  approverUser User?        @relation("LeaveApprovalDecisionApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
+  decidedBy    User?        @relation("LeaveApprovalDecisionDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([leaveRequestId, order])
+  @@index([approverUserId, status])
+  @@index([leaveRequestId])
+  @@map("leave_approval_decisions")
+}
+
+model PublicHoliday {
+  id        String   @id @default(uuid()) @db.Uuid
+  // Scoped to one entity (e.g. Manut India). Mirrors LeaveType.entityId so
+  // the same Entity selector can drive both Leave Policies and Holidays.
+  entityId  String   @map("entity_id")
+  date      DateTime @db.Date
+  name      String   @db.VarChar(120)
+  notes     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, date])
+  @@index([entityId, date])
+  @@map("public_holidays")
+}
+
+model PayrollRun {
+  id             String    @id @default(cuid())
+  entityId       String    @map("entity_id")
+  period         String
+  status         String    @default("draft")
+  /// Headline totals — entity-currency rows only. Mixed-currency
+  /// payslips (USD/INR contractors paid through a THB entity) get
+  /// summed separately in `currencyTotals` so adding them numerically
+  /// doesn't pollute the run-level take-home figure.
+  totalGross     Decimal   @default(0) @map("total_gross") @db.Decimal(15, 2)
+  totalNet       Decimal   @default(0) @map("total_net") @db.Decimal(15, 2)
+  totalTax       Decimal   @default(0) @map("total_tax") @db.Decimal(15, 2)
+  /// `{ [ISO ccy]: { gross, tax, net, count } }` — full per-currency
+  /// breakdown of the run. Populated by the bulk import + payslip
+  /// edit flows; older runs without an import re-commit keep this
+  /// null (and the headline numbers retain their original mixed sum).
+  currencyTotals Json?     @map("currency_totals")
+  runBy          String    @map("run_by") @db.Uuid
+  approvedBy     String?   @map("approved_by") @db.Uuid
+  approvedAt     DateTime? @map("approved_at")
+  paidAt         DateTime? @map("paid_at")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  entity   Entity    @relation(fields: [entityId], references: [id])
+  runner   User      @relation("PayrollRunner", fields: [runBy], references: [id], onDelete: Cascade)
+  approver User?     @relation("PayrollApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  payslips Payslip[]
+
+  @@unique([entityId, period])
+  @@map("payroll_runs")
+}
+
+model Payslip {
+  id                 String   @id @default(uuid()) @db.Uuid
+  payrollRunId       String   @map("payroll_run_id")
+  employeeId         String   @map("employee_id") @db.Uuid
+  baseSalary         Decimal  @map("base_salary") @db.Decimal(15, 2)
+  allowances         Json?
+  deductions         Json?
+  grossPay           Decimal  @map("gross_pay") @db.Decimal(15, 2)
+  netPay             Decimal  @map("net_pay") @db.Decimal(15, 2)
+  currency           String
+  /// HR-supplied gross / net expressed in the run's entity (base) currency.
+  /// Populated by the bulk importer from the "Total Payout {entityCurrency}"
+  /// column in the payroll import — the spreadsheet already encodes the per-row
+  /// FX equivalent so we don't need a separate ExchangeRate row to render
+  /// a correct headline. Null for rows the importer couldn't infer a base
+  /// value for (legacy rows, manual single-payslip writes, or non-base
+  /// currency rows where HR left the base-currency column blank) — in that
+  /// case the aggregator falls back to ExchangeRate-based FX as before.
+  grossPayBase       Decimal? @map("gross_pay_base") @db.Decimal(15, 2)
+  netPayBase         Decimal? @map("net_pay_base") @db.Decimal(15, 2)
+  /// Point-in-time snapshots of Position / Department / Start Date as
+  /// they appeared in the import at that time. Falls back to the User
+  /// profile when the cell is blank.
+  /// Stored on the payslip (not derived from the live `users` row) so
+  /// a placeholder contractor or a later job-title change can't rewrite
+  /// the historical payroll record.
+  positionSnapshot   String?  @map("position_snapshot")
+  departmentSnapshot String?  @map("department_snapshot")
+  startDateSnapshot  String?  @map("start_date_snapshot")
+
+  /// HR-uploaded payslip PDF (or other supported document) on the
+  /// `documents` Supabase bucket. Nullable — a payslip row can exist
+  /// without a PDF (numbers-only entry from the bulk importer). The
+  /// employee-facing /my-portal "My Payslip" tab gates the download
+  /// button on this field.
+  documentUrl String? @map("document_url")
+
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee   User       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Same person can hold one payslip per currency in the same run — HR
+  // pays a few contractors a THB retainer + a USD performance fee in
+  // the same period, and the xlsx legitimately lists them on two rows.
+  // Previously this collided with a (run, employee) unique, forcing
+  // the importer to merge the rows (and to silently mix currencies).
+  @@unique([payrollRunId, employeeId, currency])
+  @@map("payslips")
+}
+
+model ConsultantInvoice {
+  id           String   @id @default(uuid()) @db.Uuid
+  entityId     String   @map("entity_id")
+  consultantId String   @map("consultant_id") @db.Uuid
+  invoiceNo    String   @map("invoice_no")
+  amount       Decimal  @db.Decimal(15, 2)
+  whtRate      Decimal  @default(0) @map("wht_rate") @db.Decimal(5, 2)
+  whtAmount    Decimal  @default(0) @map("wht_amount") @db.Decimal(15, 2)
+  netAmount    Decimal  @map("net_amount") @db.Decimal(15, 2)
+  period       String
+  status       String   @default("pending")
+  certIssued   Boolean  @default(false) @map("cert_issued")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  entity     Entity @relation(fields: [entityId], references: [id])
+  consultant User   @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  @@map("consultant_invoices")
+}
+
+// Captures the equity components from the equity-grant import:
+//   - Tokens / Equity (contract): currency- or share-denominated.
+//   - Sign-up, executive, and retention equity: usually shares.
+//   - Annual review uplift: percent of base pay.
+//   - Monthly allocations (sheet "Monthly Equity from Emp Contract"):
+//     allocationMode = "monthly_recurring" with start/end months.
+model EsopGrant {
+  id                   String    @id @default(uuid()) @db.Uuid
+  employeeId           String    @map("employee_id") @db.Uuid
+  grantDate            DateTime  @map("grant_date") @db.Date
+  grantType            String    @default("equity") @map("grant_type")
+  valueType            String    @default("shares") @map("value_type")
+  shares               Int       @default(0)
+  currencyCode         String?   @map("currency_code")
+  currencyAmount       Decimal?  @map("currency_amount") @db.Decimal(15, 2)
+  percentOfBase        Decimal?  @map("percent_of_base") @db.Decimal(5, 2)
+  // Lock / vesting / increasing periods are nullable so the imported
+  // ESOP table reflects the import faithfully — empty xlsx
+  // cells render as "—" instead of being silently rewritten with the
+  // old defaults (lock 0 / vesting 48 / cliff 12). Manual
+  // create / edit can still populate these; the importer keeps null
+  // when the source cell is blank.
+  vestingMonths        Int?      @map("vesting_months")
+  cliffMonths          Int?      @map("cliff_months")
+  lockMonths           Int?      @map("lock_months")
+  strikePrice          Decimal   @default(0) @map("strike_price") @db.Decimal(10, 4)
+  allocationMode       String    @default("one_time") @map("allocation_mode")
+  monthlyAmount        Decimal?  @map("monthly_amount") @db.Decimal(15, 2)
+  allocationStartMonth DateTime? @map("allocation_start_month") @db.Date
+  allocationEndMonth   DateTime? @map("allocation_end_month") @db.Date
+  source               String?
+  status               String    @default("active")
+  exercisedShares      Int       @default(0) @map("exercised_shares")
+  // Manual override for "Total Vesting to date" on a vesting grant.
+  // NULL = auto-compute via vestedSharesToDate (linear by elapsed
+  // months); a value pins the figure HR entered by hand when the sheet
+  // shows a number the linear formula can't reproduce (e.g. a row
+  // valued at a different date than the rest of the report).
+  vestedToDateOverride Int?      @map("vested_to_date_override")
+  notes                String?
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  employee User @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("esop_grants")
+}
+
+// Captures HR's "Equity Monthly Salary" sheet — per-employee monthly
+// equity allocations derived from converting a fixed monthly salary
+// (e.g. THB 87,975) into USD via the Bank of Thailand reference rate
+// on the salary payment date, then dividing by the strike price to
+// get a share count. CXO-tier rows store fixed shares directly.
+//
+// Rows are name-keyed (not FK to User) because the imported sheet can
+// list employees outside the platform's user table, and HR re-imports
+// the whole sheet rather than editing rows individually.
+model EquityMonthlySalary {
+  id            String    @id @default(uuid()) @db.Uuid
+  employeeName  String    @map("employee_name")
+  position      String?
+  startDate     DateTime? @map("start_date") @db.Date
+  // THB / INR / USD — extracted from the employee's name suffix in
+  // the imported sheet, drives which reference salary is converted
+  // for the formula-based rows.
+  currency      String?
+  year          Int
+  // Map of three-letter month abbrev -> share count for the year.
+  // e.g. {"Feb": 121.28, "Mar": 114.74}. Decimal-valued; stored as
+  // Json so missing months simply don't appear and we don't pay for
+  // 12 nullable Decimal columns in postgres.
+  monthlyShares Json      @default("{}") @map("monthly_shares")
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([year])
+  @@map("equity_monthly_salary")
+}
+
+// HR-managed agreement / compliance documents (working agreement, visa,
+// passport, NDA, etc.). HR/admin uploads on behalf of an employee; the
+// employee can view their own row through the same endpoint.
+model EmployeeAgreement {
+  id            String    @id @default(uuid()) @db.Uuid
+  employeeId    String    @map("employee_id") @db.Uuid
+  type          String    @db.VarChar(40)
+  title         String    @db.VarChar(200)
+  fileUrl       String    @map("file_url")
+  fileName      String    @map("file_name")
+  mimeType      String?   @map("mime_type")
+  fileSize      Int?      @map("file_size")
+  effectiveDate DateTime? @map("effective_date") @db.Date
+  expiryDate    DateTime? @map("expiry_date") @db.Date
+  notes         String?
+  uploadedById  String?   @map("uploaded_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  employee   User  @relation("EmployeeAgreementOwner", fields: [employeeId], references: [id], onDelete: Cascade)
+  uploadedBy User? @relation("EmployeeAgreementUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([type])
+  @@index([expiryDate])
+  @@map("employee_agreements")
+}
+
+model OnboardingRun {
+  id           String    @id @default(uuid()) @db.Uuid
+  employeeId   String?   @map("employee_id") @db.Uuid
+  employeeName String    @map("employee_name")
+  department   String
+  startDate    DateTime  @map("start_date") @db.Date
+  tasks        Json
+  status       String    @default("in_progress")
+  entityId     String?   @map("entity_id")
+  // Soft delete for admin/HR duplicate cleanup. A set `deletedAt` hides the
+  // run from the list; restorable via POST /onboarding/:id/restore.
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  employee User?   @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  entity   Entity? @relation(fields: [entityId], references: [id])
+
+  @@index([deletedAt])
+  @@map("onboarding_runs")
+}
+
+model OffboardingRun {
+  id               String    @id @default(uuid()) @db.Uuid
+  employeeId       String?   @map("employee_id") @db.Uuid
+  employeeName     String    @map("employee_name")
+  position         String?
+  department       String
+  lastWorkingDay   DateTime  @map("last_working_day") @db.Date
+  tasks            Json
+  status           String    @default("in_progress")
+  employeeSignName String?   @map("employee_sign_name")
+  employeeSignedAt DateTime? @map("employee_signed_at")
+  hrSignName       String?   @map("hr_sign_name")
+  hrSignedAt       DateTime? @map("hr_signed_at")
+  entityId         String?   @map("entity_id")
+  // Soft delete for admin/HR duplicate cleanup. A set `deletedAt` hides the
+  // run from the list; restorable via POST /offboarding/:id/restore.
+  deletedAt        DateTime? @map("deleted_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  employee User?   @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  entity   Entity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([entityId])
+  @@index([deletedAt])
+  @@map("offboarding_runs")
+}
+
+model TrainingModule {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  category    String
+  duration    Int?
+  // External link (e.g. video / LMS course URL). Distinct from
+  // `fileUrl` so admins can pair an external course with an
+  // internally-uploaded asset (slide deck PDF, etc.).
+  url         String?
+  // Uploaded file the trainee can open from the module card. Stored
+  // as a public Supabase Storage URL; `fileName` keeps the original
+  // upload name for display.
+  fileUrl     String?  @map("file_url")
+  fileName    String?  @map("file_name")
+  isMandatory Boolean  @default(false) @map("is_mandatory")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  completions TrainingCompletion[]
+
+  @@map("training_modules")
+}
+
+model TrainingCompletion {
+  employeeId  String   @map("employee_id") @db.Uuid
+  moduleId    String   @map("module_id")
+  completedAt DateTime @default(now()) @map("completed_at")
+  score       Int?
+
+  employee User           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  module   TrainingModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@id([employeeId, moduleId])
+  @@map("training_completions")
+}
+
+model VisaRecord {
+  id                        String    @id @default(uuid()) @db.Uuid
+  // For `holderType = "employee"` (default): the employee whose visa
+  // this is. For `holderType = "dependent"`: the SPONSOR employee
+  // (e.g. MP's wife's record points at MP), so the existing reminder
+  // cron still routes expiry emails to a Manut inbox without rewriting
+  // its query path. The actual holder's display name lives in
+  // `holderName`.
+  employeeId                String    @map("employee_id") @db.Uuid
+  /// `employee` | `dependent`
+  holderType                String    @default("employee") @map("holder_type")
+  /// Display name of the visa holder when `holderType = "dependent"`
+  /// (the sponsor's name comes from the `employee` relation). Null
+  /// for employee-type rows.
+  holderName                String?   @map("holder_name")
+  /// e.g. `spouse`, `child`, `parent`. Free string so HR can add
+  /// values without a migration. Null when `holderType = "employee"`.
+  holderRelationship        String?   @map("holder_relationship")
+  visaType                  String    @map("visa_type")
+  country                   String
+  nationality               String?
+  issueDate                 DateTime? @map("issue_date") @db.Date
+  expiryDate                DateTime  @map("expiry_date") @db.Date
+  // Work permit lives alongside the visa so HR can track both lifecycles
+  // on a single record. All four fields
+  // remain optional — non-Thailand records often have no work permit.
+  workPermitNumber          String?   @map("work_permit_number")
+  workPermitIssueDate       DateTime? @map("work_permit_issue_date") @db.Date
+  workPermitExpiryDate      DateTime? @map("work_permit_expiry_date") @db.Date
+  status                    String    @default("active")
+  // Legacy single-document column. New writes use `documents` (an array
+  // of {name, url, type, category}) so HR can attach passport front
+  // page, visa page, work permit, etc. separately. Existing rows keep
+  // `documentUrl` until they're edited; the FE falls back to it when
+  // `documents` is empty.
+  documentUrl               String?   @map("document_url")
+  documents                 Json      @default("[]")
+  // Bookkeeping for the milestone-based reminder cron. We fire at
+  // 90/60/30/14/7 day buckets (3mo, 2mo, 1mo, 2wk, 1wk) and stamp the
+  // last-sent milestone here so the cron only re-pings when the record
+  // crosses into a closer bucket. `lastReminderSentAt` retains the
+  // wall-clock of the last dispatch for ops visibility.
+  lastReminderSentAt        DateTime? @map("last_reminder_sent_at")
+  lastReminderMilestoneDays Int?      @map("last_reminder_milestone_days")
+  // Stamped only when `status` actually changes (never on every edit), so
+  // the timeline / any SLA metric reflects the real transition moment.
+  statusChangedAt           DateTime? @map("status_changed_at")
+  notes                     String?
+  entityId                  String?   @map("entity_id")
+  deletedAt                 DateTime? @map("deleted_at")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  employee       User                @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  entity         Entity?             @relation(fields: [entityId], references: [id])
+  eventLogs      VisaEventLog[]
+  checklistItems VisaChecklistItem[]
+
+  @@index([employeeId])
+  @@index([expiryDate])
+  @@index([workPermitExpiryDate])
+  @@index([deletedAt])
+  @@map("visa_records")
+}
+
+// Chronological per-record event log (status changes, date edits, notes,
+// reminders sent, documents added). Mirrors ProjectTaskActivity. A null
+// `actorId` with actorType="system" marks a cron-dispatched reminder.
+model VisaEventLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  visaRecordId String   @map("visa_record_id") @db.Uuid
+  actorId      String?  @map("actor_id") @db.Uuid
+  actorType    String   @default("user") @map("actor_type")
+  // status_change | issue_updated | expiry_updated | work_permit_updated |
+  // note_added | document_added | reminder_sent | created
+  kind         String
+  field        String?
+  oldValue     String?  @map("old_value") @db.Text
+  newValue     String?  @map("new_value") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  visaRecord VisaRecord @relation(fields: [visaRecordId], references: [id], onDelete: Cascade)
+  actor      User?      @relation("VisaEventLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([visaRecordId, createdAt])
+  @@map("visa_event_logs")
+}
+
+// HR-curated visa/immigration knowledge base. Mirrors AriaKnowledgeArticle
+// (minus the retrieval embedding) — these are directly fetched and shown
+// contextually on a visa record, not semantically searched. `country` /
+// `visaType` null = applies to all. `requiredPermissions` empty = visible to
+// any visa reader; non-empty = caller must hold one of them.
+model VisaKnowledgeArticle {
+  id                  String   @id @default(uuid()) @db.Uuid
+  title               String
+  slug                String   @unique
+  body                String   @db.Text
+  country             String?
+  visaType            String?  @map("visa_type")
+  tags                String[]
+  requiredPermissions String[] @default([]) @map("required_permissions")
+  isActive            Boolean  @default(true) @map("is_active")
+  createdById         String?  @map("created_by_id") @db.Uuid
+  entityId            String?  @map("entity_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  createdBy User? @relation("VisaKnowledgeArticleAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([country, visaType, isActive])
+  @@index([slug])
+  @@map("visa_knowledge_articles")
+}
+
+// Per-visa-type required-docs / process-step template. `items` is a JSON
+// array of {id,label,category,optional,sortOrder}. country null = applies to
+// any country for that visa type. One active template is instantiated onto a
+// new record's checklist at create time.
+model VisaChecklistTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  visaType  String   @map("visa_type")
+  country   String?
+  name      String
+  items     Json     @default("[]")
+  isActive  Boolean  @default(true) @map("is_active")
+  entityId  String?  @map("entity_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([visaType, isActive])
+  @@map("visa_checklist_templates")
+}
+
+// Per-record checklist line, instantiated from a template's items. HR ticks
+// these off as documents are collected / steps completed.
+model VisaChecklistItem {
+  id             String    @id @default(uuid()) @db.Uuid
+  visaRecordId   String    @map("visa_record_id") @db.Uuid
+  // Stable id from the source template's items JSON (for traceability).
+  templateItemId String    @map("template_item_id")
+  label          String
+  // document | step
+  category       String
+  optional       Boolean   @default(false)
+  completed      Boolean   @default(false)
+  completedAt    DateTime? @map("completed_at")
+  // Actor user id (no FK — display is best-effort, attribution optional).
+  completedById  String?   @map("completed_by_id") @db.Uuid
+  sortOrder      Int       @map("sort_order")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  visaRecord VisaRecord @relation(fields: [visaRecordId], references: [id], onDelete: Cascade)
+
+  @@index([visaRecordId])
+  @@map("visa_checklist_items")
+}
+
+// Thai immigration 90-day reporting (TM.47) — every foreign resident
+// must report their address to Immigration within 7 days of the
+// 90-day mark from their last arrival. HR wants a tracker that
+// computes the due date and fires three email warnings at T-21,
+// T-15, T+7 (final report day). The dispatcher is the daily cron at
+// `/api/cron/ninety-day-reminders`; `lastReminderMilestoneDays` keeps
+// the same milestone-stamp pattern as visa_records so a re-run never
+// double-sends. Status is HR-set
+// (pending / to_be_notifying / approved / no_required).
+model NinetyDayNotification {
+  id                        String    @id @default(uuid()) @db.Uuid
+  // For a `dependent` row this is the sponsor employee — they get the
+  // reminder email and own the filing. For an `employee` row this is
+  // the applicant themselves.
+  employeeId                String    @map("employee_id") @db.Uuid
+  // Office that sponsors this filing. Nullable for legacy rows that
+  // pre-date the per-entity picker (migration 20260708…). Today the
+  // 90-day filing is a Thailand-only obligation, but the column is
+  // intentionally flexible so other offices can adopt the same view.
+  entityId                  String?   @map("entity_id")
+  // `employee` (default — applicant = employee) or `dependent`
+  // (applicant is a spouse / child / parent / other non-employee
+  // whose 90-day filing we still track; sponsor employee = `employeeId`).
+  holderType                String    @default("employee") @map("holder_type")
+  // Free-text applicant name. Used only when `holderType = "dependent"`;
+  // ignored for employee rows where the User.name is authoritative.
+  holderName                String?   @map("holder_name")
+  // Free-text relationship to the sponsor employee (spouse, child…).
+  holderRelationship        String?   @map("holder_relationship")
+  lastArrivalDate           DateTime  @map("last_arrival_date") @db.Date
+  // Server-computed: lastArrivalDate + 89 days. Stored so list/filter
+  // queries don't need to recompute, and so the cron can index on it.
+  dueDate                   DateTime  @map("due_date") @db.Date
+  status                    String    @default("pending")
+  notes                     String?
+  // Immigration submission receipt (PDF/image) — private `documents` bucket.
+  receiptUrl                String?   @map("receipt_url")
+  receiptName               String?   @map("receipt_name")
+  receiptMimeType           String?   @map("receipt_mime_type")
+  lastReminderMilestoneDays Int?      @map("last_reminder_milestone_days")
+  lastReminderSentAt        DateTime? @map("last_reminder_sent_at")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  employee User    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  entity   Entity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([dueDate])
+  @@index([entityId])
+  @@map("ninety_day_notifications")
+}
+
+model Benefit {
+  id          String   @id @default(cuid())
+  name        String
+  category    String
+  description String?
+  provider    String?
+  cost        Decimal  @default(0) @db.Decimal(15, 2)
+  currency    String   @default("THB")
+  entityId    String?  @map("entity_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  entity      Entity?             @relation(fields: [entityId], references: [id])
+  enrollments BenefitEnrollment[]
+
+  @@map("benefits")
+}
+
+model BenefitEnrollment {
+  id         String    @id @default(uuid()) @db.Uuid
+  benefitId  String    @map("benefit_id")
+  employeeId String    @map("employee_id") @db.Uuid
+  startDate  DateTime  @map("start_date") @db.Date
+  endDate    DateTime? @map("end_date") @db.Date
+  status     String    @default("active")
+
+  benefit  Benefit @relation(fields: [benefitId], references: [id])
+  employee User    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([benefitId, employeeId])
+  @@map("benefit_enrollments")
+}
+
+// Company-wide policies / handbook documents (Code of Conduct, IT
+// Policy, Travel Policy, Leave Policy, etc.). Anyone with `policy:read`
+// can view + download; HR/admin with `policy:manage` can upload + edit.
+// Files live in the private `documents` bucket — same signed-URL flow
+// as HRMS agreements.
+model CompanyPolicy {
+  id            String    @id @default(uuid()) @db.Uuid
+  title         String    @db.VarChar(200)
+  category      String    @db.VarChar(40)
+  description   String?
+  fileUrl       String    @map("file_url")
+  fileName      String    @map("file_name")
+  mimeType      String?   @map("mime_type")
+  fileSize      Int?      @map("file_size")
+  version       String?   @db.VarChar(40)
+  effectiveDate DateTime? @map("effective_date") @db.Date
+  // Null = global / applies to every entity. Otherwise scoped to one
+  // entity so India-specific handbooks don't show up for Thailand staff.
+  entityId      String?   @map("entity_id")
+  isActive      Boolean   @default(true) @map("is_active")
+  uploadedById  String?   @map("uploaded_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  entity     Entity? @relation(fields: [entityId], references: [id])
+  uploadedBy User?   @relation("CompanyPolicyUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([category])
+  @@index([entityId])
+  @@index([isActive])
+  @@map("company_policies")
+}
+
+/// Org-wide payroll approval chain. Each row is one stage; stages execute
+/// in ascending `order`. HR creates a run, then routes it through this
+/// chain before flipping it to "approved" for pay-out. Each step names a
+/// specific approver (CFO, COO, …) — payroll runs are HR-initiated, so
+/// the submitter-conditional routing the travel chain carries isn't
+/// needed here.
+model PayrollApprovalStep {
+  id             String   @id @default(uuid()) @db.Uuid
+  order          Int      @unique
+  name           String   @db.VarChar(100)
+  description    String?
+  approverUserId String   @map("approver_user_id") @db.Uuid
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  approverUser User @relation("PayrollApprovalStepApprover", fields: [approverUserId], references: [id], onDelete: Cascade)
+
+  @@map("payroll_approval_steps")
+}
+
+// ─── Attendance ─────────────────────────────────────────
+
+/// Fixed-shift policy per entity (or global default when entityId is null).
+model AttendancePolicy {
+  id                          String   @id @default(uuid()) @db.Uuid
+  entityId                    String?  @unique @map("entity_id")
+  shiftStartTime              String   @default("09:00") @map("shift_start_time") @db.VarChar(5)
+  shiftEndTime                String   @default("18:00") @map("shift_end_time") @db.VarChar(5)
+  graceMinutes                Int      @default(15) @map("grace_minutes")
+  halfDayThresholdHours       Decimal  @default(4) @map("half_day_threshold_hours") @db.Decimal(4, 2)
+  minimumWorkingHours         Decimal  @default(8) @map("minimum_working_hours") @db.Decimal(4, 2)
+  /// JSON array of allowed work modes, e.g. ["office","remote","hybrid"]
+  allowedWorkModes            Json     @default("[\"office\",\"remote\",\"hybrid\"]") @map("allowed_work_modes")
+  /// JSON array of weekend day numbers (0=Sun … 6=Sat), default [0,6]
+  weekendDays                 Json     @default("[0,6]") @map("weekend_days")
+  attendanceThresholdPct      Int      @default(80) @map("attendance_threshold_pct")
+  defaultTimezone             String   @default("Asia/Bangkok") @map("default_timezone") @db.VarChar(64)
+  missedCheckInAfterMinutes   Int      @default(120) @map("missed_check_in_after_minutes")
+  missedCheckOutAfterMinutes  Int      @default(60) @map("missed_check_out_after_minutes")
+  consecutiveAbsenceAlertDays Int      @default(3) @map("consecutive_absence_alert_days")
+  isActive                    Boolean  @default(true) @map("is_active")
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  entity Entity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+
+  @@map("attendance_policies")
+}
+
+/// Employee attendance correction request (regularization workflow).
+model AttendanceCorrection {
+  id                 String    @id @default(uuid()) @db.Uuid
+  employeeId         String    @map("employee_id") @db.Uuid
+  attendanceRecordId String?   @map("attendance_record_id") @db.Uuid
+  attendanceDate     DateTime  @map("attendance_date") @db.Date
+  correctionType     String    @map("correction_type") @db.VarChar(40)
+  reason             String
+  comments           String?
+  status             String    @default("pending") @db.VarChar(20)
+  proposedCheckIn    DateTime? @map("proposed_check_in")
+  proposedCheckOut   DateTime? @map("proposed_check_out")
+  proposedWorkMode   String?   @map("proposed_work_mode") @db.VarChar(20)
+  approvedBy         String?   @map("approved_by") @db.Uuid
+  approvedAt         DateTime? @map("approved_at")
+  rejectRemarks      String?   @map("reject_remarks")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  employee User              @relation("AttendanceCorrectionEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  record   AttendanceRecord? @relation(fields: [attendanceRecordId], references: [id], onDelete: SetNull)
+  approver User?             @relation("AttendanceCorrectionApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([attendanceDate])
+  @@map("attendance_corrections")
+}
+
+/// Configurable work shift (morning, evening, night, custom).
+model AttendanceShift {
+  id           String   @id @default(uuid()) @db.Uuid
+  entityId     String?  @map("entity_id")
+  shiftName    String   @map("shift_name") @db.VarChar(80)
+  startTime    String   @map("start_time") @db.VarChar(5)
+  endTime      String   @map("end_time") @db.VarChar(5)
+  graceMinutes Int      @default(15) @map("grace_minutes")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  entity      Entity?                   @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  assignments AttendanceEmployeeShift[]
+
+  @@index([entityId])
+  @@map("attendance_shifts")
+}
+
+/// Assigns a shift to an employee for a date range.
+model AttendanceEmployeeShift {
+  id            String    @id @default(uuid()) @db.Uuid
+  employeeId    String    @map("employee_id") @db.Uuid
+  shiftId       String    @map("shift_id") @db.Uuid
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  employee User            @relation("AttendanceEmployeeShiftUser", fields: [employeeId], references: [id], onDelete: Cascade)
+  shift    AttendanceShift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([employeeId, effectiveFrom])
+  @@index([shiftId])
+  @@map("attendance_employee_shifts")
+}
+
+/// Approved exception days (travel, training, field work, etc.).
+model AttendanceException {
+  id         String    @id @default(uuid()) @db.Uuid
+  employeeId String    @map("employee_id") @db.Uuid
+  type       String    @db.VarChar(40)
+  startDate  DateTime  @map("start_date") @db.Date
+  endDate    DateTime  @map("end_date") @db.Date
+  reason     String
+  status     String    @default("approved") @db.VarChar(20)
+  approvedBy String?   @map("approved_by") @db.Uuid
+  approvedAt DateTime? @map("approved_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  employee User  @relation("AttendanceExceptionEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  approver User? @relation("AttendanceExceptionApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([startDate, endDate])
+  @@map("attendance_exceptions")
+}
+
+/// One row per employee per calendar day.
+model AttendanceRecord {
+  id                String    @id @default(uuid()) @db.Uuid
+  employeeId        String    @map("employee_id") @db.Uuid
+  attendanceDate    DateTime  @map("attendance_date") @db.Date
+  checkIn           DateTime? @map("check_in")
+  checkOut          DateTime? @map("check_out")
+  /// IANA timezone snapshot at check-in (employee or company default)
+  employeeTimezone  String?   @map("employee_timezone") @db.VarChar(64)
+  checkInUtc        DateTime? @map("check_in_utc") @db.Timestamptz(6)
+  checkOutUtc       DateTime? @map("check_out_utc") @db.Timestamptz(6)
+  /// Local wall-clock display strings in employee timezone
+  localCheckInTime  String?   @map("local_check_in_time") @db.VarChar(40)
+  localCheckOutTime String?   @map("local_check_out_time") @db.VarChar(40)
+  /// office | remote | hybrid
+  workMode          String    @default("office") @map("work_mode") @db.VarChar(20)
+  /// present | late | absent | on_leave | remote | hybrid
+  status            String    @default("absent") @db.VarChar(20)
+  totalHours        Decimal?  @map("total_hours") @db.Decimal(5, 2)
+  lateMinutes       Int       @default(0) @map("late_minutes")
+  remarks           String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  employee    User                   @relation("AttendanceRecordEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  auditLogs   AttendanceAuditLog[]
+  corrections AttendanceCorrection[]
+
+  @@unique([employeeId, attendanceDate])
+  @@index([attendanceDate])
+  @@index([status])
+  @@map("attendance_records")
+}
+
+model AttendanceAuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  recordId   String?  @map("record_id") @db.Uuid
+  employeeId String   @map("employee_id") @db.Uuid
+  action     String   @db.VarChar(40)
+  // Nullable + SetNull so deleting the actor never destroys the audit trail
+  // (the entry survives with actorId = null). Same posture as recordId.
+  actorId    String?  @map("actor_id") @db.Uuid
+  details    Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  record   AttendanceRecord? @relation(fields: [recordId], references: [id], onDelete: SetNull)
+  employee User              @relation("AttendanceAuditEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  actor    User?             @relation("AttendanceAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([recordId])
+  @@index([createdAt])
+  @@map("attendance_audit_logs")
+}
+
+/// Recognition / award certificates issued by Admin/HR to an employee and
+/// emailed to them as a generated PDF (download link). recipientName/email
+/// are snapshotted so the record survives the recipient being changed.
+model Certificate {
+  id             String    @id @default(uuid()) @db.Uuid
+  recipientId    String    @map("recipient_id") @db.Uuid
+  recipientName  String    @map("recipient_name") @db.VarChar(200)
+  recipientEmail String    @map("recipient_email") @db.VarChar(255)
+  title          String    @db.VarChar(200)
+  message        String?
+  type           String    @default("achievement") @db.VarChar(40) // achievement | appreciation | recognition
+  signatories    Json      @default("[]") // [{ name: string, title: string }]
+  fileUrl        String?   @map("file_url")
+  status         String    @default("draft") @db.VarChar(20) // draft | issued
+  issuedById     String?   @map("issued_by_id") @db.Uuid
+  issuedAt       DateTime? @map("issued_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  recipient User  @relation("CertificateRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  issuedBy  User? @relation("CertificateIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@index([recipientId])
+  @@index([issuedById])
+  @@index([status])
+  @@map("certificates")
+}

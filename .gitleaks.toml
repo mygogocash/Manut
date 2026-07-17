@@ -1,0 +1,9 @@
+title = "Manut Intranet secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Audited repository migration commit identifiers"
+paths = ['''docs/REPOSITORY_MIGRATION\.md''']
+regexes = ['''371349fd43fd7c7c7717054beec97bfb023885ca''', '''eb797d30b538a60b5f4ff154863a6591ed2ad62f''']

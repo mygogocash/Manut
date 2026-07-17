@@ -1,0 +1,247 @@
+// Sales Revenue CRM — a fully independent parallel of the Sales CRM
+// (sales-crm.prisma). Same shapes, same lifecycle (qualified → live), but
+// its own `revenue_*` tables, routes (/api/revenue/*), permission family
+// (sales-revenue:*) and nav entry (/sales-revenue). Nothing is shared with
+// the Sales CRM except the generic accounting `ExchangeRate` table (FX is
+// currency infrastructure, not CRM data).
+//
+// Every model here mirrors a `crm_*` sibling; every @relation name is
+// prefixed `Revenue*` so it stays globally unique alongside the originals.
+
+model RevenueAccount {
+  id                  String    @id @default(cuid())
+  name                String
+  domain              String?   @unique
+  industry            String?
+  size                String?
+  country             String?
+  region              String?
+  website             String?
+  notes               String?
+  totalUsers          Int?      @map("total_users")
+  appUsers            Int?      @map("app_users")
+  picName             String?   @map("pic_name")
+  designation         String?
+  department          String?
+  lastFollowUpDate    DateTime? @map("last_follow_up_date") @db.Date
+  agreementSignedDate DateTime? @map("agreement_signed_date") @db.Date
+  engagementType      String?   @map("engagement_type")
+  uatStartDate        DateTime? @map("uat_start_date") @db.Date
+  uatEndDate          DateTime? @map("uat_end_date") @db.Date
+  blocker             String?
+  remarks             String?
+  ownerId             String    @map("owner_id") @db.Uuid
+  partnerId           String?   @map("partner_id")
+  sortOrder           Int       @default(0) @map("sort_order")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  owner         User                 @relation("RevenueAccountOwner", fields: [ownerId], references: [id])
+  partner       Partner?             @relation("PartnerRevenueAccounts", fields: [partnerId], references: [id], onDelete: SetNull)
+  contacts      RevenueContact[]
+  opportunities RevenueOpportunity[]
+  activities    RevenueActivity[]
+
+  @@index([ownerId])
+  @@index([partnerId])
+  @@index([name])
+  @@index([sortOrder])
+  @@map("revenue_accounts")
+}
+
+model RevenueContact {
+  id        String   @id @default(cuid())
+  accountId String   @map("account_id")
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  email     String?
+  phone     String?
+  title     String?
+  isPrimary Boolean  @default(false) @map("is_primary")
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  account       RevenueAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  opportunities RevenueOpportunity[] @relation("RevenueOpportunityPrimaryContact")
+  activities    RevenueActivity[]
+
+  @@index([accountId])
+  @@index([email])
+  @@map("revenue_contacts")
+}
+
+model RevenueLead {
+  id                     String    @id @default(cuid())
+  company                String
+  legacyDealId           String?   @unique @map("legacy_deal_id")
+  firstName              String    @map("first_name")
+  lastName               String    @map("last_name")
+  email                  String?
+  phone                  String?
+  title                  String?
+  source                 String
+  status                 String    @default("new")
+  ownerId                String    @map("owner_id") @db.Uuid
+  notes                  String?
+  convertedOpportunityId String?   @map("converted_opportunity_id")
+  convertedAt            DateTime? @map("converted_at")
+  disqualifyReason       String?   @map("disqualify_reason")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  owner                User                @relation("RevenueLeadOwner", fields: [ownerId], references: [id])
+  convertedOpportunity RevenueOpportunity? @relation("RevenueLeadConvertedOpportunity", fields: [convertedOpportunityId], references: [id], onDelete: SetNull)
+  activities           RevenueActivity[]
+  tasks                RevenueTask[]
+
+  @@index([ownerId, status])
+  @@index([source])
+  @@map("revenue_leads")
+}
+
+model RevenueOpportunity {
+  id                   String    @id @default(cuid())
+  name                 String
+  legacyDealId         String?   @unique @map("legacy_deal_id")
+  accountId            String    @map("account_id")
+  contactId            String?   @map("contact_id")
+  stage                String    @default("qualified")
+  sortOrderWithinStage Int       @default(0) @map("sort_order_within_stage")
+  value                Decimal   @db.Decimal(15, 2)
+  currency             String    @default("USD")
+  probability          Int       @default(20)
+  probabilityCustom    Boolean   @default(false) @map("probability_custom")
+  closeDate            DateTime? @map("close_date") @db.Date
+  launchDate           DateTime? @map("launch_date") @db.Date
+  revenueLaunchDate    DateTime? @map("revenue_launch_date") @db.Date
+  type                 String?
+  notes                String?
+  ownerId              String    @map("owner_id") @db.Uuid
+  lostReason           String?   @map("lost_reason")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  account    RevenueAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact    RevenueContact?   @relation("RevenueOpportunityPrimaryContact", fields: [contactId], references: [id], onDelete: SetNull)
+  owner      User              @relation("RevenueOpportunityOwner", fields: [ownerId], references: [id])
+  activities RevenueActivity[]
+  tasks      RevenueTask[]
+  fromLeads  RevenueLead[]     @relation("RevenueLeadConvertedOpportunity")
+
+  @@index([stage])
+  @@index([stage, sortOrderWithinStage])
+  @@index([ownerId, stage])
+  @@index([accountId])
+  @@index([closeDate])
+  @@map("revenue_opportunities")
+}
+
+model RevenueActivity {
+  id            String   @id @default(cuid())
+  type          String
+  subject       String
+  body          String?
+  occurredAt    DateTime @map("occurred_at")
+  durationMins  Int?     @map("duration_mins")
+  ownerId       String   @map("owner_id") @db.Uuid
+  leadId        String?  @map("lead_id")
+  opportunityId String?  @map("opportunity_id")
+  contactId     String?  @map("contact_id")
+  accountId     String?  @map("account_id")
+  externalRef   String?  @unique @map("external_ref")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  owner       User                @relation("RevenueActivityOwner", fields: [ownerId], references: [id])
+  lead        RevenueLead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  opportunity RevenueOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  contact     RevenueContact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  account     RevenueAccount?     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([opportunityId])
+  @@index([contactId])
+  @@index([accountId])
+  @@index([occurredAt])
+  @@map("revenue_activities")
+}
+
+model RevenueStageConfig {
+  key         String   @id
+  label       String
+  probability Int      @default(0)
+  sortOrder   Int      @default(0) @map("sort_order")
+  color       String   @default("border-t-zinc-500")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([sortOrder])
+  @@map("revenue_stage_config")
+}
+
+model RevenueLostReason {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  label     String
+  isSystem  Boolean  @default(false) @map("is_system")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(100) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("revenue_lost_reasons")
+}
+
+model RevenueLeadSource {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  label     String
+  isSystem  Boolean  @default(false) @map("is_system")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(100) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("revenue_lead_sources")
+}
+
+model RevenueTask {
+  id            String    @id @default(cuid())
+  subject       String
+  status        String    @default("open")
+  dueDate       DateTime  @map("due_date") @db.Date
+  ownerId       String    @map("owner_id") @db.Uuid
+  opportunityId String?   @map("opportunity_id")
+  leadId        String?   @map("lead_id")
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  owner       User                @relation("RevenueTaskOwner", fields: [ownerId], references: [id])
+  opportunity RevenueOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  lead        RevenueLead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, status, dueDate])
+  @@index([opportunityId])
+  @@index([leadId])
+  @@map("revenue_tasks")
+}
+
+/// Singleton settings row for Sales Revenue CRM email notifications.
+/// Mirrors `CrmSettings` exactly.
+model RevenueSettings {
+  id                       String   @id @default(uuid()) @db.Uuid
+  singleton                Boolean  @unique @default(true)
+  notifyEmails             String[] @default([]) @map("notify_emails")
+  notifyOnCreate           Boolean  @default(true) @map("notify_on_create")
+  notifyOwnerOnCreate      Boolean  @default(true) @map("notify_owner_on_create")
+  notifyOwnerOnStageChange Boolean  @default(true) @map("notify_owner_on_stage_change")
+  updatedById              String?  @map("updated_by") @db.Uuid
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  updatedBy User? @relation("RevenueSettingsUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("revenue_settings")
+}

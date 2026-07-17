@@ -1,0 +1,365 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24.18.0
+  PNPM_VERSION: 11.13.1
+
+jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      database: ${{ steps.filter.outputs.database }}
+      edge: ${{ steps.filter.outputs.edge }}
+      e2e: ${{ steps.filter.outputs.e2e }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Classify changes
+        id: filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            app:
+              - 'apps/app/**'
+              - 'packages/app-core/**'
+              - 'packages/ui/**'
+            database:
+              - 'packages/database/**'
+              - 'scripts/*migration*'
+            edge:
+              - 'apps/edge/**'
+            e2e:
+              - 'e2e/**'
+              - 'playwright.config.ts'
+              - 'scripts/e2e/**'
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Install verified Gitleaks CLI
+        run: |
+          mkdir -p .tools/gitleaks
+          curl --fail --location --silent --show-error \
+            --output .tools/gitleaks/gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  .tools/gitleaks/gitleaks.tar.gz" | sha256sum --check
+          tar -xzf .tools/gitleaks/gitleaks.tar.gz -C .tools/gitleaks gitleaks
+      - name: Gitleaks PR commit range
+        run: >-
+          .tools/gitleaks/gitleaks git --redact --no-banner
+          --config .gitleaks.toml
+          --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          .
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Verify clean-room fingerprints
+        env:
+          CREDENTIAL_SCAN_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-credential-boundary.mjs
+
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          show-openssf-scorecard: true
+      - name: Scan lockfile with OSV
+        uses: google/osv-scanner-action/osv-scanner-action@8dc09193bb540e09b23da07ad7e30bd33bf87018 # v2.3.8
+        with:
+          scan-args: |-
+            --lockfile=pnpm-lock.yaml
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Install with reviewed lifecycle policy
+        run: pnpm install --frozen-lockfile
+      - name: Generate CycloneDX SBOM
+        run: pnpm run sbom
+      - name: Upload SBOM
+        uses: actions/upload-artifact@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        with:
+          name: cyclonedx-sbom
+          path: bom.cdx.json
+          if-no-files-found: error
+          retention-days: 14
+
+  static-unit:
+    name: Static and unit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm db:generate
+      - name: Strict TypeScript
+        run: pnpm type-check
+      - name: Zero-warning lint
+        run: pnpm lint
+      - name: Unit and integration tests
+        run: pnpm test
+      - name: Whitespace safety
+        run: >-
+          git diff --check
+          "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
+
+  web-build:
+    name: Web build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build retained parity bridge
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+          NEXT_PUBLIC_SUPABASE_URL: https://example.invalid
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: public-placeholder
+        run: pnpm --filter @manut/web build
+      - name: Export universal web app
+        run: pnpm --filter @manut/app export:web
+      - name: Enforce transfer bundle threshold
+        run: pnpm bundle:check
+      - name: Scan exported web artifacts
+        run: pnpm security:credentials apps/app/dist apps/web/.next
+      - name: Upload Expo web export
+        uses: actions/upload-artifact@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        with:
+          name: expo-web-export
+          path: apps/app/dist
+          if-no-files-found: error
+          retention-days: 3
+
+  worker-build:
+    name: Worker build
+    needs: web-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Download Expo web export
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: expo-web-export
+          path: apps/app/dist
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Type-check Worker
+        run: pnpm --filter @manut/edge type-check
+      - name: Test Worker
+        run: pnpm --filter @manut/edge test
+      - name: Dry-run Worker bundle
+        run: pnpm --filter @manut/edge build
+      - name: Scan Worker bundle
+        run: pnpm security:credentials apps/edge/dist
+
+  native-readiness:
+    name: Native readiness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Expo Doctor
+        working-directory: apps/app
+        run: pnpm exec expo-doctor
+      - name: Export iOS JavaScript
+        run: pnpm --filter @manut/app export:ios
+      - name: Export Android JavaScript
+        run: pnpm --filter @manut/app export:android
+      - name: Scan native exports
+        run: pnpm security:credentials apps/app/dist-ios apps/app/dist-android
+
+  migration-safety:
+    name: Migration safety
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: manut_migration
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d manut_migration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      MIGRATION_TEST_URL: postgresql://postgres:postgres@127.0.0.1:5432/manut_migration
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/manut_migration
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/manut_migration
+      GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm db:generate
+      - name: Verify migration manifest and replay
+        run: pnpm migration:harness
+      - name: Prove current-schema convergence twice
+        run: |
+          pnpm db:push
+          pnpm db:push
+
+  e2e:
+    name: Authenticated E2E
+    runs-on: ubuntu-latest
+    environment: e2e
+    timeout-minutes: 30
+    concurrency:
+      group: manut-intranet-e2e
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm db:generate
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run authenticated browser suite
+        run: pnpm test:e2e
+        env:
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
+          E2E_DIRECT_URL: ${{ secrets.E2E_DIRECT_URL }}
+      - name: Upload failure-only browser artifacts
+        if: failure()
+        uses: actions/upload-artifact@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        with:
+          name: playwright-failures-${{ github.run_attempt }}
+          path: e2e/.artifacts/test-results
+          if-no-files-found: ignore
+          retention-days: 5
+
+  Validate:
+    name: Validate
+    if: always()
+    needs:
+      - changes
+      - secret-scan
+      - dependency-review
+      - static-unit
+      - web-build
+      - worker-build
+      - native-readiness
+      - migration-safety
+      - e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every gate
+        env:
+          RESULTS: ${{ toJson(needs) }}
+        run: |
+          node <<'NODE'
+          const results = JSON.parse(process.env.RESULTS);
+          const failed = Object.entries(results).filter(
+            ([, value]) => value.result !== "success",
+          );
+          if (failed.length > 0) {
+            console.error("Required jobs failed:", failed.map(([name]) => name));
+            process.exit(1);
+          }
+          console.log("All required PR gates passed.");
+          NODE

@@ -1,0 +1,28 @@
+{
+  "name": "@manut/app-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api/api-client.ts",
+    "./auth": "./src/auth/auth-controller.ts",
+    "./rbac": "./src/rbac/route-policy.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint src tests --max-warnings=0",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.4",
+    "eslint": "9.39.4",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.64.0",
+    "vitest": "4.1.10"
+  }
+}

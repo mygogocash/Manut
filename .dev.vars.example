@@ -1,0 +1,5 @@
+# Local Worker configuration only. Copy to .dev.vars; never commit real values.
+API_ORIGIN=http://localhost:3001
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=

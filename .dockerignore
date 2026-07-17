@@ -1,0 +1,40 @@
+# Dependencies
+**/node_modules
+**/.pnpm-store
+
+# Build outputs
+**/.next
+**/dist
+**/.turbo
+
+# Development
+**/.env
+**/.env.local
+**/.env.*.local
+
+# IDE
+**/.idea
+**/.vscode
+**/*.swp
+**/*.swo
+
+# Git
+.git
+.gitignore
+
+# Documentation (keep README)
+docs/
+**/*.md
+!README.md
+
+# Tests
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+**/coverage
+**/playwright-report
+
+# Misc
+**/.DS_Store
+**/Thumbs.db
+*.log

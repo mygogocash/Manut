@@ -1,0 +1,73 @@
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String
+  resource   String
+  resourceId String?  @map("resource_id")
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  timestamp  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([timestamp(sort: Desc)])
+  @@index([userId])
+  @@index([resource, resourceId])
+  @@map("audit_log")
+}
+
+model UserSetting {
+  userId String @map("user_id") @db.Uuid
+  key    String @db.VarChar(50)
+  value  Json
+
+  @@id([userId, key])
+  @@map("user_settings")
+}
+
+model SystemSetting {
+  key       String   @id @db.VarChar(100)
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+/// Daily snapshot of Supabase Storage usage per bucket. Written by the
+/// `/api/cron/sync-storage-snapshot` job. The admin Workspace Usage screen
+/// reads the latest row per bucket so dashboards stay cheap; the live
+/// Supabase Storage admin API is hit only by the cron, never per request.
+model StorageSnapshot {
+  id          String   @id @default(uuid()) @db.Uuid
+  bucket      String   @db.VarChar(100)
+  bytes       BigInt
+  objectCount Int      @map("object_count")
+  capturedAt  DateTime @default(now()) @map("captured_at")
+
+  @@index([capturedAt(sort: Desc)])
+  @@index([bucket, capturedAt(sort: Desc)])
+  @@map("storage_snapshots")
+}
+
+model FileUpload {
+  id           String   @id @default(uuid()) @db.Uuid
+  filename     String
+  originalName String   @map("original_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  path         String
+  bucket       String?
+  uploadedBy   String   @map("uploaded_by") @db.Uuid
+  purpose      String?
+  linkedTo     String?  @map("linked_to")
+  linkedId     String?  @map("linked_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  legalSignatureSnapshots  LegalSignature[]   @relation("LegalSignatureDocumentSnapshot")
+  cashAdvanceDisbursement CashAdvanceRequest? @relation("CashAdvanceDisbursementProof")
+
+  @@index([uploadedBy])
+  @@index([linkedTo, linkedId])
+  @@map("file_uploads")
+}

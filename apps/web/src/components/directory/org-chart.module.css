@@ -1,0 +1,104 @@
+/*
+ * Classic CSS-only org chart connectors, adapted from the W3Schools
+ * `tree` pattern with `float: left` swapped for flex.
+ *
+ * Each `.node` (except a top-level root, which lives directly inside
+ * `.tree`) gets two pseudo-elements above its card:
+ *
+ *   ::before  → left half of the horizontal sibling line
+ *               (right: 50%; width: 50%; border-top)
+ *   ::after   → right half of the horizontal sibling line plus the
+ *               vertical stem from that line down to the card
+ *               (left: 50%; width: 50%; border-top + border-left)
+ *
+ * The outermost siblings collapse the half they don't own. The last
+ * child's `::after` is removed entirely; the missing vertical stem
+ * is added back via `border-right` on the same node's `::before`.
+ * `:only-child` hides both half-lines so a lone child gets just the
+ * parent's vertical stem (drawn by `.children::before`).
+ */
+
+.tree {
+  list-style: none;
+  margin: 0;
+  padding: 1rem 1rem 0;
+  display: flex;
+  gap: 3rem;
+  justify-content: center;
+  min-width: max-content;
+}
+
+.children {
+  list-style: none;
+  margin: 0;
+  padding: 1.25rem 0 0;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+/* Vertical stem from the parent card down to the sibling line. */
+.children::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 1.25rem;
+  border-left: 1px solid hsl(var(--border));
+}
+
+.node {
+  flex: 0 0 auto;
+  list-style: none;
+  position: relative;
+  text-align: center;
+}
+
+/* Connectors only show on a `.node` that's a direct child of
+   `.children`. Top-level roots in `.tree` skip them. */
+.children > .node {
+  padding: 1.25rem 0.5rem 0;
+}
+
+.children > .node::before,
+.children > .node::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 1.25rem;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.children > .node::before {
+  right: 50%;
+}
+
+.children > .node::after {
+  left: 50%;
+  border-left: 1px solid hsl(var(--border));
+}
+
+/* First child has no left sibling — drop the left-half line. The
+   `::after` keeps the right half + vertical stem. */
+.children > .node:first-child::before {
+  border: 0 none;
+}
+
+/* Last child has no right sibling — drop the right-half line + stem.
+   Add the vertical stem back via the surviving `::before`'s right
+   edge so the last card still connects to the sibling row. */
+.children > .node:last-child::after {
+  border: 0 none;
+}
+
+.children > .node:last-child::before {
+  border-right: 1px solid hsl(var(--border));
+}
+
+/* A single child gets only the parent's vertical stem, no half-lines. */
+.children > .node:only-child::before,
+.children > .node:only-child::after {
+  display: none;
+}

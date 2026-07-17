@@ -1,0 +1,169 @@
+model Conversation {
+  id            String    @id @default(uuid()) @db.Uuid
+  type          String    @default("direct") @db.VarChar(20)
+  directKey     String?   @unique @map("direct_key")
+  title         String?
+  createdBy     String    @map("created_by") @db.Uuid
+  lastMessageAt DateTime? @map("last_message_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  creator  User                 @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([createdBy])
+  @@index([type])
+  @@index([updatedAt(sort: Desc)])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  conversationId String    @map("conversation_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  role           String    @default("member") @db.VarChar(20)
+  joinedAt       DateTime  @default(now()) @map("joined_at")
+  leftAt         DateTime? @map("left_at")
+  lastReadAt     DateTime? @map("last_read_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([userId, leftAt])
+  @@map("conversation_members")
+}
+
+model Message {
+  id                   String    @id @default(uuid()) @db.Uuid
+  conversationId       String    @map("conversation_id") @db.Uuid
+  authorId             String    @map("author_id") @db.Uuid
+  content              String?
+  kind                 String    @default("text") @db.VarChar(20)
+  deletedForEveryoneAt DateTime? @map("deleted_for_everyone_at")
+  deletedBy            String?   @map("deleted_by") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  conversation Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  deleter      User?              @relation("MessageDeleter", fields: [deletedBy], references: [id])
+  hiddenFor    MessageHiddenFor[]
+  reactions    MessageReaction[]
+
+  @@index([authorId])
+  @@index([conversationId])
+  @@index([conversationId, createdAt(sort: Desc)])
+  @@map("messages")
+}
+
+model MessageHiddenFor {
+  messageId String   @map("message_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  hiddenAt  DateTime @default(now()) @map("hidden_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId])
+  @@map("message_hidden_for")
+}
+
+model MessageReaction {
+  messageId String   @map("message_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  emoji     String   @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([messageId, userId])
+  @@index([userId])
+  @@map("message_reactions")
+}
+
+model WallPost {
+  id          String   @id @default(uuid()) @db.Uuid
+  authorId    String   @map("author_id") @db.Uuid
+  content     String
+  type        String   @default("post")
+  likes       Json?
+  reactions   Json?
+  /// Array of `{ name, url, mimeType, size }` for files (images / PDFs)
+  /// uploaded via the shared `uploads` Supabase bucket. Same shape as
+  /// `HelpdeskTicket.attachments` so the home-page UI can render chips
+  /// without inventing a new join table.
+  attachments Json?
+  /// Optional in-app deep link (e.g. an auto-posted survey announcement
+  /// points at "/survey-forms/:id/respond"). Null for ordinary posts.
+  linkUrl     String?  @map("link_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments WallComment[]
+
+  @@index([createdAt(sort: Desc)])
+  @@map("wall_posts")
+}
+
+model WallComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  content   String
+  type      String   @default("comment")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post   WallPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@map("wall_comments")
+}
+
+model CompanyNews {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  content     String
+  category    String?
+  authorId    String   @map("author_id") @db.Uuid
+  isPinned    Boolean  @default(false) @map("is_pinned")
+  /// Array of `{ name, url, mimeType, size }` for files (images / PDFs)
+  /// uploaded via the shared `uploads` Supabase bucket.
+  attachments Json?
+  /// Optional in-app deep link (survey announcements point at the respond
+  /// page). Null for ordinary news.
+  linkUrl     String?  @map("link_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("company_news")
+}
+
+model CompanyDate {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  date        DateTime @db.Date
+  type        String
+  location    String?
+  /// Array of `{ name, url, mimeType, size }` for supporting files
+  /// (invitation PDFs, hero images) uploaded via the shared `uploads`
+  /// Supabase bucket.
+  attachments Json?
+  /// Optional in-app deep link (survey "closes" reminders point at the
+  /// respond page). Null for ordinary dates.
+  linkUrl     String?  @map("link_url")
+  addedBy     String   @map("added_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  adder User @relation(fields: [addedBy], references: [id], onDelete: Cascade)
+
+  @@index([date])
+  @@map("company_dates")
+}

@@ -1,0 +1,346 @@
+// Sales CRM — Lead → Opportunity → Account/Contact pipeline.
+// The legacy `Deal` model in operations.prisma stays separate so data can be
+// migrated incrementally without changing the active workflow in place.
+
+model Account {
+  id                  String    @id @default(cuid())
+  name                String
+  // Domain is the dedupe key — unique when present, nullable for
+  // companies the rep hasn't yet entered a domain for.
+  domain              String?   @unique
+  industry            String?
+  size                String?
+  country             String?
+  // Coarse geographic grouping above country
+  // (e.g. APAC / EMEA / NA / LATAM / Other). Plain text so the pickers
+  // are admin-managed at the application layer.
+  region              String?
+  website             String?
+  notes               String?
+  // `totalUsers` = total registered users at the
+  // partner platform, `appUsers` = of those, how many are on the app /
+  // active. Both nullable until the rep collects the data.
+  totalUsers          Int?      @map("total_users")
+  appUsers            Int?      @map("app_users")
+  // Account-level engagement tracking. Every
+  // field is nullable; reps populate them as the relationship matures.
+  // PIC = Person In Charge (the rep's primary contact at the
+  // partner). engagementType is free-text "engagement" / "revenue"
+  // with a UI-side dropdown — kept as String so admins can extend
+  // the enum without a migration.
+  picName             String?   @map("pic_name")
+  designation         String?
+  department          String?
+  lastFollowUpDate    DateTime? @map("last_follow_up_date") @db.Date
+  agreementSignedDate DateTime? @map("agreement_signed_date") @db.Date
+  engagementType      String?   @map("engagement_type")
+  uatStartDate        DateTime? @map("uat_start_date") @db.Date
+  uatEndDate          DateTime? @map("uat_end_date") @db.Date
+  blocker             String?
+  remarks             String?
+  ownerId             String    @map("owner_id") @db.Uuid
+  // Soft link to Partner CRM. Records stay separate.
+  partnerId           String?   @map("partner_id")
+  // Manual ordering for the Sales CRM Accounts table — reps drag rows
+  // to group related deals. Lower values render first; ties fall back
+  // to `createdAt desc` so freshly-created rows still surface to the
+  // top. Same shape as legal_projects.sort_order.
+  sortOrder           Int       @default(0) @map("sort_order")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  owner         User          @relation("AccountOwner", fields: [ownerId], references: [id])
+  partner       Partner?      @relation("PartnerAccounts", fields: [partnerId], references: [id], onDelete: SetNull)
+  contacts      Contact[]
+  opportunities Opportunity[]
+  activities    CrmActivity[]
+
+  @@index([ownerId])
+  @@index([partnerId])
+  // Case-insensitive name lookup for the fallback dedupe path.
+  @@index([name])
+  @@index([sortOrder])
+  @@map("crm_accounts")
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  accountId String   @map("account_id")
+  firstName String   @map("first_name")
+  lastName  String   @map("last_name")
+  email     String?
+  phone     String?
+  title     String?
+  isPrimary Boolean  @default(false) @map("is_primary")
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  account       Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  opportunities Opportunity[] @relation("OpportunityPrimaryContact")
+  activities    CrmActivity[]
+
+  @@index([accountId])
+  @@index([email])
+  @@map("crm_contacts")
+}
+
+model Lead {
+  id                     String    @id @default(cuid())
+  // Free-text company name on the Lead — promoted to Account.name on convert.
+  company                String
+  // Set by the legacy backfill script. Lets the script run
+  // idempotently — re-runs skip rows that already point at a legacy `Deal`.
+  // Stays nullable forever so net-new leads (created post-cutover) carry no
+  // value here.
+  legacyDealId           String?   @unique @map("legacy_deal_id")
+  firstName              String    @map("first_name")
+  lastName               String    @map("last_name")
+  email                  String?
+  phone                  String?
+  title                  String?
+  // Source codes start with web | referral | conference | partner | cold | other.
+  // Validated by zod at the API boundary; stored as plain text here.
+  source                 String
+  // new | contacted | qualified | converted | disqualified
+  status                 String    @default("new")
+  ownerId                String    @map("owner_id") @db.Uuid
+  notes                  String?
+  // Set during conversion to keep the Lead row as an audit trail.
+  convertedOpportunityId String?   @map("converted_opportunity_id")
+  convertedAt            DateTime? @map("converted_at")
+  // Set when the Lead is disqualified instead of converted.
+  disqualifyReason       String?   @map("disqualify_reason")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  owner                User          @relation("LeadOwner", fields: [ownerId], references: [id])
+  convertedOpportunity Opportunity?  @relation("LeadConvertedOpportunity", fields: [convertedOpportunityId], references: [id], onDelete: SetNull)
+  activities           CrmActivity[]
+  tasks                CrmTask[]
+
+  @@index([ownerId, status])
+  @@index([source])
+  @@map("crm_leads")
+}
+
+model Opportunity {
+  id                   String    @id @default(cuid())
+  name                 String
+  // Mirror of Lead.legacyDealId — backfill stamps this on the qualified-and-
+  // up Deal cohort so re-runs are idempotent and the row keeps a pointer to
+  // the row it replaced.
+  legacyDealId         String?   @unique @map("legacy_deal_id")
+  accountId            String    @map("account_id")
+  contactId            String?   @map("contact_id")
+  // qualified | proposal | negotiation | closed_won | live | closed_lost
+  stage                String    @default("qualified")
+  // Manual within-column ordering on the pipeline kanban. Lower sorts
+  // first; ties fall back to createdAt desc. Shared across all viewers
+  // (one column per row), mirroring Account.sortOrder. Reset to 0 when a
+  // card changes stage so it lands at the top of the destination column.
+  sortOrderWithinStage Int       @default(0) @map("sort_order_within_stage")
+  value                Decimal   @db.Decimal(15, 2)
+  // Per-Opportunity currency; the pipeline does not perform implicit FX.
+  currency             String    @default("USD")
+  // 0..100. Stage moves auto-set this to the stage default UNTIL the rep
+  // sets it manually, after which probabilityCustom flips to true and the
+  // auto-set is suppressed for the rest of the Opportunity's lifecycle.
+  probability          Int       @default(20)
+  probabilityCustom    Boolean   @default(false) @map("probability_custom")
+  closeDate            DateTime? @map("close_date") @db.Date
+  // Keep "deal closed" separate from "launched in production".
+  // Reps fill `closeDate` when the contract signs; `launchDate` is set
+  // later when the partner actually goes live, often weeks after.
+  launchDate           DateTime? @map("launch_date") @db.Date
+  // Keep the soft/product launch
+  // (`launchDate`) from the moment the partner starts producing
+  // booked revenue. Reps update this once invoicing or take-rate
+  // actually kicks in; surfaced as its own Accounts-grid column.
+  revenueLaunchDate    DateTime? @map("revenue_launch_date") @db.Date
+  type                 String?
+  notes                String?
+  ownerId              String    @map("owner_id") @db.Uuid
+  lostReason           String?   @map("lost_reason")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  // Cascade matches Contact/CrmActivity siblings so deleting an
+  // Account sweeps its opportunities with it. Previously the FK
+  // defaulted to Restrict, which prevented removal of an account with
+  // opportunities attached.
+  account    Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact    Contact?      @relation("OpportunityPrimaryContact", fields: [contactId], references: [id], onDelete: SetNull)
+  owner      User          @relation("OpportunityOwner", fields: [ownerId], references: [id])
+  activities CrmActivity[]
+  tasks      CrmTask[]
+  fromLeads  Lead[]        @relation("LeadConvertedOpportunity")
+
+  @@index([stage])
+  @@index([stage, sortOrderWithinStage])
+  @@index([ownerId, stage])
+  @@index([accountId])
+  @@index([closeDate])
+  @@map("crm_opportunities")
+}
+
+// CrmActivity is prefixed to avoid colliding with future "activity log"
+// models (e.g. ProjectTaskActivity already exists in operations.prisma).
+model CrmActivity {
+  id            String   @id @default(cuid())
+  // call | email | meeting | note
+  type          String
+  subject       String
+  body          String?
+  occurredAt    DateTime @map("occurred_at")
+  durationMins  Int?     @map("duration_mins")
+  ownerId       String   @map("owner_id") @db.Uuid
+  // Exactly one of leadId / opportunityId / contactId / accountId is required
+  // at the application layer. Enforced by zod, not by SQL — Postgres CHECK
+  // constraints across nullable FKs are awkward and we want flexibility.
+  leadId        String?  @map("lead_id")
+  opportunityId String?  @map("opportunity_id")
+  contactId     String?  @map("contact_id")
+  accountId     String?  @map("account_id")
+  /// Dedup key for activities created by automated importers. Set to
+  /// `gmail:{messageId}` by the email sync worker so re-runs skip
+  /// already-logged Gmail messages. Null for manually-logged rows.
+  externalRef   String?  @unique @map("external_ref")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  owner       User         @relation("CrmActivityOwner", fields: [ownerId], references: [id])
+  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  account     Account?     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([opportunityId])
+  @@index([contactId])
+  @@index([accountId])
+  @@index([occurredAt])
+  @@map("crm_activities")
+}
+
+// Workspace-admin-managed lookup table for
+// Opportunity lost reasons. Same shape as LeadSource: code/label/
+// isSystem/isActive/sortOrder. Opportunity.lostReason was a free-text
+// column in v2; the close-lost UI now persists a code that resolves
+// against this table at render time. Existing free-text values stay
+// intact (the column is still nullable text), so historical rows that
+// don't match a code render verbatim.
+// Admin-configurable per-stage label + auto-fill
+// probability. The 5 stage CODES stay hardcoded (validation enum +
+// closed_won/closed_lost branches in the service); only label,
+// probability and sortOrder are mutable. Rows are seeded one-per-code
+// in the initial migration so the table is always populated.
+model OpportunityStageConfig {
+  key         String   @id
+  label       String
+  probability Int      @default(0)
+  sortOrder   Int      @default(0) @map("sort_order")
+  // Stage row colour for the Kanban column header. Stored as a
+  // Tailwind class name so the UI doesn't need a separate mapping
+  // table; admins editing this should pick from the existing
+  // `border-t-*-500` palette.
+  color       String   @default("border-t-zinc-500")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([sortOrder])
+  @@map("opportunity_stage_config")
+}
+
+model LostReason {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  label     String
+  isSystem  Boolean  @default(false) @map("is_system")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(100) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("crm_lost_reasons")
+}
+
+// Promote the fixed `source` enum on Lead to a
+// workspace-admin-managed lookup table. Lead.source remains a plain
+// string column referencing `code` (no FK) so deleting/disabling a
+// source row never cascades into existing leads.
+model LeadSource {
+  id        String   @id @default(cuid())
+  // Stable machine code stored on Lead.source (e.g. "web"). Lowercase,
+  // hyphen-separated. Unique so we can enforce idempotent seeding.
+  code      String   @unique
+  // Human label shown in UI (e.g. "Web inbound").
+  label     String
+  // System rows ship with the seed and cannot be deleted, only disabled.
+  // Net-new rows admin-created at runtime have isSystem = false.
+  isSystem  Boolean  @default(false) @map("is_system")
+  // Soft delete — when false, the source no longer surfaces in pickers
+  // but existing leads keep their reference for reporting.
+  isActive  Boolean  @default(true) @map("is_active")
+  // Display order in pickers; lower comes first. Defaults to 100 so
+  // admin-added rows land below the 6 system defaults (which seed at
+  // 10..60) unless explicitly reordered.
+  sortOrder Int      @default(100) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("crm_lead_sources")
+}
+
+model CrmTask {
+  id            String    @id @default(cuid())
+  subject       String
+  // open | done | cancelled
+  status        String    @default("open")
+  dueDate       DateTime  @map("due_date") @db.Date
+  ownerId       String    @map("owner_id") @db.Uuid
+  opportunityId String?   @map("opportunity_id")
+  leadId        String?   @map("lead_id")
+  completedAt   DateTime? @map("completed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  owner       User         @relation("CrmTaskOwner", fields: [ownerId], references: [id])
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, status, dueDate])
+  @@index([opportunityId])
+  @@index([leadId])
+  @@map("crm_tasks")
+}
+
+/// Singleton settings row for Sales CRM email notifications. Mirrors
+/// `HelpdeskSettings` — same shape, same single-row enforcement via
+/// `singleton @unique`, same envelope of "team fan-out + owner-confirm
+/// on create + owner-notify on status change". The `notifyEmails`
+/// array is the sales distribution list emailed on new opportunities and
+/// stage changes (replaces the old `CRM_NOTIFICATION_EMAILS` env var).
+/// Toggles let ops mute individual fan-outs without dropping the
+/// recipient list.
+model CrmSettings {
+  id                       String   @id @default(uuid()) @db.Uuid
+  /// Always `true`; the unique constraint enforces a single row.
+  singleton                Boolean  @unique @default(true)
+  /// Email addresses fanned out on new opportunities and stage changes.
+  notifyEmails             String[] @default([]) @map("notify_emails")
+  /// Master toggles. `notifyOwnerOnCreate` confirms the new opportunity
+  /// back to the deal owner; `notifyOwnerOnStageChange` emails them
+  /// every transition. Both default true to match pre-rollout behaviour
+  /// where the owner email was always appended to the recipient list.
+  notifyOnCreate           Boolean  @default(true) @map("notify_on_create")
+  notifyOwnerOnCreate      Boolean  @default(true) @map("notify_owner_on_create")
+  notifyOwnerOnStageChange Boolean  @default(true) @map("notify_owner_on_stage_change")
+  updatedById              String?  @map("updated_by") @db.Uuid
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  updatedBy User? @relation("CrmSettingsUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("crm_settings")
+}

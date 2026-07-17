@@ -1,0 +1,6 @@
+# Disabled deployment boundary
+
+This file is intentionally not a GitHub Actions workflow because its extension
+is `.disabled`. The imported production deployment was removed during the
+repository migration. Enabling Cloudflare, changing DNS, migrating data, or
+cutting over the running service requires a separate approved plan and PR.

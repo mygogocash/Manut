@@ -1,0 +1,161 @@
+// ─── Career / Jobs ──────────────────────────────────────
+
+model Job {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  slug        String?  @unique
+  type        String
+  location    String
+  department  String
+  description String
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  applications Application[]
+
+  @@index([active])
+  @@index([department])
+  @@map("jobs")
+}
+
+model Application {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String
+  email      String
+  mobile     String
+  linkedin   String?
+  website    String?
+  attachment String
+  jobId      String   @map("job_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([createdAt(sort: Desc)])
+  @@map("applications")
+}
+
+// ─── Blog / Articles ────────────────────────────────────
+
+model Blog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title      String
+  content    String
+  coverImage String   @map("cover_image")
+  slug       String?
+  active     Boolean  @default(true)
+  authorId   String   @map("author_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("blogs")
+}
+
+model Article {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title     String
+  date      String
+  link      String
+  img       String
+  authorId  String   @map("author_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("articles")
+}
+
+// ─── Wiki / Sticky Repository ──────────────────────────────────────────
+// Confluence-style doc store. Pages form a hierarchical tree via
+// parentId; siblings are ordered by position. Each edit snapshots the
+// previous body into WikiPageVersion. isRestricted flips a page from
+// "anyone with docs:read" to "only users listed in WikiPagePermission".
+// folder is retained for backwards compatibility but is now derived from
+// the root ancestor's title — new code should treat parentId as the
+// source of truth and folder as a denormalised label.
+model WikiPage {
+  id           String   @id @default(uuid()) @db.Uuid
+  title        String
+  parentId     String?  @map("parent_id") @db.Uuid
+  position     Int      @default(0)
+  // Legacy free-text grouping label. Kept for backfill but new pages
+  // should rely on parentId for nesting. Phased out client-side after
+  // the tree migration lands.
+  folder       String?
+  body         String
+  // Attachments uploaded with the page. JSON array of
+  // `{ url, name, mimeType, size }` so HR can drop docs / sheets /
+  // PDFs / images / video alongside the prose without modelling a
+  // dedicated `wiki_page_attachments` table.
+  attachments  Json     @default("[]")
+  // Slug for clean URLs. Optional — server falls back to id when empty.
+  slug         String?  @unique
+  // Soft-delete flag. Hard delete removes the row entirely; this lets
+  // admins archive a page without breaking external links pointed at
+  // its slug.
+  isPublished  Boolean  @default(true) @map("is_published")
+  // When true, only users listed in WikiPagePermission can read/edit.
+  // When false, the module-level docs:read / docs:update gates apply.
+  isRestricted Boolean  @default(false) @map("is_restricted")
+  createdById  String   @map("created_by_id") @db.Uuid
+  updatedById  String   @map("updated_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  parent      WikiPage?            @relation("WikiPageHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    WikiPage[]           @relation("WikiPageHierarchy")
+  versions    WikiPageVersion[]
+  permissions WikiPagePermission[]
+  createdBy   User                 @relation("WikiPageCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  updatedBy   User                 @relation("WikiPageUpdater", fields: [updatedById], references: [id], onDelete: Cascade)
+
+  @@index([parentId, position])
+  @@index([folder])
+  @@index([isPublished, updatedAt(sort: Desc)])
+  @@map("wiki_pages")
+}
+
+// Immutable historical revision of a wiki page. Created on every
+// update before mutation lands. version is a monotonic per-page
+// counter; restore writes a new version rather than mutating history.
+model WikiPageVersion {
+  id          String   @id @default(uuid()) @db.Uuid
+  pageId      String   @map("page_id") @db.Uuid
+  version     Int
+  title       String
+  body        String
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById String   @map("created_by_id") @db.Uuid
+
+  page      WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  createdBy User     @relation("WikiPageVersionCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, version])
+  @@index([pageId, createdAt(sort: Desc)])
+  @@map("wiki_page_versions")
+}
+
+// Per-page ACL row. Only consulted when WikiPage.isRestricted = true.
+// level "edit" implies "read"; "read" is read-only. Admins (System
+// role) bypass via the resolver — don't replicate that here.
+model WikiPagePermission {
+  id        String   @id @default(uuid()) @db.Uuid
+  pageId    String   @map("page_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  level     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  page WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  user User     @relation("WikiPagePermissionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, userId])
+  @@index([userId])
+  @@map("wiki_page_permissions")
+}
