@@ -20,7 +20,7 @@ Companion checklists: `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`,
 | Wrangler env naming contracts | **Code-ready** | `apps/edge/wrangler.jsonc` local→production names; `hyperdrive: []` empty by design |
 | Env name documentation | **Code-ready** | `.env.example`, `apps/app/.env.example`, this runbook, `CICD_CLOUDFLARE.md` |
 | CI Validate path (PR Checks) | **Code-ready** | `.github/workflows/pr-checks.yml` builds web + Worker dry-run |
-| Active GitHub deploy workflow | **Code-ready** | `deploy-staging.yml` (auto) + `deploy.yml` (manual / Environment-gated) |
+| Active GitHub deploy workflow | **Code-ready** | `deploy-preview.yml` + `deploy-staging.yml` + `deploy.yml` (Environment-gated) |
 | Manut-owned Cloudflare account + resources | **Ops-blocked** | No proven fresh account; do not invent Hyperdrive / R2 / Queue ids |
 | Hyperdrive binding + `ENABLE_HYPERDRIVE_BOUNDARY` | **Ops-blocked** | Binding id not provisioned; flag stays `false` |
 | Worker secrets / JWKS / `API_ORIGIN` | **Ops-blocked** | Names known; values must be issued per environment |
@@ -40,14 +40,18 @@ secrets in Git) and a separately approved cutover. Staging CI may run and
 
 | Workflow | Triggers | Environment |
 | --- | --- | --- |
-| `.github/workflows/deploy-staging.yml` | Push `main` / `staging`; `workflow_dispatch` | `staging` |
-| `.github/workflows/deploy.yml` | `workflow_dispatch` only | `production` (require reviewers) |
+| `.github/workflows/deploy-preview.yml` | Push `preview`; `workflow_dispatch` | `preview` |
+| `.github/workflows/deploy-staging.yml` | Push `staging`; `workflow_dispatch` | `staging` |
+| `.github/workflows/deploy.yml` | Push `main`; `workflow_dispatch` | `production` (require reviewers) |
 
 **Turn off Cloudflare Pages auto-deploy** for any Pages project linked to this
 repo (including `manut`). Correct delivery is Workers + Assets via
 `apps/edge` wrangler — see `docs/CICD_CLOUDFLARE.md`.
 
 ### Required GitHub Environment names (no values in git)
+
+Environments: **`preview`**, **`staging`**, **`production`** (require reviewers
+on production).
 
 **Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
 
@@ -139,12 +143,14 @@ Do not reorder. DNS remains last.
 7. **Configure Express:** `EDGE_REALTIME_ORIGIN` + matching
    `EDGE_REALTIME_BRIDGE_SECRET`; keep Socket.IO until edge live path is sole
    production path and E2E covers it.
-8. **Configure GitHub Environments** `staging` / `production` with
+8. **Configure GitHub Environments** `preview` / `staging` / `production` with
    `CLOUDFLARE_*` secrets and Expo public vars; require reviewers on production.
-9. **Staging deploy** via push to `main` or `workflow_dispatch`; confirm
-   `manut-intranet-edge-staging`.
+9. **Preview deploy** via push to `preview` (or `workflow_dispatch`); confirm
+   `manut-intranet-edge-preview`. **Staging deploy** via push to `staging` or
+   `workflow_dispatch`; confirm `manut-intranet-edge-staging`.
 10. **Authenticated E2E** against `manut-intranet-e2e` / staging edge origin.
-11. **Production deploy** via `workflow_dispatch` after Environment approval.
+11. **Production deploy** via merge/push to `main` (Environment reviewers) or
+    `workflow_dispatch`.
 12. **DNS / custom domain** only after staging green and explicit approval;
     keep `manut.xyz` unchanged until that approval.
 13. **Revoke** inherited credentials; prove negative auth; store HMAC /

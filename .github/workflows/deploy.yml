@@ -1,6 +1,7 @@
 # Production: Expo web export → Workers + Assets (apps/edge) via wrangler.
-# Gated: workflow_dispatch only + GitHub Environment `production` (require
-# reviewers in repo settings). Does not mutate DNS.
+# Triggers on push/merge to `main` and workflow_dispatch. Job uses GitHub
+# Environment `production` so required reviewers (repo settings) still gate
+# the deploy. Does not mutate DNS.
 #
 # Ops must turn OFF Cloudflare Pages auto-deploy; CI owns Worker deploys.
 # Hyperdrive ids are not invented here — bind via Cloudflare / wrangler when
@@ -9,6 +10,8 @@
 name: Deploy Production
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

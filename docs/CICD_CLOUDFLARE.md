@@ -14,20 +14,25 @@ repo with empty/wrong build settings:
 2. **Turn off automatic deployments** (and disconnect the Git integration if
    present). Pages is the wrong shape for this app.
 3. Deploy only via GitHub Actions → `wrangler deploy` against
-   `manut-intranet-edge-staging` / `manut-intranet-edge-production`.
+   `manut-intranet-edge-preview` / `manut-intranet-edge-staging` /
+   `manut-intranet-edge-production`.
 
 Do not use Pages as a substitute for the edge Worker.
 
 ## Workflows
 
-| Workflow | File | Trigger | GitHub Environment |
-| --- | --- | --- | --- |
-| Staging | `.github/workflows/deploy-staging.yml` | Push to `main` or `staging`; `workflow_dispatch` | `staging` |
-| Production | `.github/workflows/deploy.yml` | `workflow_dispatch` only | `production` (require reviewers) |
+| Git branch | Workflow | File | Trigger | GitHub Environment | Worker (`wrangler` env) |
+| --- | --- | --- | --- | --- | --- |
+| `preview` | Deploy Preview | `.github/workflows/deploy-preview.yml` | Push to `preview`; `workflow_dispatch` | `preview` | `manut-intranet-edge-preview` (`--env preview`) |
+| `staging` | Deploy Staging | `.github/workflows/deploy-staging.yml` | Push to `staging`; `workflow_dispatch` | `staging` | `manut-intranet-edge-staging` (`--env staging`) |
+| `main` | Deploy Production | `.github/workflows/deploy.yml` | Push to `main`; `workflow_dispatch` | `production` (require reviewers) | `manut-intranet-edge-production` (`--env production`) |
+
+Branch → environment mapping is exact: `main` does **not** deploy staging or
+preview; `preview` / `staging` do **not** deploy production.
 
 Neither workflow mutates DNS. Neither invents Hyperdrive ids or `DATABASE_URL`.
 
-### Pipeline (both)
+### Pipeline (all three)
 
 1. Fail closed if required Environment secrets/vars are missing.
 2. Node `24.18.0`, pnpm `11.13.1`, `pnpm install --frozen-lockfile`.
@@ -35,14 +40,14 @@ Neither workflow mutates DNS. Neither invents Hyperdrive ids or `DATABASE_URL`.
 4. `pnpm --filter @manut/app export:web` (Expo public vars from Environment)
 5. Worker `type-check` + `test`
 6. `pnpm security:credentials` on `apps/app/dist`
-7. `pnpm exec wrangler deploy --env staging|production` from `apps/edge`
+7. `pnpm exec wrangler deploy --env preview|staging|production` from `apps/edge`
 
 Actions are commit-SHA pinned to match `.github/workflows/pr-checks.yml`.
 
 ## GitHub Environment configuration (names only)
 
-Create Environments **`staging`** and **`production`**. For `production`, enable
-**required reviewers** before the deploy job can run.
+Create Environments **`preview`**, **`staging`**, and **`production`**. For
+`production`, enable **required reviewers** before the deploy job can run.
 
 ### Secrets (per Environment)
 
@@ -74,21 +79,25 @@ CI must never fabricate a Hyperdrive id or substitute a fake `DATABASE_URL`.
 
 R2 buckets, Queues, and Durable Object migrations must exist (or be creatable
 by the deploy token) for the named contracts in `apps/edge/wrangler.jsonc`
-(`manut-intranet-uploads-staging`, `manut-intranet-jobs-staging`, etc.).
+(`manut-intranet-uploads-preview`, `manut-intranet-uploads-staging`,
+`manut-intranet-jobs-staging`, etc.).
 
-## First green staging run — ops checklist
+## First green preview / staging run — ops checklist
 
 - [ ] Pages auto-deploy disabled (see above)
-- [ ] GitHub Environment `staging` secrets + required Expo vars set
-- [ ] Staging R2 / Queues / Worker name contracts provisioned in Manut account
-- [ ] Worker secrets/vars set for staging (`EDGE_SIGNING_KEY`, auth JWKS, …)
-- [ ] Push to `main` (or `workflow_dispatch` on Deploy Staging)
-- [ ] Confirm Worker `manut-intranet-edge-staging` updated in Cloudflare
+- [ ] GitHub Environments `preview` and `staging` secrets + required Expo vars
+- [ ] Preview / staging R2 / Queues / Worker name contracts provisioned
+- [ ] Worker secrets/vars set per env (`EDGE_SIGNING_KEY`, auth JWKS, …)
+- [ ] Push to `preview` (or `workflow_dispatch` on Deploy Preview)
+- [ ] Push to `staging` (or `workflow_dispatch` on Deploy Staging)
+- [ ] Confirm Workers `manut-intranet-edge-preview` /
+  `manut-intranet-edge-staging` updated in Cloudflare
 
 ## Production enablement
 
-1. Staging deploy green and smoke-tested.
+1. Preview/staging deploys green and smoke-tested.
 2. GitHub Environment `production` with **required reviewers** + secrets/vars.
 3. Production Cloudflare resources provisioned (unique names from wrangler).
-4. Manual **Actions → Deploy Production → Run workflow**.
+4. Merge/push to `main` (or **Actions → Deploy Production → Run workflow**).
+   The job waits on Environment protection (required reviewers) before deploy.
 5. DNS / custom domain only after separate approval (`PRODUCTION_DEPLOY.md`).
