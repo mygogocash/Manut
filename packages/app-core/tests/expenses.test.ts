@@ -88,7 +88,15 @@ describe("expenses contracts", () => {
         },
         signal,
       ),
-    ).resolves.toMatchObject({ data: [report], meta: { total: 1 } });
+    ).resolves.toMatchObject({
+      data: [
+        {
+          ...report,
+          employee: { id: report.employee.id, name: report.employee.name },
+        },
+      ],
+      meta: { total: 1 },
+    });
 
     expect(get).toHaveBeenCalledWith(
       "/expenses/reports?page=1&limit=20&employeeId=11111111-1111-4111-8111-111111111111",

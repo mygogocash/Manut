@@ -36,6 +36,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
+import { CashAdvancePendingInbox } from "@/features/cash-advance/cash-advance-pending-inbox";
 import { cashAdvanceStatusLabel } from "@/features/cash-advance/cash-advance-status-label";
 import { useApiClient } from "@/providers/api-client-provider";
 
@@ -360,7 +361,8 @@ export function CashAdvanceScreen() {
     hasPermission("cash-advance:approve") ||
     hasPermission("cash-advance:create");
   const canCreate = hasPermission("cash-advance:create");
-  const canViewApprovalChain = hasPermission("cash-advance:approve");
+  const canApprove = hasPermission("cash-advance:approve");
+  const canViewApprovalChain = canApprove;
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -447,8 +449,8 @@ export function CashAdvanceScreen() {
           >
             <View style={{ gap: spacing.md }}>
               <Text style={{ color: colors.textMuted }}>
-                Self-service drafts and submit. Approval-step config, inbox
-                approve/reject, and disbursement proof uploads stay deferred.
+                Self-service drafts and submit. Approvers can act on the
+                pending inbox below. Disbursement proof uploads stay deferred.
               </Text>
               <View
                 style={{
@@ -478,6 +480,8 @@ export function CashAdvanceScreen() {
               </View>
             </View>
           </Card>
+
+          {canApprove ? <CashAdvancePendingInbox /> : null}
 
           {actionError ? (
             <StatusMessage tone="error">{actionError}</StatusMessage>

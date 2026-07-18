@@ -1008,3 +1008,15 @@ and registered disbursement-proof provenance when `TRUSTED_STORAGE_ORIGINS`
 is set. Signed receipt GET and disbursement-proof GET stay Express-proxied —
 Supabase JWT signing is not Worker-safe; R2 `aws4fetch` covers transfer
 intents only. Fail-closed when Hyperdrive is flagged without binding.
+
+### Parallel: expo-hr-survey
+
+Expo/app-core deepen (foundation disposition; no edge edits): leave team
+approve/reject already landed. Expenses pending inbox via
+`pendingForMe` + `approveExpenseReport` / `rejectExpenseReport`; cash-advance
+pending inbox via `scope=all&status=submitted` + approve/reject. Employee
+email/department stripped from expense and cash-advance projections. Survey
+detail manage: announce (wall), schedule, analytics (samples → counts only),
+archive. Survey-forms respond submit wired to Express
+`POST /survey-forms/:id/responses` + my-response receipt. Targeting left as
+`targetAll` on create.

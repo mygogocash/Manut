@@ -1,9 +1,14 @@
 import {
+  announceSurvey,
   ApiError,
+  archiveSurvey,
   getSurvey,
+  getSurveyAnalytics,
   publishSurvey,
   replaceSurveyQuestions,
   replaceSurveyQuestionsInputSchema,
+  scheduleSurvey,
+  surveyAnalyticsQueryKey,
   surveyDetailQueryKey,
 } from "@manut/app-core";
 import {
@@ -13,6 +18,7 @@ import {
   LoadingState,
   spacing,
   StatusMessage,
+  TextField,
 } from "@manut/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -53,12 +59,22 @@ export function SurveyDetailScreen() {
   const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
   const [builderError, setBuilderError] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [manageMessage, setManageMessage] = useState<string | null>(null);
+  const [manageError, setManageError] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [showAnalytics, setShowAnalytics] = useState(false);
 
   const detailQuery = useQuery({
     queryKey: surveyDetailQueryKey(id ?? ""),
     queryFn: ({ signal }) => getSurvey(api, id!, signal),
     enabled: id !== null,
+  });
+
+  const analyticsQuery = useQuery({
+    queryKey: surveyAnalyticsQueryKey(id ?? ""),
+    queryFn: ({ signal }) => getSurveyAnalytics(api, id!, signal),
+    enabled: id !== null && canManage && showAnalytics,
   });
 
   useEffect(() => {
@@ -80,12 +96,12 @@ export function SurveyDetailScreen() {
     },
     onSuccess: (updated) => {
       setBuilderError(null);
-      setSaveMessage("Questions saved.");
+      setManageMessage("Questions saved.");
       void queryClient.setQueryData(surveyDetailQueryKey(id ?? ""), updated);
       void queryClient.invalidateQueries({ queryKey: ["survey", "list"] });
     },
     onError: (error) => {
-      setSaveMessage(null);
+      setManageMessage(null);
       if (error instanceof Error && !(error instanceof ApiError)) {
         setBuilderError(error.message);
         return;
@@ -101,7 +117,7 @@ export function SurveyDetailScreen() {
     },
     onSuccess: (updated) => {
       setPublishError(null);
-      setSaveMessage(null);
+      setManageMessage("Survey published.");
       void queryClient.setQueryData(surveyDetailQueryKey(id ?? ""), updated);
       void queryClient.invalidateQueries({ queryKey: ["survey", "list"] });
     },
@@ -110,8 +126,62 @@ export function SurveyDetailScreen() {
     },
   });
 
+  const announceMutation = useMutation({
+    mutationFn: () => {
+      if (!id) throw new Error("Missing survey id.");
+      return announceSurvey(api, id, { wall: true });
+    },
+    onSuccess: (result) => {
+      setManageError(null);
+      setManageMessage(
+        result.posted.length > 0
+          ? `Announced on: ${result.posted.join(", ")}.`
+          : "Announce completed (no surfaces posted).",
+      );
+    },
+    onError: (error) => {
+      setManageError(errorMessage(error, "Unable to announce survey."));
+    },
+  });
+
+  const scheduleMutation = useMutation({
+    mutationFn: () => {
+      if (!id) throw new Error("Missing survey id.");
+      return scheduleSurvey(api, id, {
+        startDate: startDate.trim() || null,
+        endDate: endDate.trim() || null,
+      });
+    },
+    onSuccess: (updated) => {
+      setManageError(null);
+      setManageMessage("Schedule saved.");
+      void queryClient.setQueryData(surveyDetailQueryKey(id ?? ""), updated);
+    },
+    onError: (error) => {
+      setManageError(errorMessage(error, "Unable to save schedule."));
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: () => {
+      if (!id) throw new Error("Missing survey id.");
+      return archiveSurvey(api, id);
+    },
+    onSuccess: (updated) => {
+      setManageError(null);
+      setManageMessage("Survey archived.");
+      void queryClient.setQueryData(surveyDetailQueryKey(id ?? ""), updated);
+      void queryClient.invalidateQueries({ queryKey: ["survey", "list"] });
+    },
+    onError: (error) => {
+      setManageError(errorMessage(error, "Unable to archive survey."));
+    },
+  });
+
   const isDraft = detailQuery.data?.status === "draft";
+  const isPublished = detailQuery.data?.status === "published";
   const showBuilder = canManage && isDraft;
+  const showManageActions = canManage && !isDraft;
 
   if (!id) {
     return (
@@ -190,8 +260,7 @@ export function SurveyDetailScreen() {
             {showBuilder ? (
               <View style={{ gap: spacing.md }}>
                 <Text selectable style={{ color: colors.textMuted }}>
-                  Draft question list. Reorder with move up/down. Announce,
-                  schedule, and analytics remain deferred.
+                  Draft question list. Reorder with move up/down.
                 </Text>
                 <SurveyQuestionListEditor
                   drafts={drafts}
@@ -202,9 +271,6 @@ export function SurveyDetailScreen() {
                 />
                 {builderError ? (
                   <StatusMessage tone="error">{builderError}</StatusMessage>
-                ) : null}
-                {saveMessage ? (
-                  <StatusMessage tone="success">{saveMessage}</StatusMessage>
                 ) : null}
                 <Button
                   label="Save questions"
@@ -224,6 +290,108 @@ export function SurveyDetailScreen() {
                   <StatusMessage tone="error">{publishError}</StatusMessage>
                 ) : null}
               </View>
+            ) : null}
+
+            {showManageActions ? (
+              <View style={{ gap: spacing.md }}>
+                <Text selectable style={{ color: colors.textMuted }}>
+                  Manage announce, schedule, analytics, and archive.
+                </Text>
+                {isPublished ? (
+                  <Button
+                    label="Announce on wall"
+                    pendingLabel="Announcing…"
+                    accessibilityLabel="Announce survey"
+                    pending={announceMutation.isPending}
+                    onPress={() => {
+                      setManageMessage(null);
+                      announceMutation.mutate();
+                    }}
+                  />
+                ) : null}
+                <View style={{ gap: spacing.sm }}>
+                  <TextField
+                    label="Start date (YYYY-MM-DD)"
+                    value={startDate}
+                    onChangeText={setStartDate}
+                  />
+                  <TextField
+                    label="End date (YYYY-MM-DD)"
+                    value={endDate}
+                    onChangeText={setEndDate}
+                  />
+                  <Button
+                    label="Save schedule"
+                    pendingLabel="Saving…"
+                    accessibilityLabel="Save survey schedule"
+                    pending={scheduleMutation.isPending}
+                    onPress={() => {
+                      setManageMessage(null);
+                      scheduleMutation.mutate();
+                    }}
+                  />
+                </View>
+                <Button
+                  label={showAnalytics ? "Hide analytics" : "Show analytics"}
+                  pendingLabel="Working…"
+                  accessibilityLabel="Toggle survey analytics"
+                  onPress={() => setShowAnalytics((current) => !current)}
+                />
+                {showAnalytics ? (
+                  analyticsQuery.isPending ? (
+                    <LoadingState label="Loading analytics…" />
+                  ) : analyticsQuery.isError ? (
+                    <StatusMessage tone="error">
+                      {errorMessage(
+                        analyticsQuery.error,
+                        "Unable to load analytics.",
+                      )}
+                    </StatusMessage>
+                  ) : analyticsQuery.data ? (
+                    <View
+                      accessibilityLabel="Survey analytics summary"
+                      style={{ gap: spacing.sm }}
+                    >
+                      <Text selectable style={{ color: colors.textMuted }}>
+                        Total responses: {analyticsQuery.data.totalResponses}
+                      </Text>
+                      {analyticsQuery.data.questions.map((question) => (
+                        <Text
+                          key={question.id}
+                          selectable
+                          style={{ color: colors.textMuted }}
+                        >
+                          {question.prompt}: {question.responses} answers
+                          {question.kind === "numeric" &&
+                          question.average != null
+                            ? ` · avg ${question.average.toFixed(1)}`
+                            : ""}
+                          {question.kind === "text"
+                            ? ` · ${question.sampleCount} samples`
+                            : ""}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null
+                ) : null}
+                <Button
+                  label="Archive survey"
+                  pendingLabel="Archiving…"
+                  accessibilityLabel="Archive survey"
+                  pending={archiveMutation.isPending}
+                  onPress={() => {
+                    setManageMessage(null);
+                    archiveMutation.mutate();
+                  }}
+                />
+              </View>
+            ) : null}
+
+            {manageMessage ? (
+              <StatusMessage tone="success">{manageMessage}</StatusMessage>
+            ) : null}
+            {manageError ? (
+              <StatusMessage tone="error">{manageError}</StatusMessage>
             ) : null}
 
             <Button

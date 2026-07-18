@@ -162,6 +162,103 @@ describe("SurveyDetailScreen", () => {
     await waitFor(() => {
       expect(mockPost).toHaveBeenCalledWith("/survey/surv1/publish", {});
     });
-    expect(await screen.findByText(/published/i)).toBeTruthy();
+    expect(await screen.findByText("Survey published.")).toBeTruthy();
+  });
+
+  it("announces, schedules, archives, and shows analytics for published surveys", async () => {
+    mockGet.mockImplementation((path: string) => {
+      if (path === "/survey/surv1") {
+        return Promise.resolve({
+          data: {
+            id: "surv1",
+            title: "Pulse",
+            status: "published",
+            questions: [],
+            _count: { questions: 0, responses: 2 },
+          },
+        });
+      }
+      if (path === "/survey/surv1/analytics") {
+        return Promise.resolve({
+          data: {
+            totalResponses: 2,
+            questions: [
+              {
+                id: "q1",
+                prompt: "Score?",
+                type: "rating",
+                responses: 2,
+                kind: "numeric",
+                average: 4,
+                min: 3,
+                max: 5,
+              },
+            ],
+          },
+        });
+      }
+      throw new Error(`Unexpected GET ${path}`);
+    });
+    mockPost.mockImplementation((path: string) => {
+      if (path === "/survey/surv1/announce") {
+        return Promise.resolve({ data: { posted: ["wall"] } });
+      }
+      if (path === "/survey/surv1/archive") {
+        return Promise.resolve({
+          data: {
+            id: "surv1",
+            title: "Pulse",
+            status: "closed",
+            questions: [],
+            _count: { questions: 0, responses: 2 },
+          },
+        });
+      }
+      throw new Error(`Unexpected POST ${path}`);
+    });
+    mockPut.mockResolvedValue({
+      data: {
+        id: "surv1",
+        title: "Pulse",
+        status: "published",
+        questions: [],
+        _count: { questions: 0, responses: 2 },
+      },
+    });
+
+    await renderScreen();
+    expect(await screen.findByText("Pulse")).toBeTruthy();
+
+    await fireEvent.press(screen.getByLabelText("Announce survey"));
+    await waitFor(() => {
+      expect(mockPost).toHaveBeenCalledWith("/survey/surv1/announce", {
+        announce: { wall: true, news: false, companyDate: false },
+      });
+    });
+
+    await fireEvent.changeText(
+      screen.getByLabelText("Start date (YYYY-MM-DD)"),
+      "2026-07-01",
+    );
+    await fireEvent.changeText(
+      screen.getByLabelText("End date (YYYY-MM-DD)"),
+      "2026-07-31",
+    );
+    await fireEvent.press(screen.getByLabelText("Save survey schedule"));
+    await waitFor(() => {
+      expect(mockPut).toHaveBeenCalledWith("/survey/surv1/schedule", {
+        startDate: "2026-07-01",
+        endDate: "2026-07-31",
+      });
+    });
+
+    await fireEvent.press(screen.getByLabelText("Toggle survey analytics"));
+    expect(await screen.findByText("Total responses: 2")).toBeTruthy();
+    expect(await screen.findByText(/Score\?: 2 answers/)).toBeTruthy();
+
+    await fireEvent.press(screen.getByLabelText("Archive survey"));
+    await waitFor(() => {
+      expect(mockPost).toHaveBeenCalledWith("/survey/surv1/archive", {});
+    });
   });
 });

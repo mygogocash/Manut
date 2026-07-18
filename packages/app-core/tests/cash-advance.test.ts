@@ -90,7 +90,6 @@ describe("cash-advance foundation contracts", () => {
       employee: {
         id: request.employee.id,
         name: "Person",
-        email: "person@manut.example",
       },
       entityName: "Manut",
     });

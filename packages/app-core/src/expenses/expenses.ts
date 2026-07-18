@@ -25,63 +25,97 @@ export const expensePeriodSchema = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Period must be YYYY-MM");
 
-const expenseEmployeeSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  email: z.string().min(1),
-  department: nullableText,
-});
+const expenseEmployeeSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    email: z.unknown().optional(),
+    department: z.unknown().optional(),
+  })
+  .passthrough()
+  .transform((employee) => ({
+    id: employee.id,
+    name: employee.name,
+  }));
 
 const expenseEntitySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
 });
 
-// List/detail receipts strip notes, approver emails, line items, and
-// canApprove — those belong to write/approval slices.
-export const expenseReportSchema = z.object({
-  id: z.string().min(1),
-  period: expensePeriodSchema,
-  title: z.string().min(1),
-  category: expenseReportCategorySchema,
-  status: expenseReportStatusSchema,
-  submittedAt: nullableText,
-  approvedAt: nullableText,
-  rejectReason: nullableText,
-  reimbursedAt: nullableText,
-  totalAmount: z.number().finite(),
-  totalCurrency: z.string().min(1),
-  converted: z.boolean(),
-  missingRates: z.array(z.string()),
-  approvedTotal: z.number().finite().nullable(),
-  createdAt: z.string().min(1),
-  updatedAt: z.string().min(1),
-  employee: expenseEmployeeSchema,
-  entity: expenseEntitySchema,
-  _count: z.object({ expenses: z.number().int().nonnegative() }),
-});
+// List/detail receipts strip notes, approver emails, line items,
+// canApprove, and employee email/department.
+const expenseReportApiSchema = z
+  .object({
+    id: z.string().min(1),
+    period: expensePeriodSchema,
+    title: z.string().min(1),
+    category: expenseReportCategorySchema,
+    status: expenseReportStatusSchema,
+    submittedAt: nullableText,
+    approvedAt: nullableText,
+    rejectReason: nullableText,
+    reimbursedAt: nullableText,
+    totalAmount: z.number().finite(),
+    totalCurrency: z.string().min(1),
+    converted: z.boolean(),
+    missingRates: z.array(z.string()),
+    approvedTotal: z.number().finite().nullable(),
+    createdAt: z.string().min(1),
+    updatedAt: z.string().min(1),
+    employee: expenseEmployeeSchema,
+    entity: expenseEntitySchema,
+    _count: z.object({ expenses: z.number().int().nonnegative() }),
+  })
+  .passthrough();
 
-const expenseReportDetailSchema = expenseReportSchema.transform((report) => ({
-  id: report.id,
-  period: report.period,
-  title: report.title,
-  category: report.category,
-  status: report.status,
-  submittedAt: report.submittedAt,
-  approvedAt: report.approvedAt,
-  rejectReason: report.rejectReason,
-  reimbursedAt: report.reimbursedAt,
-  totalAmount: report.totalAmount,
-  totalCurrency: report.totalCurrency,
-  converted: report.converted,
-  missingRates: report.missingRates,
-  approvedTotal: report.approvedTotal,
-  createdAt: report.createdAt,
-  updatedAt: report.updatedAt,
-  employee: report.employee,
-  entity: report.entity,
-  lineCount: report._count.expenses,
-}));
+export const expenseReportSchema = expenseReportApiSchema.transform(
+  (report) => ({
+    id: report.id,
+    period: report.period,
+    title: report.title,
+    category: report.category,
+    status: report.status,
+    submittedAt: report.submittedAt,
+    approvedAt: report.approvedAt,
+    rejectReason: report.rejectReason,
+    reimbursedAt: report.reimbursedAt,
+    totalAmount: report.totalAmount,
+    totalCurrency: report.totalCurrency,
+    converted: report.converted,
+    missingRates: report.missingRates,
+    approvedTotal: report.approvedTotal,
+    createdAt: report.createdAt,
+    updatedAt: report.updatedAt,
+    employee: report.employee,
+    entity: report.entity,
+    _count: report._count,
+  }),
+);
+
+const expenseReportDetailSchema = expenseReportApiSchema.transform(
+  (report) => ({
+    id: report.id,
+    period: report.period,
+    title: report.title,
+    category: report.category,
+    status: report.status,
+    submittedAt: report.submittedAt,
+    approvedAt: report.approvedAt,
+    rejectReason: report.rejectReason,
+    reimbursedAt: report.reimbursedAt,
+    totalAmount: report.totalAmount,
+    totalCurrency: report.totalCurrency,
+    converted: report.converted,
+    missingRates: report.missingRates,
+    approvedTotal: report.approvedTotal,
+    createdAt: report.createdAt,
+    updatedAt: report.updatedAt,
+    employee: report.employee,
+    entity: report.entity,
+    lineCount: report._count.expenses,
+  }),
+);
 
 const paginationMetaSchema = z
   .object({
@@ -110,6 +144,7 @@ export const expenseReportListParamsSchema = z
     employeeId: z.string().uuid().optional(),
     status: expenseReportStatusSchema.optional(),
     period: expensePeriodSchema.optional(),
+    pendingForMe: z.boolean().optional(),
   })
   .strict();
 
@@ -142,16 +177,18 @@ export function expenseReportDetailQueryKey(reportId: string) {
 function encodeExpenseReportQuery(
   params: z.output<typeof expenseReportListParamsSchema>,
 ): string {
-  const entries: Array<[string, string | number | undefined]> = [
+  const entries: Array<[string, string | number | boolean | undefined]> = [
     ["page", params.page],
     ["limit", params.limit],
     ["employeeId", params.employeeId],
     ["status", params.status],
     ["period", params.period],
+    ["pendingForMe", params.pendingForMe],
   ];
   return entries
     .filter(
-      (entry): entry is [string, string | number] => entry[1] !== undefined,
+      (entry): entry is [string, string | number | boolean] =>
+        entry[1] !== undefined,
     )
     .map(
       ([key, value]) =>
@@ -316,6 +353,46 @@ export function canSubmitExpenseReport(
   lineCount: number,
 ): boolean {
   return status === "draft" && lineCount > 0;
+}
+
+export function canActOnExpenseReport(status: ExpenseReportStatus): boolean {
+  return status === "submitted";
+}
+
+export const rejectExpenseReportInputSchema = z
+  .object({
+    reason: z.string().trim().min(1, "Reason is required").max(1000),
+  })
+  .strict();
+
+export type RejectExpenseReportInput = z.input<
+  typeof rejectExpenseReportInputSchema
+>;
+
+export async function approveExpenseReport(
+  client: ApiClient,
+  reportId: string,
+): Promise<ExpenseReport> {
+  const id = z.string().min(1).parse(reportId);
+  const response = await client.post<unknown>(
+    `/expenses/reports/${encodeURIComponent(id)}/approve`,
+    {},
+  );
+  return createdExpenseReportResponseSchema.parse(response).data;
+}
+
+export async function rejectExpenseReport(
+  client: ApiClient,
+  reportId: string,
+  input: RejectExpenseReportInput,
+): Promise<ExpenseReport> {
+  const id = z.string().min(1).parse(reportId);
+  const parsed = rejectExpenseReportInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/expenses/reports/${encodeURIComponent(id)}/reject`,
+    parsed,
+  );
+  return createdExpenseReportResponseSchema.parse(response).data;
 }
 
 const expenseFormEntitySchema = z.object({

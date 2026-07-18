@@ -112,6 +112,9 @@ describe("CashAdvanceScreen", () => {
         await screen.findByText(/CA-42 · Draft/, {}, { timeout: 10_000 }),
       ).toBeTruthy();
       expect(screen.getByText(/1500 THB|1,500 THB/)).toBeTruthy();
+      expect(
+        screen.queryByLabelText("Pending cash-advance approvals"),
+      ).toBeNull();
 
       await fireEvent.press(screen.getByLabelText("Submit CA-42"));
       await waitFor(() => {
@@ -120,6 +123,54 @@ describe("CashAdvanceScreen", () => {
           {},
         );
       });
+    },
+    15_000,
+  );
+
+  it(
+    "approves a submitted cash advance from the pending inbox",
+    async () => {
+      mockPermissions = ["cash-advance:read", "cash-advance:approve"];
+      const submitted = {
+        ...draft,
+        status: "submitted",
+        employee: {
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Alex",
+          email: "alex@manut.example",
+        },
+      };
+      mockGet.mockImplementation((path: string) => {
+        if (path.includes("status=submitted") && path.includes("scope=all")) {
+          return Promise.resolve({
+            data: [submitted],
+            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          });
+        }
+        if (path.startsWith("/cash-advance?")) {
+          return Promise.resolve({
+            data: [],
+            meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+          });
+        }
+        throw new Error(`Unexpected GET ${path}`);
+      });
+      mockPost.mockResolvedValue({
+        data: { ...submitted, status: "approved", approvedTotal: 1500 },
+      });
+
+      await renderScreen();
+      expect(await screen.findByText(/Alex · CA-42/)).toBeTruthy();
+      await fireEvent.press(
+        screen.getByLabelText("Approve cash advance for Alex"),
+      );
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith(
+          `/cash-advance/${submitted.id}/approve`,
+          {},
+        );
+      });
+      expect(await screen.findByText("Cash advance approved.")).toBeTruthy();
     },
     15_000,
   );

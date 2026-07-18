@@ -2,14 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../src/api/api-client";
 import {
+  announceSurvey,
+  archiveSurvey,
   createSurvey,
   createSurveyInputSchema,
   getMySurveyResponse,
   getSurvey,
+  getSurveyAnalytics,
   listSurveys,
   publishSurvey,
   replaceSurveyQuestions,
   replaceSurveyQuestionsInputSchema,
+  scheduleSurvey,
   submitSurveyResponse,
   submitSurveyResponseInputSchema,
   surveyQuestionInputSchema,
@@ -342,5 +346,110 @@ describe("survey foundation contracts", () => {
     expect(result).not.toHaveProperty("targetUserIds");
     expect(result).not.toHaveProperty("createdBy");
     expect(post).toHaveBeenCalledWith("/survey/surv1/publish", {});
+  });
+
+  it("announces, schedules, archives, and loads analytics projections", async () => {
+    const post = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { posted: ["wall"] } })
+      .mockResolvedValueOnce({
+        data: {
+          id: "surv1",
+          title: "Pulse",
+          status: "closed",
+          questions: [],
+          _count: { questions: 0, responses: 2 },
+        },
+      });
+    const put = vi.fn().mockResolvedValue({
+      data: {
+        id: "surv1",
+        title: "Pulse",
+        status: "published",
+        questions: [],
+        _count: { questions: 0, responses: 0 },
+      },
+    });
+    const get = vi.fn().mockResolvedValue({
+      data: {
+        totalResponses: 2,
+        questions: [
+          {
+            id: "q1",
+            prompt: "Score?",
+            type: "rating",
+            responses: 2,
+            kind: "numeric",
+            average: 4,
+            min: 3,
+            max: 5,
+          },
+          {
+            id: "q2",
+            prompt: "Note?",
+            type: "short_text",
+            responses: 1,
+            kind: "text",
+            samples: ["great", "secret answer"],
+          },
+        ],
+      },
+    });
+    const client = { post, put, get } as unknown as ApiClient;
+
+    await expect(
+      announceSurvey(client, "surv1", { wall: true }),
+    ).resolves.toEqual({ posted: ["wall"] });
+    expect(post).toHaveBeenNthCalledWith(1, "/survey/surv1/announce", {
+      announce: { wall: true, news: false, companyDate: false },
+    });
+
+    await expect(
+      scheduleSurvey(client, "surv1", {
+        startDate: "2026-07-01",
+        endDate: "2026-07-31",
+      }),
+    ).resolves.toMatchObject({ id: "surv1", status: "published" });
+    expect(put).toHaveBeenCalledWith("/survey/surv1/schedule", {
+      startDate: "2026-07-01",
+      endDate: "2026-07-31",
+    });
+
+    await expect(archiveSurvey(client, "surv1")).resolves.toMatchObject({
+      id: "surv1",
+    });
+    expect(post).toHaveBeenNthCalledWith(2, "/survey/surv1/archive", {});
+
+    const analytics = await getSurveyAnalytics(client, "surv1");
+    expect(analytics).toEqual({
+      totalResponses: 2,
+      questions: [
+        {
+          id: "q1",
+          prompt: "Score?",
+          type: "rating",
+          responses: 2,
+          kind: "numeric",
+          counts: {},
+          average: 4,
+          min: 3,
+          max: 5,
+          sampleCount: 0,
+        },
+        {
+          id: "q2",
+          prompt: "Note?",
+          type: "short_text",
+          responses: 1,
+          kind: "text",
+          counts: {},
+          average: null,
+          min: null,
+          max: null,
+          sampleCount: 2,
+        },
+      ],
+    });
+    expect(analytics.questions[1]).not.toHaveProperty("samples");
   });
 });

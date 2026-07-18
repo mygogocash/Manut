@@ -384,3 +384,151 @@ export async function publishSurvey(
   );
   return createdSurveyResponseSchema.parse(response).data;
 }
+
+export const announceSurveyInputSchema = z
+  .object({
+    wall: z.boolean().default(false),
+    news: z.boolean().default(false),
+    companyDate: z.boolean().default(false),
+    message: z
+      .string()
+      .trim()
+      .max(5000)
+      .transform((value) => value || undefined)
+      .optional(),
+  })
+  .strict();
+
+export type AnnounceSurveyInput = z.input<typeof announceSurveyInputSchema>;
+
+const announceSurveyResponseSchema = z
+  .object({
+    data: z
+      .object({
+        posted: z.array(z.string()),
+      })
+      .passthrough(),
+  })
+  .strict();
+
+export type AnnounceSurveyResult = { posted: string[] };
+
+export async function announceSurvey(
+  client: ApiClient,
+  id: string,
+  input: AnnounceSurveyInput = {},
+): Promise<AnnounceSurveyResult> {
+  const parsed = announceSurveyInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/survey/${encodeURIComponent(id)}/announce`,
+    { announce: parsed },
+  );
+  return announceSurveyResponseSchema.parse(response).data;
+}
+
+export const scheduleSurveyInputSchema = z
+  .object({
+    startDate: z
+      .string()
+      .trim()
+      .nullable()
+      .optional()
+      .transform((value) => value || null),
+    endDate: z
+      .string()
+      .trim()
+      .nullable()
+      .optional()
+      .transform((value) => value || null),
+  })
+  .strict();
+
+export type ScheduleSurveyInput = z.input<typeof scheduleSurveyInputSchema>;
+
+export async function scheduleSurvey(
+  client: ApiClient,
+  id: string,
+  input: ScheduleSurveyInput,
+): Promise<SurveyDetail> {
+  const parsed = scheduleSurveyInputSchema.parse(input);
+  const response = await client.put<unknown>(
+    `/survey/${encodeURIComponent(id)}/schedule`,
+    parsed,
+  );
+  return createdSurveyResponseSchema.parse(response).data;
+}
+
+export async function archiveSurvey(
+  client: ApiClient,
+  id: string,
+): Promise<SurveyDetail> {
+  const response = await client.post<unknown>(
+    `/survey/${encodeURIComponent(id)}/archive`,
+    {},
+  );
+  return createdSurveyResponseSchema.parse(response).data;
+}
+
+const surveyAnalyticsQuestionSchema = z
+  .object({
+    id: z.string().min(1),
+    prompt: z.string().min(1),
+    type: z.string().min(1),
+    responses: z.number().int().nonnegative(),
+    kind: z.string().min(1).optional(),
+    counts: z.record(z.string(), z.number()).optional(),
+    average: z.number().nullable().optional(),
+    min: z.number().nullable().optional(),
+    max: z.number().nullable().optional(),
+    samples: z.array(z.string()).optional(),
+  })
+  .passthrough()
+  .transform((question) => ({
+    id: question.id,
+    prompt: question.prompt,
+    type: question.type,
+    responses: question.responses,
+    kind: question.kind ?? "text",
+    counts: question.counts ?? {},
+    average: question.average ?? null,
+    min: question.min ?? null,
+    max: question.max ?? null,
+    sampleCount: question.samples?.length ?? 0,
+  }));
+
+const surveyAnalyticsSchema = z
+  .object({
+    totalResponses: z.number().int().nonnegative(),
+    questions: z.array(surveyAnalyticsQuestionSchema),
+  })
+  .passthrough()
+  .transform((analytics) => ({
+    totalResponses: analytics.totalResponses,
+    questions: analytics.questions,
+  }));
+
+const surveyAnalyticsResponseSchema = z
+  .object({
+    data: surveyAnalyticsSchema,
+  })
+  .strict();
+
+export type SurveyAnalytics = z.infer<typeof surveyAnalyticsSchema>;
+
+export const SURVEY_ANALYTICS_QUERY_ROOT = ["survey", "analytics"] as const;
+
+export function surveyAnalyticsQueryKey(id: string) {
+  return [...SURVEY_ANALYTICS_QUERY_ROOT, id] as const;
+}
+
+export async function getSurveyAnalytics(
+  client: ApiClient,
+  id: string,
+  signal?: RequestAbortSignal,
+): Promise<SurveyAnalytics> {
+  const response = await client.get<unknown>(
+    `/survey/${encodeURIComponent(id)}/analytics`,
+    signal ? { signal } : undefined,
+  );
+  return surveyAnalyticsResponseSchema.parse(response).data;
+}

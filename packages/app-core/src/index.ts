@@ -337,6 +337,8 @@ export type {
 export {
   addExpenseLine,
   addExpenseLineInputSchema,
+  approveExpenseReport,
+  canActOnExpenseReport,
   canSubmitExpenseReport,
   createExpenseReport,
   createExpenseReportInputSchema,
@@ -353,6 +355,8 @@ export {
   getExpenseReport,
   listExpenseFormEntities,
   listExpenseReports,
+  rejectExpenseReport,
+  rejectExpenseReportInputSchema,
   submitExpenseReport,
 } from "./expenses/expenses";
 export type {
@@ -366,6 +370,7 @@ export type {
   ExpenseReportList,
   ExpenseReportListParams,
   ExpenseReportStatus,
+  RejectExpenseReportInput,
 } from "./expenses/expenses";
 export {
   EXPENSE_APPROVAL_STEPS_QUERY_KEY,
@@ -500,6 +505,8 @@ export {
 } from "./visa/visa-checklist-templates";
 export type { VisaChecklistTemplate } from "./visa/visa-checklist-templates";
 export {
+  approveCashAdvance,
+  canActOnCashAdvance,
   canDeleteCashAdvanceDraft,
   canSubmitCashAdvance,
   CASH_ADVANCES_QUERY_ROOT,
@@ -513,6 +520,8 @@ export {
   createCashAdvanceItemInputSchema,
   deleteCashAdvance,
   listCashAdvances,
+  rejectCashAdvance,
+  rejectCashAdvanceInputSchema,
   submitCashAdvance,
 } from "./cash-advance/cash-advance";
 export type {
@@ -522,6 +531,7 @@ export type {
   CashAdvanceRequest,
   CashAdvanceStatus,
   CreateCashAdvanceInput,
+  RejectCashAdvanceInput,
 } from "./cash-advance/cash-advance";
 export {
   CASH_ADVANCE_APPROVAL_STEPS_QUERY_KEY,
@@ -1081,20 +1091,28 @@ export type {
   CertificateType,
 } from "./certificates/certificates";
 export {
+  SURVEY_ANALYTICS_QUERY_ROOT,
   SURVEY_DETAIL_QUERY_ROOT,
   SURVEY_MY_RESPONSE_QUERY_ROOT,
   SURVEY_QUESTION_TYPES,
   SURVEYS_QUERY_ROOT,
+  announceSurvey,
+  announceSurveyInputSchema,
+  archiveSurvey,
   createSurvey,
   createSurveyInputSchema,
   getMySurveyResponse,
   getSurvey,
+  getSurveyAnalytics,
   listSurveys,
   publishSurvey,
   replaceSurveyQuestions,
   replaceSurveyQuestionsInputSchema,
+  scheduleSurvey,
+  scheduleSurveyInputSchema,
   submitSurveyResponse,
   submitSurveyResponseInputSchema,
+  surveyAnalyticsQueryKey,
   surveyDetailQueryKey,
   surveyDetailSchema,
   surveyMyResponseQueryKey,
@@ -1105,11 +1123,15 @@ export {
   surveysQueryKey,
 } from "./survey/survey";
 export type {
+  AnnounceSurveyInput,
+  AnnounceSurveyResult,
   CreateSurveyInput,
   MySurveyResponse,
   ReplaceSurveyQuestionsInput,
+  ScheduleSurveyInput,
   SubmitSurveyResponseInput,
   SubmittedSurveyResponse,
+  SurveyAnalytics,
   SurveyDetail,
   SurveyList,
   SurveyListParams,
@@ -1121,16 +1143,21 @@ export type {
 export {
   SURVEY_FORMS_QUERY_ROOT,
   SURVEY_FORM_DETAIL_QUERY_ROOT,
+  SURVEY_FORM_MY_RESPONSE_QUERY_ROOT,
   SURVEY_FORM_QUESTION_TYPES,
   createSurveyForm,
   createSurveyFormInputSchema,
+  getMySurveyFormResponse,
   getSurveyForm,
   listSurveyForms,
   publishSurveyForm,
   replaceSurveyFormQuestions,
   replaceSurveyFormQuestionsInputSchema,
+  submitSurveyFormResponse,
+  submitSurveyFormResponseInputSchema,
   surveyFormDetailQueryKey,
   surveyFormDetailSchema,
+  surveyFormMyResponseQueryKey,
   surveyFormQuestionInputSchema,
   surveyFormQuestionTypeSchema,
   surveyFormStatusSchema,
@@ -1139,7 +1166,10 @@ export {
 } from "./survey-forms/survey-forms";
 export type {
   CreateSurveyFormInput,
+  MySurveyFormResponse,
   ReplaceSurveyFormQuestionsInput,
+  SubmitSurveyFormResponseInput,
+  SubmittedSurveyFormResponse,
   SurveyFormDetail,
   SurveyFormList,
   SurveyFormListParams,

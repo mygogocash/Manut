@@ -293,3 +293,101 @@ export async function publishSurveyForm(
   );
   return surveyFormDetailResponseSchema.parse(response).data;
 }
+
+export const submitSurveyFormResponseInputSchema = z
+  .object({
+    answers: z
+      .array(
+        z
+          .object({
+            questionId: z.string().uuid(),
+            value: z
+              .union([
+                z.string(),
+                z.number(),
+                z.boolean(),
+                z.array(z.string()),
+                z.null(),
+              ])
+              .optional(),
+          })
+          .strict(),
+      )
+      .default([]),
+  })
+  .strict();
+
+export type SubmitSurveyFormResponseInput = z.input<
+  typeof submitSurveyFormResponseInputSchema
+>;
+
+const mySurveyFormResponseApiSchema = z.union([
+  z
+    .object({
+      id: z.string().min(1),
+      answers: z.array(z.unknown()).optional(),
+    })
+    .passthrough(),
+  z.null(),
+]);
+
+const mySurveyFormResponseEnvelopeSchema = z
+  .object({
+    data: mySurveyFormResponseApiSchema,
+  })
+  .strict();
+
+const submittedSurveyFormResponseSchema = z
+  .object({
+    data: mySurveyFormResponseApiSchema,
+  })
+  .strict();
+
+export type MySurveyFormResponse = { id: string; answerCount: number } | null;
+export type SubmittedSurveyFormResponse = { id: string; answerCount: number };
+
+export const SURVEY_FORM_MY_RESPONSE_QUERY_ROOT = [
+  "survey-forms",
+  "my-response",
+] as const;
+
+export function surveyFormMyResponseQueryKey(id: string) {
+  return [...SURVEY_FORM_MY_RESPONSE_QUERY_ROOT, id] as const;
+}
+
+export async function getMySurveyFormResponse(
+  client: ApiClient,
+  id: string,
+  signal?: RequestAbortSignal,
+): Promise<MySurveyFormResponse> {
+  const response = await client.get<unknown>(
+    `/survey-forms/${encodeURIComponent(id)}/my-response`,
+    signal ? { signal } : undefined,
+  );
+  const data = mySurveyFormResponseEnvelopeSchema.parse(response).data;
+  if (!data) return null;
+  return {
+    id: data.id,
+    answerCount: Array.isArray(data.answers) ? data.answers.length : 0,
+  };
+}
+
+export async function submitSurveyFormResponse(
+  client: ApiClient,
+  id: string,
+  input: SubmitSurveyFormResponseInput,
+): Promise<SubmittedSurveyFormResponse> {
+  const parsed = submitSurveyFormResponseInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/survey-forms/${encodeURIComponent(id)}/responses`,
+    parsed,
+  );
+  const data = submittedSurveyFormResponseSchema.parse(response).data;
+  if (!data) {
+    throw new Error("Survey form response receipt was empty");
+  }
+  return {
+    id: data.id,
+    answerCount: Array.isArray(data.answers) ? data.answers.length : 0,
+  };
+}

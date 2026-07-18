@@ -4,11 +4,13 @@ import type { ApiClient } from "../src/api/api-client";
 import {
   createSurveyForm,
   createSurveyFormInputSchema,
+  getMySurveyFormResponse,
   getSurveyForm,
   listSurveyForms,
   publishSurveyForm,
   replaceSurveyFormQuestions,
   replaceSurveyFormQuestionsInputSchema,
+  submitSurveyFormResponse,
   surveyFormQuestionInputSchema,
 } from "../src/survey-forms/survey-forms";
 
@@ -229,5 +231,50 @@ describe("survey-forms foundation contracts", () => {
     const result = await publishSurveyForm(client, "form1");
     expect(result.status).toBe("published");
     expect(post).toHaveBeenCalledWith("/survey-forms/form1/publish", {});
+  });
+
+  it("submits a survey form response and loads my-response receipt without answers", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: {
+        id: "resp1",
+        answers: [{ questionId: "q1", value: "secret" }],
+        respondent: { email: "person@manut.example" },
+      },
+    });
+    const post = vi.fn().mockResolvedValue({
+      data: {
+        id: "resp1",
+        answers: [{ questionId: "q1", value: "secret" }],
+      },
+    });
+    const client = { get, post } as unknown as ApiClient;
+
+    await expect(getMySurveyFormResponse(client, "form1")).resolves.toEqual({
+      id: "resp1",
+      answerCount: 1,
+    });
+    expect(get).toHaveBeenCalledWith(
+      "/survey-forms/form1/my-response",
+      undefined,
+    );
+
+    await expect(
+      submitSurveyFormResponse(client, "form1", {
+        answers: [
+          {
+            questionId: "11111111-1111-4111-8111-111111111111",
+            value: "ok",
+          },
+        ],
+      }),
+    ).resolves.toEqual({ id: "resp1", answerCount: 1 });
+    expect(post).toHaveBeenCalledWith("/survey-forms/form1/responses", {
+      answers: [
+        {
+          questionId: "11111111-1111-4111-8111-111111111111",
+          value: "ok",
+        },
+      ],
+    });
   });
 });

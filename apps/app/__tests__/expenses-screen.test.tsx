@@ -152,6 +152,53 @@ describe("ExpensesScreen", () => {
         expect.stringContaining(`employeeId=${mockUserId}`),
         expect.anything(),
       );
+      expect(screen.queryByLabelText("Pending expense approvals")).toBeNull();
+    },
+    15_000,
+  );
+
+  it(
+    "approves a pending expense report from the inbox",
+    async () => {
+      mockPermissions = ["expense:read", "expense:approve"];
+      const pendingReport = {
+        ...report,
+        employee: {
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Alex",
+          email: "alex@manut.example",
+          department: "Ops",
+        },
+      };
+      mockGet.mockImplementation((path: string) => {
+        if (path.includes("pendingForMe=true")) {
+          return Promise.resolve({
+            data: [pendingReport],
+            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          });
+        }
+        if (path.startsWith("/expenses/reports?")) {
+          return Promise.resolve({
+            data: [],
+            meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+          });
+        }
+        throw new Error(`Unexpected GET ${path}`);
+      });
+      mockPost.mockResolvedValue({
+        data: { ...pendingReport, status: "approved" },
+      });
+
+      await renderScreen();
+      expect(await screen.findByText(/Alex · July travel meals/)).toBeTruthy();
+      await fireEvent.press(screen.getByLabelText("Approve expense for Alex"));
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith(
+          `/expenses/reports/${pendingReport.id}/approve`,
+          {},
+        );
+      });
+      expect(await screen.findByText("Expense report approved.")).toBeTruthy();
     },
     15_000,
   );

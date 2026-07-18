@@ -31,14 +31,20 @@ export const cashAdvanceStatusSchema = z.enum([
 
 export const cashAdvancePayoutModeSchema = z.enum(["cash", "bank-transfer"]);
 
-const cashAdvanceEmployeeSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  email: z.string().min(1),
-});
+const cashAdvanceEmployeeSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    email: z.unknown().optional(),
+  })
+  .passthrough()
+  .transform((employee) => ({
+    id: employee.id,
+    name: employee.name,
+  }));
 
 // List receipts keep totals/status and strip bank numbers, notes, proof
-// URLs, approval-chain internals, and line receipt URLs.
+// URLs, approval-chain internals, line receipt URLs, and employee email.
 const cashAdvanceRequestApiSchema = z
   .object({
     id: z.string().min(1),
@@ -243,4 +249,44 @@ export function canSubmitCashAdvance(status: CashAdvanceStatus): boolean {
 
 export function canDeleteCashAdvanceDraft(status: CashAdvanceStatus): boolean {
   return status === "draft";
+}
+
+export function canActOnCashAdvance(status: CashAdvanceStatus): boolean {
+  return status === "submitted";
+}
+
+export const rejectCashAdvanceInputSchema = z
+  .object({
+    reason: z.string().trim().min(1, "Reason is required").max(1000),
+  })
+  .strict();
+
+export type RejectCashAdvanceInput = z.input<
+  typeof rejectCashAdvanceInputSchema
+>;
+
+export async function approveCashAdvance(
+  client: ApiClient,
+  requestId: string,
+): Promise<CashAdvanceRequest> {
+  const id = z.string().min(1).parse(requestId);
+  const response = await client.post<unknown>(
+    `/cash-advance/${encodeURIComponent(id)}/approve`,
+    {},
+  );
+  return cashAdvanceMutationResponseSchema.parse(response).data;
+}
+
+export async function rejectCashAdvance(
+  client: ApiClient,
+  requestId: string,
+  input: RejectCashAdvanceInput,
+): Promise<CashAdvanceRequest> {
+  const id = z.string().min(1).parse(requestId);
+  const parsed = rejectCashAdvanceInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/cash-advance/${encodeURIComponent(id)}/reject`,
+    parsed,
+  );
+  return cashAdvanceMutationResponseSchema.parse(response).data;
 }

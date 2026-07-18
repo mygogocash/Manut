@@ -42,6 +42,7 @@ import {
 import { ZodError } from "zod";
 
 import { runLockedTransition } from "@/features/directory/transition-lock";
+import { ExpensePendingInbox } from "@/features/expenses/expense-pending-inbox";
 import { expenseStatusLabel } from "@/features/expenses/expense-status-label";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useApiClient } from "@/providers/api-client-provider";
@@ -547,6 +548,8 @@ export function ExpensesScreen() {
   const router = useRouter();
   const { user, hasPermission } = useAuth();
   const canCreate = hasPermission("expense:create");
+  const canApprove =
+    hasPermission("expense:approve") || hasPermission("expense:hr-approve");
   const canViewApprovalChain =
     hasPermission("expense:assign-approver") ||
     hasPermission("expense:hr-settings") ||
@@ -730,9 +733,11 @@ export function ExpensesScreen() {
             </Text>
             <Text selectable style={{ color: colors.textMuted }}>
               Draft reports, line items with optional receipt URLs, and submit.
-              Native receipt upload and report approve actions remain later.
+              Approvers can act on the pending inbox below.
             </Text>
           </View>
+
+          {canApprove ? <ExpensePendingInbox /> : null}
 
           <View
             style={{
