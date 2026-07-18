@@ -31,6 +31,22 @@ describe("Cloudflare Workers Builds contract", () => {
     expect(script).not.toMatch(/\bturbo\b/u);
   });
 
+  it("generates Prisma before the PR Worker type-check", () => {
+    const workflow = readFileSync(
+      join(repoRoot, ".github/workflows/pr-checks.yml"),
+      "utf8",
+    );
+    const workerJob = workflow.match(
+      /^  worker-build:\s*\n([\s\S]*?)(?=^  [a-z][a-z-]+:\s*$)/mu,
+    )?.[1];
+
+    expect(workerJob).toBeTruthy();
+    expect(workerJob?.indexOf("pnpm db:generate")).toBeGreaterThan(-1);
+    expect(workerJob?.indexOf("pnpm db:generate")).toBeLessThan(
+      workerJob?.indexOf("pnpm --filter @manut/edge type-check") ?? -1,
+    );
+  });
+
   it("wrangler production Worker name matches Cloudflare service manut", () => {
     const wrangler = readFileSync(
       join(repoRoot, "apps/edge/wrangler.jsonc"),

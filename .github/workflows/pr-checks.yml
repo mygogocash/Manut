@@ -210,6 +210,8 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm db:generate
       - name: Type-check Worker
         run: pnpm --filter @manut/edge type-check
       - name: Test Worker
