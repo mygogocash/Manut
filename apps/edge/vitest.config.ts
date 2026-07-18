@@ -4,6 +4,7 @@ import { defineConfig } from "vitest/config";
 const nodeContractTests = [
   "tests/cloudflare-builds.test.ts",
   "tests/deploy-workflow-secrets.test.ts",
+  "tests/ensure-cloudflare-resources.test.ts",
 ] as const;
 
 export default defineConfig({

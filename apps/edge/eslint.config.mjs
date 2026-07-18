@@ -32,4 +32,11 @@ export default [
       "turbo/no-undeclared-env-vars": "off",
     },
   },
+  {
+    // Deploy-time provisioning CLI: console output is its UI.
+    files: ["scripts/**/*.mjs"],
+    rules: {
+      "no-console": "off",
+    },
+  },
 ];

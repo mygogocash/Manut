@@ -14,6 +14,7 @@
     ]
   },
   "include": [
+    "scripts/**/*.d.mts",
     "src/**/*.ts",
     "tests/**/*.ts",
     "vitest.config.ts",
