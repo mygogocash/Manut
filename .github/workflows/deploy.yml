@@ -1,0 +1,107 @@
+# Production: Expo web export → Workers + Assets (apps/edge) via wrangler.
+# Gated: workflow_dispatch only + GitHub Environment `production` (require
+# reviewers in repo settings). Does not mutate DNS.
+#
+# Ops must turn OFF Cloudflare Pages auto-deploy; CI owns Worker deploys.
+# Hyperdrive ids are not invented here — bind via Cloudflare / wrangler when
+# provisioned (keep hyperdrive: [] until then).
+
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: 24.18.0
+  PNPM_VERSION: 11.13.1
+
+jobs:
+  deploy:
+    name: Deploy production Worker
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Require production Cloudflare + Expo public config
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          missing=0
+          require() {
+            name="$1"
+            value="$2"
+            if [ -z "${value}" ]; then
+              echo "::error::Missing required GitHub Environment production value: ${name}"
+              missing=1
+            fi
+          }
+          require CLOUDFLARE_API_TOKEN "${CLOUDFLARE_API_TOKEN}"
+          require CLOUDFLARE_ACCOUNT_ID "${CLOUDFLARE_ACCOUNT_ID}"
+          require EXPO_PUBLIC_API_URL "${EXPO_PUBLIC_API_URL}"
+          require EXPO_PUBLIC_SUPABASE_URL "${EXPO_PUBLIC_SUPABASE_URL}"
+          require EXPO_PUBLIC_SUPABASE_ANON_KEY "${EXPO_PUBLIC_SUPABASE_ANON_KEY}"
+          if [ "${missing}" -ne 0 ]; then
+            echo "::error::Production deploy fail-closed: configure GitHub Environment 'production' secrets/vars with required reviewers (see docs/CICD_CLOUDFLARE.md). Never invent DATABASE_URL or Hyperdrive ids in CI."
+            exit 1
+          fi
+          echo "Production required secrets/vars are present (values not logged)."
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Export universal web app
+        env:
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_SOCKET_URL: ${{ vars.EXPO_PUBLIC_SOCKET_URL }}
+          EXPO_PUBLIC_REALTIME_ORIGIN: ${{ vars.EXPO_PUBLIC_REALTIME_ORIGIN }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: pnpm --filter @manut/app export:web
+
+      - name: Type-check Worker
+        run: pnpm --filter @manut/edge type-check
+
+      - name: Test Worker
+        run: pnpm --filter @manut/edge test
+
+      - name: Scan export + Worker artifacts
+        run: |
+          pnpm security:credentials apps/app/dist
+          if [ -d apps/edge/dist ]; then
+            pnpm security:credentials apps/edge/dist
+          fi
+
+      - name: Deploy Worker (production)
+        working-directory: apps/edge
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler deploy --env production

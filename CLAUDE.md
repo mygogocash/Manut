@@ -9,8 +9,10 @@
    and Android. Web acceptance is first; native store release is later.
 3. PostgreSQL via Prisma 7 and Cloudflare Hyperdrive remains authoritative. D1
    is edge metadata only.
-4. No deployment is active. The disabled workflow stubs must remain disabled
-   until a separately approved cutover uses newly issued Manut resources.
+4. Workers deploy CI may run (staging auto / production gated) but must fail
+ closed without Manut-owned GitHub Environment secrets. DNS cutover and
+ Hyperdrive id invention remain unauthorized; keep `hyperdrive: []` until
+ ops binds a real id. Do not use Cloudflare Pages as the SPA host.
 5. API permission and ownership checks remain authoritative even when a route
    is guarded in the client.
 

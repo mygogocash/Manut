@@ -58,8 +58,9 @@ Continue implementation from the canonical
 
 ## Deployment boundary
 
-No application deployment is active in this migration. The disabled workflow
-stubs are documentation only. This repository does not change domains,
-databases, the running `manut.xyz` service, or production infrastructure.
-Cloudflare enablement and any mobile-store release require separate reviewed
-cutovers with newly issued Manut credentials.
+Workers + Assets deploy CI lives in `.github/workflows/deploy-staging.yml`
+(push to `main`/`staging`) and `deploy.yml` (manual production, Environment
+gated). Workflows fail closed without GitHub Environment secrets and do **not**
+authorize DNS cutover or invent Hyperdrive ids. Turn off Cloudflare Pages
+auto-deploy; see [CI/CD Cloudflare](docs/CICD_CLOUDFLARE.md) and
+[production deploy readiness](docs/PRODUCTION_DEPLOY.md).

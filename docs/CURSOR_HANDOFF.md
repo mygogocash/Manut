@@ -1040,3 +1040,18 @@ Client projection hardening (Hyperdrive serializers; deploy unchanged):
 - **Payroll:** existing `hasDocument` / no-`documentUrl` locks retained.
 - **Leave:** self-list keeps `reason` (owner-only Hyperdrive path; Expo
   leave list needs it). Team/HR widened queries remain proxied.
+
+### Parallel: cicd-cloudflare-workers
+
+GitHub Actions Workers + Assets CI/CD (staging first; production gated):
+
+- Enabled `.github/workflows/deploy-staging.yml` (push `main`/`staging` +
+  `workflow_dispatch`) and `deploy.yml` (`workflow_dispatch` + Environment
+  `production`). Removed `.disabled` stubs.
+- Fail closed without `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` and
+  required Expo public Environment vars. No Hyperdrive ids or fake
+  `DATABASE_URL` in CI. `hyperdrive: []` unchanged in wrangler.
+- Docs: `docs/CICD_CLOUDFLARE.md`; updated `PRODUCTION_DEPLOY.md`, checklist,
+  AGENTS/CLAUDE/README. **Ops: disable Cloudflare Pages auto-deploy.**
+- Does not authorize DNS / `manut.xyz` cutover. Green deploy needs ops to
+  fill GitHub Environments + provision R2/Queues/Worker secrets.
