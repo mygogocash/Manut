@@ -235,9 +235,13 @@ Point Worker vars at Access:
 Empty JWKS / issuer / audience fails closed (`503 AUTH_*_NOT_CONFIGURED`).
 Storage is **R2** (`UPLOADS`); receipt provenance uses `TRUSTED_STORAGE_ORIGINS`.
 
-**Hyperdrive:** keep `"hyperdrive": []` in committed `wrangler.jsonc` until ops
-provisions a real config id and binds `HYPERDRIVE_DATABASE`. CI must never
-fabricate a Hyperdrive id.
+**Hyperdrive:** keep `"hyperdrive": []` and
+`ENABLE_HYPERDRIVE_BOUNDARY=false` until ops creates a real config (requires
+Postgres `DATABASE_URL` / `DIRECT_URL`) and binds `HYPERDRIVE_DATABASE`. The
+Hyperdrive **config id** may then be committed in `wrangler.jsonc` (it is not a
+password); CI must never invent a placeholder id. Full runbook:
+`docs/CLOUDFLARE_BINDINGS.md` → [Hyperdrive provisioning](./CLOUDFLARE_BINDINGS.md#hyperdrive-provisioning-ops).
+Status 2026-07-18: no configs in account; create blocked on missing DB URL.
 
 **Queues + R2:** the queues and R2 buckets named in `apps/edge/wrangler.jsonc`
 are created automatically at deploy time by

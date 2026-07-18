@@ -212,7 +212,8 @@ Do not reorder. DNS remains last.
    dedicated admin path (not invented inside the Worker deploy job).
 6. **Bind Hyperdrive** id into `wrangler.jsonc` (or dashboard equivalent) as
    `HYPERDRIVE_DATABASE`; set `ENABLE_HYPERDRIVE_BOUNDARY=true` only after bind.
-   Keep `hyperdrive: []` until a real id exists — never invent in CI.
+   Keep `hyperdrive: []` until a real id exists — never invent in CI. Ops
+   commands: `docs/CLOUDFLARE_BINDINGS.md` (Hyperdrive provisioning).
 7. **Set Worker vars/secrets:** `API_ORIGIN`, Cloudflare Access
    `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE`, `TRUSTED_STORAGE_ORIGINS`,
    `EDGE_SIGNING_KEY`, R2 secrets.
@@ -238,7 +239,9 @@ Do not reorder. DNS remains last.
 ## Explicit non-goals of this document
 
 - Mutating DNS or claiming production traffic cutover without approval.
-- Committing Hyperdrive ids, account ids, API tokens, or other secrets.
+- Committing connection strings, API tokens, or other secrets. (A real
+  Hyperdrive **config id** in `wrangler.jsonc` is allowed after provisioning;
+  invented placeholder ids are not.)
 - Claiming Cloudflare / Expo / E2E / revocation complete without live evidence.
 - Retiring Socket.IO or `apps/web` before Expo browser E2E acceptance.
 - Using Cloudflare Pages as the Manut SPA host.
