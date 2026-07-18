@@ -55,6 +55,34 @@ describe("Cloudflare Workers Builds contract", () => {
     expect(productionWorkerName(wrangler)).toBe("manut");
   });
 
+  it("wrangler secrets.required lists only EDGE_SIGNING_KEY (R2 S3 keys optional)", () => {
+    const wrangler = readFileSync(
+      join(repoRoot, "apps/edge/wrangler.jsonc"),
+      "utf8",
+    );
+
+    const requiredBlocks = [
+      ...wrangler.matchAll(/"secrets"\s*:\s*\{\s*"required"\s*:\s*\[([^\]]+)\]/gu),
+    ].map((match) => match[1] ?? "");
+    expect(requiredBlocks.length).toBeGreaterThanOrEqual(6);
+
+    for (const block of requiredBlocks) {
+      expect(block).toContain("EDGE_SIGNING_KEY");
+      expect(block).not.toContain("R2_ACCESS_KEY_ID");
+      expect(block).not.toContain("R2_SECRET_ACCESS_KEY");
+      expect(block).not.toContain("R2_ACCOUNT_ID");
+    }
+  });
+
+  it("wrangler omits routes so dashboard custom domains are not stripped on deploy", () => {
+    const wrangler = readFileSync(
+      join(repoRoot, "apps/edge/wrangler.jsonc"),
+      "utf8",
+    );
+    expect(wrangler).not.toMatch(/^\s*"routes"\s*:/mu);
+    expect(wrangler).toMatch(/dashboard-managed custom domains/iu);
+  });
+
   it("wrangler production and preview set same-origin API_ORIGIN and keep Hyperdrive off", () => {
     const wrangler = readFileSync(
       join(repoRoot, "apps/edge/wrangler.jsonc"),
@@ -141,11 +169,12 @@ describe("Cloudflare Workers Builds contract", () => {
       'set_env_secret preview EDGE_SIGNING_KEY "$preview_signing_key"',
     );
     expect(bootstrap).toContain(
-      'set_env_secret preview R2_ACCESS_KEY_ID "${R2_ACCESS_KEY_ID:-}"',
+      'set_env_secret preview R2_ACCESS_KEY_ID "$R2_ACCESS_KEY_ID"',
     );
     expect(bootstrap).toContain(
-      'set_env_secret preview R2_SECRET_ACCESS_KEY "${R2_SECRET_ACCESS_KEY:-}"',
+      'set_env_secret preview R2_SECRET_ACCESS_KEY "$R2_SECRET_ACCESS_KEY"',
     );
+    expect(bootstrap).toMatch(/R2 S3 pair unset|binding-only uploads/u);
     expect(bootstrap).not.toContain("put_worker_secret");
     expect(bootstrap).not.toMatch(/set_env_(?:secret|var) production/u);
   });

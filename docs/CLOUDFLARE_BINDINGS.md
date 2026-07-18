@@ -35,7 +35,7 @@ the rows below are for verifying bindings, not creating resources.
 | **Required**       | Workflow               | `BACKGROUND_WORKFLOW`                                                           | Name: `manut-intranet-background-production`, class `BackgroundWorkflow`. Keep `ENABLE_WORKFLOW_BOUNDARY=false` until ready.                                                                         |
 | **Required**       | Rate limiting          | `API_RATE_LIMITER`                                                              | Namespace id contract in wrangler (`471501` production).                                                                                                                                             |
 | **Required**       | Static Assets          | `ASSETS`                                                                        | From wrangler `assets` → `../app/dist` (SPA). Usually set by deploy, not the Bindings modal.                                                                                                         |
-| **Secrets**        | Secret / Secrets Store | `EDGE_SIGNING_KEY`, `R2_ACCESS_KEY_ID`, `R2_ACCOUNT_ID`, `R2_SECRET_ACCESS_KEY` | Prefer Secrets Store or `wrangler secret put`. Never put in client bundles.                                                                                                                          |
+| **Secrets**        | Secret / Secrets Store | **Required:** `EDGE_SIGNING_KEY`. **Optional** S3 pair: `R2_ACCESS_KEY_ID`, `R2_ACCOUNT_ID`, `R2_SECRET_ACCESS_KEY` | Uploads use the `UPLOADS` R2 binding when the S3 pair is unset. Set the pair only for direct SigV4 client→R2. Prefer Secrets Store or `wrangler secret put`. Never put in client bundles. |
 
 ### Worker vars (Settings → Variables)
 
@@ -47,7 +47,7 @@ the rows below are for verifying bindings, not creating resources.
 | `ENABLE_WORKFLOW_BOUNDARY` / `ENABLE_CONTAINER_BOUNDARY` / `ENABLE_CRON_BOUNDARY` | Stay `false` until capability provisioned                                      |
 | `TRUSTED_STORAGE_ORIGINS`                                                         | Comma-separated HTTPS origins for receipt URLs; empty = proxy managed receipts |
 | `R2_BUCKET_NAME`                                                                  | `manut-intranet-uploads-production`                                            |
-| `ENABLE_LOCAL_R2_STREAMING`                                                       | `false` on remote envs                                                         |
+| `ENABLE_LOCAL_R2_STREAMING`                                                       | `false` on remote envs (loopback-only force). Without S3 keys, remote uploads still use Worker + `UPLOADS`. |
 
 ## Optional later (do not add empty)
 

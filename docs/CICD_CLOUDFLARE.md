@@ -192,8 +192,8 @@ Workers Builds token, not a GitHub Environment.
 | `CLOUDFLARE_API_TOKEN`  | preview, staging | Manut-owned token: Workers Scripts Edit + Queues Edit + Workers R2 Storage Edit + Account Settings Read |
 | `CLOUDFLARE_ACCOUNT_ID` | preview, staging | `187ab61ed9dbc6e616cb23e6b95aa8f1`                                                                      |
 | `EDGE_SIGNING_KEY`      | preview          | Unique preview bridge secret; never reuse production                                                    |
-| `R2_ACCESS_KEY_ID`      | preview          | Preview R2 S3 credential uploaded as a Worker secret                                                    |
-| `R2_SECRET_ACCESS_KEY`  | preview          | Preview R2 S3 credential uploaded as a Worker secret                                                    |
+| `R2_ACCESS_KEY_ID`      | preview (optional) | Optional R2 S3 credential for SigV4 client→R2; omit to use Worker + `UPLOADS` binding                |
+| `R2_SECRET_ACCESS_KEY`  | preview (optional) | Pair with `R2_ACCESS_KEY_ID` when enabling SigV4; both or neither                                    |
 
 ### Variables (per Environment)
 
@@ -207,12 +207,14 @@ Supabase public vars are **not** required for deploy CI.
 
 ### Runtime config handling
 
-The preview workflow requires `EDGE_SIGNING_KEY` and the R2 S3 pair from the
-GitHub Environment, writes them to a mode-0600 file under `RUNNER_TEMP`, uploads
-them atomically with the first `wrangler deploy --secrets-file`, and deletes the
-temporary file on exit. `R2_ACCOUNT_ID` is derived from the required
-`CLOUDFLARE_ACCOUNT_ID`; no value is invented. This allows a brand-new
-`manut-preview` Worker to satisfy `secrets.required` on its first version.
+The preview workflow requires `EDGE_SIGNING_KEY` from the GitHub Environment,
+writes it to a mode-0600 file under `RUNNER_TEMP`, uploads it atomically with
+the first `wrangler deploy --secrets-file`, and deletes the temporary file on
+exit. The R2 S3 pair is optional: when both `R2_ACCESS_KEY_ID` and
+`R2_SECRET_ACCESS_KEY` are present, they are included and `R2_ACCOUNT_ID` is
+derived from `CLOUDFLARE_ACCOUNT_ID` (no value invented). When omitted, uploads
+use the `UPLOADS` R2 binding (Worker-mediated). `secrets.required` only lists
+`EDGE_SIGNING_KEY`, so SPA deploys are not blocked on unused S3 keys.
 
 Production Worker runtime secrets remain configured separately in Cloudflare
 and are independent of removing the GitHub production deploy token. Non-secret
@@ -262,9 +264,9 @@ source ~/.nvm/nvm.sh && nvm use
 export CLOUDFLARE_API_TOKEN=…          # GitHub preview/staging deploy token; never the Workers Builds token
 export CLOUDFLARE_ACCOUNT_ID=187ab61ed9dbc6e616cb23e6b95aa8f1
 export PREVIEW_EDGE_SIGNING_KEY=…       # unique preview runtime secret; never production's value
-# R2 S3 pair required for a green first preview deploy:
-export R2_ACCESS_KEY_ID=…
-export R2_SECRET_ACCESS_KEY=…
+# Optional — only if you want SigV4 client→R2 instead of Worker + UPLOADS:
+# export R2_ACCESS_KEY_ID=…
+# export R2_SECRET_ACCESS_KEY=…
 ./scripts/setup-cloudflare-deploy-secrets.sh
 ```
 
@@ -273,8 +275,16 @@ credentials and the preview-only first-deploy runtime secrets in their GitHub
 Environments; production runtime Worker secrets remain valid and separately
 managed in Cloudflare. Committed `wrangler.jsonc` sets non-secret
 production/preview vars (`API_ORIGIN`, boundary flags,
-`TRUSTED_STORAGE_ORIGINS`, `R2_BUCKET_NAME`). Auth JWKS vars stay empty until
+`TRUSTED_STORAGE_ORIGINS`, `R2_BUCKET_NAME`) and requires only
+`EDGE_SIGNING_KEY` as a deploy-time secret. Auth JWKS vars stay empty until
 Access is configured (runtime fail-closed).
+
+**Custom domains / routes:** leave `routes` out of `wrangler.jsonc`. Hosts such
+as `app.manut.xyz` (and any dashboard-attached domains) are
+**dashboard-managed custom domains** so `wrangler deploy` does not strip them.
+Drift warnings about `manut.xyz` / `preview.manut.xyz` vs local config are
+expected until DNS cutover is explicitly approved; do not add matching `routes`
+just to silence the warning.
 
 ## First green preview / staging run — ops checklist
 
@@ -284,7 +294,7 @@ Access is configured (runtime fail-closed).
 - [ ] Replacement token validated with preview ensure + deploy to `manut-preview`; no write to production `manut`
 - [ ] Native non-production Workers Builds disabled after validation
 - [ ] GitHub Environments `preview` / `staging`: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` + `EXPO_PUBLIC_API_URL`
-- [ ] Preview Environment: unique `EDGE_SIGNING_KEY` + R2 S3 pair for atomic first deploy; production runtime secrets remain in Cloudflare
+- [ ] Preview Environment: unique `EDGE_SIGNING_KEY` for atomic first deploy (R2 S3 pair optional); production runtime secrets remain in Cloudflare (`EDGE_SIGNING_KEY` required; R2 S3 optional)
 - [ ] Cloudflare Access JWKS → Worker `AUTH_*` vars
 - [ ] Bindings per `docs/CLOUDFLARE_BINDINGS.md` (cancel D1; add Hyperdrive/R2/…)
 - [ ] `manut-preview.bettergogocash.workers.dev/health` passes; custom-domain work remains separately approved

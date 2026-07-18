@@ -30,12 +30,12 @@
     // (R2 custom hosts / public bucket URLs). Empty = proxy managed receipts.
     "TRUSTED_STORAGE_ORIGINS": "",
   },
+  // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
+  // are optional: uploads default to the UPLOADS R2 binding when unset.
+  // Set them only if you want direct SigV4 client→R2 transfers.
   "secrets": {
     "required": [
       "EDGE_SIGNING_KEY",
-      "R2_ACCESS_KEY_ID",
-      "R2_ACCOUNT_ID",
-      "R2_SECRET_ACCESS_KEY",
     ],
   },
   "r2_buckets": [
@@ -145,12 +145,12 @@
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-development",
       },
+      // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
+      // are optional: uploads default to the UPLOADS R2 binding when unset.
+      // Set them only if you want direct SigV4 client→R2 transfers.
       "secrets": {
         "required": [
           "EDGE_SIGNING_KEY",
-          "R2_ACCESS_KEY_ID",
-          "R2_ACCOUNT_ID",
-          "R2_SECRET_ACCESS_KEY",
         ],
       },
       "r2_buckets": [
@@ -232,12 +232,12 @@
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-preview",
       },
+      // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
+      // are optional: uploads default to the UPLOADS R2 binding when unset.
+      // Set them only if you want direct SigV4 client→R2 transfers.
       "secrets": {
         "required": [
           "EDGE_SIGNING_KEY",
-          "R2_ACCESS_KEY_ID",
-          "R2_ACCOUNT_ID",
-          "R2_SECRET_ACCESS_KEY",
         ],
       },
       "r2_buckets": [
@@ -313,12 +313,12 @@
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-e2e",
       },
+      // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
+      // are optional: uploads default to the UPLOADS R2 binding when unset.
+      // Set them only if you want direct SigV4 client→R2 transfers.
       "secrets": {
         "required": [
           "EDGE_SIGNING_KEY",
-          "R2_ACCESS_KEY_ID",
-          "R2_ACCOUNT_ID",
-          "R2_SECRET_ACCESS_KEY",
         ],
       },
       "r2_buckets": [
@@ -392,12 +392,12 @@
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-staging",
       },
+      // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
+      // are optional: uploads default to the UPLOADS R2 binding when unset.
+      // Set them only if you want direct SigV4 client→R2 transfers.
       "secrets": {
         "required": [
           "EDGE_SIGNING_KEY",
-          "R2_ACCESS_KEY_ID",
-          "R2_ACCOUNT_ID",
-          "R2_SECRET_ACCESS_KEY",
         ],
       },
       "r2_buckets": [
@@ -461,6 +461,8 @@
     // Production environment of Worker service `manut`.
     // workers.dev: https://manut.bettergogocash.workers.dev
     // Custom domain: https://app.manut.xyz
+    // Domains/routes are dashboard-managed custom domains — omit wrangler
+    // `routes` so deploys do not strip hosts attached in the Cloudflare UI.
     "production": {
       "name": "manut",
       "workers_dev": true,
@@ -478,12 +480,12 @@
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-production",
       },
+      // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
+      // are optional: uploads default to the UPLOADS R2 binding when unset.
+      // Set them only if you want direct SigV4 client→R2 transfers.
       "secrets": {
         "required": [
           "EDGE_SIGNING_KEY",
-          "R2_ACCESS_KEY_ID",
-          "R2_ACCOUNT_ID",
-          "R2_SECRET_ACCESS_KEY",
         ],
       },
       "r2_buckets": [

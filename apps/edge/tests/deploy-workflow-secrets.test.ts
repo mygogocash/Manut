@@ -106,23 +106,20 @@ describe("deploy workflows > Cloudflare-oriented Expo public config", () => {
     expect(preview).not.toMatch(/manut-intranet-edge-preview/u);
   });
 
-  it("bootstraps required secrets atomically on the first isolated preview deploy", () => {
+  it("bootstraps EDGE_SIGNING_KEY atomically; R2 S3 keys are optional for binding-only uploads", () => {
     const preview = readFileSync(
       join(repoRoot, ".github/workflows/deploy-preview.yml"),
       "utf8",
     );
     const requirePreview = requireStep(preview);
 
-    for (const secretName of [
-      "EDGE_SIGNING_KEY",
-      "R2_ACCESS_KEY_ID",
-      "R2_SECRET_ACCESS_KEY",
-    ]) {
-      expect(requirePreview).toContain(secretName);
-    }
+    expect(requirePreview).toContain("EDGE_SIGNING_KEY");
+    expect(requirePreview).not.toContain("require R2_ACCESS_KEY_ID");
+    expect(requirePreview).not.toContain("require R2_SECRET_ACCESS_KEY");
     expect(preview).toContain("--secrets-file");
     expect(preview).toContain("RUNNER_TEMP");
     expect(preview).toContain("umask 077");
     expect(preview).toMatch(/trap [^\n]*rm -f/iu);
+    expect(preview).toMatch(/R2_ACCESS_KEY_ID[\s\S]*optional|optional[\s\S]*R2_/iu);
   });
 });
