@@ -1,10 +1,12 @@
-# Preview: Expo web export → Workers + Assets (apps/edge) via wrangler.
-# Push to branch `preview` → Worker manut-intranet-edge-preview (--env preview).
-# Correct shape is Workers + Assets — not Cloudflare Pages auto-deploy.
+# Preview: Expo web export → Worker service `manut` (versions upload).
+# Push to branch `preview` → wrangler versions upload --env preview
+# Preview URLs: *.manut.bettergogocash.workers.dev
+# Custom domain (dashboard Preview env): https://preview.manu.xyz
 #
-# Ops must turn OFF Pages project `manut` (or any Pages) auto-deploy so CI owns
-# Worker deploys. Hyperdrive ids stay out of this workflow; bind in Cloudflare /
-# wrangler config when provisioned (keep hyperdrive: [] until then).
+# Ops must turn OFF Pages auto-deploy so CI owns Worker deploys.
+# Hyperdrive ids stay out of this workflow (keep hyperdrive: [] until bound).
+# Do not use `wrangler deploy` here — that would overwrite Production on the
+# shared `manut` service; versions upload creates Preview URLs only.
 
 name: Deploy Preview
 
@@ -39,8 +41,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           missing=0
           require() {
@@ -54,10 +54,8 @@ jobs:
           require CLOUDFLARE_API_TOKEN "${CLOUDFLARE_API_TOKEN}"
           require CLOUDFLARE_ACCOUNT_ID "${CLOUDFLARE_ACCOUNT_ID}"
           require EXPO_PUBLIC_API_URL "${EXPO_PUBLIC_API_URL}"
-          require EXPO_PUBLIC_SUPABASE_URL "${EXPO_PUBLIC_SUPABASE_URL}"
-          require EXPO_PUBLIC_SUPABASE_ANON_KEY "${EXPO_PUBLIC_SUPABASE_ANON_KEY}"
           if [ "${missing}" -ne 0 ]; then
-            echo "::error::Preview deploy fail-closed: configure GitHub Environment 'preview' secrets/vars (see docs/CICD_CLOUDFLARE.md). Never invent DATABASE_URL or Hyperdrive ids in CI."
+            echo "::error::Preview deploy fail-closed: configure GitHub Environment 'preview' with CLOUDFLARE_* + EXPO_PUBLIC_API_URL (recommended https://preview.manu.xyz). See docs/CICD_CLOUDFLARE.md. Never invent DATABASE_URL or Hyperdrive ids in CI."
             exit 1
           fi
           echo "Preview required secrets/vars are present (values not logged)."
@@ -84,8 +82,6 @@ jobs:
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
           EXPO_PUBLIC_SOCKET_URL: ${{ vars.EXPO_PUBLIC_SOCKET_URL }}
           EXPO_PUBLIC_REALTIME_ORIGIN: ${{ vars.EXPO_PUBLIC_REALTIME_ORIGIN }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: pnpm --filter @manut/app export:web
 
       - name: Type-check Worker
@@ -101,9 +97,9 @@ jobs:
             pnpm security:credentials apps/edge/dist
           fi
 
-      - name: Deploy Worker (preview)
+      - name: Upload Worker preview version (manut)
         working-directory: apps/edge
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm exec wrangler deploy --env preview
+        run: pnpm exec wrangler versions upload --env preview

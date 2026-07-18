@@ -1,6 +1,8 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "manut-intranet-edge-local",
+  // Live Cloudflare Worker service name is `manut` (dashboard).
+  // Local/dev/e2e/staging keep distinct names so they cannot overwrite prod.
+  "name": "manut-local",
   "main": "src/index.ts",
   "compatibility_date": "2026-07-17",
   "compatibility_flags": ["nodejs_compat"],
@@ -16,16 +18,16 @@
     "API_ORIGIN": "",
     "AUTH_JWKS_URL": "",
     "AUTH_ISSUER": "",
-    "AUTH_AUDIENCE": "authenticated",
+    // Set to Cloudflare Access application AUD (or leave empty to fail closed).
+    "AUTH_AUDIENCE": "",
     "ENABLE_CONTAINER_BOUNDARY": "false",
     "ENABLE_CRON_BOUNDARY": "false",
     "ENABLE_HYPERDRIVE_BOUNDARY": "false",
     "ENABLE_LOCAL_R2_STREAMING": "true",
     "ENABLE_WORKFLOW_BOUNDARY": "false",
     "R2_BUCKET_NAME": "manut-intranet-uploads-local",
-    // Comma-separated HTTPS origins allowed for FileUpload-backed receipt URLs
-    // on the Hyperdrive path (Supabase Storage and/or R2 custom hosts). Empty
-    // keeps managed receipt writes proxied to Express.
+    // Comma-separated HTTPS origins for FileUpload receipt URLs on Hyperdrive
+    // (R2 custom hosts / public bucket URLs). Empty = proxy managed receipts.
     "TRUSTED_STORAGE_ORIGINS": "",
   },
   "secrets": {
@@ -129,12 +131,12 @@
   // disabled until a separate, approved provisioning change supplies them.
   "env": {
     "development": {
-      "name": "manut-intranet-edge-development",
+      "name": "manut-development",
       "vars": {
         "API_ORIGIN": "",
         "AUTH_JWKS_URL": "",
         "AUTH_ISSUER": "",
-        "AUTH_AUDIENCE": "authenticated",
+        "AUTH_AUDIENCE": "",
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
@@ -209,17 +211,22 @@
       "containers": [],
       "hyperdrive": [],
     },
+    // Preview environment of Worker service `manut`.
+    // workers.dev: *.manut.bettergogocash.workers.dev
+    // Custom domain (prefer Preview env in dashboard): https://preview.manu.xyz
     "preview": {
-      "name": "manut-intranet-edge-preview",
+      "name": "manut",
+      "workers_dev": true,
+      "preview_urls": true,
       "vars": {
-        "API_ORIGIN": "",
+        "API_ORIGIN": "https://preview.manu.xyz",
         "AUTH_JWKS_URL": "",
         "AUTH_ISSUER": "",
-        "AUTH_AUDIENCE": "authenticated",
+        "AUTH_AUDIENCE": "",
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
-        "TRUSTED_STORAGE_ORIGINS": "",
+        "TRUSTED_STORAGE_ORIGINS": "https://preview.manu.xyz",
         "ENABLE_LOCAL_R2_STREAMING": "false",
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-preview",
@@ -291,12 +298,12 @@
       "hyperdrive": [],
     },
     "e2e": {
-      "name": "manut-intranet-edge-e2e",
+      "name": "manut-e2e",
       "vars": {
         "API_ORIGIN": "",
         "AUTH_JWKS_URL": "",
         "AUTH_ISSUER": "",
-        "AUTH_AUDIENCE": "authenticated",
+        "AUTH_AUDIENCE": "",
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
@@ -368,13 +375,14 @@
       "containers": [],
       "hyperdrive": [],
     },
+    // Optional separate Worker (not the live dashboard `manut` service).
     "staging": {
-      "name": "manut-intranet-edge-staging",
+      "name": "manut-staging",
       "vars": {
         "API_ORIGIN": "",
         "AUTH_JWKS_URL": "",
         "AUTH_ISSUER": "",
-        "AUTH_AUDIENCE": "authenticated",
+        "AUTH_AUDIENCE": "",
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
@@ -449,17 +457,22 @@
       "containers": [],
       "hyperdrive": [],
     },
+    // Production environment of Worker service `manut`.
+    // workers.dev: https://manut.bettergogocash.workers.dev
+    // Custom domain: https://manu.xyz
     "production": {
-      "name": "manut-intranet-edge-production",
+      "name": "manut",
+      "workers_dev": true,
+      "preview_urls": true,
       "vars": {
-        "API_ORIGIN": "",
+        "API_ORIGIN": "https://manu.xyz",
         "AUTH_JWKS_URL": "",
         "AUTH_ISSUER": "",
-        "AUTH_AUDIENCE": "authenticated",
+        "AUTH_AUDIENCE": "",
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
-        "TRUSTED_STORAGE_ORIGINS": "",
+        "TRUSTED_STORAGE_ORIGINS": "https://manu.xyz",
         "ENABLE_LOCAL_R2_STREAMING": "false",
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-production",

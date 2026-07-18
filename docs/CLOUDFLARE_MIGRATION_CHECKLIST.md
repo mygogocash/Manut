@@ -60,8 +60,8 @@ Names and steps only — no live create from this branch.
       path (see `apps/edge/src/trusted-storage.ts`).
 - [ ] Empty / unset = managed receipt writes stay proxied to Express
       (documented in `.env.example`).
-- [ ] Do not hard-code inherited Supabase project hosts; use Manut-owned
-      storage hosts only.
+- [ ] Do not hard-code inherited storage project hosts; use Manut-owned R2 /
+      custom hosts in `TRUSTED_STORAGE_ORIGINS` only.
 - [ ] Confirm bucket allowlist + purpose/ownership registry still apply
       server-side after origins are set.
 
@@ -98,10 +98,12 @@ naming contracts).
 
 ## 5. `E2E_*` secrets + dedicated project
 
-- [ ] Dedicated Supabase (or equivalent) project `manut-intranet-e2e` only —
-      not shared with staging/production.
-- [ ] Configure exactly the five approved secrets (names only in Git):
-      - `E2E_SUPABASE_URL`
+- [ ] Dedicated `manut-intranet-e2e` Postgres (+ auth fixtures) only —
+      not shared with staging/production. Prefer Cloudflare Access–issued
+      test credentials over inherited Supabase project names.
+- [ ] Configure the approved E2E secrets (names only in Git). Until the E2E
+      gate is renamed, the fail-closed set remains:
+      - `E2E_SUPABASE_URL` (legacy name — replace when E2E harness drops Supabase)
       - `E2E_SUPABASE_ANON_KEY`
       - `E2E_SUPABASE_SERVICE_ROLE_KEY`
       - `E2E_DATABASE_URL`

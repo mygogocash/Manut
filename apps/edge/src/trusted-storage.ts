@@ -2,9 +2,9 @@
  * Portable FileUpload + trusted-URL helper for the Worker Hyperdrive path.
  *
  * Mirrors Express `requireRegisteredStorageUrl` without hard-coupling to a
- * single Supabase project origin: trusted hosts come from
- * `TRUSTED_STORAGE_ORIGINS` (comma-separated). Managed object URLs must pass
- * origin + bucket allowlist + FileUpload purpose/ownership checks.
+ * single storage vendor: trusted hosts come from `TRUSTED_STORAGE_ORIGINS`
+ * (comma-separated HTTPS origins — prefer R2 custom hosts). Managed object
+ * URLs must pass origin + bucket allowlist + FileUpload purpose/ownership.
  */
 
 export const STORAGE_BUCKETS = {
@@ -136,8 +136,9 @@ function parseAllowlistedPath(
 }
 
 /**
- * Extract bucket/path from Supabase-shaped markers, or from
- * `/{bucket}/{path}` on an allowlisted origin (R2 / custom host).
+ * Extract bucket/path from legacy `/storage/v1/object/{public|sign}/`
+ * markers (Express parity), or from `/{bucket}/{path}` on an allowlisted
+ * origin (R2 / custom host). Prefer R2-style paths for new uploads.
  */
 export function parseManagedStorageUrl(
   url: string | null | undefined,

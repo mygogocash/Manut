@@ -13,6 +13,7 @@
     "dev:edge": "pnpm --filter @manut/edge dev",
     "dev:web": "pnpm --filter @manut/web dev",
     "build": "turbo build",
+    "build:cloudflare": "pnpm db:generate && pnpm --filter @manut/app export:web",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
     "type-check": "turbo type-check",

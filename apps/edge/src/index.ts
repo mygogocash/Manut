@@ -192,7 +192,7 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
 
   app.get("/health", (context) =>
     context.json({
-      service: "manut-intranet-edge",
+      service: "manut",
       status: "ok",
     }),
   );
