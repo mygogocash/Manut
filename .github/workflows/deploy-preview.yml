@@ -1,12 +1,12 @@
-# Preview: Expo web export → Worker service `manut` (versions upload).
-# Push to branch `preview` → wrangler versions upload --env preview
-# Preview URLs: *.manut.bettergogocash.workers.dev
-# Custom domain (dashboard Preview env): https://preview.manut.xyz
+# Preview: Expo web export → isolated Worker `manut-preview` (full deploy).
+# Push to branch `preview` → wrangler deploy --env preview
+# Host: https://manut-preview.bettergogocash.workers.dev
+# Custom domain (after separate DNS approval): https://preview.manut.xyz
 #
 # Ops must turn OFF Pages auto-deploy so CI owns Worker deploys.
 # Hyperdrive ids stay out of this workflow (keep hyperdrive: [] until bound).
-# Do not use `wrangler deploy` here — that would overwrite Production on the
-# shared `manut` service; versions upload creates Preview URLs only.
+# Durable Object migrations require a full deploy. The committed preview Worker
+# name must stay distinct from production `manut`.
 
 name: Deploy Preview
 
@@ -41,6 +41,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EDGE_SIGNING_KEY: ${{ secrets.EDGE_SIGNING_KEY }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
           missing=0
           require() {
@@ -54,8 +57,11 @@ jobs:
           require CLOUDFLARE_API_TOKEN "${CLOUDFLARE_API_TOKEN}"
           require CLOUDFLARE_ACCOUNT_ID "${CLOUDFLARE_ACCOUNT_ID}"
           require EXPO_PUBLIC_API_URL "${EXPO_PUBLIC_API_URL}"
+          require EDGE_SIGNING_KEY "${EDGE_SIGNING_KEY}"
+          require R2_ACCESS_KEY_ID "${R2_ACCESS_KEY_ID}"
+          require R2_SECRET_ACCESS_KEY "${R2_SECRET_ACCESS_KEY}"
           if [ "${missing}" -ne 0 ]; then
-            echo "::error::Preview deploy fail-closed: configure GitHub Environment 'preview' with CLOUDFLARE_* + EXPO_PUBLIC_API_URL (recommended https://preview.manut.xyz). See docs/CICD_CLOUDFLARE.md. Never invent DATABASE_URL or Hyperdrive ids in CI."
+            echo "::error::Preview deploy fail-closed: configure GitHub Environment 'preview' with CLOUDFLARE_*, EDGE_SIGNING_KEY, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and EXPO_PUBLIC_API_URL (use https://manut-preview.bettergogocash.workers.dev until custom-domain approval). See docs/CICD_CLOUDFLARE.md. Never invent DATABASE_URL or Hyperdrive ids in CI."
             exit 1
           fi
           echo "Preview required secrets/vars are present (values not logged)."
@@ -104,9 +110,17 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: node scripts/ensure-cloudflare-resources.mjs --env preview
 
-      - name: Upload Worker preview version (manut)
+      - name: Deploy isolated preview Worker (manut-preview)
         working-directory: apps/edge
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: pnpm exec wrangler versions upload --env preview
+          EDGE_SIGNING_KEY: ${{ secrets.EDGE_SIGNING_KEY }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          secrets_file="${RUNNER_TEMP}/manut-preview-secrets.json"
+          umask 077
+          trap 'rm -f "${secrets_file}"' EXIT
+          node -e 'require("node:fs").writeFileSync(process.argv[1], JSON.stringify({ EDGE_SIGNING_KEY: process.env.EDGE_SIGNING_KEY, R2_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY }))' "${secrets_file}"
+          pnpm exec wrangler deploy --env preview --secrets-file "${secrets_file}"

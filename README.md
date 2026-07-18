@@ -5,7 +5,6 @@
 **Employee operations platform — one universal codebase, edge-first delivery.**
 
 [![PR Checks](https://github.com/mygogocash/Manut/actions/workflows/pr-checks.yml/badge.svg)](https://github.com/mygogocash/Manut/actions/workflows/pr-checks.yml)
-[![Deploy Production](https://github.com/mygogocash/Manut/actions/workflows/deploy.yml/badge.svg)](https://github.com/mygogocash/Manut/actions/workflows/deploy.yml)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)
 ![License](https://img.shields.io/badge/license-proprietary-lightgrey)
@@ -101,21 +100,27 @@ are rejected.
 
 ## Deployment
 
-Branch-mapped surfaces, each fail-closed without its GitHub Environment
-secrets:
+Each branch has one deploy owner. GitHub deploys fail closed without their
+Environment secrets:
 
-| Branch    | Surface                                          | Target                        |
-| --------- | ------------------------------------------------ | ----------------------------- |
-| `main`    | Deploy Production (Environment-gated reviewers)  | service `manut` (production)  |
-| `preview` | Deploy Preview (`versions upload`)               | service `manut` (preview)     |
-| `staging` | Deploy Staging                                   | Worker `manut-staging`        |
+| Branch    | Deploy owner              | Target                       |
+| --------- | ------------------------- | ---------------------------- |
+| `main`    | Cloudflare Workers Builds | service `manut` (production) |
+| `preview` | GitHub Actions            | Worker `manut-preview`       |
+| `staging` | GitHub Actions            | Worker `manut-staging`       |
 
-Cloudflare Workers Builds runs the same build (`pnpm run build:cloudflare`)
-from the dashboard. Before every wrangler invocation,
+Cloudflare Workers Builds is the sole production deploy path and runs
+`pnpm run build:cloudflare` from the dashboard. After validating a replacement
+build token with a full deploy to the isolated `manut-preview` Worker, disable
+native non-production Workers Builds so GitHub Actions remains the only
+preview/staging owner.
+Before every wrangler invocation,
 `apps/edge/scripts/ensure-cloudflare-resources.mjs` idempotently creates the
-queues and R2 buckets named in `wrangler.jsonc`. No workflow mutates DNS or
-invents Hyperdrive ids; `hyperdrive: []` stays empty until ops binds a real
-config. See [CI/CD Cloudflare](docs/CICD_CLOUDFLARE.md) and
+queues and R2 buckets named in `wrangler.jsonc`. No deploy path mutates DNS or
+invents Hyperdrive ids, and this ownership split does not authorize DNS
+changes. `hyperdrive: []` stays empty until ops binds a real config. Cloudflare
+Pages auto-deploy remains off. See
+[CI/CD Cloudflare](docs/CICD_CLOUDFLARE.md) and
 [production deploy readiness](docs/PRODUCTION_DEPLOY.md).
 
 ## Security model
@@ -134,14 +139,14 @@ See the [credential boundary](docs/CREDENTIAL_BOUNDARY.md) and
 
 ## Documentation
 
-| Topic                    | Doc                                            |
-| ------------------------ | ---------------------------------------------- |
-| Canonical handoff        | [docs/CURSOR_HANDOFF.md](docs/CURSOR_HANDOFF.md) |
-| Cloudflare bindings      | [docs/CLOUDFLARE_BINDINGS.md](docs/CLOUDFLARE_BINDINGS.md) |
-| CI/CD on Cloudflare      | [docs/CICD_CLOUDFLARE.md](docs/CICD_CLOUDFLARE.md) |
-| Production readiness     | [docs/PRODUCTION_DEPLOY.md](docs/PRODUCTION_DEPLOY.md) |
-| Auth and RBAC            | [docs/AUTH_RBAC.md](docs/AUTH_RBAC.md)         |
-| Repository migration     | [docs/REPOSITORY_MIGRATION.md](docs/REPOSITORY_MIGRATION.md) |
+| Topic                    | Doc                                                                  |
+| ------------------------ | -------------------------------------------------------------------- |
+| Canonical handoff        | [docs/CURSOR_HANDOFF.md](docs/CURSOR_HANDOFF.md)                     |
+| Cloudflare bindings      | [docs/CLOUDFLARE_BINDINGS.md](docs/CLOUDFLARE_BINDINGS.md)           |
+| CI/CD on Cloudflare      | [docs/CICD_CLOUDFLARE.md](docs/CICD_CLOUDFLARE.md)                   |
+| Production readiness     | [docs/PRODUCTION_DEPLOY.md](docs/PRODUCTION_DEPLOY.md)               |
+| Auth and RBAC            | [docs/AUTH_RBAC.md](docs/AUTH_RBAC.md)                               |
+| Repository migration     | [docs/REPOSITORY_MIGRATION.md](docs/REPOSITORY_MIGRATION.md)         |
 | Dependency upgrade scope | [docs/DEPENDENCY_UPGRADE_SCOPE.md](docs/DEPENDENCY_UPGRADE_SCOPE.md) |
 
 ## License

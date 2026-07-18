@@ -11,11 +11,13 @@ sync when architecture or verification changes.
   iOS, and Android compilation healthy from the same Expo Router project.
 - `apps/web` is a temporary parity reference. Remove a legacy route or web-only
   dependency only after the universal route has browser E2E acceptance.
-- Staging/production **Workers** deploy workflows exist
-  (`deploy-staging.yml`, `deploy.yml`) but fail closed without GitHub
-  Environment secrets. No code change authorizes DNS cutover, database
-  provisioning, mobile-store release, or inventing Hyperdrive ids. Turn off
-  Cloudflare Pages auto-deploy; see `docs/CICD_CLOUDFLARE.md`.
+- Production (`main`) deploys through Cloudflare Workers Builds. GitHub Actions
+  owns preview and staging deploys only; those workflows fail closed without
+  their GitHub Environment secrets. Disable native non-production Workers
+  Builds after preview validation so a branch has one deploy owner. No code
+  change authorizes DNS cutover, database provisioning, mobile-store release,
+  or inventing Hyperdrive ids. Keep Cloudflare Pages auto-deploy off; see
+  `docs/CICD_CLOUDFLARE.md`.
 
 ## Architecture
 

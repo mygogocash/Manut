@@ -126,23 +126,23 @@ D1 (optional non-authoritative edge metadata only)
 
 ## Whole-plan progress
 
-| Workstream                           | State                                     | Evidence and remaining condition                                                                                                                                                                              |
-| ------------------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Offline backup and archive refs      | **Remote + local complete**               | Bare mirror verified; local and remote `archive/affine-2026-07-16` + `affine-before-intranet-2026-07-16` peel to `eb797d30`.                                                                                    |
-| Clean-room tree boundary             | **Replacement PR open**                   | Commits `7d8b17a2` + `640c505a` (+ follow-ups) on `claude/intranet-full-hardening`; PR `#208` opened against `main`.                                                                                           |
-| GitHub detachment/private/protection | **Mostly complete; protection blocked**   | `fork=false`, private, About cleared to Manut Intranet, topics reset. Classic branch protection / rulesets return 403 on GitHub Free org plan — needs Pro or public (keep private; upgrade plan).             |
-| Source-organization removal          | **Phase A sweep complete locally**        | Credentials, branding, proprietary AI/marketing modules, identity-bearing migrations, and seeds were removed or replaced. HMAC provenance scan and comment sweep passed 2026-07-17.                           |
-| API strictness and hardening         | **Implemented locally**                   | Strict TypeScript, webhook bytes, purge lifecycle, lifecycle-safe auth/RBAC, atomic Leave state changes, live-socket revalidation, Performance scoping, and profile projection are implemented.               |
-| Universal Expo foundation            | **Implemented**                           | Expo SDK 57, shared API/session runtime, app-core/UI packages, auth transports, app shell, Expo Doctor, and three-platform exports pass. This is a foundation, not full route parity.                         |
-| Approved web route parity            | **Foundations landed; deepen + E2E remain** | Inventory: **88 foundation**, **0 pending**, **16 removed** (plus Expo-only `/files`). Waves 2–4 Expo route foundations are in tree; `/messages` DO shared-room + bus→DO bridge (socket.io fallback); survey question replace/publish landed (announce/analytics still deferred); Expo E2E cutover remain. |
+| Workstream                           | State                                                                           | Evidence and remaining condition                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Offline backup and archive refs      | **Remote + local complete**                                                     | Bare mirror verified; local and remote `archive/affine-2026-07-16` + `affine-before-intranet-2026-07-16` peel to `eb797d30`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Clean-room tree boundary             | **Replacement PR open**                                                         | Commits `7d8b17a2` + `640c505a` (+ follow-ups) on `claude/intranet-full-hardening`; PR `#208` opened against `main`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| GitHub detachment/private/protection | **Mostly complete; protection blocked**                                         | `fork=false`, private, About cleared to Manut Intranet, topics reset. Classic branch protection / rulesets return 403 on GitHub Free org plan — needs Pro or public (keep private; upgrade plan).                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Source-organization removal          | **Phase A sweep complete locally**                                              | Credentials, branding, proprietary AI/marketing modules, identity-bearing migrations, and seeds were removed or replaced. HMAC provenance scan and comment sweep passed 2026-07-17.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| API strictness and hardening         | **Implemented locally**                                                         | Strict TypeScript, webhook bytes, purge lifecycle, lifecycle-safe auth/RBAC, atomic Leave state changes, live-socket revalidation, Performance scoping, and profile projection are implemented.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Universal Expo foundation            | **Implemented**                                                                 | Expo SDK 57, shared API/session runtime, app-core/UI packages, auth transports, app shell, Expo Doctor, and three-platform exports pass. This is a foundation, not full route parity.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Approved web route parity            | **Foundations landed; deepen + E2E remain**                                     | Inventory: **88 foundation**, **0 pending**, **16 removed** (plus Expo-only `/files`). Waves 2–4 Expo route foundations are in tree; `/messages` DO shared-room + bus→DO bridge (socket.io fallback); survey question replace/publish landed (announce/analytics still deferred); Expo E2E cutover remain.                                                                                                                                                                                                                                                                                                                                                            |
 | Cloudflare edge layer                | **Locally implemented + Hyperdrive deepen (messages/deals/survey/HR/projects)** | Worker auth, SPA assets, R2, DO realtime, Queues/DLQ, rate limits, Workflows/Container stubs; Hyperdrive dual-path for messages (incl. `attachmentIds`), deals (list/create/pipeline/get/put; hard-delete proxied), survey lifecycle (schedule/close/archive/responses/analytics; announce still proxied), projects (list/detail/task create), expenses (`pendingForMe`/submit/approvals/FX + self CRUD), leave (self + approve/reject/cancel), cash-advance (self + approve/reject/disburse/clear; signed receipt GET proxied), visa/payroll/benefits/learning catalogs. Fresh Hyperdrive id / deploy not provisioned. See `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`. |
-| Clean PostgreSQL baseline            | **Implemented**                           | One sanitized baseline plus hash manifest, setup/assert scripts, and migration harness exist. Local Docker replay is blocked; CI PostgreSQL 16 lane is ready.                                                 |
-| Dependency upgrades                  | **Mostly implemented**                    | Requested upgrades, compatibility pins, Expo, and Cloudflare packages are present. Legacy Next/Tailwind/Vite/jsdom bridge packages remain until parity.                                                       |
-| CI decomposition                     | **Implemented locally**                   | Nine prerequisite jobs plus final `Validate`, pinned actions, read-only contents/PR metadata, and no `pull_request_target`. Not run on GitHub yet.                                                            |
-| Authenticated E2E                    | **Harness implemented; live run blocked** | Dedicated-project guard, runtime personas, reset/seed/cleanup, serialized Playwright, and failure-only artifacts exist. Five environment secrets and a fresh E2E project are missing.                         |
-| Native internal builds               | **Blocked externally**                    | JavaScript exports pass. Android internal APK and iOS simulator EAS builds require a fresh Manut Expo organization.                                                                                           |
-| Credential revocation proof          | **Blocked externally**                    | Provider-side revocation and negative authentication evidence require authorized Manut-owned accounts. A local Cursor worker also requires credential rotation after command-line exposure.                   |
-| Final acceptance and merge           | **Not started**                           | Requires parity, complete local gates, replacement commit, remote resources, green PR, approval, and verified repository settings.                                                                            |
+| Clean PostgreSQL baseline            | **Implemented**                                                                 | One sanitized baseline plus hash manifest, setup/assert scripts, and migration harness exist. Local Docker replay is blocked; CI PostgreSQL 16 lane is ready.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Dependency upgrades                  | **Mostly implemented**                                                          | Requested upgrades, compatibility pins, Expo, and Cloudflare packages are present. Legacy Next/Tailwind/Vite/jsdom bridge packages remain until parity.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| CI decomposition                     | **Implemented locally**                                                         | Nine prerequisite jobs plus final `Validate`, pinned actions, read-only contents/PR metadata, and no `pull_request_target`. Not run on GitHub yet.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Authenticated E2E                    | **Harness implemented; live run blocked**                                       | Dedicated-project guard, runtime personas, reset/seed/cleanup, serialized Playwright, and failure-only artifacts exist. Five environment secrets and a fresh E2E project are missing.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Native internal builds               | **Blocked externally**                                                          | JavaScript exports pass. Android internal APK and iOS simulator EAS builds require a fresh Manut Expo organization.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Credential revocation proof          | **Blocked externally**                                                          | Provider-side revocation and negative authentication evidence require authorized Manut-owned accounts. A local Cursor worker also requires credential rotation after command-line exposure.                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Final acceptance and merge           | **Not started**                                                                 | Requires parity, complete local gates, replacement commit, remote resources, green PR, approval, and verified repository settings.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Implemented work in detail
 
@@ -388,8 +388,8 @@ Primary files are under `apps/edge/src`:
 - `survey-engine/*` + `survey/*` + `survey-forms/*`: dual-path for both
   `/api/survey` and `/api/survey-forms` — Hyperdrive+Prisma for list (scope
   available/mine/all + archived manager gate), get-by-id, create, `PUT
-  /:id/questions`, `POST /:id/publish` (no announce body), `POST
-  /:id/responses`, `GET /:id/my-response`, schedule, close/reopen,
+/:id/questions`, `POST /:id/publish` (no announce body), `POST
+/:id/responses`, `GET /:id/my-response`, schedule, close/reopen,
   archive/unarchive, GET responses (emails stripped), analytics,
   announcement/notification settings; mirrors Express
   `survey:manage` / `survey:manage-wave` + owner/audience rules; strips
@@ -587,27 +587,27 @@ pins every action by commit SHA, and does not use `pull_request_target`.
 
 **PR #208 CI triage (run `29593883641` / CodeQL `29593881188`, 2026-07-17):**
 
-| Check | Cause | Owner / fix |
-| --- | --- | --- |
-| CodeQL `Analyze (ruby)` | Default setup runs Ruby; tree has no Ruby sources → “could not process any code written in Ruby” | Repo/org Code scanning default setup: drop Ruby (keep `javascript-typescript` only). Not fixable in app code. |
-| Authenticated E2E | `e2e` environment secrets empty (`E2E_SUPABASE_URL` … all blank) | Provision dedicated `manut-intranet-e2e` + five approved secrets on the `e2e` environment. Do not weaken the fail-closed gate. |
-| `Validate` | Aggregator only — failed because `dependency-review`, `static-unit`, and `e2e` failed | Clears when those three are green. Not independent product noise. |
-| Dependency review (OSV) | Lockfile hits (e.g. `@hono/node-server`, `@xmldom/xmldom`, `minimatch`, `xlsx`, …) | Patch/bump reviewed deps; do not disable OSV. |
-| Static and unit | Lint `import/no-unresolved` on `@/features/settings/preferences-storage` (`.web`/`.native` pair) | Fixed in `apps/app/eslint.config.mjs` ignore list (same pattern as `@/platform/*`). |
+| Check                   | Cause                                                                                            | Owner / fix                                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| CodeQL `Analyze (ruby)` | Default setup runs Ruby; tree has no Ruby sources → “could not process any code written in Ruby” | Repo/org Code scanning default setup: drop Ruby (keep `javascript-typescript` only). Not fixable in app code.                  |
+| Authenticated E2E       | `e2e` environment secrets empty (`E2E_SUPABASE_URL` … all blank)                                 | Provision dedicated `manut-intranet-e2e` + five approved secrets on the `e2e` environment. Do not weaken the fail-closed gate. |
+| `Validate`              | Aggregator only — failed because `dependency-review`, `static-unit`, and `e2e` failed            | Clears when those three are green. Not independent product noise.                                                              |
+| Dependency review (OSV) | Lockfile hits (e.g. `@hono/node-server`, `@xmldom/xmldom`, `minimatch`, `xlsx`, …)               | Patch/bump reviewed deps; do not disable OSV.                                                                                  |
+| Static and unit         | Lint `import/no-unresolved` on `@/features/settings/preferences-storage` (`.web`/`.native` pair) | Fixed in `apps/app/eslint.config.mjs` ignore list (same pattern as `@/platform/*`).                                            |
 
 JS/TS CodeQL, Secret scan, Web/Worker/Native builds, and Migration safety already passed on that run.
 
 **External ops checklist (cannot complete from this worktree alone — 2026-07-18):**
 
-| Item | Owner | Status / next action |
-| --- | --- | --- |
-| E2E secrets + dedicated project | Ops | Still blocked: five `E2E_*` on `e2e` env + `manut-intranet-e2e`. Do not soft-skip the gate. |
-| CodeQL Ruby language | Repo settings | Drop Ruby from default Code scanning setup (JS/TS already passes). |
-| OSV / dependency-review bumps | Eng | Review Dependabot/OSV hits and bump low-risk lockfile deps; keep OSV fail-closed. |
-| Static-unit platform ignore | Eng | Preferences-storage `.web`/`.native` ignore landed; re-check CI if new unresolved pairs appear. |
-| GitHub Free → Pro | Org | Branch protection / required `Validate` still 403 on Free org plan. |
-| Phase E Cloudflare / Expo / Hyperdrive | Ops | Fresh Manut-owned resources only; no deploy from this branch. |
-| Credential revocation proof | Ops | Negative auth evidence + rotate any exposed worker secrets out-of-band. |
+| Item                                   | Owner         | Status / next action                                                                            |
+| -------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------- |
+| E2E secrets + dedicated project        | Ops           | Still blocked: five `E2E_*` on `e2e` env + `manut-intranet-e2e`. Do not soft-skip the gate.     |
+| CodeQL Ruby language                   | Repo settings | Drop Ruby from default Code scanning setup (JS/TS already passes).                              |
+| OSV / dependency-review bumps          | Eng           | Review Dependabot/OSV hits and bump low-risk lockfile deps; keep OSV fail-closed.               |
+| Static-unit platform ignore            | Eng           | Preferences-storage `.web`/`.native` ignore landed; re-check CI if new unresolved pairs appear. |
+| GitHub Free → Pro                      | Org           | Branch protection / required `Validate` still 403 on Free org plan.                             |
+| Phase E Cloudflare / Expo / Hyperdrive | Ops           | Fresh Manut-owned resources only; no deploy from this branch.                                   |
+| Credential revocation proof            | Ops           | Negative auth evidence + rotate any exposed worker secrets out-of-band.                         |
 
 Nine prerequisite jobs plus the final aggregator:
 
@@ -694,62 +694,62 @@ Migration order:
    employees, roles, and related approval screens.
    **Status 2026-07-18 (reconcile):** Wave 2 HR spine foundation complete —
    Travel (+ `/travel/approval` steps), Expenses (+ `/expenses/[reportId]`
-   + `/expenses/approval`), admin Employees/Roles, `/hrms` (+
-   `/hrms/grants/[employeeId]`), `/visa` (+ checklist-templates +
-   knowledge-base), `/cash-advance` (+ approval), `/payroll` (+
-   `/payroll/approval`), `/benefits`, `/learning`, `/office`, `/careers`,
-   `/applications`. Leave calendar/team approve + `/leave/policies` landed.
-   Still deferred (deepen, not missing routes): office book-self + manage;
-   careers apply/manage; applications status writes; payroll
-   create/approve/payslip export; benefits enroll/manage; learning
-   manage/complete; HRMS pool/import/offboarding; visa CRUD/90-day;
-   cash-advance approve/disburse; expense approve + R2 receipts; wall/compose.
+   - `/expenses/approval`), admin Employees/Roles, `/hrms` (+
+     `/hrms/grants/[employeeId]`), `/visa` (+ checklist-templates +
+     knowledge-base), `/cash-advance` (+ approval), `/payroll` (+
+     `/payroll/approval`), `/benefits`, `/learning`, `/office`, `/careers`,
+     `/applications`. Leave calendar/team approve + `/leave/policies` landed.
+     Still deferred (deepen, not missing routes): office book-self + manage;
+     careers apply/manage; applications status writes; payroll
+     create/approve/payslip export; benefits enroll/manage; learning
+     manage/complete; HRMS pool/import/offboarding; visa CRUD/90-day;
+     cash-advance approve/disburse; expense approve + R2 receipts; wall/compose.
    3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
-   accounting/revenue, content, communications, reporting, and administration.
-   **Status 2026-07-18 (reconcile):** Wave 3 route foundations complete for
-   migrate targets — `/it-helpdesk`, `/projects` list/detail/dashboard,
-   `/accounting`, `/revenue`, `/sales`, `/partners` (+ detail), investor
-   modules (`/investors`, `/investor-updates`, `/dataroom`), OTHER CRM hubs
-   (`/it-crm`, `/it-crm/dashboard`, `/product-crm`, `/legal-crm`,
-   `/accounting-crm`, `/qa-crm`, `/qa-crm/[projectId]`, `/voucher-crm`,
-   `/hr-crm`, `/investor-crm`, `/sales-revenue`, `/deals`), content/comms
-   (`/blog-management`, `/docs`, `/legal` + announcements/shared,
-   `/pr-management`), admin (`/admin`, `/admin/form-config`), IT ops
-   (`/it-operations` + access/billing), `/policies`, `/certificates`, and
-   survey list/detail/respond/new shells (`/survey`, `/survey-forms`).
-   **Survey deepen (2026-07-18):** draft create on `/survey/new` +
-   `/survey-forms/new` (manage-gated POST), `/survey/[id]/respond`
-   answer submit, and manage-gated question list editors + publish on
-   `/survey/[id]` (`survey:manage`) and `/survey-forms/[id]`
-   (`survey:manage-wave`) via `PUT …/questions` + `POST …/publish`
-   (app-core Zod; no announce payload). Disposition stays `foundation`
-   until Expo E2E. Still deferred: announce/schedule/analytics/archive,
-   full drag-reorder parity with web, survey-forms respond submit,
-   targeting UI.
-   **Projects CRM deepen (2026-07-18):** `/projects/[projectId]` now reads
-   kanban columns + tasks from `GET /projects/:id` (emails/budget stripped in
-   app-core) and creates tasks via `POST /projects/:id/tasks` with
-   `createProjectTaskInputSchema` + `projects:update` / team-CRM
-   `*:update`/`*:manage` client gate. Disposition stays `foundation`.
-   **Deals create deepen (2026-07-18):** `/deals` list stays foundation; one
-   write lands via app-core `createDeal` + `createDealInputSchema` →
-   `POST /api/deals`, Expo form gated by `deals:create`/`deals:manage`, list
-   query invalidated on success (notes/email/partner still stripped). Deferred:
-   pipeline kanban, stage drag, notes editor, delete.
-   **CRM deepen pattern for other hubs** (`/it-crm`, `/product-crm`,
-   `/legal-crm`, `/qa-crm`, …): (1) extend the existing detail/list DTO to
-   project board columns + task cards without emails/budget/member PII;
-   (2) add one write (`createTask` / status patch) with Zod in
-   `packages/app-core` mirroring the API validation; (3) permission-gate the
-   Expo form; (4) unit + screen tests; (5) leave disposition `foundation`
-   until Expo E2E. Do not deepen every CRM hub in one slice.
-   Still deepen (not missing routes): journals/invoices/bank/approve-post,
-   revenue detail tabs, reporting, helpdesk writes/comments/GitHub, project
-   drag-reorder / task edit-delete / members, deals pipeline/kanban/notes,
-   survey announce / schedule / analytics / archive, other CRM
-   board/tasks/import/create.
+      accounting/revenue, content, communications, reporting, and administration.
+      **Status 2026-07-18 (reconcile):** Wave 3 route foundations complete for
+      migrate targets — `/it-helpdesk`, `/projects` list/detail/dashboard,
+      `/accounting`, `/revenue`, `/sales`, `/partners` (+ detail), investor
+      modules (`/investors`, `/investor-updates`, `/dataroom`), OTHER CRM hubs
+      (`/it-crm`, `/it-crm/dashboard`, `/product-crm`, `/legal-crm`,
+      `/accounting-crm`, `/qa-crm`, `/qa-crm/[projectId]`, `/voucher-crm`,
+      `/hr-crm`, `/investor-crm`, `/sales-revenue`, `/deals`), content/comms
+      (`/blog-management`, `/docs`, `/legal` + announcements/shared,
+      `/pr-management`), admin (`/admin`, `/admin/form-config`), IT ops
+      (`/it-operations` + access/billing), `/policies`, `/certificates`, and
+      survey list/detail/respond/new shells (`/survey`, `/survey-forms`).
+      **Survey deepen (2026-07-18):** draft create on `/survey/new` +
+      `/survey-forms/new` (manage-gated POST), `/survey/[id]/respond`
+      answer submit, and manage-gated question list editors + publish on
+      `/survey/[id]` (`survey:manage`) and `/survey-forms/[id]`
+      (`survey:manage-wave`) via `PUT …/questions` + `POST …/publish`
+      (app-core Zod; no announce payload). Disposition stays `foundation`
+      until Expo E2E. Still deferred: announce/schedule/analytics/archive,
+      full drag-reorder parity with web, survey-forms respond submit,
+      targeting UI.
+      **Projects CRM deepen (2026-07-18):** `/projects/[projectId]` now reads
+      kanban columns + tasks from `GET /projects/:id` (emails/budget stripped in
+      app-core) and creates tasks via `POST /projects/:id/tasks` with
+      `createProjectTaskInputSchema` + `projects:update` / team-CRM
+      `*:update`/`*:manage` client gate. Disposition stays `foundation`.
+      **Deals create deepen (2026-07-18):** `/deals` list stays foundation; one
+      write lands via app-core `createDeal` + `createDealInputSchema` →
+      `POST /api/deals`, Expo form gated by `deals:create`/`deals:manage`, list
+      query invalidated on success (notes/email/partner still stripped). Deferred:
+      pipeline kanban, stage drag, notes editor, delete.
+      **CRM deepen pattern for other hubs** (`/it-crm`, `/product-crm`,
+      `/legal-crm`, `/qa-crm`, …): (1) extend the existing detail/list DTO to
+      project board columns + task cards without emails/budget/member PII;
+      (2) add one write (`createTask` / status patch) with Zod in
+      `packages/app-core` mirroring the API validation; (3) permission-gate the
+      Expo form; (4) unit + screen tests; (5) leave disposition `foundation`
+      until Expo E2E. Do not deepen every CRM hub in one slice.
+      Still deepen (not missing routes): journals/invoices/bank/approve-post,
+      revenue detail tabs, reporting, helpdesk writes/comments/GitHub, project
+      drag-reorder / task edit-delete / members, deals pipeline/kanban/notes,
+      survey announce / schedule / analytics / archive, other CRM
+      board/tasks/import/create.
 
-4. Files, realtime messaging, integrations, document processing, and only
+3. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
    **Status 2026-07-18 (parallel Hyperdrive + Expo deepen reconcile):**
    `/messages` Expo sends via REST and receives live
@@ -769,22 +769,22 @@ Migration order:
    dual-path: list, detail (kanban + tasks), task create; reorder/members/
    milestones/task update-delete still proxy. Portable `trusted-storage`
    helper + FileUpload lookup: managed URLs require `TRUSTED_STORAGE_ORIGINS`
-   + bucket allowlist + purpose/ownership registry. HR deepen: expenses
-   `pendingForMe`/submit/approvals/FX + self CRUD; cash-advance
-   approve/reject/disburse/clear (+ receipts when safe); leave
-   approve/reject/cancel; payroll my-payslips; benefits/learning/visa
-   catalogs. Expo deepen (disposition stays `foundation`): expenses/CA
-   pending inboxes, survey manage UX, deals pipeline kanban + notes, project
-   board writes. Express `messageBus` still fans to the DO when
-   `EDGE_REALTIME_ORIGIN` + `EDGE_REALTIME_BRIDGE_SECRET` (must match Worker
-   `EDGE_SIGNING_KEY`) are set; socket.io `/messages` remains the client
-   fallback when unset. Fail closed: missing `REALTIME_ROOMS` / `API_ORIGIN`
-   / bridge secret / Hyperdrive binding (when flagged on) rejects the
-   edge-native path. Phase E ops checklist:
-   `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`.
-   **Next CF module candidates:** deals soft-delete contract, survey announce
-   side-effects, projects reorder/members/milestones, leave balances/types,
-   CA signed receipt GET, payroll PDF export.
+   - bucket allowlist + purpose/ownership registry. HR deepen: expenses
+     `pendingForMe`/submit/approvals/FX + self CRUD; cash-advance
+     approve/reject/disburse/clear (+ receipts when safe); leave
+     approve/reject/cancel; payroll my-payslips; benefits/learning/visa
+     catalogs. Expo deepen (disposition stays `foundation`): expenses/CA
+     pending inboxes, survey manage UX, deals pipeline kanban + notes, project
+     board writes. Express `messageBus` still fans to the DO when
+     `EDGE_REALTIME_ORIGIN` + `EDGE_REALTIME_BRIDGE_SECRET` (must match Worker
+     `EDGE_SIGNING_KEY`) are set; socket.io `/messages` remains the client
+     fallback when unset. Fail closed: missing `REALTIME_ROOMS` / `API_ORIGIN`
+     / bridge secret / Hyperdrive binding (when flagged on) rejects the
+     edge-native path. Phase E ops checklist:
+     `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`.
+     **Next CF module candidates:** deals soft-delete contract, survey announce
+     side-effects, projects reorder/members/milestones, leave balances/types,
+     CA signed receipt GET, payroll PDF export.
 
 For each route slice:
 
@@ -1010,15 +1010,15 @@ Hyperdrive ids invented). Disposition stays **88 foundation / 0 pending /
 
 **Edge Hyperdrive (dual-path when `ENABLE_HYPERDRIVE_BOUNDARY=true`):**
 
-| Module | On Hyperdrive | Still Express-proxied |
-| --- | --- | --- |
-| Messages | channels/DMs/users/unread/read/typing/hide, list/send/delete, `attachmentIds` link + list enrichment | — (Socket.IO client fallback unchanged) |
-| Deals | list, create, pipeline, get, put | `DELETE /:id` (no soft-delete contract) |
-| Survey / survey-forms | list/detail/create/questions/publish/respond/my-response, schedule, close/reopen, archive, responses, analytics, settings | announce-on-publish / `POST /:id/announce`; survey-forms PUT/DELETE metadata |
-| Projects | list, detail (kanban + tasks), task create | dashboard, import/reorder, members, milestones, task update/delete, other CRM hubs |
-| Expenses | self CRUD + lines (+ receipts when trusted), `pendingForMe`, submit, approvals, FX | raw items / meta / Express-only signing paths |
-| Leave | self list/create + approve/reject/cancel | balances, types catalog, richer team/HR filters |
-| Cash-advance | self list/create/submit/update (+ receipts when trusted) + approve/reject/disburse/clear | signed receipt GET, disbursement-proof GET |
+| Module                | On Hyperdrive                                                                                                             | Still Express-proxied                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Messages              | channels/DMs/users/unread/read/typing/hide, list/send/delete, `attachmentIds` link + list enrichment                      | — (Socket.IO client fallback unchanged)                                            |
+| Deals                 | list, create, pipeline, get, put                                                                                          | `DELETE /:id` (no soft-delete contract)                                            |
+| Survey / survey-forms | list/detail/create/questions/publish/respond/my-response, schedule, close/reopen, archive, responses, analytics, settings | announce-on-publish / `POST /:id/announce`; survey-forms PUT/DELETE metadata       |
+| Projects              | list, detail (kanban + tasks), task create                                                                                | dashboard, import/reorder, members, milestones, task update/delete, other CRM hubs |
+| Expenses              | self CRUD + lines (+ receipts when trusted), `pendingForMe`, submit, approvals, FX                                        | raw items / meta / Express-only signing paths                                      |
+| Leave                 | self list/create + approve/reject/cancel                                                                                  | balances, types catalog, richer team/HR filters                                    |
+| Cash-advance          | self list/create/submit/update (+ receipts when trusted) + approve/reject/disburse/clear                                  | signed receipt GET, disbursement-proof GET                                         |
 
 **Expo / app-core deepen (foundation disposition):** expenses + cash-advance
 pending inboxes; survey detail manage (announce/schedule/analytics/archive);
@@ -1055,3 +1055,49 @@ GitHub Actions Workers + Assets CI/CD (staging first; production gated):
   AGENTS/CLAUDE/README. **Ops: disable Cloudflare Pages auto-deploy.**
 - Does not authorize DNS / `manut.xyz` cutover. Green deploy needs ops to
   fill GitHub Environments + provision R2/Queues/Worker secrets.
+
+### Reconcile: workers-build-token-recovery (2026-07-18)
+
+This current deployment contract supersedes the historical parallel notes
+above where they conflict:
+
+- Cloudflare Workers Builds is the sole production deploy owner for `main`;
+  GitHub Actions owns preview and staging only. Native non-production Workers
+  Builds must be disabled after the token-recovery preview validation.
+- The build command is `pnpm run build:cloudflare`. Production deploy is
+  `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env production && npx wrangler deploy --env production`.
+  Token-recovery preview validation is
+  `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env preview && npx wrangler deploy --env preview`
+  to the isolated Worker `manut-preview`.
+- If the selected build token was deleted or rolled, use **Create new token**
+  in the Builds selector, name it `Manut Workers Builds - YYYY-MM-DD`, and
+  narrow the generated token via **Edit** (never **Roll**) to the standard
+  Workers Builds permissions plus Queues Edit, account GoGoCash, and zone
+  `manut.xyz`. Retry preview before production and never copy its value into
+  GitHub or the repository. Durable Object migrations
+  require the full isolated `manut-preview` deploy documented in
+  `docs/CICD_CLOUDFLARE.md`; preview must never target production `manut`.
+- GitHub deploy-token setup covers `preview` and `staging` only. Production
+  runtime Worker secrets remain separately managed in Cloudflare.
+- Cloudflare Pages auto-deploy stays off. Token recovery or a green deploy
+  does not authorize DNS/custom-domain mutation or claim traffic cutover.
+
+Live recovery evidence from 2026-07-18:
+
+- Worker `manut` selects active Builds-managed token
+  `Manut Workers Builds - 2026-07-18`, narrowed in place to the eight documented
+  permissions, account GoGoCash, and zone `manut.xyz`. An abandoned token was
+  revoked immediately and the unused custom duplicate was deleted.
+- Native non-production Workers Builds is disabled; production branch remains
+  `main`, and no production build retry, deployment, or DNS change was made.
+- Preview build `aee01346-8404-4e4c-935c-54f7d7e5b6f6` proved replacement-token
+  authentication plus Queue/R2 access, then failed with Cloudflare `10211`
+  because the old version-upload command could not apply the Durable Object
+  migration. The isolated full-deploy validation reached `manut-preview` and
+  failed closed only on missing `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`.
+- GitHub Environment `preview` now uses
+  `EXPO_PUBLIC_API_URL=https://manut-preview.bettergogocash.workers.dev`, but
+  still lacks the separate deploy token and R2 S3 pair. A new preview-only
+  `EDGE_SIGNING_KEY` was generated directly into the Environment without
+  printing or retaining it. The workflow accepts these names through an
+  ephemeral `--secrets-file`; do not copy the Workers Builds token into GitHub.

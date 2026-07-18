@@ -1,8 +1,8 @@
 # CI/CD — Cloudflare Workers + Assets
 
 Manut web delivery is **Workers + Assets** from `apps/edge` (`wrangler deploy`),
-not Cloudflare Pages. GitHub Actions and/or Workers Builds own deploy after
-Expo web export.
+not Cloudflare Pages. Cloudflare Workers Builds is the sole production deploy
+owner for `main`; GitHub Actions owns preview and staging deploys only.
 
 **Bindings (Hyperdrive, R2, DO, Queues — never D1 as SoR):**
 [`docs/CLOUDFLARE_BINDINGS.md`](./CLOUDFLARE_BINDINGS.md).
@@ -11,23 +11,25 @@ Companion: `docs/PRODUCTION_DEPLOY.md` (cutover order, ops blockers).
 
 ## Live Cloudflare account / service
 
-| Field | Value |
-| --- | --- |
-| Account id | `187ab61ed9dbc6e616cb23e6b95aa8f1` |
-| Worker service | **`manut`** |
+| Field                | Value                                                                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Account id           | `187ab61ed9dbc6e616cb23e6b95aa8f1`                                                                                                            |
+| Worker service       | **`manut`**                                                                                                                                   |
 | Production dashboard | [workers/services/view/manut/production](https://dash.cloudflare.com/187ab61ed9dbc6e616cb23e6b95aa8f1/workers/services/view/manut/production) |
-| Production hosts | `https://app.manut.xyz`, `https://manut.bettergogocash.workers.dev` |
-| Preview host | `https://preview.manut.xyz` (attach to **Preview** env, not Production) |
-| Landing page | `https://manut.xyz` — marketing site, separate surface, **not** this Worker |
+| Production hosts     | `https://app.manut.xyz`, `https://manut.bettergogocash.workers.dev`                                                                           |
+| Preview Worker       | **`manut-preview`**                                                                                                                           |
+| Preview host         | `https://manut-preview.bettergogocash.workers.dev` (`preview.manut.xyz` only after separate DNS approval)                                     |
+| Landing page         | `https://manut.xyz` — marketing site, separate surface, **not** this Worker                                                                   |
 
-| Git branch | CF env | URL |
-| --- | --- | --- |
-| `main` | production | https://app.manut.xyz (+ https://manut.bettergogocash.workers.dev) |
-| `preview` | preview | https://preview.manut.xyz (+ `*.manut.bettergogocash.workers.dev`) |
+| Git branch | CF env     | URL                                                                |
+| ---------- | ---------- | ------------------------------------------------------------------ |
+| `main`     | production | https://app.manut.xyz (+ https://manut.bettergogocash.workers.dev) |
+| `preview`  | preview    | https://manut-preview.bettergogocash.workers.dev                   |
 
-Wrangler: `env.production.name` / `env.preview.name` = `manut`; staging is a
-separate Worker `manut-staging`. If `preview.manut.xyz` is listed under
-**Production** in Cloudflare Domains, move it to the **Preview** environment.
+Wrangler: `env.production.name = "manut"`, `env.preview.name =
+"manut-preview"`, and `env.staging.name = "manut-staging"`. Preview must not
+use the Worker name `manut`: Durable Object lifecycle migrations require a full
+deploy, so sharing the name would let preview overwrite production.
 
 ## Why `pnpm run build` fails on Workers Builds
 
@@ -48,53 +50,85 @@ Path: Worker `manut` → **Settings → Builds** (or Connect to Git → Builds).
 
 ### Production
 
-| Setting | Paste value |
-| --- | --- |
-| Root directory | `/` |
-| Build command | `pnpm run build:cloudflare` |
-| Deploy command | `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env production && npx wrangler deploy --env production` |
-| Branch | `main` |
-| Node version | `24.18.0` (or `.nvmrc`) |
-| Package manager | pnpm `11.13.1` |
+| Setting         | Paste value                                                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Root directory  | `/`                                                                                                                     |
+| Build command   | `pnpm run build:cloudflare`                                                                                             |
+| Deploy command  | `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env production && npx wrangler deploy --env production` |
+| Branch          | `main`                                                                                                                  |
+| Node version    | `24.18.0` (or `.nvmrc`)                                                                                                 |
+| Package manager | pnpm `11.13.1`                                                                                                          |
 
-### One-time: add Queues Edit to the Workers Builds API token
+### Recover a deleted or rolled Workers Builds token
 
-The auto-generated Workers Builds token has Workers Scripts / KV / R2 /
-Routes edit but **no Queues permission**, so the ensure script (and
-`wrangler deploy` queue validation) fails closed until ops adds it:
-Dashboard → **My Profile → API Tokens** → the auto-generated "Workers
-Builds" token → **Edit** → add **Account → Queues → Edit** → Save. Editing
-scopes keeps the same token value. R2 needs no change (Workers R2 Storage
-Edit is already granted).
+The error `The build token selected for this build has been deleted or rolled`
+happens before checkout. Do not change source, the build command, or Worker
+runtime secrets to compensate.
+
+1. Review recent Cloudflare token, build, and deployment activity. Treat any
+   unexplained use as a credential incident before retrying.
+2. In Worker **`manut`** → **Settings → Builds → API token**, choose
+   **Create new token**, name it **`Manut Workers Builds - YYYY-MM-DD`**, and
+   save. Workers Builds currently lists Builds-managed user tokens in this
+   selector; a separately created custom token may not be eligible to select.
+3. Open **My Profile → API Tokens** and choose **Edit** (not **Roll**) for that
+   same token. The generated token may initially include unrelated Cloudflare
+   product permissions. Remove them, restrict the account to **GoGoCash** and
+   the zone to **`manut.xyz`**, and keep only this final matrix:
+
+   | Scope                  | Permission              |
+   | ---------------------- | ----------------------- |
+   | Account                | Account Settings Read   |
+   | Account                | Workers Scripts Edit    |
+   | Account                | Workers KV Storage Edit |
+   | Account                | Workers R2 Storage Edit |
+   | Account                | Queues Edit             |
+   | Zone (Manut zone only) | Workers Routes Edit     |
+   | User                   | User Details Read       |
+   | User                   | Memberships Read        |
+
+4. Return to Worker **`manut`** → **Settings → Builds** and confirm the selected
+   token name is unchanged. Never copy the value to GitHub, source, logs, or
+   this runbook, and never choose **Roll** while the token is selected. If a
+   future scope change cannot be made in place, create and select a complete
+   replacement before retiring the old token.
+5. Retry a non-production build first using the isolated preview contract
+   below. The ensure step must successfully inspect the preview Queues and R2
+   bucket, and the deploy must target `manut-preview`, before any production
+   retry. Cloudflare code `10211` means a version-only upload attempted an
+   unapplied Durable Object migration; use the full isolated preview deploy,
+   never a version upload against production `manut`.
 
 **Variables (Production Builds / Worker vars for Expo export):**
 
-| Variable | Required | Example / note |
-| --- | --- | --- |
-| `EXPO_PUBLIC_API_URL` | yes | `https://app.manut.xyz` |
-| `EXPO_PUBLIC_SOCKET_URL` | no | Usually same origin or API host |
-| `EXPO_PUBLIC_REALTIME_ORIGIN` | no | Edge DO WebSocket origin when not same-origin |
-| Auth JWKS / issuer | later | Worker vars `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE` — **not** Supabase CI vars |
+| Variable                      | Required | Example / note                                                                         |
+| ----------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL`         | yes      | `https://app.manut.xyz`                                                                |
+| `EXPO_PUBLIC_SOCKET_URL`      | no       | Usually same origin or API host                                                        |
+| `EXPO_PUBLIC_REALTIME_ORIGIN` | no       | Edge DO WebSocket origin when not same-origin                                          |
+| Auth JWKS / issuer            | later    | Worker vars `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE` — **not** Supabase CI vars |
 
 Do **not** require Supabase Expo public vars for Builds or GitHub deploy workflows.
 
 ### Preview
 
-| Setting | Paste value |
-| --- | --- |
-| Root directory | `/` |
-| Build command | `pnpm run build:cloudflare` |
-| Deploy command | `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env preview && npx wrangler deploy --env preview` |
-| Branch | `preview` (or non-`main` PR previews per dashboard) |
-| `EXPO_PUBLIC_API_URL` | `https://preview.manut.xyz` |
+| Setting               | Paste value                                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Root directory        | `/`                                                                                                               |
+| Build command         | `pnpm run build:cloudflare`                                                                                       |
+| Deploy command        | `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env preview && npx wrangler deploy --env preview` |
+| Branch                | `preview` (or non-`main` PR previews per dashboard)                                                               |
+| `EXPO_PUBLIC_API_URL` | `https://manut-preview.bettergogocash.workers.dev` until separate custom-domain approval                          |
 
-`--env preview` targets the Preview environment of service `manut` (same
-Worker name as production). Attach custom domain `preview.manut.xyz` to the
-**Preview** environment, not Production.
+`--env preview` targets the separate Worker `manut-preview`. Its full deploy is
+required for Durable Object migrations and cannot promote or overwrite
+production `manut`. Validate the workers.dev host first; attaching
+`preview.manut.xyz` remains a separately approved DNS operation.
 
-GitHub Actions `deploy-preview.yml` still uses `wrangler versions upload
---env preview` so automated pushes create preview versions without promoting
-Production.
+Use this native non-production build only to validate a replacement build
+token. After it succeeds, disable Workers Builds for non-production branches;
+GitHub Actions `deploy-preview.yml` remains the sole preview owner and deploys
+only `manut-preview`.
 
 ### After you change Builds settings — View build checklist
 
@@ -102,7 +136,9 @@ Production.
 2. Confirm install used **pnpm** (not npm) and Node **24.18.0**.
 3. Confirm build step is `pnpm run build:cloudflare` — **not** `pnpm run build` / turbo.
 4. Confirm log shows `prisma generate` / `@manut/database` generate before Expo export.
-5. Confirm deploy runs from `apps/edge` with `--env production` (or `--env preview`).
+5. Confirm deploy runs from `apps/edge`:
+   - production: `wrangler deploy --env production`;
+   - preview validation: `wrangler deploy --env preview` → `manut-preview`.
 6. If still red: paste the first `error TS` / `Failed:` line (not the whole log).
 
 Common failure if settings are stale: `Cannot find module './generated/prisma/client'`
@@ -115,20 +151,21 @@ repo:
 
 1. Open Cloudflare Dashboard → Workers & Pages → that Pages project.
 2. **Turn off automatic deployments** (disconnect Git if needed).
-3. Deploy only via Workers Builds / GitHub Actions → wrangler against service
-   **`manut`** (production/preview) or Worker **`manut-staging`**.
+3. Deploy production only through Workers Builds; deploy preview/staging only
+   through GitHub Actions. Pages remains disconnected.
 
 ## GitHub Actions workflows
 
-| Git branch | Workflow | File | Trigger | GitHub Environment | Wrangler |
-| --- | --- | --- | --- | --- | --- |
-| `preview` | Deploy Preview | `.github/workflows/deploy-preview.yml` | Push `preview`; dispatch | `preview` | `wrangler versions upload --env preview` → service `manut` |
-| `staging` | Deploy Staging | `.github/workflows/deploy-staging.yml` | Push `staging`; dispatch | `staging` | `wrangler deploy --env staging` → `manut-staging` |
-| `main` | Deploy Production | `.github/workflows/deploy.yml` | Push `main`; dispatch | `production` (require reviewers) | `wrangler deploy --env production` → service `manut` |
+| Git branch | Workflow       | File                                   | Trigger                  | GitHub Environment | Wrangler                                          |
+| ---------- | -------------- | -------------------------------------- | ------------------------ | ------------------ | ------------------------------------------------- |
+| `preview`  | Deploy Preview | `.github/workflows/deploy-preview.yml` | Push `preview`; dispatch | `preview`          | `wrangler deploy --env preview` → `manut-preview` |
+| `staging`  | Deploy Staging | `.github/workflows/deploy-staging.yml` | Push `staging`; dispatch | `staging`          | `wrangler deploy --env staging` → `manut-staging` |
 
 Neither workflow mutates DNS. Neither invents Hyperdrive ids or `DATABASE_URL`.
+There is no GitHub Actions production deploy workflow; a `main` build is owned
+only by Workers Builds.
 
-### Pipeline (all three)
+### Pipeline (preview and staging)
 
 1. Fail closed if required Environment secrets/vars are missing.
 2. Node `24.18.0`, pnpm `11.13.1`, `pnpm install --frozen-lockfile`.
@@ -138,49 +175,62 @@ Neither workflow mutates DNS. Neither invents Hyperdrive ids or `DATABASE_URL`.
 6. `pnpm security:credentials` on `apps/app/dist`
 7. `node scripts/ensure-cloudflare-resources.mjs --env <env>` (idempotent
    queue + R2 provisioning from `wrangler.jsonc` contracts; create-only)
-8. wrangler deploy / versions upload from `apps/edge`
+8. `wrangler deploy` from `apps/edge` to the branch-isolated Worker
 
 Actions are commit-SHA pinned to match `.github/workflows/pr-checks.yml`.
 
 ## GitHub Environment configuration (names only)
 
-Create Environments **`preview`**, **`staging`**, and **`production`**. For
-`production`, enable **required reviewers** before the deploy job can run.
+Create GitHub Environments **`preview`** and **`staging`** only for deploy
+credentials. Production deploy authentication belongs to the dashboard-selected
+Workers Builds token, not a GitHub Environment.
 
 ### Secrets (per Environment)
 
-| Secret | Purpose |
-| --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Manut-owned token: Workers Scripts Edit + Queues Edit + Workers R2 Storage Edit + Account Settings Read |
-| `CLOUDFLARE_ACCOUNT_ID` | `187ab61ed9dbc6e616cb23e6b95aa8f1` |
+| Secret                  | Environments     | Purpose                                                                                                 |
+| ----------------------- | ---------------- | ------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | preview, staging | Manut-owned token: Workers Scripts Edit + Queues Edit + Workers R2 Storage Edit + Account Settings Read |
+| `CLOUDFLARE_ACCOUNT_ID` | preview, staging | `187ab61ed9dbc6e616cb23e6b95aa8f1`                                                                      |
+| `EDGE_SIGNING_KEY`      | preview          | Unique preview bridge secret; never reuse production                                                    |
+| `R2_ACCESS_KEY_ID`      | preview          | Preview R2 S3 credential uploaded as a Worker secret                                                    |
+| `R2_SECRET_ACCESS_KEY`  | preview          | Preview R2 S3 credential uploaded as a Worker secret                                                    |
 
 ### Variables (per Environment)
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `EXPO_PUBLIC_API_URL` | yes | HTTP API / app origin baked into Expo web export (`https://app.manut.xyz` production) |
-| `EXPO_PUBLIC_SOCKET_URL` | no | Socket.IO fallback origin |
-| `EXPO_PUBLIC_REALTIME_ORIGIN` | no | Edge DO WebSocket origin when not same-origin |
+| Variable                      | Required | Purpose                                                              |
+| ----------------------------- | -------- | -------------------------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL`         | yes      | HTTP API / app origin baked into the preview/staging Expo web export |
+| `EXPO_PUBLIC_SOCKET_URL`      | no       | Socket.IO fallback origin                                            |
+| `EXPO_PUBLIC_REALTIME_ORIGIN` | no       | Edge DO WebSocket origin when not same-origin                        |
 
 Supabase public vars are **not** required for deploy CI.
 
-### Not set by CI (configure in Cloudflare / wrangler)
+### Runtime config handling
 
-Worker **secrets** (`EDGE_SIGNING_KEY`, R2 credentials) and **vars**
-(`API_ORIGIN`, `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE`,
-`TRUSTED_STORAGE_ORIGINS`, …) are set with `wrangler secret put` / dashboard /
-`wrangler.jsonc` — not invented in the workflow. See `docs/CLOUDFLARE_BINDINGS.md`.
+The preview workflow requires `EDGE_SIGNING_KEY` and the R2 S3 pair from the
+GitHub Environment, writes them to a mode-0600 file under `RUNNER_TEMP`, uploads
+them atomically with the first `wrangler deploy --secrets-file`, and deletes the
+temporary file on exit. `R2_ACCOUNT_ID` is derived from the required
+`CLOUDFLARE_ACCOUNT_ID`; no value is invented. This allows a brand-new
+`manut-preview` Worker to satisfy `secrets.required` on its first version.
+
+Production Worker runtime secrets remain configured separately in Cloudflare
+and are independent of removing the GitHub production deploy token. Non-secret
+vars (`API_ORIGIN`, `TRUSTED_STORAGE_ORIGINS`, boundary flags, …) come from
+`wrangler.jsonc`; Access vars (`AUTH_JWKS_URL`, `AUTH_ISSUER`,
+`AUTH_AUDIENCE`) stay ops-managed and fail closed while empty.
+See `docs/CLOUDFLARE_BINDINGS.md`.
 
 #### Cloudflare Access → Worker JWT verification
 
 Create a Cloudflare Access application (do not invent team/app ids in git).
 Point Worker vars at Access:
 
-| Worker var | Example shape |
-| --- | --- |
+| Worker var      | Example shape                                              |
+| --------------- | ---------------------------------------------------------- |
 | `AUTH_JWKS_URL` | `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs` |
-| `AUTH_ISSUER` | `https://<team>.cloudflareaccess.com` |
-| `AUTH_AUDIENCE` | Access application AUD tag |
+| `AUTH_ISSUER`   | `https://<team>.cloudflareaccess.com`                      |
+| `AUTH_AUDIENCE` | Access application AUD tag                                 |
 
 Empty JWKS / issuer / audience fails closed (`503 AUTH_*_NOT_CONFIGURED`).
 Storage is **R2** (`UPLOADS`); receipt provenance uses `TRUSTED_STORAGE_ORIGINS`.
@@ -198,41 +248,53 @@ Durable Object migrations, queue consumers, and Workflows are applied by
 
 ## Bootstrap remaining secrets (local)
 
-OAuth (`wrangler login`) can set Worker secrets and create R2 buckets, but
-**cannot** mint a long-lived `CLOUDFLARE_API_TOKEN` for GitHub Actions. After
-creating a Manut-owned API token (and optional R2 S3 token) in the dashboard:
+OAuth (`wrangler login`) can set Worker runtime secrets and create R2 buckets,
+but **cannot** mint a long-lived `CLOUDFLARE_API_TOKEN` for GitHub Actions.
+After creating a Manut-owned preview/staging deploy token (and optional R2 S3
+token) in the dashboard:
 
 ```bash
 source ~/.nvm/nvm.sh && nvm use
-export CLOUDFLARE_API_TOKEN=…          # Workers Scripts Edit + Queues Edit + Workers R2 Storage Edit + Account read
+export CLOUDFLARE_API_TOKEN=…          # GitHub preview/staging deploy token; never the Workers Builds token
 export CLOUDFLARE_ACCOUNT_ID=187ab61ed9dbc6e616cb23e6b95aa8f1
-# optional R2 S3 pair for Worker secrets.required:
+export PREVIEW_EDGE_SIGNING_KEY=…       # unique preview runtime secret; never production's value
+# R2 S3 pair required for a green first preview deploy:
 export R2_ACCESS_KEY_ID=…
 export R2_SECRET_ACCESS_KEY=…
 ./scripts/setup-cloudflare-deploy-secrets.sh
 ```
 
-The script never prints secret values. Committed `wrangler.jsonc` already sets
-non-secret production/preview vars (`API_ORIGIN`, boundary flags,
+The script never prints secret values. It stores preview/staging deploy
+credentials and the preview-only first-deploy runtime secrets in their GitHub
+Environments; production runtime Worker secrets remain valid and separately
+managed in Cloudflare. Committed `wrangler.jsonc` sets non-secret
+production/preview vars (`API_ORIGIN`, boundary flags,
 `TRUSTED_STORAGE_ORIGINS`, `R2_BUCKET_NAME`). Auth JWKS vars stay empty until
 Access is configured (runtime fail-closed).
 
 ## First green preview / staging run — ops checklist
 
 - [ ] Pages auto-deploy disabled (see above)
-- [ ] Workers Builds: `build:cloudflare` + deploy commands above
-- [ ] Deploy tokens have Queues Edit + Workers R2 Storage Edit (Workers Builds auto token: add Queues Edit manually; GH Actions token: verify scopes)
-- [ ] GitHub Environments: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` + `EXPO_PUBLIC_API_URL`
-- [ ] Worker secrets: `EDGE_SIGNING_KEY`, `R2_*` (see bootstrap script)
+- [ ] Workers Builds: `build:cloudflare` + exact production command above
+- [ ] Dedicated Builds-managed `Manut Workers Builds - YYYY-MM-DD` token has effective access to every scope above, including Queues Edit
+- [ ] Replacement token validated with preview ensure + deploy to `manut-preview`; no write to production `manut`
+- [ ] Native non-production Workers Builds disabled after validation
+- [ ] GitHub Environments `preview` / `staging`: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` + `EXPO_PUBLIC_API_URL`
+- [ ] Preview Environment: unique `EDGE_SIGNING_KEY` + R2 S3 pair for atomic first deploy; production runtime secrets remain in Cloudflare
 - [ ] Cloudflare Access JWKS → Worker `AUTH_*` vars
 - [ ] Bindings per `docs/CLOUDFLARE_BINDINGS.md` (cancel D1; add Hyperdrive/R2/…)
-- [ ] `preview.manut.xyz` on Preview env
-- [ ] Push / dispatch preview + staging; confirm service `manut` / Worker `manut-staging`
+- [ ] `manut-preview.bettergogocash.workers.dev/health` passes; custom-domain work remains separately approved
+- [ ] Push / dispatch preview + staging; confirm Workers `manut-preview` / `manut-staging`
 
 ## Production enablement
 
-1. Preview/staging deploys green and smoke-tested.
-2. GitHub Environment `production` with **required reviewers** + secrets/vars.
-3. Production bindings provisioned (Hyperdrive id real; R2/Queues/DO per wrangler).
-4. Merge/push to `main` (or **Actions → Deploy Production → Run workflow**).
-5. DNS / custom domain only after separate approval (`PRODUCTION_DEPLOY.md`).
+1. Preview/staging GitHub deploys are green and smoke-tested.
+2. A dedicated Workers Builds token is selected and has passed the preview
+   validation retry against `manut-preview`; native non-production Workers
+   Builds is disabled.
+3. Production bindings are provisioned (Hyperdrive id real; R2/Queues/DO per
+   wrangler) and production runtime secrets/vars are set in Cloudflare.
+4. Retry the production build, or merge/push to `main` for the next production
+   build, and confirm Workers Builds is the only production deploy owner.
+5. DNS / custom-domain changes require separate approval; successful deploy
+   authentication grants no DNS authorization (`PRODUCTION_DEPLOY.md`).

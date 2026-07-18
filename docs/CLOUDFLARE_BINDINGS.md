@@ -23,51 +23,51 @@ Queue and R2 **resources** (`manut-intranet-jobs-*`, `manut-intranet-uploads-*`)
 are auto-created at deploy by `apps/edge/scripts/ensure-cloudflare-resources.mjs`;
 the rows below are for verifying bindings, not creating resources.
 
-| Priority | Binding type | Variable / binding name | Resource / notes |
-| --- | --- | --- | --- |
-| **Required (SoR)** | Hyperdrive | `HYPERDRIVE_DATABASE` | Manut-owned Hyperdrive → Postgres. Keep `ENABLE_HYPERDRIVE_BOUNDARY=false` until bound; then set `true`. Commit id into `wrangler.jsonc` only after ops provisions it (`hyperdrive: []` until then). |
-| **Required** | R2 bucket | `UPLOADS` | Bucket contract: `manut-intranet-uploads-production` (private). |
-| **Required** | Durable Object | `REALTIME_ROOMS` | Class: `RealtimeRoom` (migrations tag `edge-v1`). |
-| **Required** | Durable Object | `QUEUE_LEDGER` | Class: `QueueLedger`. |
-| **Required** | Queue (producer) | `JOB_QUEUE` | Queue: `manut-intranet-jobs-production`. |
-| **Required** | Queue (producer) | `DEAD_LETTER_QUEUE` | Queue: `manut-intranet-jobs-production-dlq`. |
-| **Required** | Queue consumer | (same queue) | Consumer on `manut-intranet-jobs-production` → DLQ above; batch/retry per wrangler. |
-| **Required** | Workflow | `BACKGROUND_WORKFLOW` | Name: `manut-intranet-background-production`, class `BackgroundWorkflow`. Keep `ENABLE_WORKFLOW_BOUNDARY=false` until ready. |
-| **Required** | Rate limiting | `API_RATE_LIMITER` | Namespace id contract in wrangler (`471501` production). |
-| **Required** | Static Assets | `ASSETS` | From wrangler `assets` → `../app/dist` (SPA). Usually set by deploy, not the Bindings modal. |
-| **Secrets** | Secret / Secrets Store | `EDGE_SIGNING_KEY`, `R2_ACCESS_KEY_ID`, `R2_ACCOUNT_ID`, `R2_SECRET_ACCESS_KEY` | Prefer Secrets Store or `wrangler secret put`. Never put in client bundles. |
+| Priority           | Binding type           | Variable / binding name                                                         | Resource / notes                                                                                                                                                                                     |
+| ------------------ | ---------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Required (SoR)** | Hyperdrive             | `HYPERDRIVE_DATABASE`                                                           | Manut-owned Hyperdrive → Postgres. Keep `ENABLE_HYPERDRIVE_BOUNDARY=false` until bound; then set `true`. Commit id into `wrangler.jsonc` only after ops provisions it (`hyperdrive: []` until then). |
+| **Required**       | R2 bucket              | `UPLOADS`                                                                       | Bucket contract: `manut-intranet-uploads-production` (private).                                                                                                                                      |
+| **Required**       | Durable Object         | `REALTIME_ROOMS`                                                                | Class: `RealtimeRoom` (migrations tag `edge-v1`).                                                                                                                                                    |
+| **Required**       | Durable Object         | `QUEUE_LEDGER`                                                                  | Class: `QueueLedger`.                                                                                                                                                                                |
+| **Required**       | Queue (producer)       | `JOB_QUEUE`                                                                     | Queue: `manut-intranet-jobs-production`.                                                                                                                                                             |
+| **Required**       | Queue (producer)       | `DEAD_LETTER_QUEUE`                                                             | Queue: `manut-intranet-jobs-production-dlq`.                                                                                                                                                         |
+| **Required**       | Queue consumer         | (same queue)                                                                    | Consumer on `manut-intranet-jobs-production` → DLQ above; batch/retry per wrangler.                                                                                                                  |
+| **Required**       | Workflow               | `BACKGROUND_WORKFLOW`                                                           | Name: `manut-intranet-background-production`, class `BackgroundWorkflow`. Keep `ENABLE_WORKFLOW_BOUNDARY=false` until ready.                                                                         |
+| **Required**       | Rate limiting          | `API_RATE_LIMITER`                                                              | Namespace id contract in wrangler (`471501` production).                                                                                                                                             |
+| **Required**       | Static Assets          | `ASSETS`                                                                        | From wrangler `assets` → `../app/dist` (SPA). Usually set by deploy, not the Bindings modal.                                                                                                         |
+| **Secrets**        | Secret / Secrets Store | `EDGE_SIGNING_KEY`, `R2_ACCESS_KEY_ID`, `R2_ACCOUNT_ID`, `R2_SECRET_ACCESS_KEY` | Prefer Secrets Store or `wrangler secret put`. Never put in client bundles.                                                                                                                          |
 
 ### Worker vars (Settings → Variables)
 
-| Var | Production guidance |
-| --- | --- |
-| `API_ORIGIN` | Express parity origin when routes still proxy |
-| `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE` | Fail closed if JWKS empty at runtime |
-| `ENABLE_HYPERDRIVE_BOUNDARY` | `true` only after `HYPERDRIVE_DATABASE` exists |
-| `ENABLE_WORKFLOW_BOUNDARY` / `ENABLE_CONTAINER_BOUNDARY` / `ENABLE_CRON_BOUNDARY` | Stay `false` until capability provisioned |
-| `TRUSTED_STORAGE_ORIGINS` | Comma-separated HTTPS origins for receipt URLs; empty = proxy managed receipts |
-| `R2_BUCKET_NAME` | `manut-intranet-uploads-production` |
-| `ENABLE_LOCAL_R2_STREAMING` | `false` on remote envs |
+| Var                                                                               | Production guidance                                                            |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `API_ORIGIN`                                                                      | Express parity origin when routes still proxy                                  |
+| `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE`                                 | Fail closed if JWKS empty at runtime                                           |
+| `ENABLE_HYPERDRIVE_BOUNDARY`                                                      | `true` only after `HYPERDRIVE_DATABASE` exists                                 |
+| `ENABLE_WORKFLOW_BOUNDARY` / `ENABLE_CONTAINER_BOUNDARY` / `ENABLE_CRON_BOUNDARY` | Stay `false` until capability provisioned                                      |
+| `TRUSTED_STORAGE_ORIGINS`                                                         | Comma-separated HTTPS origins for receipt URLs; empty = proxy managed receipts |
+| `R2_BUCKET_NAME`                                                                  | `manut-intranet-uploads-production`                                            |
+| `ENABLE_LOCAL_R2_STREAMING`                                                       | `false` on remote envs                                                         |
 
 ## Optional later (do not add empty)
 
-| Binding | When |
-| --- | --- |
-| KV | Non-authoritative cache / feature flags only — never SoR |
-| Workers AI | Only for a real product feature |
-| Secrets Store | Preferred home for `EDGE_SIGNING_KEY` / R2 keys |
-| Analytics Engine | Metrics later |
-| D1 | **Only** trivial edge metadata with an explicit use-case — **never** business/transactional data |
+| Binding          | When                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------ |
+| KV               | Non-authoritative cache / feature flags only — never SoR                                         |
+| Workers AI       | Only for a real product feature                                                                  |
+| Secrets Store    | Preferred home for `EDGE_SIGNING_KEY` / R2 keys                                                  |
+| Analytics Engine | Metrics later                                                                                    |
+| D1               | **Only** trivial edge metadata with an explicit use-case — **never** business/transactional data |
 
 ## Do not bind / do not invent
 
-| Item | Why |
-| --- | --- |
-| **D1 as business DB** | Violates repo boundary; Postgres + Hyperdrive is SoR |
-| Client `DATABASE_URL` | Never in Expo / browser |
-| Invented Hyperdrive ids in git | Keep `hyperdrive: []` until a real id exists |
-| Inherited / shared account resources | Fresh Manut-owned names only |
-| Cloudflare Pages as SPA host | Workers + Assets only |
+| Item                                 | Why                                                  |
+| ------------------------------------ | ---------------------------------------------------- |
+| **D1 as business DB**                | Violates repo boundary; Postgres + Hyperdrive is SoR |
+| Client `DATABASE_URL`                | Never in Expo / browser                              |
+| Invented Hyperdrive ids in git       | Keep `hyperdrive: []` until a real id exists         |
+| Inherited / shared account resources | Fresh Manut-owned names only                         |
+| Cloudflare Pages as SPA host         | Workers + Assets only                                |
 
 ## Click path (Bindings UI)
 
@@ -84,8 +84,8 @@ the rows below are for verifying bindings, not creating resources.
 
 ## Preview vs staging naming
 
-| Env | Worker / service | Notes |
-| --- | --- | --- |
-| Production | `manut` (`--env production`) | `app.manut.xyz`, `manut.bettergogocash.workers.dev` |
-| Preview | same service `manut` (`--env preview` / versions upload) | Prefer `preview.manut.xyz` on Preview env — move off Production if still attached |
-| Staging | separate Worker `manut-staging` | Does not overwrite live `manut` |
+| Env        | Worker / service                                  | Notes                                                                                                                  |
+| ---------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Production | `manut` (`--env production`)                      | `app.manut.xyz`, `manut.bettergogocash.workers.dev`                                                                    |
+| Preview    | separate Worker `manut-preview` (`--env preview`) | Durable Object migrations require full deploy isolation; workers.dev first, custom domain only after separate approval |
+| Staging    | separate Worker `manut-staging`                   | Does not overwrite live `manut`                                                                                        |

@@ -211,11 +211,12 @@
       "containers": [],
       "hyperdrive": [],
     },
-    // Preview environment of Worker service `manut`.
-    // workers.dev: *.manut.bettergogocash.workers.dev
-    // Custom domain (prefer Preview env in dashboard): https://preview.manut.xyz
+    // Preview is a separate Worker because Durable Object migrations require
+    // full deploys and must never be applied to the production `manut` script.
+    // workers.dev: https://manut-preview.bettergogocash.workers.dev
+    // Custom domain (after separate DNS approval): https://preview.manut.xyz
     "preview": {
-      "name": "manut",
+      "name": "manut-preview",
       "workers_dev": true,
       "preview_urls": true,
       "vars": {
