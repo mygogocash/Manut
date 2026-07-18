@@ -169,6 +169,45 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/projects",
+      "/it-crm",
+      "/product-crm",
+      "/legal-crm",
+      "/accounting-crm",
+      "/settings",
+    ]);
+  });
+
+  it("keeps CRM workspace hubs off employee-only shells", () => {
+    const links = allowedShellLinks(
+      ["it-crm:read", "product-crm:read", "qa-crm:read", "voucher-crm:read"],
+      true,
+    );
+
+    expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);
+  });
+
+  it("keeps CRM workspace hubs visible for non-employee accounts", () => {
+    const links = allowedShellLinks(
+      [
+        "it-crm:read",
+        "product-crm:read",
+        "legal-crm:read",
+        "accounting-crm:read",
+        "qa-crm:read",
+        "voucher-crm:read",
+      ],
+      false,
+    );
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/projects",
+      "/it-crm",
+      "/product-crm",
+      "/legal-crm",
+      "/accounting-crm",
+      "/qa-crm",
+      "/voucher-crm",
       "/settings",
     ]);
   });

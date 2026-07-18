@@ -714,3 +714,76 @@ export type {
   MessageChannel,
   MessageChannelList,
 } from "./messages/messages";
+export type { CrmWorkspaceProject } from "./crm/create-crm-workspace-list";
+export {
+  IT_CRM_QUERY_ROOT,
+  itCrmListParamsSchema,
+  itCrmProjectSchema,
+  itCrmProjectsQueryKey,
+  listItCrmProjects,
+} from "./it-crm/it-crm";
+export type {
+  ItCrmList,
+  ItCrmListParams,
+  ItCrmProject,
+} from "./it-crm/it-crm";
+export {
+  listProductCrmProjects,
+  PRODUCT_CRM_QUERY_ROOT,
+  productCrmListParamsSchema,
+  productCrmProjectSchema,
+  productCrmProjectsQueryKey,
+} from "./product-crm/product-crm";
+export type {
+  ProductCrmList,
+  ProductCrmListParams,
+  ProductCrmProject,
+} from "./product-crm/product-crm";
+export {
+  LEGAL_CRM_QUERY_ROOT,
+  legalCrmListParamsSchema,
+  legalCrmProjectSchema,
+  legalCrmProjectsQueryKey,
+  listLegalCrmProjects,
+} from "./legal-crm/legal-crm";
+export type {
+  LegalCrmList,
+  LegalCrmListParams,
+  LegalCrmProject,
+} from "./legal-crm/legal-crm";
+export {
+  ACCOUNTING_CRM_QUERY_ROOT,
+  accountingCrmListParamsSchema,
+  accountingCrmProjectSchema,
+  accountingCrmProjectsQueryKey,
+  listAccountingCrmProjects,
+} from "./accounting-crm/accounting-crm";
+export type {
+  AccountingCrmList,
+  AccountingCrmListParams,
+  AccountingCrmProject,
+} from "./accounting-crm/accounting-crm";
+export {
+  listQaCrmProjects,
+  QA_CRM_QUERY_ROOT,
+  qaCrmListParamsSchema,
+  qaCrmProjectSchema,
+  qaCrmProjectsQueryKey,
+} from "./qa-crm/qa-crm";
+export type {
+  QaCrmList,
+  QaCrmListParams,
+  QaCrmProject,
+} from "./qa-crm/qa-crm";
+export {
+  listVoucherEntries,
+  VOUCHER_CRM_QUERY_ROOT,
+  voucherCrmQueryKey,
+  voucherEntrySchema,
+  voucherListParamsSchema,
+} from "./voucher-crm/voucher-crm";
+export type {
+  VoucherEntry,
+  VoucherList,
+  VoucherListParams,
+} from "./voucher-crm/voucher-crm";

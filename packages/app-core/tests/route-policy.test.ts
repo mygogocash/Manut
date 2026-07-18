@@ -331,4 +331,66 @@ describe("route policy resolution", () => {
       }),
     ).toMatchObject({ allowed: true });
   });
+  it("blocks employee-only accounts from CRM workspace hubs", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/it-crm",
+        permissions: ["it-crm:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/qa-crm",
+        permissions: ["qa-crm:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+  });
+
+  it("allows CRM workspace hubs for non-employee accounts with read perms", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/it-crm",
+        permissions: ["it-crm:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/product-crm",
+        permissions: ["product-crm:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/legal-crm",
+        permissions: ["legal-crm:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/accounting-crm",
+        permissions: ["accounting-crm:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/qa-crm",
+        permissions: ["qa-crm:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/voucher-crm",
+        permissions: ["voucher-crm:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
 });

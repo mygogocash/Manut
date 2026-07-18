@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 35,
-    "pending": 52,
+    "foundation": 47,
+    "pending": 40,
     "removed": 16
   },
   "statusSemantics": {
@@ -24,9 +24,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/accounting-crm/page.tsx",
       "sourceRoute": "/accounting-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/accounting-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only accounting CRM project list via app-core (strips emails/notes/board). Deferred: board, tasks, import, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/accounting/page.tsx",
@@ -304,9 +304,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/it-crm/page.tsx",
       "sourceRoute": "/it-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only IT CRM project list via app-core (strips emails/notes/budget/board). Deferred: board, tasks, archive, dashboard, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-helpdesk/page.tsx",
@@ -384,9 +384,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/legal-crm/page.tsx",
       "sourceRoute": "/legal-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/legal-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only legal CRM project list via app-core (strips emails/notes/board/details). Deferred: board, tasks, import, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/legal/announcements/[id]/page.tsx",
@@ -584,9 +584,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/product-crm/page.tsx",
       "sourceRoute": "/product-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/product-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only product CRM project list via app-core (strips emails/notes/board). Deferred: board, tasks, import, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/projects/[projectId]/page.tsx",
@@ -624,9 +624,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/qa-crm/page.tsx",
       "sourceRoute": "/qa-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/qa-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only QA CRM project list via app-core (strips emails/notes/board). Deferred: project detail, issue board, import, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/revenue/page.tsx",
@@ -776,9 +776,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/voucher-crm/page.tsx",
       "sourceRoute": "/voucher-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/voucher-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only voucher entry list via app-core (strips creator email/notes). Deferred: create, import, reorder, edits."
     },
     {
       "sourcePath": "apps/web/src/app/auth/callback/page.tsx",

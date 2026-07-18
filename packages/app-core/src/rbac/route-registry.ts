@@ -299,6 +299,68 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     employeeAllowed: true,
     prefix: true,
   },
+  {
+    path: "/it-crm",
+    access: "protected",
+    permissions: [
+      "it-crm:read",
+      "it-crm:read-all",
+      "projects:read",
+      "projects:read-all",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/product-crm",
+    access: "protected",
+    permissions: [
+      "product-crm:read",
+      "product-crm:read-all",
+      "projects:read",
+      "projects:read-all",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/legal-crm",
+    access: "protected",
+    permissions: [
+      "legal-crm:read",
+      "legal-crm:read-all",
+      "projects:read",
+      "projects:read-all",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/accounting-crm",
+    access: "protected",
+    permissions: [
+      "accounting-crm:read",
+      "accounting-crm:read-all",
+      "projects:read",
+      "projects:read-all",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/qa-crm",
+    access: "protected",
+    permissions: ["qa-crm:read", "qa-crm:read-all"],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/voucher-crm",
+    access: "protected",
+    permissions: ["voucher-crm:read", "voucher-crm:read-all"],
+    employeeAllowed: false,
+    prefix: true,
+  },
 ];
 
 export interface RouteOverride {

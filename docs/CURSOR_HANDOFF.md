@@ -616,6 +616,8 @@ Migration order:
    journals/invoices/bank/approve-post, revenue detail tabs, reporting,
    administration hubs, helpdesk writes/comments/GitHub, project
    boards/task writes, and blog/PR/docs compose + announcement detail/ack.
+   OTHER CRM list hubs also landed as `foundation`: `/it-crm`, `/product-crm`, `/legal-crm`, `/accounting-crm`, `/qa-crm`, `/voucher-crm`. Deferred: `/hr-crm` (no dedicated list API), `/investor-crm` (dashboard + `/api/investors`), `/it-crm/dashboard`, `/qa-crm/[projectId]`.
+
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
    **Status 2026-07-18:** Wave 4 not started in Expo product UI. Concrete
