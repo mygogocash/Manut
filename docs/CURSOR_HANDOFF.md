@@ -892,6 +892,10 @@ Playwright storage state, test artifacts, SBOM output, or provider files.
 
 ### Phase E: fresh Manut environment provisioning
 
+Deploy-readiness (code-ready vs ops-blocked, binding names, cutover order,
+local dry-run evidence): **`docs/PRODUCTION_DEPLOY.md`**. Deploy workflows
+remain `.disabled`; do not enable them from this branch.
+
 This phase requires verified Manut-owned authority and should not be attempted
 from an inherited provider account.
 
@@ -981,6 +985,8 @@ These are merge blockers, not reasons to weaken or bypass tests.
 
 ## Control documents
 
+- `docs/PRODUCTION_DEPLOY.md`: production deploy readiness matrix, env/binding
+  names, cutover order, and mechanical re-enable notes (deploy remains disabled).
 - `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`: Phase E Hyperdrive / realtime / E2E / retirement checklist (deploy remains disabled).
 - `docs/REPOSITORY_MIGRATION.md`: provenance, backup, deployment boundary, and
   rollback.

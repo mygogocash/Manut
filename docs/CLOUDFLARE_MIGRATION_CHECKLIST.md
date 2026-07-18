@@ -3,16 +3,32 @@
 Ops-facing checklist for fresh Manut-owned Cloudflare / CI cutover.
 **This document does not authorize provisioning or deploy.**
 
+Deploy-readiness matrix, env/binding names, cutover order, and local dry-run
+commands: **`docs/PRODUCTION_DEPLOY.md`**.
+
 ## Deploy stays disabled
 
-- [ ] Keep `.github/workflows/deploy.yml.disabled` and
+- [x] Keep `.github/workflows/deploy.yml.disabled` and
       `deploy-staging.yml.disabled` disabled until a separately approved
-      cutover uses newly issued Manut resources.
+      cutover uses newly issued Manut resources. *(stubs remain `.disabled`;
+      re-enable steps are in `docs/PRODUCTION_DEPLOY.md`.)*
 - [ ] Do not enable deploy workflows, mutate DNS, or touch `manut.xyz` from
       this branch.
 - [ ] Do not invent or commit Hyperdrive ids, account ids, API tokens, or
       other provider secrets. Record only names, paths, or HMAC fingerprints
       in private cutover evidence.
+
+## Code-ready vs ops-blocked (summary)
+
+| Item | State |
+| --- | --- |
+| Expo web export + Worker type-check / test / `wrangler deploy --dry-run` | **Code-ready** (see `PRODUCTION_DEPLOY.md`) |
+| Wrangler naming contracts + empty `hyperdrive: []` | **Code-ready** |
+| Fresh Manut Cloudflare / Hyperdrive / R2 / Queue / secrets | **Ops-blocked** |
+| `E2E_*` dedicated project, Expo org, GitHub Pro, DNS, revocation | **Ops-blocked** |
+
+**NOT ready to flip deploy on until** Phase E resources exist, staging green,
+and a separate approved cutover PR rewrites the disabled workflow stubs.
 
 ## 1. Hyperdrive id + binding
 
@@ -118,8 +134,11 @@ gates below.
 
 ## Related code / docs (read-only pointers)
 
+- `docs/PRODUCTION_DEPLOY.md` — deploy-readiness report + cutover runbook
 - `docs/CURSOR_HANDOFF.md` — Phase E narrative and blockers
 - `docs/CREDENTIAL_BOUNDARY.md` — clean provider rules
 - `apps/edge/wrangler.jsonc` — env naming + empty `hyperdrive: []`
 - `.env.example` / `apps/app/.env.example` — placeholder env names
 - `scripts/e2e/README.md` — E2E secret contract
+- `.github/workflows/deploy.yml.disabled` /
+  `deploy-staging.yml.disabled` — intentional no-op stubs
