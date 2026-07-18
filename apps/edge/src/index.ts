@@ -48,6 +48,10 @@ import {
   requireContainer,
   requireHyperdrive,
 } from "./platform-boundaries";
+import {
+  createProjectsRoutes,
+  type CreateProjectsStore,
+} from "./projects/routes";
 import { consumeQueue, QueueLedger } from "./queue";
 import {
   assertRealtimeBridgeSecret,
@@ -77,6 +81,7 @@ interface EdgeAppOptions {
   createLeaveStore?: CreateLeaveStore;
   createMessagesStore?: CreateMessagesStore;
   createPayrollStore?: CreatePayrollStore;
+  createProjectsStore?: CreateProjectsStore;
   createSurveyStore?: CreateSurveyStore;
   createSurveyFormsStore?: CreateSurveyFormsStore;
   createVisaStore?: CreateVisaStore;
@@ -203,6 +208,12 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
     "/api/deals",
     createDealsRoutes({
       createDealsStore: options.createDealsStore,
+    }),
+  );
+  app.route(
+    "/api/projects",
+    createProjectsRoutes({
+      createProjectsStore: options.createProjectsStore,
     }),
   );
   app.route(

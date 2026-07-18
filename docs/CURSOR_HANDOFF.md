@@ -975,3 +975,25 @@ Hyperdrive `/api/messages` now links `attachmentIds` on send (FileUpload
 `linkedTo=message`, excluding module-controlled purposes) and enriches list
 responses with those attachments. DO fan-out stays on the edge write path;
 Socket.IO is unchanged.
+
+### Parallel: survey-deals
+
+Survey/survey-forms Hyperdrive deepen (shared `survey-engine`): schedule,
+close/reopen, archive/unarchive, GET responses (emails stripped), analytics,
+announcement/notification settings. Announce-on-publish and `POST /:id/announce`
+stay Express-proxied (wall/news/companyDate side-effects). PUT/DELETE form
+metadata still proxied.
+
+Deals DELETE blocker: `Deal` has no `deletedAt` / soft-delete lifecycle;
+Express hard-deletes via `prisma.deal.delete`. Edge keeps DELETE proxied —
+do not hard-delete on Hyperdrive until a soft-delete contract exists.
+
+### Parallel: projects
+
+Hyperdrive dual-path for `/api/projects`: `GET /` list (owner/member scope;
+`projects:read-all` / team `*-crm:read-all` widen), `GET /:id` detail with
+kanban columns + top-level tasks (emails/budget/comments stripped), and
+`POST /:id/tasks` create (`title`/`status`/`priority` P0–P2). Fail-closed when
+`ENABLE_HYPERDRIVE_BOUNDARY=true` without Hyperdrive binding. Dashboard,
+import/reorder, members, milestones, task update/delete, and other CRM hubs
+(`/it-crm`, `/product-crm`, etc.) remain Express-proxied — next slice candidates.
