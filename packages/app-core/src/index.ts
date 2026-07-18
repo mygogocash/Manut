@@ -140,6 +140,47 @@ export type {
   LeaveApproverType,
 } from "./leave/leave-approval-steps";
 export {
+  LEAVE_POLICIES_QUERY_KEY,
+  leaveCategoryLabel,
+  leavePoliciesQueryKey,
+  leavePolicyListParamsSchema,
+  leavePolicySchema,
+  listLeavePolicies,
+} from "./leave/leave-policies";
+export type {
+  LeavePolicy,
+  LeavePolicyListParams,
+} from "./leave/leave-policies";
+export {
+  LEAVE_CALENDAR_QUERY_ROOT,
+  leaveCalendarEntrySchema,
+  leaveCalendarParamsSchema,
+  leaveCalendarQueryKey,
+  listLeaveCalendar,
+} from "./leave/leave-calendar";
+export type {
+  LeaveCalendarEntry,
+  LeaveCalendarParams,
+} from "./leave/leave-calendar";
+export {
+  LEAVE_TEAM_REQUESTS_QUERY_ROOT,
+  approveLeaveRequest,
+  canActOnLeaveRequest,
+  leaveTeamRequestListParamsSchema,
+  leaveTeamRequestSchema,
+  leaveTeamRequestsQueryKey,
+  listLeaveTeamRequests,
+  rejectLeaveRequest,
+  rejectLeaveRequestInputSchema,
+} from "./leave/leave-team";
+export type {
+  ActedLeaveRequest,
+  LeaveTeamRequest,
+  LeaveTeamRequestList,
+  LeaveTeamRequestListParams,
+  RejectLeaveRequestInput,
+} from "./leave/leave-team";
+export {
   HOLIDAYS_QUERY_ROOT,
   holidayListParamsSchema,
   holidaysQueryKey,

@@ -11,7 +11,7 @@ git ls-tree -r --name-only 371349fd -- apps/web/src/app | rg '/page\.tsx$' | sor
 - Source route-page files: **103**
 - Unique source paths: **103**
 - Dispositions: **79 migrate**, **8 replace**, **16 remove-as-provenance**
-- Current status: **28 foundation**, **59 pending**, **16 removed**
+- Current status: **29 foundation**, **58 pending**, **16 removed**
 
 The source command is sorted before classification. The JSON companion repeats the source command, counts, and every row, so CI can independently assert count, uniqueness, and allowed values.
 
@@ -72,7 +72,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  42 | `apps/web/src/app/(dashboard)/leave/approval/page.tsx`                          | `/leave/approval`                          | `migrate`              | `foundation` | `/leave/approval`            |
 |  43 | `apps/web/src/app/(dashboard)/leave/holidays/page.tsx`                          | `/leave/holidays`                          | `migrate`              | `foundation` | `/leave/holidays`            |
 |  44 | `apps/web/src/app/(dashboard)/leave/page.tsx`                                   | `/leave`                                   | `migrate`              | `foundation` | `/leave`                     |
-|  45 | `apps/web/src/app/(dashboard)/leave/policies/page.tsx`                          | `/leave/policies`                          | `migrate`              | `pending`    | `/leave/policies`            |
+|  45 | `apps/web/src/app/(dashboard)/leave/policies/page.tsx`                          | `/leave/policies`                          | `migrate`              | `foundation` | `/leave/policies`            |
 |  46 | `apps/web/src/app/(dashboard)/legal-crm/page.tsx`                               | `/legal-crm`                               | `migrate`              | `pending`    | `/legal-crm`                 |
 |  47 | `apps/web/src/app/(dashboard)/legal/announcements/[id]/page.tsx`                | `/legal/announcements/[id]`                | `migrate`              | `pending`    | `/legal/announcements/[id]`  |
 |  48 | `apps/web/src/app/(dashboard)/legal/announcements/page.tsx`                     | `/legal/announcements`                     | `migrate`              | `pending`    | `/legal/announcements`       |

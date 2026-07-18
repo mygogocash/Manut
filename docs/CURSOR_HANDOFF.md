@@ -320,11 +320,12 @@ Important parity distinction:
 - Leave provides live exact-decimal balances, carried-balance semantics,
   applicable LeaveType choices, validation, retry, an accessible universal
   request dialog, paginated self-scoped request history, and cancel for
-  pending/approved requests (with confirm). Read-only `/leave/holidays` and
-  `/leave/approval` foundation slices are linked when permitted. Calendar,
-  team/HR approve actions, and `/leave/policies` remain pending. The main
-  `/leave` leaf admits only `leave:read`/`leave:hr-read` users because the
-  page requires the balances endpoint.
+  pending/approved requests (with confirm). Month team calendar, team/HR
+  approve/reject inbox, and read-only `/leave/holidays`, `/leave/approval`,
+  and `/leave/policies` foundation slices are linked when permitted. Policy
+  CRUD/import and richer calendar filters remain pending. The main `/leave`
+  leaf admits only `leave:read`/`leave:hr-read` users because the page
+  requires the balances endpoint.
 - My Portal is a hub with profile header, leave-balance widgets, and
   permission-gated deep links (not full legacy tab parity).
 - Performance provides read-only appraisal list/detail via app-core; cycle
@@ -571,9 +572,10 @@ Migration order:
    leave history pagination, directory org chart, dashboard KPIs/pending
    actions + chart series, Settings preferences + Google OAuth, and leave
    holidays/approval read-only subroutes are in Expo as `foundation` slices.
-   Leave calendar/team approve, `/leave/policies`, wall/compose, and admin
-   system settings remain. Move Playwright employee/leave coverage from
-   `:3000` to Expo `:8081` as authenticated secrets become available.
+   Leave calendar + team/HR approve/reject + `/leave/policies` foundation
+   landed 2026-07-18. Wall/compose and admin system settings remain. Move
+   Playwright employee/leave coverage from `:3000` to Expo `:8081` only when
+   the five `E2E_*` secrets and dedicated E2E project exist — do not soft-skip.
 2. HR/people and approvals: HRMS, travel, visa, expenses, cash advance,
    payroll, benefits, attendance, learning, career, applications, office,
    employees, roles, and related approval screens.

@@ -21,7 +21,7 @@ describe("route policy resolution", () => {
       "leave:hr-settings",
     ]);
     expect(resolveRoutePolicy("/leave/policies")?.permissions).toEqual([
-      "leave:read",
+      "leave:hr-settings",
     ]);
   });
 
@@ -29,6 +29,16 @@ describe("route policy resolution", () => {
     expect(
       evaluateRouteAccess({
         pathname: "/leave/approval",
+        permissions: ["leave:hr-settings"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+  });
+
+  it("blocks employee-only accounts from leave policies admin", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/leave/policies",
         permissions: ["leave:hr-settings"],
         employeeOnly: true,
       }),

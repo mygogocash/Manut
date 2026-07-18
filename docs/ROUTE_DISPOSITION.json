@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 28,
-    "pending": 59,
+    "foundation": 29,
+    "pending": 58,
     "removed": 16
   },
   "statusSemantics": {
@@ -370,15 +370,15 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/leave",
-      "note": "Expo has balances, request create/cancel, paginated self history, and links to holidays/approval foundation. Calendar, team/HR approve actions, and /leave/policies remain before parity."
+      "note": "Expo has balances, request create/cancel, paginated self history, month calendar, team/HR approve/reject inbox, and links to holidays/approval/policies foundation. Policy CRUD/import and calendar department filters remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/policies/page.tsx",
       "sourceRoute": "/leave/policies",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/leave/policies",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only leave-type catalog via app-core (/types/all). Create/edit/delete, bulk import, and per-policy approvers remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/legal-crm/page.tsx",

@@ -42,7 +42,9 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
+import { LeaveCalendarSection } from "@/features/leave/leave-calendar-section";
 import { leaveCancellationPrompt } from "@/features/leave/leave-cancellation-prompt";
+import { LeaveTeamInbox } from "@/features/leave/leave-team-inbox";
 import { useApiClient } from "@/providers/api-client-provider";
 
 interface RequestDraft {
@@ -478,6 +480,11 @@ export function LeaveScreen() {
   const canViewApprovalChain =
     hasPermission("leave:assign-approver") ||
     hasPermission("leave:hr-settings");
+  const canViewPolicies = hasPermission("leave:hr-settings");
+  const canViewCalendar =
+    hasPermission("leave:read") || hasPermission("leave:hr-read");
+  const canApproveTeam =
+    hasPermission("leave:approve") || hasPermission("leave:hr-read");
   const employeeId = user?.id;
   const [historyPage, setHistoryPage] = useState(1);
   const selfRequestParams = useMemo(
@@ -687,6 +694,16 @@ export function LeaveScreen() {
                   }}
                 />
               ) : null}
+              {canViewPolicies ? (
+                <Button
+                  label="Leave policies"
+                  pendingLabel="Opening…"
+                  accessibilityLabel="Open leave policies"
+                  onPress={() => {
+                    router.push("/leave/policies");
+                  }}
+                />
+              ) : null}
             </View>
           </Card>
 
@@ -728,6 +745,9 @@ export function LeaveScreen() {
               ))}
             </View>
           )}
+
+          {canViewCalendar ? <LeaveCalendarSection /> : null}
+          {canApproveTeam ? <LeaveTeamInbox /> : null}
 
           <Card
             title="My leave requests"
