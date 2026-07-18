@@ -498,7 +498,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/messages",
-      "note": "Expo channel list + REST history; live prefers edge DO shared room channel:{id} with API membership check + messageBus→DO bridge; socket.io /messages remains fallback when edge origin/bridge unset."
+      "note": "Expo channel list + REST history; Worker /api/messages dual-path (Hyperdrive+Prisma when ENABLE_HYPERDRIVE_BOUNDARY else Express proxy); live prefers edge DO shared room channel:{id} with membership check + messageBus→DO bridge; socket.io /messages remains fallback when edge origin/bridge unset."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/my-portal/page.tsx",

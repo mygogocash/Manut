@@ -16,9 +16,12 @@
   "dependencies": {
     "@cloudflare/containers": "0.3.7",
     "@hono/zod-validator": "0.9.0",
+    "@manut/database": "workspace:*",
+    "@prisma/adapter-pg": "7.8.0",
     "aws4fetch": "1.0.20",
     "hono": "4.12.30",
     "jose": "6.2.3",
+    "pg": "8.22.0",
     "zod": "4.4.3"
   },
   "devDependencies": {

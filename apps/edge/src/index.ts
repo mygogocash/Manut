@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 
+import { proxyApiRequest } from "./api-proxy";
 import {
   enforceRefreshOrigin,
   enforceSameOrigin,
@@ -9,8 +10,14 @@ import {
   type VerifyAccessToken,
   verifyAccessToken,
 } from "./auth";
+import { assertChannelMembership } from "./channel-membership";
 import { sha256Base64Url } from "./crypto";
 import { HttpError } from "./http-error";
+import { isHyperdriveEnabled } from "./hyperdrive";
+import {
+  createMessagesRoutes,
+  type CreateMessagesStore,
+} from "./messages/routes";
 import {
   BackgroundWorkflow,
   ContainerBoundary,
@@ -20,7 +27,6 @@ import {
   requireHyperdrive,
 } from "./platform-boundaries";
 import { consumeQueue, QueueLedger } from "./queue";
-import { assertChannelMembership } from "./channel-membership";
 import {
   assertRealtimeBridgeSecret,
   bridgeSigningKey,
@@ -32,47 +38,11 @@ import { uploadRoutes } from "./uploads";
 
 export { BackgroundWorkflow, ContainerBoundary, QueueLedger, RealtimeRoom };
 
-const NO_BODY_METHODS = new Set(["GET", "HEAD"]);
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/u;
-const HOP_BY_HOP_HEADERS = [
-  "connection",
-  "keep-alive",
-  "proxy-authenticate",
-  "proxy-authorization",
-  "te",
-  "trailer",
-  "transfer-encoding",
-  "upgrade",
-] as const;
 
 interface EdgeAppOptions {
+  createMessagesStore?: CreateMessagesStore;
   verifyToken?: VerifyAccessToken;
-}
-
-function configuredApiOrigin(value: string): URL {
-  try {
-    const origin = new URL(value.trim());
-    const safeProtocol =
-      origin.protocol === "https:" ||
-      (origin.protocol === "http:" && LOOPBACK_HOSTS.has(origin.hostname));
-    if (
-      !safeProtocol ||
-      origin.username ||
-      origin.password ||
-      origin.search ||
-      origin.hash
-    ) {
-      throw new Error("Unsafe API origin.");
-    }
-    return origin;
-  } catch {
-    throw new HttpError(
-      503,
-      "API_ORIGIN_NOT_CONFIGURED",
-      "The API origin is unavailable.",
-    );
-  }
 }
 
 function requestIdFor(request: Request): string {
@@ -104,44 +74,6 @@ async function enforceRateLimit(context: {
   }
   if (!outcome.success) {
     throw new HttpError(429, "RATE_LIMITED", "Too many requests.");
-  }
-}
-
-async function proxyApiRequest(
-  request: Request,
-  env: RuntimeBindings,
-): Promise<Response> {
-  const origin = configuredApiOrigin(env.API_ORIGIN);
-  const incoming = new URL(request.url);
-  const basePath = origin.pathname.replace(/\/+$/u, "");
-  const target = new URL(origin);
-  target.pathname = `${basePath}${incoming.pathname}`;
-  target.search = incoming.search;
-
-  const headers = new Headers(request.headers);
-  for (const name of HOP_BY_HOP_HEADERS) headers.delete(name);
-  headers.delete("host");
-  headers.delete("x-forwarded-host");
-  headers.delete("x-forwarded-proto");
-  headers.delete("x-manut-connection-id");
-  headers.delete("x-manut-principal-key");
-  headers.set("x-forwarded-host", incoming.host);
-  headers.set("x-forwarded-proto", "https");
-
-  const upstreamRequest = new Request(target.toString(), {
-    body: NO_BODY_METHODS.has(request.method) ? undefined : request.body,
-    headers,
-    method: request.method,
-    redirect: "manual",
-  });
-  try {
-    return await fetch(upstreamRequest);
-  } catch {
-    throw new HttpError(
-      502,
-      "API_UPSTREAM_UNAVAILABLE",
-      "The API is temporarily unavailable.",
-    );
   }
 }
 
@@ -223,6 +155,12 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
   );
 
   app.route("/api/v1/uploads", uploadRoutes);
+  app.route(
+    "/api/messages",
+    createMessagesRoutes({
+      createMessagesStore: options.createMessagesStore,
+    }),
+  );
 
   app.post("/api/v1/realtime/rooms/:roomId/events", async (context) => {
     const roomId = context.req.param("roomId");
@@ -300,6 +238,7 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
       channelId: roomId,
       credential,
       env: context.env,
+      userId: context.get("principal").subject,
     });
 
     const rooms = context.env.REALTIME_ROOMS;
@@ -350,11 +289,12 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
 
   app.get("/api/v1/platform/hyperdrive", (context) => {
     requireHyperdrive(context.env);
-    throw new HttpError(
-      501,
-      "HYPERDRIVE_CONTRACT_NOT_IMPLEMENTED",
-      "Database contract is disabled.",
-    );
+    return context.json({
+      binding: "HYPERDRIVE_DATABASE",
+      enabled: isHyperdriveEnabled(context.env),
+      ready: true,
+      source: "hyperdrive",
+    });
   });
 
   app.all("/api/*", (context) => proxyApiRequest(context.req.raw, context.env));

@@ -101,6 +101,11 @@
     "crons": [],
   },
   "containers": [],
+  // Hyperdrive stays empty until a Manut-owned config id is provisioned.
+  // Shape (do not invent an id in-repo):
+  // "hyperdrive": [{ "binding": "HYPERDRIVE_DATABASE", "id": "<manut-hyperdrive-id>" }]
+  // Then set ENABLE_HYPERDRIVE_BOUNDARY=true. Local wrangler may also use
+  // localConnectionString or CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_DATABASE.
   "hyperdrive": [],
   "observability": {
     "enabled": true,
