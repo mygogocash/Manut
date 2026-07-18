@@ -955,6 +955,7 @@ These are merge blockers, not reasons to weaken or bypass tests.
 
 ## Control documents
 
+- `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`: Phase E Hyperdrive / realtime / E2E / retirement checklist (deploy remains disabled).
 - `docs/REPOSITORY_MIGRATION.md`: provenance, backup, deployment boundary, and
   rollback.
 - `docs/ROUTE_DISPOSITION.md` and `.json`: all 103 source routes and current
