@@ -29,6 +29,7 @@ import {
   TextField,
 } from "@manut/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -41,7 +42,9 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
+import { LeaveCalendarSection } from "@/features/leave/leave-calendar-section";
 import { leaveCancellationPrompt } from "@/features/leave/leave-cancellation-prompt";
+import { LeaveTeamInbox } from "@/features/leave/leave-team-inbox";
 import { useApiClient } from "@/providers/api-client-provider";
 
 interface RequestDraft {
@@ -467,8 +470,21 @@ function LeaveRequestDialog({
 export function LeaveScreen() {
   const api = useApiClient();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { user, hasPermission } = useAuth();
   const canRequest = hasPermission("leave:request");
+  const canViewHolidays =
+    hasPermission("leave:read") ||
+    hasPermission("leave:hr-read") ||
+    hasPermission("leave:hr-settings");
+  const canViewApprovalChain =
+    hasPermission("leave:assign-approver") ||
+    hasPermission("leave:hr-settings");
+  const canViewPolicies = hasPermission("leave:hr-settings");
+  const canViewCalendar =
+    hasPermission("leave:read") || hasPermission("leave:hr-read");
+  const canApproveTeam =
+    hasPermission("leave:approve") || hasPermission("leave:hr-read");
   const employeeId = user?.id;
   const [historyPage, setHistoryPage] = useState(1);
   const selfRequestParams = useMemo(
@@ -657,6 +673,38 @@ export function LeaveScreen() {
                 request.
               </Text>
             )}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {canViewHolidays ? (
+                <Button
+                  label="Public holidays"
+                  pendingLabel="Opening…"
+                  accessibilityLabel="Open public holidays"
+                  onPress={() => {
+                    router.push("/leave/holidays");
+                  }}
+                />
+              ) : null}
+              {canViewApprovalChain ? (
+                <Button
+                  label="Approval chain"
+                  pendingLabel="Opening…"
+                  accessibilityLabel="Open leave approval chain"
+                  onPress={() => {
+                    router.push("/leave/approval");
+                  }}
+                />
+              ) : null}
+              {canViewPolicies ? (
+                <Button
+                  label="Leave policies"
+                  pendingLabel="Opening…"
+                  accessibilityLabel="Open leave policies"
+                  onPress={() => {
+                    router.push("/leave/policies");
+                  }}
+                />
+              ) : null}
+            </View>
           </Card>
 
           {successMessage ? (
@@ -697,6 +745,9 @@ export function LeaveScreen() {
               ))}
             </View>
           )}
+
+          {canViewCalendar ? <LeaveCalendarSection /> : null}
+          {canApproveTeam ? <LeaveTeamInbox /> : null}
 
           <Card
             title="My leave requests"

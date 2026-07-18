@@ -125,6 +125,16 @@ export class ApiClient {
     return this.request<T>("DELETE", path);
   }
 
+  /** Unauthenticated GET — skips session decorate/refresh (public token routes). */
+  getPublic<T>(path: string, options?: ApiRequestOptions): Promise<T> {
+    return this.requestPublic<T>("GET", path, undefined, options);
+  }
+
+  /** Unauthenticated POST — skips session decorate/refresh (public token routes). */
+  postPublic<T>(path: string, body?: unknown): Promise<T> {
+    return this.requestPublic<T>("POST", path, body);
+  }
+
   private async request<T>(
     method: HttpMethod,
     path: string,
@@ -132,32 +142,9 @@ export class ApiClient {
     options?: ApiRequestOptions,
     isRetry = false,
   ): Promise<T> {
-    const headers: Record<string, string> = {
-      Accept: "application/json",
-    };
-    if (body !== undefined) headers["Content-Type"] = "application/json";
-    if (method !== "GET") headers["X-Requested-With"] = "XMLHttpRequest";
-
-    const undecorated: TransportRequest = {
-      url: requestUrl(this.baseUrl, path),
-      method,
-      headers,
-      ...(body === undefined ? {} : { body }),
-      ...(options?.signal ? { signal: options.signal } : {}),
-    };
+    const undecorated = this.buildTransportRequest(method, path, body, options);
     const request = await this.options.session.decorate(undecorated);
-
-    let response: TransportResponse;
-    try {
-      response = await this.options.execute(request);
-    } catch (error) {
-      if (error instanceof ApiError) throw error;
-      throw new ApiError(
-        0,
-        "NETWORK_ERROR",
-        "Cannot reach the server. Check your connection and try again.",
-      );
-    }
+    const response = await this.executeTransport(request);
 
     if (
       response.status === 401 &&
@@ -168,6 +155,61 @@ export class ApiClient {
       return this.request<T>(method, path, body, options, true);
     }
 
+    return this.parseSuccessBody<T>(response);
+  }
+
+  private async requestPublic<T>(
+    method: HttpMethod,
+    path: string,
+    body?: unknown,
+    options?: ApiRequestOptions,
+  ): Promise<T> {
+    const request = this.buildTransportRequest(method, path, body, options, {
+      credentials: "omit",
+    });
+    const response = await this.executeTransport(request);
+    return this.parseSuccessBody<T>(response);
+  }
+
+  private buildTransportRequest(
+    method: HttpMethod,
+    path: string,
+    body?: unknown,
+    options?: ApiRequestOptions,
+    extras?: Pick<TransportRequest, "credentials">,
+  ): TransportRequest {
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (method !== "GET") headers["X-Requested-With"] = "XMLHttpRequest";
+
+    return {
+      url: requestUrl(this.baseUrl, path),
+      method,
+      headers,
+      ...(body === undefined ? {} : { body }),
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(extras?.credentials ? { credentials: extras.credentials } : {}),
+    };
+  }
+
+  private async executeTransport(
+    request: TransportRequest,
+  ): Promise<TransportResponse> {
+    try {
+      return await this.options.execute(request);
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        0,
+        "NETWORK_ERROR",
+        "Cannot reach the server. Check your connection and try again.",
+      );
+    }
+  }
+
+  private parseSuccessBody<T>(response: TransportResponse): T {
     if (response.status < 200 || response.status >= 300) {
       const parsed = parseError(response);
       throw new ApiError(
@@ -177,7 +219,6 @@ export class ApiClient {
         parsed.details,
       );
     }
-
     return response.body as T;
   }
 }

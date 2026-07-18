@@ -1,6 +1,20 @@
 # Disabled deployment boundary
-
-This file is intentionally not a GitHub Actions workflow because its extension
-is `.disabled`. The imported production deployment was removed during the
-repository migration. Enabling Cloudflare, changing DNS, migrating data, or
-cutting over the running service requires a separate approved plan and PR.
+#
+# This file is intentionally not a GitHub Actions workflow because its extension
+# is `.disabled`. The imported production deployment was removed during the
+# repository migration. Enabling Cloudflare, changing DNS, migrating data, or
+# cutting over the running service requires a separate approved plan and PR.
+#
+# When an approved cutover PR rewrites this into `deploy.yml`, the workflow must
+# be mechanical against Manut-owned resources only. Minimum shape (see
+# docs/PRODUCTION_DEPLOY.md):
+#
+#   1. permissions: contents: read (+ id-token if OIDC); never pull_request_target
+#   2. Node 24.18.0, pnpm 11.13.1, pnpm install --frozen-lockfile
+#   3. pnpm --filter @manut/app export:web  →  apps/app/dist
+#   4. pnpm --filter @manut/edge type-check && test
+#   5. wrangler deploy --env production  (secrets from GitHub Environment only)
+#   6. pnpm security:credentials apps/app/dist apps/edge/dist
+#   7. Hyperdrive id already bound in apps/edge/wrangler.jsonc — do not invent
+#
+# Do not rename this file to .yml until those resources and reviewers exist.

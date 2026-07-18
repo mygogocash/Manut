@@ -23,6 +23,14 @@ export function isRoomId(value: string): boolean {
   return SAFE_IDENTIFIER.test(value);
 }
 
+/** Shared membership-keyed Durable Object name for a messaging channel. */
+export function buildChannelRoomName(channelId: string): string {
+  if (!isRoomId(channelId)) {
+    throw new Error("Invalid channel room id.");
+  }
+  return `channel:${channelId}`;
+}
+
 export function createRoomAttachment(
   connectionId: string,
   principalKey: string,

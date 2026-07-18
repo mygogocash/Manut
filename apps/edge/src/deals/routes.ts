@@ -1,0 +1,179 @@
+import { Hono } from "hono";
+
+import { proxyApiRequest } from "../api-proxy";
+import { HttpError } from "../http-error";
+import { hyperdriveConnectionString, resolveHyperdriveRouteMode } from "../hyperdrive";
+import type { EdgeEnv, RuntimeBindings } from "../runtime";
+import { createDealsService } from "./service";
+import type { DealsStore } from "./store";
+
+export type CreateDealsStore = (
+  env: RuntimeBindings,
+) => DealsStore | Promise<DealsStore>;
+
+async function resolveStore(
+  env: RuntimeBindings,
+  createStore?: CreateDealsStore,
+): Promise<DealsStore> {
+  if (createStore) {
+    return createStore(env);
+  }
+  hyperdriveConnectionString(env);
+  const { createHyperdriveDealsStore } = await import("./prisma-store");
+  return createHyperdriveDealsStore(env);
+}
+
+async function readJsonBody(context: {
+  req: { json: () => Promise<unknown> };
+}): Promise<unknown> {
+  try {
+    return await context.req.json();
+  } catch {
+    throw new HttpError(400, "INVALID_JSON", "Request body must be valid JSON.");
+  }
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function optionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export function createDealsRoutes(options: {
+  createDealsStore?: CreateDealsStore;
+} = {}): Hono<EdgeEnv> {
+  const app = new Hono<EdgeEnv>();
+
+  app.all("/*", async (context) => {
+    const hyperdriveMode = resolveHyperdriveRouteMode(context.env);
+    if (hyperdriveMode === "proxy") {
+      return proxyApiRequest(context.req.raw, context.env);
+    }
+    if (hyperdriveMode === "fail_closed") {
+      throw new HttpError(
+        503,
+        "HYPERDRIVE_NOT_PROVISIONED",
+        "Database capability is disabled.",
+      );
+    }
+
+    const store = await resolveStore(context.env, options.createDealsStore);
+    const service = createDealsService(store);
+    const userId = context.get("principal").subject;
+    const path = new URL(context.req.url).pathname.replace(/^\/api\/deals/u, "");
+    const method = context.req.method.toUpperCase();
+
+    if (method === "GET" && (path === "" || path === "/")) {
+      const page = Math.max(1, Number(context.req.query("page")) || 1);
+      const limit = Math.min(
+        100,
+        Math.max(1, Number(context.req.query("limit")) || 20),
+      );
+      const search = context.req.query("search")?.trim() || undefined;
+      const stage = context.req.query("stage")?.trim() || undefined;
+      const type = context.req.query("type")?.trim() || undefined;
+      return context.json(
+        await service.list(userId, { page, limit, search, stage, type }),
+      );
+    }
+
+    if (method === "GET" && (path === "/pipeline" || path === "/pipeline/")) {
+      return context.json(await service.pipeline(userId));
+    }
+
+    if (method === "POST" && (path === "" || path === "/")) {
+      const body = await readJsonBody(context);
+      if (typeof body !== "object" || body === null) {
+        throw new HttpError(400, "INVALID_DEAL", "Request body is required.");
+      }
+      const record = body as Record<string, unknown>;
+      const company = optionalString(record.company) ?? "";
+      const valueRaw = record.value;
+      const value =
+        typeof valueRaw === "number"
+          ? valueRaw
+          : typeof valueRaw === "string"
+            ? Number(valueRaw)
+            : Number.NaN;
+
+      const result = await service.create(userId, {
+        company,
+        contact: optionalString(record.contact),
+        value,
+        stage: optionalString(record.stage),
+        probability: optionalNumber(record.probability),
+        type: optionalString(record.type),
+        country: optionalString(record.country),
+        partnerId: optionalString(record.partnerId),
+        closeDate: optionalString(record.closeDate),
+        notes: optionalString(record.notes),
+      });
+      return context.json(result, 201);
+    }
+
+    const idMatch = /^\/([^/]+)\/?$/u.exec(path);
+    if (idMatch) {
+      const dealId = decodeURIComponent(idMatch[1] ?? "");
+
+      if (method === "GET") {
+        return context.json(await service.getById(userId, dealId));
+      }
+
+      if (method === "PUT") {
+        const body = await readJsonBody(context);
+        if (typeof body !== "object" || body === null) {
+          throw new HttpError(400, "INVALID_DEAL", "Request body is required.");
+        }
+        const record = body as Record<string, unknown>;
+        const valueRaw = record.value;
+        const value =
+          valueRaw === undefined
+            ? undefined
+            : typeof valueRaw === "number"
+              ? valueRaw
+              : typeof valueRaw === "string"
+                ? Number(valueRaw)
+                : Number.NaN;
+
+        return context.json(
+          await service.update(userId, dealId, {
+            company: optionalString(record.company),
+            contact:
+              record.contact === null
+                ? null
+                : optionalString(record.contact),
+            value,
+            stage: optionalString(record.stage),
+            probability: optionalNumber(record.probability),
+            type:
+              record.type === null ? null : optionalString(record.type),
+            country:
+              record.country === null
+                ? null
+                : optionalString(record.country),
+            partnerId:
+              record.partnerId === null
+                ? null
+                : optionalString(record.partnerId),
+            closeDate:
+              record.closeDate === null
+                ? null
+                : optionalString(record.closeDate),
+            notes:
+              record.notes === null ? null : optionalString(record.notes),
+          }),
+        );
+      }
+    }
+
+    // BLOCKER: Deal has no deletedAt / soft-delete lifecycle (see
+    // packages/database prisma Deal model + Express dealRepository.delete
+    // hard-deletes via prisma.deal.delete). Edge will not hard-delete; keep
+    // DELETE proxied until a soft-delete contract exists.
+    return proxyApiRequest(context.req.raw, context.env);
+  });
+
+  return app;
+}

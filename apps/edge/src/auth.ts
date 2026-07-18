@@ -68,6 +68,9 @@ export function extractCredential(
   return token && validToken(token) ? { source: "cookie", token } : null;
 }
 
+const REALTIME_BRIDGE_EVENT_PATH =
+  /^\/api\/v1\/realtime\/rooms\/[A-Za-z0-9_-]{1,96}\/events$/u;
+
 export function isPublicApiRoute(method: string, pathname: string): boolean {
   const normalizedMethod = method.toUpperCase();
   const normalizedPathname = pathname.toLowerCase();
@@ -76,6 +79,13 @@ export function isPublicApiRoute(method: string, pathname: string): boolean {
   }
   if (normalizedPathname.startsWith("/api/legal-public/sign/")) {
     return normalizedMethod === "GET" || normalizedMethod === "POST";
+  }
+  // Express→DO fan-out authenticates with EDGE_SIGNING_KEY, not a user session.
+  if (
+    normalizedMethod === "POST" &&
+    REALTIME_BRIDGE_EVENT_PATH.test(pathname)
+  ) {
+    return true;
   }
   return false;
 }

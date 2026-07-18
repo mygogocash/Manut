@@ -23,6 +23,10 @@
     "ENABLE_LOCAL_R2_STREAMING": "true",
     "ENABLE_WORKFLOW_BOUNDARY": "false",
     "R2_BUCKET_NAME": "manut-intranet-uploads-local",
+    // Comma-separated HTTPS origins allowed for FileUpload-backed receipt URLs
+    // on the Hyperdrive path (Supabase Storage and/or R2 custom hosts). Empty
+    // keeps managed receipt writes proxied to Express.
+    "TRUSTED_STORAGE_ORIGINS": "",
   },
   "secrets": {
     "required": [
@@ -101,6 +105,11 @@
     "crons": [],
   },
   "containers": [],
+  // Hyperdrive stays empty until a Manut-owned config id is provisioned.
+  // Shape (do not invent an id in-repo):
+  // "hyperdrive": [{ "binding": "HYPERDRIVE_DATABASE", "id": "<manut-hyperdrive-id>" }]
+  // Then set ENABLE_HYPERDRIVE_BOUNDARY=true. Local wrangler may also use
+  // localConnectionString or CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_DATABASE.
   "hyperdrive": [],
   "observability": {
     "enabled": true,
@@ -129,6 +138,7 @@
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+        "TRUSTED_STORAGE_ORIGINS": "",
         "ENABLE_LOCAL_R2_STREAMING": "false",
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-development",
@@ -209,6 +219,7 @@
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+        "TRUSTED_STORAGE_ORIGINS": "",
         "ENABLE_LOCAL_R2_STREAMING": "false",
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-preview",
@@ -289,6 +300,7 @@
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+        "TRUSTED_STORAGE_ORIGINS": "",
         "ENABLE_LOCAL_R2_STREAMING": "false",
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-e2e",
@@ -366,6 +378,7 @@
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+        "TRUSTED_STORAGE_ORIGINS": "",
         "ENABLE_LOCAL_R2_STREAMING": "false",
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-staging",
@@ -446,6 +459,7 @@
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
+        "TRUSTED_STORAGE_ORIGINS": "",
         "ENABLE_LOCAL_R2_STREAMING": "false",
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-production",

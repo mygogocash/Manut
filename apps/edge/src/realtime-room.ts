@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 
+import { HttpError, isRecord, readBoundedJson } from "./http-error";
 import {
   admitRoomMessage,
   createRoomAttachment,
@@ -12,8 +13,26 @@ function jsonMessage(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function fanOutBroadcast(
+  sockets: WebSocket[],
+  outbound: string,
+): void {
+  for (const peer of sockets) {
+    if (!restoreRoomAttachment(peer)) continue;
+    try {
+      peer.send(outbound);
+    } catch {
+      peer.close(1011, "Delivery failed");
+    }
+  }
+}
+
 export class RealtimeRoom extends DurableObject<RuntimeBindings> {
   async fetch(request: Request): Promise<Response> {
+    if (request.method === "POST") {
+      return this.handleServerBroadcast(request);
+    }
+
     if (
       request.method !== "GET" ||
       request.headers.get("upgrade")?.toLowerCase() !== "websocket"
@@ -66,6 +85,55 @@ export class RealtimeRoom extends DurableObject<RuntimeBindings> {
     });
   }
 
+  private async handleServerBroadcast(request: Request): Promise<Response> {
+    if (request.headers.get("x-manut-internal-broadcast") !== "1") {
+      return Response.json(
+        {
+          code: "REALTIME_BROADCAST_FORBIDDEN",
+          error: "Internal broadcast required.",
+        },
+        { status: 403 },
+      );
+    }
+
+    let body: unknown;
+    try {
+      body = await readBoundedJson(request, 32 * 1024);
+    } catch (error) {
+      if (error instanceof HttpError) {
+        return Response.json(
+          { code: error.code, error: error.message },
+          { status: error.status },
+        );
+      }
+      return Response.json(
+        { code: "INVALID_JSON", error: "Invalid broadcast body." },
+        { status: 400 },
+      );
+    }
+
+    if (
+      !isRecord(body) ||
+      typeof body.eventId !== "string" ||
+      body.payload === undefined
+    ) {
+      return Response.json(
+        { code: "INVALID_BROADCAST", error: "Broadcast payload is invalid." },
+        { status: 400 },
+      );
+    }
+
+    const outbound = jsonMessage({
+      eventId: body.eventId,
+      payload: body.payload,
+      sender: "system",
+      sentAt: Date.now(),
+      type: "broadcast",
+    });
+    fanOutBroadcast(this.ctx.getWebSockets("member"), outbound);
+    return Response.json({ ok: true }, { status: 202 });
+  }
+
   webSocketMessage(socket: WebSocket, rawMessage: string | ArrayBuffer): void {
     const member = restoreRoomAttachment(socket);
     const message = parseRoomClientMessage(rawMessage);
@@ -92,14 +160,7 @@ export class RealtimeRoom extends DurableObject<RuntimeBindings> {
       sentAt: Date.now(),
       type: "broadcast",
     });
-    for (const peer of this.ctx.getWebSockets("member")) {
-      if (!restoreRoomAttachment(peer)) continue;
-      try {
-        peer.send(outbound);
-      } catch {
-        peer.close(1011, "Delivery failed");
-      }
-    }
+    fanOutBroadcast(this.ctx.getWebSockets("member"), outbound);
   }
 
   webSocketClose(

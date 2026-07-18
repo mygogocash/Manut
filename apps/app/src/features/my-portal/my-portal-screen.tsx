@@ -24,12 +24,48 @@ import { useApiClient } from "@/providers/api-client-provider";
 
 type PortalLink = {
   label: string;
-  href: "/leave" | "/performance" | "/settings" | "/directory";
+  href:
+    | "/leave"
+    | "/performance"
+    | "/settings"
+    | "/directory"
+    | "/travel"
+    | "/expenses"
+    | "/hrms"
+    | "/visa"
+    | "/cash-advance"
+    | "/payroll"
+    | "/benefits"
+    | "/learning"
+    | "/office"
+    | "/careers"
+    | "/applications"
+    | "/files";
   permission: string | null;
 };
 
 const PORTAL_LINKS: PortalLink[] = [
   { label: "Leave", href: "/leave", permission: "leave:read" },
+  { label: "Travel", href: "/travel", permission: "travel:read" },
+  { label: "Expenses", href: "/expenses", permission: "expense:read" },
+  { label: "HRMS", href: "/hrms", permission: "hrms:read" },
+  { label: "Visas", href: "/visa", permission: "visa:read" },
+  {
+    label: "Cash advance",
+    href: "/cash-advance",
+    permission: "cash-advance:read",
+  },
+  { label: "Payroll", href: "/payroll", permission: "payroll:read" },
+  { label: "Benefits", href: "/benefits", permission: "benefits:read" },
+  { label: "Learning", href: "/learning", permission: "learning:read" },
+  { label: "Office", href: "/office", permission: "office:read" },
+  { label: "Careers", href: "/careers", permission: "career:read" },
+  {
+    label: "Applications",
+    href: "/applications",
+    permission: "application:read",
+  },
+  { label: "Files", href: "/files", permission: null },
   {
     label: "Performance",
     href: "/performance",

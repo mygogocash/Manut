@@ -23,6 +23,10 @@ jest.mock("@/providers/api-client-provider", () => ({
   useApiClient: () => ({ get: mockGet, post: mockPost, put: mockPut }),
 }));
 
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
 jest.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({
     user: { id: mockUserId },
@@ -133,11 +137,29 @@ describe("LeaveScreen", () => {
         return Promise.resolve({ data: [leaveType] });
       if (path === "/leave/balances")
         return Promise.resolve({ data: [balance] });
-      if (path.startsWith("/leave/requests?"))
+      if (path.startsWith("/leave/calendar?"))
+        return Promise.resolve({ data: [] });
+      if (path.startsWith("/leave/requests?")) {
+        if (path.includes("status=pending") && !path.includes("employeeId=")) {
+          return Promise.resolve({
+            data: [
+              {
+                ...pendingRequest,
+                employee: {
+                  id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                  name: "Alex Example",
+                  email: "alex@example.com",
+                },
+              },
+            ],
+            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          });
+        }
         return Promise.resolve({
           data: [pendingRequest, cancelledRequest],
           meta: { page: 1, limit: 20, total: 2, totalPages: 1 },
         });
+      }
       throw new Error(`Unexpected GET ${path}`);
     });
   });
@@ -388,5 +410,31 @@ describe("LeaveScreen", () => {
       await screen.findByText("The leave request could not be cancelled."),
     ).toBeTruthy();
     expect(screen.queryByText("Leave request cancelled.")).toBeNull();
+  });
+
+  it("approves a pending team leave request when leave:approve is granted", async () => {
+    mockPermissions = ["leave:read", "leave:request", "leave:approve"];
+    mockPut.mockResolvedValue({
+      data: { id: pendingRequest.id, status: "approved" },
+    });
+    await renderScreen();
+
+    expect(
+      await screen.findByText("Team approvals", {}, { timeout: 10_000 }),
+    ).toBeTruthy();
+    expect(screen.getByText("Alex Example · Annual leave")).toBeTruthy();
+
+    await fireEvent.press(
+      screen.getByRole("button", {
+        name: "Approve leave for Alex Example",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockPut).toHaveBeenCalledWith(
+        `/leave/requests/${pendingRequest.id}/approve`,
+      ),
+    );
+    expect(await screen.findByText("Leave request approved.")).toBeTruthy();
   });
 });

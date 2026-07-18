@@ -1,6 +1,6 @@
 # Cursor handoff: Web-first Manut migration
 
-Last updated: 2026-07-17
+Last updated: 2026-07-18
 
 This is the canonical continuation plan for the clean-room replacement of
 Manut with a web-first universal Expo application and Cloudflare-first
@@ -46,7 +46,7 @@ pnpm 11.13.1
 | --------------------------- | ------------------------------------------------------------- |
 | Working tree                | `/Users/kunanonjarat/Developer/manut-intranet-full-hardening` |
 | Branch                      | `claude/intranet-full-hardening`                              |
-| Current `HEAD`              | `eb797d30b538a60b5f4ff154863a6591ed2ad62f`                    |
+| Current `HEAD`              | `4457eff77363451b42339b783d485298629a736e`                    |
 | Intended replacement parent | Same Manut SHA above                                          |
 | Audited source snapshot     | `371349fd43fd7c7c7717054beec97bfb023885ca`                    |
 | Archive branch              | `archive/affine-2026-07-16` -> `eb797d30`                     |
@@ -134,8 +134,8 @@ D1 (optional non-authoritative edge metadata only)
 | Source-organization removal          | **Phase A sweep complete locally**        | Credentials, branding, proprietary AI/marketing modules, identity-bearing migrations, and seeds were removed or replaced. HMAC provenance scan and comment sweep passed 2026-07-17.                           |
 | API strictness and hardening         | **Implemented locally**                   | Strict TypeScript, webhook bytes, purge lifecycle, lifecycle-safe auth/RBAC, atomic Leave state changes, live-socket revalidation, Performance scoping, and profile projection are implemented.               |
 | Universal Expo foundation            | **Implemented**                           | Expo SDK 57, shared API/session runtime, app-core/UI packages, auth transports, app shell, Expo Doctor, and three-platform exports pass. This is a foundation, not full route parity.                         |
-| Approved web route parity            | **In progress (Phase 1 advanced)**        | Performance read-only appraisals, My Portal hub, leave history pagination, directory org chart, dashboard KPIs, and local settings preferences landed as foundation slices. Waves 2–4 and Expo E2E cutover remain. |
-| Cloudflare edge layer                | **Locally implemented**                   | Worker auth, SPA assets, R2, Durable Objects, Queues, Workflows, Container/Hyperdrive boundaries, tests, and dry-run bundle exist. Fresh resources are not provisioned.                                       |
+| Approved web route parity            | **Foundations landed; deepen + E2E remain** | Inventory: **88 foundation**, **0 pending**, **16 removed** (plus Expo-only `/files`). Waves 2–4 Expo route foundations are in tree; `/messages` DO shared-room + bus→DO bridge (socket.io fallback); survey question replace/publish landed (announce/analytics still deferred); Expo E2E cutover remain. |
+| Cloudflare edge layer                | **Locally implemented + Hyperdrive deepen (messages/deals/survey/HR/projects)** | Worker auth, SPA assets, R2, DO realtime, Queues/DLQ, rate limits, Workflows/Container stubs; Hyperdrive dual-path for messages (incl. `attachmentIds`), deals (list/create/pipeline/get/put; hard-delete proxied), survey lifecycle (schedule/close/archive/responses/analytics; announce still proxied), projects (list/detail/task create), expenses (`pendingForMe`/submit/approvals/FX + self CRUD), leave (self + approve/reject/cancel), cash-advance (self + approve/reject/disburse/clear; signed receipt GET proxied), visa/payroll/benefits/learning catalogs. Fresh Hyperdrive id / deploy not provisioned. See `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`. |
 | Clean PostgreSQL baseline            | **Implemented**                           | One sanitized baseline plus hash manifest, setup/assert scripts, and migration harness exist. Local Docker replay is blocked; CI PostgreSQL 16 lane is ready.                                                 |
 | Dependency upgrades                  | **Mostly implemented**                    | Requested upgrades, compatibility pins, Expo, and Cloudflare packages are present. Legacy Next/Tailwind/Vite/jsdom bridge packages remain until parity.                                                       |
 | CI decomposition                     | **Implemented locally**                   | Nine prerequisite jobs plus final `Validate`, pinned actions, read-only contents/PR metadata, and no `pull_request_target`. Not run on GitHub yet.                                                            |
@@ -320,19 +320,24 @@ Important parity distinction:
 - Leave provides live exact-decimal balances, carried-balance semantics,
   applicable LeaveType choices, validation, retry, an accessible universal
   request dialog, paginated self-scoped request history, and cancel for
-  pending/approved requests (with confirm). Calendar, team/HR actions, and
-  subroutes remain pending. Its route admits only `leave:read`/`leave:hr-read`
-  users because the current page requires the balances endpoint.
+  pending/approved requests (with confirm). Month team calendar, team/HR
+  approve/reject inbox, and read-only `/leave/holidays`, `/leave/approval`,
+  and `/leave/policies` foundation slices are linked when permitted. Policy
+  CRUD/import and richer calendar filters remain pending. The main `/leave`
+  leaf admits only `leave:read`/`leave:hr-read` users because the page
+  requires the balances endpoint.
 - My Portal is a hub with profile header, leave-balance widgets, and
   permission-gated deep links (not full legacy tab parity).
 - Performance provides read-only appraisal list/detail via app-core; cycle
   admin, review submit, and goal writes remain pending. API actor scoping is
   already hardened.
-- Dashboard loads `GET /dashboard/stats` for permission-gated KPIs and pending
-  actions; charts/wall/compose remain pending.
+- Dashboard loads `GET /dashboard/stats` for permission-gated KPIs, pending
+  actions, and simple expense/project/department chart series; wall/compose
+  remain pending.
 - Settings loads the authenticated profile, privacy controls, password
-  navigation, and local device preferences. Integrations OAuth and admin
-  system settings remain pending, so the route stays `foundation`.
+  navigation, local device preferences, and Google Workspace connect/disconnect
+  (`integrations:use`). Admin system settings remain pending, so the route
+  stays `foundation`.
 - Accepted auth transitions bind React Query state to the current principal and
   authorization fingerprint before protected descendants render. Transient
   verification preserves the existing principal cache; identity or permission
@@ -365,25 +370,125 @@ Primary files are under `apps/edge/src`:
 - `realtime-room.ts`, `room-protocol.ts`: hibernating Durable Object
   WebSockets, principal-scoped rooms, reconnect, and throttling;
 - `queue.ts`: idempotent processing and privacy-safe DLQ messages;
-- `platform-boundaries.ts`: typed, fail-closed Cron, Workflow, Container, and
-  Hyperdrive integration points;
+- `platform-boundaries.ts` / `hyperdrive.ts`: typed, fail-closed Cron,
+  Workflow, Container, and Hyperdrive integration points (Postgres only via
+  `HYPERDRIVE_DATABASE.connectionString` when the boundary is on);
+- `messages/*`: dual-path `/api/messages` on Hono — Hyperdrive+Prisma for
+  channels (list/get/create/update/delete), DMs, users, unread-count, read,
+  typing, hide, message list/send/delete, and `attachmentIds` link on send
+  (FileUpload `linkedTo=message`, excluding module-controlled purposes) with
+  list enrichment when `ENABLE_HYPERDRIVE_BOUNDARY=true` + binding present;
+  explicit Express proxy when the boundary is off; DO fan-out stays on the
+  edge write path (Socket.IO unchanged as client fallback);
+- `deals/*`: dual-path `/api/deals` — Hyperdrive+Prisma for `GET /` list
+  (own-scope unless `crm:team-read`), `POST /` create, `/pipeline`, and
+  `GET/PUT /:id`; client projection strips notes/owner email; **still
+  proxied:** `DELETE /:id` (Deal has no soft-delete; Express hard-deletes —
+  do not hard-delete on Hyperdrive until a soft-delete contract exists);
+- `survey-engine/*` + `survey/*` + `survey-forms/*`: dual-path for both
+  `/api/survey` and `/api/survey-forms` — Hyperdrive+Prisma for list (scope
+  available/mine/all + archived manager gate), get-by-id, create, `PUT
+  /:id/questions`, `POST /:id/publish` (no announce body), `POST
+  /:id/responses`, `GET /:id/my-response`, schedule, close/reopen,
+  archive/unarchive, GET responses (emails stripped), analytics,
+  announcement/notification settings; mirrors Express
+  `survey:manage` / `survey:manage-wave` + owner/audience rules; strips
+  creator email and targeting arrays on the edge projection; **still
+  proxied:** announce-on-publish and `POST /:id/announce` (wall/news/
+  companyDate side-effects), PUT/DELETE form metadata;
+- `projects/*`: dual-path `/api/projects` — Hyperdrive+Prisma for `GET /`
+  list (owner/member scope; `projects:read-all` / team `*-crm:read-all`
+  widen), `GET /:id` detail with kanban columns + top-level tasks
+  (emails/budget/comments stripped), and `POST /:id/tasks` create
+  (`title`/`status`/`priority` P0–P2); **still proxied:** dashboard,
+  import/reorder, members, milestones, task update/delete, other CRM hubs;
+- `expenses/*`: dual-path `/api/expenses/reports` — self-scoped `GET` list +
+  `POST` create (office category HR-gated) + self-owned `GET /reports/:id` +
+  self line `POST/PUT/DELETE …/expenses` on `draft|rejected` (receipts when
+  `TRUSTED_STORAGE_ORIGINS` + FileUpload provenance allow) + `pendingForMe`
+  / submit / approvals / date-as-of FX totals on Hyperdrive; **still
+  proxied:** raw `/expenses` items, meta, paths that still need Express-only
+  storage signing;
+- `leave/*`: dual-path self-scoped `GET /api/leave/requests` + self
+  `POST /requests` (balance check, overlap, auto-approve consume, approval-
+  chain snapshot with manager fallback; emails/analytics deferred) +
+  `PUT …/approve|reject|cancel` with Express-mirrored self/manager/HR/WFH/
+  delegate/chain rules; HR on-behalf create (`employeeId` ≠ caller) stays
+  proxied; **still proxied:** balances, types catalog, richer team/HR
+  filters beyond the approve path;
+- `cash-advance/*`: dual-path self-scoped `GET /api/cash-advance` (`scope`
+  mine/default) + `POST` create without receipt URLs + `POST /:id/submit`
+  (approval-chain snapshot; email notify deferred) +
+  `POST /:id/approve|reject|disburse|clear` with `assertCanActOnStep` and
+  registered disbursement-proof provenance when `TRUSTED_STORAGE_ORIGINS`
+  is set; **still proxied:** signed receipt GET and disbursement-proof GET
+  (Supabase JWT signing is not Worker-safe; R2 `aws4fetch` covers transfer
+  intents only);
+- `visa/*` + `visa-kb/*` + `visa-checklist/*`: dual-path employee
+  self-scoped `GET /api/visa` (HR `visa:hr-read` / `visa:manage` lists
+  stay proxied), plus catalog `GET /api/visa-kb` and
+  `GET /api/visa-checklist/templates` (`visa:manage`); **still proxied:**
+  detail/download/timeline, KB writes / for-record, checklist writes /
+  per-record items;
+- `payroll/*`: dual-path self-scoped `GET /api/payroll/runs` (runs that
+  include a payslip for the caller; strips notes/emails/currencyTotals) +
+  `GET /api/payroll/my-payslips` (strict self-scope; projects
+  `hasDocument` and strips `documentUrl`/allowances/deductions/FX bases);
+  manager (`payroll:create|approve|hr-admin`) company-wide lists stay
+  proxied; **still proxied:** payslip download/export (Supabase sign +
+  Node qpdf DOB protect), create/approve, approval-chain;
+- `benefits/*` + `learning/*`: dual-path catalog reads — `GET /api/benefits`
+  and `GET /api/learning/modules`; enrollments/completions/manage stay
+  proxied;
+- `rbac.ts`: shared Hyperdrive permission loader (roles + module grants);
 - `wrangler.jsonc`: unique resource naming contracts for local, development,
-  preview, E2E, staging, and production environments.
+  preview, E2E, staging, and production environments. `hyperdrive: []` stays
+  empty until a Manut-owned Hyperdrive config id is supplied.
 
 No D1 binding is used for business data. Local streaming fallback is restricted
 to loopback; remote environments use signed R2 operations.
 
-Latest local evidence:
+**Hyperdrive enable steps (names only; no live provisioning in this branch):**
 
-- 7 Worker test files and 31 tests passed;
-- strict type-check and zero-warning lint passed;
-- the current Wrangler dry run passed with the Expo SPA attached (787.13 KiB
-  upload / 137.40 KiB gzip) and no deployment;
-- local and preview Wrangler dry runs passed;
-- SPA root, deep-link fallback, and `/health` smoke requests returned `200`.
+1. Create a Manut-owned Hyperdrive config against the authoritative Postgres.
+2. Set wrangler `hyperdrive: [{ "binding": "HYPERDRIVE_DATABASE", "id": "<id>" }]`
+   (optional `localConnectionString` /
+   `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_DATABASE` for local).
+3. Set var `ENABLE_HYPERDRIVE_BOUNDARY=true` per environment.
+4. Keep `API_ORIGIN` configured for Express fallback routes and auth JWKS.
+
+Latest local evidence (2026-07-18 parallel Hyperdrive + Expo deepen reconcile):
+
+- 20 Worker test files and 155 tests passed (messages attachments, projects
+  dual-path, survey lifecycle, leave/CA approvals, expenses pending/submit/
+  approvals/FX, plus prior HR/messages/deals/survey coverage);
+- Expo deepen: expenses/CA pending inboxes, survey manage (announce/schedule/
+  analytics/archive), deals pipeline kanban + notes, project board task
+  create/reorder/edit/delete + members read (emails stripped);
+- `TRUSTED_STORAGE_ORIGINS` wrangler var / `.env.example` documented (empty =
+  managed receipt writes still proxy to Express);
+- Deploy workflows remain `deploy.yml.disabled` / `deploy-staging.yml.disabled`;
+- No Hyperdrive id or Cloudflare deploy was performed.
 
 No Cloudflare resource was provisioned or deployed because the locally visible
 Cloudflare accounts were not proven to be fresh Manut-owned accounts.
+
+**Remaining Cloudflare gaps (next modules):**
+
+- Deals hard-delete stays Express (no soft-delete lifecycle); analytics fan-out
+  on deal stage changes stays Express;
+- Survey announce (wall/news/companyDate) and survey-forms PUT/DELETE metadata
+  stay proxied;
+- Projects dashboard/import/reorder/members/milestones/task update-delete and
+  other CRM hubs stay proxied;
+- Leave balances/types catalog; CA signed receipt / disbursement-proof GET
+  (JWT signing not Worker-safe);
+- Payroll signed download / Node PDF-export (keep proxied until storage +
+  qpdf story is edge-safe);
+- Provision fresh Manut Hyperdrive / R2 / Queue / DO / Worker envs (Phase E) —
+  see `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`;
+- Workflow authorization contract + Container API hosting remain stubs;
+- Authenticated Expo E2E against a provisioned edge origin.
 
 ### 5. Database and migration safety
 
@@ -480,6 +585,30 @@ Additional remaining dependency work:
 top-level read-only `contents: read` and `pull-requests: read` permissions,
 pins every action by commit SHA, and does not use `pull_request_target`.
 
+**PR #208 CI triage (run `29593883641` / CodeQL `29593881188`, 2026-07-17):**
+
+| Check | Cause | Owner / fix |
+| --- | --- | --- |
+| CodeQL `Analyze (ruby)` | Default setup runs Ruby; tree has no Ruby sources → “could not process any code written in Ruby” | Repo/org Code scanning default setup: drop Ruby (keep `javascript-typescript` only). Not fixable in app code. |
+| Authenticated E2E | `e2e` environment secrets empty (`E2E_SUPABASE_URL` … all blank) | Provision dedicated `manut-intranet-e2e` + five approved secrets on the `e2e` environment. Do not weaken the fail-closed gate. |
+| `Validate` | Aggregator only — failed because `dependency-review`, `static-unit`, and `e2e` failed | Clears when those three are green. Not independent product noise. |
+| Dependency review (OSV) | Lockfile hits (e.g. `@hono/node-server`, `@xmldom/xmldom`, `minimatch`, `xlsx`, …) | Patch/bump reviewed deps; do not disable OSV. |
+| Static and unit | Lint `import/no-unresolved` on `@/features/settings/preferences-storage` (`.web`/`.native` pair) | Fixed in `apps/app/eslint.config.mjs` ignore list (same pattern as `@/platform/*`). |
+
+JS/TS CodeQL, Secret scan, Web/Worker/Native builds, and Migration safety already passed on that run.
+
+**External ops checklist (cannot complete from this worktree alone — 2026-07-18):**
+
+| Item | Owner | Status / next action |
+| --- | --- | --- |
+| E2E secrets + dedicated project | Ops | Still blocked: five `E2E_*` on `e2e` env + `manut-intranet-e2e`. Do not soft-skip the gate. |
+| CodeQL Ruby language | Repo settings | Drop Ruby from default Code scanning setup (JS/TS already passes). |
+| OSV / dependency-review bumps | Eng | Review Dependabot/OSV hits and bump low-risk lockfile deps; keep OSV fail-closed. |
+| Static-unit platform ignore | Eng | Preferences-storage `.web`/`.native` ignore landed; re-check CI if new unresolved pairs appear. |
+| GitHub Free → Pro | Org | Branch protection / required `Validate` still 403 on Free org plan. |
+| Phase E Cloudflare / Expo / Hyperdrive | Ops | Fresh Manut-owned resources only; no deploy from this branch. |
+| Credential revocation proof | Ops | Negative auth evidence + rotate any exposed worker secrets out-of-band. |
+
 Nine prerequisite jobs plus the final aggregator:
 
 1. `changes`
@@ -551,21 +680,111 @@ Migration order:
 1. Finish Phase 1 behavior: dashboard, directory, employee portal,
    Performance, Leave, and the remaining Settings preferences/integration
    slices. Preserve the accepted Settings profile/privacy slice.
-   **Status 2026-07-17:** Performance appraisals (read-only), My Portal hub,
+   **Status 2026-07-18:** Performance appraisals (read-only), My Portal hub,
    leave history pagination, directory org chart, dashboard KPIs/pending
-   actions, and local Settings preferences are in Expo as `foundation`
-   slices. Integrations OAuth, leave subroutes, and full dashboard charts
-   remain. Move Playwright employee/leave coverage from `:3000` to Expo
-   `:8081` as authenticated secrets become available.
+   actions + chart series, Settings preferences + Google OAuth, and leave
+   holidays/approval read-only subroutes are in Expo as `foundation` slices.
+   Leave calendar + team/HR approve/reject + `/leave/policies` foundation
+   landed 2026-07-18. Admin system settings read-only (`admin:manage`) landed
+   on `/settings`. Wall/compose remains. Move Playwright employee/leave
+   coverage from `:3000` to Expo `:8081` only when the five `E2E_*` secrets
+   and dedicated E2E project exist — do not soft-skip.
 2. HR/people and approvals: HRMS, travel, visa, expenses, cash advance,
    payroll, benefits, attendance, learning, career, applications, office,
-   employees, roles, and related approval screens. **Not started.**
-3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
+   employees, roles, and related approval screens.
+   **Status 2026-07-18 (reconcile):** Wave 2 HR spine foundation complete —
+   Travel (+ `/travel/approval` steps), Expenses (+ `/expenses/[reportId]`
+   + `/expenses/approval`), admin Employees/Roles, `/hrms` (+
+   `/hrms/grants/[employeeId]`), `/visa` (+ checklist-templates +
+   knowledge-base), `/cash-advance` (+ approval), `/payroll` (+
+   `/payroll/approval`), `/benefits`, `/learning`, `/office`, `/careers`,
+   `/applications`. Leave calendar/team approve + `/leave/policies` landed.
+   Still deferred (deepen, not missing routes): office book-self + manage;
+   careers apply/manage; applications status writes; payroll
+   create/approve/payslip export; benefits enroll/manage; learning
+   manage/complete; HRMS pool/import/offboarding; visa CRUD/90-day;
+   cash-advance approve/disburse; expense approve + R2 receipts; wall/compose.
+   3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
-   **Not started.**
+   **Status 2026-07-18 (reconcile):** Wave 3 route foundations complete for
+   migrate targets — `/it-helpdesk`, `/projects` list/detail/dashboard,
+   `/accounting`, `/revenue`, `/sales`, `/partners` (+ detail), investor
+   modules (`/investors`, `/investor-updates`, `/dataroom`), OTHER CRM hubs
+   (`/it-crm`, `/it-crm/dashboard`, `/product-crm`, `/legal-crm`,
+   `/accounting-crm`, `/qa-crm`, `/qa-crm/[projectId]`, `/voucher-crm`,
+   `/hr-crm`, `/investor-crm`, `/sales-revenue`, `/deals`), content/comms
+   (`/blog-management`, `/docs`, `/legal` + announcements/shared,
+   `/pr-management`), admin (`/admin`, `/admin/form-config`), IT ops
+   (`/it-operations` + access/billing), `/policies`, `/certificates`, and
+   survey list/detail/respond/new shells (`/survey`, `/survey-forms`).
+   **Survey deepen (2026-07-18):** draft create on `/survey/new` +
+   `/survey-forms/new` (manage-gated POST), `/survey/[id]/respond`
+   answer submit, and manage-gated question list editors + publish on
+   `/survey/[id]` (`survey:manage`) and `/survey-forms/[id]`
+   (`survey:manage-wave`) via `PUT …/questions` + `POST …/publish`
+   (app-core Zod; no announce payload). Disposition stays `foundation`
+   until Expo E2E. Still deferred: announce/schedule/analytics/archive,
+   full drag-reorder parity with web, survey-forms respond submit,
+   targeting UI.
+   **Projects CRM deepen (2026-07-18):** `/projects/[projectId]` now reads
+   kanban columns + tasks from `GET /projects/:id` (emails/budget stripped in
+   app-core) and creates tasks via `POST /projects/:id/tasks` with
+   `createProjectTaskInputSchema` + `projects:update` / team-CRM
+   `*:update`/`*:manage` client gate. Disposition stays `foundation`.
+   **Deals create deepen (2026-07-18):** `/deals` list stays foundation; one
+   write lands via app-core `createDeal` + `createDealInputSchema` →
+   `POST /api/deals`, Expo form gated by `deals:create`/`deals:manage`, list
+   query invalidated on success (notes/email/partner still stripped). Deferred:
+   pipeline kanban, stage drag, notes editor, delete.
+   **CRM deepen pattern for other hubs** (`/it-crm`, `/product-crm`,
+   `/legal-crm`, `/qa-crm`, …): (1) extend the existing detail/list DTO to
+   project board columns + task cards without emails/budget/member PII;
+   (2) add one write (`createTask` / status patch) with Zod in
+   `packages/app-core` mirroring the API validation; (3) permission-gate the
+   Expo form; (4) unit + screen tests; (5) leave disposition `foundation`
+   until Expo E2E. Do not deepen every CRM hub in one slice.
+   Still deepen (not missing routes): journals/invoices/bank/approve-post,
+   revenue detail tabs, reporting, helpdesk writes/comments/GitHub, project
+   drag-reorder / task edit-delete / members, deals pipeline/kanban/notes,
+   survey announce / schedule / analytics / archive, other CRM
+   board/tasks/import/create.
+
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
-   **Not started.**
+   **Status 2026-07-18 (parallel Hyperdrive + Expo deepen reconcile):**
+   `/messages` Expo sends via REST and receives live
+   `message.created`/`message.deleted` preferring the edge Durable Object
+   shared room `channel:{channelId}` (membership via Hyperdrive+Prisma when
+   `ENABLE_HYPERDRIVE_BOUNDARY` is on, else Express
+   `GET /api/messages/channels/:id` before WS upgrade). Worker
+   `/api/messages` dual-path covers channels/DMs/users/unread/read/typing/hide,
+   message list/send/delete, and `attachmentIds` link + list enrichment on
+   Hyperdrive (DO fan-out on writes). `/api/deals` dual-path: list + create +
+   pipeline + get-by-id + put on Hyperdrive (`crm:team-read` owner scope;
+   notes/email stripped); hard-delete still proxies (no soft-delete rules).
+   `/api/survey` + `/api/survey-forms` dual-path: list, detail, create,
+   questions replace, publish (no announce), respond, my-response, schedule,
+   close/reopen, archive/unarchive, responses list, analytics, settings;
+   announce-on-publish / `POST /:id/announce` still proxy. `/api/projects`
+   dual-path: list, detail (kanban + tasks), task create; reorder/members/
+   milestones/task update-delete still proxy. Portable `trusted-storage`
+   helper + FileUpload lookup: managed URLs require `TRUSTED_STORAGE_ORIGINS`
+   + bucket allowlist + purpose/ownership registry. HR deepen: expenses
+   `pendingForMe`/submit/approvals/FX + self CRUD; cash-advance
+   approve/reject/disburse/clear (+ receipts when safe); leave
+   approve/reject/cancel; payroll my-payslips; benefits/learning/visa
+   catalogs. Expo deepen (disposition stays `foundation`): expenses/CA
+   pending inboxes, survey manage UX, deals pipeline kanban + notes, project
+   board writes. Express `messageBus` still fans to the DO when
+   `EDGE_REALTIME_ORIGIN` + `EDGE_REALTIME_BRIDGE_SECRET` (must match Worker
+   `EDGE_SIGNING_KEY`) are set; socket.io `/messages` remains the client
+   fallback when unset. Fail closed: missing `REALTIME_ROOMS` / `API_ORIGIN`
+   / bridge secret / Hyperdrive binding (when flagged on) rejects the
+   edge-native path. Phase E ops checklist:
+   `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`.
+   **Next CF module candidates:** deals soft-delete contract, survey announce
+   side-effects, projects reorder/members/milestones, leave balances/types,
+   CA signed receipt GET, payroll PDF export.
 
 For each route slice:
 
@@ -673,6 +892,10 @@ Playwright storage state, test artifacts, SBOM output, or provider files.
 
 ### Phase E: fresh Manut environment provisioning
 
+Deploy-readiness (code-ready vs ops-blocked, binding names, cutover order,
+local dry-run evidence): **`docs/PRODUCTION_DEPLOY.md`**. Deploy workflows
+remain `.disabled`; do not enable them from this branch.
+
 This phase requires verified Manut-owned authority and should not be attempted
 from an inherited provider account.
 
@@ -762,6 +985,9 @@ These are merge blockers, not reasons to weaken or bypass tests.
 
 ## Control documents
 
+- `docs/PRODUCTION_DEPLOY.md`: production deploy readiness matrix, env/binding
+  names, cutover order, and mechanical re-enable notes (deploy remains disabled).
+- `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`: Phase E Hyperdrive / realtime / E2E / retirement checklist (deploy remains disabled).
 - `docs/REPOSITORY_MIGRATION.md`: provenance, backup, deployment boundary, and
   rollback.
 - `docs/ROUTE_DISPOSITION.md` and `.json`: all 103 source routes and current
@@ -774,3 +1000,43 @@ These are merge blockers, not reasons to weaken or bypass tests.
 - `scripts/check-credential-boundary.mjs`: HMAC provenance scanner.
 - `scripts/check-migration-safety.mjs` and
   `scripts/run-migration-harness.mjs`: migration policy and replay.
+
+### Cloudflare Hyperdrive + Expo deepen status (2026-07-18 reconcile)
+
+Parallel slices landed on `claude/intranet-full-hardening` (ops checklist:
+`docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`; deploy remains disabled; no
+Hyperdrive ids invented). Disposition stays **88 foundation / 0 pending /
+16 removed**.
+
+**Edge Hyperdrive (dual-path when `ENABLE_HYPERDRIVE_BOUNDARY=true`):**
+
+| Module | On Hyperdrive | Still Express-proxied |
+| --- | --- | --- |
+| Messages | channels/DMs/users/unread/read/typing/hide, list/send/delete, `attachmentIds` link + list enrichment | — (Socket.IO client fallback unchanged) |
+| Deals | list, create, pipeline, get, put | `DELETE /:id` (no soft-delete contract) |
+| Survey / survey-forms | list/detail/create/questions/publish/respond/my-response, schedule, close/reopen, archive, responses, analytics, settings | announce-on-publish / `POST /:id/announce`; survey-forms PUT/DELETE metadata |
+| Projects | list, detail (kanban + tasks), task create | dashboard, import/reorder, members, milestones, task update/delete, other CRM hubs |
+| Expenses | self CRUD + lines (+ receipts when trusted), `pendingForMe`, submit, approvals, FX | raw items / meta / Express-only signing paths |
+| Leave | self list/create + approve/reject/cancel | balances, types catalog, richer team/HR filters |
+| Cash-advance | self list/create/submit/update (+ receipts when trusted) + approve/reject/disburse/clear | signed receipt GET, disbursement-proof GET |
+
+**Expo / app-core deepen (foundation disposition):** expenses + cash-advance
+pending inboxes; survey detail manage (announce/schedule/analytics/archive);
+survey-forms respond submit; deals pipeline kanban + stage moves + notes;
+project board task create/reorder/edit/delete + members read (emails
+stripped). Member write UI and pointer drag deferred.
+
+### Parallel: p2-projection-strips
+
+Client projection hardening (Hyperdrive serializers; deploy unchanged):
+
+- **Visa self-list:** strips `documentUrl` / storage URLs; returns
+  `hasDocument` + document name/category only; strips employee `email`
+  (HR company-wide lists stay Express-proxied and may keep email).
+  app-core `visaEmployeeSchema.email` is optional; list exposes
+  `hasDocument` / `documentCount`.
+- **Expense line POST/PUT:** responses return `hasReceipt` only (no
+  echoed `receiptUrl`). Input may still send `receiptUrl`.
+- **Payroll:** existing `hasDocument` / no-`documentUrl` locks retained.
+- **Leave:** self-list keeps `reason` (owner-only Hyperdrive path; Expo
+  leave list needs it). Team/HR widened queries remain proxied.

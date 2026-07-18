@@ -1,0 +1,507 @@
+import { z } from "zod";
+
+import type { ApiClient } from "../api/api-client";
+import type { RequestAbortSignal } from "../api/api-types";
+
+const nullableText = z.string().nullable();
+
+const paginationMetaSchema = z
+  .object({
+    page: z.number().int().positive(),
+    limit: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    totalPages: z.number().int().nonnegative(),
+  })
+  .strict();
+
+// List foundation keeps name/status/owner; strips budget, comments,
+// member emails, partner company, and board internals.
+const projectApiSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    slug: z.string().min(1),
+    status: z.string().min(1),
+    team: z.string().min(1).optional(),
+    department: nullableText.optional(),
+    owner: z
+      .object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+      })
+      .passthrough(),
+    _count: z
+      .object({
+        tasks: z.number().int().nonnegative(),
+      })
+      .optional(),
+  })
+  .passthrough();
+
+export const projectSchema = projectApiSchema.transform((project) => ({
+  id: project.id,
+  name: project.name,
+  slug: project.slug,
+  status: project.status,
+  team: project.team ?? "general",
+  department: project.department ?? null,
+  taskCount: project._count?.tasks ?? 0,
+  owner: { id: project.owner.id, name: project.owner.name },
+}));
+
+const projectsResponseSchema = z
+  .object({
+    data: z.array(projectSchema),
+    meta: paginationMetaSchema,
+  })
+  .strict();
+
+export const projectListParamsSchema = z
+  .object({
+    page: z.number().int().positive().default(1),
+    limit: z.number().int().positive().max(100).default(20),
+    team: z.string().trim().min(1).optional(),
+    status: z.string().trim().min(1).optional(),
+    search: z.string().trim().min(1).optional(),
+  })
+  .strict();
+
+export type Project = z.infer<typeof projectSchema>;
+export type ProjectListParams = z.input<typeof projectListParamsSchema>;
+export type ProjectList = z.infer<typeof projectsResponseSchema>;
+
+export const PROJECTS_QUERY_ROOT = ["projects", "list"] as const;
+
+export function projectsQueryKey(params: ProjectListParams = {}) {
+  return [
+    ...PROJECTS_QUERY_ROOT,
+    projectListParamsSchema.parse(params),
+  ] as const;
+}
+
+function encodeProjectQuery(
+  params: z.output<typeof projectListParamsSchema>,
+): string {
+  const entries: Array<[string, string | number | undefined]> = [
+    ["page", params.page],
+    ["limit", params.limit],
+    ["team", params.team],
+    ["status", params.status],
+    ["search", params.search],
+  ];
+  return entries
+    .filter(
+      (entry): entry is [string, string | number] => entry[1] !== undefined,
+    )
+    .map(
+      ([key, value]) =>
+        `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`,
+    )
+    .join("&");
+}
+
+export async function listProjects(
+  client: ApiClient,
+  params: ProjectListParams = {},
+  signal?: RequestAbortSignal,
+): Promise<ProjectList> {
+  const query = encodeProjectQuery(projectListParamsSchema.parse(params));
+  const response = await client.get<unknown>(
+    `/projects?${query}`,
+    signal ? { signal } : undefined,
+  );
+  return projectsResponseSchema.parse(response);
+}
+
+const nullableDateText = z.union([z.string().min(1), z.null()]);
+
+export const PROJECT_TASK_PRIORITIES = ["P0", "P1", "P2"] as const;
+export const PROJECT_TASK_PRIORITY_DEFAULT =
+  "P1" as (typeof PROJECT_TASK_PRIORITIES)[number];
+
+const projectColumnApiSchema = z
+  .object({
+    id: z.string().min(1),
+    key: z.string().min(1),
+    label: z.string().min(1),
+    sortOrder: z.number().int().nonnegative().optional(),
+  })
+  .passthrough();
+
+export const projectColumnSchema = projectColumnApiSchema.transform(
+  (column) => ({
+    id: column.id,
+    key: column.key,
+    label: column.label,
+    sortOrder: column.sortOrder ?? 0,
+  }),
+);
+
+const projectTaskApiSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    status: z.string().min(1),
+    priority: z.string().min(1).optional(),
+    sortOrder: z.number().int().nonnegative().optional(),
+    owner: z
+      .object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
+  })
+  .passthrough();
+
+export const projectTaskSchema = projectTaskApiSchema.transform((task) => ({
+  id: task.id,
+  title: task.title,
+  status: task.status,
+  priority: task.priority ?? PROJECT_TASK_PRIORITY_DEFAULT,
+  sortOrder: task.sortOrder ?? 0,
+  owner: task.owner
+    ? { id: task.owner.id, name: task.owner.name }
+    : null,
+}));
+
+const projectDetailApiSchema = projectApiSchema.extend({
+  startDate: nullableDateText.optional(),
+  endDate: nullableDateText.optional(),
+  goLiveDate: nullableDateText.optional(),
+  workstream: nullableText.optional(),
+  columns: z.array(projectColumnApiSchema).optional(),
+  tasks: z.array(projectTaskApiSchema).optional(),
+});
+
+export const projectDetailSchema = projectDetailApiSchema.transform(
+  (project) => ({
+    id: project.id,
+    name: project.name,
+    slug: project.slug,
+    status: project.status,
+    team: project.team ?? "general",
+    department: project.department ?? null,
+    taskCount: project._count?.tasks ?? 0,
+    owner: { id: project.owner.id, name: project.owner.name },
+    startDate: project.startDate ?? null,
+    endDate: project.endDate ?? null,
+    goLiveDate: project.goLiveDate ?? null,
+    workstream: project.workstream ?? null,
+    columns: (project.columns ?? [])
+      .map((column) => projectColumnSchema.parse(column))
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+    tasks: (project.tasks ?? [])
+      .map((task) => projectTaskSchema.parse(task))
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+  }),
+);
+
+const projectDetailResponseSchema = z
+  .object({
+    data: projectDetailSchema,
+  })
+  .strict();
+
+export type ProjectDetail = z.infer<typeof projectDetailSchema>;
+
+export const PROJECT_DETAIL_QUERY_ROOT = ["projects", "detail"] as const;
+
+export function projectDetailQueryKey(projectId: string) {
+  return [...PROJECT_DETAIL_QUERY_ROOT, projectId] as const;
+}
+
+export async function getProject(
+  client: ApiClient,
+  projectId: string,
+  signal?: RequestAbortSignal,
+): Promise<ProjectDetail> {
+  const response = await client.get<unknown>(
+    `/projects/${encodeURIComponent(projectId)}`,
+    signal ? { signal } : undefined,
+  );
+  return projectDetailResponseSchema.parse(response).data;
+}
+
+const dashboardProjectSummarySchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    slug: z.string().min(1),
+    status: z.string().min(1),
+    department: nullableText.optional(),
+    goLiveDate: nullableDateText.optional(),
+    revisedGoLiveDate: nullableDateText.optional(),
+    updatedAt: z.string().min(1).optional(),
+    owner: z
+      .object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+      })
+      .passthrough(),
+  })
+  .passthrough()
+  .transform((row) => ({
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    status: row.status,
+    department: row.department ?? null,
+    goLiveDate: row.goLiveDate ?? null,
+    revisedGoLiveDate: row.revisedGoLiveDate ?? null,
+    updatedAt: row.updatedAt ?? null,
+    owner: { id: row.owner.id, name: row.owner.name },
+  }));
+
+export const projectsDashboardSchema = z
+  .object({
+    total: z.number().int().nonnegative(),
+    productionLive: z.number().int().nonnegative(),
+    atRisk: z.number().int().nonnegative(),
+    inProgress: z.number().int().nonnegative(),
+    byStatus: z.array(
+      z
+        .object({
+          status: z.string().min(1),
+          count: z.number().int().nonnegative(),
+        })
+        .strict(),
+    ),
+    byDepartment: z.array(
+      z
+        .object({
+          department: nullableText,
+          count: z.number().int().nonnegative(),
+        })
+        .strict(),
+    ),
+    upcomingGoLives: z.array(dashboardProjectSummarySchema),
+    recentUpdates: z.array(dashboardProjectSummarySchema),
+  })
+  .strict();
+
+const projectsDashboardResponseSchema = z
+  .object({
+    data: projectsDashboardSchema,
+  })
+  .strict();
+
+export const projectsDashboardParamsSchema = z
+  .object({
+    team: z.string().trim().min(1).default("general"),
+  })
+  .strict();
+
+export type ProjectsDashboard = z.infer<typeof projectsDashboardSchema>;
+export type ProjectsDashboardParams = z.input<
+  typeof projectsDashboardParamsSchema
+>;
+
+export const PROJECTS_DASHBOARD_QUERY_ROOT = [
+  "projects",
+  "dashboard",
+] as const;
+
+export function projectsDashboardQueryKey(
+  params: ProjectsDashboardParams = {},
+) {
+  return [
+    ...PROJECTS_DASHBOARD_QUERY_ROOT,
+    projectsDashboardParamsSchema.parse(params),
+  ] as const;
+}
+
+export async function getProjectsDashboard(
+  client: ApiClient,
+  params: ProjectsDashboardParams = {},
+  signal?: RequestAbortSignal,
+): Promise<ProjectsDashboard> {
+  const { team } = projectsDashboardParamsSchema.parse(params);
+  const response = await client.get<unknown>(
+    `/projects/dashboard?team=${encodeURIComponent(team)}`,
+    signal ? { signal } : undefined,
+  );
+  return projectsDashboardResponseSchema.parse(response).data;
+}
+
+const trimmedRequired = z.string().trim().min(1);
+
+export const createProjectTaskInputSchema = z
+  .object({
+    title: trimmedRequired.max(500),
+    status: z.string().trim().min(1).max(64).default("todo"),
+    priority: z
+      .enum(PROJECT_TASK_PRIORITIES)
+      .default(PROJECT_TASK_PRIORITY_DEFAULT),
+  })
+  .strict();
+
+export type CreateProjectTaskInput = z.input<
+  typeof createProjectTaskInputSchema
+>;
+export type ProjectColumn = z.infer<typeof projectColumnSchema>;
+export type ProjectTask = z.infer<typeof projectTaskSchema>;
+
+const createdProjectTaskResponseSchema = z
+  .object({
+    data: projectTaskSchema,
+  })
+  .strict();
+
+export async function createProjectTask(
+  client: ApiClient,
+  projectId: string,
+  input: CreateProjectTaskInput,
+): Promise<ProjectTask> {
+  const id = z.string().min(1).parse(projectId);
+  const parsed = createProjectTaskInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/projects/${encodeURIComponent(id)}/tasks`,
+    parsed,
+  );
+  return createdProjectTaskResponseSchema.parse(response).data;
+}
+
+export const updateProjectTaskInputSchema = z
+  .object({
+    title: z.string().trim().min(1).max(500).optional(),
+    status: z.string().trim().min(1).max(64).optional(),
+    priority: z.enum(PROJECT_TASK_PRIORITIES).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field is required",
+  });
+
+export type UpdateProjectTaskInput = z.input<
+  typeof updateProjectTaskInputSchema
+>;
+
+const updatedProjectTaskResponseSchema = z
+  .object({
+    data: projectTaskSchema,
+  })
+  .strict();
+
+export async function updateProjectTask(
+  client: ApiClient,
+  projectId: string,
+  taskId: string,
+  input: UpdateProjectTaskInput,
+): Promise<ProjectTask> {
+  const id = z.string().min(1).parse(projectId);
+  const tid = z.string().min(1).parse(taskId);
+  const parsed = updateProjectTaskInputSchema.parse(input);
+  const response = await client.put<unknown>(
+    `/projects/${encodeURIComponent(id)}/tasks/${encodeURIComponent(tid)}`,
+    parsed,
+  );
+  return updatedProjectTaskResponseSchema.parse(response).data;
+}
+
+const deleteProjectTaskResponseSchema = z
+  .object({
+    data: z
+      .object({
+        success: z.literal(true),
+      })
+      .strict(),
+  })
+  .strict();
+
+export async function deleteProjectTask(
+  client: ApiClient,
+  projectId: string,
+  taskId: string,
+): Promise<{ success: true }> {
+  const id = z.string().min(1).parse(projectId);
+  const tid = z.string().min(1).parse(taskId);
+  const response = await client.delete<unknown>(
+    `/projects/${encodeURIComponent(id)}/tasks/${encodeURIComponent(tid)}`,
+  );
+  return deleteProjectTaskResponseSchema.parse(response).data;
+}
+
+export const reorderProjectTasksInputSchema = z
+  .object({
+    orderedIds: z.array(z.string().min(1)).min(1).max(500),
+    status: z.string().trim().min(1).max(64).optional(),
+  })
+  .strict();
+
+export type ReorderProjectTasksInput = z.input<
+  typeof reorderProjectTasksInputSchema
+>;
+
+const reorderProjectTasksResponseSchema = z
+  .object({
+    data: z
+      .object({
+        updated: z.number().int().nonnegative(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export async function reorderProjectTasks(
+  client: ApiClient,
+  projectId: string,
+  input: ReorderProjectTasksInput,
+): Promise<{ updated: number }> {
+  const id = z.string().min(1).parse(projectId);
+  const parsed = reorderProjectTasksInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/projects/${encodeURIComponent(id)}/tasks/reorder`,
+    parsed,
+  );
+  return reorderProjectTasksResponseSchema.parse(response).data;
+}
+
+const projectMemberApiSchema = z
+  .object({
+    id: z.string().min(1),
+    role: z.string().min(1).optional(),
+    user: z
+      .object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+export const projectMemberSchema = projectMemberApiSchema.transform(
+  (member) => ({
+    id: member.id,
+    role: member.role ?? "member",
+    user: { id: member.user.id, name: member.user.name },
+  }),
+);
+
+export type ProjectMember = z.infer<typeof projectMemberSchema>;
+
+const projectMembersResponseSchema = z
+  .object({
+    data: z.array(projectMemberSchema),
+  })
+  .strict();
+
+export const PROJECT_MEMBERS_QUERY_ROOT = ["projects", "members"] as const;
+
+export function projectMembersQueryKey(projectId: string) {
+  return [...PROJECT_MEMBERS_QUERY_ROOT, projectId] as const;
+}
+
+export async function listProjectMembers(
+  client: ApiClient,
+  projectId: string,
+  signal?: RequestAbortSignal,
+): Promise<ProjectMember[]> {
+  const id = z.string().min(1).parse(projectId);
+  const response = await client.get<unknown>(
+    `/projects/${encodeURIComponent(id)}/members`,
+    signal ? { signal } : undefined,
+  );
+  return projectMembersResponseSchema.parse(response).data;
+}

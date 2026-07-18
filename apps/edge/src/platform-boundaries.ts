@@ -6,8 +6,11 @@ import {
 } from "cloudflare:workers";
 
 import { HttpError } from "./http-error";
+import { isHyperdriveEnabled } from "./hyperdrive";
 import type { EdgeJobEnvelope } from "./queue";
 import type { RuntimeBindings } from "./runtime";
+
+export { requireHyperdrive } from "./hyperdrive";
 
 export interface BackgroundWorkflowParams {
   operation: string;
@@ -31,9 +34,7 @@ export function platformCapabilities(env: RuntimeBindings) {
       provisioned: false,
     },
     hyperdrive: {
-      enabled:
-        enabled(env.ENABLE_HYPERDRIVE_BOUNDARY) &&
-        env.HYPERDRIVE_DATABASE !== undefined,
+      enabled: isHyperdriveEnabled(env),
       provisioned: env.HYPERDRIVE_DATABASE !== undefined,
     },
     workflow: {
@@ -59,17 +60,6 @@ export async function startBackgroundWorkflow(
     params,
   });
   return instance.id;
-}
-
-export function requireHyperdrive(env: RuntimeBindings): Hyperdrive {
-  if (!enabled(env.ENABLE_HYPERDRIVE_BOUNDARY) || !env.HYPERDRIVE_DATABASE) {
-    throw new HttpError(
-      503,
-      "HYPERDRIVE_NOT_PROVISIONED",
-      "Database capability is disabled.",
-    );
-  }
-  return env.HYPERDRIVE_DATABASE;
 }
 
 export function requireContainer(env: RuntimeBindings): DurableObjectNamespace {

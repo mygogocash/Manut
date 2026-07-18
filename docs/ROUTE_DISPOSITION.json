@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sourceSnapshot": "371349fd43fd7c7c7717054beec97bfb023885ca",
   "sourceCommand": "git ls-tree -r --name-only 371349fd -- apps/web/src/app | rg '/page\\.tsx$' | sort",
-  "routeCount": 103,
+  "routeCount": 104,
   "uniqueSourcePathCount": 103,
   "dispositionCounts": {
     "migrate": 79,
@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 13,
-    "pending": 74,
+    "foundation": 88,
+    "pending": 0,
     "removed": 16
   },
   "statusSemantics": {
@@ -24,17 +24,17 @@
       "sourcePath": "apps/web/src/app/(dashboard)/accounting-crm/page.tsx",
       "sourceRoute": "/accounting-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/accounting-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only accounting CRM project list via app-core (strips emails/notes/board). Deferred: board, tasks, import, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/accounting/page.tsx",
       "sourceRoute": "/accounting",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/accounting",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only chart of accounts via GET /api/accounting/accounts (code/name/type/balance/entity/parent); strips lifecycle and entity currency. Journals, invoices, vendors, bank, approve/post, and writes remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/admin/aria-insights/page.tsx",
@@ -72,25 +72,25 @@
       "sourcePath": "apps/web/src/app/(dashboard)/admin/form-config/page.tsx",
       "sourceRoute": "/admin/form-config",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/admin/form-config",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only department list via GET /api/admin/departments (admin:read|manage). Create/update/deactivate deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/admin/page.tsx",
       "sourceRoute": "/admin",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/admin",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo thin admin hub via GET /api/admin/users/stats (admin:read|manage; user:read for KPI). Audit log and per-user usage remain deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/applications/page.tsx",
       "sourceRoute": "/applications",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/applications",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only recruiter inbox via app-core (strips resume attachment URLs to hasResume). Deferred: status writes, resume download, delete/export."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/aria/knowledge/[id]/page.tsx",
@@ -112,49 +112,49 @@
       "sourcePath": "apps/web/src/app/(dashboard)/benefits/page.tsx",
       "sourceRoute": "/benefits",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/benefits",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only catalog + my-enrollments via app-core. Deferred: enroll/unenroll, manage CRUD, bulk import."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/blog-management/page.tsx",
       "sourceRoute": "/blog-management",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/blog-management",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only blog list via GET /api/blogs (blog:read registry; employee-boundary). Strips HTML content/cover; keeps title/slug/active/author name. Deferred: compose, edit, delete, CSV export."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/careers/page.tsx",
       "sourceRoute": "/careers",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/careers",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only job postings list via app-core (career:read registry). Deferred: apply flow, posting create/update/delete, CSV export."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/cash-advance/approval/page.tsx",
       "sourceRoute": "/cash-advance/approval",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/cash-advance/approval",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only cash-advance approval-steps list via app-core. Step create/edit/reorder, notification recipients, approve/reject, and disbursement remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/cash-advance/page.tsx",
       "sourceRoute": "/cash-advance",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/cash-advance",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo self-service: mine list, create draft, submit, delete draft, and link to approval-chain foundation. Approve/reject on submitted, disburse + proof URL, and item receipt download remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/certificates/page.tsx",
       "sourceRoute": "/certificates",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/certificates",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only certificate list via GET /api/certificates (certificate:read|manage); issue/download deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/dashboard/page.tsx",
@@ -162,23 +162,23 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/dashboard",
-      "note": "Expo wires GET /dashboard/stats for permission-gated KPIs and pending actions; charts, wall, and compose flows remain before parity."
+      "note": "Expo wires GET /dashboard/stats for permission-gated KPIs, pending actions, and simple expense/project/department chart series; wall and compose flows remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/dataroom/page.tsx",
       "sourceRoute": "/dataroom",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/dataroom",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only dataroom document list via GET /api/dataroom (dataroom:read). Strips fileUrl and uploader email; keeps name/category/mime/version. Deferred: download intents, upload, folder management. Not Google Drive."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/deals/page.tsx",
       "sourceRoute": "/deals",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/deals",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo deals list + create via app-core GET/POST /api/deals (createDeal Zod; strips notes/owner email/partner). Gated by deals:create/deals:manage. Deferred: pipeline kanban, stage drag, notes editor, delete. Legacy web redirected to /sales."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/directory/page.tsx",
@@ -192,177 +192,185 @@
       "sourcePath": "apps/web/src/app/(dashboard)/docs/page.tsx",
       "sourceRoute": "/docs",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/docs",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only wiki page list via GET /api/docs (docs:read). Strips body and creator email; keeps title/slug/folder/publish flags. Deferred: tree editor, page body view, ACL writes, create/move."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/drive/page.tsx",
       "sourceRoute": "/drive",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/drive",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo /drive foundation: connect-aware Google Drive file list via POST /api/integrations/drive/list and Settings Google status patterns. Not-connected shows no fake data. Separate from R2 /files."
+    },
+    {
+      "sourcePath": "apps/app/app/(protected)/files.tsx",
+      "sourceRoute": "/files",
+      "disposition": "migrate",
+      "status": "foundation",
+      "targetRoute": "/files",
+      "note": "Expo /files: owner-scoped list, signed open, DocumentPicker base64 upload (POST /api/uploads), and confirm delete (DELETE /api/uploads/:id). Ownership server-side; storage path stripped. Google Drive stays on /drive."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/employees/page.tsx",
       "sourceRoute": "/employees",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/employees",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only admin employee list (search/active filter) via app-core /admin/users. Create, role assign, reset password, and delete remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/expenses/[reportId]/page.tsx",
       "sourceRoute": "/expenses/[reportId]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/expenses/[reportId]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only expense report detail via app-core (status/total/purpose). Deferred: line items, receipt open/upload, approve/reject actions."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/expenses/approval/page.tsx",
       "sourceRoute": "/expenses/approval",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/expenses/approval",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only expense approval-steps list via app-core. Step create/edit/reorder, notification recipients, and report approve actions remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/expenses/page.tsx",
       "sourceRoute": "/expenses",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/expenses",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has self expense-report list/detail plus draft create, line add (optional receipt URL), submit, and link to approval-chain and /expenses/[reportId] foundations. Report approve/reject and R2 receipt upload remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/gmail/page.tsx",
       "sourceRoute": "/gmail",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/gmail",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo connect-aware Gmail inbox via POST /api/integrations/gmail/list; not-connected state without fake data. Compose/read/send deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/hr-crm/page.tsx",
       "sourceRoute": "/hr-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/hr-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only HR team project list via app-core listProjects({ team: \"hr\" }) / GET /api/projects?team=hr (strips emails/notes/budget/board). Deferred: board, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/hrms/esop/[employeeId]/page.tsx",
       "sourceRoute": "/hrms/esop/[employeeId]",
       "disposition": "replace",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/hrms/grants/[employeeId]",
-      "note": "Replace the source-specific grant surface with a generic Manut grant route."
+      "note": "Replaced source ESOP surface with Expo /hrms/grants/[employeeId] read-only grant detail via app-core. Deferred: import, currency amounts, pool edits."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/hrms/page.tsx",
       "sourceRoute": "/hrms",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/hrms",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo hub: attendance today + check-in/out, ESOP grants list with /hrms/grants/[employeeId] detail, onboarding runs list (task progress). Deferred: pool KPIs, imports/CRUD, offboarding, agreements, payslips, live/department attendance."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/investor-crm/page.tsx",
       "sourceRoute": "/investor-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/investor-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only investor CRM hub via app-core GET /api/investors/dashboard KPIs + stripped investors list. Deferred: funnel, notes, contact writes, /investors management parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/investor-updates/page.tsx",
       "sourceRoute": "/investor-updates",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/investor-updates",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only investor update list via GET /api/investor-updates. Strips body content and sender email; keeps title/period/status. Deferred: compose, send, body detail."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/investors/page.tsx",
       "sourceRoute": "/investors",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/investors",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only investor list via GET /api/investors. Strips contact email/phone, website, notes, and investment amounts. Deferred: pipeline board, detail, CRM writes. /investor-crm owned separately."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-crm/dashboard/page.tsx",
       "sourceRoute": "/it-crm/dashboard",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-crm/dashboard",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only IT CRM KPI rollup via app-core GET /api/it-crm/dashboard (strips comments/flow/SLA/helpdesk deep-dives). Deferred: analytics exhibits and writes."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-crm/page.tsx",
       "sourceRoute": "/it-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only IT CRM project list via app-core (strips emails/notes/budget/board). Dashboard foundation at /it-crm/dashboard. Deferred: board, tasks, archive, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-helpdesk/page.tsx",
       "sourceRoute": "/it-helpdesk",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-helpdesk",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only helpdesk ticket list via app-core (mine/all by it:read-all). Create, status/assignee writes, comments, settings, and GitHub sync remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-operations/access/page.tsx",
       "sourceRoute": "/it-operations/access",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-operations/access",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only access request list via GET /api/it-access/requests; approve/reject/grant deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-operations/billing/page.tsx",
       "sourceRoute": "/it-operations/billing",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-operations/billing",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only subscription list via GET /api/it-billing/subscriptions; vendor CRUD/renewals deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-operations/page.tsx",
       "sourceRoute": "/it-operations",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-operations",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only IT Ops KPI panel via GET /api/it-operations/dashboard; strips recent access identity/charts."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/learning/page.tsx",
       "sourceRoute": "/learning",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/learning",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only modules list via app-core (strips storage fileUrl). Deferred: manage CRUD/import, mark-complete writes, completions inbox."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/approval/page.tsx",
       "sourceRoute": "/leave/approval",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/leave/approval",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only approval-steps list via app-core. Step create/edit/reorder and notification recipients remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/holidays/page.tsx",
       "sourceRoute": "/leave/holidays",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/leave/holidays",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only year-filtered holiday list via app-core. Holiday create/edit/delete remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/page.tsx",
@@ -370,55 +378,55 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/leave",
-      "note": "Expo has balances, request create/cancel, and paginated self history. Calendar, team/HR actions, and leave subroutes remain before parity can be claimed."
+      "note": "Expo has balances, request create/cancel, paginated self history, month calendar, team/HR approve/reject inbox, and links to holidays/approval/policies foundation. Policy CRUD/import and calendar department filters remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/policies/page.tsx",
       "sourceRoute": "/leave/policies",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/leave/policies",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only leave-type catalog via app-core (/types/all). Create/edit/delete, bulk import, and per-policy approvers remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/legal-crm/page.tsx",
       "sourceRoute": "/legal-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/legal-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only legal CRM project list via app-core (strips emails/notes/board/details). Deferred: board, tasks, import, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/legal/announcements/[id]/page.tsx",
       "sourceRoute": "/legal/announcements/[id]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/legal/announcements/[id]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo announcement detail via GET /api/legal-announcements/:id (body + attachment names); ack/download deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/legal/announcements/page.tsx",
       "sourceRoute": "/legal/announcements",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/legal/announcements",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only announcements list via GET /api/legal-announcements. Strips body/acks/attachments; keeps title/kind/status/pin. Deferred: detail, ack, manage CRUD, attachment download. /legal hub and /legal/announcements/[id] remain pending."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/legal/page.tsx",
       "sourceRoute": "/legal",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/legal",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only legal document list via GET /api/legal; sharing/signatures/uploads deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/legal/shared/page.tsx",
       "sourceRoute": "/legal/shared",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/legal/shared",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only shared-with-me list via GET /api/legal/shared-with-me; downloads deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/campaigns/[id]/page.tsx",
@@ -488,9 +496,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/messages/page.tsx",
       "sourceRoute": "/messages",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/messages",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo channel list + REST history; Worker /api/messages dual-path (Hyperdrive+Prisma when ENABLE_HYPERDRIVE_BOUNDARY else Express proxy); live prefers edge DO shared room channel:{id} with membership check + messageBus→DO bridge; socket.io /messages remains fallback when edge origin/bridge unset."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/my-portal/page.tsx",
@@ -504,17 +512,17 @@
       "sourcePath": "apps/web/src/app/(dashboard)/office/page.tsx",
       "sourceRoute": "/office",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/office",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only offices/rooms/assets via app-core (strips address, booking slots, finance fields, assignee email). Deferred: book-self create/cancel, manage CRUD, asset import."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/partners/[partnerId]/page.tsx",
       "sourceRoute": "/partners/[partnerId]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/partners/[partnerId]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only partner detail via GET /api/partners/:id. Strips contracts/website/notes/contacts/owner email; keeps description and go-live dates. Linked from partners list. Deferred: board, contacts, contract edits."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/partners/campaigns/page.tsx",
@@ -536,25 +544,25 @@
       "sourcePath": "apps/web/src/app/(dashboard)/partners/page.tsx",
       "sourceRoute": "/partners",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/partners",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only partners list via app-core GET /api/partners (strips contracts/website/notes/owner email). Detail foundation links to /partners/[partnerId]. Campaigns/dashboard removed; board, contacts, and writes remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/payroll/approval/page.tsx",
       "sourceRoute": "/payroll/approval",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/payroll/approval",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only payroll approval-steps list via app-core. Deferred: step create/edit/reorder and run approve actions."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/payroll/page.tsx",
       "sourceRoute": "/payroll",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/payroll",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only payroll runs list via app-core (strips notes/emails/currencyTotals) plus /payroll/approval steps foundation. Deferred: create/import, approve actions, payslip download/export/bulk delete, company footer writes, consultant invoices."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/performance/page.tsx",
@@ -568,97 +576,97 @@
       "sourcePath": "apps/web/src/app/(dashboard)/policies/page.tsx",
       "sourceRoute": "/policies",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/policies",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only company policy list via GET /api/policies; upload/download deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/pr-management/page.tsx",
       "sourceRoute": "/pr-management",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/pr-management",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only PR article list via GET /api/articles (pr:read registry; employee-boundary). Strips image/author email; keeps title/link/date/author name. Deferred: create/edit/delete, CSV export."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/product-crm/page.tsx",
       "sourceRoute": "/product-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/product-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only product CRM project list via app-core (strips emails/notes/board). Deferred: board, tasks, import, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/projects/[projectId]/page.tsx",
       "sourceRoute": "/projects/[projectId]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/projects/[projectId]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo project detail shows kanban columns + tasks from GET detail and create-task via POST /projects/:id/tasks (app-core Zod; projects:update / team-CRM write gate). Strips emails/budget/assignee PII. Still foundation — deferred: drag-reorder, task edit/delete, members, timeline, Expo E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/projects/dashboard/page.tsx",
       "sourceRoute": "/projects/dashboard",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/projects/dashboard",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only general team dashboard rollup (totals, by-status, upcoming go-lives) via app-core; strips comments from recent updates. Charts export and deep team switchers remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/projects/page.tsx",
       "sourceRoute": "/projects",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/projects",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only general team project list via app-core with links to detail and dashboard. Boards, task writes, members, and team CRM workspaces remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/qa-crm/[projectId]/page.tsx",
       "sourceRoute": "/qa-crm/[projectId]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/qa-crm/[projectId]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only QA project detail via app-core GET /api/qa-crm/:id (strips emails/notes/description/board). Deferred: issue table, board, writes."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/qa-crm/page.tsx",
       "sourceRoute": "/qa-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/qa-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only QA CRM project list via app-core (strips emails/notes/board). Deferred: project detail, issue board, import, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/revenue/page.tsx",
       "sourceRoute": "/revenue",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/revenue",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only revenue KPIs via GET /api/revenue/dashboard (gated revenue:read); projects totals only and strips chart series, entity net-income rows, and invoice status breakdowns. Detail tabs remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/roles/page.tsx",
       "sourceRoute": "/roles",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/roles",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only role catalog via app-core. Create, clone, permission edit, and member assignment remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/sales-revenue/page.tsx",
       "sourceRoute": "/sales-revenue",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/sales-revenue",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only sales-revenue leads list via app-core GET /api/sales-revenue/leads (strips email/phone/notes). Deferred: pipeline, accounts, contacts, activities, tasks, settings, writes."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/sales/page.tsx",
       "sourceRoute": "/sales",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/sales",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only sales leads list via app-core GET /api/leads (strips email/phone/notes/conversion). Pipeline, accounts, contacts, deals, and writes remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/settings/page.tsx",
@@ -666,119 +674,119 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/settings",
-      "note": "Expo has profile/privacy plus local device preferences. Integrations OAuth and admin system settings remain before parity can be claimed."
+      "note": "Expo has profile/privacy, local preferences, Google Workspace connect/disconnect, and read-only admin system settings (admin:manage; secret-like keys omitted). PUT save and Gmail/Drive product screens remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/[id]/page.tsx",
       "sourceRoute": "/survey-forms/[id]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey-forms/[id]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only survey form detail with prompts; manage deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/[id]/respond/page.tsx",
       "sourceRoute": "/survey-forms/[id]/respond",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey-forms/[id]/respond",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo stub respond route; submit deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/new/page.tsx",
       "sourceRoute": "/survey-forms/new",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey-forms/new",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo stub route requiring survey:manage-wave; create builder deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/page.tsx",
       "sourceRoute": "/survey-forms",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey-forms",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only survey form list via GET /api/survey-forms; builder deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey/[id]/page.tsx",
       "sourceRoute": "/survey/[id]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey/[id]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only survey detail with question prompts; manage/publish deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey/[id]/respond/page.tsx",
       "sourceRoute": "/survey/[id]/respond",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey/[id]/respond",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only my-response status (answer values stripped); submit deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey/new/page.tsx",
       "sourceRoute": "/survey/new",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey/new",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo stub route requiring survey:manage; create builder deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey/page.tsx",
       "sourceRoute": "/survey",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only survey list via GET /api/survey; create/analytics deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/travel/approval/page.tsx",
       "sourceRoute": "/travel/approval",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/travel/approval",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only travel approval-steps list via app-core. Deferred: step create/edit/reorder, amount bands, and travel-desk recipients."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/travel/page.tsx",
       "sourceRoute": "/travel",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/travel",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has self list/create/cancel, pending inbox approve/reject (viewerCanAct), URL attachments, and /travel/approval steps foundation via app-core. Hotels/flights and R2 file upload remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/visa/checklist-templates/page.tsx",
       "sourceRoute": "/visa/checklist-templates",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/visa/checklist-templates",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only visa checklist template list via app-core. Deferred: item editing and create."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/visa/knowledge-base/page.tsx",
       "sourceRoute": "/visa/knowledge-base",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/visa/knowledge-base",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only visa knowledge-base article list via app-core. Deferred: article create/edit and richer filters."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/visa/page.tsx",
       "sourceRoute": "/visa",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/visa",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only tracker: list/detail + signed document open, plus /visa/checklist-templates and /visa/knowledge-base read foundations. Deferred: CRUD/import, notification config, timeline, checklist toggles, 90-day residence tab."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/voucher-crm/page.tsx",
       "sourceRoute": "/voucher-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/voucher-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only voucher entry list via app-core (strips creator email/notes). Deferred: create, import, reorder, edits."
     },
     {
       "sourcePath": "apps/web/src/app/auth/callback/page.tsx",
@@ -840,9 +848,9 @@
       "sourcePath": "apps/web/src/app/sign/[token]/page.tsx",
       "sourceRoute": "/sign/[token]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/sign/[token]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo public /sign/[token] via GET /api/legal-public/sign/:token (credentials omit). Read-only foundation; submit/decline deferred. Registry override remains public."
     }
   ]
 }

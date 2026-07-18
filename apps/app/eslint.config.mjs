@@ -36,6 +36,8 @@ export default [
             "^@/platform/auth-gateway$",
             "^@/platform/app-visibility$",
             "^@/platform/current-hash$",
+            // Platform pair: preferences-storage.web.ts / .native.ts
+            "^@/features/settings/preferences-storage$",
           ],
         },
       ],

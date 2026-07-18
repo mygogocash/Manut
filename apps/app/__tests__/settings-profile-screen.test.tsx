@@ -20,11 +20,18 @@ const mockPatch = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, replace: jest.fn() }),
+  useLocalSearchParams: () => ({}),
 }));
 
 jest.mock("@/providers/api-client-provider", () => ({
-  useApiClient: () => ({ get: mockGet, patch: mockPatch }),
+  useApiClient: () => ({ get: mockGet, patch: mockPatch, delete: jest.fn() }),
+}));
+
+jest.mock("@/features/auth/auth-provider", () => ({
+  useAuth: () => ({
+    hasPermission: () => false,
+  }),
 }));
 
 const profile = {

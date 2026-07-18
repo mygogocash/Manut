@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 
+import { proxyApiRequest } from "./api-proxy";
 import {
   enforceRefreshOrigin,
   enforceSameOrigin,
@@ -9,8 +10,36 @@ import {
   type VerifyAccessToken,
   verifyAccessToken,
 } from "./auth";
+import { createBenefitsRoutes } from "./benefits/routes";
+import {
+  createCashAdvanceRoutes,
+  type CreateCashAdvanceStore,
+} from "./cash-advance/routes";
+import { assertChannelMembership } from "./channel-membership";
 import { sha256Base64Url } from "./crypto";
+import {
+  createDealsRoutes,
+  type CreateDealsStore,
+} from "./deals/routes";
+import {
+  createExpensesRoutes,
+  type CreateExpensesStore,
+} from "./expenses/routes";
 import { HttpError } from "./http-error";
+import { isHyperdriveEnabled } from "./hyperdrive";
+import { createLearningRoutes } from "./learning/routes";
+import {
+  createLeaveRoutes,
+  type CreateLeaveStore,
+} from "./leave/routes";
+import {
+  createMessagesRoutes,
+  type CreateMessagesStore,
+} from "./messages/routes";
+import {
+  createPayrollRoutes,
+  type CreatePayrollStore,
+} from "./payroll/routes";
 import {
   BackgroundWorkflow,
   ContainerBoundary,
@@ -19,55 +48,44 @@ import {
   requireContainer,
   requireHyperdrive,
 } from "./platform-boundaries";
+import {
+  createProjectsRoutes,
+  type CreateProjectsStore,
+} from "./projects/routes";
 import { consumeQueue, QueueLedger } from "./queue";
+import {
+  assertRealtimeBridgeSecret,
+  bridgeSigningKey,
+} from "./realtime-bridge-auth";
 import { RealtimeRoom } from "./realtime-room";
-import { isRoomId } from "./room-protocol";
+import { buildChannelRoomName, isRoomId } from "./room-protocol";
 import type { EdgeEnv, RuntimeBindings } from "./runtime";
+import { createSurveyRoutes, type CreateSurveyStore } from "./survey/routes";
+import {
+  createSurveyFormsRoutes,
+  type CreateSurveyFormsStore,
+} from "./survey-forms/routes";
 import { uploadRoutes } from "./uploads";
+import { createVisaRoutes, type CreateVisaStore } from "./visa/routes";
+import { createVisaChecklistRoutes } from "./visa-checklist/routes";
+import { createVisaKbRoutes } from "./visa-kb/routes";
 
 export { BackgroundWorkflow, ContainerBoundary, QueueLedger, RealtimeRoom };
 
-const NO_BODY_METHODS = new Set(["GET", "HEAD"]);
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/u;
-const HOP_BY_HOP_HEADERS = [
-  "connection",
-  "keep-alive",
-  "proxy-authenticate",
-  "proxy-authorization",
-  "te",
-  "trailer",
-  "transfer-encoding",
-  "upgrade",
-] as const;
 
 interface EdgeAppOptions {
+  createCashAdvanceStore?: CreateCashAdvanceStore;
+  createDealsStore?: CreateDealsStore;
+  createExpensesStore?: CreateExpensesStore;
+  createLeaveStore?: CreateLeaveStore;
+  createMessagesStore?: CreateMessagesStore;
+  createPayrollStore?: CreatePayrollStore;
+  createProjectsStore?: CreateProjectsStore;
+  createSurveyStore?: CreateSurveyStore;
+  createSurveyFormsStore?: CreateSurveyFormsStore;
+  createVisaStore?: CreateVisaStore;
   verifyToken?: VerifyAccessToken;
-}
-
-function configuredApiOrigin(value: string): URL {
-  try {
-    const origin = new URL(value.trim());
-    const safeProtocol =
-      origin.protocol === "https:" ||
-      (origin.protocol === "http:" && LOOPBACK_HOSTS.has(origin.hostname));
-    if (
-      !safeProtocol ||
-      origin.username ||
-      origin.password ||
-      origin.search ||
-      origin.hash
-    ) {
-      throw new Error("Unsafe API origin.");
-    }
-    return origin;
-  } catch {
-    throw new HttpError(
-      503,
-      "API_ORIGIN_NOT_CONFIGURED",
-      "The API origin is unavailable.",
-    );
-  }
 }
 
 function requestIdFor(request: Request): string {
@@ -99,44 +117,6 @@ async function enforceRateLimit(context: {
   }
   if (!outcome.success) {
     throw new HttpError(429, "RATE_LIMITED", "Too many requests.");
-  }
-}
-
-async function proxyApiRequest(
-  request: Request,
-  env: RuntimeBindings,
-): Promise<Response> {
-  const origin = configuredApiOrigin(env.API_ORIGIN);
-  const incoming = new URL(request.url);
-  const basePath = origin.pathname.replace(/\/+$/u, "");
-  const target = new URL(origin);
-  target.pathname = `${basePath}${incoming.pathname}`;
-  target.search = incoming.search;
-
-  const headers = new Headers(request.headers);
-  for (const name of HOP_BY_HOP_HEADERS) headers.delete(name);
-  headers.delete("host");
-  headers.delete("x-forwarded-host");
-  headers.delete("x-forwarded-proto");
-  headers.delete("x-manut-connection-id");
-  headers.delete("x-manut-principal-key");
-  headers.set("x-forwarded-host", incoming.host);
-  headers.set("x-forwarded-proto", "https");
-
-  const upstreamRequest = new Request(target.toString(), {
-    body: NO_BODY_METHODS.has(request.method) ? undefined : request.body,
-    headers,
-    method: request.method,
-    redirect: "manual",
-  });
-  try {
-    return await fetch(upstreamRequest);
-  } catch {
-    throw new HttpError(
-      502,
-      "API_UPSTREAM_UNAVAILABLE",
-      "The API is temporarily unavailable.",
-    );
   }
 }
 
@@ -218,6 +198,122 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
   );
 
   app.route("/api/v1/uploads", uploadRoutes);
+  app.route(
+    "/api/messages",
+    createMessagesRoutes({
+      createMessagesStore: options.createMessagesStore,
+    }),
+  );
+  app.route(
+    "/api/deals",
+    createDealsRoutes({
+      createDealsStore: options.createDealsStore,
+    }),
+  );
+  app.route(
+    "/api/projects",
+    createProjectsRoutes({
+      createProjectsStore: options.createProjectsStore,
+    }),
+  );
+  app.route(
+    "/api/survey",
+    createSurveyRoutes({
+      createSurveyStore: options.createSurveyStore,
+    }),
+  );
+  app.route(
+    "/api/survey-forms",
+    createSurveyFormsRoutes({
+      createSurveyStore: options.createSurveyFormsStore,
+    }),
+  );
+  app.route(
+    "/api/expenses",
+    createExpensesRoutes({
+      createExpensesStore: options.createExpensesStore,
+    }),
+  );
+  app.route(
+    "/api/leave",
+    createLeaveRoutes({
+      createLeaveStore: options.createLeaveStore,
+    }),
+  );
+  app.route(
+    "/api/cash-advance",
+    createCashAdvanceRoutes({
+      createCashAdvanceStore: options.createCashAdvanceStore,
+    }),
+  );
+  app.route(
+    "/api/visa",
+    createVisaRoutes({
+      createVisaStore: options.createVisaStore,
+    }),
+  );
+  app.route("/api/visa-kb", createVisaKbRoutes());
+  app.route("/api/visa-checklist", createVisaChecklistRoutes());
+  app.route(
+    "/api/payroll",
+    createPayrollRoutes({
+      createPayrollStore: options.createPayrollStore,
+    }),
+  );
+  app.route("/api/benefits", createBenefitsRoutes());
+  app.route("/api/learning", createLearningRoutes());
+
+  app.post("/api/v1/realtime/rooms/:roomId/events", async (context) => {
+    const roomId = context.req.param("roomId");
+    if (!isRoomId(roomId)) {
+      throw new HttpError(404, "ROOM_NOT_FOUND", "Room not found.");
+    }
+    assertRealtimeBridgeSecret(context.req.raw, context.env);
+    // Touch the signing key so a missing binding fails closed before fan-out.
+    bridgeSigningKey(context.env);
+    const rooms = context.env.REALTIME_ROOMS;
+    if (!rooms) {
+      throw new HttpError(
+        503,
+        "REALTIME_ROOMS_NOT_PROVISIONED",
+        "Realtime rooms are unavailable.",
+      );
+    }
+
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      throw new HttpError(400, "INVALID_JSON", "Request body must be valid JSON.");
+    }
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      typeof (body as { eventId?: unknown }).eventId !== "string" ||
+      (body as { payload?: unknown }).payload === undefined
+    ) {
+      throw new HttpError(
+        400,
+        "INVALID_BROADCAST",
+        "Broadcast payload is invalid.",
+      );
+    }
+
+    const room = rooms.getByName(buildChannelRoomName(roomId));
+    return room.fetch(
+      new Request("https://realtime.internal/broadcast", {
+        body: JSON.stringify({
+          eventId: (body as { eventId: string }).eventId,
+          payload: (body as { payload: unknown }).payload,
+        }),
+        headers: {
+          "content-type": "application/json",
+          "x-manut-internal-broadcast": "1",
+        },
+        method: "POST",
+      }),
+    );
+  });
 
   app.get("/api/v1/realtime/rooms/:roomId", async (context) => {
     const roomId = context.req.param("roomId");
@@ -237,13 +333,27 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
       );
     }
 
-    // Until the authoritative API exposes a shared-room membership contract,
-    // scope rooms to the verified principal. This prevents a guessed room name
-    // from becoming cross-user authorization.
+    const credential = context.get("credential");
+    // Membership before binding so access denial is never masked by provisioning.
+    await assertChannelMembership({
+      channelId: roomId,
+      credential,
+      env: context.env,
+      userId: context.get("principal").subject,
+    });
+
+    const rooms = context.env.REALTIME_ROOMS;
+    if (!rooms) {
+      throw new HttpError(
+        503,
+        "REALTIME_ROOMS_NOT_PROVISIONED",
+        "Realtime rooms are unavailable.",
+      );
+    }
+
+    // Shared membership-keyed room so all authorized peers share one DO.
     const principalScope = context.get("principalKey");
-    const room = context.env.REALTIME_ROOMS.getByName(
-      `${principalScope}:${roomId}`,
-    );
+    const room = rooms.getByName(buildChannelRoomName(roomId));
     const headers = new Headers({
       upgrade: "websocket",
       "x-manut-connection-id": crypto.randomUUID(),
@@ -280,11 +390,12 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
 
   app.get("/api/v1/platform/hyperdrive", (context) => {
     requireHyperdrive(context.env);
-    throw new HttpError(
-      501,
-      "HYPERDRIVE_CONTRACT_NOT_IMPLEMENTED",
-      "Database contract is disabled.",
-    );
+    return context.json({
+      binding: "HYPERDRIVE_DATABASE",
+      enabled: isHyperdriveEnabled(context.env),
+      ready: true,
+      source: "hyperdrive",
+    });
   });
 
   app.all("/api/*", (context) => proxyApiRequest(context.req.raw, context.env));
