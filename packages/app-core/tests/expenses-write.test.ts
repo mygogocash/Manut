@@ -101,6 +101,8 @@ describe("expenses write contracts", () => {
           currency: "USD",
           date: "2026-07-05",
           status: "pending",
+          hasReceipt: true,
+          receiptUrl: "https://files.example/taxi.pdf",
         },
       })
       .mockResolvedValueOnce({
@@ -108,15 +110,19 @@ describe("expenses write contracts", () => {
       });
     const client = { post } as unknown as ApiClient;
 
-    await expect(
-      addExpenseLine(client, report.id, {
-        description: " Taxi ",
-        amount: 40,
-        currency: "usd",
-        date: "2026-07-05",
-        receiptUrl: "https://files.example/taxi.pdf",
-      }),
-    ).resolves.toMatchObject({ description: "Taxi", amount: "40" });
+    const line = await addExpenseLine(client, report.id, {
+      description: " Taxi ",
+      amount: 40,
+      currency: "usd",
+      date: "2026-07-05",
+      receiptUrl: "https://files.example/taxi.pdf",
+    });
+    expect(line).toMatchObject({
+      description: "Taxi",
+      amount: "40",
+      hasReceipt: true,
+    });
+    expect(line).not.toHaveProperty("receiptUrl");
 
     await expect(submitExpenseReport(client, report.id)).resolves.toMatchObject(
       { status: "submitted" },

@@ -238,6 +238,9 @@ describe("payroll dual-path routes", () => {
     expect(body.data[0]).not.toHaveProperty("documentUrl");
     expect(body.data[0]).not.toHaveProperty("allowances");
     expect(body.data[0]).not.toHaveProperty("deductions");
+    expect(body.data[0]).not.toHaveProperty("baseCurrency");
+    expect(body.data[0]).not.toHaveProperty("snapshot");
+    expect(JSON.stringify(body)).not.toContain("documentUrl");
   });
 
   it("proxies manager payroll lists and payslip downloads when Hyperdrive is on", async () => {

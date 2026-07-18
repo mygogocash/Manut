@@ -48,6 +48,10 @@ function countBusinessDays(start: Date, end: Date): number {
   return count;
 }
 
+/**
+ * Self-scoped list/detail projection. Reason stays for the owner (Expo leave
+ * list shows it). Team/HR widened queries stay proxied to Express.
+ */
 function serializeRequest(raw: LeaveRequestRecord): Record<string, unknown> {
   return {
     id: raw.id,

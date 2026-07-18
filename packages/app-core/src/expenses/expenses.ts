@@ -305,16 +305,21 @@ export const addExpenseLineInputSchema = z
 
 export type AddExpenseLineInput = z.input<typeof addExpenseLineInputSchema>;
 
-const expenseLineSchema = z.object({
-  id: z.string().min(1),
-  description: z.string().min(1),
-  amount: z
-    .union([z.string(), z.number().finite()])
-    .transform((value) => String(value)),
-  currency: z.string().min(1),
-  date: z.string().min(1),
-  status: z.string().min(1),
-});
+const expenseLineSchema = z
+  .object({
+    id: z.string().min(1),
+    description: z.string().min(1),
+    amount: z
+      .union([z.string(), z.number().finite()])
+      .transform((value) => String(value)),
+    currency: z.string().min(1),
+    date: z.string().min(1),
+    status: z.string().min(1),
+    // Edge write responses return hasReceipt only; never echo receiptUrl.
+    hasReceipt: z.boolean().optional(),
+    receiptUrl: z.unknown().optional(),
+  })
+  .transform(({ receiptUrl: _receiptUrl, ...line }) => line);
 
 const expenseLineResponseSchema = z
   .object({ data: expenseLineSchema })

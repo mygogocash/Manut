@@ -877,7 +877,8 @@ export function createExpensesService(
           currency: line.currency,
           date: line.date,
           status: line.status,
-          receiptUrl: line.receiptUrl,
+          hasReceipt:
+            typeof line.receiptUrl === "string" && line.receiptUrl.trim() !== "",
         },
       };
     },
@@ -964,7 +965,8 @@ export function createExpensesService(
           currency: line.currency,
           date: line.date,
           status: line.status,
-          receiptUrl: line.receiptUrl,
+          hasReceipt:
+            typeof line.receiptUrl === "string" && line.receiptUrl.trim() !== "",
         },
       };
     },

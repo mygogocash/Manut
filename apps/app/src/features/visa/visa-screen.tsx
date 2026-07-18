@@ -204,7 +204,10 @@ function VisaDetailModal({
                 {detail.entityName ? (
                   <DetailRow label="Entity" value={detail.entityName} />
                 ) : null}
-                <DetailRow label="Employee" value={detail.employee.email} />
+                <DetailRow
+                  label="Employee"
+                  value={detail.employee.email ?? detail.employee.name}
+                />
 
                 {detail.documents.map((doc, index) => (
                   <Button

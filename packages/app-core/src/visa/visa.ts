@@ -44,7 +44,9 @@ export const visaDocumentCategorySchema = z.enum([
 const visaEmployeeSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  email: z.string().min(1),
+  // Optional: employee self-list strips email; HR-scoped Express responses may
+  // still include it for parity.
+  email: z.string().min(1).optional(),
 });
 
 const visaDocumentApiSchema = z.object({
@@ -54,7 +56,8 @@ const visaDocumentApiSchema = z.object({
 });
 
 // List/detail receipts strip notes and raw storage URLs; downloads go
-// through the signed-url endpoint.
+// through the signed-url endpoint. Edge self-list returns hasDocument instead
+// of documentUrl.
 const visaRecordApiSchema = z
   .object({
     id: z.string().min(1),
@@ -69,6 +72,7 @@ const visaRecordApiSchema = z
     workPermitExpiryDate: nullableCalendarDateSchema,
     status: visaStatusSchema,
     documentUrl: nullableText.optional(),
+    hasDocument: z.boolean().optional(),
     documents: z.array(visaDocumentApiSchema).default([]),
     notes: z.unknown().optional(),
     employee: visaEmployeeSchema,
@@ -82,26 +86,41 @@ const visaRecordApiSchema = z
   })
   .passthrough();
 
-export const visaRecordSchema = visaRecordApiSchema.transform((record) => ({
-  id: record.id,
-  holderType: record.holderType,
-  holderName: record.holderName,
-  holderRelationship: record.holderRelationship,
-  visaType: record.visaType,
-  country: record.country,
-  nationality: record.nationality,
-  issueDate: record.issueDate,
-  expiryDate: record.expiryDate,
-  workPermitExpiryDate: record.workPermitExpiryDate,
-  status: record.status,
-  documentCount: record.documents.length > 0
-    ? record.documents.length
-    : record.documentUrl
-      ? 1
-      : 0,
-  employee: record.employee,
-  entityName: record.entity?.name ?? null,
-}));
+function resolveHasDocument(record: {
+  documents: ReadonlyArray<unknown>;
+  documentUrl?: string | null;
+  hasDocument?: boolean;
+}): boolean {
+  if (typeof record.hasDocument === "boolean") return record.hasDocument;
+  if (record.documents.length > 0) return true;
+  return Boolean(record.documentUrl);
+}
+
+export const visaRecordSchema = visaRecordApiSchema.transform((record) => {
+  const hasDocument = resolveHasDocument(record);
+  return {
+    id: record.id,
+    holderType: record.holderType,
+    holderName: record.holderName,
+    holderRelationship: record.holderRelationship,
+    visaType: record.visaType,
+    country: record.country,
+    nationality: record.nationality,
+    issueDate: record.issueDate,
+    expiryDate: record.expiryDate,
+    workPermitExpiryDate: record.workPermitExpiryDate,
+    status: record.status,
+    documentCount:
+      record.documents.length > 0
+        ? record.documents.length
+        : hasDocument
+          ? 1
+          : 0,
+    hasDocument,
+    employee: record.employee,
+    entityName: record.entity?.name ?? null,
+  };
+});
 
 export const visaRecordDetailSchema = visaRecordApiSchema.transform(
   (record) => ({
@@ -120,7 +139,7 @@ export const visaRecordDetailSchema = visaRecordApiSchema.transform(
       name: doc.name,
       category: doc.category,
     })),
-    hasLegacyDocument: Boolean(record.documentUrl),
+    hasLegacyDocument: resolveHasDocument(record),
     employee: record.employee,
     entityName: record.entity?.name ?? null,
   }),

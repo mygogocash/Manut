@@ -7,7 +7,14 @@ function asDate(value: string | null): string | null {
   return value.slice(0, 10);
 }
 
+/**
+ * Client projection for employee self-list: strip storage/document URLs and
+ * employee email. Downloads stay on Express signed-url; HR company-wide lists
+ * remain proxied (email may appear there for parity).
+ */
 function serializeRecord(raw: VisaListRecord): Record<string, unknown> {
+  const hasLegacyDocument =
+    typeof raw.documentUrl === "string" && raw.documentUrl.trim() !== "";
   return {
     id: raw.id,
     holderType: raw.holderType,
@@ -20,8 +27,7 @@ function serializeRecord(raw: VisaListRecord): Record<string, unknown> {
     expiryDate: asDate(raw.expiryDate),
     workPermitExpiryDate: asDate(raw.workPermitExpiryDate),
     status: raw.status,
-    // Document URLs stay on Express signed-download; list keeps metadata only.
-    documentUrl: raw.documentUrl ? raw.documentUrl : null,
+    hasDocument: hasLegacyDocument || raw.documents.length > 0,
     documents: raw.documents.map((doc) => ({
       name: doc.name,
       category: doc.category,
@@ -29,7 +35,6 @@ function serializeRecord(raw: VisaListRecord): Record<string, unknown> {
     employee: {
       id: raw.employeeId,
       name: raw.employeeName,
-      email: raw.employeeEmail,
     },
     entity: raw.entityId
       ? { id: raw.entityId, name: raw.entityName ?? "" }

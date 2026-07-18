@@ -734,12 +734,17 @@ describe("expenses dual-path routes", () => {
       hyperdriveEnv(),
     );
     expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toMatchObject({
-      data: {
-        description: "Taxi",
-        receiptUrl: "https://drive.example/file/abc",
-      },
+    const created = (await response.json()) as {
+      data: Record<string, unknown>;
+    };
+    expect(created.data).toMatchObject({
+      description: "Taxi",
+      hasReceipt: true,
     });
+    expect(created.data).not.toHaveProperty("receiptUrl");
+    expect(JSON.stringify(created)).not.toContain(
+      "https://drive.example/file/abc",
+    );
   });
 
   it("proxies managed receipt expense lines when TRUSTED_STORAGE_ORIGINS is unset", async () => {
@@ -872,9 +877,102 @@ describe("expenses dual-path routes", () => {
       }),
     );
     expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toMatchObject({
-      data: { description: "Taxi", receiptUrl },
+    const created = (await response.json()) as {
+      data: Record<string, unknown>;
+    };
+    expect(created.data).toMatchObject({
+      description: "Taxi",
+      hasReceipt: true,
     });
+    expect(created.data).not.toHaveProperty("receiptUrl");
+    expect(JSON.stringify(created)).not.toContain(receiptUrl);
+  });
+
+  it("strips receiptUrl from expense line PUT responses on Hyperdrive", async () => {
+    const receiptUrl =
+      "https://files.manut.example/storage/v1/object/public/receipts/user-123/e2.pdf";
+    const store = memoryStore({
+      reports: [
+        {
+          id: "report-own",
+          period: "2026-07",
+          title: "July",
+          category: "general",
+          status: "draft",
+          currentStepOrder: null,
+          submittedAt: null,
+          approvedAt: null,
+          rejectReason: null,
+          reimbursedAt: null,
+          approvedTotal: null,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+          employeeId: "user-123",
+          employeeName: "Test User",
+          employeeEmail: "user@example.com",
+          employeeDepartment: "Eng",
+          entityId: "entity-1",
+          entityName: "Manut TH",
+          expenseCount: 1,
+          totalAmount: 120,
+          totalCurrency: "THB",
+          converted: true,
+          missingRates: [],
+        },
+      ],
+      lines: [
+        {
+          id: "line-1",
+          reportId: "report-own",
+          employeeId: "user-123",
+          description: "Taxi",
+          amount: "120",
+          currency: "THB",
+          date: "2026-07-18",
+          status: "pending",
+          categoryId: null,
+          notes: null,
+          receiptUrl: null,
+        },
+      ],
+      registeredUploads: [
+        {
+          id: "upload-e2",
+          bucket: "receipts",
+          path: "user-123/e2.pdf",
+          purpose: "expense-receipt",
+          uploadedBy: "user-123",
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/reports/report-own/expenses/line-1",
+      {
+        body: JSON.stringify({ receiptUrl }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "PUT",
+      },
+      hyperdriveEnv({
+        TRUSTED_STORAGE_ORIGINS: "https://files.manut.example",
+      }),
+    );
+    expect(response.status).toBe(200);
+    const updated = (await response.json()) as {
+      data: Record<string, unknown>;
+    };
+    expect(updated.data).toMatchObject({
+      id: "line-1",
+      hasReceipt: true,
+    });
+    expect(updated.data).not.toHaveProperty("receiptUrl");
+    expect(JSON.stringify(updated)).not.toContain(receiptUrl);
   });
 
   it("proxies non-self expense report detail when Hyperdrive is on", async () => {

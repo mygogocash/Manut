@@ -1025,3 +1025,18 @@ pending inboxes; survey detail manage (announce/schedule/analytics/archive);
 survey-forms respond submit; deals pipeline kanban + stage moves + notes;
 project board task create/reorder/edit/delete + members read (emails
 stripped). Member write UI and pointer drag deferred.
+
+### Parallel: p2-projection-strips
+
+Client projection hardening (Hyperdrive serializers; deploy unchanged):
+
+- **Visa self-list:** strips `documentUrl` / storage URLs; returns
+  `hasDocument` + document name/category only; strips employee `email`
+  (HR company-wide lists stay Express-proxied and may keep email).
+  app-core `visaEmployeeSchema.email` is optional; list exposes
+  `hasDocument` / `documentCount`.
+- **Expense line POST/PUT:** responses return `hasReceipt` only (no
+  echoed `receiptUrl`). Input may still send `receiptUrl`.
+- **Payroll:** existing `hasDocument` / no-`documentUrl` locks retained.
+- **Leave:** self-list keeps `reason` (owner-only Hyperdrive path; Expo
+  leave list needs it). Team/HR widened queries remain proxied.

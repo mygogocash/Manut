@@ -64,6 +64,7 @@ describe("visa foundation contracts", () => {
       workPermitExpiryDate: "2027-01-14",
       status: "active",
       documentCount: 1,
+      hasDocument: true,
       employee: {
         id: record.employee.id,
         name: "Person",
@@ -77,6 +78,32 @@ describe("visa foundation contracts", () => {
       expect.stringContaining("/visa?"),
       undefined,
     );
+  });
+
+  it("accepts employee self-list projections without email and with hasDocument", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: [
+        {
+          ...record,
+          documentUrl: undefined,
+          hasDocument: true,
+          documents: [{ name: "Passport", category: "passport_front" }],
+          employee: { id: record.employee.id, name: "Person" },
+        },
+      ],
+      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    });
+    const client = { get } as unknown as ApiClient;
+
+    const result = await listVisas(client);
+    expect(result.data[0]).toMatchObject({
+      id: record.id,
+      documentCount: 1,
+      hasDocument: true,
+      employee: { id: record.employee.id, name: "Person" },
+    });
+    expect(result.data[0]?.employee).not.toHaveProperty("email");
+    expect(result.data[0]).not.toHaveProperty("documentUrl");
   });
 
   it("loads detail with document names only", async () => {
