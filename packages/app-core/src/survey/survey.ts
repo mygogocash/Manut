@@ -163,6 +163,66 @@ export const submitSurveyResponseInputSchema = z
   })
   .strict();
 
+/** Simple builder types; API also accepts info/date/number. */
+export const SURVEY_QUESTION_TYPES = [
+  "info",
+  "short_text",
+  "long_text",
+  "single_choice",
+  "multi_choice",
+  "rating",
+  "date",
+  "number",
+] as const;
+
+export const surveyQuestionTypeSchema = z.enum(SURVEY_QUESTION_TYPES);
+
+const questionSettingsSchema = z
+  .object({
+    min: z.number().int().optional(),
+    max: z.number().int().optional(),
+  })
+  .partial()
+  .catchall(z.unknown());
+
+export const surveyQuestionInputSchema = z
+  .object({
+    type: surveyQuestionTypeSchema,
+    prompt: z.string().trim().min(1, "Prompt is required").max(500),
+    helperText: z
+      .string()
+      .trim()
+      .max(500)
+      .nullable()
+      .optional()
+      .transform((value) => value ?? null),
+    required: z.boolean().default(false),
+    options: z.array(z.string().trim().min(1).max(200)).default([]),
+    settings: questionSettingsSchema.default({}),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.type === "info") return;
+    if (
+      (data.type === "single_choice" || data.type === "multi_choice") &&
+      data.options.length < 2
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["options"],
+        message: "Choice questions need at least two options",
+      });
+    }
+  });
+
+export const replaceSurveyQuestionsInputSchema = z
+  .object({
+    questions: z
+      .array(surveyQuestionInputSchema)
+      .min(1, "Add at least one question"),
+  })
+  .strict();
+
 const createdSurveyResponseSchema = z
   .object({
     data: surveyDetailSchema,
@@ -186,6 +246,11 @@ export type SubmitSurveyResponseInput = z.input<
   typeof submitSurveyResponseInputSchema
 >;
 export type SubmittedSurveyResponse = { id: string; answerCount: number };
+export type SurveyQuestionType = z.infer<typeof surveyQuestionTypeSchema>;
+export type SurveyQuestionInput = z.input<typeof surveyQuestionInputSchema>;
+export type ReplaceSurveyQuestionsInput = z.input<
+  typeof replaceSurveyQuestionsInputSchema
+>;
 
 export const SURVEYS_QUERY_ROOT = ["survey", "list"] as const;
 export const SURVEY_DETAIL_QUERY_ROOT = ["survey", "detail"] as const;
@@ -285,4 +350,37 @@ export async function submitSurveyResponse(
     id: data.id,
     answerCount: Array.isArray(data.answers) ? data.answers.length : 0,
   };
+}
+
+export async function replaceSurveyQuestions(
+  client: ApiClient,
+  id: string,
+  input: ReplaceSurveyQuestionsInput,
+): Promise<SurveyDetail> {
+  const parsed = replaceSurveyQuestionsInputSchema.parse(input);
+  const response = await client.put<unknown>(
+    `/survey/${encodeURIComponent(id)}/questions`,
+    {
+      questions: parsed.questions.map((question) => ({
+        type: question.type,
+        prompt: question.prompt,
+        helperText: question.helperText,
+        required: question.required,
+        options: question.options,
+        settings: question.settings,
+      })),
+    },
+  );
+  return createdSurveyResponseSchema.parse(response).data;
+}
+
+export async function publishSurvey(
+  client: ApiClient,
+  id: string,
+): Promise<SurveyDetail> {
+  const response = await client.post<unknown>(
+    `/survey/${encodeURIComponent(id)}/publish`,
+    {},
+  );
+  return createdSurveyResponseSchema.parse(response).data;
 }

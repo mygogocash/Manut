@@ -125,12 +125,80 @@ export const createSurveyFormInputSchema = z
   })
   .strict();
 
+export const SURVEY_FORM_QUESTION_TYPES = [
+  "info",
+  "short_text",
+  "long_text",
+  "single_choice",
+  "multi_choice",
+  "rating",
+  "date",
+  "number",
+] as const;
+
+export const surveyFormQuestionTypeSchema = z.enum(SURVEY_FORM_QUESTION_TYPES);
+
+const questionSettingsSchema = z
+  .object({
+    min: z.number().int().optional(),
+    max: z.number().int().optional(),
+  })
+  .partial()
+  .catchall(z.unknown());
+
+export const surveyFormQuestionInputSchema = z
+  .object({
+    type: surveyFormQuestionTypeSchema,
+    prompt: z.string().trim().min(1, "Prompt is required").max(500),
+    helperText: z
+      .string()
+      .trim()
+      .max(500)
+      .nullable()
+      .optional()
+      .transform((value) => value ?? null),
+    required: z.boolean().default(false),
+    options: z.array(z.string().trim().min(1).max(200)).default([]),
+    settings: questionSettingsSchema.default({}),
+  })
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.type === "info") return;
+    if (
+      (data.type === "single_choice" || data.type === "multi_choice") &&
+      data.options.length < 2
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["options"],
+        message: "Choice questions need at least two options",
+      });
+    }
+  });
+
+export const replaceSurveyFormQuestionsInputSchema = z
+  .object({
+    questions: z
+      .array(surveyFormQuestionInputSchema)
+      .min(1, "Add at least one question"),
+  })
+  .strict();
+
 export type SurveyFormSummary = z.infer<typeof surveyFormSummarySchema>;
 export type SurveyFormDetail = z.infer<typeof surveyFormDetailSchema>;
 export type SurveyFormList = z.infer<typeof surveyFormListResponseSchema>;
 export type SurveyFormListParams = z.input<typeof surveyFormListParamsSchema>;
 export type SurveyFormStatus = z.infer<typeof surveyFormStatusSchema>;
 export type CreateSurveyFormInput = z.input<typeof createSurveyFormInputSchema>;
+export type SurveyFormQuestionType = z.infer<
+  typeof surveyFormQuestionTypeSchema
+>;
+export type SurveyFormQuestionInput = z.input<
+  typeof surveyFormQuestionInputSchema
+>;
+export type ReplaceSurveyFormQuestionsInput = z.input<
+  typeof replaceSurveyFormQuestionsInputSchema
+>;
 
 export const SURVEY_FORMS_QUERY_ROOT = ["survey-forms", "list"] as const;
 export const SURVEY_FORM_DETAIL_QUERY_ROOT = [
@@ -190,5 +258,38 @@ export async function createSurveyForm(
     targetUserIds: [],
     questions: [],
   });
+  return surveyFormDetailResponseSchema.parse(response).data;
+}
+
+export async function replaceSurveyFormQuestions(
+  client: ApiClient,
+  id: string,
+  input: ReplaceSurveyFormQuestionsInput,
+): Promise<SurveyFormDetail> {
+  const parsed = replaceSurveyFormQuestionsInputSchema.parse(input);
+  const response = await client.put<unknown>(
+    `/survey-forms/${encodeURIComponent(id)}/questions`,
+    {
+      questions: parsed.questions.map((question) => ({
+        type: question.type,
+        prompt: question.prompt,
+        helperText: question.helperText,
+        required: question.required,
+        options: question.options,
+        settings: question.settings,
+      })),
+    },
+  );
+  return surveyFormDetailResponseSchema.parse(response).data;
+}
+
+export async function publishSurveyForm(
+  client: ApiClient,
+  id: string,
+): Promise<SurveyFormDetail> {
+  const response = await client.post<unknown>(
+    `/survey-forms/${encodeURIComponent(id)}/publish`,
+    {},
+  );
   return surveyFormDetailResponseSchema.parse(response).data;
 }

@@ -25,8 +25,10 @@ The source command is sorted before classification. The JSON companion repeats t
 - `pending`: the approved target route is not yet present in Expo.
 - `removed`: the source route was intentionally excluded.
 
-Survey routes (`/survey*`, `/survey-forms*`) stay `foundation` after draft-create +
-survey respond-submit deepen until authenticated Expo E2E acceptance.
+Survey routes (`/survey*`, `/survey-forms*`) stay `foundation` after draft-create,
+survey respond-submit, manage-gated question replace (`PUT …/questions`), and
+publish (`POST …/publish`) deepen until authenticated Expo E2E acceptance.
+Announce/schedule/analytics/archive and full drag-reorder parity remain deferred.
 
 `/projects/[projectId]` stays `foundation` after board-column read + task-create
 deepen (app-core Zod + `projects:update`/`*:manage` gate). Drag-reorder,

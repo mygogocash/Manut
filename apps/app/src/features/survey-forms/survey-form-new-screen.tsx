@@ -89,8 +89,9 @@ export function SurveyFormNewScreen() {
             ) : (
               <>
                 <Text selectable style={{ color: colors.textMuted }}>
-                  Creates a draft survey form. Question builder, publish, and
-                  analytics remain deferred.
+                  Creates a draft survey form. Add questions and publish from
+                  the detail screen. Announce, schedule, and analytics remain
+                  deferred.
                 </Text>
                 <TextField
                   label="Title"

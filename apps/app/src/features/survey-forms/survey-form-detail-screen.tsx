@@ -1,6 +1,9 @@
 import {
   ApiError,
   getSurveyForm,
+  publishSurveyForm,
+  replaceSurveyFormQuestions,
+  replaceSurveyFormQuestionsInputSchema,
   surveyFormDetailQueryKey,
 } from "@manut/app-core";
 import {
@@ -11,11 +14,18 @@ import {
   spacing,
   StatusMessage,
 } from "@manut/ui";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
+import {
+  draftsFromQuestions,
+  draftsToQuestionInputs,
+  SurveyQuestionListEditor,
+  type QuestionDraft,
+} from "@/features/survey/survey-question-list-editor";
 import { useApiClient } from "@/providers/api-client-provider";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -33,16 +43,84 @@ function firstParam(value: string | string[] | undefined): string | null {
 export function SurveyFormDetailScreen() {
   const api = useApiClient();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   const canManage = hasPermission("survey:manage-wave");
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = firstParam(params.id);
+
+  const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
+  const [builderError, setBuilderError] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const detailQuery = useQuery({
     queryKey: surveyFormDetailQueryKey(id ?? ""),
     queryFn: ({ signal }) => getSurveyForm(api, id!, signal),
     enabled: id !== null,
   });
+
+  useEffect(() => {
+    if (!detailQuery.data) return;
+    setDrafts(draftsFromQuestions(detailQuery.data.questions));
+  }, [detailQuery.data]);
+
+  const saveQuestionsMutation = useMutation({
+    mutationFn: () => {
+      if (!id) throw new Error("Missing survey form id.");
+      const parsed = replaceSurveyFormQuestionsInputSchema.safeParse({
+        questions: draftsToQuestionInputs(drafts),
+      });
+      if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        throw new Error(issue?.message ?? "Check the questions and try again.");
+      }
+      return replaceSurveyFormQuestions(api, id, parsed.data);
+    },
+    onSuccess: (updated) => {
+      setBuilderError(null);
+      setSaveMessage("Questions saved.");
+      void queryClient.setQueryData(
+        surveyFormDetailQueryKey(id ?? ""),
+        updated,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["survey-forms", "list"],
+      });
+    },
+    onError: (error) => {
+      setSaveMessage(null);
+      if (error instanceof Error && !(error instanceof ApiError)) {
+        setBuilderError(error.message);
+        return;
+      }
+      setBuilderError(errorMessage(error, "Unable to save questions."));
+    },
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: () => {
+      if (!id) throw new Error("Missing survey form id.");
+      return publishSurveyForm(api, id);
+    },
+    onSuccess: (updated) => {
+      setPublishError(null);
+      setSaveMessage(null);
+      void queryClient.setQueryData(
+        surveyFormDetailQueryKey(id ?? ""),
+        updated,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["survey-forms", "list"],
+      });
+    },
+    onError: (error) => {
+      setPublishError(errorMessage(error, "Unable to publish survey form."));
+    },
+  });
+
+  const isDraft = detailQuery.data?.status === "draft";
+  const showBuilder = canManage && isDraft;
 
   if (!id) {
     return (
@@ -83,7 +161,7 @@ export function SurveyFormDetailScreen() {
                 </StatusMessage>
                 <Button
                   label="Retry"
-      pendingLabel="Working…"
+                  pendingLabel="Working…"
                   onPress={() => void detailQuery.refetch()}
                 />
               </View>
@@ -100,24 +178,60 @@ export function SurveyFormDetailScreen() {
                   {detailQuery.data.status} · {detailQuery.data.questionCount}{" "}
                   questions
                 </Text>
-                {detailQuery.data.questions.map((question) => (
-                  <Text
-                    key={question.id}
-                    selectable
-                    style={{ color: colors.text }}
-                  >
-                    {question.order + 1}. {question.prompt}
-                    {question.required ? " *" : ""}
-                  </Text>
-                ))}
-                {canManage && detailQuery.data.status === "draft" ? (
-                  <StatusMessage tone="warning">
-                    Draft ready for manage. Question replace, publish, announce,
-                    and analytics remain deferred.
-                  </StatusMessage>
+                {!showBuilder
+                  ? detailQuery.data.questions.map((question) => (
+                      <Text
+                        key={question.id}
+                        selectable
+                        style={{ color: colors.text }}
+                      >
+                        {question.order + 1}. {question.prompt}
+                        {question.required ? " *" : ""}
+                      </Text>
+                    ))
+                  : null}
+              </View>
+            ) : null}
+
+            {showBuilder ? (
+              <View style={{ gap: spacing.md }}>
+                <Text selectable style={{ color: colors.textMuted }}>
+                  Draft question list. Reorder with move up/down. Announce,
+                  schedule, and analytics remain deferred.
+                </Text>
+                <SurveyQuestionListEditor
+                  drafts={drafts}
+                  onChange={setDrafts}
+                  disabled={
+                    saveQuestionsMutation.isPending || publishMutation.isPending
+                  }
+                />
+                {builderError ? (
+                  <StatusMessage tone="error">{builderError}</StatusMessage>
+                ) : null}
+                {saveMessage ? (
+                  <StatusMessage tone="success">{saveMessage}</StatusMessage>
+                ) : null}
+                <Button
+                  label="Save questions"
+                  pendingLabel="Saving…"
+                  accessibilityLabel="Save questions"
+                  pending={saveQuestionsMutation.isPending}
+                  onPress={() => saveQuestionsMutation.mutate()}
+                />
+                <Button
+                  label="Publish survey form"
+                  pendingLabel="Publishing…"
+                  accessibilityLabel="Publish survey form"
+                  pending={publishMutation.isPending}
+                  onPress={() => publishMutation.mutate()}
+                />
+                {publishError ? (
+                  <StatusMessage tone="error">{publishError}</StatusMessage>
                 ) : null}
               </View>
             ) : null}
+
             <Button
               label="Response status"
               pendingLabel="Working…"
