@@ -23,6 +23,10 @@ jest.mock("@/providers/api-client-provider", () => ({
   useApiClient: () => ({ get: mockGet, post: mockPost, put: mockPut }),
 }));
 
+jest.mock("expo-router", () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
 jest.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({
     user: { id: mockUserId },

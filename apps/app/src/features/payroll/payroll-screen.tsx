@@ -15,6 +15,7 @@ import {
   StatusMessage,
 } from "@manut/ui";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
@@ -83,8 +84,11 @@ const STATUS_FILTERS: Array<{ label: string; value?: PayrollRunStatus }> = [
 
 export function PayrollScreen() {
   const api = useApiClient();
+  const router = useRouter();
   const { hasPermission } = useAuth();
   const allowed = canReadPayroll(hasPermission);
+  const canViewApprovalChain =
+    hasPermission("payroll:hr-admin") || hasPermission("payroll:approve");
   const [statusFilter, setStatusFilter] = useState<
     PayrollRunStatus | undefined
   >(undefined);
@@ -129,6 +133,16 @@ export function PayrollScreen() {
           Read-only payroll runs for periods you can access. Create, approve,
           imports, and payslip downloads stay on the web until a later slice.
         </Text>
+        {canViewApprovalChain ? (
+          <Button
+            label="Approval chain"
+            pendingLabel="Opening…"
+            accessibilityLabel="Open payroll approval chain"
+            onPress={() => {
+              router.push("/payroll/approval");
+            }}
+          />
+        ) : null}
       </Card>
 
       <View

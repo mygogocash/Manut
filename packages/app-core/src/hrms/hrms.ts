@@ -129,6 +129,101 @@ export async function listEsopGrants(
   return esopGrantsResponseSchema.parse(response);
 }
 
+// ─── Per-employee grants summary (replaces /hrms/esop/:id) ─
+
+const esopPoolKpisSchema = z
+  .object({
+    grandTotal: z.number().finite(),
+    vesting: z.number().finite(),
+    vested: z.number().finite(),
+    vestedToDate: z.number().finite(),
+  })
+  .strict();
+
+const esopGrantInstrumentApiSchema = z
+  .object({
+    id: z.string().min(1),
+    grantType: esopGrantTypeSchema,
+    scheduled: z.boolean(),
+    shares: z.number().finite(),
+    vestedToDate: z.number().finite(),
+    vestingMonths: z.number().int().nullable().optional(),
+    cliffMonths: z.number().int().nullable().optional(),
+    lockMonths: z.number().int().nullable().optional(),
+    grantDate: apiCalendarDateSchema,
+    status: z.string().min(1),
+    source: z.unknown().optional(),
+    vestedToDateOverride: z.unknown().optional(),
+    currencyCode: z.unknown().optional(),
+    currencyAmount: z.unknown().optional(),
+    allocationStartMonth: z.unknown().optional(),
+    allocationEndMonth: z.unknown().optional(),
+  })
+  .passthrough();
+
+export const esopGrantInstrumentSchema = esopGrantInstrumentApiSchema.transform(
+  (instrument) => ({
+    id: instrument.id,
+    grantType: instrument.grantType,
+    scheduled: instrument.scheduled,
+    shares: instrument.shares,
+    vestedToDate: instrument.vestedToDate,
+    vestingMonths: instrument.vestingMonths ?? null,
+    cliffMonths: instrument.cliffMonths ?? null,
+    lockMonths: instrument.lockMonths ?? null,
+    grantDate: instrument.grantDate,
+    status: instrument.status,
+  }),
+);
+
+const esopEmployeeSummaryApiSchema = z
+  .object({
+    employee: z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      department: nullableText,
+    }),
+    kpis: esopPoolKpisSchema,
+    instruments: z.array(esopGrantInstrumentApiSchema),
+  })
+  .passthrough();
+
+export const esopEmployeeSummarySchema = esopEmployeeSummaryApiSchema.transform(
+  (summary) => ({
+    employee: summary.employee,
+    kpis: summary.kpis,
+    instruments: summary.instruments.map((instrument) =>
+      esopGrantInstrumentSchema.parse(instrument),
+    ),
+  }),
+);
+
+const esopEmployeeSummaryResponseSchema = z
+  .object({
+    data: esopEmployeeSummarySchema.nullable(),
+  })
+  .strict();
+
+export type EsopGrantInstrument = z.infer<typeof esopGrantInstrumentSchema>;
+export type EsopEmployeeSummary = z.infer<typeof esopEmployeeSummarySchema>;
+
+export function esopEmployeeSummaryQueryKey(employeeId: string) {
+  return [...ESOP_GRANTS_QUERY_ROOT, "by-employee", employeeId] as const;
+}
+
+export async function getEsopEmployeeSummary(
+  client: ApiClient,
+  employeeId: string,
+  signal?: RequestAbortSignal,
+): Promise<EsopEmployeeSummary | null> {
+  const id = z.string().min(1).parse(employeeId);
+  const response = await client.get<unknown>(
+    `/hrms/esop-grants/by-employee/${encodeURIComponent(id)}`,
+    signal ? { signal } : undefined,
+  );
+  return esopEmployeeSummaryResponseSchema.parse(response).data;
+}
+
 // ─── Onboarding runs (read projection) ───────────────────
 
 const onboardingTaskSchema = z.object({

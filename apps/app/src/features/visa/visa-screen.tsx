@@ -19,6 +19,7 @@ import {
   StatusMessage,
 } from "@manut/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   Linking,
@@ -268,8 +269,10 @@ const STATUS_FILTERS: Array<"all" | VisaStatus> = [
 
 export function VisaScreen() {
   const api = useApiClient();
+  const router = useRouter();
   const { hasPermission } = useAuth();
   const allowed = canReadVisa(hasPermission);
+  const canManageVisa = hasPermission("visa:manage");
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<"all" | VisaStatus>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -322,10 +325,35 @@ export function VisaScreen() {
             description="Your visa records and expiry dates"
           >
             <Text style={{ color: colors.textMuted }}>
-              Read-only tracker. Knowledge base, checklist templates, imports,
-              and 90-day residence notifications stay on the web surface for
-              now.
+              Read-only tracker. Imports and 90-day residence notifications stay
+              later.
             </Text>
+            {canManageVisa ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: spacing.sm,
+                }}
+              >
+                <Button
+                  label="Knowledge base"
+                  pendingLabel="Opening…"
+                  accessibilityLabel="Open visa knowledge base"
+                  onPress={() => {
+                    router.push("/visa/knowledge-base");
+                  }}
+                />
+                <Button
+                  label="Checklist templates"
+                  pendingLabel="Opening…"
+                  accessibilityLabel="Open visa checklist templates"
+                  onPress={() => {
+                    router.push("/visa/checklist-templates");
+                  }}
+                />
+              </View>
+            ) : null}
           </Card>
 
           <View

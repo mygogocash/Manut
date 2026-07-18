@@ -162,6 +162,23 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     prefix: true,
   },
   {
+    path: "/sales-revenue",
+    access: "protected",
+    permissions: [
+      "sales-revenue:read",
+      "sales-revenue:team-read",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/deals",
+    access: "protected",
+    permissions: ["deals:read"],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
     path: "/hrms",
     access: "protected",
     permissions: [
@@ -332,6 +349,29 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
       "it-crm:read-all",
       "projects:read",
       "projects:read-all",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/hr-crm",
+    access: "protected",
+    permissions: [
+      "hr-crm:read",
+      "hr-crm:read-all",
+      "projects:read",
+      "projects:read-all",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/investor-crm",
+    access: "protected",
+    permissions: [
+      "investor-dashboard:read",
+      "investors:read",
+      "investors:read-all",
     ],
     employeeAllowed: false,
     prefix: true,
@@ -542,6 +582,15 @@ export const ROUTE_OVERRIDES: readonly RouteOverride[] = [
     },
   },
   {
+    matches: (pathname) => pathname === "/travel/approval",
+    policy: {
+      path: "/travel/approval",
+      access: "protected",
+      permissions: ["travel:hr-settings"],
+      employeeAllowed: false,
+    },
+  },
+  {
     matches: (pathname) => pathname === "/expenses-v1",
     policy: {
       path: "/expenses-v1",
@@ -579,6 +628,43 @@ export const ROUTE_OVERRIDES: readonly RouteOverride[] = [
       path: "/cash-advance/approval",
       access: "protected",
       permissions: ["cash-advance:approve"],
+      employeeAllowed: false,
+    },
+  },
+  {
+    matches: (pathname) => pathname === "/payroll/approval",
+    policy: {
+      path: "/payroll/approval",
+      access: "protected",
+      permissions: ["payroll:hr-admin", "payroll:approve"],
+      employeeAllowed: false,
+    },
+  },
+  {
+    matches: (pathname) => pathname === "/visa/knowledge-base",
+    policy: {
+      path: "/visa/knowledge-base",
+      access: "protected",
+      permissions: ["visa:manage"],
+      employeeAllowed: false,
+    },
+  },
+  {
+    matches: (pathname) => pathname === "/visa/checklist-templates",
+    policy: {
+      path: "/visa/checklist-templates",
+      access: "protected",
+      permissions: ["visa:manage"],
+      employeeAllowed: false,
+    },
+  },
+  {
+    matches: (pathname) =>
+      pathname === "/hrms/grants" || pathname.startsWith("/hrms/grants/"),
+    policy: {
+      path: "/hrms/grants",
+      access: "protected",
+      permissions: ["hrms:esop-manage"],
       employeeAllowed: false,
     },
   },

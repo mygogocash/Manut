@@ -26,6 +26,7 @@ import {
   TextField,
 } from "@manut/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -480,12 +481,14 @@ function AttachmentDialog({
 export function TravelScreen() {
   const api = useApiClient();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { user, hasPermission } = useAuth();
   const canRequest = hasPermission("travel:request");
   const canBrowseInbox =
     hasPermission("travel:approve") ||
     hasPermission("travel:hr-read") ||
     hasPermission("travel:hr-approve");
+  const canViewApprovalChain = hasPermission("travel:hr-settings");
   const employeeId = user?.id;
   const [listMode, setListMode] = useState<ListMode>("mine");
   const [historyPage, setHistoryPage] = useState(1);
@@ -741,18 +744,37 @@ export function TravelScreen() {
             description="Request trips, attach links, and act on pending approvals in your scope."
             maxWidth={1080}
           >
-            {canRequest ? (
-              <Button
-                label="Request travel"
-                pendingLabel="Opening…"
-                onPress={openRequest}
-              />
-            ) : (
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: spacing.sm,
+              }}
+            >
+              {canRequest ? (
+                <Button
+                  label="Request travel"
+                  pendingLabel="Opening…"
+                  onPress={openRequest}
+                />
+              ) : null}
+              {canViewApprovalChain ? (
+                <Button
+                  label="Approval chain"
+                  pendingLabel="Opening…"
+                  accessibilityLabel="Open travel approval chain"
+                  onPress={() => {
+                    router.push("/travel/approval");
+                  }}
+                />
+              ) : null}
+            </View>
+            {!canRequest ? (
               <Text selectable style={{ color: colors.textMuted }}>
                 Your role can view travel information but cannot submit a
                 request.
               </Text>
-            )}
+            ) : null}
           </Card>
 
           {canBrowseInbox ? (

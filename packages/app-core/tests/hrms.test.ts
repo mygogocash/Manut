@@ -5,6 +5,7 @@ import {
   checkInAttendance,
   checkOutAttendance,
   getAttendanceToday,
+  getEsopEmployeeSummary,
   listEsopGrants,
   listOnboardingRuns,
 } from "../src/hrms/hrms";
@@ -102,6 +103,62 @@ describe("hrms foundation contracts", () => {
     expect(result.data[0]).not.toHaveProperty("notes");
     expect(get).toHaveBeenCalledWith(
       expect.stringContaining("/hrms/esop-grants?"),
+      undefined,
+    );
+  });
+
+  it("loads per-employee grant summary and strips source fields", async () => {
+    const employeeId = "11111111-1111-4111-8111-111111111111";
+    const get = vi.fn().mockResolvedValue({
+      data: {
+        employee: {
+          id: employeeId,
+          name: "Person",
+          department: "Operations",
+        },
+        kpis: {
+          grandTotal: 1000,
+          vesting: 750,
+          vested: 250,
+          vestedToDate: 250,
+        },
+        instruments: [
+          {
+            id: grant.id,
+            grantType: "equity",
+            scheduled: true,
+            shares: 1000,
+            vestedToDate: 250,
+            vestedToDateOverride: 200,
+            vestingMonths: 48,
+            cliffMonths: 12,
+            lockMonths: 0,
+            grantDate: "2026-01-15T00:00:00.000Z",
+            allocationStartMonth: null,
+            allocationEndMonth: null,
+            currencyCode: "USD",
+            currencyAmount: 50000,
+            source: "import-sheet-row-12",
+            status: "vesting",
+          },
+        ],
+      },
+    });
+    const client = { get } as unknown as ApiClient;
+
+    const summary = await getEsopEmployeeSummary(client, employeeId);
+    expect(summary?.employee.name).toBe("Person");
+    expect(summary?.kpis.grandTotal).toBe(1000);
+    expect(summary?.instruments[0]).toMatchObject({
+      id: grant.id,
+      grantType: "equity",
+      shares: 1000,
+      status: "vesting",
+    });
+    expect(summary?.instruments[0]).not.toHaveProperty("source");
+    expect(summary?.instruments[0]).not.toHaveProperty("currencyAmount");
+    expect(get).toHaveBeenCalledWith(
+      `/hrms/esop-grants/by-employee/${employeeId}`,
       undefined,
     );
   });

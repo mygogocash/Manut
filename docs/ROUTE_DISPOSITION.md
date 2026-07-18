@@ -11,7 +11,7 @@ git ls-tree -r --name-only 371349fd -- apps/web/src/app | rg '/page\.tsx$' | sor
 - Source route-page files: **103**
 - Unique source paths: **103**
 - Dispositions: **79 migrate**, **8 replace**, **16 remove-as-provenance**
-- Current status: **52 foundation**, **36 pending**, **16 removed**
+- Current status: **76 foundation**, **12 pending**, **16 removed**
 
 The source command is sorted before classification. The JSON companion repeats the source command, counts, and every row, so CI can independently assert count, uniqueness, and allowed values.
 
@@ -34,8 +34,8 @@ The source command is sorted before classification. The JSON companion repeats t
 |   4 | `apps/web/src/app/(dashboard)/admin/aria-knowledge/page.tsx`                    | `/admin/aria-knowledge`                    | `remove-as-provenance` | `removed`    | —                            |
 |   5 | `apps/web/src/app/(dashboard)/admin/docusign/oauth/callback/page.tsx`           | `/admin/docusign/oauth/callback`           | `remove-as-provenance` | `removed`    | —                            |
 |   6 | `apps/web/src/app/(dashboard)/admin/docusign/page.tsx`                          | `/admin/docusign`                          | `remove-as-provenance` | `removed`    | —                            |
-|   7 | `apps/web/src/app/(dashboard)/admin/form-config/page.tsx`                       | `/admin/form-config`                       | `migrate`              | `pending`    | `/admin/form-config`         |
-|   8 | `apps/web/src/app/(dashboard)/admin/page.tsx`                                   | `/admin`                                   | `migrate`              | `pending`    | `/admin`                     |
+|   7 | `apps/web/src/app/(dashboard)/admin/form-config/page.tsx`                       | `/admin/form-config`                       | `migrate`              | `foundation`    | `/admin/form-config`         |
+|   8 | `apps/web/src/app/(dashboard)/admin/page.tsx`                                   | `/admin`                                   | `migrate`              | `foundation`    | `/admin`                     |
 |   9 | `apps/web/src/app/(dashboard)/applications/page.tsx`                            | `/applications`                            | `migrate`              | `foundation` | `/applications`              |
 |  10 | `apps/web/src/app/(dashboard)/aria/knowledge/[id]/page.tsx`                     | `/aria/knowledge/[id]`                     | `remove-as-provenance` | `removed`    | —                            |
 |  11 | `apps/web/src/app/(dashboard)/aria/page.tsx`                                    | `/aria`                                    | `remove-as-provenance` | `removed`    | —                            |
@@ -44,7 +44,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  14 | `apps/web/src/app/(dashboard)/careers/page.tsx`                                 | `/careers`                                 | `migrate`              | `foundation` | `/careers`                   |
 |  15 | `apps/web/src/app/(dashboard)/cash-advance/approval/page.tsx`                   | `/cash-advance/approval`                   | `migrate`              | `foundation` | `/cash-advance/approval`     |
 |  16 | `apps/web/src/app/(dashboard)/cash-advance/page.tsx`                            | `/cash-advance`                            | `migrate`              | `foundation` | `/cash-advance`              |
-|  17 | `apps/web/src/app/(dashboard)/certificates/page.tsx`                            | `/certificates`                            | `migrate`              | `pending`    | `/certificates`              |
+|  17 | `apps/web/src/app/(dashboard)/certificates/page.tsx`                            | `/certificates`                            | `migrate`              | `foundation`    | `/certificates`              |
 |  18 | `apps/web/src/app/(dashboard)/dashboard/page.tsx`                               | `/dashboard`                               | `migrate`              | `foundation` | `/dashboard`                 |
 |  19 | `apps/web/src/app/(dashboard)/dataroom/page.tsx`                                | `/dataroom`                                | `migrate`              | `foundation` | `/dataroom`                  |
 |  20 | `apps/web/src/app/(dashboard)/deals/page.tsx`                                   | `/deals`                                   | `migrate`              | `pending`    | `/deals`                     |
@@ -66,19 +66,19 @@ The source command is sorted before classification. The JSON companion repeats t
 |  35 | `apps/web/src/app/(dashboard)/it-crm/dashboard/page.tsx`                        | `/it-crm/dashboard`                        | `migrate`              | `pending`    | `/it-crm/dashboard`          |
 |  36 | `apps/web/src/app/(dashboard)/it-crm/page.tsx`                                  | `/it-crm`                                  | `migrate`              | `foundation` | `/it-crm`                    |
 |  37 | `apps/web/src/app/(dashboard)/it-helpdesk/page.tsx`                             | `/it-helpdesk`                             | `migrate`              | `foundation`    | `/it-helpdesk`               |
-|  38 | `apps/web/src/app/(dashboard)/it-operations/access/page.tsx`                    | `/it-operations/access`                    | `migrate`              | `pending`    | `/it-operations/access`      |
-|  39 | `apps/web/src/app/(dashboard)/it-operations/billing/page.tsx`                   | `/it-operations/billing`                   | `migrate`              | `pending`    | `/it-operations/billing`     |
-|  40 | `apps/web/src/app/(dashboard)/it-operations/page.tsx`                           | `/it-operations`                           | `migrate`              | `pending`    | `/it-operations`             |
+|  38 | `apps/web/src/app/(dashboard)/it-operations/access/page.tsx`                    | `/it-operations/access`                    | `migrate`              | `foundation`    | `/it-operations/access`      |
+|  39 | `apps/web/src/app/(dashboard)/it-operations/billing/page.tsx`                   | `/it-operations/billing`                   | `migrate`              | `foundation`    | `/it-operations/billing`     |
+|  40 | `apps/web/src/app/(dashboard)/it-operations/page.tsx`                           | `/it-operations`                           | `migrate`              | `foundation`    | `/it-operations`             |
 |  41 | `apps/web/src/app/(dashboard)/learning/page.tsx`                                | `/learning`                                | `migrate`              | `foundation` | `/learning`                  |
 |  42 | `apps/web/src/app/(dashboard)/leave/approval/page.tsx`                          | `/leave/approval`                          | `migrate`              | `foundation` | `/leave/approval`            |
 |  43 | `apps/web/src/app/(dashboard)/leave/holidays/page.tsx`                          | `/leave/holidays`                          | `migrate`              | `foundation` | `/leave/holidays`            |
 |  44 | `apps/web/src/app/(dashboard)/leave/page.tsx`                                   | `/leave`                                   | `migrate`              | `foundation` | `/leave`                     |
 |  45 | `apps/web/src/app/(dashboard)/leave/policies/page.tsx`                          | `/leave/policies`                          | `migrate`              | `foundation` | `/leave/policies`            |
 |  46 | `apps/web/src/app/(dashboard)/legal-crm/page.tsx`                               | `/legal-crm`                               | `migrate`              | `foundation` | `/legal-crm`                 |
-|  47 | `apps/web/src/app/(dashboard)/legal/announcements/[id]/page.tsx`                | `/legal/announcements/[id]`                | `migrate`              | `pending`    | `/legal/announcements/[id]`  |
+|  47 | `apps/web/src/app/(dashboard)/legal/announcements/[id]/page.tsx`                | `/legal/announcements/[id]`                | `migrate`              | `foundation`    | `/legal/announcements/[id]`  |
 |  48 | `apps/web/src/app/(dashboard)/legal/announcements/page.tsx`                     | `/legal/announcements`                     | `migrate`              | `foundation` | `/legal/announcements`       |
-|  49 | `apps/web/src/app/(dashboard)/legal/page.tsx`                                   | `/legal`                                   | `migrate`              | `pending`    | `/legal`                     |
-|  50 | `apps/web/src/app/(dashboard)/legal/shared/page.tsx`                            | `/legal/shared`                            | `migrate`              | `pending`    | `/legal/shared`              |
+|  49 | `apps/web/src/app/(dashboard)/legal/page.tsx`                                   | `/legal`                                   | `migrate`              | `foundation`    | `/legal`                     |
+|  50 | `apps/web/src/app/(dashboard)/legal/shared/page.tsx`                            | `/legal/shared`                            | `migrate`              | `foundation`    | `/legal/shared`              |
 |  51 | `apps/web/src/app/(dashboard)/marketing-analytics/campaigns/[id]/page.tsx`      | `/marketing-analytics/campaigns/[id]`      | `remove-as-provenance` | `removed`    | —                            |
 |  52 | `apps/web/src/app/(dashboard)/marketing-analytics/campaigns/page.tsx`           | `/marketing-analytics/campaigns`           | `remove-as-provenance` | `removed`    | —                            |
 |  53 | `apps/web/src/app/(dashboard)/marketing-analytics/page.tsx`                     | `/marketing-analytics`                     | `remove-as-provenance` | `removed`    | —                            |
@@ -97,7 +97,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  66 | `apps/web/src/app/(dashboard)/payroll/approval/page.tsx`                        | `/payroll/approval`                        | `migrate`              | `pending`    | `/payroll/approval`          |
 |  67 | `apps/web/src/app/(dashboard)/payroll/page.tsx`                                 | `/payroll`                                 | `migrate`              | `foundation` | `/payroll`                   |
 |  68 | `apps/web/src/app/(dashboard)/performance/page.tsx`                             | `/performance`                             | `migrate`              | `foundation` | `/performance`               |
-|  69 | `apps/web/src/app/(dashboard)/policies/page.tsx`                                | `/policies`                                | `migrate`              | `pending`    | `/policies`                  |
+|  69 | `apps/web/src/app/(dashboard)/policies/page.tsx`                                | `/policies`                                | `migrate`              | `foundation`    | `/policies`                  |
 |  70 | `apps/web/src/app/(dashboard)/pr-management/page.tsx`                           | `/pr-management`                           | `migrate`              | `foundation` | `/pr-management`             |
 |  71 | `apps/web/src/app/(dashboard)/product-crm/page.tsx`                             | `/product-crm`                             | `migrate`              | `foundation` | `/product-crm`               |
 |  72 | `apps/web/src/app/(dashboard)/projects/[projectId]/page.tsx`                    | `/projects/[projectId]`                    | `migrate`              | `foundation` | `/projects/[projectId]`      |
@@ -110,14 +110,14 @@ The source command is sorted before classification. The JSON companion repeats t
 |  79 | `apps/web/src/app/(dashboard)/sales-revenue/page.tsx`                           | `/sales-revenue`                           | `migrate`              | `pending`    | `/sales-revenue`             |
 |  80 | `apps/web/src/app/(dashboard)/sales/page.tsx`                                   | `/sales`                                   | `migrate`              | `foundation` | `/sales`                     |
 |  81 | `apps/web/src/app/(dashboard)/settings/page.tsx`                                | `/settings`                                | `migrate`              | `foundation` | `/settings`                  |
-|  82 | `apps/web/src/app/(dashboard)/survey-forms/[id]/page.tsx`                       | `/survey-forms/[id]`                       | `migrate`              | `pending`    | `/survey-forms/[id]`         |
-|  83 | `apps/web/src/app/(dashboard)/survey-forms/[id]/respond/page.tsx`               | `/survey-forms/[id]/respond`               | `migrate`              | `pending`    | `/survey-forms/[id]/respond` |
-|  84 | `apps/web/src/app/(dashboard)/survey-forms/new/page.tsx`                        | `/survey-forms/new`                        | `migrate`              | `pending`    | `/survey-forms/new`          |
-|  85 | `apps/web/src/app/(dashboard)/survey-forms/page.tsx`                            | `/survey-forms`                            | `migrate`              | `pending`    | `/survey-forms`              |
-|  86 | `apps/web/src/app/(dashboard)/survey/[id]/page.tsx`                             | `/survey/[id]`                             | `migrate`              | `pending`    | `/survey/[id]`               |
-|  87 | `apps/web/src/app/(dashboard)/survey/[id]/respond/page.tsx`                     | `/survey/[id]/respond`                     | `migrate`              | `pending`    | `/survey/[id]/respond`       |
-|  88 | `apps/web/src/app/(dashboard)/survey/new/page.tsx`                              | `/survey/new`                              | `migrate`              | `pending`    | `/survey/new`                |
-|  89 | `apps/web/src/app/(dashboard)/survey/page.tsx`                                  | `/survey`                                  | `migrate`              | `pending`    | `/survey`                    |
+|  82 | `apps/web/src/app/(dashboard)/survey-forms/[id]/page.tsx`                       | `/survey-forms/[id]`                       | `migrate`              | `foundation`    | `/survey-forms/[id]`         |
+|  83 | `apps/web/src/app/(dashboard)/survey-forms/[id]/respond/page.tsx`               | `/survey-forms/[id]/respond`               | `migrate`              | `foundation`    | `/survey-forms/[id]/respond` |
+|  84 | `apps/web/src/app/(dashboard)/survey-forms/new/page.tsx`                        | `/survey-forms/new`                        | `migrate`              | `foundation`    | `/survey-forms/new`          |
+|  85 | `apps/web/src/app/(dashboard)/survey-forms/page.tsx`                            | `/survey-forms`                            | `migrate`              | `foundation`    | `/survey-forms`              |
+|  86 | `apps/web/src/app/(dashboard)/survey/[id]/page.tsx`                             | `/survey/[id]`                             | `migrate`              | `foundation`    | `/survey/[id]`               |
+|  87 | `apps/web/src/app/(dashboard)/survey/[id]/respond/page.tsx`                     | `/survey/[id]/respond`                     | `migrate`              | `foundation`    | `/survey/[id]/respond`       |
+|  88 | `apps/web/src/app/(dashboard)/survey/new/page.tsx`                              | `/survey/new`                              | `migrate`              | `foundation`    | `/survey/new`                |
+|  89 | `apps/web/src/app/(dashboard)/survey/page.tsx`                                  | `/survey`                                  | `migrate`              | `foundation`    | `/survey`                    |
 |  90 | `apps/web/src/app/(dashboard)/travel/approval/page.tsx`                         | `/travel/approval`                         | `migrate`              | `pending`    | `/travel/approval`           |
 |  91 | `apps/web/src/app/(dashboard)/travel/page.tsx`                                  | `/travel`                                  | `migrate`              | `foundation` | `/travel`                    |
 |  92 | `apps/web/src/app/(dashboard)/visa/checklist-templates/page.tsx`                | `/visa/checklist-templates`                | `migrate`              | `pending`    | `/visa/checklist-templates`  |

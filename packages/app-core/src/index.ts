@@ -316,6 +316,16 @@ export type {
   TravelRequestStatus,
 } from "./travel/travel";
 export {
+  listTravelApprovalSteps,
+  TRAVEL_APPROVAL_STEPS_QUERY_KEY,
+  travelApprovalStepSchema,
+  travelApproverTypeLabel,
+} from "./travel/travel-approval-steps";
+export type {
+  TravelApprovalStep,
+  TravelApproverType,
+} from "./travel/travel-approval-steps";
+export {
   addExpenseLine,
   addExpenseLineInputSchema,
   canSubmitExpenseReport,
@@ -382,6 +392,9 @@ export {
   checkOutAttendance,
   checkOutAttendanceInputSchema,
   ESOP_GRANTS_QUERY_ROOT,
+  esopEmployeeSummaryQueryKey,
+  esopEmployeeSummarySchema,
+  esopGrantInstrumentSchema,
   esopGrantListParamsSchema,
   esopGrantSchema,
   esopGrantStatusSchema,
@@ -389,6 +402,7 @@ export {
   esopGrantsQueryKey,
   esopValueTypeSchema,
   getAttendanceToday,
+  getEsopEmployeeSummary,
   listEsopGrants,
   listOnboardingRuns,
   ONBOARDING_RUNS_QUERY_ROOT,
@@ -402,7 +416,9 @@ export type {
   AttendanceWorkMode,
   CheckInAttendanceInput,
   CheckOutAttendanceInput,
+  EsopEmployeeSummary,
   EsopGrant,
+  EsopGrantInstrument,
   EsopGrantList,
   EsopGrantListParams,
   EsopGrantStatus,
@@ -439,6 +455,24 @@ export type {
   VisaRecordDetail,
   VisaStatus,
 } from "./visa/visa";
+export {
+  listVisaKbArticles,
+  VISA_KB_QUERY_ROOT,
+  visaKbArticleListParamsSchema,
+  visaKbArticleSchema,
+  visaKbArticlesQueryKey,
+} from "./visa/visa-kb";
+export type {
+  VisaKbArticle,
+  VisaKbArticleList,
+  VisaKbArticleListParams,
+} from "./visa/visa-kb";
+export {
+  listVisaChecklistTemplates,
+  VISA_CHECKLIST_TEMPLATES_QUERY_KEY,
+  visaChecklistTemplateSchema,
+} from "./visa/visa-checklist-templates";
+export type { VisaChecklistTemplate } from "./visa/visa-checklist-templates";
 export {
   canDeleteCashAdvanceDraft,
   canSubmitCashAdvance,
@@ -488,6 +522,12 @@ export type {
   PayrollRunListParams,
   PayrollRunStatus,
 } from "./payroll/payroll";
+export {
+  listPayrollApprovalSteps,
+  PAYROLL_APPROVAL_STEPS_QUERY_KEY,
+  payrollApprovalStepSchema,
+} from "./payroll/payroll-approval-steps";
+export type { PayrollApprovalStep } from "./payroll/payroll-approval-steps";
 export {
   BENEFIT_CATALOG_QUERY_ROOT,
   benefitCatalogListParamsSchema,
@@ -846,3 +886,45 @@ export type {
   MessageChannel,
   MessageChannelList,
 } from "./messages/messages";
+
+export {
+  getInvestorDashboard,
+  INVESTOR_DASHBOARD_QUERY_ROOT,
+  investorDashboardQueryKey,
+  investorDashboardSchema,
+} from "./investors/investors";
+export type { InvestorDashboard } from "./investors/investors";
+export {
+  getItCrmDashboard,
+  IT_CRM_DASHBOARD_QUERY_ROOT,
+  itCrmDashboardQueryKey,
+  itCrmDashboardSchema,
+} from "./it-crm/it-crm-dashboard";
+export type { ItCrmDashboard } from "./it-crm/it-crm-dashboard";
+export {
+  getQaCrmProject,
+  QA_CRM_DETAIL_QUERY_ROOT,
+  qaCrmProjectDetailQueryKey,
+  qaCrmProjectDetailSchema,
+} from "./qa-crm/qa-crm-detail";
+export type { QaCrmProjectDetail } from "./qa-crm/qa-crm-detail";
+export {
+  DEALS_QUERY_ROOT,
+  dealListParamsSchema,
+  dealSchema,
+  dealsQueryKey,
+  listDeals,
+} from "./deals/deals";
+export type { Deal, DealList, DealListParams } from "./deals/deals";
+export {
+  listSalesRevenueLeads,
+  SALES_REVENUE_LEADS_QUERY_ROOT,
+  salesRevenueLeadListParamsSchema,
+  salesRevenueLeadSchema,
+  salesRevenueLeadsQueryKey,
+} from "./sales-revenue/sales-revenue";
+export type {
+  SalesRevenueLead,
+  SalesRevenueLeadList,
+  SalesRevenueLeadListParams,
+} from "./sales-revenue/sales-revenue";

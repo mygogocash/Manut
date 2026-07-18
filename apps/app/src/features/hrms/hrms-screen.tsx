@@ -23,6 +23,7 @@ import {
   StatusMessage,
 } from "@manut/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
@@ -192,19 +193,15 @@ function AttendanceSection({
   );
 }
 
-function EsopGrantRow({ grant }: { grant: EsopGrant }) {
-  return (
-    <View
-      accessibilityLabel={`${esopGrantTypeLabel(grant.grantType)} grant`}
-      style={{
-        gap: spacing.xs,
-        padding: spacing.lg,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: radii.card,
-        backgroundColor: colors.surfaceRaised,
-      }}
-    >
+function EsopGrantRow({
+  grant,
+  onOpen,
+}: {
+  grant: EsopGrant;
+  onOpen?: () => void;
+}) {
+  const content = (
+    <>
       <Text selectable style={{ fontWeight: "600", color: colors.text }}>
         {esopGrantTypeLabel(grant.grantType)} · {grant.status}
       </Text>
@@ -216,7 +213,43 @@ function EsopGrantRow({ grant }: { grant: EsopGrant }) {
         Granted {grant.grantDate} · {grant.shares} shares · vested{" "}
         {grant.vestedToDate}
       </Text>
-    </View>
+    </>
+  );
+
+  if (!onOpen) {
+    return (
+      <View
+        accessibilityLabel={`${esopGrantTypeLabel(grant.grantType)} grant`}
+        style={{
+          gap: spacing.xs,
+          padding: spacing.lg,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radii.card,
+          backgroundColor: colors.surfaceRaised,
+        }}
+      >
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open grants for ${grant.employee.name}`}
+      onPress={onOpen}
+      style={{
+        gap: spacing.xs,
+        padding: spacing.lg,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radii.card,
+        backgroundColor: colors.surfaceRaised,
+      }}
+    >
+      {content}
+    </Pressable>
   );
 }
 
@@ -250,9 +283,11 @@ function OnboardingRow({ run }: { run: OnboardingRun }) {
 export function HrmsScreen() {
   const api = useApiClient();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { hasPermission } = useAuth();
   const showAttendance = canUseAttendance(hasPermission);
   const showEsop = canReadEsop(hasPermission);
+  const canOpenGrantDetail = hasPermission("hrms:esop-manage");
   const showOnboarding = canReadOnboarding(hasPermission);
   const [workMode, setWorkMode] = useState<AttendanceWorkMode>("office");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -366,7 +401,17 @@ export function HrmsScreen() {
             ) : grantsQuery.data?.data.length ? (
               <View style={{ gap: spacing.md }}>
                 {grantsQuery.data.data.map((grant) => (
-                  <EsopGrantRow key={grant.id} grant={grant} />
+                  <EsopGrantRow
+                    key={grant.id}
+                    grant={grant}
+                    onOpen={
+                      canOpenGrantDetail
+                        ? () => {
+                            router.push(`/hrms/grants/${grant.employee.id}`);
+                          }
+                        : undefined
+                    }
+                  />
                 ))}
               </View>
             ) : (

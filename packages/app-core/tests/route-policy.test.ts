@@ -64,6 +64,34 @@ describe("route policy resolution", () => {
     ).toMatchObject({ allowed: false, reason: "employee-boundary" });
   });
 
+  it("gates travel/payroll approval and visa manage list routes", () => {
+    expect(resolveRoutePolicy("/travel/approval")?.permissions).toEqual([
+      "travel:hr-settings",
+    ]);
+    expect(resolveRoutePolicy("/payroll/approval")?.permissions).toEqual([
+      "payroll:hr-admin",
+      "payroll:approve",
+    ]);
+    expect(resolveRoutePolicy("/visa/knowledge-base")?.permissions).toEqual([
+      "visa:manage",
+    ]);
+    expect(
+      resolveRoutePolicy("/visa/checklist-templates")?.permissions,
+    ).toEqual(["visa:manage"]);
+    expect(
+      resolveRoutePolicy(
+        "/hrms/grants/11111111-1111-4111-8111-111111111111",
+      )?.permissions,
+    ).toEqual(["hrms:esop-manage"]);
+    expect(
+      evaluateRouteAccess({
+        pathname: "/travel/approval",
+        permissions: ["travel:hr-settings"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+  });
+
   it("does not admit an approver-only account to the balance-led Leave page", () => {
     expect(
       evaluateRouteAccess({

@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 52,
-    "pending": 36,
+    "foundation": 76,
+    "pending": 12,
     "removed": 16
   },
   "statusSemantics": {
@@ -72,17 +72,17 @@
       "sourcePath": "apps/web/src/app/(dashboard)/admin/form-config/page.tsx",
       "sourceRoute": "/admin/form-config",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/admin/form-config",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only department list via GET /api/admin/departments (admin:read|manage). Create/update/deactivate deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/admin/page.tsx",
       "sourceRoute": "/admin",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/admin",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo thin admin hub via GET /api/admin/users/stats (admin:read|manage; user:read for KPI). Audit log and per-user usage remain deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/applications/page.tsx",
@@ -152,9 +152,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/certificates/page.tsx",
       "sourceRoute": "/certificates",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/certificates",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only certificate list via GET /api/certificates (certificate:read|manage); issue/download deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/dashboard/page.tsx",
@@ -328,25 +328,25 @@
       "sourcePath": "apps/web/src/app/(dashboard)/it-operations/access/page.tsx",
       "sourceRoute": "/it-operations/access",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-operations/access",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only access request list via GET /api/it-access/requests; approve/reject/grant deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-operations/billing/page.tsx",
       "sourceRoute": "/it-operations/billing",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-operations/billing",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only subscription list via GET /api/it-billing/subscriptions; vendor CRUD/renewals deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-operations/page.tsx",
       "sourceRoute": "/it-operations",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-operations",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only IT Ops KPI panel via GET /api/it-operations/dashboard; strips recent access identity/charts."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/learning/page.tsx",
@@ -400,9 +400,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/legal/announcements/[id]/page.tsx",
       "sourceRoute": "/legal/announcements/[id]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/legal/announcements/[id]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo announcement detail via GET /api/legal-announcements/:id (body + attachment names); ack/download deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/legal/announcements/page.tsx",
@@ -416,17 +416,17 @@
       "sourcePath": "apps/web/src/app/(dashboard)/legal/page.tsx",
       "sourceRoute": "/legal",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/legal",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only legal document list via GET /api/legal; sharing/signatures/uploads deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/legal/shared/page.tsx",
       "sourceRoute": "/legal/shared",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/legal/shared",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only shared-with-me list via GET /api/legal/shared-with-me; downloads deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/campaigns/[id]/page.tsx",
@@ -576,9 +576,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/policies/page.tsx",
       "sourceRoute": "/policies",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/policies",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only company policy list via GET /api/policies; upload/download deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/pr-management/page.tsx",
@@ -680,65 +680,65 @@
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/[id]/page.tsx",
       "sourceRoute": "/survey-forms/[id]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey-forms/[id]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only survey form detail with prompts; manage deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/[id]/respond/page.tsx",
       "sourceRoute": "/survey-forms/[id]/respond",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey-forms/[id]/respond",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo stub respond route; submit deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/new/page.tsx",
       "sourceRoute": "/survey-forms/new",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey-forms/new",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo stub route requiring survey:manage-wave; create builder deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/page.tsx",
       "sourceRoute": "/survey-forms",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey-forms",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only survey form list via GET /api/survey-forms; builder deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey/[id]/page.tsx",
       "sourceRoute": "/survey/[id]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey/[id]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only survey detail with question prompts; manage/publish deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey/[id]/respond/page.tsx",
       "sourceRoute": "/survey/[id]/respond",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey/[id]/respond",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only my-response status (answer values stripped); submit deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey/new/page.tsx",
       "sourceRoute": "/survey/new",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey/new",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo stub route requiring survey:manage; create builder deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey/page.tsx",
       "sourceRoute": "/survey",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/survey",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only survey list via GET /api/survey; create/analytics deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/travel/approval/page.tsx",

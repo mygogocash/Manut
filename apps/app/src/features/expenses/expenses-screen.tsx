@@ -363,6 +363,7 @@ function ReportDetailSheet({
   addingLine: boolean;
 }) {
   const api = useApiClient();
+  const router = useRouter();
   const detailQuery = useQuery({
     queryKey: expenseReportDetailQueryKey(reportId),
     queryFn: ({ signal }) => getExpenseReport(api, reportId, signal),
@@ -424,6 +425,10 @@ function ReportDetailSheet({
               onClose={onClose}
               onAddLine={onAddLine}
               onSubmitReport={onSubmitReport}
+              onOpenFullPage={() => {
+                onClose();
+                router.push(`/expenses/${reportId}`);
+              }}
             />
           ) : null}
         </ScrollView>
@@ -442,6 +447,7 @@ function ReportDetailCard({
   onClose,
   onAddLine,
   onSubmitReport,
+  onOpenFullPage,
 }: {
   detail: ExpenseReportDetail;
   canCreate: boolean;
@@ -452,6 +458,7 @@ function ReportDetailCard({
   onClose: () => void;
   onAddLine: () => void;
   onSubmitReport: () => void;
+  onOpenFullPage: () => void;
 }) {
   const isDraft = detail.status === "draft";
   return (
@@ -468,6 +475,12 @@ function ReportDetailCard({
         {detail.rejectReason ? (
           <DetailRow label="Reject reason" value={detail.rejectReason} />
         ) : null}
+        <Button
+          label="Open full page"
+          pendingLabel="Opening…"
+          accessibilityLabel={`Open full page for ${detail.title}`}
+          onPress={onOpenFullPage}
+        />
         {canCreate && isDraft ? (
           <Button
             label="Add line"
