@@ -19,8 +19,14 @@ Companion: `docs/PRODUCTION_DEPLOY.md` (cutover order, ops blockers).
 | Production hosts | `https://manu.xyz`, `https://manut.bettergogocash.workers.dev` |
 | Preview host | `https://preview.manu.xyz` (attach to **Preview** env, not Production) |
 
+| Git branch | CF env | URL |
+| --- | --- | --- |
+| `main` | production | https://manu.xyz (+ https://manut.bettergogocash.workers.dev) |
+| `preview` | preview | https://preview.manu.xyz (+ `*.manut.bettergogocash.workers.dev`) |
+
 Wrangler: `env.production.name` / `env.preview.name` = `manut`; staging is a
-separate Worker `manut-staging`.
+separate Worker `manut-staging`. If `preview.manu.xyz` is listed under
+**Production** in Cloudflare Domains, move it to the **Preview** environment.
 
 ## Why `pnpm run build` fails on Workers Builds
 
@@ -59,7 +65,7 @@ Path: Worker `manut` → **Settings → Builds** (or Connect to Git → Builds).
 | `EXPO_PUBLIC_REALTIME_ORIGIN` | no | Edge DO WebSocket origin when not same-origin |
 | Auth JWKS / issuer | later | Worker vars `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE` — **not** Supabase CI vars |
 
-Do **not** require `EXPO_PUBLIC_SUPABASE_*` for Builds or GitHub deploy workflows.
+Do **not** require Supabase Expo public vars for Builds or GitHub deploy workflows.
 
 ### Preview
 
@@ -148,9 +154,23 @@ Supabase public vars are **not** required for deploy CI.
 ### Not set by CI (configure in Cloudflare / wrangler)
 
 Worker **secrets** (`EDGE_SIGNING_KEY`, R2 credentials) and **vars**
-(`API_ORIGIN`, `AUTH_JWKS_URL`, `AUTH_ISSUER`, `TRUSTED_STORAGE_ORIGINS`, …)
-are set with `wrangler secret put` / dashboard / `wrangler.jsonc` — not invented
-in the workflow. See `docs/CLOUDFLARE_BINDINGS.md`.
+(`API_ORIGIN`, `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE`,
+`TRUSTED_STORAGE_ORIGINS`, …) are set with `wrangler secret put` / dashboard /
+`wrangler.jsonc` — not invented in the workflow. See `docs/CLOUDFLARE_BINDINGS.md`.
+
+#### Cloudflare Access → Worker JWT verification
+
+Create a Cloudflare Access application (do not invent team/app ids in git).
+Point Worker vars at Access:
+
+| Worker var | Example shape |
+| --- | --- |
+| `AUTH_JWKS_URL` | `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs` |
+| `AUTH_ISSUER` | `https://<team>.cloudflareaccess.com` |
+| `AUTH_AUDIENCE` | Access application AUD tag |
+
+Empty JWKS / issuer / audience fails closed (`503 AUTH_*_NOT_CONFIGURED`).
+Storage is **R2** (`UPLOADS`); receipt provenance uses `TRUSTED_STORAGE_ORIGINS`.
 
 **Hyperdrive:** keep `"hyperdrive": []` in committed `wrangler.jsonc` until ops
 provisions a real config id and binds `HYPERDRIVE_DATABASE`. CI must never
