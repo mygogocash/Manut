@@ -44,6 +44,27 @@ describe("deploy workflows > Cloudflare-oriented Expo public config", () => {
     },
   );
 
+  it.each([
+    [".github/workflows/deploy.yml", "production", "wrangler deploy --env production"],
+    [
+      ".github/workflows/deploy-preview.yml",
+      "preview",
+      "wrangler versions upload --env preview",
+    ],
+    [".github/workflows/deploy-staging.yml", "staging", "wrangler deploy --env staging"],
+  ] as const)(
+    "%s ensures Cloudflare queues + R2 exist before its wrangler step",
+    (relativePath, envName, wranglerCommand) => {
+      const source = readFileSync(join(repoRoot, relativePath), "utf8");
+      const ensureCommand = `node scripts/ensure-cloudflare-resources.mjs --env ${envName}`;
+      const ensureIndex = source.indexOf(ensureCommand);
+      const wranglerIndex = source.lastIndexOf(wranglerCommand);
+      expect(ensureIndex).toBeGreaterThan(-1);
+      expect(wranglerIndex).toBeGreaterThan(-1);
+      expect(ensureIndex).toBeLessThan(wranglerIndex);
+    },
+  );
+
   it("targets Worker service manut for production deploy and preview upload", () => {
     const production = readFileSync(
       join(repoRoot, ".github/workflows/deploy.yml"),

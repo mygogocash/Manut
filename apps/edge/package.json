@@ -6,8 +6,8 @@
   "scripts": {
     "build": "wrangler deploy --dry-run --env=\"\" --outdir dist",
     "dev": "wrangler dev",
-    "lint": "eslint src tests vitest.config.ts --max-warnings=0",
-    "lint:fix": "eslint src tests vitest.config.ts --fix",
+    "lint": "eslint scripts src tests vitest.config.ts --max-warnings=0",
+    "lint:fix": "eslint scripts src tests vitest.config.ts --fix",
     "test": "EDGE_SIGNING_KEY=test-only-edge-signing-key-not-a-credential R2_ACCOUNT_ID=00000000000000000000000000000000 R2_ACCESS_KEY_ID=TESTONLYR2ACCESSKEYID000000000000 R2_SECRET_ACCESS_KEY=test-only-r2-secret-key-not-a-credential vitest run",
     "type-check": "pnpm run types && tsc --noEmit",
     "types": "wrangler types --env-interface CloudflareBindings --include-runtime=false --strict-vars=false",
@@ -28,6 +28,7 @@
     "@cloudflare/vitest-pool-workers": "0.18.5",
     "@cloudflare/workers-types": "5.20260716.1",
     "@manut/eslint-config": "workspace:*",
+    "jsonc-parser": "3.3.1",
     "typescript": "6.0.3",
     "vitest": "4.1.10",
     "wrangler": "4.111.0"

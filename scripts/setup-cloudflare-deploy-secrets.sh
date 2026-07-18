@@ -99,7 +99,8 @@ done
 
 if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
   echo "note: CLOUDFLARE_API_TOKEN unset — cannot set GitHub Actions deploy token."
-  echo "      Create a Cloudflare API token (Workers Scripts Edit + Account read),"
+  echo "      Create a Cloudflare API token (Workers Scripts Edit + Queues Edit"
+  echo "      + Workers R2 Storage Edit + Account read),"
   echo "      export CLOUDFLARE_API_TOKEN, then re-run this script."
 else
   for env_name in production preview staging; do
@@ -107,12 +108,14 @@ else
   done
 fi
 
-set_env_var production EXPO_PUBLIC_API_URL "https://manu.xyz"
-set_env_var preview EXPO_PUBLIC_API_URL "https://preview.manu.xyz"
+set_env_var production EXPO_PUBLIC_API_URL "https://app.manut.xyz"
+set_env_var preview EXPO_PUBLIC_API_URL "https://preview.manut.xyz"
 set_env_var staging EXPO_PUBLIC_API_URL "https://manut-staging.bettergogocash.workers.dev"
 
 echo
 echo "Done (names only). Still human:"
+echo "  - Workers Builds token: add Account → Queues → Edit (deploys self-provision"
+echo "    queues/R2 via apps/edge/scripts/ensure-cloudflare-resources.mjs)"
 echo "  - Cloudflare Access → set Worker vars AUTH_JWKS_URL / AUTH_ISSUER / AUTH_AUDIENCE"
 echo "  - Hyperdrive bind + ENABLE_HYPERDRIVE_BOUNDARY=true when ready"
 echo "  - R2 API token secrets if skipped above"

@@ -19,6 +19,10 @@ Companion: `apps/edge/wrangler.jsonc`, `docs/CICD_CLOUDFLARE.md`,
 
 Use the **Add binding** modal. Names are case-sensitive and must match code.
 
+Queue and R2 **resources** (`manut-intranet-jobs-*`, `manut-intranet-uploads-*`)
+are auto-created at deploy by `apps/edge/scripts/ensure-cloudflare-resources.mjs`;
+the rows below are for verifying bindings, not creating resources.
+
 | Priority | Binding type | Variable / binding name | Resource / notes |
 | --- | --- | --- | --- |
 | **Required (SoR)** | Hyperdrive | `HYPERDRIVE_DATABASE` | Manut-owned Hyperdrive → Postgres. Keep `ENABLE_HYPERDRIVE_BOUNDARY=false` until bound; then set `true`. Commit id into `wrangler.jsonc` only after ops provisions it (`hyperdrive: []` until then). |
@@ -82,6 +86,6 @@ Use the **Add binding** modal. Names are case-sensitive and must match code.
 
 | Env | Worker / service | Notes |
 | --- | --- | --- |
-| Production | `manut` (`--env production`) | `manu.xyz`, `manut.bettergogocash.workers.dev` |
-| Preview | same service `manut` (`--env preview` / versions upload) | Prefer `preview.manu.xyz` on Preview env — move off Production if still attached |
+| Production | `manut` (`--env production`) | `app.manut.xyz`, `manut.bettergogocash.workers.dev` |
+| Preview | same service `manut` (`--env preview` / versions upload) | Prefer `preview.manut.xyz` on Preview env — move off Production if still attached |
 | Staging | separate Worker `manut-staging` | Does not overwrite live `manut` |
