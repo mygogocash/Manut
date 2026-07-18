@@ -40,6 +40,10 @@ overrides:
   "undici@>=7.0.0 <7.28.0": "7.28.0"
   "@babel/core@<=7.29.0": "7.29.6"
   "js-yaml@<=4.1.1": "4.2.0"
+  # Dependabot/OSV (2026-07-18): transitive eas-cli / prisma.dev / web quill chain
+  "@xmldom/xmldom@<0.8.13": "0.8.13"
+  "@hono/node-server@<1.19.13": "1.19.14"
+  "minimatch@>=5.0.0 <5.1.8": "5.1.9"
 minimumReleaseAgeExclude:
   - "@cloudflare/workers-types@5.20260716.1"
   - "@eslint-zod/utils@2.4.0"

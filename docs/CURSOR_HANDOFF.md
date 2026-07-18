@@ -602,12 +602,12 @@ JS/TS CodeQL, Secret scan, Web/Worker/Native builds, and Migration safety alread
 
 | Item                                   | Owner         | Status / next action                                                                            |
 | -------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------- |
-| E2E secrets + dedicated project        | Ops           | Still blocked: five `E2E_*` on `e2e` env + `manut-intranet-e2e`. Do not soft-skip the gate.     |
-| CodeQL Ruby language                   | Repo settings | Drop Ruby from default Code scanning setup (JS/TS already passes).                              |
-| OSV / dependency-review bumps          | Eng           | Review Dependabot/OSV hits and bump low-risk lockfile deps; keep OSV fail-closed.               |
+| E2E secrets + dedicated project        | Ops           | **Verified empty** (`GET …/environments/e2e/secrets` → `total_count: 0`). Still blocked: five `E2E_*` on `e2e` env + `manut-intranet-e2e`. Do not soft-skip the gate. |
+| CodeQL Ruby language                   | Repo settings | **Still failing on `main`** (run `29646398325` — `Analyze (ruby)` only). Drop Ruby from default Code scanning setup (JS/TS already passes). |
+| OSV / dependency-review bumps          | Eng           | **Eng slice (2026-07-18):** pnpm overrides for `@xmldom/xmldom@<0.8.13` → `0.8.13`, `@hono/node-server@<1.19.13` → `1.19.14`, `minimatch@>=5 <5.1.8` → `5.1.9`; `eas-cli` → `21.0.2`. Residual: `quill@2.0.3` XSS (low, no upstream patch; `apps/web` `react-quill-new` only). Keep OSV fail-closed. |
 | Static-unit platform ignore            | Eng           | Preferences-storage `.web`/`.native` ignore landed; re-check CI if new unresolved pairs appear. |
-| GitHub Free → Pro                      | Org           | Branch protection / required `Validate` still 403 on Free org plan.                             |
-| Phase E Cloudflare / Expo / Hyperdrive | Ops           | Fresh Manut-owned resources only; no deploy from this branch.                                   |
+| GitHub Free → Pro                      | Org           | **Verified** `mygogocash` org plan still `free` (API). Branch protection / required `Validate` still 403 on Free org plan. |
+| Phase E Cloudflare / Expo / Hyperdrive | Ops           | Fresh Manut-owned resources only; checklist in `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`. No deploy from eng branches. |
 | Credential revocation proof            | Ops           | Negative auth evidence + rotate any exposed worker secrets out-of-band.                         |
 
 Nine prerequisite jobs plus the final aggregator:
@@ -1120,3 +1120,13 @@ Phase 1 leftovers close-out (2026-07-18):
 - **Deferred / blocked:** policy CRUD/import; wall/compose productization;
   hosted authenticated E2E until the five `E2E_*` secrets + dedicated project
   exist (gate stays fail-closed — no soft-skip).
+
+### Parallel: ops-ci-osv-overrides
+
+- **Eng slice (2026-07-18):** Cleared patchable Dependabot/OSV hits via
+  `pnpm-workspace.yaml` overrides (`@xmldom/xmldom`, `@hono/node-server`,
+  `minimatch@5`) and `eas-cli` `21.0.2`. Residual low: `quill@2.0.3` (no
+  upstream patch; temporary `apps/web` rich-text only).
+- **Ops evidence re-checked:** `e2e` env secrets `total_count: 0`; org plan
+  `free`; CodeQL `Analyze (ruby)` still fails on `main` (run `29646398325`).
+  Phase E / E2E secrets / GitHub Pro / CodeQL Ruby remain ops-owned.
