@@ -477,6 +477,13 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     prefix: true,
   },
   {
+    path: "/gmail",
+    access: "protected",
+    permissions: ["integrations:use"],
+    employeeAllowed: true,
+    prefix: true,
+  },
+  {
     path: "/messages",
     access: "protected",
     permissions: ["messages:read"],

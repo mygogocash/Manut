@@ -271,10 +271,15 @@ export {
   driveListParamsSchema,
   driveListQueryKey,
   getIntegrationsStatus,
+  GMAIL_FOLDER_VALUES,
+  GMAIL_LIST_QUERY_ROOT,
+  gmailListParamsSchema,
+  gmailListQueryKey,
   INTEGRATIONS_STATUS_QUERY_KEY,
   integrationsStatusSchema,
   isGoogleNotConnectedError,
   listDrive,
+  listGmail,
   oauthReturnMessage,
   startGoogleOauth,
 } from "./integrations/integrations";
@@ -282,6 +287,10 @@ export type {
   DriveFile,
   DriveList,
   DriveListParams,
+  GmailFolder,
+  GmailList,
+  GmailListItem,
+  GmailListParams,
   GoogleConnectionStatus,
   IntegrationsStatus,
 } from "./integrations/integrations";
@@ -877,15 +886,39 @@ export type {
   UploadSignedUrl,
 } from "./uploads/uploads";
 export {
+  CHANNEL_MESSAGES_QUERY_ROOT,
+  channelMessageSchema,
+  channelMessagesQueryKey,
+  listChannelMessages,
   listMessageChannels,
   MESSAGE_CHANNELS_QUERY_KEY,
   messageChannelSchema,
   messageChannelsQueryKey,
 } from "./messages/messages";
 export type {
+  ChannelMessage,
+  ChannelMessageList,
   MessageChannel,
   MessageChannelList,
 } from "./messages/messages";
+export {
+  REALTIME_LIVE_CHAT_BLOCKER,
+  buildRealtimeRoomPath,
+  buildRealtimeRoomWebSocketUrl,
+  isRealtimeRoomId,
+  parseRealtimeServerMessage,
+} from "./messages/realtime-room";
+export type { RealtimeServerMessage } from "./messages/realtime-room";
+export {
+  getPublicSigningRequest,
+  PUBLIC_SIGNING_QUERY_ROOT,
+  publicSigningQueryKey,
+} from "./legal/public-signing";
+export type {
+  PublicSigningDocument,
+  PublicSigningRequest,
+  PublicSigningSignature,
+} from "./legal/public-signing";
 
 export {
   getInvestorDashboard,

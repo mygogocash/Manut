@@ -293,6 +293,51 @@ describe("route policy resolution", () => {
     ).toMatchObject({ allowed: false, reason: "employee-boundary" });
   });
 
+  it("allows sales-revenue, deals, hr-crm, and investor-crm foundations", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/sales-revenue",
+        permissions: ["sales-revenue:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/deals",
+        permissions: ["deals:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/hr-crm",
+        permissions: ["hr-crm:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/investor-crm",
+        permissions: ["investor-dashboard:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/it-crm/dashboard",
+        permissions: ["it-crm:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/qa-crm/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        permissions: ["qa-crm:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
   it.each([
     "partners:read",
     "partners:create",
@@ -486,7 +531,7 @@ describe("route policy resolution", () => {
     ).toMatchObject({ allowed: true });
   });
 
-  it("gates Wave 4 files, drive, and messages foundations", () => {
+  it("gates Wave 4 files, drive, gmail, messages, and public sign", () => {
     expect(
       evaluateRouteAccess({
         pathname: "/files",
@@ -510,6 +555,20 @@ describe("route policy resolution", () => {
     ).toMatchObject({ allowed: false, reason: "missing-permission" });
     expect(
       evaluateRouteAccess({
+        pathname: "/gmail",
+        permissions: ["integrations:use"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/gmail",
+        permissions: [],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "missing-permission" });
+    expect(
+      evaluateRouteAccess({
         pathname: "/messages",
         permissions: ["messages:read"],
         employeeOnly: true,
@@ -522,6 +581,13 @@ describe("route policy resolution", () => {
         employeeOnly: false,
       }),
     ).toMatchObject({ allowed: false, reason: "missing-permission" });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/sign/public-token",
+        permissions: [],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
   });
 
 });
