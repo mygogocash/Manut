@@ -1,12 +1,17 @@
 import {
   ApiError,
+  applyChannelMessageEvent,
   channelMessagesQueryKey,
   listChannelMessages,
   listMessageChannels,
   MESSAGE_CHANNELS_QUERY_KEY,
-  REALTIME_LIVE_CHAT_BLOCKER,
+  REALTIME_DO_CHAT_GAP,
+  sendChannelMessage,
+  sendChannelMessageInputSchema,
   type ChannelMessage,
+  type ChannelMessageList,
   type MessageChannel,
+  type MessagesLiveEvent,
 } from "@manut/app-core";
 import {
   Button,
@@ -17,16 +22,21 @@ import {
   spacing,
   StatusMessage,
 } from "@manut/ui";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
-import { getRealtimeOrigin } from "@/platform/realtime-origin";
 import {
-  joinRealtimeRoom,
-  type RealtimeRoomStatus,
-} from "@/platform/realtime-room";
+  joinMessagesChannel,
+  type MessagesSocketStatus,
+} from "@/platform/messages-socket";
 import { useApiClient } from "@/providers/api-client-provider";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -115,14 +125,35 @@ function MessageRow({ message }: { message: ChannelMessage }) {
   );
 }
 
+function appendLiveMessage(
+  current: ChannelMessageList | undefined,
+  event: MessagesLiveEvent,
+): ChannelMessageList | undefined {
+  if (!current) return current;
+  return {
+    ...current,
+    data: applyChannelMessageEvent(current.data, event),
+  };
+}
+
 export function MessagesScreen() {
   const api = useApiClient();
+  const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   const canRead = hasPermission("messages:read");
+  const canCreate = hasPermission("messages:create");
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
     null,
   );
-  const [roomStatus, setRoomStatus] = useState<RealtimeRoomStatus>("idle");
+  const [socketStatus, setSocketStatus] =
+    useState<MessagesSocketStatus>("idle");
+  const [draft, setDraft] = useState("");
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  const messagesKey = channelMessagesQueryKey(selectedChannelId ?? "", {
+    page: 1,
+    limit: 50,
+  });
 
   const channelsQuery = useQuery({
     queryKey: MESSAGE_CHANNELS_QUERY_KEY,
@@ -131,10 +162,7 @@ export function MessagesScreen() {
   });
 
   const messagesQuery = useQuery({
-    queryKey: channelMessagesQueryKey(selectedChannelId ?? "", {
-      page: 1,
-      limit: 50,
-    }),
+    queryKey: messagesKey,
     queryFn: ({ signal }) =>
       listChannelMessages(
         api,
@@ -145,25 +173,52 @@ export function MessagesScreen() {
     enabled: canRead && selectedChannelId != null,
   });
 
+  const sendMutation = useMutation({
+    mutationFn: (content: string) => {
+      if (!selectedChannelId) {
+        throw new Error("Select a conversation before sending.");
+      }
+      return sendChannelMessage(api, selectedChannelId, { content });
+    },
+    onSuccess: (message) => {
+      setDraft("");
+      setSendError(null);
+      queryClient.setQueryData<ChannelMessageList>(messagesKey, (current) =>
+        appendLiveMessage(current, {
+          type: "message.created",
+          channelId: message.channelId ?? selectedChannelId!,
+          payload: message,
+        }),
+      );
+      void queryClient.invalidateQueries({
+        queryKey: MESSAGE_CHANNELS_QUERY_KEY,
+      });
+    },
+    onError: (error) => {
+      setSendError(errorMessage(error, "We could not send that message."));
+    },
+  });
+
   useEffect(() => {
-    if (!selectedChannelId) {
-      setRoomStatus("idle");
+    if (!selectedChannelId || !canRead) {
       return;
     }
-    const origin = getRealtimeOrigin();
-    if (!origin) {
-      setRoomStatus("error");
-      return;
-    }
-    const client = joinRealtimeRoom({
-      origin,
-      roomId: selectedChannelId.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 96),
-      onStatus: setRoomStatus,
+    const client = joinMessagesChannel({
+      channelId: selectedChannelId,
+      onStatus: setSocketStatus,
+      onEvent: (event) => {
+        queryClient.setQueryData<ChannelMessageList>(messagesKey, (current) =>
+          appendLiveMessage(current, event),
+        );
+      },
     });
     return () => {
       client.close();
     };
-  }, [selectedChannelId]);
+  }, [canRead, messagesKey, queryClient, selectedChannelId]);
+
+  const liveSocketStatus =
+    selectedChannelId && canRead ? socketStatus : "idle";
 
   if (!canRead) {
     return (
@@ -194,6 +249,16 @@ export function MessagesScreen() {
     (channel) => channel.id === selectedChannelId,
   );
 
+  function submitDraft() {
+    const parsed = sendChannelMessageInputSchema.safeParse({ content: draft });
+    if (!parsed.success) {
+      setSendError("Enter a message before sending.");
+      return;
+    }
+    setSendError(null);
+    sendMutation.mutate(parsed.data.content);
+  }
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -215,7 +280,7 @@ export function MessagesScreen() {
             Messages
           </Text>
           <Text selectable style={{ color: colors.textMuted }}>
-            Channel list and REST message history. {REALTIME_LIVE_CHAT_BLOCKER}
+            Live send and receive via API socket.io. REST loads history.
           </Text>
         </View>
 
@@ -262,6 +327,9 @@ export function MessagesScreen() {
                   selected={channel.id === selectedChannelId}
                   onSelect={() => {
                     setSelectedChannelId(channel.id);
+                    setDraft("");
+                    setSendError(null);
+                    sendMutation.reset();
                   }}
                 />
               ))}
@@ -272,7 +340,7 @@ export function MessagesScreen() {
         {selectedChannel ? (
           <Card
             title={selectedChannel.name || "Conversation"}
-            description={`History via GET /messages/channels/:id/messages · DO probe: ${roomStatus}`}
+            description={`History via REST · live socket: ${liveSocketStatus}`}
           >
             {messagesQuery.isPending ? (
               <LoadingState label="Loading messages…" />
@@ -296,13 +364,55 @@ export function MessagesScreen() {
                   style={{ gap: spacing.sm }}
                 >
                   {[...messagesQuery.data.data]
-                    .reverse()
+                    .sort(
+                      (a, b) =>
+                        new Date(a.createdAt).getTime() -
+                        new Date(b.createdAt).getTime(),
+                    )
                     .map((message) => (
                       <MessageRow key={message.id} message={message} />
                     ))}
                 </View>
               )
             ) : null}
+
+            {canCreate ? (
+              <View style={{ gap: spacing.sm }}>
+                <TextInput
+                  accessibilityLabel="Message composer"
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder="Write a message"
+                  editable={!sendMutation.isPending}
+                  multiline
+                  style={{
+                    minHeight: 72,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.sm,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: radii.card,
+                    backgroundColor: colors.surfaceRaised,
+                    color: colors.text,
+                  }}
+                />
+                {sendError ? (
+                  <StatusMessage tone="error">{sendError}</StatusMessage>
+                ) : null}
+                <Button
+                  label="Send message"
+                  pendingLabel="Sending…"
+                  accessibilityLabel="Send message"
+                  pending={sendMutation.isPending}
+                  onPress={submitDraft}
+                />
+              </View>
+            ) : (
+              <StatusMessage>
+                Your role can read this conversation but cannot send messages.
+              </StatusMessage>
+            )}
+
             <Button
               label="Refresh history"
               pendingLabel="Refreshing…"
@@ -312,6 +422,9 @@ export function MessagesScreen() {
                 void messagesQuery.refetch();
               }}
             />
+            <Text selectable style={{ color: colors.textMuted, fontSize: 12 }}>
+              {REALTIME_DO_CHAT_GAP}
+            </Text>
           </Card>
         ) : null}
       </View>

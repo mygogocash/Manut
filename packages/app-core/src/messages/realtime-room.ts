@@ -1,15 +1,16 @@
 import { z } from "zod";
 
 /**
- * Edge Durable Object room helpers for Expo.
+ * Edge Durable Object room helpers.
  *
- * Evidence for live-chat blocker (do not fake cross-user chat):
+ * Expo live chat currently uses the Express messageBus via socket.io
+ * `/messages` (see `buildMessagesSocketNamespaceUrl`). Remaining DO gaps:
  * - Edge scopes rooms as `${principalKey}:${roomId}` so two users joining the
  *   same channel id never share a DO instance.
  * - RealtimeRoom only echoes client `broadcast` payloads; it is not wired to
- *   the Express messageBus / socket.io `/messages` namespace.
- * - Until a shared-room membership contract + bus→DO bridge exists, Expo shows
- *   REST history and may only probe DO connectivity.
+ *   the Express messageBus.
+ * Next step: membership-keyed shared DO room + bus→DO broadcast, then retire
+ * the socket.io interim path.
  */
 
 const SAFE_ROOM_ID = /^[A-Za-z0-9_-]{1,96}$/u;
@@ -83,5 +84,9 @@ export function parseRealtimeServerMessage(
   return parsed.success ? parsed.data : null;
 }
 
-export const REALTIME_LIVE_CHAT_BLOCKER =
-  "Edge RealtimeRoom is principal-scoped and not bridged to the messages bus; live chat remains on API socket.io (legacy web). Expo uses REST history plus a DO WebSocket probe adapter.";
+/** Remaining DO work after the socket.io interim live path. */
+export const REALTIME_DO_CHAT_GAP =
+  "Edge RealtimeRoom is still principal-scoped (${principalKey}:${roomId}) and not bridged to Express messageBus; Expo live chat uses API socket.io /messages as the interim shared channel until a membership-keyed DO room + bus→DO broadcast lands.";
+
+/** @deprecated Prefer REALTIME_DO_CHAT_GAP; kept for import stability. */
+export const REALTIME_LIVE_CHAT_BLOCKER = REALTIME_DO_CHAT_GAP;

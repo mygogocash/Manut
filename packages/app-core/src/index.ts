@@ -908,22 +908,32 @@ export type {
   UploadSignedUrl,
 } from "./uploads/uploads";
 export {
+  applyChannelMessageEvent,
+  buildMessagesSocketNamespaceUrl,
   CHANNEL_MESSAGES_QUERY_ROOT,
   channelMessageSchema,
   channelMessagesQueryKey,
   listChannelMessages,
   listMessageChannels,
   MESSAGE_CHANNELS_QUERY_KEY,
+  MESSAGES_SOCKET_NAMESPACE,
+  MESSAGES_SOCKET_PATH,
   messageChannelSchema,
   messageChannelsQueryKey,
+  parseMessagesLiveEvent,
+  sendChannelMessage,
+  sendChannelMessageInputSchema,
 } from "./messages/messages";
 export type {
   ChannelMessage,
   ChannelMessageList,
   MessageChannel,
   MessageChannelList,
+  MessagesLiveEvent,
+  SendChannelMessageInput,
 } from "./messages/messages";
 export {
+  REALTIME_DO_CHAT_GAP,
   REALTIME_LIVE_CHAT_BLOCKER,
   buildRealtimeRoomPath,
   buildRealtimeRoomWebSocketUrl,

@@ -148,3 +148,145 @@ export async function listChannelMessages(
   );
   return channelMessagesResponseSchema.parse(response);
 }
+
+export const sendChannelMessageInputSchema = z
+  .object({
+    content: z.string().max(10_000).default(""),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.content.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Message content is required.",
+        path: ["content"],
+      });
+    }
+  });
+
+export type SendChannelMessageInput = z.input<
+  typeof sendChannelMessageInputSchema
+>;
+
+const sendChannelMessageResponseSchema = z
+  .object({ data: channelMessageSchema })
+  .passthrough();
+
+export async function sendChannelMessage(
+  client: ApiClient,
+  channelId: string,
+  input: SendChannelMessageInput,
+): Promise<ChannelMessage> {
+  const parsed = sendChannelMessageInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/messages/channels/${encodeURIComponent(channelId)}/messages`,
+    { content: parsed.content.trim() },
+  );
+  return sendChannelMessageResponseSchema.parse(response).data;
+}
+
+const messagesLiveEventSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("message.created"),
+      channelId: z.string().min(1),
+      payload: channelMessageApiSchema,
+    })
+    .passthrough(),
+  z
+    .object({
+      type: z.literal("message.deleted"),
+      channelId: z.string().min(1),
+      payload: channelMessageApiSchema,
+    })
+    .passthrough(),
+]);
+
+export type MessagesLiveEvent =
+  | {
+      type: "message.created";
+      channelId: string;
+      payload: ChannelMessage;
+    }
+  | {
+      type: "message.deleted";
+      channelId: string;
+      payload: ChannelMessage;
+    };
+
+export function parseMessagesLiveEvent(
+  raw: unknown,
+): MessagesLiveEvent | null {
+  const parsed = messagesLiveEventSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  return {
+    type: parsed.data.type,
+    channelId: parsed.data.channelId,
+    payload: channelMessageSchema.parse(parsed.data.payload),
+  };
+}
+
+function compareChannelMessages(a: ChannelMessage, b: ChannelMessage): number {
+  return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+}
+
+/**
+ * Apply a shared-channel live event to a REST-loaded message list.
+ * Dedupes by message id so REST send + bus echo both stay correct.
+ */
+export function applyChannelMessageEvent(
+  current: ChannelMessage[],
+  event: MessagesLiveEvent,
+): ChannelMessage[] {
+  if (event.type === "message.created") {
+    if (current.some((message) => message.id === event.payload.id)) {
+      return current;
+    }
+    return [...current, event.payload].sort(compareChannelMessages);
+  }
+
+  if (event.type === "message.deleted") {
+    const index = current.findIndex(
+      (message) => message.id === event.payload.id,
+    );
+    if (index === -1) {
+      return [...current, event.payload].sort(compareChannelMessages);
+    }
+    const next = [...current];
+    next[index] = event.payload;
+    return next;
+  }
+
+  const _exhaustive: never = event;
+  return _exhaustive;
+}
+
+export const MESSAGES_SOCKET_PATH = "/socket.io/";
+export const MESSAGES_SOCKET_NAMESPACE = "/messages";
+
+function originFromAbsoluteUrl(absolute: string): string {
+  const match = /^(https?:\/\/[^/?#]+)/i.exec(absolute);
+  if (!match?.[1]) {
+    throw new Error("Messages socket URL requires a valid absolute origin.");
+  }
+  return match[1];
+}
+
+/**
+ * Resolve the Express socket.io `/messages` namespace URL from an API base.
+ * Absolute API bases may include a trailing `/api` path segment; relative
+ * `/api` falls back to same-origin `/messages`.
+ */
+export function buildMessagesSocketNamespaceUrl(apiBaseOrOrigin: string): string {
+  const trimmed = apiBaseOrOrigin.trim().replace(/\/+$/, "");
+  if (!trimmed) {
+    throw new Error("Messages socket URL requires an API base or origin.");
+  }
+  if (trimmed.startsWith("/")) {
+    return MESSAGES_SOCKET_NAMESPACE;
+  }
+  const absolute = /^https?:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+  return `${originFromAbsoluteUrl(absolute)}${MESSAGES_SOCKET_NAMESPACE}`;
+}
