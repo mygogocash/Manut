@@ -162,7 +162,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/dashboard",
-      "note": "Expo wires GET /dashboard/stats for permission-gated KPIs, pending actions, and simple expense/project/department chart series; wall and compose flows remain before parity."
+      "note": "Expo wires GET /dashboard/stats for permission-gated KPIs, pending actions, and simple expense/project/department chart series. Wall/compose stay stripped until productized; do not reintroduce banned modules."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/dataroom/page.tsx",
@@ -378,7 +378,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/leave",
-      "note": "Expo has balances, request create/cancel, paginated self history, month calendar, team/HR approve/reject inbox, and links to holidays/approval/policies foundation. Policy CRUD/import and calendar department filters remain before parity."
+      "note": "Expo has balances, request create/cancel, paginated self history, month calendar, team/HR approve/reject inbox, and links to holidays/approval/policies foundation. Playwright employee/leave cutover targets Expo :8081 (hosted run still needs E2E_*). Policy CRUD/import and calendar department filters remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/policies/page.tsx",

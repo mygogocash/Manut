@@ -8,6 +8,7 @@ import helmet from "helmet";
 
 import { errorHandler } from "@/core/middleware/error-handler";
 import { requestLogger } from "@/core/middleware/request-logger";
+import { resolveCorsOptions } from "@/lib/cors";
 import { registerModules } from "@/modules";
 
 const app = express();
@@ -19,39 +20,11 @@ app.set("trust proxy", 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
-// CORS is environment-driven and fails closed in production. Web requests use
-// same-origin HTTP-only cookies; native bearer requests do not need credentialed
-// browser CORS.
-//
-// Resolution order:
-//   1. Explicit `CORS_ALLOWED_ORIGINS` env var (comma-separated).
-//      Use this in production / staging deploys.
-//   2. `PORTAL_URL` if set (the canonical web origin).
-//   3. Dev fallback list — covers local Expo web and the API.
-//      tunnels. NEVER reached when `NODE_ENV === "production"`.
-function resolveCorsOrigins(): string[] {
-  const raw = process.env.CORS_ALLOWED_ORIGINS ?? "";
-  const fromEnv = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (fromEnv.length > 0) return fromEnv;
-
-  if (process.env.PORTAL_URL) return [process.env.PORTAL_URL];
-
-  if (process.env.NODE_ENV === "production") {
-    return [];
-  }
-
-  return [
-    "http://localhost:3000",
-    "http://localhost:8081",
-    "http://localhost:3001",
-    "http://127.0.0.1:3000",
-  ];
-}
-
-const CORS_ORIGINS = resolveCorsOrigins();
+// CORS is environment-driven and fails closed in production. Same-origin Next
+// proxies do not need credentialed CORS; Expo web on :8081 (local / E2E) does
+// when cookie sessions target the API on :3001. Native bearer clients skip CORS.
+const { origins: CORS_ORIGINS, credentials: CORS_CREDENTIALS } =
+  resolveCorsOptions();
 
 app.use(
   cors({
@@ -64,7 +37,7 @@ app.use(
       if (CORS_ORIGINS.includes(origin)) return cb(null, true);
       return cb(new Error(`Origin ${origin} not allowed by CORS policy`));
     },
-    credentials: false,
+    credentials: CORS_CREDENTIALS,
     allowedHeaders: [
       "Content-Type",
       "Authorization",

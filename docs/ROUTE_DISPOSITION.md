@@ -41,6 +41,12 @@ pattern documented in `docs/CURSOR_HANDOFF.md`.
 (`deals:update`/`deals:manage` gate). Hard-delete stays deferred (API has no
 soft-delete).
 
+Phase 1 leftovers (2026-07-18): `/leave` calendar + team/HR approve,
+`/leave/policies` read catalog, `/settings` admin system settings (secret keys
+omitted), and dashboard wall/compose strip remain `foundation`. Playwright
+`employee`/`leave` projects target Expo `:8081`; hosted E2E still requires the
+five `E2E_*` secrets (fail closed — no soft-skip).
+
 ## Inventory
 
 |   # | Source path                                                                     | Source route                               | Disposition            | Status       | Target route                 |

@@ -67,7 +67,12 @@ export default defineConfig({
       name: "employee-chromium",
       testMatch: /(employee|leave)\.spec\.ts/,
       dependencies: ["auth-setup"],
-      use: { ...desktopChrome, storageState: EMPLOYEE_STORAGE_STATE },
+      use: {
+        ...desktopChrome,
+        // Phase 1 cutover: employee + leave against Expo web, not Next :3000.
+        baseURL: "http://127.0.0.1:8081",
+        storageState: EMPLOYEE_STORAGE_STATE,
+      },
     },
     {
       name: "expo-web-chromium",

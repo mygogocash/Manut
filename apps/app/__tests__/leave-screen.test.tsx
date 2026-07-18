@@ -172,6 +172,7 @@ describe("LeaveScreen", () => {
       expect(
         await screen.findByText("Annual leave", {}, { timeout: 10_000 }),
       ).toBeTruthy();
+      expect(screen.getByLabelText("My leave balances")).toBeTruthy();
       expect(screen.getByText("9.5 / 12 days remaining")).toBeTruthy();
       expect(screen.getByText("2.5 used · 1 carried available")).toBeTruthy();
 
@@ -180,6 +181,11 @@ describe("LeaveScreen", () => {
           screen.getByRole("button", { name: "Apply for Annual leave" }),
         );
       });
+      expect(
+        await screen.findByLabelText("Request leave dialog", {}, {
+          timeout: 10_000,
+        }),
+      ).toBeTruthy();
       expect(
         await screen.findByRole(
           "header",

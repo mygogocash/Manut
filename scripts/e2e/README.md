@@ -4,6 +4,19 @@ This harness may reset only the `public` schema of the dedicated hosted
 Supabase project named `manut-intranet-e2e`. It never resets `auth`, `storage`,
 or any other schema.
 
+## Origins
+
+| Project | Origin | Notes |
+| --- | --- | --- |
+| `admin-chromium` | `http://127.0.0.1:3000` | Next.js parity reference |
+| `employee-chromium` (`employee` + `leave`) | `http://127.0.0.1:8081` | Expo universal cutover |
+| `expo-web-chromium` | `http://127.0.0.1:8081` | Public Expo sign-in surface |
+
+Employee auth setup signs in on Expo `:8081` so httpOnly cookies are usable with
+credentialed CORS to the API on `:3001` (`CORS_ALLOWED_ORIGINS` includes both
+web origins). Do **not** soft-skip when the five `E2E_*` secrets are missing —
+`global-setup` / `loadE2EEnvironment` must fail closed.
+
 Configure only these environment variables:
 
 - `E2E_SUPABASE_URL`
