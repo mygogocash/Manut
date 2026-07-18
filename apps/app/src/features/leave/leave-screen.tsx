@@ -304,6 +304,8 @@ function LeaveRequestDialog({
         style={{ flex: 1 }}
       >
         <View
+          accessible
+          accessibilityRole="dialog"
           accessibilityLabel="Request leave dialog"
           style={{
             flex: 1,

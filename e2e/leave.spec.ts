@@ -24,7 +24,7 @@ test.describe("employee leave (Expo web)", () => {
       .getByRole("button", { name: "Apply for leave", exact: true })
       .click();
 
-    const dialog = page.getByLabel("Request leave dialog");
+    const dialog = page.getByRole("dialog", { name: "Request leave dialog" });
     await expect(dialog).toBeVisible();
     await expect(
       dialog.getByRole("heading", { name: "Request leave", exact: true }),

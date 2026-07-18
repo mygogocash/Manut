@@ -8,7 +8,7 @@ import helmet from "helmet";
 
 import { errorHandler } from "@/core/middleware/error-handler";
 import { requestLogger } from "@/core/middleware/request-logger";
-import { resolveCorsOptions } from "@/lib/cors";
+import { isAllowedCorsOrigin, resolveCorsOptions } from "@/lib/cors";
 import { registerModules } from "@/modules";
 
 const app = express();
@@ -28,14 +28,14 @@ const { origins: CORS_ORIGINS, credentials: CORS_CREDENTIALS } =
 
 app.use(
   cors({
-    // Function form so we can reject unlisted origins instead of
-    // echoing the request's `Origin` header back unconditionally.
-    // Same-origin requests (no `Origin` header, e.g. server-to-server
-    // health checks) pass through with `cb(null, true)`.
+    // Function form: reflect only exact allowlisted Origins. Use `cb(null, false)`
+    // (not Error) so disallowed / missing Origin skips CORS headers without a 500.
+    // No-Origin requests (health checks, server-to-server) do not need ACAO.
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
-      if (CORS_ORIGINS.includes(origin)) return cb(null, true);
-      return cb(new Error(`Origin ${origin} not allowed by CORS policy`));
+      if (isAllowedCorsOrigin(origin, CORS_ORIGINS)) {
+        return cb(null, true);
+      }
+      return cb(null, false);
     },
     credentials: CORS_CREDENTIALS,
     allowedHeaders: [

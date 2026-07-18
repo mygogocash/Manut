@@ -1113,8 +1113,10 @@ Phase 1 leftovers close-out (2026-07-18):
   (`admin:manage`, secret-like keys stripped), dashboard KPIs with wall/compose
   remaining stripped.
 - **This slice:** Playwright `employee`/`leave` cutover to Expo `:8081` (auth
-  setup + Expo selectors + leave dialog/region a11y); API credentialed CORS for
-  allowlisted origins so Expo cookie sessions can reach `:3001`.
+  setup + Expo selectors + leave dialog `role=dialog` a11y); API credentialed
+  CORS for allowlisted origins so Expo cookie sessions can reach `:3001`.
+  CORS hardening: normalize trailing slashes, reject `*`, exact-origin allow
+  checks, disallowed Origin uses `cb(null, false)` (no 500 / no Origin echo).
 - **Deferred / blocked:** policy CRUD/import; wall/compose productization;
   hosted authenticated E2E until the five `E2E_*` secrets + dedicated project
   exist (gate stays fail-closed — no soft-skip).
