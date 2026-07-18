@@ -47,7 +47,7 @@
     "@playwright/test": "1.61.1",
     "@typescript-eslint/eslint-plugin": "8.64.0",
     "@typescript-eslint/parser": "8.64.0",
-    "eas-cli": "21.0.1",
+    "eas-cli": "21.0.2",
     "eslint": "9.39.4",
     "eslint-config-next": "^15.4.5",
     "eslint-config-prettier": "10.1.8",
