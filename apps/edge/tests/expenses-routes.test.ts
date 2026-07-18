@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ExpenseReportRecord, ExpensesStore } from "../src/expenses/store";
+import type {
+  ExpenseLineRecord,
+  ExpenseReportRecord,
+  ExpensesStore,
+} from "../src/expenses/store";
 import { createEdgeApp } from "../src/index";
 import type { RuntimeBindings } from "../src/runtime";
 
@@ -36,9 +40,11 @@ const verifyToken = vi.fn(async () => ({
 
 function memoryStore(seed?: {
   reports?: ExpenseReportRecord[];
+  lines?: ExpenseLineRecord[];
   permissionsByUser?: Record<string, string[]>;
 }): ExpensesStore {
   const reports = [...(seed?.reports ?? [])];
+  const lines = [...(seed?.lines ?? [])];
   const permissionsByUser = seed?.permissionsByUser ?? {
     "user-123": ["expense:read", "expense:create"],
   };
@@ -93,6 +99,49 @@ function memoryStore(seed?: {
       };
       reports.push(row);
       return row;
+    },
+    async findCategoryById() {
+      return null;
+    },
+    async findLineById(id) {
+      return lines.find((line) => line.id === id) ?? null;
+    },
+    async addLine(input) {
+      const row: ExpenseLineRecord = {
+        id: `line-${lines.length + 1}`,
+        reportId: input.reportId,
+        employeeId: input.employeeId,
+        description: input.description,
+        amount: String(input.amount),
+        currency: input.currency,
+        date: input.date,
+        status: "pending",
+        categoryId: input.categoryId ?? null,
+        notes: input.notes ?? null,
+      };
+      lines.push(row);
+      const report = reports.find((item) => item.id === input.reportId);
+      if (report) report.expenseCount += 1;
+      return row;
+    },
+    async updateLine(id, input) {
+      const row = lines.find((line) => line.id === id);
+      if (!row) throw new Error("missing");
+      if (input.description !== undefined) row.description = input.description;
+      if (input.amount !== undefined) row.amount = String(input.amount);
+      if (input.currency !== undefined) row.currency = input.currency;
+      if (input.date !== undefined) row.date = input.date;
+      if (input.categoryId !== undefined) row.categoryId = input.categoryId;
+      if (input.notes !== undefined) row.notes = input.notes;
+      return row;
+    },
+    async softDeleteLine(id) {
+      const index = lines.findIndex((line) => line.id === id);
+      if (index >= 0) {
+        const [removed] = lines.splice(index, 1);
+        const report = reports.find((item) => item.id === removed?.reportId);
+        if (report && report.expenseCount > 0) report.expenseCount -= 1;
+      }
     },
   };
 }
@@ -331,6 +380,143 @@ describe("expenses dual-path routes", () => {
         _count: { expenses: 2 },
       },
     });
+  });
+
+  it("adds and deletes own draft expense lines on the Hyperdrive path", async () => {
+    const store = memoryStore({
+      reports: [
+        {
+          id: "report-own",
+          period: "2026-07",
+          title: "July",
+          category: "general",
+          status: "draft",
+          submittedAt: null,
+          approvedAt: null,
+          rejectReason: null,
+          reimbursedAt: null,
+          approvedTotal: null,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+          employeeId: "user-123",
+          employeeName: "Test User",
+          employeeEmail: "user@example.com",
+          employeeDepartment: "Eng",
+          entityId: "entity-1",
+          entityName: "Manut TH",
+          expenseCount: 0,
+          totalAmount: 0,
+          totalCurrency: "THB",
+          converted: true,
+          missingRates: [],
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+
+    const addResponse = await app.request(
+      "https://intranet.example/api/expenses/reports/report-own/expenses",
+      {
+        body: JSON.stringify({
+          description: "Taxi",
+          amount: 120,
+          currency: "THB",
+          date: "2026-07-18",
+        }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+      hyperdriveEnv(),
+    );
+    expect(addResponse.status).toBe(201);
+    await expect(addResponse.json()).resolves.toMatchObject({
+      data: {
+        description: "Taxi",
+        amount: "120",
+        currency: "THB",
+        status: "pending",
+      },
+    });
+
+    const deleteResponse = await app.request(
+      "https://intranet.example/api/expenses/reports/report-own/expenses/line-1",
+      {
+        headers: { authorization: `Bearer ${TEST_TOKEN}` },
+        method: "DELETE",
+      },
+      hyperdriveEnv(),
+    );
+    expect(deleteResponse.status).toBe(200);
+    await expect(deleteResponse.json()).resolves.toMatchObject({
+      data: { success: true },
+    });
+  });
+
+  it("proxies receipt-bearing expense line creates when Hyperdrive is on", async () => {
+    const upstream = vi.fn(async () =>
+      Response.json({ data: { id: "proxied-line" } }, { status: 201 }),
+    );
+    vi.stubGlobal("fetch", upstream);
+
+    const store = memoryStore({
+      reports: [
+        {
+          id: "report-own",
+          period: "2026-07",
+          title: "July",
+          category: "general",
+          status: "draft",
+          submittedAt: null,
+          approvedAt: null,
+          rejectReason: null,
+          reimbursedAt: null,
+          approvedTotal: null,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+          employeeId: "user-123",
+          employeeName: "Test User",
+          employeeEmail: "user@example.com",
+          employeeDepartment: "Eng",
+          entityId: "entity-1",
+          entityName: "Manut TH",
+          expenseCount: 0,
+          totalAmount: 0,
+          totalCurrency: "THB",
+          converted: true,
+          missingRates: [],
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/reports/report-own/expenses",
+      {
+        body: JSON.stringify({
+          description: "Taxi",
+          amount: 120,
+          currency: "THB",
+          date: "2026-07-18",
+          receiptUrl: "https://storage.example/receipt.pdf",
+        }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+      hyperdriveEnv(),
+    );
+    expect(response.status).toBe(201);
+    expect(upstream).toHaveBeenCalledOnce();
   });
 
   it("proxies non-self expense report detail when Hyperdrive is on", async () => {

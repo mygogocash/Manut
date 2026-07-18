@@ -92,6 +92,19 @@ function memoryStore(seed?: {
       requests.push(row);
       return row;
     },
+    async findById(id) {
+      return requests.find((request) => request.id === id) ?? null;
+    },
+    async findActiveApprovalSteps() {
+      return [];
+    },
+    async submitWithDecisions(id) {
+      const row = requests.find((request) => request.id === id);
+      if (!row) throw new Error("missing");
+      row.status = "submitted";
+      row.rejectReason = null;
+      return row;
+    },
   };
 }
 
@@ -240,6 +253,99 @@ describe("cash-advance dual-path routes", () => {
         items: [{ description: "Taxi" }],
       },
     });
+  });
+
+  it("submits own draft cash advance on the Hyperdrive path", async () => {
+    const store = memoryStore({
+      requests: [
+        {
+          id: "ca-own",
+          requestNumber: 1,
+          requestDate: "2026-07-18",
+          payoutMode: "cash",
+          currency: "THB",
+          status: "draft",
+          requestedTotal: 500,
+          approvedTotal: 0,
+          rejectReason: null,
+          employeeId: "user-123",
+          employeeName: "Test User",
+          employeeEmail: "user@example.com",
+          entityId: null,
+          entityName: null,
+          items: [{ id: "item-1", description: "Taxi" }],
+          bankName: null,
+          bankAccountNo: null,
+          notes: null,
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createCashAdvanceStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/cash-advance/ca-own/submit",
+      {
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+        body: "{}",
+      },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: "ca-own", status: "submitted" },
+    });
+  });
+
+  it("rejects submit for another user's cash advance", async () => {
+    const store = memoryStore({
+      requests: [
+        {
+          id: "ca-other",
+          requestNumber: 2,
+          requestDate: "2026-07-18",
+          payoutMode: "cash",
+          currency: "THB",
+          status: "draft",
+          requestedTotal: 100,
+          approvedTotal: 0,
+          rejectReason: null,
+          employeeId: "user-456",
+          employeeName: "Other",
+          employeeEmail: "other@example.com",
+          entityId: null,
+          entityName: null,
+          items: [{ id: "item-1", description: "Taxi" }],
+          bankName: null,
+          bankAccountNo: null,
+          notes: null,
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createCashAdvanceStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/cash-advance/ca-other/submit",
+      {
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+        body: "{}",
+      },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(403);
   });
 
   it("proxies scope=all and receipt creates when Hyperdrive is on", async () => {

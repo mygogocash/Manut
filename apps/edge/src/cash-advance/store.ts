@@ -24,6 +24,27 @@ export interface CashAdvanceRequestRecord {
   notes: string | null;
 }
 
+export interface CashAdvanceApprovalStepRecord {
+  id: string;
+  order: number;
+  name: string;
+  approverType: string;
+  approverUserId: string | null;
+  skipWhenSubmitterIds: string[];
+  onlyWhenSubmitterIds: string[];
+  payoutModeFilter: string[];
+  amountMin: number | null;
+  amountMax: number | null;
+  isActive: boolean;
+}
+
+export interface CashAdvanceApprovalDecisionRow {
+  order: number;
+  name: string;
+  approverType: string;
+  approverUserId: string | null;
+}
+
 export interface ListCashAdvanceFilters {
   employeeId: string;
   status?: string;
@@ -48,4 +69,10 @@ export interface CashAdvanceStore {
     limit: number,
   ): Promise<{ data: CashAdvanceRequestRecord[]; total: number }>;
   create(input: CreateCashAdvanceStoreInput): Promise<CashAdvanceRequestRecord>;
+  findById(id: string): Promise<CashAdvanceRequestRecord | null>;
+  findActiveApprovalSteps(): Promise<CashAdvanceApprovalStepRecord[]>;
+  submitWithDecisions(
+    id: string,
+    rows: CashAdvanceApprovalDecisionRow[],
+  ): Promise<CashAdvanceRequestRecord>;
 }

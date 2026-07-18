@@ -3,7 +3,23 @@ import { createPrismaClient, type PrismaClient } from "@manut/database";
 import { hyperdriveConnectionString } from "../hyperdrive";
 import { loadUserPermissions } from "../rbac";
 import type { RuntimeBindings } from "../runtime";
-import type { CashAdvanceRequestRecord, CashAdvanceStore } from "./store";
+import type {
+  CashAdvanceApprovalStepRecord,
+  CashAdvanceRequestRecord,
+  CashAdvanceStore,
+} from "./store";
+
+function asStringIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function moneyOrNull(
+  value: { toNumber?: () => number } | number | string | null,
+): number | null {
+  if (value == null) return null;
+  return money(value);
+}
 
 function asDate(value: Date | string): string {
   if (value instanceof Date) return value.toISOString().slice(0, 10);
@@ -137,6 +153,64 @@ export function createPrismaCashAdvanceStore(
         include: LIST_INCLUDES,
       });
       return mapRow(row);
+    },
+
+    async findById(id) {
+      const row = await client.cashAdvanceRequest.findFirst({
+        where: { id, deletedAt: null },
+        include: LIST_INCLUDES,
+      });
+      return row ? mapRow(row) : null;
+    },
+
+    async findActiveApprovalSteps() {
+      const rows = await client.cashAdvanceApprovalStep.findMany({
+        where: { isActive: true },
+        orderBy: { order: "asc" },
+      });
+      return rows.map(
+        (row): CashAdvanceApprovalStepRecord => ({
+          id: row.id,
+          order: row.order,
+          name: row.name,
+          approverType: row.approverType,
+          approverUserId: row.approverUserId,
+          skipWhenSubmitterIds: asStringIds(row.skipWhenSubmitterIds),
+          onlyWhenSubmitterIds: asStringIds(row.onlyWhenSubmitterIds),
+          payoutModeFilter: asStringIds(row.payoutModeFilter),
+          amountMin: moneyOrNull(row.amountMin),
+          amountMax: moneyOrNull(row.amountMax),
+          isActive: row.isActive,
+        }),
+      );
+    },
+
+    async submitWithDecisions(id, rows) {
+      return client.$transaction(async (tx) => {
+        await tx.cashAdvanceApprovalDecision.deleteMany({
+          where: { requestId: id },
+        });
+        await tx.cashAdvanceApprovalDecision.createMany({
+          data: rows.map((row) => ({
+            requestId: id,
+            order: row.order,
+            name: row.name,
+            approverType: row.approverType,
+            approverUserId: row.approverUserId,
+          })),
+        });
+        const updated = await tx.cashAdvanceRequest.update({
+          where: { id },
+          data: {
+            status: "submitted",
+            submittedAt: new Date(),
+            rejectReason: null,
+            currentStepOrder: 1,
+          },
+          include: LIST_INCLUDES,
+        });
+        return mapRow(updated);
+      });
     },
   };
 }

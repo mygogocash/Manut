@@ -39,6 +39,48 @@ export interface CreateExpenseReportStoreInput {
   notes?: string;
 }
 
+export interface ExpenseLineRecord {
+  id: string;
+  reportId: string;
+  employeeId: string;
+  description: string;
+  amount: string;
+  currency: string;
+  date: string;
+  status: string;
+  categoryId: string | null;
+  notes: string | null;
+}
+
+export interface ExpenseCategoryRecord {
+  id: string;
+  name: string;
+  receiptRequired: boolean;
+  spendingLimit: number | null;
+}
+
+export interface AddExpenseLineStoreInput {
+  reportId: string;
+  employeeId: string;
+  entityId: string;
+  description: string;
+  amount: number;
+  currency: string;
+  date: string;
+  categoryId?: string;
+  travelRequestId?: string;
+  notes?: string;
+}
+
+export interface UpdateExpenseLineStoreInput {
+  description?: string;
+  amount?: number;
+  currency?: string;
+  date?: string;
+  categoryId?: string | null;
+  notes?: string | null;
+}
+
 export interface ExpensesStore {
   loadPermissions(userId: string): Promise<Set<string>>;
   findMany(
@@ -48,4 +90,12 @@ export interface ExpensesStore {
   ): Promise<{ data: ExpenseReportRecord[]; total: number }>;
   findById(id: string): Promise<ExpenseReportRecord | null>;
   create(input: CreateExpenseReportStoreInput): Promise<ExpenseReportRecord>;
+  findCategoryById(id: string): Promise<ExpenseCategoryRecord | null>;
+  findLineById(id: string): Promise<ExpenseLineRecord | null>;
+  addLine(input: AddExpenseLineStoreInput): Promise<ExpenseLineRecord>;
+  updateLine(
+    id: string,
+    input: UpdateExpenseLineStoreInput,
+  ): Promise<ExpenseLineRecord>;
+  softDeleteLine(id: string): Promise<void>;
 }

@@ -118,7 +118,150 @@ export function createExpensesRoutes(options: {
       }
     }
 
-    // Lines, submit, approvals, raw expense items, meta stay on Express.
+    const addLineMatch = /^\/reports\/([^/]+)\/expenses\/?$/u.exec(path);
+    if (method === "POST" && addLineMatch) {
+      const reportId = decodeURIComponent(addLineMatch[1] ?? "");
+      const rawRequest = context.req.raw;
+      let bodyText: string;
+      try {
+        bodyText = await rawRequest.clone().text();
+      } catch {
+        throw new HttpError(
+          400,
+          "INVALID_JSON",
+          "Request body must be valid JSON.",
+        );
+      }
+      let body: unknown;
+      try {
+        body = JSON.parse(bodyText) as unknown;
+      } catch {
+        throw new HttpError(
+          400,
+          "INVALID_JSON",
+          "Request body must be valid JSON.",
+        );
+      }
+      if (typeof body !== "object" || body === null) {
+        throw new HttpError(400, "INVALID_EXPENSE", "Request body is required.");
+      }
+      const record = body as Record<string, unknown>;
+      // Receipt provenance is Supabase-bound on Express — keep proxied.
+      if (
+        typeof record.receiptUrl === "string" &&
+        record.receiptUrl.trim() !== ""
+      ) {
+        return proxyApiRequest(
+          new Request(rawRequest.url, {
+            body: bodyText,
+            headers: rawRequest.headers,
+            method: rawRequest.method,
+          }),
+          context.env,
+        );
+      }
+
+      const result = await service.addLine(userId, reportId, {
+        description:
+          typeof record.description === "string" ? record.description : "",
+        amount: Number(record.amount),
+        currency: typeof record.currency === "string" ? record.currency : "THB",
+        date: typeof record.date === "string" ? record.date : "",
+        categoryId:
+          typeof record.categoryId === "string" ? record.categoryId : undefined,
+        travelRequestId:
+          typeof record.travelRequestId === "string"
+            ? record.travelRequestId
+            : undefined,
+        notes: typeof record.notes === "string" ? record.notes : undefined,
+      });
+      return context.json(result, 201);
+    }
+
+    const lineMatch = /^\/reports\/([^/]+)\/expenses\/([^/]+)\/?$/u.exec(path);
+    if (lineMatch) {
+      const reportId = decodeURIComponent(lineMatch[1] ?? "");
+      const expenseId = decodeURIComponent(lineMatch[2] ?? "");
+
+      if (method === "PUT") {
+        const rawRequest = context.req.raw;
+        let bodyText: string;
+        try {
+          bodyText = await rawRequest.clone().text();
+        } catch {
+          throw new HttpError(
+            400,
+            "INVALID_JSON",
+            "Request body must be valid JSON.",
+          );
+        }
+        let body: unknown;
+        try {
+          body = JSON.parse(bodyText) as unknown;
+        } catch {
+          throw new HttpError(
+            400,
+            "INVALID_JSON",
+            "Request body must be valid JSON.",
+          );
+        }
+        if (typeof body !== "object" || body === null) {
+          throw new HttpError(
+            400,
+            "INVALID_EXPENSE",
+            "Request body is required.",
+          );
+        }
+        const record = body as Record<string, unknown>;
+        if (
+          typeof record.receiptUrl === "string" &&
+          record.receiptUrl.trim() !== ""
+        ) {
+          return proxyApiRequest(
+            new Request(rawRequest.url, {
+              body: bodyText,
+              headers: rawRequest.headers,
+              method: rawRequest.method,
+            }),
+            context.env,
+          );
+        }
+
+        return context.json(
+          await service.updateLine(userId, reportId, expenseId, {
+            description:
+              typeof record.description === "string"
+                ? record.description
+                : undefined,
+            amount:
+              record.amount !== undefined ? Number(record.amount) : undefined,
+            currency:
+              typeof record.currency === "string" ? record.currency : undefined,
+            date: typeof record.date === "string" ? record.date : undefined,
+            categoryId:
+              record.categoryId === null
+                ? null
+                : typeof record.categoryId === "string"
+                  ? record.categoryId
+                  : undefined,
+            notes:
+              record.notes === null
+                ? null
+                : typeof record.notes === "string"
+                  ? record.notes
+                  : undefined,
+          }),
+        );
+      }
+
+      if (method === "DELETE") {
+        return context.json(
+          await service.removeLine(userId, reportId, expenseId),
+        );
+      }
+    }
+
+    // Submit, approvals, FX convert, receipt-bearing writes stay on Express.
     return proxyApiRequest(context.req.raw, context.env);
   });
 

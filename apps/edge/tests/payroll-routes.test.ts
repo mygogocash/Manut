@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createEdgeApp } from "../src/index";
-import type { PayrollRunRecord, PayrollStore } from "../src/payroll/store";
+import type {
+  MyPayslipRecord,
+  PayrollRunRecord,
+  PayrollStore,
+} from "../src/payroll/store";
 import type { RuntimeBindings } from "../src/runtime";
 
 const TEST_TOKEN = "test-token-that-is-long-enough-for-edge-auth";
@@ -36,10 +40,12 @@ const verifyToken = vi.fn(async () => ({
 
 function memoryStore(seed?: {
   runs?: PayrollRunRecord[];
+  payslips?: MyPayslipRecord[];
   permissionsByUser?: Record<string, string[]>;
   scopedEmployeeIds?: Record<string, string[]>;
 }): PayrollStore {
   const runs = [...(seed?.runs ?? [])];
+  const payslips = [...(seed?.payslips ?? [])];
   const permissionsByUser = seed?.permissionsByUser ?? {
     "user-123": ["payroll:read"],
   };
@@ -68,6 +74,12 @@ function memoryStore(seed?: {
       const total = rows.length;
       const start = (page - 1) * limit;
       return { data: rows.slice(start, start + limit), total };
+    },
+    async findPayslipsByEmployeeId(employeeId) {
+      // Memory fixture tags employee via payrollRun.entity.name convention:
+      // slips are pre-filtered by the seed author for the employee under test.
+      void employeeId;
+      return payslips;
     },
   };
 }
@@ -183,10 +195,58 @@ describe("payroll dual-path routes", () => {
     ).toBeUndefined();
   });
 
-  it("proxies manager payroll lists and my-payslips when Hyperdrive is on", async () => {
+  it("lists my-payslips with strict projection on the Hyperdrive path", async () => {
+    const store = memoryStore({
+      payslips: [
+        {
+          id: "slip-1",
+          baseSalary: "10000",
+          grossPay: "12000",
+          netPay: "9000",
+          currency: "THB",
+          hasDocument: true,
+          payrollRun: {
+            id: "run-1",
+            period: "2026-07",
+            status: "paid",
+            entity: { id: "entity-1", name: "Manut TH" },
+          },
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createPayrollStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/payroll/my-payslips",
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      data: Array<Record<string, unknown>>;
+    };
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0]).toMatchObject({
+      id: "slip-1",
+      netPay: "9000",
+      hasDocument: true,
+      payrollRun: { period: "2026-07", status: "paid" },
+    });
+    expect(body.data[0]).not.toHaveProperty("documentUrl");
+    expect(body.data[0]).not.toHaveProperty("allowances");
+    expect(body.data[0]).not.toHaveProperty("deductions");
+  });
+
+  it("proxies manager payroll lists and payslip downloads when Hyperdrive is on", async () => {
     const upstream = vi.fn(async (request: Request) => {
       const path = new URL(request.url).pathname;
-      expect(["/api/payroll/runs", "/api/payroll/my-payslips"]).toContain(path);
+      expect([
+        "/api/payroll/runs",
+        "/api/payroll/my-payslips/slip-1/download",
+      ]).toContain(path);
       return Response.json({ data: [] });
     });
     vi.stubGlobal("fetch", upstream);
@@ -208,12 +268,12 @@ describe("payroll dual-path routes", () => {
     );
     expect(managerList.status).toBe(200);
 
-    const myPayslips = await app.request(
-      "https://intranet.example/api/payroll/my-payslips",
+    const download = await app.request(
+      "https://intranet.example/api/payroll/my-payslips/slip-1/download",
       { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
       hyperdriveEnv(),
     );
-    expect(myPayslips.status).toBe(200);
+    expect(download.status).toBe(200);
     expect(upstream).toHaveBeenCalledTimes(2);
   });
 });

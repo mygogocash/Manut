@@ -14,6 +14,21 @@ export interface PayrollRunRecord {
   approverName: string | null;
 }
 
+export interface MyPayslipRecord {
+  id: string;
+  baseSalary: string;
+  grossPay: string;
+  netPay: string;
+  currency: string;
+  hasDocument: boolean;
+  payrollRun: {
+    id: string;
+    period: string;
+    status: string;
+    entity: { id: string; name: string };
+  };
+}
+
 export interface ListPayrollRunFilters {
   employeeIdScope: string;
   status?: string;
@@ -28,4 +43,5 @@ export interface PayrollStore {
     page: number,
     limit: number,
   ): Promise<{ data: PayrollRunRecord[]; total: number }>;
+  findPayslipsByEmployeeId(employeeId: string): Promise<MyPayslipRecord[]>;
 }

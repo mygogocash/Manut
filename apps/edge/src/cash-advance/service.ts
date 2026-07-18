@@ -153,6 +153,89 @@ export function createCashAdvanceService(store: CashAdvanceStore) {
 
       return { data: serializeRequest(created) };
     },
+
+    async submit(userId: string, requestId: string) {
+      const permissions = await store.loadPermissions(userId);
+      if (!canReadCashAdvance(permissions)) {
+        throw new HttpError(403, "FORBIDDEN", "Missing required permission.");
+      }
+
+      const existing = await store.findById(requestId);
+      if (!existing) {
+        throw new HttpError(
+          404,
+          "NOT_FOUND",
+          "Cash advance request not found",
+        );
+      }
+      if (existing.employeeId !== userId) {
+        throw new HttpError(
+          403,
+          "FORBIDDEN",
+          "You can only submit your own request",
+        );
+      }
+      if (existing.status !== "draft" && existing.status !== "rejected") {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          `Cannot submit a request with status "${existing.status}"`,
+        );
+      }
+      if (existing.items.length === 0) {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          "Add at least one line item before submitting",
+        );
+      }
+
+      const steps = await store.findActiveApprovalSteps();
+      const requested = existing.requestedTotal;
+      const applicable = steps.filter((step) => {
+        if (step.skipWhenSubmitterIds.includes(userId)) return false;
+        if (
+          step.onlyWhenSubmitterIds.length > 0 &&
+          !step.onlyWhenSubmitterIds.includes(userId)
+        ) {
+          return false;
+        }
+        if (
+          step.payoutModeFilter.length > 0 &&
+          !step.payoutModeFilter.includes(existing.payoutMode)
+        ) {
+          return false;
+        }
+        if (step.amountMin != null && requested < step.amountMin) return false;
+        if (step.amountMax != null && requested > step.amountMax) return false;
+        return true;
+      });
+
+      const decisionRows =
+        applicable.length > 0
+          ? applicable.map((step, index) => ({
+              order: index + 1,
+              name: step.name,
+              approverType: step.approverType,
+              approverUserId:
+                step.approverType === "user" ? step.approverUserId : null,
+            }))
+          : [
+              {
+                order: 1,
+                name: "Manager approval",
+                approverType: "manager",
+                approverUserId: null,
+              },
+            ];
+
+      // Email notify stays on Express; edge snapshots chain + status only.
+      const submitted = await store.submitWithDecisions(
+        requestId,
+        decisionRows,
+      );
+      return { data: serializeRequest(submitted) };
+    },
   };
 }
 

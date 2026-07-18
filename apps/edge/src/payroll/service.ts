@@ -1,6 +1,6 @@
 import { HttpError } from "../http-error";
 import { canReadPayroll } from "./access";
-import type { PayrollRunRecord, PayrollStore } from "./store";
+import type { MyPayslipRecord, PayrollRunRecord, PayrollStore } from "./store";
 
 function serializeRun(raw: PayrollRunRecord): Record<string, unknown> {
   // Strip notes, emails, and currencyTotals — match app-core projection.
@@ -17,6 +17,27 @@ function serializeRun(raw: PayrollRunRecord): Record<string, unknown> {
     approver: raw.approverId
       ? { id: raw.approverId, name: raw.approverName ?? "Approver" }
       : null,
+  };
+}
+
+function serializeMyPayslip(raw: MyPayslipRecord): Record<string, unknown> {
+  // Strip documentUrl, allowances/deductions, FX base fields, snapshots.
+  return {
+    id: raw.id,
+    baseSalary: raw.baseSalary,
+    grossPay: raw.grossPay,
+    netPay: raw.netPay,
+    currency: raw.currency,
+    hasDocument: raw.hasDocument,
+    payrollRun: {
+      id: raw.payrollRun.id,
+      period: raw.payrollRun.period,
+      status: raw.payrollRun.status,
+      entity: {
+        id: raw.payrollRun.entity.id,
+        name: raw.payrollRun.entity.name,
+      },
+    },
   };
 }
 
@@ -57,6 +78,12 @@ export function createPayrollService(store: PayrollStore) {
           totalPages: Math.ceil(total / query.limit),
         },
       };
+    },
+
+    async listMyPayslips(userId: string) {
+      // Express my-payslips is auth-only (no payroll:read gate). Keep that.
+      const rows = await store.findPayslipsByEmployeeId(userId);
+      return { data: rows.map(serializeMyPayslip) };
     },
   };
 }

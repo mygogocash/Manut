@@ -3,7 +3,7 @@ import { createPrismaClient, type PrismaClient } from "@manut/database";
 import { hyperdriveConnectionString } from "../hyperdrive";
 import { loadUserPermissions } from "../rbac";
 import type { RuntimeBindings } from "../runtime";
-import type { PayrollRunRecord, PayrollStore } from "./store";
+import type { MyPayslipRecord, PayrollRunRecord, PayrollStore } from "./store";
 
 function asIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : value;
@@ -76,6 +76,45 @@ export function createPrismaPayrollStore(client: PrismaClient): PayrollStore {
       }));
 
       return { data, total };
+    },
+
+    async findPayslipsByEmployeeId(employeeId) {
+      const rows = await client.payslip.findMany({
+        where: { employeeId },
+        include: {
+          payrollRun: {
+            select: {
+              id: true,
+              period: true,
+              status: true,
+              entity: { select: { id: true, name: true } },
+            },
+          },
+        },
+        orderBy: [{ payrollRun: { period: "desc" } }, { currency: "asc" }],
+      });
+
+      return rows.map(
+        (row): MyPayslipRecord => ({
+          id: row.id,
+          baseSalary: moneyString(row.baseSalary),
+          grossPay: moneyString(row.grossPay),
+          netPay: moneyString(row.netPay),
+          currency: row.currency,
+          hasDocument:
+            typeof row.documentUrl === "string" &&
+            row.documentUrl.trim() !== "",
+          payrollRun: {
+            id: row.payrollRun.id,
+            period: row.payrollRun.period,
+            status: row.payrollRun.status,
+            entity: {
+              id: row.payrollRun.entity.id,
+              name: row.payrollRun.entity.name,
+            },
+          },
+        }),
+      );
     },
   };
 }

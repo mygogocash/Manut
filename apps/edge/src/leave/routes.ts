@@ -51,7 +51,7 @@ export function createLeaveRoutes(options: {
     const path = new URL(context.req.url).pathname.replace(/^\/api\/leave/u, "");
     const method = context.req.method.toUpperCase();
 
-    // Self-scoped list only. Create/balance/approval/team stay proxied.
+    // Self-scoped list. Team filters stay proxied.
     if (method === "GET" && (path === "/requests" || path === "/requests/")) {
       const employeeId = context.req.query("employeeId")?.trim();
       if (employeeId && employeeId !== userId) {
@@ -66,6 +66,71 @@ export function createLeaveRoutes(options: {
       return context.json(
         await service.list(userId, { page, limit, status }),
       );
+    }
+
+    // Self create only. HR on-behalf (other employeeId) stays proxied.
+    if (method === "POST" && (path === "/requests" || path === "/requests/")) {
+      const rawRequest = context.req.raw;
+      let bodyText: string;
+      try {
+        bodyText = await rawRequest.clone().text();
+      } catch {
+        throw new HttpError(
+          400,
+          "INVALID_JSON",
+          "Request body must be valid JSON.",
+        );
+      }
+      let body: unknown;
+      try {
+        body = JSON.parse(bodyText) as unknown;
+      } catch {
+        throw new HttpError(
+          400,
+          "INVALID_JSON",
+          "Request body must be valid JSON.",
+        );
+      }
+      if (typeof body !== "object" || body === null) {
+        throw new HttpError(400, "INVALID_LEAVE", "Request body is required.");
+      }
+      const record = body as Record<string, unknown>;
+      const otherEmployeeId =
+        typeof record.employeeId === "string" ? record.employeeId.trim() : "";
+      if (otherEmployeeId && otherEmployeeId !== userId) {
+        return proxyApiRequest(
+          new Request(rawRequest.url, {
+            body: bodyText,
+            headers: rawRequest.headers,
+            method: rawRequest.method,
+          }),
+          context.env,
+        );
+      }
+
+      const durationType =
+        record.durationType === "half_day" ? "half_day" : "full_day";
+      const halfDayPeriod =
+        record.halfDayPeriod === "am" || record.halfDayPeriod === "pm"
+          ? record.halfDayPeriod
+          : undefined;
+      const source =
+        record.source === "carried" || record.source === "entitled"
+          ? record.source
+          : undefined;
+
+      const result = await service.create(userId, {
+        leaveTypeId:
+          typeof record.leaveTypeId === "string" ? record.leaveTypeId : "",
+        startDate:
+          typeof record.startDate === "string" ? record.startDate : "",
+        endDate: typeof record.endDate === "string" ? record.endDate : "",
+        durationType,
+        halfDayPeriod,
+        reason: typeof record.reason === "string" ? record.reason : undefined,
+        source,
+      });
+      return context.json(result, 201);
     }
 
     return proxyApiRequest(context.req.raw, context.env);

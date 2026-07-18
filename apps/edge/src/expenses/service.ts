@@ -176,6 +176,211 @@ export function createExpensesService(store: ExpensesStore) {
 
       return { data: serializeReport(report) };
     },
+
+    async addLine(
+      userId: string,
+      reportId: string,
+      input: {
+        description: string;
+        amount: number;
+        currency: string;
+        date: string;
+        categoryId?: string;
+        travelRequestId?: string;
+        notes?: string;
+      },
+    ) {
+      const permissions = await store.loadPermissions(userId);
+      if (!hasExpensePermission(permissions, EXPENSE_CREATE)) {
+        throw new HttpError(403, "FORBIDDEN", "Missing required permission.");
+      }
+
+      const report = await store.findById(reportId);
+      if (!report) {
+        throw new HttpError(404, "NOT_FOUND", "Expense report not found");
+      }
+      if (report.employeeId !== userId) {
+        throw new HttpError(
+          403,
+          "FORBIDDEN",
+          "You can only edit your own reports",
+        );
+      }
+      if (report.status !== "draft" && report.status !== "rejected") {
+        throw new HttpError(
+          400,
+          "INVALID_EXPENSE",
+          `Cannot add expenses to a report with status "${report.status}"`,
+        );
+      }
+
+      const description = input.description.trim();
+      if (!description) {
+        throw new HttpError(400, "INVALID_EXPENSE", "Description is required.");
+      }
+      if (!Number.isFinite(input.amount) || input.amount <= 0) {
+        throw new HttpError(
+          400,
+          "INVALID_EXPENSE",
+          "Amount must be a positive number.",
+        );
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/u.test(input.date)) {
+        throw new HttpError(400, "INVALID_EXPENSE", "Date must be YYYY-MM-DD.");
+      }
+
+      if (input.categoryId) {
+        const category = await store.findCategoryById(input.categoryId);
+        if (category) {
+          if (category.receiptRequired) {
+            throw new HttpError(
+              400,
+              "INVALID_EXPENSE",
+              `Category "${category.name}" requires a receipt`,
+            );
+          }
+          if (
+            category.spendingLimit != null &&
+            input.amount > category.spendingLimit
+          ) {
+            throw new HttpError(
+              400,
+              "INVALID_EXPENSE",
+              `Amount exceeds category spending limit of ${category.spendingLimit}`,
+            );
+          }
+        }
+      }
+
+      const line = await store.addLine({
+        reportId,
+        employeeId: userId,
+        entityId: report.entityId,
+        description,
+        amount: input.amount,
+        currency: input.currency.trim().toUpperCase() || "THB",
+        date: input.date,
+        categoryId: input.categoryId,
+        travelRequestId: input.travelRequestId,
+        notes: input.notes?.trim() || undefined,
+      });
+
+      return {
+        data: {
+          id: line.id,
+          description: line.description,
+          amount: line.amount,
+          currency: line.currency,
+          date: line.date,
+          status: line.status,
+        },
+      };
+    },
+
+    async updateLine(
+      userId: string,
+      reportId: string,
+      expenseId: string,
+      input: {
+        description?: string;
+        amount?: number;
+        currency?: string;
+        date?: string;
+        categoryId?: string | null;
+        notes?: string | null;
+      },
+    ) {
+      const permissions = await store.loadPermissions(userId);
+      if (!hasExpensePermission(permissions, EXPENSE_CREATE)) {
+        throw new HttpError(403, "FORBIDDEN", "Missing required permission.");
+      }
+
+      const report = await store.findById(reportId);
+      if (!report) {
+        throw new HttpError(404, "NOT_FOUND", "Expense report not found");
+      }
+      if (report.employeeId !== userId) {
+        throw new HttpError(
+          403,
+          "FORBIDDEN",
+          "You can only edit your own reports",
+        );
+      }
+      if (report.status !== "draft" && report.status !== "rejected") {
+        throw new HttpError(
+          400,
+          "INVALID_EXPENSE",
+          `Cannot edit expenses in a report with status "${report.status}"`,
+        );
+      }
+
+      const expense = await store.findLineById(expenseId);
+      if (!expense || expense.reportId !== reportId) {
+        throw new HttpError(
+          404,
+          "NOT_FOUND",
+          "Expense not found in this report",
+        );
+      }
+
+      const line = await store.updateLine(expenseId, {
+        description: input.description?.trim(),
+        amount: input.amount,
+        currency: input.currency?.trim().toUpperCase(),
+        date: input.date,
+        categoryId: input.categoryId,
+        notes: input.notes,
+      });
+
+      return {
+        data: {
+          id: line.id,
+          description: line.description,
+          amount: line.amount,
+          currency: line.currency,
+          date: line.date,
+          status: line.status,
+        },
+      };
+    },
+
+    async removeLine(userId: string, reportId: string, expenseId: string) {
+      const permissions = await store.loadPermissions(userId);
+      if (!hasExpensePermission(permissions, EXPENSE_CREATE)) {
+        throw new HttpError(403, "FORBIDDEN", "Missing required permission.");
+      }
+
+      const report = await store.findById(reportId);
+      if (!report) {
+        throw new HttpError(404, "NOT_FOUND", "Expense report not found");
+      }
+      if (report.employeeId !== userId) {
+        throw new HttpError(
+          403,
+          "FORBIDDEN",
+          "You can only edit your own reports",
+        );
+      }
+      if (report.status !== "draft" && report.status !== "rejected") {
+        throw new HttpError(
+          400,
+          "INVALID_EXPENSE",
+          `Cannot remove expenses from a report with status "${report.status}"`,
+        );
+      }
+
+      const expense = await store.findLineById(expenseId);
+      if (!expense || expense.reportId !== reportId) {
+        throw new HttpError(
+          404,
+          "NOT_FOUND",
+          "Expense not found in this report",
+        );
+      }
+
+      await store.softDeleteLine(expenseId);
+      return { data: { success: true } };
+    },
   };
 }
 

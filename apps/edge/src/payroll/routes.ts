@@ -55,7 +55,7 @@ export function createPayrollRoutes(options: {
     );
     const method = context.req.method.toUpperCase();
 
-    // Self-scoped runs list only. Managers / payslips / approve stay proxied.
+    // Self-scoped runs list only. Managers stay proxied.
     if (method === "GET" && (path === "/runs" || path === "/runs/")) {
       const permissions = await store.loadPermissions(userId);
       if (isPayrollManager(permissions)) {
@@ -78,6 +78,14 @@ export function createPayrollRoutes(options: {
           entityId,
         }),
       );
+    }
+
+    // Self my-payslips list JSON. Download/export PDFs stay proxied.
+    if (
+      method === "GET" &&
+      (path === "/my-payslips" || path === "/my-payslips/")
+    ) {
+      return context.json(await service.listMyPayslips(userId));
     }
 
     return proxyApiRequest(context.req.raw, context.env);

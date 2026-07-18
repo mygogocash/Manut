@@ -152,6 +152,13 @@ export function createCashAdvanceRoutes(options: {
       return context.json(result, 201);
     }
 
+    const submitMatch = /^\/([^/]+)\/submit\/?$/u.exec(path);
+    if (method === "POST" && submitMatch) {
+      const requestId = decodeURIComponent(submitMatch[1] ?? "");
+      return context.json(await service.submit(userId, requestId));
+    }
+
+    // Receipt attach/update, approve, disburse, signed receipt GET stay proxied.
     return proxyApiRequest(context.req.raw, context.env);
   });
 

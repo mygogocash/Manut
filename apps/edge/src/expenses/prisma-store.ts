@@ -3,7 +3,52 @@ import { createPrismaClient, type PrismaClient } from "@manut/database";
 import { hyperdriveConnectionString } from "../hyperdrive";
 import { loadUserPermissions } from "../rbac";
 import type { RuntimeBindings } from "../runtime";
-import type { ExpenseReportRecord, ExpensesStore } from "./store";
+import type {
+  ExpenseCategoryRecord,
+  ExpenseLineRecord,
+  ExpenseReportRecord,
+  ExpensesStore,
+} from "./store";
+
+function moneyString(
+  value: { toString?: () => string } | number | string,
+): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  if (typeof value.toString === "function") return value.toString();
+  return String(value);
+}
+
+function mapLine(row: {
+  id: string;
+  reportId: string | null;
+  employeeId: string;
+  description: string;
+  amount: { toString?: () => string } | number | string;
+  currency: string;
+  date: Date;
+  status: string;
+  categoryId: string | null;
+  notes: string | null;
+}): ExpenseLineRecord {
+  return {
+    id: row.id,
+    reportId: row.reportId ?? "",
+    employeeId: row.employeeId,
+    description: row.description,
+    amount: moneyString(row.amount),
+    currency: row.currency,
+    date: asDate(row.date),
+    status: row.status,
+    categoryId: row.categoryId,
+    notes: row.notes,
+  };
+}
+
+function asDate(value: Date | string): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return value.slice(0, 10);
+}
 
 function asIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : value;
@@ -204,6 +249,78 @@ export function createPrismaExpensesStore(client: PrismaClient): ExpensesStore {
         converted: true,
         missingRates: [],
       };
+    },
+
+    async findCategoryById(id) {
+      const row = await client.expenseCategory.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          receiptRequired: true,
+          spendingLimit: true,
+        },
+      });
+      if (!row) return null;
+      const mapped: ExpenseCategoryRecord = {
+        id: row.id,
+        name: row.name,
+        receiptRequired: row.receiptRequired,
+        spendingLimit: money(row.spendingLimit),
+      };
+      return mapped;
+    },
+
+    async findLineById(id) {
+      const row = await client.expense.findFirst({
+        where: { id, deletedAt: null },
+      });
+      return row ? mapLine(row) : null;
+    },
+
+    async addLine(input) {
+      const row = await client.expense.create({
+        data: {
+          employeeId: input.employeeId,
+          entityId: input.entityId,
+          reportId: input.reportId,
+          description: input.description,
+          amount: input.amount,
+          currency: input.currency,
+          date: new Date(input.date),
+          categoryId: input.categoryId,
+          travelRequestId: input.travelRequestId,
+          notes: input.notes,
+          status: "pending",
+        },
+      });
+      return mapLine(row);
+    },
+
+    async updateLine(id, input) {
+      const row = await client.expense.update({
+        where: { id },
+        data: {
+          ...(input.description !== undefined && {
+            description: input.description,
+          }),
+          ...(input.amount !== undefined && { amount: input.amount }),
+          ...(input.currency !== undefined && { currency: input.currency }),
+          ...(input.date !== undefined && { date: new Date(input.date) }),
+          ...(input.categoryId !== undefined && {
+            categoryId: input.categoryId,
+          }),
+          ...(input.notes !== undefined && { notes: input.notes }),
+        },
+      });
+      return mapLine(row);
+    },
+
+    async softDeleteLine(id) {
+      await client.expense.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
     },
   };
 }
