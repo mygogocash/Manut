@@ -17,6 +17,21 @@ export interface MessagesChannelRecord {
   creator?: { id: string; name: string | null; avatarUrl?: string | null };
 }
 
+export interface MessagesAttachmentRecord {
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  path: string;
+  bucket: string | null;
+  uploadedBy: string;
+  purpose: string | null;
+  linkedTo: string | null;
+  linkedId: string | null;
+  createdAt: string | Date;
+}
+
 export interface MessagesMessageRecord {
   id: string;
   conversationId: string;
@@ -26,6 +41,7 @@ export interface MessagesMessageRecord {
   createdAt: string | Date;
   updatedAt: string | Date;
   author?: { id: string; name: string | null; avatarUrl?: string | null } | null;
+  attachments?: MessagesAttachmentRecord[];
 }
 
 export interface MessagesUserRecord {
@@ -67,6 +83,14 @@ export interface MessagesStore {
     authorId: string;
     content: string;
   }): Promise<MessagesMessageRecord>;
+  findAttachmentsForMessages(
+    messageIds: string[],
+  ): Promise<MessagesAttachmentRecord[]>;
+  linkAttachmentsToMessage(
+    uploadIds: string[],
+    messageId: string,
+    ownerId: string,
+  ): Promise<MessagesAttachmentRecord[]>;
   findMessageById(id: string): Promise<MessagesMessageRecord | null>;
   softDeleteMessage(
     id: string,

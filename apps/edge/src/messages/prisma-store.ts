@@ -4,14 +4,35 @@ import { hyperdriveConnectionString } from "../hyperdrive";
 import type { RuntimeBindings } from "../runtime";
 import type {
   CreateChannelStoreInput,
+  MessagesAttachmentRecord,
   MessagesChannelRecord,
   MessagesMessageRecord,
   MessagesStore,
 } from "./store";
 import { directChannelName } from "./store";
 
+/** Mirrors Express uploads.repository — not relinkable onto messages. */
+const MODULE_CONTROLLED_UPLOAD_PURPOSES = [
+  "payslip-document",
+  "cash-advance-disbursement-proof",
+] as const;
+
 const creatorSelect = { id: true, name: true, avatarUrl: true } as const;
 const authorSelect = { id: true, name: true, avatarUrl: true } as const;
+const attachmentSelect = {
+  id: true,
+  filename: true,
+  originalName: true,
+  mimeType: true,
+  size: true,
+  path: true,
+  bucket: true,
+  uploadedBy: true,
+  purpose: true,
+  linkedTo: true,
+  linkedId: true,
+  createdAt: true,
+} as const;
 
 function asIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : value;
@@ -68,6 +89,47 @@ function mapMessage(raw: {
     createdAt: asIso(raw.createdAt),
     updatedAt: asIso(raw.updatedAt),
     author: raw.author ?? null,
+  };
+}
+
+function mapAttachment(raw: {
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  path: string;
+  bucket: string | null;
+  uploadedBy: string;
+  purpose: string | null;
+  linkedTo: string | null;
+  linkedId: string | null;
+  createdAt: Date;
+}): MessagesAttachmentRecord {
+  return {
+    id: raw.id,
+    filename: raw.filename,
+    originalName: raw.originalName,
+    mimeType: raw.mimeType,
+    size: raw.size,
+    path: raw.path,
+    bucket: raw.bucket,
+    uploadedBy: raw.uploadedBy,
+    purpose: raw.purpose,
+    linkedTo: raw.linkedTo,
+    linkedId: raw.linkedId,
+    createdAt: asIso(raw.createdAt),
+  };
+}
+
+function relinkableUploadWhere(uploadIds: string[], ownerId: string) {
+  return {
+    id: { in: uploadIds },
+    uploadedBy: ownerId,
+    OR: [
+      { purpose: null },
+      { purpose: { notIn: [...MODULE_CONTROLLED_UPLOAD_PURPOSES] } },
+    ],
   };
 }
 
@@ -235,6 +297,35 @@ export function createPrismaMessagesStore(client: PrismaClient): MessagesStore {
         data: { lastMessageAt: new Date(), updatedAt: new Date() },
       });
       return mapMessage(message);
+    },
+
+    async findAttachmentsForMessages(messageIds) {
+      if (messageIds.length === 0) return [];
+      const rows = await client.fileUpload.findMany({
+        where: { linkedTo: "message", linkedId: { in: messageIds } },
+        select: attachmentSelect,
+        orderBy: { createdAt: "asc" },
+      });
+      return rows.map(mapAttachment);
+    },
+
+    async linkAttachmentsToMessage(uploadIds, messageId, ownerId) {
+      if (uploadIds.length === 0) return [];
+      const relinkableWhere = relinkableUploadWhere(uploadIds, ownerId);
+      await client.fileUpload.updateMany({
+        where: relinkableWhere,
+        data: { linkedTo: "message", linkedId: messageId },
+      });
+      const rows = await client.fileUpload.findMany({
+        where: {
+          ...relinkableWhere,
+          linkedTo: "message",
+          linkedId: messageId,
+        },
+        select: attachmentSelect,
+        orderBy: { createdAt: "asc" },
+      });
+      return rows.map(mapAttachment);
     },
 
     async findMessageById(id) {

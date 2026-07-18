@@ -53,9 +53,32 @@ function serializeMessage(raw: MessagesMessageRecord): Record<string, unknown> {
     createdAt: raw.createdAt,
     updatedAt: raw.updatedAt,
     author: raw.author ?? null,
-    attachments: [],
+    attachments: isDeleted ? [] : (raw.attachments ?? []),
     readBy: [],
   };
+}
+
+const ATTACHMENT_ID_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+
+function normalizeAttachmentIds(attachmentIds: string[]): string[] {
+  if (attachmentIds.length > 20) {
+    throw new HttpError(
+      400,
+      "INVALID_MESSAGE",
+      "Maximum 20 attachments per message",
+    );
+  }
+  for (const id of attachmentIds) {
+    if (!ATTACHMENT_ID_UUID.test(id)) {
+      throw new HttpError(
+        400,
+        "INVALID_MESSAGE",
+        "each attachmentId must be a valid uuid",
+      );
+    }
+  }
+  return attachmentIds;
 }
 
 function assertPermission(user: MessageAccessUser, permission: string): void {
@@ -160,8 +183,18 @@ export function createMessagesService(store: MessagesStore) {
       assertChannelAccess(user, channel);
 
       const result = await store.findMessages(channelId, page, limit);
+      const attachments = await store.findAttachmentsForMessages(
+        result.data.map((message) => message.id),
+      );
       return {
-        data: result.data.map(serializeMessage),
+        data: result.data.map((message) =>
+          serializeMessage({
+            ...message,
+            attachments: attachments.filter(
+              (attachment) => attachment.linkedId === message.id,
+            ),
+          }),
+        ),
         meta: {
           page,
           limit,
@@ -171,7 +204,12 @@ export function createMessagesService(store: MessagesStore) {
       };
     },
 
-    async sendMessage(channelId: string, userId: string, content: string) {
+    async sendMessage(
+      channelId: string,
+      userId: string,
+      content: string,
+      attachmentIds: string[] = [],
+    ) {
       const permissions = await store.loadPermissions(userId);
       const user = accessUser(userId, permissions);
       assertPermission(user, MESSAGES_CREATE);
@@ -183,8 +221,13 @@ export function createMessagesService(store: MessagesStore) {
       assertChannelAccess(user, channel);
 
       const trimmed = content.trim();
-      if (!trimmed) {
-        throw new HttpError(400, "INVALID_MESSAGE", "Message content is required.");
+      const normalizedIds = normalizeAttachmentIds(attachmentIds);
+      if (!trimmed && normalizedIds.length === 0) {
+        throw new HttpError(
+          400,
+          "INVALID_MESSAGE",
+          "Either content or at least one attachment is required",
+        );
       }
 
       const message = await store.createMessage({
@@ -192,7 +235,15 @@ export function createMessagesService(store: MessagesStore) {
         channelId,
         content: trimmed,
       });
-      return { data: serializeMessage(message) };
+      const attachments =
+        normalizedIds.length > 0
+          ? await store.linkAttachmentsToMessage(
+              normalizedIds,
+              message.id,
+              userId,
+            )
+          : [];
+      return { data: serializeMessage({ ...message, attachments }) };
     },
 
     async deleteMessage(

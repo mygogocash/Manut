@@ -968,3 +968,10 @@ These are merge blockers, not reasons to weaken or bypass tests.
 - `scripts/check-credential-boundary.mjs`: HMAC provenance scanner.
 - `scripts/check-migration-safety.mjs` and
   `scripts/run-migration-harness.mjs`: migration policy and replay.
+
+### Parallel: messages-attachments
+
+Hyperdrive `/api/messages` now links `attachmentIds` on send (FileUpload
+`linkedTo=message`, excluding module-controlled purposes) and enriches list
+responses with those attachments. DO fan-out stays on the edge write path;
+Socket.IO is unchanged.

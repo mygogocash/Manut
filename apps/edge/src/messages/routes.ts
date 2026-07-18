@@ -255,39 +255,26 @@ export function createMessagesRoutes(options: {
     }
 
     if (method === "POST" && listMessagesMatch?.[1]) {
-      // Clone before parse so attachment uploads can still proxy the raw body.
-      const rawRequest = context.req.raw;
-      let body: unknown;
-      try {
-        body = await rawRequest.clone().json();
-      } catch {
-        throw new HttpError(
-          400,
-          "INVALID_JSON",
-          "Request body must be valid JSON.",
-        );
-      }
-      const attachmentIds =
-        typeof body === "object" &&
-        body !== null &&
-        Array.isArray((body as { attachmentIds?: unknown }).attachmentIds)
-          ? (body as { attachmentIds: unknown[] }).attachmentIds
-          : [];
-      // Attachment linking still lives on Express/uploads until ported.
-      if (attachmentIds.length > 0) {
-        return proxyApiRequest(rawRequest, context.env);
-      }
-
+      const body = await readJsonBody(context);
       const content =
         typeof body === "object" &&
         body !== null &&
         typeof (body as { content?: unknown }).content === "string"
           ? (body as { content: string }).content
           : "";
+      const attachmentIds =
+        typeof body === "object" &&
+        body !== null &&
+        Array.isArray((body as { attachmentIds?: unknown }).attachmentIds)
+          ? (body as { attachmentIds: unknown[] }).attachmentIds.filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [];
       const result = await service.sendMessage(
         listMessagesMatch[1],
         userId,
         content,
+        attachmentIds,
       );
       await broadcastChannelEvent({
         channelId: listMessagesMatch[1],

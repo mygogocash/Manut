@@ -45,10 +45,31 @@ type SeedChannel = {
   directKey?: string | null;
 };
 
+type SeedUpload = {
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  path: string;
+  bucket: string | null;
+  uploadedBy: string;
+  purpose: string | null;
+  linkedTo: string | null;
+  linkedId: string | null;
+  createdAt: string;
+};
+
+const MODULE_CONTROLLED_UPLOAD_PURPOSES = new Set([
+  "payslip-document",
+  "cash-advance-disbursement-proof",
+]);
+
 function memoryStore(seed?: {
   channels?: SeedChannel[];
   permissionsByUser?: Record<string, string[]>;
   users?: Array<{ id: string; name: string | null; avatarUrl?: string | null }>;
+  uploads?: SeedUpload[];
 }): MessagesStore {
   const channels = new Map(
     (seed?.channels ?? []).map((channel) => [channel.id, { ...channel }]),
@@ -66,6 +87,9 @@ function memoryStore(seed?: {
       author: { id: string; name: string | null };
     }>
   >();
+  const uploads = new Map(
+    (seed?.uploads ?? []).map((upload) => [upload.id, { ...upload }]),
+  );
   const permissionsByUser = seed?.permissionsByUser ?? {
     "user-123": ["messages:read", "messages:create", "messages:delete"],
   };
@@ -143,6 +167,41 @@ function memoryStore(seed?: {
       existing.push(row);
       messages.set(input.channelId, existing);
       return row;
+    },
+    async findAttachmentsForMessages(messageIds) {
+      if (messageIds.length === 0) return [];
+      const idSet = new Set(messageIds);
+      return [...uploads.values()]
+        .filter(
+          (upload) =>
+            upload.linkedTo === "message" &&
+            upload.linkedId != null &&
+            idSet.has(upload.linkedId),
+        )
+        .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    },
+    async linkAttachmentsToMessage(uploadIds, messageId, ownerId) {
+      if (uploadIds.length === 0) return [];
+      const linked: SeedUpload[] = [];
+      for (const uploadId of uploadIds) {
+        const upload = uploads.get(uploadId);
+        if (!upload) continue;
+        if (upload.uploadedBy !== ownerId) continue;
+        if (
+          upload.purpose != null &&
+          MODULE_CONTROLLED_UPLOAD_PURPOSES.has(upload.purpose)
+        ) {
+          continue;
+        }
+        const updated = {
+          ...upload,
+          linkedTo: "message",
+          linkedId: messageId,
+        };
+        uploads.set(uploadId, updated);
+        linked.push(updated);
+      }
+      return linked;
     },
     async findMessageById(id) {
       for (const rows of messages.values()) {
@@ -718,15 +777,10 @@ describe("messages dual-path routes", () => {
     });
   });
 
-  it("keeps unported attachment-upload linking on Express even when Hyperdrive is on", async () => {
-    const upstream = vi.fn(async (request: Request) => {
-      expect(new URL(request.url).pathname).toBe(
-        "/api/messages/channels/ch-1/messages",
-      );
-      return Response.json({ data: { id: "msg-proxy" } }, { status: 201 });
-    });
+  it("links attachmentIds on Hyperdrive send and fans out the enriched payload", async () => {
+    const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);
-
+    const attachmentId = "11111111-1111-1111-1111-111111111111";
     const store = memoryStore({
       channels: [
         {
@@ -739,7 +793,30 @@ describe("messages dual-path routes", () => {
           updatedAt: "2026-07-18T00:00:00.000Z",
         },
       ],
+      uploads: [
+        {
+          id: attachmentId,
+          filename: "spec.pdf",
+          originalName: "spec.pdf",
+          mimeType: "application/pdf",
+          size: 1200,
+          path: "user-123/spec.pdf",
+          bucket: "uploads",
+          uploadedBy: "user-123",
+          purpose: null,
+          linkedTo: null,
+          linkedId: null,
+          createdAt: "2026-07-18T00:00:00.000Z",
+        },
+      ],
     });
+    const broadcastFetch = vi.fn(async () =>
+      Response.json({ accepted: true }, { status: 202 }),
+    );
+    const rooms = {
+      getByName: vi.fn(() => ({ fetch: broadcastFetch })),
+    };
+
     const app = createEdgeApp({
       createMessagesStore: async () => store,
       verifyToken,
@@ -749,7 +826,184 @@ describe("messages dual-path routes", () => {
       {
         body: JSON.stringify({
           content: "",
-          attachmentIds: ["11111111-1111-1111-1111-111111111111"],
+          attachmentIds: [attachmentId],
+        }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+      hyperdriveEnv({
+        REALTIME_ROOMS: rooms as unknown as RuntimeBindings["REALTIME_ROOMS"],
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(upstream).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({
+      data: expect.objectContaining({
+        content: "",
+        attachments: [
+          expect.objectContaining({
+            id: attachmentId,
+            linkedTo: "message",
+            originalName: "spec.pdf",
+          }),
+        ],
+      }),
+    });
+    expect(broadcastFetch).toHaveBeenCalledOnce();
+    const [[broadcastRequest]] = broadcastFetch.mock.calls as unknown as [
+      [Request],
+    ];
+    await expect(broadcastRequest.json()).resolves.toMatchObject({
+      payload: {
+        type: "message.created",
+        channelId: "ch-1",
+        payload: expect.objectContaining({
+          attachments: [
+            expect.objectContaining({
+              id: attachmentId,
+              linkedTo: "message",
+            }),
+          ],
+        }),
+      },
+    });
+  });
+
+  it("enriches listed Hyperdrive messages with FileUpload attachments", async () => {
+    const store = memoryStore({
+      channels: [
+        {
+          id: "ch-1",
+          title: "General",
+          type: "group",
+          members: [{ userId: "user-123" }],
+          createdBy: "user-123",
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+        },
+      ],
+      uploads: [
+        {
+          id: "22222222-2222-2222-2222-222222222222",
+          filename: "a.png",
+          originalName: "a.png",
+          mimeType: "image/png",
+          size: 10,
+          path: "user-123/a.png",
+          bucket: "uploads",
+          uploadedBy: "user-123",
+          purpose: null,
+          linkedTo: "message",
+          linkedId: "msg-1",
+          createdAt: "2026-07-18T00:00:01.000Z",
+        },
+        {
+          id: "33333333-3333-3333-3333-333333333333",
+          filename: "b.pdf",
+          originalName: "b.pdf",
+          mimeType: "application/pdf",
+          size: 20,
+          path: "user-123/b.pdf",
+          bucket: "uploads",
+          uploadedBy: "user-123",
+          purpose: null,
+          linkedTo: "message",
+          linkedId: "msg-2",
+          createdAt: "2026-07-18T00:00:02.000Z",
+        },
+      ],
+    });
+    await store.createMessage({
+      channelId: "ch-1",
+      authorId: "user-123",
+      content: "first",
+    });
+    await store.createMessage({
+      channelId: "ch-1",
+      authorId: "user-123",
+      content: "second",
+    });
+
+    const app = createEdgeApp({
+      createMessagesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/messages/channels/ch-1/messages",
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: [
+        expect.objectContaining({
+          content: "first",
+          attachments: [
+            expect.objectContaining({
+              id: "22222222-2222-2222-2222-222222222222",
+              linkedId: "msg-1",
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          content: "second",
+          attachments: [
+            expect.objectContaining({
+              id: "33333333-3333-3333-3333-333333333333",
+              linkedId: "msg-2",
+            }),
+          ],
+        }),
+      ],
+    });
+  });
+
+  it("rejects module-controlled uploads when linking message attachments", async () => {
+    const controlledId = "44444444-4444-4444-4444-444444444444";
+    const store = memoryStore({
+      channels: [
+        {
+          id: "ch-1",
+          title: "General",
+          type: "group",
+          members: [{ userId: "user-123" }],
+          createdBy: "user-123",
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+        },
+      ],
+      uploads: [
+        {
+          id: controlledId,
+          filename: "payslip.pdf",
+          originalName: "payslip.pdf",
+          mimeType: "application/pdf",
+          size: 50,
+          path: "user-123/payslip.pdf",
+          bucket: "uploads",
+          uploadedBy: "user-123",
+          purpose: "payslip-document",
+          linkedTo: null,
+          linkedId: null,
+          createdAt: "2026-07-18T00:00:00.000Z",
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createMessagesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/messages/channels/ch-1/messages",
+      {
+        body: JSON.stringify({
+          content: "see payslip",
+          attachmentIds: [controlledId],
         }),
         headers: {
           authorization: `Bearer ${TEST_TOKEN}`,
@@ -761,7 +1015,12 @@ describe("messages dual-path routes", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(upstream).toHaveBeenCalledOnce();
+    await expect(response.json()).resolves.toMatchObject({
+      data: expect.objectContaining({
+        content: "see payslip",
+        attachments: [],
+      }),
+    });
   });
 
   it("requires authentication before messages proxy or Hyperdrive handling", async () => {
