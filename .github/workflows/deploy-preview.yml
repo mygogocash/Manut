@@ -1,7 +1,7 @@
 # Preview: Expo web export → Worker service `manut` (versions upload).
 # Push to branch `preview` → wrangler versions upload --env preview
 # Preview URLs: *.manut.bettergogocash.workers.dev
-# Custom domain (dashboard Preview env): https://preview.manu.xyz
+# Custom domain (dashboard Preview env): https://preview.manut.xyz
 #
 # Ops must turn OFF Pages auto-deploy so CI owns Worker deploys.
 # Hyperdrive ids stay out of this workflow (keep hyperdrive: [] until bound).
@@ -55,7 +55,7 @@ jobs:
           require CLOUDFLARE_ACCOUNT_ID "${CLOUDFLARE_ACCOUNT_ID}"
           require EXPO_PUBLIC_API_URL "${EXPO_PUBLIC_API_URL}"
           if [ "${missing}" -ne 0 ]; then
-            echo "::error::Preview deploy fail-closed: configure GitHub Environment 'preview' with CLOUDFLARE_* + EXPO_PUBLIC_API_URL (recommended https://preview.manu.xyz). See docs/CICD_CLOUDFLARE.md. Never invent DATABASE_URL or Hyperdrive ids in CI."
+            echo "::error::Preview deploy fail-closed: configure GitHub Environment 'preview' with CLOUDFLARE_* + EXPO_PUBLIC_API_URL (recommended https://preview.manut.xyz). See docs/CICD_CLOUDFLARE.md. Never invent DATABASE_URL or Hyperdrive ids in CI."
             exit 1
           fi
           echo "Preview required secrets/vars are present (values not logged)."

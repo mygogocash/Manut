@@ -57,9 +57,9 @@ describe("Cloudflare Workers Builds contract", () => {
       block.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, "u"))?.[1];
 
     const production = envVars("production");
-    expect(readVar(production, "API_ORIGIN")).toBe("https://manu.xyz");
+    expect(readVar(production, "API_ORIGIN")).toBe("https://app.manut.xyz");
     expect(readVar(production, "TRUSTED_STORAGE_ORIGINS")).toBe(
-      "https://manu.xyz",
+      "https://app.manut.xyz",
     );
     expect(readVar(production, "ENABLE_HYPERDRIVE_BOUNDARY")).toBe("false");
     expect(readVar(production, "ENABLE_LOCAL_R2_STREAMING")).toBe("false");
@@ -68,9 +68,9 @@ describe("Cloudflare Workers Builds contract", () => {
     );
 
     const preview = envVars("preview");
-    expect(readVar(preview, "API_ORIGIN")).toBe("https://preview.manu.xyz");
+    expect(readVar(preview, "API_ORIGIN")).toBe("https://preview.manut.xyz");
     expect(readVar(preview, "TRUSTED_STORAGE_ORIGINS")).toBe(
-      "https://preview.manu.xyz",
+      "https://preview.manut.xyz",
     );
     expect(readVar(preview, "ENABLE_HYPERDRIVE_BOUNDARY")).toBe("false");
   });

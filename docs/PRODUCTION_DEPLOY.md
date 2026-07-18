@@ -16,10 +16,10 @@ Dashboard Worker **service name:** `manut`.
 
 | Git branch | CF env | URL |
 | --- | --- | --- |
-| `main` | production | https://manu.xyz (+ https://manut.bettergogocash.workers.dev) |
-| `preview` | preview | https://preview.manu.xyz (+ `*.manut.bettergogocash.workers.dev`) |
+| `main` | production | https://app.manut.xyz (+ https://manut.bettergogocash.workers.dev) |
+| `preview` | preview | https://preview.manut.xyz (+ `*.manut.bettergogocash.workers.dev`) |
 
-If `preview.manu.xyz` is still listed under **Production** in Cloudflare Domains,
+If `preview.manut.xyz` is still listed under **Production** in Cloudflare Domains,
 move it to the **Preview** environment.
 
 ## Verdict
@@ -71,8 +71,8 @@ on production).
 
 | Environment | Recommended `EXPO_PUBLIC_API_URL` |
 | --- | --- |
-| `production` | `https://manu.xyz` (fallback `https://manut.bettergogocash.workers.dev`) |
-| `preview` | `https://preview.manu.xyz` |
+| `production` | `https://app.manut.xyz` (fallback `https://manut.bettergogocash.workers.dev`) |
+| `preview` | `https://preview.manut.xyz` |
 | `staging` | staging host only (not live `manut` Production) |
 
 **Vars (optional):** `EXPO_PUBLIC_SOCKET_URL`, `EXPO_PUBLIC_REALTIME_ORIGIN`
@@ -156,8 +156,8 @@ Do not reorder. DNS remains last.
    authority (private evidence record).
 2. **Disable Cloudflare Pages auto-deploy** for any Pages project on this repo;
    use Workers + Assets only (`docs/CICD_CLOUDFLARE.md`).
-3. **Confirm Domains** on Worker `manut`: `manu.xyz` → Production;
-   `preview.manu.xyz` → Preview (move if mis-assigned).
+3. **Confirm Domains** on Worker `manut`: `app.manut.xyz` → Production;
+   `preview.manut.xyz` → Preview (move if mis-assigned).
 4. **Provision** R2, Queues (+ DLQ), DO migrations, Workflow stubs, and
    Hyperdrive configs with unique names from `wrangler.jsonc` contracts.
 5. **Apply migrations** to the Manut Postgres via `prisma migrate deploy` on a
@@ -174,9 +174,9 @@ Do not reorder. DNS remains last.
 9. **Configure GitHub Environments** `preview` / `staging` / `production` with
    `CLOUDFLARE_*` secrets and `EXPO_PUBLIC_API_URL`; require reviewers on production.
 10. **Preview** via push to `preview` (`versions upload`); confirm
-    `*.manut.bettergogocash.workers.dev` / `preview.manu.xyz`.
+    `*.manut.bettergogocash.workers.dev` / `preview.manut.xyz`.
 11. **Production** via merge/push to `main` (Environment reviewers) or
-    `workflow_dispatch`; confirm `manut` + `manu.xyz`.
+    `workflow_dispatch`; confirm `manut` + `app.manut.xyz`.
 12. **Revoke** inherited credentials; prove negative auth; store HMAC /
     ticket links only.
 13. **Retire** Express Supabase SDK / Socket.IO / `apps/web` only per

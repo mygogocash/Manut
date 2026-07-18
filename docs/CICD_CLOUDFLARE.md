@@ -16,16 +16,17 @@ Companion: `docs/PRODUCTION_DEPLOY.md` (cutover order, ops blockers).
 | Account id | `187ab61ed9dbc6e616cb23e6b95aa8f1` |
 | Worker service | **`manut`** |
 | Production dashboard | [workers/services/view/manut/production](https://dash.cloudflare.com/187ab61ed9dbc6e616cb23e6b95aa8f1/workers/services/view/manut/production) |
-| Production hosts | `https://manu.xyz`, `https://manut.bettergogocash.workers.dev` |
-| Preview host | `https://preview.manu.xyz` (attach to **Preview** env, not Production) |
+| Production hosts | `https://app.manut.xyz`, `https://manut.bettergogocash.workers.dev` |
+| Preview host | `https://preview.manut.xyz` (attach to **Preview** env, not Production) |
+| Landing page | `https://manut.xyz` — marketing site, separate surface, **not** this Worker |
 
 | Git branch | CF env | URL |
 | --- | --- | --- |
-| `main` | production | https://manu.xyz (+ https://manut.bettergogocash.workers.dev) |
-| `preview` | preview | https://preview.manu.xyz (+ `*.manut.bettergogocash.workers.dev`) |
+| `main` | production | https://app.manut.xyz (+ https://manut.bettergogocash.workers.dev) |
+| `preview` | preview | https://preview.manut.xyz (+ `*.manut.bettergogocash.workers.dev`) |
 
 Wrangler: `env.production.name` / `env.preview.name` = `manut`; staging is a
-separate Worker `manut-staging`. If `preview.manu.xyz` is listed under
+separate Worker `manut-staging`. If `preview.manut.xyz` is listed under
 **Production** in Cloudflare Domains, move it to the **Preview** environment.
 
 ## Why `pnpm run build` fails on Workers Builds
@@ -70,7 +71,7 @@ Edit is already granted).
 
 | Variable | Required | Example / note |
 | --- | --- | --- |
-| `EXPO_PUBLIC_API_URL` | yes | `https://manu.xyz` |
+| `EXPO_PUBLIC_API_URL` | yes | `https://app.manut.xyz` |
 | `EXPO_PUBLIC_SOCKET_URL` | no | Usually same origin or API host |
 | `EXPO_PUBLIC_REALTIME_ORIGIN` | no | Edge DO WebSocket origin when not same-origin |
 | Auth JWKS / issuer | later | Worker vars `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE` — **not** Supabase CI vars |
@@ -85,10 +86,10 @@ Do **not** require Supabase Expo public vars for Builds or GitHub deploy workflo
 | Build command | `pnpm run build:cloudflare` |
 | Deploy command | `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env preview && npx wrangler deploy --env preview` |
 | Branch | `preview` (or non-`main` PR previews per dashboard) |
-| `EXPO_PUBLIC_API_URL` | `https://preview.manu.xyz` |
+| `EXPO_PUBLIC_API_URL` | `https://preview.manut.xyz` |
 
 `--env preview` targets the Preview environment of service `manut` (same
-Worker name as production). Attach custom domain `preview.manu.xyz` to the
+Worker name as production). Attach custom domain `preview.manut.xyz` to the
 **Preview** environment, not Production.
 
 GitHub Actions `deploy-preview.yml` still uses `wrangler versions upload
@@ -157,7 +158,7 @@ Create Environments **`preview`**, **`staging`**, and **`production`**. For
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `EXPO_PUBLIC_API_URL` | yes | HTTP API / app origin baked into Expo web export (`https://manu.xyz` production) |
+| `EXPO_PUBLIC_API_URL` | yes | HTTP API / app origin baked into Expo web export (`https://app.manut.xyz` production) |
 | `EXPO_PUBLIC_SOCKET_URL` | no | Socket.IO fallback origin |
 | `EXPO_PUBLIC_REALTIME_ORIGIN` | no | Edge DO WebSocket origin when not same-origin |
 
@@ -225,7 +226,7 @@ Access is configured (runtime fail-closed).
 - [ ] Worker secrets: `EDGE_SIGNING_KEY`, `R2_*` (see bootstrap script)
 - [ ] Cloudflare Access JWKS → Worker `AUTH_*` vars
 - [ ] Bindings per `docs/CLOUDFLARE_BINDINGS.md` (cancel D1; add Hyperdrive/R2/…)
-- [ ] `preview.manu.xyz` on Preview env
+- [ ] `preview.manut.xyz` on Preview env
 - [ ] Push / dispatch preview + staging; confirm service `manut` / Worker `manut-staging`
 
 ## Production enablement

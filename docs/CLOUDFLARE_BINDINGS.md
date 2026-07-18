@@ -86,6 +86,6 @@ the rows below are for verifying bindings, not creating resources.
 
 | Env | Worker / service | Notes |
 | --- | --- | --- |
-| Production | `manut` (`--env production`) | `manu.xyz`, `manut.bettergogocash.workers.dev` |
-| Preview | same service `manut` (`--env preview` / versions upload) | Prefer `preview.manu.xyz` on Preview env — move off Production if still attached |
+| Production | `manut` (`--env production`) | `app.manut.xyz`, `manut.bettergogocash.workers.dev` |
+| Preview | same service `manut` (`--env preview` / versions upload) | Prefer `preview.manut.xyz` on Preview env — move off Production if still attached |
 | Staging | separate Worker `manut-staging` | Does not overwrite live `manut` |

@@ -213,20 +213,20 @@
     },
     // Preview environment of Worker service `manut`.
     // workers.dev: *.manut.bettergogocash.workers.dev
-    // Custom domain (prefer Preview env in dashboard): https://preview.manu.xyz
+    // Custom domain (prefer Preview env in dashboard): https://preview.manut.xyz
     "preview": {
       "name": "manut",
       "workers_dev": true,
       "preview_urls": true,
       "vars": {
-        "API_ORIGIN": "https://preview.manu.xyz",
+        "API_ORIGIN": "https://preview.manut.xyz",
         "AUTH_JWKS_URL": "",
         "AUTH_ISSUER": "",
         "AUTH_AUDIENCE": "",
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
-        "TRUSTED_STORAGE_ORIGINS": "https://preview.manu.xyz",
+        "TRUSTED_STORAGE_ORIGINS": "https://preview.manut.xyz",
         "ENABLE_LOCAL_R2_STREAMING": "false",
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-preview",
@@ -459,20 +459,20 @@
     },
     // Production environment of Worker service `manut`.
     // workers.dev: https://manut.bettergogocash.workers.dev
-    // Custom domain: https://manu.xyz
+    // Custom domain: https://app.manut.xyz
     "production": {
       "name": "manut",
       "workers_dev": true,
       "preview_urls": true,
       "vars": {
-        "API_ORIGIN": "https://manu.xyz",
+        "API_ORIGIN": "https://app.manut.xyz",
         "AUTH_JWKS_URL": "",
         "AUTH_ISSUER": "",
         "AUTH_AUDIENCE": "",
         "ENABLE_CONTAINER_BOUNDARY": "false",
         "ENABLE_CRON_BOUNDARY": "false",
         "ENABLE_HYPERDRIVE_BOUNDARY": "false",
-        "TRUSTED_STORAGE_ORIGINS": "https://manu.xyz",
+        "TRUSTED_STORAGE_ORIGINS": "https://app.manut.xyz",
         "ENABLE_LOCAL_R2_STREAMING": "false",
         "ENABLE_WORKFLOW_BOUNDARY": "false",
         "R2_BUCKET_NAME": "manut-intranet-uploads-production",

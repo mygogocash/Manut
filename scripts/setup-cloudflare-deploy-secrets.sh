@@ -108,8 +108,8 @@ else
   done
 fi
 
-set_env_var production EXPO_PUBLIC_API_URL "https://manu.xyz"
-set_env_var preview EXPO_PUBLIC_API_URL "https://preview.manu.xyz"
+set_env_var production EXPO_PUBLIC_API_URL "https://app.manut.xyz"
+set_env_var preview EXPO_PUBLIC_API_URL "https://preview.manut.xyz"
 set_env_var staging EXPO_PUBLIC_API_URL "https://manut-staging.bettergogocash.workers.dev"
 
 echo
