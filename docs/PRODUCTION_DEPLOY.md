@@ -106,10 +106,12 @@ Deploy Environments: **`preview`** and **`staging`** only.
 **Secrets (preview and staging):** `CLOUDFLARE_API_TOKEN`,
 `CLOUDFLARE_ACCOUNT_ID`
 
-**Additional preview first-deploy secrets:** unique `EDGE_SIGNING_KEY`,
-`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`. The workflow uploads these with a
-mode-0600 `RUNNER_TEMP` file and `wrangler deploy --secrets-file`, then removes
-the file on exit. `R2_ACCOUNT_ID` comes from `CLOUDFLARE_ACCOUNT_ID`.
+**Additional preview first-deploy secret:** unique `EDGE_SIGNING_KEY` (required).
+Optional SigV4 pair: `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` (both or
+neither). The workflow uploads present secrets with a mode-0600 `RUNNER_TEMP`
+file and `wrangler deploy --secrets-file`, then removes the file on exit. When
+the R2 pair is present, `R2_ACCOUNT_ID` comes from `CLOUDFLARE_ACCOUNT_ID`.
+When omitted, uploads use the Worker `UPLOADS` R2 binding.
 
 **Vars (required):** `EXPO_PUBLIC_API_URL`
 
@@ -146,7 +148,7 @@ production deploy token does not remove or replace those runtime secrets.
 | Vars       | `API_ORIGIN`, `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE`                                                 | Cloudflare Access JWKS; fail-closed if empty                 |
 | Vars       | `ENABLE_HYPERDRIVE_BOUNDARY`, `ENABLE_WORKFLOW_BOUNDARY`, `ENABLE_CONTAINER_BOUNDARY`, `ENABLE_CRON_BOUNDARY` | Default `false`; fail closed when enabled without capability |
 | Vars       | `TRUSTED_STORAGE_ORIGINS`, `R2_BUCKET_NAME`, `ENABLE_LOCAL_R2_STREAMING`                                      | R2 receipt provenance; local streaming off in remote envs    |
-| Secrets    | `EDGE_SIGNING_KEY`, `R2_ACCESS_KEY_ID`, `R2_ACCOUNT_ID`, `R2_SECRET_ACCESS_KEY`                               | ≥32-char signing key; unique per env                         |
+| Secrets    | **Required:** `EDGE_SIGNING_KEY`. **Optional:** `R2_ACCESS_KEY_ID`, `R2_ACCOUNT_ID`, `R2_SECRET_ACCESS_KEY` | ≥32-char signing key; S3 pair only for SigV4 client→R2       |
 
 Production / preview Worker service contract: **`manut`**
 (`env.production` / `env.preview` in `wrangler.jsonc`).

@@ -54,18 +54,26 @@ function validBucketName(value: string): boolean {
   );
 }
 
-function signingConfiguration(env: RuntimeBindings): R2SigningConfiguration {
+export function r2PresigningConfigured(env: RuntimeBindings): boolean {
   const accountId = env.R2_ACCOUNT_ID?.trim() ?? "";
   const accessKeyId = env.R2_ACCESS_KEY_ID?.trim() ?? "";
   const secretAccessKey = env.R2_SECRET_ACCESS_KEY?.trim() ?? "";
   const bucketName = env.R2_BUCKET_NAME?.trim() ?? "";
 
-  if (
-    !ACCOUNT_ID_PATTERN.test(accountId) ||
-    !ACCESS_KEY_ID_PATTERN.test(accessKeyId) ||
-    !boundedPrintableAscii(secretAccessKey, 32, 256) ||
-    !validBucketName(bucketName)
-  ) {
+  return (
+    ACCOUNT_ID_PATTERN.test(accountId) &&
+    ACCESS_KEY_ID_PATTERN.test(accessKeyId) &&
+    boundedPrintableAscii(secretAccessKey, 32, 256) &&
+    validBucketName(bucketName)
+  );
+}
+
+function signingConfiguration(env: RuntimeBindings): R2SigningConfiguration {
+  const accountId = env.R2_ACCOUNT_ID?.trim() ?? "";
+  const accessKeyId = env.R2_ACCESS_KEY_ID?.trim() ?? "";
+  const secretAccessKey = env.R2_SECRET_ACCESS_KEY?.trim() ?? "";
+  const bucketName = env.R2_BUCKET_NAME?.trim() ?? "";
+  if (!r2PresigningConfigured(env)) {
     throw new HttpError(
       503,
       "R2_PRESIGNING_NOT_CONFIGURED",
@@ -167,6 +175,20 @@ export function localR2StreamingAllowed(
   } catch {
     return false;
   }
+}
+
+/**
+ * Prefer Worker-mediated PUT/GET through the `UPLOADS` R2 binding when:
+ * - local loopback streaming is explicitly enabled, or
+ * - S3-compatible R2 API keys are not configured (binding-only production path).
+ * Direct SigV4 presign remains available when keys are present.
+ */
+export function preferWorkerR2Transfer(
+  request: Request,
+  env: RuntimeBindings,
+): boolean {
+  if (localR2StreamingAllowed(request, env)) return true;
+  return !r2PresigningConfigured(env);
 }
 
 export async function presignR2Upload(

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { HttpError, isRecord, readBoundedJson } from "./http-error";
 import type { EdgeJobEnvelope } from "./queue";
 import {
-  localR2StreamingAllowed,
+  preferWorkerR2Transfer,
   presignR2Download,
   presignR2Upload,
 } from "./r2-presign";
@@ -167,8 +167,8 @@ uploadRoutes.post("/intents", async (context) => {
   const ownerHash = context.get("principalKey");
   const claims = createUploadClaims(input, ownerHash);
   const token = await signTransferIntent(claims, signingKey(context.env));
-  const localFallback = localR2StreamingAllowed(context.req.raw, context.env);
-  const transfer = localFallback
+  const workerTransfer = preferWorkerR2Transfer(context.req.raw, context.env);
+  const transfer = workerTransfer
     ? {
         expiresAt: new Date(claims.exp * 1000).toISOString(),
         requiredHeaders: {
@@ -189,7 +189,7 @@ uploadRoutes.post("/intents", async (context) => {
       method: "PUT",
       requiredHeaders: transfer.requiredHeaders,
       token,
-      transferMode: localFallback ? "worker-local" : "r2-presigned",
+      transferMode: workerTransfer ? "worker-local" : "r2-presigned",
       uploadUrl: transfer.url,
     },
     201,
@@ -198,7 +198,7 @@ uploadRoutes.post("/intents", async (context) => {
 
 uploadRoutes.put("/:intentId", validateIntentParam, async (context) => {
   const { intentId } = context.req.valid("param");
-  if (!localR2StreamingAllowed(context.req.raw, context.env)) {
+  if (!preferWorkerR2Transfer(context.req.raw, context.env)) {
     throw new HttpError(404, "UPLOAD_NOT_FOUND", "Upload not found.");
   }
   const claims = await verifiedClaims(context.req.raw, context.env, {
@@ -336,8 +336,7 @@ uploadRoutes.post(
     if (!object || object.etag !== manifest.etag) {
       throw new HttpError(404, "UPLOAD_NOT_FOUND", "Upload not found.");
     }
-    const localFallback = localR2StreamingAllowed(context.req.raw, context.env);
-    if (localFallback) {
+    if (preferWorkerR2Transfer(context.req.raw, context.env)) {
       const token = await signTransferIntent(claims, signingKey(context.env));
       return context.json({
         downloadUrl: new URL(
@@ -365,7 +364,7 @@ uploadRoutes.get(
   validateIntentParam,
   async (context) => {
     const { intentId } = context.req.valid("param");
-    if (!localR2StreamingAllowed(context.req.raw, context.env)) {
+    if (!preferWorkerR2Transfer(context.req.raw, context.env)) {
       throw new HttpError(404, "UPLOAD_NOT_FOUND", "Upload not found.");
     }
     const claims = await verifiedClaims(context.req.raw, context.env, {

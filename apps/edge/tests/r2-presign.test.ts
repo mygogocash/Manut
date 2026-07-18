@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   localR2StreamingAllowed,
+  preferWorkerR2Transfer,
   presignR2Download,
   presignR2Upload,
+  r2PresigningConfigured,
 } from "../src/r2-presign";
 import type { RuntimeBindings } from "../src/runtime";
 import { createDownloadClaims, createUploadClaims } from "../src/upload-intent";
@@ -95,5 +97,35 @@ describe("R2 query presigning", () => {
         signingEnv({ ENABLE_LOCAL_R2_STREAMING: "false" }),
       ),
     ).toBe(false);
+  });
+
+  it("treats missing R2 S3 credentials as not configured for SigV4", () => {
+    expect(r2PresigningConfigured(signingEnv())).toBe(true);
+    expect(
+      r2PresigningConfigured(signingEnv({ R2_ACCESS_KEY_ID: "" })),
+    ).toBe(false);
+    expect(
+      r2PresigningConfigured(signingEnv({ R2_SECRET_ACCESS_KEY: "" })),
+    ).toBe(false);
+    expect(r2PresigningConfigured(signingEnv({ R2_ACCOUNT_ID: "" }))).toBe(
+      false,
+    );
+  });
+
+  it("prefers Worker + UPLOADS binding when S3 credentials are absent", () => {
+    const remote = new Request("https://app.manut.xyz/api/v1/uploads/intents");
+    const withoutKeys = signingEnv({
+      ENABLE_LOCAL_R2_STREAMING: "false",
+      R2_ACCESS_KEY_ID: "",
+      R2_SECRET_ACCESS_KEY: "",
+    });
+    expect(preferWorkerR2Transfer(remote, withoutKeys)).toBe(true);
+    expect(preferWorkerR2Transfer(remote, signingEnv())).toBe(false);
+    expect(
+      preferWorkerR2Transfer(
+        new Request("http://localhost/upload"),
+        signingEnv({ ENABLE_LOCAL_R2_STREAMING: "true" }),
+      ),
+    ).toBe(true);
   });
 });

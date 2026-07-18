@@ -176,6 +176,46 @@ describe("edge gateway", () => {
     });
   });
 
+  it("returns a Worker-mediated upload via UPLOADS when R2 S3 credentials are absent", async () => {
+    const app = createEdgeApp({ verifyToken });
+    const response = await app.request(
+      "https://app.manut.xyz/api/v1/uploads/intents",
+      {
+        body: JSON.stringify({
+          contentType: "text/plain",
+          fileName: "report.txt",
+          size: 6,
+        }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+      testEnv(
+        "",
+        { success: true },
+        {
+          EDGE_SIGNING_KEY: "edge-intent-key-long-enough-for-test-only-use",
+          ENABLE_LOCAL_R2_STREAMING: "false",
+          R2_ACCESS_KEY_ID: "",
+          R2_ACCOUNT_ID: "",
+          R2_BUCKET_NAME: "manut-intranet-uploads-test",
+          R2_SECRET_ACCESS_KEY: "",
+        },
+      ),
+    );
+
+    expect(response.status).toBe(201);
+    const result = (await response.json()) as {
+      transferMode: string;
+      uploadUrl: string;
+    };
+    expect(result.transferMode).toBe("worker-local");
+    expect(result.uploadUrl).toContain("/api/v1/uploads/");
+    expect(result.uploadUrl).toContain("app.manut.xyz");
+  });
+
   it("returns an R2 presigned upload without exposing its secret signing credential", async () => {
     const secretAccessKey =
       "r2-secret-signing-material-which-must-stay-server-only";

@@ -6,14 +6,16 @@
 #
 # Prerequisites:
 #   - `gh auth login` with repo admin for Environment secrets
-#   - For R2 S3 keys: export R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY
-#     (create under Cloudflare Dashboard → R2 → Manage R2 API Tokens)
+#   - Optional R2 S3 keys: export R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY
+#     (create under Cloudflare Dashboard → R2 → Manage R2 API Tokens).
+#     Omit both to use Worker + UPLOADS binding-only uploads.
 #
 # Usage (from repo root):
 #   export CLOUDFLARE_API_TOKEN=...           # required for preview/staging deploys
 #   export PREVIEW_EDGE_SIGNING_KEY=...       # required for a green preview deploy
-#   export R2_ACCESS_KEY_ID=...               # required for a green preview deploy
-#   export R2_SECRET_ACCESS_KEY=...
+#   # optional SigV4 pair:
+#   # export R2_ACCESS_KEY_ID=...
+#   # export R2_SECRET_ACCESS_KEY=...
 #   ./scripts/setup-cloudflare-deploy-secrets.sh
 
 set -euo pipefail
@@ -76,8 +78,12 @@ for env_name in preview staging; do
 done
 
 set_env_secret preview EDGE_SIGNING_KEY "$preview_signing_key"
-set_env_secret preview R2_ACCESS_KEY_ID "${R2_ACCESS_KEY_ID:-}"
-set_env_secret preview R2_SECRET_ACCESS_KEY "${R2_SECRET_ACCESS_KEY:-}"
+if [[ -n "${R2_ACCESS_KEY_ID:-}" && -n "${R2_SECRET_ACCESS_KEY:-}" ]]; then
+  set_env_secret preview R2_ACCESS_KEY_ID "$R2_ACCESS_KEY_ID"
+  set_env_secret preview R2_SECRET_ACCESS_KEY "$R2_SECRET_ACCESS_KEY"
+else
+  echo "note: R2 S3 pair unset — preview will use Worker + UPLOADS binding-only uploads."
+fi
 
 if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
   echo "note: CLOUDFLARE_API_TOKEN unset — cannot set GitHub Actions deploy token."
@@ -98,10 +104,10 @@ echo "Done (names only). Still human:"
 echo "  - Production build token is dashboard-owned: select it in Cloudflare Worker"
 echo "    manut → Settings → Builds with Account → Queues → Edit; do not store it"
 echo "    in GitHub (builds self-provision queues/R2 before deploy)"
-echo "  - Preview GitHub Environment needs EDGE_SIGNING_KEY + the R2 S3 pair;"
-echo "    deploy-preview.yml uploads them atomically to manut-preview and deletes"
-echo "    its temporary local secret file on exit"
+echo "  - Preview GitHub Environment needs EDGE_SIGNING_KEY; R2 S3 pair is optional"
+echo "    (binding-only uploads when omitted). deploy-preview.yml uploads present"
+echo "    secrets atomically to manut-preview and deletes its temp file on exit"
 echo "  - Cloudflare Access → set Worker vars AUTH_JWKS_URL / AUTH_ISSUER / AUTH_AUDIENCE"
 echo "  - Hyperdrive bind + ENABLE_HYPERDRIVE_BOUNDARY=true when ready"
-echo "  - R2 API token secrets if skipped above"
+echo "  - Optional: export R2 S3 pair and re-run to enable SigV4 client→R2"
 echo "See docs/CICD_CLOUDFLARE.md"
