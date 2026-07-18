@@ -335,9 +335,10 @@ Important parity distinction:
   actions, and simple expense/project/department chart series; wall/compose
   remain pending.
 - Settings loads the authenticated profile, privacy controls, password
-  navigation, local device preferences, and Google Workspace connect/disconnect
-  (`integrations:use`). Admin system settings remain pending, so the route
-  stays `foundation`.
+  navigation, local device preferences, Google Workspace connect/disconnect
+  (`integrations:use`), and read-only admin system settings (`admin:manage`;
+  secret-like keys omitted). PUT save and Gmail/Drive product screens remain,
+  so the route stays `foundation`.
 - Accepted auth transitions bind React Query state to the current principal and
   authorization fingerprint before protected descendants render. Transient
   verification preserves the existing principal cache; identity or permission
@@ -686,9 +687,10 @@ Migration order:
    holidays/approval read-only subroutes are in Expo as `foundation` slices.
    Leave calendar + team/HR approve/reject + `/leave/policies` foundation
    landed 2026-07-18. Admin system settings read-only (`admin:manage`) landed
-   on `/settings`. Wall/compose remains. Move Playwright employee/leave
-   coverage from `:3000` to Expo `:8081` only when the five `E2E_*` secrets
-   and dedicated E2E project exist — do not soft-skip.
+   on `/settings`. Wall/compose remains (strip until productized). Playwright
+   employee/leave projects now target Expo `:8081` (auth setup + selectors +
+   credentialed CORS for cookie sessions). Hosted run still blocked until the
+   five `E2E_*` secrets and dedicated E2E project exist — do not soft-skip.
 2. HR/people and approvals: HRMS, travel, visa, expenses, cash advance,
    payroll, benefits, attendance, learning, career, applications, office,
    employees, roles, and related approval screens.
@@ -1101,3 +1103,20 @@ Live recovery evidence from 2026-07-18:
   `EDGE_SIGNING_KEY` was generated directly into the Environment without
   printing or retaining it. The workflow accepts these names through an
   ephemeral `--secrets-file`; do not copy the Workers Builds token into GitHub.
+
+### Parallel: phase1-leftovers
+
+Phase 1 leftovers close-out (2026-07-18):
+
+- **Already on main (verified):** leave month calendar + team/HR approve/reject,
+  `/leave/policies` read-only catalog, `/settings` admin system settings
+  (`admin:manage`, secret-like keys stripped), dashboard KPIs with wall/compose
+  remaining stripped.
+- **This slice:** Playwright `employee`/`leave` cutover to Expo `:8081` (auth
+  setup + Expo selectors + leave dialog `role=dialog` a11y); API credentialed
+  CORS for allowlisted origins so Expo cookie sessions can reach `:3001`.
+  CORS hardening: normalize trailing slashes, reject `*`, exact-origin allow
+  checks, disallowed Origin uses `cb(null, false)` (no 500 / no Origin echo).
+- **Deferred / blocked:** policy CRUD/import; wall/compose productization;
+  hosted authenticated E2E until the five `E2E_*` secrets + dedicated project
+  exist (gate stays fail-closed — no soft-skip).
