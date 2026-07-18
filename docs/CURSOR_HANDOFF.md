@@ -609,12 +609,17 @@ Migration order:
    accounting/revenue, content, communications, reporting, and administration.
    **Status 2026-07-18:** Wave 3 progressed — `/it-helpdesk` (read-only ticket
    list), `/projects` list/detail/dashboard, `/accounting` (chart of accounts
-   read), and `/revenue` (dashboard KPIs) landed as `foundation`. Still
-   pending: Sales/CRM family (`/sales-revenue`, `/accounting-crm`, other CRM
-   hubs), journals/invoices/bank/approve-post, revenue detail tabs,
-   content/comms, reporting, administration hubs, helpdesk
-   writes/comments/GitHub, and project boards/task writes.
-   OTHER CRM list hubs also landed as `foundation`: `/it-crm`, `/product-crm`, `/legal-crm`, `/accounting-crm`, `/qa-crm`, `/voucher-crm`. Deferred: `/hr-crm` (no dedicated list API), `/investor-crm` (dashboard + `/api/investors`), `/it-crm/dashboard`, `/qa-crm/[projectId]`.
+   read), `/revenue` (dashboard KPIs), `/sales` (read-only leads), and
+   `/partners` (read-only partner list) landed as `foundation`. OTHER CRM
+   list hubs also landed: `/it-crm`, `/product-crm`, `/legal-crm`,
+   `/accounting-crm`, `/qa-crm`, `/voucher-crm`. Content/comms foundations
+   (`/blog-management`, `/docs`, `/legal/announcements`, `/pr-management`,
+   `/office`, `/careers`, `/applications`) also landed. Still pending:
+   `/sales-revenue`, journals/invoices/bank/approve-post, revenue detail
+   tabs, reporting, administration hubs, helpdesk writes/comments/GitHub,
+   project boards/task writes, partner detail/campaigns, sales pipeline
+   writes. Deferred CRM: `/hr-crm` (no dedicated list API), `/investor-crm`
+   (dashboard + `/api/investors`), `/it-crm/dashboard`, `/qa-crm/[projectId]`.
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.

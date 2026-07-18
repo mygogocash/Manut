@@ -238,6 +238,58 @@ describe("route policy resolution", () => {
     ).toMatchObject({ allowed: false, reason: "missing-permission" });
   });
 
+  it.each([
+    "crm:read",
+    "crm:team-read",
+    "crm:create",
+    "crm:update",
+    "crm:delete",
+    "deals:read",
+  ])("allows the sales route with %s", (permission) => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/sales",
+        permissions: [permission],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
+  it("denies the sales route for employee-only shells", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/sales",
+        permissions: ["crm:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+  });
+
+  it.each([
+    "partners:read",
+    "partners:create",
+    "partners:update",
+    "partners:delete",
+  ])("allows the partners route with %s", (permission) => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/partners",
+        permissions: [permission],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
+  it("denies the partners route for employee-only shells", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/partners",
+        permissions: ["partners:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+  });
+
   it.each(["career:read", "career:create", "career:update", "career:delete"])(
     "allows the careers route with %s",
     (permission) => {

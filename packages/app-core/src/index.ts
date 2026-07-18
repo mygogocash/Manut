@@ -683,6 +683,26 @@ export type {
   RevenueDashboardParams,
   RevenuePeriod,
 } from "./revenue/revenue";
+export {
+  LEADS_QUERY_ROOT,
+  leadListParamsSchema,
+  leadSchema,
+  leadsQueryKey,
+  listLeads,
+} from "./leads/leads";
+export type { Lead, LeadList, LeadListParams } from "./leads/leads";
+export {
+  listPartners,
+  PARTNERS_QUERY_ROOT,
+  partnerListParamsSchema,
+  partnerSchema,
+  partnersQueryKey,
+} from "./partners/partners";
+export type {
+  Partner,
+  PartnerList,
+  PartnerListParams,
+} from "./partners/partners";
 export type { CrmWorkspaceProject } from "./crm/create-crm-workspace-list";
 export {
   IT_CRM_QUERY_ROOT,

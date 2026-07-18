@@ -100,6 +100,48 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
+  it("keeps Sales off employee-only shells even with crm:read", () => {
+    const links = allowedShellLinks(["crm:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/files",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Sales visible for non-employee accounts with crm:read", () => {
+    const links = allowedShellLinks(["crm:read"], false);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/sales",
+      "/files",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Partners off employee-only shells even with partners:read", () => {
+    const links = allowedShellLinks(["partners:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/files",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Partners visible for non-employee accounts with partners:read", () => {
+    const links = allowedShellLinks(["partners:read"], false);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/partners",
+      "/files",
+      "/settings",
+    ]);
+  });
+
   it("keeps Benefits visible when benefits:read is granted", () => {
     const links = allowedShellLinks(["benefits:read"], true);
 

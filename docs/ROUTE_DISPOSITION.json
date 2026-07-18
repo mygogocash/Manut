@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 47,
-    "pending": 40,
+    "foundation": 52,
+    "pending": 36,
     "removed": 16
   },
   "statusSemantics": {
@@ -544,9 +544,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/partners/page.tsx",
       "sourceRoute": "/partners",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/partners",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only partners list via app-core GET /api/partners (strips contracts/website/notes/owner email). Detail, campaigns, board, contacts, and writes remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/payroll/approval/page.tsx",
@@ -664,9 +664,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/sales/page.tsx",
       "sourceRoute": "/sales",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/sales",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only sales leads list via app-core GET /api/leads (strips email/phone/notes/conversion). Pipeline, accounts, contacts, deals, and writes remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/settings/page.tsx",

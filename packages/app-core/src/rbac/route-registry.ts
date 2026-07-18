@@ -148,6 +148,20 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     prefix: true,
   },
   {
+    path: "/sales",
+    access: "protected",
+    permissions: [
+      "crm:read",
+      "crm:team-read",
+      "crm:create",
+      "crm:update",
+      "crm:delete",
+      "deals:read",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
     path: "/hrms",
     access: "protected",
     permissions: [
@@ -259,6 +273,18 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
       "accounting-crm:read-all",
       "hr-crm:read",
       "hr-crm:read-all",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/partners",
+    access: "protected",
+    permissions: [
+      "partners:read",
+      "partners:create",
+      "partners:update",
+      "partners:delete",
     ],
     employeeAllowed: false,
     prefix: true,
