@@ -93,6 +93,20 @@ describe("Cloudflare Workers Builds contract", () => {
     );
   });
 
+  it("docs/CICD_CLOUDFLARE.md self-provisions queues/R2 before deploys and documents Queues Edit token permission", () => {
+    const doc = readFileSync(
+      join(repoRoot, "docs/CICD_CLOUDFLARE.md"),
+      "utf8",
+    );
+    expect(doc).toContain(
+      "node scripts/ensure-cloudflare-resources.mjs --env production && npx wrangler deploy --env production",
+    );
+    expect(doc).toContain(
+      "node scripts/ensure-cloudflare-resources.mjs --env preview && npx wrangler deploy --env preview",
+    );
+    expect(doc).toMatch(/Queues[^\n]*Edit/u);
+  });
+
   it("docs/CLOUDFLARE_BINDINGS.md rejects D1 as SoR and lists required bindings", () => {
     const doc = readFileSync(
       join(repoRoot, "docs/CLOUDFLARE_BINDINGS.md"),

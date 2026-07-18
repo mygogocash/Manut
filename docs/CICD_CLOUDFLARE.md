@@ -51,10 +51,20 @@ Path: Worker `manut` → **Settings → Builds** (or Connect to Git → Builds).
 | --- | --- |
 | Root directory | `/` |
 | Build command | `pnpm run build:cloudflare` |
-| Deploy command | `cd apps/edge && npx wrangler deploy --env production` |
+| Deploy command | `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env production && npx wrangler deploy --env production` |
 | Branch | `main` |
 | Node version | `24.18.0` (or `.nvmrc`) |
 | Package manager | pnpm `11.13.1` |
+
+### One-time: add Queues Edit to the Workers Builds API token
+
+The auto-generated Workers Builds token has Workers Scripts / KV / R2 /
+Routes edit but **no Queues permission**, so the ensure script (and
+`wrangler deploy` queue validation) fails closed until ops adds it:
+Dashboard → **My Profile → API Tokens** → the auto-generated "Workers
+Builds" token → **Edit** → add **Account → Queues → Edit** → Save. Editing
+scopes keeps the same token value. R2 needs no change (Workers R2 Storage
+Edit is already granted).
 
 **Variables (Production Builds / Worker vars for Expo export):**
 
@@ -73,7 +83,7 @@ Do **not** require Supabase Expo public vars for Builds or GitHub deploy workflo
 | --- | --- |
 | Root directory | `/` |
 | Build command | `pnpm run build:cloudflare` |
-| Deploy command | `cd apps/edge && npx wrangler deploy --env preview` |
+| Deploy command | `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env preview && npx wrangler deploy --env preview` |
 | Branch | `preview` (or non-`main` PR previews per dashboard) |
 | `EXPO_PUBLIC_API_URL` | `https://preview.manu.xyz` |
 
@@ -125,7 +135,9 @@ Neither workflow mutates DNS. Neither invents Hyperdrive ids or `DATABASE_URL`.
 4. `pnpm --filter @manut/app export:web` (Expo public vars from Environment)
 5. Worker `type-check` + `test`
 6. `pnpm security:credentials` on `apps/app/dist`
-7. wrangler deploy / versions upload from `apps/edge`
+7. `node scripts/ensure-cloudflare-resources.mjs --env <env>` (idempotent
+   queue + R2 provisioning from `wrangler.jsonc` contracts; create-only)
+8. wrangler deploy / versions upload from `apps/edge`
 
 Actions are commit-SHA pinned to match `.github/workflows/pr-checks.yml`.
 
@@ -138,7 +150,7 @@ Create Environments **`preview`**, **`staging`**, and **`production`**. For
 
 | Secret | Purpose |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Manut-owned token with Workers deploy permission |
+| `CLOUDFLARE_API_TOKEN` | Manut-owned token: Workers Scripts Edit + Queues Edit + Workers R2 Storage Edit + Account Settings Read |
 | `CLOUDFLARE_ACCOUNT_ID` | `187ab61ed9dbc6e616cb23e6b95aa8f1` |
 
 ### Variables (per Environment)
@@ -176,8 +188,12 @@ Storage is **R2** (`UPLOADS`); receipt provenance uses `TRUSTED_STORAGE_ORIGINS`
 provisions a real config id and binds `HYPERDRIVE_DATABASE`. CI must never
 fabricate a Hyperdrive id.
 
-R2 buckets, Queues, and Durable Object migrations must exist (or be creatable
-by the deploy token) for the named contracts in `apps/edge/wrangler.jsonc`.
+**Queues + R2:** the queues and R2 buckets named in `apps/edge/wrangler.jsonc`
+are created automatically at deploy time by
+`apps/edge/scripts/ensure-cloudflare-resources.mjs` (create-only, idempotent;
+requires the Queues Edit + Workers R2 Storage Edit token permissions above).
+Durable Object migrations, queue consumers, and Workflows are applied by
+`wrangler deploy` itself.
 
 ## Bootstrap remaining secrets (local)
 
@@ -187,7 +203,7 @@ creating a Manut-owned API token (and optional R2 S3 token) in the dashboard:
 
 ```bash
 source ~/.nvm/nvm.sh && nvm use
-export CLOUDFLARE_API_TOKEN=…          # Workers Scripts Edit + Account read
+export CLOUDFLARE_API_TOKEN=…          # Workers Scripts Edit + Queues Edit + Workers R2 Storage Edit + Account read
 export CLOUDFLARE_ACCOUNT_ID=187ab61ed9dbc6e616cb23e6b95aa8f1
 # optional R2 S3 pair for Worker secrets.required:
 export R2_ACCESS_KEY_ID=…
@@ -204,6 +220,7 @@ Access is configured (runtime fail-closed).
 
 - [ ] Pages auto-deploy disabled (see above)
 - [ ] Workers Builds: `build:cloudflare` + deploy commands above
+- [ ] Deploy tokens have Queues Edit + Workers R2 Storage Edit (Workers Builds auto token: add Queues Edit manually; GH Actions token: verify scopes)
 - [ ] GitHub Environments: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` + `EXPO_PUBLIC_API_URL`
 - [ ] Worker secrets: `EDGE_SIGNING_KEY`, `R2_*` (see bootstrap script)
 - [ ] Cloudflare Access JWKS → Worker `AUTH_*` vars
