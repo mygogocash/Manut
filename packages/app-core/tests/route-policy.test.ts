@@ -137,4 +137,29 @@ describe("route policy resolution", () => {
       }),
     ).toMatchObject({ allowed: true });
   });
+
+  it.each([
+    "payroll:read",
+    "payroll:create",
+    "payroll:approve",
+    "payroll:hr-admin",
+  ])("allows the payroll route with %s", (permission) => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/payroll",
+        permissions: [permission],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
+  it("denies the payroll route when no accepted permission is present", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/payroll",
+        permissions: [],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "missing-permission" });
+  });
 });

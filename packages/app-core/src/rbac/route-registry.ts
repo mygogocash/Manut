@@ -116,6 +116,18 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     prefix: true,
   },
   {
+    path: "/payroll",
+    access: "protected",
+    permissions: [
+      "payroll:read",
+      "payroll:create",
+      "payroll:approve",
+      "payroll:hr-admin",
+    ],
+    employeeAllowed: true,
+    prefix: true,
+  },
+  {
     path: "/hrms",
     access: "protected",
     permissions: [

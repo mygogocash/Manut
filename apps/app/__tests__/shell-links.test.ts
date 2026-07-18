@@ -61,6 +61,36 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
+  it("keeps Payroll visible when payroll:read is granted", () => {
+    const links = allowedShellLinks(["payroll:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/payroll",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Benefits visible when benefits:read is granted", () => {
+    const links = allowedShellLinks(["benefits:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/benefits",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Learning visible when learning:read is granted", () => {
+    const links = allowedShellLinks(["learning:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/learning",
+      "/settings",
+    ]);
+  });
+
   it("keeps admin Employees and Roles off employee-only shells", () => {
     const links = allowedShellLinks(["user:read", "role:read"], true);
 

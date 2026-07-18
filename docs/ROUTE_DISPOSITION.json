@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 22,
-    "pending": 65,
+    "foundation": 25,
+    "pending": 62,
     "removed": 16
   },
   "statusSemantics": {
@@ -112,9 +112,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/benefits/page.tsx",
       "sourceRoute": "/benefits",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/benefits",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only catalog + my-enrollments via app-core. Deferred: enroll/unenroll, manage CRUD, bulk import."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/blog-management/page.tsx",
@@ -344,9 +344,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/learning/page.tsx",
       "sourceRoute": "/learning",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/learning",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only modules list via app-core (strips storage fileUrl). Deferred: manage CRUD/import, mark-complete writes, completions inbox."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/approval/page.tsx",
@@ -552,9 +552,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/payroll/page.tsx",
       "sourceRoute": "/payroll",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/payroll",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only payroll runs list via app-core (strips notes/emails/currencyTotals). Deferred: create/import, approve, /payroll/approval, payslip download/export/bulk delete, company footer writes, consultant invoices."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/performance/page.tsx",

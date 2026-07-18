@@ -398,3 +398,49 @@ export type {
   CashAdvanceStatus,
   CreateCashAdvanceInput,
 } from "./cash-advance/cash-advance";
+export {
+  listPayrollRuns,
+  PAYROLL_RUNS_QUERY_ROOT,
+  payrollPeriodSchema,
+  payrollRunListParamsSchema,
+  payrollRunSchema,
+  payrollRunsQueryKey,
+  payrollRunStatusSchema,
+} from "./payroll/payroll";
+export type {
+  PayrollRun,
+  PayrollRunList,
+  PayrollRunListParams,
+  PayrollRunStatus,
+} from "./payroll/payroll";
+export {
+  BENEFIT_CATALOG_QUERY_ROOT,
+  benefitCatalogListParamsSchema,
+  benefitCatalogQueryKey,
+  benefitCatalogItemSchema,
+  benefitCategorySchema,
+  listBenefitCatalog,
+  listMyBenefitEnrollments,
+  MY_BENEFIT_ENROLLMENTS_QUERY_ROOT,
+  myBenefitEnrollmentSchema,
+  myBenefitEnrollmentsQueryKey,
+} from "./benefits/benefits";
+export type {
+  BenefitCatalogItem,
+  BenefitCatalogList,
+  BenefitCatalogListParams,
+  BenefitCategory,
+  MyBenefitEnrollment,
+} from "./benefits/benefits";
+export {
+  LEARNING_MODULES_QUERY_ROOT,
+  learningModuleListParamsSchema,
+  learningModuleSchema,
+  learningModulesQueryKey,
+  listLearningModules,
+} from "./learning/learning";
+export type {
+  LearningModule,
+  LearningModuleList,
+  LearningModuleListParams,
+} from "./learning/learning";

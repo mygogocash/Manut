@@ -578,14 +578,19 @@ Migration order:
    payroll, benefits, attendance, learning, career, applications, office,
    employees, roles, and related approval screens.
    **Status 2026-07-18:** Wave 2 — Travel, Expenses, admin Employees/Roles,
-   `/hrms`, `/visa`, and `/cash-advance` (self list/create/submit/delete
-   draft) are `foundation`. Next productive slices: payroll/benefits; deepen
-   with dedicated approval routes / R2 uploads when preferred over new
-   modules. Still deferred: HRMS pool/import/offboarding; visa KB/templates/
-   90-day; cash-advance approval config, approve/reject, disburse/proofs.
+   `/hrms`, `/visa`, `/cash-advance` (self list/create/submit/delete draft),
+   `/payroll` (runs list), `/benefits` (catalog + my-enrollments), and
+   `/learning` (modules list) are `foundation`. Next productive slices:
+   `/office`, `/careers`, `/applications` (registry gaps for careers/
+   applications), or deepen landed HR modules (approval routes / R2). Still
+   deferred on landed slices: payroll create/approve/approval-chain/payslip
+   export; benefits enroll/manage/import; learning manage/complete; HRMS
+   pool/import/offboarding; visa KB/templates/90-day; cash-advance approval
+   config, approve/reject, disburse/proofs.
 3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
-   **Not started.**
+   **Not started.** Keep as a separate wave after Wave 2 HR spine; do not
+   block on E2E secrets or Phase E provisioning.
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
    **Not started.**
