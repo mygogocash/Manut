@@ -92,7 +92,15 @@ secrets and the independent dedicated-project marker. Never bypass that guard.
   `git checkout --`, `git clean -fd`) or broad publishes (`git push --all`,
   `git push --mirror`).
 - For universal route migration, land foundation / read-only Expo + `app-core`
-  slices before deepen work (approvals, attachments, R2 uploads).
+  slices before deepen work (approvals, attachments, R2 uploads). Deepen one
+  vertical per slice (one write/board path or CRM hub); document the pattern in
+  handoff rather than broadening every hub at once.
+- Prefer extending existing app-core + Expo foundations; do not rewrite landed
+  list/detail screens from scratch when deepening.
+- When multiple agents work in parallel, touch only owned modules, re-read
+  shared files before editing, and do not stage unrelated work from other agents.
+- Client DTOs and projections must strip sensitive fields (emails, budgets,
+  storage paths); ownership and authz checks stay server-side.
 
 ## Learned Workspace Facts
 
@@ -110,3 +118,6 @@ secrets and the independent dedicated-project marker. Never bypass that guard.
   `claude/intranet-full-hardening`).
 - Keep the GitHub repo detached from the inherited `toeverything/AFFiNE` fork
   network; do not reintroduce inherited AFFiNE About branding on that repo.
+- `/drive` is Google Drive via integrations APIs (not R2); keep it separate from
+  `/files` (uploads/R2). Route disposition stays `foundation` until Expo browser
+  E2E acceptance.
