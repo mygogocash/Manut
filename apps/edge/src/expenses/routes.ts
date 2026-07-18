@@ -39,7 +39,7 @@ async function readJsonBody(context: {
 
 /**
  * Managed receipt URLs need TRUSTED_STORAGE_ORIGINS on the Worker.
- * Until that is configured, proxy to Express (which uses SUPABASE_URL).
+ * Until that is configured, proxy to Express (parity bridge storage).
  * External (non-managed) receipt links are edge-native with allow-external.
  */
 function receiptNeedsProxy(

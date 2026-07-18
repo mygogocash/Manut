@@ -1,14 +1,26 @@
 # Production deploy readiness
 
 **Status:** GitHub Actions CI/CD path is in-repo; **ops-blocked** for a green
-live deploy until Manut Cloudflare secrets/resources exist.
-**DNS cutover is not authorized** by enabling these workflows.
+live deploy until Manut Cloudflare secrets/resources and Access JWKS are set.
+**DNS cutover is not authorized** by enabling these workflows alone.
 
 CI/CD details (Pages vs Workers, Environment secret names, trigger matrix):
 **`docs/CICD_CLOUDFLARE.md`**.
 
 Companion checklists: `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`,
 `docs/CURSOR_HANDOFF.md` (Phase E / F).
+
+## Live Worker mapping (authoritative)
+
+Dashboard Worker **service name:** `manut`.
+
+| Git branch | CF env | URL |
+| --- | --- | --- |
+| `main` | production | https://manu.xyz (+ https://manut.bettergogocash.workers.dev) |
+| `preview` | preview | https://preview.manu.xyz (+ `*.manut.bettergogocash.workers.dev`) |
+
+If `preview.manu.xyz` is still listed under **Production** in Cloudflare Domains,
+move it to the **Preview** environment.
 
 ## Verdict
 
@@ -17,51 +29,58 @@ Companion checklists: `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`,
 | Expo web export artifact | **Code-ready** | `pnpm --filter @manut/app export:web` → `apps/app/dist` |
 | Worker type-check + unit tests | **Code-ready** | `pnpm --filter @manut/edge type-check` / `test` |
 | Worker bundle dry-run | **Code-ready** | `pnpm --filter @manut/edge build` (`wrangler deploy --dry-run`) |
-| Wrangler env naming contracts | **Code-ready** | `apps/edge/wrangler.jsonc` local→production names; `hyperdrive: []` empty by design |
+| Wrangler env naming contracts | **Code-ready** | service `manut` (prod/preview); `manut-staging` optional; `hyperdrive: []` |
 | Env name documentation | **Code-ready** | `.env.example`, `apps/app/.env.example`, this runbook, `CICD_CLOUDFLARE.md` |
 | CI Validate path (PR Checks) | **Code-ready** | `.github/workflows/pr-checks.yml` builds web + Worker dry-run |
 | Active GitHub deploy workflow | **Code-ready** | `deploy-preview.yml` + `deploy-staging.yml` + `deploy.yml` (Environment-gated) |
-| Manut-owned Cloudflare account + resources | **Ops-blocked** | No proven fresh account; do not invent Hyperdrive / R2 / Queue ids |
+| Manut-owned Cloudflare account + resources | **Ops-blocked** | Prove secrets/bindings; do not invent Hyperdrive / R2 / Queue ids |
 | Hyperdrive binding + `ENABLE_HYPERDRIVE_BOUNDARY` | **Ops-blocked** | Binding id not provisioned; flag stays `false` |
-| Worker secrets / JWKS / `API_ORIGIN` | **Ops-blocked** | Names known; values must be issued per environment |
+| Worker secrets / JWKS / `API_ORIGIN` | **Ops-blocked** | Cloudflare Access JWKS names known; values per environment |
 | Postgres + migrations on Manut DB | **Ops-blocked** | Clean baseline exists; production DB not provisioned from this branch |
-| Dedicated `manut-intranet-e2e` + `E2E_*` | **Ops-blocked** | Five secrets + dedicated-project marker not configured |
+| Dedicated E2E project + `E2E_*` | **Ops-blocked** | Five secrets + dedicated-project marker not configured |
 | Expo / EAS Manut org + native builds | **Ops-blocked** | JS exports pass; APK / simulator need fresh Expo org |
 | GitHub Pro / branch protection requiring Validate | **Ops-blocked** | Free org 403 on private rulesets |
-| DNS / `manut.xyz` cutover | **Ops-blocked** | Explicitly out of scope until separate approval |
+| DNS / custom domain cutover | **Ops-blocked** | Confirm Domains assignment; separate approval for zone changes |
 | Inherited credential revocation evidence | **Ops-blocked** | Not performed; required before trust cutover |
 
 **NOT ready for DNS / production traffic until** every ops-blocked row above has
 private cutover evidence (names, HMAC fingerprints, or tickets — never raw
-secrets in Git) and a separately approved cutover. Staging CI may run and
+secrets in Git) and a separately approved cutover. Deploy CI may run and
 **fail closed** until Environment secrets exist — that is expected.
 
 ## CI/CD summary
 
-| Workflow | Triggers | Environment |
-| --- | --- | --- |
-| `.github/workflows/deploy-preview.yml` | Push `preview`; `workflow_dispatch` | `preview` |
-| `.github/workflows/deploy-staging.yml` | Push `staging`; `workflow_dispatch` | `staging` |
-| `.github/workflows/deploy.yml` | Push `main`; `workflow_dispatch` | `production` (require reviewers) |
+| Workflow | Triggers | Environment | Wrangler target |
+| --- | --- | --- | --- |
+| `.github/workflows/deploy-preview.yml` | Push `preview`; `workflow_dispatch` | `preview` | `versions upload --env preview` → `manut` |
+| `.github/workflows/deploy-staging.yml` | Push `staging`; `workflow_dispatch` | `staging` | `deploy --env staging` → `manut-staging` |
+| `.github/workflows/deploy.yml` | Push `main`; `workflow_dispatch` | `production` (require reviewers) | `deploy --env production` → `manut` |
 
 **Turn off Cloudflare Pages auto-deploy** for any Pages project linked to this
-repo (including `manut`). Correct delivery is Workers + Assets via
-`apps/edge` wrangler — see `docs/CICD_CLOUDFLARE.md`.
+repo. Correct delivery is Workers + Assets via `apps/edge` — see
+`docs/CICD_CLOUDFLARE.md`.
 
-### Required GitHub Environment names (no values in git)
+### Required GitHub Environment names (no secret values in git)
 
-Environments: **`preview`**, **`staging`**, **`production`** (require reviewers
+Environments: **`preview`**, **`staging`**, and **`production`** (require reviewers
 on production).
 
 **Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
 
-**Vars (required):** `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`,
-`EXPO_PUBLIC_SUPABASE_ANON_KEY`
+**Vars (required):** `EXPO_PUBLIC_API_URL`
+
+| Environment | Recommended `EXPO_PUBLIC_API_URL` |
+| --- | --- |
+| `production` | `https://manu.xyz` (fallback `https://manut.bettergogocash.workers.dev`) |
+| `preview` | `https://preview.manu.xyz` |
+| `staging` | staging host only (not live `manut` Production) |
 
 **Vars (optional):** `EXPO_PUBLIC_SOCKET_URL`, `EXPO_PUBLIC_REALTIME_ORIGIN`
 
-Hyperdrive ids stay out of CI and out of committed wrangler until ops binds a
-real id (`hyperdrive: []` until then). Never substitute a fake `DATABASE_URL`.
+**Not required:** `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
+Hyperdrive ids stay out of CI (`hyperdrive: []` until then). Never substitute a
+fake `DATABASE_URL`.
 
 ## Required bindings and env (names only)
 
@@ -76,13 +95,13 @@ real id (`hyperdrive: []` until then). Never substitute a fake `DATABASE_URL`.
 | Queues | `JOB_QUEUE`, `DEAD_LETTER_QUEUE` | Unique queue + DLQ names per env |
 | Workflow | `BACKGROUND_WORKFLOW` | Stub until `ENABLE_WORKFLOW_BOUNDARY=true` |
 | Rate limit | `API_RATE_LIMITER` | Namespace ids are contracts, not inherited account proof |
-| Vars | `API_ORIGIN`, `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE` | Auth fail-closed if JWKS empty at runtime |
+| Vars | `API_ORIGIN`, `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE` | Cloudflare Access JWKS; fail-closed if empty |
 | Vars | `ENABLE_HYPERDRIVE_BOUNDARY`, `ENABLE_WORKFLOW_BOUNDARY`, `ENABLE_CONTAINER_BOUNDARY`, `ENABLE_CRON_BOUNDARY` | Default `false`; fail closed when enabled without capability |
-| Vars | `TRUSTED_STORAGE_ORIGINS`, `R2_BUCKET_NAME`, `ENABLE_LOCAL_R2_STREAMING` | Receipt provenance; local streaming off in remote envs |
+| Vars | `TRUSTED_STORAGE_ORIGINS`, `R2_BUCKET_NAME`, `ENABLE_LOCAL_R2_STREAMING` | R2 receipt provenance; local streaming off in remote envs |
 | Secrets | `EDGE_SIGNING_KEY`, `R2_ACCESS_KEY_ID`, `R2_ACCOUNT_ID`, `R2_SECRET_ACCESS_KEY` | ≥32-char signing key; unique per env |
 
-Production Worker name contract: `manut-intranet-edge-production`
-(`env.production` in `wrangler.jsonc`).
+Production / preview Worker service contract: **`manut`**
+(`env.production` / `env.preview` in `wrangler.jsonc`).
 
 ### Express / API (parity bridge)
 
@@ -94,19 +113,26 @@ Production Worker name contract: `manut-intranet-edge-production`
 | `EDGE_REALTIME_BRIDGE_SECRET` | **Must match** Worker `EDGE_SIGNING_KEY` |
 | Auth / JWT / cron secrets | See `.env.example` (names only) |
 
+Express still has temporary Supabase Admin SDK usage for password login /
+storage until Cloudflare Access + R2 own those paths — see leftovers in
+`docs/CICD_CLOUDFLARE.md` and handoff.
+
 ### Expo app
 
 | Name | Role |
 | --- | --- |
-| `EXPO_PUBLIC_API_URL` | HTTP API base |
+| `EXPO_PUBLIC_API_URL` | HTTP API / SPA origin |
 | `EXPO_PUBLIC_SOCKET_URL` | Socket.IO fallback origin |
 | `EXPO_PUBLIC_REALTIME_ORIGIN` | Prefer edge DO rooms when set |
-| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Public auth client only |
+
+Web: httpOnly cookie session. Native: SecureStore bearer via Manut `/auth/*`
+(`X-Manut-Client: native`). No Expo Supabase public vars.
 
 ### CI / E2E (when authorized)
 
-`E2E_SUPABASE_URL`, `E2E_SUPABASE_ANON_KEY`, `E2E_SUPABASE_SERVICE_ROLE_KEY`,
-`E2E_DATABASE_URL`, `E2E_DIRECT_URL` — dedicated `manut-intranet-e2e` only.
+Dedicated Postgres + auth fixtures for `manut-intranet-e2e` only. Prefer
+Manut-owned Access/Postgres secrets over inherited Supabase project names;
+existing `E2E_SUPABASE_*` names remain a fail-closed gate until replaced.
 
 ## Local verification (artifact path)
 
@@ -126,42 +152,41 @@ CI equivalent: `web-build` then `worker-build` in `.github/workflows/pr-checks.y
 
 Do not reorder. DNS remains last.
 
-1. **Prove Manut ownership** of Cloudflare, Postgres/Supabase, Expo, and GitHub
+1. **Prove Manut ownership** of Cloudflare, Postgres, Expo, and GitHub
    authority (private evidence record).
 2. **Disable Cloudflare Pages auto-deploy** for any Pages project on this repo;
    use Workers + Assets only (`docs/CICD_CLOUDFLARE.md`).
-3. **Provision per-environment** Worker, R2, Queues (+ DLQ), DO migrations,
-   Workflow stubs, and Hyperdrive configs with unique names from
-   `wrangler.jsonc` contracts.
-4. **Apply migrations** to the Manut Postgres via `prisma migrate deploy` on a
+3. **Confirm Domains** on Worker `manut`: `manu.xyz` → Production;
+   `preview.manu.xyz` → Preview (move if mis-assigned).
+4. **Provision** R2, Queues (+ DLQ), DO migrations, Workflow stubs, and
+   Hyperdrive configs with unique names from `wrangler.jsonc` contracts.
+5. **Apply migrations** to the Manut Postgres via `prisma migrate deploy` on a
    dedicated admin path (not invented inside the Worker deploy job).
-5. **Bind Hyperdrive** id into `wrangler.jsonc` (or dashboard equivalent) as
+6. **Bind Hyperdrive** id into `wrangler.jsonc` (or dashboard equivalent) as
    `HYPERDRIVE_DATABASE`; set `ENABLE_HYPERDRIVE_BOUNDARY=true` only after bind.
    Keep `hyperdrive: []` until a real id exists — never invent in CI.
-6. **Set Worker vars/secrets:** `API_ORIGIN`, `AUTH_JWKS_URL`, `AUTH_ISSUER`,
-   `AUTH_AUDIENCE`, `TRUSTED_STORAGE_ORIGINS`, `EDGE_SIGNING_KEY`, R2 secrets.
-7. **Configure Express:** `EDGE_REALTIME_ORIGIN` + matching
+7. **Set Worker vars/secrets:** `API_ORIGIN`, Cloudflare Access
+   `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE`, `TRUSTED_STORAGE_ORIGINS`,
+   `EDGE_SIGNING_KEY`, R2 secrets.
+8. **Configure Express:** `EDGE_REALTIME_ORIGIN` + matching
    `EDGE_REALTIME_BRIDGE_SECRET`; keep Socket.IO until edge live path is sole
    production path and E2E covers it.
-8. **Configure GitHub Environments** `preview` / `staging` / `production` with
-   `CLOUDFLARE_*` secrets and Expo public vars; require reviewers on production.
-9. **Preview deploy** via push to `preview` (or `workflow_dispatch`); confirm
-   `manut-intranet-edge-preview`. **Staging deploy** via push to `staging` or
-   `workflow_dispatch`; confirm `manut-intranet-edge-staging`.
-10. **Authenticated E2E** against `manut-intranet-e2e` / staging edge origin.
-11. **Production deploy** via merge/push to `main` (Environment reviewers) or
-    `workflow_dispatch`.
-12. **DNS / custom domain** only after staging green and explicit approval;
-    keep `manut.xyz` unchanged until that approval.
-13. **Revoke** inherited credentials; prove negative auth; store HMAC /
+9. **Configure GitHub Environments** `preview` / `staging` / `production` with
+   `CLOUDFLARE_*` secrets and `EXPO_PUBLIC_API_URL`; require reviewers on production.
+10. **Preview** via push to `preview` (`versions upload`); confirm
+    `*.manut.bettergogocash.workers.dev` / `preview.manu.xyz`.
+11. **Production** via merge/push to `main` (Environment reviewers) or
+    `workflow_dispatch`; confirm `manut` + `manu.xyz`.
+12. **Revoke** inherited credentials; prove negative auth; store HMAC /
     ticket links only.
-14. **Retire** Socket.IO / shrink Express / remove `apps/web` only per
-    `CLOUDFLARE_MIGRATION_CHECKLIST.md` §7 after Expo browser E2E acceptance.
+13. **Retire** Express Supabase SDK / Socket.IO / `apps/web` only per
+    `CLOUDFLARE_MIGRATION_CHECKLIST.md` after Expo browser E2E acceptance.
 
 ## Explicit non-goals of this document
 
-- Mutating DNS or claiming production traffic cutover.
+- Mutating DNS or claiming production traffic cutover without approval.
 - Committing Hyperdrive ids, account ids, API tokens, or other secrets.
 - Claiming Cloudflare / Expo / E2E / revocation complete without live evidence.
 - Retiring Socket.IO or `apps/web` before Expo browser E2E acceptance.
 - Using Cloudflare Pages as the Manut SPA host.
+- Requiring Supabase Expo public vars for Worker deploy.

@@ -391,7 +391,7 @@ describe("cash-advance dual-path routes", () => {
               description: "Taxi",
               receiptUrl: "https://files.example/receipts/secret.pdf",
               requestedAmount: 500,
-              approvedAmount: null,
+              approvedAmount: 0,
             },
           ],
         }),

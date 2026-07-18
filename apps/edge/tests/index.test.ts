@@ -38,7 +38,7 @@ describe("edge gateway", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      service: "manut-intranet-edge",
+      service: "manut",
       status: "ok",
     });
     expect(response.headers.get("cache-control")).toBe("no-store");

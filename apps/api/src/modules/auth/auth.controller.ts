@@ -1,4 +1,4 @@
-import type { CookieOptions, Response } from "express";
+import type { CookieOptions, Request, Response } from "express";
 import { Router } from "express";
 
 import { logger } from "@/common/utils/logger";
@@ -62,11 +62,21 @@ function requestIp(req: { ip?: string; socket?: { remoteAddress?: string } }) {
   return req.ip ?? req.socket?.remoteAddress ?? null;
 }
 
+/** Expo native clients store bearer tokens in SecureStore (no httpOnly cookies). */
+function wantsNativeBearerTokens(req: Request): boolean {
+  return req.get("x-manut-client")?.trim().toLowerCase() === "native";
+}
+
 function sendAuthenticatedPayload(
   res: Response,
   result: Awaited<ReturnType<typeof authService.login>>,
+  options: { includeSession: boolean },
 ) {
   setAuthCookies(res, result.session);
+  if (options.includeSession) {
+    res.json(result);
+    return;
+  }
   const { session: _session, ...payload } = result;
   res.json(payload);
 }
@@ -80,7 +90,9 @@ router.post(
     const result = await authService.login(input);
     logger.info(`User logged in: ${input.email}`);
 
-    sendAuthenticatedPayload(res, result);
+    sendAuthenticatedPayload(res, result, {
+      includeSession: wantsNativeBearerTokens(req),
+    });
   }),
 );
 
@@ -117,7 +129,9 @@ router.post(
     const result = await authService.recoverPassword(input, {
       ip: requestIp(req),
     });
-    sendAuthenticatedPayload(res, result);
+    sendAuthenticatedPayload(res, result, {
+      includeSession: wantsNativeBearerTokens(req),
+    });
   }),
 );
 
@@ -128,7 +142,9 @@ router.post(
     const result = await authService.exchangeSession(input, {
       ip: requestIp(req),
     });
-    sendAuthenticatedPayload(res, result);
+    sendAuthenticatedPayload(res, result, {
+      includeSession: wantsNativeBearerTokens(req),
+    });
   }),
 );
 
@@ -141,7 +157,11 @@ router.post("/logout", (_req, res) => {
 router.post(
   "/refresh",
   asyncHandler(async (req, res) => {
-    const refreshToken = req.cookies?.manut_refresh_token;
+    const bodyRefresh =
+      typeof req.body?.refreshToken === "string"
+        ? req.body.refreshToken.trim()
+        : "";
+    const refreshToken = req.cookies?.manut_refresh_token || bodyRefresh;
     if (!refreshToken) {
       res.status(401).json({
         error: { code: "NO_REFRESH_TOKEN", message: "No refresh token" },
@@ -168,12 +188,17 @@ router.post(
       throw err;
     }
 
-    setAuthCookies(res, {
+    const session = {
       accessToken: data.session.access_token,
       refreshToken: data.session.refresh_token,
       expiresIn: data.session.expires_in,
-    });
+    };
+    setAuthCookies(res, session);
 
+    if (wantsNativeBearerTokens(req)) {
+      res.json({ success: true, session });
+      return;
+    }
     res.json({ success: true });
   }),
 );

@@ -8,6 +8,7 @@ import { resolveAuthUserFromToken } from "@/core/guards/auth.guard";
 import { errorHandler } from "@/core/middleware/error-handler";
 import { supabaseAdmin } from "@/infrastructure/supabase/admin";
 import authRoutes from "@/modules/auth/auth.controller";
+import { authService } from "@/modules/auth/auth.service";
 
 vi.mock("@/core/guards/auth.guard", () => ({
   authenticate: vi.fn(
@@ -34,6 +35,41 @@ vi.mock("@/infrastructure/supabase/admin", () => ({
     },
   },
 }));
+
+vi.mock("@/modules/auth/auth.service", () => ({
+  authService: {
+    login: vi.fn(),
+    exchangeSession: vi.fn(),
+    recoverPassword: vi.fn(),
+    requestPasswordReset: vi.fn(),
+    requestMagicLink: vi.fn(),
+    getMe: vi.fn(),
+    getMyProfile: vi.fn(),
+    updateMyProfile: vi.fn(),
+    changePassword: vi.fn(),
+  },
+}));
+
+const LOGIN_RESULT = {
+  user: {
+    id: "user-123",
+    email: "person@manut.example",
+    name: "Person",
+    avatarUrl: null,
+    department: null,
+    jobTitle: null,
+    entity: null,
+    mustChangePassword: false,
+  },
+  roles: [],
+  permissions: [],
+  session: {
+    accessToken: "access-token",
+    refreshToken: "refresh-token",
+    expiresIn: 3600,
+    expiresAt: 1_700_000_000,
+  },
+};
 
 function buildApp() {
   const app = express();
@@ -133,5 +169,82 @@ describe("auth session lifecycle controller", () => {
     const cookies = serializedCookies(response);
     expect(cookies).toContain("manut_access_token=");
     expect(cookies).toContain("manut_refresh_token=");
+  });
+
+  it("keeps web login cookie-only (no session tokens in JSON body)", async () => {
+    vi.mocked(authService.login).mockResolvedValue(LOGIN_RESULT as never);
+
+    const response = await request(buildApp())
+      .post("/api/auth/login")
+      .send({ email: "person@manut.example", password: "password" })
+      .expect(200);
+
+    expect(response.body).toEqual({
+      user: LOGIN_RESULT.user,
+      roles: LOGIN_RESULT.roles,
+      permissions: LOGIN_RESULT.permissions,
+    });
+    expect(response.body).not.toHaveProperty("session");
+    expect(serializedCookies(response)).toContain("manut_access_token=");
+  });
+
+  it("returns bearer session tokens for native clients (X-Manut-Client)", async () => {
+    vi.mocked(authService.login).mockResolvedValue(LOGIN_RESULT as never);
+
+    const response = await request(buildApp())
+      .post("/api/auth/login")
+      .set("X-Manut-Client", "native")
+      .send({ email: "person@manut.example", password: "password" })
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      user: LOGIN_RESULT.user,
+      session: {
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresIn: 3600,
+      },
+    });
+  });
+
+  it("refreshes from JSON body refreshToken for native clients", async () => {
+    vi.mocked(supabaseAdmin.auth.refreshSession).mockResolvedValue({
+      data: {
+        user: null,
+        session: {
+          access_token: "new-access-token",
+          refresh_token: "new-refresh-token",
+          expires_in: 3600,
+        },
+      },
+      error: null,
+    } as never);
+    vi.mocked(resolveAuthUserFromToken).mockResolvedValue({
+      id: "user-123",
+      email: "person@manut.example",
+      name: "Person",
+      isActive: true,
+      deletedAt: null,
+      entityId: "entity-1",
+      permissions: [],
+    });
+
+    const response = await request(buildApp())
+      .post("/api/auth/refresh")
+      .set("X-Manut-Client", "native")
+      .send({ refreshToken: "body-refresh-token" })
+      .expect(200);
+
+    expect(supabaseAdmin.auth.refreshSession).toHaveBeenCalledWith({
+      refresh_token: "body-refresh-token",
+    });
+    expect(response.body).toMatchObject({
+      success: true,
+      session: {
+        accessToken: "new-access-token",
+        refreshToken: "new-refresh-token",
+        expiresIn: 3600,
+      },
+    });
   });
 });

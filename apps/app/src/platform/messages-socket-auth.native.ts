@@ -1,14 +1,13 @@
-import { getNativeSupabaseClient } from "./session-transport.native";
+import { getNativeAccessToken } from "./session-transport.native";
 
 export interface MessagesSocketAuth {
   withCredentials: boolean;
   token?: string;
 }
 
-/** Native PKCE bearer session — pass token via socket.io handshake.auth. */
+/** Native SecureStore bearer session — pass token via socket.io handshake.auth. */
 export async function getMessagesSocketAuth(): Promise<MessagesSocketAuth> {
-  const { data } = await getNativeSupabaseClient().auth.getSession();
-  const token = data.session?.access_token;
+  const token = await getNativeAccessToken();
   if (!token) {
     return { withCredentials: false };
   }

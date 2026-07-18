@@ -30,7 +30,7 @@ describe("trusted storage URL helper", () => {
     ).toEqual([TRUSTED, "https://backup.example"]);
   });
 
-  it("parses Supabase-shaped public and signed object URLs", () => {
+  it("parses legacy /storage/v1/object public and signed object URLs", () => {
     expect(parseManagedStorageUrl(MANAGED_PUBLIC)).toEqual({
       bucket: "receipts",
       path: "user-1/r1.pdf",

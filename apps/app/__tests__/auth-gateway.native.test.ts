@@ -22,22 +22,18 @@ const SESSION: AuthSession = {
   permissions: ["performance:read"],
 };
 
-const mockSetSession = jest.fn();
-const mockSignOut = jest.fn();
-const mockSignInWithPassword = jest.fn();
-const mockNativeClient = {
-  auth: {
-    setSession: mockSetSession,
-    signOut: mockSignOut,
-    signInWithPassword: mockSignInWithPassword,
-  },
-};
+const mockPersistNativeSession = jest.fn();
+const mockClearNativeSession = jest.fn();
 const mockExecute = jest.fn<Promise<TransportResponse>, [TransportRequest]>();
 const mockTransport: SessionTransport = {
   async decorate(request) {
     return {
       ...request,
-      headers: { ...request.headers, Authorization: "Bearer stored-token" },
+      headers: {
+        ...request.headers,
+        Authorization: "Bearer stored-token",
+        "X-Manut-Client": "native",
+      },
       credentials: "omit",
     };
   },
@@ -55,25 +51,55 @@ jest.mock("@/platform/http-executor", () => ({
 
 jest.mock("@/platform/session-transport.native", () => ({
   createSessionTransport: () => mockTransport,
-  getNativeSupabaseClient: () => mockNativeClient,
+  persistNativeSession: (...args: unknown[]) =>
+    mockPersistNativeSession(...args),
+  clearNativeSession: (...args: unknown[]) => mockClearNativeSession(...args),
 }));
 
 describe("native auth gateway", () => {
   beforeEach(() => {
-    mockSetSession.mockReset();
-    mockSignOut.mockReset();
-    mockSignInWithPassword.mockReset();
+    mockPersistNativeSession.mockReset();
+    mockClearNativeSession.mockReset();
     mockExecute.mockReset();
-    mockSetSession.mockResolvedValue({
-      data: { session: { access_token: "stored-token" } },
-      error: null,
+    mockPersistNativeSession.mockResolvedValue(undefined);
+    mockClearNativeSession.mockResolvedValue(undefined);
+    mockExecute.mockResolvedValue({
+      status: 200,
+      body: {
+        ...SESSION,
+        session: {
+          accessToken: "link-access-token",
+          refreshToken: "link-refresh-token",
+          expiresIn: 3600,
+        },
+      },
     });
-    mockSignOut.mockResolvedValue({ error: null });
-    mockSignInWithPassword.mockResolvedValue({ error: null });
-    mockExecute.mockResolvedValue({ status: 200, body: SESSION });
   });
 
-  it("persists link tokens before verifying the user through bearer /auth/me", async () => {
+  it("logs in through Manut /auth/login and persists bearer tokens", async () => {
+    const gateway = createPlatformAuthGateway();
+
+    await expect(
+      gateway.login("person@example.invalid", "password"),
+    ).resolves.toEqual(SESSION);
+
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "/api/auth/login",
+        method: "POST",
+        body: {
+          email: "person@example.invalid",
+          password: "password",
+        },
+      }),
+    );
+    expect(mockPersistNativeSession).toHaveBeenCalledWith({
+      accessToken: "link-access-token",
+      refreshToken: "link-refresh-token",
+    });
+  });
+
+  it("persists exchanged link tokens before verifying the user", async () => {
     const gateway = createPlatformAuthGateway();
 
     await expect(
@@ -83,39 +109,23 @@ describe("native auth gateway", () => {
       }),
     ).resolves.toEqual(SESSION);
 
-    expect(mockSetSession).toHaveBeenCalledWith({
-      access_token: "link-access-token",
-      refresh_token: "link-refresh-token",
-    });
     expect(mockExecute).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "/api/auth/me",
-        method: "GET",
-        headers: expect.objectContaining({
-          Authorization: "Bearer stored-token",
-        }),
-        credentials: "omit",
+        url: "/api/auth/exchange-session",
+        method: "POST",
+        body: {
+          accessToken: "link-access-token",
+          refreshToken: "link-refresh-token",
+        },
       }),
     );
-  });
-
-  it("clears the local link session when server verification rejects it", async () => {
-    mockExecute.mockResolvedValue({
-      status: 403,
-      body: { error: { code: "FORBIDDEN", message: "Account unavailable" } },
+    expect(mockPersistNativeSession).toHaveBeenCalledWith({
+      accessToken: "link-access-token",
+      refreshToken: "link-refresh-token",
     });
-    const gateway = createPlatformAuthGateway();
-
-    await expect(
-      gateway.exchangeSession({
-        accessToken: "link-access-token",
-        refreshToken: "link-refresh-token",
-      }),
-    ).rejects.toMatchObject({ status: 403 });
-    expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" });
   });
 
-  it("clears a password session when /auth/me rejects the native user", async () => {
+  it("clears the local session when server verification rejects login", async () => {
     mockExecute.mockResolvedValue({
       status: 403,
       body: { error: { code: "FORBIDDEN", message: "Account unavailable" } },
@@ -125,10 +135,22 @@ describe("native auth gateway", () => {
     await expect(
       gateway.login("person@example.invalid", "password"),
     ).rejects.toMatchObject({ status: 403 });
-    expect(mockSignInWithPassword).toHaveBeenCalledWith({
-      email: "person@example.invalid",
-      password: "password",
+    expect(mockClearNativeSession).toHaveBeenCalled();
+  });
+
+  it("fails closed when native login omits bearer session tokens", async () => {
+    mockExecute.mockResolvedValue({
+      status: 200,
+      body: SESSION,
     });
-    expect(mockSignOut).toHaveBeenCalledWith({ scope: "local" });
+    const gateway = createPlatformAuthGateway();
+
+    await expect(
+      gateway.login("person@example.invalid", "password"),
+    ).rejects.toMatchObject({
+      code: "NATIVE_SESSION_UNAVAILABLE",
+      status: 503,
+    });
+    expect(mockClearNativeSession).toHaveBeenCalled();
   });
 });

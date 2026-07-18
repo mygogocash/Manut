@@ -42,7 +42,7 @@ function receiptsNeedProxy(
 
   const trustedOrigins = resolveTrustedStorageOrigins(env);
   if (trustedOrigins.length === 0) {
-    // Express still owns SUPABASE_URL provenance until Worker origins are set.
+    // Express still owns receipt provenance until TRUSTED_STORAGE_ORIGINS is set.
     return true;
   }
 
@@ -338,8 +338,8 @@ export function createCashAdvanceRoutes(options: {
       return context.json(await service.clear(userId, requestId));
     }
 
-    // Signed receipt / disbursement-proof GET stay proxied: Express mints
-    // Supabase JWT signed URLs. Worker R2 aws4fetch covers transfer intents
+    // Signed receipt / disbursement-proof GET stay proxied: Express still mints
+    // private-object signed URLs. Worker R2 aws4fetch covers transfer intents
     // only, not FileUpload private-bucket receipt re-sign.
     return proxyApiRequest(context.req.raw, context.env);
   });

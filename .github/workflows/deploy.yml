@@ -1,11 +1,11 @@
-# Production: Expo web export → Workers + Assets (apps/edge) via wrangler.
+# Production: Expo web export → Worker service `manut` (--env production).
 # Triggers on push/merge to `main` and workflow_dispatch. Job uses GitHub
 # Environment `production` so required reviewers (repo settings) still gate
 # the deploy. Does not mutate DNS.
 #
+# Live hosts: https://manu.xyz and https://manut.bettergogocash.workers.dev
 # Ops must turn OFF Cloudflare Pages auto-deploy; CI owns Worker deploys.
-# Hyperdrive ids are not invented here — bind via Cloudflare / wrangler when
-# provisioned (keep hyperdrive: [] until then).
+# Hyperdrive ids are not invented here — keep hyperdrive: [] until ops binds.
 
 name: Deploy Production
 
@@ -40,8 +40,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           missing=0
           require() {
@@ -55,10 +53,8 @@ jobs:
           require CLOUDFLARE_API_TOKEN "${CLOUDFLARE_API_TOKEN}"
           require CLOUDFLARE_ACCOUNT_ID "${CLOUDFLARE_ACCOUNT_ID}"
           require EXPO_PUBLIC_API_URL "${EXPO_PUBLIC_API_URL}"
-          require EXPO_PUBLIC_SUPABASE_URL "${EXPO_PUBLIC_SUPABASE_URL}"
-          require EXPO_PUBLIC_SUPABASE_ANON_KEY "${EXPO_PUBLIC_SUPABASE_ANON_KEY}"
           if [ "${missing}" -ne 0 ]; then
-            echo "::error::Production deploy fail-closed: configure GitHub Environment 'production' secrets/vars with required reviewers (see docs/CICD_CLOUDFLARE.md). Never invent DATABASE_URL or Hyperdrive ids in CI."
+            echo "::error::Production deploy fail-closed: configure GitHub Environment 'production' with CLOUDFLARE_* + EXPO_PUBLIC_API_URL (recommended https://manu.xyz) and required reviewers (see docs/CICD_CLOUDFLARE.md). Never invent DATABASE_URL or Hyperdrive ids in CI."
             exit 1
           fi
           echo "Production required secrets/vars are present (values not logged)."
@@ -85,8 +81,6 @@ jobs:
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
           EXPO_PUBLIC_SOCKET_URL: ${{ vars.EXPO_PUBLIC_SOCKET_URL }}
           EXPO_PUBLIC_REALTIME_ORIGIN: ${{ vars.EXPO_PUBLIC_REALTIME_ORIGIN }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: pnpm --filter @manut/app export:web
 
       - name: Type-check Worker
@@ -102,7 +96,7 @@ jobs:
             pnpm security:credentials apps/edge/dist
           fi
 
-      - name: Deploy Worker (production)
+      - name: Deploy Worker (production / manut)
         working-directory: apps/edge
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
