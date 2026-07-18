@@ -6,10 +6,15 @@ import {
 } from "../trusted-storage";
 import {
   canReadCashAdvance,
+  CASH_ADVANCE_APPROVE,
   CASH_ADVANCE_CREATE,
   hasCashAdvancePermission,
 } from "./access";
-import type { CashAdvanceRequestRecord, CashAdvanceStore } from "./store";
+import type {
+  CashAdvanceApprovalDecisionRecord,
+  CashAdvanceRequestRecord,
+  CashAdvanceStore,
+} from "./store";
 
 const PAYOUT_MODES = new Set(["cash", "bank-transfer"]);
 
@@ -42,12 +47,42 @@ function serializeRequest(
       id: item.id,
       description: item.description,
       receiptUrl: item.receiptUrl,
+      requestedAmount: item.requestedAmount,
+      approvedAmount: item.approvedAmount,
     })),
     // Present for Express parity; app-core projections strip bank/notes.
     bankName: raw.bankName,
     bankAccountNo: raw.bankAccountNo,
     notes: raw.notes,
   };
+}
+
+async function assertCanActOnStep(
+  store: CashAdvanceStore,
+  decision: CashAdvanceApprovalDecisionRecord,
+  request: CashAdvanceRequestRecord,
+  actorId: string,
+  permissions: ReadonlySet<string>,
+): Promise<void> {
+  if (permissions.has(CASH_ADVANCE_APPROVE)) return;
+  if (decision.approverType === "user") {
+    if (decision.approverUserId !== actorId) {
+      throw new HttpError(
+        403,
+        "FORBIDDEN",
+        "This step is assigned to a different approver",
+      );
+    }
+    return;
+  }
+  const employee = await store.findUserById(request.employeeId);
+  if (employee?.reportingTo !== actorId) {
+    throw new HttpError(
+      403,
+      "FORBIDDEN",
+      "Only the employee's direct manager can approve this step",
+    );
+  }
 }
 
 function toHttpError(error: unknown): never {
@@ -391,6 +426,279 @@ export function createCashAdvanceService(
         decisionRows,
       );
       return { data: serializeRequest(submitted) };
+    },
+
+    async approve(
+      actorId: string,
+      requestId: string,
+      input: {
+        notes?: string;
+        items?: Array<{ id: string; approvedAmount: number }>;
+      } = {},
+    ) {
+      const permissions = await store.loadPermissions(actorId);
+      if (!canReadCashAdvance(permissions)) {
+        throw new HttpError(403, "FORBIDDEN", "Missing required permission.");
+      }
+
+      const existing = await store.findById(requestId);
+      if (!existing) {
+        throw new HttpError(
+          404,
+          "NOT_FOUND",
+          "Cash advance request not found",
+        );
+      }
+      if (existing.status !== "submitted") {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          `Can only approve a submitted request (current: ${existing.status})`,
+        );
+      }
+
+      let decisions = await store.findDecisions(requestId);
+      if (decisions.length === 0) {
+        await store.createDecisions(requestId, [
+          {
+            order: 1,
+            name: "Manager approval",
+            approverType: "manager",
+            approverUserId: null,
+          },
+        ]);
+        await store.advanceStep(requestId, 1);
+        decisions = await store.findDecisions(requestId);
+      }
+
+      const stepOrder = existing.currentStepOrder ?? 1;
+      const decision = decisions.find((row) => row.order === stepOrder);
+      if (!decision || decision.status !== "pending") {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          "Current approval step is already decided — refresh and try again",
+        );
+      }
+
+      await assertCanActOnStep(
+        store,
+        decision,
+        existing,
+        actorId,
+        permissions,
+      );
+
+      if (input.items && input.items.length > 0) {
+        const itemsById = new Map(existing.items.map((item) => [item.id, item]));
+        for (const item of input.items) {
+          if (!itemsById.has(item.id)) {
+            throw new HttpError(
+              400,
+              "INVALID_CASH_ADVANCE",
+              `Unknown item id ${item.id}`,
+            );
+          }
+        }
+        await store.updateApprovedAmounts(input.items);
+      }
+
+      await store.updateDecision(decision.id, {
+        status: "approved",
+        decidedById: actorId,
+        ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      });
+
+      const next = decisions.find(
+        (row) => row.order > decision.order && row.status === "pending",
+      );
+      if (next) {
+        const advanced = await store.advanceStep(requestId, next.order);
+        return { data: serializeRequest(advanced) };
+      }
+
+      const fresh = await store.findById(requestId);
+      const itemSum = (fresh?.items ?? []).reduce(
+        (sum, item) => sum + item.approvedAmount,
+        0,
+      );
+      const approvedTotal =
+        itemSum > 0 ? itemSum : existing.requestedTotal;
+      const finalized = await store.finalizeApproval(requestId, {
+        approvedTotal,
+        approvedById: actorId,
+      });
+      return { data: serializeRequest(finalized) };
+    },
+
+    async reject(actorId: string, requestId: string, reason: string) {
+      const permissions = await store.loadPermissions(actorId);
+      if (!canReadCashAdvance(permissions)) {
+        throw new HttpError(403, "FORBIDDEN", "Missing required permission.");
+      }
+
+      const trimmed = reason.trim();
+      if (!trimmed) {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          "Rejection reason is required.",
+        );
+      }
+
+      const existing = await store.findById(requestId);
+      if (!existing) {
+        throw new HttpError(
+          404,
+          "NOT_FOUND",
+          "Cash advance request not found",
+        );
+      }
+      if (existing.status !== "submitted") {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          `Can only reject a submitted request (current: ${existing.status})`,
+        );
+      }
+
+      const decisions = await store.findDecisions(requestId);
+      const stepOrder = existing.currentStepOrder ?? 1;
+      const decision = decisions.find((row) => row.order === stepOrder);
+      if (decision) {
+        await assertCanActOnStep(
+          store,
+          decision,
+          existing,
+          actorId,
+          permissions,
+        );
+        await store.updateDecision(decision.id, {
+          status: "rejected",
+          decidedById: actorId,
+          notes: trimmed,
+        });
+      } else if (!permissions.has(CASH_ADVANCE_APPROVE)) {
+        throw new HttpError(
+          403,
+          "FORBIDDEN",
+          "Approve permission required",
+        );
+      }
+
+      const rejected = await store.markRejected(requestId, {
+        rejectReason: trimmed,
+        approvedById: actorId,
+      });
+      return { data: serializeRequest(rejected) };
+    },
+
+    async disburse(
+      actorId: string,
+      requestId: string,
+      proofUrl: string,
+    ) {
+      const permissions = await store.loadPermissions(actorId);
+      if (!hasCashAdvancePermission(permissions, CASH_ADVANCE_APPROVE)) {
+        throw new HttpError(
+          403,
+          "FORBIDDEN",
+          "Approve permission required",
+        );
+      }
+
+      const existing = await store.findById(requestId);
+      if (!existing) {
+        throw new HttpError(
+          404,
+          "NOT_FOUND",
+          "Cash advance request not found",
+        );
+      }
+      if (existing.status !== "approved") {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          `Only approved requests can be marked disbursed (current: ${existing.status})`,
+        );
+      }
+
+      const trimmedProof = proofUrl.trim();
+      if (!trimmedProof) {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          "Disbursement proof URL is required.",
+        );
+      }
+
+      const proof = await validateReceiptUrl(store, trimmedProof, {
+        mode: "require-registered",
+        allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
+        purpose: "cash-advance-disbursement-proof",
+        uploadedBy: actorId,
+        linkedTo: "cash-advance",
+        linkedId: requestId,
+        trustedOrigins,
+      }).catch((error: unknown) => toHttpError(error));
+      if (!proof || proof.kind !== "registered") {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          "Disbursement proof must be a registered upload.",
+        );
+      }
+
+      const row = await store.markDisbursedIfApproved(requestId, {
+        proofUploadId: proof.uploadId,
+        proofUrl: trimmedProof,
+        uploadedBy: actorId,
+      });
+      if (!row) {
+        throw new HttpError(
+          409,
+          "CASH_ADVANCE_RACE",
+          "Cash advance request changed while it was being disbursed; refresh and try again",
+        );
+      }
+      return { data: serializeRequest(row) };
+    },
+
+    async clear(actorId: string, requestId: string) {
+      const permissions = await store.loadPermissions(actorId);
+      if (!hasCashAdvancePermission(permissions, CASH_ADVANCE_APPROVE)) {
+        throw new HttpError(
+          403,
+          "FORBIDDEN",
+          "Approve permission required",
+        );
+      }
+
+      const existing = await store.findById(requestId);
+      if (!existing) {
+        throw new HttpError(
+          404,
+          "NOT_FOUND",
+          "Cash advance request not found",
+        );
+      }
+      if (existing.status !== "disbursed") {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          `Only disbursed requests can be cleared (current: ${existing.status})`,
+        );
+      }
+
+      const row = await store.markClearedIfDisbursed(requestId);
+      if (!row) {
+        throw new HttpError(
+          409,
+          "CASH_ADVANCE_RACE",
+          "Cash advance request changed while it was being cleared; refresh and try again",
+        );
+      }
+      return { data: serializeRequest(row) };
     },
   };
 }

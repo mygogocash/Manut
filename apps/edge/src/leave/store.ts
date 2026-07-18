@@ -15,6 +15,14 @@ export interface LeaveRequestRecord {
   createdAt: string;
 }
 
+export interface LeaveRequestDetailRecord extends LeaveRequestRecord {
+  currentStepOrder: number | null;
+  delegatedToId: string | null;
+  source: "entitled" | "carried";
+  leaveTypeDaysPerYear: number;
+  employeeReportingTo: string | null;
+}
+
 export interface LeaveTypeRecord {
   id: string;
   name: string;
@@ -30,6 +38,7 @@ export interface LeaveUserRecord {
   id: string;
   entityId: string | null;
   isActive: boolean;
+  reportingTo: string | null;
 }
 
 export interface LeaveBalanceRecord {
@@ -53,6 +62,21 @@ export interface LeaveApprovalStepRecord {
   skipWhenSubmitterIds: string[];
   onlyWhenSubmitterIds: string[];
   isActive: boolean;
+}
+
+export interface LeaveApprovalDecisionRecord {
+  id: string;
+  leaveRequestId: string;
+  order: number;
+  name: string;
+  approverType: string;
+  approverUserId: string | null;
+  status: string;
+}
+
+export interface LeavePolicyApproverRecord {
+  approverType: string;
+  approverUserId: string | null;
 }
 
 export interface ListLeaveRequestFilters {
@@ -83,6 +107,44 @@ export interface LeaveApprovalDecisionRow {
   approverUserId: string | null;
 }
 
+export interface ApproveLeaveStepInput {
+  requestId: string;
+  approverId: string;
+  currentDecisionId: string | null;
+  expectedStepOrder: number | null;
+  nextStepOrder: number | null;
+  employeeId: string;
+  leaveTypeId: string;
+  year: number;
+  days: number;
+  source: "entitled" | "carried";
+  defaultEntitlement: number;
+  description: string;
+}
+
+export interface RejectLeaveStepInput {
+  requestId: string;
+  approverId: string;
+  currentDecisionId: string | null;
+  expectedStepOrder: number | null;
+  reason: string;
+}
+
+export interface CancelLeaveInput {
+  requestId: string;
+  expectedStatus: "pending" | "approved" | "pending_cancellation";
+  approvedBy?: string;
+  refund: {
+    employeeId: string;
+    leaveTypeId: string;
+    year: number;
+    days: number;
+    source: "entitled" | "carried";
+    defaultEntitlement: number;
+    description: string;
+  } | null;
+}
+
 export interface LeaveStore {
   loadPermissions(userId: string): Promise<Set<string>>;
   findMany(
@@ -108,4 +170,14 @@ export interface LeaveStore {
     leaveRequestId: string,
     rows: LeaveApprovalDecisionRow[],
   ): Promise<boolean>;
+  findRequestById(id: string): Promise<LeaveRequestDetailRecord | null>;
+  findDecisions(leaveRequestId: string): Promise<LeaveApprovalDecisionRecord[]>;
+  findPolicyApprovers(leaveTypeId: string): Promise<LeavePolicyApproverRecord[]>;
+  approveRequestStep(
+    input: ApproveLeaveStepInput,
+  ): Promise<LeaveRequestRecord | null>;
+  rejectRequestStep(
+    input: RejectLeaveStepInput,
+  ): Promise<LeaveRequestRecord | null>;
+  cancelRequest(input: CancelLeaveInput): Promise<LeaveRequestRecord | null>;
 }

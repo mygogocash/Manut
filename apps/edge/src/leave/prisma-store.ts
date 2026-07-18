@@ -5,8 +5,11 @@ import { hyperdriveConnectionString } from "../hyperdrive";
 import { loadUserPermissions } from "../rbac";
 import type { RuntimeBindings } from "../runtime";
 import type {
+  LeaveApprovalDecisionRecord,
   LeaveApprovalStepRecord,
   LeaveBalanceRecord,
+  LeavePolicyApproverRecord,
+  LeaveRequestDetailRecord,
   LeaveRequestRecord,
   LeaveStore,
   LeaveTypeRecord,
@@ -45,7 +48,64 @@ function asStringIds(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-const ADMIN_EXTRAS = ["leave:read", "leave:hr-read", "leave:request"] as const;
+const ADMIN_EXTRAS = [
+  "leave:read",
+  "leave:hr-read",
+  "leave:request",
+  "leave:approve",
+  "leave:approve-wfh",
+] as const;
+
+const DETAIL_INCLUDES = {
+  employee: {
+    select: {
+      id: true,
+      reportingTo: true,
+    },
+  },
+  leaveType: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      category: true,
+      daysPerYear: true,
+    },
+  },
+} as const;
+
+function mapDetail(row: {
+  id: string;
+  employeeId: string;
+  startDate: Date;
+  endDate: Date;
+  durationType: string;
+  halfDayPeriod: string | null;
+  days: { toString?: () => string } | number | string;
+  reason: string | null;
+  status: string;
+  createdAt: Date;
+  currentStepOrder: number | null;
+  delegatedToId: string | null;
+  source: string;
+  employee: { reportingTo: string | null };
+  leaveType: {
+    id: string;
+    name: string;
+    code: string;
+    category: string;
+    daysPerYear: number;
+  };
+}): LeaveRequestDetailRecord {
+  return {
+    ...mapRequest(row),
+    currentStepOrder: row.currentStepOrder,
+    delegatedToId: row.delegatedToId,
+    source: row.source === "carried" ? "carried" : "entitled",
+    leaveTypeDaysPerYear: row.leaveType.daysPerYear,
+    employeeReportingTo: row.employee.reportingTo,
+  };
+}
 
 function mapRequest(row: {
   id: string;
@@ -218,13 +278,19 @@ export function createPrismaLeaveStore(client: PrismaClient): LeaveStore {
     async findUserById(userId) {
       const row = await client.user.findUnique({
         where: { id: userId },
-        select: { id: true, entityId: true, isActive: true },
+        select: {
+          id: true,
+          entityId: true,
+          isActive: true,
+          reportingTo: true,
+        },
       });
       if (!row) return null;
       const mapped: LeaveUserRecord = {
         id: row.id,
         entityId: row.entityId,
         isActive: row.isActive,
+        reportingTo: row.reportingTo,
       };
       return mapped;
     },
@@ -374,6 +440,241 @@ export function createPrismaLeaveStore(client: PrismaClient): LeaveStore {
           })),
         });
         return true;
+      });
+    },
+
+    async findRequestById(id) {
+      const row = await client.leaveRequest.findFirst({
+        where: { id, deletedAt: null },
+        include: DETAIL_INCLUDES,
+      });
+      return row ? mapDetail(row) : null;
+    },
+
+    async findDecisions(leaveRequestId) {
+      const rows = await client.leaveApprovalDecision.findMany({
+        where: { leaveRequestId },
+        orderBy: { order: "asc" },
+      });
+      return rows.map(
+        (row): LeaveApprovalDecisionRecord => ({
+          id: row.id,
+          leaveRequestId: row.leaveRequestId,
+          order: row.order,
+          name: row.name,
+          approverType: row.approverType,
+          approverUserId: row.approverUserId,
+          status: row.status,
+        }),
+      );
+    },
+
+    async findPolicyApprovers(leaveTypeId) {
+      const rows = await client.leavePolicyApprover.findMany({
+        where: { leaveTypeId },
+        orderBy: { order: "asc" },
+      });
+      return rows.map(
+        (row): LeavePolicyApproverRecord => ({
+          approverType: row.approverType,
+          approverUserId: row.approverUserId,
+        }),
+      );
+    },
+
+    async approveRequestStep(input) {
+      return client.$transaction(async (tx) => {
+        const transition = await tx.leaveRequest.updateMany({
+          where: {
+            id: input.requestId,
+            status: "pending",
+            currentStepOrder: input.expectedStepOrder,
+          },
+          data:
+            input.nextStepOrder === null
+              ? {
+                  status: "approved",
+                  approvedBy: input.approverId,
+                  approvedAt: new Date(),
+                  currentStepOrder: null,
+                }
+              : { currentStepOrder: input.nextStepOrder },
+        });
+        if (transition.count !== 1) return null;
+
+        if (input.currentDecisionId) {
+          await tx.leaveApprovalDecision.update({
+            where: { id: input.currentDecisionId },
+            data: {
+              status: "approved",
+              decidedById: input.approverId,
+              decidedAt: new Date(),
+            },
+          });
+        }
+
+        if (input.nextStepOrder === null) {
+          await consumeBalance(tx, {
+            employeeId: input.employeeId,
+            leaveTypeId: input.leaveTypeId,
+            year: input.year,
+            days: input.days,
+            source: input.source,
+            defaultEntitlement: input.defaultEntitlement,
+          });
+          await tx.balanceTransaction.create({
+            data: {
+              employeeId: input.employeeId,
+              leaveTypeId: input.leaveTypeId,
+              year: input.year,
+              type: input.source === "carried" ? "used_carried" : "used",
+              amount: input.days,
+              description: input.description,
+              referenceId: input.requestId,
+            },
+          });
+        }
+
+        const row = await tx.leaveRequest.findUniqueOrThrow({
+          where: { id: input.requestId },
+          include: {
+            leaveType: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                category: true,
+              },
+            },
+          },
+        });
+        return mapRequest(row);
+      });
+    },
+
+    async rejectRequestStep(input) {
+      return client.$transaction(async (tx) => {
+        const transition = await tx.leaveRequest.updateMany({
+          where: {
+            id: input.requestId,
+            status: "pending",
+            currentStepOrder: input.expectedStepOrder,
+          },
+          data: {
+            status: "rejected",
+            approvedBy: input.approverId,
+            approvedAt: new Date(),
+            rejectReason: input.reason,
+            currentStepOrder: null,
+            delegatedToId: null,
+          },
+        });
+        if (transition.count !== 1) return null;
+
+        if (input.currentDecisionId) {
+          const decision = await tx.leaveApprovalDecision.updateMany({
+            where: { id: input.currentDecisionId, status: "pending" },
+            data: {
+              status: "rejected",
+              decidedById: input.approverId,
+              decidedAt: new Date(),
+              notes: input.reason,
+            },
+          });
+          if (decision.count !== 1) {
+            throw new HttpError(
+              409,
+              "LEAVE_CHAIN_RACE",
+              "Leave approval decision changed while the request was being rejected; refresh and try again",
+            );
+          }
+        }
+
+        const row = await tx.leaveRequest.findUniqueOrThrow({
+          where: { id: input.requestId },
+          include: {
+            leaveType: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                category: true,
+              },
+            },
+          },
+        });
+        return mapRequest(row);
+      });
+    },
+
+    async cancelRequest(input) {
+      return client.$transaction(async (tx) => {
+        const transition = await tx.leaveRequest.updateMany({
+          where: { id: input.requestId, status: input.expectedStatus },
+          data: {
+            status: "cancelled",
+            ...(input.approvedBy
+              ? { approvedBy: input.approvedBy, approvedAt: new Date() }
+              : {}),
+          },
+        });
+        if (transition.count !== 1) return null;
+
+        if (input.refund) {
+          const refund = input.refund;
+          const balance = await materializeBalance(tx, {
+            employeeId: refund.employeeId,
+            leaveTypeId: refund.leaveTypeId,
+            year: refund.year,
+            defaultEntitlement: refund.defaultEntitlement,
+          });
+          const refunded = await tx.leaveBalance.updateMany({
+            where:
+              refund.source === "carried"
+                ? { id: balance.id, carriedUsed: { gte: refund.days } }
+                : { id: balance.id, used: { gte: refund.days } },
+            data:
+              refund.source === "carried"
+                ? { carriedUsed: { decrement: refund.days } }
+                : { used: { decrement: refund.days } },
+          });
+          if (refunded.count !== 1) {
+            throw new HttpError(
+              409,
+              "LEAVE_BALANCE_RACE",
+              "Leave balance is inconsistent with this approved request; repair the balance before cancelling",
+            );
+          }
+          await tx.balanceTransaction.create({
+            data: {
+              employeeId: refund.employeeId,
+              leaveTypeId: refund.leaveTypeId,
+              year: refund.year,
+              type:
+                refund.source === "carried"
+                  ? "cancellation_refund_carried"
+                  : "cancellation_refund",
+              amount: -refund.days,
+              description: refund.description,
+              referenceId: input.requestId,
+            },
+          });
+        }
+
+        const row = await tx.leaveRequest.findUniqueOrThrow({
+          where: { id: input.requestId },
+          include: {
+            leaveType: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                category: true,
+              },
+            },
+          },
+        });
+        return mapRequest(row);
       });
     },
   };

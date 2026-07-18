@@ -276,9 +276,100 @@ export function createCashAdvanceRoutes(options: {
       return context.json(await service.submit(userId, requestId));
     }
 
-    // Approve, disburse, signed receipt GET stay proxied.
+    const approveMatch = /^\/([^/]+)\/approve\/?$/u.exec(path);
+    if (method === "POST" && approveMatch) {
+      const requestId = decodeURIComponent(approveMatch[1] ?? "");
+      const body = await readJsonBody(context.req.raw);
+      const record =
+        typeof body === "object" && body !== null
+          ? (body as Record<string, unknown>)
+          : {};
+      const items = Array.isArray(record.items)
+        ? record.items
+            .filter(
+              (item): item is Record<string, unknown> =>
+                typeof item === "object" && item !== null,
+            )
+            .map((item) => ({
+              id: typeof item.id === "string" ? item.id : "",
+              approvedAmount: Number(item.approvedAmount),
+            }))
+            .filter((item) => item.id.length > 0)
+        : undefined;
+      return context.json(
+        await service.approve(userId, requestId, {
+          notes:
+            typeof record.notes === "string" ? record.notes : undefined,
+          items,
+        }),
+      );
+    }
+
+    const rejectMatch = /^\/([^/]+)\/reject\/?$/u.exec(path);
+    if (method === "POST" && rejectMatch) {
+      const requestId = decodeURIComponent(rejectMatch[1] ?? "");
+      const body = await readJsonBody(context.req.raw);
+      const reason =
+        typeof body === "object" &&
+        body !== null &&
+        typeof (body as { reason?: unknown }).reason === "string"
+          ? (body as { reason: string }).reason
+          : "";
+      return context.json(await service.reject(userId, requestId, reason));
+    }
+
+    const disburseMatch = /^\/([^/]+)\/disburse\/?$/u.exec(path);
+    if (method === "POST" && disburseMatch) {
+      const requestId = decodeURIComponent(disburseMatch[1] ?? "");
+      if (trustedOrigins.length === 0) {
+        // Disbursement proof uses registered FileUpload provenance; without
+        // TRUSTED_STORAGE_ORIGINS the Worker cannot validate managed URLs.
+        return proxyApiRequest(context.req.raw, context.env);
+      }
+      const body = await readJsonBody(context.req.raw);
+      const proofUrl =
+        typeof body === "object" &&
+        body !== null &&
+        typeof (body as { proofUrl?: unknown }).proofUrl === "string"
+          ? (body as { proofUrl: string }).proofUrl
+          : "";
+      return context.json(await service.disburse(userId, requestId, proofUrl));
+    }
+
+    const clearMatch = /^\/([^/]+)\/clear\/?$/u.exec(path);
+    if (method === "POST" && clearMatch) {
+      const requestId = decodeURIComponent(clearMatch[1] ?? "");
+      return context.json(await service.clear(userId, requestId));
+    }
+
+    // Signed receipt / disbursement-proof GET stay proxied: Express mints
+    // Supabase JWT signed URLs. Worker R2 aws4fetch covers transfer intents
+    // only, not FileUpload private-bucket receipt re-sign.
     return proxyApiRequest(context.req.raw, context.env);
   });
 
   return app;
+}
+
+async function readJsonBody(rawRequest: Request): Promise<unknown> {
+  let bodyText: string;
+  try {
+    bodyText = await rawRequest.clone().text();
+  } catch {
+    throw new HttpError(
+      400,
+      "INVALID_JSON",
+      "Request body must be valid JSON.",
+    );
+  }
+  if (bodyText.trim() === "") return {};
+  try {
+    return JSON.parse(bodyText) as unknown;
+  } catch {
+    throw new HttpError(
+      400,
+      "INVALID_JSON",
+      "Request body must be valid JSON.",
+    );
+  }
 }

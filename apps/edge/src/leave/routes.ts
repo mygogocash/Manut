@@ -133,6 +133,52 @@ export function createLeaveRoutes(options: {
       return context.json(result, 201);
     }
 
+    const approveMatch = /^\/requests\/([^/]+)\/approve\/?$/u.exec(path);
+    if (method === "PUT" && approveMatch) {
+      const requestId = decodeURIComponent(approveMatch[1] ?? "");
+      return context.json(await service.approve(userId, requestId));
+    }
+
+    const rejectMatch = /^\/requests\/([^/]+)\/reject\/?$/u.exec(path);
+    if (method === "PUT" && rejectMatch) {
+      const requestId = decodeURIComponent(rejectMatch[1] ?? "");
+      const rawRequest = context.req.raw;
+      let bodyText: string;
+      try {
+        bodyText = await rawRequest.clone().text();
+      } catch {
+        throw new HttpError(
+          400,
+          "INVALID_JSON",
+          "Request body must be valid JSON.",
+        );
+      }
+      let body: unknown;
+      try {
+        body = bodyText.trim() === "" ? {} : (JSON.parse(bodyText) as unknown);
+      } catch {
+        throw new HttpError(
+          400,
+          "INVALID_JSON",
+          "Request body must be valid JSON.",
+        );
+      }
+      const reason =
+        typeof body === "object" &&
+        body !== null &&
+        typeof (body as { reason?: unknown }).reason === "string"
+          ? (body as { reason: string }).reason
+          : "";
+      return context.json(await service.reject(userId, requestId, reason));
+    }
+
+    const cancelMatch = /^\/requests\/([^/]+)\/cancel\/?$/u.exec(path);
+    if (method === "PUT" && cancelMatch) {
+      const requestId = decodeURIComponent(cancelMatch[1] ?? "");
+      return context.json(await service.cancel(userId, requestId));
+    }
+
+    // approve-cancellation / reject-cancellation / types / balances stay proxied.
     return proxyApiRequest(context.req.raw, context.env);
   });
 

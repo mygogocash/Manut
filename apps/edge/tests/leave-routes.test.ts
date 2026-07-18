@@ -2,8 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createEdgeApp } from "../src/index";
 import type {
+  LeaveApprovalDecisionRecord,
   LeaveApprovalStepRecord,
   LeaveBalanceRecord,
+  LeavePolicyApproverRecord,
+  LeaveRequestDetailRecord,
   LeaveRequestRecord,
   LeaveStore,
   LeaveTypeRecord,
@@ -48,6 +51,17 @@ function memoryStore(seed?: {
   users?: LeaveUserRecord[];
   balances?: LeaveBalanceRecord[];
   approvalSteps?: LeaveApprovalStepRecord[];
+  decisions?: LeaveApprovalDecisionRecord[];
+  policyApprovers?: Record<string, LeavePolicyApproverRecord[]>;
+  requestMeta?: Record<
+    string,
+    {
+      currentStepOrder: number | null;
+      delegatedToId: string | null;
+      source: "entitled" | "carried";
+      leaveTypeDaysPerYear: number;
+    }
+  >;
 }): LeaveStore {
   const requests = [...(seed?.requests ?? [])];
   const permissionsByUser = seed?.permissionsByUser ?? {
@@ -56,18 +70,45 @@ function memoryStore(seed?: {
   const leaveTypes = [...(seed?.leaveTypes ?? [])];
   const users = [
     ...(seed?.users ?? [
-      { id: "user-123", entityId: "entity-1", isActive: true },
+      {
+        id: "user-123",
+        entityId: "entity-1",
+        isActive: true,
+        reportingTo: null,
+      },
     ]),
   ];
   const balances = [...(seed?.balances ?? [])];
   const approvalSteps = [...(seed?.approvalSteps ?? [])];
-  const decisions: Array<{
-    leaveRequestId: string;
-    order: number;
-    name: string;
-    approverType: string;
-    approverUserId: string | null;
-  }> = [];
+  const decisions = [...(seed?.decisions ?? [])];
+  const policyApprovers = seed?.policyApprovers ?? {};
+  const requestMeta: Record<
+    string,
+    {
+      currentStepOrder: number | null;
+      delegatedToId: string | null;
+      source: "entitled" | "carried";
+      leaveTypeDaysPerYear: number;
+    }
+  > = { ...(seed?.requestMeta ?? {}) };
+
+  function detailFor(request: LeaveRequestRecord): LeaveRequestDetailRecord {
+    const meta = requestMeta[request.id] ?? {
+      currentStepOrder: null,
+      delegatedToId: null,
+      source: "entitled" as const,
+      leaveTypeDaysPerYear: 12,
+    };
+    const employee = users.find((user) => user.id === request.employeeId);
+    return {
+      ...request,
+      currentStepOrder: meta.currentStepOrder,
+      delegatedToId: meta.delegatedToId,
+      source: meta.source,
+      leaveTypeDaysPerYear: meta.leaveTypeDaysPerYear,
+      employeeReportingTo: employee?.reportingTo ?? null,
+    };
+  }
 
   return {
     async loadPermissions(userId) {
@@ -157,6 +198,12 @@ function memoryStore(seed?: {
         createdAt: "2026-07-18T00:00:00.000Z",
       };
       requests.push(row);
+      requestMeta[row.id] = {
+        currentStepOrder: null,
+        delegatedToId: null,
+        source: input.source,
+        leaveTypeDaysPerYear: input.defaultEntitlement,
+      };
       return row;
     },
     async findActiveApprovalSteps() {
@@ -165,17 +212,124 @@ function memoryStore(seed?: {
     async initializeApprovalChain(leaveRequestId, rows) {
       const request = requests.find((row) => row.id === leaveRequestId);
       if (!request || request.status !== "pending") return false;
-      if (
-        (request as LeaveRequestRecord & { currentStepOrder?: number | null })
-          .currentStepOrder != null
-      ) {
-        return false;
-      }
-      (request as LeaveRequestRecord & { currentStepOrder?: number | null }).currentStepOrder = 1;
+      const meta = requestMeta[leaveRequestId] ?? {
+        currentStepOrder: null,
+        delegatedToId: null,
+        source: "entitled" as const,
+        leaveTypeDaysPerYear: 12,
+      };
+      if (meta.currentStepOrder != null) return false;
+      meta.currentStepOrder = 1;
+      requestMeta[leaveRequestId] = meta;
       for (const row of rows) {
-        decisions.push({ leaveRequestId, ...row });
+        decisions.push({
+          id: `dec-${decisions.length + 1}`,
+          leaveRequestId,
+          status: "pending",
+          ...row,
+        });
       }
       return true;
+    },
+    async findRequestById(id) {
+      const request = requests.find((row) => row.id === id);
+      return request ? detailFor(request) : null;
+    },
+    async findDecisions(leaveRequestId) {
+      return decisions
+        .filter((decision) => decision.leaveRequestId === leaveRequestId)
+        .sort((left, right) => left.order - right.order);
+    },
+    async findPolicyApprovers(leaveTypeId) {
+      return policyApprovers[leaveTypeId] ?? [];
+    },
+    async approveRequestStep(input) {
+      const request = requests.find((row) => row.id === input.requestId);
+      if (!request || request.status !== "pending") return null;
+      const meta = requestMeta[input.requestId];
+      if (!meta || meta.currentStepOrder !== input.expectedStepOrder) {
+        return null;
+      }
+      if (input.currentDecisionId) {
+        const decision = decisions.find(
+          (row) => row.id === input.currentDecisionId && row.status === "pending",
+        );
+        if (decision) decision.status = "approved";
+      }
+      if (input.nextStepOrder === null) {
+        request.status = "approved";
+        meta.currentStepOrder = null;
+        const year = input.year;
+        let balance = balances.find(
+          (row) =>
+            row.employeeId === input.employeeId &&
+            row.leaveTypeId === input.leaveTypeId &&
+            row.year === year,
+        );
+        if (!balance) {
+          balance = {
+            employeeId: input.employeeId,
+            leaveTypeId: input.leaveTypeId,
+            year,
+            entitled: input.defaultEntitlement,
+            used: 0,
+            carried: 0,
+            carriedUsed: 0,
+            carriedExpiry: null,
+            adjustment: 0,
+          };
+          balances.push(balance);
+        }
+        if (input.source === "carried") {
+          balance.carriedUsed += input.days;
+        } else {
+          balance.used += input.days;
+        }
+      } else {
+        meta.currentStepOrder = input.nextStepOrder;
+      }
+      return request;
+    },
+    async rejectRequestStep(input) {
+      const request = requests.find((row) => row.id === input.requestId);
+      if (!request || request.status !== "pending") return null;
+      const meta = requestMeta[input.requestId];
+      if (!meta || meta.currentStepOrder !== input.expectedStepOrder) {
+        return null;
+      }
+      if (input.currentDecisionId) {
+        const decision = decisions.find(
+          (row) => row.id === input.currentDecisionId && row.status === "pending",
+        );
+        if (!decision) return null;
+        decision.status = "rejected";
+      }
+      request.status = "rejected";
+      meta.currentStepOrder = null;
+      meta.delegatedToId = null;
+      return request;
+    },
+    async cancelRequest(input) {
+      const request = requests.find((row) => row.id === input.requestId);
+      if (!request || request.status !== input.expectedStatus) return null;
+      request.status = "cancelled";
+      if (input.refund) {
+        const refund = input.refund;
+        const balance = balances.find(
+          (row) =>
+            row.employeeId === refund.employeeId &&
+            row.leaveTypeId === refund.leaveTypeId &&
+            row.year === refund.year,
+        );
+        if (balance) {
+          if (refund.source === "carried") {
+            balance.carriedUsed = Math.max(0, balance.carriedUsed - refund.days);
+          } else {
+            balance.used = Math.max(0, balance.used - refund.days);
+          }
+        }
+      }
+      return request;
     },
   };
 }
@@ -456,5 +610,295 @@ describe("leave dual-path routes", () => {
     );
     expect(teamResponse.status).toBe(200);
     expect(upstream).toHaveBeenCalledTimes(2);
+  });
+
+  it("approves leave as the employee's manager on Hyperdrive", async () => {
+    const store = memoryStore({
+      requests: [
+        sampleRequest({
+          id: "leave-team",
+          employeeId: "user-456",
+          status: "pending",
+        }),
+      ],
+      permissionsByUser: {
+        "user-123": ["leave:approve"],
+      },
+      users: [
+        {
+          id: "user-123",
+          entityId: "entity-1",
+          isActive: true,
+          reportingTo: null,
+        },
+        {
+          id: "user-456",
+          entityId: "entity-1",
+          isActive: true,
+          reportingTo: "user-123",
+        },
+      ],
+      leaveTypes: [
+        {
+          id: "type-1",
+          name: "Annual",
+          code: "AL",
+          category: "paid",
+          entityId: null,
+          daysPerYear: 12,
+          requiresApproval: true,
+          isActive: true,
+        },
+      ],
+      decisions: [
+        {
+          id: "dec-1",
+          leaveRequestId: "leave-team",
+          order: 1,
+          name: "Manager approval",
+          approverType: "manager",
+          approverUserId: null,
+          status: "pending",
+        },
+      ],
+      requestMeta: {
+        "leave-team": {
+          currentStepOrder: 1,
+          delegatedToId: null,
+          source: "entitled",
+          leaveTypeDaysPerYear: 12,
+        },
+      },
+    });
+
+    const app = createEdgeApp({
+      createLeaveStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/leave/requests/leave-team/approve",
+      {
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "PUT",
+        body: "{}",
+      },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: "leave-team", status: "approved" },
+    });
+  });
+
+  it("rejects leave approve when actor is not manager or HR", async () => {
+    const store = memoryStore({
+      requests: [
+        sampleRequest({
+          id: "leave-team",
+          employeeId: "user-456",
+          status: "pending",
+        }),
+      ],
+      permissionsByUser: {
+        "user-123": ["leave:approve"],
+      },
+      users: [
+        {
+          id: "user-123",
+          entityId: "entity-1",
+          isActive: true,
+          reportingTo: null,
+        },
+        {
+          id: "user-456",
+          entityId: "entity-1",
+          isActive: true,
+          reportingTo: "manager-other",
+        },
+      ],
+      leaveTypes: [
+        {
+          id: "type-1",
+          name: "Annual",
+          code: "AL",
+          category: "paid",
+          entityId: null,
+          daysPerYear: 12,
+          requiresApproval: true,
+          isActive: true,
+        },
+      ],
+      decisions: [
+        {
+          id: "dec-1",
+          leaveRequestId: "leave-team",
+          order: 1,
+          name: "Manager approval",
+          approverType: "manager",
+          approverUserId: null,
+          status: "pending",
+        },
+      ],
+      requestMeta: {
+        "leave-team": {
+          currentStepOrder: 1,
+          delegatedToId: null,
+          source: "entitled",
+          leaveTypeDaysPerYear: 12,
+        },
+      },
+    });
+
+    const app = createEdgeApp({
+      createLeaveStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/leave/requests/leave-team/approve",
+      {
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "PUT",
+        body: "{}",
+      },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  it("cancels own pending leave on Hyperdrive", async () => {
+    const store = memoryStore({
+      requests: [sampleRequest({ id: "leave-1", status: "pending" })],
+      requestMeta: {
+        "leave-1": {
+          currentStepOrder: 1,
+          delegatedToId: null,
+          source: "entitled",
+          leaveTypeDaysPerYear: 12,
+        },
+      },
+      leaveTypes: [
+        {
+          id: "type-1",
+          name: "Annual",
+          code: "AL",
+          category: "paid",
+          entityId: null,
+          daysPerYear: 12,
+          requiresApproval: true,
+          isActive: true,
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createLeaveStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/leave/requests/leave-1/cancel",
+      {
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "PUT",
+        body: "{}",
+      },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: "leave-1", status: "cancelled" },
+    });
+  });
+
+  it("rejects leave with reason as manager on Hyperdrive", async () => {
+    const store = memoryStore({
+      requests: [
+        sampleRequest({
+          id: "leave-team",
+          employeeId: "user-456",
+          status: "pending",
+        }),
+      ],
+      permissionsByUser: {
+        "user-123": ["leave:approve"],
+      },
+      users: [
+        {
+          id: "user-123",
+          entityId: "entity-1",
+          isActive: true,
+          reportingTo: null,
+        },
+        {
+          id: "user-456",
+          entityId: "entity-1",
+          isActive: true,
+          reportingTo: "user-123",
+        },
+      ],
+      leaveTypes: [
+        {
+          id: "type-1",
+          name: "Annual",
+          code: "AL",
+          category: "paid",
+          entityId: null,
+          daysPerYear: 12,
+          requiresApproval: true,
+          isActive: true,
+        },
+      ],
+      decisions: [
+        {
+          id: "dec-1",
+          leaveRequestId: "leave-team",
+          order: 1,
+          name: "Manager approval",
+          approverType: "manager",
+          approverUserId: null,
+          status: "pending",
+        },
+      ],
+      requestMeta: {
+        "leave-team": {
+          currentStepOrder: 1,
+          delegatedToId: null,
+          source: "entitled",
+          leaveTypeDaysPerYear: 12,
+        },
+      },
+    });
+
+    const app = createEdgeApp({
+      createLeaveStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/leave/requests/leave-team/reject",
+      {
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "PUT",
+        body: JSON.stringify({ reason: "Coverage needed" }),
+      },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: "leave-team", status: "rejected" },
+    });
   });
 });

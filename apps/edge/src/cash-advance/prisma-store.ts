@@ -4,9 +4,11 @@ import { hyperdriveConnectionString } from "../hyperdrive";
 import { loadUserPermissions } from "../rbac";
 import type { RuntimeBindings } from "../runtime";
 import type {
+  CashAdvanceApprovalDecisionRecord,
   CashAdvanceApprovalStepRecord,
   CashAdvanceRequestRecord,
   CashAdvanceStore,
+  CashAdvanceUserRecord,
 } from "./store";
 
 function asStringIds(value: unknown): string[] {
@@ -60,7 +62,10 @@ function mapRow(row: {
     id: string;
     description: string;
     receiptUrl: string | null;
+    requestedAmount: { toNumber?: () => number } | number | string;
+    approvedAmount: { toNumber?: () => number } | number | string;
   }>;
+  currentStepOrder: number | null;
 }): CashAdvanceRequestRecord {
   return {
     id: row.id,
@@ -81,10 +86,13 @@ function mapRow(row: {
       id: item.id,
       description: item.description,
       receiptUrl: item.receiptUrl,
+      requestedAmount: money(item.requestedAmount),
+      approvedAmount: money(item.approvedAmount),
     })),
     bankName: row.bankName,
     bankAccountNo: row.bankAccountNo,
     notes: row.notes,
+    currentStepOrder: row.currentStepOrder,
   };
 }
 
@@ -92,7 +100,13 @@ const LIST_INCLUDES = {
   employee: { select: { id: true, name: true, email: true } },
   entity: { select: { id: true, name: true } },
   items: {
-    select: { id: true, description: true, receiptUrl: true },
+    select: {
+      id: true,
+      description: true,
+      receiptUrl: true,
+      requestedAmount: true,
+      approvedAmount: true,
+    },
     orderBy: { position: "asc" as const },
   },
 };
@@ -268,6 +282,159 @@ export function createPrismaCashAdvanceStore(
           include: LIST_INCLUDES,
         });
         return mapRow(updated);
+      });
+    },
+
+    async findUserById(userId) {
+      const row = await client.user.findUnique({
+        where: { id: userId },
+        select: { id: true, reportingTo: true },
+      });
+      if (!row) return null;
+      const mapped: CashAdvanceUserRecord = {
+        id: row.id,
+        reportingTo: row.reportingTo,
+      };
+      return mapped;
+    },
+
+    async findDecisions(requestId) {
+      const rows = await client.cashAdvanceApprovalDecision.findMany({
+        where: { requestId },
+        orderBy: { order: "asc" },
+      });
+      return rows.map(
+        (row): CashAdvanceApprovalDecisionRecord => ({
+          id: row.id,
+          requestId: row.requestId,
+          order: row.order,
+          name: row.name,
+          approverType: row.approverType,
+          approverUserId: row.approverUserId,
+          status: row.status,
+        }),
+      );
+    },
+
+    async createDecisions(requestId, rows) {
+      await client.cashAdvanceApprovalDecision.createMany({
+        data: rows.map((row) => ({
+          requestId,
+          order: row.order,
+          name: row.name,
+          approverType: row.approverType,
+          approverUserId: row.approverUserId,
+        })),
+      });
+    },
+
+    async updateDecision(id, data) {
+      await client.cashAdvanceApprovalDecision.update({
+        where: { id },
+        data: {
+          status: data.status,
+          decidedById: data.decidedById,
+          decidedAt: new Date(),
+          ...(data.notes !== undefined ? { notes: data.notes } : {}),
+        },
+      });
+    },
+
+    async updateApprovedAmounts(items) {
+      await client.$transaction(
+        items.map((item) =>
+          client.cashAdvanceItem.update({
+            where: { id: item.id },
+            data: { approvedAmount: item.approvedAmount },
+          }),
+        ),
+      );
+    },
+
+    async advanceStep(id, nextStepOrder) {
+      const row = await client.cashAdvanceRequest.update({
+        where: { id },
+        data: { currentStepOrder: nextStepOrder },
+        include: LIST_INCLUDES,
+      });
+      return mapRow(row);
+    },
+
+    async finalizeApproval(id, data) {
+      const row = await client.cashAdvanceRequest.update({
+        where: { id },
+        data: {
+          status: "approved",
+          approvedTotal: data.approvedTotal,
+          approvedById: data.approvedById,
+          approvedAt: new Date(),
+          rejectReason: null,
+        },
+        include: LIST_INCLUDES,
+      });
+      return mapRow(row);
+    },
+
+    async markRejected(id, data) {
+      const row = await client.cashAdvanceRequest.update({
+        where: { id },
+        data: {
+          status: "rejected",
+          rejectReason: data.rejectReason,
+          approvedById: data.approvedById,
+          approvedAt: new Date(),
+        },
+        include: LIST_INCLUDES,
+      });
+      return mapRow(row);
+    },
+
+    async markDisbursedIfApproved(id, data) {
+      return client.$transaction(async (tx) => {
+        const proof = await tx.fileUpload.findFirst({
+          where: {
+            id: data.proofUploadId,
+            purpose: "cash-advance-disbursement-proof",
+            linkedTo: "cash-advance",
+            linkedId: id,
+            uploadedBy: data.uploadedBy,
+          },
+          select: { id: true },
+        });
+        if (!proof) return null;
+
+        const transition = await tx.cashAdvanceRequest.updateMany({
+          where: { id, status: "approved", deletedAt: null },
+          data: {
+            status: "disbursed",
+            disbursedAt: new Date(),
+            disbursementProofUploadId: data.proofUploadId,
+            disbursementProofUrl: data.proofUrl,
+          },
+        });
+        if (transition.count !== 1) return null;
+
+        const row = await tx.cashAdvanceRequest.findUniqueOrThrow({
+          where: { id },
+          include: LIST_INCLUDES,
+        });
+        return mapRow(row);
+      });
+    },
+
+    async markClearedIfDisbursed(id) {
+      return client.$transaction(async (tx) => {
+        const transition = await tx.cashAdvanceRequest.updateMany({
+          where: { id, status: "disbursed", deletedAt: null },
+          data: { status: "cleared", clearedAt: new Date() },
+        });
+        if (transition.count !== 1) return null;
+
+        const row = await tx.cashAdvanceRequest.findUniqueOrThrow({
+          where: { id },
+          include: LIST_INCLUDES,
+        });
+        return mapRow(row);
       });
     },
   };
