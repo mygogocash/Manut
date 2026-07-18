@@ -12,6 +12,10 @@ import {
 } from "./auth";
 import { assertChannelMembership } from "./channel-membership";
 import { sha256Base64Url } from "./crypto";
+import {
+  createDealsRoutes,
+  type CreateDealsStore,
+} from "./deals/routes";
 import { HttpError } from "./http-error";
 import { isHyperdriveEnabled } from "./hyperdrive";
 import {
@@ -41,6 +45,7 @@ export { BackgroundWorkflow, ContainerBoundary, QueueLedger, RealtimeRoom };
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/u;
 
 interface EdgeAppOptions {
+  createDealsStore?: CreateDealsStore;
   createMessagesStore?: CreateMessagesStore;
   verifyToken?: VerifyAccessToken;
 }
@@ -159,6 +164,12 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
     "/api/messages",
     createMessagesRoutes({
       createMessagesStore: options.createMessagesStore,
+    }),
+  );
+  app.route(
+    "/api/deals",
+    createDealsRoutes({
+      createDealsStore: options.createDealsStore,
     }),
   );
 

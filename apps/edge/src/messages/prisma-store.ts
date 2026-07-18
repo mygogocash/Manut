@@ -3,10 +3,12 @@ import { createPrismaClient, type PrismaClient } from "@manut/database";
 import { hyperdriveConnectionString } from "../hyperdrive";
 import type { RuntimeBindings } from "../runtime";
 import type {
+  CreateChannelStoreInput,
   MessagesChannelRecord,
   MessagesMessageRecord,
   MessagesStore,
 } from "./store";
+import { directChannelName } from "./store";
 
 const creatorSelect = { id: true, name: true, avatarUrl: true } as const;
 const authorSelect = { id: true, name: true, avatarUrl: true } as const;
@@ -22,7 +24,8 @@ function mapChannel(raw: {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
-  members: Array<{ userId: string; role: string }>;
+  directKey?: string | null;
+  members: Array<{ userId: string; role: string; leftAt?: Date | null }>;
   creator?: { id: string; name: string | null; avatarUrl: string | null } | null;
   _count?: { messages: number };
 }): MessagesChannelRecord {
@@ -33,9 +36,11 @@ function mapChannel(raw: {
     createdBy: raw.createdBy,
     createdAt: asIso(raw.createdAt),
     updatedAt: asIso(raw.updatedAt),
+    directKey: raw.directKey ?? null,
     members: raw.members.map((member) => ({
       userId: member.userId,
       role: member.role,
+      leftAt: member.leftAt ? asIso(member.leftAt) : null,
     })),
     creator: raw.creator ?? undefined,
     _count: raw._count,
@@ -65,6 +70,12 @@ function mapMessage(raw: {
     author: raw.author ?? null,
   };
 }
+
+const channelInclude = {
+  creator: { select: creatorSelect },
+  members: { select: { userId: true, role: true, leftAt: true } },
+  _count: { select: { messages: true } },
+} as const;
 
 export function createPrismaMessagesStore(client: PrismaClient): MessagesStore {
   return {
@@ -114,6 +125,22 @@ export function createPrismaMessagesStore(client: PrismaClient): MessagesStore {
       return permissions;
     },
 
+    async findUserProfile(userId) {
+      const user = await client.user.findUnique({
+        where: { id: userId },
+        select: { id: true, name: true },
+      });
+      return user;
+    },
+
+    async listActiveUsers(excludeUserId) {
+      return client.user.findMany({
+        where: { isActive: true, id: { not: excludeUserId } },
+        select: { id: true, name: true, avatarUrl: true },
+        orderBy: { name: "asc" },
+      });
+    },
+
     async listChannelsForUser(userId, options) {
       const rows = await client.conversation.findMany({
         where: {
@@ -138,11 +165,7 @@ export function createPrismaMessagesStore(client: PrismaClient): MessagesStore {
                 ],
               }),
         },
-        include: {
-          creator: { select: creatorSelect },
-          members: { select: { userId: true, role: true } },
-          _count: { select: { messages: true } },
-        },
+        include: channelInclude,
         orderBy: { updatedAt: "desc" },
       });
       return rows.map(mapChannel);
@@ -151,11 +174,7 @@ export function createPrismaMessagesStore(client: PrismaClient): MessagesStore {
     async findChannelById(id) {
       const row = await client.conversation.findUnique({
         where: { id },
-        include: {
-          creator: { select: creatorSelect },
-          members: { select: { userId: true, role: true } },
-          _count: { select: { messages: true } },
-        },
+        include: channelInclude,
       });
       return row ? mapChannel(row) : null;
     },
@@ -237,6 +256,93 @@ export function createPrismaMessagesStore(client: PrismaClient): MessagesStore {
         include: { author: { select: authorSelect } },
       });
       return mapMessage(row);
+    },
+
+    async markChannelRead(userId, channelId) {
+      const row = await client.conversationMember.update({
+        where: {
+          conversationId_userId: {
+            conversationId: channelId,
+            userId,
+          },
+        },
+        data: { lastReadAt: new Date() },
+      });
+      return { lastReadAt: asIso(row.lastReadAt ?? new Date()) };
+    },
+
+    async hideConversationForUser(userId, channelId) {
+      await client.conversationMember.update({
+        where: {
+          conversationId_userId: { conversationId: channelId, userId },
+        },
+        data: { leftAt: new Date() },
+      });
+    },
+
+    async allMembersHaveLeft(channelId) {
+      const members = await client.conversationMember.findMany({
+        where: { conversationId: channelId },
+        select: { leftAt: true },
+      });
+      return members.length > 0 && members.every((member) => member.leftAt != null);
+    },
+
+    async deleteChannel(id) {
+      await client.conversation.delete({ where: { id } });
+    },
+
+    async createChannel(input: CreateChannelStoreInput) {
+      const conversationType =
+        input.type === "dm" ? "direct" : input.isPrivate ? "private" : "group";
+      const memberIds = Array.from(
+        new Set([input.createdBy, ...(input.members ?? [])]),
+      );
+      const row = await client.conversation.create({
+        data: {
+          title: input.name,
+          directKey: conversationType === "direct" ? input.name : undefined,
+          type: conversationType,
+          createdBy: input.createdBy,
+          members: {
+            create: memberIds.map((userId) => ({
+              userId,
+              role: userId === input.createdBy ? "admin" : "member",
+            })),
+          },
+        },
+        include: channelInclude,
+      });
+      return mapChannel(row);
+    },
+
+    async updateChannel(id, input) {
+      const row = await client.conversation.update({
+        where: { id },
+        data: {
+          ...(input.name !== undefined ? { title: input.name } : {}),
+        },
+        include: channelInclude,
+      });
+      return mapChannel(row);
+    },
+
+    async findDirectChannel(memberIds) {
+      const key = directChannelName(memberIds);
+      const row = await client.conversation.findUnique({
+        where: { directKey: key },
+        include: channelInclude,
+      });
+      return row ? mapChannel(row) : null;
+    },
+
+    async restoreConversationMembership(userId, channelId) {
+      await client.conversationMember.update({
+        where: {
+          conversationId_userId: { conversationId: channelId, userId },
+        },
+        data: { leftAt: null },
+      });
     },
   };
 }

@@ -135,7 +135,7 @@ D1 (optional non-authoritative edge metadata only)
 | API strictness and hardening         | **Implemented locally**                   | Strict TypeScript, webhook bytes, purge lifecycle, lifecycle-safe auth/RBAC, atomic Leave state changes, live-socket revalidation, Performance scoping, and profile projection are implemented.               |
 | Universal Expo foundation            | **Implemented**                           | Expo SDK 57, shared API/session runtime, app-core/UI packages, auth transports, app shell, Expo Doctor, and three-platform exports pass. This is a foundation, not full route parity.                         |
 | Approved web route parity            | **Foundations landed; deepen + E2E remain** | Inventory: **88 foundation**, **0 pending**, **16 removed** (plus Expo-only `/files`). Waves 2–4 Expo route foundations are in tree; `/messages` DO shared-room + bus→DO bridge (socket.io fallback); survey question replace/publish landed (announce/analytics still deferred); Expo E2E cutover remain. |
-| Cloudflare edge layer                | **Locally implemented + Hyperdrive/messages dual-path** | Worker auth, SPA assets, R2, DO realtime, Queues/DLQ, rate limits, Workflows/Container stubs; Hyperdrive fail-closed helper + `/api/messages` dual-path (Prisma via Hyperdrive when `ENABLE_HYPERDRIVE_BOUNDARY=true`, else Express proxy). Fresh Hyperdrive id / deploy not provisioned. |
+| Cloudflare edge layer                | **Locally implemented + Hyperdrive messages/deals dual-path** | Worker auth, SPA assets, R2, DO realtime, Queues/DLQ, rate limits, Workflows/Container stubs; Hyperdrive fail-closed helper + `/api/messages` and `/api/deals` dual-path (Prisma via Hyperdrive when `ENABLE_HYPERDRIVE_BOUNDARY=true`, else Express proxy). Fresh Hyperdrive id / deploy not provisioned. |
 | Clean PostgreSQL baseline            | **Implemented**                           | One sanitized baseline plus hash manifest, setup/assert scripts, and migration harness exist. Local Docker replay is blocked; CI PostgreSQL 16 lane is ready.                                                 |
 | Dependency upgrades                  | **Mostly implemented**                    | Requested upgrades, compatibility pins, Expo, and Cloudflare packages are present. Legacy Next/Tailwind/Vite/jsdom bridge packages remain until parity.                                                       |
 | CI decomposition                     | **Implemented locally**                   | Nine prerequisite jobs plus final `Validate`, pinned actions, read-only contents/PR metadata, and no `pull_request_target`. Not run on GitHub yet.                                                            |
@@ -374,10 +374,15 @@ Primary files are under `apps/edge/src`:
   Workflow, Container, and Hyperdrive integration points (Postgres only via
   `HYPERDRIVE_DATABASE.connectionString` when the boundary is on);
 - `messages/*`: dual-path `/api/messages` on Hono — Hyperdrive+Prisma for
-  channel list/get, message list/send/delete when
+  channels (list/get/create/update/delete), DMs, users, unread-count, read,
+  typing, hide, and message list/send/delete when
   `ENABLE_HYPERDRIVE_BOUNDARY=true` + binding present; explicit Express proxy
-  fallback when the boundary is off; remaining messages admin/DM routes still
-  proxy to Express until ported;
+  when the boundary is off; **still proxied when Hyperdrive is on:** message
+  send with `attachmentIds` (uploads linking not ported);
+- `deals/*`: dual-path `/api/deals` — Hyperdrive+Prisma for `GET /` list
+  (own-scope unless `crm:team-read`) and `POST /` create; client projection
+  strips notes/owner email; **still proxied:** `/pipeline`, `GET/PUT/DELETE
+  /:id`;
 - `wrangler.jsonc`: unique resource naming contracts for local, development,
   preview, E2E, staging, and production environments. `hyperdrive: []` stays
   empty until a Manut-owned Hyperdrive config id is supplied.
@@ -394,23 +399,21 @@ to loopback; remote environments use signed R2 operations.
 3. Set var `ENABLE_HYPERDRIVE_BOUNDARY=true` per environment.
 4. Keep `API_ORIGIN` configured for Express fallback routes and auth JWKS.
 
-Latest local evidence (2026-07-18 Hyperdrive/messages slice):
+Latest local evidence (2026-07-18 Hyperdrive messages+deals slice):
 
-- 10 Worker test files and 47 tests passed (incl. Hyperdrive fail-closed +
-  messages dual-path);
-- strict type-check and zero-warning lint passed;
-- Wrangler `--dry-run` build passed; deploy workflows remain
-  `deploy.yml.disabled` / `deploy-staging.yml.disabled`;
+- 11 Worker test files and 63 tests passed (Hyperdrive fail-closed +
+  messages remaining routes + deals list/create dual-path);
+- Deploy workflows remain `deploy.yml.disabled` / `deploy-staging.yml.disabled`;
 - No Hyperdrive id or Cloudflare deploy was performed.
 
 No Cloudflare resource was provisioned or deployed because the locally visible
 Cloudflare accounts were not proven to be fresh Manut-owned accounts.
 
-**Remaining Cloudflare gaps (next modules, not this session):**
+**Remaining Cloudflare gaps (next modules):**
 
-- Port remaining `/api/messages` admin/DM/unread/typing/hide routes off Express
-  when Hyperdrive is on;
-- Progressive Worker dual-path for deals, survey, and HR read/write slices
+- Message attachment linking + list enrichment (uploads) on Hyperdrive path;
+- Deals pipeline / get-by-id / update / delete on Hyperdrive path;
+- Progressive Worker dual-path for **survey → HR** read/write slices
   (same Hyperdrive-on / Express-off pattern);
 - Provision fresh Manut Hyperdrive / R2 / Queue / DO / Worker envs (Phase E);
 - Workflow authorization contract + Container API hosting remain stubs;
@@ -677,23 +680,25 @@ Migration order:
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
-   **Status 2026-07-18 (messages deepen + edge Hyperdrive dual-path):**
+   **Status 2026-07-18 (messages + deals Hyperdrive dual-path):**
    `/messages` Expo sends via REST and receives live
    `message.created`/`message.deleted` preferring the edge Durable Object
    shared room `channel:{channelId}` (membership via Hyperdrive+Prisma when
    `ENABLE_HYPERDRIVE_BOUNDARY` is on, else Express
    `GET /api/messages/channels/:id` before WS upgrade). Worker
-   `/api/messages` dual-path: Hyperdrive+Prisma for core channel/message
-   HTTP when the boundary is on (with DO fan-out on send/delete); explicit
-   Express proxy when off. Express `messageBus` still fans to the DO when
+   `/api/messages` dual-path covers channels/DMs/users/unread/read/typing/hide
+   and message list/send/delete on Hyperdrive (DO fan-out on writes); attachment
+   sends still proxy to Express. `/api/deals` dual-path: list + create on
+   Hyperdrive with `crm:team-read` owner scope; pipeline/detail/update/delete
+   still proxy. Express `messageBus` still fans to the DO when
    `EDGE_REALTIME_ORIGIN` + `EDGE_REALTIME_BRIDGE_SECRET` (must match Worker
    `EDGE_SIGNING_KEY`) are set; socket.io `/messages` remains the client
    fallback when the edge origin/bridge is unset. Fail closed: missing
    `REALTIME_ROOMS` / `API_ORIGIN` / bridge secret / Hyperdrive binding
    (when flagged on) rejects the edge-native path. Other Wave 4 deepen
    still open: multipart upload, Drive/Gmail send/compose, document
-   processing, approved Manut AI only. Next CF module candidates after
-   messages: deals, survey, HR (same dual-path pattern).
+   processing, approved Manut AI only. **Next CF module candidates: survey →
+   HR** (same dual-path pattern).
 
 For each route slice:
 
