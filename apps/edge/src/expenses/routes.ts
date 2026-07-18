@@ -4,6 +4,10 @@ import { proxyApiRequest } from "../api-proxy";
 import { HttpError } from "../http-error";
 import { hyperdriveConnectionString, isHyperdriveEnabled } from "../hyperdrive";
 import type { EdgeEnv, RuntimeBindings } from "../runtime";
+import {
+  looksManagedStorageUrl,
+  resolveTrustedStorageOrigins,
+} from "../trusted-storage";
 import { createExpensesService } from "./service";
 import type { ExpensesStore } from "./store";
 
@@ -37,6 +41,23 @@ async function readJsonBody(context: {
   }
 }
 
+/**
+ * Managed receipt URLs need TRUSTED_STORAGE_ORIGINS on the Worker.
+ * Until that is configured, proxy to Express (which uses SUPABASE_URL).
+ * External (non-managed) receipt links are edge-native with allow-external.
+ */
+function receiptNeedsProxy(
+  env: RuntimeBindings,
+  receiptUrl: string | undefined,
+): boolean {
+  if (!receiptUrl || receiptUrl.trim() === "") return false;
+  const trustedOrigins = resolveTrustedStorageOrigins(env);
+  if (looksManagedStorageUrl(receiptUrl, trustedOrigins)) {
+    return trustedOrigins.length === 0;
+  }
+  return false;
+}
+
 export function createExpensesRoutes(options: {
   createExpensesStore?: CreateExpensesStore;
 } = {}): Hono<EdgeEnv> {
@@ -56,7 +77,8 @@ export function createExpensesRoutes(options: {
     }
 
     const store = await resolveStore(context.env, options.createExpensesStore);
-    const service = createExpensesService(store);
+    const trustedOrigins = resolveTrustedStorageOrigins(context.env);
+    const service = createExpensesService(store, { trustedOrigins });
     const userId = context.get("principal").subject;
     const path = new URL(context.req.url).pathname.replace(
       /^\/api\/expenses/u,
@@ -146,11 +168,9 @@ export function createExpensesRoutes(options: {
         throw new HttpError(400, "INVALID_EXPENSE", "Request body is required.");
       }
       const record = body as Record<string, unknown>;
-      // Receipt provenance is Supabase-bound on Express — keep proxied.
-      if (
-        typeof record.receiptUrl === "string" &&
-        record.receiptUrl.trim() !== ""
-      ) {
+      const receiptUrl =
+        typeof record.receiptUrl === "string" ? record.receiptUrl : undefined;
+      if (receiptNeedsProxy(context.env, receiptUrl)) {
         return proxyApiRequest(
           new Request(rawRequest.url, {
             body: bodyText,
@@ -174,6 +194,12 @@ export function createExpensesRoutes(options: {
             ? record.travelRequestId
             : undefined,
         notes: typeof record.notes === "string" ? record.notes : undefined,
+        receiptUrl:
+          record.receiptUrl === null
+            ? null
+            : typeof record.receiptUrl === "string"
+              ? record.receiptUrl
+              : undefined,
       });
       return context.json(result, 201);
     }
@@ -213,10 +239,9 @@ export function createExpensesRoutes(options: {
           );
         }
         const record = body as Record<string, unknown>;
-        if (
-          typeof record.receiptUrl === "string" &&
-          record.receiptUrl.trim() !== ""
-        ) {
+        const receiptUrl =
+          typeof record.receiptUrl === "string" ? record.receiptUrl : undefined;
+        if (receiptNeedsProxy(context.env, receiptUrl)) {
           return proxyApiRequest(
             new Request(rawRequest.url, {
               body: bodyText,
@@ -250,6 +275,12 @@ export function createExpensesRoutes(options: {
                 : typeof record.notes === "string"
                   ? record.notes
                   : undefined,
+            receiptUrl:
+              record.receiptUrl === null
+                ? null
+                : typeof record.receiptUrl === "string"
+                  ? record.receiptUrl
+                  : undefined,
           }),
         );
       }
@@ -261,7 +292,7 @@ export function createExpensesRoutes(options: {
       }
     }
 
-    // Submit, approvals, FX convert, receipt-bearing writes stay on Express.
+    // Submit, approvals, FX convert stay on Express.
     return proxyApiRequest(context.req.raw, context.env);
   });
 

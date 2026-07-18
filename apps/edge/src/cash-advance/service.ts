@@ -1,5 +1,10 @@
 import { HttpError } from "../http-error";
 import {
+  STORAGE_BUCKETS,
+  TrustedStorageError,
+  validateReceiptUrl,
+} from "../trusted-storage";
+import {
   canReadCashAdvance,
   CASH_ADVANCE_CREATE,
   hasCashAdvancePermission,
@@ -36,6 +41,7 @@ function serializeRequest(
     items: raw.items.map((item) => ({
       id: item.id,
       description: item.description,
+      receiptUrl: item.receiptUrl,
     })),
     // Present for Express parity; app-core projections strip bank/notes.
     bankName: raw.bankName,
@@ -44,7 +50,43 @@ function serializeRequest(
   };
 }
 
-export function createCashAdvanceService(store: CashAdvanceStore) {
+function toHttpError(error: unknown): never {
+  if (error instanceof TrustedStorageError) {
+    throw new HttpError(error.status, error.code, error.message);
+  }
+  throw error;
+}
+
+async function validateItemReceipts(
+  store: CashAdvanceStore,
+  actorId: string,
+  trustedOrigins: readonly string[],
+  items: ReadonlyArray<{ receiptUrl?: string | null }>,
+): Promise<void> {
+  try {
+    await Promise.all(
+      items.map(async (item) => {
+        if (!item.receiptUrl) return;
+        await validateReceiptUrl(store, item.receiptUrl, {
+          mode: "require-registered",
+          allowedBuckets: [STORAGE_BUCKETS.RECEIPTS],
+          purpose: "cash-advance-receipt",
+          uploadedBy: actorId,
+          trustedOrigins,
+        });
+      }),
+    );
+  } catch (error) {
+    toHttpError(error);
+  }
+}
+
+export function createCashAdvanceService(
+  store: CashAdvanceStore,
+  options: { trustedOrigins?: readonly string[] } = {},
+) {
+  const trustedOrigins = options.trustedOrigins ?? [];
+
   return {
     async list(
       userId: string,
@@ -91,6 +133,8 @@ export function createCashAdvanceService(store: CashAdvanceStore) {
         items: Array<{
           description: string;
           requestedAmount: number;
+          categoryId?: string | null;
+          receiptUrl?: string | null;
         }>;
       },
     ) {
@@ -136,8 +180,15 @@ export function createCashAdvanceService(store: CashAdvanceStore) {
             "Item amount must be a non-negative number.",
           );
         }
-        return { description, requestedAmount };
+        return {
+          description,
+          requestedAmount,
+          categoryId: item.categoryId ?? null,
+          receiptUrl: item.receiptUrl?.trim() || null,
+        };
       });
+
+      await validateItemReceipts(store, userId, trustedOrigins, items);
 
       const currency = input.currency.trim().toUpperCase() || "THB";
       const created = await store.create({
@@ -152,6 +203,111 @@ export function createCashAdvanceService(store: CashAdvanceStore) {
       });
 
       return { data: serializeRequest(created) };
+    },
+
+    async update(
+      userId: string,
+      requestId: string,
+      input: {
+        entityId?: string | null;
+        payoutMode?: string;
+        bankName?: string | null;
+        bankAccountNo?: string | null;
+        currency?: string;
+        notes?: string | null;
+        items?: Array<{
+          description: string;
+          requestedAmount: number;
+          categoryId?: string | null;
+          receiptUrl?: string | null;
+        }>;
+      },
+    ) {
+      const permissions = await store.loadPermissions(userId);
+      if (!hasCashAdvancePermission(permissions, CASH_ADVANCE_CREATE)) {
+        throw new HttpError(403, "FORBIDDEN", "Missing required permission.");
+      }
+
+      const existing = await store.findById(requestId);
+      if (!existing) {
+        throw new HttpError(
+          404,
+          "NOT_FOUND",
+          "Cash advance request not found",
+        );
+      }
+      if (existing.employeeId !== userId) {
+        throw new HttpError(
+          403,
+          "FORBIDDEN",
+          "You can only edit your own requests",
+        );
+      }
+      if (existing.status !== "draft" && existing.status !== "rejected") {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          `Cannot edit a request with status "${existing.status}"`,
+        );
+      }
+
+      if (input.payoutMode !== undefined && !PAYOUT_MODES.has(input.payoutMode)) {
+        throw new HttpError(400, "INVALID_CASH_ADVANCE", "Invalid payout mode.");
+      }
+
+      let items:
+        | Array<{
+            description: string;
+            requestedAmount: number;
+            categoryId?: string | null;
+            receiptUrl?: string | null;
+          }>
+        | undefined;
+      if (input.items) {
+        if (input.items.length === 0) {
+          throw new HttpError(
+            400,
+            "INVALID_CASH_ADVANCE",
+            "At least one line item is required.",
+          );
+        }
+        items = input.items.map((item) => {
+          const description = item.description.trim();
+          const requestedAmount = Number(item.requestedAmount);
+          if (!description) {
+            throw new HttpError(
+              400,
+              "INVALID_CASH_ADVANCE",
+              "Item description is required.",
+            );
+          }
+          if (!Number.isFinite(requestedAmount) || requestedAmount < 0) {
+            throw new HttpError(
+              400,
+              "INVALID_CASH_ADVANCE",
+              "Item amount must be a non-negative number.",
+            );
+          }
+          return {
+            description,
+            requestedAmount,
+            categoryId: item.categoryId ?? null,
+            receiptUrl: item.receiptUrl?.trim() || null,
+          };
+        });
+        await validateItemReceipts(store, userId, trustedOrigins, items);
+      }
+
+      const updated = await store.update(requestId, {
+        entityId: input.entityId,
+        payoutMode: input.payoutMode,
+        bankName: input.bankName,
+        bankAccountNo: input.bankAccountNo,
+        currency: input.currency?.trim().toUpperCase(),
+        notes: input.notes,
+        items,
+      });
+      return { data: serializeRequest(updated) };
     },
 
     async submit(userId: string, requestId: string) {

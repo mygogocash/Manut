@@ -3,6 +3,7 @@ import {
   CRM_TEAM_READ,
   DEALS_CREATE,
   DEALS_READ,
+  DEALS_UPDATE,
   hasDealPermission,
 } from "./access";
 import type { DealRecord, DealsStore } from "./store";
@@ -81,6 +82,34 @@ export function createDealsService(store: DealsStore) {
       };
     },
 
+    async getById(userId: string, id: string) {
+      const permissions = await store.loadPermissions(userId);
+      assertPermission(permissions, DEALS_READ);
+
+      const deal = await store.findById(id);
+      if (!deal) {
+        throw new HttpError(404, "NOT_FOUND", "Deal not found");
+      }
+
+      const canSeeAll = hasDealPermission(permissions, CRM_TEAM_READ);
+      // 404 (not 403) when the actor lacks scope — mirrors Express.
+      if (!canSeeAll && deal.ownerId !== userId) {
+        throw new HttpError(404, "NOT_FOUND", "Deal not found");
+      }
+
+      return { data: serializeDeal(deal) };
+    },
+
+    async pipeline(userId: string) {
+      const permissions = await store.loadPermissions(userId);
+      assertPermission(permissions, DEALS_READ);
+
+      const canSeeAll = hasDealPermission(permissions, CRM_TEAM_READ);
+      const ownerScope = canSeeAll ? undefined : [userId];
+      const data = await store.pipelineSummary(ownerScope);
+      return { data };
+    },
+
     async create(
       userId: string,
       input: {
@@ -151,6 +180,94 @@ export function createDealsService(store: DealsStore) {
       });
 
       return { data: serializeDeal(created) };
+    },
+
+    async update(
+      userId: string,
+      id: string,
+      input: {
+        company?: string;
+        contact?: string | null;
+        value?: number;
+        stage?: string;
+        probability?: number;
+        type?: string | null;
+        country?: string | null;
+        partnerId?: string | null;
+        closeDate?: string | null;
+        notes?: string | null;
+      },
+    ) {
+      const permissions = await store.loadPermissions(userId);
+      assertPermission(permissions, DEALS_UPDATE);
+
+      const existing = await store.findById(id);
+      if (!existing) {
+        throw new HttpError(404, "NOT_FOUND", "Deal not found");
+      }
+      const canSeeAll = hasDealPermission(permissions, CRM_TEAM_READ);
+      if (!canSeeAll && existing.ownerId !== userId) {
+        throw new HttpError(404, "NOT_FOUND", "Deal not found");
+      }
+
+      if (input.company !== undefined && !input.company.trim()) {
+        throw new HttpError(400, "INVALID_DEAL", "Company name is required.");
+      }
+      if (
+        input.value !== undefined &&
+        (!Number.isFinite(input.value) || input.value < 0)
+      ) {
+        throw new HttpError(400, "INVALID_DEAL", "Value must be non-negative.");
+      }
+      if (input.stage !== undefined && !DEAL_STAGES.has(input.stage)) {
+        throw new HttpError(400, "INVALID_DEAL", "Invalid deal stage.");
+      }
+      if (
+        input.probability !== undefined &&
+        (!Number.isInteger(input.probability) ||
+          input.probability < 0 ||
+          input.probability > 100)
+      ) {
+        throw new HttpError(
+          400,
+          "INVALID_DEAL",
+          "Probability must be an integer from 0 to 100.",
+        );
+      }
+      if (
+        input.closeDate !== undefined &&
+        input.closeDate !== null &&
+        !/^\d{4}-\d{2}-\d{2}$/u.test(input.closeDate)
+      ) {
+        throw new HttpError(
+          400,
+          "INVALID_DEAL",
+          "closeDate must be YYYY-MM-DD.",
+        );
+      }
+
+      const updated = await store.update(id, {
+        ...(input.company !== undefined && { company: input.company.trim() }),
+        ...(input.contact !== undefined && {
+          contact: input.contact?.trim() || null,
+        }),
+        ...(input.value !== undefined && { value: input.value }),
+        ...(input.stage !== undefined && { stage: input.stage }),
+        ...(input.probability !== undefined && {
+          probability: input.probability,
+        }),
+        ...(input.type !== undefined && {
+          type: input.type?.trim() || null,
+        }),
+        ...(input.country !== undefined && {
+          country: input.country?.trim() || null,
+        }),
+        ...(input.partnerId !== undefined && { partnerId: input.partnerId }),
+        ...(input.closeDate !== undefined && { closeDate: input.closeDate }),
+        ...(input.notes !== undefined && { notes: input.notes }),
+      });
+
+      return { data: serializeDeal(updated) };
     },
   };
 }

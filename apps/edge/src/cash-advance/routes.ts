@@ -4,6 +4,7 @@ import { proxyApiRequest } from "../api-proxy";
 import { HttpError } from "../http-error";
 import { hyperdriveConnectionString, isHyperdriveEnabled } from "../hyperdrive";
 import type { EdgeEnv, RuntimeBindings } from "../runtime";
+import { resolveTrustedStorageOrigins } from "../trusted-storage";
 import { createCashAdvanceService } from "./service";
 import type { CashAdvanceStore } from "./store";
 
@@ -25,6 +26,58 @@ async function resolveStore(
   hyperdriveConnectionString(env);
   const { createHyperdriveCashAdvanceStore } = await import("./prisma-store");
   return createHyperdriveCashAdvanceStore(env);
+}
+
+function itemHasReceipt(item: unknown): boolean {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    typeof (item as { receiptUrl?: unknown }).receiptUrl === "string" &&
+    String((item as { receiptUrl: string }).receiptUrl).trim() !== ""
+  );
+}
+
+function receiptsNeedProxy(
+  env: RuntimeBindings,
+  items: unknown[],
+): boolean {
+  const hasReceipt = items.some(itemHasReceipt);
+  if (!hasReceipt) return false;
+
+  const trustedOrigins = resolveTrustedStorageOrigins(env);
+  if (trustedOrigins.length === 0) {
+    // Express still owns SUPABASE_URL provenance until Worker origins are set.
+    return true;
+  }
+
+  // Managed receipts can be validated on-edge; external CA receipts always fail
+  // closed on Express too, so keep them edge-native for a consistent 400.
+  return false;
+}
+
+function mapItems(rawItems: unknown[]) {
+  return rawItems
+    .filter(
+      (item): item is Record<string, unknown> =>
+        typeof item === "object" && item !== null,
+    )
+    .map((item) => ({
+      description:
+        typeof item.description === "string" ? item.description : "",
+      requestedAmount: Number(item.requestedAmount),
+      categoryId:
+        item.categoryId === null
+          ? null
+          : typeof item.categoryId === "string"
+            ? item.categoryId
+            : undefined,
+      receiptUrl:
+        item.receiptUrl === null
+          ? null
+          : typeof item.receiptUrl === "string"
+            ? item.receiptUrl
+            : undefined,
+    }));
 }
 
 export function createCashAdvanceRoutes(options: {
@@ -49,7 +102,8 @@ export function createCashAdvanceRoutes(options: {
       context.env,
       options.createCashAdvanceStore,
     );
-    const service = createCashAdvanceService(store);
+    const trustedOrigins = resolveTrustedStorageOrigins(context.env);
+    const service = createCashAdvanceService(store, { trustedOrigins });
     const userId = context.get("principal").subject;
     const path = new URL(context.req.url).pathname.replace(
       /^\/api\/cash-advance/u,
@@ -57,7 +111,7 @@ export function createCashAdvanceRoutes(options: {
     );
     const method = context.req.method.toUpperCase();
 
-    // Self-scoped list. scope=all / approval / detail / submit stay proxied.
+    // Self-scoped list. scope=all / approval / detail stay proxied unless update.
     if (method === "GET" && (path === "" || path === "/")) {
       const scope = context.req.query("scope")?.trim() || "mine";
       if (scope === "all") {
@@ -75,7 +129,6 @@ export function createCashAdvanceRoutes(options: {
     }
 
     if (method === "POST" && (path === "" || path === "/")) {
-      // Clone before parse so receipt-bearing creates can still proxy upstream.
       const rawRequest = context.req.raw;
       let bodyText: string;
       try {
@@ -106,14 +159,7 @@ export function createCashAdvanceRoutes(options: {
       }
       const record = body as Record<string, unknown>;
       const rawItems = Array.isArray(record.items) ? record.items : [];
-      const hasReceipt = rawItems.some(
-        (item) =>
-          typeof item === "object" &&
-          item !== null &&
-          typeof (item as { receiptUrl?: unknown }).receiptUrl === "string" &&
-          String((item as { receiptUrl: string }).receiptUrl).trim() !== "",
-      );
-      if (hasReceipt) {
+      if (receiptsNeedProxy(context.env, rawItems)) {
         return proxyApiRequest(
           new Request(rawRequest.url, {
             body: bodyText,
@@ -138,18 +184,90 @@ export function createCashAdvanceRoutes(options: {
         currency:
           typeof record.currency === "string" ? record.currency : "THB",
         notes: typeof record.notes === "string" ? record.notes : undefined,
-        items: rawItems
-          .filter(
-            (item): item is Record<string, unknown> =>
-              typeof item === "object" && item !== null,
-          )
-          .map((item) => ({
-            description:
-              typeof item.description === "string" ? item.description : "",
-            requestedAmount: Number(item.requestedAmount),
-          })),
+        items: mapItems(rawItems),
       });
       return context.json(result, 201);
+    }
+
+    const idMatch = /^\/([^/]+)\/?$/u.exec(path);
+    if (method === "PUT" && idMatch) {
+      const requestId = decodeURIComponent(idMatch[1] ?? "");
+      const rawRequest = context.req.raw;
+      let bodyText: string;
+      try {
+        bodyText = await rawRequest.clone().text();
+      } catch {
+        throw new HttpError(
+          400,
+          "INVALID_JSON",
+          "Request body must be valid JSON.",
+        );
+      }
+      let body: unknown;
+      try {
+        body = JSON.parse(bodyText) as unknown;
+      } catch {
+        throw new HttpError(
+          400,
+          "INVALID_JSON",
+          "Request body must be valid JSON.",
+        );
+      }
+      if (typeof body !== "object" || body === null) {
+        throw new HttpError(
+          400,
+          "INVALID_CASH_ADVANCE",
+          "Request body is required.",
+        );
+      }
+      const record = body as Record<string, unknown>;
+      const rawItems = Array.isArray(record.items) ? record.items : [];
+      if (receiptsNeedProxy(context.env, rawItems)) {
+        return proxyApiRequest(
+          new Request(rawRequest.url, {
+            body: bodyText,
+            headers: rawRequest.headers,
+            method: rawRequest.method,
+          }),
+          context.env,
+        );
+      }
+
+      return context.json(
+        await service.update(userId, requestId, {
+          entityId:
+            record.entityId === null
+              ? null
+              : typeof record.entityId === "string"
+                ? record.entityId
+                : undefined,
+          payoutMode:
+            typeof record.payoutMode === "string"
+              ? record.payoutMode
+              : undefined,
+          bankName:
+            record.bankName === null
+              ? null
+              : typeof record.bankName === "string"
+                ? record.bankName
+                : undefined,
+          bankAccountNo:
+            record.bankAccountNo === null
+              ? null
+              : typeof record.bankAccountNo === "string"
+                ? record.bankAccountNo
+                : undefined,
+          currency:
+            typeof record.currency === "string" ? record.currency : undefined,
+          notes:
+            record.notes === null
+              ? null
+              : typeof record.notes === "string"
+                ? record.notes
+                : undefined,
+          items: Array.isArray(record.items) ? mapItems(rawItems) : undefined,
+        }),
+      );
     }
 
     const submitMatch = /^\/([^/]+)\/submit\/?$/u.exec(path);
@@ -158,7 +276,7 @@ export function createCashAdvanceRoutes(options: {
       return context.json(await service.submit(userId, requestId));
     }
 
-    // Receipt attach/update, approve, disburse, signed receipt GET stay proxied.
+    // Approve, disburse, signed receipt GET stay proxied.
     return proxyApiRequest(context.req.raw, context.env);
   });
 

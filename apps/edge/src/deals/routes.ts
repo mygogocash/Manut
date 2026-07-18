@@ -69,7 +69,6 @@ export function createDealsRoutes(options: {
     const path = new URL(context.req.url).pathname.replace(/^\/api\/deals/u, "");
     const method = context.req.method.toUpperCase();
 
-    // Core app-core paths: list + create. Pipeline/detail/update/delete stay proxied.
     if (method === "GET" && (path === "" || path === "/")) {
       const page = Math.max(1, Number(context.req.query("page")) || 1);
       const limit = Math.min(
@@ -82,6 +81,10 @@ export function createDealsRoutes(options: {
       return context.json(
         await service.list(userId, { page, limit, search, stage, type }),
       );
+    }
+
+    if (method === "GET" && (path === "/pipeline" || path === "/pipeline/")) {
+      return context.json(await service.pipeline(userId));
     }
 
     if (method === "POST" && (path === "" || path === "/")) {
@@ -114,7 +117,62 @@ export function createDealsRoutes(options: {
       return context.json(result, 201);
     }
 
-    // Progressive: pipeline, get-by-id, update, delete stay on Express for now.
+    const idMatch = /^\/([^/]+)\/?$/u.exec(path);
+    if (idMatch) {
+      const dealId = decodeURIComponent(idMatch[1] ?? "");
+
+      if (method === "GET") {
+        return context.json(await service.getById(userId, dealId));
+      }
+
+      if (method === "PUT") {
+        const body = await readJsonBody(context);
+        if (typeof body !== "object" || body === null) {
+          throw new HttpError(400, "INVALID_DEAL", "Request body is required.");
+        }
+        const record = body as Record<string, unknown>;
+        const valueRaw = record.value;
+        const value =
+          valueRaw === undefined
+            ? undefined
+            : typeof valueRaw === "number"
+              ? valueRaw
+              : typeof valueRaw === "string"
+                ? Number(valueRaw)
+                : Number.NaN;
+
+        return context.json(
+          await service.update(userId, dealId, {
+            company: optionalString(record.company),
+            contact:
+              record.contact === null
+                ? null
+                : optionalString(record.contact),
+            value,
+            stage: optionalString(record.stage),
+            probability: optionalNumber(record.probability),
+            type:
+              record.type === null ? null : optionalString(record.type),
+            country:
+              record.country === null
+                ? null
+                : optionalString(record.country),
+            partnerId:
+              record.partnerId === null
+                ? null
+                : optionalString(record.partnerId),
+            closeDate:
+              record.closeDate === null
+                ? null
+                : optionalString(record.closeDate),
+            notes:
+              record.notes === null ? null : optionalString(record.notes),
+          }),
+        );
+      }
+    }
+
+    // Hard delete stays on Express (no soft-delete lifecycle on Deal).
     return proxyApiRequest(context.req.raw, context.env);
   });
 

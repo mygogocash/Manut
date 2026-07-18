@@ -1,6 +1,7 @@
 export interface CashAdvanceItemRecord {
   id: string;
   description: string;
+  receiptUrl: string | null;
 }
 
 export interface CashAdvanceRequestRecord {
@@ -58,17 +59,49 @@ export interface CreateCashAdvanceStoreInput {
   bankAccountNo?: string;
   currency: string;
   notes?: string;
-  items: Array<{ description: string; requestedAmount: number }>;
+  items: Array<{
+    description: string;
+    requestedAmount: number;
+    categoryId?: string | null;
+    receiptUrl?: string | null;
+  }>;
+}
+
+export interface UpdateCashAdvanceStoreInput {
+  entityId?: string | null;
+  payoutMode?: string;
+  bankName?: string | null;
+  bankAccountNo?: string | null;
+  currency?: string;
+  notes?: string | null;
+  items?: Array<{
+    description: string;
+    requestedAmount: number;
+    categoryId?: string | null;
+    receiptUrl?: string | null;
+  }>;
 }
 
 export interface CashAdvanceStore {
   loadPermissions(userId: string): Promise<Set<string>>;
+  findRegistered(query: {
+    bucket: string;
+    path: string;
+    purpose: string;
+    uploadedBy?: string;
+    linkedTo?: string;
+    linkedId?: string;
+  }): Promise<{ id: string } | null>;
   findMany(
     filters: ListCashAdvanceFilters,
     page: number,
     limit: number,
   ): Promise<{ data: CashAdvanceRequestRecord[]; total: number }>;
   create(input: CreateCashAdvanceStoreInput): Promise<CashAdvanceRequestRecord>;
+  update(
+    id: string,
+    input: UpdateCashAdvanceStoreInput,
+  ): Promise<CashAdvanceRequestRecord>;
   findById(id: string): Promise<CashAdvanceRequestRecord | null>;
   findActiveApprovalSteps(): Promise<CashAdvanceApprovalStepRecord[]>;
   submitWithDecisions(

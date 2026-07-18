@@ -83,6 +83,9 @@ function memoryStore(seed?: {
       const start = (page - 1) * limit;
       return { data: rows.slice(start, start + limit), total };
     },
+    async findById(id) {
+      return deals.find((deal) => deal.id === id) ?? null;
+    },
     async create(input) {
       const now = new Date().toISOString();
       const row = {
@@ -103,6 +106,38 @@ function memoryStore(seed?: {
       };
       deals.push(row);
       return row;
+    },
+    async update(id, input) {
+      const row = deals.find((deal) => deal.id === id);
+      if (!row) throw new Error("missing");
+      if (input.company !== undefined) row.company = input.company;
+      if (input.contact !== undefined) row.contact = input.contact;
+      if (input.value !== undefined) row.value = input.value;
+      if (input.stage !== undefined) row.stage = input.stage;
+      if (input.probability !== undefined) row.probability = input.probability;
+      if (input.type !== undefined) row.type = input.type;
+      if (input.country !== undefined) row.country = input.country;
+      if (input.closeDate !== undefined) row.closeDate = input.closeDate;
+      if (input.notes !== undefined) row.notes = input.notes;
+      row.updatedAt = new Date().toISOString();
+      return row;
+    },
+    async pipelineSummary(ownerScope) {
+      const rows = ownerScope
+        ? deals.filter((deal) => ownerScope.includes(deal.ownerId))
+        : deals;
+      const byStage = new Map<string, { count: number; totalValue: number }>();
+      for (const deal of rows) {
+        const current = byStage.get(deal.stage) ?? { count: 0, totalValue: 0 };
+        current.count += 1;
+        current.totalValue += deal.value;
+        byStage.set(deal.stage, current);
+      }
+      return [...byStage.entries()].map(([stage, stats]) => ({
+        stage,
+        count: stats.count,
+        totalValue: stats.totalValue,
+      }));
     },
   };
 }
@@ -311,20 +346,178 @@ describe("deals dual-path routes", () => {
     });
   });
 
-  it("proxies pipeline and other deals admin routes even when Hyperdrive is on", async () => {
-    const upstream = vi.fn(async (request: Request) => {
-      expect(new URL(request.url).pathname).toBe("/api/deals/pipeline");
-      return Response.json({ data: [] });
+  it("returns pipeline summary on the Hyperdrive path", async () => {
+    const store = memoryStore({
+      deals: [
+        {
+          id: "deal-own",
+          company: "Acme",
+          contact: null,
+          value: 1000,
+          stage: "lead",
+          probability: 10,
+          type: null,
+          country: null,
+          closeDate: null,
+          notes: null,
+          ownerId: "user-123",
+          ownerName: "Test User",
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+        },
+        {
+          id: "deal-other",
+          company: "Other Co",
+          contact: null,
+          value: 2000,
+          stage: "qualified",
+          probability: 20,
+          type: null,
+          country: null,
+          closeDate: null,
+          notes: null,
+          ownerId: "user-456",
+          ownerName: "Other User",
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+        },
+      ],
     });
-    vi.stubGlobal("fetch", upstream);
-
     const app = createEdgeApp({
-      createDealsStore: async () => memoryStore(),
+      createDealsStore: async () => store,
       verifyToken,
     });
     const response = await app.request(
       "https://intranet.example/api/deals/pipeline",
       { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      data: [{ stage: "lead", count: 1, totalValue: 1000 }],
+    });
+  });
+
+  it("gets and updates own deal on the Hyperdrive path", async () => {
+    const store = memoryStore({
+      permissionsByUser: {
+        "user-123": ["deals:read", "deals:create", "deals:update"],
+      },
+      deals: [
+        {
+          id: "deal-own",
+          company: "Acme",
+          contact: null,
+          value: 1000,
+          stage: "lead",
+          probability: 10,
+          type: null,
+          country: null,
+          closeDate: null,
+          notes: "secret",
+          ownerId: "user-123",
+          ownerName: "Test User",
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createDealsStore: async () => store,
+      verifyToken,
+    });
+
+    const getResponse = await app.request(
+      "https://intranet.example/api/deals/deal-own",
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+    expect(getResponse.status).toBe(200);
+    const getBody = (await getResponse.json()) as {
+      data: Record<string, unknown>;
+    };
+    expect(getBody.data).toMatchObject({
+      id: "deal-own",
+      company: "Acme",
+      owner: { id: "user-123", name: "Test User" },
+    });
+    expect(getBody.data).not.toHaveProperty("notes");
+
+    const putResponse = await app.request(
+      "https://intranet.example/api/deals/deal-own",
+      {
+        body: JSON.stringify({ stage: "qualified", probability: 40 }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "PUT",
+      },
+      hyperdriveEnv(),
+    );
+    expect(putResponse.status).toBe(200);
+    await expect(putResponse.json()).resolves.toMatchObject({
+      data: { id: "deal-own", stage: "qualified", probability: 40 },
+    });
+  });
+
+  it("404s get for another owner's deal without crm:team-read", async () => {
+    const store = memoryStore({
+      deals: [
+        {
+          id: "deal-other",
+          company: "Other Co",
+          contact: null,
+          value: 2000,
+          stage: "lead",
+          probability: 10,
+          type: null,
+          country: null,
+          closeDate: null,
+          notes: null,
+          ownerId: "user-456",
+          ownerName: "Other User",
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createDealsStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/deals/deal-other",
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("proxies deal hard-delete even when Hyperdrive is on", async () => {
+    const upstream = vi.fn(async (request: Request) => {
+      expect(request.method).toBe("DELETE");
+      expect(new URL(request.url).pathname).toBe("/api/deals/deal-own");
+      return Response.json({ data: { success: true } });
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const app = createEdgeApp({
+      createDealsStore: async () =>
+        memoryStore({
+          permissionsByUser: {
+            "user-123": ["deals:read", "deals:delete"],
+          },
+        }),
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/deals/deal-own",
+      {
+        headers: { authorization: `Bearer ${TEST_TOKEN}` },
+        method: "DELETE",
+      },
       hyperdriveEnv(),
     );
 

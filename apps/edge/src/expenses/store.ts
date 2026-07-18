@@ -50,6 +50,7 @@ export interface ExpenseLineRecord {
   status: string;
   categoryId: string | null;
   notes: string | null;
+  receiptUrl: string | null;
 }
 
 export interface ExpenseCategoryRecord {
@@ -70,6 +71,7 @@ export interface AddExpenseLineStoreInput {
   categoryId?: string;
   travelRequestId?: string;
   notes?: string;
+  receiptUrl?: string | null;
 }
 
 export interface UpdateExpenseLineStoreInput {
@@ -79,10 +81,19 @@ export interface UpdateExpenseLineStoreInput {
   date?: string;
   categoryId?: string | null;
   notes?: string | null;
+  receiptUrl?: string | null;
 }
 
 export interface ExpensesStore {
   loadPermissions(userId: string): Promise<Set<string>>;
+  findRegistered(query: {
+    bucket: string;
+    path: string;
+    purpose: string;
+    uploadedBy?: string;
+    linkedTo?: string;
+    linkedId?: string;
+  }): Promise<{ id: string } | null>;
   findMany(
     filters: ListExpenseReportFilters,
     page: number,

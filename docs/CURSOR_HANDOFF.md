@@ -46,7 +46,7 @@ pnpm 11.13.1
 | --------------------------- | ------------------------------------------------------------- |
 | Working tree                | `/Users/kunanonjarat/Developer/manut-intranet-full-hardening` |
 | Branch                      | `claude/intranet-full-hardening`                              |
-| Current `HEAD`              | `087be32ef1c3d360d06af7cfdd0b76585a46cd56`                    |
+| Current `HEAD`              | *(updated after receipt/deals Hyperdrive deepen commit)*      |
 | Intended replacement parent | Same Manut SHA above                                          |
 | Audited source snapshot     | `371349fd43fd7c7c7717054beec97bfb023885ca`                    |
 | Archive branch              | `archive/affine-2026-07-16` -> `eb797d30`                     |
@@ -135,7 +135,7 @@ D1 (optional non-authoritative edge metadata only)
 | API strictness and hardening         | **Implemented locally**                   | Strict TypeScript, webhook bytes, purge lifecycle, lifecycle-safe auth/RBAC, atomic Leave state changes, live-socket revalidation, Performance scoping, and profile projection are implemented.               |
 | Universal Expo foundation            | **Implemented**                           | Expo SDK 57, shared API/session runtime, app-core/UI packages, auth transports, app shell, Expo Doctor, and three-platform exports pass. This is a foundation, not full route parity.                         |
 | Approved web route parity            | **Foundations landed; deepen + E2E remain** | Inventory: **88 foundation**, **0 pending**, **16 removed** (plus Expo-only `/files`). Waves 2–4 Expo route foundations are in tree; `/messages` DO shared-room + bus→DO bridge (socket.io fallback); survey question replace/publish landed (announce/analytics still deferred); Expo E2E cutover remain. |
-| Cloudflare edge layer                | **Locally implemented + Hyperdrive messages/deals/survey/HR dual-path** | Worker auth, SPA assets, R2, DO realtime, Queues/DLQ, rate limits, Workflows/Container stubs; Hyperdrive fail-closed helper + dual-path for `/api/messages`, `/api/deals`, `/api/survey`, `/api/survey-forms`, `/api/expenses` reports (+ self detail + line mutations without receipts), `/api/leave` self list/create (balance + chain), `/api/cash-advance` self list/create/submit, `/api/visa` self list, `/api/visa-kb` + `/api/visa-checklist/templates` catalog reads, `/api/payroll/runs` + `/api/payroll/my-payslips` self-scoped, `/api/benefits` catalog, `/api/learning/modules` (Prisma via Hyperdrive when `ENABLE_HYPERDRIVE_BOUNDARY=true`, else Express proxy). Fresh Hyperdrive id / deploy not provisioned. |
+| Cloudflare edge layer                | **Locally implemented + Hyperdrive messages/deals/survey/HR dual-path** | Worker auth, SPA assets, R2, DO realtime, Queues/DLQ, rate limits, Workflows/Container stubs; Hyperdrive fail-closed helper + dual-path for `/api/messages`, `/api/deals` (list/create/pipeline/get/put; hard-delete still proxied), `/api/survey`, `/api/survey-forms`, `/api/expenses` reports (+ self detail + line mutations including receipts when `TRUSTED_STORAGE_ORIGINS` + FileUpload provenance allow), `/api/leave` self list/create (balance + chain), `/api/cash-advance` self list/create/submit/update (+ receipt create/update when trusted origins configured), `/api/visa` self list, `/api/visa-kb` + `/api/visa-checklist/templates` catalog reads, `/api/payroll/runs` + `/api/payroll/my-payslips` self-scoped, `/api/benefits` catalog, `/api/learning/modules` (Prisma via Hyperdrive when `ENABLE_HYPERDRIVE_BOUNDARY=true`, else Express proxy). Fresh Hyperdrive id / deploy not provisioned. |
 | Clean PostgreSQL baseline            | **Implemented**                           | One sanitized baseline plus hash manifest, setup/assert scripts, and migration harness exist. Local Docker replay is blocked; CI PostgreSQL 16 lane is ready.                                                 |
 | Dependency upgrades                  | **Mostly implemented**                    | Requested upgrades, compatibility pins, Expo, and Cloudflare packages are present. Legacy Next/Tailwind/Vite/jsdom bridge packages remain until parity.                                                       |
 | CI decomposition                     | **Implemented locally**                   | Nine prerequisite jobs plus final `Validate`, pinned actions, read-only contents/PR metadata, and no `pull_request_target`. Not run on GitHub yet.                                                            |
@@ -443,10 +443,12 @@ to loopback; remote environments use signed R2 operations.
 3. Set var `ENABLE_HYPERDRIVE_BOUNDARY=true` per environment.
 4. Keep `API_ORIGIN` configured for Express fallback routes and auth JWKS.
 
-Latest local evidence (2026-07-18 Hyperdrive HR writes / self-reads slice):
+Latest local evidence (2026-07-18 portable receipts + deals deepen slice):
 
-- 18 Worker test files and 112 tests passed (prior coverage + leave create,
-  cash-advance submit, payroll my-payslips, expense line mutations);
+- 19 Worker test files and 127 tests passed (trusted-storage helper + CA/expense
+  receipt paths + deals pipeline/get/put; prior HR/messages/survey coverage);
+- `TRUSTED_STORAGE_ORIGINS` wrangler var / `.env.example` documented (empty =
+  managed receipt writes still proxy to Express);
 - Deploy workflows remain `deploy.yml.disabled` / `deploy-staging.yml.disabled`;
 - No Hyperdrive id or Cloudflare deploy was performed.
 
@@ -456,15 +458,14 @@ Cloudflare accounts were not proven to be fresh Manut-owned accounts.
 **Remaining Cloudflare gaps (next modules):**
 
 - Message attachment linking + list enrichment (uploads) on Hyperdrive path;
-- Deals pipeline / get-by-id / update / delete on Hyperdrive path;
+- Deals hard-delete stays Express (no soft-delete lifecycle); analytics fan-out
+  on deal stage changes stays Express;
 - Survey exotic leftovers (announce/schedule/analytics/archive) if/when
   Expo needs them edge-native; survey-forms respond already edge-ready;
-- Cash-advance / expense receipt provenance once a portable FileUpload +
-  trusted-URL helper exists without Supabase-origin coupling;
 - Expense date-as-of FX totals/`pendingForMe`/submit on edge;
-- Payroll signed download / Node PDF-export (keep proxied until storage +
-  qpdf story is edge-safe);
 - Leave approve/reject/cancel + balances/types catalog on edge;
+- Payroll signed download / Node PDF-export (keep proxied until storage +
+  qpdf story is edge-safe); CA signed receipt GET / approve / disburse proxied;
 - Provision fresh Manut Hyperdrive / R2 / Queue / DO / Worker envs (Phase E);
 - Workflow authorization contract + Container API hosting remain stubs;
 - Authenticated Expo E2E against a provisioned edge origin.
@@ -730,7 +731,7 @@ Migration order:
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
-   **Status 2026-07-18 (messages/deals/survey/HR Hyperdrive dual-path):**
+   **Status 2026-07-18 (receipts helper + deals deepen):**
    `/messages` Expo sends via REST and receives live
    `message.created`/`message.deleted` preferring the edge Durable Object
    shared room `channel:{channelId}` (membership via Hyperdrive+Prisma when
@@ -738,25 +739,26 @@ Migration order:
    `GET /api/messages/channels/:id` before WS upgrade). Worker
    `/api/messages` dual-path covers channels/DMs/users/unread/read/typing/hide
    and message list/send/delete on Hyperdrive (DO fan-out on writes); attachment
-   sends still proxy to Express. `/api/deals` dual-path: list + create on
-   Hyperdrive with `crm:team-read` owner scope; pipeline/detail/update/delete
-   still proxy. `/api/survey` + `/api/survey-forms` dual-path: list, detail,
-   create, questions replace, publish (no announce), respond, my-response;
-   announce/schedule/analytics/archive/settings still proxy. HR start:
-   `/api/expenses/reports` self list+create; `/api/benefits` +
-   `/api/learning/modules` catalog reads. Express `messageBus` still fans to
-   the DO when `EDGE_REALTIME_ORIGIN` + `EDGE_REALTIME_BRIDGE_SECRET` (must
-   match Worker `EDGE_SIGNING_KEY`) are set; socket.io `/messages` remains the
-   client fallback when the edge origin/bridge is unset. Fail closed: missing
-   `REALTIME_ROOMS` / `API_ORIGIN` / bridge secret / Hyperdrive binding
-   (when flagged on) rejects the edge-native path. Other Wave 4 deepen
-   still open: multipart upload, Drive/Gmail send/compose, document
-   processing, approved Manut AI only. **Landed this slice:** leave self
-   create (balance/chain), cash-advance self submit, expense self line
-   mutations (no receipts), payroll my-payslips list. **Next CF module
-   candidates:** portable receipt provenance helper, expense FX /
-   `pendingForMe`, leave approve path, deals pipeline/detail (same
-   dual-path pattern).
+   sends still proxy to Express. `/api/deals` dual-path: list + create +
+   pipeline + get-by-id + put on Hyperdrive (`crm:team-read` owner scope;
+   notes/email stripped); hard-delete still proxies (no soft-delete rules).
+   `/api/survey` + `/api/survey-forms` dual-path: list, detail, create,
+   questions replace, publish (no announce), respond, my-response;
+   announce/schedule/analytics/archive/settings still proxy. Portable
+   `trusted-storage` helper + FileUpload lookup: managed URLs require
+   `TRUSTED_STORAGE_ORIGINS` + bucket allowlist + purpose/ownership registry;
+   expense external links allowed without registry; CA receipts require
+   registered provenance. When origins unset, managed receipt writes proxy.
+   HR: expenses self list/create/detail/lines (+ receipts when safe);
+   cash-advance self list/create/submit/update (+ receipts when safe);
+   leave create; payroll my-payslips; benefits/learning/visa catalogs.
+   Express `messageBus` still fans to the DO when `EDGE_REALTIME_ORIGIN` +
+   `EDGE_REALTIME_BRIDGE_SECRET` (must match Worker `EDGE_SIGNING_KEY`) are
+   set; socket.io `/messages` remains the client fallback when unset. Fail
+   closed: missing `REALTIME_ROOMS` / `API_ORIGIN` / bridge secret /
+   Hyperdrive binding (when flagged on) rejects the edge-native path.
+   **Next CF module candidates:** expense `pendingForMe`/submit/FX, leave
+   approve/reject, message attachments, CA approve/disburse/signed receipt.
 
 For each route slice:
 

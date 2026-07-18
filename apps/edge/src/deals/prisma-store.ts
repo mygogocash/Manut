@@ -138,6 +138,16 @@ export function createPrismaDealsStore(client: PrismaClient): DealsStore {
       return { data: data.map(mapDeal), total };
     },
 
+    async findById(id) {
+      const row = await client.deal.findUnique({
+        where: { id },
+        include: {
+          owner: { select: { id: true, name: true } },
+        },
+      });
+      return row ? mapDeal(row) : null;
+    },
+
     async create(input) {
       const row = await client.deal.create({
         data: {
@@ -160,6 +170,50 @@ export function createPrismaDealsStore(client: PrismaClient): DealsStore {
         },
       });
       return mapDeal(row);
+    },
+
+    async update(id, input) {
+      const row = await client.deal.update({
+        where: { id },
+        data: {
+          ...(input.company !== undefined && { company: input.company }),
+          ...(input.contact !== undefined && { contact: input.contact }),
+          ...(input.value !== undefined && { value: input.value }),
+          ...(input.stage !== undefined && { stage: input.stage }),
+          ...(input.probability !== undefined && {
+            probability: input.probability,
+          }),
+          ...(input.type !== undefined && { type: input.type }),
+          ...(input.country !== undefined && { country: input.country }),
+          ...(input.notes !== undefined && { notes: input.notes }),
+          ...(input.closeDate !== undefined && {
+            closeDate: input.closeDate ? new Date(input.closeDate) : null,
+          }),
+          ...(input.partnerId !== undefined && {
+            partner: input.partnerId
+              ? { connect: { id: input.partnerId } }
+              : { disconnect: true },
+          }),
+        },
+        include: {
+          owner: { select: { id: true, name: true } },
+        },
+      });
+      return mapDeal(row);
+    },
+
+    async pipelineSummary(ownerScope) {
+      const result = await client.deal.groupBy({
+        by: ["stage"],
+        _count: { id: true },
+        _sum: { value: true },
+        where: ownerScope ? { ownerId: { in: ownerScope } } : undefined,
+      });
+      return result.map((row) => ({
+        stage: row.stage,
+        count: row._count.id,
+        totalValue: Number(row._sum.value ?? 0),
+      }));
     },
   };
 }

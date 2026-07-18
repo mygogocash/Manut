@@ -42,16 +42,35 @@ function memoryStore(seed?: {
   reports?: ExpenseReportRecord[];
   lines?: ExpenseLineRecord[];
   permissionsByUser?: Record<string, string[]>;
+  registeredUploads?: Array<{
+    id: string;
+    bucket: string;
+    path: string;
+    purpose: string;
+    uploadedBy: string;
+  }>;
 }): ExpensesStore {
   const reports = [...(seed?.reports ?? [])];
   const lines = [...(seed?.lines ?? [])];
   const permissionsByUser = seed?.permissionsByUser ?? {
     "user-123": ["expense:read", "expense:create"],
   };
+  const registeredUploads = [...(seed?.registeredUploads ?? [])];
 
   return {
     async loadPermissions(userId) {
       return new Set(permissionsByUser[userId] ?? []);
+    },
+    async findRegistered(query) {
+      const match = registeredUploads.find(
+        (upload) =>
+          upload.bucket === query.bucket &&
+          upload.path === query.path &&
+          upload.purpose === query.purpose &&
+          (query.uploadedBy === undefined ||
+            upload.uploadedBy === query.uploadedBy),
+      );
+      return match ? { id: match.id } : null;
     },
     async findMany(filters, page, limit) {
       let rows = reports.filter(
@@ -118,6 +137,7 @@ function memoryStore(seed?: {
         status: "pending",
         categoryId: input.categoryId ?? null,
         notes: input.notes ?? null,
+        receiptUrl: input.receiptUrl ?? null,
       };
       lines.push(row);
       const report = reports.find((item) => item.id === input.reportId);
@@ -133,6 +153,7 @@ function memoryStore(seed?: {
       if (input.date !== undefined) row.date = input.date;
       if (input.categoryId !== undefined) row.categoryId = input.categoryId;
       if (input.notes !== undefined) row.notes = input.notes;
+      if (input.receiptUrl !== undefined) row.receiptUrl = input.receiptUrl;
       return row;
     },
     async softDeleteLine(id) {
@@ -458,7 +479,68 @@ describe("expenses dual-path routes", () => {
     });
   });
 
-  it("proxies receipt-bearing expense line creates when Hyperdrive is on", async () => {
+  it("accepts external receipt URLs on Hyperdrive without TRUSTED_STORAGE_ORIGINS", async () => {
+    const store = memoryStore({
+      reports: [
+        {
+          id: "report-own",
+          period: "2026-07",
+          title: "July",
+          category: "general",
+          status: "draft",
+          submittedAt: null,
+          approvedAt: null,
+          rejectReason: null,
+          reimbursedAt: null,
+          approvedTotal: null,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+          employeeId: "user-123",
+          employeeName: "Test User",
+          employeeEmail: "user@example.com",
+          employeeDepartment: "Eng",
+          entityId: "entity-1",
+          entityName: "Manut TH",
+          expenseCount: 0,
+          totalAmount: 0,
+          totalCurrency: "THB",
+          converted: true,
+          missingRates: [],
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/reports/report-own/expenses",
+      {
+        body: JSON.stringify({
+          description: "Taxi",
+          amount: 120,
+          currency: "THB",
+          date: "2026-07-18",
+          receiptUrl: "https://drive.example/file/abc",
+        }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+      hyperdriveEnv(),
+    );
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        description: "Taxi",
+        receiptUrl: "https://drive.example/file/abc",
+      },
+    });
+  });
+
+  it("proxies managed receipt expense lines when TRUSTED_STORAGE_ORIGINS is unset", async () => {
     const upstream = vi.fn(async () =>
       Response.json({ data: { id: "proxied-line" } }, { status: 201 }),
     );
@@ -505,7 +587,8 @@ describe("expenses dual-path routes", () => {
           amount: 120,
           currency: "THB",
           date: "2026-07-18",
-          receiptUrl: "https://storage.example/receipt.pdf",
+          receiptUrl:
+            "https://files.manut.example/storage/v1/object/public/receipts/u/r.pdf",
         }),
         headers: {
           authorization: `Bearer ${TEST_TOKEN}`,
@@ -517,6 +600,77 @@ describe("expenses dual-path routes", () => {
     );
     expect(response.status).toBe(201);
     expect(upstream).toHaveBeenCalledOnce();
+  });
+
+  it("creates expense line with registered managed receipt when origins are set", async () => {
+    const receiptUrl =
+      "https://files.manut.example/storage/v1/object/public/receipts/user-123/e1.pdf";
+    const store = memoryStore({
+      reports: [
+        {
+          id: "report-own",
+          period: "2026-07",
+          title: "July",
+          category: "general",
+          status: "draft",
+          submittedAt: null,
+          approvedAt: null,
+          rejectReason: null,
+          reimbursedAt: null,
+          approvedTotal: null,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+          employeeId: "user-123",
+          employeeName: "Test User",
+          employeeEmail: "user@example.com",
+          employeeDepartment: "Eng",
+          entityId: "entity-1",
+          entityName: "Manut TH",
+          expenseCount: 0,
+          totalAmount: 0,
+          totalCurrency: "THB",
+          converted: true,
+          missingRates: [],
+        },
+      ],
+      registeredUploads: [
+        {
+          id: "upload-e1",
+          bucket: "receipts",
+          path: "user-123/e1.pdf",
+          purpose: "expense-receipt",
+          uploadedBy: "user-123",
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/reports/report-own/expenses",
+      {
+        body: JSON.stringify({
+          description: "Taxi",
+          amount: 120,
+          currency: "THB",
+          date: "2026-07-18",
+          receiptUrl,
+        }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+      hyperdriveEnv({
+        TRUSTED_STORAGE_ORIGINS: "https://files.manut.example",
+      }),
+    );
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      data: { description: "Taxi", receiptUrl },
+    });
   });
 
   it("proxies non-self expense report detail when Hyperdrive is on", async () => {

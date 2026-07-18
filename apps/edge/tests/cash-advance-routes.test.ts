@@ -40,15 +40,34 @@ const verifyToken = vi.fn(async () => ({
 function memoryStore(seed?: {
   requests?: CashAdvanceRequestRecord[];
   permissionsByUser?: Record<string, string[]>;
+  registeredUploads?: Array<{
+    id: string;
+    bucket: string;
+    path: string;
+    purpose: string;
+    uploadedBy: string;
+  }>;
 }): CashAdvanceStore {
   const requests = [...(seed?.requests ?? [])];
   const permissionsByUser = seed?.permissionsByUser ?? {
     "user-123": ["cash-advance:read", "cash-advance:create"],
   };
+  const registeredUploads = [...(seed?.registeredUploads ?? [])];
 
   return {
     async loadPermissions(userId) {
       return new Set(permissionsByUser[userId] ?? []);
+    },
+    async findRegistered(query) {
+      const match = registeredUploads.find(
+        (upload) =>
+          upload.bucket === query.bucket &&
+          upload.path === query.path &&
+          upload.purpose === query.purpose &&
+          (query.uploadedBy === undefined ||
+            upload.uploadedBy === query.uploadedBy),
+      );
+      return match ? { id: match.id } : null;
     },
     async findMany(filters, page, limit) {
       let rows = requests.filter(
@@ -84,12 +103,36 @@ function memoryStore(seed?: {
         items: input.items.map((item, index) => ({
           id: `item-${index + 1}`,
           description: item.description,
+          receiptUrl: item.receiptUrl ?? null,
         })),
         bankName: input.bankName ?? null,
         bankAccountNo: input.bankAccountNo ?? null,
         notes: input.notes ?? null,
       };
       requests.push(row);
+      return row;
+    },
+    async update(id, input) {
+      const row = requests.find((request) => request.id === id);
+      if (!row) throw new Error("missing");
+      if (input.payoutMode !== undefined) row.payoutMode = input.payoutMode;
+      if (input.currency !== undefined) row.currency = input.currency;
+      if (input.notes !== undefined) row.notes = input.notes;
+      if (input.bankName !== undefined) row.bankName = input.bankName;
+      if (input.bankAccountNo !== undefined) {
+        row.bankAccountNo = input.bankAccountNo;
+      }
+      if (input.items) {
+        row.items = input.items.map((item, index) => ({
+          id: `item-${index + 1}`,
+          description: item.description,
+          receiptUrl: item.receiptUrl ?? null,
+        }));
+        row.requestedTotal = input.items.reduce(
+          (sum, item) => sum + item.requestedAmount,
+          0,
+        );
+      }
       return row;
     },
     async findById(id) {
@@ -171,7 +214,7 @@ describe("cash-advance dual-path routes", () => {
           employeeEmail: "user@example.com",
           entityId: null,
           entityName: null,
-          items: [{ id: "item-1", description: "Taxi" }],
+          items: [{ id: "item-1", description: "Taxi", receiptUrl: null }],
           bankName: null,
           bankAccountNo: null,
           notes: null,
@@ -273,7 +316,7 @@ describe("cash-advance dual-path routes", () => {
           employeeEmail: "user@example.com",
           entityId: null,
           entityName: null,
-          items: [{ id: "item-1", description: "Taxi" }],
+          items: [{ id: "item-1", description: "Taxi", receiptUrl: null }],
           bankName: null,
           bankAccountNo: null,
           notes: null,
@@ -321,7 +364,7 @@ describe("cash-advance dual-path routes", () => {
           employeeEmail: "other@example.com",
           entityId: null,
           entityName: null,
-          items: [{ id: "item-1", description: "Taxi" }],
+          items: [{ id: "item-1", description: "Taxi", receiptUrl: null }],
           bankName: null,
           bankAccountNo: null,
           notes: null,
@@ -348,7 +391,7 @@ describe("cash-advance dual-path routes", () => {
     expect(response.status).toBe(403);
   });
 
-  it("proxies scope=all and receipt creates when Hyperdrive is on", async () => {
+  it("proxies scope=all and managed receipt creates without TRUSTED_STORAGE_ORIGINS", async () => {
     const upstream = vi.fn(async (request: Request) => {
       const url = new URL(request.url);
       expect(url.pathname).toBe("/api/cash-advance");
@@ -383,7 +426,8 @@ describe("cash-advance dual-path routes", () => {
             {
               description: "Taxi",
               requestedAmount: 250,
-              receiptUrl: "https://storage.example/receipt.pdf",
+              receiptUrl:
+                "https://files.manut.example/storage/v1/object/public/receipts/u/r.pdf",
             },
           ],
         }),
@@ -397,5 +441,130 @@ describe("cash-advance dual-path routes", () => {
     );
     expect(createResponse.status).toBe(200);
     expect(upstream).toHaveBeenCalledTimes(2);
+  });
+
+  it("creates cash advance with registered receipt when TRUSTED_STORAGE_ORIGINS is set", async () => {
+    const receiptUrl =
+      "https://files.manut.example/storage/v1/object/public/receipts/user-123/r1.pdf";
+    const store = memoryStore({
+      registeredUploads: [
+        {
+          id: "upload-1",
+          bucket: "receipts",
+          path: "user-123/r1.pdf",
+          purpose: "cash-advance-receipt",
+          uploadedBy: "user-123",
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createCashAdvanceStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/cash-advance",
+      {
+        body: JSON.stringify({
+          payoutMode: "cash",
+          currency: "THB",
+          items: [
+            {
+              description: "Taxi",
+              requestedAmount: 250,
+              receiptUrl,
+            },
+          ],
+        }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+      hyperdriveEnv({
+        TRUSTED_STORAGE_ORIGINS: "https://files.manut.example",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        status: "draft",
+        items: [{ description: "Taxi", receiptUrl }],
+      },
+    });
+  });
+
+  it("updates own draft cash advance with registered receipt on Hyperdrive", async () => {
+    const receiptUrl =
+      "https://files.manut.example/storage/v1/object/public/receipts/user-123/r2.pdf";
+    const store = memoryStore({
+      requests: [
+        {
+          id: "ca-own",
+          requestNumber: 1,
+          requestDate: "2026-07-18",
+          payoutMode: "cash",
+          currency: "THB",
+          status: "draft",
+          requestedTotal: 100,
+          approvedTotal: 0,
+          rejectReason: null,
+          employeeId: "user-123",
+          employeeName: "Test User",
+          employeeEmail: "user@example.com",
+          entityId: null,
+          entityName: null,
+          items: [{ id: "item-1", description: "Old", receiptUrl: null }],
+          bankName: null,
+          bankAccountNo: null,
+          notes: null,
+        },
+      ],
+      registeredUploads: [
+        {
+          id: "upload-2",
+          bucket: "receipts",
+          path: "user-123/r2.pdf",
+          purpose: "cash-advance-receipt",
+          uploadedBy: "user-123",
+        },
+      ],
+    });
+    const app = createEdgeApp({
+      createCashAdvanceStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/cash-advance/ca-own",
+      {
+        body: JSON.stringify({
+          items: [
+            {
+              description: "Taxi",
+              requestedAmount: 300,
+              receiptUrl,
+            },
+          ],
+        }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "PUT",
+      },
+      hyperdriveEnv({
+        TRUSTED_STORAGE_ORIGINS: "https://files.manut.example",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        id: "ca-own",
+        requestedTotal: 300,
+        items: [{ description: "Taxi", receiptUrl }],
+      },
+    });
   });
 });

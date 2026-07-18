@@ -30,6 +30,7 @@ function mapLine(row: {
   status: string;
   categoryId: string | null;
   notes: string | null;
+  receiptUrl: string | null;
 }): ExpenseLineRecord {
   return {
     id: row.id,
@@ -42,6 +43,7 @@ function mapLine(row: {
     status: row.status,
     categoryId: row.categoryId,
     notes: row.notes,
+    receiptUrl: row.receiptUrl,
   };
 }
 
@@ -185,6 +187,13 @@ export function createPrismaExpensesStore(client: PrismaClient): ExpensesStore {
       return loadUserPermissions(client, userId, ADMIN_EXTRAS);
     },
 
+    async findRegistered(query) {
+      const { createPrismaFileUploadLookup } = await import(
+        "../file-upload-lookup"
+      );
+      return createPrismaFileUploadLookup(client).findRegistered(query);
+    },
+
     async findMany(filters, page, limit) {
       const where: {
         deletedAt: null;
@@ -291,6 +300,7 @@ export function createPrismaExpensesStore(client: PrismaClient): ExpensesStore {
           categoryId: input.categoryId,
           travelRequestId: input.travelRequestId,
           notes: input.notes,
+          receiptUrl: input.receiptUrl ?? null,
           status: "pending",
         },
       });
@@ -311,6 +321,9 @@ export function createPrismaExpensesStore(client: PrismaClient): ExpensesStore {
             categoryId: input.categoryId,
           }),
           ...(input.notes !== undefined && { notes: input.notes }),
+          ...(input.receiptUrl !== undefined && {
+            receiptUrl: input.receiptUrl,
+          }),
         },
       });
       return mapLine(row);

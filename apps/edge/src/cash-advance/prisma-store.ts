@@ -56,7 +56,11 @@ function mapRow(row: {
   notes: string | null;
   employee: { id: string; name: string | null; email: string };
   entity: { id: string; name: string } | null;
-  items: Array<{ id: string; description: string }>;
+  items: Array<{
+    id: string;
+    description: string;
+    receiptUrl: string | null;
+  }>;
 }): CashAdvanceRequestRecord {
   return {
     id: row.id,
@@ -76,6 +80,7 @@ function mapRow(row: {
     items: row.items.map((item) => ({
       id: item.id,
       description: item.description,
+      receiptUrl: item.receiptUrl,
     })),
     bankName: row.bankName,
     bankAccountNo: row.bankAccountNo,
@@ -87,7 +92,7 @@ const LIST_INCLUDES = {
   employee: { select: { id: true, name: true, email: true } },
   entity: { select: { id: true, name: true } },
   items: {
-    select: { id: true, description: true },
+    select: { id: true, description: true, receiptUrl: true },
     orderBy: { position: "asc" as const },
   },
 };
@@ -98,6 +103,13 @@ export function createPrismaCashAdvanceStore(
   return {
     async loadPermissions(userId) {
       return loadUserPermissions(client, userId, ADMIN_EXTRAS);
+    },
+
+    async findRegistered(query) {
+      const { createPrismaFileUploadLookup } = await import(
+        "../file-upload-lookup"
+      );
+      return createPrismaFileUploadLookup(client).findRegistered(query);
     },
 
     async findMany(filters, page, limit) {
@@ -147,8 +159,54 @@ export function createPrismaCashAdvanceStore(
               description: item.description,
               requestedAmount: item.requestedAmount,
               approvedAmount: 0,
+              categoryId: item.categoryId ?? null,
+              receiptUrl: item.receiptUrl ?? null,
             })),
           },
+        },
+        include: LIST_INCLUDES,
+      });
+      return mapRow(row);
+    },
+
+    async update(id, input) {
+      if (input.items) {
+        await client.$transaction(async (tx) => {
+          await tx.cashAdvanceItem.deleteMany({ where: { requestId: id } });
+          if (input.items && input.items.length > 0) {
+            await tx.cashAdvanceItem.createMany({
+              data: input.items.map((item, index) => ({
+                requestId: id,
+                position: index + 1,
+                description: item.description,
+                requestedAmount: item.requestedAmount,
+                approvedAmount: 0,
+                categoryId: item.categoryId ?? null,
+                receiptUrl: item.receiptUrl ?? null,
+              })),
+            });
+          }
+        });
+      }
+
+      const requestedTotal = input.items
+        ? input.items.reduce((sum, item) => sum + item.requestedAmount, 0)
+        : undefined;
+
+      const row = await client.cashAdvanceRequest.update({
+        where: { id },
+        data: {
+          ...(input.entityId !== undefined && { entityId: input.entityId }),
+          ...(input.payoutMode !== undefined && {
+            payoutMode: input.payoutMode,
+          }),
+          ...(input.bankName !== undefined && { bankName: input.bankName }),
+          ...(input.bankAccountNo !== undefined && {
+            bankAccountNo: input.bankAccountNo,
+          }),
+          ...(input.currency !== undefined && { currency: input.currency }),
+          ...(input.notes !== undefined && { notes: input.notes }),
+          ...(requestedTotal !== undefined && { requestedTotal }),
         },
         include: LIST_INCLUDES,
       });

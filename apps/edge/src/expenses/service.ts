@@ -1,5 +1,10 @@
 import { HttpError } from "../http-error";
 import {
+  STORAGE_BUCKETS,
+  TrustedStorageError,
+  validateReceiptUrl,
+} from "../trusted-storage";
+import {
   canReadExpenses,
   EXPENSE_CREATE,
   EXPENSE_HR_APPROVE,
@@ -69,7 +74,19 @@ function assertCanUseOfficeCategory(
   }
 }
 
-export function createExpensesService(store: ExpensesStore) {
+function toHttpError(error: unknown): never {
+  if (error instanceof TrustedStorageError) {
+    throw new HttpError(error.status, error.code, error.message);
+  }
+  throw error;
+}
+
+export function createExpensesService(
+  store: ExpensesStore,
+  options: { trustedOrigins?: readonly string[] } = {},
+) {
+  const trustedOrigins = options.trustedOrigins ?? [];
+
   return {
     async list(
       userId: string,
@@ -188,6 +205,7 @@ export function createExpensesService(store: ExpensesStore) {
         categoryId?: string;
         travelRequestId?: string;
         notes?: string;
+        receiptUrl?: string | null;
       },
     ) {
       const permissions = await store.loadPermissions(userId);
@@ -229,10 +247,23 @@ export function createExpensesService(store: ExpensesStore) {
         throw new HttpError(400, "INVALID_EXPENSE", "Date must be YYYY-MM-DD.");
       }
 
+      const receiptUrl = input.receiptUrl?.trim() || null;
+      try {
+        await validateReceiptUrl(store, receiptUrl, {
+          mode: "allow-external",
+          allowedBuckets: [STORAGE_BUCKETS.RECEIPTS],
+          purpose: "expense-receipt",
+          uploadedBy: userId,
+          trustedOrigins,
+        });
+      } catch (error) {
+        toHttpError(error);
+      }
+
       if (input.categoryId) {
         const category = await store.findCategoryById(input.categoryId);
         if (category) {
-          if (category.receiptRequired) {
+          if (category.receiptRequired && !receiptUrl) {
             throw new HttpError(
               400,
               "INVALID_EXPENSE",
@@ -263,6 +294,7 @@ export function createExpensesService(store: ExpensesStore) {
         categoryId: input.categoryId,
         travelRequestId: input.travelRequestId,
         notes: input.notes?.trim() || undefined,
+        receiptUrl,
       });
 
       return {
@@ -273,6 +305,7 @@ export function createExpensesService(store: ExpensesStore) {
           currency: line.currency,
           date: line.date,
           status: line.status,
+          receiptUrl: line.receiptUrl,
         },
       };
     },
@@ -288,6 +321,7 @@ export function createExpensesService(store: ExpensesStore) {
         date?: string;
         categoryId?: string | null;
         notes?: string | null;
+        receiptUrl?: string | null;
       },
     ) {
       const permissions = await store.loadPermissions(userId);
@@ -323,6 +357,21 @@ export function createExpensesService(store: ExpensesStore) {
         );
       }
 
+      if (input.receiptUrl !== undefined) {
+        const receiptUrl = input.receiptUrl?.trim() || null;
+        try {
+          await validateReceiptUrl(store, receiptUrl, {
+            mode: "allow-external",
+            allowedBuckets: [STORAGE_BUCKETS.RECEIPTS],
+            purpose: "expense-receipt",
+            uploadedBy: userId,
+            trustedOrigins,
+          });
+        } catch (error) {
+          toHttpError(error);
+        }
+      }
+
       const line = await store.updateLine(expenseId, {
         description: input.description?.trim(),
         amount: input.amount,
@@ -330,6 +379,9 @@ export function createExpensesService(store: ExpensesStore) {
         date: input.date,
         categoryId: input.categoryId,
         notes: input.notes,
+        ...(input.receiptUrl !== undefined && {
+          receiptUrl: input.receiptUrl?.trim() || null,
+        }),
       });
 
       return {
@@ -340,6 +392,7 @@ export function createExpensesService(store: ExpensesStore) {
           currency: line.currency,
           date: line.date,
           status: line.status,
+          receiptUrl: line.receiptUrl,
         },
       };
     },
