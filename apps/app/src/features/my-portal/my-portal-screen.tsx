@@ -36,7 +36,10 @@ type PortalLink = {
     | "/cash-advance"
     | "/payroll"
     | "/benefits"
-    | "/learning";
+    | "/learning"
+    | "/office"
+    | "/careers"
+    | "/applications";
   permission: string | null;
 };
 
@@ -54,6 +57,13 @@ const PORTAL_LINKS: PortalLink[] = [
   { label: "Payroll", href: "/payroll", permission: "payroll:read" },
   { label: "Benefits", href: "/benefits", permission: "benefits:read" },
   { label: "Learning", href: "/learning", permission: "learning:read" },
+  { label: "Office", href: "/office", permission: "office:read" },
+  { label: "Careers", href: "/careers", permission: "career:read" },
+  {
+    label: "Applications",
+    href: "/applications",
+    permission: "application:read",
+  },
   {
     label: "Performance",
     href: "/performance",

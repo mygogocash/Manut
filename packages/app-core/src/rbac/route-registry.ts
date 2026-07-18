@@ -177,6 +177,25 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     prefix: true,
   },
   {
+    path: "/careers",
+    access: "protected",
+    permissions: [
+      "career:read",
+      "career:create",
+      "career:update",
+      "career:delete",
+    ],
+    employeeAllowed: true,
+    prefix: true,
+  },
+  {
+    path: "/applications",
+    access: "protected",
+    permissions: ["application:read", "application:delete"],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
     path: "/directory",
     access: "protected",
     permissions: ["directory:read", "directory:view-sensitive"],

@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 25,
-    "pending": 62,
+    "foundation": 28,
+    "pending": 59,
     "removed": 16
   },
   "statusSemantics": {
@@ -88,9 +88,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/applications/page.tsx",
       "sourceRoute": "/applications",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/applications",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only recruiter inbox via app-core (strips resume attachment URLs to hasResume). Deferred: status writes, resume download, delete/export."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/aria/knowledge/[id]/page.tsx",
@@ -128,9 +128,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/careers/page.tsx",
       "sourceRoute": "/careers",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/careers",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only job postings list via app-core (career:read registry). Deferred: apply flow, posting create/update/delete, CSV export."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/cash-advance/approval/page.tsx",
@@ -504,9 +504,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/office/page.tsx",
       "sourceRoute": "/office",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/office",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only offices/rooms/assets via app-core (strips address, booking slots, finance fields, assignee email). Deferred: book-self create/cancel, manage CRUD, asset import."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/partners/[partnerId]/page.tsx",

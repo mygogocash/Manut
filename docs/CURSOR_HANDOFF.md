@@ -577,20 +577,22 @@ Migration order:
 2. HR/people and approvals: HRMS, travel, visa, expenses, cash advance,
    payroll, benefits, attendance, learning, career, applications, office,
    employees, roles, and related approval screens.
-   **Status 2026-07-18:** Wave 2 — Travel, Expenses, admin Employees/Roles,
-   `/hrms`, `/visa`, `/cash-advance` (self list/create/submit/delete draft),
-   `/payroll` (runs list), `/benefits` (catalog + my-enrollments), and
-   `/learning` (modules list) are `foundation`. Next productive slices:
-   `/office`, `/careers`, `/applications` (registry gaps for careers/
-   applications), or deepen landed HR modules (approval routes / R2). Still
-   deferred on landed slices: payroll create/approve/approval-chain/payslip
-   export; benefits enroll/manage/import; learning manage/complete; HRMS
-   pool/import/offboarding; visa KB/templates/90-day; cash-advance approval
-   config, approve/reject, disburse/proofs.
-3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
+   **Status 2026-07-18:** Wave 2 HR spine foundation complete — Travel,
+   Expenses, admin Employees/Roles, `/hrms`, `/visa`, `/cash-advance`,
+   `/payroll`, `/benefits`, `/learning`, `/office` (rooms/assets read),
+   `/careers` (job postings list + `career:*` registry), and `/applications`
+   (recruiter inbox read + `application:*` registry; employee-boundary).
+   Next productive slices: deepen landed HR modules (approval routes / R2 /
+   book-self / apply), Phase 1 leftovers (leave calendar/policies, wall),
+   or start Wave 3 Operations. Still deferred on landed slices: office
+   book-self + manage CRUD; careers apply/manage; applications status
+   writes/resume download; payroll create/approve/payslip export; benefits
+   enroll/manage; learning manage/complete; HRMS pool/import/offboarding;
+   visa KB/templates/90-day; cash-advance approval/disburse.
+   3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
-   **Not started.** Keep as a separate wave after Wave 2 HR spine; do not
-   block on E2E secrets or Phase E provisioning.
+   **Not started.** Wave 2 HR foundation spine is green; Wave 3 can start
+   without waiting on E2E secrets or Phase E provisioning.
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
    **Not started.**

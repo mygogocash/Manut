@@ -91,6 +91,42 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
+  it("keeps Office visible when office:read is granted", () => {
+    const links = allowedShellLinks(["office:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/office",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Careers visible when career:read is granted", () => {
+    const links = allowedShellLinks(["career:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/careers",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Applications off employee-only shells even with application:read", () => {
+    const links = allowedShellLinks(["application:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);
+  });
+
+  it("keeps Applications visible for non-employee accounts with application:read", () => {
+    const links = allowedShellLinks(["application:read"], false);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/applications",
+      "/settings",
+    ]);
+  });
+
   it("keeps admin Employees and Roles off employee-only shells", () => {
     const links = allowedShellLinks(["user:read", "role:read"], true);
 

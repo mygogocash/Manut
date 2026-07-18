@@ -162,4 +162,47 @@ describe("route policy resolution", () => {
       }),
     ).toMatchObject({ allowed: false, reason: "missing-permission" });
   });
+
+  it.each(["career:read", "career:create", "career:update", "career:delete"])(
+    "allows the careers route with %s",
+    (permission) => {
+      expect(
+        evaluateRouteAccess({
+          pathname: "/careers",
+          permissions: [permission],
+          employeeOnly: true,
+        }),
+      ).toMatchObject({ allowed: true });
+    },
+  );
+
+  it("denies the careers route when no accepted permission is present", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/careers",
+        permissions: [],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "missing-permission" });
+  });
+
+  it("blocks employee-only accounts from the applications recruiter inbox", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/applications",
+        permissions: ["application:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+  });
+
+  it("allows applications for non-employee accounts with application:read", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/applications",
+        permissions: ["application:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
 });
