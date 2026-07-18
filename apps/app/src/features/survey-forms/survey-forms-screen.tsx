@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+import { useAuth } from "@/features/auth/auth-provider";
 import { useApiClient } from "@/providers/api-client-provider";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -57,6 +58,8 @@ function FormRow({
 export function SurveyFormsScreen() {
   const api = useApiClient();
   const router = useRouter();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission("survey:manage-wave");
 
   const formsQuery = useQuery({
     queryKey: surveyFormsQueryKey({ page: 1, limit: 20 }),
@@ -79,9 +82,16 @@ export function SurveyFormsScreen() {
         <Card title="Survey forms" maxWidth={720}>
           <View style={{ gap: spacing.md }}>
             <Text selectable style={{ color: colors.textMuted }}>
-              Read-only survey form list. Builder and wave management remain
-              deferred.
+              Survey form list with draft create. Question builder, publish, and
+              analytics remain deferred.
             </Text>
+            {canManage ? (
+              <Button
+                label="New survey form"
+                pendingLabel="Working…"
+                onPress={() => router.push("/survey-forms/new")}
+              />
+            ) : null}
             {formsQuery.isLoading ? (
               <LoadingState label="Loading survey forms…" />
             ) : null}

@@ -617,10 +617,15 @@ Migration order:
    `/pr-management`), admin (`/admin`, `/admin/form-config`), IT ops
    (`/it-operations` + access/billing), `/policies`, `/certificates`, and
    survey list/detail/respond/new shells (`/survey`, `/survey-forms`).
+   **Survey deepen (2026-07-18):** draft create on `/survey/new` +
+   `/survey-forms/new` (manage-gated POST), and `/survey/[id]/respond`
+   answer submit via app-core Zod. Disposition stays `foundation` until
+   Expo E2E. Still deferred: question builders, publish/announce, analytics,
+   survey-forms respond submit, targeting UI.
    Still deepen (not missing routes): journals/invoices/bank/approve-post,
    revenue detail tabs, reporting, helpdesk writes/comments/GitHub, project
-   boards/task writes, sales pipeline writes, survey form builders, CRM
-   board/tasks/import/create.
+   boards/task writes, sales pipeline writes, survey question builders /
+   publish / analytics, CRM board/tasks/import/create.
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.

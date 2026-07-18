@@ -42,6 +42,7 @@ const surveyApiSchema = z
             type: z.string().min(1),
             prompt: z.string().min(1),
             required: z.boolean().optional(),
+            options: z.array(z.string()).optional(),
           })
           .passthrough(),
       )
@@ -77,6 +78,7 @@ export const surveyDetailSchema = surveyApiSchema.transform((row) => ({
     type: question.type,
     prompt: question.prompt,
     required: question.required ?? false,
+    options: question.options ?? [],
   })),
 }));
 
@@ -116,12 +118,74 @@ const myResponseEnvelopeSchema = z
   })
   .strict();
 
+const trimmedTitle = z
+  .string()
+  .trim()
+  .min(1, "Title is required")
+  .max(200);
+
+const optionalDescription = z
+  .string()
+  .trim()
+  .max(5000)
+  .nullable()
+  .optional()
+  .transform((value) => value ?? null);
+
+export const createSurveyInputSchema = z
+  .object({
+    title: trimmedTitle,
+    description: optionalDescription,
+    isAnonymous: z.boolean().default(false),
+  })
+  .strict();
+
+export const submitSurveyResponseInputSchema = z
+  .object({
+    answers: z
+      .array(
+        z
+          .object({
+            questionId: z.string().uuid(),
+            value: z
+              .union([
+                z.string(),
+                z.number(),
+                z.boolean(),
+                z.array(z.string()),
+                z.null(),
+              ])
+              .optional(),
+          })
+          .strict(),
+      )
+      .default([]),
+  })
+  .strict();
+
+const createdSurveyResponseSchema = z
+  .object({
+    data: surveyDetailSchema,
+  })
+  .strict();
+
+const submittedSurveyResponseSchema = z
+  .object({
+    data: myResponseApiSchema,
+  })
+  .strict();
+
 export type SurveySummary = z.infer<typeof surveySummarySchema>;
 export type SurveyDetail = z.infer<typeof surveyDetailSchema>;
 export type SurveyList = z.infer<typeof surveyListResponseSchema>;
 export type SurveyListParams = z.input<typeof surveyListParamsSchema>;
 export type SurveyStatus = z.infer<typeof surveyStatusSchema>;
 export type MySurveyResponse = { id: string; answerCount: number } | null;
+export type CreateSurveyInput = z.input<typeof createSurveyInputSchema>;
+export type SubmitSurveyResponseInput = z.input<
+  typeof submitSurveyResponseInputSchema
+>;
+export type SubmittedSurveyResponse = { id: string; answerCount: number };
 
 export const SURVEYS_QUERY_ROOT = ["survey", "list"] as const;
 export const SURVEY_DETAIL_QUERY_ROOT = ["survey", "detail"] as const;
@@ -179,6 +243,44 @@ export async function getMySurveyResponse(
   );
   const data = myResponseEnvelopeSchema.parse(response).data;
   if (!data) return null;
+  return {
+    id: data.id,
+    answerCount: Array.isArray(data.answers) ? data.answers.length : 0,
+  };
+}
+
+export async function createSurvey(
+  client: ApiClient,
+  input: CreateSurveyInput,
+): Promise<SurveyDetail> {
+  const parsed = createSurveyInputSchema.parse(input);
+  const response = await client.post<unknown>("/survey", {
+    title: parsed.title,
+    description: parsed.description,
+    isAnonymous: parsed.isAnonymous,
+    targetAll: true,
+    targetEntityIds: [],
+    targetDepartments: [],
+    targetUserIds: [],
+    questions: [],
+  });
+  return createdSurveyResponseSchema.parse(response).data;
+}
+
+export async function submitSurveyResponse(
+  client: ApiClient,
+  id: string,
+  input: SubmitSurveyResponseInput,
+): Promise<SubmittedSurveyResponse> {
+  const parsed = submitSurveyResponseInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/survey/${encodeURIComponent(id)}/responses`,
+    parsed,
+  );
+  const data = submittedSurveyResponseSchema.parse(response).data;
+  if (!data) {
+    throw new Error("Survey response receipt was empty");
+  }
   return {
     id: data.id,
     answerCount: Array.isArray(data.answers) ? data.answers.length : 0,

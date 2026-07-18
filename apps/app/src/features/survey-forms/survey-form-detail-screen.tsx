@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 
+import { useAuth } from "@/features/auth/auth-provider";
 import { useApiClient } from "@/providers/api-client-provider";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -32,6 +33,8 @@ function firstParam(value: string | string[] | undefined): string | null {
 export function SurveyFormDetailScreen() {
   const api = useApiClient();
   const router = useRouter();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission("survey:manage-wave");
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = firstParam(params.id);
 
@@ -104,18 +107,32 @@ export function SurveyFormDetailScreen() {
                     style={{ color: colors.text }}
                   >
                     {question.order + 1}. {question.prompt}
+                    {question.required ? " *" : ""}
                   </Text>
                 ))}
+                {canManage && detailQuery.data.status === "draft" ? (
+                  <StatusMessage tone="warning">
+                    Draft ready for manage. Question replace, publish, announce,
+                    and analytics remain deferred.
+                  </StatusMessage>
+                ) : null}
               </View>
             ) : null}
             <Button
               label="Response status"
-      pendingLabel="Working…"
+              pendingLabel="Working…"
               onPress={() => router.push(`/survey-forms/${id}/respond`)}
             />
+            {canManage ? (
+              <Button
+                label="New survey form"
+                pendingLabel="Working…"
+                onPress={() => router.push("/survey-forms/new")}
+              />
+            ) : null}
             <Button
               label="Back to survey forms"
-      pendingLabel="Working…"
+              pendingLabel="Working…"
               onPress={() => router.push("/survey-forms")}
             />
           </View>

@@ -25,6 +25,9 @@ The source command is sorted before classification. The JSON companion repeats t
 - `pending`: the approved target route is not yet present in Expo.
 - `removed`: the source route was intentionally excluded.
 
+Survey routes (`/survey*`, `/survey-forms*`) stay `foundation` after draft-create +
+survey respond-submit deepen until authenticated Expo E2E acceptance.
+
 ## Inventory
 
 |   # | Source path                                                                     | Source route                               | Disposition            | Status       | Target route                 |

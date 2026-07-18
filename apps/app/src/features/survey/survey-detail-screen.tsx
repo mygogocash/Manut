@@ -113,8 +113,12 @@ export function SurveyDetailScreen() {
               </View>
             ) : null}
             <Button
-              label="View my response status"
-      pendingLabel="Working…"
+              label={
+                detailQuery.data?.alreadyResponded
+                  ? "View my response status"
+                  : "Respond to survey"
+              }
+              pendingLabel="Working…"
               onPress={() => router.push(`/survey/${id}/respond`)}
             />
             <Button

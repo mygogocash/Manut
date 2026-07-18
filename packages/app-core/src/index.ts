@@ -1067,9 +1067,13 @@ export {
   SURVEY_DETAIL_QUERY_ROOT,
   SURVEY_MY_RESPONSE_QUERY_ROOT,
   SURVEYS_QUERY_ROOT,
+  createSurvey,
+  createSurveyInputSchema,
   getMySurveyResponse,
   getSurvey,
   listSurveys,
+  submitSurveyResponse,
+  submitSurveyResponseInputSchema,
   surveyDetailQueryKey,
   surveyDetailSchema,
   surveyMyResponseQueryKey,
@@ -1078,7 +1082,10 @@ export {
   surveysQueryKey,
 } from "./survey/survey";
 export type {
+  CreateSurveyInput,
   MySurveyResponse,
+  SubmitSurveyResponseInput,
+  SubmittedSurveyResponse,
   SurveyDetail,
   SurveyList,
   SurveyListParams,
@@ -1088,6 +1095,8 @@ export type {
 export {
   SURVEY_FORMS_QUERY_ROOT,
   SURVEY_FORM_DETAIL_QUERY_ROOT,
+  createSurveyForm,
+  createSurveyFormInputSchema,
   getSurveyForm,
   listSurveyForms,
   surveyFormDetailQueryKey,
@@ -1097,6 +1106,7 @@ export {
   surveyFormsQueryKey,
 } from "./survey-forms/survey-forms";
 export type {
+  CreateSurveyFormInput,
   SurveyFormDetail,
   SurveyFormList,
   SurveyFormListParams,

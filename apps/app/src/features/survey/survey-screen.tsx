@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+import { useAuth } from "@/features/auth/auth-provider";
 import { useApiClient } from "@/providers/api-client-provider";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -58,6 +59,8 @@ function SurveyRow({
 export function SurveyScreen() {
   const api = useApiClient();
   const router = useRouter();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission("survey:manage");
 
   const surveysQuery = useQuery({
     queryKey: surveysQueryKey({ page: 1, limit: 20 }),
@@ -79,8 +82,16 @@ export function SurveyScreen() {
         <Card title="Surveys" maxWidth={720}>
           <View style={{ gap: spacing.md }}>
             <Text selectable style={{ color: colors.textMuted }}>
-              Read-only survey list. Create and analytics remain deferred.
+              Survey list with draft create. Question builder, publish, and
+              analytics remain deferred.
             </Text>
+            {canManage ? (
+              <Button
+                label="New survey"
+                pendingLabel="Working…"
+                onPress={() => router.push("/survey/new")}
+              />
+            ) : null}
             {surveysQuery.isLoading ? (
               <LoadingState label="Loading surveys…" />
             ) : null}

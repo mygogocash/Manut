@@ -21,6 +21,12 @@ jest.mock("expo-router", () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
 
+jest.mock("@/features/auth/auth-provider", () => ({
+  useAuth: () => ({
+    hasPermission: () => false,
+  }),
+}));
+
 async function renderScreen() {
   const queryClient = new QueryClient({
     defaultOptions: {

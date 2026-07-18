@@ -41,6 +41,7 @@ const surveyFormApiSchema = z
             type: z.string().min(1),
             prompt: z.string().min(1),
             required: z.boolean().optional(),
+            options: z.array(z.string()).optional(),
           })
           .passthrough(),
       )
@@ -78,6 +79,7 @@ export const surveyFormDetailSchema = surveyFormApiSchema.transform((row) => ({
     type: question.type,
     prompt: question.prompt,
     required: question.required ?? false,
+    options: question.options ?? [],
   })),
 }));
 
@@ -101,11 +103,34 @@ const surveyFormDetailResponseSchema = z
   })
   .strict();
 
+const trimmedTitle = z
+  .string()
+  .trim()
+  .min(1, "Title is required")
+  .max(200);
+
+const optionalDescription = z
+  .string()
+  .trim()
+  .max(5000)
+  .nullable()
+  .optional()
+  .transform((value) => value ?? null);
+
+export const createSurveyFormInputSchema = z
+  .object({
+    title: trimmedTitle,
+    description: optionalDescription,
+    isAnonymous: z.boolean().default(false),
+  })
+  .strict();
+
 export type SurveyFormSummary = z.infer<typeof surveyFormSummarySchema>;
 export type SurveyFormDetail = z.infer<typeof surveyFormDetailSchema>;
 export type SurveyFormList = z.infer<typeof surveyFormListResponseSchema>;
 export type SurveyFormListParams = z.input<typeof surveyFormListParamsSchema>;
 export type SurveyFormStatus = z.infer<typeof surveyFormStatusSchema>;
+export type CreateSurveyFormInput = z.input<typeof createSurveyFormInputSchema>;
 
 export const SURVEY_FORMS_QUERY_ROOT = ["survey-forms", "list"] as const;
 export const SURVEY_FORM_DETAIL_QUERY_ROOT = [
@@ -147,5 +172,23 @@ export async function getSurveyForm(
     `/survey-forms/${encodeURIComponent(id)}`,
     signal ? { signal } : undefined,
   );
+  return surveyFormDetailResponseSchema.parse(response).data;
+}
+
+export async function createSurveyForm(
+  client: ApiClient,
+  input: CreateSurveyFormInput,
+): Promise<SurveyFormDetail> {
+  const parsed = createSurveyFormInputSchema.parse(input);
+  const response = await client.post<unknown>("/survey-forms", {
+    title: parsed.title,
+    description: parsed.description,
+    isAnonymous: parsed.isAnonymous,
+    targetAll: true,
+    targetEntityIds: [],
+    targetDepartments: [],
+    targetUserIds: [],
+    questions: [],
+  });
   return surveyFormDetailResponseSchema.parse(response).data;
 }
