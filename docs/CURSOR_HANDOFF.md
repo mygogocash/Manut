@@ -584,13 +584,14 @@ Migration order:
    `/payroll`, `/benefits`, `/learning`, `/office` (rooms/assets read),
    `/careers` (job postings list + `career:*` registry), and `/applications`
    (recruiter inbox read + `application:*` registry; employee-boundary).
-   Next productive slices: deepen landed HR modules (approval routes / R2 /
-   book-self / apply), Phase 1 leftovers (leave calendar/policies, wall),
-   or start Wave 3 Operations. Still deferred on landed slices: office
-   book-self + manage CRUD; careers apply/manage; applications status
-   writes/resume download; payroll create/approve/payslip export; benefits
-   enroll/manage; learning manage/complete; HRMS pool/import/offboarding;
-   visa KB/templates/90-day; cash-advance approval/disburse.
+   Leave calendar/team approve + `/leave/policies`, and read-only
+   `/expenses/approval` + `/cash-advance/approval` chain foundations landed.
+   Next: Wave 3 Operations, wall/compose, admin system settings, or deepen
+   R2/book-self/apply. Still deferred: office book-self + manage; careers
+   apply/manage; applications status writes; payroll create/approve/payslip
+   export; benefits enroll/manage; learning manage/complete; HRMS
+   pool/import/offboarding; visa KB/templates/90-day; cash-advance
+   approve/disburse actions; expense report approve + R2 receipts.
    3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
    **Not started.** Wave 2 HR foundation spine is green; Wave 3 can start

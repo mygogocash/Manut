@@ -23,6 +23,7 @@ import {
   TextField,
 } from "@manut/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -351,6 +352,7 @@ function CreateRequestModal({
 export function CashAdvanceScreen() {
   const api = useApiClient();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { hasPermission } = useAuth();
   const canRead =
     hasPermission("cash-advance:read") ||
@@ -358,6 +360,7 @@ export function CashAdvanceScreen() {
     hasPermission("cash-advance:approve") ||
     hasPermission("cash-advance:create");
   const canCreate = hasPermission("cash-advance:create");
+  const canViewApprovalChain = hasPermission("cash-advance:approve");
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -447,14 +450,32 @@ export function CashAdvanceScreen() {
                 Self-service drafts and submit. Approval-step config, inbox
                 approve/reject, and disbursement proof uploads stay deferred.
               </Text>
-              {canCreate ? (
-                <Button
-                  label="New request"
-                  pendingLabel="Opening…"
-                  accessibilityLabel="New cash advance request"
-                  onPress={() => setShowCreate(true)}
-                />
-              ) : null}
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: spacing.sm,
+                }}
+              >
+                {canCreate ? (
+                  <Button
+                    label="New request"
+                    pendingLabel="Opening…"
+                    accessibilityLabel="New cash advance request"
+                    onPress={() => setShowCreate(true)}
+                  />
+                ) : null}
+                {canViewApprovalChain ? (
+                  <Button
+                    label="Approval chain"
+                    pendingLabel="Opening…"
+                    accessibilityLabel="Open cash-advance approval chain"
+                    onPress={() => {
+                      router.push("/cash-advance/approval");
+                    }}
+                  />
+                ) : null}
+              </View>
             </View>
           </Card>
 

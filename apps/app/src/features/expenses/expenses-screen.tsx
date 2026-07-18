@@ -28,6 +28,7 @@ import {
   TextField,
 } from "@manut/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -530,8 +531,14 @@ function ReportCard({
 export function ExpensesScreen() {
   const api = useApiClient();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { user, hasPermission } = useAuth();
   const canCreate = hasPermission("expense:create");
+  const canViewApprovalChain =
+    hasPermission("expense:assign-approver") ||
+    hasPermission("expense:hr-settings") ||
+    hasPermission("expense:hr-read") ||
+    hasPermission("expense:approve");
   const employeeId = user?.id;
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<ExpenseReportStatus | undefined>();
@@ -710,26 +717,45 @@ export function ExpensesScreen() {
             </Text>
             <Text selectable style={{ color: colors.textMuted }}>
               Draft reports, line items with optional receipt URLs, and submit.
-              Approvals and native receipt upload remain later.
+              Native receipt upload and report approve actions remain later.
             </Text>
           </View>
 
-          {canCreate ? (
-            <Button
-              label="New report"
-              pendingLabel="Opening…"
-              accessibilityLabel="New expense report"
-              onPress={() => {
-                setSuccessMessage(null);
-                setCreateOpen(true);
-              }}
-            />
-          ) : (
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              gap: spacing.sm,
+            }}
+          >
+            {canCreate ? (
+              <Button
+                label="New report"
+                pendingLabel="Opening…"
+                accessibilityLabel="New expense report"
+                onPress={() => {
+                  setSuccessMessage(null);
+                  setCreateOpen(true);
+                }}
+              />
+            ) : null}
+            {canViewApprovalChain ? (
+              <Button
+                label="Approval chain"
+                pendingLabel="Opening…"
+                accessibilityLabel="Open expense approval chain"
+                onPress={() => {
+                  router.push("/expenses/approval");
+                }}
+              />
+            ) : null}
+          </View>
+          {!canCreate ? (
             <StatusMessage>
               Your role can view expense reports but cannot create or submit
               them.
             </StatusMessage>
-          )}
+          ) : null}
 
           {successMessage ? (
             <StatusMessage tone="success">{successMessage}</StatusMessage>

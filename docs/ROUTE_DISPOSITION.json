@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 29,
-    "pending": 58,
+    "foundation": 31,
+    "pending": 56,
     "removed": 16
   },
   "statusSemantics": {
@@ -136,9 +136,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/cash-advance/approval/page.tsx",
       "sourceRoute": "/cash-advance/approval",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/cash-advance/approval",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only cash-advance approval-steps list via app-core. Step create/edit/reorder, notification recipients, approve/reject, and disbursement remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/cash-advance/page.tsx",
@@ -146,7 +146,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/cash-advance",
-      "note": "Expo self-service: mine list, create draft, submit, delete draft. Deferred: /cash-advance/approval config, approve/reject inbox, disburse/clear, R2 receipts/proofs, read-all tab."
+      "note": "Expo self-service: mine list, create draft, submit, delete draft, and link to approval-chain foundation. Approve/reject on submitted, disburse + proof URL, and item receipt download remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/certificates/page.tsx",
@@ -224,9 +224,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/expenses/approval/page.tsx",
       "sourceRoute": "/expenses/approval",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/expenses/approval",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only expense approval-steps list via app-core. Step create/edit/reorder, notification recipients, and report approve actions remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/expenses/page.tsx",
@@ -234,7 +234,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/expenses",
-      "note": "Expo has self expense-report list/detail plus draft create, line add (optional receipt URL), and submit via app-core. Native R2 receipt upload, FX, approvals, and /expenses/approval remain before parity can be claimed."
+      "note": "Expo has self expense-report list/detail plus draft create, line add (optional receipt URL), submit, and link to approval-chain foundation. Report approve/reject, dedicated /expenses/[reportId], and R2 receipt upload remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/gmail/page.tsx",

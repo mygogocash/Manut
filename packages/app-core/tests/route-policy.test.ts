@@ -45,6 +45,25 @@ describe("route policy resolution", () => {
     ).toMatchObject({ allowed: false, reason: "employee-boundary" });
   });
 
+  it("gates expense and cash-advance approval chain admin routes", () => {
+    expect(resolveRoutePolicy("/expenses/approval")?.permissions).toEqual([
+      "expense:assign-approver",
+      "expense:hr-settings",
+      "expense:hr-read",
+      "expense:approve",
+    ]);
+    expect(resolveRoutePolicy("/cash-advance/approval")?.permissions).toEqual([
+      "cash-advance:approve",
+    ]);
+    expect(
+      evaluateRouteAccess({
+        pathname: "/expenses/approval",
+        permissions: ["expense:approve"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+  });
+
   it("does not admit an approver-only account to the balance-led Leave page", () => {
     expect(
       evaluateRouteAccess({

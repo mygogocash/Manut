@@ -11,7 +11,7 @@ git ls-tree -r --name-only 371349fd -- apps/web/src/app | rg '/page\.tsx$' | sor
 - Source route-page files: **103**
 - Unique source paths: **103**
 - Dispositions: **79 migrate**, **8 replace**, **16 remove-as-provenance**
-- Current status: **29 foundation**, **58 pending**, **16 removed**
+- Current status: **31 foundation**, **56 pending**, **16 removed**
 
 The source command is sorted before classification. The JSON companion repeats the source command, counts, and every row, so CI can independently assert count, uniqueness, and allowed values.
 
@@ -42,7 +42,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  12 | `apps/web/src/app/(dashboard)/benefits/page.tsx`                                | `/benefits`                                | `migrate`              | `foundation` | `/benefits`                  |
 |  13 | `apps/web/src/app/(dashboard)/blog-management/page.tsx`                         | `/blog-management`                         | `migrate`              | `pending`    | `/blog-management`           |
 |  14 | `apps/web/src/app/(dashboard)/careers/page.tsx`                                 | `/careers`                                 | `migrate`              | `foundation` | `/careers`                   |
-|  15 | `apps/web/src/app/(dashboard)/cash-advance/approval/page.tsx`                   | `/cash-advance/approval`                   | `migrate`              | `pending`    | `/cash-advance/approval`     |
+|  15 | `apps/web/src/app/(dashboard)/cash-advance/approval/page.tsx`                   | `/cash-advance/approval`                   | `migrate`              | `foundation` | `/cash-advance/approval`     |
 |  16 | `apps/web/src/app/(dashboard)/cash-advance/page.tsx`                            | `/cash-advance`                            | `migrate`              | `foundation` | `/cash-advance`              |
 |  17 | `apps/web/src/app/(dashboard)/certificates/page.tsx`                            | `/certificates`                            | `migrate`              | `pending`    | `/certificates`              |
 |  18 | `apps/web/src/app/(dashboard)/dashboard/page.tsx`                               | `/dashboard`                               | `migrate`              | `foundation` | `/dashboard`                 |
@@ -53,7 +53,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  23 | `apps/web/src/app/(dashboard)/drive/page.tsx`                                   | `/drive`                                   | `migrate`              | `pending`    | `/drive`                     |
 |  24 | `apps/web/src/app/(dashboard)/employees/page.tsx`                               | `/employees`                               | `migrate`              | `foundation` | `/employees`                 |
 |  25 | `apps/web/src/app/(dashboard)/expenses/[reportId]/page.tsx`                     | `/expenses/[reportId]`                     | `migrate`              | `pending`    | `/expenses/[reportId]`       |
-|  26 | `apps/web/src/app/(dashboard)/expenses/approval/page.tsx`                       | `/expenses/approval`                       | `migrate`              | `pending`    | `/expenses/approval`         |
+|  26 | `apps/web/src/app/(dashboard)/expenses/approval/page.tsx`                       | `/expenses/approval`                       | `migrate`              | `foundation` | `/expenses/approval`         |
 |  27 | `apps/web/src/app/(dashboard)/expenses/page.tsx`                                | `/expenses`                                | `migrate`              | `foundation` | `/expenses`                  |
 |  28 | `apps/web/src/app/(dashboard)/gmail/page.tsx`                                   | `/gmail`                                   | `migrate`              | `pending`    | `/gmail`                     |
 |  29 | `apps/web/src/app/(dashboard)/hr-crm/page.tsx`                                  | `/hr-crm`                                  | `migrate`              | `pending`    | `/hr-crm`                    |

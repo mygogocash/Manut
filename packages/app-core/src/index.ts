@@ -335,6 +335,16 @@ export type {
   ExpenseReportStatus,
 } from "./expenses/expenses";
 export {
+  EXPENSE_APPROVAL_STEPS_QUERY_KEY,
+  expenseApprovalStepSchema,
+  expenseApproverTypeLabel,
+  listExpenseApprovalSteps,
+} from "./expenses/expense-approval-steps";
+export type {
+  ExpenseApprovalStep,
+  ExpenseApproverType,
+} from "./expenses/expense-approval-steps";
+export {
   ADMIN_USERS_QUERY_ROOT,
   adminUserListParamsSchema,
   adminUserSchema,
@@ -439,6 +449,16 @@ export type {
   CashAdvanceStatus,
   CreateCashAdvanceInput,
 } from "./cash-advance/cash-advance";
+export {
+  CASH_ADVANCE_APPROVAL_STEPS_QUERY_KEY,
+  cashAdvanceApprovalStepSchema,
+  cashAdvanceApproverTypeLabel,
+  listCashAdvanceApprovalSteps,
+} from "./cash-advance/cash-advance-approval-steps";
+export type {
+  CashAdvanceApprovalStep,
+  CashAdvanceApproverType,
+} from "./cash-advance/cash-advance-approval-steps";
 export {
   listPayrollRuns,
   PAYROLL_RUNS_QUERY_ROOT,

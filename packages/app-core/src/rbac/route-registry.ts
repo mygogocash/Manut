@@ -318,4 +318,27 @@ export const ROUTE_OVERRIDES: readonly RouteOverride[] = [
       employeeAllowed: true,
     },
   },
+  {
+    matches: (pathname) => pathname === "/expenses/approval",
+    policy: {
+      path: "/expenses/approval",
+      access: "protected",
+      permissions: [
+        "expense:assign-approver",
+        "expense:hr-settings",
+        "expense:hr-read",
+        "expense:approve",
+      ],
+      employeeAllowed: false,
+    },
+  },
+  {
+    matches: (pathname) => pathname === "/cash-advance/approval",
+    policy: {
+      path: "/cash-advance/approval",
+      access: "protected",
+      permissions: ["cash-advance:approve"],
+      employeeAllowed: false,
+    },
+  },
 ];
