@@ -392,6 +392,23 @@ export type {
 export { ROLES_QUERY_KEY, listRoles, roleSchema } from "./admin/roles";
 export type { Role } from "./admin/roles";
 export {
+  ADMIN_USER_STATS_QUERY_KEY,
+  adminUserStatsQueryKey,
+  adminUserStatsSchema,
+  getAdminUserStats,
+} from "./admin/admin-hub";
+export type { AdminUserStats } from "./admin/admin-hub";
+export {
+  ADMIN_DEPARTMENTS_QUERY_KEY,
+  adminDepartmentSchema,
+  adminDepartmentsQueryKey,
+  listAdminDepartments,
+} from "./admin/form-config";
+export type {
+  AdminDepartment,
+  AdminDepartmentList,
+} from "./admin/form-config";
+export {
   ATTENDANCE_TODAY_QUERY_KEY,
   attendanceRecordSchema,
   attendanceStatusSchema,
@@ -667,7 +684,11 @@ export type { Blog, BlogList, BlogListParams } from "./blogs/blogs";
 export {
   announcementKindSchema,
   announcementStatusSchema,
+  LEGAL_ANNOUNCEMENT_DETAIL_QUERY_ROOT,
   LEGAL_ANNOUNCEMENTS_QUERY_ROOT,
+  getLegalAnnouncement,
+  legalAnnouncementDetailQueryKey,
+  legalAnnouncementDetailSchema,
   legalAnnouncementListParamsSchema,
   legalAnnouncementSchema,
   legalAnnouncementsQueryKey,
@@ -677,6 +698,7 @@ export type {
   AnnouncementKind,
   AnnouncementStatus,
   LegalAnnouncement,
+  LegalAnnouncementDetail,
   LegalAnnouncementList,
   LegalAnnouncementListParams,
 } from "./legal-announcements/legal-announcements";
@@ -961,3 +983,113 @@ export type {
   SalesRevenueLeadList,
   SalesRevenueLeadListParams,
 } from "./sales-revenue/sales-revenue";
+export {
+  LEGAL_DOCUMENTS_QUERY_ROOT,
+  LEGAL_SHARED_QUERY_ROOT,
+  legalDocumentSchema,
+  legalDocumentsQueryKey,
+  legalKindSchema,
+  legalSharedQueryKey,
+  legalStatusSchema,
+  listLegalDocuments,
+  listSharedLegalDocuments,
+} from "./legal/legal-documents";
+export type {
+  LegalDocument,
+  LegalDocumentList,
+  LegalDocumentListParams,
+  LegalKind,
+  LegalStatus,
+} from "./legal/legal-documents";
+export {
+  IT_ACCESS_REQUESTS_QUERY_ROOT,
+  IT_BILLING_SUBSCRIPTIONS_QUERY_ROOT,
+  IT_OPS_DASHBOARD_QUERY_KEY,
+  accessRequestSchema,
+  accessRequestStatusSchema,
+  getItOpsDashboard,
+  itAccessRequestsQueryKey,
+  itBillingSubscriptionsQueryKey,
+  itOpsDashboardQueryKey,
+  itOpsDashboardSchema,
+  itSubscriptionSchema,
+  listAccessRequests,
+  listItSubscriptions,
+} from "./it-operations/it-operations";
+export type {
+  AccessRequest,
+  AccessRequestList,
+  AccessRequestListParams,
+  AccessRequestStatus,
+  ItOpsDashboard,
+  ItSubscription,
+  ItSubscriptionList,
+  ItSubscriptionListParams,
+} from "./it-operations/it-operations";
+export {
+  POLICIES_QUERY_KEY,
+  companyPolicySchema,
+  listCompanyPolicies,
+  policiesQueryKey,
+  policyCategorySchema,
+} from "./policies/policies";
+export type {
+  CompanyPolicy,
+  CompanyPolicyList,
+  PolicyCategory,
+} from "./policies/policies";
+export {
+  CERTIFICATES_QUERY_ROOT,
+  certificateSchema,
+  certificateStatusSchema,
+  certificateTypeSchema,
+  certificatesQueryKey,
+  listCertificates,
+} from "./certificates/certificates";
+export type {
+  Certificate,
+  CertificateList,
+  CertificateListParams,
+  CertificateStatus,
+  CertificateType,
+} from "./certificates/certificates";
+export {
+  SURVEY_DETAIL_QUERY_ROOT,
+  SURVEY_MY_RESPONSE_QUERY_ROOT,
+  SURVEYS_QUERY_ROOT,
+  getMySurveyResponse,
+  getSurvey,
+  listSurveys,
+  surveyDetailQueryKey,
+  surveyDetailSchema,
+  surveyMyResponseQueryKey,
+  surveyStatusSchema,
+  surveySummarySchema,
+  surveysQueryKey,
+} from "./survey/survey";
+export type {
+  MySurveyResponse,
+  SurveyDetail,
+  SurveyList,
+  SurveyListParams,
+  SurveyStatus,
+  SurveySummary,
+} from "./survey/survey";
+export {
+  SURVEY_FORMS_QUERY_ROOT,
+  SURVEY_FORM_DETAIL_QUERY_ROOT,
+  getSurveyForm,
+  listSurveyForms,
+  surveyFormDetailQueryKey,
+  surveyFormDetailSchema,
+  surveyFormStatusSchema,
+  surveyFormSummarySchema,
+  surveyFormsQueryKey,
+} from "./survey-forms/survey-forms";
+export type {
+  SurveyFormDetail,
+  SurveyFormList,
+  SurveyFormListParams,
+  SurveyFormStatus,
+  SurveyFormSummary,
+} from "./survey-forms/survey-forms";

@@ -9,15 +9,10 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { ItCrmScreen } from "@/features/it-crm/it-crm-screen";
+import { DealsScreen } from "@/features/deals/deals-screen";
 
 const mockGet = jest.fn();
-const mockPush = jest.fn();
-let mockPermissions = ["it-crm:read"];
-
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
+let mockPermissions = ["deals:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
   useApiClient: () => ({ get: mockGet }),
@@ -37,12 +32,12 @@ async function renderScreen() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <ItCrmScreen />
+      <DealsScreen />
     </QueryClientProvider>,
   );
 }
 
-describe("ItCrmScreen", () => {
+describe("DealsScreen", () => {
   beforeAll(() => {
     notifyManager.setNotifyFunction(async (callback) => {
       await act(async () => {
@@ -57,16 +52,19 @@ describe("ItCrmScreen", () => {
 
   beforeEach(() => {
     mockGet.mockReset();
-    mockPush.mockReset();
-    mockPermissions = ["it-crm:read"];
+    mockPermissions = ["deals:read"];
     mockGet.mockResolvedValue({
       data: [
         {
           id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          name: "Edge gateway",
-          slug: "edge-gateway",
-          status: "in_progress",
-          department: "Engineering",
+          company: "Acme",
+          contact: "Jane Doe",
+          value: 15000,
+          stage: "proposal",
+          probability: 40,
+          type: "new",
+          country: "TH",
+          closeDate: null,
           owner: {
             id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
             name: "Alex Example",
@@ -78,15 +76,15 @@ describe("ItCrmScreen", () => {
   });
 
   it(
-    "lists it-crm projects read-only",
+    "lists deals read-only",
     async () => {
       await renderScreen();
       expect(
-        await screen.findByText("Edge gateway", {}, { timeout: 10_000 }),
+        await screen.findByText("Acme", {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(screen.getByText(/in_progress · Engineering/)).toBeTruthy();
+      expect(screen.getByText(/proposal · 15000 · Jane Doe/)).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
-        "/it-crm?page=1&limit=20",
+        "/deals?page=1&limit=20",
         expect.anything(),
       );
     },

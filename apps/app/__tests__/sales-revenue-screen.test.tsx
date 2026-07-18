@@ -9,15 +9,10 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { ItCrmScreen } from "@/features/it-crm/it-crm-screen";
+import { SalesRevenueScreen } from "@/features/sales-revenue/sales-revenue-screen";
 
 const mockGet = jest.fn();
-const mockPush = jest.fn();
-let mockPermissions = ["it-crm:read"];
-
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
+let mockPermissions = ["sales-revenue:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
   useApiClient: () => ({ get: mockGet }),
@@ -37,12 +32,12 @@ async function renderScreen() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <ItCrmScreen />
+      <SalesRevenueScreen />
     </QueryClientProvider>,
   );
 }
 
-describe("ItCrmScreen", () => {
+describe("SalesRevenueScreen", () => {
   beforeAll(() => {
     notifyManager.setNotifyFunction(async (callback) => {
       await act(async () => {
@@ -57,16 +52,17 @@ describe("ItCrmScreen", () => {
 
   beforeEach(() => {
     mockGet.mockReset();
-    mockPush.mockReset();
-    mockPermissions = ["it-crm:read"];
+    mockPermissions = ["sales-revenue:read"];
     mockGet.mockResolvedValue({
       data: [
         {
           id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          name: "Edge gateway",
-          slug: "edge-gateway",
-          status: "in_progress",
-          department: "Engineering",
+          company: "Acme",
+          firstName: "Jane",
+          lastName: "Doe",
+          source: "web",
+          status: "new",
+          createdAt: "2026-07-01T00:00:00.000Z",
           owner: {
             id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
             name: "Alex Example",
@@ -78,15 +74,15 @@ describe("ItCrmScreen", () => {
   });
 
   it(
-    "lists it-crm projects read-only",
+    "lists sales-revenue leads read-only",
     async () => {
       await renderScreen();
       expect(
-        await screen.findByText("Edge gateway", {}, { timeout: 10_000 }),
+        await screen.findByText("Acme", {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(screen.getByText(/in_progress · Engineering/)).toBeTruthy();
+      expect(screen.getByText(/Jane Doe · new · web/)).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
-        "/it-crm?page=1&limit=20",
+        "/sales-revenue/leads?page=1&limit=20",
         expect.anything(),
       );
     },

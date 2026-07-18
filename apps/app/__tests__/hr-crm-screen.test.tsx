@@ -9,15 +9,10 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { ItCrmScreen } from "@/features/it-crm/it-crm-screen";
+import { HrCrmScreen } from "@/features/hr-crm/hr-crm-screen";
 
 const mockGet = jest.fn();
-const mockPush = jest.fn();
-let mockPermissions = ["it-crm:read"];
-
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
+let mockPermissions = ["hr-crm:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
   useApiClient: () => ({ get: mockGet }),
@@ -37,12 +32,12 @@ async function renderScreen() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <ItCrmScreen />
+      <HrCrmScreen />
     </QueryClientProvider>,
   );
 }
 
-describe("ItCrmScreen", () => {
+describe("HrCrmScreen", () => {
   beforeAll(() => {
     notifyManager.setNotifyFunction(async (callback) => {
       await act(async () => {
@@ -57,20 +52,21 @@ describe("ItCrmScreen", () => {
 
   beforeEach(() => {
     mockGet.mockReset();
-    mockPush.mockReset();
-    mockPermissions = ["it-crm:read"];
+    mockPermissions = ["hr-crm:read"];
     mockGet.mockResolvedValue({
       data: [
         {
           id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          name: "Edge gateway",
-          slug: "edge-gateway",
+          name: "Onboarding track",
+          slug: "onboarding-track",
           status: "in_progress",
-          department: "Engineering",
+          team: "hr",
+          department: "People",
           owner: {
             id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
             name: "Alex Example",
           },
+          _count: { tasks: 4 },
         },
       ],
       meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
@@ -78,15 +74,15 @@ describe("ItCrmScreen", () => {
   });
 
   it(
-    "lists it-crm projects read-only",
+    "lists HR team projects read-only",
     async () => {
       await renderScreen();
       expect(
-        await screen.findByText("Edge gateway", {}, { timeout: 10_000 }),
+        await screen.findByText("Onboarding track", {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(screen.getByText(/in_progress · Engineering/)).toBeTruthy();
+      expect(screen.getByText(/in_progress · hr · People/)).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
-        "/it-crm?page=1&limit=20",
+        "/projects?page=1&limit=20&team=hr",
         expect.anything(),
       );
     },

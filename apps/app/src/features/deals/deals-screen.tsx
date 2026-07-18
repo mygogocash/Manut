@@ -1,8 +1,8 @@
 import {
   ApiError,
-  itCrmProjectsQueryKey,
-  listItCrmProjects,
-  type ItCrmProject,
+  dealsQueryKey,
+  listDeals,
+  type Deal,
 } from "@manut/app-core";
 import {
   Button,
@@ -14,7 +14,6 @@ import {
   StatusMessage,
 } from "@manut/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
@@ -24,16 +23,11 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback;
 }
 
-function canReadItCrm(hasPermission: (code: string) => boolean): boolean {
-  return (
-    hasPermission("it-crm:read") ||
-    hasPermission("it-crm:read-all") ||
-    hasPermission("projects:read") ||
-    hasPermission("projects:read-all")
-  );
+function canReadDeals(hasPermission: (code: string) => boolean): boolean {
+  return hasPermission("deals:read");
 }
 
-function ProjectRow({ project }: { project: ItCrmProject }) {
+function DealRow({ deal }: { deal: Deal }) {
   return (
     <View
       style={{
@@ -46,29 +40,28 @@ function ProjectRow({ project }: { project: ItCrmProject }) {
       }}
     >
       <Text selectable style={{ fontWeight: "600", color: colors.text }}>
-        {project.name}
+        {deal.company}
       </Text>
       <Text selectable style={{ color: colors.textMuted }}>
-        {project.status}
-        {project.department ? ` · ${project.department}` : ""}
+        {deal.stage} · {deal.value}
+        {deal.contact ? ` · ${deal.contact}` : ""}
       </Text>
       <Text selectable style={{ color: colors.textMuted }}>
-        {project.owner.name}
+        {deal.owner.name}
+        {deal.country ? ` · ${deal.country}` : ""}
       </Text>
     </View>
   );
 }
 
-export function ItCrmScreen() {
+export function DealsScreen() {
   const api = useApiClient();
-  const router = useRouter();
   const { hasPermission } = useAuth();
-  const allowed = canReadItCrm(hasPermission);
+  const allowed = canReadDeals(hasPermission);
 
-  const listQuery = useQuery({
-    queryKey: itCrmProjectsQueryKey({ page: 1, limit: 20 }),
-    queryFn: ({ signal }) =>
-      listItCrmProjects(api, { page: 1, limit: 20 }, signal),
+  const dealsQuery = useQuery({
+    queryKey: dealsQueryKey({ page: 1, limit: 20 }),
+    queryFn: ({ signal }) => listDeals(api, { page: 1, limit: 20 }, signal),
     enabled: allowed,
   });
 
@@ -77,9 +70,9 @@ export function ItCrmScreen() {
       <ScrollView
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}
       >
-        <Card title="IT CRM" maxWidth={720}>
+        <Card title="Deals" maxWidth={720}>
           <StatusMessage tone="error">
-            You do not have permission to view IT CRM.
+            You do not have permission to view deals.
           </StatusMessage>
         </Card>
       </ScrollView>
@@ -104,52 +97,44 @@ export function ItCrmScreen() {
             accessibilityRole="header"
             style={{ fontSize: 30, fontWeight: "700", color: colors.text }}
           >
-            IT CRM
+            Deals
           </Text>
           <Text selectable style={{ color: colors.textMuted }}>
-            Read-only IT workspace list. Board, tasks, archive, and writes
-            remain later.
+            Read-only deals list. Pipeline summary, notes, and writes remain
+            later.
           </Text>
         </View>
 
-        <Button
-          label="Open dashboard"
-          accessibilityLabel="Open IT CRM dashboard"
-          onPress={() => router.push("/it-crm/dashboard")}
-        />
+        {dealsQuery.isPending ? <LoadingState label="Loading deals…" /> : null}
 
-        {listQuery.isPending ? (
-          <LoadingState label="Loading IT CRM…" />
-        ) : null}
-
-        {listQuery.isError ? (
-          <Card title="IT CRM unavailable">
+        {dealsQuery.isError ? (
+          <Card title="Deals unavailable">
             <StatusMessage tone="error">
-              {errorMessage(listQuery.error, "Unable to load IT CRM.")}
+              {errorMessage(dealsQuery.error, "We could not load deals.")}
             </StatusMessage>
             <Button
               label="Retry"
               pendingLabel="Retrying…"
-              accessibilityLabel="Retry IT CRM"
-              pending={listQuery.isFetching}
+              accessibilityLabel="Retry deals"
+              pending={dealsQuery.isFetching}
               onPress={() => {
-                void listQuery.refetch();
+                void dealsQuery.refetch();
               }}
             />
           </Card>
         ) : null}
 
-        {listQuery.data ? (
-          listQuery.data.data.length === 0 ? (
-            <Card title="IT CRM">
+        {dealsQuery.data ? (
+          dealsQuery.data.data.length === 0 ? (
+            <Card title="No deals">
               <Text selectable style={{ color: colors.textMuted }}>
-                No projects yet.
+                No deals are available yet.
               </Text>
             </Card>
           ) : (
-            <View style={{ gap: spacing.md }}>
-              {listQuery.data.data.map((project) => (
-                <ProjectRow key={project.id} project={project} />
+            <View accessibilityLabel="Deals" style={{ gap: spacing.md }}>
+              {dealsQuery.data.data.map((deal) => (
+                <DealRow key={deal.id} deal={deal} />
               ))}
             </View>
           )

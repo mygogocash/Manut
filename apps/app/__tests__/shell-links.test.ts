@@ -152,7 +152,7 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
-  it("keeps Investors, Investor updates, and Dataroom visible for non-employees", () => {
+  it("keeps Investors, Investor CRM, Investor updates, and Dataroom visible for non-employees", () => {
     const links = allowedShellLinks(
       ["investors:read", "investor-updates:read", "dataroom:read"],
       false,
@@ -161,8 +161,37 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/investors",
+      "/investor-crm",
       "/investor-updates",
       "/dataroom",
+      "/files",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Sales revenue and Deals visible for non-employees with matching perms", () => {
+    const links = allowedShellLinks(
+      ["sales-revenue:read", "deals:read"],
+      false,
+    );
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/sales",
+      "/sales-revenue",
+      "/deals",
+      "/files",
+      "/settings",
+    ]);
+  });
+
+  it("keeps HR CRM visible for non-employees with hr-crm:read", () => {
+    const links = allowedShellLinks(["hr-crm:read"], false);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/projects",
+      "/hr-crm",
       "/files",
       "/settings",
     ]);
@@ -261,6 +290,7 @@ describe("allowedShellLinks", () => {
       "/my-portal",
       "/projects",
       "/it-crm",
+      "/hr-crm",
       "/product-crm",
       "/legal-crm",
       "/accounting-crm",
@@ -355,6 +385,61 @@ describe("allowedShellLinks", () => {
       "/drive",
       "/gmail",
       "/messages",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Policies and Announcements visible for employees with leaf perms", () => {
+    const links = allowedShellLinks(
+      ["policy:read", "legal:announcement-read"],
+      true,
+    );
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/legal/announcements",
+      "/policies",
+      "/files",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Admin, Legal, Certificates, and IT Ops off employee-only shells", () => {
+    const links = allowedShellLinks(
+      [
+        "admin:read",
+        "legal:read",
+        "certificate:read",
+        "it:dashboard:view",
+      ],
+      true,
+    );
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/files",
+      "/settings",
+    ]);
+  });
+
+  it("shows Admin, Legal, Certificates, and IT Ops for non-employee accounts", () => {
+    const links = allowedShellLinks(
+      [
+        "admin:read",
+        "legal:read",
+        "certificate:read",
+        "it:dashboard:view",
+      ],
+      false,
+    );
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/legal",
+      "/certificates",
+      "/it-operations",
+      "/files",
+      "/admin",
       "/settings",
     ]);
   });

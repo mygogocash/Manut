@@ -9,7 +9,7 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { ItCrmScreen } from "@/features/it-crm/it-crm-screen";
+import { ItCrmDashboardScreen } from "@/features/it-crm/it-crm-dashboard-screen";
 
 const mockGet = jest.fn();
 const mockPush = jest.fn();
@@ -37,12 +37,12 @@ async function renderScreen() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <ItCrmScreen />
+      <ItCrmDashboardScreen />
     </QueryClientProvider>,
   );
 }
 
-describe("ItCrmScreen", () => {
+describe("ItCrmDashboardScreen", () => {
   beforeAll(() => {
     notifyManager.setNotifyFunction(async (callback) => {
       await act(async () => {
@@ -60,33 +60,29 @@ describe("ItCrmScreen", () => {
     mockPush.mockReset();
     mockPermissions = ["it-crm:read"];
     mockGet.mockResolvedValue({
-      data: [
-        {
-          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          name: "Edge gateway",
-          slug: "edge-gateway",
-          status: "in_progress",
-          department: "Engineering",
-          owner: {
-            id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-            name: "Alex Example",
-          },
-        },
-      ],
-      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      data: {
+        total: 4,
+        productionLive: 1,
+        atRisk: 1,
+        inProgress: 2,
+        byStatus: [{ status: "in_progress", count: 2 }],
+        byDepartment: [],
+        upcomingGoLives: [],
+        recentUpdates: [],
+      },
     });
   });
 
   it(
-    "lists it-crm projects read-only",
+    "shows IT CRM dashboard KPIs",
     async () => {
       await renderScreen();
       expect(
-        await screen.findByText("Edge gateway", {}, { timeout: 10_000 }),
+        await screen.findByText("Total: 4", {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(screen.getByText(/in_progress · Engineering/)).toBeTruthy();
+      expect(screen.getByText("In progress: 2")).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
-        "/it-crm?page=1&limit=20",
+        "/it-crm/dashboard",
         expect.anything(),
       );
     },

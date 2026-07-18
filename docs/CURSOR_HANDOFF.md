@@ -615,11 +615,12 @@ Migration order:
    `/accounting-crm`, `/qa-crm`, `/voucher-crm`. Content/comms foundations
    (`/blog-management`, `/docs`, `/legal/announcements`, `/pr-management`,
    `/office`, `/careers`, `/applications`) also landed. Still pending:
-   `/sales-revenue`, journals/invoices/bank/approve-post, revenue detail
-   tabs, reporting, administration hubs, helpdesk writes/comments/GitHub,
-   project boards/task writes, partner detail/campaigns, sales pipeline
-   writes. Deferred CRM: `/hr-crm` (no dedicated list API), `/investor-crm`
-   (dashboard + `/api/investors`), `/it-crm/dashboard`, `/qa-crm/[projectId]`.
+   journals/invoices/bank/approve-post, revenue detail tabs, reporting,
+   administration hubs, helpdesk writes/comments/GitHub, project boards/task
+   writes, partner detail/campaigns, sales pipeline writes. CRM foundations
+   landed for `/hr-crm` (`projects?team=hr`), `/investor-crm`, `/it-crm/dashboard`,
+   `/qa-crm/[projectId]`, `/sales-revenue`, `/deals` (read-only; strips
+   emails/notes/budget/board).
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.

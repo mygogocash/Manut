@@ -176,9 +176,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/deals/page.tsx",
       "sourceRoute": "/deals",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/deals",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only deals list via app-core GET /api/deals (strips notes/owner email/partner). Deferred: pipeline summary, create/update/delete. Legacy web redirected to /sales."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/directory/page.tsx",
@@ -256,9 +256,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/hr-crm/page.tsx",
       "sourceRoute": "/hr-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/hr-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only HR team project list via app-core listProjects({ team: \"hr\" }) / GET /api/projects?team=hr (strips emails/notes/budget/board). Deferred: board, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/hrms/esop/[employeeId]/page.tsx",
@@ -280,9 +280,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/investor-crm/page.tsx",
       "sourceRoute": "/investor-crm",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/investor-crm",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only investor CRM hub via app-core GET /api/investors/dashboard KPIs + stripped investors list. Deferred: funnel, notes, contact writes, /investors management parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/investor-updates/page.tsx",
@@ -304,9 +304,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/it-crm/dashboard/page.tsx",
       "sourceRoute": "/it-crm/dashboard",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-crm/dashboard",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only IT CRM KPI rollup via app-core GET /api/it-crm/dashboard (strips comments/flow/SLA/helpdesk deep-dives). Deferred: analytics exhibits and writes."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-crm/page.tsx",
@@ -314,7 +314,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/it-crm",
-      "note": "Expo read-only IT CRM project list via app-core (strips emails/notes/budget/board). Deferred: board, tasks, archive, dashboard, create/update."
+      "note": "Expo read-only IT CRM project list via app-core (strips emails/notes/budget/board). Dashboard foundation at /it-crm/dashboard. Deferred: board, tasks, archive, create/update."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-helpdesk/page.tsx",
@@ -624,9 +624,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/qa-crm/[projectId]/page.tsx",
       "sourceRoute": "/qa-crm/[projectId]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/qa-crm/[projectId]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only QA project detail via app-core GET /api/qa-crm/:id (strips emails/notes/description/board). Deferred: issue table, board, writes."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/qa-crm/page.tsx",
@@ -656,9 +656,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/sales-revenue/page.tsx",
       "sourceRoute": "/sales-revenue",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/sales-revenue",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only sales-revenue leads list via app-core GET /api/sales-revenue/leads (strips email/phone/notes). Deferred: pipeline, accounts, contacts, activities, tasks, settings, writes."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/sales/page.tsx",

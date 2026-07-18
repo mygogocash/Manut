@@ -1,8 +1,8 @@
 import {
   ApiError,
-  itCrmProjectsQueryKey,
-  listItCrmProjects,
-  type ItCrmProject,
+  listSalesRevenueLeads,
+  salesRevenueLeadsQueryKey,
+  type SalesRevenueLead,
 } from "@manut/app-core";
 import {
   Button,
@@ -14,7 +14,6 @@ import {
   StatusMessage,
 } from "@manut/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
@@ -24,16 +23,16 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback;
 }
 
-function canReadItCrm(hasPermission: (code: string) => boolean): boolean {
+function canReadSalesRevenue(
+  hasPermission: (code: string) => boolean,
+): boolean {
   return (
-    hasPermission("it-crm:read") ||
-    hasPermission("it-crm:read-all") ||
-    hasPermission("projects:read") ||
-    hasPermission("projects:read-all")
+    hasPermission("sales-revenue:read") ||
+    hasPermission("sales-revenue:team-read")
   );
 }
 
-function ProjectRow({ project }: { project: ItCrmProject }) {
+function LeadRow({ lead }: { lead: SalesRevenueLead }) {
   return (
     <View
       style={{
@@ -46,29 +45,28 @@ function ProjectRow({ project }: { project: ItCrmProject }) {
       }}
     >
       <Text selectable style={{ fontWeight: "600", color: colors.text }}>
-        {project.name}
+        {lead.company}
       </Text>
       <Text selectable style={{ color: colors.textMuted }}>
-        {project.status}
-        {project.department ? ` · ${project.department}` : ""}
+        {lead.firstName} {lead.lastName} · {lead.status}
+        {lead.source ? ` · ${lead.source}` : ""}
       </Text>
       <Text selectable style={{ color: colors.textMuted }}>
-        {project.owner.name}
+        {lead.owner ? lead.owner.name : "Unassigned"}
       </Text>
     </View>
   );
 }
 
-export function ItCrmScreen() {
+export function SalesRevenueScreen() {
   const api = useApiClient();
-  const router = useRouter();
   const { hasPermission } = useAuth();
-  const allowed = canReadItCrm(hasPermission);
+  const allowed = canReadSalesRevenue(hasPermission);
 
-  const listQuery = useQuery({
-    queryKey: itCrmProjectsQueryKey({ page: 1, limit: 20 }),
+  const leadsQuery = useQuery({
+    queryKey: salesRevenueLeadsQueryKey({ page: 1, limit: 20 }),
     queryFn: ({ signal }) =>
-      listItCrmProjects(api, { page: 1, limit: 20 }, signal),
+      listSalesRevenueLeads(api, { page: 1, limit: 20 }, signal),
     enabled: allowed,
   });
 
@@ -77,9 +75,9 @@ export function ItCrmScreen() {
       <ScrollView
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}
       >
-        <Card title="IT CRM" maxWidth={720}>
+        <Card title="Sales revenue" maxWidth={720}>
           <StatusMessage tone="error">
-            You do not have permission to view IT CRM.
+            You do not have permission to view sales revenue leads.
           </StatusMessage>
         </Card>
       </ScrollView>
@@ -104,52 +102,44 @@ export function ItCrmScreen() {
             accessibilityRole="header"
             style={{ fontSize: 30, fontWeight: "700", color: colors.text }}
           >
-            IT CRM
+            Sales revenue
           </Text>
           <Text selectable style={{ color: colors.textMuted }}>
-            Read-only IT workspace list. Board, tasks, archive, and writes
-            remain later.
+            Read-only leads list. Pipeline, accounts, contacts, activities, and
+            writes remain later.
           </Text>
         </View>
 
-        <Button
-          label="Open dashboard"
-          accessibilityLabel="Open IT CRM dashboard"
-          onPress={() => router.push("/it-crm/dashboard")}
-        />
+        {leadsQuery.isPending ? <LoadingState label="Loading leads…" /> : null}
 
-        {listQuery.isPending ? (
-          <LoadingState label="Loading IT CRM…" />
-        ) : null}
-
-        {listQuery.isError ? (
-          <Card title="IT CRM unavailable">
+        {leadsQuery.isError ? (
+          <Card title="Leads unavailable">
             <StatusMessage tone="error">
-              {errorMessage(listQuery.error, "Unable to load IT CRM.")}
+              {errorMessage(leadsQuery.error, "We could not load leads.")}
             </StatusMessage>
             <Button
               label="Retry"
               pendingLabel="Retrying…"
-              accessibilityLabel="Retry IT CRM"
-              pending={listQuery.isFetching}
+              accessibilityLabel="Retry sales revenue leads"
+              pending={leadsQuery.isFetching}
               onPress={() => {
-                void listQuery.refetch();
+                void leadsQuery.refetch();
               }}
             />
           </Card>
         ) : null}
 
-        {listQuery.data ? (
-          listQuery.data.data.length === 0 ? (
-            <Card title="IT CRM">
+        {leadsQuery.data ? (
+          leadsQuery.data.data.length === 0 ? (
+            <Card title="No leads">
               <Text selectable style={{ color: colors.textMuted }}>
-                No projects yet.
+                No sales revenue leads are available yet.
               </Text>
             </Card>
           ) : (
-            <View style={{ gap: spacing.md }}>
-              {listQuery.data.data.map((project) => (
-                <ProjectRow key={project.id} project={project} />
+            <View accessibilityLabel="Sales revenue leads" style={{ gap: spacing.md }}>
+              {leadsQuery.data.data.map((lead) => (
+                <LeadRow key={lead.id} lead={lead} />
               ))}
             </View>
           )

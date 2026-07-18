@@ -9,14 +9,17 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { ItCrmScreen } from "@/features/it-crm/it-crm-screen";
+import { QaCrmDetailScreen } from "@/features/qa-crm/qa-crm-detail-screen";
 
 const mockGet = jest.fn();
 const mockPush = jest.fn();
-let mockPermissions = ["it-crm:read"];
+let mockPermissions = ["qa-crm:read"];
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
+  useLocalSearchParams: () => ({
+    projectId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  }),
 }));
 
 jest.mock("@/providers/api-client-provider", () => ({
@@ -37,12 +40,12 @@ async function renderScreen() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <ItCrmScreen />
+      <QaCrmDetailScreen />
     </QueryClientProvider>,
   );
 }
 
-describe("ItCrmScreen", () => {
+describe("QaCrmDetailScreen", () => {
   beforeAll(() => {
     notifyManager.setNotifyFunction(async (callback) => {
       await act(async () => {
@@ -58,35 +61,37 @@ describe("ItCrmScreen", () => {
   beforeEach(() => {
     mockGet.mockReset();
     mockPush.mockReset();
-    mockPermissions = ["it-crm:read"];
+    mockPermissions = ["qa-crm:read"];
     mockGet.mockResolvedValue({
-      data: [
-        {
-          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          name: "Edge gateway",
-          slug: "edge-gateway",
-          status: "in_progress",
-          department: "Engineering",
-          owner: {
-            id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-            name: "Alex Example",
-          },
+      data: {
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        name: "Regression suite",
+        slug: "regression-suite",
+        status: "active",
+        department: "QA",
+        sortOrder: 1,
+        startDate: "2026-01-01T00:00:00.000Z",
+        endDate: null,
+        role: "member",
+        owner: {
+          id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          name: "Alex Example",
         },
-      ],
-      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      },
     });
   });
 
   it(
-    "lists it-crm projects read-only",
+    "shows read-only QA project detail",
     async () => {
       await renderScreen();
       expect(
-        await screen.findByText("Edge gateway", {}, { timeout: 10_000 }),
+        await screen.findByText("Regression suite", {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(screen.getByText(/in_progress · Engineering/)).toBeTruthy();
+      expect(screen.getByText(/active · QA/)).toBeTruthy();
+      expect(screen.getByText("Owner: Alex Example")).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
-        "/it-crm?page=1&limit=20",
+        "/qa-crm/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         expect.anything(),
       );
     },

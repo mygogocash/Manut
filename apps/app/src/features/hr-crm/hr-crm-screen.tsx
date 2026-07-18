@@ -1,8 +1,8 @@
 import {
   ApiError,
-  itCrmProjectsQueryKey,
-  listItCrmProjects,
-  type ItCrmProject,
+  listProjects,
+  projectsQueryKey,
+  type Project,
 } from "@manut/app-core";
 import {
   Button,
@@ -14,7 +14,6 @@ import {
   StatusMessage,
 } from "@manut/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
@@ -24,16 +23,16 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback;
 }
 
-function canReadItCrm(hasPermission: (code: string) => boolean): boolean {
+function canReadHrCrm(hasPermission: (code: string) => boolean): boolean {
   return (
-    hasPermission("it-crm:read") ||
-    hasPermission("it-crm:read-all") ||
+    hasPermission("hr-crm:read") ||
+    hasPermission("hr-crm:read-all") ||
     hasPermission("projects:read") ||
     hasPermission("projects:read-all")
   );
 }
 
-function ProjectRow({ project }: { project: ItCrmProject }) {
+function ProjectRow({ project }: { project: Project }) {
   return (
     <View
       style={{
@@ -49,26 +48,26 @@ function ProjectRow({ project }: { project: ItCrmProject }) {
         {project.name}
       </Text>
       <Text selectable style={{ color: colors.textMuted }}>
-        {project.status}
+        {project.status} · {project.team}
         {project.department ? ` · ${project.department}` : ""}
       </Text>
       <Text selectable style={{ color: colors.textMuted }}>
-        {project.owner.name}
+        {project.owner.name} · {project.taskCount} task
+        {project.taskCount === 1 ? "" : "s"}
       </Text>
     </View>
   );
 }
 
-export function ItCrmScreen() {
+export function HrCrmScreen() {
   const api = useApiClient();
-  const router = useRouter();
   const { hasPermission } = useAuth();
-  const allowed = canReadItCrm(hasPermission);
+  const allowed = canReadHrCrm(hasPermission);
 
-  const listQuery = useQuery({
-    queryKey: itCrmProjectsQueryKey({ page: 1, limit: 20 }),
+  const projectsQuery = useQuery({
+    queryKey: projectsQueryKey({ page: 1, limit: 20, team: "hr" }),
     queryFn: ({ signal }) =>
-      listItCrmProjects(api, { page: 1, limit: 20 }, signal),
+      listProjects(api, { page: 1, limit: 20, team: "hr" }, signal),
     enabled: allowed,
   });
 
@@ -77,9 +76,9 @@ export function ItCrmScreen() {
       <ScrollView
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}
       >
-        <Card title="IT CRM" maxWidth={720}>
+        <Card title="HR CRM" maxWidth={720}>
           <StatusMessage tone="error">
-            You do not have permission to view IT CRM.
+            You do not have permission to view HR CRM projects.
           </StatusMessage>
         </Card>
       </ScrollView>
@@ -104,51 +103,48 @@ export function ItCrmScreen() {
             accessibilityRole="header"
             style={{ fontSize: 30, fontWeight: "700", color: colors.text }}
           >
-            IT CRM
+            HR CRM
           </Text>
           <Text selectable style={{ color: colors.textMuted }}>
-            Read-only IT workspace list. Board, tasks, archive, and writes
-            remain later.
+            Read-only HR team projects via GET /projects?team=hr. Board,
+            budget, and writes remain later.
           </Text>
         </View>
 
-        <Button
-          label="Open dashboard"
-          accessibilityLabel="Open IT CRM dashboard"
-          onPress={() => router.push("/it-crm/dashboard")}
-        />
-
-        {listQuery.isPending ? (
-          <LoadingState label="Loading IT CRM…" />
+        {projectsQuery.isPending ? (
+          <LoadingState label="Loading HR projects…" />
         ) : null}
 
-        {listQuery.isError ? (
-          <Card title="IT CRM unavailable">
+        {projectsQuery.isError ? (
+          <Card title="HR projects unavailable">
             <StatusMessage tone="error">
-              {errorMessage(listQuery.error, "Unable to load IT CRM.")}
+              {errorMessage(
+                projectsQuery.error,
+                "We could not load HR CRM projects.",
+              )}
             </StatusMessage>
             <Button
               label="Retry"
               pendingLabel="Retrying…"
-              accessibilityLabel="Retry IT CRM"
-              pending={listQuery.isFetching}
+              accessibilityLabel="Retry HR CRM projects"
+              pending={projectsQuery.isFetching}
               onPress={() => {
-                void listQuery.refetch();
+                void projectsQuery.refetch();
               }}
             />
           </Card>
         ) : null}
 
-        {listQuery.data ? (
-          listQuery.data.data.length === 0 ? (
-            <Card title="IT CRM">
+        {projectsQuery.data ? (
+          projectsQuery.data.data.length === 0 ? (
+            <Card title="No HR projects">
               <Text selectable style={{ color: colors.textMuted }}>
-                No projects yet.
+                No HR team projects are available yet.
               </Text>
             </Card>
           ) : (
-            <View style={{ gap: spacing.md }}>
-              {listQuery.data.data.map((project) => (
+            <View accessibilityLabel="HR projects" style={{ gap: spacing.md }}>
+              {projectsQuery.data.data.map((project) => (
                 <ProjectRow key={project.id} project={project} />
               ))}
             </View>
