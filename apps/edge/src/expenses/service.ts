@@ -32,6 +32,9 @@ function asIso(value: string | Date | null | undefined): string | null {
   return value instanceof Date ? value.toISOString() : value;
 }
 
+/**
+ * Client projection: strip employee email/department (matches app-core).
+ */
 function serializeReport(raw: ExpenseReportRecord): Record<string, unknown> {
   return {
     id: raw.id,
@@ -53,8 +56,6 @@ function serializeReport(raw: ExpenseReportRecord): Record<string, unknown> {
     employee: {
       id: raw.employeeId,
       name: raw.employeeName,
-      email: raw.employeeEmail,
-      department: raw.employeeDepartment,
     },
     entity: {
       id: raw.entityId,

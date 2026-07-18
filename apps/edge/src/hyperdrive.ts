@@ -6,6 +6,28 @@ function enabled(value: string | undefined): boolean {
 }
 
 /**
+ * Flag-only gate used by dual-path routers.
+ * When false, routes proxy to Express. When true without a binding, fail closed.
+ */
+export function isHyperdriveBoundaryRequested(env: RuntimeBindings): boolean {
+  return enabled(env.ENABLE_HYPERDRIVE_BOUNDARY);
+}
+
+export type HyperdriveRouteMode = "proxy" | "fail_closed" | "enabled";
+
+/**
+ * Shared dual-path decision for Hyperdrive-owned route modules.
+ * Never silently fall through to Express when the flag is on without a binding.
+ */
+export function resolveHyperdriveRouteMode(
+  env: RuntimeBindings,
+): HyperdriveRouteMode {
+  if (!isHyperdriveBoundaryRequested(env)) return "proxy";
+  if (!isHyperdriveEnabled(env)) return "fail_closed";
+  return "enabled";
+}
+
+/**
  * Hyperdrive is the only approved Worker path to PostgreSQL.
  * Both the boundary flag and the `HYPERDRIVE_DATABASE` binding must be present.
  */

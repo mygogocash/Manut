@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   hyperdriveConnectionString,
+  isHyperdriveBoundaryRequested,
   isHyperdriveEnabled,
   requireHyperdrive,
+  resolveHyperdriveRouteMode,
 } from "../src/hyperdrive";
 import { createEdgeApp } from "../src/index";
 import type { RuntimeBindings } from "../src/runtime";
@@ -43,6 +45,26 @@ describe("hyperdrive boundary", () => {
         }),
       ),
     ).toBe(true);
+  });
+
+  it("resolves dual-path mode without silent Express fallback when flagged", () => {
+    expect(isHyperdriveBoundaryRequested(testEnv())).toBe(false);
+    expect(resolveHyperdriveRouteMode(testEnv())).toBe("proxy");
+    expect(
+      resolveHyperdriveRouteMode(
+        testEnv({ ENABLE_HYPERDRIVE_BOUNDARY: "true" }),
+      ),
+    ).toBe("fail_closed");
+    expect(
+      resolveHyperdriveRouteMode(
+        testEnv({
+          ENABLE_HYPERDRIVE_BOUNDARY: "true",
+          HYPERDRIVE_DATABASE: {
+            connectionString: "postgresql://edge:local@127.0.0.1:5432/manut",
+          } as Hyperdrive,
+        }),
+      ),
+    ).toBe("enabled");
   });
 
   it("fails closed when Hyperdrive is required without a provisioned binding", () => {

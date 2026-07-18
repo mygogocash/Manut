@@ -368,6 +368,62 @@ describe("cash-advance dual-path routes", () => {
       requestedTotal: 500,
       employee: { id: "user-123" },
     });
+    const row = body.data[0] ?? {};
+    const employee =
+      (row.employee as Record<string, unknown> | undefined) ?? {};
+    expect(employee).not.toHaveProperty("email");
+    expect(row).not.toHaveProperty("bankName");
+    expect(row).not.toHaveProperty("bankAccountNo");
+    expect(row).not.toHaveProperty("notes");
+    expect(JSON.stringify(body)).not.toContain("user@example.com");
+  });
+
+  it("strips line receipt URLs from cash-advance Hyperdrive projections", async () => {
+    const store = memoryStore({
+      requests: [
+        sampleRequest({
+          bankName: "Test Bank",
+          bankAccountNo: "1234567890",
+          notes: "sensitive note",
+          items: [
+            {
+              id: "item-1",
+              description: "Taxi",
+              receiptUrl: "https://files.example/receipts/secret.pdf",
+              requestedAmount: 500,
+              approvedAmount: null,
+            },
+          ],
+        }),
+      ],
+    });
+
+    const app = createEdgeApp({
+      createCashAdvanceStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/cash-advance?scope=mine",
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      data: Array<Record<string, unknown>>;
+    };
+    const payload = JSON.stringify(body);
+    expect(payload).not.toContain("Test Bank");
+    expect(payload).not.toContain("1234567890");
+    expect(payload).not.toContain("sensitive note");
+    expect(payload).not.toContain("secret.pdf");
+    const items = body.data[0]?.items as Array<Record<string, unknown>>;
+    expect(items[0]).toMatchObject({
+      id: "item-1",
+      description: "Taxi",
+      requestedAmount: 500,
+    });
+    expect(items[0]).not.toHaveProperty("receiptUrl");
   });
 
   it("creates a cash advance without receipts on the Hyperdrive path", async () => {
@@ -559,12 +615,21 @@ describe("cash-advance dual-path routes", () => {
     );
 
     expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toMatchObject({
+    const created = (await response.json()) as {
       data: {
-        status: "draft",
-        items: [{ description: "Taxi", receiptUrl }],
-      },
+        id: string;
+        status: string;
+        items: Array<Record<string, unknown>>;
+      };
+    };
+    expect(created.data).toMatchObject({
+      status: "draft",
+      items: [{ description: "Taxi" }],
     });
+    expect(created.data.items[0]).not.toHaveProperty("receiptUrl");
+    expect(JSON.stringify(created)).not.toContain(receiptUrl);
+    const persisted = await store.findById(created.data.id);
+    expect(persisted?.items[0]?.receiptUrl).toBe(receiptUrl);
   });
 
   it("updates own draft cash advance with registered receipt on Hyperdrive", async () => {
@@ -623,13 +688,22 @@ describe("cash-advance dual-path routes", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const updated = (await response.json()) as {
       data: {
-        id: "ca-own",
-        requestedTotal: 300,
-        items: [{ description: "Taxi", receiptUrl }],
-      },
+        id: string;
+        requestedTotal: number;
+        items: Array<Record<string, unknown>>;
+      };
+    };
+    expect(updated.data).toMatchObject({
+      id: "ca-own",
+      requestedTotal: 300,
+      items: [{ description: "Taxi" }],
     });
+    expect(updated.data.items[0]).not.toHaveProperty("receiptUrl");
+    expect(JSON.stringify(updated)).not.toContain(receiptUrl);
+    const persisted = await store.findById("ca-own");
+    expect(persisted?.items[0]?.receiptUrl).toBe(receiptUrl);
   });
 
   it("approves submitted cash advance as manager on Hyperdrive", async () => {

@@ -448,6 +448,11 @@ describe("expenses dual-path routes", () => {
       title: "July",
       employee: { id: "user-123", name: "Test User" },
     });
+    const employee =
+      (body.data[0]?.employee as Record<string, unknown> | undefined) ?? {};
+    expect(employee).not.toHaveProperty("email");
+    expect(employee).not.toHaveProperty("department");
+    expect(JSON.stringify(body)).not.toContain("user@example.com");
   });
 
   it("creates an expense report on the Hyperdrive path", async () => {

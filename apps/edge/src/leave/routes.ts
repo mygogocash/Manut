@@ -2,7 +2,7 @@ import { Hono } from "hono";
 
 import { proxyApiRequest } from "../api-proxy";
 import { HttpError } from "../http-error";
-import { hyperdriveConnectionString, isHyperdriveEnabled } from "../hyperdrive";
+import { hyperdriveConnectionString, resolveHyperdriveRouteMode } from "../hyperdrive";
 import type { EdgeEnv, RuntimeBindings } from "../runtime";
 import { createLeaveService } from "./service";
 import type { LeaveStore } from "./store";
@@ -10,10 +10,6 @@ import type { LeaveStore } from "./store";
 export type CreateLeaveStore = (
   env: RuntimeBindings,
 ) => LeaveStore | Promise<LeaveStore>;
-
-function hyperdriveBoundaryRequested(env: RuntimeBindings): boolean {
-  return env.ENABLE_HYPERDRIVE_BOUNDARY === "true";
-}
 
 async function resolveStore(
   env: RuntimeBindings,
@@ -33,11 +29,11 @@ export function createLeaveRoutes(options: {
   const app = new Hono<EdgeEnv>();
 
   app.all("/*", async (context) => {
-    if (!hyperdriveBoundaryRequested(context.env)) {
+    const hyperdriveMode = resolveHyperdriveRouteMode(context.env);
+    if (hyperdriveMode === "proxy") {
       return proxyApiRequest(context.req.raw, context.env);
     }
-
-    if (!isHyperdriveEnabled(context.env)) {
+    if (hyperdriveMode === "fail_closed") {
       throw new HttpError(
         503,
         "HYPERDRIVE_NOT_PROVISIONED",

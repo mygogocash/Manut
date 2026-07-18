@@ -2,7 +2,7 @@ import { Hono } from "hono";
 
 import { proxyApiRequest } from "../api-proxy";
 import { HttpError } from "../http-error";
-import { hyperdriveConnectionString, isHyperdriveEnabled } from "../hyperdrive";
+import { hyperdriveConnectionString, resolveHyperdriveRouteMode } from "../hyperdrive";
 import type { EdgeEnv, RuntimeBindings } from "../runtime";
 import { broadcastChannelEvent } from "./broadcast";
 import { createMessagesService } from "./service";
@@ -11,10 +11,6 @@ import type { MessagesStore } from "./store";
 export type CreateMessagesStore = (
   env: RuntimeBindings,
 ) => MessagesStore | Promise<MessagesStore>;
-
-function hyperdriveBoundaryRequested(env: RuntimeBindings): boolean {
-  return env.ENABLE_HYPERDRIVE_BOUNDARY === "true";
-}
 
 async function resolveStore(
   env: RuntimeBindings,
@@ -46,11 +42,11 @@ export function createMessagesRoutes(options: {
 
   app.all("/*", async (context) => {
     // Dual-path: Hyperdrive boundary on → Worker/Prisma; off → Express.
-    if (!hyperdriveBoundaryRequested(context.env)) {
+    const hyperdriveMode = resolveHyperdriveRouteMode(context.env);
+    if (hyperdriveMode === "proxy") {
       return proxyApiRequest(context.req.raw, context.env);
     }
-
-    if (!isHyperdriveEnabled(context.env)) {
+    if (hyperdriveMode === "fail_closed") {
       throw new HttpError(
         503,
         "HYPERDRIVE_NOT_PROVISIONED",

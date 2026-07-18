@@ -2,14 +2,10 @@ import { Hono } from "hono";
 
 import { proxyApiRequest } from "../api-proxy";
 import { HttpError } from "../http-error";
-import { hyperdriveConnectionString, isHyperdriveEnabled } from "../hyperdrive";
-import type { EdgeEnv, RuntimeBindings } from "../runtime";
+import { hyperdriveConnectionString, resolveHyperdriveRouteMode } from "../hyperdrive";
+import type { EdgeEnv } from "../runtime";
 
 const VISA_MANAGE = "visa:manage";
-
-function hyperdriveBoundaryRequested(env: RuntimeBindings): boolean {
-  return env.ENABLE_HYPERDRIVE_BOUNDARY === "true";
-}
 
 function asIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : value;
@@ -19,11 +15,11 @@ export function createVisaKbRoutes(): Hono<EdgeEnv> {
   const app = new Hono<EdgeEnv>();
 
   app.all("/*", async (context) => {
-    if (!hyperdriveBoundaryRequested(context.env)) {
+    const hyperdriveMode = resolveHyperdriveRouteMode(context.env);
+    if (hyperdriveMode === "proxy") {
       return proxyApiRequest(context.req.raw, context.env);
     }
-
-    if (!isHyperdriveEnabled(context.env)) {
+    if (hyperdriveMode === "fail_closed") {
       throw new HttpError(
         503,
         "HYPERDRIVE_NOT_PROVISIONED",

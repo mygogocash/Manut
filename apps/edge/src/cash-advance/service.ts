@@ -22,6 +22,10 @@ function asDate(value: string): string {
   return value.slice(0, 10);
 }
 
+/**
+ * Client projection: strip employee email, bank numbers, notes, and receipt
+ * URLs (matches app-core cashAdvanceRequestSchema).
+ */
 function serializeRequest(
   raw: CashAdvanceRequestRecord,
 ): Record<string, unknown> {
@@ -38,7 +42,6 @@ function serializeRequest(
     employee: {
       id: raw.employeeId,
       name: raw.employeeName,
-      email: raw.employeeEmail,
     },
     entity: raw.entityId
       ? { id: raw.entityId, name: raw.entityName ?? "" }
@@ -46,14 +49,9 @@ function serializeRequest(
     items: raw.items.map((item) => ({
       id: item.id,
       description: item.description,
-      receiptUrl: item.receiptUrl,
       requestedAmount: item.requestedAmount,
       approvedAmount: item.approvedAmount,
     })),
-    // Present for Express parity; app-core projections strip bank/notes.
-    bankName: raw.bankName,
-    bankAccountNo: raw.bankAccountNo,
-    notes: raw.notes,
   };
 }
 

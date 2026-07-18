@@ -99,6 +99,8 @@ secrets and the independent dedicated-project marker. Never bypass that guard.
   list/detail screens from scratch when deepening.
 - When multiple agents work in parallel, touch only owned modules, re-read
   shared files before editing, and do not stage unrelated work from other agents.
+  For handoff docs, append only a `### Parallel: <slug>` section at the END (or
+  skip handoff); leave consolidation to a reconcile pass.
 - Client DTOs and projections must strip sensitive fields (emails, budgets,
   storage paths); ownership and authz checks stay server-side.
 
@@ -112,7 +114,8 @@ secrets and the independent dedicated-project marker. Never bypass that guard.
   do not delete them. Scope history and secret scans to the replacement range,
   not every local ref.
 - Continuation and phase guidance live in `docs/CURSOR_HANDOFF.md` (with
-  `docs/ROUTE_DISPOSITION.md`, `docs/CREDENTIAL_BOUNDARY.md`, and related docs).
+  `docs/ROUTE_DISPOSITION.md`, `docs/CREDENTIAL_BOUNDARY.md`,
+  `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`, and related docs).
 - The configured publish remote for this replacement work is `manut` (GitHub
   `mygogocash/Manut`); use `claude/<slug>` branches (for example
   `claude/intranet-full-hardening`).
@@ -121,3 +124,12 @@ secrets and the independent dedicated-project marker. Never bypass that guard.
 - `/drive` is Google Drive via integrations APIs (not R2); keep it separate from
   `/files` (uploads/R2). Route disposition stays `foundation` until Expo browser
   E2E acceptance.
+- Edge Hyperdrive dual-path: `ENABLE_HYPERDRIVE_BOUNDARY=true` plus
+  `HYPERDRIVE_DATABASE` uses Worker Prisma; flag off proxies to Express; flag on
+  without binding fails closed with `503 HYPERDRIVE_NOT_PROVISIONED` (never
+  silent Express fallback). Port a route only when Express authz and business
+  rules can be mirrored honestly; otherwise keep it proxied and document the gap.
+- Ops env names for edge deepen (values stay out of git):
+  `TRUSTED_STORAGE_ORIGINS` (empty means managed expense/CA receipt writes still
+  proxy); `EDGE_REALTIME_ORIGIN` and `EDGE_REALTIME_BRIDGE_SECRET` (must match
+  Worker `EDGE_SIGNING_KEY`) for Express `messageBus` → Durable Object fan-out.
