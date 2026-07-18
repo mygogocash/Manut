@@ -134,7 +134,7 @@ D1 (optional non-authoritative edge metadata only)
 | Source-organization removal          | **Phase A sweep complete locally**        | Credentials, branding, proprietary AI/marketing modules, identity-bearing migrations, and seeds were removed or replaced. HMAC provenance scan and comment sweep passed 2026-07-17.                           |
 | API strictness and hardening         | **Implemented locally**                   | Strict TypeScript, webhook bytes, purge lifecycle, lifecycle-safe auth/RBAC, atomic Leave state changes, live-socket revalidation, Performance scoping, and profile projection are implemented.               |
 | Universal Expo foundation            | **Implemented**                           | Expo SDK 57, shared API/session runtime, app-core/UI packages, auth transports, app shell, Expo Doctor, and three-platform exports pass. This is a foundation, not full route parity.                         |
-| Approved web route parity            | **In progress (Phase 1 advanced)**        | Performance read-only appraisals, My Portal hub, leave history pagination, directory org chart, dashboard KPIs, and local settings preferences landed as foundation slices. Waves 2–4 and Expo E2E cutover remain. |
+| Approved web route parity            | **Foundations landed; deepen + E2E remain** | Inventory: **88 foundation**, **0 pending**, **16 removed** (plus Expo-only `/files`). Waves 2–4 Expo route foundations are in tree; behavioral deepen, live chat bus bridge, survey builders, and Expo E2E cutover remain. |
 | Cloudflare edge layer                | **Locally implemented**                   | Worker auth, SPA assets, R2, Durable Objects, Queues, Workflows, Container/Hyperdrive boundaries, tests, and dry-run bundle exist. Fresh resources are not provisioned.                                       |
 | Clean PostgreSQL baseline            | **Implemented**                           | One sanitized baseline plus hash manifest, setup/assert scripts, and migration harness exist. Local Docker replay is blocked; CI PostgreSQL 16 lane is ready.                                                 |
 | Dependency upgrades                  | **Mostly implemented**                    | Requested upgrades, compatibility pins, Expo, and Cloudflare packages are present. Legacy Next/Tailwind/Vite/jsdom bridge packages remain until parity.                                                       |
@@ -592,51 +592,48 @@ Migration order:
 2. HR/people and approvals: HRMS, travel, visa, expenses, cash advance,
    payroll, benefits, attendance, learning, career, applications, office,
    employees, roles, and related approval screens.
-   **Status 2026-07-18:** Wave 2 HR spine foundation complete — Travel,
-   Expenses, admin Employees/Roles, `/hrms`, `/visa`, `/cash-advance`,
-   `/payroll`, `/benefits`, `/learning`, `/office` (rooms/assets read),
-   `/careers` (job postings list + `career:*` registry), and `/applications`
-   (recruiter inbox read + `application:*` registry; employee-boundary).
-   Leave calendar/team approve + `/leave/policies`, and read-only
-   `/expenses/approval` + `/cash-advance/approval` chain foundations landed.
-   Still deferred: office book-self + manage; careers apply/manage;
-   applications status writes; payroll create/approve/payslip export;
-   benefits enroll/manage; learning manage/complete; HRMS
-   pool/import/offboarding; visa KB/templates/90-day; cash-advance
-   approve/disburse actions; expense report approve + R2 receipts;
-   wall/compose.
+   **Status 2026-07-18 (reconcile):** Wave 2 HR spine foundation complete —
+   Travel (+ `/travel/approval` steps), Expenses (+ `/expenses/[reportId]`
+   + `/expenses/approval`), admin Employees/Roles, `/hrms` (+
+   `/hrms/grants/[employeeId]`), `/visa` (+ checklist-templates +
+   knowledge-base), `/cash-advance` (+ approval), `/payroll` (+
+   `/payroll/approval`), `/benefits`, `/learning`, `/office`, `/careers`,
+   `/applications`. Leave calendar/team approve + `/leave/policies` landed.
+   Still deferred (deepen, not missing routes): office book-self + manage;
+   careers apply/manage; applications status writes; payroll
+   create/approve/payslip export; benefits enroll/manage; learning
+   manage/complete; HRMS pool/import/offboarding; visa CRUD/90-day;
+   cash-advance approve/disburse; expense approve + R2 receipts; wall/compose.
    3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
-   **Status 2026-07-18:** Wave 3 progressed — `/it-helpdesk` (read-only ticket
-   list), `/projects` list/detail/dashboard, `/accounting` (chart of accounts
-   read), `/revenue` (dashboard KPIs), `/sales` (read-only leads), and
-   `/partners` (read-only partner list) landed as `foundation`. OTHER CRM
-   list hubs also landed: `/it-crm`, `/product-crm`, `/legal-crm`,
-   `/accounting-crm`, `/qa-crm`, `/voucher-crm`. Content/comms foundations
-   (`/blog-management`, `/docs`, `/legal/announcements`, `/pr-management`,
-   `/office`, `/careers`, `/applications`) also landed. Still pending:
-   journals/invoices/bank/approve-post, revenue detail tabs, reporting,
-   administration hubs, helpdesk writes/comments/GitHub, project boards/task
-   writes, partner detail/campaigns, sales pipeline writes. CRM foundations
-   landed for `/hr-crm` (`projects?team=hr`), `/investor-crm`, `/it-crm/dashboard`,
-   `/qa-crm/[projectId]`, `/sales-revenue`, `/deals` (read-only; strips
-   emails/notes/budget/board).
+   **Status 2026-07-18 (reconcile):** Wave 3 route foundations complete for
+   migrate targets — `/it-helpdesk`, `/projects` list/detail/dashboard,
+   `/accounting`, `/revenue`, `/sales`, `/partners` (+ detail), investor
+   modules (`/investors`, `/investor-updates`, `/dataroom`), OTHER CRM hubs
+   (`/it-crm`, `/it-crm/dashboard`, `/product-crm`, `/legal-crm`,
+   `/accounting-crm`, `/qa-crm`, `/qa-crm/[projectId]`, `/voucher-crm`,
+   `/hr-crm`, `/investor-crm`, `/sales-revenue`, `/deals`), content/comms
+   (`/blog-management`, `/docs`, `/legal` + announcements/shared,
+   `/pr-management`), admin (`/admin`, `/admin/form-config`), IT ops
+   (`/it-operations` + access/billing), `/policies`, `/certificates`, and
+   survey list/detail/respond/new shells (`/survey`, `/survey-forms`).
+   Still deepen (not missing routes): journals/invoices/bank/approve-post,
+   revenue detail tabs, reporting, helpdesk writes/comments/GitHub, project
+   boards/task writes, sales pipeline writes, survey form builders, CRM
+   board/tasks/import/create.
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
-   **Status 2026-07-18:** Wave 4 deepened — `/files` upload/delete UX
-   (DocumentPicker → base64 `POST /api/uploads`, confirm delete via
-   `DELETE /api/uploads/:id`) plus signed open; `/drive` connect-aware
-   Google Drive list foundation (`POST /api/integrations/drive/list`);
-   `/messages` REST channel list + history foundation and DO WebSocket
-   probe adapter. Blocker (evidenced): edge `RealtimeRoom` scopes rooms as
-   `${principalKey}:${roomId}` and is not bridged to the Express
-   messageBus; API socket.io `/messages` remains legacy-web-only — Expo
-   cannot honestly show cross-user live chat without new infra.
-   `/gmail` connect-aware inbox foundation; `/sign/[token]` public token
-   read foundation. Still pending: multipart upload path, Drive/Gmail
-   deepen, message send + shared-room bus bridge, document processing,
-   and newly approved Manut AI only.
+   **Status 2026-07-18 (reconcile):** Wave 4 foundations landed — `/files`
+   upload/delete UX + signed open; `/drive` connect-aware list; `/messages`
+   REST channel list + history + DO WebSocket probe; `/gmail` connect-aware
+   inbox; `/sign/[token]` public token read. Blocker (evidenced): edge
+   `RealtimeRoom` scopes rooms as `${principalKey}:${roomId}` and is not
+   bridged to the Express messageBus; API socket.io `/messages` remains
+   legacy-web-only — Expo cannot honestly show cross-user live chat without
+   a shared-room DO ↔ bus bridge. Remaining deepen: multipart upload path,
+   Drive/Gmail send/compose, message send + live bus bridge, document
+   processing, and newly approved Manut AI only.
 
 For each route slice:
 

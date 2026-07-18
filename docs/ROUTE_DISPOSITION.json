@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sourceSnapshot": "371349fd43fd7c7c7717054beec97bfb023885ca",
   "sourceCommand": "git ls-tree -r --name-only 371349fd -- apps/web/src/app | rg '/page\\.tsx$' | sort",
-  "routeCount": 103,
+  "routeCount": 104,
   "uniqueSourcePathCount": 103,
   "dispositionCounts": {
     "migrate": 79,
@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 76,
-    "pending": 12,
+    "foundation": 88,
+    "pending": 0,
     "removed": 16
   },
   "statusSemantics": {
@@ -224,9 +224,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/expenses/[reportId]/page.tsx",
       "sourceRoute": "/expenses/[reportId]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/expenses/[reportId]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only expense report detail via app-core (status/total/purpose). Deferred: line items, receipt open/upload, approve/reject actions."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/expenses/approval/page.tsx",
@@ -242,7 +242,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/expenses",
-      "note": "Expo has self expense-report list/detail plus draft create, line add (optional receipt URL), submit, and link to approval-chain foundation. Report approve/reject, dedicated /expenses/[reportId], and R2 receipt upload remain before parity."
+      "note": "Expo has self expense-report list/detail plus draft create, line add (optional receipt URL), submit, and link to approval-chain and /expenses/[reportId] foundations. Report approve/reject and R2 receipt upload remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/gmail/page.tsx",
@@ -264,9 +264,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/hrms/esop/[employeeId]/page.tsx",
       "sourceRoute": "/hrms/esop/[employeeId]",
       "disposition": "replace",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/hrms/grants/[employeeId]",
-      "note": "Replace the source-specific grant surface with a generic Manut grant route."
+      "note": "Replaced source ESOP surface with Expo /hrms/grants/[employeeId] read-only grant detail via app-core. Deferred: import, currency amounts, pool edits."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/hrms/page.tsx",
@@ -274,7 +274,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/hrms",
-      "note": "Expo hub: attendance today + check-in/out, ESOP grants list, onboarding runs list (task progress). Deferred: pool KPIs, imports/CRUD, offboarding, agreements, payslips, live/department attendance, grant detail route rename."
+      "note": "Expo hub: attendance today + check-in/out, ESOP grants list with /hrms/grants/[employeeId] detail, onboarding runs list (task progress). Deferred: pool KPIs, imports/CRUD, offboarding, agreements, payslips, live/department attendance."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/investor-crm/page.tsx",
@@ -552,9 +552,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/payroll/approval/page.tsx",
       "sourceRoute": "/payroll/approval",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/payroll/approval",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only payroll approval-steps list via app-core. Deferred: step create/edit/reorder and run approve actions."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/payroll/page.tsx",
@@ -562,7 +562,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/payroll",
-      "note": "Expo read-only payroll runs list via app-core (strips notes/emails/currencyTotals). Deferred: create/import, approve, /payroll/approval, payslip download/export/bulk delete, company footer writes, consultant invoices."
+      "note": "Expo read-only payroll runs list via app-core (strips notes/emails/currencyTotals) plus /payroll/approval steps foundation. Deferred: create/import, approve actions, payslip download/export/bulk delete, company footer writes, consultant invoices."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/performance/page.tsx",
@@ -744,9 +744,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/travel/approval/page.tsx",
       "sourceRoute": "/travel/approval",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/travel/approval",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only travel approval-steps list via app-core. Deferred: step create/edit/reorder, amount bands, and travel-desk recipients."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/travel/page.tsx",
@@ -754,23 +754,23 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/travel",
-      "note": "Expo has self list/create/cancel, pending inbox approve/reject (viewerCanAct), and URL attachments via app-core. Hotels/flights, R2 file upload, and dedicated /travel/approval remain before parity can be claimed."
+      "note": "Expo has self list/create/cancel, pending inbox approve/reject (viewerCanAct), URL attachments, and /travel/approval steps foundation via app-core. Hotels/flights and R2 file upload remain before parity can be claimed."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/visa/checklist-templates/page.tsx",
       "sourceRoute": "/visa/checklist-templates",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/visa/checklist-templates",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only visa checklist template list via app-core. Deferred: item editing and create."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/visa/knowledge-base/page.tsx",
       "sourceRoute": "/visa/knowledge-base",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/visa/knowledge-base",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only visa knowledge-base article list via app-core. Deferred: article create/edit and richer filters."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/visa/page.tsx",
@@ -778,7 +778,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/visa",
-      "note": "Expo read-only tracker: list/detail + signed document open. Deferred: KB, checklist-templates, CRUD/import, notification config, timeline, checklist toggles, 90-day residence tab."
+      "note": "Expo read-only tracker: list/detail + signed document open, plus /visa/checklist-templates and /visa/knowledge-base read foundations. Deferred: CRUD/import, notification config, timeline, checklist toggles, 90-day residence tab."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/voucher-crm/page.tsx",

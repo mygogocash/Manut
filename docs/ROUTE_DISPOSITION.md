@@ -10,8 +10,9 @@ git ls-tree -r --name-only 371349fd -- apps/web/src/app | rg '/page\.tsx$' | sor
 
 - Source route-page files: **103**
 - Unique source paths: **103**
+- Inventory rows (includes Expo-only `/files`): **104**
 - Dispositions: **79 migrate**, **8 replace**, **16 remove-as-provenance**
-- Current status: **76 foundation**, **12 pending**, **16 removed**
+- Current status: **88 foundation**, **0 pending**, **16 removed**
 
 The source command is sorted before classification. The JSON companion repeats the source command, counts, and every row, so CI can independently assert count, uniqueness, and allowed values.
 
@@ -53,12 +54,12 @@ The source command is sorted before classification. The JSON companion repeats t
 |  23 | `apps/web/src/app/(dashboard)/drive/page.tsx`                                   | `/drive`                                   | `migrate`              | `foundation` | `/drive`                     |
 |  — | `apps/app/app/(protected)/files.tsx`                                            | `/files`                                   | `migrate`              | `foundation` | `/files`                     |
 |  24 | `apps/web/src/app/(dashboard)/employees/page.tsx`                               | `/employees`                               | `migrate`              | `foundation` | `/employees`                 |
-|  25 | `apps/web/src/app/(dashboard)/expenses/[reportId]/page.tsx`                     | `/expenses/[reportId]`                     | `migrate`              | `pending`    | `/expenses/[reportId]`       |
+|  25 | `apps/web/src/app/(dashboard)/expenses/[reportId]/page.tsx`                     | `/expenses/[reportId]`                     | `migrate`              | `foundation` | `/expenses/[reportId]`       |
 |  26 | `apps/web/src/app/(dashboard)/expenses/approval/page.tsx`                       | `/expenses/approval`                       | `migrate`              | `foundation` | `/expenses/approval`         |
 |  27 | `apps/web/src/app/(dashboard)/expenses/page.tsx`                                | `/expenses`                                | `migrate`              | `foundation` | `/expenses`                  |
 |  28 | `apps/web/src/app/(dashboard)/gmail/page.tsx`                                   | `/gmail`                                   | `migrate`              | `foundation` | `/gmail`                     |
 |  29 | `apps/web/src/app/(dashboard)/hr-crm/page.tsx`                                  | `/hr-crm`                                  | `migrate`              | `foundation` | `/hr-crm`                    |
-|  30 | `apps/web/src/app/(dashboard)/hrms/esop/[employeeId]/page.tsx`                  | `/hrms/esop/[employeeId]`                  | `replace`              | `pending`    | `/hrms/grants/[employeeId]`  |
+|  30 | `apps/web/src/app/(dashboard)/hrms/esop/[employeeId]/page.tsx`                  | `/hrms/esop/[employeeId]`                  | `replace`              | `foundation` | `/hrms/grants/[employeeId]`  |
 |  31 | `apps/web/src/app/(dashboard)/hrms/page.tsx`                                    | `/hrms`                                    | `migrate`              | `foundation` | `/hrms`                      |
 |  32 | `apps/web/src/app/(dashboard)/investor-crm/page.tsx`                            | `/investor-crm`                            | `migrate`              | `foundation` | `/investor-crm`              |
 |  33 | `apps/web/src/app/(dashboard)/investor-updates/page.tsx`                        | `/investor-updates`                        | `migrate`              | `foundation` | `/investor-updates`          |
@@ -94,7 +95,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  63 | `apps/web/src/app/(dashboard)/partners/campaigns/page.tsx`                      | `/partners/campaigns`                      | `remove-as-provenance` | `removed`    | —                            |
 |  64 | `apps/web/src/app/(dashboard)/partners/dashboard/page.tsx`                      | `/partners/dashboard`                      | `remove-as-provenance` | `removed`    | —                            |
 |  65 | `apps/web/src/app/(dashboard)/partners/page.tsx`                                | `/partners`                                | `migrate`              | `foundation` | `/partners`                  |
-|  66 | `apps/web/src/app/(dashboard)/payroll/approval/page.tsx`                        | `/payroll/approval`                        | `migrate`              | `pending`    | `/payroll/approval`          |
+|  66 | `apps/web/src/app/(dashboard)/payroll/approval/page.tsx`                        | `/payroll/approval`                        | `migrate`              | `foundation` | `/payroll/approval`          |
 |  67 | `apps/web/src/app/(dashboard)/payroll/page.tsx`                                 | `/payroll`                                 | `migrate`              | `foundation` | `/payroll`                   |
 |  68 | `apps/web/src/app/(dashboard)/performance/page.tsx`                             | `/performance`                             | `migrate`              | `foundation` | `/performance`               |
 |  69 | `apps/web/src/app/(dashboard)/policies/page.tsx`                                | `/policies`                                | `migrate`              | `foundation`    | `/policies`                  |
@@ -118,10 +119,10 @@ The source command is sorted before classification. The JSON companion repeats t
 |  87 | `apps/web/src/app/(dashboard)/survey/[id]/respond/page.tsx`                     | `/survey/[id]/respond`                     | `migrate`              | `foundation`    | `/survey/[id]/respond`       |
 |  88 | `apps/web/src/app/(dashboard)/survey/new/page.tsx`                              | `/survey/new`                              | `migrate`              | `foundation`    | `/survey/new`                |
 |  89 | `apps/web/src/app/(dashboard)/survey/page.tsx`                                  | `/survey`                                  | `migrate`              | `foundation`    | `/survey`                    |
-|  90 | `apps/web/src/app/(dashboard)/travel/approval/page.tsx`                         | `/travel/approval`                         | `migrate`              | `pending`    | `/travel/approval`           |
+|  90 | `apps/web/src/app/(dashboard)/travel/approval/page.tsx`                         | `/travel/approval`                         | `migrate`              | `foundation` | `/travel/approval`           |
 |  91 | `apps/web/src/app/(dashboard)/travel/page.tsx`                                  | `/travel`                                  | `migrate`              | `foundation` | `/travel`                    |
-|  92 | `apps/web/src/app/(dashboard)/visa/checklist-templates/page.tsx`                | `/visa/checklist-templates`                | `migrate`              | `pending`    | `/visa/checklist-templates`  |
-|  93 | `apps/web/src/app/(dashboard)/visa/knowledge-base/page.tsx`                     | `/visa/knowledge-base`                     | `migrate`              | `pending`    | `/visa/knowledge-base`       |
+|  92 | `apps/web/src/app/(dashboard)/visa/checklist-templates/page.tsx`                | `/visa/checklist-templates`                | `migrate`              | `foundation` | `/visa/checklist-templates`  |
+|  93 | `apps/web/src/app/(dashboard)/visa/knowledge-base/page.tsx`                     | `/visa/knowledge-base`                     | `migrate`              | `foundation` | `/visa/knowledge-base`       |
 |  94 | `apps/web/src/app/(dashboard)/visa/page.tsx`                                    | `/visa`                                    | `migrate`              | `foundation` | `/visa`                      |
 |  95 | `apps/web/src/app/(dashboard)/voucher-crm/page.tsx`                             | `/voucher-crm`                             | `migrate`              | `foundation` | `/voucher-crm`               |
 |  96 | `apps/web/src/app/auth/callback/page.tsx`                                       | `/auth/callback`                           | `replace`              | `foundation` | `/auth/callback`             |
