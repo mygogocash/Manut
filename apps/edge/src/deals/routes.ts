@@ -172,7 +172,10 @@ export function createDealsRoutes(options: {
       }
     }
 
-    // Hard delete stays on Express (no soft-delete lifecycle on Deal).
+    // BLOCKER: Deal has no deletedAt / soft-delete lifecycle (see
+    // packages/database prisma Deal model + Express dealRepository.delete
+    // hard-deletes via prisma.deal.delete). Edge will not hard-delete; keep
+    // DELETE proxied until a soft-delete contract exists.
     return proxyApiRequest(context.req.raw, context.env);
   });
 

@@ -43,48 +43,65 @@ async function readJsonBody(context: {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
-function matchOwnedPath(
-  path: string,
-):
+type OwnedPath =
   | { kind: "detail"; id: string }
   | { kind: "questions"; id: string }
   | { kind: "publish"; id: string }
+  | { kind: "announce"; id: string }
+  | { kind: "schedule"; id: string }
+  | { kind: "close"; id: string }
+  | { kind: "reopen"; id: string }
+  | { kind: "archive"; id: string }
+  | { kind: "unarchive"; id: string }
   | { kind: "responses"; id: string }
   | { kind: "my-response"; id: string }
-  | null {
+  | { kind: "analytics"; id: string };
+
+function matchOwnedPath(path: string): OwnedPath | null {
   const segments = path.split("/").filter(Boolean);
   if (segments.length === 1 && UUID_RE.test(segments[0]!)) {
     return { kind: "detail", id: segments[0]! };
   }
-  if (
-    segments.length === 2 &&
-    UUID_RE.test(segments[0]!) &&
-    segments[1] === "questions"
-  ) {
-    return { kind: "questions", id: segments[0]! };
+  if (segments.length !== 2 || !UUID_RE.test(segments[0]!)) {
+    return null;
   }
-  if (
-    segments.length === 2 &&
-    UUID_RE.test(segments[0]!) &&
-    segments[1] === "publish"
-  ) {
-    return { kind: "publish", id: segments[0]! };
+  const id = segments[0]!;
+  const action = segments[1]!;
+  switch (action) {
+    case "questions":
+      return { kind: "questions", id };
+    case "publish":
+      return { kind: "publish", id };
+    case "announce":
+      return { kind: "announce", id };
+    case "schedule":
+      return { kind: "schedule", id };
+    case "close":
+      return { kind: "close", id };
+    case "reopen":
+      return { kind: "reopen", id };
+    case "archive":
+      return { kind: "archive", id };
+    case "unarchive":
+      return { kind: "unarchive", id };
+    case "responses":
+      return { kind: "responses", id };
+    case "my-response":
+      return { kind: "my-response", id };
+    case "analytics":
+      return { kind: "analytics", id };
+    default:
+      return null;
   }
-  if (
-    segments.length === 2 &&
-    UUID_RE.test(segments[0]!) &&
-    segments[1] === "responses"
-  ) {
-    return { kind: "responses", id: segments[0]! };
-  }
-  if (
-    segments.length === 2 &&
-    UUID_RE.test(segments[0]!) &&
-    segments[1] === "my-response"
-  ) {
-    return { kind: "my-response", id: segments[0]! };
-  }
-  return null;
+}
+
+function announcePayloadPresent(body: unknown): boolean {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "announce" in body &&
+    (body as { announce: unknown }).announce != null
+  );
 }
 
 export function createSurveyEngineRoutes(options: {
@@ -154,6 +171,33 @@ export function createSurveyEngineRoutes(options: {
       return context.json(result, 201);
     }
 
+    if (
+      method === "GET" &&
+      (path === "/announcement-settings" || path === "/announcement-settings/")
+    ) {
+      return context.json(await service.getAnnouncementDefaults(userId));
+    }
+    if (
+      method === "PUT" &&
+      (path === "/announcement-settings" || path === "/announcement-settings/")
+    ) {
+      const body = await readJsonBody(context);
+      return context.json(await service.setAnnouncementDefaults(userId, body));
+    }
+    if (
+      method === "GET" &&
+      (path === "/notification-settings" || path === "/notification-settings/")
+    ) {
+      return context.json(await service.getNotificationRecipients(userId));
+    }
+    if (
+      method === "PUT" &&
+      (path === "/notification-settings" || path === "/notification-settings/")
+    ) {
+      const body = await readJsonBody(context);
+      return context.json(await service.setNotificationRecipients(userId, body));
+    }
+
     const matched = matchOwnedPath(path);
     if (matched?.kind === "detail" && method === "GET") {
       return context.json(await service.getById(userId, matched.id));
@@ -165,8 +209,8 @@ export function createSurveyEngineRoutes(options: {
       );
     }
     if (matched?.kind === "publish" && method === "POST") {
-      // Non-empty announce payloads (wall/news/companyDate) stay on Express.
-      // Clone before reading so a proxied announce can still forward the body.
+      // Announce-on-publish is not safe on edge: wall/news/companyDate writes
+      // live in Express modules. Proxy when an announce block is present.
       const raw = context.req.raw;
       const peek = raw.clone();
       let body: unknown = {};
@@ -175,26 +219,48 @@ export function createSurveyEngineRoutes(options: {
       } catch {
         body = {};
       }
-      if (
-        typeof body === "object" &&
-        body !== null &&
-        "announce" in body &&
-        (body as { announce: unknown }).announce != null
-      ) {
+      if (announcePayloadPresent(body)) {
         return proxyApiRequest(raw, context.env);
       }
       return context.json(await service.publish(userId, matched.id));
+    }
+    if (matched?.kind === "announce" && method === "POST") {
+      // Wall / news / company-date side-effects stay on Express.
+      return proxyApiRequest(context.req.raw, context.env);
+    }
+    if (matched?.kind === "schedule" && method === "PUT") {
+      const body = await readJsonBody(context);
+      return context.json(await service.setSchedule(userId, matched.id, body));
+    }
+    if (matched?.kind === "close" && method === "POST") {
+      return context.json(await service.close(userId, matched.id));
+    }
+    if (matched?.kind === "reopen" && method === "POST") {
+      return context.json(await service.reopen(userId, matched.id));
+    }
+    if (matched?.kind === "archive" && method === "POST") {
+      return context.json(await service.archive(userId, matched.id));
+    }
+    if (matched?.kind === "unarchive" && method === "POST") {
+      return context.json(await service.unarchive(userId, matched.id));
     }
     if (matched?.kind === "responses" && method === "POST") {
       const body = await readJsonBody(context);
       const result = await service.submitResponse(userId, matched.id, body);
       return context.json(result, 201);
     }
+    if (matched?.kind === "responses" && method === "GET") {
+      return context.json(await service.listResponses(userId, matched.id));
+    }
     if (matched?.kind === "my-response" && method === "GET") {
       return context.json(await service.getMyResponse(userId, matched.id));
     }
+    if (matched?.kind === "analytics" && method === "GET") {
+      return context.json(await service.getAnalytics(userId, matched.id));
+    }
 
-    // Exotic leftovers: announce, schedule, analytics, archive, settings, etc.
+    // Leftovers that still need Express: PUT/DELETE form metadata, announce
+    // side-effects (handled above), and any future exotic surfaces.
     return proxyApiRequest(context.req.raw, context.env);
   });
 

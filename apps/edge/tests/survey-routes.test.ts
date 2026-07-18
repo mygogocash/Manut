@@ -185,10 +185,121 @@ function memorySurveyStore(seed?: {
         answers: input.answers,
       };
       responses.push(row);
+      const formIndex = forms.findIndex((form) => form.id === input.formId);
+      if (formIndex >= 0) {
+        const current = forms[formIndex]!;
+        forms[formIndex] = {
+          ...current,
+          responseCount: current.responseCount + 1,
+        };
+      }
       return {
         ...row,
         submittedAt: "2026-07-18T12:00:00.000Z",
       };
+    },
+    async setSchedule(id, input) {
+      const index = forms.findIndex((form) => form.id === id);
+      if (index < 0) return null;
+      const next = {
+        ...forms[index]!,
+        startDate: input.startDate,
+        endDate: input.endDate,
+      };
+      forms[index] = next;
+      return next;
+    },
+    async close(id) {
+      const index = forms.findIndex((form) => form.id === id);
+      if (index < 0) return null;
+      const next = {
+        ...forms[index]!,
+        status: "closed",
+        closedAt: "2026-07-18T15:00:00.000Z",
+      };
+      forms[index] = next;
+      return next;
+    },
+    async reopen(id) {
+      const index = forms.findIndex((form) => form.id === id);
+      if (index < 0) return null;
+      const next = {
+        ...forms[index]!,
+        status: "published",
+        closedAt: null,
+      };
+      forms[index] = next;
+      return next;
+    },
+    async archive(id) {
+      const index = forms.findIndex((form) => form.id === id);
+      if (index < 0) return null;
+      const next = {
+        ...forms[index]!,
+        archivedAt: "2026-07-18T16:00:00.000Z",
+      };
+      forms[index] = next;
+      return next;
+    },
+    async unarchive(id) {
+      const index = forms.findIndex((form) => form.id === id);
+      if (index < 0) return null;
+      const next = {
+        ...forms[index]!,
+        archivedAt: null,
+      };
+      forms[index] = next;
+      return next;
+    },
+    async listResponses(formId) {
+      return responses
+        .filter((response) => response.formId === formId)
+        .map((response) => ({
+          id: response.id,
+          formId: response.formId,
+          respondentId: response.respondentId,
+          respondentName:
+            response.respondentId === null ? null : "Test User",
+          respondentDepartment:
+            response.respondentId === null ? null : "Eng",
+          submittedAt: "2026-07-18T12:00:00.000Z",
+          answers: response.answers,
+        }));
+    },
+    async listAnswerValues(formId) {
+      return responses
+        .filter((response) => response.formId === formId)
+        .flatMap((response) =>
+          response.answers.map((answer) => ({
+            questionId: answer.questionId,
+            value: answer.value,
+          })),
+        );
+    },
+    async getAnnouncementDefaults() {
+      return {
+        wall: true,
+        news: true,
+        companyDate: true,
+        messageTemplate:
+          'New survey: "{title}" is now open. Share your input on the Intranet.',
+        newsCategory: "Survey",
+      };
+    },
+    async setAnnouncementDefaults(input) {
+      return {
+        wall: input.wall,
+        news: input.news,
+        companyDate: input.companyDate,
+        messageTemplate: input.messageTemplate,
+        newsCategory: input.newsCategory,
+      };
+    },
+    async getNotificationRecipients() {
+      return { recipients: [] };
+    },
+    async setNotificationRecipients(input) {
+      return { recipients: input.recipients };
     },
   };
 }
@@ -416,22 +527,244 @@ describe("survey dual-path routes", () => {
     });
   });
 
-  it("proxies announce/analytics leftovers even when Hyperdrive is on", async () => {
-    const upstream = vi.fn(async (request: Request) => {
-      expect(new URL(request.url).pathname).toBe(
-        `/api/survey/${FORM_ID}/analytics`,
-      );
-      return Response.json({ data: { totalResponses: 0, questions: [] } });
+  it("schedules, closes, reopens, archives, and unarchives on Hyperdrive", async () => {
+    const store = memorySurveyStore({
+      forms: [
+        draftForm({
+          status: "published",
+          publishedAt: "2026-07-01T00:00:00.000Z",
+          questionCount: 1,
+          questions: [
+            {
+              id: QUESTION_ID,
+              order: 1,
+              type: "short_text",
+              prompt: "How are you?",
+              helperText: null,
+              required: true,
+              options: [],
+              settings: {},
+            },
+          ],
+        }),
+      ],
     });
-    vi.stubGlobal("fetch", upstream);
+    const app = createEdgeApp({
+      createSurveyStore: async () => store,
+      verifyToken,
+    });
 
+    const schedule = await app.request(
+      `https://intranet.example/api/survey/${FORM_ID}/schedule`,
+      {
+        body: JSON.stringify({
+          startDate: "2026-08-01",
+          endDate: "2026-08-31",
+        }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "PUT",
+      },
+      hyperdriveEnv(),
+    );
+    expect(schedule.status).toBe(200);
+    await expect(schedule.json()).resolves.toMatchObject({
+      data: { startDate: "2026-08-01", endDate: "2026-08-31" },
+    });
+
+    const close = await app.request(
+      `https://intranet.example/api/survey/${FORM_ID}/close`,
+      {
+        headers: { authorization: `Bearer ${TEST_TOKEN}` },
+        method: "POST",
+      },
+      hyperdriveEnv(),
+    );
+    expect(close.status).toBe(200);
+    await expect(close.json()).resolves.toMatchObject({
+      data: { status: "closed" },
+    });
+
+    const reopen = await app.request(
+      `https://intranet.example/api/survey/${FORM_ID}/reopen`,
+      {
+        headers: { authorization: `Bearer ${TEST_TOKEN}` },
+        method: "POST",
+      },
+      hyperdriveEnv(),
+    );
+    expect(reopen.status).toBe(200);
+    await expect(reopen.json()).resolves.toMatchObject({
+      data: { status: "published", closedAt: null },
+    });
+
+    const archive = await app.request(
+      `https://intranet.example/api/survey/${FORM_ID}/archive`,
+      {
+        headers: { authorization: `Bearer ${TEST_TOKEN}` },
+        method: "POST",
+      },
+      hyperdriveEnv(),
+    );
+    expect(archive.status).toBe(200);
+
+    const unarchive = await app.request(
+      `https://intranet.example/api/survey/${FORM_ID}/unarchive`,
+      {
+        headers: { authorization: `Bearer ${TEST_TOKEN}` },
+        method: "POST",
+      },
+      hyperdriveEnv(),
+    );
+    expect(unarchive.status).toBe(200);
+    await expect(unarchive.json()).resolves.toMatchObject({
+      data: { id: FORM_ID },
+    });
+  });
+
+  it("lists responses and analytics on Hyperdrive without respondent emails", async () => {
+    const store = memorySurveyStore({
+      forms: [
+        draftForm({
+          status: "published",
+          publishedAt: "2026-07-01T00:00:00.000Z",
+          questionCount: 1,
+          questions: [
+            {
+              id: QUESTION_ID,
+              order: 1,
+              type: "single_choice",
+              prompt: "Pick one",
+              helperText: null,
+              required: true,
+              options: ["A", "B"],
+              settings: {},
+            },
+          ],
+        }),
+      ],
+    });
+    await store.createResponse({
+      formId: FORM_ID,
+      respondentId: "user-999",
+      answers: [{ questionId: QUESTION_ID, value: "A" }],
+    });
+
+    const app = createEdgeApp({
+      createSurveyStore: async () => store,
+      verifyToken,
+    });
+
+    const responses = await app.request(
+      `https://intranet.example/api/survey/${FORM_ID}/responses`,
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+    expect(responses.status).toBe(200);
+    const responseBody = (await responses.json()) as {
+      data: Array<Record<string, unknown>>;
+    };
+    expect(responseBody.data).toHaveLength(1);
+    expect(responseBody.data[0]).toMatchObject({
+      answers: [{ questionId: QUESTION_ID, value: "A" }],
+      respondent: { id: "user-999", name: "Test User", department: "Eng" },
+    });
+    expect(responseBody.data[0]).not.toHaveProperty("respondent.email");
+    expect(JSON.stringify(responseBody)).not.toContain("@");
+
+    const analytics = await app.request(
+      `https://intranet.example/api/survey/${FORM_ID}/analytics`,
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+    expect(analytics.status).toBe(200);
+    await expect(analytics.json()).resolves.toMatchObject({
+      data: {
+        totalResponses: 1,
+        questions: [
+          {
+            id: QUESTION_ID,
+            kind: "choice",
+            counts: { A: 1 },
+          },
+        ],
+      },
+    });
+  });
+
+  it("reads and writes announcement settings on Hyperdrive", async () => {
     const app = createEdgeApp({
       createSurveyStore: async () => memorySurveyStore(),
       verifyToken,
     });
-    const response = await app.request(
-      `https://intranet.example/api/survey/${FORM_ID}/analytics`,
+
+    const get = await app.request(
+      "https://intranet.example/api/survey/announcement-settings",
       { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+    expect(get.status).toBe(200);
+    await expect(get.json()).resolves.toMatchObject({
+      data: { wall: true, newsCategory: "Survey" },
+    });
+
+    const put = await app.request(
+      "https://intranet.example/api/survey/announcement-settings",
+      {
+        body: JSON.stringify({
+          wall: false,
+          news: true,
+          companyDate: false,
+          messageTemplate: "Hello {title}",
+          newsCategory: "Pulse",
+        }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "PUT",
+      },
+      hyperdriveEnv(),
+    );
+    expect(put.status).toBe(200);
+    await expect(put.json()).resolves.toMatchObject({
+      data: { wall: false, newsCategory: "Pulse" },
+    });
+  });
+
+  it("proxies announce side-effects (wall/news/companyDate) to Express", async () => {
+    const upstream = vi.fn(async (request: Request) => {
+      expect(new URL(request.url).pathname).toBe(
+        `/api/survey/${FORM_ID}/announce`,
+      );
+      return Response.json({ data: { posted: ["Company Wall"] } });
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const app = createEdgeApp({
+      createSurveyStore: async () =>
+        memorySurveyStore({
+          forms: [
+            draftForm({
+              status: "published",
+              publishedAt: "2026-07-01T00:00:00.000Z",
+            }),
+          ],
+        }),
+      verifyToken,
+    });
+    const response = await app.request(
+      `https://intranet.example/api/survey/${FORM_ID}/announce`,
+      {
+        body: JSON.stringify({ announce: { wall: true } }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
       hyperdriveEnv(),
     );
 
@@ -488,17 +821,11 @@ describe("survey dual-path routes", () => {
 });
 
 describe("survey-forms dual-path routes", () => {
-  it("uses survey:manage-wave for create and proxies schedule leftovers", async () => {
+  it("uses survey:manage-wave for create and schedules on Hyperdrive", async () => {
     const store = memorySurveyStore({
       permissionsByUser: { "user-123": ["survey:manage-wave"] },
+      forms: [draftForm({ createdById: "user-123", status: "draft" })],
     });
-    const upstream = vi.fn(async (request: Request) => {
-      expect(new URL(request.url).pathname).toBe(
-        `/api/survey-forms/${FORM_ID}/schedule`,
-      );
-      return Response.json({ data: {} });
-    });
-    vi.stubGlobal("fetch", upstream);
 
     const app = createEdgeApp({
       createSurveyFormsStore: async () => store,
@@ -532,7 +859,9 @@ describe("survey-forms dual-path routes", () => {
       hyperdriveEnv(),
     );
     expect(schedule.status).toBe(200);
-    expect(upstream).toHaveBeenCalledOnce();
+    await expect(schedule.json()).resolves.toMatchObject({
+      data: { startDate: "2026-08-01" },
+    });
   });
 
   it("rejects create without survey:manage-wave", async () => {

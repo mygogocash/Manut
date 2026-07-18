@@ -997,3 +997,15 @@ kanban columns + top-level tasks (emails/budget/comments stripped), and
 `ENABLE_HYPERDRIVE_BOUNDARY=true` without Hyperdrive binding. Dashboard,
 import/reorder, members, milestones, task update/delete, and other CRM hubs
 (`/it-crm`, `/product-crm`, etc.) remain Express-proxied — next slice candidates.
+
+### Parallel: survey-deals
+
+Survey/survey-forms Hyperdrive deepen (shared `survey-engine`): schedule,
+close/reopen, archive/unarchive, GET responses (emails stripped), analytics,
+announcement/notification settings. Announce-on-publish and `POST /:id/announce`
+stay Express-proxied (wall/news/companyDate side-effects). PUT/DELETE form
+metadata still proxied.
+
+Deals DELETE blocker: `Deal` has no `deletedAt` / soft-delete lifecycle;
+Express hard-deletes via `prisma.deal.delete`. Edge keeps DELETE proxied —
+do not hard-delete on Hyperdrive until a soft-delete contract exists.

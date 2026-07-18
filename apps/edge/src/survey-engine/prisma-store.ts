@@ -8,12 +8,74 @@ import { hyperdriveConnectionString } from "../hyperdrive";
 import { loadUserPermissions } from "../rbac";
 import type { RuntimeBindings } from "../runtime";
 import type {
+  AnnouncementDefaults,
+  NotificationRecipients,
   QuestionInput,
   SurveyFormRecord,
   SurveyKind,
   SurveyQuestionRecord,
   SurveyStore,
 } from "./store";
+
+const DEFAULT_ANNOUNCEMENT: AnnouncementDefaults = {
+  wall: true,
+  news: true,
+  companyDate: true,
+  messageTemplate:
+    'New survey: "{title}" is now open. Share your input on the Intranet.',
+  newsCategory: "Survey",
+};
+
+function settingsKeys(kind: SurveyKind): {
+  announce: string;
+  notify: string;
+} {
+  // Mirror Express: classic survey uses `survey.form.*`; wave forms use `survey.*`.
+  if (kind === "survey-form") {
+    return {
+      announce: "survey.announcement_defaults",
+      notify: "survey.notification_recipients",
+    };
+  }
+  return {
+    announce: "survey.form.announcement_defaults",
+    notify: "survey.form.notification_recipients",
+  };
+}
+
+function readAnnouncementDefaults(value: unknown): AnnouncementDefaults {
+  const record = (value ?? {}) as Record<string, unknown>;
+  const str = (entry: unknown, fallback: string) =>
+    typeof entry === "string" && entry.trim() ? entry : fallback;
+  const bool = (entry: unknown, fallback: boolean) =>
+    typeof entry === "boolean" ? entry : fallback;
+  return {
+    wall: bool(record.wall, DEFAULT_ANNOUNCEMENT.wall),
+    news: bool(record.news, DEFAULT_ANNOUNCEMENT.news),
+    companyDate: bool(record.companyDate, DEFAULT_ANNOUNCEMENT.companyDate),
+    messageTemplate: str(
+      record.messageTemplate,
+      DEFAULT_ANNOUNCEMENT.messageTemplate,
+    ),
+    newsCategory: str(record.newsCategory, DEFAULT_ANNOUNCEMENT.newsCategory),
+  };
+}
+
+function readNotificationRecipients(value: unknown): NotificationRecipients {
+  const record = (value ?? {}) as Record<string, unknown>;
+  const raw = Array.isArray(record.recipients) ? record.recipients : [];
+  const seen = new Set<string>();
+  const recipients: string[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== "string") continue;
+    const clean = entry.trim().toLowerCase();
+    if (clean && !seen.has(clean)) {
+      seen.add(clean);
+      recipients.push(clean);
+    }
+  }
+  return { recipients };
+}
 
 function asIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : value;
@@ -107,6 +169,7 @@ export function createPrismaSurveyStore(
   kind: SurveyKind,
 ): SurveyStore {
   const isWave = kind === "survey-form";
+  const keys = settingsKeys(kind);
 
   return {
     async loadPermissions(userId) {
@@ -287,6 +350,211 @@ export function createPrismaSurveyStore(
         include: FORM_INCLUDES,
       });
       return mapForm(row);
+    },
+
+    async setSchedule(id, input) {
+      const data = {
+        startDate: input.startDate ? new Date(input.startDate) : null,
+        endDate: input.endDate ? new Date(input.endDate) : null,
+      };
+      if (isWave) {
+        const row = await client.surveyForm.update({
+          where: { id },
+          data,
+          include: FORM_INCLUDES,
+        });
+        return mapForm(row);
+      }
+      const row = await client.survey.update({
+        where: { id },
+        data,
+        include: FORM_INCLUDES,
+      });
+      return mapForm(row);
+    },
+
+    async close(id) {
+      const data = { status: "closed", closedAt: new Date() };
+      if (isWave) {
+        const row = await client.surveyForm.update({
+          where: { id },
+          data,
+          include: FORM_INCLUDES,
+        });
+        return mapForm(row);
+      }
+      const row = await client.survey.update({
+        where: { id },
+        data,
+        include: FORM_INCLUDES,
+      });
+      return mapForm(row);
+    },
+
+    async reopen(id) {
+      const data = { status: "published", closedAt: null };
+      if (isWave) {
+        const row = await client.surveyForm.update({
+          where: { id },
+          data,
+          include: FORM_INCLUDES,
+        });
+        return mapForm(row);
+      }
+      const row = await client.survey.update({
+        where: { id },
+        data,
+        include: FORM_INCLUDES,
+      });
+      return mapForm(row);
+    },
+
+    async archive(id) {
+      const data = { archivedAt: new Date() };
+      if (isWave) {
+        const row = await client.surveyForm.update({
+          where: { id },
+          data,
+          include: FORM_INCLUDES,
+        });
+        return mapForm(row);
+      }
+      const row = await client.survey.update({
+        where: { id },
+        data,
+        include: FORM_INCLUDES,
+      });
+      return mapForm(row);
+    },
+
+    async unarchive(id) {
+      const data = { archivedAt: null };
+      if (isWave) {
+        const row = await client.surveyForm.update({
+          where: { id },
+          data,
+          include: FORM_INCLUDES,
+        });
+        return mapForm(row);
+      }
+      const row = await client.survey.update({
+        where: { id },
+        data,
+        include: FORM_INCLUDES,
+      });
+      return mapForm(row);
+    },
+
+    async listResponses(formId) {
+      if (isWave) {
+        const rows = await client.surveyFormResponse.findMany({
+          where: { surveyFormId: formId },
+          include: {
+            respondent: {
+              select: { id: true, name: true, department: true },
+            },
+            answers: true,
+          },
+          orderBy: { submittedAt: "desc" },
+        });
+        return rows.map((row) => ({
+          id: row.id,
+          formId: row.surveyFormId,
+          respondentId: row.respondentId,
+          respondentName: row.respondent?.name ?? null,
+          respondentDepartment: row.respondent?.department ?? null,
+          submittedAt: asIso(row.submittedAt),
+          answers: row.answers.map((answer) => ({
+            questionId: answer.questionId,
+            value: answer.value,
+          })),
+        }));
+      }
+      const rows = await client.surveyResponse.findMany({
+        where: { surveyId: formId },
+        include: {
+          respondent: {
+            select: { id: true, name: true, department: true },
+          },
+          answers: true,
+        },
+        orderBy: { submittedAt: "desc" },
+      });
+      return rows.map((row) => ({
+        id: row.id,
+        formId: row.surveyId,
+        respondentId: row.respondentId,
+        respondentName: row.respondent?.name ?? null,
+        respondentDepartment: row.respondent?.department ?? null,
+        submittedAt: asIso(row.submittedAt),
+        answers: row.answers.map((answer) => ({
+          questionId: answer.questionId,
+          value: answer.value,
+        })),
+      }));
+    },
+
+    async listAnswerValues(formId) {
+      if (isWave) {
+        const rows = await client.surveyFormAnswer.findMany({
+          where: { question: { surveyFormId: formId } },
+          select: { questionId: true, value: true },
+        });
+        return rows.map((row) => ({
+          questionId: row.questionId,
+          value: row.value,
+        }));
+      }
+      const rows = await client.surveyAnswer.findMany({
+        where: { question: { surveyId: formId } },
+        select: { questionId: true, value: true },
+      });
+      return rows.map((row) => ({
+        questionId: row.questionId,
+        value: row.value,
+      }));
+    },
+
+    async getAnnouncementDefaults() {
+      const row = await client.systemSetting.findUnique({
+        where: { key: keys.announce },
+      });
+      return readAnnouncementDefaults(row?.value);
+    },
+
+    async setAnnouncementDefaults(input) {
+      const clean = readAnnouncementDefaults(input);
+      const value = {
+        wall: clean.wall,
+        news: clean.news,
+        companyDate: clean.companyDate,
+        messageTemplate: clean.messageTemplate,
+        newsCategory: clean.newsCategory,
+      } as InputJsonValue;
+      await client.systemSetting.upsert({
+        where: { key: keys.announce },
+        update: { value },
+        create: { key: keys.announce, value },
+      });
+      return clean;
+    },
+
+    async getNotificationRecipients() {
+      const row = await client.systemSetting.findUnique({
+        where: { key: keys.notify },
+      });
+      return readNotificationRecipients(row?.value);
+    },
+
+    async setNotificationRecipients(input) {
+      const clean = readNotificationRecipients(input);
+      const value = { recipients: clean.recipients } as InputJsonValue;
+      await client.systemSetting.upsert({
+        where: { key: keys.notify },
+        update: { value },
+        create: { key: keys.notify, value },
+      });
+      return clean;
     },
 
     async findMyResponse(formId, userId) {

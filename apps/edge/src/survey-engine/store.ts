@@ -75,6 +75,33 @@ export interface QuestionInput {
   settings: Record<string, unknown>;
 }
 
+export interface ScheduleInput {
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export interface AnnouncementDefaults {
+  wall: boolean;
+  news: boolean;
+  companyDate: boolean;
+  messageTemplate: string;
+  newsCategory: string;
+}
+
+export interface NotificationRecipients {
+  recipients: string[];
+}
+
+export interface ListedSurveyResponse {
+  id: string;
+  formId: string;
+  respondentId: string | null;
+  respondentName: string | null;
+  respondentDepartment: string | null;
+  submittedAt: string | Date;
+  answers: Array<{ questionId: string; value: unknown }>;
+}
+
 export interface SurveyStore {
   loadPermissions(userId: string): Promise<Set<string>>;
   findAudienceUser(userId: string): Promise<SurveyAudienceUser | null>;
@@ -94,6 +121,26 @@ export interface SurveyStore {
     questions: QuestionInput[],
   ): Promise<SurveyFormRecord | null>;
   publish(id: string): Promise<SurveyFormRecord | null>;
+  setSchedule(
+    id: string,
+    input: ScheduleInput,
+  ): Promise<SurveyFormRecord | null>;
+  close(id: string): Promise<SurveyFormRecord | null>;
+  reopen(id: string): Promise<SurveyFormRecord | null>;
+  archive(id: string): Promise<SurveyFormRecord | null>;
+  unarchive(id: string): Promise<SurveyFormRecord | null>;
+  listResponses(formId: string): Promise<ListedSurveyResponse[]>;
+  listAnswerValues(
+    formId: string,
+  ): Promise<Array<{ questionId: string; value: unknown }>>;
+  getAnnouncementDefaults(): Promise<AnnouncementDefaults>;
+  setAnnouncementDefaults(
+    input: AnnouncementDefaults,
+  ): Promise<AnnouncementDefaults>;
+  getNotificationRecipients(): Promise<NotificationRecipients>;
+  setNotificationRecipients(
+    input: NotificationRecipients,
+  ): Promise<NotificationRecipients>;
   findMyResponse(
     formId: string,
     userId: string,
