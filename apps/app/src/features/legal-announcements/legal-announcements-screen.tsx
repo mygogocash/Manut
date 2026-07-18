@@ -14,7 +14,8 @@ import {
   StatusMessage,
 } from "@manut/ui";
 import { useQuery } from "@tanstack/react-query";
-import { ScrollView, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
 import { useApiClient } from "@/providers/api-client-provider";
@@ -53,11 +54,15 @@ function kindLabel(kind: LegalAnnouncement["kind"]): string {
 
 function AnnouncementRow({
   announcement,
+  onPress,
 }: {
   announcement: LegalAnnouncement;
+  onPress: () => void;
 }) {
   return (
-    <View
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
       style={{
         gap: spacing.xs,
         padding: spacing.lg,
@@ -75,12 +80,13 @@ function AnnouncementRow({
         {kindLabel(announcement.kind)} · {announcement.status}
         {announcement.requiresAck ? " · Ack required" : ""}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
 export function LegalAnnouncementsScreen() {
   const api = useApiClient();
+  const router = useRouter();
   const { hasPermission } = useAuth();
   const allowed = canReadAnnouncements(hasPermission);
 
@@ -143,7 +149,7 @@ export function LegalAnnouncementsScreen() {
               Items ({announcementsQuery.data.meta.total})
             </Text>
             {announcementsQuery.data.data.length === 0 ? (
-              <StatusMessage tone="neutral">
+              <StatusMessage tone="warning">
                 No announcements found.
               </StatusMessage>
             ) : (
@@ -151,12 +157,16 @@ export function LegalAnnouncementsScreen() {
                 <AnnouncementRow
                   key={announcement.id}
                   announcement={announcement}
+                  onPress={() =>
+                    router.push(`/legal/announcements/${announcement.id}`)
+                  }
                 />
               ))
             )}
             {announcementsQuery.isFetching ? (
               <Button
                 label="Refresh"
+      pendingLabel="Working…"
                 onPress={() => {
                   void announcementsQuery.refetch();
                 }}

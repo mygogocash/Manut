@@ -125,3 +125,73 @@ export async function listLegalAnnouncements(
   );
   return announcementsResponseSchema.parse(response);
 }
+
+// Detail keeps body for reading; strips author PII, ack lists, and file URLs.
+const announcementDetailApiSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    body: z.string(),
+    kind: announcementKindSchema,
+    status: announcementStatusSchema,
+    pinned: z.boolean(),
+    requiresAck: z.boolean().optional(),
+    publishedAt: z.string().nullable().optional(),
+    myAckedAt: z.string().nullable().optional(),
+    attachments: z
+      .array(
+        z
+          .object({
+            id: z.string().min(1),
+            fileName: z.string().min(1),
+          })
+          .passthrough(),
+      )
+      .optional(),
+  })
+  .passthrough();
+
+export const legalAnnouncementDetailSchema =
+  announcementDetailApiSchema.transform((row) => ({
+    id: row.id,
+    title: row.title,
+    body: row.body,
+    kind: row.kind,
+    status: row.status,
+    pinned: row.pinned,
+    requiresAck: row.requiresAck ?? false,
+    publishedAt: row.publishedAt ?? null,
+    myAckedAt: row.myAckedAt ?? null,
+    attachmentNames: (row.attachments ?? []).map((item) => item.fileName),
+  }));
+
+const announcementDetailResponseSchema = z
+  .object({
+    data: legalAnnouncementDetailSchema,
+  })
+  .strict();
+
+export type LegalAnnouncementDetail = z.infer<
+  typeof legalAnnouncementDetailSchema
+>;
+
+export const LEGAL_ANNOUNCEMENT_DETAIL_QUERY_ROOT = [
+  "legal-announcements",
+  "detail",
+] as const;
+
+export function legalAnnouncementDetailQueryKey(id: string) {
+  return [...LEGAL_ANNOUNCEMENT_DETAIL_QUERY_ROOT, id] as const;
+}
+
+export async function getLegalAnnouncement(
+  client: ApiClient,
+  id: string,
+  signal?: RequestAbortSignal,
+): Promise<LegalAnnouncementDetail> {
+  const response = await client.get<unknown>(
+    `/legal-announcements/${encodeURIComponent(id)}`,
+    signal ? { signal } : undefined,
+  );
+  return announcementDetailResponseSchema.parse(response).data;
+}

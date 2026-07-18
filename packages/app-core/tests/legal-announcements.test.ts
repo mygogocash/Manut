@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../src/api/api-client";
-import { listLegalAnnouncements } from "../src/legal-announcements/legal-announcements";
+import {
+  getLegalAnnouncement,
+  listLegalAnnouncements,
+} from "../src/legal-announcements/legal-announcements";
 
 const announcement = {
   id: "clann000000000000000000001",
@@ -64,6 +67,26 @@ describe("legal announcements foundation contracts", () => {
     expect(result.data[0]).not.toHaveProperty("author");
     expect(get).toHaveBeenCalledWith(
       "/legal-announcements?page=1&limit=20",
+      undefined,
+    );
+  });
+
+  it("loads announcement detail with body but without author or file URLs", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: announcement,
+    });
+    const client = { get } as unknown as ApiClient;
+
+    const result = await getLegalAnnouncement(
+      client,
+      "clann000000000000000000001",
+    );
+    expect(result.body).toBe("<p>Full announcement body</p>");
+    expect(result.attachmentNames).toEqual(["handbook.pdf"]);
+    expect(result).not.toHaveProperty("author");
+    expect(result).not.toHaveProperty("ackCount");
+    expect(get).toHaveBeenCalledWith(
+      "/legal-announcements/clann000000000000000000001",
       undefined,
     );
   });
