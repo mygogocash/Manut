@@ -983,13 +983,20 @@ export {
 } from "./qa-crm/qa-crm-detail";
 export type { QaCrmProjectDetail } from "./qa-crm/qa-crm-detail";
 export {
+  createDeal,
+  createDealInputSchema,
   DEALS_QUERY_ROOT,
   dealListParamsSchema,
   dealSchema,
   dealsQueryKey,
   listDeals,
 } from "./deals/deals";
-export type { Deal, DealList, DealListParams } from "./deals/deals";
+export type {
+  CreateDealInput,
+  Deal,
+  DealList,
+  DealListParams,
+} from "./deals/deals";
 export {
   listSalesRevenueLeads,
   SALES_REVENUE_LEADS_QUERY_ROOT,

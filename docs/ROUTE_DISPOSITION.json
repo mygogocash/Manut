@@ -178,7 +178,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/deals",
-      "note": "Expo read-only deals list via app-core GET /api/deals (strips notes/owner email/partner). Deferred: pipeline summary, create/update/delete. Legacy web redirected to /sales."
+      "note": "Expo deals list + create via app-core GET/POST /api/deals (createDeal Zod; strips notes/owner email/partner). Gated by deals:create/deals:manage. Deferred: pipeline kanban, stage drag, notes editor, delete. Legacy web redirected to /sales."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/directory/page.tsx",

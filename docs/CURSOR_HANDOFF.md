@@ -627,17 +627,22 @@ Migration order:
    app-core) and creates tasks via `POST /projects/:id/tasks` with
    `createProjectTaskInputSchema` + `projects:update` / team-CRM
    `*:update`/`*:manage` client gate. Disposition stays `foundation`.
-   **CRM deepen pattern for other hubs** (`/deals`, `/it-crm`, `/product-crm`,
+   **Deals create deepen (2026-07-18):** `/deals` list stays foundation; one
+   write lands via app-core `createDeal` + `createDealInputSchema` →
+   `POST /api/deals`, Expo form gated by `deals:create`/`deals:manage`, list
+   query invalidated on success (notes/email/partner still stripped). Deferred:
+   pipeline kanban, stage drag, notes editor, delete.
+   **CRM deepen pattern for other hubs** (`/it-crm`, `/product-crm`,
    `/legal-crm`, `/qa-crm`, …): (1) extend the existing detail/list DTO to
    project board columns + task cards without emails/budget/member PII;
-   (2) add one write (`createTask` / `createDeal` / status patch) with Zod in
+   (2) add one write (`createTask` / status patch) with Zod in
    `packages/app-core` mirroring the API validation; (3) permission-gate the
    Expo form; (4) unit + screen tests; (5) leave disposition `foundation`
    until Expo E2E. Do not deepen every CRM hub in one slice.
    Still deepen (not missing routes): journals/invoices/bank/approve-post,
    revenue detail tabs, reporting, helpdesk writes/comments/GitHub, project
-   drag-reorder / task edit-delete / members, sales pipeline writes, survey
-   question builders / publish / analytics, other CRM board/tasks/import/create.
+   drag-reorder / task edit-delete / members, deals pipeline/kanban/notes,
+   survey question builders / publish / analytics, other CRM board/tasks/import/create.
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.

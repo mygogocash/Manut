@@ -33,6 +33,10 @@ deepen (app-core Zod + `projects:update`/`*:manage` gate). Drag-reorder,
 task edit/delete, members, and other CRM hub boards remain deferred; reuse the
 projects pattern documented in `docs/CURSOR_HANDOFF.md`.
 
+`/deals` stays `foundation` after list + create deepen (`createDeal` Zod →
+`POST /api/deals`, `deals:create`/`deals:manage` gate). Pipeline kanban, stage
+drag, notes editor, and delete remain deferred.
+
 ## Inventory
 
 |   # | Source path                                                                     | Source route                               | Disposition            | Status       | Target route                 |

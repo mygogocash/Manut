@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../src/api/api-client";
-import { dealSchema, listDeals } from "../src/deals/deals";
+import {
+  createDeal,
+  createDealInputSchema,
+  dealSchema,
+  listDeals,
+} from "../src/deals/deals";
 
 const deal = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -57,6 +62,66 @@ describe("deals foundation contracts", () => {
     });
     expect(get).toHaveBeenCalledWith("/deals?page=1&limit=20&stage=proposal", {
       signal,
+    });
+  });
+
+  it("createDealInputSchema requires company and non-negative value", () => {
+    expect(createDealInputSchema.safeParse({ company: "", value: 0 }).success).toBe(
+      false,
+    );
+    expect(
+      createDealInputSchema.safeParse({ company: "Acme", value: -1 }).success,
+    ).toBe(false);
+    expect(
+      createDealInputSchema.parse({
+        company: "  Acme  ",
+        value: 1000,
+        contact: "  Jane  ",
+      }),
+    ).toEqual({
+      company: "Acme",
+      value: 1000,
+      contact: "Jane",
+      stage: "lead",
+      probability: 10,
+    });
+  });
+
+  it("creates a deal via POST and strips notes/email/partner", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: {
+        ...deal,
+        company: "New Co",
+        value: 2500,
+        stage: "lead",
+        probability: 10,
+        contact: null,
+        type: null,
+        country: null,
+        closeDate: null,
+      },
+    });
+    const client = { post } as unknown as ApiClient;
+
+    await expect(
+      createDeal(client, { company: "New Co", value: 2500 }),
+    ).resolves.toEqual({
+      id: deal.id,
+      company: "New Co",
+      contact: null,
+      value: 2500,
+      stage: "lead",
+      probability: 10,
+      type: null,
+      country: null,
+      closeDate: null,
+      owner: { id: deal.owner.id, name: "Alex Example" },
+    });
+    expect(post).toHaveBeenCalledWith("/deals", {
+      company: "New Co",
+      value: 2500,
+      stage: "lead",
+      probability: 10,
     });
   });
 });

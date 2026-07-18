@@ -1,5 +1,8 @@
 import {
   ApiError,
+  createDeal,
+  createDealInputSchema,
+  DEALS_QUERY_ROOT,
   dealsQueryKey,
   listDeals,
   type Deal,
@@ -12,8 +15,10 @@ import {
   radii,
   spacing,
   StatusMessage,
+  TextField,
 } from "@manut/ui";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
@@ -25,6 +30,10 @@ function errorMessage(error: unknown, fallback: string): string {
 
 function canReadDeals(hasPermission: (code: string) => boolean): boolean {
   return hasPermission("deals:read");
+}
+
+function canCreateDeals(hasPermission: (code: string) => boolean): boolean {
+  return hasPermission("deals:create") || hasPermission("deals:manage");
 }
 
 function DealRow({ deal }: { deal: Deal }) {
@@ -54,10 +63,93 @@ function DealRow({ deal }: { deal: Deal }) {
   );
 }
 
+function CreateDealForm({ onCreated }: { onCreated: (deal: Deal) => void }) {
+  const api = useApiClient();
+  const [company, setCompany] = useState("");
+  const [valueText, setValueText] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const createMutation = useMutation({
+    mutationFn: (input: Parameters<typeof createDeal>[1]) =>
+      createDeal(api, input),
+    onSuccess: (deal) => {
+      setCompany("");
+      setValueText("");
+      setValidationError(null);
+      setSuccessMessage(`Created "${deal.company}".`);
+      onCreated(deal);
+    },
+  });
+
+  function submit() {
+    const value = Number(valueText);
+    const parsed = createDealInputSchema.safeParse({
+      company,
+      value: Number.isFinite(value) ? value : Number.NaN,
+    });
+    if (!parsed.success) {
+      setValidationError(
+        parsed.error.issues[0]?.message ?? "Check company and value.",
+      );
+      return;
+    }
+    setValidationError(null);
+    setSuccessMessage(null);
+    createMutation.mutate(parsed.data);
+  }
+
+  return (
+    <Card title="Create deal" maxWidth={720}>
+      <View style={{ gap: spacing.md }}>
+        <Text style={{ color: colors.textMuted }}>
+          Creates a lead-stage deal. Pipeline kanban, notes editor, and delete
+          remain deferred.
+        </Text>
+        <TextField
+          label="Company"
+          value={company}
+          onChangeText={setCompany}
+          placeholder="Company"
+          editable={!createMutation.isPending}
+        />
+        <TextField
+          label="Value"
+          value={valueText}
+          onChangeText={setValueText}
+          placeholder="0"
+          keyboardType="decimal-pad"
+          editable={!createMutation.isPending}
+        />
+        {validationError ? (
+          <StatusMessage tone="error">{validationError}</StatusMessage>
+        ) : null}
+        {createMutation.isError ? (
+          <StatusMessage tone="error">
+            {errorMessage(createMutation.error, "We could not create the deal.")}
+          </StatusMessage>
+        ) : null}
+        {successMessage ? (
+          <StatusMessage tone="success">{successMessage}</StatusMessage>
+        ) : null}
+        <Button
+          label="Create deal"
+          pendingLabel="Creating…"
+          accessibilityLabel="Create deal"
+          pending={createMutation.isPending}
+          onPress={submit}
+        />
+      </View>
+    </Card>
+  );
+}
+
 export function DealsScreen() {
   const api = useApiClient();
+  const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   const allowed = canReadDeals(hasPermission);
+  const canCreate = canCreateDeals(hasPermission);
 
   const dealsQuery = useQuery({
     queryKey: dealsQueryKey({ page: 1, limit: 20 }),
@@ -100,10 +192,20 @@ export function DealsScreen() {
             Deals
           </Text>
           <Text selectable style={{ color: colors.textMuted }}>
-            Read-only deals list. Pipeline summary, notes, and writes remain
-            later.
+            Deals list with create. Pipeline summary, stage drag, notes, and
+            delete remain later.
           </Text>
         </View>
+
+        {canCreate ? (
+          <CreateDealForm
+            onCreated={() => {
+              void queryClient.invalidateQueries({
+                queryKey: DEALS_QUERY_ROOT,
+              });
+            }}
+          />
+        ) : null}
 
         {dealsQuery.isPending ? <LoadingState label="Loading deals…" /> : null}
 

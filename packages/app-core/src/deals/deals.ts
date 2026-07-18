@@ -111,3 +111,57 @@ export async function listDeals(
   );
   return dealsResponseSchema.parse(response);
 }
+
+const DEAL_STAGES = [
+  "lead",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "closed_won",
+  "closed_lost",
+] as const;
+
+const trimmedOptional = z
+  .string()
+  .trim()
+  .max(300)
+  .optional()
+  .transform((value) => {
+    if (value === undefined || value.length === 0) return undefined;
+    return value;
+  });
+
+export const createDealInputSchema = z
+  .object({
+    company: z.string().trim().min(1, "Company name is required").max(300),
+    contact: trimmedOptional,
+    value: z.number().nonnegative("Value must be non-negative"),
+    stage: z.enum(DEAL_STAGES).default("lead"),
+    probability: z.number().int().min(0).max(100).default(10),
+    type: z.string().trim().max(100).optional(),
+    country: z.string().trim().max(100).optional(),
+    partnerId: z.string().min(1).optional(),
+    closeDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD format")
+      .optional(),
+    notes: z.string().max(5000).optional(),
+  })
+  .strict();
+
+export type CreateDealInput = z.input<typeof createDealInputSchema>;
+
+const createdDealResponseSchema = z
+  .object({
+    data: dealSchema,
+  })
+  .strict();
+
+export async function createDeal(
+  client: ApiClient,
+  input: CreateDealInput,
+): Promise<Deal> {
+  const parsed = createDealInputSchema.parse(input);
+  const response = await client.post<unknown>("/deals", parsed);
+  return createdDealResponseSchema.parse(response).data;
+}
