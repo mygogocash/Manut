@@ -11,7 +11,7 @@ git ls-tree -r --name-only 371349fd -- apps/web/src/app | rg '/page\.tsx$' | sor
 - Source route-page files: **103**
 - Unique source paths: **103**
 - Dispositions: **79 migrate**, **8 replace**, **16 remove-as-provenance**
-- Current status: **33 foundation**, **54 pending**, **16 removed**
+- Current status: **35 foundation**, **52 pending**, **16 removed**
 
 The source command is sorted before classification. The JSON companion repeats the source command, counts, and every row, so CI can independently assert count, uniqueness, and allowed values.
 
@@ -99,8 +99,8 @@ The source command is sorted before classification. The JSON companion repeats t
 |  69 | `apps/web/src/app/(dashboard)/policies/page.tsx`                                | `/policies`                                | `migrate`              | `pending`    | `/policies`                  |
 |  70 | `apps/web/src/app/(dashboard)/pr-management/page.tsx`                           | `/pr-management`                           | `migrate`              | `pending`    | `/pr-management`             |
 |  71 | `apps/web/src/app/(dashboard)/product-crm/page.tsx`                             | `/product-crm`                             | `migrate`              | `pending`    | `/product-crm`               |
-|  72 | `apps/web/src/app/(dashboard)/projects/[projectId]/page.tsx`                    | `/projects/[projectId]`                    | `migrate`              | `pending`    | `/projects/[projectId]`      |
-|  73 | `apps/web/src/app/(dashboard)/projects/dashboard/page.tsx`                      | `/projects/dashboard`                      | `migrate`              | `pending`    | `/projects/dashboard`        |
+|  72 | `apps/web/src/app/(dashboard)/projects/[projectId]/page.tsx`                    | `/projects/[projectId]`                    | `migrate`              | `foundation` | `/projects/[projectId]`      |
+|  73 | `apps/web/src/app/(dashboard)/projects/dashboard/page.tsx`                      | `/projects/dashboard`                      | `migrate`              | `foundation` | `/projects/dashboard`        |
 |  74 | `apps/web/src/app/(dashboard)/projects/page.tsx`                                | `/projects`                                | `migrate`              | `foundation`    | `/projects`                  |
 |  75 | `apps/web/src/app/(dashboard)/qa-crm/[projectId]/page.tsx`                      | `/qa-crm/[projectId]`                      | `migrate`              | `pending`    | `/qa-crm/[projectId]`        |
 |  76 | `apps/web/src/app/(dashboard)/qa-crm/page.tsx`                                  | `/qa-crm`                                  | `migrate`              | `pending`    | `/qa-crm`                    |

@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 33,
-    "pending": 54,
+    "foundation": 35,
+    "pending": 52,
     "removed": 16
   },
   "statusSemantics": {
@@ -592,17 +592,17 @@
       "sourcePath": "apps/web/src/app/(dashboard)/projects/[projectId]/page.tsx",
       "sourceRoute": "/projects/[projectId]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/projects/[projectId]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only project detail (status/owner/dates/workstream) via app-core; strips budget, board columns, tasks, and member emails. Kanban, task CRUD, members, and timeline remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/projects/dashboard/page.tsx",
       "sourceRoute": "/projects/dashboard",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/projects/dashboard",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only general team dashboard rollup (totals, by-status, upcoming go-lives) via app-core; strips comments from recent updates. Charts export and deep team switchers remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/projects/page.tsx",
@@ -610,7 +610,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/projects",
-      "note": "Expo has read-only general team project list via app-core. Boards, /projects/[projectId], /projects/dashboard, task writes, members, and team CRM workspaces remain before parity."
+      "note": "Expo has read-only general team project list via app-core with links to detail and dashboard. Boards, task writes, members, and team CRM workspaces remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/qa-crm/[projectId]/page.tsx",
@@ -666,7 +666,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/settings",
-      "note": "Expo has profile/privacy, local preferences, and Google Workspace connect/disconnect. Admin system settings and Gmail/Drive product screens remain before parity."
+      "note": "Expo has profile/privacy, local preferences, Google Workspace connect/disconnect, and read-only admin system settings (admin:manage; secret-like keys omitted). PUT save and Gmail/Drive product screens remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/[id]/page.tsx",

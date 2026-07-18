@@ -91,6 +91,8 @@ secrets and the independent dedicated-project marker. Never bypass that guard.
 - Do not run destructive git cleanup in this worktree (`git reset --hard`,
   `git checkout --`, `git clean -fd`) or broad publishes (`git push --all`,
   `git push --mirror`).
+- For universal route migration, land foundation / read-only Expo + `app-core`
+  slices before deepen work (approvals, attachments, R2 uploads).
 
 ## Learned Workspace Facts
 
@@ -103,5 +105,8 @@ secrets and the independent dedicated-project marker. Never bypass that guard.
   not every local ref.
 - Continuation and phase guidance live in `docs/CURSOR_HANDOFF.md` (with
   `docs/ROUTE_DISPOSITION.md`, `docs/CREDENTIAL_BOUNDARY.md`, and related docs).
-- The configured publish remote for this replacement work is `manut`; use
-  `claude/<slug>` branches (for example `claude/intranet-full-hardening`).
+- The configured publish remote for this replacement work is `manut` (GitHub
+  `mygogocash/Manut`); use `claude/<slug>` branches (for example
+  `claude/intranet-full-hardening`).
+- Keep the GitHub repo detached from the inherited `toeverything/AFFiNE` fork
+  network; do not reintroduce inherited AFFiNE About branding on that repo.

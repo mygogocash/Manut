@@ -14,7 +14,8 @@ import {
   StatusMessage,
 } from "@manut/ui";
 import { useQuery } from "@tanstack/react-query";
-import { ScrollView, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
 import { useApiClient } from "@/providers/api-client-provider";
@@ -40,9 +41,18 @@ function canReadProjects(hasPermission: (code: string) => boolean): boolean {
   );
 }
 
-function ProjectRow({ project }: { project: Project }) {
+function ProjectRow({
+  project,
+  onOpen,
+}: {
+  project: Project;
+  onOpen: () => void;
+}) {
   return (
-    <View
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open project ${project.name}`}
+      onPress={onOpen}
       style={{
         gap: spacing.xs,
         padding: spacing.lg,
@@ -63,12 +73,13 @@ function ProjectRow({ project }: { project: Project }) {
         {project.owner.name} · {project.taskCount} task
         {project.taskCount === 1 ? "" : "s"}
       </Text>
-    </View>
+    </Pressable>
   );
 }
 
 export function ProjectsScreen() {
   const api = useApiClient();
+  const router = useRouter();
   const { hasPermission } = useAuth();
   const allowed = canReadProjects(hasPermission);
 
@@ -119,6 +130,12 @@ export function ProjectsScreen() {
           </Text>
         </View>
 
+        <Button
+          label="Open dashboard"
+          accessibilityLabel="Open projects dashboard"
+          onPress={() => router.push("/projects/dashboard")}
+        />
+
         {projectsQuery.isPending ? (
           <LoadingState label="Loading projects…" />
         ) : null}
@@ -156,7 +173,11 @@ export function ProjectsScreen() {
               style={{ gap: spacing.md }}
             >
               {projectsQuery.data.data.map((project) => (
-                <ProjectRow key={project.id} project={project} />
+                <ProjectRow
+                  key={project.id}
+                  project={project}
+                  onOpen={() => router.push(`/projects/${project.id}`)}
+                />
               ))}
             </View>
           )

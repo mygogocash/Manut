@@ -9,7 +9,7 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { ProjectsScreen } from "@/features/projects/projects-screen";
+import { ProjectDetailScreen } from "@/features/projects/project-detail-screen";
 
 const mockGet = jest.fn();
 const mockPush = jest.fn();
@@ -17,6 +17,9 @@ let mockPermissions = ["projects:read"];
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
+  useLocalSearchParams: () => ({
+    projectId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  }),
 }));
 
 jest.mock("@/providers/api-client-provider", () => ({
@@ -37,12 +40,12 @@ async function renderScreen() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <ProjectsScreen />
+      <ProjectDetailScreen />
     </QueryClientProvider>,
   );
 }
 
-describe("ProjectsScreen", () => {
+describe("ProjectDetailScreen", () => {
   beforeAll(() => {
     notifyManager.setNotifyFunction(async (callback) => {
       await act(async () => {
@@ -60,39 +63,37 @@ describe("ProjectsScreen", () => {
     mockPush.mockReset();
     mockPermissions = ["projects:read"];
     mockGet.mockResolvedValue({
-      data: [
-        {
-          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          name: "Intranet hardening",
-          slug: "intranet-hardening",
-          status: "in_progress",
-          team: "general",
-          department: "Engineering",
-          owner: {
-            id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-            name: "Alex Example",
-          },
-          _count: { tasks: 12 },
+      data: {
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        name: "Intranet hardening",
+        slug: "intranet-hardening",
+        status: "in_progress",
+        team: "general",
+        department: "Engineering",
+        owner: {
+          id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          name: "Alex Example",
         },
-      ],
-      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+        _count: { tasks: 12 },
+        startDate: "2026-01-01T00:00:00.000Z",
+        goLiveDate: "2026-08-01T00:00:00.000Z",
+        workstream: "Hardening",
+      },
     });
   });
 
   it(
-    "lists projects read-only",
+    "shows read-only project detail",
     async () => {
       await renderScreen();
       expect(
-        await screen.findByText(
-          "Intranet hardening",
-          {},
-          { timeout: 10_000 },
-        ),
+        await screen.findByText("Intranet hardening", {}, { timeout: 10_000 }),
       ).toBeTruthy();
       expect(screen.getByText(/in_progress · general · Engineering/)).toBeTruthy();
+      expect(screen.getByText("Owner: Alex Example")).toBeTruthy();
+      expect(screen.getByText("Workstream: Hardening")).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
-        "/projects?page=1&limit=20&team=general",
+        "/projects/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         expect.anything(),
       );
     },

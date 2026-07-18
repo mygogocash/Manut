@@ -585,9 +585,10 @@ Migration order:
    actions + chart series, Settings preferences + Google OAuth, and leave
    holidays/approval read-only subroutes are in Expo as `foundation` slices.
    Leave calendar + team/HR approve/reject + `/leave/policies` foundation
-   landed 2026-07-18. Wall/compose and admin system settings remain. Move
-   Playwright employee/leave coverage from `:3000` to Expo `:8081` only when
-   the five `E2E_*` secrets and dedicated E2E project exist — do not soft-skip.
+   landed 2026-07-18. Admin system settings read-only (`admin:manage`) landed
+   on `/settings`. Wall/compose remains. Move Playwright employee/leave
+   coverage from `:3000` to Expo `:8081` only when the five `E2E_*` secrets
+   and dedicated E2E project exist — do not soft-skip.
 2. HR/people and approvals: HRMS, travel, visa, expenses, cash advance,
    payroll, benefits, attendance, learning, career, applications, office,
    employees, roles, and related approval screens.
@@ -603,14 +604,15 @@ Migration order:
    benefits enroll/manage; learning manage/complete; HRMS
    pool/import/offboarding; visa KB/templates/90-day; cash-advance
    approve/disburse actions; expense report approve + R2 receipts;
-   wall/compose; admin system settings.
+   wall/compose.
    3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
-   **Status 2026-07-18:** Wave 3 started — `/it-helpdesk` (read-only ticket
-   list) and `/projects` (read-only general team list) landed as `foundation`.
-   Still pending: `/projects/[projectId]`, `/projects/dashboard`, Sales/CRM
-   family, accounting/revenue, content/comms, reporting, administration hubs,
-   helpdesk writes/comments/GitHub, and project boards/task writes.
+   **Status 2026-07-18:** Wave 3 progressed — `/it-helpdesk` (read-only ticket
+   list), `/projects` list, `/projects/[projectId]` detail, and
+   `/projects/dashboard` rollup landed as `foundation`. Still pending:
+   Sales/CRM family, accounting/revenue, content/comms, reporting,
+   administration hubs, helpdesk writes/comments/GitHub, and project
+   boards/task writes.
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
    **Status 2026-07-18:** Wave 4 not started in Expo product UI. Concrete

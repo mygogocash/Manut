@@ -260,6 +260,12 @@ export type {
   LocalPreferencesInput,
 } from "./settings/preferences";
 export {
+  getSystemSettings,
+  SYSTEM_SETTINGS_QUERY_KEY,
+  systemSettingsSchema,
+} from "./settings/system-settings";
+export type { SystemSettings } from "./settings/system-settings";
+export {
   disconnectGoogle,
   getIntegrationsStatus,
   INTEGRATIONS_STATUS_QUERY_KEY,
@@ -570,14 +576,26 @@ export type {
   HelpdeskTicketListParams,
 } from "./helpdesk/helpdesk";
 export {
+  getProject,
+  getProjectsDashboard,
   listProjects,
+  PROJECT_DETAIL_QUERY_ROOT,
+  PROJECTS_DASHBOARD_QUERY_ROOT,
   PROJECTS_QUERY_ROOT,
+  projectDetailQueryKey,
+  projectDetailSchema,
   projectListParamsSchema,
   projectSchema,
+  projectsDashboardParamsSchema,
+  projectsDashboardQueryKey,
+  projectsDashboardSchema,
   projectsQueryKey,
 } from "./projects/projects";
 export type {
   Project,
+  ProjectDetail,
   ProjectList,
   ProjectListParams,
+  ProjectsDashboard,
+  ProjectsDashboardParams,
 } from "./projects/projects";
