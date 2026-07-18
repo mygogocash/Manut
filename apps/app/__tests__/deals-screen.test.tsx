@@ -15,10 +15,11 @@ import { DealsScreen } from "@/features/deals/deals-screen";
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockPut = jest.fn();
 let mockPermissions = ["deals:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
-  useApiClient: () => ({ get: mockGet, post: mockPost }),
+  useApiClient: () => ({ get: mockGet, post: mockPost, put: mockPut }),
 }));
 
 jest.mock("@/features/auth/auth-provider", () => ({
@@ -60,7 +61,11 @@ const listPayload = {
       },
     },
   ],
-  meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+  meta: { page: 1, limit: 100, total: 1, totalPages: 1 },
+};
+
+const pipelinePayload = {
+  data: [{ stage: "proposal", count: 1, totalValue: 15000 }],
 };
 
 describe("DealsScreen", () => {
@@ -79,21 +84,32 @@ describe("DealsScreen", () => {
   beforeEach(() => {
     mockGet.mockReset();
     mockPost.mockReset();
+    mockPut.mockReset();
     mockPermissions = ["deals:read"];
-    mockGet.mockResolvedValue(listPayload);
+    mockGet.mockImplementation(async (path: string) => {
+      if (path.startsWith("/deals/pipeline")) return pipelinePayload;
+      if (path.startsWith("/deals?")) return listPayload;
+      return listPayload;
+    });
   });
 
   it(
-    "lists deals read-only",
+    "lists deals in the pipeline board with summary",
     async () => {
       const { queryClient, unmount } = await renderScreen();
       try {
         expect(
           await screen.findByText("Acme", {}, { timeout: 10_000 }),
         ).toBeTruthy();
-        expect(screen.getByText(/proposal · 15000 · Jane Doe/)).toBeTruthy();
+        expect(screen.getByLabelText("Pipeline summary")).toBeTruthy();
+        expect(screen.getByText(/proposal: 1 · 15000/)).toBeTruthy();
+        expect(screen.getByLabelText("Deal pipeline board")).toBeTruthy();
         expect(mockGet).toHaveBeenCalledWith(
-          "/deals?page=1&limit=20",
+          "/deals?page=1&limit=100",
+          expect.anything(),
+        );
+        expect(mockGet).toHaveBeenCalledWith(
+          "/deals/pipeline",
           expect.anything(),
         );
         expect(
@@ -130,26 +146,6 @@ describe("DealsScreen", () => {
         partner: null,
       };
       mockPost.mockResolvedValue({ data: created });
-      mockGet
-        .mockResolvedValueOnce(listPayload)
-        .mockResolvedValue({
-          data: [
-            ...listPayload.data,
-            {
-              id: created.id,
-              company: created.company,
-              contact: created.contact,
-              value: created.value,
-              stage: created.stage,
-              probability: created.probability,
-              type: created.type,
-              country: created.country,
-              closeDate: created.closeDate,
-              owner: { id: created.owner.id, name: created.owner.name },
-            },
-          ],
-          meta: { page: 1, limit: 20, total: 2, totalPages: 1 },
-        });
 
       const { queryClient, unmount } = await renderScreen();
       try {
@@ -194,7 +190,91 @@ describe("DealsScreen", () => {
   );
 
   it(
-    "hides create form when the reader lacks deals:create",
+    "moves a deal stage when the writer has deals:update",
+    async () => {
+      mockPermissions = ["deals:read", "deals:update"];
+      mockPut.mockResolvedValue({
+        data: {
+          ...listPayload.data[0],
+          stage: "negotiation",
+          notes: null,
+        },
+      });
+
+      const { queryClient, unmount } = await renderScreen();
+      try {
+        await screen.findByText("Acme", {}, { timeout: 10_000 });
+        await fireEvent.press(
+          screen.getByRole("button", {
+            name: "Move Acme to negotiation",
+          }),
+        );
+        await waitFor(() => {
+          expect(mockPut).toHaveBeenCalledWith(
+            "/deals/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            { stage: "negotiation" },
+          );
+        });
+      } finally {
+        unmount();
+        queryClient.clear();
+      }
+    },
+    15_000,
+  );
+
+  it(
+    "edits deal notes via get + put",
+    async () => {
+      mockPermissions = ["deals:read", "deals:update"];
+      mockGet.mockImplementation(async (path: string) => {
+        if (path.startsWith("/deals/pipeline")) return pipelinePayload;
+        if (path.startsWith("/deals?")) return listPayload;
+        if (path === "/deals/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa") {
+          return {
+            data: {
+              ...listPayload.data[0],
+              notes: "Existing note",
+            },
+          };
+        }
+        return listPayload;
+      });
+      mockPut.mockResolvedValue({
+        data: {
+          ...listPayload.data[0],
+          notes: "Updated note",
+        },
+      });
+
+      const { queryClient, unmount } = await renderScreen();
+      try {
+        await screen.findByText("Acme", {}, { timeout: 10_000 });
+        await fireEvent.press(
+          screen.getByRole("button", { name: "Edit notes for Acme" }),
+        );
+        await screen.findByLabelText("Notes", {}, { timeout: 10_000 });
+        await fireEvent.changeText(screen.getByLabelText("Notes"), "Updated note");
+        await fireEvent.press(
+          screen.getByRole("button", { name: "Save notes" }),
+        );
+        await waitFor(() => {
+          expect(mockPut).toHaveBeenCalledWith(
+            "/deals/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            { notes: "Updated note" },
+          );
+        });
+        expect(await screen.findByText("Notes saved.")).toBeTruthy();
+      } finally {
+        unmount();
+        queryClient.clear();
+      }
+    },
+    15_000,
+  );
+
+  it(
+    "hides create and stage actions when the reader lacks write permission",
     async () => {
       mockPermissions = ["deals:read"];
       const { queryClient, unmount } = await renderScreen();
@@ -203,6 +283,12 @@ describe("DealsScreen", () => {
         expect(screen.queryByLabelText("Company")).toBeNull();
         expect(
           screen.queryByRole("button", { name: "Create deal" }),
+        ).toBeNull();
+        expect(
+          screen.queryByRole("button", { name: "Move Acme to negotiation" }),
+        ).toBeNull();
+        expect(
+          screen.queryByRole("button", { name: "Edit notes for Acme" }),
         ).toBeNull();
       } finally {
         unmount();

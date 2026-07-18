@@ -1020,3 +1020,9 @@ detail manage: announce (wall), schedule, analytics (samples → counts only),
 archive. Survey-forms respond submit wired to Express
 `POST /survey-forms/:id/responses` + my-response receipt. Targeting left as
 `targetAll` on create.
+
+### Parallel: expo-deals-projects
+
+Expo/app-core deepen only (disposition stays `foundation`; no edge edits):
+- `/deals`: pipeline summary (`GET /deals/pipeline`), kanban columns from list, stage moves + notes editor via `PUT /deals/:id` (`deals:update`/`deals:manage`). Hard-delete deferred (no soft-delete).
+- `/projects/[projectId]`: create task with column/priority chips; move via `POST …/tasks/reorder`; title edit via `PUT …/tasks/:id`; delete via `DELETE …/tasks/:id`; members read via `GET …/members` (emails stripped). Member write UI and pointer drag deferred.

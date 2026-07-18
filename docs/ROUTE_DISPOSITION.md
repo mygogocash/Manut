@@ -30,14 +30,16 @@ survey respond-submit, manage-gated question replace (`PUT …/questions`), and
 publish (`POST …/publish`) deepen until authenticated Expo E2E acceptance.
 Announce/schedule/analytics/archive and full drag-reorder parity remain deferred.
 
-`/projects/[projectId]` stays `foundation` after board-column read + task-create
-deepen (app-core Zod + `projects:update`/`*:manage` gate). Drag-reorder,
-task edit/delete, members, and other CRM hub boards remain deferred; reuse the
-projects pattern documented in `docs/CURSOR_HANDOFF.md`.
+`/projects/[projectId]` stays `foundation` after board deepen: column/priority
+task create, move via `POST …/tasks/reorder`, title edit via `PUT …/tasks/:id`,
+delete via `DELETE …/tasks/:id`, and members read (`GET …/members`, emails
+stripped). Member write UI and pointer drag remain deferred; reuse the projects
+pattern documented in `docs/CURSOR_HANDOFF.md`.
 
-`/deals` stays `foundation` after list + create deepen (`createDeal` Zod →
-`POST /api/deals`, `deals:create`/`deals:manage` gate). Pipeline kanban, stage
-drag, notes editor, and delete remain deferred.
+`/deals` stays `foundation` after pipeline kanban deepen: list + create,
+`GET /api/deals/pipeline` summary, stage moves + notes via `PUT /api/deals/:id`
+(`deals:update`/`deals:manage` gate). Hard-delete stays deferred (API has no
+soft-delete).
 
 ## Inventory
 

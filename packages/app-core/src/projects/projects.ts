@@ -362,3 +362,146 @@ export async function createProjectTask(
   );
   return createdProjectTaskResponseSchema.parse(response).data;
 }
+
+export const updateProjectTaskInputSchema = z
+  .object({
+    title: z.string().trim().min(1).max(500).optional(),
+    status: z.string().trim().min(1).max(64).optional(),
+    priority: z.enum(PROJECT_TASK_PRIORITIES).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one field is required",
+  });
+
+export type UpdateProjectTaskInput = z.input<
+  typeof updateProjectTaskInputSchema
+>;
+
+const updatedProjectTaskResponseSchema = z
+  .object({
+    data: projectTaskSchema,
+  })
+  .strict();
+
+export async function updateProjectTask(
+  client: ApiClient,
+  projectId: string,
+  taskId: string,
+  input: UpdateProjectTaskInput,
+): Promise<ProjectTask> {
+  const id = z.string().min(1).parse(projectId);
+  const tid = z.string().min(1).parse(taskId);
+  const parsed = updateProjectTaskInputSchema.parse(input);
+  const response = await client.put<unknown>(
+    `/projects/${encodeURIComponent(id)}/tasks/${encodeURIComponent(tid)}`,
+    parsed,
+  );
+  return updatedProjectTaskResponseSchema.parse(response).data;
+}
+
+const deleteProjectTaskResponseSchema = z
+  .object({
+    data: z
+      .object({
+        success: z.literal(true),
+      })
+      .strict(),
+  })
+  .strict();
+
+export async function deleteProjectTask(
+  client: ApiClient,
+  projectId: string,
+  taskId: string,
+): Promise<{ success: true }> {
+  const id = z.string().min(1).parse(projectId);
+  const tid = z.string().min(1).parse(taskId);
+  const response = await client.delete<unknown>(
+    `/projects/${encodeURIComponent(id)}/tasks/${encodeURIComponent(tid)}`,
+  );
+  return deleteProjectTaskResponseSchema.parse(response).data;
+}
+
+export const reorderProjectTasksInputSchema = z
+  .object({
+    orderedIds: z.array(z.string().min(1)).min(1).max(500),
+    status: z.string().trim().min(1).max(64).optional(),
+  })
+  .strict();
+
+export type ReorderProjectTasksInput = z.input<
+  typeof reorderProjectTasksInputSchema
+>;
+
+const reorderProjectTasksResponseSchema = z
+  .object({
+    data: z
+      .object({
+        updated: z.number().int().nonnegative(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export async function reorderProjectTasks(
+  client: ApiClient,
+  projectId: string,
+  input: ReorderProjectTasksInput,
+): Promise<{ updated: number }> {
+  const id = z.string().min(1).parse(projectId);
+  const parsed = reorderProjectTasksInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/projects/${encodeURIComponent(id)}/tasks/reorder`,
+    parsed,
+  );
+  return reorderProjectTasksResponseSchema.parse(response).data;
+}
+
+const projectMemberApiSchema = z
+  .object({
+    id: z.string().min(1),
+    role: z.string().min(1).optional(),
+    user: z
+      .object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+export const projectMemberSchema = projectMemberApiSchema.transform(
+  (member) => ({
+    id: member.id,
+    role: member.role ?? "member",
+    user: { id: member.user.id, name: member.user.name },
+  }),
+);
+
+export type ProjectMember = z.infer<typeof projectMemberSchema>;
+
+const projectMembersResponseSchema = z
+  .object({
+    data: z.array(projectMemberSchema),
+  })
+  .strict();
+
+export const PROJECT_MEMBERS_QUERY_ROOT = ["projects", "members"] as const;
+
+export function projectMembersQueryKey(projectId: string) {
+  return [...PROJECT_MEMBERS_QUERY_ROOT, projectId] as const;
+}
+
+export async function listProjectMembers(
+  client: ApiClient,
+  projectId: string,
+  signal?: RequestAbortSignal,
+): Promise<ProjectMember[]> {
+  const id = z.string().min(1).parse(projectId);
+  const response = await client.get<unknown>(
+    `/projects/${encodeURIComponent(id)}/members`,
+    signal ? { signal } : undefined,
+  );
+  return projectMembersResponseSchema.parse(response).data;
+}

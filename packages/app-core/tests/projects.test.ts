@@ -4,12 +4,19 @@ import type { ApiClient } from "../src/api/api-client";
 import {
   createProjectTask,
   createProjectTaskInputSchema,
+  deleteProjectTask,
   getProject,
   getProjectsDashboard,
+  listProjectMembers,
   listProjects,
   projectDetailSchema,
+  projectMemberSchema,
   projectSchema,
   projectsDashboardSchema,
+  reorderProjectTasks,
+  reorderProjectTasksInputSchema,
+  updateProjectTask,
+  updateProjectTaskInputSchema,
 } from "../src/projects/projects";
 
 const project = {
@@ -313,6 +320,168 @@ describe("projects foundation contracts", () => {
       expect.objectContaining({ total: 1, inProgress: 1 }),
     );
     expect(get).toHaveBeenCalledWith("/projects/dashboard?team=general", {
+      signal,
+    });
+  });
+
+  it("updateProjectTaskInputSchema accepts title status priority", () => {
+    expect(
+      updateProjectTaskInputSchema.parse({
+        title: "  Renamed  ",
+        status: "done",
+        priority: "P0",
+      }),
+    ).toEqual({
+      title: "Renamed",
+      status: "done",
+      priority: "P0",
+    });
+    expect(updateProjectTaskInputSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("updates a project task via PUT", async () => {
+    const put = vi.fn().mockResolvedValue({
+      data: {
+        id: "task-1",
+        title: "Renamed",
+        status: "done",
+        priority: "P0",
+        sortOrder: 0,
+        owner: {
+          id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          name: "Alex Example",
+          email: "alex@example.com",
+        },
+      },
+    });
+    const client = { put } as unknown as ApiClient;
+
+    await expect(
+      updateProjectTask(client, project.id, "task-1", {
+        title: "Renamed",
+        status: "done",
+        priority: "P0",
+      }),
+    ).resolves.toEqual({
+      id: "task-1",
+      title: "Renamed",
+      status: "done",
+      priority: "P0",
+      sortOrder: 0,
+      owner: {
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        name: "Alex Example",
+      },
+    });
+    expect(put).toHaveBeenCalledWith(
+      `/projects/${project.id}/tasks/task-1`,
+      {
+        title: "Renamed",
+        status: "done",
+        priority: "P0",
+      },
+    );
+  });
+
+  it("deletes a project task via DELETE", async () => {
+    const del = vi.fn().mockResolvedValue({ data: { success: true } });
+    const client = { delete: del } as unknown as ApiClient;
+
+    await expect(
+      deleteProjectTask(client, project.id, "task-1"),
+    ).resolves.toEqual({ success: true });
+    expect(del).toHaveBeenCalledWith(
+      `/projects/${project.id}/tasks/task-1`,
+    );
+  });
+
+  it("reorderProjectTasksInputSchema requires orderedIds", () => {
+    expect(
+      reorderProjectTasksInputSchema.parse({
+        orderedIds: ["task-1", "task-2"],
+        status: "done",
+      }),
+    ).toEqual({
+      orderedIds: ["task-1", "task-2"],
+      status: "done",
+    });
+    expect(
+      reorderProjectTasksInputSchema.safeParse({ orderedIds: [] }).success,
+    ).toBe(false);
+  });
+
+  it("reorders project tasks via POST", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: { updated: 1 },
+    });
+    const client = { post } as unknown as ApiClient;
+
+    await expect(
+      reorderProjectTasks(client, project.id, {
+        orderedIds: ["task-1"],
+        status: "done",
+      }),
+    ).resolves.toEqual({ updated: 1 });
+    expect(post).toHaveBeenCalledWith(
+      `/projects/${project.id}/tasks/reorder`,
+      {
+        orderedIds: ["task-1"],
+        status: "done",
+      },
+    );
+  });
+
+  it("project members strip emails", () => {
+    const parsed = projectMemberSchema.parse({
+      id: "member-1",
+      role: "member",
+      user: {
+        id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        name: "Sam",
+        email: "sam@example.com",
+      },
+    });
+    expect(parsed).toEqual({
+      id: "member-1",
+      role: "member",
+      user: {
+        id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        name: "Sam",
+      },
+    });
+    expect(parsed.user).not.toHaveProperty("email");
+  });
+
+  it("lists project members via GET", async () => {
+    const signal = { aborted: false };
+    const get = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: "member-1",
+          role: "member",
+          user: {
+            id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+            name: "Sam",
+            email: "sam@example.com",
+          },
+        },
+      ],
+    });
+    const client = { get } as unknown as ApiClient;
+
+    await expect(
+      listProjectMembers(client, project.id, signal),
+    ).resolves.toEqual([
+      {
+        id: "member-1",
+        role: "member",
+        user: {
+          id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          name: "Sam",
+        },
+      },
+    ]);
+    expect(get).toHaveBeenCalledWith(`/projects/${project.id}/members`, {
       signal,
     });
   });

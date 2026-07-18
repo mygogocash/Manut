@@ -15,6 +15,8 @@ import { ProjectDetailScreen } from "@/features/projects/project-detail-screen";
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockPut = jest.fn();
+const mockDelete = jest.fn();
 const mockPush = jest.fn();
 let mockPermissions = ["projects:read", "projects:update"];
 
@@ -26,7 +28,12 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("@/providers/api-client-provider", () => ({
-  useApiClient: () => ({ get: mockGet, post: mockPost }),
+  useApiClient: () => ({
+    get: mockGet,
+    post: mockPost,
+    put: mockPut,
+    delete: mockDelete,
+  }),
 }));
 
 jest.mock("@/features/auth/auth-provider", () => ({
@@ -79,6 +86,20 @@ const projectPayload = {
   ],
 };
 
+const membersPayload = {
+  data: [
+    {
+      id: "member-1",
+      role: "member",
+      user: {
+        id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        name: "Sam",
+        email: "sam@example.com",
+      },
+    },
+  ],
+};
+
 async function renderScreen() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -110,13 +131,18 @@ describe("ProjectDetailScreen", () => {
   beforeEach(() => {
     mockGet.mockReset();
     mockPost.mockReset();
+    mockPut.mockReset();
+    mockDelete.mockReset();
     mockPush.mockReset();
     mockPermissions = ["projects:read", "projects:update"];
-    mockGet.mockResolvedValue({ data: projectPayload });
+    mockGet.mockImplementation(async (path: string) => {
+      if (path.endsWith("/members")) return membersPayload;
+      return { data: projectPayload };
+    });
   });
 
   it(
-    "shows board columns and tasks from project detail",
+    "shows board columns, tasks, and members from project detail",
     async () => {
       const { queryClient, unmount } = await renderScreen();
       try {
@@ -127,11 +153,17 @@ describe("ProjectDetailScreen", () => {
             { timeout: 10_000 },
           ),
         ).toBeTruthy();
-        expect(screen.getByText("To do")).toBeTruthy();
-        expect(screen.getByText("Done")).toBeTruthy();
+        expect(screen.getAllByText("To do").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("Done").length).toBeGreaterThan(0);
         expect(screen.getByText("Ship board read")).toBeTruthy();
+        expect(screen.getByLabelText("Project members")).toBeTruthy();
+        expect(screen.getByText(/Sam · member/)).toBeTruthy();
         expect(mockGet).toHaveBeenCalledWith(
           "/projects/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          expect.anything(),
+        );
+        expect(mockGet).toHaveBeenCalledWith(
+          "/projects/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/members",
           expect.anything(),
         );
       } finally {
@@ -143,26 +175,17 @@ describe("ProjectDetailScreen", () => {
   );
 
   it(
-    "creates a task when the writer has update permission",
+    "creates a task with column and priority when the writer has update permission",
     async () => {
       const createdTask = {
         id: "task-new",
         title: "Write create path",
-        status: "todo",
-        priority: "P1",
+        status: "done",
+        priority: "P0",
         sortOrder: 1,
         owner: null,
       };
       mockPost.mockResolvedValue({ data: createdTask });
-      mockGet
-        .mockResolvedValueOnce({ data: projectPayload })
-        .mockResolvedValue({
-          data: {
-            ...projectPayload,
-            _count: { tasks: 2 },
-            tasks: [...projectPayload.tasks, createdTask],
-          },
-        });
 
       const { queryClient, unmount } = await renderScreen();
       try {
@@ -172,6 +195,8 @@ describe("ProjectDetailScreen", () => {
           await screen.findByLabelText("Task title"),
           "Write create path",
         );
+        await fireEvent.press(screen.getByRole("button", { name: "Done" }));
+        await fireEvent.press(screen.getByRole("button", { name: "P0" }));
         await fireEvent.press(
           screen.getByRole("button", { name: "Create task" }),
         );
@@ -181,8 +206,8 @@ describe("ProjectDetailScreen", () => {
             "/projects/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/tasks",
             expect.objectContaining({
               title: "Write create path",
-              status: "todo",
-              priority: "P1",
+              status: "done",
+              priority: "P0",
             }),
           );
         });
@@ -202,7 +227,103 @@ describe("ProjectDetailScreen", () => {
   );
 
   it(
-    "hides create task when the reader lacks write permission",
+    "moves a task to another column via reorder",
+    async () => {
+      mockPost.mockResolvedValue({ data: { updated: 1 } });
+      const { queryClient, unmount } = await renderScreen();
+      try {
+        await screen.findByText("Ship board read", {}, { timeout: 10_000 });
+        await fireEvent.press(
+          screen.getByRole("button", {
+            name: "Move Ship board read to Done",
+          }),
+        );
+        await waitFor(() => {
+          expect(mockPost).toHaveBeenCalledWith(
+            "/projects/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/tasks/reorder",
+            {
+              orderedIds: ["task-1"],
+              status: "done",
+            },
+          );
+        });
+      } finally {
+        unmount();
+        queryClient.clear();
+      }
+    },
+    15_000,
+  );
+
+  it(
+    "edits a task title",
+    async () => {
+      mockPut.mockResolvedValue({
+        data: {
+          ...projectPayload.tasks[0],
+          title: "Renamed task",
+        },
+      });
+
+      const { queryClient, unmount } = await renderScreen();
+      try {
+        await screen.findByText("Ship board read", {}, { timeout: 10_000 });
+        await fireEvent.press(
+          screen.getByRole("button", {
+            name: "Edit title for Ship board read",
+          }),
+        );
+        await fireEvent.changeText(
+          screen.getByLabelText("Edit task title"),
+          "Renamed task",
+        );
+        await fireEvent.press(
+          screen.getByRole("button", {
+            name: "Save title for Ship board read",
+          }),
+        );
+        await waitFor(() => {
+          expect(mockPut).toHaveBeenCalledWith(
+            "/projects/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/tasks/task-1",
+            { title: "Renamed task" },
+          );
+        });
+      } finally {
+        unmount();
+        queryClient.clear();
+      }
+    },
+    15_000,
+  );
+
+  it(
+    "deletes a task",
+    async () => {
+      mockDelete.mockResolvedValue({ data: { success: true } });
+
+      const { queryClient, unmount } = await renderScreen();
+      try {
+        await screen.findByText("Ship board read", {}, { timeout: 10_000 });
+        await fireEvent.press(
+          screen.getByRole("button", {
+            name: "Delete Ship board read",
+          }),
+        );
+        await waitFor(() => {
+          expect(mockDelete).toHaveBeenCalledWith(
+            "/projects/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/tasks/task-1",
+          );
+        });
+      } finally {
+        unmount();
+        queryClient.clear();
+      }
+    },
+    15_000,
+  );
+
+  it(
+    "hides create and task write actions when the reader lacks write permission",
     async () => {
       mockPermissions = ["projects:read"];
       const { queryClient, unmount } = await renderScreen();
@@ -211,6 +332,16 @@ describe("ProjectDetailScreen", () => {
         expect(screen.queryByLabelText("Task title")).toBeNull();
         expect(
           screen.queryByRole("button", { name: "Create task" }),
+        ).toBeNull();
+        expect(
+          screen.queryByRole("button", {
+            name: "Move Ship board read to Done",
+          }),
+        ).toBeNull();
+        expect(
+          screen.queryByRole("button", {
+            name: "Delete Ship board read",
+          }),
         ).toBeNull();
       } finally {
         unmount();
