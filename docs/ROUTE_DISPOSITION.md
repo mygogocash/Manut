@@ -29,7 +29,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |   # | Source path                                                                     | Source route                               | Disposition            | Status       | Target route                 |
 | --: | ------------------------------------------------------------------------------- | ------------------------------------------ | ---------------------- | ------------ | ---------------------------- |
 |   1 | `apps/web/src/app/(dashboard)/accounting-crm/page.tsx`                          | `/accounting-crm`                          | `migrate`              | `pending`    | `/accounting-crm`            |
-|   2 | `apps/web/src/app/(dashboard)/accounting/page.tsx`                              | `/accounting`                              | `migrate`              | `pending`    | `/accounting`                |
+|   2 | `apps/web/src/app/(dashboard)/accounting/page.tsx`                              | `/accounting`                              | `migrate`              | `foundation` | `/accounting`                |
 |   3 | `apps/web/src/app/(dashboard)/admin/aria-insights/page.tsx`                     | `/admin/aria-insights`                     | `remove-as-provenance` | `removed`    | —                            |
 |   4 | `apps/web/src/app/(dashboard)/admin/aria-knowledge/page.tsx`                    | `/admin/aria-knowledge`                    | `remove-as-provenance` | `removed`    | —                            |
 |   5 | `apps/web/src/app/(dashboard)/admin/docusign/oauth/callback/page.tsx`           | `/admin/docusign/oauth/callback`           | `remove-as-provenance` | `removed`    | —                            |
@@ -104,7 +104,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  74 | `apps/web/src/app/(dashboard)/projects/page.tsx`                                | `/projects`                                | `migrate`              | `foundation`    | `/projects`                  |
 |  75 | `apps/web/src/app/(dashboard)/qa-crm/[projectId]/page.tsx`                      | `/qa-crm/[projectId]`                      | `migrate`              | `pending`    | `/qa-crm/[projectId]`        |
 |  76 | `apps/web/src/app/(dashboard)/qa-crm/page.tsx`                                  | `/qa-crm`                                  | `migrate`              | `pending`    | `/qa-crm`                    |
-|  77 | `apps/web/src/app/(dashboard)/revenue/page.tsx`                                 | `/revenue`                                 | `migrate`              | `pending`    | `/revenue`                   |
+|  77 | `apps/web/src/app/(dashboard)/revenue/page.tsx`                                 | `/revenue`                                 | `migrate`              | `foundation` | `/revenue`                   |
 |  78 | `apps/web/src/app/(dashboard)/roles/page.tsx`                                   | `/roles`                                   | `migrate`              | `foundation` | `/roles`                     |
 |  79 | `apps/web/src/app/(dashboard)/sales-revenue/page.tsx`                           | `/sales-revenue`                           | `migrate`              | `pending`    | `/sales-revenue`             |
 |  80 | `apps/web/src/app/(dashboard)/sales/page.tsx`                                   | `/sales`                                   | `migrate`              | `pending`    | `/sales`                     |

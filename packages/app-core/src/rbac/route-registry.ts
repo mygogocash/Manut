@@ -128,6 +128,26 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     prefix: true,
   },
   {
+    path: "/accounting",
+    access: "protected",
+    permissions: [
+      "accounting:read",
+      "accounting:create",
+      "accounting:approve",
+      "accounting:post",
+      "accounting:admin",
+    ],
+    employeeAllowed: true,
+    prefix: true,
+  },
+  {
+    path: "/revenue",
+    access: "protected",
+    permissions: ["revenue:read"],
+    employeeAllowed: true,
+    prefix: true,
+  },
+  {
     path: "/hrms",
     access: "protected",
     permissions: [

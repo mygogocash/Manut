@@ -71,6 +71,26 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
+  it("keeps Accounting visible when accounting:read is granted", () => {
+    const links = allowedShellLinks(["accounting:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/accounting",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Revenue visible when revenue:read is granted", () => {
+    const links = allowedShellLinks(["revenue:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/revenue",
+      "/settings",
+    ]);
+  });
+
   it("keeps Benefits visible when benefits:read is granted", () => {
     const links = allowedShellLinks(["benefits:read"], true);
 

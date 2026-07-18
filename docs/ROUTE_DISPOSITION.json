@@ -32,9 +32,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/accounting/page.tsx",
       "sourceRoute": "/accounting",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/accounting",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only chart of accounts via GET /api/accounting/accounts (code/name/type/balance/entity/parent); strips lifecycle and entity currency. Journals, invoices, vendors, bank, approve/post, and writes remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/admin/aria-insights/page.tsx",
@@ -632,9 +632,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/revenue/page.tsx",
       "sourceRoute": "/revenue",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/revenue",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only revenue KPIs via GET /api/revenue/dashboard (gated revenue:read); projects totals only and strips chart series, entity net-income rows, and invoice status breakdowns. Detail tabs remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/roles/page.tsx",

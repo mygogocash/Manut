@@ -608,11 +608,12 @@ Migration order:
    3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
    **Status 2026-07-18:** Wave 3 progressed — `/it-helpdesk` (read-only ticket
-   list), `/projects` list, `/projects/[projectId]` detail, and
-   `/projects/dashboard` rollup landed as `foundation`. Still pending:
-   Sales/CRM family, accounting/revenue, content/comms, reporting,
-   administration hubs, helpdesk writes/comments/GitHub, and project
-   boards/task writes.
+   list), `/projects` list/detail/dashboard, `/accounting` (chart of accounts
+   read), and `/revenue` (dashboard KPIs) landed as `foundation`. Still
+   pending: Sales/CRM family (`/sales-revenue`, `/accounting-crm`, other CRM
+   hubs), journals/invoices/bank/approve-post, revenue detail tabs,
+   content/comms, reporting, administration hubs, helpdesk
+   writes/comments/GitHub, and project boards/task writes.
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
    **Status 2026-07-18:** Wave 4 not started in Expo product UI. Concrete

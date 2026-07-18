@@ -12,6 +12,8 @@ export const SHELL_LINKS = [
   { href: "/visa" as const, label: "Visas" },
   { href: "/cash-advance" as const, label: "Cash advance" },
   { href: "/payroll" as const, label: "Payroll" },
+  { href: "/accounting" as const, label: "Accounting" },
+  { href: "/revenue" as const, label: "Revenue" },
   { href: "/benefits" as const, label: "Benefits" },
   { href: "/learning" as const, label: "Learning" },
   { href: "/office" as const, label: "Office" },

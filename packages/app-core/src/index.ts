@@ -599,3 +599,31 @@ export type {
   ProjectsDashboard,
   ProjectsDashboardParams,
 } from "./projects/projects";
+export {
+  accountSortFieldSchema,
+  accountTypeSchema,
+  CHART_OF_ACCOUNTS_QUERY_ROOT,
+  chartOfAccountListParamsSchema,
+  chartOfAccountSchema,
+  chartOfAccountsQueryKey,
+  listChartOfAccounts,
+} from "./accounting/accounting";
+export type {
+  AccountType,
+  ChartOfAccount,
+  ChartOfAccountList,
+  ChartOfAccountListParams,
+} from "./accounting/accounting";
+export {
+  getRevenueDashboard,
+  REVENUE_DASHBOARD_QUERY_ROOT,
+  revenueDashboardParamsSchema,
+  revenueDashboardQueryKey,
+  revenueDashboardSchema,
+  revenuePeriodSchema,
+} from "./revenue/revenue";
+export type {
+  RevenueDashboard,
+  RevenueDashboardParams,
+  RevenuePeriod,
+} from "./revenue/revenue";

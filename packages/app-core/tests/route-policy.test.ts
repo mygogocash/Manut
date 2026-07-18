@@ -192,6 +192,52 @@ describe("route policy resolution", () => {
     ).toMatchObject({ allowed: false, reason: "missing-permission" });
   });
 
+  it.each([
+    "accounting:read",
+    "accounting:create",
+    "accounting:approve",
+    "accounting:post",
+    "accounting:admin",
+  ])("allows the accounting route with %s", (permission) => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/accounting",
+        permissions: [permission],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
+  it("denies the accounting route when no accepted permission is present", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/accounting",
+        permissions: [],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "missing-permission" });
+  });
+
+  it("allows the revenue route with revenue:read", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/revenue",
+        permissions: ["revenue:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
+  it("denies the revenue route when revenue:read is missing", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/revenue",
+        permissions: [],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "missing-permission" });
+  });
+
   it.each(["career:read", "career:create", "career:update", "career:delete"])(
     "allows the careers route with %s",
     (permission) => {
