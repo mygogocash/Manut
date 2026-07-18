@@ -25,7 +25,7 @@ the rows below are for verifying bindings, not creating resources.
 
 | Priority           | Binding type           | Variable / binding name                                                         | Resource / notes                                                                                                                                                                                     |
 | ------------------ | ---------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Required (SoR)** | Hyperdrive             | `HYPERDRIVE_DATABASE`                                                           | Manut-owned Hyperdrive → Postgres. Keep `ENABLE_HYPERDRIVE_BOUNDARY=false` until bound; then set `true`. Commit id into `wrangler.jsonc` only after ops provisions it (`hyperdrive: []` until then). |
+| **Required (SoR)** | Hyperdrive             | `HYPERDRIVE_DATABASE`                                                           | Manut-owned Hyperdrive → Postgres. **Status (2026-07-18):** not provisioned — `hyperdrive: []`, `ENABLE_HYPERDRIVE_BOUNDARY=false`. See [Hyperdrive provisioning](#hyperdrive-provisioning-ops) below. Config **id** may be committed (not a password); never commit connection strings. |
 | **Required**       | R2 bucket              | `UPLOADS`                                                                       | Bucket contract: `manut-intranet-uploads-production` (private).                                                                                                                                      |
 | **Required**       | Durable Object         | `REALTIME_ROOMS`                                                                | Class: `RealtimeRoom` (migrations tag `edge-v1`).                                                                                                                                                    |
 | **Required**       | Durable Object         | `QUEUE_LEDGER`                                                                  | Class: `QueueLedger`.                                                                                                                                                                                |
@@ -65,7 +65,7 @@ the rows below are for verifying bindings, not creating resources.
 | ------------------------------------ | ---------------------------------------------------- |
 | **D1 as business DB**                | Violates repo boundary; Postgres + Hyperdrive is SoR |
 | Client `DATABASE_URL`                | Never in Expo / browser                              |
-| Invented Hyperdrive ids in git       | Keep `hyperdrive: []` until a real id exists         |
+| Invented / placeholder Hyperdrive ids | Keep `hyperdrive: []` until a real Cloudflare config id exists; then commit that id |
 | Inherited / shared account resources | Fresh Manut-owned names only                         |
 | Cloudflare Pages as SPA host         | Workers + Assets only                                |
 
@@ -81,6 +81,70 @@ the rows below are for verifying bindings, not creating resources.
 8. Confirm **Rate limit** `API_RATE_LIMITER`.
 9. Confirm **Assets** come from `wrangler deploy` (`ASSETS` → Expo `dist`).
 10. Set secrets / vars as above. Do **not** enable Hyperdrive boundary until step 3 is real.
+
+## Hyperdrive provisioning (ops)
+
+**Blocked until a Manut-owned Postgres `DATABASE_URL` is available.** Local
+checkout and process env had no `DATABASE_URL` / `DIRECT_URL` / `.env` on
+2026-07-18. Cloudflare account `187ab61ed9dbc6e616cb23e6b95aa8f1` had **zero**
+Hyperdrive configs. Wrangler OAuth works; create was not run without a URL.
+
+Edge Prisma already uses Hyperdrive only (`hyperdriveConnectionString` →
+`createPrismaClient` + `@prisma/adapter-pg`). Do not put `DATABASE_URL` on the
+Worker.
+
+### Prerequisites
+
+1. Authoritative Postgres URL for production (direct / non-pooler preferred for
+   Hyperdrive origin; use the admin `DIRECT_URL` shape if the pooler URL is
+   pgbouncer-only).
+2. Optional second URL for preview/staging → **prefer a separate Hyperdrive
+   config** (`manut-intranet-postgres-preview`). If only production URL exists,
+   leave preview `hyperdrive: []` and `ENABLE_HYPERDRIVE_BOUNDARY=false` (do
+   not share production origin casually).
+3. `CLOUDFLARE_ACCOUNT_ID=187ab61ed9dbc6e616cb23e6b95aa8f1` (or
+   `account_id` in wrangler) so non-interactive CLI selects GoGoCash.
+
+### Exact commands (production)
+
+```bash
+source ~/.nvm/nvm.sh && nvm use
+cd apps/edge
+export CLOUDFLARE_ACCOUNT_ID=187ab61ed9dbc6e616cb23e6b95aa8f1
+# Load DATABASE_URL from your secret store — never echo it.
+# Prefer DIRECT_URL if DATABASE_URL is a transaction-pooler-only URL.
+
+npx wrangler hyperdrive create manut-intranet-postgres-production \
+  --connection-string="$DATABASE_URL"
+
+# Capture only the printed config id (UUID). Then edit wrangler.jsonc:
+# env.production.hyperdrive = [
+#   { "binding": "HYPERDRIVE_DATABASE", "id": "<config-id>" }
+# ]
+# Set env.production.vars.ENABLE_HYPERDRIVE_BOUNDARY = "true"
+# Keep top-level / other envs at hyperdrive: [] and flag false until ready.
+
+npx wrangler deploy --env production --dry-run
+# After dry-run looks good, deploy via Workers Builds / approved path.
+```
+
+### Exact commands (preview — only if a separate Postgres URL exists)
+
+```bash
+npx wrangler hyperdrive create manut-intranet-postgres-preview \
+  --connection-string="$PREVIEW_DATABASE_URL"
+# Bind id under env.preview.hyperdrive; set ENABLE_HYPERDRIVE_BOUNDARY=true
+# for preview only after dry-run.
+```
+
+### After bind
+
+| Surface                         | Expected                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `apps/edge/wrangler.jsonc`      | Production `hyperdrive` array with real id; flag `true` for production |
+| Other envs                      | Stay empty / `false` until their own configs exist                       |
+| Worker secret `DATABASE_URL`    | **Must not** be set — binding supplies `connectionString`                |
+| Tests                           | Update `cloudflare-builds.test.ts` empty-hyperdrive assertion when id lands |
 
 ## Preview vs staging naming
 

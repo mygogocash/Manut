@@ -53,17 +53,25 @@ custom domains. CI workflows may fail closed until secrets exist.
 
 ## 1. Hyperdrive id + binding
 
-Names and steps only — no live create from this branch.
+**Status 2026-07-18:** blocked — no `DATABASE_URL` in agent env; account has
+zero Hyperdrive configs; wrangler stays `hyperdrive: []` /
+`ENABLE_HYPERDRIVE_BOUNDARY=false`. Exact CLI:
+`docs/CLOUDFLARE_BINDINGS.md` → Hyperdrive provisioning.
 
-- [ ] Create a Manut-owned Hyperdrive config against the authoritative Postgres
-      (separate config per environment that needs edge Postgres).
-- [ ] Bind in `apps/edge/wrangler.jsonc`:
-      `hyperdrive: [{ "binding": "HYPERDRIVE_DATABASE", "id": "<manut-hyperdrive-id>" }]`
+- [ ] Obtain Manut-owned Postgres `DATABASE_URL` (prefer `DIRECT_URL` if the
+      pooler URL is pgbouncer-only).
+- [ ] `npx wrangler hyperdrive create manut-intranet-postgres-production --connection-string=…`
+      (with `CLOUDFLARE_ACCOUNT_ID=187ab61ed9dbc6e616cb23e6b95aa8f1`).
+- [ ] Bind in `apps/edge/wrangler.jsonc` `env.production`:
+      `hyperdrive: [{ "binding": "HYPERDRIVE_DATABASE", "id": "<real-config-id>" }]`
       (`hyperdrive: []` remains empty until a real id is supplied).
+- [ ] Prefer a separate preview Hyperdrive if a second URL exists; otherwise
+      leave preview unbound.
 - [ ] Optional local: `localConnectionString` or
       `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_DATABASE`.
-- [ ] Set Worker var `ENABLE_HYPERDRIVE_BOUNDARY=true` only after the binding
-      exists; fail closed if the flag is on without `HYPERDRIVE_DATABASE`.
+- [ ] Set Worker var `ENABLE_HYPERDRIVE_BOUNDARY=true` **only after** the binding
+      id is in wrangler and dry-run looks good; fail closed if the flag is on
+      without `HYPERDRIVE_DATABASE`.
 - [ ] Keep `API_ORIGIN` for Express fallback routes and auth JWKS.
 - [ ] Never put a client `DATABASE_URL` into the Worker for business queries.
 
