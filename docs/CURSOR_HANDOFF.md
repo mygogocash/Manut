@@ -46,7 +46,7 @@ pnpm 11.13.1
 | --------------------------- | ------------------------------------------------------------- |
 | Working tree                | `/Users/kunanonjarat/Developer/manut-intranet-full-hardening` |
 | Branch                      | `claude/intranet-full-hardening`                              |
-| Current `HEAD`              | *(updated after receipt/deals Hyperdrive deepen commit)*      |
+| Current `HEAD`              | `81d57a96aaa87da7c127b9b418cb5804b85cc303`                    |
 | Intended replacement parent | Same Manut SHA above                                          |
 | Audited source snapshot     | `371349fd43fd7c7c7717054beec97bfb023885ca`                    |
 | Archive branch              | `archive/affine-2026-07-16` -> `eb797d30`                     |
