@@ -1,7 +1,12 @@
 import {
   ApiError,
+  createProjectTask,
+  createProjectTaskInputSchema,
   getProject,
   projectDetailQueryKey,
+  type ProjectColumn,
+  type ProjectDetail,
+  type ProjectTask,
 } from "@manut/app-core";
 import {
   Button,
@@ -10,9 +15,11 @@ import {
   LoadingState,
   spacing,
   StatusMessage,
+  TextField,
 } from "@manut/ui";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
@@ -39,6 +46,25 @@ function canReadProjects(hasPermission: (code: string) => boolean): boolean {
   );
 }
 
+function canWriteProjectTasks(
+  hasPermission: (code: string) => boolean,
+): boolean {
+  return (
+    hasPermission("projects:update") ||
+    hasPermission("projects:manage") ||
+    hasPermission("it-crm:update") ||
+    hasPermission("it-crm:manage") ||
+    hasPermission("product-crm:update") ||
+    hasPermission("product-crm:manage") ||
+    hasPermission("legal-crm:update") ||
+    hasPermission("legal-crm:manage") ||
+    hasPermission("accounting-crm:update") ||
+    hasPermission("accounting-crm:manage") ||
+    hasPermission("hr-crm:update") ||
+    hasPermission("hr-crm:manage")
+  );
+}
+
 function formatDate(value: string | null): string {
   if (!value) return "Not set";
   const parsed = Date.parse(value);
@@ -46,20 +72,145 @@ function formatDate(value: string | null): string {
   return new Date(parsed).toISOString().slice(0, 10);
 }
 
+function tasksForColumn(
+  column: ProjectColumn,
+  tasks: ProjectTask[],
+): ProjectTask[] {
+  return tasks.filter((task) => task.status === column.key);
+}
+
+function BoardColumnCard({
+  column,
+  tasks,
+}: {
+  column: ProjectColumn;
+  tasks: ProjectTask[];
+}) {
+  const columnTasks = tasksForColumn(column, tasks);
+  return (
+    <Card title={column.label} maxWidth={720}>
+      <View style={{ gap: spacing.sm }}>
+        {columnTasks.length === 0 ? (
+          <Text style={{ color: colors.textMuted }}>No tasks</Text>
+        ) : (
+          columnTasks.map((task) => (
+            <View key={task.id} style={{ gap: spacing.xs }}>
+              <Text selectable style={{ color: colors.text }}>
+                {task.title}
+              </Text>
+              <Text selectable style={{ color: colors.textMuted }}>
+                {task.priority}
+                {task.owner ? ` · ${task.owner.name}` : ""}
+              </Text>
+            </View>
+          ))
+        )}
+      </View>
+    </Card>
+  );
+}
+
+function CreateTaskForm({
+  project,
+  onCreated,
+}: {
+  project: ProjectDetail;
+  onCreated: (task: ProjectTask) => void;
+}) {
+  const api = useApiClient();
+  const [title, setTitle] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const defaultStatus = project.columns[0]?.key ?? "todo";
+
+  const createMutation = useMutation({
+    mutationFn: (input: Parameters<typeof createProjectTask>[2]) =>
+      createProjectTask(api, project.id, input),
+    onSuccess: (task) => {
+      setTitle("");
+      setValidationError(null);
+      setSuccessMessage(`Created "${task.title}".`);
+      onCreated(task);
+    },
+  });
+
+  function submit() {
+    const parsed = createProjectTaskInputSchema.safeParse({
+      title,
+      status: defaultStatus,
+    });
+    if (!parsed.success) {
+      setValidationError(
+        parsed.error.issues[0]?.message ?? "Check the task title.",
+      );
+      return;
+    }
+    setValidationError(null);
+    setSuccessMessage(null);
+    createMutation.mutate(parsed.data);
+  }
+
+  return (
+    <Card title="Create task" maxWidth={720}>
+      <View style={{ gap: spacing.md }}>
+        <Text style={{ color: colors.textMuted }}>
+          Adds a task to the first board column ({defaultStatus}).
+        </Text>
+        <TextField
+          label="Task title"
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Task title"
+          editable={!createMutation.isPending}
+        />
+        {validationError ? (
+          <StatusMessage tone="error">{validationError}</StatusMessage>
+        ) : null}
+        {createMutation.isError ? (
+          <StatusMessage tone="error">
+            {errorMessage(createMutation.error, "We could not create the task.")}
+          </StatusMessage>
+        ) : null}
+        {successMessage ? (
+          <StatusMessage tone="success">{successMessage}</StatusMessage>
+        ) : null}
+        <Button
+          label="Create task"
+          pendingLabel="Creating…"
+          accessibilityLabel="Create task"
+          pending={createMutation.isPending}
+          onPress={submit}
+        />
+      </View>
+    </Card>
+  );
+}
+
 export function ProjectDetailScreen() {
   const api = useApiClient();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   const params = useLocalSearchParams<{ projectId?: string }>();
   const projectId =
     typeof params.projectId === "string" ? params.projectId : "";
   const allowed = canReadProjects(hasPermission);
+  const canWrite = canWriteProjectTasks(hasPermission);
 
   const detailQuery = useQuery({
     queryKey: projectDetailQueryKey(projectId),
     queryFn: ({ signal }) => getProject(api, projectId, signal),
     enabled: allowed && projectId.length > 0,
   });
+
+  const boardColumns = useMemo(
+    () => detailQuery.data?.columns ?? [],
+    [detailQuery.data?.columns],
+  );
+  const boardTasks = useMemo(
+    () => detailQuery.data?.tasks ?? [],
+    [detailQuery.data?.tasks],
+  );
 
   if (!allowed) {
     return (
@@ -131,39 +282,79 @@ export function ProjectDetailScreen() {
         ) : null}
 
         {detailQuery.data ? (
-          <Card title={detailQuery.data.name} maxWidth={720}>
-            <View style={{ gap: spacing.md }}>
-              <Text selectable style={{ color: colors.textMuted }}>
-                {detailQuery.data.status} · {detailQuery.data.team}
-                {detailQuery.data.department
-                  ? ` · ${detailQuery.data.department}`
-                  : ""}
-              </Text>
-              <Text selectable style={{ color: colors.text }}>
-                Owner: {detailQuery.data.owner.name}
-              </Text>
-              <Text selectable style={{ color: colors.textMuted }}>
-                Tasks: {detailQuery.data.taskCount}
-              </Text>
-              {detailQuery.data.workstream ? (
+          <>
+            <Card title={detailQuery.data.name} maxWidth={720}>
+              <View style={{ gap: spacing.md }}>
                 <Text selectable style={{ color: colors.textMuted }}>
-                  Workstream: {detailQuery.data.workstream}
+                  {detailQuery.data.status} · {detailQuery.data.team}
+                  {detailQuery.data.department
+                    ? ` · ${detailQuery.data.department}`
+                    : ""}
                 </Text>
-              ) : null}
-              <Text selectable style={{ color: colors.textMuted }}>
-                Start: {formatDate(detailQuery.data.startDate)}
-              </Text>
-              <Text selectable style={{ color: colors.textMuted }}>
-                End: {formatDate(detailQuery.data.endDate)}
-              </Text>
-              <Text selectable style={{ color: colors.textMuted }}>
-                Go-live: {formatDate(detailQuery.data.goLiveDate)}
-              </Text>
-              <Text selectable style={{ color: colors.textMuted }}>
-                Board, task writes, and members remain later.
-              </Text>
-            </View>
-          </Card>
+                <Text selectable style={{ color: colors.text }}>
+                  Owner: {detailQuery.data.owner.name}
+                </Text>
+                <Text selectable style={{ color: colors.textMuted }}>
+                  Tasks: {detailQuery.data.taskCount}
+                </Text>
+                {detailQuery.data.workstream ? (
+                  <Text selectable style={{ color: colors.textMuted }}>
+                    Workstream: {detailQuery.data.workstream}
+                  </Text>
+                ) : null}
+                <Text selectable style={{ color: colors.textMuted }}>
+                  Start: {formatDate(detailQuery.data.startDate)}
+                </Text>
+                <Text selectable style={{ color: colors.textMuted }}>
+                  End: {formatDate(detailQuery.data.endDate)}
+                </Text>
+                <Text selectable style={{ color: colors.textMuted }}>
+                  Go-live: {formatDate(detailQuery.data.goLiveDate)}
+                </Text>
+              </View>
+            </Card>
+
+            {boardColumns.length > 0 ? (
+              boardColumns.map((column) => (
+                <BoardColumnCard
+                  key={column.id}
+                  column={column}
+                  tasks={boardTasks}
+                />
+              ))
+            ) : (
+              <Card title="Board" maxWidth={720}>
+                <Text style={{ color: colors.textMuted }}>
+                  This project has no board columns yet.
+                </Text>
+              </Card>
+            )}
+
+            {canWrite ? (
+              <CreateTaskForm
+                project={detailQuery.data}
+                onCreated={(task) => {
+                  queryClient.setQueryData<ProjectDetail>(
+                    projectDetailQueryKey(projectId),
+                    (current) => {
+                      if (!current) return current;
+                      if (current.tasks.some((row) => row.id === task.id)) {
+                        return current;
+                      }
+                      return {
+                        ...current,
+                        taskCount: current.taskCount + 1,
+                        tasks: [...current.tasks, task],
+                      };
+                    },
+                  );
+                  void queryClient.invalidateQueries({
+                    queryKey: projectDetailQueryKey(projectId),
+                  });
+                }}
+              />
+            ) : null}
+          </>
         ) : null}
       </View>
     </ScrollView>

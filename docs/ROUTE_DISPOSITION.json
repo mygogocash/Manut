@@ -602,7 +602,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/projects/[projectId]",
-      "note": "Expo has read-only project detail (status/owner/dates/workstream) via app-core; strips budget, board columns, tasks, and member emails. Kanban, task CRUD, members, and timeline remain before parity."
+      "note": "Expo project detail shows kanban columns + tasks from GET detail and create-task via POST /projects/:id/tasks (app-core Zod; projects:update / team-CRM write gate). Strips emails/budget/assignee PII. Still foundation — deferred: drag-reorder, task edit/delete, members, timeline, Expo E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/projects/dashboard/page.tsx",

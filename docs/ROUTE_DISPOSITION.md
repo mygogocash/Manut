@@ -28,6 +28,11 @@ The source command is sorted before classification. The JSON companion repeats t
 Survey routes (`/survey*`, `/survey-forms*`) stay `foundation` after draft-create +
 survey respond-submit deepen until authenticated Expo E2E acceptance.
 
+`/projects/[projectId]` stays `foundation` after board-column read + task-create
+deepen (app-core Zod + `projects:update`/`*:manage` gate). Drag-reorder,
+task edit/delete, members, and other CRM hub boards remain deferred; reuse the
+projects pattern documented in `docs/CURSOR_HANDOFF.md`.
+
 ## Inventory
 
 |   # | Source path                                                                     | Source route                               | Disposition            | Status       | Target route                 |

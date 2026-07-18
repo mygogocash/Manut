@@ -115,11 +115,64 @@ export async function listProjects(
 
 const nullableDateText = z.union([z.string().min(1), z.null()]);
 
+export const PROJECT_TASK_PRIORITIES = ["P0", "P1", "P2"] as const;
+export const PROJECT_TASK_PRIORITY_DEFAULT =
+  "P1" as (typeof PROJECT_TASK_PRIORITIES)[number];
+
+const projectColumnApiSchema = z
+  .object({
+    id: z.string().min(1),
+    key: z.string().min(1),
+    label: z.string().min(1),
+    sortOrder: z.number().int().nonnegative().optional(),
+  })
+  .passthrough();
+
+export const projectColumnSchema = projectColumnApiSchema.transform(
+  (column) => ({
+    id: column.id,
+    key: column.key,
+    label: column.label,
+    sortOrder: column.sortOrder ?? 0,
+  }),
+);
+
+const projectTaskApiSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    status: z.string().min(1),
+    priority: z.string().min(1).optional(),
+    sortOrder: z.number().int().nonnegative().optional(),
+    owner: z
+      .object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
+  })
+  .passthrough();
+
+export const projectTaskSchema = projectTaskApiSchema.transform((task) => ({
+  id: task.id,
+  title: task.title,
+  status: task.status,
+  priority: task.priority ?? PROJECT_TASK_PRIORITY_DEFAULT,
+  sortOrder: task.sortOrder ?? 0,
+  owner: task.owner
+    ? { id: task.owner.id, name: task.owner.name }
+    : null,
+}));
+
 const projectDetailApiSchema = projectApiSchema.extend({
   startDate: nullableDateText.optional(),
   endDate: nullableDateText.optional(),
   goLiveDate: nullableDateText.optional(),
   workstream: nullableText.optional(),
+  columns: z.array(projectColumnApiSchema).optional(),
+  tasks: z.array(projectTaskApiSchema).optional(),
 });
 
 export const projectDetailSchema = projectDetailApiSchema.transform(
@@ -136,6 +189,12 @@ export const projectDetailSchema = projectDetailApiSchema.transform(
     endDate: project.endDate ?? null,
     goLiveDate: project.goLiveDate ?? null,
     workstream: project.workstream ?? null,
+    columns: (project.columns ?? [])
+      .map((column) => projectColumnSchema.parse(column))
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+    tasks: (project.tasks ?? [])
+      .map((task) => projectTaskSchema.parse(task))
+      .sort((a, b) => a.sortOrder - b.sortOrder),
   }),
 );
 
@@ -264,4 +323,42 @@ export async function getProjectsDashboard(
     signal ? { signal } : undefined,
   );
   return projectsDashboardResponseSchema.parse(response).data;
+}
+
+const trimmedRequired = z.string().trim().min(1);
+
+export const createProjectTaskInputSchema = z
+  .object({
+    title: trimmedRequired.max(500),
+    status: z.string().trim().min(1).max(64).default("todo"),
+    priority: z
+      .enum(PROJECT_TASK_PRIORITIES)
+      .default(PROJECT_TASK_PRIORITY_DEFAULT),
+  })
+  .strict();
+
+export type CreateProjectTaskInput = z.input<
+  typeof createProjectTaskInputSchema
+>;
+export type ProjectColumn = z.infer<typeof projectColumnSchema>;
+export type ProjectTask = z.infer<typeof projectTaskSchema>;
+
+const createdProjectTaskResponseSchema = z
+  .object({
+    data: projectTaskSchema,
+  })
+  .strict();
+
+export async function createProjectTask(
+  client: ApiClient,
+  projectId: string,
+  input: CreateProjectTaskInput,
+): Promise<ProjectTask> {
+  const id = z.string().min(1).parse(projectId);
+  const parsed = createProjectTaskInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/projects/${encodeURIComponent(id)}/tasks`,
+    parsed,
+  );
+  return createdProjectTaskResponseSchema.parse(response).data;
 }

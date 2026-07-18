@@ -622,10 +622,22 @@ Migration order:
    answer submit via app-core Zod. Disposition stays `foundation` until
    Expo E2E. Still deferred: question builders, publish/announce, analytics,
    survey-forms respond submit, targeting UI.
+   **Projects CRM deepen (2026-07-18):** `/projects/[projectId]` now reads
+   kanban columns + tasks from `GET /projects/:id` (emails/budget stripped in
+   app-core) and creates tasks via `POST /projects/:id/tasks` with
+   `createProjectTaskInputSchema` + `projects:update` / team-CRM
+   `*:update`/`*:manage` client gate. Disposition stays `foundation`.
+   **CRM deepen pattern for other hubs** (`/deals`, `/it-crm`, `/product-crm`,
+   `/legal-crm`, `/qa-crm`, …): (1) extend the existing detail/list DTO to
+   project board columns + task cards without emails/budget/member PII;
+   (2) add one write (`createTask` / `createDeal` / status patch) with Zod in
+   `packages/app-core` mirroring the API validation; (3) permission-gate the
+   Expo form; (4) unit + screen tests; (5) leave disposition `foundation`
+   until Expo E2E. Do not deepen every CRM hub in one slice.
    Still deepen (not missing routes): journals/invoices/bank/approve-post,
    revenue detail tabs, reporting, helpdesk writes/comments/GitHub, project
-   boards/task writes, sales pipeline writes, survey question builders /
-   publish / analytics, CRM board/tasks/import/create.
+   drag-reorder / task edit-delete / members, sales pipeline writes, survey
+   question builders / publish / analytics, other CRM board/tasks/import/create.
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
