@@ -11,6 +11,10 @@ import {
   verifyAccessToken,
 } from "./auth";
 import { createBenefitsRoutes } from "./benefits/routes";
+import {
+  createCashAdvanceRoutes,
+  type CreateCashAdvanceStore,
+} from "./cash-advance/routes";
 import { assertChannelMembership } from "./channel-membership";
 import { sha256Base64Url } from "./crypto";
 import {
@@ -25,9 +29,17 @@ import { HttpError } from "./http-error";
 import { isHyperdriveEnabled } from "./hyperdrive";
 import { createLearningRoutes } from "./learning/routes";
 import {
+  createLeaveRoutes,
+  type CreateLeaveStore,
+} from "./leave/routes";
+import {
   createMessagesRoutes,
   type CreateMessagesStore,
 } from "./messages/routes";
+import {
+  createPayrollRoutes,
+  type CreatePayrollStore,
+} from "./payroll/routes";
 import {
   BackgroundWorkflow,
   ContainerBoundary,
@@ -50,17 +62,24 @@ import {
   type CreateSurveyFormsStore,
 } from "./survey-forms/routes";
 import { uploadRoutes } from "./uploads";
+import { createVisaRoutes, type CreateVisaStore } from "./visa/routes";
+import { createVisaChecklistRoutes } from "./visa-checklist/routes";
+import { createVisaKbRoutes } from "./visa-kb/routes";
 
 export { BackgroundWorkflow, ContainerBoundary, QueueLedger, RealtimeRoom };
 
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/u;
 
 interface EdgeAppOptions {
+  createCashAdvanceStore?: CreateCashAdvanceStore;
   createDealsStore?: CreateDealsStore;
   createExpensesStore?: CreateExpensesStore;
+  createLeaveStore?: CreateLeaveStore;
   createMessagesStore?: CreateMessagesStore;
+  createPayrollStore?: CreatePayrollStore;
   createSurveyStore?: CreateSurveyStore;
   createSurveyFormsStore?: CreateSurveyFormsStore;
+  createVisaStore?: CreateVisaStore;
   verifyToken?: VerifyAccessToken;
 }
 
@@ -202,6 +221,32 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
     "/api/expenses",
     createExpensesRoutes({
       createExpensesStore: options.createExpensesStore,
+    }),
+  );
+  app.route(
+    "/api/leave",
+    createLeaveRoutes({
+      createLeaveStore: options.createLeaveStore,
+    }),
+  );
+  app.route(
+    "/api/cash-advance",
+    createCashAdvanceRoutes({
+      createCashAdvanceStore: options.createCashAdvanceStore,
+    }),
+  );
+  app.route(
+    "/api/visa",
+    createVisaRoutes({
+      createVisaStore: options.createVisaStore,
+    }),
+  );
+  app.route("/api/visa-kb", createVisaKbRoutes());
+  app.route("/api/visa-checklist", createVisaChecklistRoutes());
+  app.route(
+    "/api/payroll",
+    createPayrollRoutes({
+      createPayrollStore: options.createPayrollStore,
     }),
   );
   app.route("/api/benefits", createBenefitsRoutes());

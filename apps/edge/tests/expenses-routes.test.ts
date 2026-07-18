@@ -61,6 +61,9 @@ function memoryStore(seed?: {
       const start = (page - 1) * limit;
       return { data: rows.slice(start, start + limit), total };
     },
+    async findById(id) {
+      return reports.find((report) => report.id === id) ?? null;
+    },
     async create(input) {
       const now = "2026-07-18T00:00:00.000Z";
       const row: ExpenseReportRecord = {
@@ -271,6 +274,110 @@ describe("expenses dual-path routes", () => {
     });
     const response = await app.request(
       "https://intranet.example/api/expenses/reports?pendingForMe=true",
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstream).toHaveBeenCalledOnce();
+  });
+
+  it("returns own expense report detail on the Hyperdrive path", async () => {
+    const store = memoryStore({
+      reports: [
+        {
+          id: "report-own",
+          period: "2026-07",
+          title: "July",
+          category: "general",
+          status: "draft",
+          submittedAt: null,
+          approvedAt: null,
+          rejectReason: null,
+          reimbursedAt: null,
+          approvedTotal: null,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+          employeeId: "user-123",
+          employeeName: "Test User",
+          employeeEmail: "user@example.com",
+          employeeDepartment: "Eng",
+          entityId: "entity-1",
+          entityName: "Manut TH",
+          expenseCount: 2,
+          totalAmount: 100,
+          totalCurrency: "THB",
+          converted: true,
+          missingRates: [],
+        },
+      ],
+    });
+
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/reports/report-own",
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        id: "report-own",
+        title: "July",
+        _count: { expenses: 2 },
+      },
+    });
+  });
+
+  it("proxies non-self expense report detail when Hyperdrive is on", async () => {
+    const upstream = vi.fn(async (request: Request) => {
+      expect(new URL(request.url).pathname).toBe(
+        "/api/expenses/reports/report-other",
+      );
+      return Response.json({ data: { id: "report-other" } });
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const store = memoryStore({
+      reports: [
+        {
+          id: "report-other",
+          period: "2026-07",
+          title: "Other",
+          category: "general",
+          status: "submitted",
+          submittedAt: null,
+          approvedAt: null,
+          rejectReason: null,
+          reimbursedAt: null,
+          approvedTotal: null,
+          createdAt: "2026-07-18T00:00:00.000Z",
+          updatedAt: "2026-07-18T00:00:00.000Z",
+          employeeId: "user-456",
+          employeeName: "Other",
+          employeeEmail: "other@example.com",
+          employeeDepartment: null,
+          entityId: "entity-1",
+          entityName: "Manut TH",
+          expenseCount: 0,
+          totalAmount: 0,
+          totalCurrency: "THB",
+          converted: true,
+          missingRates: [],
+        },
+      ],
+    });
+
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/reports/report-other",
       { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
       hyperdriveEnv(),
     );

@@ -154,6 +154,28 @@ export function createExpensesService(store: ExpensesStore) {
 
       return { data: serializeReport(created) };
     },
+
+    async getOwn(userId: string, reportId: string) {
+      const permissions = await store.loadPermissions(userId);
+      if (!canReadExpenses(permissions)) {
+        throw new HttpError(403, "FORBIDDEN", "Missing required permission.");
+      }
+
+      const report = await store.findById(reportId);
+      if (!report) {
+        throw new HttpError(404, "NOT_FOUND", "Expense report not found.");
+      }
+      if (report.employeeId !== userId) {
+        // Manager / approver / HR detail stays on Express.
+        throw new HttpError(
+          403,
+          "EXPENSE_DETAIL_NOT_SELF",
+          "Non-self expense detail remains on the API origin.",
+        );
+      }
+
+      return { data: serializeReport(report) };
+    },
   };
 }
 

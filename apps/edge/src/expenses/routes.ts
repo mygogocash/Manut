@@ -102,6 +102,22 @@ export function createExpensesRoutes(options: {
       return context.json(result, 201);
     }
 
+    const detailMatch = /^\/reports\/([^/]+)\/?$/u.exec(path);
+    if (method === "GET" && detailMatch) {
+      const reportId = decodeURIComponent(detailMatch[1] ?? "");
+      try {
+        return context.json(await service.getOwn(userId, reportId));
+      } catch (error) {
+        if (
+          error instanceof HttpError &&
+          error.code === "EXPENSE_DETAIL_NOT_SELF"
+        ) {
+          return proxyApiRequest(context.req.raw, context.env);
+        }
+        throw error;
+      }
+    }
+
     // Lines, submit, approvals, raw expense items, meta stay on Express.
     return proxyApiRequest(context.req.raw, context.env);
   });

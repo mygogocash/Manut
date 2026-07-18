@@ -174,6 +174,16 @@ export function createPrismaExpensesStore(client: PrismaClient): ExpensesStore {
       return { data, total };
     },
 
+    async findById(id) {
+      const row = await client.expenseReport.findFirst({
+        where: { id, deletedAt: null },
+        include: REPORT_INCLUDES,
+      });
+      if (!row) return null;
+      const totals = await computeReportTotal(client, row.id);
+      return { ...mapBase(row), ...totals };
+    },
+
     async create(input) {
       const row = await client.expenseReport.create({
         data: {

@@ -46,5 +46,6 @@ export interface ExpensesStore {
     page: number,
     limit: number,
   ): Promise<{ data: ExpenseReportRecord[]; total: number }>;
+  findById(id: string): Promise<ExpenseReportRecord | null>;
   create(input: CreateExpenseReportStoreInput): Promise<ExpenseReportRecord>;
 }
