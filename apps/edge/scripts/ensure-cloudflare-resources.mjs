@@ -94,7 +94,14 @@ export function collectResourceNames(wranglerSource, envName) {
  */
 export function createWranglerExec() {
   const require = createRequire(import.meta.url);
-  const wranglerBin = require.resolve("wrangler/bin/wrangler.js");
+  // wrangler's exports map does not expose ./bin/wrangler.js; resolve the
+  // exported package.json and follow its bin field instead.
+  const pkgJsonPath = require.resolve("wrangler/package.json");
+  const pkg = require(pkgJsonPath);
+  if (typeof pkg?.bin?.wrangler !== "string") {
+    throw new Error("Could not resolve the wrangler bin entry from package.json.");
+  }
+  const wranglerBin = join(dirname(pkgJsonPath), pkg.bin.wrangler);
   const edgeDir = join(dirname(fileURLToPath(import.meta.url)), "..");
   return (args) =>
     new Promise((resolve, reject) => {

@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   collectResourceNames,
+  createWranglerExec,
   ensureResource,
   ensureResources,
   type WranglerExec,
@@ -170,6 +171,14 @@ describe("ensure-cloudflare-resources > ensureResource", () => {
     await expect(ensureResource("queue", "q-one", exec)).rejects.toThrow(
       /info-authentication-error[\s\S]*create-authentication-error[\s\S]*recheck-authentication-error/u,
     );
+  });
+});
+
+describe("ensure-cloudflare-resources > createWranglerExec", () => {
+  it("resolves the workspace-pinned wrangler binary without throwing", () => {
+    // wrangler's exports map does not expose ./bin/wrangler.js directly;
+    // resolution must go through the exported package.json bin field.
+    expect(typeof createWranglerExec()).toBe("function");
   });
 });
 
