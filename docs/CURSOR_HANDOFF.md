@@ -134,7 +134,7 @@ D1 (optional non-authoritative edge metadata only)
 | Source-organization removal          | **Phase A sweep complete locally**        | Credentials, branding, proprietary AI/marketing modules, identity-bearing migrations, and seeds were removed or replaced. HMAC provenance scan and comment sweep passed 2026-07-17.                           |
 | API strictness and hardening         | **Implemented locally**                   | Strict TypeScript, webhook bytes, purge lifecycle, lifecycle-safe auth/RBAC, atomic Leave state changes, live-socket revalidation, Performance scoping, and profile projection are implemented.               |
 | Universal Expo foundation            | **Implemented**                           | Expo SDK 57, shared API/session runtime, app-core/UI packages, auth transports, app shell, Expo Doctor, and three-platform exports pass. This is a foundation, not full route parity.                         |
-| Approved web route parity            | **Foundations landed; deepen + E2E remain** | Inventory: **88 foundation**, **0 pending**, **16 removed** (plus Expo-only `/files`). Waves 2–4 Expo route foundations are in tree; `/messages` live send/receive via API socket.io interim (DO shared-room bridge still next); survey question replace/publish landed (announce/analytics still deferred); Expo E2E cutover remain. |
+| Approved web route parity            | **Foundations landed; deepen + E2E remain** | Inventory: **88 foundation**, **0 pending**, **16 removed** (plus Expo-only `/files`). Waves 2–4 Expo route foundations are in tree; `/messages` DO shared-room + bus→DO bridge (socket.io fallback); survey question replace/publish landed (announce/analytics still deferred); Expo E2E cutover remain. |
 | Cloudflare edge layer                | **Locally implemented**                   | Worker auth, SPA assets, R2, Durable Objects, Queues, Workflows, Container/Hyperdrive boundaries, tests, and dry-run bundle exist. Fresh resources are not provisioned.                                       |
 | Clean PostgreSQL baseline            | **Implemented**                           | One sanitized baseline plus hash manifest, setup/assert scripts, and migration harness exist. Local Docker replay is blocked; CI PostgreSQL 16 lane is ready.                                                 |
 | Dependency upgrades                  | **Mostly implemented**                    | Requested upgrades, compatibility pins, Expo, and Cloudflare packages are present. Legacy Next/Tailwind/Vite/jsdom bridge packages remain until parity.                                                       |
@@ -651,16 +651,17 @@ Migration order:
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
-   **Status 2026-07-18 (messages deepen):** `/messages` Expo now sends via
-   REST and receives live `message.created`/`message.deleted` over the
-   existing Express socket.io `/messages` namespace (same bus as legacy web).
-   Tradeoff: socket.io-client interim keeps shared-channel honesty without a
-   Worker/DO membership contract yet. Remaining DO gaps: rooms stay
-   `${principalKey}:${roomId}` (no shared channel), DO only echoes client
-   broadcasts (not wired to messageBus). Next: membership-keyed DO room +
-   bus→DO broadcast, then retire socket.io. Other Wave 4 deepen still open:
-   multipart upload, Drive/Gmail send/compose, document processing, approved
-   Manut AI only.
+   **Status 2026-07-18 (messages deepen):** `/messages` Expo sends via REST
+   and receives live `message.created`/`message.deleted` preferring the edge
+   Durable Object shared room `channel:{channelId}` (membership checked via
+   `GET /api/messages/channels/:id` before WS upgrade). Express `messageBus`
+   fans those events to the DO when `EDGE_REALTIME_ORIGIN` +
+   `EDGE_REALTIME_BRIDGE_SECRET` (must match Worker `EDGE_SIGNING_KEY`) are
+   set; socket.io `/messages` remains the client fallback when the edge
+   origin/bridge is unset. Fail closed: missing `REALTIME_ROOMS` /
+   `API_ORIGIN` / bridge secret rejects the DO path. Other Wave 4 deepen
+   still open: multipart upload, Drive/Gmail send/compose, document
+   processing, approved Manut AI only.
 
 For each route slice:
 

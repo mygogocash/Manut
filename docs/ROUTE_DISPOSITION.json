@@ -498,7 +498,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/messages",
-      "note": "Expo channel list + REST history (GET /api/messages/channels/:id/messages) and DO WebSocket probe adapter. Live chat blocked: edge RealtimeRoom is principal-scoped and not bridged to messageBus; API socket.io remains legacy-web-only."
+      "note": "Expo channel list + REST history; live prefers edge DO shared room channel:{id} with API membership check + messageBus→DO bridge; socket.io /messages remains fallback when edge origin/bridge unset."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/my-portal/page.tsx",

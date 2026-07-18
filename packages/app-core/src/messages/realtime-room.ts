@@ -1,22 +1,27 @@
 import { z } from "zod";
 
 /**
- * Edge Durable Object room helpers.
+ * Edge Durable Object room helpers for shared messaging channels.
  *
- * Expo live chat currently uses the Express messageBus via socket.io
- * `/messages` (see `buildMessagesSocketNamespaceUrl`). Remaining DO gaps:
- * - Edge scopes rooms as `${principalKey}:${roomId}` so two users joining the
- *   same channel id never share a DO instance.
- * - RealtimeRoom only echoes client `broadcast` payloads; it is not wired to
- *   the Express messageBus.
- * Next step: membership-keyed shared DO room + bus→DO broadcast, then retire
- * the socket.io interim path.
+ * Room URL path uses the channel id; the Worker maps it to Durable Object
+ * name `channel:{channelId}` after an API membership check. Express
+ * messageBus fans `message.created` / `message.deleted` into that DO when
+ * `EDGE_REALTIME_ORIGIN` + `EDGE_REALTIME_BRIDGE_SECRET` are configured.
+ * Expo prefers the DO WebSocket and keeps socket.io as fallback.
  */
 
 const SAFE_ROOM_ID = /^[A-Za-z0-9_-]{1,96}$/u;
 
 export function isRealtimeRoomId(value: string): boolean {
   return SAFE_ROOM_ID.test(value);
+}
+
+/** Shared membership-keyed Durable Object name (Worker-side getByName). */
+export function buildRealtimeChannelRoomName(channelId: string): string {
+  if (!isRealtimeRoomId(channelId)) {
+    throw new Error("Invalid realtime channel id.");
+  }
+  return `channel:${channelId}`;
 }
 
 export function buildRealtimeRoomPath(roomId: string): string {
@@ -84,9 +89,13 @@ export function parseRealtimeServerMessage(
   return parsed.success ? parsed.data : null;
 }
 
-/** Remaining DO work after the socket.io interim live path. */
+/**
+ * Operational note (not a hard blocker): DO shared rooms + bus bridge are
+ * implemented; socket.io remains the client fallback when the edge origin or
+ * bridge secret is unset in a given environment.
+ */
 export const REALTIME_DO_CHAT_GAP =
-  "Edge RealtimeRoom is still principal-scoped (${principalKey}:${roomId}) and not bridged to Express messageBus; Expo live chat uses API socket.io /messages as the interim shared channel until a membership-keyed DO room + bus→DO broadcast lands.";
+  "Live chat prefers edge Durable Object shared rooms (channel:{channelId}) with membership check + messageBus→DO bridge; socket.io /messages remains the fallback when EDGE_REALTIME_ORIGIN / EXPO_PUBLIC_REALTIME_ORIGIN is unset.";
 
 /** @deprecated Prefer REALTIME_DO_CHAT_GAP; kept for import stability. */
 export const REALTIME_LIVE_CHAT_BLOCKER = REALTIME_DO_CHAT_GAP;

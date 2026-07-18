@@ -15,7 +15,7 @@ import { MessagesScreen } from "@/features/messages/messages-screen";
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 const mockHasPermission = jest.fn();
-const mockJoinMessagesChannel = jest.fn();
+const mockJoinMessagesLiveChannel = jest.fn();
 let liveEventHandler:
   | ((event: {
       type: "message.created" | "message.deleted";
@@ -42,14 +42,16 @@ jest.mock("@/features/auth/auth-provider", () => ({
   }),
 }));
 
-jest.mock("@/platform/messages-socket", () => ({
-  joinMessagesChannel: (options: {
+jest.mock("@/platform/messages-live", () => ({
+  joinMessagesLiveChannel: (options: {
     channelId: string;
     onEvent: typeof liveEventHandler;
     onStatus?: (status: string) => void;
+    onTransport?: (transport: "durable-object" | "socket.io") => void;
   }) => {
     liveEventHandler = options.onEvent;
-    mockJoinMessagesChannel(options);
+    mockJoinMessagesLiveChannel(options);
+    options.onTransport?.("socket.io");
     options.onStatus?.("connected");
     return { status: "connected", close: jest.fn() };
   },
@@ -86,7 +88,7 @@ describe("MessagesScreen", () => {
     mockGet.mockReset();
     mockPost.mockReset();
     mockHasPermission.mockReset();
-    mockJoinMessagesChannel.mockReset();
+    mockJoinMessagesLiveChannel.mockReset();
     liveEventHandler = null;
     mockHasPermission.mockImplementation(
       (code: string) =>
@@ -155,7 +157,7 @@ describe("MessagesScreen", () => {
       expect(
         await screen.findByText("Hello team", {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(mockJoinMessagesChannel).toHaveBeenCalledWith(
+      expect(mockJoinMessagesLiveChannel).toHaveBeenCalledWith(
         expect.objectContaining({ channelId: "ch-1" }),
       );
 
@@ -197,7 +199,7 @@ describe("MessagesScreen", () => {
         await screen.findByText("Live peer", {}, { timeout: 10_000 }),
       ).toBeTruthy();
       expect(screen.getByText(/Grace/)).toBeTruthy();
-      expect(screen.getByText(/principal-scoped/i)).toBeTruthy();
+      expect(screen.getByText(/channel:\{channelId\}/i)).toBeTruthy();
     },
     15_000,
   );

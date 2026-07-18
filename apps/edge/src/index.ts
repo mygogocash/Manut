@@ -20,8 +20,13 @@ import {
   requireHyperdrive,
 } from "./platform-boundaries";
 import { consumeQueue, QueueLedger } from "./queue";
+import { assertChannelMembership } from "./channel-membership";
+import {
+  assertRealtimeBridgeSecret,
+  bridgeSigningKey,
+} from "./realtime-bridge-auth";
 import { RealtimeRoom } from "./realtime-room";
-import { isRoomId } from "./room-protocol";
+import { buildChannelRoomName, isRoomId } from "./room-protocol";
 import type { EdgeEnv, RuntimeBindings } from "./runtime";
 import { uploadRoutes } from "./uploads";
 
@@ -219,6 +224,58 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
 
   app.route("/api/v1/uploads", uploadRoutes);
 
+  app.post("/api/v1/realtime/rooms/:roomId/events", async (context) => {
+    const roomId = context.req.param("roomId");
+    if (!isRoomId(roomId)) {
+      throw new HttpError(404, "ROOM_NOT_FOUND", "Room not found.");
+    }
+    assertRealtimeBridgeSecret(context.req.raw, context.env);
+    // Touch the signing key so a missing binding fails closed before fan-out.
+    bridgeSigningKey(context.env);
+    const rooms = context.env.REALTIME_ROOMS;
+    if (!rooms) {
+      throw new HttpError(
+        503,
+        "REALTIME_ROOMS_NOT_PROVISIONED",
+        "Realtime rooms are unavailable.",
+      );
+    }
+
+    let body: unknown;
+    try {
+      body = await context.req.json();
+    } catch {
+      throw new HttpError(400, "INVALID_JSON", "Request body must be valid JSON.");
+    }
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      typeof (body as { eventId?: unknown }).eventId !== "string" ||
+      (body as { payload?: unknown }).payload === undefined
+    ) {
+      throw new HttpError(
+        400,
+        "INVALID_BROADCAST",
+        "Broadcast payload is invalid.",
+      );
+    }
+
+    const room = rooms.getByName(buildChannelRoomName(roomId));
+    return room.fetch(
+      new Request("https://realtime.internal/broadcast", {
+        body: JSON.stringify({
+          eventId: (body as { eventId: string }).eventId,
+          payload: (body as { payload: unknown }).payload,
+        }),
+        headers: {
+          "content-type": "application/json",
+          "x-manut-internal-broadcast": "1",
+        },
+        method: "POST",
+      }),
+    );
+  });
+
   app.get("/api/v1/realtime/rooms/:roomId", async (context) => {
     const roomId = context.req.param("roomId");
     if (!isRoomId(roomId)) {
@@ -237,13 +294,26 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
       );
     }
 
-    // Until the authoritative API exposes a shared-room membership contract,
-    // scope rooms to the verified principal. This prevents a guessed room name
-    // from becoming cross-user authorization.
+    const credential = context.get("credential");
+    // Membership before binding so access denial is never masked by provisioning.
+    await assertChannelMembership({
+      channelId: roomId,
+      credential,
+      env: context.env,
+    });
+
+    const rooms = context.env.REALTIME_ROOMS;
+    if (!rooms) {
+      throw new HttpError(
+        503,
+        "REALTIME_ROOMS_NOT_PROVISIONED",
+        "Realtime rooms are unavailable.",
+      );
+    }
+
+    // Shared membership-keyed room so all authorized peers share one DO.
     const principalScope = context.get("principalKey");
-    const room = context.env.REALTIME_ROOMS.getByName(
-      `${principalScope}:${roomId}`,
-    );
+    const room = rooms.getByName(buildChannelRoomName(roomId));
     const headers = new Headers({
       upgrade: "websocket",
       "x-manut-connection-id": crypto.randomUUID(),

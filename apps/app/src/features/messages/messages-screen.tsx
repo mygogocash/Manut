@@ -34,9 +34,10 @@ import {
 
 import { useAuth } from "@/features/auth/auth-provider";
 import {
-  joinMessagesChannel,
-  type MessagesSocketStatus,
-} from "@/platform/messages-socket";
+  joinMessagesLiveChannel,
+  type MessagesLiveTransport,
+} from "@/platform/messages-live";
+import type { MessagesSocketStatus } from "@/platform/messages-socket";
 import { useApiClient } from "@/providers/api-client-provider";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -147,6 +148,8 @@ export function MessagesScreen() {
   );
   const [socketStatus, setSocketStatus] =
     useState<MessagesSocketStatus>("idle");
+  const [liveTransport, setLiveTransport] =
+    useState<MessagesLiveTransport | null>(null);
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
 
@@ -203,9 +206,11 @@ export function MessagesScreen() {
     if (!selectedChannelId || !canRead) {
       return;
     }
-    const client = joinMessagesChannel({
+    setLiveTransport(null);
+    const client = joinMessagesLiveChannel({
       channelId: selectedChannelId,
       onStatus: setSocketStatus,
+      onTransport: setLiveTransport,
       onEvent: (event) => {
         queryClient.setQueryData<ChannelMessageList>(messagesKey, (current) =>
           appendLiveMessage(current, event),
@@ -280,7 +285,8 @@ export function MessagesScreen() {
             Messages
           </Text>
           <Text selectable style={{ color: colors.textMuted }}>
-            Live send and receive via API socket.io. REST loads history.
+            Live send and receive via edge Durable Object when available
+            (socket.io fallback). REST loads history.
           </Text>
         </View>
 
@@ -340,7 +346,9 @@ export function MessagesScreen() {
         {selectedChannel ? (
           <Card
             title={selectedChannel.name || "Conversation"}
-            description={`History via REST · live socket: ${liveSocketStatus}`}
+            description={`History via REST · live: ${liveSocketStatus}${
+              liveTransport ? ` (${liveTransport})` : ""
+            }`}
           >
             {messagesQuery.isPending ? (
               <LoadingState label="Loading messages…" />

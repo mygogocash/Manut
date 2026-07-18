@@ -15,6 +15,7 @@ import {
 } from "../src/messages/messages";
 import {
   REALTIME_DO_CHAT_GAP,
+  buildRealtimeChannelRoomName,
   buildRealtimeRoomPath,
   buildRealtimeRoomWebSocketUrl,
   isRealtimeRoomId,
@@ -195,11 +196,12 @@ describe("messages foundation contracts", () => {
     expect(buildMessagesSocketNamespaceUrl("/api")).toBe("/messages");
   });
 
-  it("documents the remaining DO shared-room gap and builds room URLs", () => {
-    expect(REALTIME_DO_CHAT_GAP).toMatch(/principal-scoped/i);
+  it("documents DO shared-room + socket.io fallback and builds room URLs", () => {
+    expect(REALTIME_DO_CHAT_GAP).toMatch(/channel:\{channelId\}/i);
     expect(REALTIME_DO_CHAT_GAP).toMatch(/socket\.io/i);
     expect(isRealtimeRoomId("channel-1")).toBe(true);
     expect(isRealtimeRoomId("bad id")).toBe(false);
+    expect(buildRealtimeChannelRoomName("channel-1")).toBe("channel:channel-1");
     expect(buildRealtimeRoomPath("channel-1")).toBe(
       "/api/v1/realtime/rooms/channel-1",
     );

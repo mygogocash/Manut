@@ -6,6 +6,7 @@ import app from "@/app";
 import { logger } from "@/common/utils/logger";
 import { ensureStorageBuckets } from "@/infrastructure/storage/supabase-storage";
 import { tracking } from "@/lib/tracking";
+import { registerMessagesRealtimeBridge } from "@/modules/messages/messages.realtime-bridge";
 import { registerMessagesSocket } from "@/modules/messages/messages.socket";
 
 const PORT = Number(process.env.PORT) || 3001;
@@ -15,6 +16,7 @@ async function bootstrap() {
   await new Promise<void>((resolve, reject) => {
     const server = createServer(app);
     registerMessagesSocket(server);
+    registerMessagesRealtimeBridge();
 
     server.listen(PORT, LISTEN_HOST, () => {
       logger.info(
