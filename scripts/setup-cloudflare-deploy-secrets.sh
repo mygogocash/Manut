@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Configure remaining Cloudflare Worker secrets + GitHub Environment deploy
-# credentials. Never prints secret values. Does not commit anything.
+# Configure preview/staging GitHub Environment deploy credentials and the
+# preview-only first-deploy secret inputs. Never prints secret values. Does not
+# commit anything or mutate production Worker runtime secrets. Production
+# deploy authentication is owned by Workers Builds in the Cloudflare dashboard.
 #
 # Prerequisites:
-#   - Node from .nvmrc (`source ~/.nvm/nvm.sh && nvm use`)
-#   - `wrangler login` OR export CLOUDFLARE_API_TOKEN
 #   - `gh auth login` with repo admin for Environment secrets
 #   - For R2 S3 keys: export R2_ACCESS_KEY_ID + R2_SECRET_ACCESS_KEY
 #     (create under Cloudflare Dashboard → R2 → Manage R2 API Tokens)
 #
 # Usage (from repo root):
-#   export CLOUDFLARE_API_TOKEN=...          # required for GitHub Actions deploys
-#   export R2_ACCESS_KEY_ID=...             # optional; skips with note if unset
+#   export CLOUDFLARE_API_TOKEN=...           # required for preview/staging deploys
+#   export PREVIEW_EDGE_SIGNING_KEY=...       # required for a green preview deploy
+#   export R2_ACCESS_KEY_ID=...               # required for a green preview deploy
 #   export R2_SECRET_ACCESS_KEY=...
 #   ./scripts/setup-cloudflare-deploy-secrets.sh
 
@@ -29,39 +30,16 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! command -v pnpm >/dev/null 2>&1; then
-  echo "error: pnpm required (nvm use / corepack)" >&2
+if [[ -n "${R2_ACCESS_KEY_ID:-}" && -z "${R2_SECRET_ACCESS_KEY:-}" ]] ||
+  [[ -z "${R2_ACCESS_KEY_ID:-}" && -n "${R2_SECRET_ACCESS_KEY:-}" ]]; then
+  echo "error: R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY must be supplied together" >&2
   exit 1
 fi
 
-echo "Checking Cloudflare auth (wrangler whoami)…"
-if ! pnpm --filter @manut/edge exec wrangler whoami >/tmp/manut-wrangler-whoami.log 2>&1; then
-  echo "error: Cloudflare auth missing. Run: pnpm --filter @manut/edge exec wrangler login" >&2
-  echo "       Or export CLOUDFLARE_API_TOKEN with Workers deploy permission." >&2
+preview_signing_key="${PREVIEW_EDGE_SIGNING_KEY:-}"
+if [[ -n "$preview_signing_key" && ${#preview_signing_key} -lt 32 ]]; then
+  echo "error: PREVIEW_EDGE_SIGNING_KEY must be at least 32 characters" >&2
   exit 1
-fi
-echo "Cloudflare auth OK (details not printed)."
-
-put_worker_secret() {
-  local name="$1"
-  local value="$2"
-  local env_name="$3"
-  if [[ -z "$value" ]]; then
-    return 0
-  fi
-  printf '%s' "$value" | pnpm --filter @manut/edge exec wrangler secret put "$name" --env "$env_name" >/dev/null
-  echo "Worker secret set: ${name} (--env ${env_name})"
-}
-
-if [[ -n "${R2_ACCESS_KEY_ID:-}" && -n "${R2_SECRET_ACCESS_KEY:-}" ]]; then
-  for env_name in production preview; do
-    put_worker_secret R2_ACCOUNT_ID "$ACCOUNT_ID" "$env_name"
-    put_worker_secret R2_ACCESS_KEY_ID "$R2_ACCESS_KEY_ID" "$env_name"
-    put_worker_secret R2_SECRET_ACCESS_KEY "$R2_SECRET_ACCESS_KEY" "$env_name"
-  done
-else
-  echo "note: R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY unset — skipped Worker R2 S3 secrets."
-  echo "      Create an R2 API token in the dashboard, export both, re-run this script."
 fi
 
 ensure_env() {
@@ -92,10 +70,14 @@ set_env_var() {
   echo "GitHub Environment var set: ${env_name}/${name}"
 }
 
-for env_name in production preview staging; do
+for env_name in preview staging; do
   ensure_env "$env_name"
   set_env_secret "$env_name" CLOUDFLARE_ACCOUNT_ID "$ACCOUNT_ID"
 done
+
+set_env_secret preview EDGE_SIGNING_KEY "$preview_signing_key"
+set_env_secret preview R2_ACCESS_KEY_ID "${R2_ACCESS_KEY_ID:-}"
+set_env_secret preview R2_SECRET_ACCESS_KEY "${R2_SECRET_ACCESS_KEY:-}"
 
 if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
   echo "note: CLOUDFLARE_API_TOKEN unset — cannot set GitHub Actions deploy token."
@@ -103,21 +85,23 @@ if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
   echo "      + Workers R2 Storage Edit + Account read),"
   echo "      export CLOUDFLARE_API_TOKEN, then re-run this script."
 else
-  for env_name in production preview staging; do
+  for env_name in preview staging; do
     set_env_secret "$env_name" CLOUDFLARE_API_TOKEN "$CLOUDFLARE_API_TOKEN"
   done
 fi
 
-set_env_var production EXPO_PUBLIC_API_URL "https://app.manut.xyz"
-set_env_var preview EXPO_PUBLIC_API_URL "https://preview.manut.xyz"
+set_env_var preview EXPO_PUBLIC_API_URL "https://manut-preview.bettergogocash.workers.dev"
 set_env_var staging EXPO_PUBLIC_API_URL "https://manut-staging.bettergogocash.workers.dev"
 
 echo
 echo "Done (names only). Still human:"
-echo "  - Workers Builds token: add Account → Queues → Edit (deploys self-provision"
-echo "    queues/R2 via apps/edge/scripts/ensure-cloudflare-resources.mjs)"
+echo "  - Production build token is dashboard-owned: select it in Cloudflare Worker"
+echo "    manut → Settings → Builds with Account → Queues → Edit; do not store it"
+echo "    in GitHub (builds self-provision queues/R2 before deploy)"
+echo "  - Preview GitHub Environment needs EDGE_SIGNING_KEY + the R2 S3 pair;"
+echo "    deploy-preview.yml uploads them atomically to manut-preview and deletes"
+echo "    its temporary local secret file on exit"
 echo "  - Cloudflare Access → set Worker vars AUTH_JWKS_URL / AUTH_ISSUER / AUTH_AUDIENCE"
 echo "  - Hyperdrive bind + ENABLE_HYPERDRIVE_BOUNDARY=true when ready"
 echo "  - R2 API token secrets if skipped above"
-echo "  - Production GitHub Environment required reviewers"
 echo "See docs/CICD_CLOUDFLARE.md"

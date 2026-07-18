@@ -6,17 +6,30 @@ Ops-facing checklist for fresh Manut-owned Cloudflare / CI cutover.
 Deploy-readiness matrix, env/binding names, cutover order, and local dry-run
 commands: **`docs/PRODUCTION_DEPLOY.md`**.
 
-## Deploy CI vs DNS cutover
+## Deploy ownership vs DNS cutover
 
-- [x] GitHub Actions Workers deploy path enabled:
-      `.github/workflows/deploy-staging.yml` (push `main`/`staging` + dispatch)
-      and `.github/workflows/deploy.yml` (dispatch + Environment `production`).
-      See `docs/CICD_CLOUDFLARE.md`.
+- [x] One deploy owner per branch: Cloudflare Workers Builds owns production
+      from `main`; GitHub Actions owns `.github/workflows/deploy-preview.yml`
+      and `.github/workflows/deploy-staging.yml` only. See
+      `docs/CICD_CLOUDFLARE.md`.
+- [ ] If the selected Workers Builds token was deleted or rolled, use **Create
+      new token** in Worker `manut` → Settings → Builds, name the replacement
+      **`Manut Workers Builds - YYYY-MM-DD`**, and verify effective standard
+      permissions plus **Queues Edit**. Narrow generated extra permissions via
+      My Profile → API Tokens → **Edit**, scope the zone to `manut.xyz`, and do
+      not choose **Roll** while the token is selected.
+- [ ] Validate preview Queue/R2 access and a full deploy to the isolated
+      `manut-preview` Worker before production. Durable Object migrations must
+      never be version-uploaded against production `manut`.
+- [ ] After that preview validation, disable native non-production Workers
+      Builds so GitHub remains the sole preview/staging deploy owner.
 - [ ] **Turn off Cloudflare Pages auto-deploy** for Pages project `manut` (or
       any Pages project on this repo). Correct shape is Workers + Assets.
-- [ ] Configure GitHub Environments `staging` / `production` secrets and Expo
-      public vars (names in `docs/CICD_CLOUDFLARE.md`) — workflows fail closed
-      until present.
+- [ ] Configure GitHub Environments `preview` / `staging` deploy secrets and
+      Expo public vars (names in `docs/CICD_CLOUDFLARE.md`) — workflows fail
+      closed until present. Production runtime Worker secrets remain managed
+      separately in Cloudflare. Preview additionally requires its unique
+      `EDGE_SIGNING_KEY` and R2 S3 pair for the atomic first deploy.
 - [ ] Do not mutate DNS or touch `manut.xyz` until a separately approved
       cutover; CI deploy ≠ traffic cutover.
 - [ ] Do not invent or commit Hyperdrive ids, account ids, API tokens, or
@@ -26,12 +39,13 @@ commands: **`docs/PRODUCTION_DEPLOY.md`**.
 
 ## Code-ready vs ops-blocked (summary)
 
-| Item | State |
-| --- | --- |
+| Item                                                                     | State                                       |
+| ------------------------------------------------------------------------ | ------------------------------------------- |
 | Expo web export + Worker type-check / test / `wrangler deploy --dry-run` | **Code-ready** (see `PRODUCTION_DEPLOY.md`) |
-| Wrangler naming contracts + empty `hyperdrive: []` | **Code-ready** |
-| Fresh Manut Cloudflare / Hyperdrive / R2 / Queue / secrets | **Ops-blocked** |
-| `E2E_*` dedicated project, Expo org, GitHub Pro, DNS, revocation | **Ops-blocked** |
+| Deploy ownership (Workers Builds production; GitHub preview/staging)     | **Code-ready**                              |
+| Wrangler naming contracts + empty `hyperdrive: []`                       | **Code-ready**                              |
+| Fresh Manut Cloudflare / Hyperdrive / R2 / Queue / secrets               | **Ops-blocked**                             |
+| `E2E_*` dedicated project, Expo org, GitHub Pro, DNS, revocation         | **Ops-blocked**                             |
 
 **NOT ready for DNS / production traffic until** Phase E resources exist,
 staging Worker deploy is green, and a separate approved cutover authorizes
@@ -102,12 +116,7 @@ naming contracts).
       not shared with staging/production. Prefer Cloudflare Access–issued
       test credentials over inherited Supabase project names.
 - [ ] Configure the approved E2E secrets (names only in Git). Until the E2E
-      gate is renamed, the fail-closed set remains:
-      - `E2E_SUPABASE_URL` (legacy name — replace when E2E harness drops Supabase)
-      - `E2E_SUPABASE_ANON_KEY`
-      - `E2E_SUPABASE_SERVICE_ROLE_KEY`
-      - `E2E_DATABASE_URL`
-      - `E2E_DIRECT_URL`
+      gate is renamed, the fail-closed set remains: - `E2E_SUPABASE_URL` (legacy name — replace when E2E harness drops Supabase) - `E2E_SUPABASE_ANON_KEY` - `E2E_SUPABASE_SERVICE_ROLE_KEY` - `E2E_DATABASE_URL` - `E2E_DIRECT_URL`
 - [ ] Independent dedicated-project marker / guard remains enforced; never
       bypass for CI convenience.
 - [ ] Authenticated Playwright runs only against that project.
@@ -138,16 +147,18 @@ gates below.
 5. **Remove Next.js `apps/web`** and web-only dependencies only after full
    approved Expo web parity + browser E2E (Phase C).
 6. **Deploy / DNS cutover** remains a separate approved operation after
-   Phase E evidence — still not from unchecked enablement of disabled
-   workflows in this branch.
+   Phase E evidence; successful build/deploy configuration alone grants no
+   DNS authorization.
 
 ## Related code / docs (read-only pointers)
 
 - `docs/PRODUCTION_DEPLOY.md` — deploy-readiness report + cutover runbook
-- `docs/CICD_CLOUDFLARE.md` — GitHub Actions Workers deploy + Pages off note
+- `docs/CICD_CLOUDFLARE.md` — Workers Builds production, GitHub
+  preview/staging, token recovery, Pages off
 - `docs/CURSOR_HANDOFF.md` — Phase E narrative and blockers
 - `docs/CREDENTIAL_BOUNDARY.md` — clean provider rules
 - `apps/edge/wrangler.jsonc` — env naming + empty `hyperdrive: []`
 - `.env.example` / `apps/app/.env.example` — placeholder env names
 - `scripts/e2e/README.md` — E2E secret contract
-- `.github/workflows/deploy-staging.yml` / `deploy.yml` — Workers + Assets CI
+- `.github/workflows/deploy-preview.yml` / `deploy-staging.yml` —
+  non-production Workers + Assets CI

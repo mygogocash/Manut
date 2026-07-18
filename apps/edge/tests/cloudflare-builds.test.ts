@@ -31,6 +31,22 @@ describe("Cloudflare Workers Builds contract", () => {
     expect(script).not.toMatch(/\bturbo\b/u);
   });
 
+  it("generates Prisma before the PR Worker type-check", () => {
+    const workflow = readFileSync(
+      join(repoRoot, ".github/workflows/pr-checks.yml"),
+      "utf8",
+    );
+    const workerJob = workflow.match(
+      /^  worker-build:\s*\n([\s\S]*?)(?=^  [a-z][a-z-]+:\s*$)/mu,
+    )?.[1];
+
+    expect(workerJob).toBeTruthy();
+    expect(workerJob?.indexOf("pnpm db:generate")).toBeGreaterThan(-1);
+    expect(workerJob?.indexOf("pnpm db:generate")).toBeLessThan(
+      workerJob?.indexOf("pnpm --filter @manut/edge type-check") ?? -1,
+    );
+  });
+
   it("wrangler production Worker name matches Cloudflare service manut", () => {
     const wrangler = readFileSync(
       join(repoRoot, "apps/edge/wrangler.jsonc"),
@@ -47,7 +63,10 @@ describe("Cloudflare Workers Builds contract", () => {
 
     const envVars = (envName: string): string => {
       const block = wrangler.match(
-        new RegExp(`"${envName}"\\s*:\\s*\\{([\\s\\S]*?)\\n\\s{4}\\},?\\n`, "u"),
+        new RegExp(
+          `"${envName}"\\s*:\\s*\\{([\\s\\S]*?)\\n\\s{4}\\},?\\n`,
+          "u",
+        ),
       )?.[1];
       expect(block).toBeTruthy();
       return block ?? "";
@@ -68,6 +87,7 @@ describe("Cloudflare Workers Builds contract", () => {
     );
 
     const preview = envVars("preview");
+    expect(readVar(preview, "name")).toBe("manut-preview");
     expect(readVar(preview, "API_ORIGIN")).toBe("https://preview.manut.xyz");
     expect(readVar(preview, "TRUSTED_STORAGE_ORIGINS")).toBe(
       "https://preview.manut.xyz",
@@ -76,15 +96,11 @@ describe("Cloudflare Workers Builds contract", () => {
   });
 
   it("docs/CICD_CLOUDFLARE.md documents Workers Builds paste settings", () => {
-    const doc = readFileSync(
-      join(repoRoot, "docs/CICD_CLOUDFLARE.md"),
-      "utf8",
-    );
+    const doc = readFileSync(join(repoRoot, "docs/CICD_CLOUDFLARE.md"), "utf8");
     expect(doc).toContain("build:cloudflare");
     expect(doc).toContain("wrangler deploy --env production");
-    expect(doc).toMatch(
-      /versions upload --env preview|wrangler deploy --env preview/u,
-    );
+    expect(doc).toContain("wrangler deploy --env preview");
+    expect(doc).not.toContain("versions upload --env preview");
     expect(doc).toContain("24.18.0");
     expect(doc).toMatch(/Why `pnpm run build` fails/iu);
     expect(doc).toContain("CLOUDFLARE_BINDINGS.md");
@@ -94,10 +110,7 @@ describe("Cloudflare Workers Builds contract", () => {
   });
 
   it("docs/CICD_CLOUDFLARE.md self-provisions queues/R2 before deploys and documents Queues Edit token permission", () => {
-    const doc = readFileSync(
-      join(repoRoot, "docs/CICD_CLOUDFLARE.md"),
-      "utf8",
-    );
+    const doc = readFileSync(join(repoRoot, "docs/CICD_CLOUDFLARE.md"), "utf8");
     expect(doc).toContain(
       "node scripts/ensure-cloudflare-resources.mjs --env production && npx wrangler deploy --env production",
     );
@@ -105,6 +118,36 @@ describe("Cloudflare Workers Builds contract", () => {
       "node scripts/ensure-cloudflare-resources.mjs --env preview && npx wrangler deploy --env preview",
     );
     expect(doc).toMatch(/Queues[^\n]*Edit/u);
+    expect(doc).toMatch(/\*\*Edit\*\* \(not \*\*Roll\*\*\)/u);
+  });
+
+  it("documents a production-isolated preview Worker for Durable Object migrations", () => {
+    const doc = readFileSync(join(repoRoot, "docs/CICD_CLOUDFLARE.md"), "utf8");
+    const bootstrap = readFileSync(
+      join(repoRoot, "scripts/setup-cloudflare-deploy-secrets.sh"),
+      "utf8",
+    );
+
+    expect(doc).toContain("manut-preview");
+    expect(doc).toMatch(/Durable Object[^\n]*migration/iu);
+    expect(doc).toMatch(/Preview must not\s+use the Worker name `manut`/u);
+    expect(bootstrap).toContain(
+      'set_env_var preview EXPO_PUBLIC_API_URL "https://manut-preview.bettergogocash.workers.dev"',
+    );
+    expect(bootstrap).not.toContain(
+      'set_env_var preview EXPO_PUBLIC_API_URL "https://preview.manut.xyz"',
+    );
+    expect(bootstrap).toContain(
+      'set_env_secret preview EDGE_SIGNING_KEY "$preview_signing_key"',
+    );
+    expect(bootstrap).toContain(
+      'set_env_secret preview R2_ACCESS_KEY_ID "${R2_ACCESS_KEY_ID:-}"',
+    );
+    expect(bootstrap).toContain(
+      'set_env_secret preview R2_SECRET_ACCESS_KEY "${R2_SECRET_ACCESS_KEY:-}"',
+    );
+    expect(bootstrap).not.toContain("put_worker_secret");
+    expect(bootstrap).not.toMatch(/set_env_(?:secret|var) production/u);
   });
 
   it("docs/CLOUDFLARE_BINDINGS.md rejects D1 as SoR and lists required bindings", () => {

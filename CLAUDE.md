@@ -9,10 +9,12 @@
    and Android. Web acceptance is first; native store release is later.
 3. PostgreSQL via Prisma 7 and Cloudflare Hyperdrive remains authoritative. D1
    is edge metadata only.
-4. Workers deploy CI may run (staging auto / production gated) but must fail
- closed without Manut-owned GitHub Environment secrets. DNS cutover and
- Hyperdrive id invention remain unauthorized; keep `hyperdrive: []` until
- ops binds a real id. Do not use Cloudflare Pages as the SPA host.
+4. Cloudflare Workers Builds owns production deploys from `main`; GitHub
+   Actions owns preview and staging only and fails closed without Manut-owned
+   GitHub Environment secrets. Disable native non-production Workers Builds
+   after preview validation to prevent duplicate deploys. DNS cutover and
+   Hyperdrive id invention remain unauthorized; keep `hyperdrive: []` until
+   ops binds a real id. Keep Cloudflare Pages auto-deploy off.
 5. API permission and ownership checks remain authoritative even when a route
    is guarded in the client.
 
