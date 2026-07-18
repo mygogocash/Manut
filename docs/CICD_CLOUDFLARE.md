@@ -179,11 +179,34 @@ fabricate a Hyperdrive id.
 R2 buckets, Queues, and Durable Object migrations must exist (or be creatable
 by the deploy token) for the named contracts in `apps/edge/wrangler.jsonc`.
 
+## Bootstrap remaining secrets (local)
+
+OAuth (`wrangler login`) can set Worker secrets and create R2 buckets, but
+**cannot** mint a long-lived `CLOUDFLARE_API_TOKEN` for GitHub Actions. After
+creating a Manut-owned API token (and optional R2 S3 token) in the dashboard:
+
+```bash
+source ~/.nvm/nvm.sh && nvm use
+export CLOUDFLARE_API_TOKEN=…          # Workers Scripts Edit + Account read
+export CLOUDFLARE_ACCOUNT_ID=187ab61ed9dbc6e616cb23e6b95aa8f1
+# optional R2 S3 pair for Worker secrets.required:
+export R2_ACCESS_KEY_ID=…
+export R2_SECRET_ACCESS_KEY=…
+./scripts/setup-cloudflare-deploy-secrets.sh
+```
+
+The script never prints secret values. Committed `wrangler.jsonc` already sets
+non-secret production/preview vars (`API_ORIGIN`, boundary flags,
+`TRUSTED_STORAGE_ORIGINS`, `R2_BUCKET_NAME`). Auth JWKS vars stay empty until
+Access is configured (runtime fail-closed).
+
 ## First green preview / staging run — ops checklist
 
 - [ ] Pages auto-deploy disabled (see above)
 - [ ] Workers Builds: `build:cloudflare` + deploy commands above
-- [ ] GitHub Environments secrets + `EXPO_PUBLIC_API_URL`
+- [ ] GitHub Environments: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` + `EXPO_PUBLIC_API_URL`
+- [ ] Worker secrets: `EDGE_SIGNING_KEY`, `R2_*` (see bootstrap script)
+- [ ] Cloudflare Access JWKS → Worker `AUTH_*` vars
 - [ ] Bindings per `docs/CLOUDFLARE_BINDINGS.md` (cancel D1; add Hyperdrive/R2/…)
 - [ ] `preview.manu.xyz` on Preview env
 - [ ] Push / dispatch preview + staging; confirm service `manut` / Worker `manut-staging`

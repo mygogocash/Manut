@@ -16,7 +16,7 @@ export function requirePublicEnv(
   value: string | undefined,
 ): string {
   if (!value?.trim()) {
-    throw new Error(`${name} is required for native authentication.`);
+    throw new Error(`${name} is required for native API routing.`);
   }
   return value.trim();
 }

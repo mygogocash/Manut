@@ -19,7 +19,8 @@ export default defineConfig({
         test: {
           name: "workers",
           restoreMocks: true,
-          exclude: [...nodeContractTests],
+          include: ["tests/**/*.test.ts"],
+          exclude: [...nodeContractTests, "**/node_modules/**"],
         },
       },
       {
@@ -28,6 +29,7 @@ export default defineConfig({
           environment: "node",
           pool: "forks",
           include: [...nodeContractTests],
+          exclude: ["**/node_modules/**"],
         },
       },
     ],
