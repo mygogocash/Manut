@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 20,
-    "pending": 67,
+    "foundation": 22,
+    "pending": 65,
     "removed": 16
   },
   "statusSemantics": {
@@ -144,9 +144,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/cash-advance/page.tsx",
       "sourceRoute": "/cash-advance",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/cash-advance",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo self-service: mine list, create draft, submit, delete draft. Deferred: /cash-advance/approval config, approve/reject inbox, disburse/clear, R2 receipts/proofs, read-all tab."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/certificates/page.tsx",
@@ -768,9 +768,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/visa/page.tsx",
       "sourceRoute": "/visa",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/visa",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only tracker: list/detail + signed document open. Deferred: KB, checklist-templates, CRUD/import, notification config, timeline, checklist toggles, 90-day residence tab."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/voucher-crm/page.tsx",

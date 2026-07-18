@@ -31,7 +31,9 @@ type PortalLink = {
     | "/directory"
     | "/travel"
     | "/expenses"
-    | "/hrms";
+    | "/hrms"
+    | "/visa"
+    | "/cash-advance";
   permission: string | null;
 };
 
@@ -40,6 +42,12 @@ const PORTAL_LINKS: PortalLink[] = [
   { label: "Travel", href: "/travel", permission: "travel:read" },
   { label: "Expenses", href: "/expenses", permission: "expense:read" },
   { label: "HRMS", href: "/hrms", permission: "hrms:read" },
+  { label: "Visas", href: "/visa", permission: "visa:read" },
+  {
+    label: "Cash advance",
+    href: "/cash-advance",
+    permission: "cash-advance:read",
+  },
   {
     label: "Performance",
     href: "/performance",

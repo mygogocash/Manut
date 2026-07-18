@@ -9,6 +9,8 @@ export const SHELL_LINKS = [
   { href: "/travel" as const, label: "Travel" },
   { href: "/expenses" as const, label: "Expenses" },
   { href: "/hrms" as const, label: "HRMS" },
+  { href: "/visa" as const, label: "Visas" },
+  { href: "/cash-advance" as const, label: "Cash advance" },
   { href: "/employees" as const, label: "Employees" },
   { href: "/roles" as const, label: "Roles" },
   { href: "/settings" as const, label: "Settings" },

@@ -578,12 +578,11 @@ Migration order:
    payroll, benefits, attendance, learning, career, applications, office,
    employees, roles, and related approval screens.
    **Status 2026-07-18:** Wave 2 — Travel, Expenses, admin Employees/Roles,
-   and `/hrms` foundation (attendance today + check-in/out, ESOP grants list,
-   onboarding runs with task progress) are `foundation`. Next productive
-   slices: visa → cash advance → payroll/benefits; deepen with dedicated
-   approval routes / R2 uploads when preferred over new modules. Still
-   deferred inside HRMS: pool KPIs, imports/CRUD, offboarding, agreements,
-   payslips, live/department attendance.
+   `/hrms`, `/visa`, and `/cash-advance` (self list/create/submit/delete
+   draft) are `foundation`. Next productive slices: payroll/benefits; deepen
+   with dedicated approval routes / R2 uploads when preferred over new
+   modules. Still deferred: HRMS pool/import/offboarding; visa KB/templates/
+   90-day; cash-advance approval config, approve/reject, disburse/proofs.
 3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
    **Not started.**

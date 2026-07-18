@@ -41,6 +41,26 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
+  it("keeps Visas visible when visa:read is granted", () => {
+    const links = allowedShellLinks(["visa:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/visa",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Cash advance visible when cash-advance:read is granted", () => {
+    const links = allowedShellLinks(["cash-advance:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/cash-advance",
+      "/settings",
+    ]);
+  });
+
   it("keeps admin Employees and Roles off employee-only shells", () => {
     const links = allowedShellLinks(["user:read", "role:read"], true);
 
