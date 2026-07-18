@@ -1,6 +1,6 @@
 # Cursor handoff: Web-first Manut migration
 
-Last updated: 2026-07-17
+Last updated: 2026-07-18
 
 This is the canonical continuation plan for the clean-room replacement of
 Manut with a web-first universal Expo application and Cloudflare-first
@@ -320,19 +320,23 @@ Important parity distinction:
 - Leave provides live exact-decimal balances, carried-balance semantics,
   applicable LeaveType choices, validation, retry, an accessible universal
   request dialog, paginated self-scoped request history, and cancel for
-  pending/approved requests (with confirm). Calendar, team/HR actions, and
-  subroutes remain pending. Its route admits only `leave:read`/`leave:hr-read`
-  users because the current page requires the balances endpoint.
+  pending/approved requests (with confirm). Read-only `/leave/holidays` and
+  `/leave/approval` foundation slices are linked when permitted. Calendar,
+  team/HR approve actions, and `/leave/policies` remain pending. The main
+  `/leave` leaf admits only `leave:read`/`leave:hr-read` users because the
+  page requires the balances endpoint.
 - My Portal is a hub with profile header, leave-balance widgets, and
   permission-gated deep links (not full legacy tab parity).
 - Performance provides read-only appraisal list/detail via app-core; cycle
   admin, review submit, and goal writes remain pending. API actor scoping is
   already hardened.
-- Dashboard loads `GET /dashboard/stats` for permission-gated KPIs and pending
-  actions; charts/wall/compose remain pending.
+- Dashboard loads `GET /dashboard/stats` for permission-gated KPIs, pending
+  actions, and simple expense/project/department chart series; wall/compose
+  remain pending.
 - Settings loads the authenticated profile, privacy controls, password
-  navigation, and local device preferences. Integrations OAuth and admin
-  system settings remain pending, so the route stays `foundation`.
+  navigation, local device preferences, and Google Workspace connect/disconnect
+  (`integrations:use`). Admin system settings remain pending, so the route
+  stays `foundation`.
 - Accepted auth transitions bind React Query state to the current principal and
   authorization fingerprint before protected descendants render. Transient
   verification preserves the existing principal cache; identity or permission
@@ -480,6 +484,18 @@ Additional remaining dependency work:
 top-level read-only `contents: read` and `pull-requests: read` permissions,
 pins every action by commit SHA, and does not use `pull_request_target`.
 
+**PR #208 CI triage (run `29593883641` / CodeQL `29593881188`, 2026-07-17):**
+
+| Check | Cause | Owner / fix |
+| --- | --- | --- |
+| CodeQL `Analyze (ruby)` | Default setup runs Ruby; tree has no Ruby sources → “could not process any code written in Ruby” | Repo/org Code scanning default setup: drop Ruby (keep `javascript-typescript` only). Not fixable in app code. |
+| Authenticated E2E | `e2e` environment secrets empty (`E2E_SUPABASE_URL` … all blank) | Provision dedicated `manut-intranet-e2e` + five approved secrets on the `e2e` environment. Do not weaken the fail-closed gate. |
+| `Validate` | Aggregator only — failed because `dependency-review`, `static-unit`, and `e2e` failed | Clears when those three are green. Not independent product noise. |
+| Dependency review (OSV) | Lockfile hits (e.g. `@hono/node-server`, `@xmldom/xmldom`, `minimatch`, `xlsx`, …) | Patch/bump reviewed deps; do not disable OSV. |
+| Static and unit | Lint `import/no-unresolved` on `@/features/settings/preferences-storage` (`.web`/`.native` pair) | Fixed in `apps/app/eslint.config.mjs` ignore list (same pattern as `@/platform/*`). |
+
+JS/TS CodeQL, Secret scan, Web/Worker/Native builds, and Migration safety already passed on that run.
+
 Nine prerequisite jobs plus the final aggregator:
 
 1. `changes`
@@ -551,20 +567,23 @@ Migration order:
 1. Finish Phase 1 behavior: dashboard, directory, employee portal,
    Performance, Leave, and the remaining Settings preferences/integration
    slices. Preserve the accepted Settings profile/privacy slice.
-   **Status 2026-07-17:** Performance appraisals (read-only), My Portal hub,
+   **Status 2026-07-18:** Performance appraisals (read-only), My Portal hub,
    leave history pagination, directory org chart, dashboard KPIs/pending
-   actions, and local Settings preferences are in Expo as `foundation`
-   slices. Integrations OAuth, leave subroutes, and full dashboard charts
-   remain. Move Playwright employee/leave coverage from `:3000` to Expo
-   `:8081` as authenticated secrets become available.
+   actions + chart series, Settings preferences + Google OAuth, and leave
+   holidays/approval read-only subroutes are in Expo as `foundation` slices.
+   Leave calendar/team approve, `/leave/policies`, wall/compose, and admin
+   system settings remain. Move Playwright employee/leave coverage from
+   `:3000` to Expo `:8081` as authenticated secrets become available.
 2. HR/people and approvals: HRMS, travel, visa, expenses, cash advance,
    payroll, benefits, attendance, learning, career, applications, office,
    employees, roles, and related approval screens.
-   **Status 2026-07-17:** Wave 2 — Travel (self list/create/cancel + inbox
-   approve/reject + URL attachments), Expenses (self list/detail + draft
-   create/line/submit with optional receipt URL), and admin Employees/Roles
-   (read-only) are `foundation`. R2 uploads, dedicated approval routes, FX,
-   and `/hrms` ESOP/onboarding/attendance still pending.
+   **Status 2026-07-18:** Wave 2 — Travel, Expenses, admin Employees/Roles,
+   and `/hrms` foundation (attendance today + check-in/out, ESOP grants list,
+   onboarding runs with task progress) are `foundation`. Next productive
+   slices: visa → cash advance → payroll/benefits; deepen with dedicated
+   approval routes / R2 uploads when preferred over new modules. Still
+   deferred inside HRMS: pool KPIs, imports/CRUD, offboarding, agreements,
+   payslips, live/department attendance.
 3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
    **Not started.**

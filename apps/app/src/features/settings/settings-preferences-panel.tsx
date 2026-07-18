@@ -11,7 +11,7 @@ import {
   saveLocalPreferences,
 } from "@/features/settings/preferences-storage";
 
-const THEME_OPTIONS: Array<LocalPreferences["theme"]> = [
+const THEME_OPTIONS: LocalPreferences["theme"][] = [
   "system",
   "light",
   "dark",

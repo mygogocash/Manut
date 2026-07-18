@@ -31,6 +31,16 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
+  it("keeps HRMS visible when hrms:read is granted", () => {
+    const links = allowedShellLinks(["hrms:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/hrms",
+      "/settings",
+    ]);
+  });
+
   it("keeps admin Employees and Roles off employee-only shells", () => {
     const links = allowedShellLinks(["user:read", "role:read"], true);
 

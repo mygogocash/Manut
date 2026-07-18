@@ -25,16 +25,29 @@ const stats = {
       createdAt: "2026-07-01T10:00:00.000Z",
     },
   ],
+  expenseSummary: [{ month: "2026-07", expenses: 1200 }],
+  projectStatusBreakdown: [{ status: "active", count: 3 }],
+  employeesByDepartment: [{ department: "Operations", count: 5 }],
 };
 
 describe("dashboard contracts", () => {
-  it("projects KPIs and pending actions while stripping extras", () => {
+  it("projects KPIs, pending actions, and chart series while stripping extras", () => {
     const parsed = dashboardStatsSchema.parse({
       ...stats,
       recentNews: [{ id: "news-1" }],
     });
     expect(parsed).toEqual(stats);
     expect(parsed).not.toHaveProperty("recentNews");
+  });
+
+  it("defaults missing chart series to empty arrays", () => {
+    const parsed = dashboardStatsSchema.parse({
+      kpis: stats.kpis,
+      pendingActions: stats.pendingActions,
+    });
+    expect(parsed.expenseSummary).toEqual([]);
+    expect(parsed.projectStatusBreakdown).toEqual([]);
+    expect(parsed.employeesByDepartment).toEqual([]);
   });
 
   it("loads dashboard stats and forwards aborts", async () => {

@@ -234,6 +234,24 @@ export const ROUTE_OVERRIDES: readonly RouteOverride[] = [
     },
   },
   {
+    matches: (pathname) => pathname === "/leave/holidays",
+    policy: {
+      path: "/leave/holidays",
+      access: "protected",
+      permissions: ["leave:read", "leave:hr-read", "leave:hr-settings"],
+      employeeAllowed: true,
+    },
+  },
+  {
+    matches: (pathname) => pathname === "/leave/approval",
+    policy: {
+      path: "/leave/approval",
+      access: "protected",
+      permissions: ["leave:assign-approver", "leave:hr-settings"],
+      employeeAllowed: false,
+    },
+  },
+  {
     matches: (pathname) => pathname === "/travel",
     policy: {
       path: "/travel",

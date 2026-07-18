@@ -129,6 +129,28 @@ export type {
   LeaveSource,
   LeaveType,
 } from "./leave/leave";
+export {
+  LEAVE_APPROVAL_STEPS_QUERY_KEY,
+  leaveApprovalStepSchema,
+  leaveApproverTypeLabel,
+  listLeaveApprovalSteps,
+} from "./leave/leave-approval-steps";
+export type {
+  LeaveApprovalStep,
+  LeaveApproverType,
+} from "./leave/leave-approval-steps";
+export {
+  HOLIDAYS_QUERY_ROOT,
+  holidayListParamsSchema,
+  holidaysQueryKey,
+  listHolidays,
+  publicHolidaySchema,
+} from "./holidays/holidays";
+export type {
+  HolidayList,
+  HolidayListParams,
+  PublicHoliday,
+} from "./holidays/holidays";
 export type {
   DirectoryAccessTier,
   Department,
@@ -170,14 +192,20 @@ export type {
 } from "./performance/performance";
 export {
   DASHBOARD_STATS_QUERY_KEY,
+  dashboardDepartmentSchema,
+  dashboardExpenseSummarySchema,
   dashboardKpisSchema,
   dashboardPendingActionSchema,
+  dashboardProjectStatusSchema,
   dashboardStatsSchema,
   getDashboardStats,
 } from "./dashboard/dashboard";
 export type {
+  DashboardDepartment,
+  DashboardExpenseSummary,
   DashboardKpis,
   DashboardPendingAction,
+  DashboardProjectStatus,
   DashboardStats,
 } from "./dashboard/dashboard";
 export {
@@ -190,6 +218,18 @@ export type {
   LocalPreferences,
   LocalPreferencesInput,
 } from "./settings/preferences";
+export {
+  disconnectGoogle,
+  getIntegrationsStatus,
+  INTEGRATIONS_STATUS_QUERY_KEY,
+  integrationsStatusSchema,
+  oauthReturnMessage,
+  startGoogleOauth,
+} from "./integrations/integrations";
+export type {
+  GoogleConnectionStatus,
+  IntegrationsStatus,
+} from "./integrations/integrations";
 export {
   addTravelAttachments,
   addTravelAttachmentsInputSchema,
@@ -267,3 +307,43 @@ export type {
 } from "./admin/admin-users";
 export { ROLES_QUERY_KEY, listRoles, roleSchema } from "./admin/roles";
 export type { Role } from "./admin/roles";
+export {
+  ATTENDANCE_TODAY_QUERY_KEY,
+  attendanceRecordSchema,
+  attendanceStatusSchema,
+  attendanceWorkModeSchema,
+  checkInAttendance,
+  checkInAttendanceInputSchema,
+  checkOutAttendance,
+  checkOutAttendanceInputSchema,
+  ESOP_GRANTS_QUERY_ROOT,
+  esopGrantListParamsSchema,
+  esopGrantSchema,
+  esopGrantStatusSchema,
+  esopGrantTypeSchema,
+  esopGrantsQueryKey,
+  esopValueTypeSchema,
+  getAttendanceToday,
+  listEsopGrants,
+  listOnboardingRuns,
+  ONBOARDING_RUNS_QUERY_ROOT,
+  onboardingRunListParamsSchema,
+  onboardingRunSchema,
+  onboardingRunsQueryKey,
+} from "./hrms/hrms";
+export type {
+  AttendanceRecord,
+  AttendanceStatus,
+  AttendanceWorkMode,
+  CheckInAttendanceInput,
+  CheckOutAttendanceInput,
+  EsopGrant,
+  EsopGrantList,
+  EsopGrantListParams,
+  EsopGrantStatus,
+  EsopGrantType,
+  EsopValueType,
+  OnboardingRun,
+  OnboardingRunList,
+  OnboardingRunListParams,
+} from "./hrms/hrms";

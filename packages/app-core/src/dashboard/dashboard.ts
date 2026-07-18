@@ -25,10 +25,34 @@ export const dashboardPendingActionSchema = z
   })
   .strict();
 
-// Project only the hub widgets for Phase 1; strip the rest of /dashboard/stats.
+export const dashboardExpenseSummarySchema = z
+  .object({
+    month: z.string().min(1),
+    expenses: z.number().nonnegative(),
+  })
+  .strict();
+
+export const dashboardProjectStatusSchema = z
+  .object({
+    status: z.string().min(1),
+    count: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const dashboardDepartmentSchema = z
+  .object({
+    department: z.string().min(1),
+    count: z.number().int().nonnegative(),
+  })
+  .strict();
+
+// Project hub widgets + chart series; strip wall/news/compose payloads.
 export const dashboardStatsSchema = z.object({
   kpis: dashboardKpisSchema,
   pendingActions: z.array(dashboardPendingActionSchema),
+  expenseSummary: z.array(dashboardExpenseSummarySchema).default([]),
+  projectStatusBreakdown: z.array(dashboardProjectStatusSchema).default([]),
+  employeesByDepartment: z.array(dashboardDepartmentSchema).default([]),
 });
 
 const dashboardStatsResponseSchema = z.object({
@@ -39,6 +63,13 @@ export type DashboardKpis = z.infer<typeof dashboardKpisSchema>;
 export type DashboardPendingAction = z.infer<
   typeof dashboardPendingActionSchema
 >;
+export type DashboardExpenseSummary = z.infer<
+  typeof dashboardExpenseSummarySchema
+>;
+export type DashboardProjectStatus = z.infer<
+  typeof dashboardProjectStatusSchema
+>;
+export type DashboardDepartment = z.infer<typeof dashboardDepartmentSchema>;
 export type DashboardStats = z.infer<typeof dashboardStatsSchema>;
 
 export const DASHBOARD_STATS_QUERY_KEY = ["dashboard", "stats"] as const;

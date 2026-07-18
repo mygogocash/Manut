@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 13,
-    "pending": 74,
+    "foundation": 20,
+    "pending": 67,
     "removed": 16
   },
   "statusSemantics": {
@@ -162,7 +162,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/dashboard",
-      "note": "Expo wires GET /dashboard/stats for permission-gated KPIs and pending actions; charts, wall, and compose flows remain before parity."
+      "note": "Expo wires GET /dashboard/stats for permission-gated KPIs, pending actions, and simple expense/project/department chart series; wall and compose flows remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/dataroom/page.tsx",
@@ -264,9 +264,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/hrms/page.tsx",
       "sourceRoute": "/hrms",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/hrms",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo hub: attendance today + check-in/out, ESOP grants list, onboarding runs list (task progress). Deferred: pool KPIs, imports/CRUD, offboarding, agreements, payslips, live/department attendance, grant detail route rename."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/investor-crm/page.tsx",
@@ -352,17 +352,17 @@
       "sourcePath": "apps/web/src/app/(dashboard)/leave/approval/page.tsx",
       "sourceRoute": "/leave/approval",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/leave/approval",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only approval-steps list via app-core. Step create/edit/reorder and notification recipients remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/holidays/page.tsx",
       "sourceRoute": "/leave/holidays",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/leave/holidays",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only year-filtered holiday list via app-core. Holiday create/edit/delete remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/page.tsx",
@@ -370,7 +370,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/leave",
-      "note": "Expo has balances, request create/cancel, and paginated self history. Calendar, team/HR actions, and leave subroutes remain before parity can be claimed."
+      "note": "Expo has balances, request create/cancel, paginated self history, and links to holidays/approval foundation. Calendar, team/HR approve actions, and /leave/policies remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/policies/page.tsx",
@@ -666,7 +666,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/settings",
-      "note": "Expo has profile/privacy plus local device preferences. Integrations OAuth and admin system settings remain before parity can be claimed."
+      "note": "Expo has profile/privacy, local preferences, and Google Workspace connect/disconnect. Admin system settings and Gmail/Drive product screens remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/survey-forms/[id]/page.tsx",

@@ -29,6 +29,7 @@ import {
   TextField,
 } from "@manut/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -467,8 +468,16 @@ function LeaveRequestDialog({
 export function LeaveScreen() {
   const api = useApiClient();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { user, hasPermission } = useAuth();
   const canRequest = hasPermission("leave:request");
+  const canViewHolidays =
+    hasPermission("leave:read") ||
+    hasPermission("leave:hr-read") ||
+    hasPermission("leave:hr-settings");
+  const canViewApprovalChain =
+    hasPermission("leave:assign-approver") ||
+    hasPermission("leave:hr-settings");
   const employeeId = user?.id;
   const [historyPage, setHistoryPage] = useState(1);
   const selfRequestParams = useMemo(
@@ -657,6 +666,28 @@ export function LeaveScreen() {
                 request.
               </Text>
             )}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              {canViewHolidays ? (
+                <Button
+                  label="Public holidays"
+                  pendingLabel="Opening…"
+                  accessibilityLabel="Open public holidays"
+                  onPress={() => {
+                    router.push("/leave/holidays");
+                  }}
+                />
+              ) : null}
+              {canViewApprovalChain ? (
+                <Button
+                  label="Approval chain"
+                  pendingLabel="Opening…"
+                  accessibilityLabel="Open leave approval chain"
+                  onPress={() => {
+                    router.push("/leave/approval");
+                  }}
+                />
+              ) : null}
+            </View>
           </Card>
 
           {successMessage ? (

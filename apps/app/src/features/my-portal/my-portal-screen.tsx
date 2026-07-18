@@ -30,7 +30,8 @@ type PortalLink = {
     | "/settings"
     | "/directory"
     | "/travel"
-    | "/expenses";
+    | "/expenses"
+    | "/hrms";
   permission: string | null;
 };
 
@@ -38,6 +39,7 @@ const PORTAL_LINKS: PortalLink[] = [
   { label: "Leave", href: "/leave", permission: "leave:read" },
   { label: "Travel", href: "/travel", permission: "travel:read" },
   { label: "Expenses", href: "/expenses", permission: "expense:read" },
+  { label: "HRMS", href: "/hrms", permission: "hrms:read" },
   {
     label: "Performance",
     href: "/performance",

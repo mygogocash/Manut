@@ -11,9 +11,28 @@ describe("route policy resolution", () => {
       "leave:read",
       "leave:hr-read",
     ]);
+    expect(resolveRoutePolicy("/leave/holidays")?.permissions).toEqual([
+      "leave:read",
+      "leave:hr-read",
+      "leave:hr-settings",
+    ]);
+    expect(resolveRoutePolicy("/leave/approval")?.permissions).toEqual([
+      "leave:assign-approver",
+      "leave:hr-settings",
+    ]);
     expect(resolveRoutePolicy("/leave/policies")?.permissions).toEqual([
       "leave:read",
     ]);
+  });
+
+  it("blocks employee-only accounts from leave approval chain admin", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/leave/approval",
+        permissions: ["leave:hr-settings"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
   });
 
   it("does not admit an approver-only account to the balance-led Leave page", () => {

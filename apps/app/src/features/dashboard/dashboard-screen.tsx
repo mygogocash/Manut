@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+import { SimpleBarSeries } from "@/features/dashboard/simple-bar-series";
 import { useAuth } from "@/features/auth/auth-provider";
 import { useApiClient } from "@/providers/api-client-provider";
 
@@ -44,6 +45,7 @@ export function DashboardScreen() {
     hasPermission("expense:approve") ||
     hasPermission("expense:hr-read");
   const showProjectsKpi = hasPermission("projects:read");
+  const showDepartmentChart = hasPermission("user:read");
 
   return (
     <ScrollView
@@ -177,6 +179,43 @@ export function DashboardScreen() {
               ))}
             </View>
           </Card>
+        ) : null}
+
+        {statsQuery.data && showExpenseKpi ? (
+          <SimpleBarSeries
+            title="Monthly expenses"
+            description="Last months of expense totals"
+            emptyLabel="Once expenses come in, you'll see them charted here."
+            data={statsQuery.data.expenseSummary.map((row) => ({
+              label: row.month,
+              value: row.expenses,
+            }))}
+            formatValue={(value) => value.toLocaleString()}
+          />
+        ) : null}
+
+        {statsQuery.data && showProjectsKpi ? (
+          <SimpleBarSeries
+            title="Projects by status"
+            emptyLabel="No project status breakdown yet."
+            data={statsQuery.data.projectStatusBreakdown.map((row) => ({
+              label: row.status.replaceAll("_", " "),
+              value: row.count,
+            }))}
+          />
+        ) : null}
+
+        {statsQuery.data && showDepartmentChart ? (
+          <SimpleBarSeries
+            title="Team by department"
+            emptyLabel="No department headcount yet."
+            data={statsQuery.data.employeesByDepartment
+              .slice(0, 7)
+              .map((row) => ({
+                label: row.department,
+                value: row.count,
+              }))}
+          />
         ) : null}
 
         <Button
