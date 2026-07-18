@@ -497,6 +497,18 @@ pins every action by commit SHA, and does not use `pull_request_target`.
 
 JS/TS CodeQL, Secret scan, Web/Worker/Native builds, and Migration safety already passed on that run.
 
+**External ops checklist (cannot complete from this worktree alone — 2026-07-18):**
+
+| Item | Owner | Status / next action |
+| --- | --- | --- |
+| E2E secrets + dedicated project | Ops | Still blocked: five `E2E_*` on `e2e` env + `manut-intranet-e2e`. Do not soft-skip the gate. |
+| CodeQL Ruby language | Repo settings | Drop Ruby from default Code scanning setup (JS/TS already passes). |
+| OSV / dependency-review bumps | Eng | Review Dependabot/OSV hits and bump low-risk lockfile deps; keep OSV fail-closed. |
+| Static-unit platform ignore | Eng | Preferences-storage `.web`/`.native` ignore landed; re-check CI if new unresolved pairs appear. |
+| GitHub Free → Pro | Org | Branch protection / required `Validate` still 403 on Free org plan. |
+| Phase E Cloudflare / Expo / Hyperdrive | Ops | Fresh Manut-owned resources only; no deploy from this branch. |
+| Credential revocation proof | Ops | Negative auth evidence + rotate any exposed worker secrets out-of-band. |
+
 Nine prerequisite jobs plus the final aggregator:
 
 1. `changes`
@@ -586,19 +598,26 @@ Migration order:
    (recruiter inbox read + `application:*` registry; employee-boundary).
    Leave calendar/team approve + `/leave/policies`, and read-only
    `/expenses/approval` + `/cash-advance/approval` chain foundations landed.
-   Next: Wave 3 Operations, wall/compose, admin system settings, or deepen
-   R2/book-self/apply. Still deferred: office book-self + manage; careers
-   apply/manage; applications status writes; payroll create/approve/payslip
-   export; benefits enroll/manage; learning manage/complete; HRMS
+   Still deferred: office book-self + manage; careers apply/manage;
+   applications status writes; payroll create/approve/payslip export;
+   benefits enroll/manage; learning manage/complete; HRMS
    pool/import/offboarding; visa KB/templates/90-day; cash-advance
-   approve/disburse actions; expense report approve + R2 receipts.
+   approve/disburse actions; expense report approve + R2 receipts;
+   wall/compose; admin system settings.
    3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
-   **Not started.** Wave 2 HR foundation spine is green; Wave 3 can start
-   without waiting on E2E secrets or Phase E provisioning.
+   **Status 2026-07-18:** Wave 3 started — `/it-helpdesk` (read-only ticket
+   list) and `/projects` (read-only general team list) landed as `foundation`.
+   Still pending: `/projects/[projectId]`, `/projects/dashboard`, Sales/CRM
+   family, accounting/revenue, content/comms, reporting, administration hubs,
+   helpdesk writes/comments/GitHub, and project boards/task writes.
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
-   **Not started.**
+   **Status 2026-07-18:** Wave 4 not started in Expo product UI. Concrete
+   next slices when prioritized: (1) files/R2 list + signed download URL
+   read path using existing edge upload/download intents; (2) integrations
+   product UI beyond Settings Google connect/disconnect. Do not invent
+   AI/marketing modules. Keep status `pending` until API/web parity is clear.
 
 For each route slice:
 

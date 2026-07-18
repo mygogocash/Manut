@@ -553,3 +553,31 @@ export type {
   ApplicationList,
   ApplicationListParams,
 } from "./applications/applications";
+export {
+  HELPDESK_TICKETS_QUERY_ROOT,
+  helpdeskTicketCategorySchema,
+  helpdeskTicketListParamsSchema,
+  helpdeskTicketPrioritySchema,
+  helpdeskTicketsQueryKey,
+  helpdeskTicketSchema,
+  helpdeskTicketStatusLabel,
+  helpdeskTicketStatusSchema,
+  listHelpdeskTickets,
+} from "./helpdesk/helpdesk";
+export type {
+  HelpdeskTicket,
+  HelpdeskTicketList,
+  HelpdeskTicketListParams,
+} from "./helpdesk/helpdesk";
+export {
+  listProjects,
+  PROJECTS_QUERY_ROOT,
+  projectListParamsSchema,
+  projectSchema,
+  projectsQueryKey,
+} from "./projects/projects";
+export type {
+  Project,
+  ProjectList,
+  ProjectListParams,
+} from "./projects/projects";

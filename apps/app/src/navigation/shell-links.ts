@@ -17,6 +17,8 @@ export const SHELL_LINKS = [
   { href: "/office" as const, label: "Office" },
   { href: "/careers" as const, label: "Careers" },
   { href: "/applications" as const, label: "Applications" },
+  { href: "/it-helpdesk" as const, label: "IT Helpdesk" },
+  { href: "/projects" as const, label: "Projects" },
   { href: "/employees" as const, label: "Employees" },
   { href: "/roles" as const, label: "Roles" },
   { href: "/settings" as const, label: "Settings" },

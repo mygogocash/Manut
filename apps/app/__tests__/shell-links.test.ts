@@ -127,6 +127,32 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
+  it("keeps IT Helpdesk visible when it:read is granted", () => {
+    const links = allowedShellLinks(["it:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/it-helpdesk",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Projects off employee-only shells even with projects:read", () => {
+    const links = allowedShellLinks(["projects:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);
+  });
+
+  it("keeps Projects visible for non-employee accounts with projects:read", () => {
+    const links = allowedShellLinks(["projects:read"], false);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/projects",
+      "/settings",
+    ]);
+  });
+
   it("keeps admin Employees and Roles off employee-only shells", () => {
     const links = allowedShellLinks(["user:read", "role:read"], true);
 

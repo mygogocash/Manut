@@ -216,6 +216,33 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     employeeAllowed: false,
     prefix: true,
   },
+  {
+    path: "/it-helpdesk",
+    access: "protected",
+    permissions: ["it:read", "it:read-all", "it:create"],
+    employeeAllowed: true,
+    prefix: true,
+  },
+  {
+    path: "/projects",
+    access: "protected",
+    permissions: [
+      "projects:read",
+      "projects:read-all",
+      "it-crm:read",
+      "it-crm:read-all",
+      "product-crm:read",
+      "product-crm:read-all",
+      "legal-crm:read",
+      "legal-crm:read-all",
+      "accounting-crm:read",
+      "accounting-crm:read-all",
+      "hr-crm:read",
+      "hr-crm:read-all",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
 ];
 
 export interface RouteOverride {

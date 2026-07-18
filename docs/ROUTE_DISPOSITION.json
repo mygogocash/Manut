@@ -10,8 +10,8 @@
     "replace": 8
   },
   "statusCounts": {
-    "foundation": 31,
-    "pending": 56,
+    "foundation": 33,
+    "pending": 54,
     "removed": 16
   },
   "statusSemantics": {
@@ -312,9 +312,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/it-helpdesk/page.tsx",
       "sourceRoute": "/it-helpdesk",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/it-helpdesk",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only helpdesk ticket list via app-core (mine/all by it:read-all). Create, status/assignee writes, comments, settings, and GitHub sync remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-operations/access/page.tsx",
@@ -608,9 +608,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/projects/page.tsx",
       "sourceRoute": "/projects",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/projects",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo has read-only general team project list via app-core. Boards, /projects/[projectId], /projects/dashboard, task writes, members, and team CRM workspaces remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/qa-crm/[projectId]/page.tsx",
