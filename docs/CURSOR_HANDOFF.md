@@ -135,7 +135,7 @@ D1 (optional non-authoritative edge metadata only)
 | API strictness and hardening         | **Implemented locally**                   | Strict TypeScript, webhook bytes, purge lifecycle, lifecycle-safe auth/RBAC, atomic Leave state changes, live-socket revalidation, Performance scoping, and profile projection are implemented.               |
 | Universal Expo foundation            | **Implemented**                           | Expo SDK 57, shared API/session runtime, app-core/UI packages, auth transports, app shell, Expo Doctor, and three-platform exports pass. This is a foundation, not full route parity.                         |
 | Approved web route parity            | **Foundations landed; deepen + E2E remain** | Inventory: **88 foundation**, **0 pending**, **16 removed** (plus Expo-only `/files`). Waves 2–4 Expo route foundations are in tree; `/messages` DO shared-room + bus→DO bridge (socket.io fallback); survey question replace/publish landed (announce/analytics still deferred); Expo E2E cutover remain. |
-| Cloudflare edge layer                | **Locally implemented + Hyperdrive messages/deals dual-path** | Worker auth, SPA assets, R2, DO realtime, Queues/DLQ, rate limits, Workflows/Container stubs; Hyperdrive fail-closed helper + `/api/messages` and `/api/deals` dual-path (Prisma via Hyperdrive when `ENABLE_HYPERDRIVE_BOUNDARY=true`, else Express proxy). Fresh Hyperdrive id / deploy not provisioned. |
+| Cloudflare edge layer                | **Locally implemented + Hyperdrive messages/deals/survey/HR dual-path** | Worker auth, SPA assets, R2, DO realtime, Queues/DLQ, rate limits, Workflows/Container stubs; Hyperdrive fail-closed helper + dual-path for `/api/messages`, `/api/deals`, `/api/survey`, `/api/survey-forms`, `/api/expenses` reports, `/api/benefits` catalog, `/api/learning/modules` (Prisma via Hyperdrive when `ENABLE_HYPERDRIVE_BOUNDARY=true`, else Express proxy). Fresh Hyperdrive id / deploy not provisioned. |
 | Clean PostgreSQL baseline            | **Implemented**                           | One sanitized baseline plus hash manifest, setup/assert scripts, and migration harness exist. Local Docker replay is blocked; CI PostgreSQL 16 lane is ready.                                                 |
 | Dependency upgrades                  | **Mostly implemented**                    | Requested upgrades, compatibility pins, Expo, and Cloudflare packages are present. Legacy Next/Tailwind/Vite/jsdom bridge packages remain until parity.                                                       |
 | CI decomposition                     | **Implemented locally**                   | Nine prerequisite jobs plus final `Validate`, pinned actions, read-only contents/PR metadata, and no `pull_request_target`. Not run on GitHub yet.                                                            |
@@ -383,6 +383,24 @@ Primary files are under `apps/edge/src`:
   (own-scope unless `crm:team-read`) and `POST /` create; client projection
   strips notes/owner email; **still proxied:** `/pipeline`, `GET/PUT/DELETE
   /:id`;
+- `survey-engine/*` + `survey/*` + `survey-forms/*`: dual-path for both
+  `/api/survey` and `/api/survey-forms` — Hyperdrive+Prisma for list (scope
+  available/mine/all + archived manager gate), get-by-id, create, `PUT
+  /:id/questions`, `POST /:id/publish` (no announce body), `POST
+  /:id/responses`, `GET /:id/my-response`; mirrors Express
+  `survey:manage` / `survey:manage-wave` + owner/audience rules; strips
+  creator email and targeting arrays on the edge projection; **still
+  proxied:** announce (including publish with `announce`), schedule,
+  analytics, archive/unarchive, close/reopen, update/delete, settings,
+  responses list;
+- `expenses/*`: dual-path `/api/expenses/reports` — self-scoped `GET` list +
+  `POST` create (office category HR-gated); THB totals on edge, non-THB
+  lines mark `converted:false`; **still proxied:** `pendingForMe` /
+  `includeAll`, lines, submit, approvals, raw `/expenses` items, meta;
+- `benefits/*` + `learning/*`: dual-path catalog reads — `GET /api/benefits`
+  and `GET /api/learning/modules`; enrollments/completions/manage stay
+  proxied;
+- `rbac.ts`: shared Hyperdrive permission loader (roles + module grants);
 - `wrangler.jsonc`: unique resource naming contracts for local, development,
   preview, E2E, staging, and production environments. `hyperdrive: []` stays
   empty until a Manut-owned Hyperdrive config id is supplied.
@@ -399,10 +417,11 @@ to loopback; remote environments use signed R2 operations.
 3. Set var `ENABLE_HYPERDRIVE_BOUNDARY=true` per environment.
 4. Keep `API_ORIGIN` configured for Express fallback routes and auth JWKS.
 
-Latest local evidence (2026-07-18 Hyperdrive messages+deals slice):
+Latest local evidence (2026-07-18 Hyperdrive survey + HR slice):
 
-- 11 Worker test files and 63 tests passed (Hyperdrive fail-closed +
-  messages remaining routes + deals list/create dual-path);
+- 14 Worker test files and 83 tests passed (prior messages/deals coverage +
+  survey/survey-forms dual-path + expenses reports list/create +
+  benefits/learning catalog fail-closed/proxy);
 - Deploy workflows remain `deploy.yml.disabled` / `deploy-staging.yml.disabled`;
 - No Hyperdrive id or Cloudflare deploy was performed.
 
@@ -413,8 +432,11 @@ Cloudflare accounts were not proven to be fresh Manut-owned accounts.
 
 - Message attachment linking + list enrichment (uploads) on Hyperdrive path;
 - Deals pipeline / get-by-id / update / delete on Hyperdrive path;
-- Progressive Worker dual-path for **survey → HR** read/write slices
-  (same Hyperdrive-on / Express-off pattern);
+- Survey exotic leftovers (announce/schedule/analytics/archive) if/when
+  Expo needs them edge-native; survey-forms respond already edge-ready;
+- HR continue: leave list (self) then create (balance/chain — hard), cash-
+  advance list (+ create after storage), visa self-list, payroll list
+  (sensitive), expense FX parity + `pendingForMe`;
 - Provision fresh Manut Hyperdrive / R2 / Queue / DO / Worker envs (Phase E);
 - Workflow authorization contract + Container API hosting remain stubs;
 - Authenticated Expo E2E against a provisioned edge origin.
@@ -680,7 +702,7 @@ Migration order:
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
-   **Status 2026-07-18 (messages + deals Hyperdrive dual-path):**
+   **Status 2026-07-18 (messages/deals/survey/HR Hyperdrive dual-path):**
    `/messages` Expo sends via REST and receives live
    `message.created`/`message.deleted` preferring the edge Durable Object
    shared room `channel:{channelId}` (membership via Hyperdrive+Prisma when
@@ -690,15 +712,19 @@ Migration order:
    and message list/send/delete on Hyperdrive (DO fan-out on writes); attachment
    sends still proxy to Express. `/api/deals` dual-path: list + create on
    Hyperdrive with `crm:team-read` owner scope; pipeline/detail/update/delete
-   still proxy. Express `messageBus` still fans to the DO when
-   `EDGE_REALTIME_ORIGIN` + `EDGE_REALTIME_BRIDGE_SECRET` (must match Worker
-   `EDGE_SIGNING_KEY`) are set; socket.io `/messages` remains the client
-   fallback when the edge origin/bridge is unset. Fail closed: missing
+   still proxy. `/api/survey` + `/api/survey-forms` dual-path: list, detail,
+   create, questions replace, publish (no announce), respond, my-response;
+   announce/schedule/analytics/archive/settings still proxy. HR start:
+   `/api/expenses/reports` self list+create; `/api/benefits` +
+   `/api/learning/modules` catalog reads. Express `messageBus` still fans to
+   the DO when `EDGE_REALTIME_ORIGIN` + `EDGE_REALTIME_BRIDGE_SECRET` (must
+   match Worker `EDGE_SIGNING_KEY`) are set; socket.io `/messages` remains the
+   client fallback when the edge origin/bridge is unset. Fail closed: missing
    `REALTIME_ROOMS` / `API_ORIGIN` / bridge secret / Hyperdrive binding
    (when flagged on) rejects the edge-native path. Other Wave 4 deepen
    still open: multipart upload, Drive/Gmail send/compose, document
-   processing, approved Manut AI only. **Next CF module candidates: survey →
-   HR** (same dual-path pattern).
+   processing, approved Manut AI only. **Next CF module candidates: leave /
+   cash-advance / visa list slices** (same dual-path pattern).
 
 For each route slice:
 

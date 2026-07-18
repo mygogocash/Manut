@@ -10,14 +10,20 @@ import {
   type VerifyAccessToken,
   verifyAccessToken,
 } from "./auth";
+import { createBenefitsRoutes } from "./benefits/routes";
 import { assertChannelMembership } from "./channel-membership";
 import { sha256Base64Url } from "./crypto";
 import {
   createDealsRoutes,
   type CreateDealsStore,
 } from "./deals/routes";
+import {
+  createExpensesRoutes,
+  type CreateExpensesStore,
+} from "./expenses/routes";
 import { HttpError } from "./http-error";
 import { isHyperdriveEnabled } from "./hyperdrive";
+import { createLearningRoutes } from "./learning/routes";
 import {
   createMessagesRoutes,
   type CreateMessagesStore,
@@ -38,6 +44,11 @@ import {
 import { RealtimeRoom } from "./realtime-room";
 import { buildChannelRoomName, isRoomId } from "./room-protocol";
 import type { EdgeEnv, RuntimeBindings } from "./runtime";
+import { createSurveyRoutes, type CreateSurveyStore } from "./survey/routes";
+import {
+  createSurveyFormsRoutes,
+  type CreateSurveyFormsStore,
+} from "./survey-forms/routes";
 import { uploadRoutes } from "./uploads";
 
 export { BackgroundWorkflow, ContainerBoundary, QueueLedger, RealtimeRoom };
@@ -46,7 +57,10 @@ const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/u;
 
 interface EdgeAppOptions {
   createDealsStore?: CreateDealsStore;
+  createExpensesStore?: CreateExpensesStore;
   createMessagesStore?: CreateMessagesStore;
+  createSurveyStore?: CreateSurveyStore;
+  createSurveyFormsStore?: CreateSurveyFormsStore;
   verifyToken?: VerifyAccessToken;
 }
 
@@ -172,6 +186,26 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
       createDealsStore: options.createDealsStore,
     }),
   );
+  app.route(
+    "/api/survey",
+    createSurveyRoutes({
+      createSurveyStore: options.createSurveyStore,
+    }),
+  );
+  app.route(
+    "/api/survey-forms",
+    createSurveyFormsRoutes({
+      createSurveyStore: options.createSurveyFormsStore,
+    }),
+  );
+  app.route(
+    "/api/expenses",
+    createExpensesRoutes({
+      createExpensesStore: options.createExpensesStore,
+    }),
+  );
+  app.route("/api/benefits", createBenefitsRoutes());
+  app.route("/api/learning", createLearningRoutes());
 
   app.post("/api/v1/realtime/rooms/:roomId/events", async (context) => {
     const roomId = context.req.param("roomId");
