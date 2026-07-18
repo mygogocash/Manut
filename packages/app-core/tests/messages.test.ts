@@ -2,10 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../src/api/api-client";
 import {
+  channelMessagesQueryKey,
+  listChannelMessages,
   listMessageChannels,
   messageChannelSchema,
   messageChannelsQueryKey,
 } from "../src/messages/messages";
+import {
+  REALTIME_LIVE_CHAT_BLOCKER,
+  buildRealtimeRoomPath,
+  buildRealtimeRoomWebSocketUrl,
+  isRealtimeRoomId,
+  parseRealtimeServerMessage,
+} from "../src/messages/realtime-room";
 
 const channel = {
   id: "ch-1",
@@ -20,6 +29,23 @@ const channel = {
   creator: { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", name: "Ada" },
   _count: { messages: 12 },
   unreadCount: 3,
+};
+
+const message = {
+  id: "msg-1",
+  channelId: "ch-1",
+  authorId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  content: "Hello team",
+  isDeleted: false,
+  createdAt: "2026-07-02T12:00:00.000Z",
+  author: {
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    name: "Ada",
+    avatarUrl: "https://cdn.example/avatar.png",
+    email: "ada@example.com",
+  },
+  attachments: [],
+  readBy: [],
 };
 
 describe("messages foundation contracts", () => {
@@ -56,5 +82,57 @@ describe("messages foundation contracts", () => {
     });
     expect(get).toHaveBeenCalledWith("/messages/channels", { signal });
     expect(messageChannelsQueryKey()).toEqual(["messages", "channels"]);
+  });
+
+  it("lists channel message history and strips author PII extras", async () => {
+    const signal = { aborted: false };
+    const get = vi.fn().mockResolvedValue({
+      data: [message],
+      meta: { page: 1, limit: 50, total: 1, totalPages: 1 },
+    });
+    const client = { get } as unknown as ApiClient;
+
+    const result = await listChannelMessages(
+      client,
+      "ch-1",
+      { page: 1, limit: 50 },
+      signal,
+    );
+    expect(result.data[0]).toEqual({
+      id: "msg-1",
+      channelId: "ch-1",
+      content: "Hello team",
+      isDeleted: false,
+      createdAt: "2026-07-02T12:00:00.000Z",
+      authorName: "Ada",
+      authorId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    });
+    expect(result.data[0]).not.toHaveProperty("email");
+    expect(result.data[0]).not.toHaveProperty("avatarUrl");
+    expect(get).toHaveBeenCalledWith(
+      "/messages/channels/ch-1/messages?page=1&limit=50",
+      { signal },
+    );
+    expect(channelMessagesQueryKey("ch-1")).toEqual([
+      "messages",
+      "channel-messages",
+      "ch-1",
+      { page: 1, limit: 50 },
+    ]);
+  });
+
+  it("documents the DO live-chat blocker and builds room URLs", () => {
+    expect(REALTIME_LIVE_CHAT_BLOCKER).toMatch(/principal-scoped/i);
+    expect(isRealtimeRoomId("channel-1")).toBe(true);
+    expect(isRealtimeRoomId("bad id")).toBe(false);
+    expect(buildRealtimeRoomPath("channel-1")).toBe(
+      "/api/v1/realtime/rooms/channel-1",
+    );
+    expect(
+      buildRealtimeRoomWebSocketUrl("https://intranet.example", "channel-1"),
+    ).toBe("wss://intranet.example/api/v1/realtime/rooms/channel-1");
+    expect(parseRealtimeServerMessage('{"type":"ready","connectionId":"c1"}')).toEqual(
+      expect.objectContaining({ type: "ready", connectionId: "c1" }),
+    );
   });
 });

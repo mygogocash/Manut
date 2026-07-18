@@ -56,7 +56,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  25 | `apps/web/src/app/(dashboard)/expenses/[reportId]/page.tsx`                     | `/expenses/[reportId]`                     | `migrate`              | `pending`    | `/expenses/[reportId]`       |
 |  26 | `apps/web/src/app/(dashboard)/expenses/approval/page.tsx`                       | `/expenses/approval`                       | `migrate`              | `foundation` | `/expenses/approval`         |
 |  27 | `apps/web/src/app/(dashboard)/expenses/page.tsx`                                | `/expenses`                                | `migrate`              | `foundation` | `/expenses`                  |
-|  28 | `apps/web/src/app/(dashboard)/gmail/page.tsx`                                   | `/gmail`                                   | `migrate`              | `pending`    | `/gmail`                     |
+|  28 | `apps/web/src/app/(dashboard)/gmail/page.tsx`                                   | `/gmail`                                   | `migrate`              | `foundation` | `/gmail`                     |
 |  29 | `apps/web/src/app/(dashboard)/hr-crm/page.tsx`                                  | `/hr-crm`                                  | `migrate`              | `pending`    | `/hr-crm`                    |
 |  30 | `apps/web/src/app/(dashboard)/hrms/esop/[employeeId]/page.tsx`                  | `/hrms/esop/[employeeId]`                  | `replace`              | `pending`    | `/hrms/grants/[employeeId]`  |
 |  31 | `apps/web/src/app/(dashboard)/hrms/page.tsx`                                    | `/hrms`                                    | `migrate`              | `foundation` | `/hrms`                      |
@@ -131,6 +131,6 @@ The source command is sorted before classification. The JSON companion repeats t
 | 100 | `apps/web/src/app/page.tsx`                                                     | `/`                                        | `replace`              | `foundation` | `/`                          |
 | 101 | `apps/web/src/app/reset-password/page.tsx`                                      | `/reset-password`                          | `replace`              | `foundation` | `/reset-password`            |
 | 102 | `apps/web/src/app/sign-in/page.tsx`                                             | `/sign-in`                                 | `replace`              | `foundation` | `/sign-in`                   |
-| 103 | `apps/web/src/app/sign/[token]/page.tsx`                                        | `/sign/[token]`                            | `migrate`              | `pending`    | `/sign/[token]`              |
+| 103 | `apps/web/src/app/sign/[token]/page.tsx`                                        | `/sign/[token]`                            | `migrate`              | `foundation` | `/sign/[token]`              |
 
 Detailed rationale for each row is stored in `ROUTE_DISPOSITION.json`. The inventory must be updated whenever a target route moves from `pending` to `foundation` or reaches separately evidenced parity.

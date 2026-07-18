@@ -38,6 +38,7 @@ export const SHELL_LINKS = [
   { href: "/voucher-crm" as const, label: "Voucher CRM" },
   { href: "/files" as const, label: "Files" },
   { href: "/drive" as const, label: "Drive" },
+  { href: "/gmail" as const, label: "Gmail" },
   { href: "/messages" as const, label: "Messages" },
   { href: "/employees" as const, label: "Employees" },
   { href: "/roles" as const, label: "Roles" },

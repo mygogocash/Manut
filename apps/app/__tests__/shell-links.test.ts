@@ -343,7 +343,7 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
-  it("keeps Drive and Messages visible with their leaf permissions", () => {
+  it("keeps Drive, Gmail, and Messages visible with their leaf permissions", () => {
     const links = allowedShellLinks(
       ["integrations:use", "messages:read"],
       true,
@@ -353,6 +353,7 @@ describe("allowedShellLinks", () => {
       "/my-portal",
       "/files",
       "/drive",
+      "/gmail",
       "/messages",
       "/settings",
     ]);

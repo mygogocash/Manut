@@ -1,5 +1,6 @@
 import {
   act,
+  fireEvent,
   render,
   screen,
 } from "@testing-library/react-native";
@@ -21,6 +22,20 @@ jest.mock("@/providers/api-client-provider", () => ({
 jest.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({
     hasPermission: (code: string) => mockHasPermission(code),
+  }),
+}));
+
+jest.mock("@/platform/realtime-origin", () => ({
+  getRealtimeOrigin: () => null,
+}));
+
+jest.mock("@/platform/realtime-room", () => ({
+  joinRealtimeRoom: () => ({
+    status: "error",
+    lastError: "no origin",
+    lastMessage: null,
+    close: jest.fn(),
+    ping: jest.fn(),
   }),
 }));
 
@@ -60,33 +75,63 @@ describe("MessagesScreen", () => {
   });
 
   it(
-    "lists REST message channels read-only",
+    "lists channels and loads REST message history for a selected channel",
     async () => {
-      mockGet.mockResolvedValue({
-        data: [
-          {
-            id: "ch-1",
-            name: "General",
-            description: "Company updates",
-            isPrivate: false,
-            type: "channel",
-            unreadCount: 2,
-            _count: { messages: 12 },
-            updatedAt: "2026-07-02T00:00:00.000Z",
-          },
-        ],
+      mockGet.mockImplementation(async (path: string) => {
+        if (path === "/messages/channels") {
+          return {
+            data: [
+              {
+                id: "ch-1",
+                name: "General",
+                description: "Company updates",
+                isPrivate: false,
+                type: "channel",
+                unreadCount: 2,
+                _count: { messages: 12 },
+                updatedAt: "2026-07-02T00:00:00.000Z",
+              },
+            ],
+          };
+        }
+        if (path.startsWith("/messages/channels/ch-1/messages")) {
+          return {
+            data: [
+              {
+                id: "msg-1",
+                channelId: "ch-1",
+                content: "Hello team",
+                isDeleted: false,
+                createdAt: "2026-07-02T12:00:00.000Z",
+                author: { id: "u-1", name: "Ada" },
+              },
+            ],
+            meta: { page: 1, limit: 50, total: 1, totalPages: 1 },
+          };
+        }
+        throw new Error(`Unexpected path ${path}`);
       });
 
       await renderScreen();
       expect(
         await screen.findByText("General", {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(screen.getByText(/Channel · 12 messages · 2 unread/)).toBeTruthy();
+      expect(screen.getByText(/principal-scoped/i)).toBeTruthy();
+
+      await act(async () => {
+        await fireEvent.press(screen.getByLabelText("Open General"));
+      });
+
       expect(
-        screen.getByText(/Live websocket chat is not wired in Expo yet/),
+        await screen.findByText("Hello team", {}, { timeout: 10_000 }),
       ).toBeTruthy();
+      expect(screen.getByText(/Ada/)).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
         "/messages/channels",
+        expect.anything(),
+      );
+      expect(mockGet).toHaveBeenCalledWith(
+        "/messages/channels/ch-1/messages?page=1&limit=50",
         expect.anything(),
       );
     },

@@ -7,6 +7,7 @@ import {
   integrationsStatusSchema,
   isGoogleNotConnectedError,
   listDrive,
+  listGmail,
   startGoogleOauth,
 } from "../src/integrations/integrations";
 import { ApiError } from "../src/api/api-error";
@@ -65,6 +66,42 @@ describe("integrations contracts", () => {
 
     await expect(disconnectGoogle(client)).resolves.toEqual({ ok: true });
     expect(del).toHaveBeenCalledWith("/integrations/google");
+  });
+
+  it("lists Gmail inbox through the integrations API", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: "msg-1",
+          from: "ops@example.com",
+          subject: "Weekly status",
+          snippet: "Here is the update",
+          labelIds: ["INBOX", "UNREAD"],
+          date: "2026-07-01T12:00:00.000Z",
+        },
+      ],
+      nextPageToken: null,
+    });
+    const client = { post } as unknown as ApiClient;
+
+    await expect(listGmail(client, { folder: "inbox", pageSize: 25 })).resolves.toEqual({
+      data: [
+        {
+          id: "msg-1",
+          threadId: null,
+          from: "ops@example.com",
+          subject: "Weekly status",
+          snippet: "Here is the update",
+          date: "2026-07-01T12:00:00.000Z",
+          unread: true,
+        },
+      ],
+      nextPageToken: null,
+    });
+    expect(post).toHaveBeenCalledWith("/integrations/gmail/list", {
+      folder: "inbox",
+      pageSize: 25,
+    });
   });
 
   it("lists Drive files through the integrations API", async () => {

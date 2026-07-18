@@ -627,12 +627,15 @@ Migration order:
    (DocumentPicker → base64 `POST /api/uploads`, confirm delete via
    `DELETE /api/uploads/:id`) plus signed open; `/drive` connect-aware
    Google Drive list foundation (`POST /api/integrations/drive/list`);
-   `/messages` read-only REST channel list foundation
-   (`GET /api/messages/channels`). Blocker: Expo has no websocket /
-   Durable Object realtime client yet — live chat deferred (API socket.io
-   + edge `RealtimeRoom` exist). Still pending: multipart upload path,
-   Drive search/pagination deepen, message send/realtime, document
-   processing, and newly approved Manut AI only.
+   `/messages` REST channel list + history foundation and DO WebSocket
+   probe adapter. Blocker (evidenced): edge `RealtimeRoom` scopes rooms as
+   `${principalKey}:${roomId}` and is not bridged to the Express
+   messageBus; API socket.io `/messages` remains legacy-web-only — Expo
+   cannot honestly show cross-user live chat without new infra.
+   `/gmail` connect-aware inbox foundation; `/sign/[token]` public token
+   read foundation. Still pending: multipart upload path, Drive/Gmail
+   deepen, message send + shared-room bus bridge, document processing,
+   and newly approved Manut AI only.
 
 For each route slice:
 

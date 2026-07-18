@@ -179,3 +179,90 @@ export async function listDrive(
   const response = await client.post<unknown>("/integrations/drive/list", body);
   return driveListResponseSchema.parse(response);
 }
+
+export const GMAIL_FOLDER_VALUES = [
+  "inbox",
+  "sent",
+  "drafts",
+  "starred",
+  "important",
+  "snoozed",
+  "spam",
+  "trash",
+] as const;
+
+export type GmailFolder = (typeof GMAIL_FOLDER_VALUES)[number];
+
+const gmailListItemSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    messageId: z.string().min(1).optional(),
+    threadId: z.string().min(1).optional(),
+    from: z.string().optional(),
+    sender: z.string().optional(),
+    to: z.string().optional(),
+    subject: z.string().optional(),
+    snippet: z.string().optional(),
+    preview: z.string().optional(),
+    date: z.string().optional(),
+    labelIds: z.array(z.string()).optional(),
+  })
+  .passthrough()
+  .transform((item) => ({
+    id: item.id ?? item.messageId ?? null,
+    threadId: item.threadId ?? null,
+    from: item.from ?? item.sender ?? null,
+    subject: item.subject?.trim() || "(no subject)",
+    snippet: item.snippet ?? item.preview ?? null,
+    date: item.date ?? null,
+    unread: (item.labelIds ?? []).includes("UNREAD"),
+  }));
+
+export const gmailListParamsSchema = z
+  .object({
+    folder: z.enum(GMAIL_FOLDER_VALUES).default("inbox"),
+    pageSize: z.number().int().positive().max(100).default(25),
+    pageToken: z.string().min(1).optional(),
+  })
+  .strict();
+
+const gmailListResponseSchema = z
+  .object({
+    data: z.array(gmailListItemSchema),
+    nextPageToken: z.string().nullable().optional(),
+  })
+  .passthrough()
+  .transform((value) => ({
+    data: value.data,
+    nextPageToken: value.nextPageToken ?? null,
+  }));
+
+export type GmailListItem = z.infer<typeof gmailListItemSchema>;
+export type GmailListParams = z.input<typeof gmailListParamsSchema>;
+export type GmailList = z.infer<typeof gmailListResponseSchema>;
+
+export const GMAIL_LIST_QUERY_ROOT = ["integrations", "gmail", "list"] as const;
+
+export function gmailListQueryKey(params: GmailListParams = {}) {
+  return [...GMAIL_LIST_QUERY_ROOT, gmailListParamsSchema.parse(params)] as const;
+}
+
+export async function listGmail(
+  client: ApiClient,
+  params: GmailListParams = {},
+): Promise<GmailList> {
+  const parsed = gmailListParamsSchema.parse(params);
+  const body: {
+    folder: GmailFolder;
+    pageSize: number;
+    pageToken?: string;
+  } = {
+    folder: parsed.folder,
+    pageSize: parsed.pageSize,
+  };
+  if (parsed.pageToken != null) {
+    body.pageToken = parsed.pageToken;
+  }
+  const response = await client.post<unknown>("/integrations/gmail/list", body);
+  return gmailListResponseSchema.parse(response);
+}

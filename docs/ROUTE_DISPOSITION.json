@@ -248,9 +248,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/gmail/page.tsx",
       "sourceRoute": "/gmail",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/gmail",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo connect-aware Gmail inbox via POST /api/integrations/gmail/list; not-connected state without fake data. Compose/read/send deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/hr-crm/page.tsx",
@@ -498,7 +498,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/messages",
-      "note": "Expo /messages read-only channel list via GET /api/messages/channels. Realtime websocket/Durable Object client is not wired in apps/app yet; live chat deferred."
+      "note": "Expo channel list + REST history (GET /api/messages/channels/:id/messages) and DO WebSocket probe adapter. Live chat blocked: edge RealtimeRoom is principal-scoped and not bridged to messageBus; API socket.io remains legacy-web-only."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/my-portal/page.tsx",
@@ -848,9 +848,9 @@
       "sourcePath": "apps/web/src/app/sign/[token]/page.tsx",
       "sourceRoute": "/sign/[token]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/sign/[token]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo public /sign/[token] via GET /api/legal-public/sign/:token (credentials omit). Read-only foundation; submit/decline deferred. Registry override remains public."
     }
   ]
 }
