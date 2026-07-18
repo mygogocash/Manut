@@ -86,13 +86,10 @@ export function createExpensesRoutes(options: {
     );
     const method = context.req.method.toUpperCase();
 
-    // Self-scoped list only. HR includeAll / pendingForMe stay proxied.
+    // Self-scoped list + pendingForMe. HR includeAll stays proxied.
     if (method === "GET" && (path === "/reports" || path === "/reports/")) {
       const url = new URL(context.req.url);
-      if (
-        url.searchParams.get("includeAll") === "true" ||
-        url.searchParams.get("pendingForMe") === "true"
-      ) {
+      if (url.searchParams.get("includeAll") === "true") {
         return proxyApiRequest(context.req.raw, context.env);
       }
       const page = Math.max(1, Number(context.req.query("page")) || 1);
@@ -102,8 +99,25 @@ export function createExpensesRoutes(options: {
       );
       const status = context.req.query("status")?.trim() || undefined;
       const period = context.req.query("period")?.trim() || undefined;
+      const pendingForMe =
+        url.searchParams.get("pendingForMe") === "true";
       return context.json(
-        await service.list(userId, { page, limit, status, period }),
+        await service.list(userId, {
+          page,
+          limit,
+          status,
+          period,
+          pendingForMe,
+        }),
+      );
+    }
+
+    if (method === "GET" && (path === "/convert" || path === "/convert/")) {
+      const amount = Number(context.req.query("amount"));
+      const fromCurrency = context.req.query("fromCurrency") ?? "";
+      const toCurrency = context.req.query("toCurrency") ?? "";
+      return context.json(
+        await service.convert(userId, amount, fromCurrency, toCurrency),
       );
     }
 
@@ -292,7 +306,48 @@ export function createExpensesRoutes(options: {
       }
     }
 
-    // Submit, approvals, FX convert stay on Express.
+    const submitMatch = /^\/reports\/([^/]+)\/submit\/?$/u.exec(path);
+    if (method === "POST" && submitMatch) {
+      const reportId = decodeURIComponent(submitMatch[1] ?? "");
+      return context.json(await service.submit(userId, reportId));
+    }
+
+    const approveMatch = /^\/reports\/([^/]+)\/approve\/?$/u.exec(path);
+    if (method === "POST" && approveMatch) {
+      const reportId = decodeURIComponent(approveMatch[1] ?? "");
+      let record: Record<string, unknown> = {};
+      try {
+        const body = await context.req.json();
+        if (typeof body === "object" && body !== null) {
+          record = body as Record<string, unknown>;
+        }
+      } catch {
+        // Empty / missing body means approve the full running total.
+      }
+      return context.json(
+        await service.approve(userId, reportId, {
+          approvedAmount:
+            record.approvedAmount !== undefined
+              ? Number(record.approvedAmount)
+              : undefined,
+          notes: typeof record.notes === "string" ? record.notes : undefined,
+        }),
+      );
+    }
+
+    const rejectMatch = /^\/reports\/([^/]+)\/reject\/?$/u.exec(path);
+    if (method === "POST" && rejectMatch) {
+      const reportId = decodeURIComponent(rejectMatch[1] ?? "");
+      const body = await readJsonBody(context);
+      if (typeof body !== "object" || body === null) {
+        throw new HttpError(400, "INVALID_EXPENSE", "Request body is required.");
+      }
+      const record = body as Record<string, unknown>;
+      const reason = typeof record.reason === "string" ? record.reason : "";
+      return context.json(await service.reject(userId, reportId, reason));
+    }
+
+    // Reimburse, payroll, meta, raw items, includeAll stay on Express.
     return proxyApiRequest(context.req.raw, context.env);
   });
 

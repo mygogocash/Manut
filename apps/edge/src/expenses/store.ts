@@ -4,6 +4,7 @@ export interface ExpenseReportRecord {
   title: string;
   category: string;
   status: string;
+  currentStepOrder: number | null;
   submittedAt: string | Date | null;
   approvedAt: string | Date | null;
   rejectReason: string | null;
@@ -25,7 +26,8 @@ export interface ExpenseReportRecord {
 }
 
 export interface ListExpenseReportFilters {
-  employeeId: string;
+  employeeId?: string;
+  reportIds?: string[];
   status?: string;
   period?: string;
 }
@@ -53,11 +55,20 @@ export interface ExpenseLineRecord {
   receiptUrl: string | null;
 }
 
+export interface ExpenseLineFxRecord {
+  id: string;
+  amount: number;
+  currency: string;
+  date: string;
+  categoryId: string | null;
+}
+
 export interface ExpenseCategoryRecord {
   id: string;
   name: string;
   receiptRequired: boolean;
   spendingLimit: number | null;
+  isAllowance: boolean;
 }
 
 export interface AddExpenseLineStoreInput {
@@ -84,6 +95,37 @@ export interface UpdateExpenseLineStoreInput {
   receiptUrl?: string | null;
 }
 
+export interface ExpenseApprovalStepRecord {
+  id: string;
+  order: number;
+  name: string;
+  approverType: string;
+  approverUserId: string | null;
+  skipWhenSubmitterIds: string[];
+  onlyWhenSubmitterIds: string[];
+  categoryFilter: string[];
+  amountMinBaht: number | null;
+  amountMaxBaht: number | null;
+  isActive: boolean;
+}
+
+export interface ExpenseApprovalDecisionRecord {
+  id: string;
+  order: number;
+  name: string;
+  approverType: string;
+  approverUserId: string | null;
+  status: string;
+  approvedAmount: number | null;
+}
+
+export interface ExpenseApprovalDecisionRow {
+  order: number;
+  name: string;
+  approverType: string;
+  approverUserId: string | null;
+}
+
 export interface ExpensesStore {
   loadPermissions(userId: string): Promise<Set<string>>;
   findRegistered(query: {
@@ -103,10 +145,53 @@ export interface ExpensesStore {
   create(input: CreateExpenseReportStoreInput): Promise<ExpenseReportRecord>;
   findCategoryById(id: string): Promise<ExpenseCategoryRecord | null>;
   findLineById(id: string): Promise<ExpenseLineRecord | null>;
+  findLinesForReport(reportId: string): Promise<ExpenseLineFxRecord[]>;
   addLine(input: AddExpenseLineStoreInput): Promise<ExpenseLineRecord>;
   updateLine(
     id: string,
     input: UpdateExpenseLineStoreInput,
   ): Promise<ExpenseLineRecord>;
   softDeleteLine(id: string): Promise<void>;
+  findPendingForMeReportIds(userId: string): Promise<string[]>;
+  findActiveApprovalSteps(): Promise<ExpenseApprovalStepRecord[]>;
+  findDecisions(reportId: string): Promise<ExpenseApprovalDecisionRecord[]>;
+  findManagerChain(userId: string): Promise<{
+    l1UserId: string | null;
+    l2UserId: string | null;
+  }>;
+  findEmployeeReportingTo(employeeId: string): Promise<string | null>;
+  findCategoriesAllowance(
+    categoryIds: string[],
+  ): Promise<Array<{ id: string; isAllowance: boolean }>>;
+  findExchangeRate(
+    baseCurrency: string,
+    currency: string,
+    asOf?: Date,
+  ): Promise<number | null>;
+  snapshotDecisions(
+    id: string,
+    rows: ExpenseApprovalDecisionRow[],
+  ): Promise<void>;
+  submitWithDecisions(
+    id: string,
+    rows: ExpenseApprovalDecisionRow[],
+    opts?: { category?: string },
+  ): Promise<ExpenseReportRecord>;
+  finaliseAllowance(id: string, actorId: string): Promise<ExpenseReportRecord>;
+  approveStep(input: {
+    reportId: string;
+    decisionId: string;
+    approverId: string;
+    isFinalStep: boolean;
+    nextStepOrder: number | null;
+    approvedAmount: number | null;
+    notes?: string;
+    finalApprovedTotal: number | null;
+  }): Promise<ExpenseReportRecord>;
+  rejectStep(input: {
+    reportId: string;
+    decisionId: string | null;
+    approverId: string;
+    reason: string;
+  }): Promise<ExpenseReportRecord>;
 }

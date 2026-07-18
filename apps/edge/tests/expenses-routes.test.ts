@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
+  ExpenseApprovalDecisionRecord,
+  ExpenseApprovalStepRecord,
   ExpenseLineRecord,
   ExpenseReportRecord,
   ExpensesStore,
@@ -38,6 +40,37 @@ const verifyToken = vi.fn(async () => ({
   subject: "user-123",
 }));
 
+function baseReport(
+  overrides: Partial<ExpenseReportRecord> & Pick<ExpenseReportRecord, "id">,
+): ExpenseReportRecord {
+  return {
+    period: "2026-07",
+    title: "July",
+    category: "general",
+    status: "draft",
+    currentStepOrder: null,
+    submittedAt: null,
+    approvedAt: null,
+    rejectReason: null,
+    reimbursedAt: null,
+    approvedTotal: null,
+    createdAt: "2026-07-18T00:00:00.000Z",
+    updatedAt: "2026-07-18T00:00:00.000Z",
+    employeeId: "user-123",
+    employeeName: "Test User",
+    employeeEmail: "user@example.com",
+    employeeDepartment: "Eng",
+    entityId: "entity-1",
+    entityName: "Manut TH",
+    expenseCount: 0,
+    totalAmount: 0,
+    totalCurrency: "THB",
+    converted: true,
+    missingRates: [],
+    ...overrides,
+  };
+}
+
 function memoryStore(seed?: {
   reports?: ExpenseReportRecord[];
   lines?: ExpenseLineRecord[];
@@ -49,6 +82,16 @@ function memoryStore(seed?: {
     purpose: string;
     uploadedBy: string;
   }>;
+  approvalSteps?: ExpenseApprovalStepRecord[];
+  decisionsByReport?: Record<string, ExpenseApprovalDecisionRecord[]>;
+  pendingForMeIds?: string[];
+  reportingToByUser?: Record<string, string | null>;
+  exchangeRates?: Array<{
+    baseCurrency: string;
+    currency: string;
+    rate: number;
+  }>;
+  categoryAllowance?: Record<string, boolean>;
 }): ExpensesStore {
   const reports = [...(seed?.reports ?? [])];
   const lines = [...(seed?.lines ?? [])];
@@ -56,6 +99,14 @@ function memoryStore(seed?: {
     "user-123": ["expense:read", "expense:create"],
   };
   const registeredUploads = [...(seed?.registeredUploads ?? [])];
+  const approvalSteps = [...(seed?.approvalSteps ?? [])];
+  const decisionsByReport: Record<string, ExpenseApprovalDecisionRecord[]> = {
+    ...(seed?.decisionsByReport ?? {}),
+  };
+  const pendingForMeIds = [...(seed?.pendingForMeIds ?? [])];
+  const reportingToByUser = seed?.reportingToByUser ?? {};
+  const exchangeRates = [...(seed?.exchangeRates ?? [])];
+  const categoryAllowance = seed?.categoryAllowance ?? {};
 
   return {
     async loadPermissions(userId) {
@@ -73,9 +124,14 @@ function memoryStore(seed?: {
       return match ? { id: match.id } : null;
     },
     async findMany(filters, page, limit) {
-      let rows = reports.filter(
-        (report) => report.employeeId === filters.employeeId,
-      );
+      let rows = [...reports];
+      if (filters.employeeId) {
+        rows = rows.filter((report) => report.employeeId === filters.employeeId);
+      }
+      if (filters.reportIds) {
+        const ids = new Set(filters.reportIds);
+        rows = rows.filter((report) => ids.has(report.id));
+      }
       if (filters.status) {
         rows = rows.filter((report) => report.status === filters.status);
       }
@@ -90,40 +146,42 @@ function memoryStore(seed?: {
       return reports.find((report) => report.id === id) ?? null;
     },
     async create(input) {
-      const now = "2026-07-18T00:00:00.000Z";
-      const row: ExpenseReportRecord = {
+      const row = baseReport({
         id: `report-${reports.length + 1}`,
         period: input.period,
         title: input.title,
         category: input.category,
-        status: "draft",
-        submittedAt: null,
-        approvedAt: null,
-        rejectReason: null,
-        reimbursedAt: null,
-        approvedTotal: null,
-        createdAt: now,
-        updatedAt: now,
         employeeId: input.employeeId,
-        employeeName: "Test User",
-        employeeEmail: "user@example.com",
-        employeeDepartment: "Eng",
         entityId: input.entityId,
-        entityName: "Manut TH",
-        expenseCount: 0,
-        totalAmount: 0,
-        totalCurrency: "THB",
-        converted: true,
-        missingRates: [],
-      };
+      });
       reports.push(row);
       return row;
     },
-    async findCategoryById() {
-      return null;
+    async findCategoryById(id) {
+      if (!(id in categoryAllowance) && Object.keys(categoryAllowance).length === 0) {
+        return null;
+      }
+      return {
+        id,
+        name: "Category",
+        receiptRequired: false,
+        spendingLimit: null,
+        isAllowance: categoryAllowance[id] ?? false,
+      };
     },
     async findLineById(id) {
       return lines.find((line) => line.id === id) ?? null;
+    },
+    async findLinesForReport(reportId) {
+      return lines
+        .filter((line) => line.reportId === reportId)
+        .map((line) => ({
+          id: line.id,
+          amount: Number(line.amount),
+          currency: line.currency,
+          date: line.date,
+          categoryId: line.categoryId,
+        }));
     },
     async addLine(input) {
       const row: ExpenseLineRecord = {
@@ -141,7 +199,10 @@ function memoryStore(seed?: {
       };
       lines.push(row);
       const report = reports.find((item) => item.id === input.reportId);
-      if (report) report.expenseCount += 1;
+      if (report) {
+        report.expenseCount += 1;
+        report.totalAmount += input.amount;
+      }
       return row;
     },
     async updateLine(id, input) {
@@ -163,6 +224,102 @@ function memoryStore(seed?: {
         const report = reports.find((item) => item.id === removed?.reportId);
         if (report && report.expenseCount > 0) report.expenseCount -= 1;
       }
+    },
+    async findPendingForMeReportIds() {
+      return pendingForMeIds;
+    },
+    async findActiveApprovalSteps() {
+      return approvalSteps;
+    },
+    async findDecisions(reportId) {
+      return [...(decisionsByReport[reportId] ?? [])];
+    },
+    async findManagerChain(userId) {
+      const l1 = reportingToByUser[userId] ?? null;
+      const l2 = l1 ? (reportingToByUser[l1] ?? null) : null;
+      return { l1UserId: l1, l2UserId: l2 };
+    },
+    async findEmployeeReportingTo(employeeId) {
+      return reportingToByUser[employeeId] ?? null;
+    },
+    async findCategoriesAllowance(categoryIds) {
+      return categoryIds.map((id) => ({
+        id,
+        isAllowance: categoryAllowance[id] ?? false,
+      }));
+    },
+    async findExchangeRate(baseCurrency, currency) {
+      const match = exchangeRates.find(
+        (rate) =>
+          rate.baseCurrency === baseCurrency && rate.currency === currency,
+      );
+      return match?.rate ?? null;
+    },
+    async snapshotDecisions(id, rows) {
+      decisionsByReport[id] = rows.map((row, index) => ({
+        id: `decision-${id}-${index + 1}`,
+        order: row.order,
+        name: row.name,
+        approverType: row.approverType,
+        approverUserId: row.approverUserId,
+        status: "pending",
+        approvedAmount: null,
+      }));
+      const report = reports.find((item) => item.id === id);
+      if (report) report.currentStepOrder = 1;
+    },
+    async submitWithDecisions(id, rows, opts) {
+      await this.snapshotDecisions(id, rows);
+      const report = reports.find((item) => item.id === id);
+      if (!report) throw new Error("missing");
+      report.status = "submitted";
+      report.submittedAt = "2026-07-18T12:00:00.000Z";
+      report.rejectReason = null;
+      report.currentStepOrder = 1;
+      if (opts?.category) report.category = opts.category;
+      return report;
+    },
+    async finaliseAllowance(id, actorId) {
+      const report = reports.find((item) => item.id === id);
+      if (!report) throw new Error("missing");
+      report.status = "reimbursed";
+      report.submittedAt = "2026-07-18T12:00:00.000Z";
+      report.approvedAt = "2026-07-18T12:00:00.000Z";
+      report.reimbursedAt = "2026-07-18T12:00:00.000Z";
+      report.currentStepOrder = null;
+      void actorId;
+      return report;
+    },
+    async approveStep(input) {
+      const decisions = decisionsByReport[input.reportId] ?? [];
+      const decision = decisions.find((row) => row.id === input.decisionId);
+      if (decision) {
+        decision.status = "approved";
+        decision.approvedAmount = input.approvedAmount;
+      }
+      const report = reports.find((item) => item.id === input.reportId);
+      if (!report) throw new Error("missing");
+      report.status = input.isFinalStep ? "approved" : "submitted";
+      report.currentStepOrder = input.nextStepOrder;
+      if (input.isFinalStep) {
+        report.approvedAt = "2026-07-18T13:00:00.000Z";
+        report.approvedTotal = input.finalApprovedTotal;
+      }
+      return report;
+    },
+    async rejectStep(input) {
+      if (input.decisionId) {
+        const decisions = decisionsByReport[input.reportId] ?? [];
+        const decision = decisions.find((row) => row.id === input.decisionId);
+        if (decision) decision.status = "rejected";
+      }
+      const report = reports.find((item) => item.id === input.reportId);
+      if (!report) throw new Error("missing");
+      report.status = "rejected";
+      report.rejectReason = input.reason;
+      report.approvedAt = "2026-07-18T13:00:00.000Z";
+      report.currentStepOrder = null;
+      return report;
     },
   };
 }
@@ -221,6 +378,7 @@ describe("expenses dual-path routes", () => {
           title: "July",
           category: "general",
           status: "draft",
+          currentStepOrder: null,
           submittedAt: null,
           approvedAt: null,
           rejectReason: null,
@@ -246,6 +404,7 @@ describe("expenses dual-path routes", () => {
           title: "Other",
           category: "general",
           status: "draft",
+          currentStepOrder: null,
           submittedAt: null,
           approvedAt: null,
           rejectReason: null,
@@ -326,11 +485,46 @@ describe("expenses dual-path routes", () => {
     });
   });
 
-  it("proxies pendingForMe and submit leftovers when Hyperdrive is on", async () => {
+  it("lists pendingForMe reports on the Hyperdrive path", async () => {
+    const store = memoryStore({
+      reports: [
+        baseReport({
+          id: "report-pending",
+          title: "Needs approval",
+          status: "submitted",
+          currentStepOrder: 1,
+          employeeId: "user-456",
+          employeeName: "Other",
+          employeeEmail: "other@example.com",
+        }),
+      ],
+      pendingForMeIds: ["report-pending"],
+      permissionsByUser: {
+        "user-123": ["expense:read", "expense:create"],
+      },
+    });
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/reports?pendingForMe=true",
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: [{ id: "report-pending", title: "Needs approval" }],
+      meta: { total: 1 },
+    });
+  });
+
+  it("proxies includeAll expense lists when Hyperdrive is on", async () => {
     const upstream = vi.fn(async (request: Request) => {
       const url = new URL(request.url);
       expect(url.pathname).toBe("/api/expenses/reports");
-      expect(url.searchParams.get("pendingForMe")).toBe("true");
+      expect(url.searchParams.get("includeAll")).toBe("true");
       return Response.json({
         data: [],
         meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
@@ -343,7 +537,7 @@ describe("expenses dual-path routes", () => {
       verifyToken,
     });
     const response = await app.request(
-      "https://intranet.example/api/expenses/reports?pendingForMe=true",
+      "https://intranet.example/api/expenses/reports?includeAll=true",
       { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
       hyperdriveEnv(),
     );
@@ -361,6 +555,7 @@ describe("expenses dual-path routes", () => {
           title: "July",
           category: "general",
           status: "draft",
+          currentStepOrder: null,
           submittedAt: null,
           approvedAt: null,
           rejectReason: null,
@@ -412,6 +607,7 @@ describe("expenses dual-path routes", () => {
           title: "July",
           category: "general",
           status: "draft",
+          currentStepOrder: null,
           submittedAt: null,
           approvedAt: null,
           rejectReason: null,
@@ -488,6 +684,7 @@ describe("expenses dual-path routes", () => {
           title: "July",
           category: "general",
           status: "draft",
+          currentStepOrder: null,
           submittedAt: null,
           approvedAt: null,
           rejectReason: null,
@@ -554,6 +751,7 @@ describe("expenses dual-path routes", () => {
           title: "July",
           category: "general",
           status: "draft",
+          currentStepOrder: null,
           submittedAt: null,
           approvedAt: null,
           rejectReason: null,
@@ -613,6 +811,7 @@ describe("expenses dual-path routes", () => {
           title: "July",
           category: "general",
           status: "draft",
+          currentStepOrder: null,
           submittedAt: null,
           approvedAt: null,
           rejectReason: null,
@@ -684,31 +883,16 @@ describe("expenses dual-path routes", () => {
 
     const store = memoryStore({
       reports: [
-        {
+        baseReport({
           id: "report-other",
-          period: "2026-07",
           title: "Other",
-          category: "general",
           status: "submitted",
-          submittedAt: null,
-          approvedAt: null,
-          rejectReason: null,
-          reimbursedAt: null,
-          approvedTotal: null,
-          createdAt: "2026-07-18T00:00:00.000Z",
-          updatedAt: "2026-07-18T00:00:00.000Z",
+          currentStepOrder: 1,
           employeeId: "user-456",
           employeeName: "Other",
           employeeEmail: "other@example.com",
           employeeDepartment: null,
-          entityId: "entity-1",
-          entityName: "Manut TH",
-          expenseCount: 0,
-          totalAmount: 0,
-          totalCurrency: "THB",
-          converted: true,
-          missingRates: [],
-        },
+        }),
       ],
     });
 
@@ -724,5 +908,181 @@ describe("expenses dual-path routes", () => {
 
     expect(response.status).toBe(200);
     expect(upstream).toHaveBeenCalledOnce();
+  });
+
+  it("converts amounts on the Hyperdrive FX path", async () => {
+    const store = memoryStore({
+      exchangeRates: [{ baseCurrency: "USD", currency: "THB", rate: 36 }],
+    });
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/convert?amount=10&fromCurrency=USD&toCurrency=THB",
+      { headers: { authorization: `Bearer ${TEST_TOKEN}` } },
+      hyperdriveEnv(),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: { converted: 360, rate: 36 },
+    });
+  });
+
+  it("submits own draft expense report on the Hyperdrive path", async () => {
+    const store = memoryStore({
+      reports: [
+        baseReport({
+          id: "report-own",
+          expenseCount: 1,
+          totalAmount: 120,
+        }),
+      ],
+      lines: [
+        {
+          id: "line-1",
+          reportId: "report-own",
+          employeeId: "user-123",
+          description: "Taxi",
+          amount: "120",
+          currency: "THB",
+          date: "2026-07-18",
+          status: "pending",
+          categoryId: null,
+          notes: null,
+          receiptUrl: null,
+        },
+      ],
+      reportingToByUser: { "user-123": "manager-1" },
+    });
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/reports/report-own/submit",
+      {
+        headers: { authorization: `Bearer ${TEST_TOKEN}` },
+        method: "POST",
+      },
+      hyperdriveEnv(),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: "report-own", status: "submitted" },
+    });
+  });
+
+  it("approves a submitted report as the direct manager on Hyperdrive", async () => {
+    const store = memoryStore({
+      reports: [
+        baseReport({
+          id: "report-team",
+          title: "Team spend",
+          status: "submitted",
+          currentStepOrder: 1,
+          employeeId: "user-456",
+          employeeName: "Other",
+          employeeEmail: "other@example.com",
+          expenseCount: 1,
+          totalAmount: 50,
+        }),
+      ],
+      decisionsByReport: {
+        "report-team": [
+          {
+            id: "decision-1",
+            order: 1,
+            name: "Manager approval",
+            approverType: "manager",
+            approverUserId: null,
+            status: "pending",
+            approvedAmount: null,
+          },
+        ],
+      },
+      reportingToByUser: { "user-456": "user-123" },
+      permissionsByUser: {
+        "user-123": ["expense:read"],
+      },
+    });
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/reports/report-team/approve",
+      {
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+        body: "{}",
+      },
+      hyperdriveEnv(),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: "report-team", status: "approved" },
+    });
+  });
+
+  it("rejects a submitted report with a reason on Hyperdrive", async () => {
+    const store = memoryStore({
+      reports: [
+        baseReport({
+          id: "report-team",
+          status: "submitted",
+          currentStepOrder: 1,
+          employeeId: "user-456",
+          employeeName: "Other",
+          employeeEmail: "other@example.com",
+          expenseCount: 1,
+          totalAmount: 50,
+        }),
+      ],
+      decisionsByReport: {
+        "report-team": [
+          {
+            id: "decision-1",
+            order: 1,
+            name: "Manager approval",
+            approverType: "manager",
+            approverUserId: null,
+            status: "pending",
+            approvedAmount: null,
+          },
+        ],
+      },
+      reportingToByUser: { "user-456": "user-123" },
+      permissionsByUser: {
+        "user-123": ["expense:read", "expense:hr-approve"],
+      },
+    });
+    const app = createEdgeApp({
+      createExpensesStore: async () => store,
+      verifyToken,
+    });
+    const response = await app.request(
+      "https://intranet.example/api/expenses/reports/report-team/reject",
+      {
+        body: JSON.stringify({ reason: "Missing receipt" }),
+        headers: {
+          authorization: `Bearer ${TEST_TOKEN}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+      },
+      hyperdriveEnv(),
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      data: {
+        id: "report-team",
+        status: "rejected",
+        rejectReason: "Missing receipt",
+      },
+    });
   });
 });
