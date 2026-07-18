@@ -120,9 +120,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/blog-management/page.tsx",
       "sourceRoute": "/blog-management",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/blog-management",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only blog list via GET /api/blogs (blog:read registry; employee-boundary). Strips HTML content/cover; keeps title/slug/active/author name. Deferred: compose, edit, delete, CSV export."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/careers/page.tsx",
@@ -192,9 +192,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/docs/page.tsx",
       "sourceRoute": "/docs",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/docs",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only wiki page list via GET /api/docs (docs:read). Strips body and creator email; keeps title/slug/folder/publish flags. Deferred: tree editor, page body view, ACL writes, create/move."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/drive/page.tsx",
@@ -400,9 +400,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/legal/announcements/page.tsx",
       "sourceRoute": "/legal/announcements",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/legal/announcements",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only announcements list via GET /api/legal-announcements. Strips body/acks/attachments; keeps title/kind/status/pin. Deferred: detail, ack, manage CRUD, attachment download. /legal hub and /legal/announcements/[id] remain pending."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/legal/page.tsx",
@@ -490,7 +490,7 @@
       "disposition": "migrate",
       "status": "pending",
       "targetRoute": "/messages",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "DEFERRED to Wave 4 realtime. REST channel list exists (GET /api/messages/channels) but product depends on SSE/socket bus (messages.socket + messages.bus), not a simple REST inbox foundation. Land with Durable Object realtime agent."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/my-portal/page.tsx",
@@ -576,9 +576,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/pr-management/page.tsx",
       "sourceRoute": "/pr-management",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/pr-management",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only PR article list via GET /api/articles (pr:read registry; employee-boundary). Strips image/author email; keeps title/link/date/author name. Deferred: create/edit/delete, CSV export."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/product-crm/page.tsx",

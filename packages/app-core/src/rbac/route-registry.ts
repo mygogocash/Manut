@@ -263,6 +263,42 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     employeeAllowed: false,
     prefix: true,
   },
+  {
+    path: "/blog-management",
+    access: "protected",
+    permissions: [
+      "blog:read",
+      "blog:create",
+      "blog:update",
+      "blog:delete",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/legal/announcements",
+    access: "protected",
+    permissions: [
+      "legal:announcement-read",
+      "legal:announcement-manage",
+    ],
+    employeeAllowed: true,
+    prefix: true,
+  },
+  {
+    path: "/pr-management",
+    access: "protected",
+    permissions: ["pr:read", "pr:create", "pr:update", "pr:delete"],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/docs",
+    access: "protected",
+    permissions: ["docs:read", "docs:create", "docs:update", "docs:delete"],
+    employeeAllowed: true,
+    prefix: true,
+  },
 ];
 
 export interface RouteOverride {

@@ -40,7 +40,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  10 | `apps/web/src/app/(dashboard)/aria/knowledge/[id]/page.tsx`                     | `/aria/knowledge/[id]`                     | `remove-as-provenance` | `removed`    | —                            |
 |  11 | `apps/web/src/app/(dashboard)/aria/page.tsx`                                    | `/aria`                                    | `remove-as-provenance` | `removed`    | —                            |
 |  12 | `apps/web/src/app/(dashboard)/benefits/page.tsx`                                | `/benefits`                                | `migrate`              | `foundation` | `/benefits`                  |
-|  13 | `apps/web/src/app/(dashboard)/blog-management/page.tsx`                         | `/blog-management`                         | `migrate`              | `pending`    | `/blog-management`           |
+|  13 | `apps/web/src/app/(dashboard)/blog-management/page.tsx`                         | `/blog-management`                         | `migrate`              | `foundation` | `/blog-management`           |
 |  14 | `apps/web/src/app/(dashboard)/careers/page.tsx`                                 | `/careers`                                 | `migrate`              | `foundation` | `/careers`                   |
 |  15 | `apps/web/src/app/(dashboard)/cash-advance/approval/page.tsx`                   | `/cash-advance/approval`                   | `migrate`              | `foundation` | `/cash-advance/approval`     |
 |  16 | `apps/web/src/app/(dashboard)/cash-advance/page.tsx`                            | `/cash-advance`                            | `migrate`              | `foundation` | `/cash-advance`              |
@@ -49,7 +49,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  19 | `apps/web/src/app/(dashboard)/dataroom/page.tsx`                                | `/dataroom`                                | `migrate`              | `pending`    | `/dataroom`                  |
 |  20 | `apps/web/src/app/(dashboard)/deals/page.tsx`                                   | `/deals`                                   | `migrate`              | `pending`    | `/deals`                     |
 |  21 | `apps/web/src/app/(dashboard)/directory/page.tsx`                               | `/directory`                               | `migrate`              | `foundation` | `/directory`                 |
-|  22 | `apps/web/src/app/(dashboard)/docs/page.tsx`                                    | `/docs`                                    | `migrate`              | `pending`    | `/docs`                      |
+|  22 | `apps/web/src/app/(dashboard)/docs/page.tsx`                                    | `/docs`                                    | `migrate`              | `foundation` | `/docs`                      |
 |  23 | `apps/web/src/app/(dashboard)/drive/page.tsx`                                   | `/drive`                                   | `migrate`              | `pending`    | `/drive`                     |
 |  24 | `apps/web/src/app/(dashboard)/employees/page.tsx`                               | `/employees`                               | `migrate`              | `foundation` | `/employees`                 |
 |  25 | `apps/web/src/app/(dashboard)/expenses/[reportId]/page.tsx`                     | `/expenses/[reportId]`                     | `migrate`              | `pending`    | `/expenses/[reportId]`       |
@@ -75,7 +75,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  45 | `apps/web/src/app/(dashboard)/leave/policies/page.tsx`                          | `/leave/policies`                          | `migrate`              | `foundation` | `/leave/policies`            |
 |  46 | `apps/web/src/app/(dashboard)/legal-crm/page.tsx`                               | `/legal-crm`                               | `migrate`              | `pending`    | `/legal-crm`                 |
 |  47 | `apps/web/src/app/(dashboard)/legal/announcements/[id]/page.tsx`                | `/legal/announcements/[id]`                | `migrate`              | `pending`    | `/legal/announcements/[id]`  |
-|  48 | `apps/web/src/app/(dashboard)/legal/announcements/page.tsx`                     | `/legal/announcements`                     | `migrate`              | `pending`    | `/legal/announcements`       |
+|  48 | `apps/web/src/app/(dashboard)/legal/announcements/page.tsx`                     | `/legal/announcements`                     | `migrate`              | `foundation` | `/legal/announcements`       |
 |  49 | `apps/web/src/app/(dashboard)/legal/page.tsx`                                   | `/legal`                                   | `migrate`              | `pending`    | `/legal`                     |
 |  50 | `apps/web/src/app/(dashboard)/legal/shared/page.tsx`                            | `/legal/shared`                            | `migrate`              | `pending`    | `/legal/shared`              |
 |  51 | `apps/web/src/app/(dashboard)/marketing-analytics/campaigns/[id]/page.tsx`      | `/marketing-analytics/campaigns/[id]`      | `remove-as-provenance` | `removed`    | —                            |
@@ -97,7 +97,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  67 | `apps/web/src/app/(dashboard)/payroll/page.tsx`                                 | `/payroll`                                 | `migrate`              | `foundation` | `/payroll`                   |
 |  68 | `apps/web/src/app/(dashboard)/performance/page.tsx`                             | `/performance`                             | `migrate`              | `foundation` | `/performance`               |
 |  69 | `apps/web/src/app/(dashboard)/policies/page.tsx`                                | `/policies`                                | `migrate`              | `pending`    | `/policies`                  |
-|  70 | `apps/web/src/app/(dashboard)/pr-management/page.tsx`                           | `/pr-management`                           | `migrate`              | `pending`    | `/pr-management`             |
+|  70 | `apps/web/src/app/(dashboard)/pr-management/page.tsx`                           | `/pr-management`                           | `migrate`              | `foundation` | `/pr-management`             |
 |  71 | `apps/web/src/app/(dashboard)/product-crm/page.tsx`                             | `/product-crm`                             | `migrate`              | `pending`    | `/product-crm`               |
 |  72 | `apps/web/src/app/(dashboard)/projects/[projectId]/page.tsx`                    | `/projects/[projectId]`                    | `migrate`              | `foundation` | `/projects/[projectId]`      |
 |  73 | `apps/web/src/app/(dashboard)/projects/dashboard/page.tsx`                      | `/projects/dashboard`                      | `migrate`              | `foundation` | `/projects/dashboard`        |

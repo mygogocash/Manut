@@ -173,7 +173,38 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
-  it("keeps admin Employees and Roles off employee-only shells", () => {
+  it("keeps Blog and PR off employee-only shells", () => {
+    const links = allowedShellLinks(["blog:read", "pr:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);
+  });
+
+  it("keeps Blog and PR visible for non-employee accounts", () => {
+    const links = allowedShellLinks(["blog:read", "pr:read"], false);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/blog-management",
+      "/pr-management",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Announcements and Docs visible for employees with read perms", () => {
+    const links = allowedShellLinks(
+      ["legal:announcement-read", "docs:read"],
+      true,
+    );
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/legal/announcements",
+      "/docs",
+      "/settings",
+    ]);
+  });
+
+    it("keeps admin Employees and Roles off employee-only shells", () => {
     const links = allowedShellLinks(["user:read", "role:read"], true);
 
     expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);

@@ -280,4 +280,55 @@ describe("route policy resolution", () => {
       }),
     ).toMatchObject({ allowed: true });
   });
+
+  it("blocks employee-only accounts from blog and PR management", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/blog-management",
+        permissions: ["blog:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/pr-management",
+        permissions: ["pr:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+  });
+
+  it("allows blog and PR management for non-employee accounts with read perms", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/blog-management",
+        permissions: ["blog:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/pr-management",
+        permissions: ["pr:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
+  it("allows employees onto legal announcements and docs with read perms", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/legal/announcements",
+        permissions: ["legal:announcement-read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: true });
+    expect(
+      evaluateRouteAccess({
+        pathname: "/docs",
+        permissions: ["docs:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
 });
