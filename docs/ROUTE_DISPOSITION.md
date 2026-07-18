@@ -50,7 +50,8 @@ The source command is sorted before classification. The JSON companion repeats t
 |  20 | `apps/web/src/app/(dashboard)/deals/page.tsx`                                   | `/deals`                                   | `migrate`              | `pending`    | `/deals`                     |
 |  21 | `apps/web/src/app/(dashboard)/directory/page.tsx`                               | `/directory`                               | `migrate`              | `foundation` | `/directory`                 |
 |  22 | `apps/web/src/app/(dashboard)/docs/page.tsx`                                    | `/docs`                                    | `migrate`              | `foundation` | `/docs`                      |
-|  23 | `apps/web/src/app/(dashboard)/drive/page.tsx`                                   | `/drive`                                   | `migrate`              | `pending`    | `/drive`                     |
+|  23 | `apps/web/src/app/(dashboard)/drive/page.tsx`                                   | `/drive`                                   | `migrate`              | `foundation` | `/drive`                     |
+|  — | `apps/app/app/(protected)/files.tsx`                                            | `/files`                                   | `migrate`              | `foundation` | `/files`                     |
 |  24 | `apps/web/src/app/(dashboard)/employees/page.tsx`                               | `/employees`                               | `migrate`              | `foundation` | `/employees`                 |
 |  25 | `apps/web/src/app/(dashboard)/expenses/[reportId]/page.tsx`                     | `/expenses/[reportId]`                     | `migrate`              | `pending`    | `/expenses/[reportId]`       |
 |  26 | `apps/web/src/app/(dashboard)/expenses/approval/page.tsx`                       | `/expenses/approval`                       | `migrate`              | `foundation` | `/expenses/approval`         |
@@ -86,7 +87,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  56 | `apps/web/src/app/(dashboard)/marketing-analytics/settings/page.tsx`            | `/marketing-analytics/settings`            | `remove-as-provenance` | `removed`    | —                            |
 |  57 | `apps/web/src/app/(dashboard)/marketing-analytics/traffic/[partnerId]/page.tsx` | `/marketing-analytics/traffic/[partnerId]` | `remove-as-provenance` | `removed`    | —                            |
 |  58 | `apps/web/src/app/(dashboard)/marketing-analytics/traffic/page.tsx`             | `/marketing-analytics/traffic`             | `remove-as-provenance` | `removed`    | —                            |
-|  59 | `apps/web/src/app/(dashboard)/messages/page.tsx`                                | `/messages`                                | `migrate`              | `pending`    | `/messages`                  |
+|  59 | `apps/web/src/app/(dashboard)/messages/page.tsx`                                | `/messages`                                | `migrate`              | `foundation` | `/messages`                  |
 |  60 | `apps/web/src/app/(dashboard)/my-portal/page.tsx`                               | `/my-portal`                               | `migrate`              | `foundation` | `/my-portal`                 |
 |  61 | `apps/web/src/app/(dashboard)/office/page.tsx`                                  | `/office`                                  | `migrate`              | `foundation` | `/office`                    |
 |  62 | `apps/web/src/app/(dashboard)/partners/[partnerId]/page.tsx`                    | `/partners/[partnerId]`                    | `migrate`              | `pending`    | `/partners/[partnerId]`      |

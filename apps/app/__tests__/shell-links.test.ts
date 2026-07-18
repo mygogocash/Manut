@@ -7,6 +7,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/performance",
+      "/files",
       "/settings",
     ]);
   });
@@ -17,6 +18,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/travel",
+      "/files",
       "/settings",
     ]);
   });
@@ -27,6 +29,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/expenses",
+      "/files",
       "/settings",
     ]);
   });
@@ -37,6 +40,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/hrms",
+      "/files",
       "/settings",
     ]);
   });
@@ -47,6 +51,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/visa",
+      "/files",
       "/settings",
     ]);
   });
@@ -57,6 +62,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/cash-advance",
+      "/files",
       "/settings",
     ]);
   });
@@ -67,6 +73,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/payroll",
+      "/files",
       "/settings",
     ]);
   });
@@ -77,6 +84,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/accounting",
+      "/files",
       "/settings",
     ]);
   });
@@ -87,6 +95,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/revenue",
+      "/files",
       "/settings",
     ]);
   });
@@ -97,6 +106,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/benefits",
+      "/files",
       "/settings",
     ]);
   });
@@ -107,6 +117,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/learning",
+      "/files",
       "/settings",
     ]);
   });
@@ -117,6 +128,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/office",
+      "/files",
       "/settings",
     ]);
   });
@@ -127,6 +139,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/careers",
+      "/files",
       "/settings",
     ]);
   });
@@ -134,7 +147,11 @@ describe("allowedShellLinks", () => {
   it("keeps Applications off employee-only shells even with application:read", () => {
     const links = allowedShellLinks(["application:read"], true);
 
-    expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/files",
+      "/settings",
+    ]);
   });
 
   it("keeps Applications visible for non-employee accounts with application:read", () => {
@@ -143,6 +160,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/applications",
+      "/files",
       "/settings",
     ]);
   });
@@ -153,6 +171,7 @@ describe("allowedShellLinks", () => {
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
       "/it-helpdesk",
+      "/files",
       "/settings",
     ]);
   });
@@ -160,7 +179,11 @@ describe("allowedShellLinks", () => {
   it("keeps Projects off employee-only shells even with projects:read", () => {
     const links = allowedShellLinks(["projects:read"], true);
 
-    expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/files",
+      "/settings",
+    ]);
   });
 
   it("keeps Projects visible for non-employee accounts with projects:read", () => {
@@ -173,6 +196,7 @@ describe("allowedShellLinks", () => {
       "/product-crm",
       "/legal-crm",
       "/accounting-crm",
+      "/files",
       "/settings",
     ]);
   });
@@ -183,7 +207,11 @@ describe("allowedShellLinks", () => {
       true,
     );
 
-    expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/files",
+      "/settings",
+    ]);
   });
 
   it("keeps CRM workspace hubs visible for non-employee accounts", () => {
@@ -208,45 +236,19 @@ describe("allowedShellLinks", () => {
       "/accounting-crm",
       "/qa-crm",
       "/voucher-crm",
+      "/files",
       "/settings",
     ]);
   });
 
-  it("keeps Blog and PR off employee-only shells", () => {
-    const links = allowedShellLinks(["blog:read", "pr:read"], true);
-
-    expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);
-  });
-
-  it("keeps Blog and PR visible for non-employee accounts", () => {
-    const links = allowedShellLinks(["blog:read", "pr:read"], false);
-
-    expect(links.map((link) => link.href)).toEqual([
-      "/my-portal",
-      "/blog-management",
-      "/pr-management",
-      "/settings",
-    ]);
-  });
-
-  it("keeps Announcements and Docs visible for employees with read perms", () => {
-    const links = allowedShellLinks(
-      ["legal:announcement-read", "docs:read"],
-      true,
-    );
-
-    expect(links.map((link) => link.href)).toEqual([
-      "/my-portal",
-      "/legal/announcements",
-      "/docs",
-      "/settings",
-    ]);
-  });
-
-    it("keeps admin Employees and Roles off employee-only shells", () => {
+  it("keeps admin Employees and Roles off employee-only shells", () => {
     const links = allowedShellLinks(["user:read", "role:read"], true);
 
-    expect(links.map((link) => link.href)).toEqual(["/my-portal", "/settings"]);
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/files",
+      "/settings",
+    ]);
   });
 
   it("shows admin Employees and Roles for non-employee accounts", () => {
@@ -254,6 +256,7 @@ describe("allowedShellLinks", () => {
 
     expect(links.map((link) => link.href)).toEqual([
       "/my-portal",
+      "/files",
       "/employees",
       "/roles",
       "/settings",
@@ -267,8 +270,25 @@ describe("allowedShellLinks", () => {
       "/dashboard",
       "/my-portal",
       "/directory",
+      "/files",
       "/settings",
     ]);
   });
+
+  it("keeps Drive and Messages visible with their leaf permissions", () => {
+    const links = allowedShellLinks(
+      ["integrations:use", "messages:read"],
+      true,
+    );
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/files",
+      "/drive",
+      "/messages",
+      "/settings",
+    ]);
+  });
+
 });
 

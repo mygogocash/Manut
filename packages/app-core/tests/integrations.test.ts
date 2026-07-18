@@ -5,8 +5,11 @@ import {
   disconnectGoogle,
   getIntegrationsStatus,
   integrationsStatusSchema,
+  isGoogleNotConnectedError,
+  listDrive,
   startGoogleOauth,
 } from "../src/integrations/integrations";
+import { ApiError } from "../src/api/api-error";
 
 describe("integrations contracts", () => {
   it("projects google connection status and strips legacy gmail/drive flags", () => {
@@ -62,5 +65,52 @@ describe("integrations contracts", () => {
 
     await expect(disconnectGoogle(client)).resolves.toEqual({ ok: true });
     expect(del).toHaveBeenCalledWith("/integrations/google");
+  });
+
+  it("lists Drive files through the integrations API", async () => {
+    const post = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: "drive-file-1",
+          name: "Roadmap.gdoc",
+          mimeType: "application/vnd.google-apps.document",
+          modifiedTime: "2026-07-01T12:00:00.000Z",
+          webViewLink: "https://drive.google.com/file/d/drive-file-1/view",
+          shared: false,
+        },
+      ],
+      nextPageToken: null,
+    });
+    const client = { post } as unknown as ApiClient;
+
+    await expect(listDrive(client, { query: "Road" })).resolves.toEqual({
+      data: [
+        {
+          id: "drive-file-1",
+          name: "Roadmap.gdoc",
+          mimeType: "application/vnd.google-apps.document",
+          size: null,
+          modifiedTime: "2026-07-01T12:00:00.000Z",
+          webViewLink: "https://drive.google.com/file/d/drive-file-1/view",
+          shared: false,
+        },
+      ],
+      nextPageToken: null,
+    });
+    expect(post).toHaveBeenCalledWith("/integrations/drive/list", {
+      query: "Road",
+      pageSize: 25,
+    });
+  });
+
+  it("detects Google not-connected API errors", () => {
+    expect(
+      isGoogleNotConnectedError(
+        new ApiError(412, "GOOGLE_NOT_CONNECTED", "Connect Google first"),
+      ),
+    ).toBe(true);
+    expect(
+      isGoogleNotConnectedError(new ApiError(403, "FORBIDDEN", "No")),
+    ).toBe(false);
   });
 });

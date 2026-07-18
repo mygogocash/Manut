@@ -607,26 +607,27 @@ Migration order:
    wall/compose.
    3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
    accounting/revenue, content, communications, reporting, and administration.
-   **Status 2026-07-18:** Wave 3 progressed — `/it-helpdesk`, `/projects`
-   list/detail/dashboard, `/accounting`, `/revenue`, and content/comms
-   foundations: `/blog-management`, `/legal/announcements`, `/pr-management`,
-   `/docs` (thin list APIs; strip HTML/body/acks). `/messages` deferred to
-   Wave 4 (SSE/socket realtime, not a simple REST inbox). Still pending:
-   Sales/CRM family (`/sales-revenue`, `/accounting-crm`, other CRM hubs),
-   journals/invoices/bank/approve-post, revenue detail tabs, reporting,
-   administration hubs, helpdesk writes/comments/GitHub, project
-   boards/task writes, and blog/PR/docs compose + announcement detail/ack.
+   **Status 2026-07-18:** Wave 3 progressed — `/it-helpdesk` (read-only ticket
+   list), `/projects` list/detail/dashboard, `/accounting` (chart of accounts
+   read), and `/revenue` (dashboard KPIs) landed as `foundation`. Still
+   pending: Sales/CRM family (`/sales-revenue`, `/accounting-crm`, other CRM
+   hubs), journals/invoices/bank/approve-post, revenue detail tabs,
+   content/comms, reporting, administration hubs, helpdesk
+   writes/comments/GitHub, and project boards/task writes.
    OTHER CRM list hubs also landed as `foundation`: `/it-crm`, `/product-crm`, `/legal-crm`, `/accounting-crm`, `/qa-crm`, `/voucher-crm`. Deferred: `/hr-crm` (no dedicated list API), `/investor-crm` (dashboard + `/api/investors`), `/it-crm/dashboard`, `/qa-crm/[projectId]`.
 
 4. Files, realtime messaging, integrations, document processing, and only
    newly approved Manut AI features through Workers AI/AI Gateway.
-   **Status 2026-07-18:** Wave 4 not started in Expo product UI. Concrete
-   next slices when prioritized: (1) files/R2 list + signed download URL
-   read path using existing edge upload/download intents; (2) realtime
-   messaging (`/messages` — DO/SSE; deferred from Wave 3 content slice);
-   (3) integrations product UI beyond Settings Google connect/disconnect.
-   Do not invent AI/marketing modules. Keep status `pending` until
-   API/web parity is clear.
+   **Status 2026-07-18:** Wave 4 deepened — `/files` upload/delete UX
+   (DocumentPicker → base64 `POST /api/uploads`, confirm delete via
+   `DELETE /api/uploads/:id`) plus signed open; `/drive` connect-aware
+   Google Drive list foundation (`POST /api/integrations/drive/list`);
+   `/messages` read-only REST channel list foundation
+   (`GET /api/messages/channels`). Blocker: Expo has no websocket /
+   Durable Object realtime client yet — live chat deferred (API socket.io
+   + edge `RealtimeRoom` exist). Still pending: multipart upload path,
+   Drive search/pagination deepen, message send/realtime, document
+   processing, and newly approved Manut AI only.
 
 For each route slice:
 

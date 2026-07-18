@@ -39,7 +39,8 @@ type PortalLink = {
     | "/learning"
     | "/office"
     | "/careers"
-    | "/applications";
+    | "/applications"
+    | "/files";
   permission: string | null;
 };
 
@@ -64,6 +65,7 @@ const PORTAL_LINKS: PortalLink[] = [
     href: "/applications",
     permission: "application:read",
   },
+  { label: "Files", href: "/files", permission: null },
   {
     label: "Performance",
     href: "/performance",

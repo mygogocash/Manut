@@ -200,9 +200,17 @@
       "sourcePath": "apps/web/src/app/(dashboard)/drive/page.tsx",
       "sourceRoute": "/drive",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/drive",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo /drive foundation: connect-aware Google Drive file list via POST /api/integrations/drive/list and Settings Google status patterns. Not-connected shows no fake data. Separate from R2 /files."
+    },
+    {
+      "sourcePath": "apps/app/app/(protected)/files.tsx",
+      "sourceRoute": "/files",
+      "disposition": "migrate",
+      "status": "foundation",
+      "targetRoute": "/files",
+      "note": "Expo /files: owner-scoped list, signed open, DocumentPicker base64 upload (POST /api/uploads), and confirm delete (DELETE /api/uploads/:id). Ownership server-side; storage path stripped. Google Drive stays on /drive."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/employees/page.tsx",
@@ -488,9 +496,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/messages/page.tsx",
       "sourceRoute": "/messages",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/messages",
-      "note": "DEFERRED to Wave 4 realtime. REST channel list exists (GET /api/messages/channels) but product depends on SSE/socket bus (messages.socket + messages.bus), not a simple REST inbox foundation. Land with Durable Object realtime agent."
+      "note": "Expo /messages read-only channel list via GET /api/messages/channels. Realtime websocket/Durable Object client is not wired in apps/app yet; live chat deferred."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/my-portal/page.tsx",

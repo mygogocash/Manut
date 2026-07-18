@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { ApiClient } from "../api/api-client";
+import { ApiError } from "../api/api-error";
 import type { RequestAbortSignal } from "../api/api-types";
 
 const googleConnectionSchema = z
@@ -92,4 +93,89 @@ export function oauthReturnMessage(
     tone: "error",
     message: messages[errorCode] ?? `Google sign-in failed (${errorCode})`,
   };
+}
+
+export function isGoogleNotConnectedError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 412 &&
+    error.code === "GOOGLE_NOT_CONNECTED"
+  );
+}
+
+const driveFileSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    name: z.string().min(1).optional(),
+    mimeType: z.string().min(1).optional(),
+    type: z.string().min(1).optional(),
+    size: z.union([z.string(), z.number()]).optional(),
+    modifiedTime: z.string().min(1).optional(),
+    modified: z.string().min(1).optional(),
+    webViewLink: z.string().url().optional(),
+    shared: z.boolean().optional(),
+  })
+  .passthrough()
+  .transform((file) => ({
+    id: file.id ?? null,
+    name: file.name ?? "Untitled",
+    mimeType: file.mimeType ?? file.type ?? null,
+    size:
+      file.size === undefined || file.size === null
+        ? null
+        : String(file.size),
+    modifiedTime: file.modifiedTime ?? file.modified ?? null,
+    webViewLink: file.webViewLink ?? null,
+    shared: file.shared ?? null,
+  }));
+
+export const driveListParamsSchema = z
+  .object({
+    query: z.string().max(500).optional(),
+    pageSize: z.number().int().positive().max(100).default(25),
+    pageToken: z.string().min(1).optional(),
+  })
+  .strict();
+
+const driveListResponseSchema = z
+  .object({
+    data: z.array(driveFileSchema),
+    nextPageToken: z.string().nullable().optional(),
+  })
+  .passthrough()
+  .transform((value) => ({
+    data: value.data,
+    nextPageToken: value.nextPageToken ?? null,
+  }));
+
+export type DriveFile = z.infer<typeof driveFileSchema>;
+export type DriveListParams = z.input<typeof driveListParamsSchema>;
+export type DriveList = z.infer<typeof driveListResponseSchema>;
+
+export const DRIVE_LIST_QUERY_ROOT = ["integrations", "drive", "list"] as const;
+
+export function driveListQueryKey(params: DriveListParams = {}) {
+  return [...DRIVE_LIST_QUERY_ROOT, driveListParamsSchema.parse(params)] as const;
+}
+
+export async function listDrive(
+  client: ApiClient,
+  params: DriveListParams = {},
+): Promise<DriveList> {
+  const parsed = driveListParamsSchema.parse(params);
+  const body: {
+    query?: string;
+    pageSize: number;
+    pageToken?: string;
+  } = {
+    pageSize: parsed.pageSize,
+  };
+  if (parsed.query != null && parsed.query.length > 0) {
+    body.query = parsed.query;
+  }
+  if (parsed.pageToken != null) {
+    body.pageToken = parsed.pageToken;
+  }
+  const response = await client.post<unknown>("/integrations/drive/list", body);
+  return driveListResponseSchema.parse(response);
 }
