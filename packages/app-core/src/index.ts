@@ -692,17 +692,58 @@ export {
 } from "./leads/leads";
 export type { Lead, LeadList, LeadListParams } from "./leads/leads";
 export {
+  getPartner,
   listPartners,
+  PARTNER_DETAIL_QUERY_ROOT,
   PARTNERS_QUERY_ROOT,
+  partnerDetailQueryKey,
+  partnerDetailSchema,
   partnerListParamsSchema,
   partnerSchema,
   partnersQueryKey,
 } from "./partners/partners";
 export type {
   Partner,
+  PartnerDetail,
   PartnerList,
   PartnerListParams,
 } from "./partners/partners";
+export {
+  INVESTORS_QUERY_ROOT,
+  investorListParamsSchema,
+  investorSchema,
+  investorsQueryKey,
+  listInvestors,
+} from "./investors/investors";
+export type {
+  Investor,
+  InvestorList,
+  InvestorListParams,
+} from "./investors/investors";
+export {
+  INVESTOR_UPDATES_QUERY_ROOT,
+  investorUpdateListParamsSchema,
+  investorUpdateSchema,
+  investorUpdatesQueryKey,
+  listInvestorUpdates,
+} from "./investor-updates/investor-updates";
+export type {
+  InvestorUpdate,
+  InvestorUpdateList,
+  InvestorUpdateListParams,
+} from "./investor-updates/investor-updates";
+export {
+  DATAROOM_QUERY_ROOT,
+  dataRoomDocumentSchema,
+  dataRoomDocumentsQueryKey,
+  dataRoomListParamsSchema,
+  listDataRoomDocuments,
+} from "./dataroom/dataroom";
+export type {
+  DataRoomDocument,
+  DataRoomList,
+  DataRoomListParams,
+} from "./dataroom/dataroom";
 export type { CrmWorkspaceProject } from "./crm/create-crm-workspace-list";
 export {
   IT_CRM_QUERY_ROOT,

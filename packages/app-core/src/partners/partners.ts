@@ -122,3 +122,62 @@ export async function listPartners(
   );
   return partnersResponseSchema.parse(response);
 }
+
+const nullableDateText = z.union([z.string().min(1), z.null()]);
+
+const partnerDetailApiSchema = partnerApiSchema.extend({
+  description: nullableText.optional(),
+  productionLiveDate: nullableDateText.optional(),
+  goLiveDate: nullableDateText.optional(),
+  revisedGoLiveDate: nullableDateText.optional(),
+  dependency: nullableText.optional(),
+});
+
+export const partnerDetailSchema = partnerDetailApiSchema.transform(
+  (partner) => ({
+    id: partner.id,
+    slug: partner.slug,
+    company: partner.company,
+    type: partner.type,
+    status: partner.status,
+    department: partner.department ?? null,
+    region: partner.region ?? null,
+    country: partner.country ?? null,
+    sortOrder: partner.sortOrder ?? 0,
+    projectCount: partner._count?.projects ?? 0,
+    owner: partner.owner
+      ? { id: partner.owner.id, name: partner.owner.name }
+      : null,
+    description: partner.description ?? null,
+    productionLiveDate: partner.productionLiveDate ?? null,
+    goLiveDate: partner.goLiveDate ?? null,
+    revisedGoLiveDate: partner.revisedGoLiveDate ?? null,
+    dependency: partner.dependency ?? null,
+  }),
+);
+
+const partnerDetailResponseSchema = z
+  .object({
+    data: partnerDetailSchema,
+  })
+  .strict();
+
+export type PartnerDetail = z.infer<typeof partnerDetailSchema>;
+
+export const PARTNER_DETAIL_QUERY_ROOT = ["partners", "detail"] as const;
+
+export function partnerDetailQueryKey(partnerId: string) {
+  return [...PARTNER_DETAIL_QUERY_ROOT, partnerId] as const;
+}
+
+export async function getPartner(
+  client: ApiClient,
+  partnerId: string,
+  signal?: RequestAbortSignal,
+): Promise<PartnerDetail> {
+  const response = await client.get<unknown>(
+    `/partners/${encodeURIComponent(partnerId)}`,
+    signal ? { signal } : undefined,
+  );
+  return partnerDetailResponseSchema.parse(response).data;
+}

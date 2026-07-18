@@ -9,15 +9,10 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { PartnersScreen } from "@/features/partners/partners-screen";
+import { DataroomScreen } from "@/features/dataroom/dataroom-screen";
 
 const mockGet = jest.fn();
-const mockPush = jest.fn();
-let mockPermissions = ["partners:read"];
-
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
+let mockPermissions = ["dataroom:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
   useApiClient: () => ({ get: mockGet }),
@@ -37,12 +32,12 @@ async function renderScreen() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <PartnersScreen />
+      <DataroomScreen />
     </QueryClientProvider>,
   );
 }
 
-describe("PartnersScreen", () => {
+describe("DataroomScreen", () => {
   beforeAll(() => {
     notifyManager.setNotifyFunction(async (callback) => {
       await act(async () => {
@@ -57,23 +52,22 @@ describe("PartnersScreen", () => {
 
   beforeEach(() => {
     mockGet.mockReset();
-    mockPush.mockReset();
-    mockPermissions = ["partners:read"];
+    mockPermissions = ["dataroom:read"];
     mockGet.mockResolvedValue({
       data: [
         {
           id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          slug: "acme-corp",
-          company: "Acme Corp",
-          type: "reseller",
-          status: "prospect",
-          region: "APAC",
-          country: "TH",
-          owner: {
+          name: "Series A deck",
+          description: "Investor pitch",
+          category: "pitch",
+          fileSize: 204800,
+          mimeType: "application/pdf",
+          version: 2,
+          uploadedAt: "2026-07-01T00:00:00.000Z",
+          uploader: {
             id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
             name: "Alex Example",
           },
-          _count: { projects: 2 },
         },
       ],
       meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
@@ -81,15 +75,15 @@ describe("PartnersScreen", () => {
   });
 
   it(
-    "lists partners read-only",
+    "lists dataroom documents read-only",
     async () => {
       await renderScreen();
       expect(
-        await screen.findByText("Acme Corp", {}, { timeout: 10_000 }),
+        await screen.findByText("Series A deck", {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(screen.getByText(/reseller · prospect · APAC · TH/)).toBeTruthy();
+      expect(screen.getByText(/pitch · application\/pdf · v2/)).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
-        "/partners?page=1&limit=20",
+        "/dataroom?page=1&limit=20",
         expect.anything(),
       );
     },

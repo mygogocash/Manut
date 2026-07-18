@@ -168,9 +168,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/dataroom/page.tsx",
       "sourceRoute": "/dataroom",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/dataroom",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only dataroom document list via GET /api/dataroom (dataroom:read). Strips fileUrl and uploader email; keeps name/category/mime/version. Deferred: download intents, upload, folder management. Not Google Drive."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/deals/page.tsx",
@@ -288,17 +288,17 @@
       "sourcePath": "apps/web/src/app/(dashboard)/investor-updates/page.tsx",
       "sourceRoute": "/investor-updates",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/investor-updates",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only investor update list via GET /api/investor-updates. Strips body content and sender email; keeps title/period/status. Deferred: compose, send, body detail."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/investors/page.tsx",
       "sourceRoute": "/investors",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/investors",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only investor list via GET /api/investors. Strips contact email/phone, website, notes, and investment amounts. Deferred: pipeline board, detail, CRM writes. /investor-crm owned separately."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/it-crm/dashboard/page.tsx",
@@ -520,9 +520,9 @@
       "sourcePath": "apps/web/src/app/(dashboard)/partners/[partnerId]/page.tsx",
       "sourceRoute": "/partners/[partnerId]",
       "disposition": "migrate",
-      "status": "pending",
+      "status": "foundation",
       "targetRoute": "/partners/[partnerId]",
-      "note": "Approved route remains in the universal migration queue."
+      "note": "Expo read-only partner detail via GET /api/partners/:id. Strips contracts/website/notes/contacts/owner email; keeps description and go-live dates. Linked from partners list. Deferred: board, contacts, contract edits."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/partners/campaigns/page.tsx",
@@ -546,7 +546,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/partners",
-      "note": "Expo read-only partners list via app-core GET /api/partners (strips contracts/website/notes/owner email). Detail, campaigns, board, contacts, and writes remain before parity."
+      "note": "Expo read-only partners list via app-core GET /api/partners (strips contracts/website/notes/owner email). Detail foundation links to /partners/[partnerId]. Campaigns/dashboard removed; board, contacts, and writes remain before parity."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/payroll/approval/page.tsx",

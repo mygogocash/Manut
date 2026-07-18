@@ -290,6 +290,69 @@ describe("route policy resolution", () => {
     ).toMatchObject({ allowed: false, reason: "employee-boundary" });
   });
 
+  it("allows partner detail under the partners prefix", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/partners/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        permissions: ["partners:read"],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
+  it.each([
+    "investors:read",
+    "investors:read-all",
+    "investors:create",
+    "investors:update",
+    "investors:delete",
+  ])("allows the investors route with %s", (permission) => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/investors",
+        permissions: [permission],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
+  it("denies the investors route for employee-only shells", () => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/investors",
+        permissions: ["investors:read"],
+        employeeOnly: true,
+      }),
+    ).toMatchObject({ allowed: false, reason: "employee-boundary" });
+  });
+
+  it.each([
+    "investor-updates:read",
+    "investor-updates:create",
+    "investor-updates:send",
+  ])("allows the investor-updates route with %s", (permission) => {
+    expect(
+      evaluateRouteAccess({
+        pathname: "/investor-updates",
+        permissions: [permission],
+        employeeOnly: false,
+      }),
+    ).toMatchObject({ allowed: true });
+  });
+
+  it.each(["dataroom:read", "dataroom:upload", "dataroom:manage"])(
+    "allows the dataroom route with %s",
+    (permission) => {
+      expect(
+        evaluateRouteAccess({
+          pathname: "/dataroom",
+          permissions: [permission],
+          employeeOnly: false,
+        }),
+      ).toMatchObject({ allowed: true });
+    },
+  );
+
   it.each(["career:read", "career:create", "career:update", "career:delete"])(
     "allows the careers route with %s",
     (permission) => {

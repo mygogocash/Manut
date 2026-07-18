@@ -9,7 +9,7 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { PartnersScreen } from "@/features/partners/partners-screen";
+import { PartnerDetailScreen } from "@/features/partners/partner-detail-screen";
 
 const mockGet = jest.fn();
 const mockPush = jest.fn();
@@ -17,6 +17,9 @@ let mockPermissions = ["partners:read"];
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ push: mockPush }),
+  useLocalSearchParams: () => ({
+    partnerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  }),
 }));
 
 jest.mock("@/providers/api-client-provider", () => ({
@@ -37,12 +40,12 @@ async function renderScreen() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <PartnersScreen />
+      <PartnerDetailScreen />
     </QueryClientProvider>,
   );
 }
 
-describe("PartnersScreen", () => {
+describe("PartnerDetailScreen", () => {
   beforeAll(() => {
     notifyManager.setNotifyFunction(async (callback) => {
       await act(async () => {
@@ -60,36 +63,40 @@ describe("PartnersScreen", () => {
     mockPush.mockReset();
     mockPermissions = ["partners:read"];
     mockGet.mockResolvedValue({
-      data: [
-        {
-          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          slug: "acme-corp",
-          company: "Acme Corp",
-          type: "reseller",
-          status: "prospect",
-          region: "APAC",
-          country: "TH",
-          owner: {
-            id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-            name: "Alex Example",
-          },
-          _count: { projects: 2 },
+      data: {
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        slug: "acme-corp",
+        company: "Acme Corp",
+        type: "reseller",
+        status: "prospect",
+        department: "Marketing",
+        region: "APAC",
+        country: "TH",
+        description: "Channel partner",
+        productionLiveDate: "2026-03-01T00:00:00.000Z",
+        goLiveDate: "2026-04-01T00:00:00.000Z",
+        dependency: "Legal review",
+        owner: {
+          id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          name: "Alex Example",
         },
-      ],
-      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+        _count: { projects: 2 },
+      },
     });
   });
 
   it(
-    "lists partners read-only",
+    "shows read-only partner detail",
     async () => {
       await renderScreen();
       expect(
         await screen.findByText("Acme Corp", {}, { timeout: 10_000 }),
       ).toBeTruthy();
       expect(screen.getByText(/reseller · prospect · APAC · TH/)).toBeTruthy();
+      expect(screen.getByText("Owner: Alex Example")).toBeTruthy();
+      expect(screen.getByText("Channel partner")).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
-        "/partners?page=1&limit=20",
+        "/partners/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         expect.anything(),
       );
     },

@@ -290,6 +290,41 @@ export const ROUTE_REGISTRY: readonly RoutePolicy[] = [
     prefix: true,
   },
   {
+    path: "/investors",
+    access: "protected",
+    permissions: [
+      "investors:read",
+      "investors:read-all",
+      "investors:create",
+      "investors:update",
+      "investors:delete",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/investor-updates",
+    access: "protected",
+    permissions: [
+      "investor-updates:read",
+      "investor-updates:create",
+      "investor-updates:send",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
+    path: "/dataroom",
+    access: "protected",
+    permissions: [
+      "dataroom:read",
+      "dataroom:upload",
+      "dataroom:manage",
+    ],
+    employeeAllowed: false,
+    prefix: true,
+  },
+  {
     path: "/it-crm",
     access: "protected",
     permissions: [
@@ -443,6 +478,20 @@ export const ROUTE_OVERRIDES: readonly RouteOverride[] = [
         "accounting-crm:read-all",
         "hr-crm:read",
         "hr-crm:read-all",
+      ],
+      employeeAllowed: false,
+    },
+  },
+  {
+    matches: (pathname) => /^\/partners\/[^/]+(?:\/|$)/.test(pathname),
+    policy: {
+      path: "/partners/[partnerId]",
+      access: "protected",
+      permissions: [
+        "partners:read",
+        "partners:create",
+        "partners:update",
+        "partners:delete",
       ],
       employeeAllowed: false,
     },

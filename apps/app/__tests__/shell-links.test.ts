@@ -142,6 +142,32 @@ describe("allowedShellLinks", () => {
     ]);
   });
 
+  it("keeps Investors off employee-only shells even with investors:read", () => {
+    const links = allowedShellLinks(["investors:read"], true);
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/files",
+      "/settings",
+    ]);
+  });
+
+  it("keeps Investors, Investor updates, and Dataroom visible for non-employees", () => {
+    const links = allowedShellLinks(
+      ["investors:read", "investor-updates:read", "dataroom:read"],
+      false,
+    );
+
+    expect(links.map((link) => link.href)).toEqual([
+      "/my-portal",
+      "/investors",
+      "/investor-updates",
+      "/dataroom",
+      "/files",
+      "/settings",
+    ]);
+  });
+
   it("keeps Benefits visible when benefits:read is granted", () => {
     const links = allowedShellLinks(["benefits:read"], true);
 

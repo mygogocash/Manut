@@ -1,8 +1,8 @@
 import {
   ApiError,
-  listPartners,
-  partnersQueryKey,
-  type Partner,
+  listInvestors,
+  investorsQueryKey,
+  type Investor,
 } from "@manut/app-core";
 import {
   Button,
@@ -14,8 +14,7 @@ import {
   StatusMessage,
 } from "@manut/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
 import { useApiClient } from "@/providers/api-client-provider";
@@ -24,27 +23,19 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback;
 }
 
-function canReadPartners(hasPermission: (code: string) => boolean): boolean {
+function canReadInvestors(hasPermission: (code: string) => boolean): boolean {
   return (
-    hasPermission("partners:read") ||
-    hasPermission("partners:create") ||
-    hasPermission("partners:update") ||
-    hasPermission("partners:delete")
+    hasPermission("investors:read") ||
+    hasPermission("investors:read-all") ||
+    hasPermission("investors:create") ||
+    hasPermission("investors:update") ||
+    hasPermission("investors:delete")
   );
 }
 
-function PartnerRow({
-  partner,
-  onOpen,
-}: {
-  partner: Partner;
-  onOpen: () => void;
-}) {
+function InvestorRow({ investor }: { investor: Investor }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Open partner ${partner.company}`}
-      onPress={onOpen}
+    <View
       style={{
         gap: spacing.xs,
         padding: spacing.lg,
@@ -55,31 +46,31 @@ function PartnerRow({
       }}
     >
       <Text selectable style={{ fontWeight: "600", color: colors.text }}>
-        {partner.company}
+        {investor.name}
       </Text>
       <Text selectable style={{ color: colors.textMuted }}>
-        {partner.type} · {partner.status}
-        {partner.region ? ` · ${partner.region}` : ""}
-        {partner.country ? ` · ${partner.country}` : ""}
+        {investor.type} · {investor.status}
+        {investor.location ? ` · ${investor.location}` : ""}
+        {investor.region ? ` · ${investor.region}` : ""}
       </Text>
       <Text selectable style={{ color: colors.textMuted }}>
-        {partner.owner ? partner.owner.name : "Unassigned"} ·{" "}
-        {partner.projectCount} project
-        {partner.projectCount === 1 ? "" : "s"}
+        {investor.contactName ?? "No contact"} ·{" "}
+        {investor.adder ? investor.adder.name : "Unassigned"} ·{" "}
+        {investor.investmentCount} investment
+        {investor.investmentCount === 1 ? "" : "s"}
       </Text>
-    </Pressable>
+    </View>
   );
 }
 
-export function PartnersScreen() {
+export function InvestorsScreen() {
   const api = useApiClient();
-  const router = useRouter();
   const { hasPermission } = useAuth();
-  const allowed = canReadPartners(hasPermission);
+  const allowed = canReadInvestors(hasPermission);
 
-  const partnersQuery = useQuery({
-    queryKey: partnersQueryKey({ page: 1, limit: 20 }),
-    queryFn: ({ signal }) => listPartners(api, { page: 1, limit: 20 }, signal),
+  const investorsQuery = useQuery({
+    queryKey: investorsQueryKey({ page: 1, limit: 20 }),
+    queryFn: ({ signal }) => listInvestors(api, { page: 1, limit: 20 }, signal),
     enabled: allowed,
   });
 
@@ -88,9 +79,9 @@ export function PartnersScreen() {
       <ScrollView
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}
       >
-        <Card title="Partners" maxWidth={720}>
+        <Card title="Investors" maxWidth={720}>
           <StatusMessage tone="error">
-            You do not have permission to view partners.
+            You do not have permission to view investors.
           </StatusMessage>
         </Card>
       </ScrollView>
@@ -115,53 +106,49 @@ export function PartnersScreen() {
             accessibilityRole="header"
             style={{ fontSize: 30, fontWeight: "700", color: colors.text }}
           >
-            Partners
+            Investors
           </Text>
           <Text selectable style={{ color: colors.textMuted }}>
-            Read-only partner list. Import, board, contacts, and contract edits
-            remain later.
+            Read-only investor list. Pipeline board, amounts, and contact
+            secrets remain later.
           </Text>
         </View>
 
-        {partnersQuery.isPending ? (
-          <LoadingState label="Loading partners…" />
+        {investorsQuery.isPending ? (
+          <LoadingState label="Loading investors…" />
         ) : null}
 
-        {partnersQuery.isError ? (
-          <Card title="Partners unavailable">
+        {investorsQuery.isError ? (
+          <Card title="Investors unavailable">
             <StatusMessage tone="error">
               {errorMessage(
-                partnersQuery.error,
-                "We could not load partners.",
+                investorsQuery.error,
+                "We could not load investors.",
               )}
             </StatusMessage>
             <Button
               label="Retry"
               pendingLabel="Retrying…"
-              accessibilityLabel="Retry partners"
-              pending={partnersQuery.isFetching}
+              accessibilityLabel="Retry investors"
+              pending={investorsQuery.isFetching}
               onPress={() => {
-                void partnersQuery.refetch();
+                void investorsQuery.refetch();
               }}
             />
           </Card>
         ) : null}
 
-        {partnersQuery.data ? (
-          partnersQuery.data.data.length === 0 ? (
-            <Card title="No partners">
+        {investorsQuery.data ? (
+          investorsQuery.data.data.length === 0 ? (
+            <Card title="No investors">
               <Text selectable style={{ color: colors.textMuted }}>
-                No partners are available yet.
+                No investors are available yet.
               </Text>
             </Card>
           ) : (
-            <View accessibilityLabel="Partners" style={{ gap: spacing.md }}>
-              {partnersQuery.data.data.map((partner) => (
-                <PartnerRow
-                  key={partner.id}
-                  partner={partner}
-                  onOpen={() => router.push(`/partners/${partner.id}`)}
-                />
+            <View accessibilityLabel="Investors" style={{ gap: spacing.md }}>
+              {investorsQuery.data.data.map((investor) => (
+                <InvestorRow key={investor.id} investor={investor} />
               ))}
             </View>
           )

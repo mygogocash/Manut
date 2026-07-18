@@ -9,15 +9,10 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { PartnersScreen } from "@/features/partners/partners-screen";
+import { InvestorUpdatesScreen } from "@/features/investor-updates/investor-updates-screen";
 
 const mockGet = jest.fn();
-const mockPush = jest.fn();
-let mockPermissions = ["partners:read"];
-
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
+let mockPermissions = ["investor-updates:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
   useApiClient: () => ({ get: mockGet }),
@@ -37,12 +32,12 @@ async function renderScreen() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <PartnersScreen />
+      <InvestorUpdatesScreen />
     </QueryClientProvider>,
   );
 }
 
-describe("PartnersScreen", () => {
+describe("InvestorUpdatesScreen", () => {
   beforeAll(() => {
     notifyManager.setNotifyFunction(async (callback) => {
       await act(async () => {
@@ -57,23 +52,17 @@ describe("PartnersScreen", () => {
 
   beforeEach(() => {
     mockGet.mockReset();
-    mockPush.mockReset();
-    mockPermissions = ["partners:read"];
+    mockPermissions = ["investor-updates:read"];
     mockGet.mockResolvedValue({
       data: [
         {
           id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          slug: "acme-corp",
-          company: "Acme Corp",
-          type: "reseller",
-          status: "prospect",
-          region: "APAC",
-          country: "TH",
-          owner: {
-            id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-            name: "Alex Example",
-          },
-          _count: { projects: 2 },
+          title: "Q2 portfolio update",
+          period: "2026-Q2",
+          status: "draft",
+          sentAt: null,
+          createdAt: "2026-07-01T00:00:00.000Z",
+          sender: null,
         },
       ],
       meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
@@ -81,15 +70,15 @@ describe("PartnersScreen", () => {
   });
 
   it(
-    "lists partners read-only",
+    "lists investor updates read-only",
     async () => {
       await renderScreen();
       expect(
-        await screen.findByText("Acme Corp", {}, { timeout: 10_000 }),
+        await screen.findByText("Q2 portfolio update", {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(screen.getByText(/reseller · prospect · APAC · TH/)).toBeTruthy();
+      expect(screen.getByText(/2026-Q2 · draft/)).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
-        "/partners?page=1&limit=20",
+        "/investor-updates?page=1&limit=20",
         expect.anything(),
       );
     },

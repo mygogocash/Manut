@@ -9,15 +9,10 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { PartnersScreen } from "@/features/partners/partners-screen";
+import { InvestorsScreen } from "@/features/investors/investors-screen";
 
 const mockGet = jest.fn();
-const mockPush = jest.fn();
-let mockPermissions = ["partners:read"];
-
-jest.mock("expo-router", () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
+let mockPermissions = ["investors:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
   useApiClient: () => ({ get: mockGet }),
@@ -37,12 +32,12 @@ async function renderScreen() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <PartnersScreen />
+      <InvestorsScreen />
     </QueryClientProvider>,
   );
 }
 
-describe("PartnersScreen", () => {
+describe("InvestorsScreen", () => {
   beforeAll(() => {
     notifyManager.setNotifyFunction(async (callback) => {
       await act(async () => {
@@ -57,23 +52,22 @@ describe("PartnersScreen", () => {
 
   beforeEach(() => {
     mockGet.mockReset();
-    mockPush.mockReset();
-    mockPermissions = ["partners:read"];
+    mockPermissions = ["investors:read"];
     mockGet.mockResolvedValue({
       data: [
         {
           id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-          slug: "acme-corp",
-          company: "Acme Corp",
-          type: "reseller",
-          status: "prospect",
+          name: "Northwind Capital",
+          type: "vc",
+          status: "investors",
+          contactName: "Jamie Example",
+          location: "Bangkok",
           region: "APAC",
-          country: "TH",
-          owner: {
+          adder: {
             id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
             name: "Alex Example",
           },
-          _count: { projects: 2 },
+          _count: { investments: 3 },
         },
       ],
       meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
@@ -81,15 +75,15 @@ describe("PartnersScreen", () => {
   });
 
   it(
-    "lists partners read-only",
+    "lists investors read-only",
     async () => {
       await renderScreen();
       expect(
-        await screen.findByText("Acme Corp", {}, { timeout: 10_000 }),
+        await screen.findByText("Northwind Capital", {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(screen.getByText(/reseller · prospect · APAC · TH/)).toBeTruthy();
+      expect(screen.getByText(/vc · investors · Bangkok · APAC/)).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
-        "/partners?page=1&limit=20",
+        "/investors?page=1&limit=20",
         expect.anything(),
       );
     },

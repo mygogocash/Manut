@@ -46,7 +46,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  16 | `apps/web/src/app/(dashboard)/cash-advance/page.tsx`                            | `/cash-advance`                            | `migrate`              | `foundation` | `/cash-advance`              |
 |  17 | `apps/web/src/app/(dashboard)/certificates/page.tsx`                            | `/certificates`                            | `migrate`              | `pending`    | `/certificates`              |
 |  18 | `apps/web/src/app/(dashboard)/dashboard/page.tsx`                               | `/dashboard`                               | `migrate`              | `foundation` | `/dashboard`                 |
-|  19 | `apps/web/src/app/(dashboard)/dataroom/page.tsx`                                | `/dataroom`                                | `migrate`              | `pending`    | `/dataroom`                  |
+|  19 | `apps/web/src/app/(dashboard)/dataroom/page.tsx`                                | `/dataroom`                                | `migrate`              | `foundation` | `/dataroom`                  |
 |  20 | `apps/web/src/app/(dashboard)/deals/page.tsx`                                   | `/deals`                                   | `migrate`              | `pending`    | `/deals`                     |
 |  21 | `apps/web/src/app/(dashboard)/directory/page.tsx`                               | `/directory`                               | `migrate`              | `foundation` | `/directory`                 |
 |  22 | `apps/web/src/app/(dashboard)/docs/page.tsx`                                    | `/docs`                                    | `migrate`              | `foundation` | `/docs`                      |
@@ -61,8 +61,8 @@ The source command is sorted before classification. The JSON companion repeats t
 |  30 | `apps/web/src/app/(dashboard)/hrms/esop/[employeeId]/page.tsx`                  | `/hrms/esop/[employeeId]`                  | `replace`              | `pending`    | `/hrms/grants/[employeeId]`  |
 |  31 | `apps/web/src/app/(dashboard)/hrms/page.tsx`                                    | `/hrms`                                    | `migrate`              | `foundation` | `/hrms`                      |
 |  32 | `apps/web/src/app/(dashboard)/investor-crm/page.tsx`                            | `/investor-crm`                            | `migrate`              | `pending`    | `/investor-crm`              |
-|  33 | `apps/web/src/app/(dashboard)/investor-updates/page.tsx`                        | `/investor-updates`                        | `migrate`              | `pending`    | `/investor-updates`          |
-|  34 | `apps/web/src/app/(dashboard)/investors/page.tsx`                               | `/investors`                               | `migrate`              | `pending`    | `/investors`                 |
+|  33 | `apps/web/src/app/(dashboard)/investor-updates/page.tsx`                        | `/investor-updates`                        | `migrate`              | `foundation` | `/investor-updates`          |
+|  34 | `apps/web/src/app/(dashboard)/investors/page.tsx`                               | `/investors`                               | `migrate`              | `foundation` | `/investors`                 |
 |  35 | `apps/web/src/app/(dashboard)/it-crm/dashboard/page.tsx`                        | `/it-crm/dashboard`                        | `migrate`              | `pending`    | `/it-crm/dashboard`          |
 |  36 | `apps/web/src/app/(dashboard)/it-crm/page.tsx`                                  | `/it-crm`                                  | `migrate`              | `foundation` | `/it-crm`                    |
 |  37 | `apps/web/src/app/(dashboard)/it-helpdesk/page.tsx`                             | `/it-helpdesk`                             | `migrate`              | `foundation`    | `/it-helpdesk`               |
@@ -90,7 +90,7 @@ The source command is sorted before classification. The JSON companion repeats t
 |  59 | `apps/web/src/app/(dashboard)/messages/page.tsx`                                | `/messages`                                | `migrate`              | `foundation` | `/messages`                  |
 |  60 | `apps/web/src/app/(dashboard)/my-portal/page.tsx`                               | `/my-portal`                               | `migrate`              | `foundation` | `/my-portal`                 |
 |  61 | `apps/web/src/app/(dashboard)/office/page.tsx`                                  | `/office`                                  | `migrate`              | `foundation` | `/office`                    |
-|  62 | `apps/web/src/app/(dashboard)/partners/[partnerId]/page.tsx`                    | `/partners/[partnerId]`                    | `migrate`              | `pending`    | `/partners/[partnerId]`      |
+|  62 | `apps/web/src/app/(dashboard)/partners/[partnerId]/page.tsx`                    | `/partners/[partnerId]`                    | `migrate`              | `foundation` | `/partners/[partnerId]`      |
 |  63 | `apps/web/src/app/(dashboard)/partners/campaigns/page.tsx`                      | `/partners/campaigns`                      | `remove-as-provenance` | `removed`    | —                            |
 |  64 | `apps/web/src/app/(dashboard)/partners/dashboard/page.tsx`                      | `/partners/dashboard`                      | `remove-as-provenance` | `removed`    | —                            |
 |  65 | `apps/web/src/app/(dashboard)/partners/page.tsx`                                | `/partners`                                | `migrate`              | `foundation` | `/partners`                  |
