@@ -554,7 +554,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/payroll/approval",
-      "note": "Expo read-only payroll approval-steps list via app-core. Deferred: step create/edit/reorder and run approve actions."
+      "note": "Expo read-only payroll approval-steps list via app-core. Run approve lives on /payroll (payroll:approve). Deferred: step create/edit/reorder."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/payroll/page.tsx",
@@ -562,7 +562,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/payroll",
-      "note": "Expo payroll runs list plus my-payslips (strips documentUrl/allowances/deductions to hasDocument; strips notes/emails/currencyTotals) and /payroll/approval steps foundation. Deferred: create/import, approve actions, payslip download/export/bulk delete, company footer writes, consultant invoices. Status stays foundation until Expo browser E2E."
+      "note": "Expo payroll runs list plus my-payslips (strips documentUrl/allowances/deductions to hasDocument; strips notes/emails/currencyTotals), draft-run approve via PUT /payroll/runs/:id/approve (payroll:approve), and /payroll/approval steps foundation. Deferred: create/import, payslip download/export/bulk delete, company footer writes, consultant invoices. Status stays foundation until Expo browser E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/performance/page.tsx",
@@ -778,7 +778,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/visa",
-      "note": "Expo read-only tracker: list/detail + signed document open, plus /visa/checklist-templates and /visa/knowledge-base read foundations. Deferred: CRUD/import, notification config, timeline, checklist toggles, 90-day residence tab."
+      "note": "Expo tracker: list/detail + signed document open; per-record checklist get/toggle for visa:manage (strips createdAt/updatedAt); plus /visa/checklist-templates and /visa/knowledge-base read foundations. Deferred: CRUD/import, notification config, timeline, 90-day residence tab. Status stays foundation until Expo browser E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/voucher-crm/page.tsx",

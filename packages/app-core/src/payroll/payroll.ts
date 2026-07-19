@@ -27,9 +27,8 @@ const namedPersonSchema = z.object({
   name: z.string().min(1),
 });
 
-// List receipts strip notes, runner/approver emails, and currencyTotals
-// (sensitive aggregate / export detail). Create/approve/payslip downloads
-// belong to later slices.
+// List/approve receipts strip notes, runner/approver emails, and currencyTotals
+// (sensitive aggregate / export detail). Create and payslip downloads stay later.
 const payrollRunApiSchema = z
   .object({
     id: z.string().min(1),
@@ -141,6 +140,24 @@ export async function listPayrollRuns(
     signal ? { signal } : undefined,
   );
   return payrollRunsResponseSchema.parse(response);
+}
+
+const approvePayrollRunResponseSchema = z
+  .object({
+    data: payrollRunSchema,
+  })
+  .strict();
+
+export async function approvePayrollRun(
+  client: ApiClient,
+  runId: string,
+): Promise<PayrollRun> {
+  const id = z.string().min(1).parse(runId);
+  const response = await client.put<unknown>(
+    `/payroll/runs/${encodeURIComponent(id)}/approve`,
+    {},
+  );
+  return approvePayrollRunResponseSchema.parse(response).data;
 }
 
 // Self-scoped payslips. Strip documentUrl / bank / allowance detail —

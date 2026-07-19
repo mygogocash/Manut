@@ -31,6 +31,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
+import { VisaChecklistPanel } from "@/features/visa/visa-checklist-panel";
 import { visaStatusLabel } from "@/features/visa/visa-status-label";
 import { visaTypeLabel } from "@/features/visa/visa-type-label";
 import { useApiClient } from "@/providers/api-client-provider";
@@ -105,9 +106,11 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 function VisaDetailModal({
   visaId,
+  canManage,
   onClose,
 }: {
   visaId: string;
+  canManage: boolean;
   onClose: () => void;
 }) {
   const api = useApiClient();
@@ -256,6 +259,8 @@ function VisaDetailModal({
               </View>
             </Card>
           ) : null}
+
+          {canManage && detail ? <VisaChecklistPanel visaId={visaId} /> : null}
         </View>
       </ScrollView>
     </Modal>
@@ -468,6 +473,7 @@ export function VisaScreen() {
       {selectedId ? (
         <VisaDetailModal
           visaId={selectedId}
+          canManage={canManageVisa}
           onClose={() => setSelectedId(null)}
         />
       ) : null}

@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../src/api/api-client";
-import { listMyPayslips, listPayrollRuns } from "../src/payroll/payroll";
+import {
+  approvePayrollRun,
+  listMyPayslips,
+  listPayrollRuns,
+} from "../src/payroll/payroll";
 
 const run = {
   id: "clpayrollrun00000000000001",
@@ -155,5 +159,49 @@ describe("payroll foundation contracts", () => {
     const result = await listMyPayslips(client);
     expect(result.data[0]?.hasDocument).toBe(true);
     expect(result.data[0]).not.toHaveProperty("documentUrl");
+  });
+
+  it("approves a draft payroll run and strips notes and emails", async () => {
+    const put = vi.fn().mockResolvedValue({
+      data: {
+        ...run,
+        status: "approved",
+        notes: "still secret",
+        approver: {
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Approver",
+          email: "approver@manut.example",
+        },
+      },
+    });
+    const client = { put } as unknown as ApiClient;
+
+    const result = await approvePayrollRun(client, run.id);
+    expect(result).toEqual({
+      id: run.id,
+      period: "2026-06",
+      status: "approved",
+      totalGross: "10000.00",
+      totalNet: "8500.00",
+      totalTax: "1500.00",
+      createdAt: "2026-06-01T00:00:00.000Z",
+      entity: { id: run.entity.id, name: "Manut Ops" },
+      runner: { id: run.runner.id, name: "Runner" },
+      approver: {
+        id: "22222222-2222-4222-8222-222222222222",
+        name: "Approver",
+      },
+    });
+    expect(result).not.toHaveProperty("notes");
+    expect(result.approver).not.toHaveProperty("email");
+    expect(put).toHaveBeenCalledWith(`/payroll/runs/${run.id}/approve`, {});
+  });
+
+  it("rejects empty payroll run ids before calling the API", async () => {
+    const put = vi.fn();
+    const client = { put } as unknown as ApiClient;
+
+    await expect(approvePayrollRun(client, "")).rejects.toThrow();
+    expect(put).not.toHaveBeenCalled();
   });
 });

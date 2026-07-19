@@ -1,8 +1,10 @@
 import {
   ApiError,
+  approvePayrollRun,
   listMyPayslips,
   listPayrollRuns,
   MY_PAYSLIPS_QUERY_KEY,
+  PAYROLL_RUNS_QUERY_ROOT,
   payrollRunsQueryKey,
   type MyPayslip,
   type PayrollRun,
@@ -17,7 +19,7 @@ import {
   spacing,
   StatusMessage,
 } from "@manut/ui";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -48,7 +50,21 @@ function formatMoney(value: string): string {
   });
 }
 
-function PayrollRunRow({ run }: { run: PayrollRun }) {
+function PayrollRunRow({
+  run,
+  canApprove,
+  approving,
+  approveDisabled,
+  onApprove,
+}: {
+  run: PayrollRun;
+  canApprove: boolean;
+  approving: boolean;
+  approveDisabled: boolean;
+  onApprove: () => void;
+}) {
+  const showApprove = canApprove && run.status === "draft";
+
   return (
     <View
       style={{
@@ -74,6 +90,16 @@ function PayrollRunRow({ run }: { run: PayrollRun }) {
         Runner {run.runner.name}
         {run.approver ? ` · Approver ${run.approver.name}` : ""}
       </Text>
+      {showApprove ? (
+        <Button
+          label="Approve run"
+          pendingLabel="Approving…"
+          accessibilityLabel={`Approve payroll run ${run.period}`}
+          pending={approving}
+          disabled={approveDisabled}
+          onPress={onApprove}
+        />
+      ) : null}
     </View>
   );
 }
@@ -120,13 +146,16 @@ const STATUS_FILTERS: Array<{ label: string; value?: PayrollRunStatus }> = [
 export function PayrollScreen() {
   const api = useApiClient();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   const allowed = canReadPayroll(hasPermission);
+  const canApprove = hasPermission("payroll:approve");
   const canViewApprovalChain =
     hasPermission("payroll:hr-admin") || hasPermission("payroll:approve");
   const [statusFilter, setStatusFilter] = useState<
     PayrollRunStatus | undefined
   >(undefined);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const runsQuery = useQuery({
     queryKey: payrollRunsQueryKey({
@@ -147,6 +176,19 @@ export function PayrollScreen() {
     queryKey: MY_PAYSLIPS_QUERY_KEY,
     queryFn: ({ signal }) => listMyPayslips(api, signal),
     enabled: allowed,
+  });
+
+  const approveMutation = useMutation({
+    mutationFn: (runId: string) => approvePayrollRun(api, runId),
+    onSuccess: () => {
+      setActionMessage("Payroll run approved.");
+      void queryClient.invalidateQueries({
+        queryKey: PAYROLL_RUNS_QUERY_ROOT,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: MY_PAYSLIPS_QUERY_KEY,
+      });
+    },
   });
 
   if (!allowed) {
@@ -171,8 +213,9 @@ export function PayrollScreen() {
     >
       <Card title="Payroll" maxWidth={720}>
         <Text selectable style={{ color: colors.textMuted }}>
-          Payroll runs you can access plus your own payslip list. Create,
-          approve, imports, and payslip downloads stay deferred.
+          Payroll runs you can access plus your own payslip list. Draft runs
+          can be approved when you have payroll:approve. Create, imports, and
+          payslip downloads stay deferred.
         </Text>
         {canViewApprovalChain ? (
           <Button
@@ -183,6 +226,17 @@ export function PayrollScreen() {
               router.push("/payroll/approval");
             }}
           />
+        ) : null}
+        {actionMessage ? (
+          <StatusMessage tone="success">{actionMessage}</StatusMessage>
+        ) : null}
+        {approveMutation.isError ? (
+          <StatusMessage tone="error">
+            {errorMessage(
+              approveMutation.error,
+              "The payroll run could not be approved.",
+            )}
+          </StatusMessage>
         ) : null}
       </Card>
 
@@ -284,7 +338,21 @@ export function PayrollScreen() {
 
       {runsQuery.isSuccess
         ? runsQuery.data.data.map((run) => (
-            <PayrollRunRow key={run.id} run={run} />
+            <PayrollRunRow
+              key={run.id}
+              run={run}
+              canApprove={canApprove}
+              approving={
+                approveMutation.isPending &&
+                approveMutation.variables === run.id
+              }
+              approveDisabled={approveMutation.isPending}
+              onApprove={() => {
+                setActionMessage(null);
+                approveMutation.reset();
+                approveMutation.mutate(run.id);
+              }}
+            />
           ))
         : null}
     </ScrollView>

@@ -1266,7 +1266,8 @@ Phase 1 leftovers close-out (2026-07-18):
   - `/benefits` — `enrollInBenefit` write + enroll UI
   - `/learning` — `listLearningCompletions` / `markLearningComplete` + UI
   - `/office` — `bookOfficeRoom` / `listMyOfficeBookings` / `cancelOfficeBooking` + UI
-  - `/payroll` — `listMyPayslips` (strips `documentUrl` → `hasDocument`) + My payslips section
+  - `/payroll` — `listMyPayslips` (strips `documentUrl` → `hasDocument`) + My payslips section; draft-run `approvePayrollRun` (`PUT …/approve`, `payroll:approve`)
+  - `/visa` — per-record checklist `getVisaChecklist` / `toggleVisaChecklistItem` (`POST …/toggle`, `visa:manage`) in detail modal
   - `/expenses/[reportId]` — line items + `getExpenseLineReceiptUrl`
   - `/cash-advance` — `getCashAdvanceItemReceiptUrl` + line-item receipt UI
 - **Barrel:** exports wired in `packages/app-core/src/index.ts` (incl. `CashAdvanceItemLine`).

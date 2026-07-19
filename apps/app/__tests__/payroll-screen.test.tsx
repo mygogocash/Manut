@@ -1,7 +1,9 @@
 import {
   act,
+  fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react-native";
 import {
   notifyManager,
@@ -12,10 +14,11 @@ import {
 import { PayrollScreen } from "@/features/payroll/payroll-screen";
 
 const mockGet = jest.fn();
+const mockPut = jest.fn();
 let mockPermissions = ["payroll:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
-  useApiClient: () => ({ get: mockGet }),
+  useApiClient: () => ({ get: mockGet, put: mockPut }),
 }));
 
 jest.mock("expo-router", () => ({
@@ -77,6 +80,7 @@ describe("PayrollScreen", () => {
 
   beforeEach(() => {
     mockGet.mockReset();
+    mockPut.mockReset();
     mockPermissions = ["payroll:read"];
     mockGet.mockImplementation((path: string) => {
       if (path.startsWith("/payroll/runs?")) {
@@ -131,6 +135,7 @@ describe("PayrollScreen", () => {
         "/payroll/my-payslips",
         expect.anything(),
       );
+      expect(screen.queryByLabelText(/Approve payroll run/)).toBeNull();
     },
     15_000,
   );
@@ -147,4 +152,48 @@ describe("PayrollScreen", () => {
     ).toBeTruthy();
     expect(mockGet).not.toHaveBeenCalled();
   });
+
+  it(
+    "approves a draft run when payroll:approve is granted",
+    async () => {
+      mockPermissions = ["payroll:read", "payroll:approve"];
+      mockPut.mockResolvedValue({
+        data: {
+          ...run,
+          status: "approved",
+          notes: "still secret",
+          approver: {
+            id: "22222222-2222-4222-8222-222222222222",
+            name: "Approver",
+            email: "approver@manut.example",
+          },
+        },
+      });
+
+      await renderScreen();
+      const approveButton = await screen.findByLabelText(
+        /Approve payroll run 2026-06/,
+        {},
+        { timeout: 10_000 },
+      );
+      await act(async () => {
+        fireEvent.press(approveButton);
+      });
+
+      await waitFor(() => {
+        expect(mockPut).toHaveBeenCalledWith(
+          `/payroll/runs/${run.id}/approve`,
+          {},
+        );
+      });
+      expect(
+        await screen.findByText(
+          /Payroll run approved/,
+          {},
+          { timeout: 10_000 },
+        ),
+      ).toBeTruthy();
+    },
+    15_000,
+  );
 });

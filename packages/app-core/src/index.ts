@@ -528,6 +528,20 @@ export {
 } from "./visa/visa-checklist-templates";
 export type { VisaChecklistTemplate } from "./visa/visa-checklist-templates";
 export {
+  getVisaChecklist,
+  toggleVisaChecklistItem,
+  toggleVisaChecklistItemInputSchema,
+  VISA_CHECKLIST_QUERY_ROOT,
+  visaChecklistCategorySchema,
+  visaChecklistItemSchema,
+  visaChecklistQueryKey,
+} from "./visa/visa-checklist";
+export type {
+  ToggleVisaChecklistItemInput,
+  VisaChecklistCategory,
+  VisaChecklistItem,
+} from "./visa/visa-checklist";
+export {
   approveCashAdvance,
   canActOnCashAdvance,
   canClearCashAdvance,
@@ -577,6 +591,7 @@ export type {
   CashAdvanceApproverType,
 } from "./cash-advance/cash-advance-approval-steps";
 export {
+  approvePayrollRun,
   listMyPayslips,
   listPayrollRuns,
   MY_PAYSLIPS_QUERY_KEY,
