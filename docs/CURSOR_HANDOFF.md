@@ -1147,3 +1147,18 @@ Phase 1 leftovers close-out (2026-07-18):
 - **Suggested next P0 slice after merge:** P0-E4-T4 hosted `/api` base-path
   contract + docs alignment, or P0-E4-T7 ops pause evidence; T5 Worker→Express
   hermetic integration when a local Express origin exists.
+
+### Parallel: p0-e4-t7-builds-pause
+
+- **Docs-only (2026-07-19):** Read-only Cloudflare Builds verification for
+  Worker `manut` (account `187ab61ed9dbc6e616cb23e6b95aa8f1`, script
+  `4d091451cca54519bfeb5c2eb4ccd7e1`). Production trigger **enabled**
+  (`Deploy default branch`, `branch_includes: main`); non-production
+  `previews_enabled: false`. Documented exact pause / re-enable steps in
+  `docs/CICD_CLOUDFLARE.md` + verdict row in `docs/PRODUCTION_DEPLOY.md`.
+  Fail-closed marker:
+  `docs/ops/markers/p0-e4-t7-workers-builds-pause.md`
+  (`status: required_not_paused`, `approval: not_granted`).
+- **Not claimed:** dashboard Disconnect, trigger delete, deploy-command
+  change, or token roll — no production Builds mutation from this worktree.
+

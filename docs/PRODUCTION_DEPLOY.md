@@ -34,6 +34,7 @@ isolated preview Worker only after separate DNS approval.
 | Env name documentation                            | **Code-ready**  | `.env.example`, `apps/app/.env.example`, this runbook, `CICD_CLOUDFLARE.md`                         |
 | CI Validate path (PR Checks)                      | **Code-ready**  | `.github/workflows/pr-checks.yml` builds web + Worker dry-run                                       |
 | Deploy ownership                                  | **Code-ready**  | Workers Builds: production `main`; GitHub Actions: `deploy-preview.yml` + `deploy-staging.yml` only |
+| Production Workers Builds pause (P0-E4-T7)        | **Ops-blocked** | **2026-07-19 read-only:** Builds **enabled** on `manut` (`main` trigger active). Pause steps in `docs/CICD_CLOUDFLARE.md`; marker `docs/ops/markers/p0-e4-t7-workers-builds-pause.md`. Do **not** pause without ops approval. |
 | Manut-owned Cloudflare account + resources        | **Ops-blocked** | Prove secrets/bindings; do not invent Hyperdrive / R2 / Queue ids                                   |
 | Hyperdrive binding + `ENABLE_HYPERDRIVE_BOUNDARY` | **Ops-blocked** | Binding id not provisioned; flag stays `false`                                                      |
 | Worker secrets / JWKS / `API_ORIGIN`              | **Ops-blocked** | Distinct Express `API_ORIGIN` + app-session JWKS per env; Access optional outer gate only (ADR-002/003) |
@@ -221,7 +222,11 @@ Do not reorder. DNS remains last.
    `AUTH_AUDIENCE`, `TRUSTED_STORAGE_ORIGINS`, `EDGE_SIGNING_KEY`, R2 secrets.
    Optional Cloudflare Access remains a separate outer gate (ADR-003) — do
    not claim Access JWKS is set until provisioned. Pause production Workers
-   Builds until the cutover marker exists (`docs/CICD_CLOUDFLARE.md`).
+   Builds until the cutover marker exists — exact dashboard/API steps and
+   live enabled/disabled status in `docs/CICD_CLOUDFLARE.md` (P0-E4-T7) and
+   fail-closed marker
+   `docs/ops/markers/p0-e4-t7-workers-builds-pause.md` (engineering must not
+   disconnect Builds without that marker showing ops approval).
 8. **Configure Express:** `EDGE_REALTIME_ORIGIN` + matching
    `EDGE_REALTIME_BRIDGE_SECRET`; keep Socket.IO until edge live path is sole
    production path and E2E covers it.
