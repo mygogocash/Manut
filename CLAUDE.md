@@ -1,5 +1,13 @@
 # CLAUDE.md — binding Manut repository guide
 
+## Plan authority
+
+`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md` is the **only authoritative forward
+roadmap** (architecture, migration phases, acceptance, cutover). Historical
+checklists and handoff notes are evidence and ops runbooks; they do not create
+a second schedule. Stack SoR dual-track: `docs/ADR-010-postgres-strangler-vs-d1-target.md`.
+Temporary dep freeze: `docs/DEPENDENCY_FREEZE.md`.
+
 ## Non-negotiable boundaries
 
 1. This is a clean-room Manut replacement. No inherited company branding,
@@ -7,8 +15,11 @@
    proprietary modules may enter the replacement tree.
 2. `apps/app` is the primary frontend: one Expo Router route tree for web, iOS,
    and Android. Web acceptance is first; native store release is later.
-3. PostgreSQL via Prisma 7 and Cloudflare Hyperdrive remains authoritative. D1
-   is edge metadata only.
+3. **Honest dual-track SoR:** PostgreSQL via Prisma 7 and Cloudflare Hyperdrive
+   is the **strangler** transactional system of record until a module passes
+   master-plan Phase 8+ D1-per-tenant gates. D1 is **not** transactional SoR
+   yet (edge metadata / non-SoR only). Target production SoR is tenant D1 +
+   Identity/Control-plane D1 per the master plan — see ADR-010.
 4. Cloudflare Workers Builds owns production deploys from `main`; GitHub
    Actions owns preview and staging only and fails closed without Manut-owned
    GitHub Environment secrets. Disable native non-production Workers Builds
@@ -17,6 +28,9 @@
    ops binds a real id. Keep Cloudflare Pages auto-deploy off.
 5. API permission and ownership checks remain authoritative even when a route
    is guarded in the client.
+6. Do not add new direct Supabase, in-app Prisma Client, Next.js product UI, or
+   Express provider-SDK dependencies without an accepted ADR
+   (`docs/DEPENDENCY_FREEZE.md`).
 
 ## Repository map
 

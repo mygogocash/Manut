@@ -40,17 +40,6 @@ export interface AuthLinkResponse {
   message: string;
 }
 
-export interface AuthGateway {
-  login(email: string, password: string): Promise<AuthSession>;
-  getMe(): Promise<AuthSession>;
-  logout(): Promise<void>;
-  requestPasswordReset(email: string): Promise<AuthLinkResponse>;
-  requestMagicLink(email: string): Promise<AuthLinkResponse>;
-  recoverPassword(input: RecoverPasswordInput): Promise<AuthSession>;
-  exchangeSession(input: AuthLinkTokens): Promise<AuthSession>;
-  changePassword(input: ChangePasswordInput): Promise<void>;
-}
-
 export type AuthStatus = "checking" | "anonymous" | "authenticated";
 
 export interface SessionVerificationError {

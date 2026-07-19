@@ -11,6 +11,7 @@
     "dev:api": "pnpm --filter @manut/api dev",
     "dev:app": "pnpm --filter @manut/app dev",
     "dev:edge": "pnpm --filter @manut/edge dev",
+    "dev:identity": "pnpm --filter @manut/identity-worker dev",
     "dev:web": "pnpm --filter @manut/web dev",
     "build": "turbo build",
     "build:cloudflare": "pnpm db:generate && pnpm --filter @manut/app export:web",

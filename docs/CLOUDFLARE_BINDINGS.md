@@ -1,5 +1,10 @@
 # Cloudflare Worker bindings — `manut` (production)
 
+> **Ops inventory (current strangler).** Sole forward roadmap:
+> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md).
+> Binding names here do not invent Hyperdrive ids or authorize prod mutations.
+> SoR dual-track: [`ADR-010`](./ADR-010-postgres-strangler-vs-d1-target.md).
+
 Account: `187ab61ed9dbc6e616cb23e6b95aa8f1`  
 Worker service: **`manut`**  
 Dashboard: Workers & Pages → `manut` → **Settings → Bindings** (Production)

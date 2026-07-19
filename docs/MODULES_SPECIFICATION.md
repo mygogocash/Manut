@@ -1,5 +1,10 @@
 # Module specification
 
+> **Product / current-state reference.** Sole forward migration roadmap:
+> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md).
+> Module behavior changes only via explicit product decision + parity signoff
+> in the master plan.
+
 The imported intranet capabilities remain available while their screens migrate
 to Expo. Business rules stay in API services and portable DTOs; UI parity is
 measured route-by-route.

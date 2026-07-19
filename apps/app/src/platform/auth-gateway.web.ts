@@ -9,11 +9,19 @@ import {
   getPlatformSessionTransport,
 } from "./api-client.web";
 
+/**
+ * Expo web adapter for the app-core AuthGateway port.
+ * Cookie session transport — production behavior unchanged.
+ */
 export function createPlatformAuthGateway(): AuthGateway {
+  return createManutCookieAuthAdapter();
+}
+
+function createManutCookieAuthAdapter(): AuthGateway {
   const api = getPlatformApiClient();
   const session = getPlatformSessionTransport();
 
-  return {
+  const adapter: AuthGateway = {
     login: (email, password) =>
       api.post("/auth/login", { email: email.trim(), password }),
     getMe: () => api.get("/auth/me"),
@@ -36,4 +44,6 @@ export function createPlatformAuthGateway(): AuthGateway {
       }
     },
   };
+
+  return adapter;
 }

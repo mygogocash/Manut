@@ -1,0 +1,14 @@
+{
+  "status": "placeholder",
+  "finance_signoff": null,
+  "generated_at": "2026-07-19T05:51:48.085Z",
+  "computed": false,
+  "cm1": null,
+  "cm2": null,
+  "payback_months": null,
+  "runway_months": null,
+  "related_issues": [
+    236,
+    239
+  ]
+}

@@ -1,0 +1,967 @@
+{
+  "schemaVersion": 1,
+  "builderCount": 44,
+  "builderTemplateIdCount": 43,
+  "uniqueTemplateIdCount": 56,
+  "deliveryAdapter": {
+    "module": "apps/api/src/infrastructure/email/email.service.ts",
+    "endpoint": "POST ${EMAIL_SERVICE_URL}/api/emails",
+    "authHeader": "x-api-key: EMAIL_SERVICE_API_KEY",
+    "transmittedFields": [
+      "templateId",
+      "to",
+      "variables",
+      "replyTo?"
+    ],
+    "notTransmitted": [
+      "subject",
+      "html"
+    ],
+    "env": [
+      "EMAIL_SERVICE_URL",
+      "EMAIL_SERVICE_API_KEY",
+      "EMAIL_FROM"
+    ]
+  },
+  "builderTemplateIds": [
+    "awaiting-manager-approval",
+    "cancelled-leave-request",
+    "cash-advance-approved-2",
+    "cash-advance-request-awaiting",
+    "cash-advance-request-fully-approved",
+    "cash-advance-request-rejected",
+    "certificate-issued",
+    "desk-summary",
+    "escalation-reminder",
+    "expense-allowance-filed",
+    "expense-approved",
+    "expense-desk-summary",
+    "expense-monthly-reminder",
+    "expense-reimbursed",
+    "expense-rejected",
+    "expense-submitted",
+    "forwarded-leave-request",
+    "it-access-decision",
+    "it-access-request",
+    "it-billing-reminder",
+    "it-crm-deadline-reminder",
+    "it-crm-task-update",
+    "leave-approved",
+    "opportunity-created",
+    "opportunity-stage-changed",
+    "project-task-unblocked",
+    "rejected-leave-request",
+    "request-submitted-confirmation",
+    "stale-lead-digest-2",
+    "submitted-leave-request",
+    "survey-form-response-submitted",
+    "survey-upload-complete",
+    "ticket-created-requester",
+    "ticket-status-updated",
+    "ticketcreatedteam",
+    "travel-approved",
+    "travel-cancelled",
+    "travel-desk-summary",
+    "travel-rejected",
+    "travel-submitted",
+    "visa-expiry-reminder-2",
+    "visa-ninety-day-reminder",
+    "welcome-intranet"
+  ],
+  "hardcodedTemplateIds": [
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 55,
+      "templateId": "attendance-correction-pending"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 76,
+      "templateId": "attendance-correction-approved"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 94,
+      "templateId": "attendance-correction-rejected"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 104,
+      "templateId": "attendance-missed-checkin"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 114,
+      "templateId": "attendance-missed-checkout"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 128,
+      "templateId": "attendance-manager-absentee"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 143,
+      "templateId": "attendance-manager-late"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 162,
+      "templateId": "attendance-manager-missed"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 173,
+      "templateId": "attendance-manager-pending-corrections"
+    },
+    {
+      "file": "apps/api/src/modules/it-crm/it-crm.service.ts",
+      "line": 1687,
+      "templateId": "it-crm-task-assigned"
+    },
+    {
+      "file": "apps/api/src/modules/it-crm/it-crm.service.ts",
+      "line": 1719,
+      "templateId": "it-crm-task-status-updated"
+    },
+    {
+      "file": "apps/api/src/modules/legal/legal.service.ts",
+      "line": 591,
+      "templateId": "legal-document-expiry-digest"
+    },
+    {
+      "file": "apps/api/src/modules/legal/legal.service.ts",
+      "line": 1060,
+      "templateId": "legal-signature-request"
+    },
+    {
+      "file": "apps/api/src/infrastructure/email/email.service.ts",
+      "line": 5,
+      "templateId": "welcome-intranet"
+    }
+  ],
+  "allUniqueTemplateIds": [
+    "attendance-correction-approved",
+    "attendance-correction-pending",
+    "attendance-correction-rejected",
+    "attendance-manager-absentee",
+    "attendance-manager-late",
+    "attendance-manager-missed",
+    "attendance-manager-pending-corrections",
+    "attendance-missed-checkin",
+    "attendance-missed-checkout",
+    "awaiting-manager-approval",
+    "cancelled-leave-request",
+    "cash-advance-approved-2",
+    "cash-advance-request-awaiting",
+    "cash-advance-request-fully-approved",
+    "cash-advance-request-rejected",
+    "certificate-issued",
+    "desk-summary",
+    "escalation-reminder",
+    "expense-allowance-filed",
+    "expense-approved",
+    "expense-desk-summary",
+    "expense-monthly-reminder",
+    "expense-reimbursed",
+    "expense-rejected",
+    "expense-submitted",
+    "forwarded-leave-request",
+    "it-access-decision",
+    "it-access-request",
+    "it-billing-reminder",
+    "it-crm-deadline-reminder",
+    "it-crm-task-assigned",
+    "it-crm-task-status-updated",
+    "it-crm-task-update",
+    "leave-approved",
+    "legal-document-expiry-digest",
+    "legal-signature-request",
+    "opportunity-created",
+    "opportunity-stage-changed",
+    "project-task-unblocked",
+    "rejected-leave-request",
+    "request-submitted-confirmation",
+    "stale-lead-digest-2",
+    "submitted-leave-request",
+    "survey-form-response-submitted",
+    "survey-upload-complete",
+    "ticket-created-requester",
+    "ticket-status-updated",
+    "ticketcreatedteam",
+    "travel-approved",
+    "travel-cancelled",
+    "travel-desk-summary",
+    "travel-rejected",
+    "travel-submitted",
+    "visa-expiry-reminder-2",
+    "visa-ninety-day-reminder",
+    "welcome-intranet"
+  ],
+  "builders": [
+    "leaveSubmittedEmail",
+    "leaveEscalationReminderEmail",
+    "leaveForwardedEmail",
+    "leaveDeskSummaryEmail",
+    "expenseDeskSummaryEmail",
+    "leaveApprovedEmail",
+    "leaveRejectedEmail",
+    "leaveCancelledEmail",
+    "travelSubmittedEmail",
+    "travelApprovedEmail",
+    "travelDeskSummaryEmail",
+    "escapeHtml",
+    "surveyFormSubmittedEmail",
+    "certificateIssuedEmail",
+    "travelRejectedEmail",
+    "travelCancelledEmail",
+    "cashAdvanceSubmittedEmail",
+    "cashAdvanceApprovedEmail",
+    "cashAdvanceHrSummaryEmail",
+    "cashAdvanceRejectedEmail",
+    "visaExpiryReminderEmail",
+    "ninetyDayReminderEmail",
+    "expenseSubmittedEmail",
+    "expenseApprovedEmail",
+    "expenseRejectedEmail",
+    "expenseMonthlySubmissionReminderEmail",
+    "expenseReimbursedEmail",
+    "surveyUploadCompleteEmail",
+    "staleLeadDigestEmail",
+    "opportunityCreatedEmail",
+    "opportunityStageChangedEmail",
+    "expenseAllowanceFiledEmail",
+    "leaveSubmittedConfirmationEmail",
+    "leaveSubmittedDeskEmail",
+    "helpdeskTicketCreatedTeamEmail",
+    "helpdeskTicketCreatedRequesterEmail",
+    "helpdeskTicketStatusEmail",
+    "projectTaskUnblockedEmail",
+    "welcomeEmail",
+    "itAccessRequestEmail",
+    "itAccessDecisionEmail",
+    "itBillingReminderEmail",
+    "crmDeadlineReminderEmail",
+    "crmTaskUpdateEmail"
+  ],
+  "sendEmailCallSites": [
+    {
+      "file": "apps/api/src/modules/cash-advance/cash-advance.service.ts",
+      "line": 524,
+      "snippet": "void sendEmail({ to: email, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/cash-advance/cash-advance.service.ts",
+      "line": 665,
+      "snippet": "void sendEmail({ to: row.employee.email, ...approvedMail });"
+    },
+    {
+      "file": "apps/api/src/modules/cash-advance/cash-advance.service.ts",
+      "line": 681,
+      "snippet": "void sendEmail({ to: recipients, ...hrMail });"
+    },
+    {
+      "file": "apps/api/src/modules/cash-advance/cash-advance.service.ts",
+      "line": 736,
+      "snippet": "void sendEmail({ to: row.employee.email, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/opportunities/opportunities.service.ts",
+      "line": 81,
+      "snippet": "await Promise.all(to.map((addr) => sendEmail({ to: addr, ...email })));"
+    },
+    {
+      "file": "apps/api/src/modules/opportunities/opportunities.service.ts",
+      "line": 114,
+      "snippet": "await Promise.all(to.map((addr) => sendEmail({ to: addr, ...email })));"
+    },
+    {
+      "file": "apps/api/src/modules/revenue-opportunities/opportunities.service.ts",
+      "line": 81,
+      "snippet": "await Promise.all(to.map((addr) => sendEmail({ to: addr, ...email })));"
+    },
+    {
+      "file": "apps/api/src/modules/revenue-opportunities/opportunities.service.ts",
+      "line": 114,
+      "snippet": "await Promise.all(to.map((addr) => sendEmail({ to: addr, ...email })));"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-reports.service.ts",
+      "line": 461,
+      "snippet": "void sendEmail({ to: updated.employee.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-reports.service.ts",
+      "line": 488,
+      "snippet": "void sendEmail({ to: deskRecipients, ...deskEmail });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-reports.service.ts",
+      "line": 1111,
+      "snippet": "void sendEmail({ to: approverEmail, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-reports.service.ts",
+      "line": 1141,
+      "snippet": "void sendEmail({ to: desk, ...deskEmail });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-reports.service.ts",
+      "line": 1325,
+      "snippet": "void sendEmail({ to: updated.employee.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-reports.service.ts",
+      "line": 1350,
+      "snippet": "void sendEmail({ to: deskRecipients, ...deskEmail });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-reports.service.ts",
+      "line": 1392,
+      "snippet": "void sendEmail({ to: nextEmail, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-reports.service.ts",
+      "line": 1492,
+      "snippet": "void sendEmail({ to: updated.employee.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-reports.service.ts",
+      "line": 1571,
+      "snippet": "void sendEmail({ to: updated.employee.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-settings.service.ts",
+      "line": 416,
+      "snippet": "await sendEmail({ to: user.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-items.service.ts",
+      "line": 226,
+      "snippet": "void sendEmail({ to: manager.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-items.service.ts",
+      "line": 359,
+      "snippet": "void sendEmail({ to: expense.employee.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-items.service.ts",
+      "line": 405,
+      "snippet": "void sendEmail({ to: expense.employee.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/expenses/expense-items.service.ts",
+      "line": 436,
+      "snippet": "void sendEmail({ to: expense.employee.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/leads/leads.service.ts",
+      "line": 123,
+      "snippet": "await sendEmail({ to: bucket.owner.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/projects/projects.service.ts",
+      "line": 1229,
+      "snippet": "await sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/survey-forms/survey-forms.service.ts",
+      "line": 1024,
+      "snippet": "void sendEmail({ to: emails, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/certificates/certificates.service.ts",
+      "line": 122,
+      "snippet": "void sendEmail({ to: recipient.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/visa/visa.service.ts",
+      "line": 946,
+      "snippet": "await sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 53,
+      "snippet": "void sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 74,
+      "snippet": "void sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 92,
+      "snippet": "void sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 102,
+      "snippet": "void sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 112,
+      "snippet": "void sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 126,
+      "snippet": "void sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 141,
+      "snippet": "void sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 160,
+      "snippet": "void sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/hrms/attendance-notification.service.ts",
+      "line": 171,
+      "snippet": "void sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/it-crm/it-crm.service.ts",
+      "line": 1685,
+      "snippet": "await sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/it-crm/it-crm.service.ts",
+      "line": 1717,
+      "snippet": "await sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/crm-shared/crm-notifications.ts",
+      "line": 111,
+      "snippet": "void sendEmail({ to: emails, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/crm-shared/crm-reminders.ts",
+      "line": 178,
+      "snippet": "void sendEmail({ to: emails, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/crm-shared/crm-reminders.ts",
+      "line": 239,
+      "snippet": "void sendEmail({ to: emails, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/crm-shared/crm-reminders.ts",
+      "line": 292,
+      "snippet": "void sendEmail({ to: emails, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/crm-shared/crm-reminders.ts",
+      "line": 397,
+      "snippet": "void sendEmail({ to: emails, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/it-billing/it-billing.reminders.ts",
+      "line": 107,
+      "snippet": "void sendEmail({ to: sub.owner.email, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/it-access/it-access.service.ts",
+      "line": 415,
+      "snippet": "void sendEmail({ to: approver.email, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/it-access/it-access.service.ts",
+      "line": 500,
+      "snippet": "void sendEmail({ to: row.employee.email, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/it-access/it-access.service.ts",
+      "line": 574,
+      "snippet": "void sendEmail({ to: row.employee.email, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/it-access/it-access.service.ts",
+      "line": 654,
+      "snippet": "void sendEmail({ to: row.employee.email, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/it-access/it-access.service.ts",
+      "line": 715,
+      "snippet": "void sendEmail({ to: existing.employee.email, ...mail });"
+    },
+    {
+      "file": "apps/api/src/modules/survey/survey.service.ts",
+      "line": 1020,
+      "snippet": "void sendEmail({ to: emails, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/legal/legal.service.ts",
+      "line": 589,
+      "snippet": "await sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/revenue-leads/leads.service.ts",
+      "line": 123,
+      "snippet": "await sendEmail({ to: bucket.owner.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/helpdesk/helpdesk-github-sync.service.ts",
+      "line": 270,
+      "snippet": "void sendEmail({ to: ticket.createdBy.email, ...tpl });"
+    },
+    {
+      "file": "apps/api/src/modules/helpdesk/helpdesk.service.ts",
+      "line": 252,
+      "snippet": "await sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/helpdesk/helpdesk.service.ts",
+      "line": 267,
+      "snippet": "await sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/helpdesk/helpdesk.service.ts",
+      "line": 414,
+      "snippet": "await sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/ninety-day/ninety-day.service.ts",
+      "line": 598,
+      "snippet": "await sendEmail({"
+    },
+    {
+      "file": "apps/api/src/modules/travel/travel.service.ts",
+      "line": 409,
+      "snippet": "void sendEmail({ to: approverEmail, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/travel/travel.service.ts",
+      "line": 642,
+      "snippet": "void sendEmail({ to: nextEmail, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/travel/travel.service.ts",
+      "line": 681,
+      "snippet": "void sendEmail({ to: Array.from(recipients), ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/travel/travel.service.ts",
+      "line": 717,
+      "snippet": "void sendEmail({ to: deskRecipients, ...deskEmail });"
+    },
+    {
+      "file": "apps/api/src/modules/travel/travel.service.ts",
+      "line": 787,
+      "snippet": "void sendEmail({ to: request.employee.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/travel/travel.service.ts",
+      "line": 968,
+      "snippet": "void sendEmail({ to: manager.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 747,
+      "snippet": "void sendEmail({ to: approver.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 763,
+      "snippet": "void sendEmail({ to: manager.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 789,
+      "snippet": "void sendEmail({ to: targetUser.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 821,
+      "snippet": "void sendEmail({ to: deskRecipients, ...deskEmail });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 1254,
+      "snippet": "void sendEmail({ to: delegate.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 1284,
+      "snippet": "void sendEmail({ to: manager.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 1369,
+      "snippet": "void sendEmail({ to: request.employee.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 1401,
+      "snippet": "void sendEmail({ to: deskRecipients, ...deskEmail });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 1426,
+      "snippet": "void sendEmail({ to: nextUser.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 1507,
+      "snippet": "void sendEmail({ to: request.employee.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/modules/leave/leave.service.ts",
+      "line": 1582,
+      "snippet": "void sendEmail({ to: manager.email, ...email });"
+    },
+    {
+      "file": "apps/api/src/infrastructure/email/email.service.ts",
+      "line": 81,
+      "snippet": "export async function sendEmail(input: SendEmailInput): Promise<void> {"
+    },
+    {
+      "file": "apps/api/src/infrastructure/email/email.service.ts",
+      "line": 107,
+      "snippet": "await sendEmail({"
+    }
+  ],
+  "dispositionScaffold": {
+    "attendance-correction-approved": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "attendance-correction-pending": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "attendance-correction-rejected": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "attendance-manager-absentee": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "attendance-manager-late": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "attendance-manager-missed": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "attendance-manager-pending-corrections": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "attendance-missed-checkin": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "attendance-missed-checkout": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "awaiting-manager-approval": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "cancelled-leave-request": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "cash-advance-approved-2": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "cash-advance-request-awaiting": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "cash-advance-request-fully-approved": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "cash-advance-request-rejected": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "certificate-issued": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "desk-summary": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "escalation-reminder": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "expense-allowance-filed": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "expense-approved": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "expense-desk-summary": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "expense-monthly-reminder": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "expense-reimbursed": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "expense-rejected": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "expense-submitted": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "forwarded-leave-request": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "it-access-decision": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "it-access-request": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "it-billing-reminder": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "it-crm-deadline-reminder": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "it-crm-task-assigned": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "it-crm-task-status-updated": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "it-crm-task-update": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "leave-approved": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "legal-document-expiry-digest": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "legal-signature-request": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "opportunity-created": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "opportunity-stage-changed": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "project-task-unblocked": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "rejected-leave-request": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "request-submitted-confirmation": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "stale-lead-digest-2": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "submitted-leave-request": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "survey-form-response-submitted": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "survey-upload-complete": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "ticket-created-requester": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "ticket-status-updated": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "ticketcreatedteam": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "travel-approved": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "travel-cancelled": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "travel-desk-summary": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "travel-rejected": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "travel-submitted": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "visa-expiry-reminder-2": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "visa-ninety-day-reminder": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    },
+    "welcome-intranet": {
+      "disposition": "pending",
+      "purpose": null,
+      "owner": null,
+      "parityFixture": null
+    }
+  }
+}
