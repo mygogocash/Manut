@@ -1147,3 +1147,19 @@ Phase 1 leftovers close-out (2026-07-18):
 - **Suggested next P0 slice after merge:** P0-E4-T4 hosted `/api` base-path
   contract + docs alignment, or P0-E4-T7 ops pause evidence; T5 Worker→Express
   hermetic integration when a local Express origin exists.
+
+### Parallel: p0-ops-topology-checklists
+
+- **Docs-only (2026-07-19):** Ops pack
+  `docs/ops/p0-topology-checklists.md` — distinct `API_ORIGIN` per env,
+  application-session `AUTH_JWKS_*`, isolate `manut-preview` from production
+  `manut`, first-admin bootstrap prerequisites (clean seed has roles, no
+  users). ADR-002/003 marked **Accepted**; CICD / PRODUCTION_DEPLOY /
+  `.env.example` no longer imply Access JWKS for Worker `AUTH_*`.
+- **Live probes (status codes only):** `manut` workers.dev `/health` **200**,
+  `/api/health` **401**; `manut-preview` workers.dev `/health` **404**;
+  `preview.manut.xyz/health` **200** (isolation defect until preview Worker
+  serves and custom domain is not on prod); `app.manut.xyz` DNS fail.
+- **Not claimed:** Express origin provisioning, JWKS values, preview redeploy,
+  DNS cutover, or first-admin identity creation.
+

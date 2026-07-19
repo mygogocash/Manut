@@ -219,20 +219,22 @@ use the `UPLOADS` R2 binding (Worker-mediated). `secrets.required` only lists
 Production Worker runtime secrets remain configured separately in Cloudflare
 and are independent of removing the GitHub production deploy token. Non-secret
 vars (`API_ORIGIN`, `TRUSTED_STORAGE_ORIGINS`, boundary flags, …) come from
-`wrangler.jsonc`; Access vars (`AUTH_JWKS_URL`, `AUTH_ISSUER`,
-`AUTH_AUDIENCE`) stay ops-managed and fail closed while empty.
-See `docs/CLOUDFLARE_BINDINGS.md`.
+`wrangler.jsonc`; application-session vars (`AUTH_JWKS_URL`, `AUTH_ISSUER`,
+`AUTH_AUDIENCE`) stay ops-managed and fail closed while empty
+(`docs/ADR-003-auth-trust-model.md`). See `docs/CLOUDFLARE_BINDINGS.md` and
+`docs/ops/p0-topology-checklists.md`.
 
-#### Cloudflare Access → Worker JWT verification
+#### Application-session JWKS → Worker JWT verification
 
-Create a Cloudflare Access application (do not invent team/app ids in git).
-Point Worker vars at Access:
+Point Worker vars at the **Manut application session issuer** once provisioned
+(do not invent issuer hosts or audiences in git). These are **not** Cloudflare
+Access team JWKS — Access remains an optional outer gate (ADR-003).
 
-| Worker var      | Example shape                                              |
+| Worker var      | Example shape (placeholders only)                          |
 | --------------- | ---------------------------------------------------------- |
-| `AUTH_JWKS_URL` | `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs` |
-| `AUTH_ISSUER`   | `https://<team>.cloudflareaccess.com`                      |
-| `AUTH_AUDIENCE` | Access application AUD tag                                 |
+| `AUTH_JWKS_URL` | `https://<session-issuer-host>/.well-known/jwks.json`      |
+| `AUTH_ISSUER`   | `https://<session-issuer-host>`                            |
+| `AUTH_AUDIENCE` | `<application-audience>`                                   |
 
 Empty JWKS / issuer / audience fails closed (`503 AUTH_*_NOT_CONFIGURED`).
 Storage is **R2** (`UPLOADS`); receipt provenance uses `TRUSTED_STORAGE_ORIGINS`.
@@ -311,10 +313,13 @@ compensate.
 - [ ] Native non-production Workers Builds disabled after validation
 - [ ] GitHub Environments `preview` / `staging`: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` + `EXPO_PUBLIC_API_URL`
 - [ ] Preview Environment: unique `EDGE_SIGNING_KEY` for atomic first deploy (R2 S3 pair optional); production runtime secrets remain in Cloudflare (`EDGE_SIGNING_KEY` required; R2 S3 optional)
-- [ ] Cloudflare Access JWKS → Worker `AUTH_*` vars
+- [ ] Application-session `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE` set per env (not Access JWKS; ADR-003)
+- [ ] Distinct Express `API_ORIGIN` per env (never Worker self-host; ADR-002)
+- [ ] Preview isolation: deploy targets `manut-preview` only; `preview.manut.xyz` not on production `manut`
 - [ ] Bindings per `docs/CLOUDFLARE_BINDINGS.md` (cancel D1; add Hyperdrive/R2/…)
 - [ ] `manut-preview.bettergogocash.workers.dev/health` passes; custom-domain work remains separately approved
 - [ ] Push / dispatch preview + staging; confirm Workers `manut-preview` / `manut-staging`
+- [ ] Topology checklists complete: `docs/ops/p0-topology-checklists.md`
 
 ## Production enablement
 
