@@ -41,11 +41,19 @@ function requireNativeSession(payload: NativeAuthPayload): NativeSessionTokens {
   return { accessToken, refreshToken };
 }
 
+/**
+ * Expo native adapter for the app-core AuthGateway port.
+ * Bearer session in SecureStore — production behavior unchanged.
+ */
 export function createPlatformAuthGateway(): AuthGateway {
+  return createManutBearerAuthAdapter();
+}
+
+function createManutBearerAuthAdapter(): AuthGateway {
   const api = getPlatformApiClient();
   const session = getPlatformSessionTransport();
 
-  return {
+  const adapter: AuthGateway = {
     async login(email, password) {
       try {
         const payload = await api.post<NativeAuthPayload>("/auth/login", {
@@ -101,4 +109,6 @@ export function createPlatformAuthGateway(): AuthGateway {
       }
     },
   };
+
+  return adapter;
 }

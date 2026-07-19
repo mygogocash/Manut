@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../src/api/api-error";
 import { AuthController } from "../src/auth/auth-controller";
-import type { AuthGateway, AuthSession } from "../src/auth/auth-types";
+import type { AuthGateway } from "../src/auth/auth-ports";
+import type { AuthSession } from "../src/auth/auth-types";
 
 const ADMIN_SESSION: AuthSession = {
   user: {

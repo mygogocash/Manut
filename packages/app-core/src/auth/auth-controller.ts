@@ -1,7 +1,7 @@
 import { ApiError, errorStatus } from "../api/api-error";
 import { postLoginPath } from "./return-path";
+import type { AuthGateway } from "./auth-ports";
 import type {
-  AuthGateway,
   AuthLinkResponse,
   AuthLinkTokens,
   RecoverPasswordInput,
