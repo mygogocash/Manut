@@ -93,8 +93,39 @@ export const expenseReportSchema = expenseReportApiSchema.transform(
   }),
 );
 
-const expenseReportDetailSchema = expenseReportApiSchema.transform(
-  (report) => ({
+const expenseLineSchema = z
+  .object({
+    id: z.string().min(1),
+    description: z.string().min(1),
+    amount: z
+      .union([z.string(), z.number().finite()])
+      .transform((value) => String(value)),
+    currency: z.string().min(1),
+    date: z.string().min(1),
+    status: z.string().min(1),
+    // Edge write responses return hasReceipt only; never echo receiptUrl.
+    hasReceipt: z.boolean().optional(),
+    receiptUrl: z.unknown().optional(),
+    notes: z.unknown().optional(),
+    employee: z.unknown().optional(),
+    approver: z.unknown().optional(),
+  })
+  .passthrough()
+  .transform((line) => ({
+    id: line.id,
+    description: line.description,
+    amount: line.amount,
+    currency: line.currency,
+    date: line.date,
+    status: line.status,
+    hasReceipt: line.hasReceipt ?? Boolean(line.receiptUrl),
+  }));
+
+const expenseReportDetailSchema = expenseReportApiSchema
+  .extend({
+    expenses: z.array(expenseLineSchema).optional().default([]),
+  })
+  .transform((report) => ({
     id: report.id,
     period: report.period,
     title: report.title,
@@ -114,8 +145,8 @@ const expenseReportDetailSchema = expenseReportApiSchema.transform(
     employee: report.employee,
     entity: report.entity,
     lineCount: report._count.expenses,
-  }),
-);
+    lines: report.expenses,
+  }));
 
 const paginationMetaSchema = z
   .object({
@@ -305,27 +336,36 @@ export const addExpenseLineInputSchema = z
 
 export type AddExpenseLineInput = z.input<typeof addExpenseLineInputSchema>;
 
-const expenseLineSchema = z
-  .object({
-    id: z.string().min(1),
-    description: z.string().min(1),
-    amount: z
-      .union([z.string(), z.number().finite()])
-      .transform((value) => String(value)),
-    currency: z.string().min(1),
-    date: z.string().min(1),
-    status: z.string().min(1),
-    // Edge write responses return hasReceipt only; never echo receiptUrl.
-    hasReceipt: z.boolean().optional(),
-    receiptUrl: z.unknown().optional(),
-  })
-  .transform(({ receiptUrl: _receiptUrl, ...line }) => line);
-
 const expenseLineResponseSchema = z
   .object({ data: expenseLineSchema })
   .strict();
 
 export type ExpenseLine = z.infer<typeof expenseLineSchema>;
+
+const expenseLineReceiptResponseSchema = z
+  .object({
+    data: z.object({ url: z.string().url() }),
+  })
+  .strict();
+
+export type ExpenseLineReceipt = z.infer<
+  typeof expenseLineReceiptResponseSchema
+>["data"];
+
+export async function getExpenseLineReceiptUrl(
+  client: ApiClient,
+  reportId: string,
+  expenseId: string,
+  signal?: RequestAbortSignal,
+): Promise<ExpenseLineReceipt> {
+  const rid = z.string().min(1).parse(reportId);
+  const eid = z.string().min(1).parse(expenseId);
+  const response = await client.get<unknown>(
+    `/expenses/reports/${encodeURIComponent(rid)}/expenses/${encodeURIComponent(eid)}/receipt`,
+    signal ? { signal } : undefined,
+  );
+  return expenseLineReceiptResponseSchema.parse(response).data;
+}
 
 export async function addExpenseLine(
   client: ApiClient,

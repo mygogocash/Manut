@@ -87,6 +87,15 @@ describe("cash-advance foundation contracts", () => {
       approvedTotal: 0,
       rejectReason: null,
       itemCount: 1,
+      items: [
+        {
+          id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          description: "Field travel float",
+          requestedAmount: 1500,
+          approvedAmount: 0,
+          hasReceipt: true,
+        },
+      ],
       employee: {
         id: request.employee.id,
         name: "Person",

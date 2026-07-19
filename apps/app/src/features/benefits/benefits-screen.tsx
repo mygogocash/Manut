@@ -1,6 +1,7 @@
 import {
   ApiError,
   benefitCatalogQueryKey,
+  enrollInBenefit,
   listBenefitCatalog,
   listMyBenefitEnrollments,
   myBenefitEnrollmentsQueryKey,
@@ -16,7 +17,8 @@ import {
   spacing,
   StatusMessage,
 } from "@manut/ui";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
@@ -44,7 +46,21 @@ function formatMoney(value: string, currency: string): string {
   })} ${currency}`;
 }
 
-function CatalogRow({ benefit }: { benefit: BenefitCatalogItem }) {
+function todayCalendarDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function CatalogRow({
+  benefit,
+  canEnroll,
+  enrolling,
+  onEnroll,
+}: {
+  benefit: BenefitCatalogItem;
+  canEnroll: boolean;
+  enrolling: boolean;
+  onEnroll: () => void;
+}) {
   return (
     <View
       style={{
@@ -72,6 +88,15 @@ function CatalogRow({ benefit }: { benefit: BenefitCatalogItem }) {
         <Text selectable style={{ color: colors.textMuted }}>
           {benefit.description}
         </Text>
+      ) : null}
+      {canEnroll && benefit.isActive ? (
+        <Button
+          label="Enroll"
+          pendingLabel="Enrolling…"
+          pending={enrolling}
+          onPress={onEnroll}
+          accessibilityLabel={`Enroll in ${benefit.name}`}
+        />
       ) : null}
     </View>
   );
@@ -109,8 +134,14 @@ function EnrollmentRow({ enrollment }: { enrollment: MyBenefitEnrollment }) {
 
 export function BenefitsScreen() {
   const api = useApiClient();
+  const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   const allowed = canReadBenefits(hasPermission);
+  const canEnroll = hasPermission("benefits:enroll");
+  const [enrollingBenefitId, setEnrollingBenefitId] = useState<string | null>(
+    null,
+  );
+  const [enrollError, setEnrollError] = useState<string | null>(null);
 
   const catalogQuery = useQuery({
     queryKey: benefitCatalogQueryKey({ page: 1, limit: 20 }),
@@ -123,6 +154,30 @@ export function BenefitsScreen() {
     queryKey: myBenefitEnrollmentsQueryKey(),
     queryFn: ({ signal }) => listMyBenefitEnrollments(api, signal),
     enabled: allowed,
+  });
+
+  const enrollMutation = useMutation({
+    mutationFn: (benefitId: string) =>
+      enrollInBenefit(api, {
+        benefitId,
+        startDate: todayCalendarDate(),
+      }),
+    onMutate: (benefitId) => {
+      setEnrollingBenefitId(benefitId);
+      setEnrollError(null);
+    },
+    onSuccess: async () => {
+      setEnrollError(null);
+      await queryClient.invalidateQueries({
+        queryKey: myBenefitEnrollmentsQueryKey(),
+      });
+    },
+    onError: (error) => {
+      setEnrollError(errorMessage(error, "Enrollment failed."));
+    },
+    onSettled: () => {
+      setEnrollingBenefitId(null);
+    },
   });
 
   if (!allowed) {
@@ -154,10 +209,16 @@ export function BenefitsScreen() {
     >
       <Card title="Benefits" maxWidth={720}>
         <Text selectable style={{ color: colors.textMuted }}>
-          Catalog and your enrollments. Enroll, unenroll, manage, and bulk
-          import stay deferred for a later slice.
+          Catalog and your enrollments. Unenroll, manage, and bulk import stay
+          deferred for a later slice.
         </Text>
       </Card>
+
+      {enrollError ? (
+        <Card title="Enrollment failed" maxWidth={720}>
+          <StatusMessage tone="error">{enrollError}</StatusMessage>
+        </Card>
+      ) : null}
 
       {loading ? <LoadingState label="Loading benefits…" /> : null}
 
@@ -202,7 +263,17 @@ export function BenefitsScreen() {
           ) : (
             <View style={{ gap: spacing.md }}>
               {catalogQuery.data.data.map((benefit) => (
-                <CatalogRow key={benefit.id} benefit={benefit} />
+                <CatalogRow
+                  key={benefit.id}
+                  benefit={benefit}
+                  canEnroll={canEnroll}
+                  enrolling={
+                    enrollMutation.isPending && enrollingBenefitId === benefit.id
+                  }
+                  onEnroll={() => {
+                    enrollMutation.mutate(benefit.id);
+                  }}
+                />
               ))}
             </View>
           )}

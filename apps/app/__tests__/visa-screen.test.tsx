@@ -15,10 +15,11 @@ import { Linking } from "react-native";
 import { VisaScreen } from "@/features/visa/visa-screen";
 
 const mockGet = jest.fn();
+const mockPost = jest.fn();
 let mockPermissions = ["visa:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
-  useApiClient: () => ({ get: mockGet }),
+  useApiClient: () => ({ get: mockGet, post: mockPost }),
 }));
 
 jest.mock("expo-router", () => ({
@@ -91,6 +92,7 @@ describe("VisaScreen", () => {
 
   beforeEach(() => {
     mockGet.mockReset();
+    mockPost.mockReset();
     mockPermissions = ["visa:read"];
     jest.spyOn(Linking, "openURL").mockResolvedValue(undefined as never);
     mockGet.mockImplementation((path: string) => {
@@ -109,6 +111,26 @@ describe("VisaScreen", () => {
             url: "https://signed.example/passport.pdf",
             name: "Passport",
           },
+        });
+      }
+      if (path === `/visa-checklist/record/${record.id}`) {
+        return Promise.resolve({
+          data: [
+            {
+              id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+              visaRecordId: record.id,
+              templateItemId: "tmpl-item-1",
+              label: "Passport copy",
+              category: "document",
+              optional: false,
+              completed: false,
+              completedAt: null,
+              completedById: null,
+              sortOrder: 0,
+              createdAt: "2026-07-01T00:00:00.000Z",
+              updatedAt: "2026-07-01T00:00:00.000Z",
+            },
+          ],
         });
       }
       throw new Error(`Unexpected GET ${path}`);
@@ -149,6 +171,55 @@ describe("VisaScreen", () => {
         );
         expect(Linking.openURL).toHaveBeenCalledWith(
           "https://signed.example/passport.pdf",
+        );
+      });
+      expect(screen.queryByLabelText("Passport copy")).toBeNull();
+      expect(mockGet).not.toHaveBeenCalledWith(
+        `/visa-checklist/record/${record.id}`,
+        expect.anything(),
+      );
+    },
+    15_000,
+  );
+
+  it(
+    "loads and toggles checklist items when visa:manage is granted",
+    async () => {
+      mockPermissions = ["visa:manage"];
+      mockPost.mockResolvedValue({
+        data: {
+          id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          visaRecordId: record.id,
+          templateItemId: "tmpl-item-1",
+          label: "Passport copy",
+          category: "document",
+          optional: false,
+          completed: true,
+          completedAt: "2026-07-19T07:00:00.000Z",
+          completedById: "11111111-1111-4111-8111-111111111111",
+          sortOrder: 0,
+        },
+      });
+
+      await renderScreen();
+      await screen.findByText(/Work visa · Active/, {}, { timeout: 10_000 });
+      await fireEvent.press(
+        screen.getByLabelText("Open Work visa for Person"),
+      );
+
+      const toggle = await screen.findByLabelText(
+        "Passport copy",
+        {},
+        { timeout: 10_000 },
+      );
+      await act(async () => {
+        fireEvent(toggle, "valueChange", true);
+      });
+
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith(
+          `/visa-checklist/record/${record.id}/items/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/toggle`,
+          { completed: true },
         );
       });
     },

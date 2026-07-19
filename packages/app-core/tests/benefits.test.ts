@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../src/api/api-client";
 import {
+  enrollInBenefit,
+  enrollInBenefitInputSchema,
   listBenefitCatalog,
   listMyBenefitEnrollments,
 } from "../src/benefits/benefits";
@@ -93,5 +95,53 @@ describe("benefits foundation contracts", () => {
     ]);
     expect(result[0]).not.toHaveProperty("employee");
     expect(get).toHaveBeenCalledWith("/benefits/my-enrollments", undefined);
+  });
+
+  it("rejects invalid enroll input before POST", async () => {
+    const post = vi.fn();
+    const client = { post } as unknown as ApiClient;
+
+    await expect(
+      enrollInBenefit(client, {
+        benefitId: "",
+        startDate: "2026-01-15",
+      }),
+    ).rejects.toThrow();
+    expect(post).not.toHaveBeenCalled();
+
+    expect(() =>
+      enrollInBenefitInputSchema.parse({
+        benefitId: benefit.id,
+        startDate: "01/15/2026",
+      }),
+    ).toThrow();
+  });
+
+  it("enrolls in a benefit and strips employee email from response", async () => {
+    const post = vi.fn().mockResolvedValue({ data: enrollment });
+    const client = { post } as unknown as ApiClient;
+
+    const result = await enrollInBenefit(client, {
+      benefitId: benefit.id,
+      startDate: "2026-01-15",
+    });
+
+    expect(result).toEqual({
+      id: enrollment.id,
+      benefitId: benefit.id,
+      status: "active",
+      startDate: "2026-01-15",
+      endDate: null,
+      benefitName: "Health Plus",
+      benefitCategory: "health",
+      provider: "Manut Care",
+      cost: "1200.00",
+      currency: "THB",
+    });
+    expect(result).not.toHaveProperty("employee");
+    expect(post).toHaveBeenCalledWith("/benefits/enroll", {
+      benefitId: benefit.id,
+      startDate: "2026-01-15",
+    });
   });
 });

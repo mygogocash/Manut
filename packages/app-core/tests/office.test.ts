@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../src/api/api-client";
 import {
+  bookOfficeRoom,
+  cancelOfficeBooking,
+  listMyOfficeBookings,
   listOfficeAssets,
   listOfficeRooms,
   listOffices,
@@ -131,6 +134,116 @@ describe("office foundation contracts", () => {
     expect(get).toHaveBeenCalledWith(
       "/office/assets?page=1&limit=20",
       undefined,
+    );
+  });
+});
+
+const bookingRecord = {
+  id: "a0000000-0000-4000-8000-000000000010",
+  roomId: roomRecord.id,
+  date: "2026-07-21",
+  timeSlot: "10:00",
+  endTime: "11:00",
+  title: "Team sync",
+  description: "Weekly planning",
+  attendeesCount: 4,
+  room: {
+    id: roomRecord.id,
+    name: "Meeting A",
+    floor: "3",
+    office: { id: officeRecord.id, name: "Bangkok HQ", city: "Bangkok" },
+  },
+  employee: {
+    id: "a0000000-0000-4000-8000-000000000099",
+    name: "Alex Example",
+    email: "alex@example.com",
+  },
+};
+
+describe("office room self-booking contracts", () => {
+  it("books a room and strips employee email from the receipt", async () => {
+    const post = vi.fn().mockResolvedValue({ data: bookingRecord });
+    const client = { post } as unknown as ApiClient;
+
+    const result = await bookOfficeRoom(client, {
+      roomId: roomRecord.id,
+      date: "2026-07-21",
+      timeSlot: "10:00",
+      endTime: "11:00",
+    });
+
+    expect(result).toEqual({
+      id: bookingRecord.id,
+      roomId: roomRecord.id,
+      date: "2026-07-21",
+      timeSlot: "10:00",
+      endTime: "11:00",
+      title: "Team sync",
+      room: {
+        id: roomRecord.id,
+        name: "Meeting A",
+        floor: "3",
+        office: { id: officeRecord.id, name: "Bangkok HQ", city: "Bangkok" },
+      },
+    });
+    expect(result).not.toHaveProperty("employee");
+    expect(result).not.toHaveProperty("description");
+    expect(post).toHaveBeenCalledWith("/office/rooms/book", {
+      roomId: roomRecord.id,
+      date: "2026-07-21",
+      timeSlot: "10:00",
+      endTime: "11:00",
+    });
+  });
+
+  it("rejects invalid booking input before calling the API", async () => {
+    const post = vi.fn();
+    const client = { post } as unknown as ApiClient;
+
+    await expect(
+      bookOfficeRoom(client, {
+        roomId: "not-a-uuid",
+        date: "2026-07-21",
+        timeSlot: "10:00",
+        endTime: "09:00",
+      }),
+    ).rejects.toThrow();
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("lists my upcoming bookings without assignee email", async () => {
+    const get = vi.fn().mockResolvedValue({ data: [bookingRecord] });
+    const client = { get } as unknown as ApiClient;
+
+    const result = await listMyOfficeBookings(client);
+    expect(result.data[0]).toEqual({
+      id: bookingRecord.id,
+      roomId: roomRecord.id,
+      date: "2026-07-21",
+      timeSlot: "10:00",
+      endTime: "11:00",
+      title: "Team sync",
+      room: {
+        id: roomRecord.id,
+        name: "Meeting A",
+        floor: "3",
+        office: { id: officeRecord.id, name: "Bangkok HQ", city: "Bangkok" },
+      },
+    });
+    expect(result.data[0]).not.toHaveProperty("employee");
+    expect(result.data[0]).not.toHaveProperty("description");
+    expect(get).toHaveBeenCalledWith("/office/rooms/my-bookings", undefined);
+  });
+
+  it("cancels a booking by id", async () => {
+    const del = vi.fn().mockResolvedValue({ data: { success: true } });
+    const client = { delete: del } as unknown as ApiClient;
+
+    await expect(
+      cancelOfficeBooking(client, bookingRecord.id),
+    ).resolves.toBeUndefined();
+    expect(del).toHaveBeenCalledWith(
+      `/office/rooms/bookings/${encodeURIComponent(bookingRecord.id)}`,
     );
   });
 });

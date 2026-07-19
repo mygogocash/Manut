@@ -4,6 +4,7 @@ import type { ApiClient } from "../src/api/api-client";
 import {
   expenseReportListParamsSchema,
   expenseReportSchema,
+  getExpenseLineReceiptUrl,
   getExpenseReport,
   listExpenseReports,
 } from "../src/expenses/expenses";
@@ -144,6 +145,94 @@ describe("expenses contracts", () => {
     expect(get).toHaveBeenCalledWith(
       `/expenses/reports/${report.id}`,
       undefined,
+    );
+  });
+
+  it("projects detail line items with hasReceipt and without storage paths", async () => {
+    const lineId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    const get = vi.fn().mockResolvedValue({
+      data: {
+        ...report,
+        expenses: [
+          {
+            id: lineId,
+            description: "Taxi",
+            amount: "40",
+            currency: "USD",
+            date: "2026-07-05",
+            status: "pending",
+            receiptUrl: "https://private.example/receipts/taxi.pdf?token=secret",
+            notes: "internal note",
+            employee: {
+              id: report.employee.id,
+              name: report.employee.name,
+              email: "person@manut.example",
+            },
+            approver: {
+              id: "22222222-2222-4222-8222-222222222222",
+              name: "Manager",
+              email: "manager@manut.example",
+            },
+          },
+          {
+            id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+            description: "Lunch",
+            amount: 25,
+            currency: "USD",
+            date: "2026-07-06",
+            status: "pending",
+            hasReceipt: false,
+          },
+        ],
+      },
+    });
+    const client = { get } as unknown as ApiClient;
+
+    const detail = await getExpenseReport(client, report.id);
+
+    expect(detail.lines).toEqual([
+      {
+        id: lineId,
+        description: "Taxi",
+        amount: "40",
+        currency: "USD",
+        date: "2026-07-05",
+        status: "pending",
+        hasReceipt: true,
+      },
+      {
+        id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+        description: "Lunch",
+        amount: "25",
+        currency: "USD",
+        date: "2026-07-06",
+        status: "pending",
+        hasReceipt: false,
+      },
+    ]);
+    expect(JSON.stringify(detail)).not.toContain("receiptUrl");
+    expect(JSON.stringify(detail)).not.toContain("manut.example");
+  });
+
+  it("loads a fresh signed receipt URL for a line item", async () => {
+    const signal = { aborted: false };
+    const get = vi.fn().mockResolvedValue({
+      data: { url: "https://signed.example/receipt.pdf" },
+    });
+    const client = { get } as unknown as ApiClient;
+
+    await expect(
+      getExpenseLineReceiptUrl(
+        client,
+        report.id,
+        "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        signal,
+      ),
+    ).resolves.toEqual({ url: "https://signed.example/receipt.pdf" });
+
+    expect(get).toHaveBeenCalledWith(
+      `/expenses/reports/${report.id}/expenses/eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee/receipt`,
+      { signal },
     );
   });
 });

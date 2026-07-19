@@ -22,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Text, View } from "react-native";
 
+import { CashAdvanceLineItems } from "@/features/cash-advance/cash-advance-line-items";
 import { useApiClient } from "@/providers/api-client-provider";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -181,6 +182,14 @@ export function CashAdvancePendingInbox() {
                     {formatMoney(request.requestedTotal, request.currency)}
                     {request.entityName ? ` · ${request.entityName}` : ""}
                   </Text>
+                  {request.items?.length ? (
+                    <CashAdvanceLineItems
+                      requestId={request.id}
+                      requestNumber={request.requestNumber}
+                      currency={request.currency}
+                      items={request.items}
+                    />
+                  ) : null}
                   {actionable && !isRejecting ? (
                     <View
                       style={{

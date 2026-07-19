@@ -145,6 +145,24 @@ export type BenefitCatalogListParams = z.input<
 export type BenefitCatalogList = z.infer<typeof benefitCatalogResponseSchema>;
 export type MyBenefitEnrollment = z.infer<typeof myBenefitEnrollmentSchema>;
 
+export const enrollInBenefitInputSchema = z
+  .object({
+    benefitId: z.string().cuid("Invalid benefit ID"),
+    employeeId: z.string().min(1).optional(),
+    startDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD format"),
+  })
+  .strict();
+
+export type EnrollInBenefitInput = z.input<typeof enrollInBenefitInputSchema>;
+
+const enrollInBenefitResponseSchema = z
+  .object({
+    data: myEnrollmentApiSchema,
+  })
+  .strict();
+
 export const BENEFIT_CATALOG_QUERY_ROOT = ["benefits", "catalog"] as const;
 export const MY_BENEFIT_ENROLLMENTS_QUERY_ROOT = [
   "benefits",
@@ -204,4 +222,14 @@ export async function listMyBenefitEnrollments(
     signal ? { signal } : undefined,
   );
   return myEnrollmentsResponseSchema.parse(response).data;
+}
+
+export async function enrollInBenefit(
+  client: ApiClient,
+  input: EnrollInBenefitInput,
+): Promise<MyBenefitEnrollment> {
+  const body = enrollInBenefitInputSchema.parse(input);
+  const response = await client.post<unknown>("/benefits/enroll", body);
+  const parsed = enrollInBenefitResponseSchema.parse(response);
+  return myBenefitEnrollmentSchema.parse(parsed.data);
 }
