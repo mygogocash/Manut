@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Golden evidence checklist for Epic 0.3 \u2014 capture locations TBD; no production traffic changes.",
+  "relatedUiDisposition": "docs/ROUTE_DISPOSITION.json",
+  "categories": [
+    {
+      "id": "api-openapi",
+      "task": "OpenAPI fixtures + golden API responses for every critical route",
+      "status": "pending",
+      "criticalMountsSeed": [
+        "/api/auth",
+        "/api/leave",
+        "/api/expenses",
+        "/api/cash-advance",
+        "/api/payroll",
+        "/api/travel",
+        "/api/projects",
+        "/api/investors",
+        "/api/uploads",
+        "/api/integrations"
+      ],
+      "casesPerRoute": [
+        "happy",
+        "authz-deny",
+        "conflict",
+        "retry",
+        "unknown-outcome"
+      ]
+    },
+    {
+      "id": "db-type-patterns",
+      "task": "PII-safe representative rows per PostgreSQL type pattern",
+      "status": "pending",
+      "covers": [
+        "Uuid",
+        "Json",
+        "scalar arrays",
+        "money/decimals",
+        "timestamptz",
+        "soft-delete deletedAt"
+      ]
+    },
+    {
+      "id": "business-invariants",
+      "task": "Finance totals, approval state, payroll, attendance TZ, owner scope, soft delete",
+      "status": "pending",
+      "modules": [
+        "expenses",
+        "cash-advance",
+        "payroll",
+        "hrms/attendance",
+        "investors",
+        "leave",
+        "travel"
+      ]
+    },
+    {
+      "id": "documents",
+      "task": "Golden documents, spreadsheets, PDFs",
+      "status": "pending",
+      "producers": [
+        "payslip PDF",
+        "attendance export",
+        "survey xlsx",
+        "legal signature artifacts"
+      ]
+    },
+    {
+      "id": "realtime-email-ai",
+      "task": "Realtime sequences, emails, AI evaluations",
+      "status": "pending",
+      "emailTemplateIds": "see email-templates.json allUniqueTemplateIds"
+    },
+    {
+      "id": "latency-baseline",
+      "task": "p50/p95/p99 latency, error rate, journey timing",
+      "status": "pending",
+      "note": "Requires live staging/prod metrics \u2014 not inventable from source"
+    },
+    {
+      "id": "provenance-secret-scan",
+      "task": "Provenance and secret scans on baseline artifact",
+      "status": "pending"
+    }
+  ],
+  "uiFoundationRoutesForParityFixtures": [
+    "/accounting-crm",
+    "/accounting",
+    "/admin/form-config",
+    "/admin",
+    "/applications",
+    "/benefits",
+    "/blog-management",
+    "/careers",
+    "/cash-advance/approval",
+    "/cash-advance",
+    "/certificates",
+    "/dashboard",
+    "/dataroom",
+    "/deals",
+    "/directory",
+    "/docs",
+    "/drive",
+    "/files",
+    "/employees",
+    "/expenses/[reportId]",
+    "/expenses/approval",
+    "/expenses",
+    "/gmail",
+    "/hr-crm",
+    "/hrms/grants/[employeeId]",
+    "/hrms",
+    "/investor-crm",
+    "/investor-updates",
+    "/investors",
+    "/it-crm/dashboard",
+    "/it-crm",
+    "/it-helpdesk",
+    "/it-operations/access",
+    "/it-operations/billing",
+    "/it-operations",
+    "/learning",
+    "/leave/approval",
+    "/leave/holidays",
+    "/leave",
+    "/leave/policies"
+  ]
+}
