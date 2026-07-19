@@ -1227,3 +1227,16 @@ Phase 1 leftovers close-out (2026-07-18):
   Disposition stays `foundation` until Expo E2E. Deferred: native R2 picker,
   signed proof GET.
 - **Not broadened:** expense receipts, leave, CRM hubs, or Hyperdrive ops.
+
+### Parallel: p0-e4-t4-api-base-path
+
+- **Eng slice (2026-07-19):** Hosted `/api` base-path contract (P0-E4-T4).
+  `normalizeApiBaseUrl` in `@manut/app-core` + Expo `getApiBaseUrl` via
+  `Platform.OS`: web defaults to same-origin `/api`; absolute Worker origins
+  append `/api` when omitted; native requires HTTPS (http loopback allowed).
+  App-core endpoint paths remain relative beneath that base. Docs/bootstrap
+  `.env.example` / CICD / PRODUCTION now document `…/api` values.
+- **Tests:** `packages/app-core/tests/api-base-url.test.ts`,
+  `apps/app/__tests__/api-config.test.ts`, cloudflare-builds bootstrap assert.
+- **Not done:** ops GitHub Environment var rewrite (host-only still works via
+  runtime normalize); DNS; hermetic Worker→Express (P0-E4-T5).

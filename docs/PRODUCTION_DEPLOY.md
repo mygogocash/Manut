@@ -119,10 +119,10 @@ When omitted, uploads use the Worker `UPLOADS` R2 binding.
 
 **Vars (required):** `EXPO_PUBLIC_API_URL`
 
-| Environment | Recommended `EXPO_PUBLIC_API_URL`                                                        |
-| ----------- | ---------------------------------------------------------------------------------------- |
-| `preview`   | `https://manut-preview.bettergogocash.workers.dev` until separate custom-domain approval |
-| `staging`   | staging host only (not live `manut` Production)                                          |
+| Environment | Recommended `EXPO_PUBLIC_API_URL`                                                             |
+| ----------- | --------------------------------------------------------------------------------------------- |
+| `preview`   | `https://manut-preview.bettergogocash.workers.dev/api` until separate custom-domain approval |
+| `staging`   | staging Worker origin + `/api` (not live `manut` Production)                                  |
 
 **Vars (optional):** `EXPO_PUBLIC_SOCKET_URL`, `EXPO_PUBLIC_REALTIME_ORIGIN`
 
@@ -131,10 +131,13 @@ When omitted, uploads use the Worker `UPLOADS` R2 binding.
 Hyperdrive ids stay out of CI (`hyperdrive: []` until then). Never substitute a
 fake `DATABASE_URL`.
 
-Production `EXPO_PUBLIC_API_URL=https://app.manut.xyz` belongs in Workers Builds
-configuration. Production Worker runtime secrets such as `EDGE_SIGNING_KEY`
-and R2 credentials remain configured in Cloudflare; removing a GitHub
-production deploy token does not remove or replace those runtime secrets.
+Production `EXPO_PUBLIC_API_URL=https://app.manut.xyz/api` belongs in Workers
+Builds configuration (include the `/api` path — app-core calls `/auth/*` and
+other relative paths beneath that base). Host-only values are normalized at
+runtime to append `/api`, but ops should set the explicit contract. Production
+Worker runtime secrets such as `EDGE_SIGNING_KEY` and R2 credentials remain
+configured in Cloudflare; removing a GitHub production deploy token does not
+remove or replace those runtime secrets.
 
 ## Required bindings and env (names only)
 
@@ -175,7 +178,7 @@ storage until Cloudflare Access + R2 own those paths — see leftovers in
 
 | Name                          | Role                          |
 | ----------------------------- | ----------------------------- |
-| `EXPO_PUBLIC_API_URL`         | HTTP API / SPA origin         |
+| `EXPO_PUBLIC_API_URL`         | API base including `/api`     |
 | `EXPO_PUBLIC_SOCKET_URL`      | Socket.IO fallback origin     |
 | `EXPO_PUBLIC_REALTIME_ORIGIN` | Prefer edge DO rooms when set |
 

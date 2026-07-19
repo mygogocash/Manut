@@ -1,14 +1,12 @@
+import { Platform } from "react-native";
+
+import { normalizeApiBaseUrl } from "@manut/app-core";
+
 export function getApiBaseUrl(): string {
-  const configured = process.env.EXPO_PUBLIC_API_URL?.trim().replace(
-    /\/+$/,
-    "",
-  );
-  if (configured) return configured;
-  if (process.env.EXPO_OS === "web") return "/api";
-  return requirePublicEnv(
-    "EXPO_PUBLIC_API_URL",
-    process.env.EXPO_PUBLIC_API_URL,
-  );
+  // Prefer Platform.OS over process.env.EXPO_OS: Metro/Jest inline EXPO_OS, so
+  // runtime assignment in tests cannot flip the web vs native contract.
+  const platform = Platform.OS === "web" ? "web" : "native";
+  return normalizeApiBaseUrl(process.env.EXPO_PUBLIC_API_URL, platform);
 }
 
 export function requirePublicEnv(
