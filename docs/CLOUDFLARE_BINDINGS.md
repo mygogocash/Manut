@@ -42,7 +42,7 @@ the rows below are for verifying bindings, not creating resources.
 | Var                                                                               | Production guidance                                                            |
 | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `API_ORIGIN`                                                                      | Distinct Express origin when routes still proxy (empty/self-host fail closed)  |
-| `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE`                                 | Fail closed if JWKS empty at runtime                                           |
+| `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE`                                 | Application-session issuer (ADR-003); fail closed if empty — not Access JWKS   |
 | `ENABLE_HYPERDRIVE_BOUNDARY`                                                      | `true` only after `HYPERDRIVE_DATABASE` exists                                 |
 | `ENABLE_WORKFLOW_BOUNDARY` / `ENABLE_CONTAINER_BOUNDARY` / `ENABLE_CRON_BOUNDARY` | Stay `false` until capability provisioned                                      |
 | `TRUSTED_STORAGE_ORIGINS`                                                         | Comma-separated HTTPS origins for receipt URLs; empty = proxy managed receipts |

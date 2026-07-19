@@ -1,6 +1,6 @@
 # ADR-002 — Worker / Express API boundary and loop protection
 
-**Status:** Proposed (P0-E4 draft)  
+**Status:** Accepted  
 **Date:** 2026-07-19
 
 ## Context
@@ -12,8 +12,8 @@ Assets and `/api/*`. Many routes still proxy to Express (`apps/api`) via
 Preview/production previously committed `API_ORIGIN` to the same public Worker
 hosts (`app.manut.xyz` / `preview.manut.xyz`). That topology can recurse
 (Worker → Worker) instead of reaching Express, and today `app.manut.xyz` is
-also unresolvable (Cloudflare 530 Origin DNS on proxied `/api` — health alone
-is not readiness). DNS cutover remains a separate ops approval.
+also unresolvable (DNS failure on probe; health alone is not readiness). DNS
+cutover remains a separate ops approval.
 
 ## Decision
 
@@ -44,10 +44,13 @@ is not readiness). DNS cutover remains a separate ops approval.
   provenance; that is not a proxy target.
 - Production Workers Builds pause / cutover marker (P0-E4-T7) remains an
   **explicit ops dashboard action** — not performed by this ADR.
+- Ops checklist: `docs/ops/p0-topology-checklists.md` (distinct origin per env,
+  live status-code probes).
 
 ## Related
 
 - Implementation: `apps/edge/src/api-proxy.ts`, tests in
   `apps/edge/tests/api-proxy-topology.test.ts`
-- Ops runbooks: `docs/CICD_CLOUDFLARE.md`, `docs/PRODUCTION_DEPLOY.md`
+- Ops runbooks: `docs/ops/p0-topology-checklists.md`, `docs/CICD_CLOUDFLARE.md`,
+  `docs/PRODUCTION_DEPLOY.md`
 - Auth trust: `docs/ADR-003-auth-trust-model.md`
