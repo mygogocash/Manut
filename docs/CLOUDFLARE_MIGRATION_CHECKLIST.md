@@ -129,15 +129,26 @@ naming contracts).
       bypass for CI convenience.
 - [ ] Authenticated Playwright runs only against that project.
 
-## 6. GitHub Pro / CodeQL Ruby
+## 6. GitHub CI / protection (P0-E3)
 
-- [ ] Upgrade `mygogocash` org to GitHub Pro (or Team) so private-repo branch
-      protection / rulesets can require `Validate` on `main` (Free returns 403).
-- [ ] Code scanning default setup: drop **Ruby** (tree has no Ruby sources;
-      Analyze (ruby) fails with “could not process any code written in Ruby”).
-      Keep `javascript-typescript` (and other used languages) only.
-- [ ] After settings change, confirm CodeQL JS/TS + Secret scan + Validate
-      path without inventing workflow bypasses.
+Authoritative evidence + checklist:
+[`docs/ops/CI_PROTECTION_TRUTH.md`](./ops/CI_PROTECTION_TRUTH.md).
+
+Snapshot **2026-07-19** (do not treat as changed until re-proven):
+
+- Repo is **public**; org plan is **Free**; `main` has **no** classic
+  protection (404) and **no** rulesets (`[]`).
+- Managed CodeQL still runs `Analyze (ruby)` and fails (no Ruby in tree);
+  JS/TS analysis passes. Red PRs (failed `Validate`) have merged to `main`.
+
+- [ ] Drop **Ruby** from Code scanning languages (keep
+      `javascript-typescript`). Proof: next CodeQL run has no failing Ruby job.
+- [ ] Protect `main` (require PR + approval + **`Validate`**, no force-push):
+      - **Public Free:** enable protection/rulesets now, **or**
+      - **Private:** upgrade org to Pro/Team first (private Free historically
+        403s rulesets), then private + protect.
+- [ ] Re-prove with `gh` commands in `CI_PROTECTION_TRUTH.md` — never claim
+      settings from a docs-only merge.
 
 ## 7. Retirement sequence (after Expo browser E2E)
 

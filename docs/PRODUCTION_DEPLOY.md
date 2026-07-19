@@ -40,7 +40,7 @@ isolated preview Worker only after separate DNS approval.
 | Postgres + migrations on Manut DB                 | **Ops-blocked** | Clean baseline exists; production DB not provisioned from this branch                               |
 | Dedicated E2E project + `E2E_*`                   | **Ops-blocked** | Five secrets + dedicated-project marker not configured                                              |
 | Expo / EAS Manut org + native builds              | **Ops-blocked** | JS exports pass; APK / simulator need fresh Expo org                                                |
-| GitHub Pro / branch protection requiring Validate | **Ops-blocked** | Free org 403 on private rulesets                                                                    |
+| GitHub CI / branch protection requiring Validate  | **Ops-blocked** | **2026-07-19:** public + Free + unprotected (404); CodeQL Ruby fails; red merges proven. See `docs/ops/CI_PROTECTION_TRUTH.md` |
 | DNS / custom domain cutover                       | **Ops-blocked** | Confirm Domains assignment; separate approval for zone changes                                      |
 | Inherited credential revocation evidence          | **Ops-blocked** | Not performed; required before trust cutover                                                        |
 
