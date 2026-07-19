@@ -1,7 +1,10 @@
 import {
   ApiError,
+  listMyPayslips,
   listPayrollRuns,
+  MY_PAYSLIPS_QUERY_KEY,
   payrollRunsQueryKey,
+  type MyPayslip,
   type PayrollRun,
   type PayrollRunStatus,
 } from "@manut/app-core";
@@ -75,6 +78,38 @@ function PayrollRunRow({ run }: { run: PayrollRun }) {
   );
 }
 
+function MyPayslipRow({ slip }: { slip: MyPayslip }) {
+  return (
+    <View
+      style={{
+        gap: spacing.xs,
+        padding: spacing.lg,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radii.card,
+        backgroundColor: colors.surfaceRaised,
+      }}
+    >
+      <Text selectable style={{ fontWeight: "600", color: colors.text }}>
+        {slip.payrollRun.period} ·{" "}
+        {payrollStatusLabel(slip.payrollRun.status)}
+      </Text>
+      <Text selectable style={{ color: colors.textMuted }}>
+        {slip.payrollRun.entity.name} · {slip.currency}
+      </Text>
+      <Text selectable style={{ color: colors.textMuted }}>
+        Net {formatMoney(slip.netPay)} · Gross {formatMoney(slip.grossPay)} ·
+        Base {formatMoney(slip.baseSalary)}
+      </Text>
+      <Text selectable style={{ color: colors.textMuted }}>
+        {slip.hasDocument
+          ? "Document on file (download deferred)"
+          : "No document attached"}
+      </Text>
+    </View>
+  );
+}
+
 const STATUS_FILTERS: Array<{ label: string; value?: PayrollRunStatus }> = [
   { label: "All" },
   { label: "Draft", value: "draft" },
@@ -108,6 +143,12 @@ export function PayrollScreen() {
     enabled: allowed,
   });
 
+  const myPayslipsQuery = useQuery({
+    queryKey: MY_PAYSLIPS_QUERY_KEY,
+    queryFn: ({ signal }) => listMyPayslips(api, signal),
+    enabled: allowed,
+  });
+
   if (!allowed) {
     return (
       <ScrollView contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}>
@@ -130,8 +171,8 @@ export function PayrollScreen() {
     >
       <Card title="Payroll" maxWidth={720}>
         <Text selectable style={{ color: colors.textMuted }}>
-          Read-only payroll runs for periods you can access. Create, approve,
-          imports, and payslip downloads stay on the web until a later slice.
+          Payroll runs you can access plus your own payslip list. Create,
+          approve, imports, and payslip downloads stay deferred.
         </Text>
         {canViewApprovalChain ? (
           <Button
@@ -144,6 +185,32 @@ export function PayrollScreen() {
           />
         ) : null}
       </Card>
+
+      <Card title="My payslips" maxWidth={720}>
+        {myPayslipsQuery.isPending ? (
+          <LoadingState label="Loading my payslips…" />
+        ) : null}
+        {myPayslipsQuery.isError ? (
+          <StatusMessage tone="error">
+            {errorMessage(
+              myPayslipsQuery.error,
+              "We could not load your payslips.",
+            )}
+          </StatusMessage>
+        ) : null}
+        {myPayslipsQuery.isSuccess &&
+        myPayslipsQuery.data.data.length === 0 ? (
+          <StatusMessage tone="info">
+            No payslips are assigned to you yet.
+          </StatusMessage>
+        ) : null}
+      </Card>
+
+      {myPayslipsQuery.isSuccess
+        ? myPayslipsQuery.data.data.map((slip) => (
+            <MyPayslipRow key={slip.id} slip={slip} />
+          ))
+        : null}
 
       <View
         style={{

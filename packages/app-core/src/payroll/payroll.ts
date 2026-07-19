@@ -142,3 +142,82 @@ export async function listPayrollRuns(
   );
   return payrollRunsResponseSchema.parse(response);
 }
+
+// Self-scoped payslips. Strip documentUrl / bank / allowance detail —
+// download/export belong to a later slice. Expose hasDocument only.
+const myPayslipApiSchema = z
+  .object({
+    id: z.string().min(1),
+    baseSalary: apiMoneySchema,
+    grossPay: apiMoneySchema,
+    netPay: apiMoneySchema,
+    currency: z.string().min(1),
+    documentUrl: z.unknown().optional(),
+    hasDocument: z.boolean().optional(),
+    allowances: z.unknown().optional(),
+    deductions: z.unknown().optional(),
+    employeeId: z.unknown().optional(),
+    grossPayBase: z.unknown().optional(),
+    netPayBase: z.unknown().optional(),
+    positionSnapshot: z.unknown().optional(),
+    departmentSnapshot: z.unknown().optional(),
+    startDateSnapshot: z.unknown().optional(),
+    payrollRun: z.object({
+      id: z.string().min(1),
+      period: payrollPeriodSchema,
+      status: payrollRunStatusSchema,
+      entity: z.object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+      }),
+    }),
+  })
+  .passthrough();
+
+function resolveMyPayslipHasDocument(record: {
+  documentUrl?: unknown;
+  hasDocument?: boolean;
+}): boolean {
+  if (typeof record.hasDocument === "boolean") return record.hasDocument;
+  return Boolean(record.documentUrl);
+}
+
+export const myPayslipSchema = myPayslipApiSchema.transform((slip) => ({
+  id: slip.id,
+  baseSalary: slip.baseSalary,
+  grossPay: slip.grossPay,
+  netPay: slip.netPay,
+  currency: slip.currency,
+  hasDocument: resolveMyPayslipHasDocument(slip),
+  payrollRun: {
+    id: slip.payrollRun.id,
+    period: slip.payrollRun.period,
+    status: slip.payrollRun.status,
+    entity: {
+      id: slip.payrollRun.entity.id,
+      name: slip.payrollRun.entity.name,
+    },
+  },
+}));
+
+const myPayslipsResponseSchema = z
+  .object({
+    data: z.array(myPayslipSchema),
+  })
+  .strict();
+
+export type MyPayslip = z.infer<typeof myPayslipSchema>;
+export type MyPayslipList = z.infer<typeof myPayslipsResponseSchema>;
+
+export const MY_PAYSLIPS_QUERY_KEY = ["payroll", "my-payslips"] as const;
+
+export async function listMyPayslips(
+  client: ApiClient,
+  signal?: RequestAbortSignal,
+): Promise<MyPayslipList> {
+  const response = await client.get<unknown>(
+    "/payroll/my-payslips",
+    signal ? { signal } : undefined,
+  );
+  return myPayslipsResponseSchema.parse(response);
+}

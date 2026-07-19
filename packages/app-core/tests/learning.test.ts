@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../src/api/api-client";
-import { listLearningModules } from "../src/learning/learning";
+import {
+  listLearningCompletions,
+  listLearningModules,
+  markLearningComplete,
+} from "../src/learning/learning";
 
 const moduleRecord = {
   id: "cllearningmod0000000000001",
@@ -41,6 +45,86 @@ describe("learning foundation contracts", () => {
     expect(result.data[0]).not.toHaveProperty("fileUrl");
     expect(get).toHaveBeenCalledWith(
       expect.stringContaining("/learning/modules?"),
+      undefined,
+    );
+  });
+
+  it("marks a module complete and strips employee email", async () => {
+    const completionRecord = {
+      id: "cllearningcomp000000000001",
+      moduleId: moduleRecord.id,
+      employeeId: "cluser00000000000000000001",
+      completedAt: "2026-02-01T12:00:00.000Z",
+      score: null,
+      module: {
+        id: moduleRecord.id,
+        title: moduleRecord.title,
+        category: moduleRecord.category,
+      },
+      employee: {
+        id: "cluser00000000000000000001",
+        name: "Alex Learner",
+        email: "alex@manut.example",
+      },
+    };
+    const post = vi.fn().mockResolvedValue({ data: completionRecord });
+    const client = { post } as unknown as ApiClient;
+
+    const result = await markLearningComplete(client, {
+      moduleId: moduleRecord.id,
+    });
+
+    expect(result).toEqual({
+      id: completionRecord.id,
+      moduleId: moduleRecord.id,
+      completedAt: completionRecord.completedAt,
+      score: null,
+      moduleTitle: moduleRecord.title,
+      moduleCategory: moduleRecord.category,
+    });
+    expect(result).not.toHaveProperty("employee");
+    expect(post).toHaveBeenCalledWith("/learning/completions", {
+      moduleId: moduleRecord.id,
+    });
+  });
+
+  it("lists completions without exposing employee email", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: "cllearningcomp000000000001",
+          moduleId: moduleRecord.id,
+          employeeId: "cluser00000000000000000001",
+          completedAt: "2026-02-01T12:00:00.000Z",
+          score: 95,
+          module: {
+            id: moduleRecord.id,
+            title: moduleRecord.title,
+            category: moduleRecord.category,
+          },
+          employee: {
+            id: "cluser00000000000000000001",
+            name: "Alex Learner",
+            email: "alex@manut.example",
+          },
+        },
+      ],
+      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    });
+    const client = { get } as unknown as ApiClient;
+
+    const result = await listLearningCompletions(client, { page: 1, limit: 20 });
+    expect(result.data[0]).toEqual({
+      id: "cllearningcomp000000000001",
+      moduleId: moduleRecord.id,
+      completedAt: "2026-02-01T12:00:00.000Z",
+      score: 95,
+      moduleTitle: moduleRecord.title,
+      moduleCategory: moduleRecord.category,
+    });
+    expect(result.data[0]).not.toHaveProperty("employee");
+    expect(get).toHaveBeenCalledWith(
+      "/learning/completions?page=1&limit=20",
       undefined,
     );
   });

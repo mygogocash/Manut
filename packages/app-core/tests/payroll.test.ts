@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../src/api/api-client";
-import { listPayrollRuns } from "../src/payroll/payroll";
+import { listMyPayslips, listPayrollRuns } from "../src/payroll/payroll";
 
 const run = {
   id: "clpayrollrun00000000000001",
@@ -81,5 +81,79 @@ describe("payroll foundation contracts", () => {
       "/payroll/runs?page=2&limit=10&status=approved&period=2026-05",
       undefined,
     );
+  });
+
+  it("lists my payslips and strips documentUrl, allowances, and deductions", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: "clpayslip00000000000000001",
+          baseSalary: "50000",
+          grossPay: "52000",
+          netPay: "48000",
+          currency: "THB",
+          documentUrl: "https://storage.example/secret.pdf",
+          allowances: { meal: 2000 },
+          deductions: { tax: 4000 },
+          employeeId: "11111111-1111-4111-8111-111111111111",
+          payrollRun: {
+            id: run.id,
+            period: "2026-06",
+            status: "approved",
+            entity: { id: run.entity.id, name: "Manut Ops" },
+          },
+        },
+      ],
+    });
+    const client = { get } as unknown as ApiClient;
+
+    const result = await listMyPayslips(client);
+    expect(result.data[0]).toEqual({
+      id: "clpayslip00000000000000001",
+      baseSalary: "50000",
+      grossPay: "52000",
+      netPay: "48000",
+      currency: "THB",
+      hasDocument: true,
+      payrollRun: {
+        id: run.id,
+        period: "2026-06",
+        status: "approved",
+        entity: { id: run.entity.id, name: "Manut Ops" },
+      },
+    });
+    expect(result.data[0]).not.toHaveProperty("documentUrl");
+    expect(result.data[0]).not.toHaveProperty("allowances");
+    expect(result.data[0]).not.toHaveProperty("deductions");
+    expect(result.data[0]).not.toHaveProperty("employeeId");
+    expect(result.data[0]).not.toHaveProperty("grossPayBase");
+    expect(result.data[0]).not.toHaveProperty("positionSnapshot");
+    expect(get).toHaveBeenCalledWith("/payroll/my-payslips", undefined);
+  });
+
+  it("honours edge hasDocument when documentUrl is stripped upstream", async () => {
+    const get = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: "clpayslip00000000000000002",
+          baseSalary: "50000",
+          grossPay: "52000",
+          netPay: "48000",
+          currency: "THB",
+          hasDocument: true,
+          payrollRun: {
+            id: run.id,
+            period: "2026-05",
+            status: "paid",
+            entity: { id: run.entity.id, name: "Manut Ops" },
+          },
+        },
+      ],
+    });
+    const client = { get } as unknown as ApiClient;
+
+    const result = await listMyPayslips(client);
+    expect(result.data[0]?.hasDocument).toBe(true);
+    expect(result.data[0]).not.toHaveProperty("documentUrl");
   });
 });

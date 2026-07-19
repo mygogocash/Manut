@@ -90,7 +90,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/applications",
-      "note": "Expo read-only recruiter inbox via app-core (strips resume attachment URLs to hasResume). Deferred: status writes, resume download, delete/export."
+      "note": "Expo read-only recruiter inbox via app-core (strips resume attachment URLs to hasResume). Status writes and resume download remain API/schema-blocked for honest deepen; delete/export also deferred. Status stays foundation until Expo browser E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/aria/knowledge/[id]/page.tsx",
@@ -114,7 +114,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/benefits",
-      "note": "Expo read-only catalog + my-enrollments via app-core. Deferred: enroll/unenroll, manage CRUD, bulk import."
+      "note": "Expo catalog + my-enrollments plus enroll write via app-core (strips sensitive plan fields). Deferred: unenroll, manage CRUD, bulk import. Status stays foundation until Expo browser E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/blog-management/page.tsx",
@@ -130,7 +130,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/careers",
-      "note": "Expo read-only job postings list via app-core (career:read registry). Deferred: apply flow, posting create/update/delete, CSV export."
+      "note": "Expo read-only job postings list via app-core (career:read registry). Apply flow and posting writes remain API/schema-blocked for honest deepen; CSV export also deferred. Status stays foundation until Expo browser E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/cash-advance/approval/page.tsx",
@@ -146,7 +146,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/cash-advance",
-      "note": "Expo self-service: mine list, create draft, submit, delete draft, and link to approval-chain foundation. Approve/reject on submitted, disburse + proof URL, and item receipt download remain before parity."
+      "note": "Expo self-service: mine list, create draft, submit, delete draft, approval-chain link, plus signed item receipt URL fetch (no raw storage path). Deferred: approve/reject on submitted, disburse + proof upload, native R2 picker. Status stays foundation until Expo browser E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/certificates/page.tsx",
@@ -226,7 +226,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/expenses/[reportId]",
-      "note": "Expo read-only expense report detail via app-core (status/total/purpose). Deferred: line items, receipt open/upload, approve/reject actions."
+      "note": "Expo expense report detail projects line items plus signed receipt URL fetch (strips storage paths). Deferred: R2 receipt upload, approve/reject actions. Status stays foundation until Expo browser E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/expenses/approval/page.tsx",
@@ -354,7 +354,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/learning",
-      "note": "Expo read-only modules list via app-core (strips storage fileUrl). Deferred: manage CRUD/import, mark-complete writes, completions inbox."
+      "note": "Expo modules list plus mark-complete write and completions list via app-core (strips storage fileUrl). Deferred: manage CRUD/import. Status stays foundation until Expo browser E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/leave/approval/page.tsx",
@@ -514,7 +514,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/office",
-      "note": "Expo read-only offices/rooms/assets via app-core (strips address, booking slots, finance fields, assignee email). Deferred: book-self create/cancel, manage CRUD, asset import."
+      "note": "Expo offices/rooms/assets plus self book/cancel + my-bookings when office:book (strips address, booking slots, finance fields, assignee email). Deferred: manage CRUD, asset import. Status stays foundation until Expo browser E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/partners/[partnerId]/page.tsx",
@@ -562,7 +562,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/payroll",
-      "note": "Expo read-only payroll runs list via app-core (strips notes/emails/currencyTotals) plus /payroll/approval steps foundation. Deferred: create/import, approve actions, payslip download/export/bulk delete, company footer writes, consultant invoices."
+      "note": "Expo payroll runs list plus my-payslips (strips documentUrl/allowances/deductions to hasDocument; strips notes/emails/currencyTotals) and /payroll/approval steps foundation. Deferred: create/import, approve actions, payslip download/export/bulk delete, company footer writes, consultant invoices. Status stays foundation until Expo browser E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/performance/page.tsx",

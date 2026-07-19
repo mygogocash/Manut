@@ -37,6 +37,7 @@ import {
 
 import { useAuth } from "@/features/auth/auth-provider";
 import { CashAdvanceFinanceInbox } from "@/features/cash-advance/cash-advance-finance-inbox";
+import { CashAdvanceLineItems } from "@/features/cash-advance/cash-advance-line-items";
 import { CashAdvancePendingInbox } from "@/features/cash-advance/cash-advance-pending-inbox";
 import { cashAdvanceStatusLabel } from "@/features/cash-advance/cash-advance-status-label";
 import { useApiClient } from "@/providers/api-client-provider";
@@ -99,6 +100,14 @@ function RequestRow({
         <Text selectable style={{ color: colors.errorText }}>
           Rejected: {request.rejectReason}
         </Text>
+      ) : null}
+      {request.items?.length ? (
+        <CashAdvanceLineItems
+          requestId={request.id}
+          requestNumber={request.requestNumber}
+          currency={request.currency}
+          items={request.items}
+        />
       ) : null}
       {showSubmit || showDelete ? (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>

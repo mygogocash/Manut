@@ -68,6 +68,11 @@ reject pending inbox plus disburse (`POST …/disburse` with proof URL) and clea
 (`POST …/clear`) gated by `cash-advance:approve`. Native R2 picker and signed
 disbursement-proof GET remain deferred until authenticated Expo E2E acceptance.
 
+HR deepen wave (2026-07-19): `/benefits` enroll, `/learning` mark-complete,
+`/office` book-self, `/payroll` my-payslips, `/expenses/[reportId]` line
+receipts, and cash-advance item receipt URL remain `foundation` until Expo
+browser E2E. Notes updated in `ROUTE_DISPOSITION.json`.
+
 ## Inventory
 
 |   # | Source path                                                                     | Source route                               | Disposition            | Status       | Target route                 |

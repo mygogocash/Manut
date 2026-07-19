@@ -85,22 +85,50 @@ describe("PayrollScreen", () => {
           meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
         });
       }
+      if (path === "/payroll/my-payslips") {
+        return Promise.resolve({
+          data: [
+            {
+              id: "clpayslip00000000000000001",
+              baseSalary: "50000",
+              grossPay: "52000",
+              netPay: "48000",
+              currency: "THB",
+              documentUrl: "https://storage.example/secret.pdf",
+              payrollRun: {
+                id: run.id,
+                period: "2026-06",
+                status: "approved",
+                entity: { id: run.entity.id, name: "Manut Ops" },
+              },
+            },
+          ],
+        });
+      }
       throw new Error(`Unexpected GET ${path}`);
     });
   });
 
   it(
-    "lists payroll runs from the runs API",
+    "lists payroll runs and my payslips from the API",
     async () => {
       await renderScreen();
       expect(
         await screen.findByText(/2026-06 · Draft/, {}, { timeout: 10_000 }),
       ).toBeTruthy();
-      expect(screen.getByText(/Manut Ops/)).toBeTruthy();
+      // Entity name appears on both the HR run row and the employee payslip row.
+      expect(screen.getAllByText(/Manut Ops/).length).toBeGreaterThanOrEqual(2);
       expect(screen.getByText(/Runner Runner/)).toBeTruthy();
       expect(screen.queryByText(/secret/)).toBeNull();
+      expect(
+        await screen.findByText(/Document on file/, {}, { timeout: 10_000 }),
+      ).toBeTruthy();
       expect(mockGet).toHaveBeenCalledWith(
         expect.stringContaining("/payroll/runs?"),
+        expect.anything(),
+      );
+      expect(mockGet).toHaveBeenCalledWith(
+        "/payroll/my-payslips",
         expect.anything(),
       );
     },

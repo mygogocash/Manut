@@ -228,3 +228,174 @@ export async function listOfficeAssets(
   );
   return officeAssetsResponseSchema.parse(response);
 }
+
+function toCalendarDate(value: string): string {
+  return value.slice(0, 10);
+}
+
+function isCalendarDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+export const officeDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD format")
+  .refine(isCalendarDate, "Enter a valid calendar date");
+
+const apiCalendarDateSchema = z
+  .string()
+  .min(10)
+  .transform(toCalendarDate)
+  .pipe(officeDateSchema);
+
+export const officeTimeSchema = z
+  .string()
+  .regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM (24-hour)");
+
+export const bookOfficeRoomInputSchema = z
+  .object({
+    roomId: z.string().uuid("Invalid room ID"),
+    date: officeDateSchema,
+    timeSlot: officeTimeSchema,
+    endTime: officeTimeSchema,
+    title: z.string().trim().max(300).optional(),
+    description: z.string().trim().max(2000).optional(),
+    attendeesCount: z.number().int().positive().max(1000).optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.endTime <= value.timeSlot) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endTime"],
+        message: "End time must be after start time",
+      });
+    }
+  });
+
+export type BookOfficeRoomInput = z.input<typeof bookOfficeRoomInputSchema>;
+
+const officeBookingApiSchema = z
+  .object({
+    id: z.string().min(1),
+    roomId: z.string().min(1),
+    date: apiCalendarDateSchema,
+    timeSlot: officeTimeSchema,
+    endTime: officeTimeSchema.nullable().optional(),
+    title: nullableText.optional(),
+    description: z.unknown().optional(),
+    attendeesCount: z.unknown().optional(),
+    employee: z
+      .object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+        email: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+    room: z
+      .object({
+        id: z.string().min(1),
+        name: z.string().min(1),
+        floor: nullableText.optional(),
+        office: officeSummarySchema,
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+export const officeBookingSchema = officeBookingApiSchema.transform(
+  (booking) => ({
+    id: booking.id,
+    roomId: booking.roomId,
+    date: booking.date,
+    timeSlot: booking.timeSlot,
+    endTime: booking.endTime ?? null,
+    title: booking.title ?? null,
+    room: {
+      id: booking.room.id,
+      name: booking.room.name,
+      floor: booking.room.floor ?? null,
+      office: {
+        id: booking.room.office.id,
+        name: booking.room.office.name,
+        city: booking.room.office.city ?? "",
+      },
+    },
+  }),
+);
+
+const officeBookingResponseSchema = z
+  .object({
+    data: officeBookingSchema,
+  })
+  .strict();
+
+const officeMyBookingsResponseSchema = z
+  .object({
+    data: z.array(officeBookingSchema),
+  })
+  .strict();
+
+export type OfficeBooking = z.infer<typeof officeBookingSchema>;
+export type OfficeMyBookingList = z.infer<typeof officeMyBookingsResponseSchema>;
+
+export const OFFICE_MY_BOOKINGS_QUERY_ROOT = [
+  "office",
+  "rooms",
+  "my-bookings",
+] as const;
+
+export function officeMyBookingsQueryKey() {
+  return [...OFFICE_MY_BOOKINGS_QUERY_ROOT] as const;
+}
+
+const cancelOfficeBookingResponseSchema = z
+  .object({
+    data: z.object({ success: z.literal(true) }).strict(),
+  })
+  .strict();
+
+export async function bookOfficeRoom(
+  client: ApiClient,
+  input: BookOfficeRoomInput,
+): Promise<OfficeBooking> {
+  const parsedInput = bookOfficeRoomInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    "/office/rooms/book",
+    parsedInput,
+  );
+  return officeBookingResponseSchema.parse(response).data;
+}
+
+export async function listMyOfficeBookings(
+  client: ApiClient,
+  signal?: RequestAbortSignal,
+): Promise<OfficeMyBookingList> {
+  const response = await client.get<unknown>(
+    "/office/rooms/my-bookings",
+    signal ? { signal } : undefined,
+  );
+  return officeMyBookingsResponseSchema.parse(response);
+}
+
+export async function cancelOfficeBooking(
+  client: ApiClient,
+  bookingId: string,
+): Promise<void> {
+  const id = z.string().min(1).parse(bookingId);
+  const response = await client.delete<unknown>(
+    `/office/rooms/bookings/${encodeURIComponent(id)}`,
+  );
+  cancelOfficeBookingResponseSchema.parse(response);
+}

@@ -1,7 +1,9 @@
 import {
   act,
+  fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react-native";
 import {
   notifyManager,
@@ -12,10 +14,11 @@ import {
 import { BenefitsScreen } from "@/features/benefits/benefits-screen";
 
 const mockGet = jest.fn();
+const mockPost = jest.fn();
 let mockPermissions = ["benefits:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
-  useApiClient: () => ({ get: mockGet }),
+  useApiClient: () => ({ get: mockGet, post: mockPost }),
 }));
 
 jest.mock("@/features/auth/auth-provider", () => ({
@@ -89,6 +92,7 @@ describe("BenefitsScreen", () => {
 
   beforeEach(() => {
     mockGet.mockReset();
+    mockPost.mockReset();
     mockPermissions = ["benefits:read"];
     mockGet.mockImplementation((path: string) => {
       if (path.startsWith("/benefits?")) {
@@ -137,4 +141,62 @@ describe("BenefitsScreen", () => {
     ).toBeTruthy();
     expect(mockGet).not.toHaveBeenCalled();
   });
+
+  it(
+    "shows enroll on catalog rows when benefits:enroll is granted",
+    async () => {
+      mockPermissions = ["benefits:read", "benefits:enroll"];
+      await renderScreen();
+      expect(
+        await screen.findByLabelText("Enroll in Health Plus", {}, { timeout: 10_000 }),
+      ).toBeTruthy();
+    },
+    15_000,
+  );
+
+  it(
+    "hides enroll actions without benefits:enroll",
+    async () => {
+      await renderScreen();
+      expect(
+        await screen.findByText(/Health Plus · Health/, {}, { timeout: 10_000 }),
+      ).toBeTruthy();
+      expect(screen.queryByLabelText("Enroll in Health Plus")).toBeNull();
+    },
+    15_000,
+  );
+
+  it(
+    "enrolls in a catalog benefit and refreshes my enrollments",
+    async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date("2026-07-19T12:00:00.000Z"));
+      mockPermissions = ["benefits:read", "benefits:enroll"];
+      mockPost.mockResolvedValue({ data: enrollment });
+
+      await renderScreen();
+      expect(
+        await screen.findByLabelText("Enroll in Health Plus", {}, { timeout: 10_000 }),
+      ).toBeTruthy();
+
+      await fireEvent.press(screen.getByLabelText("Enroll in Health Plus"));
+
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith("/benefits/enroll", {
+          benefitId: benefit.id,
+          startDate: "2026-07-19",
+        });
+      });
+      await waitFor(() => {
+        expect(
+          mockGet.mock.calls.filter(
+            ([path]) => path === "/benefits/my-enrollments",
+          ).length,
+        ).toBeGreaterThan(1);
+      });
+
+      jest.useRealTimers();
+    },
+    15_000,
+  );
 });

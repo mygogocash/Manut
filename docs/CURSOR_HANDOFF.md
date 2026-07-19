@@ -1258,3 +1258,26 @@ Phase 1 leftovers close-out (2026-07-18):
   banners on migration/ops docs pointing at the master plan.
 - **Not claimed:** secrets, DNS, Cloudflare prod mutations, SoR flip, or
   lifting the dependency freeze.
+
+### Parallel: hr-deepen-wave
+
+- **Branch:** `claude/hr-deepen-wave` (from `manut/main` after #246).
+- **Landed (app-core + Expo, status stays `foundation` until browser E2E):**
+  - `/benefits` — `enrollInBenefit` write + enroll UI
+  - `/learning` — `listLearningCompletions` / `markLearningComplete` + UI
+  - `/office` — `bookOfficeRoom` / `listMyOfficeBookings` / `cancelOfficeBooking` + UI
+  - `/payroll` — `listMyPayslips` (strips `documentUrl` → `hasDocument`) + My payslips section
+  - `/expenses/[reportId]` — line items + `getExpenseLineReceiptUrl`
+  - `/cash-advance` — `getCashAdvanceItemReceiptUrl` + line-item receipt UI
+- **Barrel:** exports wired in `packages/app-core/src/index.ts` (incl. `CashAdvanceItemLine`).
+- **Disposition:** JSON notes + short MD blurb updated; no status promotions.
+- **Tests (focused):** app-core benefits/learning/office/expenses/cash-advance/payroll;
+  Expo screen suites for the same surfaces.
+- **Ops (non-blocking, not claimed):** see `docs/ops/CI_PROTECTION_TRUTH.md` —
+  CodeQL Ruby language drop, GitHub Pro/privacy + `Validate` required on `main`,
+  five `E2E_*` secrets, OSV keep-on, Phase E Cloudflare/Expo, credential
+  revocation. No DNS / Hyperdrive invent / deploy from this wave.
+- **Blocked next (Wave 2):** careers apply + applications status writes need
+  honest API/schema mirror before deepen; keep foundations until that lands.
+- **Not done:** commit/PR (unless requested); authenticated Expo E2E; R2 pickers;
+  payroll payslip download; benefits unenroll/manage; office manage CRUD.

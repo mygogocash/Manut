@@ -1,7 +1,10 @@
 import {
   act,
+  cleanup,
+  fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react-native";
 import {
   notifyManager,
@@ -12,10 +15,12 @@ import {
 import { OfficeScreen } from "@/features/office/office-screen";
 
 const mockGet = jest.fn();
+const mockPost = jest.fn();
+const mockDelete = jest.fn();
 let mockPermissions = ["office:read"];
 
 jest.mock("@/providers/api-client-provider", () => ({
-  useApiClient: () => ({ get: mockGet }),
+  useApiClient: () => ({ get: mockGet, post: mockPost, delete: mockDelete }),
 }));
 
 jest.mock("@/features/auth/auth-provider", () => ({
@@ -63,6 +68,28 @@ const assetRecord = {
   },
 };
 
+const bookingRecord = {
+  id: "a0000000-0000-4000-8000-000000000010",
+  roomId: roomRecord.id,
+  date: "2026-07-21",
+  timeSlot: "10:00",
+  endTime: "11:00",
+  title: "Team sync",
+  description: "Weekly planning",
+  attendeesCount: 4,
+  room: {
+    id: roomRecord.id,
+    name: "Meeting A",
+    floor: "3",
+    office: { id: officeRecord.id, name: "Bangkok HQ", city: "Bangkok" },
+  },
+  employee: {
+    id: "a0000000-0000-4000-8000-000000000099",
+    name: "Alex Example",
+    email: "alex@example.com",
+  },
+};
+
 async function renderScreen() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -90,8 +117,15 @@ describe("OfficeScreen", () => {
     notifyManager.setNotifyFunction((callback) => callback());
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
+    cleanup();
     mockGet.mockReset();
+    mockPost.mockReset();
+    mockDelete.mockReset();
     mockPermissions = ["office:read"];
     mockGet.mockImplementation((path: string) => {
       if (path === "/office/offices") {
@@ -99,6 +133,9 @@ describe("OfficeScreen", () => {
       }
       if (path === "/office/rooms") {
         return Promise.resolve({ data: [roomRecord] });
+      }
+      if (path === "/office/rooms/my-bookings") {
+        return Promise.resolve({ data: [bookingRecord] });
       }
       if (path.startsWith("/office/assets?")) {
         return Promise.resolve({
@@ -108,6 +145,10 @@ describe("OfficeScreen", () => {
       }
       throw new Error(`Unexpected GET ${path}`);
     });
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it(
@@ -138,4 +179,69 @@ describe("OfficeScreen", () => {
     ).toBeTruthy();
     expect(mockGet).not.toHaveBeenCalled();
   });
+
+  it(
+    "hides self-booking when office:book is missing",
+    async () => {
+      mockPermissions = ["office:read"];
+      await renderScreen();
+      expect(
+        await screen.findByText("Locations", {}, { timeout: 10_000 }),
+      ).toBeTruthy();
+      expect(await screen.findByText("Bangkok HQ")).toBeTruthy();
+      expect(screen.queryByText("Book a room")).toBeNull();
+      expect(screen.queryByText("My bookings")).toBeNull();
+      expect(mockGet).not.toHaveBeenCalledWith(
+        "/office/rooms/my-bookings",
+        expect.anything(),
+      );
+    },
+    15_000,
+  );
+
+  it(
+    "books a room and cancels an upcoming booking when office:book is granted",
+    async () => {
+      mockPermissions = ["office:read", "office:book"];
+      mockPost.mockResolvedValue({ data: bookingRecord });
+      mockDelete.mockResolvedValue({ data: { success: true } });
+
+      await renderScreen();
+      expect(await screen.findByText("Book a room")).toBeTruthy();
+      expect(screen.getByText(/Meeting A · 2026-07-21 · 10:00–11:00/)).toBeTruthy();
+
+      fireEvent.press(screen.getByRole("radio", { name: "Meeting A" }));
+      await act(async () => {
+        fireEvent.changeText(screen.getByLabelText("Date"), "2026-07-22");
+        fireEvent.changeText(screen.getByLabelText("Start time"), "14:00");
+        fireEvent.changeText(screen.getByLabelText("End time"), "15:00");
+      });
+      fireEvent.press(screen.getByRole("button", { name: "Book room" }));
+
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith("/office/rooms/book", {
+          roomId: roomRecord.id,
+          date: "2026-07-22",
+          timeSlot: "14:00",
+          endTime: "15:00",
+        });
+      });
+      expect(await screen.findByText("Room booked.")).toBeTruthy();
+
+      fireEvent.press(
+        screen.getByRole("button", { name: "Cancel booking Meeting A" }),
+      );
+      fireEvent.press(
+        await screen.findByRole("button", {
+          name: "Confirm cancel Meeting A booking",
+        }),
+      );
+
+      await screen.findByText("Booking cancelled.");
+      expect(mockDelete).toHaveBeenCalledWith(
+        `/office/rooms/bookings/${bookingRecord.id}`,
+      );
+    },
+    15_000,
+  );
 });

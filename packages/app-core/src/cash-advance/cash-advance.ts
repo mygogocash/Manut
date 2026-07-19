@@ -43,6 +43,24 @@ const cashAdvanceEmployeeSchema = z
     name: employee.name,
   }));
 
+export const cashAdvanceItemLineSchema = z
+  .object({
+    id: z.string().min(1),
+    description: z.string().optional(),
+    requestedAmount: z.number().finite().optional(),
+    approvedAmount: z.number().finite().optional(),
+    receiptUrl: z.unknown().optional(),
+  })
+  .passthrough()
+  .transform(({ receiptUrl, ...line }) => ({
+    id: line.id,
+    description: line.description ?? "",
+    requestedAmount: line.requestedAmount,
+    approvedAmount: line.approvedAmount,
+    hasReceipt:
+      typeof receiptUrl === "string" && receiptUrl.trim().length > 0,
+  }));
+
 // List receipts keep totals/status and strip bank numbers, notes, proof
 // URLs, approval-chain internals, line receipt URLs, and employee email.
 const cashAdvanceRequestApiSchema = z
@@ -64,16 +82,7 @@ const cashAdvanceRequestApiSchema = z
       })
       .nullable()
       .optional(),
-    items: z
-      .array(
-        z
-          .object({
-            id: z.string().min(1).optional(),
-            description: z.string().optional(),
-          })
-          .passthrough(),
-      )
-      .default([]),
+    items: z.array(cashAdvanceItemLineSchema).default([]),
     notes: z.unknown().optional(),
     bankAccountNo: z.unknown().optional(),
     bankName: z.unknown().optional(),
@@ -94,6 +103,7 @@ export const cashAdvanceRequestSchema = cashAdvanceRequestApiSchema.transform(
     approvedTotal: request.approvedTotal,
     rejectReason: request.rejectReason,
     itemCount: request.items.length,
+    items: request.items,
     employee: request.employee,
     entityName: request.entity?.name ?? null,
   }),
@@ -165,6 +175,7 @@ export const createCashAdvanceInputSchema = z
 
 export type CashAdvanceStatus = z.infer<typeof cashAdvanceStatusSchema>;
 export type CashAdvancePayoutMode = z.infer<typeof cashAdvancePayoutModeSchema>;
+export type CashAdvanceItemLine = z.infer<typeof cashAdvanceItemLineSchema>;
 export type CashAdvanceRequest = z.infer<typeof cashAdvanceRequestSchema>;
 export type CashAdvanceListParams = z.input<typeof cashAdvanceListParamsSchema>;
 export type CashAdvanceList = z.infer<typeof cashAdvanceListResponseSchema>;
@@ -336,4 +347,33 @@ export async function clearCashAdvance(
     {},
   );
   return cashAdvanceMutationResponseSchema.parse(response).data;
+}
+
+const cashAdvanceItemReceiptResponseSchema = z
+  .object({
+    data: z
+      .object({
+        url: z.string().url(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type CashAdvanceItemReceiptUrl = z.infer<
+  typeof cashAdvanceItemReceiptResponseSchema
+>["data"];
+
+export async function getCashAdvanceItemReceiptUrl(
+  client: ApiClient,
+  requestId: string,
+  itemId: string,
+  signal?: RequestAbortSignal,
+): Promise<CashAdvanceItemReceiptUrl> {
+  const parsedRequestId = z.string().min(1).parse(requestId);
+  const parsedItemId = z.string().min(1).parse(itemId);
+  const response = await client.get<unknown>(
+    `/cash-advance/${encodeURIComponent(parsedRequestId)}/items/${encodeURIComponent(parsedItemId)}/receipt`,
+    signal ? { signal } : undefined,
+  );
+  return cashAdvanceItemReceiptResponseSchema.parse(response).data;
 }

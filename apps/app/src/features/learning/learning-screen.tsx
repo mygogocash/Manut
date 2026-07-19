@@ -1,7 +1,12 @@
 import {
   ApiError,
+  LEARNING_COMPLETIONS_QUERY_ROOT,
+  LEARNING_MODULES_QUERY_ROOT,
+  learningCompletionsQueryKey,
   learningModulesQueryKey,
+  listLearningCompletions,
   listLearningModules,
+  markLearningComplete,
   type LearningModule,
 } from "@manut/app-core";
 import {
@@ -13,7 +18,7 @@ import {
   spacing,
   StatusMessage,
 } from "@manut/ui";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
@@ -32,6 +37,10 @@ function canReadLearning(hasPermission: (code: string) => boolean): boolean {
   );
 }
 
+function canCompleteLearning(hasPermission: (code: string) => boolean): boolean {
+  return hasPermission("learning:complete");
+}
+
 function ExternalLinkButton({ title, url }: { title: string; url: string }) {
   return (
     <Pressable
@@ -48,7 +57,19 @@ function ExternalLinkButton({ title, url }: { title: string; url: string }) {
   );
 }
 
-function ModuleRow({ module }: { module: LearningModule }) {
+function ModuleRow({
+  module,
+  canComplete,
+  isCompleted,
+  isMarkingComplete,
+  onMarkComplete,
+}: {
+  module: LearningModule;
+  canComplete: boolean;
+  isCompleted: boolean;
+  isMarkingComplete: boolean;
+  onMarkComplete: (moduleId: string) => void;
+}) {
   return (
     <View
       style={{
@@ -63,6 +84,7 @@ function ModuleRow({ module }: { module: LearningModule }) {
       <Text selectable style={{ fontWeight: "600", color: colors.text }}>
         {module.title}
         {module.isMandatory ? " · Mandatory" : ""}
+        {isCompleted ? " · Completed" : ""}
       </Text>
       <Text selectable style={{ color: colors.textMuted }}>
         {module.category}
@@ -79,10 +101,21 @@ function ModuleRow({ module }: { module: LearningModule }) {
         </Text>
       ) : null}
       {module.externalUrl ? (
-        <ExternalLinkButton
-          title={module.title}
-          url={module.externalUrl}
+        <ExternalLinkButton title={module.title} url={module.externalUrl} />
+      ) : null}
+      {canComplete && !isCompleted ? (
+        <Button
+          label="Mark complete"
+          pendingLabel="Marking complete…"
+          accessibilityLabel={`Mark complete: ${module.title}`}
+          pending={isMarkingComplete}
+          onPress={() => {
+            onMarkComplete(module.id);
+          }}
         />
+      ) : null}
+      {isCompleted ? (
+        <StatusMessage tone="success">Completed</StatusMessage>
       ) : null}
     </View>
   );
@@ -90,8 +123,10 @@ function ModuleRow({ module }: { module: LearningModule }) {
 
 export function LearningScreen() {
   const api = useApiClient();
+  const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   const allowed = canReadLearning(hasPermission);
+  const canComplete = canCompleteLearning(hasPermission);
 
   const modulesQuery = useQuery({
     queryKey: learningModulesQueryKey({ page: 1, limit: 20 }),
@@ -99,6 +134,30 @@ export function LearningScreen() {
       listLearningModules(api, { page: 1, limit: 20 }, signal),
     enabled: allowed,
   });
+
+  const completionsQuery = useQuery({
+    queryKey: learningCompletionsQueryKey({ page: 1, limit: 100 }),
+    queryFn: ({ signal }) =>
+      listLearningCompletions(api, { page: 1, limit: 100 }, signal),
+    enabled: allowed && canComplete,
+  });
+
+  const markCompleteMutation = useMutation({
+    mutationFn: (moduleId: string) =>
+      markLearningComplete(api, { moduleId }),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: LEARNING_MODULES_QUERY_ROOT }),
+        queryClient.invalidateQueries({
+          queryKey: LEARNING_COMPLETIONS_QUERY_ROOT,
+        }),
+      ]);
+    },
+  });
+
+  const completedModuleIds = new Set(
+    completionsQuery.data?.data.map((completion) => completion.moduleId) ?? [],
+  );
 
   if (!allowed) {
     return (
@@ -122,8 +181,8 @@ export function LearningScreen() {
     >
       <Card title="Learning" maxWidth={720}>
         <Text selectable style={{ color: colors.textMuted }}>
-          Read-only training modules. Manage modules and mark complete stay
-          deferred for a later slice.
+          Browse training modules and mark completed courses when you finish
+          them.
         </Text>
       </Card>
 
@@ -149,6 +208,17 @@ export function LearningScreen() {
         </Card>
       ) : null}
 
+      {markCompleteMutation.isError ? (
+        <Card title="Unable to mark complete" maxWidth={720}>
+          <StatusMessage tone="error">
+            {errorMessage(
+              markCompleteMutation.error,
+              "We could not mark this module complete.",
+            )}
+          </StatusMessage>
+        </Card>
+      ) : null}
+
       {modulesQuery.isSuccess && modulesQuery.data.data.length === 0 ? (
         <Card title="No modules" maxWidth={720}>
           <StatusMessage tone="info">
@@ -159,7 +229,19 @@ export function LearningScreen() {
 
       {modulesQuery.isSuccess
         ? modulesQuery.data.data.map((module) => (
-            <ModuleRow key={module.id} module={module} />
+            <ModuleRow
+              key={module.id}
+              module={module}
+              canComplete={canComplete}
+              isCompleted={completedModuleIds.has(module.id)}
+              isMarkingComplete={
+                markCompleteMutation.isPending &&
+                markCompleteMutation.variables === module.id
+              }
+              onMarkComplete={(moduleId) => {
+                markCompleteMutation.mutate(moduleId);
+              }}
+            />
           ))
         : null}
     </ScrollView>
