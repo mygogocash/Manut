@@ -290,3 +290,50 @@ export async function rejectCashAdvance(
   );
   return cashAdvanceMutationResponseSchema.parse(response).data;
 }
+
+export function canDisburseCashAdvance(status: CashAdvanceStatus): boolean {
+  return status === "approved";
+}
+
+export function canClearCashAdvance(status: CashAdvanceStatus): boolean {
+  return status === "disbursed";
+}
+
+export const disburseCashAdvanceInputSchema = z
+  .object({
+    proofUrl: z
+      .string()
+      .trim()
+      .url("Disbursement proof file is required"),
+  })
+  .strict();
+
+export type DisburseCashAdvanceInput = z.input<
+  typeof disburseCashAdvanceInputSchema
+>;
+
+export async function disburseCashAdvance(
+  client: ApiClient,
+  requestId: string,
+  input: DisburseCashAdvanceInput,
+): Promise<CashAdvanceRequest> {
+  const id = z.string().min(1).parse(requestId);
+  const parsed = disburseCashAdvanceInputSchema.parse(input);
+  const response = await client.post<unknown>(
+    `/cash-advance/${encodeURIComponent(id)}/disburse`,
+    parsed,
+  );
+  return cashAdvanceMutationResponseSchema.parse(response).data;
+}
+
+export async function clearCashAdvance(
+  client: ApiClient,
+  requestId: string,
+): Promise<CashAdvanceRequest> {
+  const id = z.string().min(1).parse(requestId);
+  const response = await client.post<unknown>(
+    `/cash-advance/${encodeURIComponent(id)}/clear`,
+    {},
+  );
+  return cashAdvanceMutationResponseSchema.parse(response).data;
+}

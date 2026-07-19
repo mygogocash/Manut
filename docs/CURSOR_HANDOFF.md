@@ -705,7 +705,8 @@ Migration order:
      careers apply/manage; applications status writes; payroll
      create/approve/payslip export; benefits enroll/manage; learning
      manage/complete; HRMS pool/import/offboarding; visa CRUD/90-day;
-     cash-advance approve/disburse; expense approve + R2 receipts; wall/compose.
+     cash-advance native R2 picker + signed proof GET; expense detail lines +
+     R2 receipts; wall/compose.
    3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
       accounting/revenue, content, communications, reporting, and administration.
       **Status 2026-07-18 (reconcile):** Wave 3 route foundations complete for
@@ -1147,3 +1148,13 @@ Phase 1 leftovers close-out (2026-07-18):
 - **Suggested next P0 slice after merge:** P0-E4-T4 hosted `/api` base-path
   contract + docs alignment, or P0-E4-T7 ops pause evidence; T5 Worker→Express
   hermetic integration when a local Express origin exists.
+
+### Parallel: p4-parity-wave1-deepen
+
+- **Eng slice (2026-07-19):** One vertical deepen on `/cash-advance` finance
+  path (approve inbox was already present). app-core `disburseCashAdvance` +
+  `clearCashAdvance` (Zod proof URL; response strips `disbursementProofUrl`)
+  and Expo `CashAdvanceFinanceInbox` gated by `cash-advance:approve`.
+  Disposition stays `foundation` until Expo E2E. Deferred: native R2 picker,
+  signed proof GET.
+- **Not broadened:** expense receipts, leave, CRM hubs, or Hyperdrive ops.

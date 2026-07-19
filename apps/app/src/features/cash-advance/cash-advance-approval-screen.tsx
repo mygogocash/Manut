@@ -51,8 +51,8 @@ export function CashAdvanceApprovalScreen() {
             Cash-advance approval chain
           </Text>
           <Text selectable style={{ color: colors.textMuted }}>
-            Read-only view of cash-advance approval steps. Reorder, edit,
-            approve actions, and disbursement remain later.
+            Read-only view of cash-advance approval steps. Reorder and edit
+            remain later; approve/disburse/clear live on the cash-advance hub.
           </Text>
         </View>
 

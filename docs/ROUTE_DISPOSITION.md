@@ -47,6 +47,11 @@ omitted), and dashboard wall/compose strip remain `foundation`. Playwright
 `employee`/`leave` projects target Expo `:8081`; hosted E2E still requires the
 five `E2E_*` secrets (fail closed — no soft-skip).
 
+`/cash-advance` stays `foundation` after finance deepen (2026-07-19): approve/
+reject pending inbox plus disburse (`POST …/disburse` with proof URL) and clear
+(`POST …/clear`) gated by `cash-advance:approve`. Native R2 picker and signed
+disbursement-proof GET remain deferred until authenticated Expo E2E acceptance.
+
 ## Inventory
 
 |   # | Source path                                                                     | Source route                               | Disposition            | Status       | Target route                 |
