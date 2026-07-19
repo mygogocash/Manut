@@ -36,7 +36,7 @@ isolated preview Worker only after separate DNS approval.
 | Deploy ownership                                  | **Code-ready**  | Workers Builds: production `main`; GitHub Actions: `deploy-preview.yml` + `deploy-staging.yml` only |
 | Manut-owned Cloudflare account + resources        | **Ops-blocked** | Prove secrets/bindings; do not invent Hyperdrive / R2 / Queue ids                                   |
 | Hyperdrive binding + `ENABLE_HYPERDRIVE_BOUNDARY` | **Ops-blocked** | Binding id not provisioned; flag stays `false`                                                      |
-| Worker secrets / JWKS / `API_ORIGIN`              | **Ops-blocked** | Cloudflare Access JWKS names known; values per environment                                          |
+| Worker secrets / JWKS / `API_ORIGIN`              | **Ops-blocked** | Distinct Express `API_ORIGIN` + app-session JWKS per env; Access optional outer gate only (ADR-002/003) |
 | Postgres + migrations on Manut DB                 | **Ops-blocked** | Clean baseline exists; production DB not provisioned from this branch                               |
 | Dedicated E2E project + `E2E_*`                   | **Ops-blocked** | Five secrets + dedicated-project marker not configured                                              |
 | Expo / EAS Manut org + native builds              | **Ops-blocked** | JS exports pass; APK / simulator need fresh Expo org                                                |
@@ -145,7 +145,7 @@ production deploy token does not remove or replace those runtime secrets.
 | Queues     | `JOB_QUEUE`, `DEAD_LETTER_QUEUE`                                                                              | Unique queue + DLQ names per env                             |
 | Workflow   | `BACKGROUND_WORKFLOW`                                                                                         | Stub until `ENABLE_WORKFLOW_BOUNDARY=true`                   |
 | Rate limit | `API_RATE_LIMITER`                                                                                            | Namespace ids are contracts, not inherited account proof     |
-| Vars       | `API_ORIGIN`, `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE`                                                 | Cloudflare Access JWKS; fail-closed if empty                 |
+| Vars       | `API_ORIGIN`, `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE`                                                 | Distinct Express origin + app-session JWKS; fail-closed if empty/self-proxy (ADR-002/003) |
 | Vars       | `ENABLE_HYPERDRIVE_BOUNDARY`, `ENABLE_WORKFLOW_BOUNDARY`, `ENABLE_CONTAINER_BOUNDARY`, `ENABLE_CRON_BOUNDARY` | Default `false`; fail closed when enabled without capability |
 | Vars       | `TRUSTED_STORAGE_ORIGINS`, `R2_BUCKET_NAME`, `ENABLE_LOCAL_R2_STREAMING`                                      | R2 receipt provenance; local streaming off in remote envs    |
 | Secrets    | **Required:** `EDGE_SIGNING_KEY`. **Optional:** `R2_ACCESS_KEY_ID`, `R2_ACCOUNT_ID`, `R2_SECRET_ACCESS_KEY` | ≥32-char signing key; S3 pair only for SigV4 client→R2       |
@@ -216,9 +216,12 @@ Do not reorder. DNS remains last.
    `HYPERDRIVE_DATABASE`; set `ENABLE_HYPERDRIVE_BOUNDARY=true` only after bind.
    Keep `hyperdrive: []` until a real id exists — never invent in CI. Ops
    commands: `docs/CLOUDFLARE_BINDINGS.md` (Hyperdrive provisioning).
-7. **Set Worker vars/secrets:** `API_ORIGIN`, Cloudflare Access
-   `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE`, `TRUSTED_STORAGE_ORIGINS`,
-   `EDGE_SIGNING_KEY`, R2 secrets.
+7. **Set Worker vars/secrets:** distinct Express `API_ORIGIN` (never the
+   Worker host), application-session `AUTH_JWKS_URL` / `AUTH_ISSUER` /
+   `AUTH_AUDIENCE`, `TRUSTED_STORAGE_ORIGINS`, `EDGE_SIGNING_KEY`, R2 secrets.
+   Optional Cloudflare Access remains a separate outer gate (ADR-003) — do
+   not claim Access JWKS is set until provisioned. Pause production Workers
+   Builds until the cutover marker exists (`docs/CICD_CLOUDFLARE.md`).
 8. **Configure Express:** `EDGE_REALTIME_ORIGIN` + matching
    `EDGE_REALTIME_BRIDGE_SECRET`; keep Socket.IO until edge live path is sole
    production path and E2E covers it.

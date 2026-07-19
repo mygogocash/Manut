@@ -274,17 +274,33 @@ The script never prints secret values. It stores preview/staging deploy
 credentials and the preview-only first-deploy runtime secrets in their GitHub
 Environments; production runtime Worker secrets remain valid and separately
 managed in Cloudflare. Committed `wrangler.jsonc` sets non-secret
-production/preview vars (`API_ORIGIN`, boundary flags,
-`TRUSTED_STORAGE_ORIGINS`, `R2_BUCKET_NAME`) and requires only
-`EDGE_SIGNING_KEY` as a deploy-time secret. Auth JWKS vars stay empty until
-Access is configured (runtime fail-closed).
+production/preview vars (boundary flags, `TRUSTED_STORAGE_ORIGINS`,
+`R2_BUCKET_NAME`) and requires only `EDGE_SIGNING_KEY` as a deploy-time
+secret. Committed `API_ORIGIN` for preview/production is **empty** (fail
+closed) until ops sets a **distinct Express** origin — never the Worker
+front door (`app.manut.xyz` / `preview.manut.xyz`). Self-proxy and repeated
+`x-manut-proxy-hop` markers are rejected at runtime (see
+`docs/ADR-002-worker-express-api-boundary.md`). Application-session
+`AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE` stay empty until the
+session issuer is provisioned (runtime fail-closed; Access is a separate
+outer gate — `docs/ADR-003-auth-trust-model.md`).
 
 **Custom domains / routes:** leave `routes` out of `wrangler.jsonc`. Hosts such
 as `app.manut.xyz` (and any dashboard-attached domains) are
 **dashboard-managed custom domains** so `wrangler deploy` does not strip them.
 Drift warnings about `manut.xyz` / `preview.manut.xyz` vs local config are
 expected until DNS cutover is explicitly approved; do not add matching `routes`
-just to silence the warning.
+just to silence the warning. Today `app.manut.xyz` may not resolve; Worker
+`workers.dev` health is not end-to-end `/api` readiness.
+
+### Ops-required: pause production Workers Builds until cutover marker (P0-E4-T7)
+
+Engineering does **not** flip dashboard switches from this repo. Until G5 /
+an approved cutover marker exists, an owner must **pause or fail-close** the
+production Workers Builds trigger on Worker `manut` (Settings → Builds) so
+merges to `main` cannot publish pre-cutover Expo foundations. Record the
+change-window marker privately; do not invent DNS or Hyperdrive ids to
+compensate.
 
 ## First green preview / staging run — ops checklist
 

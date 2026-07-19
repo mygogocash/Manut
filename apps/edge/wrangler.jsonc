@@ -220,7 +220,9 @@
       "workers_dev": true,
       "preview_urls": true,
       "vars": {
-        "API_ORIGIN": "https://preview.manut.xyz",
+        // Distinct Express origin required (P0-E4). Empty fails closed — never
+        // point at this Worker host (hop-loop). Ops sets a real API host later.
+        "API_ORIGIN": "",
         "AUTH_JWKS_URL": "",
         "AUTH_ISSUER": "",
         "AUTH_AUDIENCE": "",
@@ -468,7 +470,10 @@
       "workers_dev": true,
       "preview_urls": true,
       "vars": {
-        "API_ORIGIN": "https://app.manut.xyz",
+        // Distinct Express origin required (P0-E4). Empty fails closed — never
+        // point at this Worker host (hop-loop / 530 Origin DNS). Ops sets a
+        // real API host later; do not invent DNS cutover here.
+        "API_ORIGIN": "",
         "AUTH_JWKS_URL": "",
         "AUTH_ISSUER": "",
         "AUTH_AUDIENCE": "",
