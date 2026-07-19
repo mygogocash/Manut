@@ -2,6 +2,13 @@ export type ApiBaseUrlPlatform = "web" | "native";
 
 const RELATIVE_API_BASE = "/api";
 
+type ParsedAbsoluteUrl = {
+  protocol: string;
+  hostname: string;
+  origin: string;
+  pathname: string;
+};
+
 function isLoopbackHostname(hostname: string): boolean {
   return (
     hostname === "localhost" ||
@@ -11,27 +18,47 @@ function isLoopbackHostname(hostname: string): boolean {
   );
 }
 
+/** Parse absolute http(s) URLs without depending on browser/Node URL globals. */
+function parseAbsoluteHttpUrl(value: string): ParsedAbsoluteUrl {
+  const match =
+    /^(https?):\/\/((?:\[[^\]]+\]|[^/?#:]+)(?::\d+)?)(\/[^?#]*)?/iu.exec(
+      value,
+    );
+  if (!match?.[1] || !match[2]) {
+    throw new Error(`EXPO_PUBLIC_API_URL is not a valid URL: ${value}`);
+  }
+
+  const protocol = `${match[1].toLowerCase()}:`;
+  const host = match[2];
+  const hostname = host.replace(/:\d+$/u, "");
+  const pathname = (match[3] ?? "/").replace(/\/+$/u, "") || "/";
+  const origin = `${protocol}//${host}`;
+
+  return { protocol, hostname, origin, pathname };
+}
+
 function ensureAbsoluteEndsWithApi(value: string): string {
   const withScheme = /^[a-z][a-z\d+.-]*:/iu.test(value)
     ? value
     : `https://${value}`;
-  let parsed: URL;
+  let parsed: ParsedAbsoluteUrl;
   try {
-    parsed = new URL(withScheme);
+    parsed = parseAbsoluteHttpUrl(withScheme);
   } catch {
     throw new Error(`EXPO_PUBLIC_API_URL is not a valid URL: ${value}`);
   }
 
-  const pathname = parsed.pathname.replace(/\/+$/u, "");
-  if (pathname === "" || pathname === "/") {
-    parsed.pathname = RELATIVE_API_BASE;
+  const pathname = parsed.pathname.replace(/\/+$/u, "") || "/";
+  let nextPath: string;
+  if (pathname === "/") {
+    nextPath = RELATIVE_API_BASE;
   } else if (pathname === RELATIVE_API_BASE || pathname.endsWith("/api")) {
-    parsed.pathname = pathname;
+    nextPath = pathname;
   } else {
-    parsed.pathname = `${pathname}${RELATIVE_API_BASE}`;
+    nextPath = `${pathname}${RELATIVE_API_BASE}`;
   }
 
-  return `${parsed.origin}${parsed.pathname}`.replace(/\/+$/u, "");
+  return `${parsed.origin}${nextPath}`.replace(/\/+$/u, "");
 }
 
 /**
@@ -63,7 +90,7 @@ export function normalizeApiBaseUrl(
   const normalized = ensureAbsoluteEndsWithApi(trimmed);
 
   if (platform === "native") {
-    const parsed = new URL(normalized);
+    const parsed = parseAbsoluteHttpUrl(normalized);
     const loopback = isLoopbackHostname(parsed.hostname);
     if (
       parsed.protocol !== "https:" &&
