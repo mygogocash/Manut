@@ -103,7 +103,7 @@ runtime secrets to compensate.
 
 | Variable                      | Required | Example / note                                                                         |
 | ----------------------------- | -------- | -------------------------------------------------------------------------------------- |
-| `EXPO_PUBLIC_API_URL`         | yes      | `https://app.manut.xyz`                                                                |
+| `EXPO_PUBLIC_API_URL`         | yes      | `https://app.manut.xyz/api` (must include `/api`; app-core paths are relative)          |
 | `EXPO_PUBLIC_SOCKET_URL`      | no       | Usually same origin or API host                                                        |
 | `EXPO_PUBLIC_REALTIME_ORIGIN` | no       | Edge DO WebSocket origin when not same-origin                                          |
 | Auth JWKS / issuer            | later    | Worker vars `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE` — **not** Supabase CI vars |
@@ -118,7 +118,7 @@ Do **not** require Supabase Expo public vars for Builds or GitHub deploy workflo
 | Build command         | `pnpm run build:cloudflare`                                                                                       |
 | Deploy command        | `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env preview && npx wrangler deploy --env preview` |
 | Branch                | `preview` (or non-`main` PR previews per dashboard)                                                               |
-| `EXPO_PUBLIC_API_URL` | `https://manut-preview.bettergogocash.workers.dev` until separate custom-domain approval                          |
+| `EXPO_PUBLIC_API_URL` | `https://manut-preview.bettergogocash.workers.dev/api` until separate custom-domain approval                      |
 
 `--env preview` targets the separate Worker `manut-preview`. Its full deploy is
 required for Durable Object migrations and cannot promote or overwrite
@@ -199,7 +199,7 @@ Workers Builds token, not a GitHub Environment.
 
 | Variable                      | Required | Purpose                                                              |
 | ----------------------------- | -------- | -------------------------------------------------------------------- |
-| `EXPO_PUBLIC_API_URL`         | yes      | HTTP API / app origin baked into the preview/staging Expo web export |
+| `EXPO_PUBLIC_API_URL`         | yes      | Hosted API base including `/api` (Worker origin + `/api`, or web `/api`) |
 | `EXPO_PUBLIC_SOCKET_URL`      | no       | Socket.IO fallback origin                                            |
 | `EXPO_PUBLIC_REALTIME_ORIGIN` | no       | Edge DO WebSocket origin when not same-origin                        |
 

@@ -30,8 +30,11 @@ is not readiness). DNS cutover remains a separate ops approval.
    rotation, Express verification).
 4. **Client API base paths:** hosted web uses same-origin `/api`; native uses
    an HTTPS Worker origin plus `/api`; app-core endpoint paths stay relative
-   beneath that base. Direct Expo → Express is allowed only as a local focused
-   test, never as release evidence.
+   beneath that base (`/auth/login`, not `/api/auth/login`).
+   `EXPO_PUBLIC_API_URL` must be that base (relative `/api` or absolute
+   `https://<worker>/api`). Host-only absolute origins are normalized to append
+   `/api` via `normalizeApiBaseUrl` in `@manut/app-core`. Direct Expo → Express
+   is allowed only as a local focused test, never as release evidence.
 5. **Do not invent** Express hostnames, Hyperdrive ids, or DNS records in git.
    Committed wrangler preview/production `API_ORIGIN` stays empty until ops
    binds a real distinct origin.
@@ -49,5 +52,7 @@ is not readiness). DNS cutover remains a separate ops approval.
 
 - Implementation: `apps/edge/src/api-proxy.ts`, tests in
   `apps/edge/tests/api-proxy-topology.test.ts`
+- Client base URL: `packages/app-core/src/api/api-base-url.ts`,
+  `apps/app/src/platform/api-config.ts`
 - Ops runbooks: `docs/CICD_CLOUDFLARE.md`, `docs/PRODUCTION_DEPLOY.md`
 - Auth trust: `docs/ADR-003-auth-trust-model.md`

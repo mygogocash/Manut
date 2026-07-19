@@ -1,5 +1,9 @@
 export { ApiClient } from "./api/api-client";
 export type { ApiClientOptions, ApiRequestOptions } from "./api/api-client";
+export {
+  normalizeApiBaseUrl,
+  type ApiBaseUrlPlatform,
+} from "./api/api-base-url";
 export { ApiError, errorStatus } from "./api/api-error";
 export type {
   HttpExecutor,

@@ -1147,3 +1147,16 @@ Phase 1 leftovers close-out (2026-07-18):
 - **Suggested next P0 slice after merge:** P0-E4-T4 hosted `/api` base-path
   contract + docs alignment, or P0-E4-T7 ops pause evidence; T5 Worker→Express
   hermetic integration when a local Express origin exists.
+
+### Parallel: p0-e4-t4-api-base-path
+
+- **Eng slice (2026-07-19):** Hosted `/api` base-path contract (P0-E4-T4).
+  `normalizeApiBaseUrl` in `@manut/app-core` + Expo `getApiBaseUrl` via
+  `Platform.OS`: web defaults to same-origin `/api`; absolute Worker origins
+  append `/api` when omitted; native requires HTTPS (http loopback allowed).
+  App-core endpoint paths remain relative beneath that base. Docs/bootstrap
+  `.env.example` / CICD / PRODUCTION now document `…/api` values.
+- **Tests:** `packages/app-core/tests/api-base-url.test.ts`,
+  `apps/app/__tests__/api-config.test.ts`, cloudflare-builds bootstrap assert.
+- **Not done:** ops GitHub Environment var rewrite (host-only still works via
+  runtime normalize); DNS; hermetic Worker→Express (P0-E4-T5).

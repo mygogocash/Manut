@@ -96,8 +96,8 @@ else
   done
 fi
 
-set_env_var preview EXPO_PUBLIC_API_URL "https://manut-preview.bettergogocash.workers.dev"
-set_env_var staging EXPO_PUBLIC_API_URL "https://manut-staging.bettergogocash.workers.dev"
+set_env_var preview EXPO_PUBLIC_API_URL "https://manut-preview.bettergogocash.workers.dev/api"
+set_env_var staging EXPO_PUBLIC_API_URL "https://manut-staging.bettergogocash.workers.dev/api"
 
 echo
 echo "Done (names only). Still human:"
