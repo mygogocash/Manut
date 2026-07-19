@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "oauth": {
+    "service": "apps/api/src/modules/integrations/google-oauth.service.ts",
+    "scopes": [
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/drive.readonly",
+      "https://www.googleapis.com/auth/gmail.compose",
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/gmail.send"
+    ],
+    "env": [
+      "GOOGLE_OAUTH_CLIENT_ID",
+      "GOOGLE_OAUTH_CLIENT_SECRET",
+      "GOOGLE_OAUTH_REDIRECT_URI"
+    ]
+  },
+  "scopeHelpers": "apps/api/src/modules/integrations/google-scopes.ts",
+  "integrationsModule": "apps/api/src/modules/integrations/",
+  "gmailToCrm": "apps/api/src/modules/accounts/crm-email-sync.service.ts",
+  "serviceAccountSheets": {
+    "module": "apps/api/src/infrastructure/sheets/google-sheets.ts",
+    "env": [
+      "GOOGLE_SHEETS_SA_KEY"
+    ]
+  },
+  "calendarConsumers": [
+    "apps/api/src/modules/hrms/attendance-calendar-view.service.ts",
+    "apps/api/src/modules/integrations/ (calendar.readonly for ARIA lookup_my_calendar)"
+  ],
+  "codeFiles": [
+    "apps/api/src/modules/hrms/attendance-notification.service.ts",
+    "apps/api/src/modules/hrms/attendance-executive.service.ts",
+    "apps/api/src/modules/hrms/attendance-calendar-view.service.ts",
+    "apps/api/src/modules/hrms/attendance-manager.service.ts",
+    "apps/api/src/modules/hrms/attendance-analytics.service.ts",
+    "apps/api/src/modules/hrms/attendance.service.ts",
+    "apps/api/src/modules/hrms/attendance-missed.service.ts",
+    "apps/api/src/modules/hrms/attendance-export.service.ts",
+    "apps/api/src/modules/integrations/google-oauth.service.ts",
+    "apps/api/src/modules/integrations/google-scopes.ts",
+    "apps/api/src/modules/integrations/integrations.controller.ts",
+    "apps/api/src/modules/integrations/integrations.service.spec.ts",
+    "apps/api/src/modules/integrations/integrations.service.ts",
+    "apps/api/src/infrastructure/sheets/google-sheets.ts"
+  ],
+  "liveOpsGaps": [
+    "GCP project/org owner and billing \u2014 not discoverable from repo; record in ops register",
+    "OAuth consent screen publishing/verification/test users \u2014 Dashboard",
+    "Authorized/verified domains and callback origins per environment \u2014 Dashboard + GOOGLE_OAUTH_REDIRECT_URI",
+    "API quotas and refresh-token population \u2014 live measurement"
+  ]
+}

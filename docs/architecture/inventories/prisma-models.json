@@ -1,0 +1,1132 @@
+{
+  "schemaVersion": 1,
+  "schemaFileCount": 17,
+  "modelCount": 214,
+  "enumCount": 0,
+  "relationDecoratorCount": 532,
+  "uuidAnnotationCount": 444,
+  "jsonFieldCount": 60,
+  "scalarArrayCount": 8,
+  "migrationCount": 6,
+  "migrations": [
+    "20260717000000_manut_baseline",
+    "20260717010000_remove_legal_docusign",
+    "20260717020000_isolate_legal_signature_batches",
+    "20260717030000_track_current_legal_signature_batch",
+    "20260717040000_bind_legal_signature_artifacts",
+    "20260717050000_bind_cash_advance_disbursement_proof"
+  ],
+  "apiTransactionCallSites": 108,
+  "apiRawSqlCallSites": 22,
+  "modelsBySchemaFile": {
+    "comms.prisma": [
+      "Conversation",
+      "ConversationMember",
+      "Message",
+      "MessageHiddenFor",
+      "MessageReaction",
+      "WallPost",
+      "WallComment",
+      "CompanyNews",
+      "CompanyDate"
+    ],
+    "content.prisma": [
+      "Job",
+      "Application",
+      "Blog",
+      "Article",
+      "WikiPage",
+      "WikiPageVersion",
+      "WikiPagePermission"
+    ],
+    "core.prisma": [
+      "Entity",
+      "User",
+      "Session",
+      "AuthLog",
+      "Department"
+    ],
+    "finance.prisma": [
+      "ChartOfAccount",
+      "JournalEntry",
+      "JournalEntryLine",
+      "Invoice",
+      "BankTransaction",
+      "ExchangeRate",
+      "ExpenseCategory",
+      "Vendor",
+      "CashAdvanceRequest",
+      "CashAdvanceApprovalStep",
+      "CashAdvanceApprovalDecision",
+      "CashAdvanceItem",
+      "Expense",
+      "ExpenseReport",
+      "ExpenseApprovalStep",
+      "ExpenseApprovalDecision"
+    ],
+    "helpdesk.prisma": [
+      "HelpdeskTicket",
+      "ValidatorNodeAlert",
+      "HelpdeskSettings",
+      "HelpdeskComment"
+    ],
+    "hr.prisma": [
+      "SurveyForm",
+      "SurveyFormQuestion",
+      "SurveyFormResponse",
+      "SurveyFormAnswer",
+      "Survey",
+      "SurveyQuestion",
+      "SurveyResponse",
+      "SurveyAnswer",
+      "TravelRequest",
+      "TravelApprovalStep",
+      "TravelApprovalDecision",
+      "LeaveType",
+      "LeavePolicyApprover",
+      "LeaveBalance",
+      "BalanceTransaction",
+      "LeaveRequest",
+      "LeaveApprovalStep",
+      "LeaveApprovalDecision",
+      "PublicHoliday",
+      "PayrollRun",
+      "Payslip",
+      "ConsultantInvoice",
+      "EsopGrant",
+      "EquityMonthlySalary",
+      "EmployeeAgreement",
+      "OnboardingRun",
+      "OffboardingRun",
+      "TrainingModule",
+      "TrainingCompletion",
+      "VisaRecord",
+      "VisaEventLog",
+      "VisaKnowledgeArticle",
+      "VisaChecklistTemplate",
+      "VisaChecklistItem",
+      "NinetyDayNotification",
+      "Benefit",
+      "BenefitEnrollment",
+      "CompanyPolicy",
+      "PayrollApprovalStep",
+      "AttendancePolicy",
+      "AttendanceCorrection",
+      "AttendanceShift",
+      "AttendanceEmployeeShift",
+      "AttendanceException",
+      "AttendanceRecord",
+      "AttendanceAuditLog",
+      "Certificate"
+    ],
+    "integrations.prisma": [
+      "UserGoogleConnection",
+      "GoogleOauthState"
+    ],
+    "investors.prisma": [
+      "Investor",
+      "InvestorTask",
+      "InvestorActivity",
+      "InvestorTypeOption",
+      "InvestorLead",
+      "InvestorAccount",
+      "InvestorContact",
+      "InvestorPipelineStage",
+      "Investment",
+      "DataRoomDocument",
+      "InvestorUpdate"
+    ],
+    "it-operations.prisma": [
+      "ItVendor",
+      "ItSubscription",
+      "ItBillingRecord",
+      "ItBillingAlert",
+      "ItSystem",
+      "ItAccessRequest",
+      "ItAccessApprovalDecision",
+      "ItAccessAssignment",
+      "ItAccessAuditLog"
+    ],
+    "legal.prisma": [
+      "LegalDocument",
+      "LegalDocumentShare",
+      "LegalDocumentAttachment",
+      "LegalSignature",
+      "LegalAnnouncement",
+      "LegalAnnouncementAttachment",
+      "LegalAnnouncementAck",
+      "LegalNotificationSettings"
+    ],
+    "operations.prisma": [
+      "Partner",
+      "PartnerContact",
+      "PartnerMember",
+      "PartnerColumn",
+      "PartnerTask",
+      "PartnerTaskResource",
+      "PartnerTaskComment",
+      "PartnerTaskAssignee",
+      "Deal",
+      "Project",
+      "ProjectMember",
+      "ProjectColumn",
+      "ProjectTask",
+      "ProjectTaskComment",
+      "ProjectTaskActivity",
+      "ProjectMilestone",
+      "ProjectTaskAssignee",
+      "ProjectTaskDependency",
+      "ProjectTaskResource",
+      "ItProject",
+      "ItProjectMember",
+      "ItProjectColumn",
+      "ItProjectTask",
+      "ItProjectTaskComment",
+      "ItProjectTaskAssignee",
+      "CrmNotification",
+      "QaProject",
+      "QaProjectMember",
+      "QaProjectColumn",
+      "QaProjectTask",
+      "QaProjectTaskComment",
+      "QaProjectTaskAssignee",
+      "LegalProject",
+      "LegalProjectMember",
+      "LegalProjectColumn",
+      "LegalProjectTask",
+      "LegalProjectTaskComment",
+      "LegalProjectTaskAssignee",
+      "AccountingProject",
+      "AccountingProjectMember",
+      "AccountingProjectColumn",
+      "AccountingProjectTask",
+      "AccountingProjectTaskComment",
+      "AccountingProjectTaskAssignee",
+      "ProductProject",
+      "ProductProjectMember",
+      "ProductProjectColumn",
+      "ProductProjectTask",
+      "ProductProjectTaskComment",
+      "ProductProjectTaskAssignee",
+      "Office",
+      "OfficeDesk",
+      "DeskBooking",
+      "MeetingRoom",
+      "RoomBooking",
+      "Asset",
+      "VoucherEntry"
+    ],
+    "performance.prisma": [
+      "AppraisalCycle",
+      "KRATemplate",
+      "Appraisal",
+      "AppraisalKRA",
+      "AppraisalComment",
+      "AppraisalRating",
+      "Goal"
+    ],
+    "rbac.prisma": [
+      "Role",
+      "UserRole",
+      "RolePermission",
+      "ModuleAccess",
+      "ModuleOwner",
+      "UserGroup",
+      "UserGroupMember"
+    ],
+    "sales-crm.prisma": [
+      "Account",
+      "Contact",
+      "Lead",
+      "Opportunity",
+      "CrmActivity",
+      "OpportunityStageConfig",
+      "LostReason",
+      "LeadSource",
+      "CrmTask",
+      "CrmSettings"
+    ],
+    "sales-revenue-crm.prisma": [
+      "RevenueAccount",
+      "RevenueContact",
+      "RevenueLead",
+      "RevenueOpportunity",
+      "RevenueActivity",
+      "RevenueStageConfig",
+      "RevenueLostReason",
+      "RevenueLeadSource",
+      "RevenueTask",
+      "RevenueSettings"
+    ],
+    "system.prisma": [
+      "AuditLog",
+      "UserSetting",
+      "SystemSetting",
+      "StorageSnapshot",
+      "FileUpload"
+    ]
+  },
+  "models": [
+    {
+      "schemaFile": "comms.prisma",
+      "model": "Conversation"
+    },
+    {
+      "schemaFile": "comms.prisma",
+      "model": "ConversationMember"
+    },
+    {
+      "schemaFile": "comms.prisma",
+      "model": "Message"
+    },
+    {
+      "schemaFile": "comms.prisma",
+      "model": "MessageHiddenFor"
+    },
+    {
+      "schemaFile": "comms.prisma",
+      "model": "MessageReaction"
+    },
+    {
+      "schemaFile": "comms.prisma",
+      "model": "WallPost"
+    },
+    {
+      "schemaFile": "comms.prisma",
+      "model": "WallComment"
+    },
+    {
+      "schemaFile": "comms.prisma",
+      "model": "CompanyNews"
+    },
+    {
+      "schemaFile": "comms.prisma",
+      "model": "CompanyDate"
+    },
+    {
+      "schemaFile": "content.prisma",
+      "model": "Job"
+    },
+    {
+      "schemaFile": "content.prisma",
+      "model": "Application"
+    },
+    {
+      "schemaFile": "content.prisma",
+      "model": "Blog"
+    },
+    {
+      "schemaFile": "content.prisma",
+      "model": "Article"
+    },
+    {
+      "schemaFile": "content.prisma",
+      "model": "WikiPage"
+    },
+    {
+      "schemaFile": "content.prisma",
+      "model": "WikiPageVersion"
+    },
+    {
+      "schemaFile": "content.prisma",
+      "model": "WikiPagePermission"
+    },
+    {
+      "schemaFile": "core.prisma",
+      "model": "Entity"
+    },
+    {
+      "schemaFile": "core.prisma",
+      "model": "User"
+    },
+    {
+      "schemaFile": "core.prisma",
+      "model": "Session"
+    },
+    {
+      "schemaFile": "core.prisma",
+      "model": "AuthLog"
+    },
+    {
+      "schemaFile": "core.prisma",
+      "model": "Department"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "ChartOfAccount"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "JournalEntry"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "JournalEntryLine"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "Invoice"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "BankTransaction"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "ExchangeRate"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "ExpenseCategory"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "Vendor"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "CashAdvanceRequest"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "CashAdvanceApprovalStep"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "CashAdvanceApprovalDecision"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "CashAdvanceItem"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "Expense"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "ExpenseReport"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "ExpenseApprovalStep"
+    },
+    {
+      "schemaFile": "finance.prisma",
+      "model": "ExpenseApprovalDecision"
+    },
+    {
+      "schemaFile": "helpdesk.prisma",
+      "model": "HelpdeskTicket"
+    },
+    {
+      "schemaFile": "helpdesk.prisma",
+      "model": "ValidatorNodeAlert"
+    },
+    {
+      "schemaFile": "helpdesk.prisma",
+      "model": "HelpdeskSettings"
+    },
+    {
+      "schemaFile": "helpdesk.prisma",
+      "model": "HelpdeskComment"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "SurveyForm"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "SurveyFormQuestion"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "SurveyFormResponse"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "SurveyFormAnswer"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "Survey"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "SurveyQuestion"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "SurveyResponse"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "SurveyAnswer"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "TravelRequest"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "TravelApprovalStep"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "TravelApprovalDecision"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "LeaveType"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "LeavePolicyApprover"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "LeaveBalance"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "BalanceTransaction"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "LeaveRequest"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "LeaveApprovalStep"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "LeaveApprovalDecision"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "PublicHoliday"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "PayrollRun"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "Payslip"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "ConsultantInvoice"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "EsopGrant"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "EquityMonthlySalary"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "EmployeeAgreement"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "OnboardingRun"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "OffboardingRun"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "TrainingModule"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "TrainingCompletion"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "VisaRecord"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "VisaEventLog"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "VisaKnowledgeArticle"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "VisaChecklistTemplate"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "VisaChecklistItem"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "NinetyDayNotification"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "Benefit"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "BenefitEnrollment"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "CompanyPolicy"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "PayrollApprovalStep"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "AttendancePolicy"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "AttendanceCorrection"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "AttendanceShift"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "AttendanceEmployeeShift"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "AttendanceException"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "AttendanceRecord"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "AttendanceAuditLog"
+    },
+    {
+      "schemaFile": "hr.prisma",
+      "model": "Certificate"
+    },
+    {
+      "schemaFile": "integrations.prisma",
+      "model": "UserGoogleConnection"
+    },
+    {
+      "schemaFile": "integrations.prisma",
+      "model": "GoogleOauthState"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "Investor"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "InvestorTask"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "InvestorActivity"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "InvestorTypeOption"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "InvestorLead"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "InvestorAccount"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "InvestorContact"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "InvestorPipelineStage"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "Investment"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "DataRoomDocument"
+    },
+    {
+      "schemaFile": "investors.prisma",
+      "model": "InvestorUpdate"
+    },
+    {
+      "schemaFile": "it-operations.prisma",
+      "model": "ItVendor"
+    },
+    {
+      "schemaFile": "it-operations.prisma",
+      "model": "ItSubscription"
+    },
+    {
+      "schemaFile": "it-operations.prisma",
+      "model": "ItBillingRecord"
+    },
+    {
+      "schemaFile": "it-operations.prisma",
+      "model": "ItBillingAlert"
+    },
+    {
+      "schemaFile": "it-operations.prisma",
+      "model": "ItSystem"
+    },
+    {
+      "schemaFile": "it-operations.prisma",
+      "model": "ItAccessRequest"
+    },
+    {
+      "schemaFile": "it-operations.prisma",
+      "model": "ItAccessApprovalDecision"
+    },
+    {
+      "schemaFile": "it-operations.prisma",
+      "model": "ItAccessAssignment"
+    },
+    {
+      "schemaFile": "it-operations.prisma",
+      "model": "ItAccessAuditLog"
+    },
+    {
+      "schemaFile": "legal.prisma",
+      "model": "LegalDocument"
+    },
+    {
+      "schemaFile": "legal.prisma",
+      "model": "LegalDocumentShare"
+    },
+    {
+      "schemaFile": "legal.prisma",
+      "model": "LegalDocumentAttachment"
+    },
+    {
+      "schemaFile": "legal.prisma",
+      "model": "LegalSignature"
+    },
+    {
+      "schemaFile": "legal.prisma",
+      "model": "LegalAnnouncement"
+    },
+    {
+      "schemaFile": "legal.prisma",
+      "model": "LegalAnnouncementAttachment"
+    },
+    {
+      "schemaFile": "legal.prisma",
+      "model": "LegalAnnouncementAck"
+    },
+    {
+      "schemaFile": "legal.prisma",
+      "model": "LegalNotificationSettings"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "Partner"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "PartnerContact"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "PartnerMember"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "PartnerColumn"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "PartnerTask"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "PartnerTaskResource"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "PartnerTaskComment"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "PartnerTaskAssignee"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "Deal"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "Project"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProjectMember"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProjectColumn"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProjectTask"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProjectTaskComment"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProjectTaskActivity"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProjectMilestone"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProjectTaskAssignee"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProjectTaskDependency"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProjectTaskResource"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ItProject"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ItProjectMember"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ItProjectColumn"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ItProjectTask"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ItProjectTaskComment"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ItProjectTaskAssignee"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "CrmNotification"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "QaProject"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "QaProjectMember"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "QaProjectColumn"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "QaProjectTask"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "QaProjectTaskComment"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "QaProjectTaskAssignee"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "LegalProject"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "LegalProjectMember"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "LegalProjectColumn"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "LegalProjectTask"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "LegalProjectTaskComment"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "LegalProjectTaskAssignee"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "AccountingProject"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "AccountingProjectMember"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "AccountingProjectColumn"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "AccountingProjectTask"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "AccountingProjectTaskComment"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "AccountingProjectTaskAssignee"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProductProject"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProductProjectMember"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProductProjectColumn"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProductProjectTask"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProductProjectTaskComment"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "ProductProjectTaskAssignee"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "Office"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "OfficeDesk"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "DeskBooking"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "MeetingRoom"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "RoomBooking"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "Asset"
+    },
+    {
+      "schemaFile": "operations.prisma",
+      "model": "VoucherEntry"
+    },
+    {
+      "schemaFile": "performance.prisma",
+      "model": "AppraisalCycle"
+    },
+    {
+      "schemaFile": "performance.prisma",
+      "model": "KRATemplate"
+    },
+    {
+      "schemaFile": "performance.prisma",
+      "model": "Appraisal"
+    },
+    {
+      "schemaFile": "performance.prisma",
+      "model": "AppraisalKRA"
+    },
+    {
+      "schemaFile": "performance.prisma",
+      "model": "AppraisalComment"
+    },
+    {
+      "schemaFile": "performance.prisma",
+      "model": "AppraisalRating"
+    },
+    {
+      "schemaFile": "performance.prisma",
+      "model": "Goal"
+    },
+    {
+      "schemaFile": "rbac.prisma",
+      "model": "Role"
+    },
+    {
+      "schemaFile": "rbac.prisma",
+      "model": "UserRole"
+    },
+    {
+      "schemaFile": "rbac.prisma",
+      "model": "RolePermission"
+    },
+    {
+      "schemaFile": "rbac.prisma",
+      "model": "ModuleAccess"
+    },
+    {
+      "schemaFile": "rbac.prisma",
+      "model": "ModuleOwner"
+    },
+    {
+      "schemaFile": "rbac.prisma",
+      "model": "UserGroup"
+    },
+    {
+      "schemaFile": "rbac.prisma",
+      "model": "UserGroupMember"
+    },
+    {
+      "schemaFile": "sales-crm.prisma",
+      "model": "Account"
+    },
+    {
+      "schemaFile": "sales-crm.prisma",
+      "model": "Contact"
+    },
+    {
+      "schemaFile": "sales-crm.prisma",
+      "model": "Lead"
+    },
+    {
+      "schemaFile": "sales-crm.prisma",
+      "model": "Opportunity"
+    },
+    {
+      "schemaFile": "sales-crm.prisma",
+      "model": "CrmActivity"
+    },
+    {
+      "schemaFile": "sales-crm.prisma",
+      "model": "OpportunityStageConfig"
+    },
+    {
+      "schemaFile": "sales-crm.prisma",
+      "model": "LostReason"
+    },
+    {
+      "schemaFile": "sales-crm.prisma",
+      "model": "LeadSource"
+    },
+    {
+      "schemaFile": "sales-crm.prisma",
+      "model": "CrmTask"
+    },
+    {
+      "schemaFile": "sales-crm.prisma",
+      "model": "CrmSettings"
+    },
+    {
+      "schemaFile": "sales-revenue-crm.prisma",
+      "model": "RevenueAccount"
+    },
+    {
+      "schemaFile": "sales-revenue-crm.prisma",
+      "model": "RevenueContact"
+    },
+    {
+      "schemaFile": "sales-revenue-crm.prisma",
+      "model": "RevenueLead"
+    },
+    {
+      "schemaFile": "sales-revenue-crm.prisma",
+      "model": "RevenueOpportunity"
+    },
+    {
+      "schemaFile": "sales-revenue-crm.prisma",
+      "model": "RevenueActivity"
+    },
+    {
+      "schemaFile": "sales-revenue-crm.prisma",
+      "model": "RevenueStageConfig"
+    },
+    {
+      "schemaFile": "sales-revenue-crm.prisma",
+      "model": "RevenueLostReason"
+    },
+    {
+      "schemaFile": "sales-revenue-crm.prisma",
+      "model": "RevenueLeadSource"
+    },
+    {
+      "schemaFile": "sales-revenue-crm.prisma",
+      "model": "RevenueTask"
+    },
+    {
+      "schemaFile": "sales-revenue-crm.prisma",
+      "model": "RevenueSettings"
+    },
+    {
+      "schemaFile": "system.prisma",
+      "model": "AuditLog"
+    },
+    {
+      "schemaFile": "system.prisma",
+      "model": "UserSetting"
+    },
+    {
+      "schemaFile": "system.prisma",
+      "model": "SystemSetting"
+    },
+    {
+      "schemaFile": "system.prisma",
+      "model": "StorageSnapshot"
+    },
+    {
+      "schemaFile": "system.prisma",
+      "model": "FileUpload"
+    }
+  ],
+  "enums": [],
+  "notes": [
+    "Master plan Version 1.4 cites 237 models / 18 schema files / 184 migrations from the pre-consolidation intranet source. This Manut snapshot has a consolidated migration baseline.",
+    "Counts are from packages/database/prisma as of inventory generation; regenerate after schema changes."
+  ]
+}

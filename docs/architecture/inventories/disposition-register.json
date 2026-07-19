@@ -1,0 +1,1055 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Scaffold linking Expo UI ROUTE_DISPOSITION to API mounts / migration waves (Phase 0.2\u20130.3).",
+  "related": {
+    "uiRouteDisposition": "docs/ROUTE_DISPOSITION.json",
+    "expressRoutes": "docs/architecture/inventories/express-routes.json",
+    "masterPlan": "docs/EXPO_CLOUDFLARE_MASTER_PLAN.md#epic-02--complete-inventory"
+  },
+  "uiDispositionSummary": {
+    "sourceSnapshot": "371349fd43fd7c7c7717054beec97bfb023885ca",
+    "routeCount": 104,
+    "dispositionCounts": {
+      "migrate": 79,
+      "remove-as-provenance": 16,
+      "replace": 8
+    },
+    "statusCounts": {
+      "foundation": 88,
+      "pending": 0,
+      "removed": 16
+    }
+  },
+  "apiMounts": [
+    {
+      "mount": "/api/cron",
+      "module": "cron",
+      "routeCount": 15,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/auth",
+      "module": "auth",
+      "routeCount": 11,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/auth/callback"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/admin/users",
+      "module": "users",
+      "routeCount": 15,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/admin",
+        "/admin/aria-insights",
+        "/admin/aria-knowledge",
+        "/admin/docusign",
+        "/admin/docusign/oauth/callback",
+        "/admin/form-config",
+        "/employees"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/roles",
+      "module": "roles",
+      "routeCount": 8,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/roles"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/leave",
+      "module": "leave",
+      "routeCount": 36,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/leave",
+        "/leave/approval",
+        "/leave/holidays",
+        "/leave/policies"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/holidays",
+      "module": "holidays",
+      "routeCount": 4,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/payroll",
+      "module": "payroll",
+      "routeCount": 33,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/payroll",
+        "/payroll/approval"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/accounting",
+      "module": "accounting",
+      "routeCount": 24,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/accounting"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/vendors",
+      "module": "vendors",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/exchange-rates",
+      "module": "exchange-rates",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/expenses",
+      "module": "expenses",
+      "routeCount": 48,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/expenses",
+        "/expenses/[reportId]",
+        "/expenses/approval"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/wall",
+      "module": "wall",
+      "routeCount": 7,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/news",
+      "module": "news",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/certificates",
+      "module": "certificates",
+      "routeCount": 4,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/certificates"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/company-dates",
+      "module": "company-dates",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/dashboard",
+      "module": "dashboard",
+      "routeCount": 1,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/dashboard"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/messages",
+      "module": "messages",
+      "routeCount": 14,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/messages"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/integrations",
+      "module": "integrations",
+      "routeCount": 13,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/investors",
+      "module": "investors",
+      "routeCount": 11,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/investors"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/investor/tasks",
+      "module": "investor-tasks",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/investor/activities",
+      "module": "investor-activities",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/investor/leads",
+      "module": "investor-leads",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/investor/accounts",
+      "module": "investor-accounts",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/investor/contacts",
+      "module": "investor-contacts",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/investor/pipeline-stages",
+      "module": "investor-pipeline-stages",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/investor/types",
+      "module": "investor-types",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/uploads",
+      "module": "uploads",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/admin/usage",
+      "module": "admin",
+      "routeCount": 4,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/admin",
+        "/admin/aria-insights",
+        "/admin/aria-knowledge",
+        "/admin/docusign",
+        "/admin/docusign/oauth/callback",
+        "/admin/form-config"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/admin",
+      "module": "admin",
+      "routeCount": 17,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/admin",
+        "/admin/aria-insights",
+        "/admin/aria-knowledge",
+        "/admin/docusign",
+        "/admin/docusign/oauth/callback",
+        "/admin/form-config"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/partners",
+      "module": "partners",
+      "routeCount": 27,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/partners",
+        "/partners/[partnerId]",
+        "/partners/campaigns",
+        "/partners/dashboard"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/deals",
+      "module": "deals",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/deals"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/leads",
+      "module": "leads",
+      "routeCount": 8,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/lead-sources",
+      "module": "lead-sources",
+      "routeCount": 4,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/lost-reasons",
+      "module": "lost-reasons",
+      "routeCount": 4,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/accounts",
+      "module": "accounts",
+      "routeCount": 7,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/contacts",
+      "module": "contacts",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/opportunities",
+      "module": "opportunities",
+      "routeCount": 14,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/crm/activities",
+      "module": "crm-activities",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/crm/tasks",
+      "module": "crm-tasks",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/crm/settings",
+      "module": "crm-settings",
+      "routeCount": 2,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales",
+        "/settings"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/sales-revenue/opportunities",
+      "module": "revenue-opportunities",
+      "routeCount": 14,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales-revenue"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/sales-revenue/accounts",
+      "module": "revenue-accounts",
+      "routeCount": 7,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales-revenue"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/sales-revenue/contacts",
+      "module": "revenue-contacts",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales-revenue"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/sales-revenue/leads",
+      "module": "revenue-leads",
+      "routeCount": 8,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales-revenue"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/sales-revenue/lead-sources",
+      "module": "revenue-lead-sources",
+      "routeCount": 4,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales-revenue"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/sales-revenue/lost-reasons",
+      "module": "revenue-lost-reasons",
+      "routeCount": 4,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales-revenue"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/sales-revenue/activities",
+      "module": "revenue-activities",
+      "routeCount": 5,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales-revenue"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/sales-revenue/tasks",
+      "module": "revenue-tasks",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales-revenue"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/sales-revenue/settings",
+      "module": "revenue-settings",
+      "routeCount": 2,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/sales-revenue",
+        "/settings"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/projects",
+      "module": "projects",
+      "routeCount": 36,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/projects",
+        "/projects/[projectId]",
+        "/projects/dashboard"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/it-crm",
+      "module": "it-crm",
+      "routeCount": 23,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/it-crm",
+        "/it-crm/dashboard"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/it-operations",
+      "module": "it-operations",
+      "routeCount": 1,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/it-operations",
+        "/it-operations/access",
+        "/it-operations/billing"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/it-billing",
+      "module": "it-billing",
+      "routeCount": 26,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/it-access",
+      "module": "it-access",
+      "routeCount": 17,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/qa-crm",
+      "module": "qa-crm",
+      "routeCount": 19,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/qa-crm",
+        "/qa-crm/[projectId]"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/accounting-crm",
+      "module": "accounting-crm",
+      "routeCount": 18,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/accounting-crm"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/legal-crm",
+      "module": "legal-crm",
+      "routeCount": 18,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/legal-crm"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/product-crm",
+      "module": "product-crm",
+      "routeCount": 18,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/product-crm"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/voucher-crm",
+      "module": "voucher-crm",
+      "routeCount": 7,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/voucher-crm"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/hrms",
+      "module": "hrms",
+      "routeCount": 67,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/hrms",
+        "/hrms/esop/[employeeId]"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/helpdesk",
+      "module": "helpdesk",
+      "routeCount": 12,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/it-helpdesk"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/visa",
+      "module": "visa",
+      "routeCount": 15,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/visa",
+        "/visa/checklist-templates",
+        "/visa/knowledge-base"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/visa-kb",
+      "module": "visa-kb",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/visa-checklist",
+      "module": "visa-checklist",
+      "routeCount": 7,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/ninety-day-notifications",
+      "module": "ninety-day",
+      "routeCount": 8,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/learning",
+      "module": "learning",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/learning"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/office",
+      "module": "office",
+      "routeCount": 27,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/office"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/policies",
+      "module": "policies",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/policies"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/benefits",
+      "module": "benefits",
+      "routeCount": 10,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/benefits"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/blogs",
+      "module": "blogs",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/docs",
+      "module": "docs",
+      "routeCount": 13,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/docs"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/articles",
+      "module": "articles",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/revenue",
+      "module": "revenue",
+      "routeCount": 4,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/revenue"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/directory",
+      "module": "directory",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/directory"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/dataroom",
+      "module": "dataroom",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/dataroom"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/investor-updates",
+      "module": "investor-updates",
+      "routeCount": 6,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/investor-updates"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/career",
+      "module": "career",
+      "routeCount": 7,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/cash-advance",
+      "module": "cash-advance",
+      "routeCount": 21,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/cash-advance",
+        "/cash-advance/approval"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/applications",
+      "module": "applications",
+      "routeCount": 4,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/applications"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/survey",
+      "module": "survey",
+      "routeCount": 21,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/survey",
+        "/survey/[id]",
+        "/survey/[id]/respond",
+        "/survey/new"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/survey-forms",
+      "module": "survey-forms",
+      "routeCount": 21,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/survey-forms",
+        "/survey-forms/[id]",
+        "/survey-forms/[id]/respond",
+        "/survey-forms/new"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/travel",
+      "module": "travel",
+      "routeCount": 24,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/travel",
+        "/travel/approval"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/performance",
+      "module": "performance",
+      "routeCount": 13,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/performance"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/legal",
+      "module": "legal",
+      "routeCount": 25,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [
+        "/legal",
+        "/legal/announcements",
+        "/legal/announcements/[id]",
+        "/legal/shared"
+      ],
+      "notes": null
+    },
+    {
+      "mount": "/api/legal-announcements",
+      "module": "legal-announcements",
+      "routeCount": 9,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/legal-public",
+      "module": "legal",
+      "routeCount": 3,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    },
+    {
+      "mount": "/api/helpdesk-public",
+      "module": "helpdesk",
+      "routeCount": 1,
+      "migrationWave": null,
+      "runtimeTarget": "pending",
+      "d1SchemaOwner": null,
+      "uiRoutes": [],
+      "notes": null
+    }
+  ],
+  "pendingLinkRules": [
+    "Map each ROUTE_DISPOSITION.targetRoute to one or more /api mounts by product area (e.g. /leave \u2192 /api/leave).",
+    "UI disposition migrate/replace/remove-as-provenance does not auto-set API wave; API mounts can outlive removed UI routes (cron, public webhooks).",
+    "Fill migrationWave + runtimeTarget before Phase 1 spikes exit."
+  ]
+}
