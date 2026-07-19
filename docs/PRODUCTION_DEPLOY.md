@@ -212,6 +212,14 @@ Do not reorder. DNS remains last.
    Hyperdrive configs with unique names from `wrangler.jsonc` contracts.
 5. **Apply migrations** to the Manut Postgres via `prisma migrate deploy` on a
    dedicated admin path (not invented inside the Worker deploy job).
+5a. **Bootstrap the first admin** (ops laptop / secrets host only — never CI
+    with committed credentials): after `pnpm db:seed`, run
+    `pnpm ops:create-first-admin` with Manut-owned `SUPABASE_URL` (or
+    `NEXT_PUBLIC_SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY`, and
+    `DATABASE_URL` in the environment. The script refuses if any are missing.
+    It creates `admin@manut.xyz` with `mustChangePassword=true`. Capture the
+    one-time temporary password from stdout, sign in, and rotate immediately.
+    See `docs/CREDENTIAL_BOUNDARY.md`.
 6. **Bind Hyperdrive** id into `wrangler.jsonc` (or dashboard equivalent) as
    `HYPERDRIVE_DATABASE`; set `ENABLE_HYPERDRIVE_BOUNDARY=true` only after bind.
    Keep `hyperdrive: []` until a real id exists — never invent in CI. Ops
