@@ -1,4 +1,5 @@
 import type {
+  AuthGateway,
   AuthSession,
   SessionTransport,
   TransportRequest,
@@ -56,7 +57,7 @@ jest.mock("@/platform/session-transport.native", () => ({
   clearNativeSession: (...args: unknown[]) => mockClearNativeSession(...args),
 }));
 
-describe("native auth gateway", () => {
+describe("native auth gateway adapter", () => {
   beforeEach(() => {
     mockPersistNativeSession.mockReset();
     mockClearNativeSession.mockReset();
@@ -77,7 +78,7 @@ describe("native auth gateway", () => {
   });
 
   it("logs in through Manut /auth/login and persists bearer tokens", async () => {
-    const gateway = createPlatformAuthGateway();
+    const gateway: AuthGateway = createPlatformAuthGateway();
 
     await expect(
       gateway.login("person@example.invalid", "password"),

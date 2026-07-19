@@ -44,7 +44,6 @@ export type {
   ResetPasswordFormInput,
 } from "./auth/auth-schemas";
 export type {
-  AuthGateway,
   AuthLinkResponse,
   AuthLinkTokens,
   AuthRole,
@@ -56,6 +55,19 @@ export type {
   RecoverPasswordInput,
   SessionVerificationError,
 } from "./auth/auth-types";
+export {
+  createUnsupportedPasswordlessCeremonyPort,
+} from "./auth/auth-ports";
+export type {
+  AuthGateway,
+  AuthLinkPort,
+  CustomerSignInRequest,
+  PasswordCredentialPort,
+  PasswordlessCeremonyPort,
+  PasswordlessChallenge,
+  SessionAuthPort,
+  VerifiedPhoneContact,
+} from "./auth/auth-ports";
 export { evaluateRouteAccess, resolveRoutePolicy } from "./rbac/route-policy";
 export { ROUTE_OVERRIDES, ROUTE_REGISTRY } from "./rbac/route-registry";
 export {
