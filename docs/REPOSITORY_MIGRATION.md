@@ -1,5 +1,9 @@
 # Repository migration record
 
+> **Historical record.** Sole forward roadmap:
+> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md).
+> Provenance below does not define target runtime or phase schedule.
+
 ## Provenance
 
 - Legacy Manut parent: `eb797d30b538a60b5f4ff154863a6591ed2ad62f`

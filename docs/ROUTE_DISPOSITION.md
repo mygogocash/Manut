@@ -1,5 +1,9 @@
 # Route disposition inventory
 
+> **Current-state inventory.** Sole forward migration roadmap:
+> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md).
+> Disposition rows here do not waive master-plan phase acceptance gates.
+
 This inventory accounts for every route-page file in audited source snapshot `371349fd43fd7c7c7717054beec97bfb023885ca`. It is a migration control, not a claim of web parity.
 
 ## P1 ledger-freeze prep (2026-07-19)

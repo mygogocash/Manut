@@ -1,5 +1,9 @@
 # Production deploy readiness
 
+> **Ops runbook (current strangler).** Sole forward architecture/migration
+> roadmap: [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md).
+> Deploy readiness here does not authorize SoR flips or DNS cutover.
+
 **Status:** Cloudflare Workers Builds is the sole production deploy owner for
 `main`; GitHub Actions owns preview/staging only. Live deployment remains
 **ops-blocked** until Manut Cloudflare secrets/resources, distinct Express

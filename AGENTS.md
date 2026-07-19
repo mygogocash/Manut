@@ -3,6 +3,11 @@
 `CLAUDE.md` is the binding repository guide. Keep this file and that guide in
 sync when architecture or verification changes.
 
+**Forward roadmap:** `docs/EXPO_CLOUDFLARE_MASTER_PLAN.md` is the sole
+authoritative migration/architecture plan. SoR dual-track:
+`docs/ADR-010-postgres-strangler-vs-d1-target.md`. Dependency freeze:
+`docs/DEPENDENCY_FREEZE.md`.
+
 ## Delivery boundary
 
 - The product is Manut Intranet. Do not add inherited company names, domains,
@@ -18,6 +23,9 @@ sync when architecture or verification changes.
   change authorizes DNS cutover, database provisioning, mobile-store release,
   or inventing Hyperdrive ids. Keep Cloudflare Pages auto-deploy off; see
   `docs/CICD_CLOUDFLARE.md`.
+- Do not add new direct Supabase SDKs, Prisma Client in Expo/client bundles,
+  Next.js product dependencies, or Express provider SDKs without an accepted
+  ADR (`docs/DEPENDENCY_FREEZE.md`).
 
 ## Architecture
 
@@ -30,8 +38,11 @@ sync when architecture or verification changes.
 - `apps/api`: strict Express business API during progressive edge migration.
 - `packages/database`: Prisma 7 and the clean PostgreSQL baseline.
 
-PostgreSQL through Hyperdrive is authoritative. D1 is never the transactional
-system of record. R2 objects are private unless explicitly public.
+**Dual-track SoR (ADR-010):** PostgreSQL through Hyperdrive is the strangler
+transactional system of record until master-plan Phase 8+ D1-per-tenant gates
+pass for a module. D1 is not transactional SoR yet. The target end state is
+tenant-isolated D1 plus Identity/Control-plane D1 per the master plan. R2
+objects are private unless explicitly public.
 
 ## Working loop
 
@@ -117,9 +128,12 @@ secrets and the independent dedicated-project marker. Never bypass that guard.
   audited-source tree — unrelated local branches may belong to other worktrees;
   do not delete them. Scope history and secret scans to the replacement range,
   not every local ref.
-- Continuation and phase guidance live in `docs/CURSOR_HANDOFF.md` (with
+- Forward architecture/migration schedule:
+  `docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`. Continuation evidence and parallel
+  agent notes live in `docs/CURSOR_HANDOFF.md` (with
   `docs/ROUTE_DISPOSITION.md`, `docs/CREDENTIAL_BOUNDARY.md`,
-  `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`, and related docs).
+  `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`, and related docs) — historical
+  relative to the master plan.
 - The configured publish remote for this replacement work is `manut` (GitHub
   `mygogocash/Manut`); use `claude/<slug>` branches (for example
   `claude/intranet-full-hardening`).

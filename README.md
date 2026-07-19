@@ -32,9 +32,11 @@ SPA, enforces security headers, and fails closed on any missing capability.
   bounded retries.
 - **Realtime at the edge** — Durable Object hibernating WebSockets own
   reconnectable room state.
-- **Authoritative Postgres** — Prisma 7 over Cloudflare Hyperdrive with one
-  immutable migration baseline; every new migration must pass deploy, direct
-  replay, and double `db push` convergence on PostgreSQL 16.
+- **Strangler Postgres SoR** — Prisma 7 over Cloudflare Hyperdrive with one
+  immutable migration baseline (until master-plan Phase 8+ D1-per-tenant
+  gates); every new migration must pass deploy, direct replay, and double
+  `db push` convergence on PostgreSQL 16. See
+  `docs/EXPO_CLOUDFLARE_MASTER_PLAN.md` and `docs/ADR-010-postgres-strangler-vs-d1-target.md`.
 - **Self-provisioning deploys** — queues and R2 buckets named in
   `wrangler.jsonc` are created idempotently at deploy time; resource names
   have a single source of truth.

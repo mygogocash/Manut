@@ -1,5 +1,9 @@
 # Credential boundary
 
+> **Ops / security boundary (current).** Sole forward roadmap:
+> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md).
+> Also see temporary [`DEPENDENCY_FREEZE.md`](./DEPENDENCY_FREEZE.md).
+
 Manut Intranet is a clean operational boundary. It must use newly issued Manut
 accounts, projects, domains, keys, OAuth applications, storage buckets, service
 accounts, and CI environments. Credentials and provider identifiers inherited

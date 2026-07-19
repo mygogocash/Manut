@@ -1,5 +1,9 @@
 # Cloudflare migration checklist (Phase E)
 
+> **Historical / ops checklist.** Sole forward roadmap:
+> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md).
+> This file does not schedule architecture phases; master plan wins on conflict.
+
 Ops-facing checklist for fresh Manut-owned Cloudflare / CI cutover.
 **This document does not authorize provisioning or deploy.**
 

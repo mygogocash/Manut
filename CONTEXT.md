@@ -1,5 +1,10 @@
 # Codebase context
 
+> **Forward roadmap:** `docs/EXPO_CLOUDFLARE_MASTER_PLAN.md` is the sole
+> authoritative architecture and migration plan. Current strangler SoR is
+> Postgres/Prisma/Hyperdrive until Phase 8+ D1 gates
+> (`docs/ADR-010-postgres-strangler-vs-d1-target.md`).
+
 ## Request flow
 
 ```text
@@ -12,7 +17,7 @@ Expo Router app ---- packages/app-core
 Cloudflare Worker (assets, headers, request IDs, gateway)
           |
           v
-Strict business API ---- Postgres via Hyperdrive
+Strict business API ---- Postgres via Hyperdrive (strangler SoR)
           |              R2 / Queues / Durable Objects
           v
 Cloudflare Container for Node-only document, payroll, and realtime work
@@ -20,7 +25,8 @@ Cloudflare Container for Node-only document, payroll, and realtime work
 
 The Worker is the public boundary but does not duplicate business authorization.
 Every protected API operation continues to enforce permissions and ownership in
-the server service layer.
+the server service layer. Target multi-tenant D1 SoR is scheduled in the master
+plan; D1 is not transactional SoR in this tree yet.
 
 ## Frontend migration
 
