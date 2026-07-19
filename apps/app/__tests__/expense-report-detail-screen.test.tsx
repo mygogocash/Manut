@@ -99,4 +99,17 @@ describe("ExpenseReportDetailScreen", () => {
     },
     15_000,
   );
+
+  it(
+    "shows employee name without department from the least-data projection",
+    async () => {
+      await renderScreen();
+      expect(
+        await screen.findByText("Person", {}, { timeout: 10_000 }),
+      ).toBeTruthy();
+      expect(screen.queryByText(/Operations/)).toBeNull();
+      expect(screen.queryByText(/person@manut\.example/)).toBeNull();
+    },
+    15_000,
+  );
 });

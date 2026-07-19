@@ -181,15 +181,15 @@ describe("LeaveScreen", () => {
           screen.getByRole("button", { name: "Apply for Annual leave" }),
         );
       });
-      // RNTL maps accessibilityLabel; Playwright web uses role=dialog + name.
+      // Cross-platform dialog: RN Role prop (not accessibilityRole) + label.
       expect(
         await screen.findByLabelText("Request leave dialog", {}, {
           timeout: 10_000,
         }),
       ).toBeTruthy();
-      expect(
-        screen.getByLabelText("Request leave dialog").props.accessibilityRole,
-      ).toBe("dialog");
+      expect(screen.getByLabelText("Request leave dialog").props.role).toBe(
+        "dialog",
+      );
       expect(
         await screen.findByRole(
           "header",

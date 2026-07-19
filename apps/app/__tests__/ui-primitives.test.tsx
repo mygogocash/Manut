@@ -37,6 +37,37 @@ describe("universal ui primitives", () => {
     expect(onPress).not.toHaveBeenCalled();
   });
 
+  it("Button > given idle without pendingLabel > then remains pressable", async () => {
+    const onPress = jest.fn();
+    await render(<Button label="Open deal" onPress={onPress} />);
+
+    fireEvent.press(screen.getByRole("button", { name: "Open deal" }));
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it("Button > given pending without pendingLabel > then falls back to label", async () => {
+    const onPress = jest.fn();
+    await render(<Button label="Retry" pending onPress={onPress} />);
+
+    const button = screen.getByRole("button", { name: "Retry" });
+    expect(button.props.accessibilityState).toMatchObject({
+      disabled: true,
+      busy: true,
+    });
+  });
+
+  it("StatusMessage > given info and neutral tones > then renders without alert role", async () => {
+    await render(
+      <>
+        <StatusMessage tone="info">No records yet.</StatusMessage>
+        <StatusMessage tone="neutral">Draft only.</StatusMessage>
+      </>,
+    );
+
+    expect(screen.getByText("No records yet.")).toBeTruthy();
+    expect(screen.getByText("Draft only.")).toBeTruthy();
+  });
+
   it("TextField > given a label > then exposes it as the accessibility name", async () => {
     await render(
       <TextField

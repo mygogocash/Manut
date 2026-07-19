@@ -38,6 +38,21 @@ describe("tokens", () => {
     expect(spacing.xxl).toBe(24);
   });
 
+  it("exposes info and neutral status palette tokens for StatusMessage tones", () => {
+    expect(colors.infoBorder).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(colors.infoBackground).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(colors.infoText).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(colors.neutralBorder).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(colors.neutralBackground).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(colors.neutralText).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(
+      contrastRatio(colors.infoText, colors.infoBackground),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(colors.neutralText, colors.neutralBackground),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("keeps interactive control boundaries at three-to-one contrast", () => {
     expect(
       contrastRatio(colors.borderStrong, colors.surface),

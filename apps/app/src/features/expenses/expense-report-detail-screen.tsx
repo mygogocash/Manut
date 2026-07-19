@@ -112,9 +112,6 @@ export function ExpenseReportDetailScreen() {
             <View style={{ gap: spacing.xs }}>
               <Text selectable style={{ color: colors.textMuted }}>
                 {detailQuery.data.employee.name}
-                {detailQuery.data.employee.department
-                  ? ` · ${detailQuery.data.employee.department}`
-                  : ""}
               </Text>
               <Text selectable style={{ color: colors.textMuted }}>
                 Entity {detailQuery.data.entity.name} ·{" "}

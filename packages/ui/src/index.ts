@@ -1,4 +1,4 @@
-export { Button, type ButtonProps } from "./button";
+export { Button, resolveButtonLabel, type ButtonProps } from "./button";
 export { Card, type CardProps } from "./card";
 export { LoadingState, type LoadingStateProps } from "./loading-state";
 export {
