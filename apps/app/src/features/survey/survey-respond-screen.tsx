@@ -20,7 +20,7 @@ import {
 } from "@manut/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { useApiClient } from "@/providers/api-client-provider";
@@ -55,12 +55,12 @@ function buildAnswersPayload(
   survey: SurveyDetail,
   drafts: AnswerDraft,
 ): {
-  answers: Array<{ questionId: string; value?: string | number | string[] }>;
+  answers: { questionId: string; value?: string | number | string[] }[];
 } {
-  const answers: Array<{
+  const answers: {
     questionId: string;
     value?: string | number | string[];
-  }> = [];
+  }[] = [];
 
   for (const question of survey.questions) {
     if (isInfoQuestion(question.type)) continue;
@@ -182,17 +182,6 @@ export function SurveyRespondScreen() {
     queryFn: ({ signal }) => getMySurveyResponse(api, id!, signal),
     enabled: id !== null,
   });
-
-  useEffect(() => {
-    if (!detailQuery.data) return;
-    setDrafts((current) => {
-      const next: AnswerDraft = { ...current };
-      for (const question of detailQuery.data.questions) {
-        if (next[question.id] === undefined) next[question.id] = "";
-      }
-      return next;
-    });
-  }, [detailQuery.data]);
 
   const submitMutation = useMutation({
     mutationFn: () => {

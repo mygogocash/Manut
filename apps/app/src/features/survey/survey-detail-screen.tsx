@@ -22,18 +22,17 @@ import {
 } from "@manut/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
 import { useApiClient } from "@/providers/api-client-provider";
 
 import {
-  draftsFromQuestions,
   draftsToQuestionInputs,
   SurveyQuestionListEditor,
-  type QuestionDraft,
 } from "./survey-question-list-editor";
+import { useQuestionDraftsFromDetail } from "./use-question-drafts-from-detail";
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof ApiError ? error.message : fallback;
@@ -56,7 +55,6 @@ export function SurveyDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = firstParam(params.id);
 
-  const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
   const [builderError, setBuilderError] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [manageMessage, setManageMessage] = useState<string | null>(null);
@@ -71,16 +69,13 @@ export function SurveyDetailScreen() {
     enabled: id !== null,
   });
 
+  const [drafts, setDrafts] = useQuestionDraftsFromDetail(detailQuery.data);
+
   const analyticsQuery = useQuery({
     queryKey: surveyAnalyticsQueryKey(id ?? ""),
     queryFn: ({ signal }) => getSurveyAnalytics(api, id!, signal),
     enabled: id !== null && canManage && showAnalytics,
   });
-
-  useEffect(() => {
-    if (!detailQuery.data) return;
-    setDrafts(draftsFromQuestions(detailQuery.data.questions));
-  }, [detailQuery.data]);
 
   const saveQuestionsMutation = useMutation({
     mutationFn: () => {

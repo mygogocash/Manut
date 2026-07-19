@@ -16,16 +16,15 @@ import {
 } from "@manut/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
 import {
-  draftsFromQuestions,
   draftsToQuestionInputs,
   SurveyQuestionListEditor,
-  type QuestionDraft,
 } from "@/features/survey/survey-question-list-editor";
+import { useQuestionDraftsFromDetail } from "@/features/survey/use-question-drafts-from-detail";
 import { useApiClient } from "@/providers/api-client-provider";
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -49,7 +48,6 @@ export function SurveyFormDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = firstParam(params.id);
 
-  const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
   const [builderError, setBuilderError] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -60,10 +58,7 @@ export function SurveyFormDetailScreen() {
     enabled: id !== null,
   });
 
-  useEffect(() => {
-    if (!detailQuery.data) return;
-    setDrafts(draftsFromQuestions(detailQuery.data.questions));
-  }, [detailQuery.data]);
+  const [drafts, setDrafts] = useQuestionDraftsFromDetail(detailQuery.data);
 
   const saveQuestionsMutation = useMutation({
     mutationFn: () => {
