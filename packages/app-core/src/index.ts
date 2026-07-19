@@ -1,5 +1,9 @@
 export { ApiClient } from "./api/api-client";
 export type { ApiClientOptions, ApiRequestOptions } from "./api/api-client";
+export {
+  normalizeApiBaseUrl,
+  type ApiBaseUrlPlatform,
+} from "./api/api-base-url";
 export { ApiError, errorStatus } from "./api/api-error";
 export type {
   HttpExecutor,
@@ -512,7 +516,9 @@ export type { VisaChecklistTemplate } from "./visa/visa-checklist-templates";
 export {
   approveCashAdvance,
   canActOnCashAdvance,
+  canClearCashAdvance,
   canDeleteCashAdvanceDraft,
+  canDisburseCashAdvance,
   canSubmitCashAdvance,
   CASH_ADVANCES_QUERY_ROOT,
   cashAdvanceListParamsSchema,
@@ -520,10 +526,13 @@ export {
   cashAdvanceRequestSchema,
   cashAdvancesQueryKey,
   cashAdvanceStatusSchema,
+  clearCashAdvance,
   createCashAdvance,
   createCashAdvanceInputSchema,
   createCashAdvanceItemInputSchema,
   deleteCashAdvance,
+  disburseCashAdvance,
+  disburseCashAdvanceInputSchema,
   listCashAdvances,
   rejectCashAdvance,
   rejectCashAdvanceInputSchema,
@@ -536,6 +545,7 @@ export type {
   CashAdvanceRequest,
   CashAdvanceStatus,
   CreateCashAdvanceInput,
+  DisburseCashAdvanceInput,
   RejectCashAdvanceInput,
 } from "./cash-advance/cash-advance";
 export {

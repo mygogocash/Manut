@@ -209,4 +209,134 @@ describe("CashAdvanceScreen", () => {
     },
     15_000,
   );
+
+  it(
+    "disburses an approved cash advance from the finance inbox",
+    async () => {
+      mockPermissions = ["cash-advance:read", "cash-advance:approve"];
+      const approved = {
+        ...draft,
+        status: "approved",
+        approvedTotal: 1500,
+        employee: {
+          id: "33333333-3333-4333-8333-333333333333",
+          name: "Blake",
+          email: "blake@manut.example",
+        },
+      };
+      mockGet.mockImplementation((path: string) => {
+        if (path.includes("status=approved") && path.includes("scope=all")) {
+          return Promise.resolve({
+            data: [approved],
+            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          });
+        }
+        if (path.includes("status=disbursed") && path.includes("scope=all")) {
+          return Promise.resolve({
+            data: [],
+            meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+          });
+        }
+        if (path.includes("status=submitted") && path.includes("scope=all")) {
+          return Promise.resolve({
+            data: [],
+            meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+          });
+        }
+        if (path.startsWith("/cash-advance?")) {
+          return Promise.resolve({
+            data: [],
+            meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+          });
+        }
+        throw new Error(`Unexpected GET ${path}`);
+      });
+      mockPost.mockResolvedValue({
+        data: { ...approved, status: "disbursed" },
+      });
+
+      await renderScreen();
+      expect(await screen.findByText(/Blake · CA-42/)).toBeTruthy();
+      await fireEvent.changeText(
+        screen.getByLabelText("Disbursement proof URL for Blake"),
+        "https://files.example/slip.pdf",
+      );
+      await fireEvent.press(
+        screen.getByLabelText("Mark cash advance disbursed for Blake"),
+      );
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith(
+          `/cash-advance/${approved.id}/disburse`,
+          { proofUrl: "https://files.example/slip.pdf" },
+        );
+      });
+      expect(
+        await screen.findByText("Cash advance marked disbursed."),
+      ).toBeTruthy();
+    },
+    15_000,
+  );
+
+  it(
+    "clears a disbursed cash advance from the finance inbox",
+    async () => {
+      mockPermissions = ["cash-advance:read", "cash-advance:approve"];
+      const disbursed = {
+        ...draft,
+        status: "disbursed",
+        approvedTotal: 1500,
+        employee: {
+          id: "44444444-4444-4444-8444-444444444444",
+          name: "Casey",
+          email: "casey@manut.example",
+        },
+      };
+      mockGet.mockImplementation((path: string) => {
+        if (path.includes("status=approved") && path.includes("scope=all")) {
+          return Promise.resolve({
+            data: [],
+            meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+          });
+        }
+        if (path.includes("status=disbursed") && path.includes("scope=all")) {
+          return Promise.resolve({
+            data: [disbursed],
+            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          });
+        }
+        if (path.includes("status=submitted") && path.includes("scope=all")) {
+          return Promise.resolve({
+            data: [],
+            meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+          });
+        }
+        if (path.startsWith("/cash-advance?")) {
+          return Promise.resolve({
+            data: [],
+            meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+          });
+        }
+        throw new Error(`Unexpected GET ${path}`);
+      });
+      mockPost.mockResolvedValue({
+        data: { ...disbursed, status: "cleared" },
+      });
+
+      await renderScreen();
+      expect(await screen.findByText(/Casey · CA-42/)).toBeTruthy();
+      await fireEvent.press(
+        screen.getByLabelText("Mark cash advance cleared for Casey"),
+      );
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith(
+          `/cash-advance/${disbursed.id}/clear`,
+          {},
+        );
+      });
+      expect(
+        await screen.findByText("Cash advance marked cleared."),
+      ).toBeTruthy();
+    },
+    15_000,
+  );
 });

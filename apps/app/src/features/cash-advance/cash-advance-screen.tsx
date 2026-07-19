@@ -36,6 +36,7 @@ import {
 } from "react-native";
 
 import { useAuth } from "@/features/auth/auth-provider";
+import { CashAdvanceFinanceInbox } from "@/features/cash-advance/cash-advance-finance-inbox";
 import { CashAdvancePendingInbox } from "@/features/cash-advance/cash-advance-pending-inbox";
 import { cashAdvanceStatusLabel } from "@/features/cash-advance/cash-advance-status-label";
 import { useApiClient } from "@/providers/api-client-provider";
@@ -449,8 +450,9 @@ export function CashAdvanceScreen() {
           >
             <View style={{ gap: spacing.md }}>
               <Text style={{ color: colors.textMuted }}>
-                Self-service drafts and submit. Approvers can act on the
-                pending inbox below. Disbursement proof uploads stay deferred.
+                Self-service drafts and submit. Approvers act on the pending
+                inbox; finance marks disbursed (proof URL) or cleared below.
+                Native R2 picker and signed proof download stay deferred.
               </Text>
               <View
                 style={{
@@ -482,6 +484,7 @@ export function CashAdvanceScreen() {
           </Card>
 
           {canApprove ? <CashAdvancePendingInbox /> : null}
+          {canApprove ? <CashAdvanceFinanceInbox /> : null}
 
           {actionError ? (
             <StatusMessage tone="error">{actionError}</StatusMessage>
