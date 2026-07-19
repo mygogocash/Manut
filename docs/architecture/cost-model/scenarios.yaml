@@ -1,0 +1,113 @@
+# Placeholder scenarios — NOT measured pilot data.
+# Drivers copy the master-plan §3.4 Low/Base/High starting assumptions.
+# Replace estimates with P50/P95/P99 pilot percentiles before Phase 2 gate.
+
+meta:
+  status: placeholder
+  finance_signoff: null
+  measured_pilot_commit_sha: null
+  notes: >
+    Scaffold only. High-usage must be quota/overage-funded per plan — never
+    cross-subsidized via an unspecified reserve.
+
+plans:
+  starter:
+    annual_price_thb: 3000
+    intended_active_staff_approx: 10
+    platform_ai_allowance_thb_per_month: 25
+    sms_otp_segments_per_month: 10
+  growth:
+    annual_price_thb: 6000
+    intended_active_staff_approx: 30
+    platform_ai_allowance_thb_per_month: 50
+    sms_otp_segments_per_month: 25
+
+# Commercial mix scenarios (run separately — do not blend silently)
+cohort_mixes:
+  all_starter_30:
+    organizations: 30
+    starter: 30
+    growth: 0
+    annual_recognized_subscription_revenue_thb: 90000
+  approved_mix_placeholder_30:
+    organizations: 30
+    starter: 15
+    growth: 15
+    annual_recognized_subscription_revenue_thb: 135000
+    notes: "Replace with Finance/Product approved forecast mix."
+  all_growth_30:
+    organizations: 30
+    starter: 0
+    growth: 30
+    annual_recognized_subscription_revenue_thb: 180000
+  scale_100_mix_placeholder:
+    organizations: 100
+    starter: null
+    growth: null
+    annual_recognized_subscription_revenue_thb: null
+    notes: "Fill real Starter/Growth counts before claiming 30% infra target."
+
+# Monthly per-organization drivers (§3.4 table)
+per_org_monthly_drivers:
+  low:
+    active_users_eas_update_mau: 5
+    api_requests: 50000
+    d1_rows_read: 5000000
+    d1_rows_written: 25000
+    mature_r2_stored_gb: 2
+    independent_encrypted_backup_gb: 4
+    r2_class_a_ops: 1000
+    r2_class_b_ops: 10000
+    realtime_messages: 10000
+    workflow_steps: 500
+    container_active_cpu_minutes: 2
+    transactional_email: 100
+    customer_passwordless_sms_segments: 2
+    sanitized_diagnostic_log_mb: 25
+    platform_funded_ai_allowance_thb: 0
+    support_incidents: 0.1
+  base:
+    active_users_eas_update_mau: 15
+    api_requests: 250000
+    d1_rows_read: 25000000
+    d1_rows_written: 150000
+    mature_r2_stored_gb: 10
+    independent_encrypted_backup_gb: 20
+    r2_class_a_ops: 5000
+    r2_class_b_ops: 100000
+    realtime_messages: 100000
+    workflow_steps: 2000
+    container_active_cpu_minutes: 10
+    transactional_email: 500
+    customer_passwordless_sms_segments: 10
+    sanitized_diagnostic_log_mb: 100
+    platform_funded_ai_allowance_thb: 25
+    support_incidents: 0.5
+  high:
+    active_users_eas_update_mau: 30
+    api_requests: 1000000
+    d1_rows_read: 100000000
+    d1_rows_written: 500000
+    mature_r2_stored_gb: 30
+    independent_encrypted_backup_gb: 60
+    r2_class_a_ops: 20000
+    r2_class_b_ops: 500000
+    realtime_messages: 500000
+    workflow_steps: 10000
+    container_active_cpu_minutes: 60
+    transactional_email: 2000
+    customer_passwordless_sms_segments: 30
+    sanitized_diagnostic_log_mb: 500
+    platform_funded_ai_allowance_thb: 50
+    support_incidents: 2.0
+
+sms_cost_scenarios:
+  direct_provider_baseline: true
+  better_auth_managed_comparison: true
+  notes: "Keep both; managed convenience must not disappear inside a reserve."
+
+infrastructure_ratio_gates:
+  orgs_30_max_infra_share_of_mix_revenue: 0.47
+  orgs_100_target_infra_share_of_mix_revenue: 0.30
+  base_variable_plus_ai_max_thb_per_org_month_at_30: 75
+  high_variable_plus_ai_max_thb_per_org_month_unless_growth_funds: 175
