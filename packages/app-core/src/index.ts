@@ -54,11 +54,16 @@ export type {
 } from "./auth/auth-types";
 export { evaluateRouteAccess, resolveRoutePolicy } from "./rbac/route-policy";
 export { ROUTE_OVERRIDES, ROUTE_REGISTRY } from "./rbac/route-registry";
+export {
+  PENDING_COMPATIBILITY_REDIRECTS,
+  resolveCompatibilityRedirect,
+} from "./rbac/compatibility-redirects";
 export type {
   RouteAccessDecision,
   RouteAccessInput,
 } from "./rbac/route-policy";
 export type { RouteOverride, RoutePolicy } from "./rbac/route-registry";
+export type { PendingCompatibilityRedirect } from "./rbac/compatibility-redirects";
 export {
   getMyProfile,
   MY_PROFILE_QUERY_KEY,

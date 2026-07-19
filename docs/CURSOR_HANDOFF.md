@@ -1147,3 +1147,16 @@ Phase 1 leftovers close-out (2026-07-18):
 - **Suggested next P0 slice after merge:** P0-E4-T4 hosted `/api` base-path
   contract + docs alignment, or P0-E4-T7 ops pause evidence; T5 Worker→Express
   hermetic integration when a local Express origin exists.
+
+### Parallel: p1-ledger-freeze-prep
+
+- **Eng slice (2026-07-19):** P1 prep only. ESOP bookmark shim:
+  `resolveCompatibilityRedirect` + Expo `/hrms/esop/[employeeId]` →
+  `/hrms/grants/[employeeId]` (tests green). `/expenses-v1` left as
+  **pending-product-approval** in `PENDING_COMPATIBILITY_REDIRECTS` /
+  JSON `pendingRegistryDecisions` (no auto-redirect). Sixteen
+  `remove-as-provenance` notes marked PENDING P1-E2-T1 (status still
+  `removed`). Draft `docs/ADR-009-ingest-telemetry-proxy.md` for `/ingest/*`
+  retain-vs-remove (no Worker proxy shipped).
+- **Owner still owns:** expenses-v1 redirect-or-remove sign-off; removal
+  `removed-approved` evidence; ADR-009 accept A/B.
