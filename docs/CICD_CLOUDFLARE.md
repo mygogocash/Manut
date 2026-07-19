@@ -299,10 +299,115 @@ just to silence the warning. Today `app.manut.xyz` may not resolve; Worker
 
 Engineering does **not** flip dashboard switches from this repo. Until G5 /
 an approved cutover marker exists, an owner must **pause or fail-close** the
-production Workers Builds trigger on Worker `manut` (Settings → Builds) so
-merges to `main` cannot publish pre-cutover Expo foundations. Record the
-change-window marker privately; do not invent DNS or Hyperdrive ids to
-compensate.
+production Workers Builds trigger on Worker `manut` so merges to `main`
+cannot publish pre-cutover Expo foundations. Record the change-window marker
+privately; do not invent DNS or Hyperdrive ids to compensate.
+
+**Fail-closed marker (git):**
+[`docs/ops/markers/p0-e4-t7-workers-builds-pause.md`](./ops/markers/p0-e4-t7-workers-builds-pause.md).
+That file tracks required vs applied pause evidence. This repository must
+**not** claim the dashboard pause is done until that marker is updated by an
+ops owner after a live check.
+
+#### Live read-only status (verified 2026-07-19, account `187ab61ed9dbc6e616cb23e6b95aa8f1`)
+
+| Field | Live value |
+| ----- | ---------- |
+| Worker service | `manut` |
+| Script / external id | `4d091451cca54519bfeb5c2eb4ccd7e1` |
+| Builds configured | **yes** (GitHub `mygogocash/Manut` linked) |
+| Production trigger | **enabled** — `Deploy default branch` (`trigger_uuid` `b2dc37d3-1e1d-4a60-9c1a-42ada4fe03d2`) |
+| `branch_includes` | `main` |
+| `deleted_on` | `null` (active) |
+| Non-production Builds (`previews_enabled`) | **false** (already off — keep off) |
+| Latest evidence | successful `push_event` builds on `main` (e.g. build `da8331df-…` for merge of PR #219) |
+| Build token name (no secret) | `Manut Workers Builds - 2026-07-18` |
+
+**Verdict:** production Workers Builds is **currently enabled**. Do **not**
+pause it from an engineering PR. Pause only after explicit ops approval in the
+marker file (or a private change ticket referenced there).
+
+Read-only re-check (ops laptop / MCP; never write):
+
+```bash
+# Wrangler (OAuth) — list recent deployments only
+export CLOUDFLARE_ACCOUNT_ID=187ab61ed9dbc6e616cb23e6b95aa8f1
+npx wrangler deployments list --name manut
+
+# Cloudflare Builds API (requires account token with Builds read)
+# GET /accounts/{account_id}/builds/workers/4d091451cca54519bfeb5c2eb4ccd7e1/triggers
+# Active pause = no trigger, or trigger with deleted_on set / empty branch_includes
+# that no longer matches main pushes.
+```
+
+Dashboard path:
+[workers/services/view/manut/production](https://dash.cloudflare.com/187ab61ed9dbc6e616cb23e6b95aa8f1/workers/services/view/manut/production)
+→ **Settings → Builds**.
+
+#### Exact pause steps (ops-only, after approval)
+
+Pick **one** method. Prefer A (reversible disconnect). Do not invent Hyperdrive
+ids, DNS records, or new Worker names as a substitute.
+
+**A — Disconnect Git (preferred full pause)**
+
+1. Confirm marker status is `approval: granted` (or private ticket id recorded).
+2. Open Worker **`manut`** → **Settings → Builds**.
+3. Select **Disconnect** (disconnect the GitHub repository from Workers Builds).
+4. Confirm no new build starts on a harmless docs-only `main` push (or wait for
+   the next merge and verify Builds history stays idle).
+5. Confirm **Builds for non-production branches** remains disabled
+   (`previews_enabled` must stay `false`; GitHub Actions owns preview/staging).
+6. Update
+   [`docs/ops/markers/p0-e4-t7-workers-builds-pause.md`](./ops/markers/p0-e4-t7-workers-builds-pause.md):
+   `status: paused`, method `disconnect`, timestamp, and who performed it
+   (names only — no tokens).
+
+**B — Soft fail-close (builds may still run; do not promote)**
+
+Use only if ops must keep the Git connection for log history but must not
+publish Active Deployments:
+
+1. Same approval gate as A.
+2. Worker **`manut`** → **Settings → Builds → Build configuration**.
+3. Change **Deploy command** from the production contract above to:
+
+   ```bash
+   npx wrangler versions upload --env production
+   ```
+
+   (Cloudflare documents this as disabling automatic promotion while still
+   uploading versions — see Workers Builds “Disconnecting builds” notes.)
+4. Save. Verify a subsequent `main` build does **not** change the Active
+   Deployment for `manut`.
+5. Update the marker with method `versions_upload_only`.
+
+**C — API pause (ops token; no engineering automation)**
+
+Only with an approved Builds-capable API token (never commit it):
+
+1. Same approval gate as A.
+2. `DELETE /accounts/187ab61ed9dbc6e616cb23e6b95aa8f1/builds/triggers/b2dc37d3-1e1d-4a60-9c1a-42ada4fe03d2`
+   **or** disconnect via dashboard (A) so the trigger cannot fire on `main`.
+3. Re-GET triggers for script `4d091451cca54519bfeb5c2eb4ccd7e1` and confirm
+   production push triggers are gone / inactive.
+4. Update the marker with method `api_delete_trigger` and the observed GET
+   result (UUIDs only).
+
+**Do not:** roll or delete the Builds token solely to “pause” (that breaks
+recovery); pause Pages instead of Workers; enable non-production Builds; or
+point preview at Worker name `manut`.
+
+#### Re-enable (only after G5 / cutover marker)
+
+1. Marker shows cutover approval + pause previously applied.
+2. Reconnect Git or restore the exact production build/deploy commands from
+   **Cloudflare Workers Builds (dashboard paste values)** above.
+3. Confirm branch control: production branch `main`; non-production Builds
+   **off**.
+4. Retry one production build deliberately; confirm Active Deployment +
+   `workers.dev` health — DNS cutover remains a separate approval.
+5. Flip marker `status` to `reenabled_after_cutover`.
 
 ## First green preview / staging run — ops checklist
 

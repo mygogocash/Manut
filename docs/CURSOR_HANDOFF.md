@@ -1173,3 +1173,17 @@ Phase 1 leftovers close-out (2026-07-18):
   `docs/DEPENDENCY_UPGRADE_SCOPE.md`. No `osv-scanner` ignore / soft-skip.
 - **Not claimed:** upstream Quill patch, Dependabot alert dismissal as a CI
   green path, or retirement of `apps/web` rich-text.
+
+### Parallel: p0-e4-t7-builds-pause
+
+- **Docs-only (2026-07-19):** Read-only Cloudflare Builds verification for
+  Worker `manut` (account `187ab61ed9dbc6e616cb23e6b95aa8f1`, script
+  `4d091451cca54519bfeb5c2eb4ccd7e1`). Production trigger **enabled**
+  (`Deploy default branch`, `branch_includes: main`); non-production
+  `previews_enabled: false`. Documented exact pause / re-enable steps in
+  `docs/CICD_CLOUDFLARE.md` + verdict row in `docs/PRODUCTION_DEPLOY.md`.
+  Fail-closed marker:
+  `docs/ops/markers/p0-e4-t7-workers-builds-pause.md`
+  (`status: required_not_paused`, `approval: not_granted`).
+- **Not claimed:** dashboard Disconnect, trigger delete, deploy-command
+  change, or token roll — no production Builds mutation from this worktree.
