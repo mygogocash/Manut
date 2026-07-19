@@ -339,6 +339,7 @@ export function createEdgeApp(options: EdgeAppOptions = {}): Hono<EdgeEnv> {
       channelId: roomId,
       credential,
       env: context.env,
+      requestUrl: context.req.url,
       userId: context.get("principal").subject,
     });
 

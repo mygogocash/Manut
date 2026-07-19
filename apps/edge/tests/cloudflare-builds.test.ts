@@ -37,7 +37,7 @@ describe("Cloudflare Workers Builds contract", () => {
       "utf8",
     );
     const workerJob = workflow.match(
-      /^  worker-build:\s*\n([\s\S]*?)(?=^  [a-z][a-z-]+:\s*$)/mu,
+      /^ {2}worker-build:\s*\n([\s\S]*?)(?=^ {2}[a-z][a-z-]+:\s*$)/mu,
     )?.[1];
 
     expect(workerJob).toBeTruthy();
@@ -83,7 +83,7 @@ describe("Cloudflare Workers Builds contract", () => {
     expect(wrangler).toMatch(/dashboard-managed custom domains/iu);
   });
 
-  it("wrangler production and preview set same-origin API_ORIGIN and keep Hyperdrive off", () => {
+  it("wrangler production and preview leave API_ORIGIN empty and keep Hyperdrive off", () => {
     const wrangler = readFileSync(
       join(repoRoot, "apps/edge/wrangler.jsonc"),
       "utf8",
@@ -104,7 +104,8 @@ describe("Cloudflare Workers Builds contract", () => {
       block.match(new RegExp(`"${key}"\\s*:\\s*"([^"]*)"`, "u"))?.[1];
 
     const production = envVars("production");
-    expect(readVar(production, "API_ORIGIN")).toBe("https://app.manut.xyz");
+    // Fail closed until ops provisions a distinct Express origin (not Worker).
+    expect(readVar(production, "API_ORIGIN")).toBe("");
     expect(readVar(production, "TRUSTED_STORAGE_ORIGINS")).toBe(
       "https://app.manut.xyz",
     );
@@ -116,7 +117,7 @@ describe("Cloudflare Workers Builds contract", () => {
 
     const preview = envVars("preview");
     expect(readVar(preview, "name")).toBe("manut-preview");
-    expect(readVar(preview, "API_ORIGIN")).toBe("https://preview.manut.xyz");
+    expect(readVar(preview, "API_ORIGIN")).toBe("");
     expect(readVar(preview, "TRUSTED_STORAGE_ORIGINS")).toBe(
       "https://preview.manut.xyz",
     );

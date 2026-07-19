@@ -1,4 +1,8 @@
-import { configuredApiOrigin } from "./api-proxy";
+import {
+  assertDistinctApiOrigin,
+  configuredApiOrigin,
+  PROXY_HOP_HEADER,
+} from "./api-proxy";
 import { HttpError } from "./http-error";
 import { isHyperdriveEnabled } from "./hyperdrive";
 import {
@@ -19,6 +23,8 @@ export async function assertChannelMembership(options: {
   env: RuntimeBindings;
   channelId: string;
   credential: PresentedCredential;
+  /** Incoming Worker request URL — used to reject self-proxy API_ORIGIN. */
+  requestUrl?: string;
   /** Test seam — production resolves principal via JWT middleware first. */
   userId?: string;
   createMessagesStore?: (
@@ -78,12 +84,16 @@ export async function assertChannelMembership(options: {
   }
 
   const origin = configuredApiOrigin(options.env.API_ORIGIN);
+  if (options.requestUrl) {
+    assertDistinctApiOrigin(origin, new URL(options.requestUrl));
+  }
   const basePath = origin.pathname.replace(/\/+$/u, "");
   const target = new URL(origin);
   target.pathname = `${basePath}/api/messages/channels/${encodeURIComponent(options.channelId)}`;
 
   const headers = new Headers({
     accept: "application/json",
+    [PROXY_HOP_HEADER]: "1",
   });
   if (options.credential.source === "bearer") {
     headers.set("authorization", `Bearer ${options.credential.token}`);

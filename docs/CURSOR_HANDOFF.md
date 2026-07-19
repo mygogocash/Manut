@@ -1130,3 +1130,20 @@ Phase 1 leftovers close-out (2026-07-18):
 - **Ops evidence re-checked:** `e2e` env secrets `total_count: 0`; org plan
   `free`; CodeQL `Analyze (ruby)` still fails on `main` (run `29646398325`).
   Phase E / E2E secrets / GitHub Pro / CodeQL Ruby remain ops-owned.
+
+### Parallel: p0-e4-api-origin-guard
+
+- **Eng slice (2026-07-19):** Worker↔Express topology safety (P0-E4-T3 +
+  fail-closed config). `apps/edge/src/api-proxy.ts` rejects self-proxy
+  `API_ORIGIN` (`API_ORIGIN_SELF_PROXY`) and repeated `x-manut-proxy-hop`
+  (`API_PROXY_HOP_LOOP`) before `fetch`; tests in
+  `apps/edge/tests/api-proxy-topology.test.ts`. Preview/production wrangler
+  `API_ORIGIN` cleared to `""` (no Worker self-host). Draft ADRs:
+  `docs/ADR-002-worker-express-api-boundary.md`,
+  `docs/ADR-003-auth-trust-model.md`.
+- **Ops still owns:** distinct Express `API_ORIGIN` host per env; app-session
+  JWKS values; pause/fail-close production Workers Builds (P0-E4-T7) — not
+  flipped from git; DNS cutover for `app.manut.xyz` remains unauthorized.
+- **Suggested next P0 slice after merge:** P0-E4-T4 hosted `/api` base-path
+  contract + docs alignment, or P0-E4-T7 ops pause evidence; T5 Worker→Express
+  hermetic integration when a local Express origin exists.
