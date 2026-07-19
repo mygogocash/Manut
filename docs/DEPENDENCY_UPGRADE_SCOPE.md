@@ -1,5 +1,10 @@
 # Dependency upgrade and replacement scope
 
+> **Historical / maintenance scope.** Sole forward roadmap:
+> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md).
+> New direct Supabase / in-app Prisma / Next / Express provider-SDK deps also
+> require an ADR under [`DEPENDENCY_FREEZE.md`](./DEPENDENCY_FREEZE.md).
+
 This document records the current direct-dependency state of the replacement checkout against the approved upgrade plan. It distinguishes implemented changes from compatibility holds, legacy bridge dependencies, missing target packages, and Phase 2 mobile packages.
 
 ## Audit basis

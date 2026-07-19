@@ -1,5 +1,10 @@
 # Authentication and RBAC
 
+> **Current-state reference.** Sole forward identity/auth roadmap:
+> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md)
+> (esp. §6). This file describes present Supabase/Express/session behavior to
+> preserve during the strangler; it is not the target design.
+
 ## One domain contract, two session transports
 
 `packages/app-core` owns authentication state transitions and redirect policy.

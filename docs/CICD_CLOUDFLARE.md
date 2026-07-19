@@ -1,10 +1,15 @@
 # CI/CD — Cloudflare Workers + Assets
 
+> **Ops runbook (current strangler).** Sole forward roadmap:
+> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md).
+> CI ownership rules here remain binding for the strangler deploy path.
+
 Manut web delivery is **Workers + Assets** from `apps/edge` (`wrangler deploy`),
 not Cloudflare Pages. Cloudflare Workers Builds is the sole production deploy
 owner for `main`; GitHub Actions owns preview and staging deploys only.
 
-**Bindings (Hyperdrive, R2, DO, Queues — never D1 as SoR):**
+**Bindings (Hyperdrive, R2, DO, Queues — D1 not transactional SoR yet; see
+[`ADR-010`](./ADR-010-postgres-strangler-vs-d1-target.md)):**
 [`docs/CLOUDFLARE_BINDINGS.md`](./CLOUDFLARE_BINDINGS.md).
 
 Companion: `docs/PRODUCTION_DEPLOY.md` (cutover order, ops blockers).

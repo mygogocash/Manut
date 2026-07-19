@@ -1,11 +1,17 @@
 # Cursor handoff: Web-first Manut migration
 
-Last updated: 2026-07-18
+> **Historical / continuation evidence.** The sole forward-looking architecture
+> and migration roadmap is
+> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](./EXPO_CLOUDFLARE_MASTER_PLAN.md).
+> If this handoff conflicts with that file, the master plan wins. SoR dual-track:
+> [`ADR-010`](./ADR-010-postgres-strangler-vs-d1-target.md). Dependency freeze:
+> [`DEPENDENCY_FREEZE.md`](./DEPENDENCY_FREEZE.md).
 
-This is the canonical continuation plan for the clean-room replacement of
-Manut with a web-first universal Expo application and Cloudflare-first
-platform. It records what is actually implemented, what was verified, what is
-still incomplete, and which operations require fresh Manut-owned authority.
+Last updated: 2026-07-19
+
+This file records what is actually implemented, what was verified, what is
+still incomplete, and which operations require fresh Manut-owned authority. It
+is **not** a second roadmap.
 
 The migration is **not merge-ready**. Do not interpret an individual green
 package build as completion of the full plan.
@@ -1240,3 +1246,15 @@ Phase 1 leftovers close-out (2026-07-18):
   `apps/app/__tests__/api-config.test.ts`, cloudflare-builds bootstrap assert.
 - **Not done:** ops GitHub Environment var rewrite (host-only still works via
   runtime normalize); DNS; hermetic Worker→Express (P0-E4-T5).
+
+### Parallel: master-p0-plan-authority
+
+- **Docs-only (2026-07-19):** Phase 0.1 plan authority. Copied
+  `docs/EXPO_CLOUDFLARE_MASTER_PLAN.md` (v1.4) as sole forward roadmap.
+  Accepted `docs/ADR-010-postgres-strangler-vs-d1-target.md` (Postgres/Prisma/
+  Hyperdrive strangler SoR until Phase 8+ D1-per-tenant gates; D1 not
+  transactional SoR yet). Temporary `docs/DEPENDENCY_FREEZE.md`. Dual-track
+  updates in `CLAUDE.md` / `AGENTS.md` / `CONTEXT.md` / README; historical
+  banners on migration/ops docs pointing at the master plan.
+- **Not claimed:** secrets, DNS, Cloudflare prod mutations, SoR flip, or
+  lifting the dependency freeze.
