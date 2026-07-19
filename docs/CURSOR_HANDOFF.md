@@ -604,7 +604,7 @@ JS/TS CodeQL, Secret scan, Web/Worker/Native builds, and Migration safety alread
 | -------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------- |
 | E2E secrets + dedicated project        | Ops           | **Verified empty** (`GET …/environments/e2e/secrets` → `total_count: 0`). Still blocked: five `E2E_*` on `e2e` env + `manut-intranet-e2e`. Do not soft-skip the gate. |
 | CodeQL Ruby language                   | Repo settings | **Still failing on `main`** (run `29646398325` — `Analyze (ruby)` only). Drop Ruby from default Code scanning setup (JS/TS already passes). |
-| OSV / dependency-review bumps          | Eng           | **Eng slice (2026-07-18):** pnpm overrides for `@xmldom/xmldom@<0.8.13` → `0.8.13`, `@hono/node-server@<1.19.13` → `1.19.14`, `minimatch@>=5 <5.1.8` → `5.1.9`; `eas-cli` → `21.0.2`. Residual: `quill@2.0.3` XSS (low, no upstream patch; `apps/web` `react-quill-new` only). Keep OSV fail-closed. |
+| OSV / dependency-review bumps          | Eng           | **Patchable cleared (#217).** Residual `quill@2.0.3` (GHSA-v3m3-f69x-jf25 / Dependabot #149) formally accepted — no upstream patch; compensating `sanitizeRichHtml`; scoped to `apps/web`. Documented in `docs/CREDENTIAL_BOUNDARY.md`. **Do not soft-skip OSV.** |
 | Static-unit platform ignore            | Eng           | Preferences-storage `.web`/`.native` ignore landed; re-check CI if new unresolved pairs appear. |
 | GitHub Free → Pro                      | Org           | **Verified** `mygogocash` org plan still `free` (API). Branch protection / required `Validate` still 403 on Free org plan. |
 | Phase E Cloudflare / Expo / Hyperdrive | Ops           | Fresh Manut-owned resources only; checklist in `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`. No deploy from eng branches. |
@@ -1163,3 +1163,13 @@ Phase 1 leftovers close-out (2026-07-18):
 - **Not claimed:** Express origin provisioning, JWKS values, preview redeploy,
   DNS cutover, or first-admin identity creation.
 
+### Parallel: p0-quill-osv-disposition
+
+- **Docs-only (2026-07-19):** Formal disposition for residual Dependabot/OSV
+  after #217. Verified `quill` npm latest is still `2.0.3` with no
+  `first_patched_version` (Dependabot alert #149 / GHSA-v3m3-f69x-jf25 /
+  CVE-2025-15056). Accepted residual + fail-closed OSV rationale in
+  `docs/CREDENTIAL_BOUNDARY.md`; `react-quill-new` noted in
+  `docs/DEPENDENCY_UPGRADE_SCOPE.md`. No `osv-scanner` ignore / soft-skip.
+- **Not claimed:** upstream Quill patch, Dependabot alert dismissal as a CI
+  green path, or retirement of `apps/web` rich-text.
