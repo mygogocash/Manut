@@ -422,6 +422,34 @@ importers:
         specifier: 4.111.0
         version: 4.111.0(@cloudflare/workers-types@5.20260716.1)
 
+  apps/identity-worker:
+    dependencies:
+      '@manut/identity-contracts':
+        specifier: workspace:*
+        version: link:../../packages/identity-contracts
+      hono:
+        specifier: 4.12.30
+        version: 4.12.30
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 5.20260716.1
+        version: 5.20260716.1
+      '@manut/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1(@noble/hashes@1.8.0))(msw@2.13.5(@types/node@24.13.3)(typescript@6.0.3))(vite@8.0.16(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
+      wrangler:
+        specifier: 4.111.0
+        version: 4.111.0(@cloudflare/workers-types@5.20260716.1)
+
   apps/web:
     dependencies:
       '@base-ui/react':
@@ -748,6 +776,28 @@ importers:
       typescript-eslint:
         specifier: 8.64.0
         version: 8.64.0(eslint@9.39.4(jiti@2.6.1)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3)
+
+  packages/identity-contracts:
+    dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@eslint/js':
+        specifier: 9.39.4
+        version: 9.39.4
+      eslint:
+        specifier: 9.39.4
+        version: 9.39.4(jiti@2.6.1)(supports-color@8.1.1)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      typescript-eslint:
+        specifier: 8.64.0
+        version: 8.64.0(eslint@9.39.4(jiti@2.6.1)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3)
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(jsdom@29.1.1(@noble/hashes@1.8.0))(msw@2.13.5(@types/node@24.13.3)(typescript@6.0.3))(vite@8.0.16(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.6.1)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
 
   packages/types:
     devDependencies:
@@ -10211,10 +10261,6 @@ packages:
     resolution: {integrity: sha512-VKS/ZaQhhkKFMANmAOhhXVoIfBXblQxGX1myCQ2faQrfmobMftXeJPcZGp0gS07ocvGJWDLZGyOZDadDBqYIJg==}
     engines: {node: '>=18'}
 
-  tinyglobby@0.2.16:
-    resolution: {integrity: sha512-pn99VhoACYR8nFHhxqix+uvsbXineAasWm5ojXoN8xEwK5Kd3/TrhNn1wByuD52UxWRLy8pu+kRMniEi6Eq9Zg==}
-    engines: {node: '>=12.0.0'}
-
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
@@ -17252,7 +17298,7 @@ snapshots:
       get-tsconfig: 4.14.0
       is-bun-module: 2.0.0
       stable-hash: 0.0.5
-      tinyglobby: 0.2.16
+      tinyglobby: 0.2.17
       unrs-resolver: 1.11.1
     optionalDependencies:
       eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.64.0(eslint@9.39.4(jiti@2.6.1)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3))(eslint-import-resolver-typescript@4.4.5)(eslint@9.39.4(jiti@2.6.1)(supports-color@8.1.1))(supports-color@8.1.1)
@@ -17321,7 +17367,7 @@ snapshots:
   eslint-plugin-expo@1.1.0(eslint@9.39.4(jiti@2.6.1)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3):
     dependencies:
       '@typescript-eslint/types': 8.59.0
-      '@typescript-eslint/utils': 8.59.0(eslint@9.39.4(jiti@2.6.1)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3)
+      '@typescript-eslint/utils': 8.64.0(eslint@9.39.4(jiti@2.6.1)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@6.0.3)
       eslint: 9.39.4(jiti@2.6.1)(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
@@ -22485,11 +22531,6 @@ snapshots:
   tinybench@2.9.0: {}
 
   tinyexec@1.1.1: {}
-
-  tinyglobby@0.2.16:
-    dependencies:
-      fdir: 6.5.0(picomatch@4.0.4)
-      picomatch: 4.0.4
 
   tinyglobby@0.2.17:
     dependencies:
