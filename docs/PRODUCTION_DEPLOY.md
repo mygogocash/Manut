@@ -2,13 +2,16 @@
 
 **Status:** Cloudflare Workers Builds is the sole production deploy owner for
 `main`; GitHub Actions owns preview/staging only. Live deployment remains
-**ops-blocked** until Manut Cloudflare secrets/resources and Access JWKS are
-set. **Successful build authentication does not authorize DNS cutover.**
+**ops-blocked** until Manut Cloudflare secrets/resources, distinct Express
+`API_ORIGIN`, and application-session `AUTH_JWKS_*` are set (ADR-002/003;
+`docs/ops/p0-topology-checklists.md`). **Successful build authentication does
+not authorize DNS cutover.**
 
 CI/CD details (Pages vs Workers, Environment secret names, trigger matrix):
 **`docs/CICD_CLOUDFLARE.md`**.
 
-Companion checklists: `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`,
+Companion checklists: `docs/ops/p0-topology-checklists.md`,
+`docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`,
 `docs/CURSOR_HANDOFF.md` (Phase E / F).
 
 ## Live Worker mapping (authoritative)
@@ -34,13 +37,14 @@ isolated preview Worker only after separate DNS approval.
 | Env name documentation                            | **Code-ready**  | `.env.example`, `apps/app/.env.example`, this runbook, `CICD_CLOUDFLARE.md`                         |
 | CI Validate path (PR Checks)                      | **Code-ready**  | `.github/workflows/pr-checks.yml` builds web + Worker dry-run                                       |
 | Deploy ownership                                  | **Code-ready**  | Workers Builds: production `main`; GitHub Actions: `deploy-preview.yml` + `deploy-staging.yml` only |
+| Production Workers Builds pause (P0-E4-T7)        | **Ops-blocked** | **2026-07-19 read-only:** Builds **enabled** on `manut` (`main` trigger active). Pause steps in `docs/CICD_CLOUDFLARE.md`; marker `docs/ops/markers/p0-e4-t7-workers-builds-pause.md`. Do **not** pause without ops approval. |
 | Manut-owned Cloudflare account + resources        | **Ops-blocked** | Prove secrets/bindings; do not invent Hyperdrive / R2 / Queue ids                                   |
 | Hyperdrive binding + `ENABLE_HYPERDRIVE_BOUNDARY` | **Ops-blocked** | Binding id not provisioned; flag stays `false`                                                      |
 | Worker secrets / JWKS / `API_ORIGIN`              | **Ops-blocked** | Distinct Express `API_ORIGIN` + app-session JWKS per env; Access optional outer gate only (ADR-002/003) |
 | Postgres + migrations on Manut DB                 | **Ops-blocked** | Clean baseline exists; production DB not provisioned from this branch                               |
 | Dedicated E2E project + `E2E_*`                   | **Ops-blocked** | Five secrets + dedicated-project marker not configured                                              |
 | Expo / EAS Manut org + native builds              | **Ops-blocked** | JS exports pass; APK / simulator need fresh Expo org                                                |
-| GitHub Pro / branch protection requiring Validate | **Ops-blocked** | Free org 403 on private rulesets                                                                    |
+| GitHub CI / branch protection requiring Validate  | **Ops-blocked** | **2026-07-19:** public + Free + unprotected (404); CodeQL Ruby fails; red merges proven. See `docs/ops/CI_PROTECTION_TRUTH.md` |
 | DNS / custom domain cutover                       | **Ops-blocked** | Confirm Domains assignment; separate approval for zone changes                                      |
 | Inherited credential revocation evidence          | **Ops-blocked** | Not performed; required before trust cutover                                                        |
 
@@ -115,10 +119,10 @@ When omitted, uploads use the Worker `UPLOADS` R2 binding.
 
 **Vars (required):** `EXPO_PUBLIC_API_URL`
 
-| Environment | Recommended `EXPO_PUBLIC_API_URL`                                                        |
-| ----------- | ---------------------------------------------------------------------------------------- |
-| `preview`   | `https://manut-preview.bettergogocash.workers.dev` until separate custom-domain approval |
-| `staging`   | staging host only (not live `manut` Production)                                          |
+| Environment | Recommended `EXPO_PUBLIC_API_URL`                                                             |
+| ----------- | --------------------------------------------------------------------------------------------- |
+| `preview`   | `https://manut-preview.bettergogocash.workers.dev/api` until separate custom-domain approval |
+| `staging`   | staging Worker origin + `/api` (not live `manut` Production)                                  |
 
 **Vars (optional):** `EXPO_PUBLIC_SOCKET_URL`, `EXPO_PUBLIC_REALTIME_ORIGIN`
 
@@ -127,10 +131,13 @@ When omitted, uploads use the Worker `UPLOADS` R2 binding.
 Hyperdrive ids stay out of CI (`hyperdrive: []` until then). Never substitute a
 fake `DATABASE_URL`.
 
-Production `EXPO_PUBLIC_API_URL=https://app.manut.xyz` belongs in Workers Builds
-configuration. Production Worker runtime secrets such as `EDGE_SIGNING_KEY`
-and R2 credentials remain configured in Cloudflare; removing a GitHub
-production deploy token does not remove or replace those runtime secrets.
+Production `EXPO_PUBLIC_API_URL=https://app.manut.xyz/api` belongs in Workers
+Builds configuration (include the `/api` path — app-core calls `/auth/*` and
+other relative paths beneath that base). Host-only values are normalized at
+runtime to append `/api`, but ops should set the explicit contract. Production
+Worker runtime secrets such as `EDGE_SIGNING_KEY` and R2 credentials remain
+configured in Cloudflare; removing a GitHub production deploy token does not
+remove or replace those runtime secrets.
 
 ## Required bindings and env (names only)
 
@@ -171,7 +178,7 @@ storage until Cloudflare Access + R2 own those paths — see leftovers in
 
 | Name                          | Role                          |
 | ----------------------------- | ----------------------------- |
-| `EXPO_PUBLIC_API_URL`         | HTTP API / SPA origin         |
+| `EXPO_PUBLIC_API_URL`         | API base including `/api`     |
 | `EXPO_PUBLIC_SOCKET_URL`      | Socket.IO fallback origin     |
 | `EXPO_PUBLIC_REALTIME_ORIGIN` | Prefer edge DO rooms when set |
 
@@ -212,6 +219,14 @@ Do not reorder. DNS remains last.
    Hyperdrive configs with unique names from `wrangler.jsonc` contracts.
 5. **Apply migrations** to the Manut Postgres via `prisma migrate deploy` on a
    dedicated admin path (not invented inside the Worker deploy job).
+5a. **Bootstrap the first admin** (ops laptop / secrets host only — never CI
+    with committed credentials): after `pnpm db:seed`, run
+    `pnpm ops:create-first-admin` with Manut-owned `SUPABASE_URL` (or
+    `NEXT_PUBLIC_SUPABASE_URL`), `SUPABASE_SERVICE_ROLE_KEY`, and
+    `DATABASE_URL` in the environment. The script refuses if any are missing.
+    It creates `admin@manut.xyz` with `mustChangePassword=true`. Capture the
+    one-time temporary password from stdout, sign in, and rotate immediately.
+    See `docs/CREDENTIAL_BOUNDARY.md`.
 6. **Bind Hyperdrive** id into `wrangler.jsonc` (or dashboard equivalent) as
    `HYPERDRIVE_DATABASE`; set `ENABLE_HYPERDRIVE_BOUNDARY=true` only after bind.
    Keep `hyperdrive: []` until a real id exists — never invent in CI. Ops
@@ -220,8 +235,13 @@ Do not reorder. DNS remains last.
    Worker host), application-session `AUTH_JWKS_URL` / `AUTH_ISSUER` /
    `AUTH_AUDIENCE`, `TRUSTED_STORAGE_ORIGINS`, `EDGE_SIGNING_KEY`, R2 secrets.
    Optional Cloudflare Access remains a separate outer gate (ADR-003) — do
-   not claim Access JWKS is set until provisioned. Pause production Workers
-   Builds until the cutover marker exists (`docs/CICD_CLOUDFLARE.md`).
+   not point `AUTH_*` at Access team JWKS without a follow-up ADR. Pause
+   production Workers Builds until the cutover marker exists — exact
+   dashboard/API steps and live enabled/disabled status in
+   `docs/CICD_CLOUDFLARE.md` (P0-E4-T7) and fail-closed marker
+   `docs/ops/markers/p0-e4-t7-workers-builds-pause.md` (engineering must not
+   disconnect Builds without that marker showing ops approval). Topology
+   checklists: `docs/ops/p0-topology-checklists.md`.
 8. **Configure Express:** `EDGE_REALTIME_ORIGIN` + matching
    `EDGE_REALTIME_BRIDGE_SECRET`; keep Socket.IO until edge live path is sole
    production path and E2E covers it.

@@ -42,7 +42,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/admin/aria-knowledge/page.tsx",
@@ -50,7 +50,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/admin/docusign/oauth/callback/page.tsx",
@@ -58,7 +58,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "External signing-provider integration removed; in-house signing remains."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic. External signing-provider integration removed; in-house signing remains."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/admin/docusign/page.tsx",
@@ -66,7 +66,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "External signing-provider integration removed; in-house signing remains."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic. External signing-provider integration removed; in-house signing remains."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/admin/form-config/page.tsx",
@@ -98,7 +98,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/aria/page.tsx",
@@ -106,7 +106,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/benefits/page.tsx",
@@ -266,7 +266,7 @@
       "disposition": "replace",
       "status": "foundation",
       "targetRoute": "/hrms/grants/[employeeId]",
-      "note": "Replaced source ESOP surface with Expo /hrms/grants/[employeeId] read-only grant detail via app-core. Deferred: import, currency amounts, pool edits."
+      "note": "Replaced source ESOP surface with Expo /hrms/grants/[employeeId] read-only grant detail via app-core. Compatibility redirect scaffolding: Expo /hrms/esop/[employeeId] \u2192 /hrms/grants/[employeeId] (app-core resolveCompatibilityRedirect + route file). Deferred: import, currency amounts, pool edits; hosted E2E acceptance."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/hrms/page.tsx",
@@ -434,7 +434,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/campaigns/page.tsx",
@@ -442,7 +442,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/page.tsx",
@@ -450,7 +450,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/raw/page.tsx",
@@ -458,7 +458,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/reports/page.tsx",
@@ -466,7 +466,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/settings/page.tsx",
@@ -474,7 +474,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/traffic/[partnerId]/page.tsx",
@@ -482,7 +482,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/marketing-analytics/traffic/page.tsx",
@@ -490,7 +490,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/messages/page.tsx",
@@ -498,7 +498,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/messages",
-      "note": "Expo channel list + REST history; Worker /api/messages dual-path (Hyperdrive+Prisma when ENABLE_HYPERDRIVE_BOUNDARY else Express proxy); live prefers edge DO shared room channel:{id} with membership check + messageBus→DO bridge; socket.io /messages remains fallback when edge origin/bridge unset."
+      "note": "Expo channel list + REST history; Worker /api/messages dual-path (Hyperdrive+Prisma when ENABLE_HYPERDRIVE_BOUNDARY else Express proxy); live prefers edge DO shared room channel:{id} with membership check + messageBus\u2192DO bridge; socket.io /messages remains fallback when edge origin/bridge unset."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/my-portal/page.tsx",
@@ -530,7 +530,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/partners/dashboard/page.tsx",
@@ -538,7 +538,7 @@
       "disposition": "remove-as-provenance",
       "status": "removed",
       "targetRoute": null,
-      "note": "Excluded legacy provenance; no target route is permitted."
+      "note": "PENDING P1-E2-T1 product/security approval before removed-approved. Proposed user-facing behavior: intentional not-found (no provenance disclosure, no redirect to a retained surface). Do not reintroduce without an explicit reintroduction epic."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/partners/page.tsx",
@@ -602,7 +602,7 @@
       "disposition": "migrate",
       "status": "foundation",
       "targetRoute": "/projects/[projectId]",
-      "note": "Expo project detail shows kanban columns + tasks from GET detail and create-task via POST /projects/:id/tasks (app-core Zod; projects:update / team-CRM write gate). Strips emails/budget/assignee PII. Still foundation — deferred: drag-reorder, task edit/delete, members, timeline, Expo E2E."
+      "note": "Expo project detail shows kanban columns + tasks from GET detail and create-task via POST /projects/:id/tasks (app-core Zod; projects:update / team-CRM write gate). Strips emails/budget/assignee PII. Still foundation \u2014 deferred: drag-reorder, task edit/delete, members, timeline, Expo E2E."
     },
     {
       "sourcePath": "apps/web/src/app/(dashboard)/projects/dashboard/page.tsx",
@@ -851,6 +851,15 @@
       "status": "foundation",
       "targetRoute": "/sign/[token]",
       "note": "Expo public /sign/[token] via GET /api/legal-public/sign/:token (credentials omit). Read-only foundation; submit/decline deferred. Registry override remains public."
+    }
+  ],
+  "pendingRegistryDecisions": [
+    {
+      "registryPath": "/expenses-v1",
+      "decision": "pending-product-approval",
+      "proposedOutcome": "redirect-to-/expenses",
+      "alternateOutcome": "remove-from-registry",
+      "note": "Present in packages/app-core RBAC registry/tests; absent from historical Expo route ledger. Keep registry entry until product signs redirect or removal. See PENDING_COMPATIBILITY_REDIRECTS in app-core."
     }
   ]
 }

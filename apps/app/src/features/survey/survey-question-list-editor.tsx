@@ -32,12 +32,12 @@ export function blankQuestionDraft(): QuestionDraft {
 }
 
 export function draftsFromQuestions(
-  questions: Array<{
+  questions: {
     type: string;
     prompt: string;
     required: boolean;
     options: string[];
-  }>,
+  }[],
 ): QuestionDraft[] {
   return questions.map((question) => ({
     type: (BUILDER_QUESTION_TYPES.includes(

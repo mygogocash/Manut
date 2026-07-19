@@ -2,6 +2,18 @@
 
 This inventory accounts for every route-page file in audited source snapshot `371349fd43fd7c7c7717054beec97bfb023885ca`. It is a migration control, not a claim of web parity.
 
+## P1 ledger-freeze prep (2026-07-19)
+
+Product-safe interim notes — **pending decisions stay pending**; only the ESOP
+compatibility redirect is implemented code.
+
+| Item | Status | Notes |
+| ---- | ------ | ----- |
+| `/expenses-v1` registry orphan | **PENDING product approval** | Still in `packages/app-core` RBAC registry/tests; no Expo ledger row. Proposed outcome: redirect → `/expenses` (or remove from registry). Recorded in JSON `pendingRegistryDecisions` and `PENDING_COMPATIBILITY_REDIRECTS`. **No auto-redirect shipped.** |
+| `/hrms/esop/[employeeId]` → `/hrms/grants/[employeeId]` | Scaffolding landed | Expo route + `resolveCompatibilityRedirect` preserve bookmarks/email links. Disposition remains `replace` / `foundation` until hosted E2E. |
+| 16× `remove-as-provenance` | **PENDING P1-E2-T1 approval** | Status stays `removed` (not `removed-approved`). Proposed UX: intentional not-found without provenance disclosure. Notes updated in JSON. |
+| `/ingest/*` telemetry | **PENDING** (ADR draft) | See `docs/ADR-009-ingest-telemetry-proxy.md` — retain Worker proxy vs remove; no Expo/Worker proxy in this slice. |
+
 ## Evidence
 
 ```sh
@@ -46,6 +58,11 @@ Phase 1 leftovers (2026-07-18): `/leave` calendar + team/HR approve,
 omitted), and dashboard wall/compose strip remain `foundation`. Playwright
 `employee`/`leave` projects target Expo `:8081`; hosted E2E still requires the
 five `E2E_*` secrets (fail closed — no soft-skip).
+
+`/cash-advance` stays `foundation` after finance deepen (2026-07-19): approve/
+reject pending inbox plus disburse (`POST …/disburse` with proof URL) and clear
+(`POST …/clear`) gated by `cash-advance:approve`. Native R2 picker and signed
+disbursement-proof GET remain deferred until authenticated Expo E2E acceptance.
 
 ## Inventory
 
@@ -157,3 +174,8 @@ five `E2E_*` secrets (fail closed — no soft-skip).
 | 103 | `apps/web/src/app/sign/[token]/page.tsx`                                        | `/sign/[token]`                            | `migrate`              | `foundation` | `/sign/[token]`              |
 
 Detailed rationale for each row is stored in `ROUTE_DISPOSITION.json`. The inventory must be updated whenever a target route moves from `pending` to `foundation` or reaches separately evidenced parity.
+
+Row 30 (`/hrms/esop/[employeeId]`) keeps `replace` / `foundation`; Expo now
+ships a compatibility redirect file at
+`apps/app/app/(protected)/hrms/esop/[employeeId].tsx`. Status does not promote
+without hosted E2E evidence.

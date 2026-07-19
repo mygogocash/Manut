@@ -1,6 +1,6 @@
 # ADR-002 — Worker / Express API boundary and loop protection
 
-**Status:** Proposed (P0-E4 draft)  
+**Status:** Accepted  
 **Date:** 2026-07-19
 
 ## Context
@@ -12,8 +12,8 @@ Assets and `/api/*`. Many routes still proxy to Express (`apps/api`) via
 Preview/production previously committed `API_ORIGIN` to the same public Worker
 hosts (`app.manut.xyz` / `preview.manut.xyz`). That topology can recurse
 (Worker → Worker) instead of reaching Express, and today `app.manut.xyz` is
-also unresolvable (Cloudflare 530 Origin DNS on proxied `/api` — health alone
-is not readiness). DNS cutover remains a separate ops approval.
+also unresolvable (DNS failure on probe; health alone is not readiness). DNS
+cutover remains a separate ops approval.
 
 ## Decision
 
@@ -30,8 +30,11 @@ is not readiness). DNS cutover remains a separate ops approval.
    rotation, Express verification).
 4. **Client API base paths:** hosted web uses same-origin `/api`; native uses
    an HTTPS Worker origin plus `/api`; app-core endpoint paths stay relative
-   beneath that base. Direct Expo → Express is allowed only as a local focused
-   test, never as release evidence.
+   beneath that base (`/auth/login`, not `/api/auth/login`).
+   `EXPO_PUBLIC_API_URL` must be that base (relative `/api` or absolute
+   `https://<worker>/api`). Host-only absolute origins are normalized to append
+   `/api` via `normalizeApiBaseUrl` in `@manut/app-core`. Direct Expo → Express
+   is allowed only as a local focused test, never as release evidence.
 5. **Do not invent** Express hostnames, Hyperdrive ids, or DNS records in git.
    Committed wrangler preview/production `API_ORIGIN` stays empty until ops
    binds a real distinct origin.
@@ -44,10 +47,15 @@ is not readiness). DNS cutover remains a separate ops approval.
   provenance; that is not a proxy target.
 - Production Workers Builds pause / cutover marker (P0-E4-T7) remains an
   **explicit ops dashboard action** — not performed by this ADR.
+- Ops checklist: `docs/ops/p0-topology-checklists.md` (distinct origin per env,
+  live status-code probes).
 
 ## Related
 
 - Implementation: `apps/edge/src/api-proxy.ts`, tests in
   `apps/edge/tests/api-proxy-topology.test.ts`
-- Ops runbooks: `docs/CICD_CLOUDFLARE.md`, `docs/PRODUCTION_DEPLOY.md`
+- Client base URL: `packages/app-core/src/api/api-base-url.ts`,
+  `apps/app/src/platform/api-config.ts`
+- Ops runbooks: `docs/ops/p0-topology-checklists.md`, `docs/CICD_CLOUDFLARE.md`,
+  `docs/PRODUCTION_DEPLOY.md`
 - Auth trust: `docs/ADR-003-auth-trust-model.md`

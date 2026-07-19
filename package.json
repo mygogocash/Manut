@@ -31,6 +31,7 @@
     "migration:check": "node scripts/check-migration-safety.mjs",
     "migration:harness": "node scripts/run-migration-harness.mjs",
     "security:credentials": "node scripts/check-credential-boundary.mjs",
+    "ops:create-first-admin": "pnpm --filter @manut/api exec tsx ../../scripts/create-first-admin.ts",
     "bundle:check": "node scripts/check-bundle-threshold.mjs",
     "sbom": "env -u NODE_PATH cdxgen -t js --spec-version 1.6 --no-install-deps --fail-on-error -o bom.cdx.json .",
     "db:rls": "pnpm --filter @manut/database db:rls",

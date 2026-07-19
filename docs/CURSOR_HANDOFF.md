@@ -130,7 +130,7 @@ D1 (optional non-authoritative edge metadata only)
 | ------------------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Offline backup and archive refs      | **Remote + local complete**                                                     | Bare mirror verified; local and remote `archive/affine-2026-07-16` + `affine-before-intranet-2026-07-16` peel to `eb797d30`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Clean-room tree boundary             | **Replacement PR open**                                                         | Commits `7d8b17a2` + `640c505a` (+ follow-ups) on `claude/intranet-full-hardening`; PR `#208` opened against `main`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| GitHub detachment/private/protection | **Mostly complete; protection blocked**                                         | `fork=false`, private, About cleared to Manut Intranet, topics reset. Classic branch protection / rulesets return 403 on GitHub Free org plan — needs Pro or public (keep private; upgrade plan).                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| GitHub detachment/private/protection | **Detached; visibility/protection truth updated (P0-E3)**                       | `fork=false`; About/topics Manut. **2026-07-19 `gh`:** **public** (`private=false`), org plan **free**, `main` protection **404**, rulesets `[]`. CodeQL managed `Analyze (ruby)` still fails (no Ruby sources); red merges to `main` proven (e.g. PR #219 with failed `Validate`). Ops checklist: `docs/ops/CI_PROTECTION_TRUTH.md` — drop Ruby; protect `main` (public Free now, or Pro then private). Docs only — settings not flipped from git.                                                                                                                                                                                                              |
 | Source-organization removal          | **Phase A sweep complete locally**                                              | Credentials, branding, proprietary AI/marketing modules, identity-bearing migrations, and seeds were removed or replaced. HMAC provenance scan and comment sweep passed 2026-07-17.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | API strictness and hardening         | **Implemented locally**                                                         | Strict TypeScript, webhook bytes, purge lifecycle, lifecycle-safe auth/RBAC, atomic Leave state changes, live-socket revalidation, Performance scoping, and profile projection are implemented.                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | Universal Expo foundation            | **Implemented**                                                                 | Expo SDK 57, shared API/session runtime, app-core/UI packages, auth transports, app shell, Expo Doctor, and three-platform exports pass. This is a foundation, not full route parity.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -604,9 +604,12 @@ JS/TS CodeQL, Secret scan, Web/Worker/Native builds, and Migration safety alread
 | -------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------- |
 | E2E secrets + dedicated project        | Ops           | **Verified empty** (`GET …/environments/e2e/secrets` → `total_count: 0`). Still blocked: five `E2E_*` on `e2e` env + `manut-intranet-e2e`. Do not soft-skip the gate. |
 | CodeQL Ruby language                   | Repo settings | **Still failing on `main`** (run `29646398325` — `Analyze (ruby)` only). Drop Ruby from default Code scanning setup (JS/TS already passes). |
+| OSV / dependency-review bumps          | Eng           | **Patchable cleared (#217).** Residual `quill@2.0.3` (GHSA-v3m3-f69x-jf25 / Dependabot #149) formally accepted — no upstream patch; compensating `sanitizeRichHtml`; scoped to `apps/web`. Documented in `docs/CREDENTIAL_BOUNDARY.md`. **Do not soft-skip OSV.** |
+
+| CodeQL Ruby language                   | Repo settings | **Still failing on `main`** (run `29668738507` — `Analyze (ruby)` only; annotation: no Ruby source). Drop Ruby from managed Code scanning (JS/TS already passes). See `docs/ops/CI_PROTECTION_TRUTH.md`. |
 | OSV / dependency-review bumps          | Eng           | **Eng slice (2026-07-18):** pnpm overrides for `@xmldom/xmldom@<0.8.13` → `0.8.13`, `@hono/node-server@<1.19.13` → `1.19.14`, `minimatch@>=5 <5.1.8` → `5.1.9`; `eas-cli` → `21.0.2`. Residual: `quill@2.0.3` XSS (low, no upstream patch; `apps/web` `react-quill-new` only). Keep OSV fail-closed. |
 | Static-unit platform ignore            | Eng           | Preferences-storage `.web`/`.native` ignore landed; re-check CI if new unresolved pairs appear. |
-| GitHub Free → Pro                      | Org           | **Verified** `mygogocash` org plan still `free` (API). Branch protection / required `Validate` still 403 on Free org plan. |
+| GitHub Free / branch protection        | Org           | **2026-07-19:** plan still `free`; repo **public**; `main` unprotected (404) / rulesets `[]`. Red merges proven. Protect now on public Free, or Pro then private — checklist in `docs/ops/CI_PROTECTION_TRUTH.md`. |
 | Phase E Cloudflare / Expo / Hyperdrive | Ops           | Fresh Manut-owned resources only; checklist in `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`. No deploy from eng branches. |
 | Credential revocation proof            | Ops           | Negative auth evidence + rotate any exposed worker secrets out-of-band.                         |
 
@@ -705,7 +708,8 @@ Migration order:
      careers apply/manage; applications status writes; payroll
      create/approve/payslip export; benefits enroll/manage; learning
      manage/complete; HRMS pool/import/offboarding; visa CRUD/90-day;
-     cash-advance approve/disburse; expense approve + R2 receipts; wall/compose.
+     cash-advance native R2 picker + signed proof GET; expense detail lines +
+     R2 receipts; wall/compose.
    3. Operations: Sales/CRM, investor-approved modules, projects, helpdesk,
       accounting/revenue, content, communications, reporting, and administration.
       **Status 2026-07-18 (reconcile):** Wave 3 route foundations complete for
@@ -941,9 +945,11 @@ After authenticated GitHub authority is restored:
 
 ## External blockers to preserve explicitly
 
-- GitHub Free org plan cannot enable private-repo branch protection / rulesets
-  (403); upgrade `mygogocash` to Pro (or GitHub Team) before requiring
-  `Validate` on `main`.
+- **CI / protection (P0-E3, 2026-07-19):** repo is **public** and **unprotected**
+  on GitHub Free; CodeQL Ruby fails; failed-`Validate` PRs have merged. Full
+  evidence + ops checklist: `docs/ops/CI_PROTECTION_TRUTH.md`. Private +
+  required checks still needs Pro/Team; public Free can enable protection now
+  if owners accept public visibility.
 - No fresh Manut Cloudflare account/resource authority is available locally.
 - No fresh Manut Expo organization is available locally.
 - The dedicated E2E Supabase project and secrets are not configured.
@@ -1147,3 +1153,90 @@ Phase 1 leftovers close-out (2026-07-18):
 - **Suggested next P0 slice after merge:** P0-E4-T4 hosted `/api` base-path
   contract + docs alignment, or P0-E4-T7 ops pause evidence; T5 Worker→Express
   hermetic integration when a local Express origin exists.
+
+### Parallel: p0-ops-topology-checklists
+
+- **Docs-only (2026-07-19):** Ops pack
+  `docs/ops/p0-topology-checklists.md` — distinct `API_ORIGIN` per env,
+  application-session `AUTH_JWKS_*`, isolate `manut-preview` from production
+  `manut`, first-admin bootstrap prerequisites (clean seed has roles, no
+  users). ADR-002/003 marked **Accepted**; CICD / PRODUCTION_DEPLOY /
+  `.env.example` no longer imply Access JWKS for Worker `AUTH_*`.
+- **Live probes (status codes only):** `manut` workers.dev `/health` **200**,
+  `/api/health` **401**; `manut-preview` workers.dev `/health` **404**;
+  `preview.manut.xyz/health` **200** (isolation defect until preview Worker
+  serves and custom domain is not on prod); `app.manut.xyz` DNS fail.
+- **Not claimed:** Express origin provisioning, JWKS values, preview redeploy,
+  DNS cutover, or first-admin identity creation.
+
+### Parallel: p0-quill-osv-disposition
+
+- **Docs-only (2026-07-19):** Formal disposition for residual Dependabot/OSV
+  after #217. Verified `quill` npm latest is still `2.0.3` with no
+  `first_patched_version` (Dependabot alert #149 / GHSA-v3m3-f69x-jf25 /
+  CVE-2025-15056). Accepted residual + fail-closed OSV rationale in
+  `docs/CREDENTIAL_BOUNDARY.md`; `react-quill-new` noted in
+  `docs/DEPENDENCY_UPGRADE_SCOPE.md`. No `osv-scanner` ignore / soft-skip.
+- **Not claimed:** upstream Quill patch, Dependabot alert dismissal as a CI
+  green path, or retirement of `apps/web` rich-text.
+
+### Parallel: p0-e4-t7-builds-pause
+
+- **Docs-only (2026-07-19):** Read-only Cloudflare Builds verification for
+  Worker `manut` (account `187ab61ed9dbc6e616cb23e6b95aa8f1`, script
+  `4d091451cca54519bfeb5c2eb4ccd7e1`). Production trigger **enabled**
+  (`Deploy default branch`, `branch_includes: main`); non-production
+  `previews_enabled: false`. Documented exact pause / re-enable steps in
+  `docs/CICD_CLOUDFLARE.md` + verdict row in `docs/PRODUCTION_DEPLOY.md`.
+  Fail-closed marker:
+  `docs/ops/markers/p0-e4-t7-workers-builds-pause.md`
+  (`status: required_not_paused`, `approval: not_granted`).
+- **Not claimed:** dashboard Disconnect, trigger delete, deploy-command
+  change, or token roll — no production Builds mutation from this worktree.
+
+### Parallel: p0-e3-ci-protection-truth
+
+- **Docs-only (2026-07-19):** Recorded live `gh` evidence for CI/protection
+  truth — public repo, Free org, no `main` protection/rulesets, CodeQL
+  `Analyze (ruby)` failing with “not any written in Ruby”, and red merges
+  (PRs #217–#219 merged with failed `Validate`). Checklist: drop Ruby from
+  code scanning; enable branch protection / rulesets (public Free now, or
+  Pro then private). See `docs/ops/CI_PROTECTION_TRUTH.md`.
+- **Not claimed:** org plan upgrade, visibility change, CodeQL language
+  edit, or branch-protection enablement — none flipped from this worktree.
+
+### Parallel: p1-ledger-freeze-prep
+
+- **Eng slice (2026-07-19):** P1 prep only. ESOP bookmark shim:
+  `resolveCompatibilityRedirect` + Expo `/hrms/esop/[employeeId]` →
+  `/hrms/grants/[employeeId]` (tests green). `/expenses-v1` left as
+  **pending-product-approval** in `PENDING_COMPATIBILITY_REDIRECTS` /
+  JSON `pendingRegistryDecisions` (no auto-redirect). Sixteen
+  `remove-as-provenance` notes marked PENDING P1-E2-T1 (status still
+  `removed`). Draft `docs/ADR-009-ingest-telemetry-proxy.md` for `/ingest/*`
+  retain-vs-remove (no Worker proxy shipped).
+- **Owner still owns:** expenses-v1 redirect-or-remove sign-off; removal
+  `removed-approved` evidence; ADR-009 accept A/B.
+
+### Parallel: p4-parity-wave1-deepen
+
+- **Eng slice (2026-07-19):** One vertical deepen on `/cash-advance` finance
+  path (approve inbox was already present). app-core `disburseCashAdvance` +
+  `clearCashAdvance` (Zod proof URL; response strips `disbursementProofUrl`)
+  and Expo `CashAdvanceFinanceInbox` gated by `cash-advance:approve`.
+  Disposition stays `foundation` until Expo E2E. Deferred: native R2 picker,
+  signed proof GET.
+- **Not broadened:** expense receipts, leave, CRM hubs, or Hyperdrive ops.
+
+### Parallel: p0-e4-t4-api-base-path
+
+- **Eng slice (2026-07-19):** Hosted `/api` base-path contract (P0-E4-T4).
+  `normalizeApiBaseUrl` in `@manut/app-core` + Expo `getApiBaseUrl` via
+  `Platform.OS`: web defaults to same-origin `/api`; absolute Worker origins
+  append `/api` when omitted; native requires HTTPS (http loopback allowed).
+  App-core endpoint paths remain relative beneath that base. Docs/bootstrap
+  `.env.example` / CICD / PRODUCTION now document `…/api` values.
+- **Tests:** `packages/app-core/tests/api-base-url.test.ts`,
+  `apps/app/__tests__/api-config.test.ts`, cloudflare-builds bootstrap assert.
+- **Not done:** ops GitHub Environment var rewrite (host-only still works via
+  runtime normalize); DNS; hermetic Worker→Express (P0-E4-T5).

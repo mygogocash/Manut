@@ -1,6 +1,6 @@
 # ADR-003 — Application session vs Cloudflare Access trust
 
-**Status:** Proposed (P0-E4 draft)  
+**Status:** Accepted  
 **Date:** 2026-07-19
 
 ## Context
@@ -47,9 +47,12 @@ Access JWKS values are **not** claimed set in this repository; empty
   this ADR only freezes the trust separation for P0.
 - Session issuer provisioning (JWKS URL, issuer, audience) remains
   **ops-owned** and environment-specific.
+- Ops checklist: `docs/ops/p0-topology-checklists.md` (AUTH_JWKS_* +
+  first-admin bootstrap prerequisites).
 
 ## Related
 
 - Worker verify path: `apps/edge/src/auth.ts`
 - Topology / proxy: `docs/ADR-002-worker-express-api-boundary.md`
-- Deploy checklist: `docs/PRODUCTION_DEPLOY.md`, `docs/CICD_CLOUDFLARE.md`
+- Ops checklists: `docs/ops/p0-topology-checklists.md`
+- Deploy runbooks: `docs/PRODUCTION_DEPLOY.md`, `docs/CICD_CLOUDFLARE.md`

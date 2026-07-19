@@ -161,10 +161,13 @@ describe("Cloudflare Workers Builds contract", () => {
     expect(doc).toMatch(/Durable Object[^\n]*migration/iu);
     expect(doc).toMatch(/Preview must not\s+use the Worker name `manut`/u);
     expect(bootstrap).toContain(
-      'set_env_var preview EXPO_PUBLIC_API_URL "https://manut-preview.bettergogocash.workers.dev"',
+      'set_env_var preview EXPO_PUBLIC_API_URL "https://manut-preview.bettergogocash.workers.dev/api"',
     );
     expect(bootstrap).not.toContain(
       'set_env_var preview EXPO_PUBLIC_API_URL "https://preview.manut.xyz"',
+    );
+    expect(bootstrap).not.toMatch(
+      /set_env_var preview EXPO_PUBLIC_API_URL "https:\/\/manut-preview\.bettergogocash\.workers\.dev"/u,
     );
     expect(bootstrap).toContain(
       'set_env_secret preview EDGE_SIGNING_KEY "$preview_signing_key"',

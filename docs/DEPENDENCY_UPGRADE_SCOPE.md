@@ -130,6 +130,7 @@ All packages in this group remain **deferred legacy bridge** dependencies. They 
 | `shadcn`                        |                 ^4.4.0 | deferred legacy bridge |
 | `lucide-react`                  |               ^0.475.0 | deferred legacy bridge |
 | `react-day-picker`              |                ^9.14.0 | deferred legacy bridge |
+| `react-quill-new`               |                 ^3.8.3 | deferred legacy bridge; pulls unpatched `quill@2.0.3` (see `docs/CREDENTIAL_BOUNDARY.md` accepted OSV residual) |
 
 ### Tailwind and PostCSS bridge
 
@@ -264,3 +265,6 @@ serialized to clients or artifacts.
 6. The single Expo `@expo/require-utils` TypeScript peer-range mismatch above
    remains an explicit ecosystem hold; it is not resolved by downgrading the
    approved TypeScript 6 toolchain.
+7. `quill@2.0.3` (via `react-quill-new`) remains an accepted low OSV residual
+   with no upstream patch; keep the OSV gate fail-closed and track exit in
+   `docs/CREDENTIAL_BOUNDARY.md`.

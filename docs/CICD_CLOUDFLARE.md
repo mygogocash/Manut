@@ -103,7 +103,7 @@ runtime secrets to compensate.
 
 | Variable                      | Required | Example / note                                                                         |
 | ----------------------------- | -------- | -------------------------------------------------------------------------------------- |
-| `EXPO_PUBLIC_API_URL`         | yes      | `https://app.manut.xyz`                                                                |
+| `EXPO_PUBLIC_API_URL`         | yes      | `https://app.manut.xyz/api` (must include `/api`; app-core paths are relative)          |
 | `EXPO_PUBLIC_SOCKET_URL`      | no       | Usually same origin or API host                                                        |
 | `EXPO_PUBLIC_REALTIME_ORIGIN` | no       | Edge DO WebSocket origin when not same-origin                                          |
 | Auth JWKS / issuer            | later    | Worker vars `AUTH_JWKS_URL`, `AUTH_ISSUER`, `AUTH_AUDIENCE` — **not** Supabase CI vars |
@@ -118,7 +118,7 @@ Do **not** require Supabase Expo public vars for Builds or GitHub deploy workflo
 | Build command         | `pnpm run build:cloudflare`                                                                                       |
 | Deploy command        | `cd apps/edge && node scripts/ensure-cloudflare-resources.mjs --env preview && npx wrangler deploy --env preview` |
 | Branch                | `preview` (or non-`main` PR previews per dashboard)                                                               |
-| `EXPO_PUBLIC_API_URL` | `https://manut-preview.bettergogocash.workers.dev` until separate custom-domain approval                          |
+| `EXPO_PUBLIC_API_URL` | `https://manut-preview.bettergogocash.workers.dev/api` until separate custom-domain approval                      |
 
 `--env preview` targets the separate Worker `manut-preview`. Its full deploy is
 required for Durable Object migrations and cannot promote or overwrite
@@ -199,7 +199,7 @@ Workers Builds token, not a GitHub Environment.
 
 | Variable                      | Required | Purpose                                                              |
 | ----------------------------- | -------- | -------------------------------------------------------------------- |
-| `EXPO_PUBLIC_API_URL`         | yes      | HTTP API / app origin baked into the preview/staging Expo web export |
+| `EXPO_PUBLIC_API_URL`         | yes      | Hosted API base including `/api` (Worker origin + `/api`, or web `/api`) |
 | `EXPO_PUBLIC_SOCKET_URL`      | no       | Socket.IO fallback origin                                            |
 | `EXPO_PUBLIC_REALTIME_ORIGIN` | no       | Edge DO WebSocket origin when not same-origin                        |
 
@@ -219,20 +219,22 @@ use the `UPLOADS` R2 binding (Worker-mediated). `secrets.required` only lists
 Production Worker runtime secrets remain configured separately in Cloudflare
 and are independent of removing the GitHub production deploy token. Non-secret
 vars (`API_ORIGIN`, `TRUSTED_STORAGE_ORIGINS`, boundary flags, …) come from
-`wrangler.jsonc`; Access vars (`AUTH_JWKS_URL`, `AUTH_ISSUER`,
-`AUTH_AUDIENCE`) stay ops-managed and fail closed while empty.
-See `docs/CLOUDFLARE_BINDINGS.md`.
+`wrangler.jsonc`; application-session vars (`AUTH_JWKS_URL`, `AUTH_ISSUER`,
+`AUTH_AUDIENCE`) stay ops-managed and fail closed while empty
+(`docs/ADR-003-auth-trust-model.md`). See `docs/CLOUDFLARE_BINDINGS.md` and
+`docs/ops/p0-topology-checklists.md`.
 
-#### Cloudflare Access → Worker JWT verification
+#### Application-session JWKS → Worker JWT verification
 
-Create a Cloudflare Access application (do not invent team/app ids in git).
-Point Worker vars at Access:
+Point Worker vars at the **Manut application session issuer** once provisioned
+(do not invent issuer hosts or audiences in git). These are **not** Cloudflare
+Access team JWKS — Access remains an optional outer gate (ADR-003).
 
-| Worker var      | Example shape                                              |
+| Worker var      | Example shape (placeholders only)                          |
 | --------------- | ---------------------------------------------------------- |
-| `AUTH_JWKS_URL` | `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs` |
-| `AUTH_ISSUER`   | `https://<team>.cloudflareaccess.com`                      |
-| `AUTH_AUDIENCE` | Access application AUD tag                                 |
+| `AUTH_JWKS_URL` | `https://<session-issuer-host>/.well-known/jwks.json`      |
+| `AUTH_ISSUER`   | `https://<session-issuer-host>`                            |
+| `AUTH_AUDIENCE` | `<application-audience>`                                   |
 
 Empty JWKS / issuer / audience fails closed (`503 AUTH_*_NOT_CONFIGURED`).
 Storage is **R2** (`UPLOADS`); receipt provenance uses `TRUSTED_STORAGE_ORIGINS`.
@@ -297,10 +299,115 @@ just to silence the warning. Today `app.manut.xyz` may not resolve; Worker
 
 Engineering does **not** flip dashboard switches from this repo. Until G5 /
 an approved cutover marker exists, an owner must **pause or fail-close** the
-production Workers Builds trigger on Worker `manut` (Settings → Builds) so
-merges to `main` cannot publish pre-cutover Expo foundations. Record the
-change-window marker privately; do not invent DNS or Hyperdrive ids to
-compensate.
+production Workers Builds trigger on Worker `manut` so merges to `main`
+cannot publish pre-cutover Expo foundations. Record the change-window marker
+privately; do not invent DNS or Hyperdrive ids to compensate.
+
+**Fail-closed marker (git):**
+[`docs/ops/markers/p0-e4-t7-workers-builds-pause.md`](./ops/markers/p0-e4-t7-workers-builds-pause.md).
+That file tracks required vs applied pause evidence. This repository must
+**not** claim the dashboard pause is done until that marker is updated by an
+ops owner after a live check.
+
+#### Live read-only status (verified 2026-07-19, account `187ab61ed9dbc6e616cb23e6b95aa8f1`)
+
+| Field | Live value |
+| ----- | ---------- |
+| Worker service | `manut` |
+| Script / external id | `4d091451cca54519bfeb5c2eb4ccd7e1` |
+| Builds configured | **yes** (GitHub `mygogocash/Manut` linked) |
+| Production trigger | **enabled** — `Deploy default branch` (`trigger_uuid` `b2dc37d3-1e1d-4a60-9c1a-42ada4fe03d2`) |
+| `branch_includes` | `main` |
+| `deleted_on` | `null` (active) |
+| Non-production Builds (`previews_enabled`) | **false** (already off — keep off) |
+| Latest evidence | successful `push_event` builds on `main` (e.g. build `da8331df-…` for merge of PR #219) |
+| Build token name (no secret) | `Manut Workers Builds - 2026-07-18` |
+
+**Verdict:** production Workers Builds is **currently enabled**. Do **not**
+pause it from an engineering PR. Pause only after explicit ops approval in the
+marker file (or a private change ticket referenced there).
+
+Read-only re-check (ops laptop / MCP; never write):
+
+```bash
+# Wrangler (OAuth) — list recent deployments only
+export CLOUDFLARE_ACCOUNT_ID=187ab61ed9dbc6e616cb23e6b95aa8f1
+npx wrangler deployments list --name manut
+
+# Cloudflare Builds API (requires account token with Builds read)
+# GET /accounts/{account_id}/builds/workers/4d091451cca54519bfeb5c2eb4ccd7e1/triggers
+# Active pause = no trigger, or trigger with deleted_on set / empty branch_includes
+# that no longer matches main pushes.
+```
+
+Dashboard path:
+[workers/services/view/manut/production](https://dash.cloudflare.com/187ab61ed9dbc6e616cb23e6b95aa8f1/workers/services/view/manut/production)
+→ **Settings → Builds**.
+
+#### Exact pause steps (ops-only, after approval)
+
+Pick **one** method. Prefer A (reversible disconnect). Do not invent Hyperdrive
+ids, DNS records, or new Worker names as a substitute.
+
+**A — Disconnect Git (preferred full pause)**
+
+1. Confirm marker status is `approval: granted` (or private ticket id recorded).
+2. Open Worker **`manut`** → **Settings → Builds**.
+3. Select **Disconnect** (disconnect the GitHub repository from Workers Builds).
+4. Confirm no new build starts on a harmless docs-only `main` push (or wait for
+   the next merge and verify Builds history stays idle).
+5. Confirm **Builds for non-production branches** remains disabled
+   (`previews_enabled` must stay `false`; GitHub Actions owns preview/staging).
+6. Update
+   [`docs/ops/markers/p0-e4-t7-workers-builds-pause.md`](./ops/markers/p0-e4-t7-workers-builds-pause.md):
+   `status: paused`, method `disconnect`, timestamp, and who performed it
+   (names only — no tokens).
+
+**B — Soft fail-close (builds may still run; do not promote)**
+
+Use only if ops must keep the Git connection for log history but must not
+publish Active Deployments:
+
+1. Same approval gate as A.
+2. Worker **`manut`** → **Settings → Builds → Build configuration**.
+3. Change **Deploy command** from the production contract above to:
+
+   ```bash
+   npx wrangler versions upload --env production
+   ```
+
+   (Cloudflare documents this as disabling automatic promotion while still
+   uploading versions — see Workers Builds “Disconnecting builds” notes.)
+4. Save. Verify a subsequent `main` build does **not** change the Active
+   Deployment for `manut`.
+5. Update the marker with method `versions_upload_only`.
+
+**C — API pause (ops token; no engineering automation)**
+
+Only with an approved Builds-capable API token (never commit it):
+
+1. Same approval gate as A.
+2. `DELETE /accounts/187ab61ed9dbc6e616cb23e6b95aa8f1/builds/triggers/b2dc37d3-1e1d-4a60-9c1a-42ada4fe03d2`
+   **or** disconnect via dashboard (A) so the trigger cannot fire on `main`.
+3. Re-GET triggers for script `4d091451cca54519bfeb5c2eb4ccd7e1` and confirm
+   production push triggers are gone / inactive.
+4. Update the marker with method `api_delete_trigger` and the observed GET
+   result (UUIDs only).
+
+**Do not:** roll or delete the Builds token solely to “pause” (that breaks
+recovery); pause Pages instead of Workers; enable non-production Builds; or
+point preview at Worker name `manut`.
+
+#### Re-enable (only after G5 / cutover marker)
+
+1. Marker shows cutover approval + pause previously applied.
+2. Reconnect Git or restore the exact production build/deploy commands from
+   **Cloudflare Workers Builds (dashboard paste values)** above.
+3. Confirm branch control: production branch `main`; non-production Builds
+   **off**.
+4. Retry one production build deliberately; confirm Active Deployment +
+   `workers.dev` health — DNS cutover remains a separate approval.
+5. Flip marker `status` to `reenabled_after_cutover`.
 
 ## First green preview / staging run — ops checklist
 
@@ -311,10 +418,13 @@ compensate.
 - [ ] Native non-production Workers Builds disabled after validation
 - [ ] GitHub Environments `preview` / `staging`: `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` + `EXPO_PUBLIC_API_URL`
 - [ ] Preview Environment: unique `EDGE_SIGNING_KEY` for atomic first deploy (R2 S3 pair optional); production runtime secrets remain in Cloudflare (`EDGE_SIGNING_KEY` required; R2 S3 optional)
-- [ ] Cloudflare Access JWKS → Worker `AUTH_*` vars
+- [ ] Application-session `AUTH_JWKS_URL` / `AUTH_ISSUER` / `AUTH_AUDIENCE` set per env (not Access JWKS; ADR-003)
+- [ ] Distinct Express `API_ORIGIN` per env (never Worker self-host; ADR-002)
+- [ ] Preview isolation: deploy targets `manut-preview` only; `preview.manut.xyz` not on production `manut`
 - [ ] Bindings per `docs/CLOUDFLARE_BINDINGS.md` (cancel D1; add Hyperdrive/R2/…)
 - [ ] `manut-preview.bettergogocash.workers.dev/health` passes; custom-domain work remains separately approved
 - [ ] Push / dispatch preview + staging; confirm Workers `manut-preview` / `manut-staging`
+- [ ] Topology checklists complete: `docs/ops/p0-topology-checklists.md`
 
 ## Production enablement
 
