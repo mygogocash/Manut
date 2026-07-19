@@ -30,6 +30,16 @@ const toneStyles: Record<
     background: colors.warningBackground,
     text: colors.warningText,
   },
+  info: {
+    border: colors.infoBorder,
+    background: colors.infoBackground,
+    text: colors.infoText,
+  },
+  neutral: {
+    border: colors.neutralBorder,
+    background: colors.neutralBackground,
+    text: colors.neutralText,
+  },
 };
 
 export function StatusMessage({

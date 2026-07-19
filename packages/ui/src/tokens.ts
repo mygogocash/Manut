@@ -20,6 +20,12 @@ export const colors = {
   warningBackground: "#fff8e8",
   warningText: "#47371f",
   warningBody: "#66553a",
+  infoBorder: "#9bb3c9",
+  infoBackground: "#eef4f9",
+  infoText: "#1a3a5c",
+  neutralBorder: "#cfc8ba",
+  neutralBackground: "#f3f0e8",
+  neutralText: "#4a4338",
 } as const;
 
 export const radii = {

@@ -298,6 +298,7 @@ function LeaveRequestDialog({
       transparent
       presentationStyle="overFullScreen"
       onRequestClose={onClose}
+      accessibilityViewIsModal
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -305,7 +306,7 @@ function LeaveRequestDialog({
       >
         <View
           accessible
-          accessibilityRole="dialog"
+          role="dialog"
           accessibilityLabel="Request leave dialog"
           style={{
             flex: 1,

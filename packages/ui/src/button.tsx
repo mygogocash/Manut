@@ -5,11 +5,15 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { resolveButtonLabel } from "./button-label";
 import { colors, radii, spacing } from "./tokens";
+
+export { resolveButtonLabel } from "./button-label";
 
 export interface ButtonProps {
   label: string;
-  pendingLabel: string;
+  /** Shown while `pending`; defaults to `label` when omitted. */
+  pendingLabel?: string;
   pending?: boolean;
   disabled?: boolean;
   onPress: () => void | Promise<void>;
@@ -27,7 +31,7 @@ export function Button({
   style,
 }: ButtonProps) {
   const isDisabled = disabled || pending;
-  const resolvedLabel = pending ? pendingLabel : label;
+  const resolvedLabel = resolveButtonLabel({ label, pendingLabel, pending });
 
   return (
     <Pressable
