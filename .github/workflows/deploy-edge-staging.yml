@@ -1,10 +1,10 @@
-# Deploys the Cloudflare edge stack to staging on push to `dev`.
+# Deploys the Cloudflare edge stack to staging on push to `preview`.
 # Legacy Cloud Run staging (deploy-staging.yml) stays until Phase 9 cutover.
 name: Deploy Edge Staging
 
 on:
   push:
-    branches: [dev]
+    branches: [preview]
     paths:
       - "apps/edge/**"
       - "apps/edge-jobs/**"

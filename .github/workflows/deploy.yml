@@ -1,13 +1,13 @@
 # =============================================================================
 # Intranet - Deploy to GCP Cloud Run
-# Triggers on push to main branch
+# Triggers on push to production
 # =============================================================================
 
 name: Deploy to GCP Cloud Run
 
 on:
   push:
-    branches: [main]
+    branches: [production]
     # Docs/agent markdown never need new Cloud Run images (~9–10 min saved per merge).
     paths-ignore:
       - "docs/**"

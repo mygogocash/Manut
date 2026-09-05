@@ -12,7 +12,7 @@ name: OKF Checks
 
 on:
   pull_request:
-    branches: [main, dev]
+    branches: [main, preview, production]
     paths:
       - "docs/okf/**"
       - "CLAUDE.md"
