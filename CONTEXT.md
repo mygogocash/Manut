@@ -6,9 +6,11 @@ Quick reference for engineers (and AI agents) joining the codebase. Lives alongs
 
 ## What this project is
 
-**Intranet** is The Binary Holdings' internal ERP — a single platform replacing Zoho across HR, Finance, Operations, Sales, Investor Relations, Communication. Multi-entity (TH / AE / SG / PT) with localised payroll + compliance. Brand name is **Intranet**; workspace packages stay `@nexora/*` (monorepo implementation detail, never user-visible).
+This GitHub repository is [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Default branch `main`; env branches `preview` (staging) and `production` (prod).
 
-Live at https://intranet.thebinaryholdings.com.
+**Intranet** is the product — an internal ERP covering HR, Finance, Operations, Sales, Investor Relations, Communication. Multi-entity (TH / AE / SG / PT) with localised payroll + compliance. Brand name is **Intranet**; workspace packages stay `@nexora/*` (monorepo implementation detail, never user-visible).
+
+Do not claim a public URL is this repo's live deploy until a `production` (or `preview`) workflow has actually run.
 
 For product framing, read `docs/PROJECT_OVERVIEW.md`. For module-by-module scope, `docs/MODULES_SPECIFICATION.md`. For permission semantics, `docs/AUTH_RBAC.md`. For DB shape, `docs/DATABASE_SCHEMA.md`.
 
@@ -19,14 +21,15 @@ For product framing, read `docs/PROJECT_OVERVIEW.md`. For module-by-module scope
 | Layer    | Tech                                                                              |
 |----------|-----------------------------------------------------------------------------------|
 | Backend  | Express 5 + TypeScript, Prisma 6, PostgreSQL (Supabase SG `aws-1-ap-southeast-1`) |
-| Auth     | Supabase Auth (JWT) + Express middleware resolving Prisma user + roles + perms    |
-| Frontend | Next.js 16 App Router + React 19 + Tailwind v4 + shadcn UI + base-ui primitives   |
+| Edge     | Hono on Cloudflare Workers + Drizzle (`@nexora/db`) + Better Auth + `apps/edge-jobs` |
+| Auth     | Supabase Auth (JWT) on Express; Better Auth on the edge                           |
+| Frontend | Next.js 16 App Router + React 19 + Tailwind v4 + shadcn UI; Expo app in `apps/app` |
 | Forms    | react-hook-form + zod (`@hookform/resolvers/zod`) — shared validation shape       |
 | State    | React state + module-level caches (see `useLeadSources` for the pattern)          |
 | Email    | Resend (transactional)                                                            |
 | AI       | Anthropic (ARIA assistant) + Gemini for select flows                              |
 | Build    | Turborepo + pnpm 10                                                               |
-| Infra    | GCP Cloud Run (asia-southeast1) + Artifact Registry, GitHub Actions, WIF          |
+| Infra    | GCP Cloud Run on `production`; staging Cloud Run + edge on `preview`              |
 | Telemetry | PostHog (`packages/database` + `apps/api/src/modules/telemetry`)                 |
 
 ---
@@ -35,10 +38,17 @@ For product framing, read `docs/PROJECT_OVERVIEW.md`. For module-by-module scope
 
 ```
 apps/
-  api/    # Express server — :3001 in dev, Cloud Run in prod
-  web/    # Next.js app — :3000 in dev
+  api/         # Express server — :3001 locally, Cloud Run on production
+  web/         # Next.js app — :3000 locally
+  edge/        # Hono Cloudflare Worker (Express port)
+  edge-jobs/   # Cron Triggers + Queue fan-out
+  app/         # Expo Router client
 packages/
   database/      # Prisma schema (split per domain) + migrations + seed
+  db/            # Drizzle schema for the edge
+  core/          # Shared domain services for the edge
+  auth/          # Better Auth helpers
+  contracts/     # Shared route / DTO contracts
   ui/            # Shared utils + re-exports only. The shadcn components
                  # live in apps/web/src/components/ui/ (56 files).
   types/         # Shared TS types
@@ -49,10 +59,10 @@ docker/   # Cloud Run images (Dockerfile.api / Dockerfile.web)
 docs/     # PRDs, specs, handoffs (human-curated, mostly read-only for AI)
 e2e/      # Playwright suites
 .agents/  # Agent prompts + CLAUDE.md drop-ins
-.github/workflows/   # deploy.yml + pr-checks.yml
+.github/workflows/   # production + preview deploys + pr-checks
 ```
 
-Workspace package names: `@nexora/api`, `@nexora/web`, `@nexora/database`, `@nexora/ui`, `@nexora/types`, `@nexora/utils`.
+Workspace package names: `@nexora/api`, `@nexora/web`, `@nexora/database`, `@nexora/edge`, `@nexora/app`, `@nexora/db`, `@nexora/ui`, `@nexora/types`, `@nexora/utils`.
 
 ---
 
@@ -171,36 +181,41 @@ Adding a new secret: root `.env.development` → mirror in web if `NEXT_PUBLIC_*
 ```bash
 pnpm dev:api        # Express on :3001
 pnpm dev:web        # Next.js on :3000
-pnpm dev            # both via turbo
+pnpm dev:edge       # wrangler dev
+pnpm dev:app        # Expo
+pnpm dev            # turbo
 
 pnpm db:generate    # regenerate Prisma client
-pnpm db:migrate     # create + apply dev migration
+pnpm db:migrate     # create + apply local migration
 pnpm db:seed        # run seed.ts
 pnpm db:studio      # Prisma Studio
-pnpm db:push        # push schema without migration (dev only)
+pnpm db:push        # push schema without migration (local / staging only)
 
 pnpm type-check     # all workspaces
 pnpm lint           # all workspaces
 pnpm test           # vitest, all workspaces
 pnpm test:e2e       # playwright
+pnpm route-parity   # Express vs Hono coverage
 ```
 
-Prod variants are gated: `db:migrate:prod:deploy`, `db:migrate:prod:resolve-baseline-rolled-back`. Use sparingly — `deploy.yml` runs migrations automatically on push to main.
+Prod variants are gated: `db:migrate:prod:deploy`, `db:migrate:prod:resolve-baseline-rolled-back`. Use sparingly — `deploy.yml` runs migrations automatically on push to `production`.
 
 ---
 
 ## CI / Deploy
 
-- **PR checks** (`.github/workflows/pr-checks.yml`) gate merges on: type-check, lint, test (vitest), brand-drift grep. Warnings allowed; errors block. Runs on PRs targeting **both `main` and `dev`** (`branches: [main, dev]`).
-- **Prod deploy** (`.github/workflows/deploy.yml`) fires on push to `main` → Cloud Run `nexora-api` / `nexora-web`:
+- **PR checks** (`.github/workflows/pr-checks.yml`) gate merges on: type-check, lint, test (vitest), brand-drift grep. Warnings allowed; errors block. Runs on PRs targeting **`main`, `preview`, and `production`**. Manut branch protection still names the required check `Validate`.
+- **`main`** is the trunk. Pushing it does not deploy Cloud Run or Vercel.
+- **Prod deploy** (`.github/workflows/deploy.yml` + `deploy-vercel.yml`) fires on push to `production` → Cloud Run `nexora-api` / `nexora-web`:
   1. Apply Prisma migrations via `prisma migrate deploy` (with auto-resolve step for known-stuck names — failed migration names are listed in the `for name in \ ...` loop, `|| true` keeps it idempotent)
   2. Build Docker image for API
   3. Push to Artifact Registry + deploy to Cloud Run (with 3× retry on AR propagation)
   4. Same flow for Web
   5. Provision / refresh Cloud Scheduler cron jobs
-- **Staging deploy** (`.github/workflows/deploy-staging.yml`) fires on push to `dev` → separate Cloud Run `nexora-api-staging` / `nexora-web-staging`, separate Supabase project via `STAGING_*` secrets (`STAGING_DATABASE_URL`, `STAGING_DIRECT_URL`, `STAGING_NEXT_PUBLIC_SUPABASE_URL`, `STAGING_NEXT_PUBLIC_SUPABASE_ANON_KEY`, `STAGING_SUPABASE_SERVICE_ROLE_KEY`). **Schema is synced with `pnpm db:push`, NOT `prisma migrate deploy`** — so migrations don't run on staging and any data-migration SQL inside a migration is skipped there. Same `asia-southeast1` region + `nexora` Artifact Registry repo (`api-staging` / `web-staging` images).
+- **Staging deploy** (`.github/workflows/deploy-staging.yml` + `deploy-edge-staging.yml`) fires on push to `preview` → Cloud Run `nexora-api-staging` / `nexora-web-staging` plus the edge worker, separate Supabase via `STAGING_*` secrets. **Schema is synced with `pnpm db:push`, NOT `prisma migrate deploy`** — so migrations don't run on staging and any data-migration SQL inside a migration is skipped there.
 - **Cloud Run region**: `asia-southeast1` (Singapore). DB is Supabase SG; staying in the same region keeps p50 latency under 5ms.
 - **Cron endpoints**: `apps/api/src/modules/cron/*` auth via `X-Cron-Secret: ${CRON_SECRET}`. Add new cron names to deploy.yml + coordinate with infra.
+- Promote env branches with a merge commit. See `docs/RELEASE_PROCESS.md`.
 
 When a migration breaks prod: add the name to the resolve loop in `deploy.yml`, push, the next deploy clears the failed row and re-applies the corrected SQL. See the 2026-05-28 P3018 incident.
 
@@ -275,7 +290,7 @@ Permission rule of thumb: if a module has owner vs admin visibility, add a `<sco
 ## Recent shape (as of 2026-06-16)
 
 - 70+ API modules, ~50 web route groups, ~5,000 lines of Prisma schema across 14 domain files
-- **Staging environment** — new `dev` branch deploys to a separate Cloud Run pair (`nexora-api-staging` / `nexora-web-staging`) against a separate Supabase project via `STAGING_*` secrets (`deploy-staging.yml`). Staging syncs schema with **`pnpm db:push`** (no `prisma migrate deploy`), so migrations — and any data-migration SQL embedded in them — do NOT run on staging. `pr-checks.yml` gates PRs into both `main` and `dev`.
+- **Env branches** — `preview` deploys staging Cloud Run + edge; `production` deploys prod Cloud Run + Vercel. Staging syncs schema with **`pnpm db:push`** (no `prisma migrate deploy`), so migrations — and any data-migration SQL embedded in them — do NOT run on staging. `pr-checks.yml` gates PRs into `main`, `preview`, and `production`.
 - **Soft delete across modules** — `users`, `accounting`, `leave`, `travel`, `expenses`, `cash-advance`, `visa` carry a `deletedAt` column (`@@index([deletedAt])` on the hot ones). Shared helpers in `apps/api/src/infrastructure/soft-delete.ts`: `excludeDeleted()` (where-fragment `{ deletedAt: null }` for list/count), `softDeleteUpdate()` (sets `deletedAt = now`), `restoreUpdate()` (nulls it). Delete is now soft by default; restore + permanent-delete routes expose `POST /:id/restore` + `DELETE /:id/permanent` per module. Restore/remove re-fetch via a `find*ByIdIncludingDeleted` repo method and enforce owner-or-HR ownership in the service (leave/travel/expenses/cash-advance check `employeeId === actor || permissions.includes(<hr-perm>)`; users gate cross-admin edits via `assertActorMayManageAdminUser`).
 - **Attendance** (inside the `hrms` module + `/hrms` route, three controllers: `attendance`, `attendance-phase2`, `attendance-phase3`). Timezone-correct — `attendance-timezone.util.ts` resolves the employee's IANA zone (default `Asia/Bangkok`), converts wall-clock to UTC (`zonedLocalToUtc`), snapshots `employeeTimezone` per record, and computes late-minutes in zone. Cron alerts: `POST /api/cron/attendance-missed-checks` (missed check-in/out reminders) + `POST /api/cron/attendance-manager-alerts` (daily manager summary). Corrections: `AttendanceCorrection` request → `POST /attendance/corrections/:id/approve|reject` (gated `hrms:attendance-correction-approve`). Models in `hr.prisma`: `AttendancePolicy`, `AttendanceRecord`, `AttendanceCorrection`, `AttendanceShift`, `AttendanceEmployeeShift`, `AttendanceException`, `AttendanceAuditLog`.
 - **Survey Forms (`/survey-forms`, sidebar "Survey Forms")** — Google-Forms-style builder; module `apps/api/src/modules/survey-forms/` at `/api/survey-forms`, gated on `survey:manage-wave` (distinct from the older xlsx-wave `survey` module). Models in `hr.prisma`: `SurveyForm` / `SurveyFormQuestion` / `SurveyFormResponse` / `SurveyFormAnswer`. Built-in form templates ship client-side (`components/survey-forms/survey-form-templates.ts`). **Announce-on-publish** (`POST /:id/publish` with an `announce` block, or the manual `POST /:id/announce`) writes a Company Wall post + Company News item + a Company Date (deadline) — each stamped with `linkUrl = /survey-forms/{id}/respond` for dashboard deep-links — and the form also surfaces in the notification bell's "survey" group (server read-model, see below). Announcement defaults are an admin-editable `SystemSetting` (`survey.announcement_defaults`, GET/PUT `/announcement-settings`). Lifecycle: `PUT /:id/schedule` (start/end window), `POST /:id/close`, `POST /:id/archive` + `/unarchive` (orthogonal `archivedAt`). Availability gating via `isOpenNow()` blocks responses outside `[startDate, endDate]`. Analytics via `GET /:id/analytics`; raw rows via `GET /:id/responses`.

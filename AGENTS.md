@@ -1,5 +1,7 @@
 # AGENTS.md — how we build on the Intranet
 
+This GitHub repository is [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Trunk is `main`; `preview` is staging; `production` is prod.
+
 This is the orientation for any AI agent or new engineer picking up work in this repo. It captures **how we work** and **the patterns we've learned**, distilled from real shipped features. Read it once, then lean on:
 
 - **`CLAUDE.md`** — the binding rules + conventions (route order, RBAC, migrations, the reusable-patterns catalogue). If AGENTS.md and CLAUDE.md ever disagree, CLAUDE.md wins.
@@ -15,7 +17,7 @@ This is the orientation for any AI agent or new engineer picking up work in this
 3. **Branch + PR per feature.** Branch `claude/<slug>` off `main`. Conventional-commit titles (`feat(scope):`, `fix(scope):`). PR body = Summary + Test plan checklist.
 4. **Verify locally before pushing — every gate:**
    - `pnpm db:generate` (if schema changed)
-   - `pnpm type-check` (10/10 workspaces)
+   - `pnpm type-check` (all workspaces)
    - `pnpm lint` (api + web; warnings allowed, errors block)
    - `pnpm test` (api + web vitest)
    - `pnpm --filter @nexora/web build` (all pages)
@@ -28,10 +30,14 @@ This is the orientation for any AI agent or new engineer picking up work in this
 
 ## Deploy reality (read this)
 
-- `main` push → `Deploy to GCP Cloud Run` (`nexora-api` / `nexora-web`), which runs **`prisma migrate deploy`** (applies only *pending* migrations against prod, which already holds the prior history) **before** the Docker build.
-- `dev` push → `deploy-staging.yml` (`nexora-api-staging` / `nexora-web-staging`, separate Supabase via `STAGING_*` secrets). Staging syncs schema with **`pnpm db:push`** — it does NOT run `prisma migrate deploy`, so **data-migration SQL embedded in a migration never fires on staging**. If a change relies on a backfill/data migration, it shows up on prod (where `migrate deploy` runs) but not on staging — seed/patch staging by hand or expect the column empty there.
-- **The prod deploy has been billing-blocked.** Merged-to-`main` code + CI-green does NOT mean it's live on `tbh-intranet...`. Always tell the user a feature is "live after the billing-blocked deploy runs," and that any migration applies on that deploy. Don't claim something is visible in the deployed app.
-- Because the prod deploy is blocked, **CI (`pr-checks`, which gates both `main` and `dev`) is how we prove correctness** — it runs independently of the deploy.
+This GitHub repo is [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Branches: `main` (trunk), `preview` (staging), `production` (prod).
+
+- `main` is the default integration branch. A push to `main` does **not** deploy Cloud Run or Vercel.
+- `preview` push → `deploy-staging.yml` (`nexora-api-staging` / `nexora-web-staging`) + `deploy-edge-staging.yml`. Separate Supabase via `STAGING_*` secrets. Staging syncs schema with **`pnpm db:push`** — it does NOT run `prisma migrate deploy`, so **data-migration SQL embedded in a migration never fires on staging**. If a change relies on a backfill/data migration, it shows up on prod (where `migrate deploy` runs) but not on staging — seed/patch staging by hand or expect the column empty there.
+- `production` push → `Deploy to GCP Cloud Run` (`nexora-api` / `nexora-web`) + `deploy-vercel.yml`. Cloud Run runs **`prisma migrate deploy`** (applies only *pending* migrations against prod) **before** the Docker build.
+- Promote `main` → `preview` and `main` → `production` with a **merge commit**, never a squash. See `docs/RELEASE_PROCESS.md`.
+- Do **not** claim a feature is live on a URL until a `production` (or `preview`) deploy has actually run. Merged-to-`main` + CI-green is not a deploy.
+- **CI (`pr-checks`, which gates `main`, `preview`, and `production`) is how we prove correctness** — it runs independently of deploy. Manut branch protection still requires a check named `Validate`; this tree's workflow is named `PR Checks`.
 
 ---
 
@@ -102,6 +108,7 @@ To extend a module: read its `service.ts` + `validation.ts`, find the nearest si
 | **Content / Comms** | `blogs` `articles` `news` `wall` `messages` `survey` `survey-forms` `docs` `policies` `legal-announcements` | `/blog-management` `/pr-management` `/messages` `/survey` `/docs` `/policies` `/legal` | `content.prisma`, `comms.prisma` | rich-text (`sanitizeRichHtml`); signed-URL downloads |
 | **ARIA (AI)** | `aria` | `/aria` | (corpus tables) | eval-gated tools; see CLAUDE.md ARIA evals |
 | **Platform** | `auth` `admin` `integrations` `uploads` `dashboard` `cron` `company-dates` `validator-monitor` `telemetry` | `/admin` `/settings` `/gmail` `/drive` | `core.prisma`, `integrations.prisma`, `system.prisma` | Supabase auth; Google OAuth; SystemSetting key/value |
+| **Edge** | Hono routes in `apps/edge/src/routes/` (services from `@nexora/core`) | Worker, not Next | `@nexora/db` Drizzle | Express port; 501 for Node-only work; `pnpm route-parity` |
 
 Anything not listed still follows the universal layout above — open the folder and mirror its neighbours.
 
