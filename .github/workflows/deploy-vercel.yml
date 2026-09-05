@@ -1,5 +1,5 @@
 # =============================================================================
-# Intranet — Vercel production deploy (main only, single project)
+# Intranet — Vercel production deploy (production only, single project)
 #
 # One Vercel project: Root Directory `apps/web`.
 # Express is mounted via pages/api/[[...path]].js (same origin /api/*).
@@ -12,14 +12,14 @@
 #   VERCEL_PROJECT_ID
 #
 # If Vercel Git Integration is also enabled for this repo, disable auto-deploy
-# on main (or turn it off) to avoid double deploys.
+# on production (or turn it off) to avoid double deploys.
 # =============================================================================
 
 name: Deploy Web to Vercel
 
 on:
   push:
-    branches: [main]
+    branches: [production]
     paths:
       - "apps/web/**"
       - "apps/api/**"

@@ -1,13 +1,13 @@
 # =============================================================================
 # Intranet - Deploy to GCP Cloud Run Staging
-# Triggers on push to dev branch
+# Triggers on push to preview
 # =============================================================================
 
 name: Deploy to Staging
 
 on:
   push:
-    branches: [dev]
+    branches: [preview]
     # Docs/agent markdown never need new Cloud Run images (~9–10 min saved per merge).
     paths-ignore:
       - "docs/**"

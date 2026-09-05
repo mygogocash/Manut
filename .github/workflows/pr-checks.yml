@@ -25,7 +25,7 @@ name: PR Checks
 
 on:
   pull_request:
-    branches: [main, dev]
+    branches: [main, preview, production]
     # Markdown/docs-only PRs don't affect type-check, lint, or test.
     paths-ignore:
       - "docs/**"
@@ -36,7 +36,7 @@ on:
   # a push run there is no branch-level signal that main went red — which is
   # exactly how the okf coverage break sat unnoticed on main on 2026-08-24.
   push:
-    branches: [main, dev]
+    branches: [main, preview, production]
     paths-ignore:
       - "docs/**"
       - "**/*.md"
@@ -117,7 +117,7 @@ jobs:
 
       - name: Decide
         id: decide
-        # A push to main/dev, or a manual run, always gets the full set — a
+        # A push to main/preview/production, or a manual run, always gets the full set — a
         # branch-health signal that skipped half its gates is not a signal.
         run: |
           set -euo pipefail
