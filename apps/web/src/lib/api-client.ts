@@ -45,6 +45,7 @@ const authFlowPagePaths = [
   "/magic-link",
   "/forgot-password",
   "/reset-password",
+  "/welcome",
 ];
 
 function isOnAuthFlowPage(): boolean {
