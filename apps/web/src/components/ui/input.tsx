@@ -2,6 +2,17 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+// Text size is keyed to the POINTER, not the viewport width.
+//
+// iOS Safari zooms the viewport whenever a focused text field computes under
+// 16px, and never zooms back out. The rule here used to be a bare
+// `md:text-sm`, which encodes "768px or wider is a desktop" — an assumption
+// an iPad Mini (768px, touch) disproves. Phase 7E measured 14px on the iPad
+// profile because of it. `md:pointer-fine:text-sm` keeps the smaller desktop
+// size for anything driven by a mouse and leaves every touch device at 16px,
+// at every width including iPad landscape. Compounded into one variant rather
+// than layered as a separate `pointer-coarse:` utility, so there is no
+// source-order race between two same-specificity media queries.
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   // Chrome DevTools "Issues" flags `<input>` without an `id` OR `name`
   // attribute as autofill-unfriendly. `autocomplete="off"` alone
@@ -45,7 +56,7 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
           dark:bg-input/30 dark:disabled:bg-input/80
           dark:aria-invalid:border-destructive/50
           dark:aria-invalid:ring-destructive/40
-          md:text-sm
+          md:pointer-fine:text-sm
         `,
         className,
       )}

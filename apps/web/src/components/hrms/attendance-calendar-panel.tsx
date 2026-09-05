@@ -131,7 +131,7 @@ export function AttendanceCalendarPanel({
               setScope(v as "employee" | "team" | "department")
             }
           >
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[140px]" aria-label="Calendar view">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -146,7 +146,7 @@ export function AttendanceCalendarPanel({
           </Select>
           {scope === "department" && canViewDepartment ? (
             <Select value={department} onValueChange={setDepartment}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[160px]" aria-label="Filter by department">
                 <SelectValue placeholder="All departments" />
               </SelectTrigger>
               <SelectContent>

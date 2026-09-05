@@ -10,7 +10,7 @@
 @layer base {
   :root {
     /* Cream / bronze / gold "quiet luxury" palette
-       Shared product design tokens.
+       Sourced from tbh-intranet.web.app live tokens (2026-05-06).
        Maps: --bg #F4F2EC, --tx #0D0B07, --acc #8B6B3D, --acc2 #C8A84B,
        --gr #2D6A4F, --amber #D24726, --red #C0392B, --blue #1A3A5C */
     --background: 45 27% 94%;
@@ -20,7 +20,16 @@
     --foreground: 36 33% 4%;
     --foreground-secondary: 30 10% 21%;
     --muted: 47 22% 92%;
-    --muted-foreground: 36 9% 65%;
+    /* 65% gave 2.03-2.38:1 against the four light backgrounds this token is
+       read on (background, surface, surface-secondary, muted) - well under the
+       4.5:1 AA floor for normal text, and axe flagged it on the sign-in form
+       labels in Phase 7E. 41% is the LIGHTEST value that clears 4.5:1 on all
+       four (4.53 worst, on bg-muted). Hue and saturation are unchanged, so the
+       warm grey is the same colour family, just readable; --foreground is
+       36 33% 4%, so the muted/primary hierarchy still reads clearly.
+       The dark theme already passed (4.93-9.09:1) and is deliberately
+       untouched. */
+    --muted-foreground: 36 9% 41%;
     --primary: 33 39% 39%;
     --primary-foreground: 0 0% 100%;
     --primary-light: 45 56% 54%;
@@ -36,6 +45,26 @@
     --destructive-foreground: 0 0% 100%;
     --info: 211 56% 23%;
     --info-foreground: 0 0% 100%;
+
+    /* Phase 2: the two token slots the mobile prototype's vocabulary needs and
+       the palette did not already provide.
+
+       Everything else it names already exists under this project's own
+       semantic names, so it is mapped rather than duplicated:
+         background -> --background   surface  -> --surface
+         surface2   -> --surface-secondary
+         gold       -> --primary-light   bronze -> --primary
+         green      -> --success   red -> --destructive
+         amber      -> --warning   blue -> --info                              */
+
+    /* surface3 — a third elevation for a panel nested inside a card. */
+    --surface-tertiary: 47 20% 95%;
+    /* violet — the one accent hue with no existing slot. Reserved for
+       categorical use (a chart series, a non-status label); it deliberately
+       carries no status meaning, so it can never be confused with the four
+       above. */
+    --violet: 262 42% 46%;
+    --violet-foreground: 0 0% 100%;
     --border: 36 25% 88%;
     --input: 36 25% 88%;
     --ring: 33 39% 39%;
@@ -102,6 +131,12 @@
     --destructive-foreground: 36 33% 6%;
     --info: 211 70% 64%;
     --info-foreground: 36 33% 6%;
+
+    /* See the note in :root. Dark values are lifted, not inverted: a nested
+       surface must read as *above* the card behind it in both themes. */
+    --surface-tertiary: 30 9% 21%;
+    --violet: 262 60% 70%;
+    --violet-foreground: 265 40% 12%;
     --border: 45 27% 96% / 0.1;
     --input: 30 15% 14%;
     --ring: 45 65% 62%;
@@ -143,6 +178,7 @@
   html {
     @apply font-sans;
   }
+
 }
 
 @theme inline {
@@ -169,6 +205,9 @@
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-info: hsl(var(--info));
   --color-info-foreground: hsl(var(--info-foreground));
+  --color-surface-tertiary: hsl(var(--surface-tertiary));
+  --color-violet: hsl(var(--violet));
+  --color-violet-foreground: hsl(var(--violet-foreground));
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
@@ -268,4 +307,143 @@
 
 .birthday-widget-celebrate {
   animation: birthday-widget-pop 1.5s ease-out;
+}
+/* ==========================================================================
+   Responsive foundation (Phase 1)
+   ========================================================================== */
+
+@layer base {
+  html {
+    /* iOS Safari inflates font sizes on rotation to landscape without this. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    /* Taps on interactive elements flashed a grey box on Android Chrome. The
+       app has its own :active / focus-visible states, so suppress the native
+       one rather than layering two feedback mechanisms. */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* The shell is a fixed-height flex column with its own internal scroll
+     region, so a wide child cannot make the *page* scroll sideways — it makes
+     the scroll region do it, which is worse: the header stays put while the
+     content slides under it. `clip` (not `hidden`) contains that without
+     creating a new scroll container, so `position: sticky` inside still works.
+     Opted out per-element with `.allow-x-scroll` for tabs and carousels. */
+  [data-ph-scroll-root] {
+    overflow-x: clip;
+  }
+}
+
+@layer utilities {
+  /* Safe-area padding. Only meaningful because the viewport is declared with
+     viewportFit: "cover" — see the note in src/app/layout.tsx. The max() keeps
+     a sensible minimum on devices that report a zero inset. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  /* For a sticky footer that must clear the iOS home indicator while keeping
+     its own breathing room. */
+  .pb-safe-offset-3 {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+  .pb-safe-offset-4 {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Long unbroken strings — URLs, emails, IDs, 18-digit numbers — are the most
+     common cause of a table cell or card forcing horizontal overflow. */
+  .break-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* A flex/grid child defaults to min-width:auto, which refuses to shrink below
+     its content. That single rule is why truncation "doesn't work" inside flex
+     rows; apply this to the shrinkable child. */
+  .min-w-0-force {
+    min-width: 0;
+  }
+
+  /* Opt back in to horizontal scrolling where it is the intended interaction
+     (tab strips, action strips, carousels) rather than an accident. */
+  .allow-x-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .allow-x-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* WCAG 2.5.5 / Apple HIG minimum. Applied to icon-only controls that are
+     visually smaller than their hit area needs to be. */
+  .touch-target {
+    position: relative;
+  }
+  .touch-target::after {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* ==========================================================================
+   Layer scale (Phase 2)
+   ==========================================================================
+   The app already stacks things consistently by convention — z-10 for sticky
+   elements inside a page, z-50 for overlays — but the numbers were written per
+   component, so "which of these two sits on top" was answered by grepping.
+   Naming the layers makes the stack reviewable, and a new component can pick a
+   level rather than a number.
+
+   Existing usage is unchanged; these are for new shared components. Radix
+   portals its own overlays at z-50, so anything meant to sit over a dialog
+   (a toast, a command palette) has to be above that.               */
+
+@layer base {
+  :root {
+    --z-base: 0;
+    --z-sticky: 10; /* sticky table headers, in-page action bars */
+    --z-header: 20; /* the app topbar */
+    --z-overlay: 50; /* dialogs, sheets, drawers — matches Radix */
+    --z-toast: 100; /* must clear an open dialog */
+    --z-tooltip: 150;
+  }
+}
+
+@layer utilities {
+  .z-sticky {
+    z-index: var(--z-sticky);
+  }
+  .z-header {
+    z-index: var(--z-header);
+  }
+  .z-overlay {
+    z-index: var(--z-overlay);
+  }
+  .z-toast {
+    z-index: var(--z-toast);
+  }
+  .z-tooltip {
+    z-index: var(--z-tooltip);
+  }
 }

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { HELPDESK_SLA, slaTargetFor } from "@/modules/helpdesk/helpdesk.sla";
-import { arrayAt } from "@/test-utils/assertions";
 
 describe("helpdesk SLA policy", () => {
   it("returns the exact tier for a known priority", () => {
@@ -25,10 +24,10 @@ describe("helpdesk SLA policy", () => {
       HELPDESK_SLA.low,
     ];
     for (let i = 1; i < tiers.length; i++) {
-      const current = arrayAt(tiers, i, "current SLA tier");
-      const previous = arrayAt(tiers, i - 1, "previous SLA tier");
-      expect(current.response).toBeGreaterThanOrEqual(previous.response);
-      expect(current.resolution).toBeGreaterThanOrEqual(previous.resolution);
+      expect(tiers[i].response).toBeGreaterThanOrEqual(tiers[i - 1].response);
+      expect(tiers[i].resolution).toBeGreaterThanOrEqual(
+        tiers[i - 1].resolution,
+      );
     }
   });
 });

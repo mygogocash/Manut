@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from "@/common/exceptions/http-exception";
 import { investorPipelineStageRepository } from "@/modules/investor-pipeline-stages/investor-pipeline-stages.repository";
-import { InvestorPipelineStageService } from "@/modules/investor-pipeline-stages/investor-pipeline-stages.service";
+import {
+  DEFAULT_INVESTOR_STAGES,
+  InvestorPipelineStageService,
+} from "@/modules/investor-pipeline-stages/investor-pipeline-stages.service";
 
 vi.mock(
   "@/modules/investor-pipeline-stages/investor-pipeline-stages.repository",
@@ -19,11 +22,14 @@ vi.mock(
       update: vi.fn(),
       deleteAndReassign: vi.fn(),
       applySortOrder: vi.fn(),
+      createManyIfMissing: vi.fn(),
     },
   }),
 );
 
 const findAll = investorPipelineStageRepository.findAll as Mock;
+const createManyIfMissing =
+  investorPipelineStageRepository.createManyIfMissing as Mock;
 const findByKey = investorPipelineStageRepository.findByKey as Mock;
 const maxSortOrder = investorPipelineStageRepository.maxSortOrder as Mock;
 const create = investorPipelineStageRepository.create as Mock;
@@ -90,6 +96,46 @@ describe("InvestorPipelineStageService.reorder", () => {
     await service.reorder({ orderedKeys: ["b", "ghost", "a"] });
     expect(investorPipelineStageRepository.applySortOrder).toHaveBeenCalledWith(
       ["b", "a"],
+    );
+  });
+});
+
+describe("pipeline stage catalog lazy seeding", () => {
+  // The rows ship as an INSERT inside a migration, which `db:push` never runs —
+  // staging had an empty table, so the board rendered zero columns / the picker
+  // had no options and the module looked broken.
+  it("backfills the shipped catalog when the table is empty", async () => {
+    const seeded = DEFAULT_INVESTOR_STAGES.map((r) => ({ ...r }));
+    findAll.mockResolvedValueOnce([]).mockResolvedValueOnce(seeded);
+    createManyIfMissing.mockResolvedValue({ count: seeded.length });
+
+    const res = await new InvestorPipelineStageService().list();
+
+    expect(createManyIfMissing).toHaveBeenCalledTimes(1);
+    expect(createManyIfMissing.mock.calls[0][0]).toHaveLength(8);
+    expect(createManyIfMissing.mock.calls[0][0][0]).toMatchObject({
+      key: "investors",
+    });
+    expect(res).toHaveLength(8);
+  });
+
+  it("never repopulates a catalog an admin deliberately pruned", async () => {
+    findAll.mockResolvedValue([
+      { key: "investors", label: "Kept", sortOrder: 0 },
+    ]);
+
+    const res = await new InvestorPipelineStageService().list();
+
+    expect(createManyIfMissing).not.toHaveBeenCalled();
+    expect(res).toHaveLength(1);
+  });
+
+  it("degrades to an empty catalog when the repository yields nothing", async () => {
+    findAll.mockResolvedValue(undefined);
+    createManyIfMissing.mockResolvedValue({ count: 0 });
+
+    await expect(new InvestorPipelineStageService().list()).resolves.toEqual(
+      [],
     );
   });
 });

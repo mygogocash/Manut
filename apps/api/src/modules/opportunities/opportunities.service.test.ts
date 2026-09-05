@@ -8,7 +8,6 @@ import { accountRepository } from "@/modules/accounts/accounts.repository";
 import { contactRepository } from "@/modules/contacts/contacts.repository";
 import { opportunityRepository } from "@/modules/opportunities/opportunities.repository";
 import { OpportunityService } from "@/modules/opportunities/opportunities.service";
-import { mockArgument } from "@/test-utils/assertions";
 
 vi.mock("@/modules/accounts/accounts.repository", () => ({
   accountRepository: { findById: vi.fn() },
@@ -29,10 +28,24 @@ vi.mock("@/modules/opportunities/opportunities.repository", () => ({
     forecastRows: vi.fn(),
     findStageConfig: vi.fn().mockResolvedValue(null),
     findManyByIds: vi.fn(),
-    listStageIdsOrdered: vi.fn(),
-    reorderWithinStage: vi.fn(),
   },
 }));
+
+// The per-business-unit child rows are exercised in
+// opportunities.write-path-bu.test.ts. Stubbed here so these §11.4
+// probability/stage tests don't need a database.
+vi.mock(
+  "@/modules/opportunities/opportunity-business-units.repository",
+  () => ({
+    ensureBusinessUnitRows: vi.fn(async () => ({
+      mode: "synced",
+      added: [],
+      removed: [],
+    })),
+    pushDealFieldsToBusinessUnits: vi.fn(async () => {}),
+    recomputeOpportunityRollup: vi.fn(async () => {}),
+  }),
+);
 
 // Forecast service consults exchange_rates via Prisma. Stub the
 // resolveRate helper so unit tests don't need a real DB.
@@ -63,9 +76,6 @@ const update = opportunityRepository.update as Mock;
 const remove = opportunityRepository.delete as Mock;
 const pipelineSummary = opportunityRepository.pipelineSummary as Mock;
 const forecastRows = opportunityRepository.forecastRows as Mock;
-const findManyByIds = opportunityRepository.findManyByIds as Mock;
-const listStageIdsOrdered = opportunityRepository.listStageIdsOrdered as Mock;
-const reorderWithinStage = opportunityRepository.reorderWithinStage as Mock;
 
 const USER_ID = "11111111-1111-1111-1111-111111111111";
 const OTHER_USER_ID = "22222222-2222-2222-2222-222222222222";
@@ -102,8 +112,16 @@ describe("OpportunityService", () => {
   describe("list", () => {
     it("scopes to caller without crm:team-read", async () => {
       findMany.mockResolvedValue({ data: [], total: 0 });
-      await service.list(USER_ID, ["crm:read"], { page: 1, limit: 20 });
-      expect(findMany).toHaveBeenCalledWith({ ownerScope: [USER_ID] }, 1, 20);
+      await service.list(USER_ID, ["crm:read"], {
+        page: 1,
+        limit: 20,
+        archived: false,
+      });
+      expect(findMany).toHaveBeenCalledWith(
+        { archived: false, ownerScope: [USER_ID] },
+        1,
+        20,
+      );
     });
   });
 
@@ -111,11 +129,26 @@ describe("OpportunityService", () => {
     it("delegates to repo with proper scope", async () => {
       pipelineSummary.mockResolvedValue([]);
       await service.pipeline(USER_ID, ["crm:read", "crm:team-read"]);
-      expect(pipelineSummary).toHaveBeenCalledWith({ ownerScope: undefined });
+      expect(pipelineSummary).toHaveBeenCalledWith(
+        { ownerScope: undefined },
+        {},
+      );
+    });
+
+    it("forwards the board filters so headers match the filtered cards", async () => {
+      pipelineSummary.mockResolvedValue([]);
+      await service.pipeline(USER_ID, ["crm:read", "crm:team-read"], {
+        businessUnit: "onewave",
+        region: "APAC",
+      });
+      expect(pipelineSummary).toHaveBeenCalledWith(
+        { ownerScope: undefined },
+        { businessUnit: "onewave", region: "APAC" },
+      );
     });
   });
 
-  describe("create — probability defaults", () => {
+  describe("create — §11.4 probability defaults", () => {
     it("snaps probability to stage default when omitted", async () => {
       findAccount.mockResolvedValue(baseAccount);
       create.mockResolvedValue(baseOpp);
@@ -192,7 +225,36 @@ describe("OpportunityService", () => {
     });
   });
 
-  describe("update — stage / probability interplay", () => {
+  describe("update — §11.4 stage / probability interplay", () => {
+    it("re-arms the close-date reminder ladder when closeDate changes", async () => {
+      findById.mockResolvedValue(baseOpp);
+      update.mockResolvedValue(baseOpp);
+
+      await service.update("opp-1", USER_ID, ["crm:update"], {
+        closeDate: "2026-08-15",
+      });
+
+      expect(update).toHaveBeenCalledWith(
+        "opp-1",
+        expect.objectContaining({
+          remindersSent: [],
+          lastReminderSentAt: null,
+        }),
+      );
+    });
+
+    it("does NOT reset the reminder ladder when closeDate is untouched", async () => {
+      findById.mockResolvedValue(baseOpp);
+      update.mockResolvedValue(baseOpp);
+
+      await service.update("opp-1", USER_ID, ["crm:update"], {
+        notes: "called them",
+      });
+
+      const args = update.mock.calls[0][1] as Record<string, unknown>;
+      expect(args.remindersSent).toBeUndefined();
+    });
+
     it("snaps probability on stage change when probabilityCustom = false", async () => {
       findById.mockResolvedValue({
         ...baseOpp,
@@ -225,10 +287,7 @@ describe("OpportunityService", () => {
         stage: "proposal",
       });
 
-      const args = mockArgument(update.mock.calls, 0, 1) as Record<
-        string,
-        unknown
-      >;
+      const args = update.mock.calls[0][1] as Record<string, unknown>;
       expect(args).not.toHaveProperty("probability");
       expect(args.stage).toBe("proposal");
     });
@@ -250,7 +309,7 @@ describe("OpportunityService", () => {
       );
     });
 
-    it("allows field edits on a closed_won opportunity", async () => {
+    it("allows field edits on a closed_won opportunity (BD-feedback)", async () => {
       findById.mockResolvedValue({ ...baseOpp, stage: "closed_won" });
       update.mockResolvedValue({ ...baseOpp, stage: "closed_won", value: 999 });
 
@@ -262,7 +321,7 @@ describe("OpportunityService", () => {
       );
     });
 
-    it("allows field edits on a closed_lost opportunity", async () => {
+    it("allows field edits on a closed_lost opportunity (BD-feedback)", async () => {
       findById.mockResolvedValue({ ...baseOpp, stage: "closed_lost" });
       update.mockResolvedValue({
         ...baseOpp,
@@ -319,7 +378,7 @@ describe("OpportunityService", () => {
     });
   });
 
-  describe("reopen", () => {
+  describe("reopen — §11.4", () => {
     it("flips closed_lost back to qualified and snaps probability when not custom", async () => {
       findById.mockResolvedValue({
         ...baseOpp,
@@ -377,10 +436,7 @@ describe("OpportunityService", () => {
         stage: "negotiation",
       });
 
-      const args = mockArgument(update.mock.calls, 0, 1) as Record<
-        string,
-        unknown
-      >;
+      const args = update.mock.calls[0][1] as Record<string, unknown>;
       expect(args).not.toHaveProperty("probability");
       expect(args.stage).toBe("negotiation");
       expect(args.lostReason).toBeNull();
@@ -432,86 +488,7 @@ describe("OpportunityService", () => {
     });
   });
 
-  describe("reorderWithinStage", () => {
-    it("renumbers the whole stage with submitted cards on top", async () => {
-      findManyByIds.mockResolvedValue([
-        { id: "a", stage: "qualified", ownerId: USER_ID },
-        { id: "b", stage: "qualified", ownerId: USER_ID },
-      ]);
-      // Full stage order includes an un-loaded card "c".
-      listStageIdsOrdered.mockResolvedValue(["b", "a", "c"]);
-      reorderWithinStage.mockResolvedValue(3);
-
-      const res = await service.reorderWithinStage(USER_ID, ["crm:update"], {
-        stageKey: "qualified",
-        orderedIds: ["a", "b"],
-      });
-
-      // Submitted (reordered) cards first, then remaining stage cards — so a
-      // partially-loaded column can't leave un-loaded rows colliding at 0.
-      expect(reorderWithinStage).toHaveBeenCalledWith(["a", "b", "c"]);
-      expect(res).toEqual({ success: true, reordered: 3 });
-    });
-
-    it("owner-scopes the lookup for a rep without crm:team-read", async () => {
-      findManyByIds.mockResolvedValue([
-        { id: "a", stage: "qualified", ownerId: USER_ID },
-      ]);
-      listStageIdsOrdered.mockResolvedValue(["a"]);
-
-      await service.reorderWithinStage(USER_ID, ["crm:update"], {
-        stageKey: "qualified",
-        orderedIds: ["a"],
-      });
-
-      expect(findManyByIds).toHaveBeenCalledWith(["a"], USER_ID);
-      expect(listStageIdsOrdered).toHaveBeenCalledWith("qualified", USER_ID);
-    });
-
-    it("does not owner-scope for crm:team-read callers", async () => {
-      findManyByIds.mockResolvedValue([
-        { id: "a", stage: "qualified", ownerId: OTHER_USER_ID },
-      ]);
-      listStageIdsOrdered.mockResolvedValue(["a"]);
-
-      await service.reorderWithinStage(
-        USER_ID,
-        ["crm:update", "crm:team-read"],
-        { stageKey: "qualified", orderedIds: ["a"] },
-      );
-
-      expect(findManyByIds).toHaveBeenCalledWith(["a"], undefined);
-    });
-
-    it("hides a foreign or missing id as NotFound (no enumeration oracle)", async () => {
-      // Owner-scoped lookup matches nothing for a not-mine / missing id.
-      findManyByIds.mockResolvedValue([]);
-
-      await expect(
-        service.reorderWithinStage(USER_ID, ["crm:update"], {
-          stageKey: "qualified",
-          orderedIds: ["foreign"],
-        }),
-      ).rejects.toThrow(NotFoundException);
-      expect(reorderWithinStage).not.toHaveBeenCalled();
-    });
-
-    it("rejects when an id belongs to a different stage", async () => {
-      findManyByIds.mockResolvedValue([
-        { id: "a", stage: "proposal", ownerId: USER_ID },
-      ]);
-
-      await expect(
-        service.reorderWithinStage(USER_ID, ["crm:update"], {
-          stageKey: "qualified",
-          orderedIds: ["a"],
-        }),
-      ).rejects.toThrow(BadRequestException);
-      expect(reorderWithinStage).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("forecast", () => {
+  describe("forecast — §11.5", () => {
     it("aggregates active opportunities into the report currency", async () => {
       forecastRows.mockResolvedValue([
         // 10000 USD @ 40% probability  → unweighted 10000, weighted 4000

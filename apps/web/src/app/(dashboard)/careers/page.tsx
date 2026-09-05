@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -74,7 +75,7 @@ export default function CareersPage() {
   const canExport = hasPermission("career:export");
   const canViewApps = hasPermission("application:read");
 
-  const [activeTab, setActiveTab] = useState("jobs");
+  const [activeTab, setActiveTab] = useTabParam("jobs");
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
 
   const [jobs, setJobs] = useState<Job[]>([]);

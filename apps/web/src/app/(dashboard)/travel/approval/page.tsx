@@ -383,7 +383,7 @@ export default function TravelApprovalConfigPage() {
         <div className="flex gap-2">
           <Input
             type="email"
-            placeholder="travel-desk@manut.example"
+            placeholder="travel-desk@thebinaryholdings.com"
             value={recipientInput}
             onChange={(e) => setRecipientInput(e.target.value)}
             onKeyDown={(e) => {

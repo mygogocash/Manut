@@ -1,0 +1,158 @@
+/// Configurable approval chains for the Project CRM.
+///
+/// ── Scope, stated plainly ──
+///
+/// ONLY the Project CRM uses these tables: project requests and proposals. The
+/// HR and Finance chains (travel, leave, expenses, cash advance, payroll) keep
+/// their own `*_approval_steps` / `*_approval_decisions` tables and their own
+/// HR/Finance-held permissions, and are deliberately NOT migrated here. Do not
+/// assume a chain exists for a module just because this table is generic: the
+/// registered scopes are an explicit two-value union in code
+/// (`approval-chains/chain.types.ts`).
+///
+/// The shape is generic because a rename later is worse than a general name now,
+/// not because anything else is wired to it yet. Adopting it elsewhere would be
+/// its own decision, with its own data migration.
+///
+/// ── Why a chain is data and the state machine is still code ──
+///
+/// The chain owns the APPROVAL SEGMENT: an ordered list of stages, each naming a
+/// person, between "submitted" and "approved". That is genuinely linear, so it
+/// is expressible as rows.
+///
+/// It does NOT own the rest of the project request lifecycle. `escalate` routes
+/// to somebody the PM names per request (data on the row, not configuration),
+/// `return` goes backwards, `reopen` revives a rejected record, and `complete`
+/// is a post-approval stage. None of those are "the next step in an order", so
+/// they stay coded transitions in `workflow.types.ts`. A chain that tried to
+/// express them would be a graph pretending to be a list.
+
+/// One chain per scope. There is no per-record chain: an admin configures the
+/// org's chain, and each record snapshots it on submit.
+///
+/// NOTE on id types: these are `text` holding a uuid string, NOT postgres `uuid`.
+/// Deliberate — `approval_chain_decisions` points at `projects.id` and
+/// `proposals.id`, which are cuid, so the family is text throughout. Adding
+/// `@db.Uuid` makes the schema disagree with the migration, and `prisma db push`
+/// then tries to retype a populated column, which fails. Only the columns that
+/// reference `users.id` are true `uuid`.
+model ApprovalChain {
+  id String @id @default(uuid())
+
+  /// "project_request" | "proposal". Unique, so a scope cannot end up with two
+  /// competing chains, which is the failure mode that would make routing
+  /// ambiguous.
+  scope String @unique @db.VarChar(50)
+
+  /// Shown in the admin editor. Not used for routing.
+  name        String  @db.VarChar(100)
+  description String?
+
+  /// Reserved for disabling a chain without deleting its steps. A record
+  /// submitted against an inactive chain falls back to the module's coded
+  /// default rather than skipping approval.
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  steps ApprovalChainStep[]
+
+  @@map("approval_chains")
+}
+
+/// One stage. Named people only, by decision: role-based and "any one of N"
+/// approvers were considered and deliberately left out, so authority at a stage
+/// is always exactly one identity.
+model ApprovalChainStep {
+  id      String @id @default(uuid())
+  chainId String @map("chain_id")
+
+  /// 1..N. Unique per chain, and reordering is a two-phase write (park at a high
+  /// range, then renumber) so this constraint never sees a transient clash.
+  order Int
+
+  name        String  @db.VarChar(100)
+  description String?
+
+  /// The person who decides at this stage.
+  ///
+  /// Nullable, and `SetNull` on delete, so removing a user cannot delete a
+  /// stage or cascade into decision history. A stage with no resolvable person
+  /// falls back to system admins with a logged warning: a request that visibly
+  /// stalls with somebody notified beats one routed to nobody.
+  approverUserId String? @map("approver_user_id") @db.Uuid
+
+  /// Lets an admin park a stage without losing its configuration. Inactive
+  /// stages are skipped when a record snapshots the chain.
+  isActive Boolean @default(true) @map("is_active")
+
+  /// A stage of the flow as originally decided, rather than one an admin added.
+  ///
+  /// These cannot be deleted or deactivated — the shape of the approval is not
+  /// an administrator's to remove, only to staff. WHO approves at them stays
+  /// fully editable, which is the point of the chain being configurable at all.
+  /// Stages added afterwards carry `false` and can be removed freely.
+  isSystem Boolean @default(false) @map("is_system")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  chain        ApprovalChain @relation(fields: [chainId], references: [id], onDelete: Cascade)
+  approverUser User?         @relation("ApprovalChainStepApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
+
+  @@unique([chainId, order])
+  @@index([approverUserId])
+  @@map("approval_chain_steps")
+}
+
+/// Per-record snapshot of the chain, taken when the record is submitted.
+///
+/// The snapshot is the point: editing a chain must never move a request that is
+/// already in flight, or reshuffle who owes a decision on something half
+/// decided. Every module with a configurable chain in this codebase works this
+/// way, and this follows it.
+///
+/// `project_id` and `proposal_id` are two nullable foreign keys rather than a
+/// polymorphic (scope, record_id) pair, because cascade-on-delete is worth more
+/// than the tidier column. Exactly one is set, enforced by a check constraint.
+model ApprovalChainDecision {
+  id String @id @default(uuid())
+
+  /// Which chain this came from, copied rather than joined: the chain or its
+  /// steps may be edited or deleted later, and this row must still say what was
+  /// actually decided against.
+  scope String @db.VarChar(50)
+
+  projectId  String? @map("project_id")
+  proposalId String? @map("proposal_id")
+
+  order Int
+  /// Copied from the step, for the same reason as `scope`.
+  name           String  @db.VarChar(100)
+  approverUserId String? @map("approver_user_id") @db.Uuid
+
+  /// pending | approved | rejected | skipped. `skipped` records a stage that did
+  /// not apply, kept rather than omitted so the history shows the whole chain.
+  status String @default("pending") @db.VarChar(20)
+
+  /// Who actually acted. May differ from `approverUserId` when a super-grant
+  /// holder steps in, which is exactly why both are stored.
+  decidedById String?   @map("decided_by_id") @db.Uuid
+  decidedAt   DateTime? @map("decided_at") @db.Timestamptz(6)
+  notes       String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project      Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  proposal     Proposal? @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  approverUser User?     @relation("ApprovalChainDecisionApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
+  decidedBy    User?     @relation("ApprovalChainDecisionDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, order])
+  @@unique([proposalId, order])
+  /// Drives "what is waiting on me" without scanning.
+  @@index([approverUserId, status])
+  @@index([scope, status])
+  @@map("approval_chain_decisions")
+}

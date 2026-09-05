@@ -136,7 +136,7 @@ export function CrmNotificationSettingsDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Notification settings</DialogTitle>
           <DialogDescription>
@@ -196,7 +196,9 @@ export function CrmNotificationSettingsDialog({ open, onOpenChange }: Props) {
                   }}
                   onBlur={commitDraft}
                   placeholder={
-                    emails.length === 0 ? "bd@manut.example" : "Add another…"
+                    emails.length === 0
+                      ? "bd@thebinaryholdings.com"
+                      : "Add another…"
                   }
                   className={`
                     h-7 min-w-[180px] flex-1 border-none p-0 shadow-none

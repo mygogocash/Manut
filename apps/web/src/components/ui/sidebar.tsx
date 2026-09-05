@@ -192,9 +192,16 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
+          /* Radix's own close button is kept (it used to be hidden with
+             `[&>button]:hidden`), nudged inwards and below the notch. Without
+             it the drawer could only be dismissed by tapping the overlay,
+             pressing Escape or navigating — all of which work, but none of
+             which is visible, and a drawer with no X reads as stuck.
+             `pb-safe` keeps the footer's account menu clear of the iOS home
+             indicator. */
           className={`
-            bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0
-            [&>button]:hidden
+            bg-sidebar text-sidebar-foreground pb-safe w-(--sidebar-width) p-0
+            [&>button]:top-3 [&>button]:right-3 [&>button]:z-10
           `}
           style={
             {
@@ -203,9 +210,14 @@ function Sidebar({
           }
           side={side}
         >
+          {/* Visually hidden, but it is the drawer's accessible name — a
+              screen reader announces this on open, so "Sidebar" was accurate
+              and useless. */}
           <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
+            <SheetTitle>Main navigation</SheetTitle>
+            <SheetDescription>
+              Modules and sections you have access to.
+            </SheetDescription>
           </SheetHeader>
           <div className="flex h-full w-full flex-col">{children}</div>
         </SheetContent>
@@ -426,7 +438,8 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       className={cn(
         `
           no-scrollbar flex min-h-0 flex-1 flex-col gap-0 overflow-auto
-          group-data-[collapsible=icon]:overflow-hidden
+          group-data-[collapsible=icon]:overflow-x-hidden
+          group-data-[collapsible=icon]:overflow-y-auto
         `,
         className,
       )}

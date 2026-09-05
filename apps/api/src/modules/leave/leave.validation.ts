@@ -92,6 +92,12 @@ export const teamBalanceQuerySchema = z.object({
   year: z.coerce.number().int().positive().optional(),
 });
 
+export const balanceDriftQuerySchema = z.object({
+  year: z.coerce.number().int().min(2000).max(2100).optional(),
+});
+
+export type BalanceDriftQuery = z.infer<typeof balanceDriftQuerySchema>;
+
 export const leaveCalendarQuerySchema = z
   .object({
     from: dateString,
@@ -252,6 +258,12 @@ const policyApproverSchema = z
   .object({
     approverType: z.enum(["manager", "user"]),
     approverUserId: z.string().uuid().optional().nullable(),
+    // Per-step conditions (parity with the org-wide chain) + a whole-day
+    // band on the request's day count.
+    skipWhenSubmitterIds: z.array(z.string().uuid()).default([]),
+    onlyWhenSubmitterIds: z.array(z.string().uuid()).default([]),
+    minDays: z.coerce.number().int().min(0).nullable().optional(),
+    maxDays: z.coerce.number().int().min(0).nullable().optional(),
   })
   .refine(
     (v) =>
@@ -260,6 +272,13 @@ const policyApproverSchema = z
     {
       message: "approverUserId is required when approverType is 'user'",
       path: ["approverUserId"],
+    },
+  )
+  .refine(
+    (v) => v.minDays == null || v.maxDays == null || v.maxDays >= v.minDays,
+    {
+      message: "maxDays must be greater than or equal to minDays",
+      path: ["maxDays"],
     },
   );
 

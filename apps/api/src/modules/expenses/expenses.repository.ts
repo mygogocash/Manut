@@ -1,8 +1,13 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { excludeDeleted, softDeleteUpdate } from "@/infrastructure/soft-delete";
 import { createExchangeRateService } from "@/modules/exchange-rates/exchange-rates.service";
+import {
+  ORDER_PARK_OFFSET,
+  planOrderCompaction,
+} from "@/modules/expenses/expense-approval-order";
+import { reportSearchWhere } from "@/modules/expenses/expense-shared";
 
 const expenseIncludes = {
   employee: { select: { id: true, name: true, email: true, department: true } },
@@ -176,6 +181,7 @@ export class ExpensesRepository {
       reportIds?: string[];
       status?: string;
       period?: string;
+      search?: string;
     },
     page: number,
     limit: number,
@@ -190,6 +196,27 @@ export class ExpensesRepository {
     }
     if (filters.status) where.status = filters.status;
     if (filters.period) where.period = filters.period;
+    // Applied LAST and as its own AND group, so it narrows whatever scoping was
+    // just set rather than competing with it. `total` below is counted with the
+    // same object, which is what makes the pager agree with a search — the old
+    // browser-side filter left the count reporting the unfiltered set.
+    const searchWhere = reportSearchWhere(filters.search);
+    if (searchWhere?.AND) {
+      // APPENDED, not assigned. Nothing else sets `where.AND` here today
+      // (`excludeDeleted` returns a plain `{ deletedAt: null }`), but assigning
+      // would silently drop whatever a future filter had put there — and the
+      // thing most likely to end up there is another restriction, so the failure
+      // mode of getting this wrong is showing rows that should be hidden.
+      const group = Array.isArray(searchWhere.AND)
+        ? searchWhere.AND
+        : [searchWhere.AND];
+      const existing = where.AND
+        ? Array.isArray(where.AND)
+          ? where.AND
+          : [where.AND]
+        : [];
+      where.AND = [...existing, ...group];
+    }
 
     const [data, total] = await Promise.all([
       prisma.expenseReport.findMany({
@@ -415,7 +442,42 @@ export class ExpensesRepository {
   }
 
   async deleteApprovalStep(id: string) {
-    return prisma.expenseApprovalStep.delete({ where: { id } });
+    // Deleting a step used to leave a hole in `order`: remove step 2 of four
+    // and the admin page renders "1, 3, 4", because the Order column shows the
+    // stored value. Sequencing still worked — the chain only compares steps
+    // relative to each other — so the only symptom was a page that looked
+    // broken and numbers that no longer matched what an admin would type in.
+    //
+    // Compact the survivors inside the same transaction as the delete so no
+    // reader ever observes the gap. Two-phase for the same reason
+    // reorderApprovalSteps is: `order` is @unique, so shifting 3 -> 2 while
+    // another row still holds 2 collides mid-loop.
+    return prisma.$transaction(async (tx) => {
+      const deleted = await tx.expenseApprovalStep.delete({ where: { id } });
+
+      const remaining = await tx.expenseApprovalStep.findMany({
+        orderBy: { order: "asc" },
+        select: { id: true, order: true },
+      });
+
+      const plan = planOrderCompaction(remaining);
+      if (!plan) return deleted;
+
+      for (let i = 0; i < plan.length; i++) {
+        await tx.expenseApprovalStep.update({
+          where: { id: plan[i]!.id },
+          data: { order: ORDER_PARK_OFFSET + i },
+        });
+      }
+      for (const assignment of plan) {
+        await tx.expenseApprovalStep.update({
+          where: { id: assignment.id },
+          data: { order: assignment.order },
+        });
+      }
+
+      return deleted;
+    });
   }
 
   async reorderApprovalSteps(orderedIds: string[]) {
@@ -425,7 +487,7 @@ export class ExpensesRepository {
       for (let i = 0; i < orderedIds.length; i++) {
         await tx.expenseApprovalStep.update({
           where: { id: orderedIds[i]! },
-          data: { order: 10000 + i },
+          data: { order: ORDER_PARK_OFFSET + i },
         });
       }
       for (let i = 0; i < orderedIds.length; i++) {
@@ -459,6 +521,7 @@ export class ExpensesRepository {
       order: number;
       name: string;
       approverType: string;
+      stageRole: string;
       approverUserId?: string | null;
     }>,
   ) {
@@ -468,6 +531,7 @@ export class ExpensesRepository {
         order: r.order,
         name: r.name,
         approverType: r.approverType,
+        stageRole: r.stageRole,
         approverUserId: r.approverUserId ?? null,
       })),
     });

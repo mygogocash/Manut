@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { buildPartnerSlug } from "@/modules/partners/partner-slug";

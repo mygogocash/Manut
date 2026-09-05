@@ -1,7 +1,13 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { Loader2, Paperclip, Trash2, UploadCloud } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Loader2,
+  Paperclip,
+  Sparkles,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -34,12 +40,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { VisaOcrConfirmDialog } from "@/components/visa/visa-ocr-confirm-dialog";
 import { ApiError } from "@/lib/api-client";
 import { type Entity, listEntities } from "@/services/entity.service";
 import { uploadFile } from "@/services/upload.service";
 import { listUsers, type UserListItem } from "@/services/user.service";
 import {
   createVisa,
+  parseVisaScan,
   updateVisa,
   VISA_DOCUMENT_CATEGORIES,
   VISA_DOCUMENT_CATEGORY_LABELS,
@@ -49,8 +57,25 @@ import {
   VISA_TYPES,
   type VisaDocument,
   type VisaDocumentCategory,
+  type VisaParseResult,
   type VisaRecord,
 } from "@/services/visa.service";
+
+// Categories worth running OCR on. "other" is excluded — it's a catch-all
+// for supporting docs, not an identity page.
+const OCR_CATEGORIES = new Set<VisaDocumentCategory>([
+  "passport_front",
+  "visa_page",
+  "work_permit",
+]);
+
+// Gemini vision can't read Apple HEIC/HEIF; the upload bucket accepts them.
+function isOcrSupported(doc: VisaDocument | undefined): boolean {
+  if (!doc) return false;
+  const t = (doc.type ?? "").toLowerCase();
+  if (t.includes("heic") || t.includes("heif")) return false;
+  return true;
+}
 
 const NO_ENTITY = "__none__";
 
@@ -126,6 +151,7 @@ interface UploadSlotProps {
   category: VisaDocumentCategory;
   document: VisaDocument | undefined;
   onChange: (next: VisaDocument | undefined) => void;
+  onExtracted?: (result: VisaParseResult) => void;
   disabled?: boolean;
 }
 
@@ -133,10 +159,34 @@ function UploadSlot({
   category,
   document: doc,
   onChange,
+  onExtracted,
   disabled,
 }: UploadSlotProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+
+  const canExtract =
+    !!onExtracted &&
+    !!doc &&
+    OCR_CATEGORIES.has(category) &&
+    isOcrSupported(doc);
+
+  async function handleExtract() {
+    if (!doc || !onExtracted) return;
+    try {
+      setExtracting(true);
+      const res = await parseVisaScan(doc.url, category);
+      onExtracted(res.data);
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Couldn't read the document",
+      );
+    } finally {
+      setExtracting(false);
+    }
+  }
+
   async function handleFile(file: File) {
     if (!file) return;
     try {
@@ -202,6 +252,23 @@ function UploadSlot({
             if (f) void handleFile(f);
           }}
         />
+        {canExtract ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={disabled || uploading || extracting}
+            onClick={handleExtract}
+            title="Extract fields from this scan with AI"
+          >
+            {extracting ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            Extract fields
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="outline"
@@ -279,7 +346,7 @@ export function VisaFormDialog({
   }, [open]);
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       holderType: "employee",
       employeeId: "",
@@ -305,6 +372,39 @@ export function VisaFormDialog({
   const wpIssueWatch = form.watch("workPermitIssueDate");
   const wpExpiryWatch = form.watch("workPermitExpiryDate");
   const documentsWatch = form.watch("documents");
+
+  // OCR autofill — extracted fields await user confirmation before they
+  // touch the form (never silently overwrite what HR already typed).
+  const [ocrResult, setOcrResult] = useState<VisaParseResult | null>(null);
+  const [ocrOpen, setOcrOpen] = useState(false);
+
+  function applyOcr(selected: Partial<Record<keyof VisaParseResult, boolean>>) {
+    if (!ocrResult) return;
+    const r = ocrResult;
+    const set = (field: keyof FormValues, value: string) => {
+      if (value) {
+        form.setValue(field, value, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+    };
+    if (selected.country) set("country", r.country);
+    if (selected.nationality) set("nationality", r.nationality);
+    if (selected.issueDate) set("issueDate", r.issueDate);
+    if (selected.expiryDate) set("expiryDate", r.expiryDate);
+    if (selected.workPermitNumber) set("workPermitNumber", r.workPermitNumber);
+    if (selected.workPermitIssueDate) {
+      set("workPermitIssueDate", r.workPermitIssueDate);
+    }
+    if (selected.workPermitExpiryDate) {
+      set("workPermitExpiryDate", r.workPermitExpiryDate);
+    }
+    // Holder name only maps to a form field for dependent records.
+    if (selected.holderName && form.getValues("holderType") === "dependent") {
+      set("holderName", r.holderName);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -530,7 +630,7 @@ export function VisaFormDialog({
                           For an expat dependent — spouse, child, parent — whose
                           visa we track even though they are not an employee.
                           Fill in the holder name below and pick a sponsor
-                          employee so reminders still route to a Manut inbox.
+                          employee so reminders still route to a TBH inbox.
                         </p>
                       )}
                       <FormMessage />
@@ -851,6 +951,10 @@ export function VisaFormDialog({
                       category={cat}
                       document={docFor(cat)}
                       onChange={(next) => setDocumentForCategory(cat, next)}
+                      onExtracted={(result) => {
+                        setOcrResult(result);
+                        setOcrOpen(true);
+                      }}
                       disabled={submitting}
                     />
                   ))}
@@ -898,6 +1002,14 @@ export function VisaFormDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <VisaOcrConfirmDialog
+        open={ocrOpen}
+        onOpenChange={setOcrOpen}
+        result={ocrResult}
+        canApplyHolderName={form.watch("holderType") === "dependent"}
+        onApply={applyOcr}
+      />
     </>
   );
 }

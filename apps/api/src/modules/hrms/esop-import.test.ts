@@ -10,19 +10,14 @@ import {
   parseV1Workbook,
   parseWorkbookRow,
 } from "@/modules/hrms/esop-import";
-import { arrayAt, assertDefined, findOrThrow } from "@/test-utils/assertions";
 
 const COL_BY_HEADER = Object.fromEntries(
   ESOP_IMPORT_GRANT_COLUMNS.map((c) => [c.header, c]),
 );
 
-function columnByHeader(header: string) {
-  return assertDefined(COL_BY_HEADER[header], `ESOP column ${header}`);
-}
-
 describe("parseGrantCell", () => {
   it("skips N/A / Separately / blank", () => {
-    const equityCol = columnByHeader("Equity (contract)");
+    const equityCol = COL_BY_HEADER["Equity (contract)"]!;
     expect(parseGrantCell("N/A", equityCol)).toBeNull();
     expect(parseGrantCell("Separately", equityCol)).toBeNull();
     expect(parseGrantCell("", equityCol)).toBeNull();
@@ -30,7 +25,7 @@ describe("parseGrantCell", () => {
   });
 
   it("parses 'THB 280,000' as a currency grant", () => {
-    const col = columnByHeader("Token Grant (contract)");
+    const col = COL_BY_HEADER["BNRY Tokens (contract)"]!;
     const result = parseGrantCell("THB 280,000", col);
     expect(result).toEqual(
       expect.objectContaining({
@@ -43,7 +38,7 @@ describe("parseGrantCell", () => {
   });
 
   it("parses 'USD 4,000' as a USD currency grant", () => {
-    const col = columnByHeader("Token Grant (contract)");
+    const col = COL_BY_HEADER["BNRY Tokens (contract)"]!;
     const result = parseGrantCell("USD 4,000", col);
     expect(result).toEqual(
       expect.objectContaining({
@@ -55,19 +50,19 @@ describe("parseGrantCell", () => {
   });
 
   it("parses '50,000 Shares' as a share grant", () => {
-    const col = columnByHeader("Executive Equity");
+    const col = COL_BY_HEADER["CXO Equity"]!;
     const result = parseGrantCell("50,000 Shares", col);
     expect(result).toEqual(
       expect.objectContaining({
         kind: "shares",
-        grantType: "executive_equity",
+        grantType: "cxo_equity",
         shares: 50000,
       }),
     );
   });
 
   it("accepts the singular '1,000 Share'", () => {
-    const col = columnByHeader("Retention Equity");
+    const col = COL_BY_HEADER["Golden Handcuff (transfer shares)"]!;
     const result = parseGrantCell("1,000 Share", col);
     expect(result).toEqual(
       expect.objectContaining({ kind: "shares", shares: 1000 }),
@@ -75,7 +70,7 @@ describe("parseGrantCell", () => {
   });
 
   it("treats a bare number as percent on the Equity-% column", () => {
-    const pctCol = columnByHeader("Equity % of base pay (annual review 2024)");
+    const pctCol = COL_BY_HEADER["Equity % of base pay (annual review 2024)"]!;
     expect(parseGrantCell(10, pctCol)).toEqual(
       expect.objectContaining({
         kind: "percent",
@@ -86,22 +81,22 @@ describe("parseGrantCell", () => {
   });
 
   it("treats a bare number as shares on share-only columns", () => {
-    const executiveCol = columnByHeader("Executive Equity");
-    expect(parseGrantCell(50000, executiveCol)).toEqual(
+    const cxoCol = COL_BY_HEADER["CXO Equity"]!;
+    expect(parseGrantCell(50000, cxoCol)).toEqual(
       expect.objectContaining({
         kind: "shares",
-        grantType: "executive_equity",
+        grantType: "cxo_equity",
         shares: 50000,
       }),
     );
   });
 
-  it("treats a bare number as USD on Performance Bonus column", () => {
-    const bonusCol = columnByHeader("Performance Bonus");
-    expect(parseGrantCell(50000, bonusCol)).toEqual(
+  it("treats a bare number as USD on Shark Tank Winner column", () => {
+    const sharkCol = COL_BY_HEADER["Shark Tank Winner"]!;
+    expect(parseGrantCell(50000, sharkCol)).toEqual(
       expect.objectContaining({
         kind: "currency",
-        grantType: "performance_bonus",
+        grantType: "shark_tank",
         currencyCode: "USD",
         currencyAmount: 50000,
       }),
@@ -109,19 +104,19 @@ describe("parseGrantCell", () => {
   });
 
   it("rejects bare numbers on currency-only columns", () => {
-    const equityCol = columnByHeader("Equity (contract)");
+    const equityCol = COL_BY_HEADER["Equity (contract)"]!;
     expect(parseGrantCell(10, equityCol)).toEqual({
       error: expect.any(String),
     });
   });
 
   it("rejects an out-of-range percent", () => {
-    const pctCol = columnByHeader("Equity % of base pay (annual review 2024)");
+    const pctCol = COL_BY_HEADER["Equity % of base pay (annual review 2024)"]!;
     expect(parseGrantCell(150, pctCol)).toEqual({ error: expect.any(String) });
   });
 
   it("flags an unrecognised currency code", () => {
-    const col = columnByHeader("Equity (contract)");
+    const col = COL_BY_HEADER["Equity (contract)"]!;
     expect(parseGrantCell("XYZ 1000", col)).toEqual({
       error: expect.any(String),
     });
@@ -133,28 +128,28 @@ describe("parseWorkbookRow", () => {
     const parsed = parseWorkbookRow(
       {
         Team: "CEO Office",
-        Name: "Alex Morgan",
+        Name: "Shahab Ahmed",
         Position: "Chief Legal Officer",
-        "Token Grant (contract)": "USD 2,500",
+        "BNRY Tokens (contract)": "USD 2,500",
         "Equity (contract)": "THB 87,975",
         "Sign-up Equity Bonus": "1,000 Shares",
-        "Executive Equity": "50,000 Shares",
+        "CXO Equity": "50,000 Shares",
         "Equity % of base pay (annual review 2024)": "Separately",
-        "Retention Equity": "20,000 Shares",
-        "Performance Bonus": "",
+        "Golden Handcuff (transfer shares)": "20,000 Shares",
+        "Shark Tank Winner": "",
       },
       7,
     );
 
     expect(parsed).not.toBeNull();
-    expect(parsed!.row.employeeName).toBe("Alex Morgan");
+    expect(parsed!.row.employeeName).toBe("Shahab Ahmed");
     expect(parsed!.row.grants).toHaveLength(5);
     expect(parsed!.row.grants.map((g) => g.grantType)).toEqual([
       "tokens",
       "equity",
       "sign_up_bonus",
-      "executive_equity",
-      "retention",
+      "cxo_equity",
+      "golden_handcuff",
     ]);
     expect(parsed!.cellErrors).toHaveLength(0);
   });
@@ -169,10 +164,10 @@ describe("parseWorkbookRow", () => {
     const parsed = parseWorkbookRow(
       {
         Team: "Marketing",
-        Name: "Morgan Patel",
-        "Token Grant (contract)": "garbage",
+        Name: "Sakshi Dolia",
+        "BNRY Tokens (contract)": "garbage",
         "Equity % of base pay (annual review 2024)": 10,
-        "Retention Equity": "1,000 Shares",
+        "Golden Handcuff (transfer shares)": "1,000 Shares",
       },
       14,
     );
@@ -184,12 +179,12 @@ describe("parseWorkbookRow", () => {
 });
 
 describe("parsePersonHeaderV1", () => {
-  it("parses name, position, Token Grant and Performance Bonus", () => {
+  it("parses name, position, BNRY Tokens and Shark Tank Bonus", () => {
     const h = parsePersonHeaderV1(
-      "Alex Rivera  —  Chief Executive Officer   |   Token Grant (Contract): THB 280,000   |   Performance Bonus: 50,000 Tokens",
+      "Manit Sachin Parikh  —  Chief Executive Officer   |   BNRY Tokens (Contract): THB 280,000   |   Shark Tank Bonus: 50,000 Tokens",
     );
     expect(h).not.toBeNull();
-    expect(h!.employeeName).toBe("Alex Rivera");
+    expect(h!.employeeName).toBe("Manit Sachin Parikh");
     expect(h!.position).toBe("Chief Executive Officer");
     expect(h!.extras).toHaveLength(2);
     expect(h!.extras[0]).toMatchObject({
@@ -200,14 +195,14 @@ describe("parsePersonHeaderV1", () => {
     });
     expect(h!.extras[1]).toMatchObject({
       kind: "shares",
-      grantType: "performance_bonus",
+      grantType: "shark_tank",
       shares: 50000,
     });
   });
 
-  it("treats bare Token Grant numbers as THB by default", () => {
+  it("treats bare BNRY Tokens numbers as THB by default", () => {
     const h = parsePersonHeaderV1(
-      "Jordan Lee  —  Frontend Developer   |   Token Grant (Contract): 8000",
+      "Rahul Vijayvargiya  —  Frontend Developer   |   BNRY Tokens (Contract): 8000",
     );
     expect(h!.extras[0]).toMatchObject({
       kind: "currency",
@@ -217,16 +212,16 @@ describe("parsePersonHeaderV1", () => {
     });
   });
 
-  it("accepts USD / INR currency prefixes in Token Grant", () => {
+  it("accepts USD / INR currency prefixes in BNRY Tokens", () => {
     const usd = parsePersonHeaderV1(
-      "Taylor Morgan  —  Chief Operating Officer   |   Token Grant (Contract): USD 4,000",
+      "Bhawnish Malhotra  —  Chief Operating Officer   |   BNRY Tokens (Contract): USD 4,000",
     );
     expect(usd!.extras[0]).toMatchObject({
       currencyCode: "USD",
       currencyAmount: 4000,
     });
     const inr = parsePersonHeaderV1(
-      "Casey Chen  —  VP of Product   |   Token Grant (Contract): INR 68,000",
+      "Vetrivelu Balasubramani  —  VP of Product   |   BNRY Tokens (Contract): INR 68,000",
     );
     expect(inr!.extras[0]).toMatchObject({
       currencyCode: "INR",
@@ -234,9 +229,9 @@ describe("parsePersonHeaderV1", () => {
     });
   });
 
-  it("skips Token Grant: N/A without erroring", () => {
+  it("skips BNRY Tokens: N/A without erroring", () => {
     const h = parsePersonHeaderV1(
-      "Morgan Patel  —  Digital Marketing Manager   |   Token Grant (Contract): N/A",
+      "Sakshi Dolia  —  Digital Marketing Manager   |   BNRY Tokens (Contract): N/A",
     );
     expect(h).not.toBeNull();
     expect(h!.extras).toHaveLength(0);
@@ -249,7 +244,7 @@ describe("parsePersonHeaderV1", () => {
   });
 
   it("returns null for total rows", () => {
-    expect(parsePersonHeaderV1("Total — Alex Rivera")).toBeNull();
+    expect(parsePersonHeaderV1("Total — Manit Sachin Parikh")).toBeNull();
   });
 });
 
@@ -279,20 +274,22 @@ describe("parseV1GrantRow", () => {
 
   it("prefers Shares column over USD/THB", () => {
     const r = parseV1GrantRow(
-      row("Alex Morgan", "Executive Equity", "", 1825000, 50000),
+      row("Shahab Ahmed", "CXO Equity", "", 1825000, 50000),
     );
     expect(r.kind).toBe("grant");
     if (r.kind === "grant") {
       expect(r.grant).toMatchObject({
         kind: "shares",
-        grantType: "executive_equity",
+        grantType: "cxo_equity",
         shares: 50000,
       });
     }
   });
 
   it("falls back to USD when shares is empty", () => {
-    const r = parseV1GrantRow(row("Taylor Morgan", "Sign-up Equity", 2000000));
+    const r = parseV1GrantRow(
+      row("Bhawnish Malhotra", "Sign-up Equity", 2000000),
+    );
     expect(r.kind).toBe("grant");
     if (r.kind === "grant") {
       expect(r.grant).toMatchObject({
@@ -309,12 +306,12 @@ describe("parseV1GrantRow", () => {
     // salary-style and excluded from the ESOP pool (HR decision).
     expect(
       parseV1GrantRow(
-        row("Alex Rivera", "Equity from Contract", "", "280000/month"),
+        row("Manit Sachin Parikh", "Equity from Contract", "", "280000/month"),
       ).kind,
     ).toBe("skip");
     expect(
       parseV1GrantRow(
-        row("Alex Morgan", "Equity from Contract", "", "THB 87975/month"),
+        row("Shahab Ahmed", "Equity from Contract", "", "THB 87975/month"),
       ).kind,
     ).toBe("skip");
   });
@@ -323,7 +320,7 @@ describe("parseV1GrantRow", () => {
     const r = parseV1GrantRow(
       row(
         "Gunaseelan S",
-        "Retention Equity",
+        "Golden Handcuff",
         "",
         0,
         1000,
@@ -344,7 +341,7 @@ describe("parseV1GrantRow", () => {
   });
 
   it("returns skip for blank grant rows", () => {
-    const r = parseV1GrantRow(row("Morgan Patel", "Sign-up Equity"));
+    const r = parseV1GrantRow(row("Sakshi Dolia", "Sign-up Equity"));
     expect(r.kind).toBe("skip");
   });
 
@@ -357,7 +354,7 @@ describe("parseV1GrantRow", () => {
     const r = parseV1GrantRow(
       row(
         "Siddharth Sahi",
-        "Executive Equity",
+        "CXO Equity",
         "",
         0,
         50000,
@@ -374,7 +371,7 @@ describe("parseV1GrantRow", () => {
       // is preserved verbatim in the notes instead of becoming the cliff.
       expect(r.grant).toMatchObject({
         kind: "shares",
-        grantType: "executive_equity",
+        grantType: "cxo_equity",
         shares: 50000,
         lockMonths: 12,
         vestingMonths: 36,
@@ -388,7 +385,7 @@ describe("parseV1GrantRow", () => {
     // "2-Year Locked then all 100% vested": lock=24, no separate vesting
     // → cliff 24 / vesting 24 (0 until month 24, then full).
     const r = parseV1GrantRow(
-      row("Jordan Lee", "Retention Equity", "", 0, 1000, "2 years", ""),
+      row("Kunanon Jarat", "Golden Handcuff", "", 0, 1000, "2 years", ""),
     );
     expect(r.kind).toBe("grant");
     if (r.kind === "grant") {
@@ -401,7 +398,9 @@ describe("parseV1GrantRow", () => {
   });
 
   it("leaves period fields undefined when the cells are empty", () => {
-    const r = parseV1GrantRow(row("Taylor Morgan", "Sign-up Equity", 2000000));
+    const r = parseV1GrantRow(
+      row("Bhawnish Malhotra", "Sign-up Equity", 2000000),
+    );
     expect(r.kind).toBe("grant");
     if (r.kind === "grant") {
       expect(r.grant.lockMonths).toBeUndefined();
@@ -442,7 +441,7 @@ describe("parseMonthsText", () => {
 describe("parseV1Workbook", () => {
   function makeBook(extra: unknown[][] = []): unknown[][] {
     return [
-      ["Manut — Equity Grant Import"],
+      ["Binary Holdings — Equity Summary Report (Revised)"],
       ["Assumptions:", "USD/THB FX Rate", 36.5, "Share Price (USD)", 1],
       [],
       [
@@ -458,14 +457,14 @@ describe("parseV1Workbook", () => {
       ],
       ["CEO Office"],
       [
-        "Alex Rivera  —  Chief Executive Officer   |   Token Grant (Contract): THB 280,000   |   Performance Bonus: 50,000 Tokens",
+        "Manit Sachin Parikh  —  Chief Executive Officer   |   BNRY Tokens (Contract): THB 280,000   |   Shark Tank Bonus: 50,000 Tokens",
       ],
-      ["Alex Rivera", "Equity from Contract", "", "280000/month"],
-      ["Alex Rivera", "Sign-up Equity"],
-      ["Alex Rivera", "Executive Equity"],
-      ["Alex Rivera", "Equity from 2024 Bonus"],
-      ["Alex Rivera", "Retention Equity"],
-      ["Total — Alex Rivera"],
+      ["Manit Sachin Parikh", "Equity from Contract", "", "280000/month"],
+      ["Manit Sachin Parikh", "Sign-up Equity"],
+      ["Manit Sachin Parikh", "CXO Equity"],
+      ["Manit Sachin Parikh", "Equity from 2024 Bonus"],
+      ["Manit Sachin Parikh", "Golden Handcuff"],
+      ["Total — Manit Sachin Parikh"],
       [],
       ...extra,
       ["GRAND TOTAL (All Staff)"],
@@ -476,14 +475,14 @@ describe("parseV1Workbook", () => {
     const { rows, parseErrors } = parseV1Workbook(makeBook());
     expect(parseErrors).toHaveLength(0);
     expect(rows).toHaveLength(1);
-    const r = arrayAt(rows, 0, "parsed employee row");
-    expect(r.employeeName).toBe("Alex Rivera");
+    const r = rows[0]!;
+    expect(r.employeeName).toBe("Manit Sachin Parikh");
     expect(r.position).toBe("Chief Executive Officer");
     const grantTypes = r.grants.map((g) => g.grantType);
-    // tokens + performance_bonus from the header; the "Equity from Contract"
+    // tokens + shark_tank from the header; the "Equity from Contract"
     // grant row is skipped (out of scope), so no "equity" grant.
     expect(grantTypes).toEqual(
-      expect.arrayContaining(["tokens", "performance_bonus"]),
+      expect.arrayContaining(["tokens", "shark_tank"]),
     );
     expect(grantTypes).not.toContain("equity");
     expect(r.grants).toHaveLength(2);
@@ -494,7 +493,7 @@ describe("parseV1Workbook", () => {
     // (col 6) and Start Vesting Date (col 8), pushing Vesting/Increasing/
     // Notes right. Header-driven resolution must still land each field.
     const book: unknown[][] = [
-      ["Manut — Equity Grant Import"],
+      ["Binary Holdings — Equity Summary Report (Claude V1)"],
       ["Assumptions:", "USD/THB FX Rate", 36.5, "Share Price (USD)", 1],
       [],
       [
@@ -526,10 +525,10 @@ describe("parseV1Workbook", () => {
         "",
         "Contract equity",
       ],
-      // Executive Equity: 50000 shares, vesting 3y from Jan 2025, 6-month tranches.
+      // CXO Equity: 50000 shares, vesting 3y from Jan 2025, 6-month tranches.
       [
         "Siddharth Sahi",
-        "Executive Equity",
+        "CXO Equity",
         "",
         0,
         50000,
@@ -544,54 +543,46 @@ describe("parseV1Workbook", () => {
       // Second person so this is a multi-person workbook (the real
       // Equity Summary always is) — avoids the single-person dashboard
       // override path.
-      ["Jordan Lee  —  Engineer"],
-      ["Jordan Lee", "Retention Equity", "", 0, 1000, "", "", "", "", "", ""],
-      ["Total — Jordan Lee"],
+      ["Kunanon Jarat  —  Engineer"],
+      ["Kunanon Jarat", "Golden Handcuff", "", 0, 1000, "", "", "", "", "", ""],
+      ["Total — Kunanon Jarat"],
       ["GRAND TOTAL (All Staff)"],
     ];
     const { rows, parseErrors } = parseV1Workbook(book);
     expect(parseErrors).toHaveLength(0);
     expect(rows).toHaveLength(2);
-    const grants = findOrThrow(
-      rows,
-      (row) => row.employeeName === "Siddharth Sahi",
-      "Siddharth grant row",
-    ).grants;
-    // Contract equity skipped; only the executive share grant remains.
+    const grants = rows.find(
+      (r) => r.employeeName === "Siddharth Sahi",
+    )!.grants;
+    // Contract equity skipped; only the CXO share grant remains.
     expect(grants).toHaveLength(1);
-    const executive = arrayAt(grants, 0, "executive equity grant");
-    expect(executive).toMatchObject({
+    const cxo = grants[0]!;
+    expect(cxo).toMatchObject({
       kind: "shares",
-      grantType: "executive_equity",
+      grantType: "cxo_equity",
       shares: 50000,
       vestingMonths: 36,
     });
     // Start Vesting Date (col 8) → allocation start, NOT misread as a period.
-    expect(executive.allocationStartMonth?.toISOString().slice(0, 10)).toBe(
+    expect(cxo.allocationStartMonth?.toISOString().slice(0, 10)).toBe(
       "2025-01-01",
     );
     // The real Increasing column (col 9) reaches the notes; no Date leaks in.
-    expect(executive.extraNotes).toContain("Increasing: 6 months");
-    expect(executive.extraNotes ?? "").not.toMatch(
-      /GMT|Indochina|\d{2}:\d{2}:\d{2}/,
-    );
+    expect(cxo.extraNotes).toContain("Increasing: 6 months");
+    expect(cxo.extraNotes ?? "").not.toMatch(/GMT|Indochina|\d{2}:\d{2}:\d{2}/);
   });
 
   it("handles a second person right after a Total row", () => {
     const extra: unknown[][] = [
       ["Marketing Team"],
       ["John Smith  —  Marketing"],
-      ["John Smith", "Retention Equity", "", "", 1000],
+      ["John Smith", "Golden Handcuff", "", "", 1000],
       ["Total — John Smith"],
     ];
     const { rows } = parseV1Workbook(makeBook(extra));
     expect(rows).toHaveLength(2);
-    const john = arrayAt(rows, 1, "John employee row");
-    expect(john.employeeName).toBe("John Smith");
-    expect(arrayAt(john.grants, 0, "John retention grant")).toMatchObject({
-      kind: "shares",
-      shares: 1000,
-    });
+    expect(rows[1]!.employeeName).toBe("John Smith");
+    expect(rows[1]!.grants[0]).toMatchObject({ kind: "shares", shares: 1000 });
   });
 
   it("threads dashboard total-vesting overrides onto the matching grant", () => {
@@ -603,11 +594,8 @@ describe("parseV1Workbook", () => {
     const { rows, parseErrors } = parseV1Workbook(makeBook(extra));
 
     expect(parseErrors).toHaveLength(0);
-    const grant = findOrThrow(
-      arrayAt(rows, 0, "dashboard employee row").grants,
-      (candidate) =>
-        candidate.grantType === "equity" && candidate.kind === "shares",
-      "dashboard equity grant",
+    const grant = rows[0]!.grants.find(
+      (g) => g.grantType === "equity" && g.kind === "shares",
     );
 
     expect(grant).toMatchObject({
@@ -616,10 +604,10 @@ describe("parseV1Workbook", () => {
       shares: 640,
       vestedToDateOverride: 240,
     });
-    expect(grant.allocationStartMonth?.toISOString().slice(0, 10)).toBe(
+    expect(grant?.allocationStartMonth?.toISOString().slice(0, 10)).toBe(
       "2024-09-01",
     );
-    expect(grant.allocationEndMonth?.toISOString().slice(0, 10)).toBe(
+    expect(grant?.allocationEndMonth?.toISOString().slice(0, 10)).toBe(
       "2026-08-01",
     );
   });

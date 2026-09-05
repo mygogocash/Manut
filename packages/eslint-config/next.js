@@ -30,25 +30,7 @@ export const nextJsConfig = [
     rules: {
       ...pluginNext.configs.recommended.rules,
       ...pluginNext.configs["core-web-vitals"].rules,
-      // Keep the runtime hook invariants strict. The remaining v7 rules are
-      // React Compiler diagnostics, so enable them when this app adopts the
-      // compiler instead of treating an upgrade as an implicit migration.
-      "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "error",
-      "react-hooks/static-components": "off",
-      "react-hooks/use-memo": "off",
-      "react-hooks/preserve-manual-memoization": "off",
-      "react-hooks/incompatible-library": "off",
-      "react-hooks/immutability": "off",
-      "react-hooks/globals": "off",
-      "react-hooks/refs": "off",
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/error-boundaries": "off",
-      "react-hooks/purity": "off",
-      "react-hooks/set-state-in-render": "off",
-      "react-hooks/unsupported-syntax": "off",
-      "react-hooks/config": "off",
-      "react-hooks/gating": "off",
+      ...pluginReactHooks.configs.recommended.rules,
       // React scope no longer necessary with new JSX transform.
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",

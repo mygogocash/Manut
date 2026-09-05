@@ -1,18 +1,24 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
+import {
+  AI_PROMPTS,
+  GENERATE_TASKS_SCHEMA,
+} from "@/common/constants/ai-prompts";
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
   BadRequestException,
   ForbiddenException,
+  InternalServerErrorException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
 import { logger } from "@/common/utils/logger";
+import { GEMINI_MODELS, getGeminiClient } from "@/infrastructure/ai/gemini";
 import { sendEmail } from "@/infrastructure/email/email.service";
 import { projectTaskUnblockedEmail } from "@/infrastructure/email/templates";
 import {
+  type BucketName,
   createSignedUrl,
-  requireRegisteredStorageUrl,
-  STORAGE_BUCKETS,
+  parseStorageUrl,
 } from "@/infrastructure/storage/supabase-storage";
 import {
   actorFromId,
@@ -41,6 +47,7 @@ import type {
   CreateResourceInput,
   CreateTaskCommentInput,
   CreateTaskInput,
+  GenerateTasksInput,
   ImportCombinedProjectsInput,
   ImportProjectTaskRow,
   ManageAssigneesInput,
@@ -54,6 +61,97 @@ import type {
   UpdateProjectInput,
   UpdateTaskInput,
 } from "@/modules/projects/projects.validation";
+import { workflowService } from "@/modules/projects/workflow/workflow.service";
+import {
+  isApproved,
+  isWorkflowTeam,
+  WORKFLOW_STATUS,
+} from "@/modules/projects/workflow/workflow.types";
+
+/**
+ * Keep the scalar `department` and the `departments` list in step.
+ *
+ * `department` stays authoritative as the PRIMARY department because the
+ * dashboard groups on it and a scalar list cannot be grouped. Callers may send
+ * either field:
+ *   - `departments` given  -> array is the truth, `department` becomes its head
+ *   - only `department`    -> the array mirrors it (or empties when cleared)
+ * Sending neither leaves both untouched.
+ */
+/**
+ * Task work is blocked until the request has been approved.
+ *
+ * The Kanban board and the approval chain are otherwise independent, which
+ * meant a team could start building something that had not been signed off — or
+ * that was later rejected. Gated on the workflow status, not the board status:
+ * they answer different questions.
+ *
+ * `null` (a project predating the workflow) is deliberately allowed through, so
+ * this cannot freeze existing boards.
+ */
+// Defined in workflow.types so the workflow module can use it without
+// importing back into this service. Re-exported here because this is where
+// callers expect to find it.
+export { isWorkflowTeam };
+
+function assertWorkStarted(project: {
+  workflowStatus?: string | null;
+  name?: string;
+  team?: string | null;
+}): void {
+  // Only the workflow-owning team's boards are gated. Every other shared-board
+  // CRM (HR, Legal, Accounting …) posts to the same `POST /api/projects`
+  // endpoint and never had an approval step, so a stray workflow status must
+  // not be able to freeze their tasks.
+  if (!isWorkflowTeam(project.team)) return;
+  const status = project.workflowStatus;
+  if (status === null || status === undefined) return;
+  // Approved (under either name) or delivered: work may proceed.
+  if (isApproved(status) || status === WORKFLOW_STATUS.COMPLETED) {
+    return;
+  }
+  throw new ForbiddenException(
+    status === WORKFLOW_STATUS.REJECTED
+      ? "This request was rejected — its board is read-only"
+      : "This request is still awaiting approval, so its tasks cannot be changed yet",
+  );
+}
+
+export function departmentWrite(input: {
+  department?: string | null;
+  departments?: string[];
+}): { department?: string | null; departments?: string[] } {
+  if (input.departments !== undefined) {
+    // De-duplicate but keep the order the user picked — the first choice is
+    // the primary one.
+    const list = [...new Set(input.departments)];
+    return { departments: list, department: list[0] ?? null };
+  }
+  if (input.department !== undefined) {
+    return {
+      department: input.department,
+      departments: input.department ? [input.department] : [],
+    };
+  }
+  return {};
+}
+
+const INJECTION_PATTERNS = [
+  /ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?|rules?)/i,
+  /forget\s+(everything|all|your)\s*(above|previous)?/i,
+  /you\s+are\s+now\s+a/i,
+  /new\s+role|change\s+your\s+role|act\s+as/i,
+  /system\s*prompt|reveal\s+(your|the)\s+(instructions?|prompt)/i,
+  /\bdo\s+not\s+follow\b.*\brules?\b/i,
+];
+
+function sanitizeAIInput(text: string): string {
+  let sanitized = text.trim().slice(0, 5000);
+  for (const pattern of INJECTION_PATTERNS) {
+    sanitized = sanitized.replace(pattern, "[filtered]");
+  }
+  return sanitized;
+}
 
 function generateSlug(name: string): string {
   return name
@@ -157,7 +255,7 @@ function requireOwner(role: "owner" | "member" | null): void {
   }
 }
 
-// `update` and `delete` should not be
+// BD-feedback round 4 — `update` and `delete` should not be
 // owner-only. PMs / admins with `projects:manage` need to drive
 // progress, status, dates, etc. on anyone's project; the route
 // guard already gates the entry on `projects:update` /
@@ -192,6 +290,76 @@ function requireOwnerOrManage(
   throw new ForbiddenException(
     "Only the project owner or a project manager can do this",
   );
+}
+
+// A file uploaded to the AI task generator: images + PDF go to Gemini
+// natively (inlineData); office/text files are extracted to text.
+interface AiSourceFile {
+  name: string;
+  mimeType: string;
+  dataBase64: string;
+}
+
+interface AiFileParts {
+  // Gemini inlineData parts (images + PDF) read natively by the model.
+  inlineParts: Array<{ inlineData: { mimeType: string; data: string } }>;
+  // Text extracted from office/text documents, labelled by file name.
+  textSections: string[];
+}
+
+// Extract plain text from an office or text document. Office formats use
+// officeparser (loaded lazily); plain-text formats decode as UTF-8.
+// Failures degrade to "" so one bad file never fails the whole request.
+async function extractAiFileText(file: AiSourceFile): Promise<string> {
+  const buf = Buffer.from(file.dataBase64, "base64");
+  const mt = file.mimeType.toLowerCase();
+  const name = file.name.toLowerCase();
+  const isOffice =
+    mt.includes("word") ||
+    mt.includes("presentation") ||
+    mt.includes("sheet") ||
+    mt.includes("excel") ||
+    mt.includes("powerpoint") ||
+    mt.includes("officedocument") ||
+    /\.(docx?|pptx?|xlsx?)$/.test(name);
+  const isText =
+    mt.startsWith("text/") ||
+    mt.includes("json") ||
+    mt.includes("csv") ||
+    /\.(txt|csv|md|json)$/.test(name);
+  try {
+    if (isOffice) {
+      const { parseOffice } = await import("officeparser");
+      const ast = await parseOffice(buf);
+      return ast.toText() || "";
+    }
+    if (isText) return buf.toString("utf-8");
+  } catch (err) {
+    logger.warn("AI source file extraction failed", { name: file.name, err });
+  }
+  return "";
+}
+
+async function buildAiFileParts(
+  files: AiSourceFile[] | undefined,
+): Promise<AiFileParts> {
+  const inlineParts: AiFileParts["inlineParts"] = [];
+  const textSections: string[] = [];
+  for (const file of files ?? []) {
+    const mt = file.mimeType.toLowerCase();
+    if (mt.startsWith("image/") || mt === "application/pdf") {
+      // Gemini reads images and PDFs directly from inline data.
+      inlineParts.push({
+        inlineData: { mimeType: file.mimeType, data: file.dataBase64 },
+      });
+      continue;
+    }
+    const text = await extractAiFileText(file);
+    if (text.trim()) {
+      textSections.push(`--- File: ${file.name} ---\n${text.slice(0, 20000)}`);
+    }
+  }
+  return { inlineParts, textSections };
 }
 
 export class ProjectService {
@@ -281,7 +449,7 @@ export class ProjectService {
       ...(input.customFields !== undefined && {
         customFields: input.customFields,
       }),
-      // Optional structured roll-out fields.
+      // BD feedback (May 2026) — optional structured roll-out fields.
       ...(input.productionLiveDate !== undefined && {
         productionLiveDate: input.productionLiveDate
           ? new Date(input.productionLiveDate)
@@ -298,7 +466,7 @@ export class ProjectService {
       ...(input.agreement !== undefined && { agreement: input.agreement }),
       ...(input.dependency !== undefined && { dependency: input.dependency }),
       ...(input.comment !== undefined && { comment: input.comment }),
-      ...(input.department !== undefined && { department: input.department }),
+      ...departmentWrite(input),
       ...(input.workstream !== undefined && {
         workstream: input.workstream || null,
       }),
@@ -317,7 +485,7 @@ export class ProjectService {
         input.defaultAssigneeMode === "user"
           ? (input.defaultAssigneeId ?? null)
           : null,
-      // Caller can target a different owner on create
+      // BD round #2 — caller can target a different owner on create
       // (e.g. PM creating a project on behalf of an engineering lead).
       // Defaults to the caller when not supplied.
       owner: { connect: { id: input.ownerId ?? ownerId } },
@@ -343,6 +511,31 @@ export class ProjectService {
       }
     } catch {
       // analytics is best-effort
+    }
+
+    // Creating a project IS raising a request: submit it straight away so it
+    // reaches an approver instead of sitting in a draft nobody looks at.
+    // Routed through the workflow service rather than setting the column here,
+    // so the transition log, audit entry and approver email all happen on the
+    // one code path every other transition uses.
+    //
+    // Best-effort on purpose: the project has already been created and
+    // committed, so a notification or logging failure must not fail the create
+    // and leave the caller thinking nothing happened. It stays a draft and the
+    // requester can submit it by hand.
+    // Only for the workflow-owning team: the other shared-board CRMs create
+    // through this same endpoint and must not acquire an approval gate.
+    try {
+      if (isWorkflowTeam(input.team)) {
+        await workflowService.submit(project.id, ownerId, [
+          PERMISSIONS.WORKFLOW_SUBMIT,
+        ]);
+      }
+    } catch (err) {
+      logger.warn("Auto-submit on project create failed; left as draft", {
+        projectId: project.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // Owner is always a participant — perms array is irrelevant for
@@ -430,7 +623,7 @@ export class ProjectService {
       ...(input.customFields !== undefined && {
         customFields: input.customFields,
       }),
-      // Optional structured roll-out fields.
+      // BD feedback (May 2026)
       ...(input.productionLiveDate !== undefined && {
         productionLiveDate: input.productionLiveDate
           ? new Date(input.productionLiveDate)
@@ -447,7 +640,7 @@ export class ProjectService {
       ...(input.agreement !== undefined && { agreement: input.agreement }),
       ...(input.dependency !== undefined && { dependency: input.dependency }),
       ...(input.comment !== undefined && { comment: input.comment }),
-      ...(input.department !== undefined && { department: input.department }),
+      ...departmentWrite(input),
       ...(input.workstream !== undefined && {
         workstream: input.workstream || null,
       }),
@@ -460,7 +653,7 @@ export class ProjectService {
       ...(input.assignedTeam !== undefined && {
         assignedTeam: input.assignedTeam || null,
       }),
-      // Transfer ownership, gated by the same
+      // BD round #2 — transfer ownership. Gated by the same
       // `requireOwnerOrManage` check that protects the rest of update().
       ...(input.ownerId !== undefined && {
         owner: { connect: { id: input.ownerId } },
@@ -476,8 +669,8 @@ export class ProjectService {
       await projectRepository.setMembers(existing.id, input.memberIds);
     }
 
-    // Native-mirror CRMs (it / legal / accounting): a go-live / production
-    // date edited on the shared board must also land on the NATIVE row — the
+    // Native-mirror CRMs (it / legal / accounting / product): a go-live /
+    // production date edited on the shared board must also land on the NATIVE row — the
     // CRM's own list page and the native reminder scans read that table, so
     // leaving it stale forked the data and kept the reminder ladder armed
     // against the old date. The repo helper no-ops for other teams or a
@@ -522,6 +715,40 @@ export class ProjectService {
     // Project delete can no longer cascade into a Partner
     // workspace. Partner CRM owns its native tables now.
     return projectRepository.delete(project.id);
+  }
+
+  /**
+   * Archive a project (Active/Archived board tabs, mirrors IT CRM). Owner-or-
+   * manage, same gate as update/delete. Idempotent — a repeat archive keeps
+   * the original timestamp. Orthogonal to the board `status`.
+   */
+  async archive(userId: string, userPermissions: string[], id: string) {
+    // Resolve the row directly rather than through getById: that enforces
+    // participation, which would reject a projects:manage holder before
+    // requireOwnerOrManage below ever got the chance to allow them.
+    const project = await projectRepository.findById(id);
+    if (!project) throw new NotFoundException("Project not found");
+    const role = await projectRepository.findParticipantRole(
+      project.id,
+      userId,
+    );
+    requireOwnerOrManage(role, userPermissions, project.team);
+    return projectRepository.update(project.id, {
+      archivedAt: project.archivedAt ?? new Date(),
+    });
+  }
+
+  /** Restore an archived project to the active board. Owner-or-manage. */
+  async unarchive(userId: string, userPermissions: string[], id: string) {
+    // See archive() — participation must not gate a manage holder.
+    const project = await projectRepository.findById(id);
+    if (!project) throw new NotFoundException("Project not found");
+    const role = await projectRepository.findParticipantRole(
+      project.id,
+      userId,
+    );
+    requireOwnerOrManage(role, userPermissions, project.team);
+    return projectRepository.update(project.id, { archivedAt: null });
   }
 
   // Move a project into another CRM module. Partner is the only
@@ -679,6 +906,7 @@ export class ProjectService {
     input: CreateTaskInput,
   ) {
     const project = await this.getById(userId, userPermissions, projectId);
+    assertWorkStarted(project);
     if (input.parentTaskId) {
       const parent = await projectRepository.findTaskById(input.parentTaskId);
       if (!parent || parent.projectId !== project.id) {
@@ -720,6 +948,12 @@ export class ProjectService {
       } else if (project.team === "accounting") {
         ownerId =
           (await projectRepository.resolveAccountingDefaultAssignee(
+            project.id,
+            userId,
+          )) ?? undefined;
+      } else if (project.team === "product") {
+        ownerId =
+          (await projectRepository.resolveProductDefaultAssignee(
             project.id,
             userId,
           )) ?? undefined;
@@ -895,7 +1129,7 @@ export class ProjectService {
     let tasksCreated = 0;
     for (const group of input.groups) {
       // Legal CRM import allows a blank `name` (the "Legal Task"
-      // column can be empty in the import). Fall back to the
+      // column is often empty in the source xlsx). Fall back to the
       // workstream so the project still has a sortable display name
       // — matches what the Legal list shows in its second column.
       const resolvedName =
@@ -910,7 +1144,6 @@ export class ProjectService {
         goLiveDate: group.goLiveDate ?? undefined,
         workstream: group.workstream ?? undefined,
         details: group.details ?? undefined,
-        defaultAssigneeMode: "none",
       });
       projectsCreated++;
 
@@ -958,6 +1191,7 @@ export class ProjectService {
     input: UpdateTaskInput,
   ) {
     const project = await this.getById(userId, userPermissions, projectId);
+    assertWorkStarted(project);
     const before = await projectRepository.findTaskWithOwner(taskId);
     if (!before || before.projectId !== project.id) {
       throw new NotFoundException("Task not found in this project");
@@ -1251,6 +1485,7 @@ export class ProjectService {
     input: ReorderTasksInput,
   ) {
     const project = await this.getById(userId, userPermissions, projectId);
+    assertWorkStarted(project);
     const owned = await projectRepository.findTaskIdsInProject(
       project.id,
       input.orderedIds,
@@ -1272,6 +1507,7 @@ export class ProjectService {
     taskId: string,
   ) {
     const project = await this.getById(userId, userPermissions, projectId);
+    assertWorkStarted(project);
     const task = await projectRepository.findTaskById(taskId);
     if (!task || task.projectId !== project.id) {
       throw new NotFoundException("Task not found in this project");
@@ -1352,6 +1588,117 @@ export class ProjectService {
       });
     }
     return comment;
+  }
+
+  // ─── AI Generate Tasks ──────────────────────────────────
+
+  async generateTasks(
+    userId: string,
+    userPermissions: string[],
+    projectId: string,
+    input: GenerateTasksInput,
+  ) {
+    const project = await this.getById(userId, userPermissions, projectId);
+
+    const columns = await projectRepository.getColumns(project.id);
+    const availableStatuses =
+      columns.length > 0
+        ? columns.map((c) => c.key)
+        : ["backlog", "todo", "in_progress", "in_review", "done"];
+
+    const systemPrompt = AI_PROMPTS.GENERATE_TASKS_SYSTEM.replace(
+      "{{AVAILABLE_STATUSES}}",
+      availableStatuses.map((s) => `"${s}"`).join(", "),
+    );
+
+    const sanitizedDescription = sanitizeAIInput(input.description);
+    const sanitizedContext = input.additionalContext
+      ? sanitizeAIInput(input.additionalContext)
+      : "";
+
+    const additionalContext = sanitizedContext
+      ? `Additional Context: ${sanitizedContext}`
+      : "";
+
+    const userPrompt = AI_PROMPTS.GENERATE_TASKS_USER.replace(
+      "{{PROJECT_NAME}}",
+      sanitizeAIInput(project.name),
+    )
+      .replace("{{PROJECT_DESCRIPTION}}", sanitizedDescription)
+      .replace("{{ADDITIONAL_CONTEXT}}", additionalContext);
+
+    // Reference files (images/PDF read natively; office/text extracted).
+    const { inlineParts, textSections } = await buildAiFileParts(
+      input.files as AiSourceFile[] | undefined,
+    );
+    const finalPrompt =
+      textSections.length > 0
+        ? `${userPrompt}\n\nReference documents (extracted):\n${textSections.join(
+            "\n\n",
+          )}`
+        : userPrompt;
+
+    try {
+      const gemini = getGeminiClient();
+
+      const response = await gemini.models.generateContent({
+        model: GEMINI_MODELS.FLASH,
+        contents: [
+          { role: "user", parts: [{ text: finalPrompt }, ...inlineParts] },
+        ],
+        config: {
+          maxOutputTokens: 4096,
+          temperature: 0.7,
+          systemInstruction: systemPrompt,
+          responseMimeType: "application/json",
+          responseSchema: GENERATE_TASKS_SCHEMA,
+        },
+      });
+
+      const raw = response.text ?? "";
+      const parsed = JSON.parse(raw) as {
+        tasks: Array<{
+          title: string;
+          description: string;
+          priority: string;
+          status: string;
+        }>;
+      };
+
+      if (!parsed.tasks || !Array.isArray(parsed.tasks)) {
+        throw new BadRequestException("AI returned an invalid response format");
+      }
+
+      const statusSet = new Set(availableStatuses);
+
+      const tasks = parsed.tasks.map((t, index) => ({
+        title: String(t.title).slice(0, 500),
+        description: String(t.description).slice(0, 10000),
+        priority: normalizeProjectTaskPriority(t.priority),
+        status: statusSet.has(t.status) ? t.status : availableStatuses[0],
+        sortOrder: index,
+      }));
+
+      return { tasks };
+    } catch (err) {
+      logger.error("AI task generation failed", err);
+
+      const isConfigError =
+        err instanceof Error && err.message.includes("API key not configured");
+
+      if (isConfigError) {
+        throw new InternalServerErrorException(
+          "AI is not configured. Ask your administrator to set the GEMINI_API_KEY.",
+        );
+      }
+
+      // Re-throw HTTP exceptions unchanged (e.g. the BadRequestException above).
+      if (err instanceof BadRequestException) throw err;
+
+      throw new BadRequestException(
+        "Failed to generate tasks. Please try again.",
+      );
+    }
   }
 
   // ─── Milestones ─────────────────────────────────────────
@@ -1688,15 +2035,6 @@ export class ProjectService {
     if (!task || task.projectId !== project.id) {
       throw new NotFoundException("Task not found in this project");
     }
-    if (input.kind === "file") {
-      await requireRegisteredStorageUrl(input.url, {
-        allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-        purpose: "project_resource",
-        uploadedBy: userId,
-        linkedTo: "task",
-        linkedId: taskId,
-      });
-    }
     const created = await projectRepository.createResource({
       taskId,
       kind: input.kind,
@@ -1776,13 +2114,17 @@ export class ProjectService {
     if (resource.kind !== "file") {
       return { url: resource.url };
     }
-    const parsed = await requireRegisteredStorageUrl(resource.url, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "project_resource",
-      linkedTo: "task",
-      linkedId: taskId,
-    });
-    const signed = await createSignedUrl(parsed.bucket, parsed.path);
+    const parsed = parseStorageUrl(resource.url);
+    if (!parsed) {
+      // Best-effort: if the stored URL isn't a parseable Supabase
+      // public URL, just return whatever's stored. Lets manual rows
+      // (legacy import) keep working.
+      return { url: resource.url };
+    }
+    const signed = await createSignedUrl(
+      parsed.bucket as BucketName,
+      parsed.path,
+    );
     return { url: signed };
   }
 

@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -11,6 +11,8 @@ export interface ListInvestorLeadsFilters {
   search?: string;
   ownerId?: string;
   ownerScope?: string[];
+  archived?: boolean;
+  fundraisingEntity?: string;
 }
 
 export class InvestorLeadRepository {
@@ -21,9 +23,16 @@ export class InvestorLeadRepository {
   ) {
     const where: Prisma.InvestorLeadWhereInput = {};
 
+    // Active view (default) excludes archived rows; the Archived view shows
+    // only rows with a non-null archivedAt. Applied to both findMany + count.
+    where.archivedAt = filters.archived ? { not: null } : null;
+
     if (filters.status) where.status = filters.status;
     if (filters.ownerId) where.ownerId = filters.ownerId;
     if (filters.ownerScope) where.ownerId = { in: filters.ownerScope };
+    if (filters.fundraisingEntity) {
+      where.fundraisingEntity = filters.fundraisingEntity;
+    }
     if (filters.search) {
       where.OR = [
         { name: { contains: filters.search, mode: "insensitive" } },

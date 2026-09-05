@@ -1,23 +1,28 @@
 {
-  "extends": "expo/tsconfig.base",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "moduleSuffixes": [".web", ".native", ""],
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     },
-    "types": ["jest"]
+    "declaration": false,
+    "declarationMap": false,
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ]
   },
   "include": [
-    "app/**/*.ts",
-    "app/**/*.tsx",
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "__tests__/**/*.ts",
-    "__tests__/**/*.tsx",
+    "**/*.ts",
+    "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-  ],
-  "exclude": ["node_modules", "dist", "dist-ios", "dist-android"]
+  ]
 }

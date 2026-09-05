@@ -4,13 +4,67 @@
  * a pure helper layer with no opinion about workflows.
  */
 
+import type { Prisma } from "@nexora/database";
+
 import { prisma } from "@/infrastructure/database/prisma";
 import {
   createSignedUrl,
   parseStorageUrl,
-  requireRegisteredStorageUrl,
-  STORAGE_BUCKETS,
 } from "@/infrastructure/storage/supabase-storage";
+
+// ── Report search ─────────────────────────────────────────────────
+
+/**
+ * The label the UI shows instead of who filed an office report.
+ *
+ * Duplicated from the web bundle (OFFICE_ADMIN_SUBMITTER_LABEL) because the
+ * search has to agree with what the reader can actually see: matching an office
+ * report by its submitter's name would surface it under a person's name while the
+ * table still rendered "Office Admin", revealing exactly what the masking hides.
+ */
+export const OFFICE_SUBMITTER_LABEL = "Office Admin";
+
+/**
+ * Free-text filter for the expense report list: title, period, or employee name.
+ *
+ * Returns `null` when there is nothing to match, so callers can skip it entirely
+ * rather than AND-ing a clause that matches everything.
+ *
+ * Nested under `AND` rather than assigned as a sibling `where.OR`. Prisma ANDs
+ * sibling keys, so a sibling would also intersect the permission scoping
+ * correctly today — but there would then be exactly one `OR` slot on the object,
+ * and a second filter wanting its own would silently overwrite this one. A group
+ * under `AND` composes.
+ *
+ * The employee-name branch is guarded on `category != "office"`, and office
+ * reports are instead reached by matching their visible label — mirroring the
+ * browser filter this replaced, so the two agree on what a term means.
+ */
+export function reportSearchWhere(
+  search: string | undefined | null,
+): Prisma.ExpenseReportWhereInput | null {
+  const q = search?.trim();
+  if (!q) return null;
+
+  const or: Prisma.ExpenseReportWhereInput[] = [
+    { title: { contains: q, mode: "insensitive" } },
+    // `period` is a YYYY-MM string, so a plain contains covers "2026", "2026-07"
+    // and "07". No mode needed — it holds no letters.
+    { period: { contains: q } },
+    {
+      AND: [
+        { category: { not: "office" } },
+        { employee: { name: { contains: q, mode: "insensitive" } } },
+      ],
+    },
+  ];
+
+  if (OFFICE_SUBMITTER_LABEL.toLowerCase().includes(q.toLowerCase())) {
+    or.push({ category: "office" });
+  }
+
+  return { AND: [{ OR: or }] };
+}
 
 // ── Formatting ────────────────────────────────────────────────────
 
@@ -161,40 +215,19 @@ export function recipientEmailsFor(
 /**
  * Receipts live in a private Supabase bucket, so the public URL stored
  * on `Expense.receiptUrl` returns a 400.  Mint a 24 h signed URL before
- * returning the row to the client. External URLs and absent values pass
- * through unchanged; Supabase-shaped URLs are treated as managed objects and
- * must belong to the expense employee in the dedicated receipts bucket.
+ * returning the row to the client.  Public-bucket URLs and absent values
+ * pass through unchanged.
  */
+export const PRIVATE_BUCKETS = new Set(["receipts", "documents"]);
 export const RECEIPT_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24; // 24h
-
-export async function validateExpenseReceiptUrl(
-  url: string | null | undefined,
-  employeeId: string,
-): Promise<{ bucket: "receipts"; path: string } | null> {
-  if (!url) return null;
-
-  // URLs without a Supabase object marker are explicitly supported as
-  // external receipt links. A marker means the caller is selecting an object
-  // for the service-role client, so origin, bucket, purpose, and ownership all
-  // become mandatory.
-  if (!parseStorageUrl(url)) return null;
-
-  const parsed = await requireRegisteredStorageUrl(url, {
-    allowedBuckets: [STORAGE_BUCKETS.RECEIPTS],
-    purpose: "expense-receipt",
-    uploadedBy: employeeId,
-  });
-
-  return { bucket: STORAGE_BUCKETS.RECEIPTS, path: parsed.path };
-}
 
 export async function signReceiptUrlIfNeeded(
   url: string | null | undefined,
-  employeeId: string,
 ): Promise<string | null> {
   if (!url) return null;
-  const parsed = await validateExpenseReceiptUrl(url, employeeId);
+  const parsed = parseStorageUrl(url);
   if (!parsed) return url;
+  if (!PRIVATE_BUCKETS.has(parsed.bucket)) return url;
   try {
     return await createSignedUrl(
       parsed.bucket,
@@ -209,15 +242,15 @@ export async function signReceiptUrlIfNeeded(
 }
 
 export async function withSignedReceipt<
-  T extends { employeeId: string; receiptUrl?: string | null },
+  T extends { receiptUrl?: string | null },
 >(row: T): Promise<T> {
   if (!row.receiptUrl) return row;
-  const signed = await signReceiptUrlIfNeeded(row.receiptUrl, row.employeeId);
+  const signed = await signReceiptUrlIfNeeded(row.receiptUrl);
   return { ...row, receiptUrl: signed };
 }
 
 export async function withSignedReceipts<
-  T extends { employeeId: string; receiptUrl?: string | null },
+  T extends { receiptUrl?: string | null },
 >(rows: T[]): Promise<T[]> {
   return Promise.all(rows.map((r) => withSignedReceipt(r)));
 }

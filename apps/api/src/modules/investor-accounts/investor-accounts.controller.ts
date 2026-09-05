@@ -70,6 +70,32 @@ router.put(
   }),
 );
 
+router.post(
+  "/:id/archive",
+  requirePermission(PERMISSIONS.INVESTORS_UPDATE),
+  asyncHandler(async (req, res) => {
+    const data = await investorAccountService.archive(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/unarchive",
+  requirePermission(PERMISSIONS.INVESTORS_UPDATE),
+  asyncHandler(async (req, res) => {
+    const data = await investorAccountService.unarchive(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
 router.delete(
   "/:id",
   requirePermission(PERMISSIONS.INVESTORS_DELETE),

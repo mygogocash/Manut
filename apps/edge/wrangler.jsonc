@@ -1,555 +1,86 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  // Live Cloudflare Worker service name is `manut` (dashboard).
-  // Local/dev/e2e/staging keep distinct names so they cannot overwrite prod.
-  "name": "manut-local",
+  "name": "intranet-edge",
   "main": "src/index.ts",
-  "compatibility_date": "2026-07-17",
+  "compatibility_date": "2026-08-25",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": false,
-  "preview_urls": false,
+  "limits": { "cpu_ms": 30000 },
+  "observability": { "enabled": true },
+  // Expo web export (apps/app) is served as static assets; API/WS/analytics paths hit the Worker first.
   "assets": {
-    "binding": "ASSETS",
     "directory": "../app/dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/health"],
+    "run_worker_first": ["/api/*", "/ws/*", "/ingest/*", "/health"]
   },
+  // Top-level = local development (wrangler dev). Real ids live under env.*.
   "vars": {
-    "API_ORIGIN": "",
-    "AUTH_JWKS_URL": "",
-    "AUTH_ISSUER": "",
-    // Set to Cloudflare Access application AUD (or leave empty to fail closed).
-    "AUTH_AUDIENCE": "",
-    "ENABLE_CONTAINER_BOUNDARY": "false",
-    "ENABLE_CRON_BOUNDARY": "false",
-    "ENABLE_HYPERDRIVE_BOUNDARY": "false",
-    "ENABLE_LOCAL_R2_STREAMING": "true",
-    "ENABLE_WORKFLOW_BOUNDARY": "false",
-    "R2_BUCKET_NAME": "manut-intranet-uploads-local",
-    // Comma-separated HTTPS origins for FileUpload receipt URLs on Hyperdrive
-    // (R2 custom hosts / public bucket URLs). Empty = proxy managed receipts.
-    "TRUSTED_STORAGE_ORIGINS": "",
+    "APP_URL": "http://localhost:8787",
+    "TRUSTED_ORIGINS": "intranet://,http://localhost:8081",
+    "POSTHOG_HOST": "https://us.i.posthog.com",
+    "POSTHOG_ASSETS_HOST": "https://us-assets.i.posthog.com",
+    "MAGIC_LINK_ALLOWED_ROLES": ""
   },
-  // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
-  // are optional: uploads default to the UPLOADS R2 binding when unset.
-  // Set them only if you want direct SigV4 client→R2 transfers.
-  "secrets": {
-    "required": [
-      "EDGE_SIGNING_KEY",
-    ],
-  },
+  "hyperdrive": [
+    { "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000", "localConnectionString": "postgresql://postgres:dev@localhost:54330/intranet" }
+  ],
+  "kv_namespaces": [
+    { "binding": "KV_SESSIONS", "id": "kv-sessions-local" },
+    { "binding": "KV_CACHE", "id": "kv-cache-local" }
+  ],
   "r2_buckets": [
-    {
-      "binding": "UPLOADS",
-      "bucket_name": "manut-intranet-uploads-local",
-      "preview_bucket_name": "manut-intranet-uploads-local-preview",
-    },
+    { "binding": "R2_PUBLIC", "bucket_name": "intranet-local-public" },
+    { "binding": "R2_PRIVATE", "bucket_name": "intranet-local-private" }
   ],
-  "ratelimits": [
-    {
-      "name": "API_RATE_LIMITER",
-      "namespace_id": "471001",
-      "simple": {
-        "limit": 120,
-        "period": 60,
-      },
-    },
-  ],
-  "durable_objects": {
+  "queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-local" }] },
+  "unsafe": {
     "bindings": [
-      {
-        "name": "REALTIME_ROOMS",
-        "class_name": "RealtimeRoom",
-      },
-      {
-        "name": "QUEUE_LEDGER",
-        "class_name": "QueueLedger",
-      },
-    ],
+      { "name": "RATE_LIMITER_LOGIN", "type": "ratelimit", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+      { "name": "RATE_LIMITER_GLOBAL", "type": "ratelimit", "namespace_id": "1002", "simple": { "limit": 2000, "period": 60 } }
+    ]
   },
-  "migrations": [
-    {
-      "tag": "edge-v1",
-      "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
-    },
-  ],
-  "queues": {
-    "producers": [
-      {
-        "binding": "JOB_QUEUE",
-        "queue": "manut-intranet-jobs-local",
-      },
-      {
-        "binding": "DEAD_LETTER_QUEUE",
-        "queue": "manut-intranet-jobs-local-dlq",
-      },
-    ],
-    "consumers": [
-      {
-        "queue": "manut-intranet-jobs-local",
-        "dead_letter_queue": "manut-intranet-jobs-local-dlq",
-        "max_batch_size": 10,
-        "max_batch_timeout": 5,
-        "max_retries": 3,
-      },
-    ],
-  },
-  "workflows": [
-    {
-      "binding": "BACKGROUND_WORKFLOW",
-      "name": "manut-intranet-background-local",
-      "class_name": "BackgroundWorkflow",
-    },
-  ],
-  // Keep remote schedules/resources explicitly empty until their separate
-  // provisioning work is approved. Runtime stubs return 503 while disabled.
-  "triggers": {
-    "crons": [],
-  },
-  "containers": [],
-  // Hyperdrive stays empty until a Manut-owned config id is provisioned.
-  // Shape (do not invent an id in-repo):
-  // "hyperdrive": [{ "binding": "HYPERDRIVE_DATABASE", "id": "<manut-hyperdrive-id>" }]
-  // Then set ENABLE_HYPERDRIVE_BOUNDARY=true. Local wrangler may also use
-  // localConnectionString or CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE_DATABASE.
-  "hyperdrive": [],
-  "observability": {
-    "enabled": true,
-    "logs": {
-      "enabled": true,
-      "head_sampling_rate": 0.1,
-      "invocation_logs": true,
-    },
-    "traces": {
-      "enabled": true,
-      "head_sampling_rate": 0.01,
-    },
-  },
-  // Named environments intentionally repeat every non-inheritable binding.
-  // Resource names are unique per environment and are provisioning contracts,
-  // not existing account or resource identifiers. Feature boundaries remain
-  // disabled until a separate, approved provisioning change supplies them.
   "env": {
-    "development": {
-      "name": "manut-development",
-      "vars": {
-        "API_ORIGIN": "",
-        "AUTH_JWKS_URL": "",
-        "AUTH_ISSUER": "",
-        "AUTH_AUDIENCE": "",
-        "ENABLE_CONTAINER_BOUNDARY": "false",
-        "ENABLE_CRON_BOUNDARY": "false",
-        "ENABLE_HYPERDRIVE_BOUNDARY": "false",
-        "TRUSTED_STORAGE_ORIGINS": "",
-        "ENABLE_LOCAL_R2_STREAMING": "false",
-        "ENABLE_WORKFLOW_BOUNDARY": "false",
-        "R2_BUCKET_NAME": "manut-intranet-uploads-development",
-      },
-      // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
-      // are optional: uploads default to the UPLOADS R2 binding when unset.
-      // Set them only if you want direct SigV4 client→R2 transfers.
-      "secrets": {
-        "required": [
-          "EDGE_SIGNING_KEY",
-        ],
-      },
-      "r2_buckets": [
-        {
-          "binding": "UPLOADS",
-          "bucket_name": "manut-intranet-uploads-development",
-          "preview_bucket_name": "manut-intranet-uploads-development-preview",
-        },
-      ],
-      "ratelimits": [
-        {
-          "name": "API_RATE_LIMITER",
-          "namespace_id": "471101",
-          "simple": { "limit": 120, "period": 60 },
-        },
-      ],
-      "durable_objects": {
-        "bindings": [
-          { "name": "REALTIME_ROOMS", "class_name": "RealtimeRoom" },
-          { "name": "QUEUE_LEDGER", "class_name": "QueueLedger" },
-        ],
-      },
-      "migrations": [
-        {
-          "tag": "edge-v1",
-          "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
-        },
-      ],
-      "queues": {
-        "producers": [
-          {
-            "binding": "JOB_QUEUE",
-            "queue": "manut-intranet-jobs-development",
-          },
-          {
-            "binding": "DEAD_LETTER_QUEUE",
-            "queue": "manut-intranet-jobs-development-dlq",
-          },
-        ],
-        "consumers": [
-          {
-            "queue": "manut-intranet-jobs-development",
-            "dead_letter_queue": "manut-intranet-jobs-development-dlq",
-            "max_batch_size": 10,
-            "max_batch_timeout": 5,
-            "max_retries": 3,
-          },
-        ],
-      },
-      "workflows": [
-        {
-          "binding": "BACKGROUND_WORKFLOW",
-          "name": "manut-intranet-background-development",
-          "class_name": "BackgroundWorkflow",
-        },
-      ],
-      "triggers": { "crons": [] },
-      "containers": [],
-      "hyperdrive": [],
-    },
-    // Preview is a separate Worker because Durable Object migrations require
-    // full deploys and must never be applied to the production `manut` script.
-    // workers.dev: https://manut-preview.bettergogocash.workers.dev
-    // Custom domain (after separate DNS approval): https://preview.manut.xyz
-    "preview": {
-      "name": "manut-preview",
-      "workers_dev": true,
-      "preview_urls": true,
-      "vars": {
-        // Distinct Express origin required (P0-E4). Empty fails closed — never
-        // point at this Worker host (hop-loop). Ops sets a real API host later.
-        "API_ORIGIN": "",
-        "AUTH_JWKS_URL": "",
-        "AUTH_ISSUER": "",
-        "AUTH_AUDIENCE": "",
-        "ENABLE_CONTAINER_BOUNDARY": "false",
-        "ENABLE_CRON_BOUNDARY": "false",
-        "ENABLE_HYPERDRIVE_BOUNDARY": "false",
-        "TRUSTED_STORAGE_ORIGINS": "https://preview.manut.xyz",
-        "ENABLE_LOCAL_R2_STREAMING": "false",
-        "ENABLE_WORKFLOW_BOUNDARY": "false",
-        "R2_BUCKET_NAME": "manut-intranet-uploads-preview",
-      },
-      // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
-      // are optional: uploads default to the UPLOADS R2 binding when unset.
-      // Set them only if you want direct SigV4 client→R2 transfers.
-      "secrets": {
-        "required": [
-          "EDGE_SIGNING_KEY",
-        ],
-      },
-      "r2_buckets": [
-        {
-          "binding": "UPLOADS",
-          "bucket_name": "manut-intranet-uploads-preview",
-          "preview_bucket_name": "manut-intranet-uploads-preview-local",
-        },
-      ],
-      "ratelimits": [
-        {
-          "name": "API_RATE_LIMITER",
-          "namespace_id": "471201",
-          "simple": { "limit": 120, "period": 60 },
-        },
-      ],
-      "durable_objects": {
-        "bindings": [
-          { "name": "REALTIME_ROOMS", "class_name": "RealtimeRoom" },
-          { "name": "QUEUE_LEDGER", "class_name": "QueueLedger" },
-        ],
-      },
-      "migrations": [
-        {
-          "tag": "edge-v1",
-          "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
-        },
-      ],
-      "queues": {
-        "producers": [
-          {
-            "binding": "JOB_QUEUE",
-            "queue": "manut-intranet-jobs-preview",
-          },
-          {
-            "binding": "DEAD_LETTER_QUEUE",
-            "queue": "manut-intranet-jobs-preview-dlq",
-          },
-        ],
-        "consumers": [
-          {
-            "queue": "manut-intranet-jobs-preview",
-            "dead_letter_queue": "manut-intranet-jobs-preview-dlq",
-            "max_batch_size": 10,
-            "max_batch_timeout": 5,
-            "max_retries": 3,
-          },
-        ],
-      },
-      "workflows": [
-        {
-          "binding": "BACKGROUND_WORKFLOW",
-          "name": "manut-intranet-background-preview",
-          "class_name": "BackgroundWorkflow",
-        },
-      ],
-      "triggers": { "crons": [] },
-      "containers": [],
-      "hyperdrive": [],
-    },
-    "e2e": {
-      "name": "manut-e2e",
-      "vars": {
-        "API_ORIGIN": "",
-        "AUTH_JWKS_URL": "",
-        "AUTH_ISSUER": "",
-        "AUTH_AUDIENCE": "",
-        "ENABLE_CONTAINER_BOUNDARY": "false",
-        "ENABLE_CRON_BOUNDARY": "false",
-        "ENABLE_HYPERDRIVE_BOUNDARY": "false",
-        "TRUSTED_STORAGE_ORIGINS": "",
-        "ENABLE_LOCAL_R2_STREAMING": "false",
-        "ENABLE_WORKFLOW_BOUNDARY": "false",
-        "R2_BUCKET_NAME": "manut-intranet-uploads-e2e",
-      },
-      // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
-      // are optional: uploads default to the UPLOADS R2 binding when unset.
-      // Set them only if you want direct SigV4 client→R2 transfers.
-      "secrets": {
-        "required": [
-          "EDGE_SIGNING_KEY",
-        ],
-      },
-      "r2_buckets": [
-        {
-          "binding": "UPLOADS",
-          "bucket_name": "manut-intranet-uploads-e2e",
-          "preview_bucket_name": "manut-intranet-uploads-e2e-preview",
-        },
-      ],
-      "ratelimits": [
-        {
-          "name": "API_RATE_LIMITER",
-          "namespace_id": "471301",
-          "simple": { "limit": 120, "period": 60 },
-        },
-      ],
-      "durable_objects": {
-        "bindings": [
-          { "name": "REALTIME_ROOMS", "class_name": "RealtimeRoom" },
-          { "name": "QUEUE_LEDGER", "class_name": "QueueLedger" },
-        ],
-      },
-      "migrations": [
-        {
-          "tag": "edge-v1",
-          "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
-        },
-      ],
-      "queues": {
-        "producers": [
-          { "binding": "JOB_QUEUE", "queue": "manut-intranet-jobs-e2e" },
-          {
-            "binding": "DEAD_LETTER_QUEUE",
-            "queue": "manut-intranet-jobs-e2e-dlq",
-          },
-        ],
-        "consumers": [
-          {
-            "queue": "manut-intranet-jobs-e2e",
-            "dead_letter_queue": "manut-intranet-jobs-e2e-dlq",
-            "max_batch_size": 10,
-            "max_batch_timeout": 5,
-            "max_retries": 3,
-          },
-        ],
-      },
-      "workflows": [
-        {
-          "binding": "BACKGROUND_WORKFLOW",
-          "name": "manut-intranet-background-e2e",
-          "class_name": "BackgroundWorkflow",
-        },
-      ],
-      "triggers": { "crons": [] },
-      "containers": [],
-      "hyperdrive": [],
-    },
-    // Optional separate Worker (not the live dashboard `manut` service).
     "staging": {
-      "name": "manut-staging",
+      "name": "intranet-edge-staging",
       "vars": {
-        "API_ORIGIN": "",
-        "AUTH_JWKS_URL": "",
-        "AUTH_ISSUER": "",
-        "AUTH_AUDIENCE": "",
-        "ENABLE_CONTAINER_BOUNDARY": "false",
-        "ENABLE_CRON_BOUNDARY": "false",
-        "ENABLE_HYPERDRIVE_BOUNDARY": "false",
-        "TRUSTED_STORAGE_ORIGINS": "",
-        "ENABLE_LOCAL_R2_STREAMING": "false",
-        "ENABLE_WORKFLOW_BOUNDARY": "false",
-        "R2_BUCKET_NAME": "manut-intranet-uploads-staging",
+        "APP_URL": "https://next-staging.intranet.thebinaryholdings.com",
+        "TRUSTED_ORIGINS": "intranet://",
+        "POSTHOG_HOST": "https://us.i.posthog.com",
+        "POSTHOG_ASSETS_HOST": "https://us-assets.i.posthog.com",
+        "MAGIC_LINK_ALLOWED_ROLES": ""
       },
-      // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
-      // are optional: uploads default to the UPLOADS R2 binding when unset.
-      // Set them only if you want direct SigV4 client→R2 transfers.
-      "secrets": {
-        "required": [
-          "EDGE_SIGNING_KEY",
-        ],
-      },
+      "routes": [{ "pattern": "next-staging.intranet.thebinaryholdings.com", "custom_domain": true }],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_WITH_STAGING_HYPERDRIVE_ID" }],
+      "kv_namespaces": [
+        { "binding": "KV_SESSIONS", "id": "REPLACE_WITH_STAGING_KV_SESSIONS_ID" },
+        { "binding": "KV_CACHE", "id": "REPLACE_WITH_STAGING_KV_CACHE_ID" }
+      ],
       "r2_buckets": [
-        {
-          "binding": "UPLOADS",
-          "bucket_name": "manut-intranet-uploads-staging",
-          "preview_bucket_name": "manut-intranet-uploads-staging-preview",
-        },
+        { "binding": "R2_PUBLIC", "bucket_name": "intranet-staging-public" },
+        { "binding": "R2_PRIVATE", "bucket_name": "intranet-staging-private" }
       ],
-      "ratelimits": [
-        {
-          "name": "API_RATE_LIMITER",
-          "namespace_id": "471401",
-          "simple": { "limit": 120, "period": 60 },
-        },
-      ],
-      "durable_objects": {
-        "bindings": [
-          { "name": "REALTIME_ROOMS", "class_name": "RealtimeRoom" },
-          { "name": "QUEUE_LEDGER", "class_name": "QueueLedger" },
-        ],
-      },
-      "migrations": [
-        {
-          "tag": "edge-v1",
-          "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
-        },
-      ],
-      "queues": {
-        "producers": [
-          {
-            "binding": "JOB_QUEUE",
-            "queue": "manut-intranet-jobs-staging",
-          },
-          {
-            "binding": "DEAD_LETTER_QUEUE",
-            "queue": "manut-intranet-jobs-staging-dlq",
-          },
-        ],
-        "consumers": [
-          {
-            "queue": "manut-intranet-jobs-staging",
-            "dead_letter_queue": "manut-intranet-jobs-staging-dlq",
-            "max_batch_size": 10,
-            "max_batch_timeout": 5,
-            "max_retries": 3,
-          },
-        ],
-      },
-      "workflows": [
-        {
-          "binding": "BACKGROUND_WORKFLOW",
-          "name": "manut-intranet-background-staging",
-          "class_name": "BackgroundWorkflow",
-        },
-      ],
-      "triggers": { "crons": [] },
-      "containers": [],
-      "hyperdrive": [],
+      "queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-staging" }] }
     },
-    // Production environment of Worker service `manut`.
-    // workers.dev: https://manut.bettergogocash.workers.dev
-    // Custom domain: https://app.manut.xyz
-    // Domains/routes are dashboard-managed custom domains — omit wrangler
-    // `routes` so deploys do not strip hosts attached in the Cloudflare UI.
     "production": {
-      "name": "manut",
-      "workers_dev": true,
-      "preview_urls": true,
+      "name": "intranet-edge",
       "vars": {
-        // Distinct Express origin required (P0-E4). Empty fails closed — never
-        // point at this Worker host (hop-loop / 530 Origin DNS). Ops sets a
-        // real API host later; do not invent DNS cutover here.
-        "API_ORIGIN": "",
-        "AUTH_JWKS_URL": "",
-        "AUTH_ISSUER": "",
-        "AUTH_AUDIENCE": "",
-        "ENABLE_CONTAINER_BOUNDARY": "false",
-        "ENABLE_CRON_BOUNDARY": "false",
-        "ENABLE_HYPERDRIVE_BOUNDARY": "false",
-        "TRUSTED_STORAGE_ORIGINS": "https://app.manut.xyz",
-        "ENABLE_LOCAL_R2_STREAMING": "false",
-        "ENABLE_WORKFLOW_BOUNDARY": "false",
-        "R2_BUCKET_NAME": "manut-intranet-uploads-production",
+        "APP_URL": "https://intranet.thebinaryholdings.com",
+        "TRUSTED_ORIGINS": "intranet://",
+        "POSTHOG_HOST": "https://us.i.posthog.com",
+        "POSTHOG_ASSETS_HOST": "https://us-assets.i.posthog.com",
+        "MAGIC_LINK_ALLOWED_ROLES": ""
       },
-      // R2 S3 API keys (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_ACCOUNT_ID)
-      // are optional: uploads default to the UPLOADS R2 binding when unset.
-      // Set them only if you want direct SigV4 client→R2 transfers.
-      "secrets": {
-        "required": [
-          "EDGE_SIGNING_KEY",
-        ],
-      },
+      "routes": [{ "pattern": "intranet.thebinaryholdings.com", "custom_domain": true }],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_WITH_PROD_HYPERDRIVE_ID" }],
+      "kv_namespaces": [
+        { "binding": "KV_SESSIONS", "id": "REPLACE_WITH_PROD_KV_SESSIONS_ID" },
+        { "binding": "KV_CACHE", "id": "REPLACE_WITH_PROD_KV_CACHE_ID" }
+      ],
       "r2_buckets": [
-        {
-          "binding": "UPLOADS",
-          "bucket_name": "manut-intranet-uploads-production",
-          "preview_bucket_name": "manut-intranet-uploads-production-preview",
-        },
+        { "binding": "R2_PUBLIC", "bucket_name": "intranet-prod-public" },
+        { "binding": "R2_PRIVATE", "bucket_name": "intranet-prod-private" }
       ],
-      "ratelimits": [
-        {
-          "name": "API_RATE_LIMITER",
-          "namespace_id": "471501",
-          "simple": { "limit": 120, "period": 60 },
-        },
-      ],
-      "durable_objects": {
-        "bindings": [
-          { "name": "REALTIME_ROOMS", "class_name": "RealtimeRoom" },
-          { "name": "QUEUE_LEDGER", "class_name": "QueueLedger" },
-        ],
-      },
-      "migrations": [
-        {
-          "tag": "edge-v1",
-          "new_sqlite_classes": ["RealtimeRoom", "QueueLedger"],
-        },
-      ],
-      "queues": {
-        "producers": [
-          {
-            "binding": "JOB_QUEUE",
-            "queue": "manut-intranet-jobs-production",
-          },
-          {
-            "binding": "DEAD_LETTER_QUEUE",
-            "queue": "manut-intranet-jobs-production-dlq",
-          },
-        ],
-        "consumers": [
-          {
-            "queue": "manut-intranet-jobs-production",
-            "dead_letter_queue": "manut-intranet-jobs-production-dlq",
-            "max_batch_size": 10,
-            "max_batch_timeout": 5,
-            "max_retries": 3,
-          },
-        ],
-      },
-      "workflows": [
-        {
-          "binding": "BACKGROUND_WORKFLOW",
-          "name": "manut-intranet-background-production",
-          "class_name": "BackgroundWorkflow",
-        },
-      ],
-      "triggers": { "crons": [] },
-      "containers": [],
-      "hyperdrive": [],
-    },
-  },
+      "queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-prod" }] }
+    }
+  }
 }

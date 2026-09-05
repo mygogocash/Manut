@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
-import { JOURNAL_STATUSES } from "@/components/accounting/accounting-utils";
+import { JOURNAL_IMPORT_STATUSES } from "@/components/accounting/accounting-utils";
 import { Badge } from "@/components/shared/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -578,7 +578,7 @@ export function JournalEntriesImportDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {JOURNAL_STATUSES.map((s) => (
+                  {JOURNAL_IMPORT_STATUSES.map((s) => (
                     <SelectItem key={s} value={s} className="capitalize">
                       {s}
                     </SelectItem>

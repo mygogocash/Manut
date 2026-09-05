@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+import { businessUnitCodeSchema } from "@/modules/business-units/business-units.validation";
+import {
+  bulkBusinessUnitsSchema,
+  bulkFieldSetSchema,
+  bulkSelectionFields,
+  bulkViewFacets,
+  hasSelection,
+  NO_SELECTION_MESSAGE,
+} from "@/modules/crm-shared/bulk-validation";
 import { OPPORTUNITY_STAGES } from "@/modules/opportunities/opportunities.constants";
 
 const dateField = z
@@ -24,21 +33,26 @@ export const accountDealSchema = z
 
 export const createAccountSchema = z.object({
   name: z.string().min(1, "Name is required").max(300),
-  // When present, domain is the unique dedupe key.
+  // Create-on-behalf-of. Honoured ONLY when the actor holds crm:team-read
+  // (service-level); anyone else silently gets themselves. Added for the
+  // ARIA Revenue migration — accounts must end up owned by the sales rep,
+  // not by the admin running the move.
+  ownerId: z.string().uuid().optional(),
+  // PRD §11.2 — when present, domain is the unique dedupe key.
   domain: z.string().max(255).optional(),
   industry: z.string().max(150).optional(),
   size: z.string().max(50).optional(),
   country: z.string().max(100).optional(),
-  // Coarse geo rollup; admin-managed at the app layer so
+  // BD-feedback — coarse geo rollup; admin-managed at the app layer so
   // we keep it as plain text here.
   region: z.string().max(100).optional(),
   website: z.string().max(500).optional(),
   notes: z.string().max(5000).optional(),
-  // Account metrics. Coerce because xlsx imports / form inputs
+  // BD-feedback metrics. Coerce because xlsx imports / form inputs
   // arrive as strings.
   totalUsers: z.coerce.number().int().nonnegative().optional(),
   appUsers: z.coerce.number().int().nonnegative().optional(),
-  // Engagement tracking. Every field is
+  // BD-feedback round 3 — engagement tracking. Every field is
   // nullable; reps populate them as the relationship matures. Dates
   // accept either YYYY-MM-DD or empty string (form sends "" for
   // unset pickers). The service converts "" → null on persist.
@@ -76,11 +90,15 @@ export const createAccountSchema = z.object({
   blocker: z.string().max(2000).optional().nullable(),
   remarks: z.string().max(2000).optional().nullable(),
   partnerId: z.string().optional(),
-  // Name-dedupe fallback: when name matches an existing record (no domain), the
+  // §11.2 fallback: when name matches an existing record (no domain), the
   // server returns 409 with the candidate. Client retries with this flag to
   // override and create a distinct account.
   confirmCreate: z.boolean().optional(),
   deal: accountDealSchema,
+  // Business-unit tags (Onewave / Onewave Revenue / ARIA …). Shape-validated
+  // only: a code that has since been deactivated stays on records already
+  // carrying it, exactly like Lead.source / Opportunity.lostReason.
+  businessUnits: z.array(businessUnitCodeSchema).max(10).optional(),
 });
 
 export const updateAccountSchema = createAccountSchema
@@ -99,11 +117,21 @@ export const listAccountsSchema = z.object({
   region: z.string().optional(),
   ownerId: z.string().optional(),
   partnerId: z.string().optional(),
-  // Accounts list filter. Matches
+  // BD-feedback (Vivek, 2026-05-25) — Accounts list filter. Matches
   // accounts whose latest linked opportunity sits at this stage.
   // Server interprets it as "has at least one opportunity at <stage>"
   // so unattached or differently-staged accounts drop out.
   stage: z.enum(OPPORTUNITY_STAGES).optional(),
+  // When "true", return ONLY archived accounts; anything else (incl. absent)
+  // shows active only. Explicit string compare — z.coerce.boolean() would turn
+  // "false" into true.
+  archived: z
+    .string()
+    .optional()
+    .transform((v) => v === "true"),
+  // Business-unit filter. A code narrows to records tagged with it;
+  // BUSINESS_UNIT_UNASSIGNED ("__none__") narrows to untagged records.
+  businessUnit: z.string().optional(),
 });
 
 // Mirrors `reorderLegalProjectsSchema` (#697). `orderedIds` is the
@@ -128,3 +156,52 @@ export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
 export type ListAccountsQuery = z.infer<typeof listAccountsSchema>;
 export type ReorderAccountsInput = z.infer<typeof reorderAccountsSchema>;
 export type ImportAccountsInput = z.infer<typeof importAccountsSchema>;
+
+// ── Bulk select-and-act ───────────────────────────────────────────
+// Selection shape and the reasoning behind it live in
+// `modules/crm-shared/bulk-validation.ts`. Only the filter facets are
+// module-specific — they must mirror ListAccountsFilters, minus
+// `ownerScope`, which is server-computed and never client-supplied.
+
+const bulkAccountsFilterSchema = z
+  .object({
+    search: z.string().optional(),
+    industry: z.string().min(1).max(80).optional(),
+    country: z.string().min(1).max(80).optional(),
+    region: z.string().min(1).max(40).optional(),
+    ownerId: z.string().uuid().optional(),
+    partnerId: z.string().min(1).optional(),
+    stage: z.string().min(1).max(40).optional(),
+    ...bulkViewFacets,
+  })
+  .optional();
+
+export const bulkUpdateAccountsSchema = z
+  .object({
+    ...bulkSelectionFields,
+    filter: bulkAccountsFilterSchema,
+    businessUnits: bulkBusinessUnitsSchema,
+  })
+  .refine(hasSelection, { message: NO_SELECTION_MESSAGE })
+  .refine(
+    (d) =>
+      d.businessUnits.mode === "replace" || d.businessUnits.codes.length > 0,
+    {
+      message: "Provide at least one business unit to add.",
+      path: ["businessUnits", "codes"],
+    },
+  );
+
+export type BulkUpdateAccountsInput = z.infer<typeof bulkUpdateAccountsSchema>;
+
+export const bulkFieldUpdateAccountsSchema = z
+  .object({
+    ...bulkSelectionFields,
+    filter: bulkAccountsFilterSchema,
+    set: bulkFieldSetSchema,
+  })
+  .refine(hasSelection, { message: NO_SELECTION_MESSAGE });
+
+export type BulkFieldUpdateAccountsInput = z.infer<
+  typeof bulkFieldUpdateAccountsSchema
+>;

@@ -98,7 +98,7 @@ export function ExpenseAlertConfigDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bell className="size-4" />
@@ -190,7 +190,7 @@ export function ExpenseAlertConfigDialog({ open, onOpenChange }: Props) {
                   htmlFor="enable-thailand"
                   className="cursor-pointer text-sm font-medium"
                 >
-                  Manut Thailand (TH entity)
+                  TBH Thailand (TH entity)
                 </Label>
                 <Switch
                   id="enable-thailand"

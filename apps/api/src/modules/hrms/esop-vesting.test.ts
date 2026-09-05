@@ -7,13 +7,13 @@ import {
   type VestingGrant,
 } from "@/modules/hrms/esop-vesting";
 
-// Anchored to the equity summary dashboard. "Today" is fixed
+// Anchored to Shahab's Equity Summary Report dashboard. "Today" is fixed
 // so the elapsed-month math is deterministic (2026-06-18).
 const NOW = new Date(Date.UTC(2026, 5, 18));
 
-// Executive Equity: 50,000 shares vesting Jan-2025 → Dec-2027 (36 months
+// CXO Equity: 50,000 shares vesting Jan-2025 → Dec-2027 (36 months
 // inclusive). Elapsed Jan-25 → Jun-26 = 17 months → ceil(50000*17/36).
-const executiveGrant: VestingGrant = {
+const cxo: VestingGrant = {
   shares: 50_000,
   grantDate: new Date(Date.UTC(2025, 0, 1)),
   vestingMonths: 36,
@@ -48,16 +48,13 @@ describe("monthsBetweenInclusive", () => {
 });
 
 describe("effectiveVestedToDate", () => {
-  it("matches the report's auto figure (Executive Equity = 23,612)", () => {
-    expect(effectiveVestedToDate(executiveGrant, NOW)).toBe(23_612);
+  it("matches the report's auto figure (CXO Equity = 23,612)", () => {
+    expect(effectiveVestedToDate(cxo, NOW)).toBe(23_612);
   });
 
   it("a manual override wins for a scheduled grant", () => {
     expect(
-      effectiveVestedToDate(
-        { ...executiveGrant, vestedToDateOverride: 240 },
-        NOW,
-      ),
+      effectiveVestedToDate({ ...cxo, vestedToDateOverride: 240 }, NOW),
     ).toBe(240);
   });
 
@@ -80,7 +77,7 @@ describe("rollupGrants vested-to-date", () => {
   it("sums the auto figure across scheduled grants", () => {
     const r = rollupGrants(
       [
-        executiveGrant,
+        cxo,
         {
           shares: 1_000,
           grantDate: new Date(Date.UTC(2025, 0, 1)),
@@ -97,10 +94,7 @@ describe("rollupGrants vested-to-date", () => {
   });
 
   it("honors an override in the pool total (so the card equals the rows)", () => {
-    const r = rollupGrants(
-      [{ ...executiveGrant, vestedToDateOverride: 240 }],
-      NOW,
-    );
+    const r = rollupGrants([{ ...cxo, vestedToDateOverride: 240 }], NOW);
     expect(r.vestedToDate).toBe(240);
   });
 });

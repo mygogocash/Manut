@@ -1,5 +1,9 @@
 import { api } from "@/lib/api-client";
 import type {
+  BulkBusinessUnitsPayload,
+  BulkBusinessUnitsResult,
+} from "@/services/crm-opportunity.service";
+import type {
   ApiPaginatedResponse,
   ApiSuccessResponse,
 } from "@/types/api.type";
@@ -48,7 +52,7 @@ export interface Account {
   notes: string | null;
   totalUsers: number | null;
   appUsers: number | null;
-  // Engagement tracking. All optional; populated
+  // BD-feedback round 3 — engagement tracking. All optional; populated
   // by the rep over time.
   picName: string | null;
   designation: string | null;
@@ -62,12 +66,17 @@ export interface Account {
   remarks: string | null;
   ownerId: string;
   partnerId: string | null;
+  // Reversible archive. Null → active; ISO timestamp → archived.
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
   owner: AccountOwner;
   partner: AccountPartner | null;
   _count: AccountCounts;
   opportunities: AccountOpportunitySummary[];
+  // Business-unit tags (Onewave / Onewave Revenue / ARIA …). Labels and
+  // chip colours resolve through use-business-units.ts.
+  businessUnits: string[];
 }
 
 export interface AccountDealInput {
@@ -91,7 +100,7 @@ export interface CreateAccountInput {
   notes?: string;
   totalUsers?: number;
   appUsers?: number;
-  // Engagement fields. Empty string clears on update; the
+  // BD-feedback round 3 fields. Empty string clears on update; the
   // server converts "" → null before persist.
   picName?: string | null;
   designation?: string | null;
@@ -104,11 +113,12 @@ export interface CreateAccountInput {
   blocker?: string | null;
   remarks?: string | null;
   partnerId?: string;
-  // Name-dedupe fallback override forwarded to the server when the rep accepts a
+  // §11.2 fallback override forwarded to the server when the rep accepts a
   // case-insensitive name match.
   confirmCreate?: boolean;
   /** Synced to Pipeline (creates or updates linked opportunity). */
   deal?: AccountDealInput;
+  businessUnits?: string[];
 }
 
 export type UpdateAccountInput = Omit<
@@ -125,9 +135,14 @@ export interface ListAccountsParams {
   region?: string;
   ownerId?: string;
   partnerId?: string;
-  // Filter by linked opportunity stage. Server matches
+  // BD-feedback — filter by linked opportunity stage. Server matches
   // accounts that have at least one opportunity at the given stage.
   stage?: string;
+  // When true, return ONLY archived accounts; omit/false shows active only.
+  archived?: boolean;
+  // A code narrows to records tagged with it; BUSINESS_UNIT_UNASSIGNED
+  // ("__none__") narrows to untagged records.
+  businessUnit?: string;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
@@ -174,6 +189,18 @@ export async function deleteAccount(id: string): Promise<void> {
   await api.delete(`/accounts/${id}`);
 }
 
+export async function archiveAccount(
+  id: string,
+): Promise<ApiSuccessResponse<Account>> {
+  return api.post(`/accounts/${id}/archive`, {});
+}
+
+export async function unarchiveAccount(
+  id: string,
+): Promise<ApiSuccessResponse<Account>> {
+  return api.post(`/accounts/${id}/unarchive`, {});
+}
+
 export async function reorderAccounts(
   orderedIds: string[],
 ): Promise<ApiSuccessResponse<{ success: boolean }>> {
@@ -184,4 +211,22 @@ export async function importAccounts(
   rows: CreateAccountInput[],
 ): Promise<ApiSuccessResponse<{ created: number; skipped: number }>> {
   return api.post("/accounts/import", { rows });
+}
+
+// ── Bulk business-unit assignment ─────────────────────────────────
+// Payload + result shapes are declared once in crm-opportunity.service.ts.
+
+export async function bulkAssignAccountsBusinessUnits(
+  payload: BulkBusinessUnitsPayload,
+): Promise<ApiSuccessResponse<BulkBusinessUnitsResult>> {
+  return api.post("/accounts/bulk-business-units", payload);
+}
+
+export async function bulkUpdateAccountsFields(payload: {
+  ids?: string[];
+  allMatching?: boolean;
+  filter?: Record<string, string | boolean | undefined>;
+  set: { ownerId?: string; archived?: boolean };
+}): Promise<ApiSuccessResponse<BulkBusinessUnitsResult>> {
+  return api.post("/accounts/bulk-update", payload);
 }

@@ -4,8 +4,9 @@ import type {
   ApiSuccessResponse,
 } from "@/types/api.type";
 
-// Typed client for the Accounting CRM standalone workspace.
-// Mounted at `/api/accounting-crm`.
+// Phase 3 of the Accounting CRM standalone workspace (Option A per-CRM
+// schema isolation, 2026-05-26). Typed client for the Phase 2
+// backend endpoints (#610). Mounted at `/api/accounting-crm`.
 
 export interface AccountingCrmUser {
   id: string;
@@ -120,6 +121,8 @@ export interface AccountingProjectListParams {
   search?: string;
   status?: string;
   department?: string;
+  // When true, return ONLY archived projects; omit/false shows active only.
+  archived?: boolean;
 }
 
 // ─── Project CRUD ──────────────────────────────────────────
@@ -158,6 +161,18 @@ export async function deleteAccountingProject(
   id: string,
 ): Promise<ApiSuccessResponse<{ success: true }>> {
   return api.delete(`/accounting-crm/${id}`);
+}
+
+export async function archiveAccountingProject(
+  id: string,
+): Promise<ApiSuccessResponse<AccountingProject>> {
+  return api.post(`/accounting-crm/${id}/archive`, {});
+}
+
+export async function unarchiveAccountingProject(
+  id: string,
+): Promise<ApiSuccessResponse<AccountingProject>> {
+  return api.post(`/accounting-crm/${id}/unarchive`, {});
 }
 
 export async function reorderAccountingProjects(

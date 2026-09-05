@@ -15,7 +15,7 @@
 
 // ── IT Billing Monitoring ────────────────────────────────────────────────
 
-/// A software or service vendor the company pays.
+/// A software / service vendor the company pays (Google, GitHub, Anthropic...).
 model ItVendor {
   id            String   @id @default(uuid()) @db.Uuid
   name          String   @db.VarChar(200)
@@ -43,53 +43,65 @@ model ItVendor {
 /// the renewal alert ladder (30 / 15 / 7 days); `paymentStatus` drives the
 /// payment-due ladder. `status` is the lifecycle badge shown in the UI.
 model ItSubscription {
-  id                   String    @id @default(uuid()) @db.Uuid
-  vendorId             String    @map("vendor_id") @db.Uuid
+  id                String   @id @default(uuid()) @db.Uuid
+  vendorId          String   @map("vendor_id") @db.Uuid
   /// Free-text grouping: 'saas' | 'infrastructure' | 'ai' | 'security' | ...
-  category             String    @default("saas")
-  productName          String    @map("product_name") @db.VarChar(200)
-  contractStartDate    DateTime? @map("contract_start_date") @db.Date
-  renewalDate          DateTime? @map("renewal_date") @db.Date
+  category          String   @default("saas")
+  productName       String   @map("product_name") @db.VarChar(200)
+  contractStartDate DateTime? @map("contract_start_date") @db.Date
+  renewalDate       DateTime? @map("renewal_date") @db.Date
   /// 'monthly' | 'quarterly' | 'annual' | 'one-time'
-  billingFrequency     String    @default("monthly") @map("billing_frequency")
-  invoiceAmount        Decimal   @default(0) @map("invoice_amount") @db.Decimal(15, 2)
-  currency             String    @default("USD") @db.VarChar(10)
+  billingFrequency  String   @default("monthly") @map("billing_frequency")
+  invoiceAmount     Decimal  @default(0) @map("invoice_amount") @db.Decimal(15, 2)
+  currency          String   @default("USD") @db.VarChar(10)
   /// 'paid' | 'pending' | 'overdue' | 'na'
-  paymentStatus        String    @default("pending") @map("payment_status")
+  paymentStatus     String   @default("pending") @map("payment_status")
   /// Lifecycle badge: 'active' | 'expiring-soon' | 'pending-payment'
   /// | 'renewed' | 'cancelled'. Derived on read where possible, but
   /// persisted so manual overrides (renewed / cancelled) stick.
-  status               String    @default("active")
-  ownerUserId          String?   @map("owner_user_id") @db.Uuid
-  notes                String?
+  status            String   @default("active")
+  ownerUserId       String?  @map("owner_user_id") @db.Uuid
+  notes             String?
   /// ── License utilization ("paid for but not used") ──
   /// Source counts; `unusedSeats` + `utilizationPercentage` are DERIVED on
   /// read (not stored) to avoid drift. `totalSeats` null = not seat-based.
-  totalSeats           Int?      @map("total_seats")
-  assignedSeats        Int       @default(0) @map("assigned_seats")
-  activeSeats          Int       @default(0) @map("active_seats")
+  totalSeats        Int?     @map("total_seats")
+  assignedSeats     Int      @default(0) @map("assigned_seats")
+  activeSeats       Int      @default(0) @map("active_seats")
   /// ── Renewal decision workflow ──
   /// 'renew' | 'cancel' - recorded when an admin acts on a renewal reminder.
   renewalDecision      String?   @map("renewal_decision")
   renewalDecisionAt    DateTime? @map("renewal_decision_at")
   renewalDecisionById  String?   @map("renewal_decision_by") @db.Uuid
   renewalDecisionNotes String?   @map("renewal_decision_notes")
+  /// Effective date the cost STOPS — the paid-through date, not the date the
+  /// decision was taken. Cancelling in August a service paid through December
+  /// still costs money until December, so the two dates are different numbers
+  /// and only this one belongs in a spend trend.
+  ///
+  /// NULL while live. Always read it through `endMonth()` in
+  /// it-billing-monthly.ts, which falls back to renewalDate /
+  /// renewalDecisionAt / updatedAt for rows cancelled before this column
+  /// existed — that fallback is why the migration needs no backfill (and so
+  /// why staging's `db:push`, which never runs data-migration SQL, still
+  /// produces the same series as prod).
+  cancelledAt          DateTime? @map("cancelled_at") @db.Date
   /// Document attachments (invoices, renewal docs, quotations).
-  attachments          Json?
+  attachments       Json?
   /// Debounce stamp so the renewal-reminder cron doesn't re-email daily.
-  lastReminderSentAt   DateTime? @map("last_reminder_sent_at")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
   /// Per-tier debounce: which alert rungs (30/15/7/payment) already fired.
-  remindersSent        Json      @default("[]") @map("reminders_sent")
-  createdById          String    @map("created_by") @db.Uuid
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  remindersSent     Json     @default("[]") @map("reminders_sent")
+  createdById       String   @map("created_by") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
-  vendor            ItVendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  owner             User?             @relation("ItSubscriptionOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
-  createdBy         User              @relation("ItSubscriptionCreator", fields: [createdById], references: [id], onDelete: Cascade)
-  renewalDecisionBy User?             @relation("ItSubscriptionRenewalDecider", fields: [renewalDecisionById], references: [id], onDelete: SetNull)
-  billingRecords    ItBillingRecord[]
-  alerts            ItBillingAlert[]
+  vendor        ItVendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  owner         User?             @relation("ItSubscriptionOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdBy     User              @relation("ItSubscriptionCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  renewalDecisionBy User?         @relation("ItSubscriptionRenewalDecider", fields: [renewalDecisionById], references: [id], onDelete: SetNull)
+  billingRecords ItBillingRecord[]
+  alerts         ItBillingAlert[]
 
   @@index([vendorId])
   @@index([status])
@@ -126,15 +138,15 @@ model ItBillingRecord {
 /// A fired alert against a subscription (renewal / payment ladder). Written
 /// by the cron worker so the dashboard can surface "what fired and when".
 model ItBillingAlert {
-  id               String    @id @default(uuid()) @db.Uuid
-  subscriptionId   String    @map("subscription_id") @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
+  subscriptionId String    @map("subscription_id") @db.Uuid
   /// 'renewal-30' | 'renewal-15' | 'renewal-7' | 'payment-due-7'
-  alertType        String    @map("alert_type")
-  message          String
-  acknowledged     Boolean   @default(false)
-  acknowledgedById String?   @map("acknowledged_by") @db.Uuid
-  acknowledgedAt   DateTime? @map("acknowledged_at")
-  createdAt        DateTime  @default(now()) @map("created_at")
+  alertType      String    @map("alert_type")
+  message        String
+  acknowledged   Boolean   @default(false)
+  acknowledgedById String? @map("acknowledged_by") @db.Uuid
+  acknowledgedAt DateTime? @map("acknowledged_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
 
   subscription   ItSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   acknowledgedBy User?          @relation("ItBillingAlertAck", fields: [acknowledgedById], references: [id], onDelete: SetNull)
@@ -171,33 +183,33 @@ model ItSystem {
 /// CashAdvance request + decision-snapshot pattern, but the chain is a
 /// fixed two-step (manager, then IT) so there's no config table.
 model ItAccessRequest {
-  id                    String    @id @default(uuid()) @db.Uuid
-  requestNumber         Int       @unique @default(autoincrement()) @map("request_number")
-  employeeId            String    @map("employee_id") @db.Uuid
-  systemId              String    @map("system_id")
+  id                   String    @id @default(uuid()) @db.Uuid
+  requestNumber        Int       @unique @default(autoincrement()) @map("request_number")
+  employeeId           String    @map("employee_id") @db.Uuid
+  systemId             String    @map("system_id")
   /// 'new' | 'modify' | 'revoke' | 'temporary' | 'emergency'
-  requestType           String    @default("new") @map("request_type")
-  requestedAccessLevel  String    @map("requested_access_level") @db.VarChar(200)
-  businessJustification String    @map("business_justification")
-  startDate             DateTime? @map("start_date") @db.Date
-  endDate               DateTime? @map("end_date") @db.Date
+  requestType          String    @default("new") @map("request_type")
+  requestedAccessLevel String    @map("requested_access_level") @db.VarChar(200)
+  businessJustification String   @map("business_justification")
+  startDate            DateTime? @map("start_date") @db.Date
+  endDate              DateTime? @map("end_date") @db.Date
   /// 'draft' | 'pending-manager' | 'pending-it' | 'approved' | 'rejected'
   /// | 'granted' | 'revoked'
-  status                String    @default("draft")
-  currentStepOrder      Int?      @map("current_step_order")
-  managerComments       String?   @map("manager_comments")
-  itComments            String?   @map("it_comments")
-  rejectReason          String?   @map("reject_reason")
-  submittedAt           DateTime? @map("submitted_at")
-  grantedById           String?   @map("granted_by") @db.Uuid
-  grantedAt             DateTime? @map("granted_at")
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
+  status               String    @default("draft")
+  currentStepOrder     Int?      @map("current_step_order")
+  managerComments      String?   @map("manager_comments")
+  itComments           String?   @map("it_comments")
+  rejectReason         String?   @map("reject_reason")
+  submittedAt          DateTime? @map("submitted_at")
+  grantedById          String?   @map("granted_by") @db.Uuid
+  grantedAt            DateTime? @map("granted_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
-  employee    User                       @relation("ItAccessRequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
-  system      ItSystem                   @relation(fields: [systemId], references: [id], onDelete: Restrict)
-  grantedBy   User?                      @relation("ItAccessRequestGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
-  decisions   ItAccessApprovalDecision[]
+  employee  User                       @relation("ItAccessRequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  system    ItSystem                   @relation(fields: [systemId], references: [id], onDelete: Restrict)
+  grantedBy User?                      @relation("ItAccessRequestGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
+  decisions ItAccessApprovalDecision[]
   assignments ItAccessAssignment[]
 
   @@index([employeeId, status])

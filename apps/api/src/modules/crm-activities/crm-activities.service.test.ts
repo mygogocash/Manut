@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { NotFoundException } from "@/common/exceptions/http-exception";
 import { crmActivityRepository } from "@/modules/crm-activities/crm-activities.repository";
 import { CrmActivityService } from "@/modules/crm-activities/crm-activities.service";
-import { mockArgument } from "@/test-utils/assertions";
 
 vi.mock("@/modules/crm-activities/crm-activities.repository", () => ({
   crmActivityRepository: {
@@ -97,10 +96,7 @@ describe("CrmActivityService", () => {
           type: "call",
         }),
       );
-      const args = mockArgument(create.mock.calls, 0, 0) as Record<
-        string,
-        unknown
-      >;
+      const args = create.mock.calls[0][0] as Record<string, unknown>;
       expect(args).not.toHaveProperty("opportunity");
       expect(args).not.toHaveProperty("contact");
       expect(args).not.toHaveProperty("account");

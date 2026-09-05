@@ -2,6 +2,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
+import { ensureCatalogSeeded } from "@/common/utils/lazy-catalog";
 import { investorTypeRepository } from "@/modules/investor-types/investor-types.repository";
 import type {
   CreateInvestorTypeInput,
@@ -19,9 +20,46 @@ function slugify(label: string): string {
     .slice(0, 60);
 }
 
+/**
+ * The investor categories the product ships with. Also written by
+ * `20261004000000_investor_type_options` (+ `20261010000000` adding
+ * `introducer` and pushing `other` to 11), whose INSERTs only run where
+ * `prisma migrate deploy` runs. On a `db:push`-synced database the table is
+ * empty, so the Type picker has no options — and `type` is REQUIRED by
+ * `createInvestorSchema`, which makes creating an investor impossible there.
+ */
+export const DEFAULT_INVESTOR_TYPES = [
+  { key: "family_office", label: "Family Office", sortOrder: 0 },
+  { key: "private_equity", label: "Private Equity / AM", sortOrder: 1 },
+  { key: "venture_capital", label: "Venture Capital", sortOrder: 2 },
+  { key: "corporate_vc", label: "Corporate VC", sortOrder: 3 },
+  {
+    key: "sovereign_wealth_fund",
+    label: "Sovereign Wealth Fund",
+    sortOrder: 4,
+  },
+  { key: "corporate_capital", label: "Corporate Capital", sortOrder: 5 },
+  { key: "state_capital_soe", label: "State Capital / SOE", sortOrder: 6 },
+  { key: "growth_late", label: "Growth / Late Stage", sortOrder: 7 },
+  { key: "individual", label: "Individual", sortOrder: 8 },
+  { key: "angel", label: "Angel", sortOrder: 9 },
+  { key: "introducer", label: "Introducer", sortOrder: 10 },
+  { key: "other", label: "Other", sortOrder: 11 },
+] as const;
+
+async function ensureSeeded() {
+  return ensureCatalogSeeded({
+    findAll: () => investorTypeRepository.findAll(),
+    seed: () =>
+      investorTypeRepository.createManyIfMissing(
+        DEFAULT_INVESTOR_TYPES.map((r) => ({ ...r })),
+      ),
+  });
+}
+
 export class InvestorTypeService {
   async list() {
-    return investorTypeRepository.findAll();
+    return ensureSeeded();
   }
 
   async create(input: CreateInvestorTypeInput) {

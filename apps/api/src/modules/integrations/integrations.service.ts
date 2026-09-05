@@ -483,6 +483,10 @@ export const integrationsService = {
       : { connected: false as const };
 
     return {
+      anthropic: {
+        configured: !!process.env.ANTHROPIC_API_KEY,
+        status: process.env.ANTHROPIC_API_KEY ? "connected" : "not_configured",
+      },
       gmail: {
         configured: hasGoogleEnv,
         status: hasGoogleEnv ? "connected" : "not_configured",

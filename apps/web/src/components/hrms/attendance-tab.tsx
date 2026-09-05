@@ -1,16 +1,22 @@
 "use client";
 
 import { Clock, Download, LogIn, LogOut, RefreshCw } from "lucide-react";
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { AttendanceAnalyticsPanel } from "@/components/hrms/attendance-analytics-panel";
+import { AttendanceCalendarPanel } from "@/components/hrms/attendance-calendar-panel";
 import {
   ATTENDANCE_SUB_TABS,
   type AttendanceSubTabId,
   LIVE_REFRESH_MS,
 } from "@/components/hrms/attendance-constants";
+import { AttendanceCorrectionsPanel } from "@/components/hrms/attendance-corrections-panel";
 import { AttendanceDashboardCards } from "@/components/hrms/attendance-dashboard-cards";
+import { AttendanceExecutivePanel } from "@/components/hrms/attendance-executive-panel";
+import { AttendanceManagerPanel } from "@/components/hrms/attendance-manager-panel";
+import { AttendanceSettingsPanel } from "@/components/hrms/attendance-settings-panel";
+import { AttendanceShiftAssignmentPanel } from "@/components/hrms/attendance-shift-assignment-panel";
 import { formatDualTime } from "@/components/hrms/attendance-time-display";
 import { Badge } from "@/components/shared/badge";
 import { DataPagination } from "@/components/shared/data-pagination";
@@ -56,60 +62,6 @@ import {
   exportDepartmentAttendance,
   exportMonthlyAttendance,
 } from "@/services/attendance-phase2.service";
-
-function DeferredPanelFallback() {
-  return <div className="bg-muted/30 min-h-48 animate-pulse rounded-lg" />;
-}
-
-const AttendanceCorrectionsPanel = dynamic(
-  () =>
-    import("@/components/hrms/attendance-corrections-panel").then(
-      (module) => module.AttendanceCorrectionsPanel,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const AttendanceManagerPanel = dynamic(
-  () =>
-    import("@/components/hrms/attendance-manager-panel").then(
-      (module) => module.AttendanceManagerPanel,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const AttendanceAnalyticsPanel = dynamic(
-  () =>
-    import("@/components/hrms/attendance-analytics-panel").then(
-      (module) => module.AttendanceAnalyticsPanel,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const AttendanceExecutivePanel = dynamic(
-  () =>
-    import("@/components/hrms/attendance-executive-panel").then(
-      (module) => module.AttendanceExecutivePanel,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const AttendanceCalendarPanel = dynamic(
-  () =>
-    import("@/components/hrms/attendance-calendar-panel").then(
-      (module) => module.AttendanceCalendarPanel,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const AttendanceShiftAssignmentPanel = dynamic(
-  () =>
-    import("@/components/hrms/attendance-shift-assignment-panel").then(
-      (module) => module.AttendanceShiftAssignmentPanel,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const AttendanceSettingsPanel = dynamic(
-  () =>
-    import("@/components/hrms/attendance-settings-panel").then(
-      (module) => module.AttendanceSettingsPanel,
-    ),
-  { loading: DeferredPanelFallback },
-);
 
 function formatTime(iso: string | null): string {
   if (!iso) return "—";
@@ -177,11 +129,6 @@ export function AttendanceTab({
   const [myRows, setMyRows] = useState<AttendanceRecord[]>([]);
   const [loadingMy, setLoadingMy] = useState(false);
   const myPag = usePagination();
-  const {
-    page: myPage,
-    pageSize: myPageSize,
-    setTotalCount: setMyTotalCount,
-  } = myPag;
 
   const [monthlyReport, setMonthlyReport] =
     useState<MonthlyAttendanceReport | null>(null);
@@ -244,11 +191,11 @@ export function AttendanceTab({
     try {
       setLoadingMy(true);
       const res = await getMyAttendance({
-        page: myPage,
-        limit: myPageSize,
+        page: myPag.page,
+        limit: myPag.pageSize,
       });
       setMyRows(res.data);
-      setMyTotalCount(res.meta.total);
+      myPag.setTotalCount(res.meta.total);
     } catch (err) {
       toast.error(
         err instanceof ApiError
@@ -258,7 +205,7 @@ export function AttendanceTab({
     } finally {
       setLoadingMy(false);
     }
-  }, [myPage, myPageSize, setMyTotalCount]);
+  }, [myPag.page, myPag.pageSize, myPag.setTotalCount]);
 
   const fetchReports = useCallback(async () => {
     try {
@@ -349,11 +296,13 @@ export function AttendanceTab({
       },
       {
         key: "department",
+        mobileRole: "subtitle" as const,
         header: "Department",
         render: (r: AttendanceRecord) => r.employee?.department ?? "—",
       },
       {
         key: "checkIn",
+        mobileRole: "field" as const,
         header: "Check In",
         render: (r: AttendanceRecord) => (
           <span className="text-xs tabular-nums">
@@ -363,6 +312,7 @@ export function AttendanceTab({
       },
       {
         key: "checkOut",
+        mobileRole: "detail" as const,
         header: "Check Out",
         render: (r: AttendanceRecord) => (
           <span className="text-xs tabular-nums">
@@ -372,12 +322,14 @@ export function AttendanceTab({
       },
       {
         key: "workMode",
+        mobileRole: "detail" as const,
         header: "Work Mode",
         render: (r: AttendanceRecord) =>
           ATTENDANCE_WORK_MODE_LABELS[r.workMode],
       },
       {
         key: "status",
+        mobileRole: "badge" as const,
         header: "Status",
         render: (r: AttendanceRecord) => (
           <Badge status={r.status}>{ATTENDANCE_STATUS_LABELS[r.status]}</Badge>
@@ -385,6 +337,7 @@ export function AttendanceTab({
       },
       {
         key: "totalHours",
+        mobileRole: "field" as const,
         header: "Total Hours",
         render: (r: AttendanceRecord) => (
           <span className="tabular-nums">
@@ -409,6 +362,7 @@ export function AttendanceTab({
       },
       {
         key: "checkIn",
+        mobileRole: "field" as const,
         header: "Check In",
         render: (r: AttendanceRecord) => (
           <span className="text-xs">
@@ -418,6 +372,7 @@ export function AttendanceTab({
       },
       {
         key: "checkOut",
+        mobileRole: "detail" as const,
         header: "Check Out",
         render: (r: AttendanceRecord) => (
           <span className="text-xs">
@@ -427,12 +382,14 @@ export function AttendanceTab({
       },
       {
         key: "workMode",
+        mobileRole: "subtitle" as const,
         header: "Work Mode",
         render: (r: AttendanceRecord) =>
           ATTENDANCE_WORK_MODE_LABELS[r.workMode],
       },
       {
         key: "status",
+        mobileRole: "badge" as const,
         header: "Status",
         render: (r: AttendanceRecord) => (
           <Badge status={r.status}>{ATTENDANCE_STATUS_LABELS[r.status]}</Badge>
@@ -440,6 +397,7 @@ export function AttendanceTab({
       },
       {
         key: "late",
+        mobileRole: "field" as const,
         header: "Late (min)",
         render: (r: AttendanceRecord) => (
           <span className="tabular-nums">{r.lateMinutes}</span>
@@ -447,6 +405,7 @@ export function AttendanceTab({
       },
       {
         key: "hours",
+        mobileRole: "field" as const,
         header: "Hours",
         render: (r: AttendanceRecord) => (
           <span className="tabular-nums">
@@ -528,7 +487,7 @@ export function AttendanceTab({
           onValueChange={(v) => setWorkMode(v as AttendanceWorkMode)}
           disabled={Boolean(todayRecord?.checkIn)}
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[200px]" aria-label="Filter by work mode">
             <SelectValue placeholder="Work mode" />
           </SelectTrigger>
           <SelectContent>
@@ -765,49 +724,37 @@ export function AttendanceTab({
         </TabsContent>
 
         <TabsContent value="corrections" className="flex flex-col gap-4">
-          {subTab === "corrections" ? (
-            <AttendanceCorrectionsPanel
-              canRequest={canCheckIn}
-              canApprove={canApproveCorrections}
-            />
-          ) : null}
+          <AttendanceCorrectionsPanel
+            canRequest={canCheckIn}
+            canApprove={canApproveCorrections}
+          />
         </TabsContent>
 
         <TabsContent value="team" className="flex flex-col gap-4">
-          {subTab === "team" ? <AttendanceManagerPanel /> : null}
+          <AttendanceManagerPanel />
         </TabsContent>
 
         <TabsContent value="analytics" className="flex flex-col gap-4">
-          {subTab === "analytics" ? (
-            <AttendanceAnalyticsPanel month={reportMonth} />
-          ) : null}
+          <AttendanceAnalyticsPanel month={reportMonth} />
         </TabsContent>
 
         <TabsContent value="executive" className="flex flex-col gap-4">
-          {subTab === "executive" ? (
-            <AttendanceExecutivePanel month={reportMonth} />
-          ) : null}
+          <AttendanceExecutivePanel month={reportMonth} />
         </TabsContent>
 
         <TabsContent value="calendar" className="flex flex-col gap-4">
-          {subTab === "calendar" ? (
-            <AttendanceCalendarPanel
-              canViewTeam={canCheckIn}
-              canViewDepartment={canViewReports}
-            />
-          ) : null}
+          <AttendanceCalendarPanel
+            canViewTeam={canCheckIn}
+            canViewDepartment={canViewReports}
+          />
         </TabsContent>
 
         <TabsContent value="shift-assignment" className="flex flex-col gap-4">
-          {subTab === "shift-assignment" ? (
-            <AttendanceShiftAssignmentPanel />
-          ) : null}
+          <AttendanceShiftAssignmentPanel />
         </TabsContent>
 
         <TabsContent value="settings" className="flex flex-col gap-4">
-          {subTab === "settings" ? (
-            <AttendanceSettingsPanel canManagePolicy={canManagePolicy} />
-          ) : null}
+          <AttendanceSettingsPanel canManagePolicy={canManagePolicy} />
         </TabsContent>
 
         <TabsContent value="live" className="flex flex-col gap-4">

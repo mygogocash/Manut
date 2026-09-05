@@ -28,12 +28,29 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { BulkActionBar } from "@/components/crm/bulk-action-bar";
+import {
+  BulkFieldDialog,
+  type BulkFieldMode,
+} from "@/components/crm/bulk-field-dialog";
+import { InvestorBulkTagsDialog } from "@/components/investor-crm/investor-bulk-tags-dialog";
+import { InvestorTagChips } from "@/components/investor-crm/investor-tag-chips";
+import { Tabs as ArchiveTabs } from "@/components/shared/tabs";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+  type BulkSelection,
+  useBulkSelection,
+} from "@/hooks/use-bulk-selection";
+import { useInvestorTags } from "@/hooks/use-investor-tags";
 import { useInvestorTypes } from "@/hooks/use-investor-types";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
+import { useFundraisingEntity } from "@/providers/fundraising-entity-provider";
 import {
+  bulkSetInvestorTags,
+  bulkUpdateInvestors,
   getInvestorPipelineTotals,
   type Investor,
   type InvestorPipelineTotals,
@@ -50,6 +67,7 @@ import {
   reorderInvestorStages,
   updateInvestorStage,
 } from "@/services/investor-pipeline-stage.service";
+import { INVESTOR_TAG_UNTAGGED } from "@/services/investor-tag.service";
 
 const COLUMN_PAGE_SIZE = 50;
 
@@ -102,6 +120,8 @@ interface StageColumnProps {
   typeLabel: (key: string) => string;
   canMove: boolean;
   canManage: boolean;
+  /** Shared bulk-selection state; the board owns it, columns only read it. */
+  selection: BulkSelection;
   draggingCardId: string | null;
   dragOverStage: string | null;
   editing: boolean;
@@ -121,6 +141,7 @@ interface StageColumnProps {
 function StageColumn({
   stage,
   column,
+  selection,
   est,
   act,
   typeLabel,
@@ -233,7 +254,26 @@ function StageColumn({
               {stage.label}
             </p>
           )}
-          <p className="text-muted-foreground mt-0.5 text-[11px]">
+          <p
+            className={`
+              text-muted-foreground mt-0.5 flex items-center gap-1.5 text-[11px]
+            `}
+          >
+            {cards.length > 0 ? (
+              // Ticks the cards this column has LOADED, not all `column.total`
+              // of them — a column holds one page. Board-wide selection is the
+              // "select all N matching" escalation in the action bar.
+              <Checkbox
+                checked={cards.every((c) => selection.isSelected(c.id))}
+                onCheckedChange={(next) =>
+                  selection.toggleMany(
+                    cards.map((c) => c.id),
+                    next === true,
+                  )
+                }
+                aria-label={`Select loaded ${stage.label} investors`}
+              />
+            ) : null}
             {column.total} {column.total === 1 ? "investor" : "investors"}
           </p>
           <div className="mt-1 flex flex-col gap-0.5 text-[11px] tabular-nums">
@@ -286,7 +326,7 @@ function StageColumn({
         onDragLeave={() => onCardDragLeave(stage.key)}
         onDrop={(e) => (canMove ? onCardDrop(e, stage.key) : undefined)}
         className={`
-          flex max-h-[calc(100vh-360px)] flex-col gap-2 overflow-y-auto p-2
+          flex max-h-[60vh] flex-col gap-2 overflow-y-auto p-2
           ${
             dragOverStage === stage.key
               ? "bg-accent/30 ring-primary ring-2 ring-inset"
@@ -303,69 +343,89 @@ function StageColumn({
             const est = parseInvestmentAmount(i.estInvestment);
             const date = formatDate(i.lastContactDate);
             const isCardDragging = draggingCardId === i.id;
+            const selected = selection.isSelected(i.id);
             return (
-              <button
-                key={i.id}
-                type="button"
-                draggable={canMove}
-                onDragStart={(e) => onCardDragStart(e, i.id)}
-                onDragEnd={onCardDragEnd}
-                onClick={() => onOpenInvestor?.(i.id)}
-                className={`
-                  border-border bg-background flex flex-col gap-1 rounded-md
-                  border p-2 text-left
-                  hover:border-foreground/20 hover:shadow-sm
-                  ${isCardDragging ? "opacity-40" : ""}
-                  ${
-                    canMove
-                      ? `
-                        cursor-grab
-                        active:cursor-grabbing
-                      `
-                      : ""
-                  }
-                `}
-              >
-                <p
-                  className={`text-foreground line-clamp-2 text-xs font-medium`}
-                >
-                  {i.name}
-                </p>
-                <p className="text-muted-foreground text-[11px]">
-                  {typeLabel(i.type)}
-                  {i.contactName ? ` · ${i.contactName}` : ""}
-                </p>
-                <div
+              // The checkbox is a positioned SIBLING of the card button, not a
+              // child: a checkbox nested inside a <button> is invalid HTML and
+              // its clicks would fight the card's onClick. As a sibling no
+              // stopPropagation is needed, and dragging still belongs to the
+              // button alone.
+              <div key={i.id} className="relative">
+                <span className="absolute top-2 left-2 z-10">
+                  <Checkbox
+                    checked={selected}
+                    onCheckedChange={() => selection.toggle(i.id)}
+                    aria-label={`Select ${i.name}`}
+                  />
+                </span>
+                <button
+                  type="button"
+                  draggable={canMove}
+                  onDragStart={(e) => onCardDragStart(e, i.id)}
+                  onDragEnd={onCardDragEnd}
+                  onClick={() => onOpenInvestor?.(i.id)}
                   className={`
-                    text-foreground flex items-center justify-between
-                    text-[11px] tabular-nums
+                    border-border bg-background flex w-full flex-col gap-1
+                    rounded-md border p-2 pl-8 text-left
+                    hover:border-foreground/20 hover:shadow-sm
+                    ${isCardDragging ? "opacity-40" : ""}
+                    ${selected ? "ring-primary/60 ring-2" : ""}
+                    ${
+                      canMove
+                        ? `
+                          cursor-grab
+                          active:cursor-grabbing
+                        `
+                        : ""
+                    }
                   `}
                 >
-                  <span>{est > 0 ? formatUsd(est) : "—"}</span>
-                  {i.region ? (
-                    <span className="text-muted-foreground">{i.region}</span>
+                  <p
+                    className={`
+                      text-foreground line-clamp-2 text-xs font-medium
+                    `}
+                  >
+                    {i.name}
+                  </p>
+                  <p className="text-muted-foreground text-[11px]">
+                    {typeLabel(i.type)}
+                    {i.contactName ? ` · ${i.contactName}` : ""}
+                  </p>
+                  <div
+                    className={`
+                      text-foreground flex items-center justify-between
+                      text-[11px] tabular-nums
+                    `}
+                  >
+                    <span>{est > 0 ? formatUsd(est) : "—"}</span>
+                    {i.region ? (
+                      <span className="text-muted-foreground">{i.region}</span>
+                    ) : null}
+                  </div>
+                  <div
+                    className={`
+                      text-muted-foreground flex flex-wrap items-center gap-x-2
+                      text-[10px]
+                    `}
+                  >
+                    {i.adder?.name ? (
+                      <span>
+                        <span className="opacity-70">Owner </span>
+                        {i.adder.name}
+                      </span>
+                    ) : null}
+                    {date ? (
+                      <span>
+                        <span className="opacity-70">Last </span>
+                        {date}
+                      </span>
+                    ) : null}
+                  </div>
+                  {i.tags.length > 0 ? (
+                    <InvestorTagChips codes={i.tags} max={2} />
                   ) : null}
-                </div>
-                <div
-                  className={`
-                    text-muted-foreground flex flex-wrap items-center gap-x-2
-                    text-[10px]
-                  `}
-                >
-                  {i.adder?.name ? (
-                    <span>
-                      <span className="opacity-70">Owner </span>
-                      {i.adder.name}
-                    </span>
-                  ) : null}
-                  {date ? (
-                    <span>
-                      <span className="opacity-70">Last </span>
-                      {date}
-                    </span>
-                  ) : null}
-                </div>
-              </button>
+                </button>
+              </div>
             );
           })
         )}
@@ -400,7 +460,7 @@ export function InvestorPipelineKanban({
   onMutate,
 }: InvestorPipelineKanbanProps) {
   const { hasPermission } = useAuth();
-  const canMove = hasPermission("investors:update");
+  const { entityKey } = useFundraisingEntity();
   const canManage = hasPermission("investors:update");
   const { types: investorTypes, typeLabel } = useInvestorTypes();
 
@@ -410,6 +470,18 @@ export function InvestorPipelineKanban({
   // the stage, not just the loaded page).
   const [totals, setTotals] = useState<InvestorPipelineTotals>({});
   const [typeFilter, setTypeFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [archived, setArchived] = useState(false);
+  // Dragging changes pipeline stage. In the Archived view that would move a
+  // row that is not in the active pipeline at all: the card stays put (it is
+  // still archived), but the stage change lands and is invisible from the
+  // Active board. Restore first, then move. Declared here rather than beside
+  // canManage because it reads `archived`.
+  const canMove = hasPermission("investors:update") && !archived;
+  // The API throws ForbiddenException on owner reassignment without
+  // investors:read-all, so offering the action to a plain investors:update
+  // holder is a button that can only 403. The list tab already gates it.
+  const canBulkReassign = hasPermission("investors:read-all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -418,8 +490,40 @@ export function InvestorPipelineKanban({
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draggingColKey, setDraggingColKey] = useState<string | null>(null);
   const [addingStage, setAddingStage] = useState(false);
+  const [fieldMode, setFieldMode] = useState<BulkFieldMode | null>(null);
+  const [tagsOpen, setTagsOpen] = useState(false);
   const stagesRef = useRef<InvestorPipelineStage[]>([]);
   stagesRef.current = stages;
+  const { tags: investorTags } = useInvestorTags();
+
+  // Board-wide count for "select all N matching".
+  //
+  // Summed from each column's SERVER total (`res.meta.total`), never from the
+  // loaded cards — a column holds one page of 50, so counting `items` would
+  // under-report and the bar would offer to act on fewer rows than it does.
+  // Deliberately not `pipeline-totals` either: that endpoint is the est/act
+  // money roll-up.
+  const boardTotal = stages.reduce(
+    (sum, st) => sum + (columns[st.key]?.total ?? 0),
+    0,
+  );
+  const selection = useBulkSelection(boardTotal);
+
+  // The facets the board is showing, sent with an "all matching" selection so
+  // the write lands on exactly these rows. `statusIn` matters most: the board
+  // renders one column per configured stage, but legacy statuses have no
+  // column and would otherwise be swept in.
+  const selectionFilter = {
+    fundraisingEntity: entityKey,
+    archived,
+    statusIn: stages.map((st) => st.key),
+    ...(typeFilter && { type: typeFilter }),
+    ...(tagFilter && { tag: tagFilter }),
+    ...(debouncedSearch && { search: debouncedSearch }),
+  };
+  const bulkPayload = selection.allMatching
+    ? { allMatching: true as const, filter: selectionFilter }
+    : { ids: selection.ids };
 
   const columnSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -430,6 +534,15 @@ export function InvestorPipelineKanban({
     return () => clearTimeout(t);
   }, [search]);
 
+  // Drop the selection whenever the visible set changes. Keeping ticked ids
+  // across a filter change would let an action reach rows the rep can no
+  // longer see, and an `allMatching` flag would silently re-scope to the new
+  // filter.
+  useEffect(() => {
+    selection.clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [archived, typeFilter, tagFilter, debouncedSearch, entityKey]);
+
   // Load the per-stage investor cards for the current stage set + filters.
   const fetchCards = useCallback(
     async (stageList: InvestorPipelineStage[]) => {
@@ -439,7 +552,10 @@ export function InvestorPipelineKanban({
             page: 1,
             limit: COLUMN_PAGE_SIZE,
             status: s.key,
+            fundraisingEntity: entityKey,
+            archived,
             ...(typeFilter && { type: typeFilter }),
+            ...(tagFilter && { tag: tagFilter }),
             ...(debouncedSearch && { search: debouncedSearch }),
           }),
         ),
@@ -456,19 +572,28 @@ export function InvestorPipelineKanban({
       });
       setColumns(next);
     },
-    [typeFilter, debouncedSearch],
+    [typeFilter, tagFilter, archived, debouncedSearch, entityKey],
   );
 
   // Pull the per-stage est/act roll-up. Cheap; called on load and after
   // a card moves stage so the column headers stay accurate.
   const refreshTotals = useCallback(async () => {
     try {
-      const res = await getInvestorPipelineTotals();
+      const res = await getInvestorPipelineTotals({
+        fundraisingEntity: entityKey,
+        // Send the board's own facets, or the header money describes a
+        // different set than the cards below it — and an Archived board would
+        // roll up active investors.
+        archived,
+        ...(typeFilter && { type: typeFilter }),
+        ...(tagFilter && { tag: tagFilter }),
+        ...(debouncedSearch && { search: debouncedSearch }),
+      });
       setTotals(res.data);
     } catch {
       // Non-fatal: headers fall back to 0 / "—".
     }
-  }, []);
+  }, [entityKey, archived, typeFilter, tagFilter, debouncedSearch]);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -501,7 +626,12 @@ export function InvestorPipelineKanban({
           page: current.page + 1,
           limit: COLUMN_PAGE_SIZE,
           status: stageKey,
+          fundraisingEntity: entityKey,
+          // Every facet fetchCards sends must be repeated here. Miss one and
+          // "Load more" pages in rows the board is not showing.
+          archived,
           ...(typeFilter && { type: typeFilter }),
+          ...(tagFilter && { tag: tagFilter }),
           ...(debouncedSearch && { search: debouncedSearch }),
         });
         setColumns((prev) => ({
@@ -523,7 +653,7 @@ export function InvestorPipelineKanban({
         toast.error(message);
       }
     },
-    [columns, typeFilter, debouncedSearch],
+    [columns, typeFilter, tagFilter, archived, debouncedSearch, entityKey],
   );
 
   // ── Card move (native HTML5 DnD, optimistic + revert) ──
@@ -686,7 +816,16 @@ export function InvestorPipelineKanban({
         Drag a card to another column to change stage.
       </p>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <ArchiveTabs
+        tabs={[
+          { id: "active", label: "Active" },
+          { id: "archived", label: "Archived" },
+        ]}
+        active={archived ? "archived" : "active"}
+        onChange={(v) => setArchived(v === "archived")}
+      />
+
+      <div className="mt-4 mb-4 flex flex-wrap items-center gap-2">
         <div className="relative min-w-[200px] flex-1">
           <Search
             className={`
@@ -716,6 +855,24 @@ export function InvestorPipelineKanban({
             </option>
           ))}
         </select>
+        {investorTags.length > 0 ? (
+          <select
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            className={`
+              border-border bg-background h-8 rounded-md border px-2 text-xs
+            `}
+            aria-label="Filter by tag"
+          >
+            <option value="">All tags</option>
+            <option value={INVESTOR_TAG_UNTAGGED}>Untagged</option>
+            {investorTags.map((t) => (
+              <option key={t.code} value={t.code}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
         {canManage ? (
           <Button
             type="button"
@@ -765,6 +922,7 @@ export function InvestorPipelineKanban({
                   typeLabel={typeLabel}
                   canMove={canMove}
                   canManage={canManage}
+                  selection={selection}
                   draggingCardId={draggingCardId}
                   dragOverStage={dragOverStage}
                   editing={editingKey === stage.key}
@@ -800,6 +958,102 @@ export function InvestorPipelineKanban({
           </DragOverlay>
         </DndContext>
       )}
+
+      <BulkActionBar
+        selection={selection}
+        recordLabel="investors"
+        total={boardTotal}
+        actions={[
+          { key: "tags", label: "Set tags", onClick: () => setTagsOpen(true) },
+          // Moving stage is hidden in the Archived view for the same reason
+          // dragging is disabled there: the row is not in the active pipeline,
+          // so the change lands but is invisible from the Active board.
+          ...(archived
+            ? []
+            : [
+                {
+                  key: "status",
+                  label: "Move stage",
+                  onClick: () => setFieldMode("lifecycle"),
+                },
+              ]),
+          ...(canBulkReassign
+            ? [
+                {
+                  key: "owner",
+                  label: "Reassign owner",
+                  onClick: () => setFieldMode("owner"),
+                },
+              ]
+            : []),
+          // Archive and restore are offered per view: in Active you file rows
+          // away, in Archived you bring them back. Showing both everywhere
+          // would put a no-op button next to a real one.
+          archived
+            ? {
+                key: "unarchive",
+                label: "Restore",
+                onClick: () => setFieldMode("unarchive"),
+                variant: "outline" as const,
+              }
+            : {
+                key: "archive",
+                label: "Archive",
+                onClick: () => setFieldMode("archive"),
+                variant: "outline" as const,
+              },
+        ]}
+      />
+
+      <InvestorBulkTagsDialog
+        open={tagsOpen}
+        onOpenChange={setTagsOpen}
+        count={selection.count}
+        selection={bulkPayload}
+        submit={bulkSetInvestorTags}
+        onDone={() => {
+          selection.clear();
+          void fetchAll();
+        }}
+      />
+
+      <BulkFieldDialog
+        mode={fieldMode}
+        onClose={() => setFieldMode(null)}
+        count={selection.count}
+        recordLabel="investors"
+        // Only the selection MODE is handed to the shared dialog. Its
+        // `filter` type is the Sales CRM's and has no room for the board's
+        // set-valued `statusIn`, and widening it there breaks three shipped
+        // call sites through parameter contravariance. `submit` below ignores
+        // whatever the dialog assembles and sends `bulkPayload`, which is the
+        // authoritative selection.
+        selection={{ ids: selection.ids, allMatching: selection.allMatching }}
+        lifecycle={{
+          field: "status",
+          label: "Stage",
+          options: stages.map((st) => ({ value: st.key, label: st.label })),
+        }}
+        submit={(payload) =>
+          // The shared dialog speaks the Sales CRM field names; investors
+          // store the owner as `addedBy` and the stage as `status`. Mapping
+          // here keeps a shipped component untouched.
+          bulkUpdateInvestors({
+            ...bulkPayload,
+            set: {
+              ...(payload.set.ownerId && { addedBy: payload.set.ownerId }),
+              ...(payload.set.status && { status: payload.set.status }),
+              ...(payload.set.archived !== undefined && {
+                archived: payload.set.archived,
+              }),
+            },
+          })
+        }
+        onDone={() => {
+          selection.clear();
+          void fetchAll();
+        }}
+      />
     </div>
   );
 }

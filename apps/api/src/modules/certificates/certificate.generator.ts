@@ -10,9 +10,18 @@ import {
 // A4 landscape recognition certificate: gold/navy border, centred title,
 // recipient name, optional message, and up to two signature blocks.
 
+/** A decoded signature image ready to embed. The service sniffs the real
+ * format from magic bytes (it never trusts a client-supplied MIME) before
+ * setting this, so `mime` here is authoritative. */
+export interface CertificateSignatureImage {
+  data: Uint8Array;
+  mime: "image/png" | "image/jpeg";
+}
+
 export interface CertificateSignatory {
   name: string;
   title: string;
+  signatureImage?: CertificateSignatureImage | null;
 }
 
 export interface CertificateData {
@@ -128,7 +137,7 @@ export async function buildCertificatePdf(
   });
 
   // Presentation line + recipient.
-  const company = (data.companyName ?? "Manut").toUpperCase();
+  const company = (data.companyName ?? "The Binary Holdings").toUpperCase();
   centerText(
     page,
     helv,
@@ -155,17 +164,45 @@ export async function buildCertificatePdf(
   // Signature blocks (up to two) + issue date.
   const sigs = data.signatories.slice(0, 2);
   const xs = sigs.length === 1 ? [cx] : [width * 0.32, width * 0.68];
-  sigs.forEach((s, i) => {
+  const SIG_LINE_Y = height - 474; // shared baseline for line + image
+  for (let i = 0; i < sigs.length; i++) {
+    const s = sigs[i];
     const x = xs[i] ?? cx;
+
+    // Optional handwritten signature image, resting just above the line.
+    // A corrupt/undecodable image must never abort the whole PDF — fall
+    // back to the name + title block below.
+    if (s.signatureImage) {
+      try {
+        const img =
+          s.signatureImage.mime === "image/png"
+            ? await pdf.embedPng(s.signatureImage.data)
+            : await pdf.embedJpg(s.signatureImage.data);
+        const maxW = 150;
+        const maxH = 40;
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        page.drawImage(img, {
+          x: x - w / 2,
+          y: SIG_LINE_Y + 4,
+          width: w,
+          height: h,
+        });
+      } catch {
+        // Ignore — name/title still render below.
+      }
+    }
+
     page.drawLine({
-      start: { x: x - 90, y: height - 474 },
-      end: { x: x + 90, y: height - 474 },
+      start: { x: x - 90, y: SIG_LINE_Y },
+      end: { x: x + 90, y: SIG_LINE_Y },
       thickness: 0.8,
       color: NAVY,
     });
     centerText(page, helvBold, s.name, x, 492, height, 12, INK);
     if (s.title) centerText(page, helv, s.title, x, 508, height, 10, MUTED);
-  });
+  }
 
   const dateStr = data.issuedDate.toLocaleDateString("en-GB", {
     day: "2-digit",

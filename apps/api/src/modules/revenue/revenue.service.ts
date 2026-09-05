@@ -10,6 +10,7 @@ export class RevenueService {
       expenses,
       invoices,
       revenueByEntity,
+      bnry,
       pipeline,
       monthly,
     ] = await Promise.all([
@@ -17,6 +18,7 @@ export class RevenueService {
       revenueRepository.getExpenseSummary(period, entityId),
       revenueRepository.getInvoiceSummary(period, entityId),
       revenueRepository.getRevenueByEntity(),
+      revenueRepository.getBnryTransactionSummary(period),
       revenueRepository.getDealsPipelineValue(),
       revenueRepository.getMonthlyComparison(period, entityId),
     ]);
@@ -26,6 +28,7 @@ export class RevenueService {
       expenses,
       invoices,
       revenueByEntity,
+      bnry,
       pipeline,
       monthly,
     };

@@ -44,6 +44,7 @@ import {
 import { usePagination } from "@/hooks/use-pagination";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
+import { useFundraisingEntity } from "@/providers/fundraising-entity-provider";
 import { listInvestors } from "@/services/investor.service";
 import {
   completeInvestorTask,
@@ -79,6 +80,7 @@ interface InvestorOption {
 
 export function InvestorTasksTab() {
   const { hasPermission } = useAuth();
+  const { entityKey } = useFundraisingEntity();
   const canCreate = hasPermission("investors:create");
   const canUpdate = hasPermission("investors:update");
   const canDelete = hasPermission("investors:delete");
@@ -108,6 +110,7 @@ export function InvestorTasksTab() {
         page,
         limit: pageSize,
         status: statusFilter || undefined,
+        fundraisingEntity: entityKey,
       });
       setTasks(res.data);
       setTotalCount(res.meta.total);
@@ -118,19 +121,23 @@ export function InvestorTasksTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter, setTotalCount]);
+  }, [page, pageSize, statusFilter, entityKey, setTotalCount]);
 
   useEffect(() => {
     void fetchTasks();
   }, [fetchTasks]);
 
   useEffect(() => {
-    listInvestors({ limit: 200 })
+    setPage(1);
+  }, [entityKey, setPage]);
+
+  useEffect(() => {
+    listInvestors({ limit: 200, fundraisingEntity: entityKey })
       .then((r) =>
         setInvestorOptions(r.data.map((i) => ({ id: i.id, name: i.name }))),
       )
       .catch(() => undefined);
-  }, []);
+  }, [entityKey]);
 
   async function toggleComplete(t: InvestorTask) {
     if (!canUpdate || t.status === "cancelled") return;
@@ -208,7 +215,7 @@ export function InvestorTasksTab() {
         </PermissionButton>
       </div>
 
-      <Table containerClassName="max-h-[calc(100vh-340px)] overflow-auto rounded-lg border">
+      <Table containerClassName="max-h-[60svh] md:max-h-[calc(100vh-340px)] overflow-auto rounded-lg border">
         <TableHeader className="bg-background sticky top-0 z-10">
           <TableRow>
             <TableHead className="w-[40px]" />

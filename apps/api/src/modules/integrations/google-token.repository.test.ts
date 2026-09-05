@@ -12,7 +12,6 @@ import { prisma } from "@/infrastructure/database/prisma";
 import { encrypt } from "@/modules/integrations/crypto";
 import { refreshAccessToken } from "@/modules/integrations/google-oauth.service";
 import { googleTokenRepository } from "@/modules/integrations/google-token.repository";
-import { getTestEnv, mockArgument, setTestEnv } from "@/test-utils/assertions";
 
 vi.mock("@/infrastructure/database/prisma", () => ({
   prisma: {
@@ -35,12 +34,13 @@ describe("googleTokenRepository", () => {
   let originalKey: string | undefined;
 
   beforeEach(() => {
-    originalKey = getTestEnv("INTEGRATIONS_TOKEN_KEY");
-    setTestEnv("INTEGRATIONS_TOKEN_KEY", VALID_KEY_HEX);
+    originalKey = process.env.INTEGRATIONS_TOKEN_KEY;
+    process.env.INTEGRATIONS_TOKEN_KEY = VALID_KEY_HEX;
   });
 
   afterEach(() => {
-    setTestEnv("INTEGRATIONS_TOKEN_KEY", originalKey);
+    if (originalKey === undefined) delete process.env.INTEGRATIONS_TOKEN_KEY;
+    else process.env.INTEGRATIONS_TOKEN_KEY = originalKey;
   });
 
   describe("upsert", () => {
@@ -60,11 +60,8 @@ describe("googleTokenRepository", () => {
       });
 
       expect(prisma.userGoogleConnection.upsert).toHaveBeenCalledTimes(1);
-      const call = mockArgument(
-        (prisma.userGoogleConnection.upsert as Mock).mock.calls,
-        0,
-        0,
-      );
+      const call = (prisma.userGoogleConnection.upsert as Mock).mock
+        .calls[0][0];
       expect(call.where).toEqual({ userId: "user-1" });
       // Encrypted tokens are not the raw values and use the v1: envelope.
       expect(call.create.accessToken.startsWith("v1:")).toBe(true);
@@ -118,8 +115,8 @@ describe("googleTokenRepository", () => {
       });
       (prisma.userGoogleConnection.update as Mock).mockResolvedValue({});
 
-      setTestEnv("GOOGLE_OAUTH_CLIENT_ID", "cid");
-      setTestEnv("GOOGLE_OAUTH_CLIENT_SECRET", "csec");
+      process.env.GOOGLE_OAUTH_CLIENT_ID = "cid";
+      process.env.GOOGLE_OAUTH_CLIENT_SECRET = "csec";
 
       const out = await googleTokenRepository.getValid("u");
 
@@ -130,17 +127,14 @@ describe("googleTokenRepository", () => {
       });
       expect(out.accessToken).toBe("new-AT");
       expect(prisma.userGoogleConnection.update).toHaveBeenCalledTimes(1);
-      const updateCall = mockArgument(
-        (prisma.userGoogleConnection.update as Mock).mock.calls,
-        0,
-        0,
-      );
+      const updateCall = (prisma.userGoogleConnection.update as Mock).mock
+        .calls[0][0];
       expect(updateCall.where).toEqual({ userId: "u" });
       expect(updateCall.data.accessToken.startsWith("v1:")).toBe(true);
       expect(updateCall.data.accessToken).not.toContain("new-AT");
 
-      setTestEnv("GOOGLE_OAUTH_CLIENT_ID", undefined);
-      setTestEnv("GOOGLE_OAUTH_CLIENT_SECRET", undefined);
+      delete process.env.GOOGLE_OAUTH_CLIENT_ID;
+      delete process.env.GOOGLE_OAUTH_CLIENT_SECRET;
     });
 
     it("given missing row > throws GOOGLE_NOT_CONNECTED", async () => {

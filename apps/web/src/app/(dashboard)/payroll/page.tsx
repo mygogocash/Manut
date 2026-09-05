@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent } from "@/components/shared/tabs";
 import { Button } from "@/components/ui/button";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import { type Entity } from "@/services/entity.service";
@@ -40,7 +41,7 @@ export default function PayrollPage() {
   const canDelete = hasPermission("payroll:hr-admin");
   const canManageChain = hasPermission("payroll:hr-admin");
 
-  const [activeTab, setActiveTab] = useState("runs");
+  const [activeTab, setActiveTab] = useTabParam("runs");
 
   const [entities, setEntities] = useState<Entity[]>([]);
   const [consultants, setConsultants] = useState<UserListItem[]>([]);

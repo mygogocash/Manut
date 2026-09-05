@@ -1,36 +1,8 @@
-import {
-  afterAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  type Mock,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { NotFoundException } from "@/common/exceptions/http-exception";
-import { deleteFile } from "@/infrastructure/storage/supabase-storage";
 import { blogsRepository } from "@/modules/blogs/blogs.repository";
 import { BlogsService } from "@/modules/blogs/blogs.service";
-import { arrayAt } from "@/test-utils/assertions";
-
-const storageTestState = vi.hoisted(() => {
-  const previousNextPublicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const previousSupabaseUrl = process.env.SUPABASE_URL;
-  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://manut.supabase.co";
-  process.env.SUPABASE_URL = "https://manut.supabase.co";
-
-  return {
-    deleteFile: vi.fn().mockResolvedValue(undefined),
-    previousNextPublicUrl,
-    previousSupabaseUrl,
-  };
-});
-
-vi.mock("@/infrastructure/storage/supabase-storage", async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>;
-  return { ...actual, deleteFile: storageTestState.deleteFile };
-});
 
 vi.mock("./blogs.repository", () => ({
   blogsRepository: {
@@ -43,32 +15,6 @@ vi.mock("./blogs.repository", () => ({
 }));
 
 const mockAuthor = { id: "user-1", name: "Test Author" };
-const BLOG_COVER_URL =
-  "https://manut.supabase.co/storage/v1/object/public/blog/covers/old.jpg";
-const UNTRUSTED_BLOG_COVER_URLS = [
-  [
-    "a foreign origin",
-    "https://attacker.example/storage/v1/object/public/blog/covers/old.jpg",
-  ],
-  [
-    "another storage bucket",
-    "https://manut.supabase.co/storage/v1/object/public/documents/legal/contract.pdf",
-  ],
-] as const;
-
-afterAll(() => {
-  if (storageTestState.previousNextPublicUrl === undefined) {
-    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
-  } else {
-    process.env.NEXT_PUBLIC_SUPABASE_URL =
-      storageTestState.previousNextPublicUrl;
-  }
-  if (storageTestState.previousSupabaseUrl === undefined) {
-    delete process.env.SUPABASE_URL;
-  } else {
-    process.env.SUPABASE_URL = storageTestState.previousSupabaseUrl;
-  }
-});
 
 describe("BlogsService", () => {
   let blogsService: BlogsService;
@@ -104,7 +50,7 @@ describe("BlogsService", () => {
       });
 
       expect(result.data).toHaveLength(1);
-      expect(arrayAt(result.data, 0, "listed blog").title).toBe("First Blog");
+      expect(result.data[0].title).toBe("First Blog");
       expect(result.meta.total).toBe(1);
       expect(result.meta.page).toBe(1);
       expect(result.meta.totalPages).toBe(1);
@@ -225,43 +171,6 @@ describe("BlogsService", () => {
         blogsService.update("non-existent", { title: "Test" }),
       ).rejects.toThrow(NotFoundException);
     });
-
-    it.each(UNTRUSTED_BLOG_COVER_URLS)(
-      "does not delete the replaced cover from %s",
-      async (_source, coverImage) => {
-        (blogsRepository.findById as Mock).mockResolvedValue({
-          id: "blog-1",
-          coverImage,
-        });
-        (blogsRepository.update as Mock).mockResolvedValue({
-          id: "blog-1",
-          coverImage: "https://example.com/replacement.jpg",
-        });
-
-        await blogsService.update("blog-1", {
-          coverImage: "https://example.com/replacement.jpg",
-        });
-
-        expect(deleteFile).not.toHaveBeenCalled();
-      },
-    );
-
-    it("does not automatically delete even a trusted replaced cover", async () => {
-      (blogsRepository.findById as Mock).mockResolvedValue({
-        id: "blog-1",
-        coverImage: BLOG_COVER_URL,
-      });
-      (blogsRepository.update as Mock).mockResolvedValue({
-        id: "blog-1",
-        coverImage: "https://example.com/replacement.jpg",
-      });
-
-      await blogsService.update("blog-1", {
-        coverImage: "https://example.com/replacement.jpg",
-      });
-
-      expect(deleteFile).not.toHaveBeenCalled();
-    });
   });
 
   describe("remove", () => {
@@ -284,33 +193,6 @@ describe("BlogsService", () => {
       await expect(blogsService.remove("non-existent")).rejects.toThrow(
         NotFoundException,
       );
-    });
-
-    it.each(UNTRUSTED_BLOG_COVER_URLS)(
-      "does not delete the stored cover from %s",
-      async (_source, coverImage) => {
-        (blogsRepository.findById as Mock).mockResolvedValue({
-          id: "blog-1",
-          coverImage,
-        });
-
-        await blogsService.remove("blog-1");
-
-        expect(deleteFile).not.toHaveBeenCalled();
-        expect(blogsRepository.delete).toHaveBeenCalledWith("blog-1");
-      },
-    );
-
-    it("removes the record without automatically deleting its stored cover", async () => {
-      (blogsRepository.findById as Mock).mockResolvedValue({
-        id: "blog-1",
-        coverImage: BLOG_COVER_URL,
-      });
-
-      await blogsService.remove("blog-1");
-
-      expect(deleteFile).not.toHaveBeenCalled();
-      expect(blogsRepository.delete).toHaveBeenCalledWith("blog-1");
     });
   });
 });

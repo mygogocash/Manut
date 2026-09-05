@@ -24,17 +24,17 @@ import {
   expenseRejectedEmail,
   expenseSubmittedEmail,
 } from "@/infrastructure/email/templates";
-import { createSignedUrl } from "@/infrastructure/storage/supabase-storage";
+import {
+  createSignedUrl,
+  parseStorageUrl,
+} from "@/infrastructure/storage/supabase-storage";
 import {
   actorFromId,
   trackExpenseApproved,
   trackExpenseSubmittedServer,
 } from "@/lib/events";
 import { PORTAL_URL } from "@/lib/portal-url";
-import {
-  fmtAmount,
-  validateExpenseReceiptUrl,
-} from "@/modules/expenses/expense-shared";
+import { fmtAmount, PRIVATE_BUCKETS } from "@/modules/expenses/expense-shared";
 import { expensesRepository } from "@/modules/expenses/expenses.repository";
 import type {
   CreateExpenseInput,
@@ -136,12 +136,13 @@ async function getExpenseReceiptUrl(
     throw new NotFoundException("This expense has no attached receipt");
   }
 
-  const parsed = await validateExpenseReceiptUrl(
-    expense.receiptUrl,
-    expense.employeeId,
-  );
+  const parsed = parseStorageUrl(expense.receiptUrl);
   if (!parsed) {
-    // Explicitly-supported external receipt URL — hand it back unsigned.
+    // Historical rows that wrote a non-Supabase URL — hand it back as-is.
+    return { url: expense.receiptUrl };
+  }
+  if (!PRIVATE_BUCKETS.has(parsed.bucket)) {
+    // Public bucket — the raw URL works directly.
     return { url: expense.receiptUrl };
   }
 
@@ -186,10 +187,6 @@ async function createExpense(userId: string, input: CreateExpenseInput) {
         "You can only link expenses to your own travel requests",
       );
     }
-  }
-
-  if (input.receiptUrl !== undefined) {
-    await validateExpenseReceiptUrl(input.receiptUrl, userId);
   }
 
   const created = await expensesRepository.createExpense({
@@ -268,10 +265,6 @@ async function updateExpense(
     );
   }
 
-  if (input.receiptUrl !== undefined) {
-    await validateExpenseReceiptUrl(input.receiptUrl, expense.employeeId);
-  }
-
   return expensesRepository.updateExpense(expenseId, {
     ...(input.categoryId !== undefined && { categoryId: input.categoryId }),
     ...(input.description !== undefined && { description: input.description }),
@@ -319,13 +312,9 @@ async function restoreExpense(
 }
 
 async function permanentDeleteExpense(expenseId: string) {
-  const expense =
-    await expensesRepository.findExpenseByIdIncludingDeleted(expenseId);
+  const expense = await expensesRepository.findExpenseById(expenseId);
   if (!expense) {
     throw new NotFoundException("Expense not found");
-  }
-  if (!expense.deletedAt) {
-    throw new ConflictException("Expense is not deleted");
   }
   return expensesRepository.permanentDeleteExpense(expenseId);
 }

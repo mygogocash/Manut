@@ -7,7 +7,6 @@ import {
 } from "@/common/exceptions/http-exception";
 import { itAccessRepository } from "@/modules/it-access/it-access.repository";
 import { ItAccessService } from "@/modules/it-access/it-access.service";
-import { mockArgument } from "@/test-utils/assertions";
 
 vi.mock("@/infrastructure/audit/audit.service", () => ({
   logAudit: vi.fn().mockResolvedValue(undefined),
@@ -93,7 +92,7 @@ describe("submitRequest", () => {
 
     await service.submitRequest("req-1", EMP, [PERMISSIONS.IT_ACCESS_REQUEST]);
 
-    const chain = mockArgument(replaceDecisions.mock.calls, 0, 1);
+    const chain = replaceDecisions.mock.calls[0][1];
     expect(chain.map((c: { approverType: string }) => c.approverType)).toEqual([
       "manager",
       "it",
@@ -126,7 +125,7 @@ describe("submitRequest", () => {
 
     await service.submitRequest("req-1", EMP, [PERMISSIONS.IT_ACCESS_REQUEST]);
 
-    const chain = mockArgument(replaceDecisions.mock.calls, 0, 1);
+    const chain = replaceDecisions.mock.calls[0][1];
     expect(chain).toHaveLength(1);
     expect(chain[0].approverType).toBe("it");
     expect(updateRequest).toHaveBeenCalledWith(

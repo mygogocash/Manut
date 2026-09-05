@@ -140,13 +140,21 @@ export function DroppableColumn({
             <button
               ref={setActivatorNodeRef}
               type="button"
+              /* `touch-target` expands the hit area to 44px via a centred
+                 pseudo-element, so the grip meets WCAG 2.5.5 without the header
+                 growing or the icon getting bigger. Safe here specifically
+                 because the only thing the expanded area overlaps is the
+                 non-interactive colour dot — the column menu is at the far end
+                 of a `justify-between` row. */
               className={`
-                text-muted-foreground -ml-0.5 shrink-0 cursor-grab touch-none
-                rounded p-0.5
+                touch-target text-muted-foreground -ml-0.5 shrink-0 cursor-grab
+                touch-none rounded p-0.5
+                focus-visible:ring-ring focus-visible:ring-2
+                focus-visible:outline-none
                 hover:text-foreground
                 active:cursor-grabbing
               `}
-              aria-label="Reorder column"
+              aria-label={`Reorder column: ${column.label}`}
               {...attributes}
               {...listeners}
             >

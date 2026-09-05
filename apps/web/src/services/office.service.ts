@@ -99,6 +99,14 @@ export interface Asset {
   activeServiceDate: string | null;
   department: string | null;
   assetCode: string | null;
+  // Photo — any category.
+  imageUrl: string | null;
+  // Furniture.
+  material: string | null;
+  dimensions: string | null;
+  condition: string | null;
+  locationDetail: string | null;
+  warrantyUntil: string | null;
   // Software.
   version: string | null;
   // Accounting.
@@ -136,6 +144,12 @@ export interface CreateAssetInput {
   activeServiceDate?: string;
   department?: string;
   assetCode?: string;
+  imageUrl?: string;
+  material?: string;
+  dimensions?: string;
+  condition?: string;
+  locationDetail?: string;
+  warrantyUntil?: string;
   version?: string;
   quantity?: number;
   usefulLifeMonths?: number;
@@ -495,6 +509,34 @@ export interface AssetImportRow {
   assigneeFirstName?: string | null;
   assigneeLastName?: string | null;
   sourceSheet?: string | null;
+  // ── Fixed-asset columns ──
+  /** Who it was bought FROM, which is not `manufacturer` (who made it). */
+  supplier?: string | null;
+  purchaseDate?: string | null;
+  /** UNIT price. `quantity x purchaseCost` is the sheet's Total Value. */
+  purchaseCost?: number | null;
+  quantity?: number;
+  warrantyUntil?: string | null;
+  material?: string | null;
+  dimensions?: string | null;
+  condition?: string | null;
+  locationDetail?: string | null;
+  /** Finance's own register code, and the strongest idempotency key. */
+  assetCode?: string | null;
+}
+
+/**
+ * Which office imported rows belong to. Omitted, the API keeps its legacy
+ * "assignee's country, else the first active office" inference — which is
+ * silently wrong for a sheet where no row has an assignee.
+ */
+export interface AssetImportOffice {
+  officeId?: string;
+  /** name + city + country together find-or-create an office. */
+  name?: string;
+  city?: string;
+  country?: string;
+  timezone?: string;
 }
 
 export interface AssetImportPreviewRow {
@@ -547,14 +589,16 @@ export interface AssetImportCommitResult {
 
 export async function previewAssetImport(
   rows: AssetImportRow[],
+  office?: AssetImportOffice,
 ): Promise<ApiSuccessResponse<AssetImportPreview>> {
-  return api.post("/office/assets/import/preview", { rows });
+  return api.post("/office/assets/import/preview", { rows, office });
 }
 
 export async function commitAssetImport(
   rows: AssetImportRow[],
+  office?: AssetImportOffice,
 ): Promise<ApiSuccessResponse<AssetImportCommitResult>> {
-  return api.post("/office/assets/import/commit", { rows });
+  return api.post("/office/assets/import/commit", { rows, office });
 }
 
 export async function cancelDeskBooking(bookingId: string): Promise<void> {

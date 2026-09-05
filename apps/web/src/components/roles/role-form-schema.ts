@@ -19,6 +19,7 @@ const MODULE_LABELS: Record<string, string> = {
   "investor-crm": "Investor CRM",
   hrms: "HRMS",
   pr: "PR",
+  aria: "ARIA",
   "access-control": "Access Control",
   "user-management": "Users",
   "role-management": "Roles",

@@ -6,7 +6,6 @@ import { messageBus } from "@/modules/messages/messages.bus";
 import { messagesRepository } from "@/modules/messages/messages.repository";
 import { messagesService } from "@/modules/messages/messages.service";
 import { uploadsRepository } from "@/modules/uploads/uploads.repository";
-import { arrayAt, mockArgument } from "@/test-utils/assertions";
 
 vi.mock("@/modules/messages/messages.repository", () => ({
   directChannelName: (ids: string[]) => `dm:${[...ids].sort().join(":")}`,
@@ -138,11 +137,7 @@ describe("messagesService.createDirectMessage", () => {
       UID_B,
       UID_C,
     ]);
-    const args = mockArgument(
-      (messagesRepository.createChannel as Mock).mock.calls,
-      0,
-      0,
-    );
+    const args = (messagesRepository.createChannel as Mock).mock.calls[0][0];
     expect(args.members).toEqual(expect.arrayContaining([UID_A, UID_B, UID_C]));
     expect(result.type).toBe("dm");
   });
@@ -244,11 +239,11 @@ describe("messagesService.listMessages enriches with attachments", () => {
       "m1",
       "m2",
     ]);
-    expect(arrayAt(result.data, 0, "first message").attachments).toEqual([
+    expect(result.data[0].attachments).toEqual([
       { id: "a1", linkedId: "m1", url: "/a1.png" },
       { id: "a3", linkedId: "m1", url: "/a3.png" },
     ]);
-    expect(arrayAt(result.data, 1, "second message").attachments).toEqual([
+    expect(result.data[1].attachments).toEqual([
       { id: "a2", linkedId: "m2", url: "/a2.pdf" },
     ]);
   });
@@ -272,7 +267,7 @@ describe("messagesService publish hooks", () => {
     await messagesService.sendMessage("ch-1", UID_A, { content: "hi" });
 
     expect(handler).toHaveBeenCalledTimes(1);
-    const event = mockArgument(handler.mock.calls, 0, 0);
+    const event = handler.mock.calls[0][0];
     expect(event.type).toBe("message.created");
     expect(event.channelId).toBe("ch-1");
     expect(event.payload.id).toBe("m1");
@@ -379,7 +374,7 @@ describe("messagesService publish hooks", () => {
     });
 
     expect(handler).toHaveBeenCalledTimes(1);
-    const event = mockArgument(handler.mock.calls, 0, 0);
+    const event = handler.mock.calls[0][0];
     expect(event.type).toBe("channel.created");
     expect(event.channelId).toBe("ch-new");
     expect(event.payload.name).toBe("general");
@@ -404,7 +399,7 @@ describe("messagesService publish hooks", () => {
     await messagesService.updateChannel("ch-1", { name: "new" });
 
     expect(handler).toHaveBeenCalledTimes(1);
-    const event = mockArgument(handler.mock.calls, 0, 0);
+    const event = handler.mock.calls[0][0];
     expect(event.type).toBe("channel.updated");
     expect(event.channelId).toBe("ch-1");
     expect(event.payload.name).toBe("new");
@@ -427,7 +422,7 @@ describe("messagesService publish hooks", () => {
     await messagesService.deleteChannel("ch-1");
 
     expect(handler).toHaveBeenCalledTimes(1);
-    const event = mockArgument(handler.mock.calls, 0, 0);
+    const event = handler.mock.calls[0][0];
     expect(event.type).toBe("channel.deleted");
     expect(event.channelId).toBe("ch-1");
     expect(event.payload.name).toBe("old");
@@ -479,10 +474,9 @@ describe("messagesService.listChannels", () => {
       includePrivateChannels: false,
     });
     expect(messagesRepository.findAllChannels).not.toHaveBeenCalled();
-    const channel = arrayAt(result.data, 0, "listed channel");
-    expect(channel.id).toBe("c1");
-    expect(channel.name).toBe("general");
-    expect(channel.type).toBe("channel");
+    expect(result.data[0].id).toBe("c1");
+    expect(result.data[0].name).toBe("general");
+    expect(result.data[0].type).toBe("channel");
   });
 
   it("enriches channels with unreadCount per channel for the user", async () => {
@@ -622,10 +616,8 @@ describe("messagesService.listMessages enriches with readBy for DM channels", ()
 
     const result = await messagesService.listMessages("ch-dm", 1, 50);
 
-    expect(arrayAt(result.data, 0, "first direct message").readBy).toEqual([
-      UID_B,
-    ]);
-    expect(arrayAt(result.data, 1, "second direct message").readBy).toEqual([]);
+    expect(result.data[0].readBy).toEqual([UID_B]);
+    expect(result.data[1].readBy).toEqual([]);
   });
 
   it("returns empty readBy[] for non-dm channels", async () => {
@@ -651,9 +643,7 @@ describe("messagesService.listMessages enriches with readBy for DM channels", ()
     const result = await messagesService.listMessages("ch-public", 1, 50);
 
     expect(messagesRepository.findChannelReads).not.toHaveBeenCalled();
-    expect(arrayAt(result.data, 0, "public channel message").readBy).toEqual(
-      [],
-    );
+    expect(result.data[0].readBy).toEqual([]);
   });
 });
 
@@ -675,7 +665,7 @@ describe("messagesService.signalTyping", () => {
     const after = Date.now();
 
     expect(handler).toHaveBeenCalledTimes(1);
-    const event = mockArgument(handler.mock.calls, 0, 0);
+    const event = handler.mock.calls[0][0];
     expect(event.type).toBe("typing");
     expect(event.channelId).toBe("ch-1");
     expect(event.payload.userId).toBe(UID_A);

@@ -9,6 +9,7 @@ import { RoomBookingTab } from "@/components/office/room-booking-tab";
 import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent } from "@/components/shared/tabs";
 import { Button } from "@/components/ui/button";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { useAuth } from "@/providers/auth-provider";
 
 const TABS = [
@@ -17,7 +18,7 @@ const TABS = [
 ];
 
 export default function OfficePage() {
-  const [tab, setTab] = useState("rooms");
+  const [tab, setTab] = useTabParam("rooms");
   const [officesOpen, setOfficesOpen] = useState(false);
   const { hasPermission } = useAuth();
   const canBook = hasPermission("office:book");

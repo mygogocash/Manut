@@ -13,7 +13,7 @@ interface Props {
 
 /**
  * Truncates `text` to the first `max` characters with an inline
- * "Show more / Show less" toggle. Project CRM
+ * "Show more / Show less" toggle. Tanny / 2026-05-26 — Project CRM
  * lists rendered the full description in one line-clamped row, which
  * was unreadable for long entries. This wraps the same content in a
  * click-to-expand block so the preview stays compact but the full

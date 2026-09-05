@@ -1,5 +1,9 @@
 import { NotFoundException } from "@/common/exceptions/http-exception";
 import { rowsToCsv } from "@/common/utils/csv";
+import {
+  deleteFile,
+  parseStorageUrl,
+} from "@/infrastructure/storage/supabase-storage";
 import { blogsRepository } from "@/modules/blogs/blogs.repository";
 import type {
   CreateBlogInput,
@@ -44,6 +48,13 @@ export class BlogsService {
     const existing = await blogsRepository.findById(id);
     if (!existing) throw new NotFoundException("Blog not found");
 
+    if (input.coverImage && input.coverImage !== existing.coverImage) {
+      const parsed = parseStorageUrl(existing.coverImage);
+      if (parsed) {
+        await deleteFile(parsed.bucket, parsed.path);
+      }
+    }
+
     const updated = await blogsRepository.update(id, input);
     return { data: updated };
   }
@@ -51,6 +62,11 @@ export class BlogsService {
   async remove(id: string) {
     const existing = await blogsRepository.findById(id);
     if (!existing) throw new NotFoundException("Blog not found");
+
+    const parsed = parseStorageUrl(existing.coverImage);
+    if (parsed) {
+      await deleteFile(parsed.bucket, parsed.path);
+    }
 
     await blogsRepository.delete(id);
     return { data: { id } };

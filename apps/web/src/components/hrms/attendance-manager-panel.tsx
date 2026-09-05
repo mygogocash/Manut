@@ -94,11 +94,13 @@ export function AttendanceManagerPanel() {
           { key: "name", header: "Employee", render: (r) => r.name },
           {
             key: "department",
+            mobileRole: "subtitle" as const,
             header: "Department",
             render: (r) => r.department ?? "—",
           },
           {
             key: "status",
+            mobileRole: "badge" as const,
             header: "Status",
             render: (r) => (
               <Badge variant="grey">
@@ -110,6 +112,7 @@ export function AttendanceManagerPanel() {
           },
           {
             key: "checkIn",
+            mobileRole: "field" as const,
             // Rendered in the viewer's local timezone (the manager payload
             // doesn't carry the employee-tz display fields), so the header is
             // explicit to avoid mistaking it for the employee's local time.
@@ -118,6 +121,7 @@ export function AttendanceManagerPanel() {
           },
           {
             key: "late",
+            mobileRole: "field" as const,
             header: "Late (min)",
             render: (r) => (r.lateMinutes > 0 ? String(r.lateMinutes) : "—"),
           },

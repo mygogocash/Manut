@@ -9,6 +9,8 @@ import {
 import { asyncHandler } from "@/core/middleware/async-handler";
 import { accountService } from "@/modules/accounts/accounts.service";
 import {
+  bulkFieldUpdateAccountsSchema,
+  bulkUpdateAccountsSchema,
   createAccountSchema,
   importAccountsSchema,
   listAccountsSchema,
@@ -79,6 +81,38 @@ router.post(
   }),
 );
 
+// Bulk select-and-act. Literal path MUST precede `/:id` — Express matches in
+// order and `/:id` would otherwise swallow `/bulk-business-units`.
+// Owner + archive in bulk. `crm:reassign` for the owner half is enforced in the
+// service, since requirePermission cannot express "only when a field is set".
+router.post(
+  "/bulk-update",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const input = bulkFieldUpdateAccountsSchema.parse(req.body);
+    const data = await accountService.bulkUpdateFields(
+      req.user!.id,
+      req.user!.permissions,
+      input,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/bulk-business-units",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const input = bulkUpdateAccountsSchema.parse(req.body);
+    const data = await accountService.bulkUpdateBusinessUnits(
+      req.user!.id,
+      req.user!.permissions,
+      input,
+    );
+    res.json({ data });
+  }),
+);
+
 router.get(
   "/:id",
   requirePermission(PERMISSIONS.CRM_READ),
@@ -102,6 +136,32 @@ router.put(
       req.user!.id,
       req.user!.permissions,
       input,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/archive",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const data = await accountService.archive(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/unarchive",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const data = await accountService.unarchive(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
     );
     res.json({ data });
   }),

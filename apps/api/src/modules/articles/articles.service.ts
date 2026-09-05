@@ -1,5 +1,9 @@
 import { NotFoundException } from "@/common/exceptions/http-exception";
 import { rowsToCsv } from "@/common/utils/csv";
+import {
+  deleteFile,
+  parseStorageUrl,
+} from "@/infrastructure/storage/supabase-storage";
 import { articlesRepository } from "@/modules/articles/articles.repository";
 import type {
   CreateArticleInput,
@@ -43,6 +47,13 @@ export class ArticlesService {
     const existing = await articlesRepository.findById(id);
     if (!existing) throw new NotFoundException("Article not found");
 
+    if (input.img && input.img !== existing.img) {
+      const parsed = parseStorageUrl(existing.img);
+      if (parsed) {
+        await deleteFile(parsed.bucket, parsed.path);
+      }
+    }
+
     const updated = await articlesRepository.update(id, input);
     return { data: updated };
   }
@@ -50,6 +61,11 @@ export class ArticlesService {
   async remove(id: string) {
     const existing = await articlesRepository.findById(id);
     if (!existing) throw new NotFoundException("Article not found");
+
+    const parsed = parseStorageUrl(existing.img);
+    if (parsed) {
+      await deleteFile(parsed.bucket, parsed.path);
+    }
 
     await articlesRepository.delete(id);
     return { data: { id } };

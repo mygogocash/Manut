@@ -5,8 +5,9 @@ import { tracking } from "@/lib/tracking";
 /**
  * Daily snapshot sync — refreshes person + group traits in PostHog.
  *
- * Wired through POST /api/cron/sync-telemetry and intended to run once per
- * day from the quarantined Cloudflare Cron/Queue path.
+ * Wired through POST /api/cron/sync-telemetry. Intended to run once per
+ * day from Cloud Scheduler, with the standard X-Cron-Secret header. The
+ * trait list mirrors `tracking-plan.yaml#snapshot_sync`.
  */
 
 const ROLLING_WINDOW_DAYS = 30;
@@ -29,10 +30,34 @@ export async function runSnapshotSync() {
     },
   });
 
+  // AriaMessage has no direct userId — count via the conversation owner.
+  // Single grouped query is cheaper than n queries for ~50 users.
+  const ariaCounts = await prisma.ariaMessage.groupBy({
+    by: ["conversationId"],
+    where: { role: "user", createdAt: { gt: since } },
+    _count: { _all: true },
+  });
+  const conversationOwners = ariaCounts.length
+    ? await prisma.ariaConversation.findMany({
+        where: { id: { in: ariaCounts.map((c) => c.conversationId) } },
+        select: { id: true, userId: true },
+      })
+    : [];
+  const ownerByConversation = new Map(
+    conversationOwners.map((c) => [c.id, c.userId]),
+  );
+  const ariaByUser = new Map<string, number>();
+  for (const row of ariaCounts) {
+    const userId = ownerByConversation.get(row.conversationId);
+    if (!userId) continue;
+    ariaByUser.set(userId, (ariaByUser.get(userId) ?? 0) + row._count._all);
+  }
+
   for (const u of users) {
     tracking.identify(u.id, {
       leave_requests_30d: u._count.leaveRequestsSubmitted,
       expenses_30d: u._count.expensesSubmitted,
+      aria_messages_30d: ariaByUser.get(u.id) ?? 0,
     });
   }
 

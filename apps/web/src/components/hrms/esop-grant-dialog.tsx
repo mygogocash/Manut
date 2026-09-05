@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -122,16 +122,12 @@ const schema = z
     grantType: z.enum(ESOP_GRANT_TYPES),
     source: z.string().max(200).optional().or(z.literal("")),
     valueType: z.enum(ESOP_VALUE_TYPES),
-    shares: z.coerce.number<number | string>().int().nonnegative(),
+    shares: z.coerce.number().int().nonnegative(),
     currencyCode: z.enum(ESOP_CURRENCIES).optional(),
-    currencyAmount: z.coerce.number<number | string>().nonnegative().optional(),
-    percentOfBase: z.coerce
-      .number<number | string>()
-      .min(0)
-      .max(100)
-      .optional(),
+    currencyAmount: z.coerce.number().nonnegative().optional(),
+    percentOfBase: z.coerce.number().min(0).max(100).optional(),
     allocationMode: z.enum(ESOP_ALLOCATION_MODES),
-    monthlyAmount: z.coerce.number<number | string>().nonnegative().optional(),
+    monthlyAmount: z.coerce.number().nonnegative().optional(),
     allocationStartMonth: monthString.optional(),
     allocationEndMonth: monthString.optional(),
     // UI-only: how a one-time grant vests. "outright" = fully vested now
@@ -144,38 +140,19 @@ const schema = z
     vestingType: z.enum(["outright", "schedule"]),
     // Kept for the monthly_recurring path; the one-time schedule derives
     // its months from Start/End server-side. nonnegative so 0 is allowed.
-    vestingMonths: z.coerce
-      .number<number | string>()
-      .int()
-      .nonnegative()
-      .optional()
-      .nullable(),
-    cliffMonths: z.coerce
-      .number<number | string>()
-      .int()
-      .nonnegative()
-      .optional()
-      .nullable(),
-    lockMonths: z.coerce
-      .number<number | string>()
-      .int()
-      .nonnegative()
-      .optional()
-      .nullable(),
+    vestingMonths: z.coerce.number().int().nonnegative().optional().nullable(),
+    cliffMonths: z.coerce.number().int().nonnegative().optional().nullable(),
+    lockMonths: z.coerce.number().int().nonnegative().optional().nullable(),
     // Optional manual "Total Vesting to date". Blank → auto-computed.
     vestedToDateOverride: z.coerce
-      .number<number | string>()
+      .number()
       .int()
       .nonnegative()
       .optional()
       .nullable(),
-    strikePrice: z.coerce.number<number | string>().nonnegative(),
+    strikePrice: z.coerce.number().nonnegative(),
     status: z.enum(ESOP_STATUS_VALUES),
-    exercisedShares: z.coerce
-      .number<number | string>()
-      .int()
-      .nonnegative()
-      .optional(),
+    exercisedShares: z.coerce.number().int().nonnegative().optional(),
     notes: z.string().max(5000).optional().or(z.literal("")),
   })
   .superRefine((v, ctx) => {
@@ -240,36 +217,55 @@ const schema = z
       }
     }
     if (v.allocationMode === "one_time" && v.vestingType === "schedule") {
-      if (!v.allocationStartMonth) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["allocationStartMonth"],
-          message: "Pick a start date",
-        });
-      }
-      if (!v.allocationEndMonth) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["allocationEndMonth"],
-          message: "Pick an end date",
-        });
-      }
-      if (
-        v.allocationStartMonth &&
-        v.allocationEndMonth &&
-        v.allocationEndMonth < v.allocationStartMonth
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["allocationEndMonth"],
-          message: "End date must not be before start date",
-        });
+      const hasStart = Boolean(v.allocationStartMonth);
+      const hasEnd = Boolean(v.allocationEndMonth);
+      if (!hasStart && !hasEnd) {
+        // No calendar window → the grant must still stay *scheduled*, so a
+        // positive vesting duration is required. Without it the grant would
+        // collapse to outright (fully vested) and the vested-to-date override
+        // would be ignored.
+        if (!v.vestingMonths || v.vestingMonths <= 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["vestingMonths"],
+            message:
+              "Enter a vesting duration in months, or set both Start and End dates",
+          });
+        }
+      } else {
+        // A half-filled window can't be turned into a schedule.
+        if (!hasStart) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["allocationStartMonth"],
+            message:
+              "Pick a start date, or clear both dates to use a months duration",
+          });
+        }
+        if (!hasEnd) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["allocationEndMonth"],
+            message:
+              "Pick an end date, or clear both dates to use a months duration",
+          });
+        }
+        if (
+          v.allocationStartMonth &&
+          v.allocationEndMonth &&
+          v.allocationEndMonth < v.allocationStartMonth
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["allocationEndMonth"],
+            message: "End date must not be before start date",
+          });
+        }
       }
     }
   });
 
-type FormInput = z.input<typeof schema>;
-type FormValues = z.output<typeof schema>;
+type FormValues = z.infer<typeof schema>;
 
 interface EsopGrantDialogProps {
   open: boolean;
@@ -314,8 +310,8 @@ export function EsopGrantDialog({
   const [employees, setEmployees] = useState<UserListItem[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
 
-  const form = useForm<FormInput, unknown, FormValues>({
-    resolver: standardSchemaResolver(schema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
     defaultValues: DEFAULTS,
   });
 
@@ -419,13 +415,18 @@ export function EsopGrantDialog({
         allocationEndMonth: isOutright
           ? values.allocationStartMonth || null
           : values.allocationEndMonth || null,
-        // Outright → 0 (lands in Vested pool). Schedule → null so the
-        // server derives months from Start/End. Recurring → explicit count.
+        // Outright → 0 (lands in Vested pool). Recurring → explicit count.
+        // Schedule with both dates → null (server derives months from the
+        // window). Schedule without dates → send the explicit months so the
+        // grant stays scheduled (server's deriveVestingMonths falls back to
+        // this when there is no Start/End).
         vestingMonths: isRecurring
           ? (values.vestingMonths ?? null)
           : isOutright
             ? 0
-            : null,
+            : values.allocationStartMonth && values.allocationEndMonth
+              ? null
+              : (values.vestingMonths ?? null),
         cliffMonths: values.cliffMonths ?? null,
         lockMonths: values.lockMonths ?? null,
         // Manual "Total Vesting to date" only applies to a schedule; blank
@@ -484,7 +485,7 @@ export function EsopGrantDialog({
           <DialogDescription>
             {isEditing
               ? `Update grant for ${grant.employee.name}.`
-              : "Issue a new ESOP grant aligned with the import format."}
+              : "Issue a new ESOP grant aligned with the Equity Summary Report."}
           </DialogDescription>
         </DialogHeader>
 
@@ -758,8 +759,9 @@ export function EsopGrantDialog({
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    Choose monthly recurring for recurring grants (e.g. THB
-                    197,000 every month from Jun-Dec 2024).
+                    Choose monthly recurring for grants like Sheet 3 of the
+                    Equity Summary Report (e.g. THB 197,000 every month from
+                    Jun-Dec 2024).
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -893,7 +895,7 @@ export function EsopGrantDialog({
                         name="allocationStartMonth"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Start *</FormLabel>
+                            <FormLabel>Start</FormLabel>
                             <FormControl>
                               <FormDatePicker {...field} />
                             </FormControl>
@@ -906,7 +908,7 @@ export function EsopGrantDialog({
                         name="allocationEndMonth"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>End *</FormLabel>
+                            <FormLabel>End</FormLabel>
                             <FormControl>
                               <FormDatePicker {...field} />
                             </FormControl>
@@ -915,6 +917,32 @@ export function EsopGrantDialog({
                         )}
                       />
                     </div>
+
+                    <FormField
+                      control={form.control}
+                      name="vestingMonths"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Vesting (months)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              step={1}
+                              {...field}
+                              value={field.value ?? ""}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Used only when Start and End are left blank — the
+                            grant still vests over this many months (so the
+                            &ldquo;Total Vesting to date&rdquo; below applies).
+                            Ignored when a Start/End window is set.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
                     <div
                       className={`

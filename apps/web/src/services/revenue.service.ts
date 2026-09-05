@@ -33,6 +33,11 @@ export interface EntityRevenue {
   netIncome: number;
 }
 
+export interface BnrySummary {
+  totalVolume: number;
+  transactionCount: number;
+}
+
 export interface PipelineStage {
   stage: string;
   count: number;
@@ -51,6 +56,7 @@ export interface RevenueDashboard {
   expenses: ExpenseMonth[];
   invoices: InvoiceSummary;
   revenueByEntity: EntityRevenue[];
+  bnry: BnrySummary;
   pipeline: PipelineStage[];
   monthly: MonthlyComparison[];
 }

@@ -147,7 +147,7 @@ export function NinetyDayNotificationConfigCard() {
                 addRecipient();
               }
             }}
-            placeholder="name@manut.example"
+            placeholder="name@thebinaryholdings.com"
             disabled={saving}
             className="h-8 text-xs"
           />

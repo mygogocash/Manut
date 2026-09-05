@@ -17,6 +17,7 @@ export interface InvestorContact {
   account: { id: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
+  fundraisingEntity: string;
 }
 
 export interface CreateInvestorContactInput {
@@ -26,6 +27,7 @@ export interface CreateInvestorContactInput {
   phone?: string;
   title?: string;
   accountId?: string;
+  fundraisingEntity?: string;
 }
 
 export interface UpdateInvestorContactInput {
@@ -35,6 +37,7 @@ export interface UpdateInvestorContactInput {
   phone?: string | null;
   title?: string | null;
   accountId?: string | null;
+  fundraisingEntity?: string;
 }
 
 export interface ListInvestorContactsParams {
@@ -43,6 +46,9 @@ export interface ListInvestorContactsParams {
   search?: string;
   accountId?: string;
   ownerId?: string;
+  // When true, return ONLY archived contacts; omit/false shows active only.
+  archived?: boolean;
+  fundraisingEntity?: string;
 }
 
 function buildQuery<T extends object>(params: T): string {
@@ -79,4 +85,16 @@ export async function deleteInvestorContact(
   id: string,
 ): Promise<ApiSuccessResponse<{ success: boolean }>> {
   return api.delete(`/investor/contacts/${id}`);
+}
+
+export async function archiveInvestorContact(
+  id: string,
+): Promise<ApiSuccessResponse<InvestorContact>> {
+  return api.post(`/investor/contacts/${id}/archive`, {});
+}
+
+export async function unarchiveInvestorContact(
+  id: string,
+): Promise<ApiSuccessResponse<InvestorContact>> {
+  return api.post(`/investor/contacts/${id}/unarchive`, {});
 }

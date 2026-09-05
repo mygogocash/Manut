@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Loader2, Mail } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -54,7 +54,7 @@ export function AuthEmailForm({ mode }: AuthEmailFormProps) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const form = useForm<EmailFormValues>({
-    resolver: standardSchemaResolver(emailSchema),
+    resolver: zodResolver(emailSchema),
     defaultValues: { email: "" },
   });
 
@@ -104,7 +104,7 @@ export function AuthEmailForm({ mode }: AuthEmailFormProps) {
                 <Input
                   {...field}
                   type="email"
-                  placeholder="you@manut.example"
+                  placeholder="you@thebinaryholdings.com"
                   autoComplete="email"
                   className={`
                     bg-background-secondary h-10

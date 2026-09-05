@@ -12,11 +12,13 @@ import { prisma } from "@/infrastructure/database/prisma";
 import { docsService } from "@/modules/docs/docs.service";
 import {
   createWikiPageSchema,
+  extractWikiAttachmentSchema,
   listWikiPagesSchema,
   moveWikiPageSchema,
   updateWikiPageSchema,
   wikiPagePermissionSchema,
 } from "@/modules/docs/docs.validation";
+import { extractWikiFromAttachment } from "@/modules/docs/docs-extract.service";
 
 const router = Router();
 
@@ -46,6 +48,18 @@ async function viewerOf(req: Express.Request): Promise<{
   );
   return { id, isAdmin };
 }
+
+// ── AI auto-fill from an uploaded attachment ────────────────────
+
+router.post(
+  "/extract",
+  requirePermission(PERMISSIONS.DOCS_CREATE, PERMISSIONS.DOCS_UPDATE),
+  asyncHandler(async (req, res) => {
+    const input = extractWikiAttachmentSchema.parse(req.body);
+    const data = await extractWikiFromAttachment(input.url, input.mimeType);
+    res.json({ data });
+  }),
+);
 
 // ── Tree route — must come before "/:id" ───────────────────────
 

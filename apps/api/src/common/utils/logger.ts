@@ -7,7 +7,7 @@ export const logger = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json(),
   ),
-  defaultMeta: { service: "manut-api" },
+  defaultMeta: { service: "nexora-api" },
   transports: [
     new winston.transports.Console({
       format: winston.format.combine(

@@ -1,11 +1,5 @@
-import { Prisma } from "@manut/database";
-
-import {
-  BadRequestException,
-  ConflictException,
-} from "@/common/exceptions/http-exception";
+import { BadRequestException } from "@/common/exceptions/http-exception";
 import { logger } from "@/common/utils/logger";
-import { prisma } from "@/infrastructure/database/prisma";
 import {
   isSupabaseConfigured,
   supabaseAdmin,
@@ -276,87 +270,11 @@ export function parseStorageUrl(
     if (idx === -1) continue;
     // Strip query-string (signed URLs carry ?token=… after the path).
     const rest = url.slice(idx + marker.length).split("?")[0];
-    if (!rest) continue;
     const slashIdx = rest.indexOf("/");
     if (slashIdx === -1) continue;
     return { bucket: rest.slice(0, slashIdx), path: rest.slice(slashIdx + 1) };
   }
   return null;
-}
-
-/**
- * Parse only URLs issued by this application's configured Supabase project
- * and restricted to an explicit bucket allowlist. Callers that mint signed
- * URLs must use this helper so arbitrary URL text cannot select another
- * private bucket through the service-role client.
- */
-export function parseTrustedStorageUrl(
-  url: string | null | undefined,
-  allowedBuckets: readonly BucketName[],
-): { bucket: BucketName; path: string } | null {
-  const parsed = parseStorageUrl(url);
-  if (!parsed || !parsed.path || !SUPABASE_URL || !url) return null;
-
-  try {
-    if (new URL(url).origin !== new URL(SUPABASE_URL).origin) return null;
-  } catch {
-    return null;
-  }
-
-  if (!allowedBuckets.includes(parsed.bucket as BucketName)) return null;
-  return { bucket: parsed.bucket as BucketName, path: parsed.path };
-}
-
-export interface RegisteredStorageExpectation {
-  allowedBuckets: readonly BucketName[];
-  purpose: string;
-  uploadedBy?: string;
-  linkedTo?: string;
-  linkedId?: string;
-}
-
-/**
- * Resolve a storage URL only when both its origin/bucket and its upload
- * registry provenance match the consuming module. A bucket allowlist alone is
- * insufficient for the shared `documents` bucket: without the FileUpload
- * purpose/link check, one module could turn a known path from another module
- * into a service-role signed URL.
- */
-export async function requireRegisteredStorageUrl(
-  url: string,
-  expectation: RegisteredStorageExpectation,
-): Promise<{ bucket: BucketName; path: string; uploadId: string }> {
-  const parsed = parseTrustedStorageUrl(url, expectation.allowedBuckets);
-  if (!parsed) {
-    throw new BadRequestException(
-      "File URL is not from the expected trusted storage bucket",
-    );
-  }
-
-  const upload = await prisma.fileUpload.findFirst({
-    where: {
-      bucket: parsed.bucket,
-      path: parsed.path,
-      purpose: expectation.purpose,
-      ...(expectation.uploadedBy !== undefined && {
-        uploadedBy: expectation.uploadedBy,
-      }),
-      ...(expectation.linkedTo !== undefined && {
-        linkedTo: expectation.linkedTo,
-      }),
-      ...(expectation.linkedId !== undefined && {
-        linkedId: expectation.linkedId,
-      }),
-    },
-    select: { id: true },
-  });
-  if (!upload) {
-    throw new BadRequestException(
-      "File URL is not registered for this application record",
-    );
-  }
-
-  return { ...parsed, uploadId: upload.id };
 }
 
 /**
@@ -434,7 +352,7 @@ export async function uploadFile(
 
   if (error) {
     // The raw Supabase error + the operator hint are developer-facing
-    // infra detail — log them for the runtime operator, but
+    // infra detail — log them for whoever's reading Cloud Run logs, but
     // never surface them in the toast. The end user gets a plain message.
     const hint =
       error.message.includes("row-level security") ||
@@ -483,42 +401,6 @@ export async function uploadBase64(
  * Delete a file from Supabase Storage.
  */
 export async function deleteFile(bucket: string, path: string): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    const uploads = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-      SELECT id
-      FROM file_uploads
-      WHERE bucket = ${bucket}
-        AND path = ${path}
-      FOR UPDATE
-    `);
-    if (uploads.length === 0) return;
-
-    const uploadIds = uploads.map((upload) => upload.id);
-    const [retainedLegalEvidence, retainedCashProof] = await Promise.all([
-      tx.legalSignature.count({
-        where: {
-          OR: [
-            { documentSnapshotUploadId: { in: uploadIds } },
-            {
-              documentSnapshotBucket: bucket,
-              documentSnapshotPath: path,
-            },
-          ],
-        },
-      }),
-      tx.cashAdvanceRequest.count({
-        where: { disbursementProofUploadId: { in: uploadIds } },
-      }),
-    ]);
-    if (retainedLegalEvidence > 0 || retainedCashProof > 0) {
-      throw new ConflictException(
-        "This file is retained by an application record and cannot be deleted",
-      );
-    }
-
-    await tx.fileUpload.deleteMany({ where: { id: { in: uploadIds } } });
-  });
-
   const { error } = await supabaseAdmin.storage.from(bucket).remove([path]);
 
   if (error) {

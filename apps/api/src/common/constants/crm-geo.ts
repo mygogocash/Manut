@@ -1,4 +1,4 @@
-/** Standard region picklist for Accounts. */
+/** BD-feedback (Vivek, May 2026) — standard region picklist for Accounts. */
 export const CRM_ACCOUNT_REGIONS = [
   "Africa",
   "Europe",

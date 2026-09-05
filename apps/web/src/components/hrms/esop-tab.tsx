@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useIsBelow } from "@/hooks/use-breakpoint";
 import { cn } from "@/lib/utils";
 import {
   ESOP_GRANT_TYPE_LABELS,
@@ -81,8 +82,8 @@ function sharesText(g: EsopGrant): string {
 
 function sourceNotesText(g: EsopGrant): string {
   // Display only the operator-entered Notes value. The internal `source`
-  // field carries an importer-synthesized label that is operational noise;
-  // the column should mirror the
+  // field carries an importer-synthesized label ("Equity Summary Report —
+  // …") that HR considers noise — they want the column to mirror the
   // Source / Notes cell from the xlsx exactly.
   return g.notes ?? "";
 }
@@ -147,7 +148,13 @@ export function EsopTab({
   // so each person's grants sit together, mirroring HR's Equity Summary
   // spreadsheet. When a column sort is active, leave server order alone
   // and drop the visual grouping so the table reads like a flat list.
-  const isGrouped = !sortBy;
+  // The grouping is a TABLE device: it fakes a rowspan by blanking the name on
+  // a person's second and later grants, which only reads correctly while the
+  // rows are adjacent in one grid. Below md the DataTable renders cards, each
+  // its own visual unit, so a blanked name leaves the card titled with a bare
+  // arrow and no identity at all. Group on the table, never on the cards.
+  const isCompact = useIsBelow("md");
+  const isGrouped = !sortBy && !isCompact;
   const sortedGrants = useMemo(() => {
     if (!isGrouped) return grants;
     return [...grants].sort((a, b) => {
@@ -199,6 +206,7 @@ export function EsopTab({
       },
       {
         key: "grantType",
+        mobileRole: "subtitle" as const,
         header: "Equity Type",
         sortable: true,
         render: (g: EsopGrant) => (
@@ -209,6 +217,7 @@ export function EsopTab({
       },
       {
         key: "usd",
+        mobileRole: "field" as const,
         header: "Equity in USD",
         sortable: true,
         render: (g: EsopGrant) => (
@@ -218,6 +227,7 @@ export function EsopTab({
       },
       {
         key: "thb",
+        mobileRole: "detail" as const,
         header: "Equity in THB",
         sortable: true,
         render: (g: EsopGrant) => (
@@ -227,6 +237,7 @@ export function EsopTab({
       },
       {
         key: "shares",
+        mobileRole: "detail" as const,
         header: "No. of Shares",
         sortable: true,
         render: (g: EsopGrant) => (
@@ -236,6 +247,7 @@ export function EsopTab({
       },
       {
         key: "vestStart",
+        mobileRole: "detail" as const,
         header: "Start",
         render: (g: EsopGrant) => {
           const label = monthLabel(g.allocationStartMonth);
@@ -248,6 +260,7 @@ export function EsopTab({
       },
       {
         key: "vestEnd",
+        mobileRole: "detail" as const,
         header: "End",
         render: (g: EsopGrant) => {
           const label = monthLabel(g.allocationEndMonth);
@@ -260,6 +273,7 @@ export function EsopTab({
       },
       {
         key: "vestedToDate",
+        mobileRole: "field" as const,
         // Auto-computed (linear by elapsed months) unless an admin pinned a
         // manual figure — a trailing "*" marks the override. Only meaningful
         // for scheduled grants; outright grants show "—" (they're fully
@@ -285,6 +299,7 @@ export function EsopTab({
       },
       {
         key: "lockMonths",
+        mobileRole: "detail" as const,
         header: "Lock Period",
         sortable: true,
         render: (g: EsopGrant) =>
@@ -296,6 +311,7 @@ export function EsopTab({
       },
       {
         key: "vestingMonths",
+        mobileRole: "detail" as const,
         header: "Vesting Period",
         sortable: true,
         render: (g: EsopGrant) =>
@@ -307,6 +323,7 @@ export function EsopTab({
       },
       {
         key: "sourceNotes",
+        mobileRole: "detail" as const,
         header: "Source / Notes",
         render: (g: EsopGrant) => {
           const text = sourceNotesText(g);
@@ -326,6 +343,7 @@ export function EsopTab({
       },
       {
         key: "status",
+        mobileRole: "badge" as const,
         header: "Status",
         sortable: true,
         render: (g: EsopGrant) => <Badge status={g.status}>{g.status}</Badge>,
@@ -334,6 +352,7 @@ export function EsopTab({
         ? [
             {
               key: "actions",
+              mobileRole: "actions" as const,
               header: "",
               className: "w-[80px]",
               render: (g: EsopGrant) => (
@@ -387,12 +406,15 @@ export function EsopTab({
     <>
       <div
         className={`
-          border-border bg-surface flex items-center gap-2 rounded-lg border p-3
-          shadow-sm
+          border-border bg-surface flex flex-wrap items-center gap-2 rounded-lg
+          border p-3 shadow-sm
         `}
       >
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="h-10 w-[160px] text-xs">
+          <SelectTrigger
+            className="h-10 w-[160px] text-xs"
+            aria-label="Filter grants by status"
+          >
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -437,6 +459,7 @@ export function EsopTab({
         columns={columns}
         data={sortedGrants}
         loading={loading}
+        stickyHeader
         emptyMessage="No ESOP grants found"
         onRowClick={canManage ? onEditGrant : undefined}
         enableRowSelection={canManage}

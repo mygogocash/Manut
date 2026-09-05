@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { assertDefined, mockCall, setTestEnv } from "@/test-utils/assertions";
-
 vi.mock("@/common/utils/logger", () => ({
   logger: {
     warn: vi.fn(),
@@ -21,8 +19,8 @@ describe("sendWelcomeTemplateEmail", () => {
   });
 
   it("posts the welcome template payload to the email service", async () => {
-    setTestEnv("EMAIL_SERVICE_API_KEY", "test-email-service-key");
-    setTestEnv("EMAIL_SERVICE_URL", "https://dev.email-provider.example/");
+    process.env.EMAIL_SERVICE_API_KEY = "test-email-service-key";
+    process.env.EMAIL_SERVICE_URL = "https://dev.send.onewave.live/";
 
     const fetchMock = vi
       .fn<typeof fetch>()
@@ -41,10 +39,9 @@ describe("sendWelcomeTemplateEmail", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    const [url, requestValue] = mockCall(fetchMock.mock.calls, 0);
-    const request = assertDefined(requestValue, "fetch request options");
+    const [url, request] = fetchMock.mock.calls[0]!;
 
-    expect(url).toBe("https://dev.email-provider.example/api/emails");
+    expect(url).toBe("https://dev.send.onewave.live/api/emails");
     expect(request).toMatchObject({
       method: "POST",
       headers: {

@@ -1,7 +1,15 @@
 "use client";
 
 import { format } from "date-fns";
-import { Edit, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Edit,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -12,6 +20,7 @@ import { DataPagination } from "@/components/shared/data-pagination";
 import { DataTable } from "@/components/shared/data-table";
 import { PermissionButton } from "@/components/shared/permission-button";
 import { PermissionDropdownMenuItem } from "@/components/shared/permission-dropdown-menu-item";
+import { Tabs } from "@/components/shared/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,9 +51,11 @@ import { usePagination } from "@/hooks/use-pagination";
 import { ApiError } from "@/lib/api-client";
 import { type Account, listAccounts } from "@/services/crm-account.service";
 import {
+  archiveContact,
   type Contact,
   deleteContact,
   listContacts,
+  unarchiveContact,
 } from "@/services/crm-contact.service";
 
 const ALL = "__all__";
@@ -55,6 +66,9 @@ export function ContactsTab() {
   const [search, setSearch] = useState("");
   const [accountFilter, setAccountFilter] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
+  // Active | Archived view. Archived is orthogonal to search / account filter —
+  // it shows contacts that were archived regardless of those.
+  const [archived, setArchived] = useState(false);
   const debouncedSearch = useDebounce(search, 300);
   const pagination = usePagination();
   const { page, pageSize, setTotalCount } = pagination;
@@ -97,6 +111,7 @@ export function ContactsTab() {
         limit: pageSize,
         search: debouncedSearch || undefined,
         accountId: accountFilter || undefined,
+        archived: archived || undefined,
       });
       setContacts(res.data);
       setTotalCount(res.meta.total);
@@ -107,7 +122,7 @@ export function ContactsTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, debouncedSearch, accountFilter, setTotalCount]);
+  }, [page, pageSize, debouncedSearch, accountFilter, archived, setTotalCount]);
 
   useEffect(() => {
     fetchContacts();
@@ -146,6 +161,35 @@ export function ContactsTab() {
     }
   }
 
+  // Archive / restore. The current view (active vs archived) is the opposite of
+  // the row's new state, so the row leaves the current list either way — drop it
+  // optimistically and adjust the total.
+  async function handleArchive(contact: Contact) {
+    try {
+      await archiveContact(contact.id);
+      setContacts((prev) => prev.filter((c) => c.id !== contact.id));
+      setTotalCount((c) => Math.max(0, c - 1));
+      toast.success("Contact archived");
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to archive contact";
+      toast.error(message);
+    }
+  }
+
+  async function handleUnarchive(contact: Contact) {
+    try {
+      await unarchiveContact(contact.id);
+      setContacts((prev) => prev.filter((c) => c.id !== contact.id));
+      setTotalCount((c) => Math.max(0, c - 1));
+      toast.success("Contact restored");
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to restore contact";
+      toast.error(message);
+    }
+  }
+
   const columns = [
     {
       key: "name",
@@ -170,21 +214,25 @@ export function ContactsTab() {
     },
     {
       key: "account",
+      mobileRole: "subtitle" as const,
       header: "Account",
       render: (c: Contact) => c.account?.name ?? "—",
     },
     {
       key: "title",
+      mobileRole: "detail" as const,
       header: "Title",
       render: (c: Contact) => c.title || "—",
     },
     {
       key: "email",
+      mobileRole: "field" as const,
       header: "Email",
       render: (c: Contact) => c.email || "—",
     },
     {
       key: "phone",
+      mobileRole: "field" as const,
       header: "Phone",
       render: (c: Contact) => c.phone || "—",
     },
@@ -195,6 +243,7 @@ export function ContactsTab() {
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-10",
       render: (c: Contact) => (
@@ -212,6 +261,23 @@ export function ContactsTab() {
               <Edit className="mr-2 size-3.5" />
               Edit
             </PermissionDropdownMenuItem>
+            {archived ? (
+              <PermissionDropdownMenuItem
+                permissions={["crm:update"]}
+                onClick={() => handleUnarchive(c)}
+              >
+                <ArchiveRestore className="mr-2 size-3.5" />
+                Restore
+              </PermissionDropdownMenuItem>
+            ) : (
+              <PermissionDropdownMenuItem
+                permissions={["crm:update"]}
+                onClick={() => handleArchive(c)}
+              >
+                <Archive className="mr-2 size-3.5" />
+                Archive
+              </PermissionDropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <PermissionDropdownMenuItem
               permissions={["crm:delete"]}
@@ -229,6 +295,18 @@ export function ContactsTab() {
 
   return (
     <div>
+      <Tabs
+        tabs={[
+          { id: "active", label: "Active" },
+          { id: "archived", label: "Archived" },
+        ]}
+        active={archived ? "archived" : "active"}
+        onChange={(v) => {
+          setArchived(v === "archived");
+          pagination.setPage(1);
+        }}
+      />
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative w-full max-w-xs">

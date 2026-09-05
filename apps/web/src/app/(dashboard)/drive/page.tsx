@@ -151,7 +151,8 @@ export default function DrivePage() {
   useEffect(() => {
     if (notConnected) return;
     void load();
-  }, [notConnected, load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notConnected]);
 
   useEffect(() => {
     if (notConnected) return;
@@ -189,7 +190,7 @@ export default function DrivePage() {
     <div>
       <PageHeader
         title="Google Drive"
-        subtitle="Your Google Workspace files through Manut-owned OAuth"
+        subtitle="Connected via Anthropic MCP · Your Google Workspace files"
       >
         <Button
           size="sm"

@@ -39,8 +39,9 @@ export function StatCard({
     <Card
       className={cn(
         `
-          border-border/80 bg-card/85 gap-0 rounded-xl px-5 py-4 shadow-sm
+          border-border/80 bg-card/85 gap-0 rounded-xl px-3 py-3 shadow-sm
           backdrop-blur-sm
+          sm:px-5 sm:py-4
         `,
         `
           transition-shadow
@@ -56,21 +57,28 @@ export function StatCard({
       )}
     >
       <CardContent className="p-0">
-        <div className="flex items-start justify-between gap-3">
+        <div
+          className={`
+            flex items-start justify-between gap-2
+            sm:gap-3
+          `}
+        >
           <div className="min-w-0 flex-1">
             <p
               className={`
-                text-muted-foreground mb-2 text-[11px] font-semibold
-                tracking-[0.08em] uppercase
+                text-muted-foreground mb-1.5 text-[10px] font-semibold
+                tracking-[0.06em] uppercase
+                sm:mb-2 sm:text-[11px] sm:tracking-[0.08em]
               `}
             >
               {label}
             </p>
             <p
               className={`
-                text-foreground font-serif text-[28px] leading-none font-normal
-                tabular-nums
-                sm:text-[30px]
+                text-foreground break-anywhere font-serif text-[22px]
+                leading-tight font-normal tabular-nums
+                sm:text-[28px]
+                md:text-[30px]
               `}
             >
               {value}
@@ -78,11 +86,19 @@ export function StatCard({
           </div>
           <div
             className={cn(
-              "flex size-11 shrink-0 items-center justify-center rounded-xl",
+              `
+                flex size-8 shrink-0 items-center justify-center rounded-lg
+                sm:size-11 sm:rounded-xl
+              `,
               ACCENT[accent],
             )}
           >
-            <Icon className="size-5" />
+            <Icon
+              className={`
+                size-4
+                sm:size-5
+              `}
+            />
           </div>
         </div>
         <div className="mt-3 flex items-start gap-1.5">

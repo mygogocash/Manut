@@ -351,6 +351,7 @@ export default function LegalPage() {
       },
       {
         key: "kind",
+        mobileRole: "field" as const,
         header: "Kind",
         render: (d: LegalDocumentListItem) => (
           <Badge variant="grey">{LEGAL_KIND_LABELS[d.kind] ?? d.kind}</Badge>
@@ -358,6 +359,7 @@ export default function LegalPage() {
       },
       {
         key: "owner",
+        mobileRole: "subtitle" as const,
         header: "Owner",
         render: (d: LegalDocumentListItem) =>
           d.owner ? (
@@ -373,6 +375,7 @@ export default function LegalPage() {
       },
       {
         key: "entity",
+        mobileRole: "detail" as const,
         header: "Entity",
         render: (d: LegalDocumentListItem) =>
           d.entity ? (
@@ -383,6 +386,7 @@ export default function LegalPage() {
       },
       {
         key: "folder",
+        mobileRole: "detail" as const,
         header: "Folder",
         render: (d: LegalDocumentListItem) =>
           d.folder ? (
@@ -395,6 +399,7 @@ export default function LegalPage() {
       },
       {
         key: "expiry",
+        mobileRole: "field" as const,
         header: "Expires",
         render: (d: LegalDocumentListItem) => {
           // Prefer the rolled-up expiry across the parent + every
@@ -445,6 +450,7 @@ export default function LegalPage() {
       },
       {
         key: "status",
+        mobileRole: "badge" as const,
         header: "Status",
         render: (d: LegalDocumentListItem) => {
           const status = d.effectiveStatus ?? d.status;
@@ -457,6 +463,7 @@ export default function LegalPage() {
       },
       {
         key: "file",
+        mobileRole: "detail" as const,
         header: "File",
         render: (d: LegalDocumentListItem) =>
           d.fileUrl ? (
@@ -479,6 +486,7 @@ export default function LegalPage() {
       },
       {
         key: "actions",
+        mobileRole: "actions" as const,
         header: "",
         className: "w-10 text-right",
         render: (d: LegalDocumentListItem) => {
@@ -514,16 +522,12 @@ export default function LegalPage() {
                     Share
                   </DropdownMenuItem>
                 )}
-                {canSignSend &&
-                  (d.status === "active" || d.status === "draft") &&
-                  d.fileUrl && (
-                    <DropdownMenuItem
-                      onSelect={() => handleSendForSignature(d)}
-                    >
-                      <Send className="size-3.5" />
-                      Send for signature
-                    </DropdownMenuItem>
-                  )}
+                {canSignSend && d.status !== "archived" && d.fileUrl && (
+                  <DropdownMenuItem onSelect={() => handleSendForSignature(d)}>
+                    <Send className="size-3.5" />
+                    Send for signature
+                  </DropdownMenuItem>
+                )}
                 {canSignView && (
                   <DropdownMenuItem onSelect={() => handleViewSignatures(d)}>
                     <ListChecks className="size-3.5" />

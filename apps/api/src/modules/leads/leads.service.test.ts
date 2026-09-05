@@ -8,7 +8,6 @@ import { prisma } from "@/infrastructure/database/prisma";
 import { sendEmail } from "@/infrastructure/email/email.service";
 import { leadRepository } from "@/modules/leads/leads.repository";
 import { LeadService } from "@/modules/leads/leads.service";
-import { mockArgument, mockCall } from "@/test-utils/assertions";
 
 vi.mock("./leads.repository", () => ({
   leadRepository: {
@@ -135,7 +134,7 @@ describe("LeadService", () => {
     });
   });
 
-  describe("listStale", () => {
+  describe("listStale — §11.3", () => {
     it("scopes to caller without crm:team-read and forwards 14d cutoff", async () => {
       findStale.mockResolvedValue({ data: [], total: 0 });
 
@@ -147,7 +146,7 @@ describe("LeadService", () => {
       const after = Date.now();
 
       expect(findStale).toHaveBeenCalledOnce();
-      const call = mockArgument(findStale.mock.calls, 0, 0) as {
+      const call = findStale.mock.calls[0][0] as {
         ownerScope: string[];
         cutoff: Date;
       };
@@ -170,9 +169,7 @@ describe("LeadService", () => {
         limit: 20,
       });
 
-      const call = mockArgument(findStale.mock.calls, 0, 0) as {
-        ownerScope: undefined;
-      };
+      const call = findStale.mock.calls[0][0] as { ownerScope: undefined };
       expect(call.ownerScope).toBeUndefined();
     });
 
@@ -245,7 +242,7 @@ describe("LeadService", () => {
       );
     });
 
-    it("rejects an unknown lead source code", async () => {
+    it("rejects an unknown lead source code (PRD §11.7 follow-up)", async () => {
       findLeadSource.mockResolvedValue(null);
 
       await expect(
@@ -369,7 +366,7 @@ describe("LeadService", () => {
     });
   });
 
-  describe("processStaleLeadDigest", () => {
+  describe("processStaleLeadDigest — §11.3 follow-up", () => {
     beforeEach(() => {
       sendEmailMock.mockReset();
       findLeadsRaw.mockReset();
@@ -468,9 +465,7 @@ describe("LeadService", () => {
 
       expect(result.totalLeads).toBe(12);
       expect(result.emailsSent).toBe(1);
-      const html = (
-        mockCall(sendEmailMock.mock.calls, 0)[0] as { html: string }
-      ).html;
+      const html = (sendEmailMock.mock.calls[0]![0] as { html: string }).html;
       // Exactly 10 visible rows, 2 in the "+ N more" tail.
       expect((html.match(/<strong>Co \d+<\/strong>/g) ?? []).length).toBe(10);
       expect(html).toContain("+2 more");

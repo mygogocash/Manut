@@ -6,7 +6,7 @@ import type {
 
 // ─── Types ──────────────────────────────────────────────
 
-// Equity-summary KPIs: grandTotal = all shares,
+// Sheet-aligned KPIs (see Shahab's Equity Summary): grandTotal = all shares,
 // vested = immediate (no-schedule) shares, vesting = scheduled shares,
 // vestedToDate = vested-so-far of the scheduled instruments.
 export interface EsopPool {
@@ -20,24 +20,26 @@ export const ESOP_GRANT_TYPES = [
   "equity",
   "tokens",
   "sign_up_bonus",
-  "executive_equity",
-  "retention",
+  "cxo_equity",
+  "golden_handcuff",
   "annual_review",
-  "performance_bonus",
-  "advisory",
+  "shark_tank",
+  "myv_advisory",
+  "fando",
   "other",
 ] as const;
 export type EsopGrantType = (typeof ESOP_GRANT_TYPES)[number];
 
 export const ESOP_GRANT_TYPE_LABELS: Record<EsopGrantType, string> = {
   equity: "Equity (contract)",
-  tokens: "Token Grant (contract)",
+  tokens: "BNRY Tokens (contract)",
   sign_up_bonus: "Sign-up Equity Bonus",
-  executive_equity: "Executive equity",
-  retention: "Retention equity",
+  cxo_equity: "CXO Equity",
+  golden_handcuff: "Golden Handcuff",
   annual_review: "Annual review uplift",
-  performance_bonus: "Performance bonus",
-  advisory: "Advisory equity",
+  shark_tank: "Shark Tank winner",
+  myv_advisory: "MYV Advisory shares",
+  fando: "Fando shares",
   other: "Other",
 };
 
@@ -121,7 +123,7 @@ export interface CreateEsopGrantInput {
   currencyCode?: EsopCurrency | null;
   currencyAmount?: number | null;
   percentOfBase?: number | null;
-  // Nullable so the UI can render "—" for grants whose import
+  // Nullable so the UI can render "—" for grants whose source xlsx
   // cell was empty (HR's "blank in xlsx → blank in UI" rule).
   vestingMonths?: number | null;
   cliffMonths?: number | null;
@@ -475,7 +477,8 @@ export async function bulkImportEsopGrants(
     body: formData,
   });
   const json = (await res.json()) as
-    ApiSuccessResponse<EsopBulkImportResult> | { error?: string };
+    | ApiSuccessResponse<EsopBulkImportResult>
+    | { error?: string };
   if (!res.ok) {
     const message = ("error" in json && json.error) || "Bulk import failed";
     throw new Error(

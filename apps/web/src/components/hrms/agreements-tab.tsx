@@ -427,8 +427,8 @@ export function AgreementsTab({
     <div className="flex flex-col gap-4">
       <div
         className={`
-          border-border bg-surface flex items-center gap-2 rounded-lg border p-3
-          shadow-sm
+          border-border bg-surface flex flex-wrap items-center gap-2 rounded-lg
+          border p-3 shadow-sm
         `}
       >
         <div className="relative flex-1">

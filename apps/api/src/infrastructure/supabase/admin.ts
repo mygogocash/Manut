@@ -25,14 +25,7 @@ function assertJwtServiceRole(key: string): void {
     return;
   }
   try {
-    const payloadPart = parts[1];
-    if (!payloadPart) {
-      logger.warn(
-        "SUPABASE_SERVICE_ROLE_KEY JWT payload is empty; cannot verify role.",
-      );
-      return;
-    }
-    const payloadJson = Buffer.from(payloadPart, "base64url").toString("utf8");
+    const payloadJson = Buffer.from(parts[1], "base64url").toString("utf8");
     const payload = JSON.parse(payloadJson) as { role?: string };
     if (payload.role === "anon" || payload.role === "authenticated") {
       throw new Error(

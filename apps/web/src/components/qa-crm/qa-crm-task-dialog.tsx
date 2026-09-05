@@ -154,7 +154,7 @@ export function QaCrmTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit QA Issue" : "New QA Issue"}</DialogTitle>
           <DialogDescription>

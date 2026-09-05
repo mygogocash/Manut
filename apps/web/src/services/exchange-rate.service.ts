@@ -1,7 +1,7 @@
 import { api } from "@/lib/api-client";
 import type { ApiSuccessResponse } from "@/types/api.type";
 
-// Workspace-admin CRUD over the
+// PRD §11.5 follow-up — workspace-admin CRUD over the
 // finance.exchange_rates table. Lookup happens server-side; this client
 // is only used by the admin manager dialog.
 
@@ -79,6 +79,11 @@ export interface BotSyncResult {
     period: string;
   }>;
   skipped: string[];
+  /**
+   * Rates the sync declined to touch because the stored row is not its own — a
+   * hand-corrected rate, or one whose provenance was never recorded.
+   */
+  preserved: Array<{ currency: string; source: string | null }>;
   errors: Array<{ currency: string; message: string }>;
 }
 

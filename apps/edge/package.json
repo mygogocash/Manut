@@ -1,36 +1,33 @@
 {
-  "name": "@manut/edge",
+  "name": "@nexora/edge",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "wrangler deploy --dry-run --env=\"\" --outdir dist",
     "dev": "wrangler dev",
-    "lint": "eslint scripts src tests vitest.config.ts --max-warnings=0",
-    "lint:fix": "eslint scripts src tests vitest.config.ts --fix",
-    "test": "EDGE_SIGNING_KEY=test-only-edge-signing-key-not-a-credential R2_ACCOUNT_ID=00000000000000000000000000000000 R2_ACCESS_KEY_ID=TESTONLYR2ACCESSKEYID000000000000 R2_SECRET_ACCESS_KEY=test-only-r2-secret-key-not-a-credential vitest run",
-    "type-check": "pnpm run types && tsc --noEmit",
-    "types": "wrangler types --env-interface CloudflareBindings --include-runtime=false --strict-vars=false",
-    "types:check": "wrangler types --env-interface CloudflareBindings --include-runtime=false --strict-vars=false --check"
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },
   "dependencies": {
-    "@cloudflare/containers": "0.3.7",
-    "@hono/zod-validator": "0.9.0",
-    "@manut/database": "workspace:*",
-    "@prisma/adapter-pg": "7.8.0",
-    "aws4fetch": "1.0.20",
-    "hono": "4.12.30",
-    "jose": "6.2.3",
-    "pg": "8.22.0",
-    "zod": "4.4.3"
+    "@hono/zod-validator": "^0.7.4",
+    "@nexora/auth": "workspace:*",
+    "@nexora/contracts": "workspace:*",
+    "@nexora/db": "workspace:*",
+    "better-auth": "^1.7.2",
+    "hono": "^4.10.0",
+    "zod": "^3.25.76",
+    "drizzle-orm": "^0.45.2",
+    "@nexora/core": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "0.18.5",
-    "@cloudflare/workers-types": "5.20260716.1",
-    "@manut/eslint-config": "workspace:*",
-    "jsonc-parser": "3.3.1",
-    "typescript": "6.0.3",
-    "vitest": "4.1.10",
-    "wrangler": "4.111.0"
+    "@cloudflare/vitest-pool-workers": "^0.8.60",
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.40.0"
   }
 }

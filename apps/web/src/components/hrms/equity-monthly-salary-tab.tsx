@@ -150,6 +150,13 @@ export function EquityMonthlySalaryTab({
       </div>
 
       <DataTable
+        // Five identity columns plus TWELVE generated month columns: the
+        // row is a year of share allocations, and reading it means
+        // comparing across the months and down them. Measured at 320-430px
+        // as cards: 0 of 12 month values visible without expanding. As a
+        // table: 12/12, scrolling 1908px inside its container with zero
+        // page overflow and a keyboard-reachable scroll region.
+        mobileMode="table"
         columns={columns}
         data={sortedRows}
         loading={loading}

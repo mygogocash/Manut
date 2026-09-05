@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus, Power, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -57,14 +57,13 @@ const formSchema = z.object({
     ),
   label: z.string().min(1, "Label is required").max(100),
   sortOrder: z.coerce
-    .number<number | string>()
+    .number()
     .int()
     .min(0)
     .max(9999, "Sort order must be 0-9999"),
 });
 
-type FormInput = z.input<typeof formSchema>;
-type FormValues = z.output<typeof formSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 interface LeadSourcesManagerDialogProps {
   open: boolean;
@@ -72,7 +71,7 @@ interface LeadSourcesManagerDialogProps {
 }
 
 // Workspace-admin screen for managing the crm_lead_sources lookup
-// Lists every source including deactivated rows so
+// (PRD §11.7 follow-up). Lists every source incl. deactivated rows so
 // admins can re-enable; system rows are protected — they can be
 // reordered or deactivated, never deleted or relabeled.
 export function LeadSourcesManagerDialog({
@@ -86,8 +85,8 @@ export function LeadSourcesManagerDialog({
   const [deleteTarget, setDeleteTarget] = useState<LeadSource | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const form = useForm<FormInput, unknown, FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: { code: "", label: "", sortOrder: 100 },
   });
 

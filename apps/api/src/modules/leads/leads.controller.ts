@@ -9,6 +9,8 @@ import {
 import { asyncHandler } from "@/core/middleware/async-handler";
 import { leadService } from "@/modules/leads/leads.service";
 import {
+  bulkFieldUpdateLeadsSchema,
+  bulkUpdateLeadsSchema,
   convertLeadSchema,
   createLeadSchema,
   disqualifyLeadSchema,
@@ -58,6 +60,38 @@ router.post(
     const input = createLeadSchema.parse(req.body);
     const data = await leadService.create(req.user!.id, input);
     res.status(201).json({ data });
+  }),
+);
+
+// Bulk select-and-act. Literal path MUST precede `/:id` — Express matches in
+// order and `/:id` would otherwise swallow `/bulk-business-units`.
+// Owner + archive in bulk. `crm:reassign` for the owner half is enforced in the
+// service, since requirePermission cannot express "only when a field is set".
+router.post(
+  "/bulk-update",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const input = bulkFieldUpdateLeadsSchema.parse(req.body);
+    const data = await leadService.bulkUpdateFields(
+      req.user!.id,
+      req.user!.permissions,
+      input,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/bulk-business-units",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const input = bulkUpdateLeadsSchema.parse(req.body);
+    const data = await leadService.bulkUpdateBusinessUnits(
+      req.user!.id,
+      req.user!.permissions,
+      input,
+    );
+    res.json({ data });
   }),
 );
 
@@ -114,6 +148,32 @@ router.post(
       req.user!.id,
       req.user!.permissions,
       input,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/archive",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const data = await leadService.archive(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/unarchive",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const data = await leadService.unarchive(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
     );
     res.json({ data });
   }),

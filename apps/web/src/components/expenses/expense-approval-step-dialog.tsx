@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -50,6 +50,7 @@ const stepSchema = z
   .object({
     name: z.string().min(1, "Name is required").max(100),
     description: z.string().max(2000).optional(),
+    stageRole: z.enum(["review", "approve"]),
     approverType: z.enum(["manager", "manager_l2", "user"]),
     approverUserId: z.string().uuid().optional().nullable(),
     skipWhenSubmitterIds: z.array(z.string().uuid()),
@@ -100,10 +101,11 @@ export function ExpenseApprovalStepDialog({
   const editing = Boolean(step);
 
   const form = useForm<StepFormValues>({
-    resolver: standardSchemaResolver(stepSchema),
+    resolver: zodResolver(stepSchema),
     defaultValues: {
       name: "",
       description: "",
+      stageRole: "approve",
       approverType: "manager",
       approverUserId: null,
       skipWhenSubmitterIds: [],
@@ -122,6 +124,7 @@ export function ExpenseApprovalStepDialog({
         ? {
             name: step.name,
             description: step.description ?? "",
+            stageRole: step.stageRole,
             approverType: step.approverType,
             approverUserId: step.approverUserId,
             skipWhenSubmitterIds: step.skipWhenSubmitterIds ?? [],
@@ -134,6 +137,7 @@ export function ExpenseApprovalStepDialog({
         : {
             name: "",
             description: "",
+            stageRole: "approve",
             approverType: "manager",
             approverUserId: null,
             skipWhenSubmitterIds: [],
@@ -247,6 +251,38 @@ export function ExpenseApprovalStepDialog({
 
             <FormField
               control={form.control}
+              name="stageRole"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Stage</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="review">
+                        Review — check &amp; pass forward
+                      </SelectItem>
+                      <SelectItem value="approve">
+                        Approval — final sign-off
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Review stages accept or reject to advance the chain but
+                    never finalise the report and can&apos;t change the amount.
+                    Approval stages give final sign-off and may reduce the
+                    approved amount.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="approverType"
               render={({ field }) => (
                 <FormItem>
@@ -311,7 +347,7 @@ export function ExpenseApprovalStepDialog({
                   <FormDescription>
                     Submitters who should not trigger this step. Use this when
                     an approver should not approve their own request (e.g.
-                    exclude an approver from their own approval step).
+                    exclude Sid from the &ldquo;Sid approval&rdquo; step).
                   </FormDescription>
                   <FormControl>
                     <UserMultiSelect
@@ -336,7 +372,7 @@ export function ExpenseApprovalStepDialog({
                     When set, this step only fires for these submitters. Leave
                     empty to apply to everyone (the default). Useful for routing
                     one specific person&apos;s request to a different approver
-                    (e.g. executive approval only for that submitter).
+                    (e.g. CEO approval only when Sid submits).
                   </FormDescription>
                   <FormControl>
                     <UserMultiSelect

@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, KeyRound, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -76,7 +76,7 @@ export function ResetPasswordForm() {
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const form = useForm<ResetPasswordValues>({
-    resolver: standardSchemaResolver(resetPasswordSchema),
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
       newPassword: "",
       confirmPassword: "",

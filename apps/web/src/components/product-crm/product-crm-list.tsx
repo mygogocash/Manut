@@ -16,6 +16,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Archive,
+  ArchiveRestore,
+  BellRing,
   Download,
   Edit,
   Eye,
@@ -33,11 +36,13 @@ import { toast } from "sonner";
 import { ProductCrmFormDialog } from "@/components/product-crm/product-crm-form-dialog";
 import { Badge } from "@/components/shared/badge";
 import { CrmImportDialog } from "@/components/shared/crm-import-dialog";
+import { CrmReminderSettingsDialog } from "@/components/shared/crm-reminder-settings-dialog";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { ExpandableText } from "@/components/shared/expandable-text";
 import { PageHeader } from "@/components/shared/page-header";
 import { PermissionButton } from "@/components/shared/permission-button";
 import { SortableColumnHead } from "@/components/shared/sortable-column-head";
+import { Tabs } from "@/components/shared/tabs";
 import { useColumnOrder } from "@/components/shared/use-column-order";
 import { useColumnWidths } from "@/components/shared/use-column-widths";
 import {
@@ -81,16 +86,22 @@ import { ApiError } from "@/lib/api-client";
 import { type ExportFormat, exportRows } from "@/lib/crm-export";
 import { useAuth } from "@/providers/auth-provider";
 import {
+  getCrmReminderSettings,
+  updateCrmReminderSettings,
+} from "@/services/crm-reminder-settings.service";
+import {
   type AssignableUser,
   listAssignableUsers,
 } from "@/services/directory.service";
 import {
+  archiveProductProject,
   type CreateProductProjectInput,
   deleteProductProject,
   importProductProjects,
   listProductProjects,
   type ProductProject,
   reorderProductProjects,
+  unarchiveProductProject,
 } from "@/services/product-crm.service";
 
 const STATUS_OPTIONS = [
@@ -200,6 +211,13 @@ export function ProductCrmList() {
     "projects:delete",
     "projects:manage",
   );
+  // The org-wide reminder-recipients setting is manage-only on the backend —
+  // gate its button/dialog on the same level so an update-only holder isn't
+  // shown a control that would 403 on save.
+  const canManageSettings = hasAnyPermission(
+    "product-crm:manage",
+    "projects:manage",
+  );
 
   const [projects, setProjects] = useState<ProductProject[]>([]);
   const [users, setUsers] = useState<AssignableUser[]>([]);
@@ -208,6 +226,9 @@ export function ProductCrmList() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 350);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  // Active | Archived view. Archived is orthogonal to the status filter — it
+  // shows projects that were archived regardless of their status.
+  const [archived, setArchived] = useState(false);
 
   const pagination = usePagination();
   const { page, pageSize, setPage, setPageSize, setTotalCount, totalPages } =
@@ -218,7 +239,20 @@ export function ProductCrmList() {
   const [deleteTarget, setDeleteTarget] = useState<ProductProject | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Stable load/save fns for the shared reminder-settings dialog —
+  // it keys its load-on-open effect on `load`.
+  const loadReminderSettings = useCallback(
+    async () => (await getCrmReminderSettings("product")).data,
+    [],
+  );
+  const saveReminderSettings = useCallback(
+    async (recipients: string[]) =>
+      (await updateCrmReminderSettings("product", recipients)).data,
+    [],
+  );
 
   const { colOrder, isColumnId, reorderColumns } = useColumnOrder(
     PROD_COL_STORAGE_KEY,
@@ -232,8 +266,8 @@ export function ProductCrmList() {
   // Drag-to-reorder is disabled while a filter / search is active so a
   // partial view can't corrupt the global ordering.
   const reorderEnabled = useMemo(
-    () => !debouncedSearch.trim() && !statusFilter && !loading,
-    [debouncedSearch, statusFilter, loading],
+    () => !debouncedSearch.trim() && !statusFilter && !archived && !loading,
+    [debouncedSearch, statusFilter, archived, loading],
   );
   const prePersistOrder = useRef<ProductProject[] | null>(null);
 
@@ -245,6 +279,7 @@ export function ProductCrmList() {
         limit: pageSize,
         search: debouncedSearch || undefined,
         status: statusFilter || undefined,
+        archived: archived || undefined,
       });
       setProjects(res.data);
       setTotalCount(res.meta.total);
@@ -257,7 +292,7 @@ export function ProductCrmList() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, debouncedSearch, statusFilter, setTotalCount]);
+  }, [page, pageSize, debouncedSearch, statusFilter, archived, setTotalCount]);
 
   useEffect(() => {
     void fetchProjects();
@@ -265,7 +300,7 @@ export function ProductCrmList() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, setPage]);
+  }, [debouncedSearch, statusFilter, archived, setPage]);
 
   // Owner picker — lean list via `/directory/assignable` (auth-only).
   useEffect(() => {
@@ -327,7 +362,9 @@ export function ProductCrmList() {
     (saved: ProductProject) => {
       if (editing) {
         setProjects((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
-      } else {
+      } else if (!archived) {
+        // A newly created project is active — it belongs to the Active view
+        // only. On the Archived tab, skip the optimistic insert + count bump.
         setTotalCount((c) => c + 1);
         if (page === 1) {
           setProjects((prev) => {
@@ -337,7 +374,7 @@ export function ProductCrmList() {
         }
       }
     },
-    [editing, page, pageSize, setTotalCount],
+    [editing, archived, page, pageSize, setTotalCount],
   );
 
   const handleExport = useCallback(
@@ -349,6 +386,7 @@ export function ProductCrmList() {
           limit: 500,
           search: debouncedSearch || undefined,
           status: statusFilter || undefined,
+          archived: archived || undefined,
         });
         if (res.data.length === 0) {
           toast.error("Nothing to export");
@@ -390,7 +428,7 @@ export function ProductCrmList() {
         setExporting(false);
       }
     },
-    [debouncedSearch, statusFilter],
+    [debouncedSearch, statusFilter, archived],
   );
 
   async function confirmDelete() {
@@ -410,6 +448,41 @@ export function ProductCrmList() {
       setDeleting(false);
     }
   }
+
+  // Archive / restore. The current view (active vs archived) is the opposite
+  // of the row's new state, so the row leaves the current list either way —
+  // drop it optimistically and adjust the total.
+  const handleArchive = useCallback(
+    async (p: ProductProject) => {
+      try {
+        await archiveProductProject(p.id);
+        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        toast.success("Project archived");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to archive project",
+        );
+      }
+    },
+    [setTotalCount],
+  );
+
+  const handleUnarchive = useCallback(
+    async (p: ProductProject) => {
+      try {
+        await unarchiveProductProject(p.id);
+        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        toast.success("Project restored");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to restore project",
+        );
+      }
+    },
+    [setTotalCount],
+  );
 
   const skeletonRows = useMemo(
     () => Array.from({ length: 6 }, (_, i) => i),
@@ -439,6 +512,16 @@ export function ProductCrmList() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          {canManageSettings ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReminderOpen(true)}
+            >
+              <BellRing className="size-3.5" />
+              Reminders
+            </Button>
+          ) : null}
           <PermissionButton
             variant="outline"
             permission="product-crm:create"
@@ -457,6 +540,15 @@ export function ProductCrmList() {
           </PermissionButton>
         </div>
       </PageHeader>
+
+      <Tabs
+        tabs={[
+          { id: "active", label: "Active" },
+          { id: "archived", label: "Archived" },
+        ]}
+        active={archived ? "archived" : "active"}
+        onChange={(v) => setArchived(v === "archived")}
+      />
 
       <div className="mb-4 flex items-center gap-3">
         <div className="relative max-w-sm flex-1">
@@ -491,9 +583,12 @@ export function ProductCrmList() {
         </Select>
       </div>
 
-      {!reorderEnabled && (debouncedSearch.trim() || statusFilter) ? (
+      {!reorderEnabled &&
+      (debouncedSearch.trim() || statusFilter || archived) ? (
         <p className="text-muted-foreground mb-2 text-[11px]">
-          Drag-to-reorder is disabled while a filter or search is active.
+          {archived
+            ? "Drag-to-reorder is disabled in the Archived view."
+            : "Drag-to-reorder is disabled while a filter or search is active."}
         </p>
       ) : null}
 
@@ -503,7 +598,7 @@ export function ProductCrmList() {
           // drag-to-resize (Notion-style).
           className="table-fixed"
           containerClassName={`
-            max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
+            max-h-[60svh] md:max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
           `}
         >
           <TableHeader className="bg-background sticky top-0 z-10">
@@ -561,8 +656,11 @@ export function ProductCrmList() {
                     canDrag={reorderEnabled}
                     canManageRow={p.ownerId === user?.id || canManageAny}
                     canDelete={canDeleteAny}
+                    isArchivedView={archived}
                     onView={() => router.push(`/projects/${p.id}`)}
                     onEdit={() => handleEdit(p)}
+                    onArchive={() => void handleArchive(p)}
+                    onUnarchive={() => void handleUnarchive(p)}
                     onDelete={() => setDeleteTarget(p)}
                   />
                 ))}
@@ -590,6 +688,15 @@ export function ProductCrmList() {
         project={editing}
         onSaved={handleSaved}
       />
+
+      {canManageSettings ? (
+        <CrmReminderSettingsDialog
+          open={reminderOpen}
+          onOpenChange={setReminderOpen}
+          load={loadReminderSettings}
+          save={saveReminderSettings}
+        />
+      ) : null}
 
       <CrmImportDialog<CreateProductProjectInput>
         open={importOpen}
@@ -653,8 +760,11 @@ function SortableItRow({
   canDrag,
   canManageRow,
   canDelete,
+  isArchivedView,
   onView,
   onEdit,
+  onArchive,
+  onUnarchive,
   onDelete,
 }: {
   project: ProductProject;
@@ -663,8 +773,11 @@ function SortableItRow({
   canDrag: boolean;
   canManageRow: boolean;
   canDelete: boolean;
+  isArchivedView: boolean;
   onView: () => void;
   onEdit: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
   onDelete: () => void;
 }) {
   const {
@@ -802,6 +915,19 @@ function SortableItRow({
                 <Edit className="size-3.5" />
                 Edit
               </DropdownMenuItem>
+            ) : null}
+            {canManageRow ? (
+              isArchivedView ? (
+                <DropdownMenuItem onClick={onUnarchive}>
+                  <ArchiveRestore className="size-3.5" />
+                  Restore
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={onArchive}>
+                  <Archive className="size-3.5" />
+                  Archive
+                </DropdownMenuItem>
+              )
             ) : null}
             {canDelete ? (
               <>

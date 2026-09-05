@@ -1,8 +1,8 @@
-import { nodeConfig } from "@manut/eslint-config/node";
+import { config } from "@nexora/eslint-config/base";
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
-  ...nodeConfig,
+  ...config,
   {
     ignores: [
       "**/*.d.ts",

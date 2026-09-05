@@ -1,10 +1,12 @@
 import { PERMISSIONS } from "@/common/constants/permissions";
-import { NotFoundException } from "@/common/exceptions/http-exception";
+import {
+  BadRequestException,
+  NotFoundException,
+} from "@/common/exceptions/http-exception";
 import { prisma } from "@/infrastructure/database/prisma";
 import {
   createSignedUrl,
-  requireRegisteredStorageUrl,
-  STORAGE_BUCKETS,
+  parseStorageUrl,
 } from "@/infrastructure/storage/supabase-storage";
 import { policiesRepository } from "@/modules/policies/policies.repository";
 import type {
@@ -49,30 +51,20 @@ export class PoliciesService {
     });
   }
 
-  async getById(id: string, userId: string, userPermissions: string[]) {
+  async getById(id: string) {
     const policy = await policiesRepository.findById(id);
     if (!policy) throw new NotFoundException("Policy not found");
-
-    if (!userPermissions.includes(PERMISSIONS.POLICY_MANAGE)) {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { entityId: true },
-      });
-      const visibleToEntity =
-        policy.entityId === null || policy.entityId === user?.entityId;
-      if (!policy.isActive || !visibleToEntity) {
-        throw new NotFoundException("Policy not found");
-      }
-    }
     return policy;
   }
 
-  async getDownloadUrl(id: string, userId: string, userPermissions: string[]) {
-    const policy = await this.getById(id, userId, userPermissions);
-    const parsed = await requireRegisteredStorageUrl(policy.fileUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "company-policy",
-    });
+  async getDownloadUrl(id: string) {
+    const policy = await this.getById(id);
+    const parsed = parseStorageUrl(policy.fileUrl);
+    if (!parsed) {
+      throw new BadRequestException(
+        "Policy file URL is not a Supabase storage URL",
+      );
+    }
     const url = await createSignedUrl(
       parsed.bucket,
       parsed.path,
@@ -82,11 +74,6 @@ export class PoliciesService {
   }
 
   async create(input: CreatePolicyInput, uploadedById: string) {
-    await requireRegisteredStorageUrl(input.fileUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "company-policy",
-      uploadedBy: uploadedById,
-    });
     return policiesRepository.create({
       title: input.title,
       category: input.category,
@@ -106,16 +93,9 @@ export class PoliciesService {
     });
   }
 
-  async update(id: string, input: UpdatePolicyInput, actorId: string) {
+  async update(id: string, input: UpdatePolicyInput) {
     const existing = await policiesRepository.findById(id);
     if (!existing) throw new NotFoundException("Policy not found");
-    if (input.fileUrl !== undefined) {
-      await requireRegisteredStorageUrl(input.fileUrl, {
-        allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-        purpose: "company-policy",
-        uploadedBy: actorId,
-      });
-    }
     return policiesRepository.update(id, {
       ...(input.title !== undefined && { title: input.title }),
       ...(input.category !== undefined && { category: input.category }),

@@ -62,10 +62,9 @@ model FileUpload {
   purpose      String?
   linkedTo     String?  @map("linked_to")
   linkedId     String?  @map("linked_id")
+  deletedAt    DateTime? @map("deleted_at")
+  deletedBy    String?   @map("deleted_by") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at")
-
-  legalSignatureSnapshots  LegalSignature[]   @relation("LegalSignatureDocumentSnapshot")
-  cashAdvanceDisbursement CashAdvanceRequest? @relation("CashAdvanceDisbursementProof")
 
   @@index([uploadedBy])
   @@index([linkedTo, linkedId])

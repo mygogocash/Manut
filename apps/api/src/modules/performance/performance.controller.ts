@@ -83,7 +83,6 @@ router.get(
     PERMISSIONS.PERFORMANCE_SELF_REVIEW,
     PERMISSIONS.PERFORMANCE_MANAGER_REVIEW,
     PERMISSIONS.PERFORMANCE_HR_MANAGE,
-    PERMISSIONS.PERFORMANCE_GOALS,
   ),
   asyncHandler(async (req, res) => {
     const query = appraisalQuerySchema.parse(req.query);
@@ -113,7 +112,6 @@ router.get(
     PERMISSIONS.PERFORMANCE_SELF_REVIEW,
     PERMISSIONS.PERFORMANCE_MANAGER_REVIEW,
     PERMISSIONS.PERFORMANCE_HR_MANAGE,
-    PERMISSIONS.PERFORMANCE_GOALS,
   ),
   asyncHandler(async (req, res) => {
     const id = getRequiredParam(req.params, "id");

@@ -73,7 +73,7 @@ function ButtonGroupText({
         `,
         className,
       )}
-      {...props}
+      {...(props as React.HTMLAttributes<HTMLElement>)}
     />
   );
 }
@@ -95,7 +95,7 @@ function ButtonGroupSeparator({
         `,
         className,
       )}
-      {...props}
+      {...(props as React.HTMLAttributes<HTMLElement>)}
     />
   );
 }

@@ -1,5 +1,5 @@
 /** Full world-region taxonomy for the account Region dropdown.
- *  The original four-entry list omitted the
+ *  Vivek (BD, 2026-05-25): the original four-entry list omitted the
  *  Americas + Oceania entirely. Server accepts any string ≤100 chars,
  *  so this list is purely a UI affordance — extending it does not
  *  require a migration. Sorted alphabetically. */
@@ -39,7 +39,7 @@ export const CRM_COMMON_COUNTRIES = [
 // `collation`, `currency`, `numberingSystem`, `timeZone`, and `unit`
 // are spec-supported. That call threw `RangeError: Invalid key`, the
 // try/catch swallowed it, and the dropdown fell back to the 14-entry
-// shortlist used by account filters.
+// shortlist (Vivek, BD, 2026-05-25 follow-up).
 //
 // `Intl.DisplayNames` still does the heavy lifting: each code →
 // localised country name. List sorted alphabetically by English

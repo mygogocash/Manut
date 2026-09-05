@@ -9,7 +9,6 @@ import {
   UnauthorizedException,
 } from "@/common/exceptions/http-exception";
 import { logger } from "@/common/utils/logger";
-import { isAuthenticationEligible } from "@/core/guards/auth-eligibility";
 import { prisma } from "@/infrastructure/database/prisma";
 import { sendWelcomeTemplateEmail } from "@/infrastructure/email/email.service";
 import { supabaseAdmin } from "@/infrastructure/supabase/admin";
@@ -40,8 +39,8 @@ const UNKNOWN_AUTH_EMAIL = "unknown";
 // depend on already-assigned roles.
 //
 // Default is empty (= disabled for everyone except Admin) so the
-// feature is hidden until operations opts in through the API runtime's
-// server-only environment configuration.
+// feature is hidden until ops opts in. To enable for the IT team
+// later: `--set-env-vars MAGIC_LINK_ALLOWED_ROLES=IT` on Cloud Run.
 const MAGIC_LINK_ALLOWED_ROLES = (process.env.MAGIC_LINK_ALLOWED_ROLES ?? "")
   .split(",")
   .map((s) => s.trim())
@@ -49,7 +48,9 @@ const MAGIC_LINK_ALLOWED_ROLES = (process.env.MAGIC_LINK_ALLOWED_ROLES ?? "")
 
 type RecoveryRequestAction = (typeof RECOVERY_REQUEST_ACTIONS)[number];
 type AuthLogAction =
-  RecoveryRequestAction | "recover-password" | "exchange-session";
+  | RecoveryRequestAction
+  | "recover-password"
+  | "exchange-session";
 
 interface AuthRequestContext {
   ip?: string | null;
@@ -109,6 +110,35 @@ function resolvePermissions(
     }
   }
   return permissions;
+}
+
+// ── Multi-company foundation (PRD Rule 7) ──────────────────────────────
+// Shape returned to the client for the company switcher. `roleId` is the
+// stored per-company role; it is NOT applied to permission resolution here
+// (enforcement is a later chunk).
+interface EntityMembershipDto {
+  entityId: string;
+  entityName: string;
+  entityCode: string;
+  roleId: string | null;
+  isActive: boolean;
+}
+
+type MembershipWithEntity = {
+  entityId: string;
+  roleId: string | null;
+  isActive: boolean;
+  entity: { id: string; name: string; code: string } | null;
+};
+
+function mapMemberships(rows: MembershipWithEntity[]): EntityMembershipDto[] {
+  return rows.map((m) => ({
+    entityId: m.entityId,
+    entityName: m.entity?.name ?? "",
+    entityCode: m.entity?.code ?? "",
+    roleId: m.roleId ?? null,
+    isActive: m.isActive,
+  }));
 }
 
 export class AuthService {
@@ -241,6 +271,16 @@ export class AuthService {
       where: { id: userId },
       include: {
         entity: true,
+        // Multi-company (PRD Rule 7) — carried on login so the switcher
+        // is populated before the first /me refresh. Additive; `?? []`
+        // keeps older test fixtures working.
+        entityMemberships: {
+          where: { isActive: true },
+          orderBy: { createdAt: "asc" },
+          include: {
+            entity: { select: { id: true, name: true, code: true } },
+          },
+        },
         userRoles: {
           include: {
             role: {
@@ -255,7 +295,7 @@ export class AuthService {
       throw new UnauthorizedException("User not found in system");
     }
 
-    if (!isAuthenticationEligible(user)) {
+    if (!user.isActive) {
       throw new ForbiddenException("Account deactivated");
     }
 
@@ -270,6 +310,10 @@ export class AuthService {
       id: ur.role.id,
       name: ur.role.name,
       defaultRoute: ur.role.defaultRoute,
+      // Lets the client tell the SYSTEM Admin role from a custom role that
+      // happens to be called Admin. Without it a UI cannot honestly hide a
+      // system-admin-only control, and would show a button that 403s.
+      isSystem: ur.role.isSystem,
     }));
 
     return {
@@ -285,6 +329,9 @@ export class AuthService {
       },
       roles,
       permissions: Array.from(permissions).filter(isValidPermissionCode),
+      // ── Additive multi-company fields (PRD Rule 7) ────────────────
+      memberships: mapMemberships(user.entityMemberships ?? []),
+      activeEntityId: user.activeEntityId ?? null,
       session,
     };
   }
@@ -297,7 +344,7 @@ export class AuthService {
     const email = normalizeEmail(rawEmail);
     const user = await prisma.user.findFirst({
       where: { email: { equals: email, mode: "insensitive" } },
-      select: { id: true, email: true, isActive: true, deletedAt: true },
+      select: { id: true, email: true, isActive: true },
     });
 
     const limit = await this.checkRecoveryRequestLimit(email, context.ip);
@@ -324,7 +371,7 @@ export class AuthService {
       return;
     }
 
-    if (!isAuthenticationEligible(user)) {
+    if (!user.isActive) {
       await this.logAuthAttempt({
         email,
         ip: context.ip,
@@ -516,7 +563,7 @@ export class AuthService {
 
     const user = await prisma.user.findUnique({
       where: { id: accessUserId },
-      select: { id: true, email: true, isActive: true, deletedAt: true },
+      select: { id: true, email: true, isActive: true },
     });
 
     if (!user) {
@@ -531,7 +578,7 @@ export class AuthService {
       throw new UnauthorizedException("User not found in system");
     }
 
-    if (!isAuthenticationEligible(user)) {
+    if (!user.isActive) {
       await this.logAuthAttempt({
         email: normalizeEmail(user.email),
         ip: context.ip,
@@ -594,6 +641,16 @@ export class AuthService {
       where: { id: userId },
       include: {
         entity: true,
+        // Multi-company (PRD Rule 7). Embedded ADDITIVELY — the switcher
+        // reads these. `?? []` below keeps callers that don't hydrate the
+        // relation (and older test fixtures) working unchanged.
+        entityMemberships: {
+          where: { isActive: true },
+          orderBy: { createdAt: "asc" },
+          include: {
+            entity: { select: { id: true, name: true, code: true } },
+          },
+        },
         userRoles: {
           include: {
             role: {
@@ -614,6 +671,10 @@ export class AuthService {
       id: ur.role.id,
       name: ur.role.name,
       defaultRoute: ur.role.defaultRoute,
+      // Lets the client tell the SYSTEM Admin role from a custom role that
+      // happens to be called Admin. Without it a UI cannot honestly hide a
+      // system-admin-only control, and would show a button that 403s.
+      isSystem: ur.role.isSystem,
     }));
 
     return {
@@ -629,6 +690,52 @@ export class AuthService {
       },
       roles,
       permissions: Array.from(permissions).filter(isValidPermissionCode),
+      // ── Additive multi-company fields (PRD Rule 7) ──────────────────
+      memberships: mapMemberships(user.entityMemberships ?? []),
+      activeEntityId: user.activeEntityId ?? null,
+    };
+  }
+
+  /**
+   * The entities the user belongs to (active memberships only), with the
+   * entity name/code and the stored per-company `roleId`. Feeds the web
+   * company switcher. Does NOT influence permission resolution.
+   */
+  async listMemberships(userId: string): Promise<EntityMembershipDto[]> {
+    const rows = await prisma.userEntityMembership.findMany({
+      where: { userId, isActive: true },
+      orderBy: { createdAt: "asc" },
+      include: { entity: { select: { id: true, name: true, code: true } } },
+    });
+    return mapMemberships(rows);
+  }
+
+  /**
+   * Switch the caller's selected company. Fails CLOSED: the user must hold
+   * an ACTIVE membership in the target entity, else ForbiddenException. Only
+   * writes `User.activeEntityId` — it does not grant or change any
+   * permission (per-entity enforcement is a later chunk).
+   */
+  async setActiveEntity(userId: string, entityId: string) {
+    const membership = await prisma.userEntityMembership.findUnique({
+      where: { userId_entityId: { userId, entityId } },
+      include: { entity: { select: { id: true, name: true, code: true } } },
+    });
+
+    if (!membership || !membership.isActive) {
+      throw new ForbiddenException(
+        "You do not have an active membership in this company",
+      );
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { activeEntityId: entityId },
+    });
+
+    return {
+      activeEntityId: entityId,
+      entity: membership.entity,
     };
   }
 
@@ -736,7 +843,7 @@ export class AuthService {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        entity: { select: { id: true, name: true, code: true } },
+        entity: true,
         userRoles: { include: { role: { select: { id: true, name: true } } } },
       },
     });
@@ -762,13 +869,7 @@ export class AuthService {
         location: user.location,
         country: user.country,
         timezone: user.timezone,
-        entity: user.entity
-          ? {
-              id: user.entity.id,
-              name: user.entity.name,
-              code: user.entity.code,
-            }
-          : null,
+        entity: user.entity,
         roles: user.userRoles.map((ur) => ur.role),
       },
     };
@@ -803,17 +904,7 @@ export class AuthService {
           avatarUrl: input.avatarUrl || null,
         }),
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatarUrl: true,
-        phone: true,
-        phonePublic: true,
-        location: true,
-        country: true,
-        timezone: true,
-      },
+      include: { entity: true },
     });
 
     return {

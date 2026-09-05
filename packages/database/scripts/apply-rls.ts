@@ -1,11 +1,67 @@
-import { prisma } from "../src/index";
+import { PrismaClient } from "../src/generated/prisma";
 
-function quoteTableName(tableName: string): string {
-  if (!/^[a-z][a-z0-9_]*$/.test(tableName)) {
-    throw new Error(`Unsafe public table name: ${tableName}`);
-  }
-  return `"${tableName}"`;
-}
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DIRECT_URL,
+});
+
+const TABLES = [
+  "entities",
+  "users",
+  "sessions",
+  "roles",
+  "user_roles",
+  "role_permissions",
+  "module_access",
+  "module_owners",
+  "leave_types",
+  "leave_balances",
+  "leave_requests",
+  "payroll_runs",
+  "payslips",
+  "consultant_invoices",
+  "esop_grants",
+  "onboarding_runs",
+  "training_modules",
+  "training_completions",
+  "visa_records",
+  "benefits",
+  "benefit_enrollments",
+  "chart_of_accounts",
+  "journal_entries",
+  "journal_entry_lines",
+  "invoices",
+  "bank_transactions",
+  "bnry_transactions",
+  "expense_categories",
+  "expenses",
+  "partners",
+  "partner_contacts",
+  "deals",
+  "projects",
+  "project_tasks",
+  "offices",
+  "office_desks",
+  "desk_bookings",
+  "meeting_rooms",
+  "room_bookings",
+  "assets",
+  "channels",
+  "messages",
+  "wall_posts",
+  "wall_comments",
+  "company_news",
+  "company_dates",
+  "aria_conversations",
+  "aria_messages",
+  "investors",
+  "investments",
+  "data_room_documents",
+  "investor_updates",
+  "audit_log",
+  "user_settings",
+  "system_settings",
+  "file_uploads",
+];
 
 async function run(sql: string, label: string) {
   try {
@@ -22,19 +78,11 @@ async function run(sql: string, label: string) {
 }
 
 async function main() {
-  const rows = await prisma.$queryRaw<Array<{ tableName: string }>>`
-    SELECT table_name AS "tableName"
-    FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-    ORDER BY table_name
-  `;
-  const tables = rows.map(({ tableName }) => quoteTableName(tableName));
-
   console.log("=== Step 1: Enable RLS on all tables ===\n");
-  for (const table of tables) {
+  for (const t of TABLES) {
     await run(
-      `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY`,
-      `RLS enabled: ${table}`,
+      `ALTER TABLE public."${t}" ENABLE ROW LEVEL SECURITY`,
+      `RLS enabled: ${t}`,
     );
   }
 
@@ -69,13 +117,13 @@ async function main() {
     "Create is_service_role() function",
   );
 
-  for (const table of tables) {
+  for (const t of TABLES) {
     await run(
-      `CREATE POLICY "service_role_full_access" ON public.${table}
+      `CREATE POLICY "service_role_full_access" ON public."${t}"
        FOR ALL
        USING (public.is_service_role())
        WITH CHECK (public.is_service_role())`,
-      `Policy: ${table}`,
+      `Policy: ${t}`,
     );
   }
 

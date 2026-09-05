@@ -8,7 +8,6 @@ import {
 import { investorTaskRepository } from "@/modules/investor-tasks/investor-tasks.repository";
 import { InvestorTaskService } from "@/modules/investor-tasks/investor-tasks.service";
 import { investorsRepository } from "@/modules/investors/investors.repository";
-import { mockArgument } from "@/test-utils/assertions";
 
 vi.mock("@/modules/investor-tasks/investor-tasks.repository", () => ({
   investorTaskRepository: {
@@ -70,7 +69,7 @@ describe("InvestorTaskService.list — ownership scoping", () => {
       limit: 20,
       bucket: "today",
     });
-    const args = mockArgument(findMany.mock.calls, 0, 0);
+    const args = findMany.mock.calls[0][0];
     expect(args.dueDateGte).toBeInstanceOf(Date);
     expect(args.dueDateLte).toBeInstanceOf(Date);
     expect(args.dueDateGte.getTime()).toBe(args.dueDateLte.getTime());

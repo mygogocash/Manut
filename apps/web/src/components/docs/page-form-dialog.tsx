@@ -1,11 +1,12 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ExternalLink,
   FolderUp,
   Loader2,
   Paperclip,
+  Sparkles,
   Upload,
   X,
 } from "lucide-react";
@@ -46,12 +47,25 @@ import { Switch } from "@/components/ui/switch";
 import { ApiError } from "@/lib/api-client";
 import {
   createWikiPage,
+  extractWikiFromAttachment,
   updateWikiPage,
   type WikiPage,
   type WikiPageAttachment,
   type WikiPageListItem,
 } from "@/services/docs.service";
 import { uploadFile } from "@/services/upload.service";
+
+const AI_EXTRACT_SUPPORTED_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+]);
 
 const NO_PARENT = "__none__";
 
@@ -105,11 +119,12 @@ export function PageFormDialog({
   const [submitting, setSubmitting] = useState(false);
   const [attachments, setAttachments] = useState<WikiPageAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [extractingIdx, setExtractingIdx] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: EMPTY_DEFAULTS,
   });
 
@@ -201,6 +216,51 @@ export function PageFormDialog({
 
   function removeAttachment(idx: number) {
     setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  async function handleAutoFill(idx: number) {
+    const a = attachments[idx];
+    if (!a) return;
+    if (!AI_EXTRACT_SUPPORTED_MIMES.has(a.mimeType.toLowerCase())) {
+      toast.error(
+        "AI auto-fill is supported for PDF, image, or plain-text files only.",
+      );
+      return;
+    }
+    try {
+      setExtractingIdx(idx);
+      const res = await extractWikiFromAttachment(a.url, a.mimeType);
+      const { title: extractedTitle, body: extractedBody } = res.data;
+
+      // Patch only fields the user hasn't already filled in. Editing
+      // an existing page or one with prose typed in keeps the user's
+      // work intact.
+      const currentTitle = form.getValues("title");
+      const currentBody = form.getValues("body");
+      if (!currentTitle.trim() && extractedTitle) {
+        form.setValue("title", extractedTitle, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+      if (!currentBody.trim() && extractedBody) {
+        form.setValue("body", extractedBody, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+      toast.success("Title and body filled from the file");
+    } catch (err) {
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Auto-fill failed";
+      toast.error(msg);
+    } finally {
+      setExtractingIdx(null);
+    }
   }
 
   async function onSubmit(values: FormValues) {
@@ -469,6 +529,26 @@ export function PageFormDialog({
                         <span className="tabular-nums">
                           {formatBytes(a.size)}
                         </span>
+                        {AI_EXTRACT_SUPPORTED_MIMES.has(
+                          a.mimeType.toLowerCase(),
+                        ) && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleAutoFill(idx)}
+                            disabled={submitting || extractingIdx !== null}
+                            title="Auto-fill title + body from this file"
+                            className="h-6 gap-1 px-1.5"
+                          >
+                            {extractingIdx === idx ? (
+                              <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="size-3" />
+                            )}
+                            <span className="text-[10px]">Auto-fill</span>
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           variant="ghost"

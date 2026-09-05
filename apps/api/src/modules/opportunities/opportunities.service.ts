@@ -1,5 +1,8 @@
+import { Prisma } from "@nexora/database";
+
 import {
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
 import { logger } from "@/common/utils/logger";
@@ -10,23 +13,48 @@ import {
 } from "@/infrastructure/email/templates";
 import { PORTAL_URL } from "@/lib/portal-url";
 import { accountRepository } from "@/modules/accounts/accounts.repository";
+import { BUSINESS_UNIT_UNASSIGNED } from "@/modules/business-units/business-units.validation";
 import { contactRepository } from "@/modules/contacts/contacts.repository";
 import { crmSettingsRepository } from "@/modules/crm-settings/crm-settings.repository";
+import {
+  applyBulkBusinessUnits,
+  type BulkApplyResult,
+} from "@/modules/crm-shared/bulk-apply";
+import {
+  applyBulkFieldSet,
+  type BulkFieldResult,
+} from "@/modules/crm-shared/bulk-field-set";
+import { resolveBulkWhere } from "@/modules/crm-shared/bulk-selection";
+import type { DealFieldPatch } from "@/modules/crm-shared/opportunity-push-down";
 import { createExchangeRateService } from "@/modules/exchange-rates/exchange-rates.service";
 import {
   type OpportunityStage,
   STAGE_PROBABILITY_DEFAULTS,
 } from "@/modules/opportunities/opportunities.constants";
-import { opportunityRepository } from "@/modules/opportunities/opportunities.repository";
+import {
+  buildOpportunityWhere,
+  opportunityRepository,
+} from "@/modules/opportunities/opportunities.repository";
 import type {
+  BulkFieldUpdateOpportunitiesInput,
+  BulkUpdateOpportunitiesInput,
   BulkUpdateStageConfigsInput,
   CloseLostInput,
   CreateOpportunityInput,
   ListOpportunitiesQuery,
+  MoveBusinessUnitInput,
+  PipelineQuery,
   ReopenOpportunityInput,
-  ReorderWithinStageInput,
+  ReorderOpportunityCardsInput,
   UpdateOpportunityInput,
 } from "@/modules/opportunities/opportunities.validation";
+import { moveBusinessUnitRow } from "@/modules/opportunities/opportunity-business-unit-moves";
+import {
+  ensureBusinessUnitRows,
+  listBusinessUnitRows,
+  pushDealFieldsToBusinessUnits,
+  recomputeOpportunityRollup,
+} from "@/modules/opportunities/opportunity-business-units.repository";
 
 // Resolves the recipient list for an opportunity-related email. Reads
 // the CRM team fan-out from the `crm_settings` singleton row at call
@@ -139,10 +167,14 @@ export class OpportunityService {
     };
   }
 
-  async pipeline(userId: string, permissions: string[]) {
+  async pipeline(
+    userId: string,
+    permissions: string[],
+    filters: PipelineQuery = {},
+  ) {
     const canSeeAll = permissions.includes("crm:team-read");
     const ownerScope = canSeeAll ? undefined : [userId];
-    return opportunityRepository.pipelineSummary({ ownerScope });
+    return opportunityRepository.pipelineSummary({ ownerScope }, filters);
   }
 
   // Sales CRM dashboard data — flat opportunity rows joined with account
@@ -161,6 +193,7 @@ export class OpportunityService {
       value: Number(r.value),
       currency: r.currency,
       probability: r.probability,
+      businessUnits: r.businessUnits,
       launchDate: day(r.launchDate),
       revenueLaunchDate: day(r.revenueLaunchDate),
       accountId: r.account?.id ?? null,
@@ -175,7 +208,7 @@ export class OpportunityService {
     }));
   }
 
-  // Distinct country / region values for
+  // BD-feedback (Vivek, May 2026) — distinct country / region values for
   // the pipeline-view filter selects. Scoped to the caller's owner set so
   // managers never see options from teams they cannot read.
   async filterOptions(userId: string, permissions: string[]) {
@@ -184,7 +217,7 @@ export class OpportunityService {
     return opportunityRepository.filterOptions({ ownerScope });
   }
 
-  // Single-currency aggregated forecast. Pulls
+  // PRD §11.5 follow-up — single-currency aggregated forecast. Pulls
   // every active opportunity under the caller's scope, converts each
   // row's `value` to `reportCurrency` via the freshest exchange rate,
   // weights by `probability / 100`, and returns weighted + unweighted
@@ -267,6 +300,24 @@ export class OpportunityService {
     if (!canSeeAll && opp.ownerId !== userId) {
       throw new NotFoundException("Opportunity not found");
     }
+
+    // Lazy seed, mirroring projectRepository's native-mirror heal: a deal
+    // that predates the child tables gets its rows on first open, instead
+    // of from a boot-time bulk writer racing live traffic. Idempotent — a
+    // deal already in step costs one extra count query.
+    //
+    // A freshly SEEDED deal needs no recompute: its rows reproduce the deal
+    // exactly, so the roll-up is the identity. Only a sync that actually
+    // added or dropped a unit changes what the deal should report.
+    const ensured = await ensureBusinessUnitRows(id, opp.businessUnits);
+    if (
+      ensured.mode === "synced" &&
+      (ensured.added.length > 0 || ensured.removed.length > 0)
+    ) {
+      await recomputeOpportunityRollup(id);
+      return (await opportunityRepository.findById(id)) ?? opp;
+    }
+
     return opp;
   }
 
@@ -276,6 +327,13 @@ export class OpportunityService {
     input: CreateOpportunityInput,
   ) {
     const canSeeAll = permissions.includes("crm:team-read");
+
+    // Create-on-behalf-of: only a team-read holder may name another owner.
+    // Silently ignored otherwise — a 403 here would turn a stale UI payload
+    // into a hard failure for ordinary reps, and falling back to the actor
+    // is what every create did before the field existed.
+    const effectiveOwnerId =
+      canSeeAll && input.ownerId ? input.ownerId : ownerId;
 
     // Account must exist and be visible to the caller. Reps cannot create
     // opportunities under accounts they do not own.
@@ -294,7 +352,7 @@ export class OpportunityService {
       }
     }
 
-    // Probability handling: if the rep specified a value on
+    // PRD §11.4 probability handling. If the rep specified a value on
     // create, mark probabilityCustom = true so we never overwrite it on
     // future stage moves; otherwise snap to the stage default.
     const stage = input.stage as OpportunityStage;
@@ -321,15 +379,110 @@ export class OpportunityService {
         : undefined,
       type: input.type,
       notes: input.notes,
-      owner: { connect: { id: ownerId } },
+      // Business-unit tags. Absent → [] via the schema default, so an
+      // untagged deal simply shows under "Unassigned".
+      businessUnits: input.businessUnits ?? [],
+      legacyDealId: input.legacyDealId,
+      owner: { connect: { id: effectiveOwnerId } },
     });
 
-    // Fire a "new deal" email so the wider team learns about
-    // the pipeline addition without watching the CRM all day. Send is
-    // best-effort: persistence already succeeded.
-    void notifyOpportunityCreated(created, ownerId).catch(() => {});
+    // A brand-new deal has no child rows, so its tags are SEEDED from the
+    // deal rather than treated as newly added units — see
+    // ensureBusinessUnitRows. Nothing is pushed down here: the seeded rows
+    // already reproduce the deal.
+    const fresh =
+      (await this.syncBusinessUnitsAfterWrite(created.id, {
+        tagOrder: input.businessUnits ?? [],
+      })) ?? created;
 
-    return created;
+    // BD-feedback — fire a "new deal" email so the wider team learns about
+    // the pipeline addition without watching the CRM all day. Send is
+    // best-effort: persistence already succeeded. Emails the re-read row:
+    // `created` predates the roll-up and would report the pre-roll-up stage.
+    void notifyOpportunityCreated(fresh, ownerId).catch(() => {});
+
+    return fresh;
+  }
+
+  /**
+   * Keep the child rows and the deal roll-up in step after a deal-level write.
+   *
+   * The order is the whole point, and it is why PR1's wiring was reverted:
+   *
+   * 1. Reconcile the tag set, so a newly tagged unit exists before anything
+   *    reads it. `ensureBusinessUnitRows` decides whether this deal is being
+   *    seeded from itself (no rows yet) or gaining a unit (rows already
+   *    there) — two rules that look alike and are not.
+   * 2. Push the edit DOWN onto the rows. Skipped for a freshly seeded deal:
+   *    its rows already reproduce the deal, so re-splitting a value that is
+   *    already right is pure risk.
+   * 3. Recompute. Running this before step 2 reads stale rows and overwrites
+   *    the very write it was meant to reflect.
+   *
+   * Returns the re-read deal, because the recompute wrote the derived fields
+   * on that row and any copy taken earlier is stale.
+   */
+  private async syncBusinessUnitsAfterWrite(
+    id: string,
+    opts: {
+      tagOrder?: readonly string[];
+      patch?: DealFieldPatch;
+      stageAppliesToEveryUnit?: boolean;
+    },
+  ) {
+    let seeded = false;
+    if (opts.tagOrder !== undefined) {
+      const ensured = await ensureBusinessUnitRows(id, opts.tagOrder);
+      seeded = ensured.mode === "seeded";
+    }
+
+    const patch = opts.patch;
+    const hasPatch = patch !== undefined && Object.keys(patch).length > 0;
+    if (hasPatch && !seeded) {
+      await pushDealFieldsToBusinessUnits(id, patch, {
+        stageAppliesToEveryUnit: opts.stageAppliesToEveryUnit ?? false,
+      });
+    }
+
+    if (opts.tagOrder === undefined && !hasPatch) return null;
+
+    await recomputeOpportunityRollup(id);
+    return opportunityRepository.findById(id);
+  }
+
+  /**
+   * The per-unit fields an update touched, as a push-down patch.
+   *
+   * Only keys actually present in the input appear, so an unrelated edit
+   * (a rename) produces an empty patch and leaves every unit alone.
+   */
+  private dealFieldPatchFromUpdate(
+    input: UpdateOpportunityInput,
+    derived: { probability?: number; probabilityCustom?: boolean },
+  ): DealFieldPatch {
+    return {
+      ...(input.stage !== undefined && { stage: input.stage }),
+      ...(derived.probability !== undefined && {
+        probability: derived.probability,
+      }),
+      ...(derived.probabilityCustom !== undefined && {
+        probabilityCustom: derived.probabilityCustom,
+      }),
+      ...(input.value !== undefined && {
+        value: new Prisma.Decimal(input.value),
+      }),
+      ...(input.closeDate !== undefined && {
+        closeDate: input.closeDate ? new Date(input.closeDate) : null,
+      }),
+      ...(input.launchDate !== undefined && {
+        launchDate: input.launchDate ? new Date(input.launchDate) : null,
+      }),
+      ...(input.revenueLaunchDate !== undefined && {
+        revenueLaunchDate: input.revenueLaunchDate
+          ? new Date(input.revenueLaunchDate)
+          : null,
+      }),
+    };
   }
 
   async update(
@@ -337,10 +490,25 @@ export class OpportunityService {
     userId: string,
     permissions: string[],
     input: UpdateOpportunityInput,
+    /**
+     * `suppressNotifications` is set by the bulk path only.
+     *
+     * A stage change emails the BD distribution list per deal, so moving fifty
+     * deals would send fifty emails. The bulk endpoint reports its outcome in
+     * the response instead.
+     *
+     * Deliberately NOT replaced by a single summary email: that would need a
+     * new templateId registered on the OneWave email service, and an
+     * unregistered template fails silently with TEMPLATE_NOT_FOUND rather than
+     * erroring — so inventing one here would look like it worked and send
+     * nothing. Adding the summary is a follow-up that starts with registering
+     * the template.
+     */
+    options?: { suppressNotifications?: boolean },
   ) {
     const existing = await this.getById(id, userId, permissions);
 
-    // Closed-won / closed-lost rows
+    // BD-feedback (Vivek, May 2026) — closed_won / closed_lost rows
     // used to be edit-locked; reps had to call `reopen` first to fix a
     // typo in name/value/launchDate/notes. That created surprise errors
     // on legitimate corrections. We now allow field edits on terminal
@@ -357,7 +525,7 @@ export class OpportunityService {
       }
     }
 
-    // When the rep edits probability we flip the custom flag so
+    // PRD §11.4 — when the rep edits probability we flip the custom flag so
     // future stage changes leave the value alone. When they only change the
     // stage, snap probability to the stage default *unless* the row is
     // already custom.
@@ -395,6 +563,10 @@ export class OpportunityService {
       }),
       ...(input.closeDate !== undefined && {
         closeDate: input.closeDate ? new Date(input.closeDate) : null,
+        // Re-arm the close-date reminder ladder — fired "close-*" markers
+        // were tied to the old date (generalized CRM deadline cron).
+        remindersSent: [],
+        lastReminderSentAt: null,
       }),
       ...(input.launchDate !== undefined && {
         launchDate: input.launchDate ? new Date(input.launchDate) : null,
@@ -406,17 +578,45 @@ export class OpportunityService {
       }),
       ...(input.type !== undefined && { type: input.type || null }),
       ...(input.notes !== undefined && { notes: input.notes || null }),
+      // Reassign-on-update, same gate as create-on-behalf-of: only a
+      // team-read holder, silently ignored otherwise. The migration's
+      // stub-transform path (an account's auto-spawned deal becoming the
+      // migrated one) is what needs it.
+      ...(input.ownerId !== undefined &&
+        permissions.includes("crm:team-read") && {
+          owner: { connect: { id: input.ownerId } },
+        }),
+      ...(input.legacyDealId !== undefined && {
+        legacyDealId: input.legacyDealId,
+      }),
+      // A supplied array REPLACES the tag set (that is what the multi-select
+      // sends); omitted leaves the existing tags alone.
+      ...(input.businessUnits !== undefined && {
+        businessUnits: input.businessUnits,
+      }),
     });
 
-    // Notify on stage changes (existing.stage !== input.stage).
+    const fresh =
+      (await this.syncBusinessUnitsAfterWrite(id, {
+        // Omitted tags leave the unit set alone; a supplied array replaces it.
+        ...(input.businessUnits !== undefined && {
+          tagOrder: input.businessUnits,
+        }),
+        patch: this.dealFieldPatchFromUpdate(input, {
+          probability: nextProbability,
+          probabilityCustom: nextProbabilityCustom,
+        }),
+      })) ?? updated;
+
+    // BD-feedback — notify on stage changes (existing.stage !== input.stage).
     // Best-effort send; persistence has already committed.
-    if (stageChanged) {
-      void notifyOpportunityStageChanged(updated, existing.stage, userId).catch(
+    if (stageChanged && !options?.suppressNotifications) {
+      void notifyOpportunityStageChanged(fresh, existing.stage, userId).catch(
         () => {},
       );
     }
 
-    return updated;
+    return fresh;
   }
 
   // Convenience for the kanban "lose this deal" affordance — sets stage and
@@ -440,19 +640,33 @@ export class OpportunityService {
       );
     }
 
-    return opportunityRepository.update(id, {
+    const lostReason = input.lostReason ?? null;
+    // Auto-set probability per §11.4 even if the rep had a custom value.
+    // closed_lost is terminal — no future stage move benefits from the
+    // custom probability.
+    const probability = await this.getStageProbability("closed_lost");
+
+    const updated = await opportunityRepository.update(id, {
       stage: "closed_lost",
-      lostReason: input.lostReason ?? null,
+      lostReason,
       // Stage change → top of the destination column (matches the drag path).
       sortOrderWithinStage: 0,
-      // Auto-set probability even if the rep had a custom value.
-      // closed_lost is terminal — no future stage move benefits from the
-      // custom probability.
-      probability: await this.getStageProbability("closed_lost"),
+      probability,
     });
+
+    // Losing the DEAL settles every unit. Pushing closed_lost onto only the
+    // least-advanced one would leave a sibling defining the roll-up — and
+    // since closed_lost sorts LAST, the deal would report that sibling's
+    // stage and the action would silently not take.
+    return (
+      (await this.syncBusinessUnitsAfterWrite(id, {
+        patch: { stage: "closed_lost", probability, lostReason },
+        stageAppliesToEveryUnit: true,
+      })) ?? updated
+    );
   }
 
-  // Reopen takes a terminal closed_won / closed_lost row and
+  // PRD §11.4 — reopen takes a terminal closed_won / closed_lost row and
   // pushes it back into the active pipeline. We always clear lostReason,
   // and we snap probability to the new stage default *unless* the row was
   // probabilityCustom — same rule as `update`.
@@ -478,13 +692,154 @@ export class OpportunityService {
       ? undefined
       : await this.getStageProbability(stage);
 
-    return opportunityRepository.update(id, {
+    const updated = await opportunityRepository.update(id, {
       stage,
       lostReason: null,
       // Stage change → top of the destination column (matches the drag path).
       sortOrderWithinStage: 0,
       ...(nextProbability !== undefined && { probability: nextProbability }),
     });
+
+    // Reopening pulls the whole deal back, so every unit comes with it —
+    // the mirror image of closeLost.
+    return (
+      (await this.syncBusinessUnitsAfterWrite(id, {
+        patch: {
+          stage,
+          lostReason: null,
+          ...(nextProbability !== undefined && {
+            probability: nextProbability,
+          }),
+        },
+        stageAppliesToEveryUnit: true,
+      })) ?? updated
+    );
+  }
+
+  // ── Per-business-unit board ─────────────────────────────────────────────
+
+  /**
+   * One deal's per-unit rows, for the edit form's stage-per-unit table.
+   *
+   * Routed through getById so the caller's ownership is enforced by the same
+   * 404-not-403 posture as every other read — AND so the lazy seed runs
+   * first: a deal that has never been written still returns a complete row
+   * per tag rather than an empty table the form would render as "no units".
+   */
+  async businessUnitsForDeal(
+    id: string,
+    userId: string,
+    permissions: string[],
+  ) {
+    await this.getById(id, userId, permissions);
+    return listBusinessUnitRows(id);
+  }
+
+  /**
+   * Move or edit ONE unit's progress on a deal — what a card drag calls.
+   *
+   * Not `update({ stage })`: that writes the deal, which under the roll-up
+   * means moving whichever unit is least advanced, so dragging one card
+   * would move a different one.
+   */
+  async moveBusinessUnit(
+    id: string,
+    businessUnit: string,
+    userId: string,
+    permissions: string[],
+    input: MoveBusinessUnitInput,
+  ) {
+    // Also lazily seeds the child rows, so a synthesized card is backed by
+    // a real row by the time the move runs.
+    const deal = await this.getById(id, userId, permissions);
+
+    // The Unassigned column holds deals with no units at all, so there is
+    // no child row to move — that card IS the deal.
+    if (businessUnit === BUSINESS_UNIT_UNASSIGNED) {
+      if (input.stage === undefined) return deal;
+      return this.update(id, userId, permissions, {
+        stage: input.stage,
+      } as UpdateOpportunityInput);
+    }
+
+    if (!deal.businessUnits.includes(businessUnit)) {
+      throw new NotFoundException(
+        `${businessUnit} is not a business unit on this opportunity`,
+      );
+    }
+
+    const moved = await moveBusinessUnitRow(id, businessUnit, {
+      ...(input.stage !== undefined && { stage: input.stage }),
+      ...(input.probability !== undefined && {
+        probability: input.probability,
+      }),
+      ...(input.value !== undefined && {
+        value: new Prisma.Decimal(input.value),
+      }),
+      ...(input.closeDate !== undefined && {
+        closeDate: input.closeDate ? new Date(input.closeDate) : null,
+      }),
+      ...(input.launchDate !== undefined && {
+        launchDate: input.launchDate ? new Date(input.launchDate) : null,
+      }),
+      ...(input.revenueLaunchDate !== undefined && {
+        revenueLaunchDate: input.revenueLaunchDate
+          ? new Date(input.revenueLaunchDate)
+          : null,
+      }),
+      ...(input.lostReason !== undefined && { lostReason: input.lostReason }),
+    });
+    if (!moved) {
+      throw new NotFoundException(
+        `${businessUnit} has no progress row on this opportunity`,
+      );
+    }
+
+    await recomputeOpportunityRollup(id);
+    return this.getById(id, userId, permissions);
+  }
+
+  /**
+   * Write a column's manual card order.
+   *
+   * Every deal referenced is re-fetched under the caller's owner scope
+   * first: without that, a rep could reorder — and so learn the ids of —
+   * cards on deals they cannot read. The repository writer takes the ids on
+   * trust precisely because this check has to happen at the scoped layer.
+   */
+  async reorderCards(
+    userId: string,
+    permissions: string[],
+    input: ReorderOpportunityCardsInput,
+  ) {
+    const canSeeAll = permissions.includes("crm:team-read");
+
+    // zod validates the array as required and its members as non-empty. They
+    // read as optional here only because this workspace compiles with
+    // `strict: false`, which degrades z.infer — so narrow rather than cast.
+    const ids = input.opportunityIds.map((id) => {
+      if (!id) {
+        throw new BadRequestException("Each card needs an opportunityId");
+      }
+      return id;
+    });
+
+    const unique = [...new Set(ids)];
+    if (unique.length !== ids.length) {
+      // A repeated id would be written twice and land on whichever index came
+      // last, silently producing an order the caller did not ask for.
+      throw new BadRequestException("Card order contains a repeated deal");
+    }
+
+    const visible = await opportunityRepository.findManyByIds(
+      unique,
+      canSeeAll ? undefined : userId,
+    );
+    if (visible.length !== unique.length) {
+      throw new NotFoundException("One or more opportunities were not found");
+    }
+
+    return opportunityRepository.reorderWithinStage(input.stageKey, ids);
   }
 
   async delete(id: string, userId: string, permissions: string[]) {
@@ -492,53 +847,21 @@ export class OpportunityService {
     return opportunityRepository.delete(id);
   }
 
-  // Persist the manual within-column order for one pipeline stage. Validates
-  // that every id exists, lives in the target stage, and is inside the
-  // caller's owner scope (reps without crm:team-read can only reorder their
-  // own cards) before writing sortOrderWithinStage = index.
-  async reorderWithinStage(
-    userId: string,
-    permissions: string[],
-    input: ReorderWithinStageInput,
-  ) {
-    const { stageKey, orderedIds } = input;
-    const canSeeAll = permissions.includes("crm:team-read");
-    const ownerId = canSeeAll ? undefined : userId;
+  // Reversible archive — orthogonal to stage/status. Reuses the same
+  // owner-or-team-read guard as update/delete via getById (a rep can only
+  // archive their own deals; a crm:team-read holder can archive any), so no
+  // new permission is minted. Idempotent: re-archiving keeps the original
+  // archive time.
+  async archive(id: string, userId: string, permissions: string[]) {
+    const existing = await this.getById(id, userId, permissions);
+    return opportunityRepository.update(id, {
+      archivedAt: existing.archivedAt ?? new Date(),
+    });
+  }
 
-    // Owner-scope the lookup: a foreign-owned id simply doesn't match, so a
-    // non-existent id and a not-mine id yield the same NotFound — no
-    // existence / stage / ownership oracle (mirrors getById's 404 posture).
-    const rows = await opportunityRepository.findManyByIds(orderedIds, ownerId);
-    if (rows.length !== orderedIds.length) {
-      throw new NotFoundException(
-        "One or more opportunities could not be found.",
-      );
-    }
-    // These are all rows the caller owns/can see, so a stage mismatch is a
-    // genuine client error, not a leak.
-    if (rows.some((r) => r.stage !== stageKey)) {
-      throw new BadRequestException(
-        "All opportunities must belong to the target stage.",
-      );
-    }
-
-    // Renumber the WHOLE stage (owner-scoped), not just the submitted page:
-    // the submitted (loaded, reordered) cards take the top slots in the given
-    // order; any remaining cards keep their current relative order beneath.
-    // This stops a partially-loaded column from leaving un-loaded rows tied
-    // at 0 above the hand-ordered ones (CLAUDE.md paginated-aggregate rule).
-    const allIds = await opportunityRepository.listStageIdsOrdered(
-      stageKey,
-      ownerId,
-    );
-    const submitted = new Set(orderedIds);
-    const finalOrder = [
-      ...orderedIds,
-      ...allIds.filter((id) => !submitted.has(id)),
-    ];
-
-    await opportunityRepository.reorderWithinStage(finalOrder);
-    return { success: true, reordered: finalOrder.length };
+  async unarchive(id: string, userId: string, permissions: string[]) {
+    await this.getById(id, userId, permissions);
+    return opportunityRepository.update(id, { archivedAt: null });
   }
 
   // ─── Stage config (admin) ───────────────────────────────
@@ -546,7 +869,7 @@ export class OpportunityService {
   /**
    * Resolve the per-stage default probability. Reads from the
    * `opportunity_stage_config` table so admins can tune the snap
-   * value without a code change. Falls back to the hardcoded stage
+   * value without a code change. Falls back to the hardcoded PRD §11.4
    * defaults if a row is missing — keeps create / update working
    * even on an empty table.
    */
@@ -575,6 +898,128 @@ export class OpportunityService {
       ),
     );
     return updated;
+  }
+
+  /**
+   * Bulk business-unit assignment.
+   *
+   * Selection is either ticked ids or "all matching the current filter",
+   * resolved by `resolveBulkWhere` through the SAME where-builder the list
+   * uses, with owner scope ANDed in both modes so a caller without
+   * `crm:team-read` can never touch another rep's rows.
+   *
+   * For an opportunity this is the load-bearing part: `update` routes through
+   * `syncBusinessUnitsAfterWrite`, which seeds the per-unit child rows for a
+   * newly tagged deal, pushes deal fields down, then recomputes the roll-up —
+   * in that order. A bulk `updateMany` on the tag array would skip all three
+   * and leave the new unit with no row on the per-unit board. That is the
+   * corruption PR1 was reverted for; do not shortcut it.
+   *
+   * Rows already carrying the requested set are skipped, not rewritten.
+   */
+  async bulkUpdateBusinessUnits(
+    userId: string,
+    permissions: string[],
+    input: BulkUpdateOpportunitiesInput,
+  ): Promise<BulkApplyResult & { selected: number }> {
+    const canSeeAll = permissions.includes("crm:team-read");
+    const ownerScope = canSeeAll ? undefined : [userId];
+
+    const where = resolveBulkWhere(
+      { ids: input.ids, allMatching: input.allMatching, filter: input.filter },
+      buildOpportunityWhere,
+      ownerScope,
+    );
+
+    // Fetch one past the cap so an over-large selection is detected rather
+    // than silently truncated.
+    const rows = await opportunityRepository.findIdsAndUnits(where, 500 + 1);
+    if (rows.length > 500) {
+      throw new BadRequestException(
+        "Selection is too large (over 500 records). Narrow the filter and try again.",
+      );
+    }
+
+    const result = await applyBulkBusinessUnits(
+      rows,
+      input.businessUnits.codes,
+      input.businessUnits.mode,
+      (id, next) =>
+        this.update(id, userId, permissions, { businessUnits: next }),
+      { module: "opportunities", actorId: userId },
+    );
+
+    return { ...result, selected: rows.length };
+  }
+
+  /**
+   * Bulk owner reassignment and archive/unarchive.
+   *
+   * Same selection contract as `bulkUpdateBusinessUnits`. Each write reuses the
+   * single-record `update` / `archive` / `unarchive`, so per-row ownership
+   * checks and any side effects keep running.
+   *
+   * `crm:reassign` is enforced HERE rather than on the route: the route's
+   * `requirePermission` cannot express "only when `set.ownerId` is present", so
+   * a caller may archive with `crm:update` alone but must hold `crm:reassign`
+   * to move ownership.
+   */
+  async bulkUpdateFields(
+    userId: string,
+    permissions: string[],
+    input: BulkFieldUpdateOpportunitiesInput,
+  ): Promise<BulkFieldResult & { selected: number }> {
+    if (
+      input.set.ownerId !== undefined &&
+      !permissions.includes("crm:reassign")
+    ) {
+      throw new ForbiddenException(
+        "Reassigning owner in bulk requires the crm:reassign permission.",
+      );
+    }
+
+    const canSeeAll = permissions.includes("crm:team-read");
+    const ownerScope = canSeeAll ? undefined : [userId];
+
+    const where = resolveBulkWhere(
+      { ids: input.ids, allMatching: input.allMatching, filter: input.filter },
+      buildOpportunityWhere,
+      ownerScope,
+    );
+
+    const rows = await opportunityRepository.findIdsForFieldSet(where, 500 + 1);
+    if (rows.length > 500) {
+      throw new BadRequestException(
+        "Selection is too large (over 500 records). Narrow the filter and try again.",
+      );
+    }
+
+    const result = await applyBulkFieldSet(
+      rows.map((r) => ({ ...r, lifecycle: r.stage })),
+      {
+        ...input.set,
+        lifecycle: (input.set as { stage?: string; status?: string }).stage,
+      },
+      {
+        setOwner: (id, ownerId) =>
+          this.update(id, userId, permissions, { ownerId }),
+        archive: (id) => this.archive(id, userId, permissions),
+        unarchive: (id) => this.unarchive(id, userId, permissions),
+        setLifecycle: (id, next) =>
+          this.update(
+            id,
+            userId,
+            permissions,
+            { stage: next as UpdateOpportunityInput["stage"] },
+            // One click moving fifty deals would otherwise send fifty emails to
+            // the BD list.
+            { suppressNotifications: true },
+          ),
+      },
+      { module: "opportunities", actorId: userId },
+    );
+
+    return { ...result, selected: rows.length };
   }
 }
 

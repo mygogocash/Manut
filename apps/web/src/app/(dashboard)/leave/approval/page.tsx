@@ -8,6 +8,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -172,11 +173,31 @@ export default function LeaveApprovalConfigPage() {
         </Button>
       </PageHeader>
 
+      <div
+        className={`
+          bg-muted/40 mb-4 flex flex-wrap items-center gap-x-2 gap-y-1
+          rounded-md border p-3 text-xs
+        `}
+      >
+        <Badge variant="secondary">Default chain</Badge>
+        <span className="text-muted-foreground">
+          Applies to leave types that don&apos;t define their own chain. A leave
+          policy with its own approval chain overrides this for that type.
+        </span>
+        <Link
+          href="/leave/policies"
+          className="ml-auto underline underline-offset-2"
+        >
+          Manage per-policy overrides →
+        </Link>
+      </div>
+
       {steps.length === 0 && !loading ? (
         <div className="bg-card rounded-md border p-8 text-center">
           <p className="text-muted-foreground text-sm">
-            No approval steps configured. New requests fall back to the
-            submitter&apos;s direct manager.
+            No default approval steps configured. Requests fall back to a leave
+            type&apos;s own chain (if set), otherwise the submitter&apos;s
+            direct manager.
           </p>
         </div>
       ) : (
@@ -296,7 +317,7 @@ export default function LeaveApprovalConfigPage() {
         <NotificationRecipientsCard
           title="HR-desk notifications"
           description="These addresses receive a long-form summary email every time a leave request is fully approved. Use it to route the brief to HR / the people-ops admin."
-          placeholder="hr-desk@manut.example"
+          placeholder="hr-desk@thebinaryholdings.com"
           fetcher={fetchLeaveRecipients}
           persister={saveLeaveRecipients}
         />

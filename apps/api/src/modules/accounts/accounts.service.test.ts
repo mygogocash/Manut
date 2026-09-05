@@ -7,7 +7,6 @@ import {
 } from "@/common/exceptions/http-exception";
 import { accountRepository } from "@/modules/accounts/accounts.repository";
 import { AccountService } from "@/modules/accounts/accounts.service";
-import { mockArgument } from "@/test-utils/assertions";
 
 vi.mock("./accounts.repository", () => ({
   accountRepository: {
@@ -89,7 +88,7 @@ describe("AccountService", () => {
     });
   });
 
-  describe("create — account dedupe", () => {
+  describe("create — §11.2 dedupe", () => {
     it("hard-rejects when domain already exists", async () => {
       findByDomain.mockResolvedValue({
         id: "existing",
@@ -135,10 +134,7 @@ describe("AccountService", () => {
 
       expect(create).toHaveBeenCalled();
       // confirmCreate should never be persisted as a column.
-      const args = mockArgument(create.mock.calls, 0, 0) as Record<
-        string,
-        unknown
-      >;
+      const args = create.mock.calls[0][0] as Record<string, unknown>;
       expect(args).not.toHaveProperty("confirmCreate");
     });
 

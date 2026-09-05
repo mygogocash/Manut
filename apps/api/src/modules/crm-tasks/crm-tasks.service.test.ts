@@ -14,7 +14,6 @@ import {
 } from "@/common/exceptions/http-exception";
 import { crmTaskRepository } from "@/modules/crm-tasks/crm-tasks.repository";
 import { CrmTaskService } from "@/modules/crm-tasks/crm-tasks.service";
-import { mockArgument } from "@/test-utils/assertions";
 
 vi.mock("@/modules/crm-tasks/crm-tasks.repository", () => ({
   crmTaskRepository: {
@@ -25,6 +24,14 @@ vi.mock("@/modules/crm-tasks/crm-tasks.repository", () => ({
     delete: vi.fn(),
   },
 }));
+
+// Assignment paths look the target/actor up and email the new owner.
+const db = vi.hoisted(() => ({
+  user: { findFirst: vi.fn(), findUnique: vi.fn() },
+}));
+const sendEmail = vi.hoisted(() => vi.fn());
+vi.mock("@/infrastructure/database/prisma", () => ({ prisma: db }));
+vi.mock("@/infrastructure/email/email.service", () => ({ sendEmail }));
 
 const findMany = crmTaskRepository.findMany as Mock;
 const findById = crmTaskRepository.findById as Mock;
@@ -74,7 +81,7 @@ describe("CrmTaskService", () => {
         bucket: "overdue",
       });
 
-      const args = mockArgument(findMany.mock.calls, 0, 0) as {
+      const args = findMany.mock.calls[0][0] as {
         dueDateLte?: Date;
         dueDateGte?: Date;
       };
@@ -94,7 +101,7 @@ describe("CrmTaskService", () => {
         bucket: "today",
       });
 
-      const args = mockArgument(findMany.mock.calls, 0, 0) as {
+      const args = findMany.mock.calls[0][0] as {
         dueDateGte?: Date;
         dueDateLte?: Date;
       };
@@ -111,7 +118,7 @@ describe("CrmTaskService", () => {
         bucket: "soon",
       });
 
-      const args = mockArgument(findMany.mock.calls, 0, 0) as {
+      const args = findMany.mock.calls[0][0] as {
         dueDateGte?: Date;
         dueDateLte?: Date;
       };
@@ -122,9 +129,7 @@ describe("CrmTaskService", () => {
     it("scopes to caller without crm:team-read", async () => {
       findMany.mockResolvedValue({ data: [], total: 0 });
       await service.list(USER_ID, ["crm:read"], { page: 1, limit: 20 });
-      const args = mockArgument(findMany.mock.calls, 0, 0) as {
-        ownerScope?: string[];
-      };
+      const args = findMany.mock.calls[0][0] as { ownerScope?: string[] };
       expect(args.ownerScope).toEqual([USER_ID]);
     });
   });
@@ -146,6 +151,69 @@ describe("CrmTaskService", () => {
         }),
       );
     });
+
+    it("assigns to another active user and emails them", async () => {
+      create.mockResolvedValue(baseTask);
+      db.user.findFirst.mockResolvedValue({
+        id: OTHER_USER_ID,
+        name: "Sid",
+        email: "sid@x.com",
+      });
+      db.user.findUnique.mockResolvedValue({ name: "Kunanon" });
+
+      await service.create(USER_ID, {
+        subject: "Call back",
+        dueDate: "2026-05-10",
+        leadId: "lead-1",
+        ownerId: OTHER_USER_ID,
+      });
+
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          owner: { connect: { id: OTHER_USER_ID } },
+        }),
+      );
+      // Target validated as active + not deleted.
+      expect(db.user.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: OTHER_USER_ID,
+            isActive: true,
+            deletedAt: null,
+          }),
+        }),
+      );
+      await vi.waitFor(() => expect(sendEmail).toHaveBeenCalled());
+      expect(sendEmail.mock.calls[0][0].to).toBe("sid@x.com");
+    });
+
+    it("rejects assignment to an inactive/unknown user", async () => {
+      db.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create(USER_ID, {
+          subject: "Call back",
+          dueDate: "2026-05-10",
+          leadId: "lead-1",
+          ownerId: OTHER_USER_ID,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it("self-assignment behaves like no assignment (no lookup, no email)", async () => {
+      create.mockResolvedValue(baseTask);
+
+      await service.create(USER_ID, {
+        subject: "Call back",
+        dueDate: "2026-05-10",
+        leadId: "lead-1",
+        ownerId: USER_ID,
+      });
+
+      expect(db.user.findFirst).not.toHaveBeenCalled();
+      expect(sendEmail).not.toHaveBeenCalled();
+    });
   });
 
   describe("update", () => {
@@ -157,12 +225,62 @@ describe("CrmTaskService", () => {
         status: "done",
       });
 
-      const args = mockArgument(update.mock.calls, 0, 1) as Record<
-        string,
-        unknown
-      >;
+      const args = update.mock.calls[0][1] as Record<string, unknown>;
       expect(args.status).toBe("done");
       expect(args.completedAt).toBeInstanceOf(Date);
+    });
+
+    it("reassigns to another user and emails the new owner", async () => {
+      findById.mockResolvedValue(baseTask);
+      update.mockResolvedValue(baseTask);
+      db.user.findFirst.mockResolvedValue({
+        id: OTHER_USER_ID,
+        name: "Sid",
+        email: "sid@x.com",
+      });
+      db.user.findUnique.mockResolvedValue({ name: "Kunanon" });
+
+      await service.update("task-1", USER_ID, ["crm:update"], {
+        ownerId: OTHER_USER_ID,
+      });
+
+      expect(update).toHaveBeenCalledWith(
+        "task-1",
+        expect.objectContaining({
+          owner: { connect: { id: OTHER_USER_ID } },
+        }),
+      );
+      await vi.waitFor(() => expect(sendEmail).toHaveBeenCalled());
+      expect(sendEmail.mock.calls[0][0].to).toBe("sid@x.com");
+    });
+
+    it("re-arms the deadline-reminder ladder on a dueDate change", async () => {
+      findById.mockResolvedValue(baseTask);
+      update.mockResolvedValue(baseTask);
+
+      await service.update("task-1", USER_ID, ["crm:update"], {
+        dueDate: "2026-08-01",
+      });
+
+      expect(update).toHaveBeenCalledWith(
+        "task-1",
+        expect.objectContaining({
+          remindersSent: [],
+          lastReminderSentAt: null,
+        }),
+      );
+    });
+
+    it("does NOT reset the reminder ladder when dueDate is untouched", async () => {
+      findById.mockResolvedValue(baseTask);
+      update.mockResolvedValue(baseTask);
+
+      await service.update("task-1", USER_ID, ["crm:update"], {
+        subject: "renamed",
+      });
+
+      const args = update.mock.calls[0][1] as Record<string, unknown>;
+      expect(args.remindersSent).toBeUndefined();
     });
 
     it("clears completedAt when reopening from done", async () => {
@@ -223,10 +341,7 @@ describe("CrmTaskService", () => {
 
       await service.complete("task-1", USER_ID, ["crm:update"]);
 
-      const args = mockArgument(update.mock.calls, 0, 1) as Record<
-        string,
-        unknown
-      >;
+      const args = update.mock.calls[0][1] as Record<string, unknown>;
       expect(args.status).toBe("done");
       expect(args.completedAt).toBeInstanceOf(Date);
     });

@@ -1,12 +1,13 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { Loader2, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { UserMultiSelect } from "@/components/shared/user-multi-select";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -84,7 +85,7 @@ export function LeaveApprovalStepDialog({
   const editing = Boolean(step);
 
   const form = useForm<StepFormValues>({
-    resolver: standardSchemaResolver(stepSchema),
+    resolver: zodResolver(stepSchema),
     defaultValues: {
       name: "",
       description: "",
@@ -279,7 +280,7 @@ export function LeaveApprovalStepDialog({
                   <FormDescription>
                     Submitters who should not trigger this step. Use this when
                     an approver should not approve their own request (e.g.
-                    exclude an approver from their own approval step).
+                    exclude Sid from the &ldquo;Sid approval&rdquo; step).
                   </FormDescription>
                   <FormControl>
                     <UserMultiSelect
@@ -304,7 +305,7 @@ export function LeaveApprovalStepDialog({
                     When set, this step only fires for these submitters. Leave
                     empty to apply to everyone (the default). Useful for routing
                     one specific person&apos;s request to a different approver
-                    (e.g. executive approval only for that submitter).
+                    (e.g. CEO approval only when Sid submits).
                   </FormDescription>
                   <FormControl>
                     <UserMultiSelect
@@ -367,116 +368,5 @@ export function LeaveApprovalStepDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// Compact multi-select for picking a subset of employees. Renders the
-// selected names as removable chips and a searchable list of the
-// remaining users — kept inline so we don't have to drag in a new
-// component package for the two fields above.
-function UserMultiSelect({
-  users,
-  value,
-  onChange,
-  placeholder,
-}: {
-  users: UserListItem[];
-  value: string[];
-  onChange: (next: string[]) => void;
-  placeholder: string;
-}) {
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-
-  const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return users
-      .filter((u) => !value.includes(u.id))
-      .filter((u) =>
-        q
-          ? u.name.toLowerCase().includes(q) ||
-            u.email.toLowerCase().includes(q)
-          : true,
-      )
-      .slice(0, 50);
-  }, [users, value, query]);
-
-  function add(id: string) {
-    if (value.includes(id)) return;
-    onChange([...value, id]);
-    setQuery("");
-  }
-
-  function remove(id: string) {
-    onChange(value.filter((v) => v !== id));
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {value.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {value.map((id) => {
-            const u = userById.get(id);
-            return (
-              <span
-                key={id}
-                className={`
-                  bg-primary/10 inline-flex items-center gap-1 rounded-md px-2
-                  py-0.5 text-[11px]
-                `}
-              >
-                {u?.name ?? id}
-                <button
-                  type="button"
-                  onClick={() => remove(id)}
-                  className="hover:text-destructive"
-                  aria-label={`Remove ${u?.name ?? id}`}
-                >
-                  <X className="size-3" />
-                </button>
-              </span>
-            );
-          })}
-        </div>
-      )}
-      <div className="relative">
-        <Input
-          value={query}
-          placeholder={placeholder}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => setOpen(true)}
-          onBlur={() => {
-            // Delay so a click on a list item still registers.
-            window.setTimeout(() => setOpen(false), 150);
-          }}
-        />
-        {open && filtered.length > 0 && (
-          <div
-            className={`
-              border-border bg-popover absolute top-full z-10 mt-1 max-h-56
-              w-full overflow-y-auto rounded-md border shadow-md
-            `}
-          >
-            {filtered.map((u) => (
-              <button
-                key={u.id}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => add(u.id)}
-                className={`
-                  hover:bg-accent
-                  w-full px-2 py-1 text-left text-[12px]
-                `}
-              >
-                <span className="font-medium">{u.name}</span>{" "}
-                <span className="text-muted-foreground">{u.email}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }

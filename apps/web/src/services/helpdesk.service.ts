@@ -34,7 +34,7 @@ export const TICKET_CATEGORY_HINTS: Record<TicketCategory, string> = {
   "account-access":
     "Password reset, MFA reset, email alias, account create/deactivate, distribution-list change",
   "software-access":
-    "Slack / Notion / Figma / Linear / AI Gateway access, SaaS seat, role change",
+    "Slack / Notion / Figma / Linear / Gemini license, SaaS seat, role change",
   hardware:
     "Laptop / monitor / keyboard / mouse / dock request, repair, replacement",
   network: "VPN, Wi-Fi, office network, firewall block",

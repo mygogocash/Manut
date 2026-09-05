@@ -12,6 +12,7 @@ export interface VoucherEntry {
   issued: number;
   refund: number;
   sortOrder: number;
+  archivedAt: string | null;
   addedBy: string | null;
   createdAt: string;
   updatedAt: string;
@@ -39,6 +40,8 @@ export interface VoucherListParams {
   limit?: number;
   search?: string;
   country?: string;
+  // When true, return ONLY archived rows; omit/false shows active only.
+  archived?: boolean;
 }
 
 /** List response carries the server-computed grand totals alongside the page. */
@@ -74,6 +77,18 @@ export async function deleteVoucherEntry(
   id: string,
 ): Promise<ApiSuccessResponse<{ success: true }>> {
   return api.delete(`/voucher-crm/${id}`);
+}
+
+export async function archiveVoucherEntry(
+  id: string,
+): Promise<ApiSuccessResponse<VoucherEntry>> {
+  return api.post(`/voucher-crm/${id}/archive`, {});
+}
+
+export async function unarchiveVoucherEntry(
+  id: string,
+): Promise<ApiSuccessResponse<VoucherEntry>> {
+  return api.post(`/voucher-crm/${id}/unarchive`, {});
 }
 
 export async function reorderVoucherEntries(

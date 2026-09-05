@@ -140,6 +140,25 @@ export const expenseReportQuerySchema = z.object({
   // a stale FE bundle that forgets `employeeId` on the `My reports`
   // tab can never leak other employees' reports.
   includeAll: z.coerce.boolean().optional(),
+  /**
+   * Free-text match over report title, period and employee name.
+   *
+   * Server-side deliberately. It used to be a browser-side filter over whichever
+   * page of reports had already been fetched, so a name matched only when its row
+   * happened to be on screen — and picking a month appeared to "fix" it purely
+   * because `period` IS a server filter and cut the set down enough to pull the
+   * row onto page one.
+   *
+   * A blank or whitespace-only value becomes `undefined` rather than an error:
+   * the UI sends whatever is in the box, and an empty box means "no filter", not
+   * "match the empty string".
+   */
+  search: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined)),
 });
 
 // Workspace-wide monthly roll-up (Admin/HR). Optional filters mirror the
@@ -245,6 +264,11 @@ export type ApproveExpenseReportInput = z.infer<
 // (org-chart top) are auto-skipped on submit.
 const expenseApproverTypeEnum = z.enum(["manager", "manager_l2", "user"]);
 
+// A `review` step validates and passes the report forward (accept/reject)
+// but never finalises it and cannot reduce the approved amount; `approve`
+// is the final-sign-off gate (today's default behaviour).
+const expenseStageRoleEnum = z.enum(["review", "approve"]);
+
 // Categories drive amount-band routing — mirror TRAVEL_CATEGORIES so
 // HR can use the same buckets for both flows. Stored as plain strings.
 //
@@ -266,6 +290,7 @@ const expenseApprovalStepBase = z.object({
   name: z.string().min(1, "Name is required").max(100),
   description: z.string().max(2000).optional(),
   approverType: expenseApproverTypeEnum.default("manager"),
+  stageRole: expenseStageRoleEnum.default("approve"),
   approverUserId: z.string().uuid().optional().nullable(),
   skipWhenSubmitterIds: z.array(z.string().uuid()).default([]),
   onlyWhenSubmitterIds: z.array(z.string().uuid()).default([]),

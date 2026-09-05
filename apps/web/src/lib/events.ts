@@ -52,6 +52,11 @@ export const EVENTS = {
   AGREEMENT_UPLOADED: "agreement.uploaded",
   AGREEMENT_DOWNLOADED: "agreement.downloaded",
 
+  // Aria
+  ARIA_MESSAGE_SENT: "aria.message_sent",
+  ARIA_RESPONSE_RECEIVED: "aria.response_received",
+  ARIA_FEEDBACK_GIVEN: "aria.feedback_given",
+
   // Messaging
   MESSAGE_SENT: "message.sent",
 
@@ -104,6 +109,7 @@ export const EVENTS = {
 
 export type ModuleId =
   | "home"
+  | "aria"
   | "messaging"
   | "projects"
   | "partner_crm"
@@ -163,6 +169,24 @@ export interface TravelRequestSubmittedProps {
   trip_type: "domestic" | "international";
   destination_country?: string;
   estimated_cost_thb?: number;
+}
+
+export interface AriaMessageSentProps {
+  preset?: string;
+  prompt_length: number;
+  context_modules?: string;
+}
+
+export interface AriaResponseReceivedProps {
+  latency_ms: number;
+  tokens_in?: number;
+  tokens_out?: number;
+  streaming?: boolean;
+  error: boolean;
+}
+
+export interface AriaFeedbackProps {
+  rating: "up" | "down";
 }
 
 export interface MessageSentProps {
@@ -236,7 +260,7 @@ export interface ProfileUpdatedProps {
 }
 
 export interface IntegrationConnectedProps {
-  provider: "gmail" | "google_calendar" | "slack" | "workers_ai" | "ai_gateway";
+  provider: "gmail" | "google_calendar" | "slack" | "gemini";
 }
 
 // ─── Per-event functions (typed wrappers around tracking.capture) ──────────
@@ -290,6 +314,15 @@ export const trackPayrollImported = (props: {
 
 export const trackAgreementUploaded = (props: { agreement_type?: string }) =>
   tracking.capture(EVENTS.AGREEMENT_UPLOADED, props);
+
+export const trackAriaMessageSent = (props: AriaMessageSentProps) =>
+  tracking.capture(EVENTS.ARIA_MESSAGE_SENT, props);
+
+export const trackAriaResponseReceived = (props: AriaResponseReceivedProps) =>
+  tracking.capture(EVENTS.ARIA_RESPONSE_RECEIVED, props);
+
+export const trackAriaFeedback = (props: AriaFeedbackProps) =>
+  tracking.capture(EVENTS.ARIA_FEEDBACK_GIVEN, props);
 
 export const trackMessageSent = (props: MessageSentProps) =>
   tracking.capture(EVENTS.MESSAGE_SENT, props);

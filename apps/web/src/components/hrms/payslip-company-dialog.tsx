@@ -109,7 +109,7 @@ export function PayslipCompanyDialog({
                 id="payslip-company-name"
                 value={legalName}
                 onChange={(e) => setLegalName(e.target.value)}
-                placeholder="Manut (Thailand) Co., Ltd."
+                placeholder="The Binary Holdings (Thailand) Co., Ltd."
               />
             </div>
             <div className="flex flex-col gap-1.5">

@@ -19,19 +19,6 @@ function sanitize<T extends { phonePublic?: boolean | null }>(
   }
   // phonePublic itself is an internal flag — strip from the public response.
   delete copy.phonePublic;
-
-  const manager = copy.manager;
-  if (manager && typeof manager === "object" && !Array.isArray(manager)) {
-    const managerRecord = manager as Record<string, unknown>;
-    if (managerRecord.isActive !== true || managerRecord.deletedAt !== null) {
-      copy.manager = null;
-    } else {
-      const publicManager = { ...managerRecord };
-      delete publicManager.isActive;
-      delete publicManager.deletedAt;
-      copy.manager = publicManager;
-    }
-  }
   return copy as Omit<T, "salary" | "currency" | "phone" | "phonePublic"> & {
     phone?: T extends { phone: infer P } ? P : never;
   };

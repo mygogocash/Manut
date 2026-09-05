@@ -6,6 +6,3 @@ dist
 .turbo
 pnpm-lock.yaml
 packages/database/src/generated
-.agents
-e2e/.artifacts
-apps/edge/worker-configuration.d.ts

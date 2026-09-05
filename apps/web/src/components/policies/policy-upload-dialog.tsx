@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -102,7 +102,7 @@ export function PolicyUploadDialog({
   const [file, setFile] = useState<File | null>(null);
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(schema),
+    resolver: zodResolver(schema),
     defaultValues: DEFAULTS,
   });
 

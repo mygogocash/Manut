@@ -60,6 +60,10 @@ export function QaCrmProjectDialog({
   const [status, setStatus] = useState("active");
   const [ownerId, setOwnerId] = useState("");
   const [comment, setComment] = useState("");
+  const [defaultAssigneeMode, setDefaultAssigneeMode] = useState<
+    "none" | "creator" | "owner" | "user"
+  >("none");
+  const [defaultAssigneeId, setDefaultAssigneeId] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -69,18 +73,32 @@ export function QaCrmProjectDialog({
       setStatus(project.status);
       setOwnerId(project.ownerId);
       setComment(project.comment ?? "");
+      setDefaultAssigneeMode(
+        (project.defaultAssigneeMode as
+          | "none"
+          | "creator"
+          | "owner"
+          | "user") ?? "none",
+      );
+      setDefaultAssigneeId(project.defaultAssigneeId ?? "");
     } else {
       setName("");
       setDescription("");
       setStatus("active");
       setOwnerId("");
       setComment("");
+      setDefaultAssigneeMode("none");
+      setDefaultAssigneeId("");
     }
   }, [open, project]);
 
   async function handleSubmit() {
     if (!name.trim()) {
       toast.error("Name is required");
+      return;
+    }
+    if (defaultAssigneeMode === "user" && !defaultAssigneeId) {
+      toast.error("Pick a person for the auto-assign default");
       return;
     }
     setSubmitting(true);
@@ -91,6 +109,9 @@ export function QaCrmProjectDialog({
         status,
         ownerId: ownerId || undefined,
         comment: comment.trim() || null,
+        defaultAssigneeMode,
+        defaultAssigneeId:
+          defaultAssigneeMode === "user" ? defaultAssigneeId || null : null,
       };
       const res = project
         ? await updateQaProject(project.id, payload)
@@ -190,6 +211,52 @@ export function QaCrmProjectDialog({
               rows={2}
               className="resize-none"
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Auto-assign new tasks to</Label>
+              <Select
+                value={defaultAssigneeMode}
+                onValueChange={(v) =>
+                  setDefaultAssigneeMode(
+                    v as "none" | "creator" | "owner" | "user",
+                  )
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No default</SelectItem>
+                  <SelectItem value="creator">Task creator</SelectItem>
+                  <SelectItem value="owner">Project owner</SelectItem>
+                  <SelectItem value="user">Specific person</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {defaultAssigneeMode === "user" && (
+              <div className="flex flex-col gap-1.5">
+                <Label>Default person</Label>
+                <Select
+                  value={defaultAssigneeId || "__none__"}
+                  onValueChange={(v) =>
+                    setDefaultAssigneeId(v === "__none__" ? "" : v)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pick a person" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— Pick a person —</SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>

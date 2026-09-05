@@ -1,6 +1,3 @@
-import { browserReturnPath, signInPath } from "@/lib/auth-return-path";
-import { isPublicSigningPath } from "@/lib/public-signing-path";
-
 /**
  * API base URL — always same-origin via Next.js rewrites proxy.
  * Requests go to `/api/…` on the current host; `next.config.ts` proxies
@@ -18,19 +15,6 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
-}
-
-export function apiErrorStatus(error: unknown): number | undefined {
-  if (error instanceof ApiError) return error.status;
-  if (
-    error &&
-    typeof error === "object" &&
-    "status" in error &&
-    typeof error.status === "number"
-  ) {
-    return error.status;
-  }
-  return undefined;
 }
 
 let isRefreshing = false;
@@ -66,7 +50,6 @@ const authFlowPagePaths = [
 function isOnAuthFlowPage(): boolean {
   if (typeof window === "undefined") return false;
   const pathname = window.location.pathname;
-  if (isPublicSigningPath(pathname)) return true;
   return authFlowPagePaths.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
@@ -156,7 +139,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     if (res.status === 401 && typeof window !== "undefined") {
       if (!isOnAuthFlowPage() && !isAuthRedirectExemptPath(res.url)) {
-        window.location.replace(signInPath(browserReturnPath(window.location)));
+        window.location.replace("/sign-in");
       }
     }
 

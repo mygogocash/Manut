@@ -58,16 +58,19 @@ export function PayrollInvoicesTab({
     },
     {
       key: "consultant",
+      mobileRole: "subtitle" as const,
       header: "Consultant",
       render: (i: ConsultantInvoice) => i.consultant.name,
     },
     {
       key: "entity",
+      mobileRole: "detail" as const,
       header: "Entity",
       render: (i: ConsultantInvoice) => i.entity.name,
     },
     {
       key: "amount",
+      mobileRole: "detail" as const,
       header: "Amount",
       render: (i: ConsultantInvoice) => (
         <span className="tabular-nums">{formatCurrency(i.amount)}</span>
@@ -76,6 +79,7 @@ export function PayrollInvoicesTab({
     },
     {
       key: "whtAmount",
+      mobileRole: "detail" as const,
       header: "WHT",
       render: (i: ConsultantInvoice) => (
         <span className="tabular-nums">{formatCurrency(i.whtAmount)}</span>
@@ -84,6 +88,7 @@ export function PayrollInvoicesTab({
     },
     {
       key: "netAmount",
+      mobileRole: "field" as const,
       header: "Net",
       render: (i: ConsultantInvoice) => (
         <span className="tabular-nums">{formatCurrency(i.netAmount)}</span>
@@ -92,6 +97,7 @@ export function PayrollInvoicesTab({
     },
     {
       key: "period",
+      mobileRole: "field" as const,
       header: "Period",
       render: (i: ConsultantInvoice) => (
         <span className="tabular-nums">{i.period}</span>
@@ -99,6 +105,7 @@ export function PayrollInvoicesTab({
     },
     {
       key: "status",
+      mobileRole: "badge" as const,
       header: "Status",
       render: (i: ConsultantInvoice) => (
         <Badge status={i.status}>{i.status}</Badge>

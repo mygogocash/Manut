@@ -106,9 +106,10 @@ export function EsopBulkImportDialog({
         <DialogHeader>
           <DialogTitle>Bulk import ESOP grants</DialogTitle>
           <DialogDescription>
-            Upload an equity-grant spreadsheet. Each non-empty grant value
-            (per-person header extras plus every Equity Type row) becomes its
-            own grant record so admins can see every category per person.
+            Upload HR&rsquo;s &ldquo;Equity Summary Report&rdquo; spreadsheet.
+            Each non-empty grant value (per-person header extras plus every
+            Equity Type row) becomes its own grant record so admins can see
+            every category per person.
           </DialogDescription>
         </DialogHeader>
 
@@ -136,15 +137,15 @@ export function EsopBulkImportDialog({
             <span className="font-mono">Equity Type</span> values:{" "}
             <span className="font-mono">Equity from Contract</span>,{" "}
             <span className="font-mono">Sign-up Equity</span>,{" "}
-            <span className="font-mono">Executive Equity</span>,{" "}
-            <span className="font-mono">Annual Review Equity</span>,{" "}
-            <span className="font-mono">Retention Equity</span>.
+            <span className="font-mono">CXO Equity</span>,{" "}
+            <span className="font-mono">Equity from 2024 Bonus</span>,{" "}
+            <span className="font-mono">Golden Handcuff</span>.
           </p>
           <p className="text-muted-foreground text-xs">
             Each person starts with a header row like{" "}
             <span className="font-mono">
-              Name &mdash; Position | Token Grant (Contract): THB 280,000 |
-              Performance Bonus: 50,000 Tokens
+              Name &mdash; Position | BNRY Tokens (Contract): THB 280,000 |
+              Shark Tank Bonus: 50,000 Tokens
             </span>{" "}
             — both extras are imported as separate grants. Grant rows: fill any
             one of <span className="font-mono">Equity in USD</span>,{" "}
@@ -247,7 +248,8 @@ export function EsopBulkImportDialog({
               onCheckedChange={(v) => setReplace(v === true)}
             />
             <span className="text-foreground">
-              Replace prior imported grants for each matched employee
+              Replace any prior &ldquo;Equity Summary Report&rdquo; grants for
+              each matched employee
             </span>
           </label>
           <p className="text-muted-foreground text-[11px]">

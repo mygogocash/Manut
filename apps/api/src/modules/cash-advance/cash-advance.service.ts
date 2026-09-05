@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
@@ -16,11 +16,6 @@ import {
   cashAdvanceRejectedEmail,
   cashAdvanceSubmittedEmail,
 } from "@/infrastructure/email/templates";
-import {
-  createSignedUrl,
-  requireRegisteredStorageUrl,
-  STORAGE_BUCKETS,
-} from "@/infrastructure/storage/supabase-storage";
 import { PORTAL_URL } from "@/lib/portal-url";
 import {
   cashAdvanceRepository,
@@ -37,6 +32,7 @@ import type {
   UpdateCashAdvanceInput,
   UpdateCashAdvanceStepInput,
 } from "@/modules/cash-advance/cash-advance.validation";
+import { signReceiptUrlIfNeeded } from "@/modules/expenses/expense-shared";
 
 const CASH_ADVANCE_NOTIFICATION_KEY = "cash-advance.notification_recipients";
 
@@ -142,25 +138,6 @@ function sumRequested(
   return items.reduce((sum, it) => sum + Number(it.requestedAmount ?? 0), 0);
 }
 
-async function validateCashAdvanceReceipts(
-  items: ReadonlyArray<{ receiptUrl?: string | null }>,
-  actorId: string,
-): Promise<void> {
-  await Promise.all(
-    items.flatMap((item) =>
-      item.receiptUrl
-        ? [
-            requireRegisteredStorageUrl(item.receiptUrl, {
-              allowedBuckets: [STORAGE_BUCKETS.RECEIPTS],
-              purpose: "cash-advance-receipt",
-              uploadedBy: actorId,
-            }),
-          ]
-        : [],
-    ),
-  );
-}
-
 function canSeeAll(permissions: string[]): boolean {
   return (
     permissions.includes(PERMISSIONS.CASH_ADVANCE_READ_ALL) ||
@@ -235,12 +212,8 @@ export class CashAdvanceService {
     if (!item?.receiptUrl) {
       throw new NotFoundException("No receipt on this line item");
     }
-    const receipt = await requireRegisteredStorageUrl(item.receiptUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.RECEIPTS],
-      purpose: "cash-advance-receipt",
-      uploadedBy: row.employeeId,
-    });
-    const signed = await createSignedUrl(receipt.bucket, receipt.path, 300);
+    const signed = await signReceiptUrlIfNeeded(item.receiptUrl);
+    if (!signed) throw new NotFoundException("No receipt on this line item");
     return { url: signed };
   }
 
@@ -255,18 +228,14 @@ export class CashAdvanceService {
     if (!row.disbursementProofUrl) {
       throw new NotFoundException("No disbursement proof on this request");
     }
-    const proof = await requireRegisteredStorageUrl(row.disbursementProofUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "cash-advance-disbursement-proof",
-      linkedTo: "cash-advance",
-      linkedId: requestId,
-    });
-    const signed = await createSignedUrl(proof.bucket, proof.path, 300);
+    const signed = await signReceiptUrlIfNeeded(row.disbursementProofUrl);
+    if (!signed) {
+      throw new NotFoundException("No disbursement proof on this request");
+    }
     return { url: signed };
   }
 
   async create(input: CreateCashAdvanceInput, actorId: string) {
-    await validateCashAdvanceReceipts(input.items, actorId);
     const requestedTotal = sumRequested(input.items);
     const row = await cashAdvanceRepository.create({
       employeeId: actorId,
@@ -334,7 +303,6 @@ export class CashAdvanceService {
     if (input.notes !== undefined) data.notes = input.notes;
 
     if (input.items) {
-      await validateCashAdvanceReceipts(input.items, actorId);
       data.requestedTotal = sumRequested(input.items);
       await cashAdvanceRepository.replaceItems(
         id,
@@ -389,12 +357,9 @@ export class CashAdvanceService {
   }
 
   async permanentDelete(id: string) {
-    const existing = await cashAdvanceRepository.findByIdIncludingDeleted(id);
+    const existing = await cashAdvanceRepository.findById(id);
     if (!existing) {
       throw new NotFoundException("Cash advance request not found");
-    }
-    if (!existing.deletedAt) {
-      throw new ConflictException("Request is not deleted");
     }
     return cashAdvanceRepository.permanentDelete(id);
   }
@@ -437,6 +402,38 @@ export class CashAdvanceService {
     logger.info(`Cash advance CA-${row.requestNumber} submitted by ${actorId}`);
 
     await this.notifyApprover(decisionRows[0]!, row);
+    return { data: toDTO(row) };
+  }
+
+  // Pull a submitted request back to draft so the owner can edit + resubmit.
+  // Per product decision the owner may unsubmit any time while it is still
+  // "submitted" — any partial approvals are discarded (the snapshot decision
+  // rows are deleted and the chain is rebuilt on the next submit).
+  async withdraw(id: string, actorId: string) {
+    const existing = await cashAdvanceRepository.findById(id);
+    if (!existing) {
+      throw new NotFoundException("Cash advance request not found");
+    }
+    if (existing.employeeId !== actorId) {
+      throw new ForbiddenException("You can only unsubmit your own request");
+    }
+    if (existing.status !== "submitted") {
+      throw new BadRequestException(
+        `Only submitted requests can be unsubmitted (status is "${existing.status}")`,
+      );
+    }
+    await prisma.cashAdvanceApprovalDecision.deleteMany({
+      where: { requestId: id },
+    });
+    const row = await cashAdvanceRepository.update(id, {
+      status: "draft",
+      submittedAt: null,
+      currentStepOrder: null,
+      rejectReason: null,
+    });
+    logger.info(
+      `Cash advance CA-${row.requestNumber} unsubmitted by ${actorId}`,
+    );
     return { data: toDTO(row) };
   }
 
@@ -837,24 +834,11 @@ export class CashAdvanceService {
         `Only approved requests can be marked disbursed (current: ${existing.status})`,
       );
     }
-    const proof = await requireRegisteredStorageUrl(input.proofUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "cash-advance-disbursement-proof",
-      uploadedBy: actorId,
-      linkedTo: "cash-advance",
-      linkedId: id,
-    });
-    const row = await cashAdvanceRepository.markDisbursedIfApproved(id, {
+    const row = await cashAdvanceRepository.update(id, {
+      status: "disbursed",
       disbursedAt: new Date(),
-      proofUploadId: proof.uploadId,
-      proofUrl: input.proofUrl,
-      uploadedBy: actorId,
+      disbursementProofUrl: input.proofUrl,
     });
-    if (!row) {
-      throw new ConflictException(
-        "Cash advance request changed while it was being disbursed; refresh and try again",
-      );
-    }
     logger.info(`Cash advance CA-${row.requestNumber} disbursed by ${actorId}`);
     return { data: toDTO(row) };
   }
@@ -872,15 +856,10 @@ export class CashAdvanceService {
         `Only disbursed requests can be cleared (current: ${existing.status})`,
       );
     }
-    const row = await cashAdvanceRepository.markClearedIfDisbursed(
-      id,
-      new Date(),
-    );
-    if (!row) {
-      throw new ConflictException(
-        "Cash advance request changed while it was being cleared; refresh and try again",
-      );
-    }
+    const row = await cashAdvanceRepository.update(id, {
+      status: "cleared",
+      clearedAt: new Date(),
+    });
     logger.info(`Cash advance CA-${row.requestNumber} cleared by ${actorId}`);
     return { data: toDTO(row) };
   }

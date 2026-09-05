@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  FileDown,
   FileSpreadsheet,
   FileText,
   FileUp,
@@ -27,6 +28,7 @@ import { toast } from "sonner";
 import { PayslipCompanyDialog } from "@/components/hrms/payslip-company-dialog";
 import { PayslipCreateDialog } from "@/components/hrms/payslip-create-dialog";
 import { PayrollBulkImportDialog } from "@/components/payroll/payroll-bulk-import-dialog";
+import { downloadPayslipImportTemplate } from "@/components/payroll/payroll-import-template";
 import { Badge } from "@/components/shared/badge";
 import {
   AlertDialog,
@@ -40,6 +42,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -48,11 +56,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Table } from "@/components/ui/table";
 import { ApiError } from "@/lib/api-client";
 import {
   bulkDeletePayslips,
   downloadGeneratedPayslip,
   downloadGeneratedRunPayslips,
+  downloadPayslipsExport,
   getHrPayslipDownloadUrl,
   type HrPayslip,
   listHrPayslips,
@@ -108,7 +118,7 @@ function writeExpandedToStorage(periods: Set<string>): void {
 }
 
 // Renders the per-currency gross-total summary in the group header.
-// Mixed-currency months are common (Manut operates across THB / INR / VND
+// Mixed-currency months are common (TBH operates across THB / INR / VND
 // / USD), so a single number wouldn't be meaningful.
 function formatGroupTotals(totals: Record<string, number>): string {
   const entries = Object.entries(totals);
@@ -167,6 +177,7 @@ export function PayslipManagementTab({ canManage }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -199,6 +210,29 @@ export function PayslipManagementTab({ canManage }: Props) {
   useEffect(() => {
     void fetchRows();
   }, [fetchRows]);
+
+  // "Export data" — full-breakdown Excel / CSV honouring the period + PDF
+  // filters (the client-only search box doesn't scope the export).
+  async function handleExport(format: "xlsx" | "csv") {
+    try {
+      setExporting(true);
+      await downloadPayslipsExport(format, {
+        period: periodFilter === ALL ? undefined : periodFilter,
+        hasDocument:
+          docFilter === HAS_DOC
+            ? true
+            : docFilter === NO_DOC
+              ? false
+              : undefined,
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to export payslips",
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
 
   // Distinct period options sourced from the list itself so HR doesn't
   // have to guess what's in the system. Sorted DESC so the freshest
@@ -524,7 +558,10 @@ export function PayslipManagementTab({ canManage }: Props) {
           />
         </div>
         <Select value={periodFilter} onValueChange={setPeriodFilter}>
-          <SelectTrigger className="h-9 w-[160px] text-xs">
+          <SelectTrigger
+            className="h-9 w-[160px] text-xs"
+            aria-label="Filter by period"
+          >
             <SelectValue placeholder="Period" />
           </SelectTrigger>
           <SelectContent>
@@ -537,7 +574,10 @@ export function PayslipManagementTab({ canManage }: Props) {
           </SelectContent>
         </Select>
         <Select value={docFilter} onValueChange={setDocFilter}>
-          <SelectTrigger className="h-9 w-[160px] text-xs">
+          <SelectTrigger
+            className="h-9 w-[160px] text-xs"
+            aria-label="Filter by PDF availability"
+          >
             <SelectValue placeholder="PDF" />
           </SelectTrigger>
           <SelectContent>
@@ -568,12 +608,80 @@ export function PayslipManagementTab({ canManage }: Props) {
               type="button"
               size="sm"
               variant="outline"
+              onClick={() => downloadPayslipImportTemplate("xlsx")}
+              className="h-9"
+              title="Download the blank payroll import template (.xlsx) — fill it in, then Import xlsx"
+            >
+              <FileDown className="size-3.5" />
+              Template
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
               onClick={() => setImportOpen(true)}
               className="h-9"
             >
               <FileUp className="size-3.5" />
               Import xlsx
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9"
+                  disabled={exporting}
+                >
+                  {exporting ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Download className="size-3.5" />
+                  )}
+                  Export
+                  <ChevronDown className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => void handleExport("xlsx")}>
+                  <FileSpreadsheet className="size-3.5" />
+                  Excel (.xlsx)
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void handleExport("csv")}>
+                  <FileText className="size-3.5" />
+                  CSV (.csv)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9"
+                >
+                  <FileSpreadsheet className="size-3.5" />
+                  Template
+                  <ChevronDown className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={() => downloadPayslipImportTemplate("xlsx")}
+                >
+                  <FileSpreadsheet className="size-3.5" />
+                  Excel (.xlsx)
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => downloadPayslipImportTemplate("csv")}
+                >
+                  <FileText className="size-3.5" />
+                  CSV (.csv)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               type="button"
               size="sm"
@@ -621,357 +729,356 @@ export function PayslipManagementTab({ canManage }: Props) {
         </div>
       ) : null}
 
-      <div className="border-border overflow-hidden rounded-md border">
-        <table className="w-full text-xs">
-          <thead className="bg-muted/40 text-muted-foreground">
+      {/* `overflow-hidden` CLIPPED this table below 768px -- measured at
+          320-430px, the Status, PDF and Actions columns were unreachable.
+          Using the shared `Table` rather than a bare <div><table> also brings
+          Phase 8D's contained scrolling, conditional tab stop, region role and
+          focus ring; the grouped rows inside are unchanged. */}
+      <Table
+        className="w-full text-xs"
+        containerClassName="border-border rounded-md border"
+        aria-label="Payslips"
+      >
+        <thead className="bg-muted/40 text-muted-foreground">
+          <tr>
+            {canManage ? (
+              <th className="w-9 px-3 py-2 text-left font-medium">
+                <Checkbox
+                  checked={
+                    allVisibleSelected
+                      ? true
+                      : someVisibleSelected
+                        ? "indeterminate"
+                        : false
+                  }
+                  onCheckedChange={toggleAllVisible}
+                  aria-label="Select all visible payslips"
+                  disabled={visibleIds.length === 0}
+                />
+              </th>
+            ) : null}
+            <th className="px-3 py-2 text-left font-medium">Employee</th>
+            <th className="px-3 py-2 text-left font-medium">Entity</th>
+            <th className="px-3 py-2 text-right font-medium">Gross</th>
+            <th className="px-3 py-2 text-right font-medium">Net</th>
+            <th className="px-3 py-2 text-left font-medium">Status</th>
+            <th className="px-3 py-2 text-left font-medium">PDF</th>
+            <th className="px-3 py-2 text-right font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
             <tr>
-              {canManage ? (
-                <th className="w-9 px-3 py-2 text-left font-medium">
-                  <Checkbox
-                    checked={
-                      allVisibleSelected
-                        ? true
-                        : someVisibleSelected
-                          ? "indeterminate"
-                          : false
-                    }
-                    onCheckedChange={toggleAllVisible}
-                    aria-label="Select all visible payslips"
-                    disabled={visibleIds.length === 0}
-                  />
-                </th>
-              ) : null}
-              <th className="px-3 py-2 text-left font-medium">Employee</th>
-              <th className="px-3 py-2 text-left font-medium">Entity</th>
-              <th className="px-3 py-2 text-right font-medium">Gross</th>
-              <th className="px-3 py-2 text-right font-medium">Net</th>
-              <th className="px-3 py-2 text-left font-medium">Status</th>
-              <th className="px-3 py-2 text-left font-medium">PDF</th>
-              <th className="px-3 py-2 text-right font-medium">Actions</th>
+              <td
+                colSpan={canManage ? 8 : 7}
+                className="text-muted-foreground py-12 text-center"
+              >
+                <Loader2 className="mx-auto mb-2 size-4 animate-spin" />
+                Loading…
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={canManage ? 8 : 7}
-                  className="text-muted-foreground py-12 text-center"
-                >
-                  <Loader2 className="mx-auto mb-2 size-4 animate-spin" />
-                  Loading…
-                </td>
-              </tr>
-            ) : groups.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={canManage ? 8 : 7}
-                  className="text-muted-foreground py-12 text-center"
-                >
-                  No payslips match the current filters.
-                </td>
-              </tr>
-            ) : (
-              groups.map((group) => {
-                const expanded = expandedMonths.has(group.period);
-                const selectState = groupSelectionState(group);
-                const canGroupBulk = group.runIds.length === 1;
-                const groupBulkBusy = bulkGenerating?.period === group.period;
-                const statusEntries = Object.entries(group.statusCounts);
-                return (
-                  <Fragment key={group.period}>
-                    <tr
-                      className={`
-                        bg-muted/30 border-border/60 cursor-pointer border-t
-                        hover:bg-muted/50
-                      `}
-                      onClick={() => toggleMonth(group.period)}
-                    >
-                      {canManage ? (
-                        <td
-                          className="px-3 py-2 align-middle"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Checkbox
-                            checked={selectState}
-                            onCheckedChange={() => toggleGroupSelection(group)}
-                            aria-label={`Select all payslips for ${group.label}`}
-                          />
-                        </td>
-                      ) : null}
-                      <td colSpan={7} className="px-3 py-2">
-                        <div className="flex flex-wrap items-center gap-3">
-                          {expanded ? (
-                            <ChevronDown
-                              className={`text-muted-foreground size-4 shrink-0`}
-                            />
-                          ) : (
-                            <ChevronRight
-                              className={`text-muted-foreground size-4 shrink-0`}
-                            />
-                          )}
-                          <span className="text-foreground font-semibold">
-                            {group.label}
-                          </span>
-                          <span className="text-muted-foreground text-[11px]">
-                            {group.count} payslip
-                            {group.count === 1 ? "" : "s"}
-                          </span>
-                          <span
-                            className={`
-                              text-muted-foreground text-[11px] tabular-nums
-                            `}
-                          >
-                            {formatGroupTotals(group.totalGrossByCurrency)}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {statusEntries.map(([status, n]) => (
-                              <Badge key={status} status={status}>
-                                {n} {status}
-                              </Badge>
-                            ))}
-                          </div>
-                          {canManage ? (
-                            <div
-                              className="ml-auto flex items-center gap-1"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  handleGroupBulkGenerate(group, "xlsx")
-                                }
-                                disabled={!canGroupBulk || !!bulkGenerating}
-                                className="h-7 text-[11px]"
-                                title={
-                                  canGroupBulk
-                                    ? `Generate Excel for ${group.label}`
-                                    : "Multiple entities in this month — filter to a single entity first"
-                                }
-                              >
-                                {groupBulkBusy &&
-                                bulkGenerating?.format === "xlsx" ? (
-                                  <Loader2 className="size-3 animate-spin" />
-                                ) : (
-                                  <FileSpreadsheet className="size-3" />
-                                )}
-                                xlsx
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  handleGroupBulkGenerate(group, "pdf")
-                                }
-                                disabled={!canGroupBulk || !!bulkGenerating}
-                                className="h-7 text-[11px]"
-                                title={
-                                  canGroupBulk
-                                    ? `Generate PDF for ${group.label}`
-                                    : "Multiple entities in this month — filter to a single entity first"
-                                }
-                              >
-                                {groupBulkBusy &&
-                                bulkGenerating?.format === "pdf" ? (
-                                  <Loader2 className="size-3 animate-spin" />
-                                ) : (
-                                  <FileText className="size-3" />
-                                )}
-                                PDF
-                              </Button>
-                            </div>
-                          ) : null}
-                        </div>
+          ) : groups.length === 0 ? (
+            <tr>
+              <td
+                colSpan={canManage ? 8 : 7}
+                className="text-muted-foreground py-12 text-center"
+              >
+                No payslips match the current filters.
+              </td>
+            </tr>
+          ) : (
+            groups.map((group) => {
+              const expanded = expandedMonths.has(group.period);
+              const selectState = groupSelectionState(group);
+              const canGroupBulk = group.runIds.length === 1;
+              const groupBulkBusy = bulkGenerating?.period === group.period;
+              const statusEntries = Object.entries(group.statusCounts);
+              return (
+                <Fragment key={group.period}>
+                  <tr
+                    className={`
+                      bg-muted/30 border-border/60 cursor-pointer border-t
+                      hover:bg-muted/50
+                    `}
+                    onClick={() => toggleMonth(group.period)}
+                  >
+                    {canManage ? (
+                      <td
+                        className="px-3 py-2 align-middle"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={selectState}
+                          onCheckedChange={() => toggleGroupSelection(group)}
+                          aria-label={`Select all payslips for ${group.label}`}
+                        />
                       </td>
-                    </tr>
-                    {expanded
-                      ? group.rows.map((slip) => {
-                          const busy = busyRowId === slip.id;
-                          const checked = selected.has(slip.id);
-                          return (
-                            <tr
-                              key={slip.id}
-                              className="border-border/60 border-t"
+                    ) : null}
+                    <td colSpan={7} className="px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-3">
+                        {expanded ? (
+                          <ChevronDown
+                            className={`text-muted-foreground size-4 shrink-0`}
+                          />
+                        ) : (
+                          <ChevronRight
+                            className={`text-muted-foreground size-4 shrink-0`}
+                          />
+                        )}
+                        <span className="text-foreground font-semibold">
+                          {group.label}
+                        </span>
+                        <span className="text-muted-foreground text-[11px]">
+                          {group.count} payslip
+                          {group.count === 1 ? "" : "s"}
+                        </span>
+                        <span
+                          className={`
+                            text-muted-foreground text-[11px] tabular-nums
+                          `}
+                        >
+                          {formatGroupTotals(group.totalGrossByCurrency)}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {statusEntries.map(([status, n]) => (
+                            <Badge key={status} status={status}>
+                              {n} {status}
+                            </Badge>
+                          ))}
+                        </div>
+                        {canManage ? (
+                          <div
+                            className="ml-auto flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                handleGroupBulkGenerate(group, "xlsx")
+                              }
+                              disabled={!canGroupBulk || !!bulkGenerating}
+                              className="h-7 text-[11px]"
+                              title={
+                                canGroupBulk
+                                  ? `Generate Excel for ${group.label}`
+                                  : "Multiple entities in this month — filter to a single entity first"
+                              }
                             >
-                              {canManage ? (
-                                <td className="px-3 py-2 align-middle">
-                                  <Checkbox
-                                    checked={checked}
-                                    onCheckedChange={() => toggleRow(slip.id)}
-                                    aria-label={`Select payslip for ${slip.employee.name}`}
-                                  />
-                                </td>
-                              ) : null}
-                              <td className="px-3 py-2">
-                                <div className="flex flex-col">
-                                  <span className="text-foreground font-medium">
-                                    {slip.employee.name}
-                                  </span>
-                                  {slip.employee.department && (
-                                    <span
-                                      className={`
-                                        text-muted-foreground text-[10px]
-                                        uppercase
-                                      `}
-                                    >
-                                      {slip.employee.department}
-                                    </span>
-                                  )}
-                                </div>
+                              {groupBulkBusy &&
+                              bulkGenerating?.format === "xlsx" ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <FileSpreadsheet className="size-3" />
+                              )}
+                              xlsx
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                handleGroupBulkGenerate(group, "pdf")
+                              }
+                              disabled={!canGroupBulk || !!bulkGenerating}
+                              className="h-7 text-[11px]"
+                              title={
+                                canGroupBulk
+                                  ? `Generate PDF for ${group.label}`
+                                  : "Multiple entities in this month — filter to a single entity first"
+                              }
+                            >
+                              {groupBulkBusy &&
+                              bulkGenerating?.format === "pdf" ? (
+                                <Loader2 className="size-3 animate-spin" />
+                              ) : (
+                                <FileText className="size-3" />
+                              )}
+                              PDF
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                  {expanded
+                    ? group.rows.map((slip) => {
+                        const busy = busyRowId === slip.id;
+                        const checked = selected.has(slip.id);
+                        return (
+                          <tr
+                            key={slip.id}
+                            className="border-border/60 border-t"
+                          >
+                            {canManage ? (
+                              <td className="px-3 py-2 align-middle">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={() => toggleRow(slip.id)}
+                                  aria-label={`Select payslip for ${slip.employee.name}`}
+                                />
                               </td>
-                              <td className="text-muted-foreground px-3 py-2">
-                                {slip.payrollRun.entity.name}
-                              </td>
-                              <td className="px-3 py-2 text-right tabular-nums">
-                                {formatCurrency(slip.grossPay, slip.currency)}
-                              </td>
-                              <td className="px-3 py-2 text-right tabular-nums">
-                                {formatCurrency(slip.netPay, slip.currency)}
-                              </td>
-                              <td className="px-3 py-2">
-                                <Badge status={slip.payrollRun.status}>
-                                  {slip.payrollRun.status}
-                                </Badge>
-                              </td>
-                              <td className="px-3 py-2">
-                                {slip.documentUrl ? (
+                            ) : null}
+                            <td className="px-3 py-2">
+                              <div className="flex flex-col">
+                                <span className="text-foreground font-medium">
+                                  {slip.employee.name}
+                                </span>
+                                {slip.employee.department && (
                                   <span
                                     className={`
-                                      flex items-center gap-1.5 text-emerald-600
+                                      text-muted-foreground text-[10px]
+                                      uppercase
                                     `}
                                   >
-                                    <FileText className="size-3.5" />
-                                    Attached
-                                  </span>
-                                ) : (
-                                  <span
-                                    className={`
-                                      text-muted-foreground text-[11px]
-                                    `}
-                                  >
-                                    Missing
+                                    {slip.employee.department}
                                   </span>
                                 )}
-                              </td>
-                              <td className="px-3 py-2 text-right">
-                                <div
+                              </div>
+                            </td>
+                            <td className="text-muted-foreground px-3 py-2">
+                              {slip.payrollRun.entity.name}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">
+                              {formatCurrency(slip.grossPay, slip.currency)}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums">
+                              {formatCurrency(slip.netPay, slip.currency)}
+                            </td>
+                            <td className="px-3 py-2">
+                              <Badge status={slip.payrollRun.status}>
+                                {slip.payrollRun.status}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-2">
+                              {slip.documentUrl ? (
+                                <span
                                   className={`
-                                    flex items-center justify-end gap-1
+                                    flex items-center gap-1.5 text-emerald-600
                                   `}
                                 >
+                                  <FileText className="size-3.5" />
+                                  Attached
+                                </span>
+                              ) : (
+                                <span
+                                  className={`text-muted-foreground text-[11px]`}
+                                >
+                                  Missing
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <div
+                                className={`flex items-center justify-end gap-1`}
+                              >
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => handleGenerate(slip, "xlsx")}
+                                  disabled={busy}
+                                  title="Generate Excel payslip"
+                                >
+                                  {busy ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <FileSpreadsheet className="size-3.5" />
+                                  )}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => handleGenerate(slip, "pdf")}
+                                  disabled={busy}
+                                  title="Generate PDF payslip"
+                                >
+                                  {busy ? (
+                                    <Loader2 className="size-3.5 animate-spin" />
+                                  ) : (
+                                    <FileText className="size-3.5" />
+                                  )}
+                                </Button>
+                                {slip.documentUrl ? (
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon-sm"
-                                    onClick={() => handleGenerate(slip, "xlsx")}
+                                    onClick={() => handleDownload(slip)}
                                     disabled={busy}
-                                    title="Generate Excel payslip"
+                                    title="Download attached PDF"
                                   >
                                     {busy ? (
-                                      <Loader2 className="size-3.5 animate-spin" />
+                                      <Loader2
+                                        className={`size-3.5 animate-spin`}
+                                      />
                                     ) : (
-                                      <FileSpreadsheet className="size-3.5" />
+                                      <Download className="size-3.5" />
                                     )}
                                   </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    onClick={() => handleGenerate(slip, "pdf")}
-                                    disabled={busy}
-                                    title="Generate PDF payslip"
-                                  >
-                                    {busy ? (
-                                      <Loader2 className="size-3.5 animate-spin" />
-                                    ) : (
-                                      <FileText className="size-3.5" />
-                                    )}
-                                  </Button>
-                                  {slip.documentUrl ? (
+                                ) : null}
+                                {canManage ? (
+                                  <>
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="icon-sm"
-                                      onClick={() => handleDownload(slip)}
+                                      onClick={() =>
+                                        fileInputs.current.get(slip.id)?.click()
+                                      }
                                       disabled={busy}
-                                      title="Download attached PDF"
+                                      title={
+                                        slip.documentUrl
+                                          ? "Replace PDF"
+                                          : "Upload PDF"
+                                      }
                                     >
-                                      {busy ? (
-                                        <Loader2
-                                          className={`size-3.5 animate-spin`}
-                                        />
-                                      ) : (
-                                        <Download className="size-3.5" />
-                                      )}
+                                      <Upload className="size-3.5" />
                                     </Button>
-                                  ) : null}
-                                  {canManage ? (
-                                    <>
+                                    <input
+                                      ref={(node) => {
+                                        fileInputs.current.set(slip.id, node);
+                                      }}
+                                      type="file"
+                                      accept="application/pdf"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          void handleUpload(slip, file);
+                                        }
+                                      }}
+                                    />
+                                    {slip.documentUrl ? (
                                       <Button
                                         type="button"
                                         variant="ghost"
                                         size="icon-sm"
-                                        onClick={() =>
-                                          fileInputs.current
-                                            .get(slip.id)
-                                            ?.click()
-                                        }
+                                        onClick={() => handleRemove(slip)}
                                         disabled={busy}
-                                        title={
-                                          slip.documentUrl
-                                            ? "Replace PDF"
-                                            : "Upload PDF"
-                                        }
+                                        title="Remove PDF"
                                       >
-                                        <Upload className="size-3.5" />
+                                        <Trash2
+                                          className={`text-destructive size-3.5`}
+                                        />
                                       </Button>
-                                      <input
-                                        ref={(node) => {
-                                          fileInputs.current.set(slip.id, node);
-                                        }}
-                                        type="file"
-                                        accept="application/pdf"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0];
-                                          if (file) {
-                                            void handleUpload(slip, file);
-                                          }
-                                        }}
-                                      />
-                                      {slip.documentUrl ? (
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="icon-sm"
-                                          onClick={() => handleRemove(slip)}
-                                          disabled={busy}
-                                          title="Remove PDF"
-                                        >
-                                          <Trash2
-                                            className={`
-                                              text-destructive size-3.5
-                                            `}
-                                          />
-                                        </Button>
-                                      ) : null}
-                                    </>
-                                  ) : null}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      : null}
-                  </Fragment>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                                    ) : null}
+                                  </>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    : null}
+                </Fragment>
+              );
+            })
+          )}
+        </tbody>
+      </Table>
 
       <PayslipCreateDialog
         open={createOpen}

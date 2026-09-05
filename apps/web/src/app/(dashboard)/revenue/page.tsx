@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import {
   getRevenueDashboard,
@@ -29,7 +30,7 @@ export default function RevenuePage() {
   const [data, setData] = useState<RevenueDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<RevenuePeriod>("12m");
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useTabParam("overview");
 
   const fetchDashboard = useCallback(async () => {
     try {

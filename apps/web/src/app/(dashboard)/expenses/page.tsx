@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ExchangeRatesManagerDialog } from "@/components/crm/exchange-rates-manager-dialog";
@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/select";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/format-currency";
 import { useAuth } from "@/providers/auth-provider";
@@ -132,12 +133,10 @@ export default function ExpensesPage() {
   // investor pipeline) for whoever can edit rates.
   const canManageFx = hasPermission("accounting:admin");
 
-  // Persist the active tab in the URL (?tab=) so returning from a report
-  // detail restores the same tab instead of resetting to the role default
-  // (approvers default to "pending"). Validate the param against the tabs
-  // this user may actually see — an employee can't force ?tab=all.
+  // The active tab is persisted in the URL (?tab=) via useTabParam below so a
+  // reload / return from a report detail restores the same tab instead of the
+  // role default. This page also persists the All-reports page + month filter.
   const searchParams = useSearchParams();
-  const requestedTab = searchParams?.get("tab");
   // Persist the All-reports page in the URL (?page=) so returning from a
   // report detail (or browser-back) restores the page the user was on
   // instead of resetting to page 1. Seed it into usePagination's
@@ -152,16 +151,9 @@ export default function ExpensesPage() {
   const initialPeriod = /^\d{4}-(0[1-9]|1[0-2])$/.test(requestedPeriod)
     ? requestedPeriod
     : "";
-  const initialTab =
-    requestedTab === "my" ||
-    (requestedTab === "pending" && canApprove) ||
-    (requestedTab === "all" && canViewAll)
-      ? requestedTab
-      : canApprove
-        ? "pending"
-        : "my";
-
-  const [activeTab, setActiveTab] = useState(initialTab);
+  // Default tab is role-based (approvers land on "pending"); useTabParam
+  // restores ?tab= over this default on reload.
+  const [activeTab, setActiveTab] = useTabParam(canApprove ? "pending" : "my");
   const [alertConfigOpen, setAlertConfigOpen] = useState(false);
   const [fxOpen, setFxOpen] = useState(false);
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -171,6 +163,16 @@ export default function ExpensesPage() {
   const [periodFilter, setPeriodFilter] = useState(initialPeriod);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 350);
+  /**
+   * What actually goes to the server. Blank collapses to `undefined` so an empty
+   * box means "no filter" rather than a term that matches nothing.
+   *
+   * This used to be filtered in the browser instead, over whichever page had
+   * already been fetched — so a name matched only if its row happened to be on
+   * screen, and picking a month appeared to fix it because `period` IS a server
+   * filter and cut the set down enough to pull the row onto page one.
+   */
+  const searchTerm = debouncedSearch.trim() || undefined;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ExpenseReportSummary | null>(
@@ -211,9 +213,11 @@ export default function ExpensesPage() {
   const myPage = myPagination.page;
   const myPageSize = myPagination.pageSize;
   const setMyTotal = myPagination.setTotalCount;
+  const setMyPage = myPagination.setPage;
   const pendingPage = pendingPagination.page;
   const pendingPageSize = pendingPagination.pageSize;
   const setPendingTotal = pendingPagination.setTotalCount;
+  const setPendingPage = pendingPagination.setPage;
   const allPage = allPagination.page;
   const allPageSize = allPagination.pageSize;
   const setAllTotal = allPagination.setTotalCount;
@@ -282,6 +286,31 @@ export default function ExpensesPage() {
     setAllPageWithUrl,
   ]);
 
+  // Reset to page 1 whenever the term changes: page 5 of an unfiltered list is
+  // usually past the end of a filtered one, and the existing clamp cannot help
+  // when a search matches nothing (it only fires on a non-zero total).
+  const firstSearchRun = useRef(true);
+  useEffect(() => {
+    if (firstSearchRun.current) {
+      firstSearchRun.current = false;
+      return;
+    }
+    setMyPage(1);
+    setPendingPage(1);
+    setAllPage(1);
+    // Only rewrite the URL on the tab that owns page in the URL, or a search
+    // typed on another tab would drag the reader to All reports.
+    if (activeTab === "all") replaceAllUrl(1, periodFilter);
+  }, [
+    debouncedSearch,
+    activeTab,
+    periodFilter,
+    setMyPage,
+    setPendingPage,
+    setAllPage,
+    replaceAllUrl,
+  ]);
+
   const fetchMy = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -298,6 +327,7 @@ export default function ExpensesPage() {
           statusFilter !== ALL_FILTER
             ? (statusFilter as ExpenseReportStatus)
             : undefined,
+        search: searchTerm,
       });
       setMyReports(res.data);
       setMyTotal(res.meta.total);
@@ -308,7 +338,7 @@ export default function ExpensesPage() {
     } finally {
       setLoadingMy(false);
     }
-  }, [user?.id, myPage, myPageSize, setMyTotal, statusFilter]);
+  }, [user?.id, myPage, myPageSize, setMyTotal, statusFilter, searchTerm]);
 
   const fetchPending = useCallback(async () => {
     if (!canApprove) return;
@@ -318,6 +348,7 @@ export default function ExpensesPage() {
         page: pendingPage,
         limit: pendingPageSize,
         pendingForMe: true,
+        search: searchTerm,
       });
       setPendingReports(res.data);
       setPendingTotal(res.meta.total);
@@ -328,7 +359,7 @@ export default function ExpensesPage() {
     } finally {
       setLoadingPending(false);
     }
-  }, [pendingPage, pendingPageSize, setPendingTotal, canApprove]);
+  }, [pendingPage, pendingPageSize, setPendingTotal, canApprove, searchTerm]);
 
   const fetchAll = useCallback(async () => {
     if (!canViewAll) return;
@@ -345,6 +376,7 @@ export default function ExpensesPage() {
             ? (statusFilter as ExpenseReportStatus)
             : undefined,
         period: periodFilter || undefined,
+        search: searchTerm,
       });
       setAllReports(res.data);
       setAllTotal(res.meta.total);
@@ -362,6 +394,7 @@ export default function ExpensesPage() {
     statusFilter,
     periodFilter,
     canViewAll,
+    searchTerm,
   ]);
 
   useEffect(() => {
@@ -414,6 +447,7 @@ export default function ExpensesPage() {
     () => [
       {
         key: "period",
+        mobileRole: "subtitle" as const,
         header: "Period",
         render: (r: ExpenseReportSummary) => (
           <span className="font-mono text-[12px]">{r.period}</span>
@@ -421,6 +455,7 @@ export default function ExpensesPage() {
       },
       {
         key: "title",
+        mobileRole: "title" as const,
         header: "Title",
         render: (r: ExpenseReportSummary) => (
           <div>
@@ -433,11 +468,13 @@ export default function ExpensesPage() {
       },
       {
         key: "expenses",
+        mobileRole: "field" as const,
         header: "Expenses",
         render: (r: ExpenseReportSummary) => String(r._count?.expenses ?? 0),
       },
       {
         key: "total",
+        mobileRole: "field" as const,
         header: "Total",
         className: "text-right",
         render: (r: ExpenseReportSummary) => {
@@ -472,11 +509,13 @@ export default function ExpensesPage() {
       },
       {
         key: "submittedAt",
+        mobileRole: "detail" as const,
         header: "Submitted",
         render: (r: ExpenseReportSummary) => formatDate(r.submittedAt),
       },
       {
         key: "status",
+        mobileRole: "badge" as const,
         header: "Status",
         render: (r: ExpenseReportSummary) => (
           <Badge variant={STATUS_VARIANT[r.status] ?? "grey"}>
@@ -486,6 +525,7 @@ export default function ExpensesPage() {
       },
       {
         key: "actions",
+        mobileRole: "actions" as const,
         header: "",
         className: "text-right",
         // Two delete paths:
@@ -630,7 +670,7 @@ export default function ExpensesPage() {
         <TabsContent value="my">
           <DataTable
             columns={reportColumns}
-            data={myFiltered}
+            data={myReports}
             loading={loadingMy}
             emptyMessage="You have no reports yet — click New report to start."
             onRowClick={(r) =>
@@ -653,7 +693,7 @@ export default function ExpensesPage() {
           <TabsContent value="pending">
             <DataTable
               columns={reportColumns}
-              data={pendingFiltered}
+              data={pendingReports}
               loading={loadingPending}
               emptyMessage="Nothing waiting on you — direct reports submit reports here."
               onRowClick={(r) =>
@@ -708,7 +748,7 @@ export default function ExpensesPage() {
             ) : null}
             <DataTable
               columns={reportColumns}
-              data={allFiltered}
+              data={allReports}
               loading={loadingAll}
               emptyMessage="No reports in the workspace yet."
               onRowClick={(r) =>

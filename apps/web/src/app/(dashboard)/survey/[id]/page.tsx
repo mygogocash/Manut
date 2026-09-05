@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/shared/badge";
 import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent } from "@/components/shared/tabs";
+import { AnswerCell } from "@/components/survey/answer-cell";
 import { SurveyBuilder } from "@/components/survey/survey-form-builder";
 import { exportSurveyResponsesCsv } from "@/components/survey/survey-form-export";
 import { SurveyPublishDialog } from "@/components/survey/survey-form-publish-dialog";
@@ -698,8 +699,8 @@ function ResponsesTable({
                   const a = r.answers.find((x) => x.questionId === q.id);
                   const val = a?.value;
                   return (
-                    <td key={q.id} className="px-2 py-1.5">
-                      {Array.isArray(val) ? val.join(", ") : String(val ?? "—")}
+                    <td key={q.id} className="px-2 py-1.5 align-top">
+                      <AnswerCell value={val} />
                     </td>
                   );
                 })}

@@ -103,13 +103,14 @@ export class LegalCrmService {
   // ─── Project CRUD ─────────────────────────────────────────────
 
   async list(userId: string, perms: string[], query: LegalProjectQuery) {
-    const { page, limit, search, status, department } = query;
+    const { page, limit, search, status, department, archived } = query;
     const canSeeAll =
       perms.includes(PERMISSIONS.LEGAL_CRM_READ_ALL) ||
       perms.includes(PERMISSIONS.PROJECTS_READ_ALL);
 
     const where: Parameters<typeof prisma.legalProject.findMany>[0] extends
-      { where?: infer W } | undefined
+      | { where?: infer W }
+      | undefined
       ? W
       : never = {};
     if (search) {
@@ -121,6 +122,10 @@ export class LegalCrmService {
     }
     if (status) where.status = status;
     if (department) where.department = department;
+    // Archive is orthogonal to status: default view shows active projects
+    // only; the Archived tab (archived=true) shows the archived ones. Applied
+    // to both findMany and count so pagination totals match the view.
+    where.archivedAt = archived ? { not: null } : null;
     if (!canSeeAll) {
       where.OR = [
         ...(where.OR ?? []),
@@ -299,6 +304,45 @@ export class LegalCrmService {
     requireOwnerOrManage(role, perms);
     await prisma.legalProject.delete({ where: { id } });
     return { success: true };
+  }
+
+  // Reversible hide. Owner-or-manage enforced in the SERVICE (not just the
+  // route) so a plain legal-crm:update holder can't archive another team's
+  // project — same IDOR guard as delete/update. Idempotent: re-archiving keeps
+  // the original archive time; archive state lives on this native row only and
+  // is not propagated to the shared `projects` board mirror.
+  async archive(id: string, userId: string, perms: string[]) {
+    const role = await requireMembership(id, userId, perms);
+    requireOwnerOrManage(role, perms);
+    const existing = await prisma.legalProject.findUnique({
+      where: { id },
+      select: { archivedAt: true },
+    });
+    if (!existing) throw new NotFoundException("Legal project not found");
+    return prisma.legalProject.update({
+      where: { id },
+      data: { archivedAt: existing.archivedAt ?? new Date() },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async unarchive(id: string, userId: string, perms: string[]) {
+    const role = await requireMembership(id, userId, perms);
+    requireOwnerOrManage(role, perms);
+    const existing = await prisma.legalProject.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException("Legal project not found");
+    return prisma.legalProject.update({
+      where: { id },
+      data: { archivedAt: null },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
   }
 
   async reorder(input: ReorderLegalProjectsInput) {

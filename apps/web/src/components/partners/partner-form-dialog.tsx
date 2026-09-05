@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -58,7 +58,7 @@ export function PartnerFormDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<PartnerFormValues>({
-    resolver: standardSchemaResolver(partnerFormSchema),
+    resolver: zodResolver(partnerFormSchema),
     defaultValues: PARTNER_FORM_DEFAULTS,
   });
 
@@ -138,20 +138,18 @@ export function PartnerFormDialog({
               })) ?? [],
           });
           // Inject the bound owner if the directory slice didn't.
-          if (full.owner) {
-            const owner = full.owner;
-            setAssignableUsers((prev) =>
-              prev.some((u) => u.id === owner.id)
-                ? prev
-                : [
-                    {
-                      id: owner.id,
-                      name: owner.name,
-                      email: owner.email,
-                    } as AssignableUser,
-                    ...prev,
-                  ],
-            );
+          if (
+            full.owner &&
+            !assignableUsers.some((u) => u.id === full.owner!.id)
+          ) {
+            setAssignableUsers((prev) => [
+              {
+                id: full.owner!.id,
+                name: full.owner!.name,
+                email: full.owner!.email,
+              } as AssignableUser,
+              ...prev,
+            ]);
           }
         })
         .catch(() => {
@@ -166,6 +164,10 @@ export function PartnerFormDialog({
     } else {
       form.reset(PARTNER_FORM_DEFAULTS);
     }
+    // `assignableUsers` intentionally excluded — including it would
+    // re-trigger the reset every time we inject a new owner, blowing
+    // away user edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, partner, form]);
 
   async function onSubmit(values: PartnerFormValues) {

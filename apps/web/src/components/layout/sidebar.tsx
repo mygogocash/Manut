@@ -39,16 +39,20 @@ import {
   Send,
   Settings,
   Shield,
+  Sparkles,
   Ticket,
   TrendingUp,
   User,
   Users,
   Wallet,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { IT_SURFACES } from "@/components/it/it-workspace-tabs";
+import { AccountMenuItems } from "@/components/layout/account-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -79,8 +83,12 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import { useBusinessUnits } from "@/hooks/use-business-units";
+import { MARKETING_ANALYTICS_ENABLED } from "@/lib/feature-flags";
 import { useAuth } from "@/providers/auth-provider";
+import { BUSINESS_UNIT_UNASSIGNED } from "@/services/crm-business-unit.service";
 import { getHelpdeskInboxCount } from "@/services/helpdesk.service";
 import { getMessagesUnreadCount } from "@/services/message.service";
 
@@ -89,6 +97,13 @@ interface NavChild {
   label: string;
   href: string;
   permissions?: string[];
+  /**
+   * Query params that must match the current URL for this child to read as
+   * active. Lets several children share one pathname and differ only by a
+   * filter — e.g. the Sales CRM business-unit views, all on `/sales`. An
+   * empty-string value means "the param must be absent or empty".
+   */
+  matchParams?: Record<string, string>;
 }
 
 interface NavItem {
@@ -111,6 +126,36 @@ interface NavGroup {
   items: NavItem[];
 }
 
+/**
+ * IT CRM children, derived from the SAME `IT_SURFACES` list the in-page tab
+ * strip renders from.
+ *
+ * Derived rather than re-declared on purpose: the nav and the strip now show
+ * the same five surfaces, and two hand-kept lists would drift the first time
+ * somebody adds a surface to one of them. Labels, hrefs and per-child
+ * permissions all come from that single source.
+ */
+export function buildItCrmChildren(): NavChild[] {
+  return IT_SURFACES.map((surface) => ({
+    id: `it-crm-${surface.id}`,
+    label: surface.label,
+    href: surface.href,
+    permissions: [...surface.permissions],
+  }));
+}
+
+/**
+ * Union of every IT surface's permissions — what the IT CRM parent row must
+ * carry so an actor who can reach only ONE surface still sees the group.
+ *
+ * Derived from the same list for the same reason as the children. Note this
+ * union is deliberately wider than `/it-crm`'s own gate, which is pinned back
+ * in the dashboard layout's ROUTE_PATTERN_OVERRIDES.
+ */
+export function itCrmParentPermissions(): string[] {
+  return [...new Set(IT_SURFACES.flatMap((s) => s.permissions))];
+}
+
 /** People self-service modules — shared between full nav and employee-only nav. */
 const HR_SELF_SERVICE_NAV_ITEMS: NavItem[] = [
   {
@@ -127,19 +172,6 @@ const HR_SELF_SERVICE_NAV_ITEMS: NavItem[] = [
       "hrms:attendance-policy-manage",
       "hrms:attendance-correction-approve",
       "hrms:attendance-report-export",
-    ],
-  },
-  {
-    id: "performance",
-    label: "Performance",
-    href: "/performance",
-    icon: TrendingUp,
-    permissions: [
-      "performance:read",
-      "performance:self-review",
-      "performance:manager-review",
-      "performance:hr-manage",
-      "performance:goals",
     ],
   },
   {
@@ -274,6 +306,14 @@ const NAV_GROUPS: NavGroup[] = [
         permissions: ["home:read"],
       },
       {
+        id: "aria",
+        label: "ARIA",
+        href: "/aria",
+        icon: Sparkles,
+        badge: "AI",
+        permissions: ["aria:use"],
+      },
+      {
         id: "messages",
         label: "Messaging",
         href: "/messages",
@@ -289,17 +329,101 @@ const NAV_GROUPS: NavGroup[] = [
       },
       {
         id: "projects",
-        label: "Project CRM",
+        label: "Integration CRM",
         href: "/projects",
         icon: FolderKanban,
-        permissions: ["projects:read"],
+        // Widened to include proposals, so somebody granted only
+        // `proposals:read` still sees the parent and reaches its one child.
+        // `projects:manage` is the Project CRM super-grant the proposals API
+        // also honours, so it appears here for the same reason.
+        permissions: ["projects:read", "proposals:read", "projects:manage"],
+        children: [
+          {
+            id: "projects-board",
+            label: "Projects",
+            href: "/projects",
+            permissions: ["projects:read"],
+          },
+          {
+            id: "projects-requests",
+            label: "Requests",
+            href: "/projects/requests",
+            permissions: ["projects:read"],
+          },
+          {
+            id: "projects-proposals",
+            label: "Proposals",
+            href: "/projects/proposals",
+            permissions: ["proposals:read", "projects:manage"],
+          },
+        ],
       },
       {
         id: "partners",
-        label: "Partners",
+        label: "Marketing CRM",
         href: "/partners",
         icon: Building2,
-        permissions: ["partners:read"],
+        // Visible if the user can see any child (Partners / Analytics / Campaigns).
+        permissions: [
+          "partners:read",
+          "marketing:dashboard:view",
+          "marketing:raw:view",
+          "marketing:campaign:view",
+          "marketing:reports:view",
+        ],
+        children: [
+          {
+            id: "partners-list",
+            label: "Partners",
+            href: "/partners",
+            permissions: ["partners:read"],
+          },
+          // The six entries below are the Marketing Analytics family and are
+          // filtered out entirely when the flag is off — see
+          // MARKETING_ANALYTICS_CHILD_IDS at the bottom of this block. Partners
+          // above is the original module and keeps the parent visible.
+          {
+            id: "marketing-analytics",
+            label: "Marketing Analytics",
+            href: "/marketing-analytics",
+            permissions: ["marketing:dashboard:view", "marketing:raw:view"],
+          },
+          {
+            id: "marketing-partners",
+            label: "Partner Workspaces",
+            href: "/marketing-analytics/partners",
+            permissions: ["marketing:dashboard:view", "marketing:raw:view"],
+          },
+          {
+            id: "marketing-traffic",
+            label: "Traffic Dashboard",
+            href: "/marketing-analytics/traffic",
+            permissions: ["marketing:dashboard:view", "marketing:raw:view"],
+          },
+          {
+            id: "marketing-dau-mau",
+            label: "DAU / MAU",
+            href: "/marketing-analytics/dau-mau",
+            permissions: ["marketing:dashboard:view", "marketing:raw:view"],
+          },
+          {
+            id: "marketing-campaigns",
+            label: "Campaign CRM",
+            href: "/marketing-analytics/campaigns",
+            permissions: [
+              "marketing:campaign:view",
+              "marketing:campaign:create",
+              "marketing:campaign:update",
+              "marketing:campaign:delete",
+            ],
+          },
+          {
+            id: "marketing-reports",
+            label: "Analytics & Reports",
+            href: "/marketing-analytics/reports",
+            permissions: ["marketing:reports:view", "marketing:campaign:view"],
+          },
+        ],
       },
       {
         id: "sales",
@@ -307,13 +431,6 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/sales",
         icon: Briefcase,
         permissions: ["crm:read", "deals:read"],
-      },
-      {
-        id: "sales-revenue",
-        label: "Sales Revenue CRM",
-        href: "/sales-revenue",
-        icon: Briefcase,
-        permissions: ["sales-revenue:read"],
       },
       {
         id: "product-crm",
@@ -331,7 +448,16 @@ const NAV_GROUPS: NavGroup[] = [
         label: "IT CRM",
         href: "/it-crm",
         icon: Cpu,
-        permissions: ["it-crm:read", "it-crm:read-all", "projects:read"],
+        // Union of the children's perms, so somebody who can ONLY reach one
+        // surface still gets the parent. On production the Employee role
+        // holds `it:access:request` and NOTHING from the IT CRM set — 50
+        // users whose only route to the access-request form was the old
+        // top-level IT Operations row. Without the union they lose the nav
+        // entirely. `/it-crm` itself is pinned back to its own narrower gate
+        // in ROUTE_PATTERN_OVERRIDES; without that pin it would inherit this
+        // union by longest-prefix and hand the project board to all of them.
+        permissions: itCrmParentPermissions(),
+        children: buildItCrmChildren(),
       },
       {
         id: "legal-crm",
@@ -367,19 +493,6 @@ const NAV_GROUPS: NavGroup[] = [
         href: "/it-helpdesk",
         icon: Headset,
         permissions: ["it:read", "it:read-all", "it:create"],
-      },
-      {
-        id: "it-operations",
-        label: "IT Operations",
-        href: "/it-operations",
-        icon: HardDrive,
-        permissions: [
-          "it:dashboard:view",
-          "it:billing:view",
-          "it:access:view",
-          "it:access:request",
-          "it:access:manage",
-        ],
       },
     ],
   },
@@ -634,10 +747,98 @@ function formatBadgeCount(n: number): string | undefined {
   return n > 99 ? "99+" : String(n);
 }
 
+/** A child href may carry a query string; route matching is pathname-only. */
+export function childPathname(href: string): string {
+  return href.split("?")[0] ?? href;
+}
+
+/**
+ * A child is active when its pathname is the best route match AND every
+ * param in `matchParams` agrees with the current URL. Without the param
+ * check, sibling views of one board would all light up at once.
+ */
+export function childIsActive(
+  child: NavChild,
+  bestMatchHref: string | null,
+  params: URLSearchParams | null,
+): boolean {
+  if (childPathname(child.href) !== bestMatchHref) return false;
+  if (!child.matchParams) return true;
+  return Object.entries(child.matchParams).every(
+    ([key, want]) => (params?.get(key) ?? "") === want,
+  );
+}
+
+/**
+ * Sales CRM children: "All deals", one filtered view per admin-editable
+ * business unit, then "Unassigned" — the deals nobody has claimed yet.
+ *
+ * There is no "ARIA Revenue" child any more. The separate /sales-revenue
+ * module was retired and its deals migrated onto THIS board tagged `aria`
+ * (its `revenue_*` tables are parked, not dropped — see CLAUDE.md); a
+ * next.config redirect catches old bookmarks. The two-things-called-ARIA
+ * story (#1124 and its reversal) ends here: ARIA is a business unit, full
+ * stop.
+ *
+ * Unassigned is a fixed child, not a catalog row: it exists whether or not
+ * the unit fetch succeeded, because "no unit yet" is a property of deals,
+ * not of the catalog. It reuses the same reserved sentinel the board's
+ * dropdown already understands.
+ *
+ * Exported and pure so the no-duplicate-labels invariant is testable: the
+ * duplicate-ARIA bug lived here precisely because this was inline in the
+ * component, where the NAV_GROUPS tests could not see it.
+ */
+export function buildSalesCrmChildren(
+  units: { code: string; label: string }[],
+): NavChild[] {
+  return [
+    {
+      id: "sales-all",
+      label: "All deals",
+      href: "/sales?tab=pipeline",
+      // Active only when no unit filter is applied.
+      matchParams: { bu: "" },
+      permissions: ["crm:read", "deals:read"],
+    },
+    // Every unit, ARIA included. A unit that also has a module is still a tag
+    // on Sales CRM deals, and those deals need a nav row of their own.
+    ...units.map((u) => ({
+      id: `sales-bu-${u.code}`,
+      label: u.label,
+      href: `/sales?tab=pipeline&bu=${encodeURIComponent(u.code)}`,
+      matchParams: { bu: u.code },
+      permissions: ["crm:read", "deals:read"],
+    })),
+    {
+      id: "sales-bu-unassigned",
+      label: "Unassigned",
+      // The reserved sentinel, not a code — codes can't contain underscores,
+      // so no admin-created unit can ever collide with it.
+      href: `/sales?tab=pipeline&bu=${BUSINESS_UNIT_UNASSIGNED}`,
+      matchParams: { bu: BUSINESS_UNIT_UNASSIGNED },
+      permissions: ["crm:read", "deals:read"],
+    },
+  ];
+}
+
 export function AppSidebar() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const { user, logout, hasAnyPermission, isEmployeeOnly } = useAuth();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  // Close the mobile drawer once navigation has happened.
+  //
+  // On mobile the nav lives in a Sheet over the content, and the items are
+  // plain `<Link>`s — so tapping one navigated *behind* the still-open drawer
+  // and the user had to dismiss it by hand to see the page they had asked for.
+  // Keyed on `pathname` rather than on a click handler so it also covers the
+  // logo, the nested children and any future entry point, and it is a no-op on
+  // desktop where the sidebar is docked.
+  useEffect(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [pathname, isMobile, setOpenMobile]);
 
   // Total unread DM/channel count, polled every 30s. Cheap aggregate
   // on the server; we re-fetch on `pathname` change too so navigating
@@ -720,7 +921,27 @@ export function AppSidebar() {
 
   const sourceGroups = isEmployeeOnly ? EMPLOYEE_NAV_GROUPS : NAV_GROUPS;
 
-  const filteredGroups = sourceGroups
+  // Sales CRM's children are the admin-editable business units (Onewave /
+  // Onewave Revenue / ARIA …), not a hardcoded list — adding a unit in the
+  // Manage business units dialog adds a nav view with no code change. Each
+  // child is one filtered view of the SAME board, so they all point at
+  // /sales and differ only by `?bu=`.
+  //
+  // ARIA is its own module (`/sales-revenue`, own tables + `sales-revenue:*`
+  // perms), not a filtered view of the Sales board, so it is a fixed child
+  // rather than one of the admin-editable units. It used to be a top-level
+  // entry; folding it in is Vivek's requested Sales CRM grouping.
+  const { units: businessUnits } = useBusinessUnits();
+  const groupsWithBusinessUnits = sourceGroups.map((group) => ({
+    ...group,
+    items: group.items.map((item) =>
+      item.id === "sales"
+        ? { ...item, children: buildSalesCrmChildren(businessUnits) }
+        : item,
+    ),
+  }));
+
+  const filteredGroups = groupsWithBusinessUnits
     .map((group) => ({
       ...group,
       items: group.items
@@ -729,7 +950,11 @@ export function AppSidebar() {
         )
         .map((item) => {
           if (!item.children) return item;
-          const children = item.children.filter(
+          // Ship-dark filter runs BEFORE the permission filter so a gated
+          // child can never be revealed by a permission the user happens to
+          // hold — Admin holds every permission, so permissions alone would
+          // show the whole family in production.
+          const children = filterShipDarkChildren(item.children).filter(
             (c) => !c.permissions || hasAnyPermission(...c.permissions),
           );
           return { ...item, children };
@@ -747,7 +972,7 @@ export function AppSidebar() {
   const allHrefs = filteredGroups.flatMap((g) =>
     g.items.flatMap((i) =>
       i.children && i.children.length > 0
-        ? i.children.map((c) => c.href)
+        ? i.children.map((c) => childPathname(c.href))
         : [i.href],
     ),
   );
@@ -789,15 +1014,14 @@ export function AppSidebar() {
                 href={isEmployeeOnly ? "/my-portal" : "/dashboard"}
                 aria-label="Go to home"
               >
-                <div
-                  aria-hidden="true"
-                  className="size-8 shrink-0 rounded-lg"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)))",
-                    clipPath:
-                      "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-                  }}
+                <Image
+                  src="/tbh-circle-logo.ico"
+                  alt=""
+                  width={32}
+                  height={32}
+                  className="size-8 shrink-0 rounded-full object-cover"
+                  priority
+                  unoptimized
                 />
                 <div className="flex flex-col gap-0.5">
                   <span
@@ -814,7 +1038,7 @@ export function AppSidebar() {
                       uppercase
                     `}
                   >
-                    Private Workspace
+                    The Binary Holdings
                   </span>
                 </div>
               </Link>
@@ -852,8 +1076,8 @@ export function AppSidebar() {
                   // Marketing Analytics). Renders a chevron trigger and a
                   // nested sub-menu; defaults open when a child is active.
                   if (item.children && item.children.length > 0) {
-                    const childActive = item.children.some(
-                      (c) => c.href === bestMatchHref,
+                    const childActive = item.children.some((c) =>
+                      childIsActive(c, bestMatchHref, searchParams),
                     );
                     return (
                       <Collapsible
@@ -881,7 +1105,11 @@ export function AppSidebar() {
                                 <SidebarMenuSubItem key={child.id}>
                                   <SidebarMenuSubButton
                                     asChild
-                                    isActive={child.href === bestMatchHref}
+                                    isActive={childIsActive(
+                                      child,
+                                      bestMatchHref,
+                                      searchParams,
+                                    )}
                                   >
                                     <Link href={child.href}>
                                       <span>{child.label}</span>
@@ -976,23 +1204,8 @@ export function AppSidebar() {
                 align="end"
                 sideOffset={4}
               >
-                <DropdownMenuItem asChild>
-                  <Link href="/my-portal">
-                    <User />
-                    <span>My Portal</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings">
-                    <Settings />
-                    <span>Settings</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>
-                  <LogOut />
-                  <span>Sign out</span>
-                </DropdownMenuItem>
+                {/* Shared with the topbar's avatar menu — see account-menu.tsx. */}
+                <AccountMenuItems onLogout={logout} />
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
@@ -1001,4 +1214,31 @@ export function AppSidebar() {
       <SidebarRail />
     </Sidebar>
   );
+}
+
+/**
+ * Sidebar ids belonging to the ship-dark Marketing Analytics family.
+ *
+ * Filtered out of the nav when NEXT_PUBLIC_MARKETING_ANALYTICS_ENABLED is not
+ * "true". `partners-list` is deliberately absent: the original Marketing
+ * module is in production, and keeping it is what leaves the "Marketing CRM"
+ * parent reachable while the family is dark.
+ */
+export const MARKETING_ANALYTICS_CHILD_IDS = [
+  "marketing-analytics",
+  "marketing-partners",
+  "marketing-traffic",
+  "marketing-dau-mau",
+  "marketing-campaigns",
+  "marketing-reports",
+] as const;
+
+/** Drop the gated children when the flag is off. Pure, so it is testable. */
+export function filterShipDarkChildren<T extends { id: string }>(
+  children: T[],
+  marketingEnabled = MARKETING_ANALYTICS_ENABLED,
+): T[] {
+  if (marketingEnabled) return children;
+  const gated = new Set<string>(MARKETING_ANALYTICS_CHILD_IDS);
+  return children.filter((child) => !gated.has(child.id));
 }

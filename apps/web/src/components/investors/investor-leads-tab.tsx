@@ -1,6 +1,14 @@
 "use client";
 
-import { Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -8,6 +16,7 @@ import type { BadgeVariant } from "@/components/shared/badge";
 import { Badge } from "@/components/shared/badge";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { PermissionButton } from "@/components/shared/permission-button";
+import { Tabs } from "@/components/shared/tabs";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,7 +39,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { usePagination } from "@/hooks/use-pagination";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
+import { useFundraisingEntity } from "@/providers/fundraising-entity-provider";
 import {
+  archiveInvestorLead,
   createInvestorLead,
   deleteInvestorLead,
   INVESTOR_LEAD_STATUS_LABELS,
@@ -38,6 +49,7 @@ import {
   type InvestorLead,
   type InvestorLeadStatus,
   listInvestorLeads,
+  unarchiveInvestorLead,
   updateInvestorLead,
 } from "@/services/investor-lead.service";
 
@@ -50,6 +62,7 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
 
 export function InvestorLeadsTab() {
   const { hasPermission } = useAuth();
+  const { entityKey } = useFundraisingEntity();
   const canCreate = hasPermission("investors:create");
   const canUpdate = hasPermission("investors:update");
   const canDelete = hasPermission("investors:delete");
@@ -59,6 +72,9 @@ export function InvestorLeadsTab() {
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Active | Archived view. Archived rows leave the active list once archived
+  // and only appear under the Archived tab regardless of their status.
+  const [archived, setArchived] = useState(false);
   const {
     page,
     pageSize,
@@ -85,6 +101,8 @@ export function InvestorLeadsTab() {
         limit: pageSize,
         status: statusFilter || undefined,
         search: debouncedSearch || undefined,
+        archived: archived || undefined,
+        fundraisingEntity: entityKey,
       });
       setLeads(res.data);
       setTotalCount(res.meta.total);
@@ -95,11 +113,23 @@ export function InvestorLeadsTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, statusFilter, debouncedSearch, setTotalCount]);
+  }, [
+    page,
+    pageSize,
+    statusFilter,
+    debouncedSearch,
+    archived,
+    entityKey,
+    setTotalCount,
+  ]);
 
   useEffect(() => {
     void fetchLeads();
   }, [fetchLeads]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [entityKey, setPage]);
 
   async function remove(l: InvestorLead) {
     if (!canDelete || !window.confirm(`Delete lead "${l.name}"?`)) return;
@@ -116,10 +146,57 @@ export function InvestorLeadsTab() {
     }
   }
 
+  // Archive / restore. The row's new state is the opposite of the current
+  // view, so it leaves the visible list either way — drop it optimistically
+  // and adjust the total; restore the previous list on failure.
+  async function archive(l: InvestorLead) {
+    const previous = leads;
+    setLeads((prev) => prev.filter((x) => x.id !== l.id));
+    setTotalCount((c) => Math.max(0, c - 1));
+    try {
+      await archiveInvestorLead(l.id);
+      toast.success("Lead archived");
+    } catch (err) {
+      setLeads(previous);
+      setTotalCount((c) => c + 1);
+      const msg =
+        err instanceof ApiError ? err.message : "Failed to archive lead";
+      toast.error(msg);
+    }
+  }
+
+  async function unarchive(l: InvestorLead) {
+    const previous = leads;
+    setLeads((prev) => prev.filter((x) => x.id !== l.id));
+    setTotalCount((c) => Math.max(0, c - 1));
+    try {
+      await unarchiveInvestorLead(l.id);
+      toast.success("Lead restored");
+    } catch (err) {
+      setLeads(previous);
+      setTotalCount((c) => c + 1);
+      const msg =
+        err instanceof ApiError ? err.message : "Failed to restore lead";
+      toast.error(msg);
+    }
+  }
+
   const skeleton = Array.from({ length: Math.min(pageSize, 6) });
 
   return (
     <div className="flex flex-col gap-4">
+      <Tabs
+        tabs={[
+          { id: "active", label: "Active" },
+          { id: "archived", label: "Archived" },
+        ]}
+        active={archived ? "archived" : "active"}
+        onChange={(v) => {
+          setArchived(v === "archived");
+          setPage(1);
+        }}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
@@ -170,7 +247,7 @@ export function InvestorLeadsTab() {
         </PermissionButton>
       </div>
 
-      <Table containerClassName="max-h-[calc(100vh-340px)] overflow-auto rounded-lg border">
+      <Table containerClassName="max-h-[60svh] md:max-h-[calc(100vh-340px)] overflow-auto rounded-lg border">
         <TableHeader className="bg-background sticky top-0 z-10">
           <TableRow>
             <TableHead>Name</TableHead>
@@ -237,6 +314,29 @@ export function InvestorLeadsTab() {
                         <Pencil className="size-3.5" />
                       </Button>
                     ) : null}
+                    {canUpdate ? (
+                      archived ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void unarchive(l)}
+                          aria-label="Restore lead"
+                        >
+                          <ArchiveRestore className="size-3.5" />
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void archive(l)}
+                          aria-label="Archive lead"
+                        >
+                          <Archive className="size-3.5" />
+                        </Button>
+                      )
+                    ) : null}
                     {canDelete ? (
                       <Button
                         type="button"
@@ -292,6 +392,7 @@ function LeadFormDialog({
   canSubmit: boolean;
   onSaved: () => void;
 }) {
+  const { entities, entityKey, entityLabel } = useFundraisingEntity();
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
@@ -299,6 +400,7 @@ function LeadFormDialog({
   const [source, setSource] = useState("");
   const [status, setStatus] = useState<InvestorLeadStatus>("new");
   const [notes, setNotes] = useState("");
+  const [entity, setEntity] = useState(entityKey);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -310,7 +412,8 @@ function LeadFormDialog({
     setSource(lead?.source ?? "");
     setStatus((lead?.status as InvestorLeadStatus) ?? "new");
     setNotes(lead?.notes ?? "");
-  }, [open, lead]);
+    setEntity(lead?.fundraisingEntity ?? entityKey);
+  }, [open, lead, entityKey]);
 
   async function submit() {
     if (!name.trim()) {
@@ -325,12 +428,18 @@ function LeadFormDialog({
       source: source.trim() || undefined,
       status,
       notes: notes.trim() || undefined,
+      fundraisingEntity: entity,
     };
     try {
       setSaving(true);
       if (lead) {
+        const moved = entity !== lead.fundraisingEntity;
         await updateInvestorLead(lead.id, payload);
-        toast.success("Lead updated");
+        // A move drops the row out of the active tab — name the
+        // destination so the disappearance reads as intentional.
+        toast.success(
+          moved ? `Moved to ${entityLabel(entity)}` : "Lead updated",
+        );
       } else {
         await createInvestorLead(payload);
         toast.success("Lead created");
@@ -409,6 +518,23 @@ function LeadFormDialog({
               {INVESTOR_LEAD_STATUSES.map((s) => (
                 <option key={s} value={s}>
                   {INVESTOR_LEAD_STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="lead-entity">Entity</Label>
+            <select
+              id="lead-entity"
+              value={entity}
+              onChange={(e) => setEntity(e.target.value)}
+              className={`
+                border-border bg-background h-9 rounded-md border px-2 text-sm
+              `}
+            >
+              {entities.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
                 </option>
               ))}
             </select>

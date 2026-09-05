@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { trackCourseStarted } from "@/lib/events";
 import { useAuth } from "@/providers/auth-provider";
@@ -55,7 +56,7 @@ import {
 const ALL_VALUE = "__all__";
 
 // Shape the import dialog hands the submit handler. Mirrors the
-// Learning-program import columns (Institution /
+// "L&D Program List.xlsx" column set the team works in (Institution /
 // Country of Institution / Major / Subject / Free/Pay Course /
 // Cost/Person / Searcher / Source / Remarks).
 interface ModuleImportRow {
@@ -124,7 +125,7 @@ export default function LearningPage() {
   const canComplete = hasPermission("learning:complete");
   const isHrView = hasPermission("learning:hr-read");
 
-  const [tab, setTab] = useState("modules");
+  const [tab, setTab] = useTabParam("modules");
 
   // ── Modules state ──
   const [modules, setModules] = useState<LearningModule[]>([]);
@@ -304,6 +305,7 @@ export default function LearningPage() {
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-10",
       render: (m: LearningModule) => {
@@ -482,7 +484,7 @@ export default function LearningPage() {
         entityLabel="modules"
         templateName="learning-modules-import-template"
         fields={[
-          // Aligned with the learning-program import so the team can
+          // Aligned with "L&D Program List.xlsx" so the team can
           // export → edit → re-import without renaming columns.
           // First hit wins; older intranet-style headers stay as
           // aliases.

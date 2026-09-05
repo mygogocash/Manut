@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { excludeDeleted, softDeleteUpdate } from "@/infrastructure/soft-delete";
@@ -46,14 +46,6 @@ export class VisaRepository {
         include: visaIncludes,
       })
       .then((r) => (r && r.deletedAt ? null : r));
-  }
-
-  /** Like findById but returns soft-deleted rows for restore/purge checks. */
-  async findByIdIncludingDeleted(id: string) {
-    return prisma.visaRecord.findUnique({
-      where: { id },
-      include: visaIncludes,
-    });
   }
 
   async create(data: Prisma.VisaRecordUncheckedCreateInput) {

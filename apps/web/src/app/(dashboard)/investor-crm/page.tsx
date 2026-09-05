@@ -10,9 +10,14 @@ import { KpiCards } from "@/components/investor-crm/kpi-cards";
 import { PipelineFunnel } from "@/components/investor-crm/pipeline-funnel";
 import { QuickActions } from "@/components/investor-crm/quick-actions";
 import { RecentInvestors } from "@/components/investor-crm/recent-investors";
+import { FundraisingEntitySwitcher } from "@/components/investors/fundraising-entity-switcher";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
+import {
+  FundraisingEntityProvider,
+  useFundraisingEntity,
+} from "@/providers/fundraising-entity-provider";
 import {
   getInvestorDashboard,
   type Investor,
@@ -21,7 +26,16 @@ import {
 } from "@/services/investor.service";
 
 export default function InvestorCrmPage() {
+  return (
+    <FundraisingEntityProvider>
+      <InvestorCrmWorkspace />
+    </FundraisingEntityProvider>
+  );
+}
+
+function InvestorCrmWorkspace() {
   const router = useRouter();
+  const { entityKey } = useFundraisingEntity();
 
   const [dashboard, setDashboard] = useState<InvestorDashboard | null>(null);
   const [investors, setInvestors] = useState<Investor[]>([]);
@@ -31,8 +45,8 @@ export default function InvestorCrmPage() {
     try {
       setLoading(true);
       const [dashRes, investorRes] = await Promise.all([
-        getInvestorDashboard(),
-        listInvestors({ limit: 50, page: 1 }),
+        getInvestorDashboard({ fundraisingEntity: entityKey }),
+        listInvestors({ limit: 50, page: 1, fundraisingEntity: entityKey }),
       ]);
       setDashboard(dashRes.data);
       setInvestors(investorRes.data);
@@ -43,17 +57,11 @@ export default function InvestorCrmPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [entityKey]);
 
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
-
-  const avgInvestment =
-    dashboard && dashboard.totalInvestors > 0
-      ? (dashboard.totalEstInvestment + dashboard.totalActInvestment) /
-        dashboard.totalInvestors
-      : 0;
 
   const activeCount = investors.filter((i) =>
     ["funds_cleared", "relationship_management"].includes(i.status),
@@ -65,21 +73,32 @@ export default function InvestorCrmPage() {
         title="Investor CRM"
         subtitle="Relationship management and fundraising overview"
       >
-        <Button variant="outline" onClick={() => router.push("/investors")}>
+        <Button
+          variant="outline"
+          onClick={() =>
+            router.push(`/investors?entity=${encodeURIComponent(entityKey)}`)
+          }
+        >
           <Users className="size-3.5" />
           Manage Investors
         </Button>
       </PageHeader>
 
+      <FundraisingEntitySwitcher />
+
       {loading ? (
         <CrmSkeleton />
       ) : (
         <div className="flex flex-col gap-6">
-          <KpiCards
-            dashboard={dashboard}
-            activeCount={activeCount}
-            avgInvestment={avgInvestment}
-          />
+          {/*
+            The fourth card shows `totalActInvestment` straight off the
+            dashboard payload. It used to show an average of
+            (est + act) / investors — which mixed a forecast with money
+            actually received and then divided, so the one number the
+            investment team wants was nowhere on the page (Yanni,
+            2026-08-26).
+          */}
+          <KpiCards dashboard={dashboard} activeCount={activeCount} />
 
           <PipelineFunnel investors={investors} />
 
@@ -91,12 +110,20 @@ export default function InvestorCrmPage() {
           >
             <RecentInvestors
               investors={investors}
-              onViewAll={() => router.push("/investors")}
+              onViewAll={() =>
+                router.push(
+                  `/investors?entity=${encodeURIComponent(entityKey)}`,
+                )
+              }
             />
 
             <QuickActions
               dashboard={dashboard}
-              onAddInvestor={() => router.push("/investors")}
+              onAddInvestor={() =>
+                router.push(
+                  `/investors?entity=${encodeURIComponent(entityKey)}`,
+                )
+              }
               onSendUpdate={() => router.push("/investor-updates")}
               onDataRoom={() => router.push("/dataroom")}
             />

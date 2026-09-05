@@ -1,10 +1,16 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
+import {
+  excludeDeleted,
+  restoreUpdate,
+  softDeleteUpdate,
+} from "@/infrastructure/soft-delete";
 import type { VendorSortField } from "@/modules/vendors/vendors.validation";
 
 const vendorInclude = {
   entity: { select: { id: true, name: true, code: true } },
+  mergedInto: { select: { id: true, name: true, contactId: true } },
 } satisfies Prisma.VendorInclude;
 
 export interface VendorFilters {
@@ -57,7 +63,9 @@ function buildOrderBy(
 
 export class VendorsRepository {
   async findMany(filters: VendorFilters, page: number, limit: number) {
-    const where: Prisma.VendorWhereInput = {};
+    // Every list/count excludes soft-deleted rows so removed vendors drop out
+    // of pickers/tables while their AR/AP history stays intact.
+    const where: Prisma.VendorWhereInput = { ...excludeDeleted("deletedAt") };
     if (filters.entityId) where.entityId = filters.entityId;
     if (filters.contactType) where.contactType = filters.contactType;
     if (filters.businessType) where.businessType = filters.businessType;
@@ -86,7 +94,18 @@ export class VendorsRepository {
     return { data, total };
   }
 
+  // Default read path — excludes soft-deleted rows (findUnique can't take a
+  // deletedAt filter, so use findFirst with the id + deletedAt: null).
   async findById(id: string) {
+    return prisma.vendor.findFirst({
+      where: { id, ...excludeDeleted("deletedAt") },
+      include: vendorInclude,
+    });
+  }
+
+  // Restore / permanent paths must see soft-deleted rows too — otherwise a
+  // restore always 404s (the default findById hides them).
+  async findByIdIncludingDeleted(id: string) {
     return prisma.vendor.findUnique({
       where: { id },
       include: vendorInclude,
@@ -105,17 +124,88 @@ export class VendorsRepository {
     });
   }
 
-  async remove(id: string) {
-    return prisma.vendor.delete({ where: { id } });
+  // Soft delete: stamp deletedAt so history (invoices/quotes/POs still
+  // referencing this vendor) stays intact.
+  async softRemove(id: string) {
+    return prisma.vendor.update({
+      where: { id },
+      data: softDeleteUpdate("deletedAt"),
+      include: vendorInclude,
+    });
+  }
+
+  async restore(id: string) {
+    return prisma.vendor.update({
+      where: { id },
+      data: restoreUpdate("deletedAt"),
+      include: vendorInclude,
+    });
+  }
+
+  // Count AR/AP documents referencing this vendor across all four relations.
+  // Any non-zero count means the vendor carries transaction history and must
+  // be deactivated rather than deleted (M1.1.6 / Rule 3).
+  async countReferences(id: string) {
+    const [invoices, quotes, purchaseOrders, creditNotes] =
+      await prisma.$transaction([
+        prisma.invoice.count({ where: { vendorId: id } }),
+        prisma.quote.count({ where: { vendorId: id } }),
+        prisma.purchaseOrder.count({ where: { vendorId: id } }),
+        prisma.creditNote.count({ where: { vendorId: id } }),
+      ]);
+    return {
+      invoices,
+      quotes,
+      purchaseOrders,
+      creditNotes,
+      total: invoices + quotes + purchaseOrders + creditNotes,
+    };
+  }
+
+  // Finds another non-deleted vendor in the same entity carrying the same
+  // (taxId, branchCode). Service-layer uniqueness only — no DB constraint (see
+  // the note in vendors.service.ts).
+  async findDuplicateByTaxId(
+    entityId: string,
+    taxId: string,
+    branchCode: string | null,
+    excludeId?: string,
+  ) {
+    return prisma.vendor.findFirst({
+      where: {
+        entityId,
+        taxId,
+        branchCode: branchCode ?? null,
+        ...excludeDeleted("deletedAt"),
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true, name: true, taxId: true, branchCode: true },
+    });
+  }
+
+  // Non-fuzzy name-similarity lookup: non-deleted vendors in the entity whose
+  // name case-insensitively starts with (or equals) the candidate name. Feeds
+  // the non-blocking create-time warning.
+  async findNameMatches(entityId: string, name: string, excludeId?: string) {
+    return prisma.vendor.findMany({
+      where: {
+        entityId,
+        name: { startsWith: name, mode: "insensitive" },
+        ...excludeDeleted("deletedAt"),
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true, name: true },
+      take: 5,
+    });
   }
 
   async deleteAllForEntity(entityId: string) {
     return prisma.vendor.deleteMany({ where: { entityId } });
   }
 
-  // Returns the existing vendor for an entity matched by `contactId`
-  // first (canonical identifier from the source system) and falling
-  // back to `taxId`. Lets bulk-import upsert on re-runs.
+  // Returns the existing (non-deleted) vendor for an entity matched by
+  // `contactId` first (canonical identifier from the source system) and
+  // falling back to `taxId`. Lets bulk-import upsert on re-runs.
   async findExistingForImport(
     entityId: string,
     contactId: string | null,
@@ -123,14 +213,14 @@ export class VendorsRepository {
   ) {
     if (contactId) {
       const hit = await prisma.vendor.findFirst({
-        where: { entityId, contactId },
+        where: { entityId, contactId, ...excludeDeleted("deletedAt") },
         select: { id: true },
       });
       if (hit) return hit;
     }
     if (taxId) {
       const hit = await prisma.vendor.findFirst({
-        where: { entityId, taxId },
+        where: { entityId, taxId, ...excludeDeleted("deletedAt") },
         select: { id: true },
       });
       if (hit) return hit;

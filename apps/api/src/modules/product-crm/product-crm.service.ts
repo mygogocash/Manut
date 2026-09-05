@@ -103,13 +103,14 @@ export class ProductCrmService {
   // ─── Project CRUD ─────────────────────────────────────────────
 
   async list(userId: string, perms: string[], query: ProductProjectQuery) {
-    const { page, limit, search, status, department } = query;
+    const { page, limit, search, status, department, archived } = query;
     const canSeeAll =
       perms.includes(PERMISSIONS.PRODUCT_CRM_READ_ALL) ||
       perms.includes(PERMISSIONS.PROJECTS_READ_ALL);
 
     const where: Parameters<typeof prisma.productProject.findMany>[0] extends
-      { where?: infer W } | undefined
+      | { where?: infer W }
+      | undefined
       ? W
       : never = {};
     if (search) {
@@ -120,6 +121,10 @@ export class ProductCrmService {
     }
     if (status) where.status = status;
     if (department) where.department = department;
+    // Archive is orthogonal to status: default view shows active projects
+    // only; the Archived tab (archived=true) shows the archived ones. Applied
+    // to both findMany and count so pagination totals match the view.
+    where.archivedAt = archived ? { not: null } : null;
     if (!canSeeAll) {
       where.OR = [
         ...(where.OR ?? []),
@@ -170,6 +175,13 @@ export class ProductCrmService {
         comment: input.comment ?? null,
         department: input.department ?? null,
         sortOrder: input.sortOrder,
+        // Auto-assign default (Phase C pt3) — a non-`user` mode never keeps a
+        // stale specific-user id. Mirrors legal-crm.service.create.
+        defaultAssigneeMode: input.defaultAssigneeMode ?? "none",
+        defaultAssigneeId:
+          input.defaultAssigneeMode === "user"
+            ? (input.defaultAssigneeId ?? null)
+            : null,
         columns: { createMany: { data: DEFAULT_COLUMNS } },
         members: { create: { userId: ownerId, role: "owner" } },
       },
@@ -221,10 +233,31 @@ export class ProductCrmService {
         slugUpdate = { slug: await uniqueSlug(generateSlug(input.name)) };
       }
     }
+    // Normalize the auto-assign default (a non-`user` mode clears any stale
+    // specific-user id) and re-arm the reminder ladder on a go-live edit (fired
+    // "golive-*" markers were tied to the old date). Mirrors
+    // legal-crm.service.update.
+    const defaultAssigneeUpdate: {
+      defaultAssigneeMode?: string;
+      defaultAssigneeId?: string | null;
+    } = {};
+    if (input.defaultAssigneeMode !== undefined) {
+      defaultAssigneeUpdate.defaultAssigneeMode = input.defaultAssigneeMode;
+      defaultAssigneeUpdate.defaultAssigneeId =
+        input.defaultAssigneeMode === "user"
+          ? (input.defaultAssigneeId ?? null)
+          : null;
+    } else if (input.defaultAssigneeId !== undefined) {
+      defaultAssigneeUpdate.defaultAssigneeId = input.defaultAssigneeId;
+    }
+    const goLiveEdited =
+      input.goLiveDate !== undefined || input.revisedGoLiveDate !== undefined;
     return prisma.productProject.update({
       where: { id },
       data: {
         ...slugUpdate,
+        ...defaultAssigneeUpdate,
+        ...(goLiveEdited && { remindersSent: [], lastReminderSentAt: null }),
         ...(input.name !== undefined && { name: input.name }),
         ...(input.description !== undefined && {
           description: input.description,
@@ -266,6 +299,44 @@ export class ProductCrmService {
     requireOwnerOrManage(role, perms);
     await prisma.productProject.delete({ where: { id } });
     return { success: true };
+  }
+
+  // Reversible hide. Owner-or-manage enforced in the SERVICE (not just the
+  // route) so a plain product-crm:update holder can't archive another team's
+  // project — same IDOR guard as delete/update. Idempotent: re-archiving keeps
+  // the original archive time.
+  async archive(id: string, userId: string, perms: string[]) {
+    const role = await requireMembership(id, userId, perms);
+    requireOwnerOrManage(role, perms);
+    const existing = await prisma.productProject.findUnique({
+      where: { id },
+      select: { archivedAt: true },
+    });
+    if (!existing) throw new NotFoundException("Product project not found");
+    return prisma.productProject.update({
+      where: { id },
+      data: { archivedAt: existing.archivedAt ?? new Date() },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async unarchive(id: string, userId: string, perms: string[]) {
+    const role = await requireMembership(id, userId, perms);
+    requireOwnerOrManage(role, perms);
+    const existing = await prisma.productProject.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException("Product project not found");
+    return prisma.productProject.update({
+      where: { id },
+      data: { archivedAt: null },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
   }
 
   async reorder(input: ReorderProductProjectsInput) {

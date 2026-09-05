@@ -1,13 +1,13 @@
 "use client";
 
-import { format } from "date-fns";
+import dayjs from "dayjs";
 import {
   Briefcase,
   Building2,
   Calendar,
   ExternalLink,
   FileText,
-  Linkedin,
+  Link2,
   Mail,
   Phone,
   User,
@@ -105,7 +105,7 @@ export function ApplicationDetailDialog({
               </div>
               {application.linkedin && (
                 <div className="flex items-center gap-2 text-[12.5px]">
-                  <Linkedin className="text-muted-foreground size-3.5 shrink-0" />
+                  <Link2 className="text-muted-foreground size-3.5 shrink-0" />
                   <a
                     href={application.linkedin}
                     target="_blank"
@@ -185,10 +185,7 @@ export function ApplicationDetailDialog({
                 <span>
                   <span className="text-muted-foreground">Applied: </span>
                   <span className="text-foreground">
-                    {format(
-                      new Date(application.createdAt),
-                      "MMMM d, yyyy h:mm a",
-                    )}
+                    {dayjs(application.createdAt).format("MMMM D, YYYY h:mm A")}
                   </span>
                 </span>
               </div>

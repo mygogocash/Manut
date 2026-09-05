@@ -1,14 +1,14 @@
 const BRAND = {
   name: "Intranet",
-  company: "Manut",
+  company: "The Binary Holdings",
   primaryColor: "#2262F4",
   primaryDark: "#1B4FC4",
   bgColor: "#f4f6f9",
   textColor: "#0d1b2a",
   mutedColor: "#6b7990",
   borderColor: "#e2e8f0",
-  logoUrl: "https://intranet.manut.example/manut-circle-logo.ico",
-  url: "https://intranet.manut.example",
+  logoUrl: "https://intranet.thebinaryholdings.com/tbh-circle-logo.ico",
+  url: "https://intranet.thebinaryholdings.com",
 } as const;
 
 type TemplateVariables = Record<
@@ -417,7 +417,7 @@ ${actionButton("View in Portal", data.portalUrl)}
   };
 }
 
-// Long-form travel-desk summary. Sent to a
+// Long-form summary the travel desk asked for (May 2026). Sent to a
 // configurable list of recipients once a request reaches the
 // approved state. Layout intentionally mirrors the plain-text
 // template HR uses today so the desk can scan it in Outlook with no
@@ -1120,7 +1120,7 @@ ${actionButton("Open Stale Leads", data.portalUrl)}
   };
 }
 
-// ─── Sales CRM ───────────────────────────────────────────
+// ─── Sales CRM (BD-feedback) ─────────────────────────────
 
 export function opportunityCreatedEmail(data: {
   ownerName: string;
@@ -1259,7 +1259,7 @@ ${actionButton("View in Portal", data.portalUrl)}
 // ─── Leave Submitted (extra fan-out on create) ───────────
 //
 // Sent on leave submission. The submitter gets a confirmation; the
-// HR-desk recipients get the long-form summary so
+// HR-desk recipients (Sara, Pat, …) get the long-form summary so
 // they're looped in before final approval, not just after.
 
 export function leaveSubmittedConfirmationEmail(data: {
@@ -1492,7 +1492,7 @@ export function welcomeEmail(data: {
 <tr><td style="padding:12px 16px;border-bottom:1px solid ${BRAND.borderColor};font-size:13px;"><strong>Email:</strong> ${data.email}</td></tr>
 <tr><td style="padding:12px 16px;font-size:13px;"><strong>Password:</strong> <code style="background-color:${BRAND.bgColor};padding:2px 8px;border-radius:4px;font-size:14px;">${data.temporaryPassword}</code></td></tr>
 </table>
-<p style="margin:0 0 20px;">Please log in and let us know if you have any issues. If you have feedback, contact your HR administrator.</p>
+<p style="margin:0 0 20px;">Please log in and let us know if you have any issues. If you have any feedback, please share it directly with <a href="mailto:sarah@thebinaryholdings.com" style="color:${BRAND.primaryColor};text-decoration:none;">sarah@thebinaryholdings.com</a>.</p>
 ${actionButton("Sign In to Intranet", data.portalUrl)}
 `),
   };
@@ -1598,13 +1598,18 @@ ${actionButton("Open IT Billing", data.portalUrl)}
 }
 
 // CRM deadline reminder — a project go-live or a task due date approaching or
-// overdue, for any CRM (`crmLabel` names it, e.g. "IT CRM" / "Project CRM").
-// Drives the `it-crm-deadline-reminder` remote template (must be provisioned on
-// the email service with matching variables — `crmLabel` is one). `daysLeft` is
-// negative when overdue.
+// overdue, for any CRM (`crmLabel` names it, e.g. "IT CRM" / "Integration CRM").
+// Drives the `it-crm-deadline-reminder-2` remote template. The `-2` suffix is
+// the OneWave replace-a-template convention (project accounts can't edit or
+// delete a registered template, and re-uploading auto-suffixes the id — same
+// story as cash-advance-approved-2 / visa-expiry-reminder-2): the original
+// `it-crm-deadline-reminder` body hardcodes "IT CRM"; the -2 body renders
+// `{{crmLabel}}`. `daysLeft` is negative when overdue.
 export function crmDeadlineReminderEmail(data: {
   crmLabel: string;
-  itemType: "project" | "task";
+  // "project" | "task" | "opportunity" — rendered as plain text in the
+  // remote template; only "task" changes the row layout below.
+  itemType: string;
   title: string;
   projectName: string;
   deadlineLabel: string;
@@ -1626,7 +1631,7 @@ export function crmDeadlineReminderEmail(data: {
       ? itRow("Task", escapeHtml(data.title))
       : itRow("Project", escapeHtml(data.title));
   return {
-    templateId: "it-crm-deadline-reminder",
+    templateId: "it-crm-deadline-reminder-2",
     variables: { ...data, headline },
     subject: `${headline}: ${escapeHtml(data.title)}`,
     html: baseLayout(`
@@ -1643,8 +1648,9 @@ ${actionButton(`Open ${data.crmLabel}`, data.portalUrl)}
 }
 
 // CRM task update — status change, (re)assignment, or a new comment, for any
-// CRM (`crmLabel` names it). Drives the `it-crm-task-update` remote template
-// (provision it on the email service or the email renders empty).
+// CRM (`crmLabel` names it). Drives the `it-crm-task-update-2` remote template
+// (`-2` = the OneWave replace-a-template convention; see the deadline-reminder
+// comment above — the un-suffixed original hardcodes "IT CRM").
 export function crmTaskUpdateEmail(data: {
   crmLabel: string;
   taskTitle: string;
@@ -1654,7 +1660,7 @@ export function crmTaskUpdateEmail(data: {
   portalUrl: string;
 }): EmailContent {
   return {
-    templateId: "it-crm-task-update",
+    templateId: "it-crm-task-update-2",
     variables: { ...data },
     subject: `${data.eventLabel}: ${escapeHtml(data.taskTitle)}`,
     html: baseLayout(`
@@ -1666,6 +1672,252 @@ ${itRow("Project", escapeHtml(data.projectName))}
 ${itRow("Update", escapeHtml(data.summary))}
 </table>
 ${actionButton(`Open ${data.crmLabel}`, data.portalUrl)}
+`),
+  };
+}
+
+// ── Project approval workflow ────────────────────────────
+// Every caller-supplied value is escaped: project names, requester names and
+// free-text comments all reach approver inboxes, so unescaped they would
+// inject HTML (see CLAUDE.md "Email HTML injection"). URLs are produced
+// server-side from configuration, never from user input.
+
+/** Notifies the next approver that a request is waiting on them. */
+export function projectApprovalRequestEmail(data: {
+  approverName: string;
+  projectName: string;
+  requesterName: string;
+  priority: string;
+  status: string;
+  comment: string | null;
+  deepLink: string;
+  approveLink?: string | null;
+  rejectLink?: string | null;
+}): EmailContent {
+  const rows = [
+    ["Requester", data.requesterName],
+    ["Priority", data.priority],
+    ["Status", data.status],
+    ["Comments", data.comment?.trim() || "—"],
+  ]
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:6px 16px;font-size:13px;border-bottom:1px solid ${BRAND.borderColor};width:32%;color:${BRAND.mutedColor};"><strong>${k}</strong></td><td style="padding:6px 16px;font-size:13px;border-bottom:1px solid ${BRAND.borderColor};">${escapeHtml(v)}</td></tr>`,
+    )
+    .join("");
+
+  // One-click approve is only rendered when signed action links are enabled.
+  const actions = data.approveLink
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr>
+<td style="border-radius:8px;background-color:${BRAND.primaryColor};">
+<a href="${data.approveLink}" target="_blank" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;border-radius:8px;">Approve</a>
+</td>
+<td style="width:12px;">&nbsp;</td>
+<td style="border-radius:8px;border:1px solid ${BRAND.borderColor};">
+<a href="${data.rejectLink ?? data.deepLink}" target="_blank" style="display:inline-block;padding:11px 26px;color:${BRAND.textColor};text-decoration:none;font-size:14px;font-weight:600;border-radius:8px;">Reject</a>
+</td></tr></table>
+<p style="margin:0 0 8px;font-size:12px;color:${BRAND.mutedColor};">Rejecting opens the request so you can record a reason.</p>`
+    : actionButton("Review Request", data.deepLink);
+
+  return {
+    templateId: "project-approval-request",
+    variables: {
+      approverName: data.approverName,
+      projectName: data.projectName,
+      requesterName: data.requesterName,
+      priority: data.priority,
+      status: data.status,
+      comment: data.comment?.trim() || "—",
+      deepLink: data.deepLink,
+      approveLink: data.approveLink ?? "",
+      rejectLink: data.rejectLink ?? "",
+      // The provider renders the registered template from `variables` alone and
+      // cannot branch, so the one-click / deep-link-only choice is resolved here
+      // and passed as pre-rendered HTML.
+      actionsHtml: actions,
+    },
+    subject: `Approval needed: ${data.projectName}`,
+    html: baseLayout(`
+<p style="margin:0 0 6px;">Hello <strong>${escapeHtml(data.approverName)}</strong>,</p>
+<p style="margin:0 0 20px;color:${BRAND.mutedColor};"><strong>${escapeHtml(data.projectName)}</strong> is waiting for your approval.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:4px;border:1px solid ${BRAND.borderColor};border-radius:8px;overflow:hidden;">${rows}</table>
+${actions}
+<p style="margin:0;font-size:12px;color:${BRAND.mutedColor};">Or open it directly: <a href="${data.deepLink}" style="color:${BRAND.primaryColor};">${escapeHtml(data.projectName)}</a></p>
+`),
+  };
+}
+
+/** Tells the requester / owner that a decision was recorded. */
+export function projectWorkflowDecisionEmail(data: {
+  recipientName: string;
+  projectName: string;
+  requesterName: string;
+  priority: string;
+  status: string;
+  decidedBy: string;
+  approved: boolean;
+  comment: string | null;
+  deepLink: string;
+}): EmailContent {
+  const rows = [
+    ["Requester", data.requesterName],
+    ["Priority", data.priority],
+    ["Status", data.status],
+    [data.approved ? "Approved by" : "Rejected by", data.decidedBy],
+    [data.approved ? "Comments" : "Reason", data.comment?.trim() || "—"],
+  ]
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:6px 16px;font-size:13px;border-bottom:1px solid ${BRAND.borderColor};width:32%;color:${BRAND.mutedColor};"><strong>${k}</strong></td><td style="padding:6px 16px;font-size:13px;border-bottom:1px solid ${BRAND.borderColor};">${escapeHtml(v)}</td></tr>`,
+    )
+    .join("");
+
+  return {
+    templateId: "project-workflow-decision",
+    variables: {
+      recipientName: data.recipientName,
+      projectName: data.projectName,
+      requesterName: data.requesterName,
+      priority: data.priority,
+      status: data.status,
+      decidedBy: data.decidedBy,
+      comment: data.comment?.trim() || "—",
+      deepLink: data.deepLink,
+      // Row labels vary with the outcome. The provider cannot evaluate
+      // `approved`, so resolve both labels here.
+      decidedByLabel: data.approved ? "Approved by" : "Rejected by",
+      commentLabel: data.approved ? "Comments" : "Reason",
+    },
+    subject: `${data.projectName} — ${data.status}`,
+    html: baseLayout(`
+<p style="margin:0 0 6px;">Hello <strong>${escapeHtml(data.recipientName)}</strong>,</p>
+<p style="margin:0 0 20px;color:${BRAND.mutedColor};"><strong>${escapeHtml(data.projectName)}</strong> is now <strong>${escapeHtml(data.status)}</strong>.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;border:1px solid ${BRAND.borderColor};border-radius:8px;overflow:hidden;">${rows}</table>
+${actionButton("View Request", data.deepLink)}
+`),
+  };
+}
+
+// ── Product proposals ────────────────────────────────────
+// Every caller-supplied value is escaped. Titles, questions, answers and decline
+// reasons all reach inboxes, so unescaped they would inject HTML (see CLAUDE.md
+// "Email HTML injection"). URLs are built server-side from configuration, never
+// from user input.
+
+/** Rows of label/value pairs, values escaped. */
+function proposalRows(pairs: Array<[string, string | null]>): string {
+  return pairs
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:6px 16px;font-size:13px;border-bottom:1px solid ${BRAND.borderColor};width:32%;color:${BRAND.mutedColor};"><strong>${k}</strong></td><td style="padding:6px 16px;font-size:13px;border-bottom:1px solid ${BRAND.borderColor};">${escapeHtml(v?.trim() || "—")}</td></tr>`,
+    )
+    .join("");
+}
+
+/**
+ * Something needs this person's attention on a proposal: it has been submitted
+ * to them, or they have been asked a question.
+ */
+export function proposalActionEmail(data: {
+  recipientName: string;
+  headline: string;
+  proposalTitle: string;
+  proposalType: string;
+  raisedBy: string;
+  priority: string;
+  status: string;
+  /** The question, when this is an information request. */
+  question?: string | null;
+  deepLink: string;
+  callToAction: string;
+}): EmailContent {
+  const rows = proposalRows([
+    ["Type", data.proposalType],
+    ["Raised by", data.raisedBy],
+    ["Priority", data.priority],
+    ["Status", data.status],
+  ]);
+
+  const questionBlock = data.question
+    ? `<p style="margin:0 0 6px;font-size:13px;color:${BRAND.mutedColor};">What is being asked:</p>
+<blockquote style="margin:0 0 20px;padding:10px 14px;border-left:3px solid ${BRAND.primaryColor};background-color:#faf9f7;font-size:13px;">${escapeHtml(data.question)}</blockquote>`
+    : "";
+
+  return {
+    templateId: "proposal-action",
+    variables: {
+      recipientName: data.recipientName,
+      headline: data.headline,
+      proposalTitle: data.proposalTitle,
+      proposalType: data.proposalType,
+      raisedBy: data.raisedBy,
+      priority: data.priority,
+      status: data.status,
+      question: data.question ?? "",
+      deepLink: data.deepLink,
+      // Both the button label and the optional question block have to reach the
+      // provider explicitly: it substitutes `variables` and cannot branch.
+      callToAction: data.callToAction,
+      questionBlockHtml: questionBlock,
+    },
+    subject: `${data.headline}: ${data.proposalTitle}`,
+    html: baseLayout(`
+<p style="margin:0 0 6px;">Hello <strong>${escapeHtml(data.recipientName)}</strong>,</p>
+<p style="margin:0 0 20px;color:${BRAND.mutedColor};">${escapeHtml(data.headline)} — <strong>${escapeHtml(data.proposalTitle)}</strong>.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;border:1px solid ${BRAND.borderColor};border-radius:8px;overflow:hidden;">${rows}</table>
+${questionBlock}
+${actionButton(data.callToAction, data.deepLink)}
+`),
+  };
+}
+
+/**
+ * Something has been recorded on a proposal: a decision, or an answer arriving.
+ * Informational, so it carries the outcome rather than asking for anything.
+ */
+export function proposalUpdateEmail(data: {
+  recipientName: string;
+  headline: string;
+  proposalTitle: string;
+  status: string;
+  actedBy: string;
+  /** The decline reason, the pass note, or the answer text. */
+  detail?: string | null;
+  detailLabel?: string;
+  deepLink: string;
+}): EmailContent {
+  const rows = proposalRows([
+    ["Proposal", data.proposalTitle],
+    ["Status", data.status],
+    ["By", data.actedBy],
+  ]);
+
+  const detailBlock = data.detail?.trim()
+    ? `<p style="margin:0 0 6px;font-size:13px;color:${BRAND.mutedColor};">${escapeHtml(data.detailLabel ?? "Notes")}:</p>
+<blockquote style="margin:0 0 20px;padding:10px 14px;border-left:3px solid ${BRAND.borderColor};background-color:#faf9f7;font-size:13px;">${escapeHtml(data.detail)}</blockquote>`
+    : "";
+
+  return {
+    templateId: "proposal-update",
+    variables: {
+      recipientName: data.recipientName,
+      headline: data.headline,
+      proposalTitle: data.proposalTitle,
+      status: data.status,
+      actedBy: data.actedBy,
+      detail: data.detail ?? "",
+      deepLink: data.deepLink,
+      // Carries its own "Answer" / "Reason" / "Notes" heading, and is empty when
+      // there is no detail — so the provider never renders a stray heading.
+      detailBlockHtml: detailBlock,
+    },
+    subject: `${data.headline}: ${data.proposalTitle}`,
+    html: baseLayout(`
+<p style="margin:0 0 6px;">Hello <strong>${escapeHtml(data.recipientName)}</strong>,</p>
+<p style="margin:0 0 20px;color:${BRAND.mutedColor};">${escapeHtml(data.headline)}.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;border:1px solid ${BRAND.borderColor};border-radius:8px;overflow:hidden;">${rows}</table>
+${detailBlock}
+${actionButton("View Proposal", data.deepLink)}
 `),
   };
 }

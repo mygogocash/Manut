@@ -47,7 +47,6 @@ vi.mock("@/core/guards/auth.guard", () => ({
       email: `${uid}@example.com`,
       name: uid,
       isActive: true,
-      deletedAt: null,
       entityId: null,
       permissions: [PERMISSIONS.MESSAGES_READ, PERMISSIONS.MESSAGES_CREATE],
     };

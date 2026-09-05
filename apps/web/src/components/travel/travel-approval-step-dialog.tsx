@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -103,7 +103,7 @@ export function TravelApprovalStepDialog({
   const editing = Boolean(step);
 
   const form = useForm<StepFormValues>({
-    resolver: standardSchemaResolver(stepSchema),
+    resolver: zodResolver(stepSchema),
     defaultValues: {
       name: "",
       description: "",
@@ -314,7 +314,7 @@ export function TravelApprovalStepDialog({
                   <FormDescription>
                     Submitters who should not trigger this step. Use this when
                     an approver should not approve their own request (e.g.
-                    exclude an approver from their own approval step).
+                    exclude Sid from the &ldquo;Sid approval&rdquo; step).
                   </FormDescription>
                   <FormControl>
                     <UserMultiSelect
@@ -339,7 +339,7 @@ export function TravelApprovalStepDialog({
                     When set, this step only fires for these submitters. Leave
                     empty to apply to everyone (the default). Useful for routing
                     one specific person&apos;s request to a different approver
-                    (e.g. executive approval only for that submitter).
+                    (e.g. CEO approval only when Sid submits).
                   </FormDescription>
                   <FormControl>
                     <UserMultiSelect

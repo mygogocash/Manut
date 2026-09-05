@@ -9,6 +9,7 @@ import {
 import { prisma } from "@/infrastructure/database/prisma";
 import { officeRepository } from "@/modules/office/office.repository";
 import type {
+  AssetImportOffice,
   AssetImportRow,
   AssetQuery,
   BookDeskInput,
@@ -34,9 +35,9 @@ const ROOM_DAY_END = "18:00";
 const ROOM_SLOT_MINUTES = 30;
 // Cap a single booking session to 2 hours so a few people can't claim
 // the whole afternoon. Mirrors the mobile facility-booking mockup HR
-// approved by the booking workflow.
+// signed off (May 2026).
 const ROOM_MAX_CONSECUTIVE_SLOTS = 4;
-// Max booking length in minutes. Bookings are
+// Max booking length in minutes. HR feedback (2026-06-10): bookings are
 // no longer locked to the 30-min grid — any minute boundaries are
 // allowed — so the duration cap is expressed in minutes rather than
 // slot count. Derived from the slot constants to keep the 2-hour cap.
@@ -105,6 +106,66 @@ function deriveAssetCode(
   return serialNo || datePart || undefined;
 }
 
+/**
+ * Last-resort idempotency key for an imported asset: the office it sits in, its
+ * name, and the date it was bought.
+ *
+ * Needed because the importer used to match on `serialNo` alone, and furniture
+ * has none — so every re-import of a furniture sheet inserted a second copy of
+ * every row. Returns null when there is no purchase date, because
+ * (office, name) alone is not distinctive: two identical chairs bought on
+ * different days are two assets, and collapsing them would silently overwrite
+ * the first.
+ */
+export function naturalAssetKey(
+  officeId: string | null | undefined,
+  name: string | null | undefined,
+  purchaseDate: Date | string | null | undefined,
+): string | null {
+  if (!officeId || !name || !purchaseDate) return null;
+  const day =
+    typeof purchaseDate === "string"
+      ? purchaseDate.slice(0, 10)
+      : purchaseDate.toISOString().slice(0, 10);
+  return `${officeId}|${name.trim().toLowerCase().replace(/\s+/g, " ")}|${day}`;
+}
+
+/**
+ * The payload for an UPDATE: only what the imported row actually carried.
+ *
+ * `data` is built with `?? null` for every column because a CREATE has to set
+ * them all. Passing that same object to an update writes null over every field
+ * the source sheet has no column for — and the (officeId, name, purchaseDate)
+ * match tier added for furniture is exactly what lets a row carrying ten fields
+ * match an asset carrying twenty. Facilities' material, dimensions, warranty and
+ * assignee, and finance's asset code, were all erased by an innocent re-import,
+ * which also downgraded the next run's match from the code tier back to the
+ * heuristic.
+ *
+ * So a null here means "this sheet has no opinion" and is omitted. Clearing a
+ * field deliberately is a UI action, never an import side effect.
+ *
+ * Two fields are omitted even when set:
+ *  - `officeId`, because a natural-key match is already in that office and a
+ *    code/serial match must not silently relocate the asset.
+ *  - `status`, unless the row actually supplied one. The inventory sheet has no
+ *    status column, so keeping it would reset a hand-set "in-repair" to
+ *    "available" on every re-import.
+ */
+export function sparseAssetUpdate(
+  data: Record<string, unknown>,
+  opts: { statusProvided: boolean },
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (key === "officeId") continue;
+    if (key === "status" && !opts.statusProvided) continue;
+    if (value === null || value === undefined) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
 function splitAmenities(value: string | null | undefined): string[] {
   if (!value) return [];
   return value
@@ -121,13 +182,14 @@ function joinAmenities(value: string[] | undefined): string | undefined {
     .join(", ");
 }
 
-// Imports may contain mixed-case or padded addresses. Normalize formatting,
-// but never translate an inherited provider/company domain into a Manut one.
+// HR's spreadsheet predates the move to thebinaryholdings.com, so a
+// handful of rows still reference the old single-s domain. Treat both
+// forms as the same address when looking up users.
 function normaliseEmail(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const trimmed = raw.trim().toLowerCase();
   if (!trimmed) return null;
-  return trimmed;
+  return trimmed.replace(/@thebinaryholding\.com$/, "@thebinaryholdings.com");
 }
 
 function joinName(
@@ -136,6 +198,13 @@ function joinName(
 ): string | null {
   const v = `${first ?? ""} ${last ?? ""}`.replace(/\s+/g, " ").trim();
   return v.length > 0 ? v : null;
+}
+
+/** Where an import's rows are headed, and whether that office exists yet. */
+interface ImportOfficeTarget {
+  id: string | null;
+  /** The office is named but not yet created, so no existing asset can match. */
+  willCreate: boolean;
 }
 
 export class OfficeService {
@@ -433,7 +502,7 @@ export class OfficeService {
     const endTime = fromMinutes(endMin);
 
     // The booking must sit inside the bookable window. Start / end can be
-    // any minute; the old 30-minute grid lock was dropped;
+    // any minute (HR feedback 2026-06-10: the 30-min grid lock was dropped);
     // the availability grid is still drawn in 30-min cells, but bookings
     // and the overlap check below are minute-accurate.
     const dayStart = toMinutes(ROOM_DAY_START);
@@ -694,6 +763,14 @@ export class OfficeService {
         ? new Date(input.activeServiceDate)
         : undefined,
       department: input.department,
+      imageUrl: input.imageUrl || undefined,
+      material: input.material,
+      dimensions: input.dimensions,
+      condition: input.condition || undefined,
+      locationDetail: input.locationDetail,
+      warrantyUntil: input.warrantyUntil
+        ? new Date(input.warrantyUntil)
+        : undefined,
       assetCode:
         input.assetCode ??
         deriveAssetCode(input.serialNo, input.activeServiceDate),
@@ -754,6 +831,27 @@ export class OfficeService {
       ...(input.assetCode !== undefined && {
         assetCode: input.assetCode || null,
       }),
+      // An empty string means "cleared", so it maps to null rather than being
+      // written back as "" — otherwise removing a photo would leave a blank
+      // URL that renders as a broken image.
+      ...(input.imageUrl !== undefined && {
+        imageUrl: input.imageUrl || null,
+      }),
+      ...(input.material !== undefined && { material: input.material || null }),
+      ...(input.dimensions !== undefined && {
+        dimensions: input.dimensions || null,
+      }),
+      ...(input.condition !== undefined && {
+        condition: input.condition || null,
+      }),
+      ...(input.locationDetail !== undefined && {
+        locationDetail: input.locationDetail || null,
+      }),
+      ...(input.warrantyUntil !== undefined && {
+        warrantyUntil: input.warrantyUntil
+          ? new Date(input.warrantyUntil)
+          : null,
+      }),
       ...(input.version !== undefined && { version: input.version || null }),
       ...(input.quantity !== undefined && { quantity: input.quantity }),
       ...(input.usefulLifeMonths !== undefined && {
@@ -787,9 +885,12 @@ export class OfficeService {
   // missing user) keep `assignedTo = null` and surface as warnings —
   // HR can wire them up from the UI later.
 
-  async previewAssetImport(rows: AssetImportRow[]) {
+  async previewAssetImport(rows: AssetImportRow[], office?: AssetImportOffice) {
     const ctx = await this.loadAssetImportContext();
-    const resolved = await this.resolveAssetImportRows(rows, ctx);
+    // Preview must NOT create an office — it is a read-only dry run, and a
+    // dialog opened and abandoned would otherwise leave a stray office behind.
+    const target = await this.resolveImportOffice(office, { create: false });
+    const resolved = await this.resolveAssetImportRows(rows, ctx, target);
     const summary = {
       total: resolved.length,
       valid: resolved.filter((r) => r.errors.length === 0).length,
@@ -807,9 +908,12 @@ export class OfficeService {
     return { rows: resolved, summary };
   }
 
-  async commitAssetImport(rows: AssetImportRow[]) {
+  async commitAssetImport(rows: AssetImportRow[], office?: AssetImportOffice) {
+    const target = await this.resolveImportOffice(office, { create: true });
+    // Loaded AFTER the office so a freshly created one is in `officeById`, and
+    // so the natural-key map is built against the office the rows will land in.
     const ctx = await this.loadAssetImportContext();
-    const resolved = await this.resolveAssetImportRows(rows, ctx);
+    const resolved = await this.resolveAssetImportRows(rows, ctx, target);
     let inserts = 0;
     let updates = 0;
     let skipped = 0;
@@ -840,17 +944,37 @@ export class OfficeService {
           ? new Date(r.activeServiceDate)
           : null,
         department: r.department ?? null,
+        // An explicit code from the sheet is the register identity finance
+        // assigned; derive one only when there is none. Deriving over the top
+        // of a supplied code would break the idempotency key on the next run.
         assetCode:
+          r.assetCode ??
           deriveAssetCode(
             r.serialNo ?? undefined,
             r.activeServiceDate ?? undefined,
-          ) ?? null,
+          ) ??
+          null,
         version: r.version ?? null,
         notes: r.notes ?? null,
+        // The fixed-asset columns. Previously absent, so every price, date and
+        // quantity an import carried was accepted by the schema and dropped
+        // here.
+        supplier: r.supplier ?? null,
+        purchaseDate: r.purchaseDate ? new Date(r.purchaseDate) : null,
+        purchaseCost: r.purchaseCost ?? null,
+        quantity: r.quantity ?? 1,
+        warrantyUntil: r.warrantyUntil ? new Date(r.warrantyUntil) : null,
+        material: r.material ?? null,
+        dimensions: r.dimensions ?? null,
+        condition: r.condition ?? null,
+        locationDetail: r.locationDetail ?? null,
       };
 
       if (r.action === "update" && r.matchedAssetId) {
-        await officeRepository.updateAsset(r.matchedAssetId, data);
+        await officeRepository.updateAsset(
+          r.matchedAssetId,
+          sparseAssetUpdate(data, { statusProvided: r.statusProvided }),
+        );
         updates++;
       } else {
         await officeRepository.createAsset(data);
@@ -878,9 +1002,18 @@ export class OfficeService {
       prisma.entity.findMany({
         select: { id: true, code: true, country: true },
       }),
+      // No WHERE on serialNo any more: furniture has none, and the import
+      // needs the code and (office, name, date) keys too or a re-run inserts a
+      // second copy of every row it already created.
       prisma.asset.findMany({
-        where: { serialNo: { not: null } },
-        select: { id: true, serialNo: true },
+        select: {
+          id: true,
+          serialNo: true,
+          assetCode: true,
+          officeId: true,
+          name: true,
+          purchaseDate: true,
+        },
       }),
     ]);
 
@@ -903,24 +1036,86 @@ export class OfficeService {
     const fallbackOfficeId = offices[0]?.id ?? null;
 
     const existingBySerial = new Map<string, string>();
+    const existingByCode = new Map<string, string>();
+    const existingByNaturalKey = new Map<string, string>();
     for (const a of existingAssets) {
-      const s = a.serialNo?.trim();
-      if (s) existingBySerial.set(s, a.id);
+      const serial = a.serialNo?.trim();
+      if (serial) existingBySerial.set(serial, a.id);
+      const code = a.assetCode?.trim();
+      if (code) existingByCode.set(code, a.id);
+      const natural = naturalAssetKey(a.officeId, a.name, a.purchaseDate);
+      if (natural && !existingByNaturalKey.has(natural)) {
+        existingByNaturalKey.set(natural, a.id);
+      }
     }
+
+    const officeById = new Map(offices.map((o) => [o.id, o.name]));
 
     return {
       userByEmail,
       userByName,
       entityById,
       officeByCountry,
+      officeById,
       fallbackOfficeId,
       existingBySerial,
+      existingByCode,
+      existingByNaturalKey,
     };
+  }
+
+  /**
+   * Turn the import's office block into a concrete id.
+   *
+   * `create: false` (preview) resolves an existing office or returns null and
+   * lets the per-row inference stand; `create: true` (commit) will create one.
+   * Find-by-name before create, so committing twice does not make two offices.
+   */
+  private async resolveImportOffice(
+    office: AssetImportOffice | undefined,
+    opts: { create: boolean },
+  ): Promise<ImportOfficeTarget> {
+    if (!office) return { id: null, willCreate: false };
+    if (office.officeId) {
+      const found = await prisma.office.findUnique({
+        where: { id: office.officeId },
+        select: { id: true },
+      });
+      if (!found) throw new NotFoundException("Office not found");
+      return { id: found.id, willCreate: false };
+    }
+    if (!office.name || !office.city || !office.country) {
+      return { id: null, willCreate: false };
+    }
+    const existing = await prisma.office.findFirst({
+      where: { name: office.name },
+      select: { id: true },
+    });
+    if (existing) return { id: existing.id, willCreate: false };
+    if (!opts.create) {
+      // PREVIEW of an office that does not exist yet. Returning a bare null let
+      // the caller fall back to "the first active office", so every natural key
+      // was computed against a DIFFERENT office than commit would create — a
+      // preview promising 24 updates then inserting 24 rows, from byte-identical
+      // input. `willCreate` makes that visible instead.
+      return { id: null, willCreate: true };
+    }
+    const created = await prisma.office.create({
+      data: {
+        name: office.name,
+        city: office.city,
+        country: office.country,
+        timezone: office.timezone ?? null,
+      },
+      select: { id: true },
+    });
+    return { id: created.id, willCreate: false };
   }
 
   private async resolveAssetImportRows(
     rows: AssetImportRow[],
     ctx: Awaited<ReturnType<OfficeService["loadAssetImportContext"]>>,
+    target: ImportOfficeTarget = { id: null, willCreate: false },
   ) {
     if (!ctx.fallbackOfficeId) {
       throw new BadRequestException(
@@ -928,7 +1123,8 @@ export class OfficeService {
       );
     }
 
-    const seenSerials = new Set<string>();
+    // Keys already claimed by an earlier row in THIS file.
+    const seenKeys = new Set<string>();
     const out: Array<{
       row: number;
       sourceSheet: string | null;
@@ -954,6 +1150,19 @@ export class OfficeService {
       officeName: string | null;
       action: "insert" | "update";
       matchedAssetId: string | null;
+      /** Whether the SHEET supplied a status, as opposed to the default. */
+      statusProvided: boolean;
+      // Fixed-asset columns.
+      supplier: string | null;
+      purchaseDate: string | null;
+      purchaseCost: number | null;
+      quantity: number;
+      warrantyUntil: string | null;
+      material: string | null;
+      dimensions: string | null;
+      condition: string | null;
+      locationDetail: string | null;
+      assetCode: string | null;
       errors: string[];
       warnings: string[];
     }> = [];
@@ -980,37 +1189,61 @@ export class OfficeService {
         warnings.push("assignee_not_found");
       }
 
-      let officeId = ctx.fallbackOfficeId;
-      let officeName: string | null = null;
-      if (assignee?.entityId) {
+      // An explicitly targeted office wins over every inference. Without it the
+      // resolution below picks the assignee's country and otherwise "the first
+      // active office" — fine for an IT hand-out sheet, silently wrong for a
+      // furniture log where no row has an assignee at all.
+      // An office that does not exist yet holds no assets, so nothing can match
+      // and every row is an insert. Leaving officeId null makes the natural key
+      // null, which produces exactly that — and crucially does NOT borrow the
+      // fallback office's assets to match against.
+      let officeId = target.willCreate
+        ? null
+        : (target.id ?? ctx.fallbackOfficeId);
+      if (target.willCreate) warnings.push("office_will_be_created");
+      if (!target.id && !target.willCreate && assignee?.entityId) {
         const ent = ctx.entityById.get(assignee.entityId);
         if (ent) {
           const oid = ctx.officeByCountry.get(ent.country);
           if (oid) officeId = oid;
         }
       }
-      if (officeId) {
-        // Looking up the name is cheap and useful for the preview UI.
-        // We don't bother caching: officeByCountry is small.
-        for (const [country, id] of ctx.officeByCountry.entries()) {
-          if (id === officeId) {
-            officeName = country;
-            break;
-          }
-        }
-      }
+      const officeName = officeId
+        ? (ctx.officeById.get(officeId) ?? null)
+        : null;
 
       const serialTrimmed = r.serialNo?.trim() || null;
+      const codeTrimmed = r.assetCode?.trim() || null;
+      const naturalKey = naturalAssetKey(officeId, r.name, r.purchaseDate);
+
+      // Match in descending order of how much the key promises. An asset code
+      // is a register identity somebody assigned deliberately; a serial number
+      // is the manufacturer's; (office, name, purchase date) is a heuristic and
+      // therefore last. Without the third tier a furniture sheet — no codes, no
+      // serials — re-imported as a full set of duplicates.
       let action: "insert" | "update" = "insert";
       let matchedAssetId: string | null = null;
-      if (serialTrimmed && !seenSerials.has(serialTrimmed)) {
-        const existingId = ctx.existingBySerial.get(serialTrimmed);
-        if (existingId) {
-          action = "update";
-          matchedAssetId = existingId;
-        }
+      if (codeTrimmed && !seenKeys.has(`code:${codeTrimmed}`)) {
+        matchedAssetId = ctx.existingByCode.get(codeTrimmed) ?? null;
       }
-      if (serialTrimmed) seenSerials.add(serialTrimmed);
+      if (
+        !matchedAssetId &&
+        serialTrimmed &&
+        !seenKeys.has(`serial:${serialTrimmed}`)
+      ) {
+        matchedAssetId = ctx.existingBySerial.get(serialTrimmed) ?? null;
+      }
+      if (!matchedAssetId && naturalKey && !seenKeys.has(`nat:${naturalKey}`)) {
+        matchedAssetId = ctx.existingByNaturalKey.get(naturalKey) ?? null;
+      }
+      if (matchedAssetId) action = "update";
+
+      // Two rows in ONE file sharing a key are two different assets that happen
+      // to collide, not the same asset twice — so the second must insert rather
+      // than update the row the first just matched.
+      if (codeTrimmed) seenKeys.add(`code:${codeTrimmed}`);
+      if (serialTrimmed) seenKeys.add(`serial:${serialTrimmed}`);
+      if (naturalKey) seenKeys.add(`nat:${naturalKey}`);
 
       // Status pass-through: already mapped client-side. We accept any
       // string since `Asset.status` is a free-form column; the UI
@@ -1029,12 +1262,23 @@ export class OfficeService {
         serialNo: serialTrimmed,
         operatingSystem: r.operatingSystem ?? null,
         status,
+        statusProvided: Boolean(r.status?.trim()),
         description: r.description ?? null,
         supportLink: r.supportLink ?? null,
         activeServiceDate: r.activeServiceDate ?? null,
         department: r.department ?? null,
         version: r.version ?? null,
         notes: r.notes ?? null,
+        supplier: r.supplier ?? null,
+        purchaseDate: r.purchaseDate ?? null,
+        purchaseCost: r.purchaseCost ?? null,
+        quantity: r.quantity ?? 1,
+        warrantyUntil: r.warrantyUntil ?? null,
+        material: r.material ?? null,
+        dimensions: r.dimensions ?? null,
+        condition: r.condition || null,
+        locationDetail: r.locationDetail ?? null,
+        assetCode: codeTrimmed,
         assigneeRaw,
         assignedTo: assignee?.id ?? null,
         assigneeName: assignee?.name ?? null,

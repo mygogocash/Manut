@@ -1,6 +1,8 @@
+import { normaliseCurrencyCode } from "@nexora/utils";
+
 import { prisma } from "@/infrastructure/database/prisma";
 
-// Cross-currency aggregation reuses the existing
+// PRD §11.5 follow-up — cross-currency aggregation. Reuses the existing
 // `exchange_rates` table from the finance module. Rates store
 // `1 baseCurrency = rate * currency` (e.g. USD → THB at 36.4); we
 // invert when the source currency is the `baseCurrency` side and the
@@ -27,7 +29,7 @@ export interface FxLookupResult {
 
 // Currencies we try as a bridge when no direct / inverse rate is on
 // file. USD first because finance keeps it as the canonical base;
-// THB second so a MANUT-Thailand run can still convert when only entity-
+// THB second so a TBH-Thailand run can still convert when only entity-
 // local quotes are stored.
 const BRIDGE_CURRENCIES = ["USD", "THB", "EUR"] as const;
 
@@ -47,7 +49,21 @@ export class ExchangeRateService {
     to: string,
     asOf?: Date,
   ): Promise<FxLookupResult> {
-    return this.resolveRateInternal(from, to, asOf, new Set());
+    /*
+     * Normalised here rather than at each caller, because this is the one point
+     * every conversion passes through. Expense lines hold whatever was typed, and
+     * no provider can quote a string that is not an ISO code — so a line filed as
+     * "RMB" or "₹" resolved to nothing and silently dropped out of the THB total.
+     *
+     * Only unambiguous aliases resolve. "¥" stays unresolved on purpose: it is
+     * both CNY and JPY, and guessing would misprice by roughly twenty times.
+     */
+    return this.resolveRateInternal(
+      normaliseCurrencyCode(from),
+      normaliseCurrencyCode(to),
+      asOf,
+      new Set(),
+    );
   }
 
   private async resolveRateInternal(

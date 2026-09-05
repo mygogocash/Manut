@@ -36,6 +36,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -70,7 +71,7 @@ export default function DirectoryPage() {
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("directory");
+  const [activeTab, setActiveTab] = useTabParam("directory");
   const [metaLoaded, setMetaLoaded] = useState(false);
 
   const fetchEmployees = useCallback(async () => {

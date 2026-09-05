@@ -1,15 +1,15 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    "module": "CommonJS",
+    "moduleResolution": "node",
     "outDir": "./dist",
     "rootDir": "./src",
     "noEmit": true,
     "declaration": false,
     "declarationMap": false,
     "skipLibCheck": true,
-    "strict": true,
+    "strict": false,
     "paths": {
       "@/*": ["./src/*"]
     }

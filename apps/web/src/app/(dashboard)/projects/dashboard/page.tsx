@@ -133,7 +133,7 @@ function buildDashboardHtml(
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Project CRM Dashboard — ${escapeHtml(stamp)}</title>
+<title>Integration CRM Dashboard — ${escapeHtml(stamp)}</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 32px; background: #faf7f1; color: #2a2520; }
   h1 { font-family: Georgia, serif; font-size: 28px; margin: 0 0 4px; }
@@ -154,8 +154,8 @@ function buildDashboardHtml(
 </style>
 </head>
 <body>
-<h1>Project CRM Dashboard</h1>
-<p class="subtitle">Generated ${escapeHtml(stamp)} · Source: intranet.manut.example</p>
+<h1>Integration CRM Dashboard</h1>
+<p class="subtitle">Generated ${escapeHtml(stamp)} · Source: intranet.thebinaryholdings.com</p>
 
 <div class="kpis">
   <div class="kpi"><div class="label">Total projects</div><div class="value">${snapshot.total}</div></div>
@@ -237,7 +237,7 @@ export default function ProjectsDashboardPage() {
     const a = document.createElement("a");
     a.href = url;
     const stamp = new Date().toISOString().slice(0, 10);
-    a.download = `project-crm-dashboard-${stamp}.html`;
+    a.download = `integration-crm-dashboard-${stamp}.html`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -248,7 +248,7 @@ export default function ProjectsDashboardPage() {
     <div>
       <PageHeader
         title="Project Dashboard"
-        subtitle="Snapshot of the Project CRM workspace for the management team"
+        subtitle="Snapshot of the Integration CRM workspace for the management team"
       >
         <Button asChild variant="ghost" size="sm">
           <Link href="/projects">Back to list</Link>

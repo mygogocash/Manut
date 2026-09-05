@@ -1,4 +1,4 @@
-import { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { excludeDeleted, softDeleteUpdate } from "@/infrastructure/soft-delete";
@@ -81,63 +81,6 @@ export class CashAdvanceRepository {
       where: { id },
       data,
       include,
-    });
-  }
-
-  /** A concurrent finance actor cannot replace committed payout evidence. */
-  async markDisbursedIfApproved(
-    id: string,
-    data: {
-      disbursedAt: Date;
-      proofUploadId: string;
-      proofUrl: string;
-      uploadedBy: string;
-    },
-  ) {
-    return prisma.$transaction(async (tx) => {
-      const proofRows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-        SELECT id
-        FROM file_uploads
-        WHERE id = ${data.proofUploadId}::uuid
-          AND purpose = 'cash-advance-disbursement-proof'
-          AND linked_to = 'cash-advance'
-          AND linked_id = ${id}
-          AND uploaded_by = ${data.uploadedBy}::uuid
-        FOR KEY SHARE
-      `);
-      if (!proofRows[0]) return null;
-
-      const transition = await tx.cashAdvanceRequest.updateMany({
-        where: { id, status: "approved", deletedAt: null },
-        data: {
-          status: "disbursed",
-          disbursedAt: data.disbursedAt,
-          disbursementProofUploadId: data.proofUploadId,
-          disbursementProofUrl: data.proofUrl,
-        },
-      });
-      if (transition.count !== 1) return null;
-
-      return tx.cashAdvanceRequest.findUniqueOrThrow({
-        where: { id },
-        include,
-      });
-    });
-  }
-
-  /** A concurrent clear cannot replace the first committed clear timestamp. */
-  async markClearedIfDisbursed(id: string, clearedAt: Date) {
-    return prisma.$transaction(async (tx) => {
-      const transition = await tx.cashAdvanceRequest.updateMany({
-        where: { id, status: "disbursed", deletedAt: null },
-        data: { status: "cleared", clearedAt },
-      });
-      if (transition.count !== 1) return null;
-
-      return tx.cashAdvanceRequest.findUniqueOrThrow({
-        where: { id },
-        include,
-      });
     });
   }
 

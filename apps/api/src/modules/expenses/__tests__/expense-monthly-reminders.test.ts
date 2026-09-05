@@ -8,7 +8,6 @@ import {
   expensesService,
   isExpenseReminderDayBangkok,
 } from "@/modules/expenses/expenses.service";
-import { mockCall } from "@/test-utils/assertions";
 
 vi.mock("@/infrastructure/database/prisma", () => ({
   prisma: {
@@ -76,13 +75,13 @@ describe("expense monthly submission reminders", () => {
         id: "u-th",
         name: "Thai User",
         email: "thai@example.com",
-        entity: { code: "TH", name: "Manut Thailand" },
+        entity: { code: "TH", name: "TBH Thailand" },
       },
       {
         id: "u-in",
         name: "India User",
         email: "india@example.com",
-        entity: { code: "IN", name: "Manut India" },
+        entity: { code: "IN", name: "TBH India" },
       },
     ] as never);
     findReports.mockResolvedValue([{ employeeId: "u-in" }] as never);
@@ -101,7 +100,7 @@ describe("expense monthly submission reminders", () => {
       eligible: 2,
     });
     expect(sendEmailMock).toHaveBeenCalledTimes(1);
-    const call = mockCall(sendEmailMock.mock.calls, 0)[0] as {
+    const call = sendEmailMock.mock.calls[0]![0] as {
       to: string;
       subject: string;
     };

@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -57,9 +57,7 @@ const formSchema = z
   .object({
     baseCurrency: isoCode,
     currency: isoCode,
-    rate: z.coerce
-      .number<number | string>()
-      .positive("Rate must be greater than zero"),
+    rate: z.coerce.number().positive("Rate must be greater than zero"),
     effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
     source: z.string().max(50).optional(),
   })
@@ -68,8 +66,7 @@ const formSchema = z
     path: ["currency"],
   });
 
-type FormInput = z.input<typeof formSchema>;
-type FormValues = z.output<typeof formSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 interface ExchangeRatesManagerDialogProps {
   open: boolean;
@@ -92,8 +89,8 @@ export function ExchangeRatesManagerDialog({
   const [deleting, setDeleting] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  const form = useForm<FormInput, unknown, FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       baseCurrency: "USD",
       currency: "",
@@ -148,6 +145,11 @@ export function ExchangeRatesManagerDialog({
       }
       const parts = [`${r.synced.length} synced`];
       if (r.skipped.length) parts.push(`${r.skipped.length} skipped`);
+      // Named explicitly: the sync now leaves hand-corrected rates alone, and
+      // without this an admin sees "0 synced" with no idea it was deliberate.
+      if (r.preserved?.length) {
+        parts.push(`${r.preserved.length} kept (edited by hand)`);
+      }
       if (r.errors.length) parts.push(`${r.errors.length} failed`);
       toast.success(`BOT sync: ${parts.join(", ")}`);
       void fetchRates();

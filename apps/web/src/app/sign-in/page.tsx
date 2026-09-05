@@ -1,20 +1,6 @@
 import { LoginForm } from "@/components/auth/login-form";
 
-interface SignInPageProps {
-  searchParams: Promise<{
-    returnTo?: string | string[];
-    redirect?: string | string[];
-  }>;
-}
-
-function firstValue(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-export default async function SignInPage({ searchParams }: SignInPageProps) {
-  const params = await searchParams;
-  const returnTo = firstValue(params.returnTo) ?? firstValue(params.redirect);
-
+export default function SignInPage() {
   return (
     <div
       className={`
@@ -45,7 +31,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
                 uppercase
               `}
             >
-              Private Workspace
+              The Binary Holdings
             </div>
           </div>
         </div>
@@ -53,7 +39,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         <p className="text-muted-foreground mt-1 text-[11px]">
           Enter your credentials to access the portal
         </p>
-        <LoginForm returnTo={returnTo} />
+        <LoginForm />
       </div>
     </div>
   );

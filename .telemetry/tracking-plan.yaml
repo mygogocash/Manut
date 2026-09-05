@@ -1,0 +1,603 @@
+meta:
+  product: Intranet
+  version: 1
+  created: 2026-05-08
+  updated: 2026-05-08
+  owner: platform
+  destinations:
+    - posthog
+  pii_policy: traits_only
+  internal_user_policy: exclude_non_prod
+  notes: |
+    Internal HR + CRM suite for The Binary Holdings. Single-tenant.
+    Recommended destination: PostHog (self-host or Cloud free tier).
+    ~50 users → event volume is trivial; minimalism is for signal quality, not cost.
+
+# ─────────────────────────────────────────────────────────────────────
+# Entities
+# ─────────────────────────────────────────────────────────────────────
+entities:
+  user:
+    id_property: user_id
+    id_format: cuid
+    traits:
+      # Identity (PII — only in traits, never in event properties)
+      - name: email
+        type: string
+        pii: true
+        required: true
+        update: on_change
+      - name: name
+        type: string
+        pii: true
+        required: true
+        update: on_change
+
+      # Classification
+      - name: entity_id
+        type: string
+        required: false
+        update: on_change
+      - name: entity_code
+        type: string
+        enum: [TH, IN, VN, ID]
+        required: false
+        update: on_change
+      - name: department
+        type: string
+        required: false
+        update: on_change
+      - name: job_title
+        type: string
+        required: false
+        update: on_change
+      - name: roles
+        type: string  # comma-joined list — PostHog person properties don't index arrays well
+        required: false
+        update: on_change
+      - name: is_employee_only
+        type: boolean
+        required: false
+        update: on_change
+
+      # Lifecycle
+      - name: created_at
+        type: datetime
+        required: true
+        update: one_time
+      - name: last_active_at
+        type: datetime
+        required: false
+        update: on_change
+
+      # Snapshot (filled by daily sync — see snapshot_sync below)
+      - name: leave_requests_30d
+        type: integer
+        required: false
+        update: scheduled
+      - name: expenses_30d
+        type: integer
+        required: false
+        update: scheduled
+      - name: aria_messages_30d
+        type: integer
+        required: false
+        update: scheduled
+
+# ─────────────────────────────────────────────────────────────────────
+# Groups — single-tenant product, but entity slicing is critical
+# ─────────────────────────────────────────────────────────────────────
+groups:
+  - type: entity
+    is_top_level: true
+    id_format: cuid
+    traits:
+      - name: code
+        type: string
+        enum: [TH, IN, VN, ID]
+      - name: name
+        type: string
+      - name: headcount
+        type: integer
+        update: scheduled
+      - name: created_at
+        type: datetime
+
+# ─────────────────────────────────────────────────────────────────────
+# Snapshot sync — daily cron updates these traits
+# ─────────────────────────────────────────────────────────────────────
+snapshot_sync:
+  cadence: daily
+  traits:
+    - entity: user
+      trait: leave_requests_30d
+      source: COUNT(LeaveRequest WHERE employeeId=user.id AND createdAt > now() - 30d)
+    - entity: user
+      trait: expenses_30d
+      source: COUNT(ExpenseClaim WHERE submittedBy=user.id AND createdAt > now() - 30d)
+    - entity: user
+      trait: aria_messages_30d
+      source: COUNT(AriaMessage WHERE userId=user.id AND createdAt > now() - 30d)
+    - entity: user
+      trait: last_active_at
+      source: MAX(event.timestamp WHERE user_id=user.id)
+    - entity: entity
+      trait: headcount
+      source: COUNT(User WHERE entityId=entity.id AND isActive=true)
+
+# ─────────────────────────────────────────────────────────────────────
+# Events
+# ─────────────────────────────────────────────────────────────────────
+events:
+  # ── Lifecycle ───────────────────────────────────────────────────────
+  - name: session.started
+    category: lifecycle
+    group_level: entity
+    description: User authenticated and landed on the app (login or token refresh on a fresh tab).
+    properties:
+      - { name: source, type: string, enum: [login, token_refresh, sso], required: true }
+    expected_frequency: medium
+
+  - name: session.ended
+    category: lifecycle
+    group_level: entity
+    description: User signed out. Idle/timeout exits are NOT tracked (noise).
+    properties:
+      - { name: duration_seconds, type: integer, required: false }
+    expected_frequency: low
+
+  - name: user.created
+    category: lifecycle
+    group_level: entity
+    description: HR adds a new employee record.
+    properties:
+      - { name: target_user_id, type: string, required: true }
+      - { name: target_entity_code, type: string, enum: [TH, IN, VN, ID], required: true }
+      - { name: is_employee_only, type: boolean, required: true }
+    expected_frequency: low
+
+  - name: user.deactivated
+    category: lifecycle
+    group_level: entity
+    description: HR offboards an employee (`isActive=false`).
+    properties:
+      - { name: target_user_id, type: string, required: true }
+    expected_frequency: low
+
+  # ── Navigation (the diagnostic core for module-usage / dead-weight) ──
+  - name: module.viewed
+    category: navigation
+    group_level: entity
+    description: |
+      Top-level module/section opened. Single event for all 18+ modules — distinguished by
+      the `module` property. This is the workhorse for adoption + dead-weight analysis.
+    properties:
+      - name: module
+        type: string
+        enum:
+          - home
+          - aria
+          - messaging
+          - projects
+          - partner_crm
+          - sales_crm
+          - employees
+          - leave
+          - travel
+          - careers
+          - survey
+          - payroll
+          - legal
+          - hrms
+          - learning
+          - visa
+          - benefits
+          - my_portal
+          - admin
+          - settings
+        required: true
+      - { name: sub_section, type: string, required: false, description: "e.g. 'policies', 'requests', 'analytics' tab" }
+      - { name: source, type: string, enum: [sidebar, link, deep_link, search, notification], required: false }
+    expected_frequency: high
+
+  - name: search.performed
+    category: navigation
+    group_level: entity
+    description: Global search query submitted (if/when global search ships).
+    properties:
+      - { name: query_length, type: integer, required: true }
+      - { name: results_count, type: integer, required: false }
+      - { name: result_clicked, type: boolean, required: false }
+    expected_frequency: medium
+
+  # ── Core value: Leave ───────────────────────────────────────────────
+  - name: leave_request.started
+    category: core_value
+    group_level: entity
+    description: Leave-request form opened.
+    expected_frequency: medium
+
+  - name: leave_request.submitted
+    category: core_value
+    group_level: entity
+    description: Leave request created.
+    properties:
+      - { name: leave_type_code, type: string, required: true }
+      - { name: days, type: number, required: true }
+      - { name: is_self, type: boolean, required: true, description: "false = HR submitting on behalf" }
+    expected_frequency: medium
+
+  - name: leave_request.cancelled
+    category: core_value
+    group_level: entity
+    description: User abandoned the leave-request form before submit (closed modal, navigated away).
+    expected_frequency: medium
+
+  - name: leave_request.approved
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: leave_request_id, type: string, required: true }
+      - { name: approver_role, type: string, required: false }
+    expected_frequency: medium
+
+  - name: leave_request.rejected
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: leave_request_id, type: string, required: true }
+    expected_frequency: low
+
+  # ── Core value: Expenses ────────────────────────────────────────────
+  - name: expense.started
+    category: core_value
+    group_level: entity
+    expected_frequency: medium
+
+  - name: expense.submitted
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: amount_thb, type: number, required: true, description: "Normalised to THB at submit time." }
+      - { name: category, type: string, required: true }
+      - { name: has_receipt, type: boolean, required: true }
+    expected_frequency: medium
+
+  - name: expense.cancelled
+    category: core_value
+    group_level: entity
+    expected_frequency: medium
+
+  - name: expense.approved
+    category: core_value
+    group_level: entity
+    expected_frequency: medium
+
+  # ── Core value: Travel ──────────────────────────────────────────────
+  - name: travel_request.started
+    category: core_value
+    group_level: entity
+    expected_frequency: medium
+
+  - name: travel_request.submitted
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: trip_type, type: string, enum: [domestic, international], required: true }
+      - { name: destination_country, type: string, required: false }
+      - { name: estimated_cost_thb, type: number, required: false }
+    expected_frequency: medium
+
+  - name: travel_request.cancelled
+    category: core_value
+    group_level: entity
+    expected_frequency: low
+
+  - name: travel_request.approved
+    category: core_value
+    group_level: entity
+    expected_frequency: medium
+
+  # ── Core value: Payroll ─────────────────────────────────────────────
+  - name: payroll.run_started
+    category: core_value
+    group_level: entity
+    description: Admin initiated a payroll run for the period.
+    properties:
+      - { name: period, type: string, required: true, description: "YYYY-MM" }
+      - { name: target_entity_code, type: string, enum: [TH, IN, VN, ID], required: true }
+    expected_frequency: low
+
+  - name: payroll.run_completed
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: period, type: string, required: true }
+      - { name: target_entity_code, type: string, required: true }
+      - { name: employee_count, type: integer, required: true }
+    expected_frequency: low
+
+  - name: payroll.imported
+    category: core_value
+    group_level: entity
+    description: HR uploaded a payroll xlsx (template ingest).
+    properties:
+      - { name: row_count, type: integer, required: true }
+      - { name: error_count, type: integer, required: true }
+    expected_frequency: low
+
+  # ── Core value: HRMS ────────────────────────────────────────────────
+  - name: agreement.uploaded
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: agreement_type, type: string, required: false }
+    expected_frequency: low
+
+  - name: agreement.downloaded
+    category: core_value
+    group_level: entity
+    description: Signed-URL fetch from `documents` bucket.
+    properties:
+      - { name: agreement_id, type: string, required: true }
+    expected_frequency: low
+
+  # ── Core value: Aria (AI) ───────────────────────────────────────────
+  - name: aria.message_sent
+    category: core_value
+    group_level: entity
+    description: User sent a chat message to Aria.
+    properties:
+      - { name: preset, type: string, required: false, description: "Preset prompt id if launched from a preset card." }
+      - { name: prompt_length, type: integer, required: true }
+      - { name: context_modules, type: string, required: false, description: "Comma-joined modules pulled into context." }
+    expected_frequency: high
+
+  - name: aria.response_received
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: latency_ms, type: integer, required: true }
+      - { name: tokens_in, type: integer, required: false }
+      - { name: tokens_out, type: integer, required: false }
+      - { name: streaming, type: boolean, required: false }
+      - { name: error, type: boolean, required: true }
+    expected_frequency: high
+
+  - name: aria.feedback_given
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: rating, type: string, enum: [up, down], required: true }
+    expected_frequency: low
+
+  # ── Core value: Messaging ───────────────────────────────────────────
+  - name: message.sent
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: thread_type, type: string, enum: [direct, group, channel], required: true }
+      - { name: has_attachment, type: boolean, required: true }
+      - { name: char_count, type: integer, required: true }
+    expected_frequency: high
+
+  # ── Core value: Projects ────────────────────────────────────────────
+  - name: project.created
+    category: core_value
+    group_level: entity
+    expected_frequency: low
+
+  - name: task.created
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: project_id, type: string, required: true }
+    expected_frequency: medium
+
+  - name: task.status_changed
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: task_id, type: string, required: true }
+      - { name: from_status, type: string, required: true }
+      - { name: to_status, type: string, required: true }
+    expected_frequency: high
+
+  # ── Core value: Sales CRM ───────────────────────────────────────────
+  - name: lead.created
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: source_code, type: string, required: false }
+    expected_frequency: medium
+
+  - name: lead.converted
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: deal_id, type: string, required: true }
+    expected_frequency: low
+
+  - name: deal.created
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: amount_thb, type: number, required: false }
+      - { name: stage, type: string, required: true }
+    expected_frequency: medium
+
+  - name: deal.stage_changed
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: deal_id, type: string, required: true }
+      - { name: from_stage, type: string, required: true }
+      - { name: to_stage, type: string, required: true }
+    expected_frequency: medium
+
+  - name: deal.won
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: deal_id, type: string, required: true }
+      - { name: amount_thb, type: number, required: false }
+    expected_frequency: low
+
+  - name: deal.lost
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: deal_id, type: string, required: true }
+      - { name: lost_reason_code, type: string, required: false }
+    expected_frequency: low
+
+  # ── Core value: Partner CRM ─────────────────────────────────────────
+  - name: partner.created
+    category: core_value
+    group_level: entity
+    expected_frequency: low
+
+  - name: partner.note_added
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: partner_id, type: string, required: true }
+    expected_frequency: medium
+
+  # ── Core value: Survey ──────────────────────────────────────────────
+  - name: survey.opened
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: survey_id, type: string, required: true }
+    expected_frequency: medium
+
+  - name: survey_response.submitted
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: survey_id, type: string, required: true }
+      - { name: completion_seconds, type: integer, required: false }
+    expected_frequency: medium
+
+  # ── Core value: Learning ────────────────────────────────────────────
+  - name: course.started
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: course_id, type: string, required: true }
+    expected_frequency: medium
+
+  - name: course.completed
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: course_id, type: string, required: true }
+      - { name: completion_seconds, type: integer, required: false }
+    expected_frequency: low
+
+  # ── Core value: Visa / Benefits / Careers ───────────────────────────
+  - name: visa_request.submitted
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: visa_type, type: string, required: false }
+    expected_frequency: low
+
+  - name: benefit.enrolled
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: benefit_id, type: string, required: true }
+    expected_frequency: low
+
+  - name: application.received
+    category: core_value
+    group_level: entity
+    description: Inbound career application landed in the Careers module.
+    properties:
+      - { name: posting_id, type: string, required: true }
+    expected_frequency: medium
+
+  # ── Core value: Legal / Dataroom ────────────────────────────────────
+  - name: document.viewed
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: document_id, type: string, required: true }
+      - { name: document_kind, type: string, enum: [legal, dataroom, hrms_agreement, payroll_slip], required: true }
+    expected_frequency: medium
+
+  - name: document.downloaded
+    category: core_value
+    group_level: entity
+    properties:
+      - { name: document_id, type: string, required: true }
+      - { name: document_kind, type: string, required: true }
+    expected_frequency: medium
+
+  # ── Configuration ───────────────────────────────────────────────────
+  - name: role.assigned
+    category: configuration
+    group_level: entity
+    properties:
+      - { name: target_user_id, type: string, required: true }
+      - { name: role_name, type: string, required: true }
+    expected_frequency: low
+
+  - name: role.revoked
+    category: configuration
+    group_level: entity
+    properties:
+      - { name: target_user_id, type: string, required: true }
+      - { name: role_name, type: string, required: true }
+    expected_frequency: low
+
+  - name: profile.updated
+    category: configuration
+    group_level: entity
+    properties:
+      - { name: fields_changed, type: string, required: true, description: "Comma-joined field names." }
+    expected_frequency: low
+
+  - name: integration.connected
+    category: configuration
+    group_level: entity
+    properties:
+      - { name: provider, type: string, enum: [gmail, google_calendar, slack, gemini], required: true }
+    expected_frequency: low
+
+  # ── Errors / friction (sparse, signal-rich) ─────────────────────────
+  - name: form.validation_failed
+    category: error
+    group_level: entity
+    description: |
+      Server-side rejection of a form payload (Zod parse fail). Client-only
+      field-level validation is NOT tracked (noise).
+    properties:
+      - { name: form, type: string, required: true, description: "e.g. leave_request, expense, travel_request" }
+      - { name: field_count, type: integer, required: true }
+    expected_frequency: low
+
+  - name: permission.denied
+    category: error
+    group_level: entity
+    description: 403 from the API. Useful for finding mis-scoped UI.
+    properties:
+      - { name: permission, type: string, required: true, description: "module:action code" }
+      - { name: route, type: string, required: false }
+    expected_frequency: low
+
+# ─────────────────────────────────────────────────────────────────────
+# What is intentionally NOT tracked
+# ─────────────────────────────────────────────────────────────────────
+do_not_track:
+  - reason: "Page views — would inflate volume; module.viewed gives better signal."
+    examples: [page.viewed, route.changed]
+  - reason: "Component-level UI noise."
+    examples: [button.clicked, modal.opened, accordion.toggled, scroll, mouse_move]
+  - reason: "Implementation events with no product meaning."
+    examples: [api.called, query.executed, component.rendered]
+  - reason: "Per-keystroke search input."
+    examples: [search.typed]
+  - reason: "PII inside event properties — keep PII in user traits only."

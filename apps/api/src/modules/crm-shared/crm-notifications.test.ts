@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { notifyCrmTaskEvent } from "@/modules/crm-shared/crm-notifications";
-import { mockArgument } from "@/test-utils/assertions";
 
 const db = vi.hoisted(() => ({
   projectTask: { findUnique: vi.fn() },
@@ -45,11 +44,7 @@ describe("notifyCrmTaskEvent", () => {
       ],
     });
     await notifyCrmTaskEvent(base);
-    const rows = mockArgument(
-      db.crmNotification.createMany.mock.calls,
-      0,
-      0,
-    ).data;
+    const rows = db.crmNotification.createMany.mock.calls[0][0].data;
     expect(rows.map((r: { userId: string }) => r.userId).sort()).toEqual([
       "a1",
       "owner",
@@ -63,8 +58,7 @@ describe("notifyCrmTaskEvent", () => {
       assignees: [],
     });
     await notifyCrmTaskEvent({ ...base, module: "legal" });
-    const link = mockArgument(db.crmNotification.createMany.mock.calls, 0, 0)
-      .data[0].linkUrl;
+    const link = db.crmNotification.createMany.mock.calls[0][0].data[0].linkUrl;
     expect(link).toContain("from=legal-crm");
   });
 
@@ -77,7 +71,7 @@ describe("notifyCrmTaskEvent", () => {
       recipients: ["actor@x.com", "lead@x.com"],
     });
     await notifyCrmTaskEvent(base);
-    const to = mockArgument(sendEmail.mock.calls, 0, 0).to;
+    const to = sendEmail.mock.calls[0][0].to;
     expect(to).not.toContain("actor@x.com");
     expect([...to].sort()).toEqual(["lead@x.com", "owner@x.com"]);
   });
@@ -87,5 +81,34 @@ describe("notifyCrmTaskEvent", () => {
     await expect(notifyCrmTaskEvent(base)).resolves.toBeUndefined();
     expect(db.crmNotification.createMany).not.toHaveBeenCalled();
     expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("native adapter: `people` skips the shared-table lookup and `link` overrides the deep link (qa)", async () => {
+    await notifyCrmTaskEvent({
+      ...base,
+      module: "qa",
+      people: {
+        owner: { id: "owner", name: "Owner", email: "owner@x.com" },
+        assignees: [
+          { id: "a1", name: "A1", email: "a1@x.com" },
+          { id: "actor", name: "Actor", email: "actor@x.com" },
+        ],
+      },
+      link: "https://portal.example/qa-crm/p1",
+    });
+    // Shared project_tasks was never consulted.
+    expect(db.projectTask.findUnique).not.toHaveBeenCalled();
+    const rows = db.crmNotification.createMany.mock.calls[0][0].data;
+    expect(rows.map((r: { userId: string }) => r.userId).sort()).toEqual([
+      "a1",
+      "owner",
+    ]);
+    expect(rows.every((r: { module: string }) => r.module === "qa")).toBe(true);
+    expect(
+      rows.every(
+        (r: { linkUrl: string }) =>
+          r.linkUrl === "https://portal.example/qa-crm/p1",
+      ),
+    ).toBe(true);
   });
 });

@@ -1,12 +1,16 @@
 import { api } from "@/lib/api-client";
 import type {
+  BulkBusinessUnitsPayload,
+  BulkBusinessUnitsResult,
+} from "@/services/crm-opportunity.service";
+import type {
   ApiPaginatedResponse,
   ApiSuccessResponse,
 } from "@/types/api.type";
 
 // ─── Constants (mirror apps/api zod enums) ──────────────────────────────
 
-// `LEAD_SOURCES` was a static list. Sources now
+// PRD §11.7 — `LEAD_SOURCES` was a static list in Phase 1. Sources now
 // live in the `crm_lead_sources` table; consumers should read them via
 // the `useLeadSources()` hook. The labels live on the row itself.
 
@@ -55,11 +59,15 @@ export interface Lead {
   convertedOpportunityId: string | null;
   convertedAt: string | null;
   disqualifyReason: string | null;
+  archivedAt: string | null;
   legacyDealId: string | null;
   createdAt: string;
   updatedAt: string;
   owner: LeadOwner;
   convertedOpportunity: LeadConvertedOpportunity | null;
+  // Business-unit tags (Onewave / Onewave Revenue / ARIA …). Labels and
+  // chip colours resolve through use-business-units.ts.
+  businessUnits: string[];
 }
 
 export interface CreateLeadInput {
@@ -74,6 +82,7 @@ export interface CreateLeadInput {
   source: string;
   status?: "new" | "contacted" | "qualified";
   notes?: string;
+  businessUnits?: string[];
 }
 
 export type UpdateLeadInput = Partial<CreateLeadInput>;
@@ -85,6 +94,12 @@ export interface ListLeadsParams {
   status?: string;
   source?: string;
   ownerId?: string;
+  // Active (default) vs Archived view. buildQuery drops falsy values, so an
+  // omitted / false flag leaves the query string clean.
+  archived?: boolean;
+  // A code narrows to records tagged with it; BUSINESS_UNIT_UNASSIGNED
+  // ("__none__") narrows to untagged records.
+  businessUnit?: string;
 }
 
 export interface ListStaleLeadsParams {
@@ -94,7 +109,7 @@ export interface ListStaleLeadsParams {
   ownerId?: string;
 }
 
-// `/leads/stale` returns the standard paginated body plus the
+// PRD §11.3 — `/leads/stale` returns the standard paginated body plus the
 // threshold-days the server filtered with so the UI can label the view
 // without hard-coding the number.
 export interface StaleLeadsResponse extends ApiPaginatedResponse<Lead> {
@@ -201,6 +216,36 @@ export async function convertLead(
   return api.post(`/leads/${id}/convert`, input);
 }
 
+export async function archiveLead(
+  id: string,
+): Promise<ApiSuccessResponse<Lead>> {
+  return api.post(`/leads/${id}/archive`, {});
+}
+
+export async function unarchiveLead(
+  id: string,
+): Promise<ApiSuccessResponse<Lead>> {
+  return api.post(`/leads/${id}/unarchive`, {});
+}
+
 export async function deleteLead(id: string): Promise<void> {
   await api.delete(`/leads/${id}`);
+}
+
+// ── Bulk business-unit assignment ─────────────────────────────────
+// Payload + result shapes are declared once in crm-opportunity.service.ts.
+
+export async function bulkAssignLeadsBusinessUnits(
+  payload: BulkBusinessUnitsPayload,
+): Promise<ApiSuccessResponse<BulkBusinessUnitsResult>> {
+  return api.post("/leads/bulk-business-units", payload);
+}
+
+export async function bulkUpdateLeadsFields(payload: {
+  ids?: string[];
+  allMatching?: boolean;
+  filter?: Record<string, string | boolean | undefined>;
+  set: { ownerId?: string; archived?: boolean };
+}): Promise<ApiSuccessResponse<BulkBusinessUnitsResult>> {
+  return api.post("/leads/bulk-update", payload);
 }

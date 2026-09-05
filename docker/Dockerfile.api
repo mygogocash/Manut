@@ -1,11 +1,11 @@
 # ============================================
-# Manut API - Express 5 Production Dockerfile
+# Nexora API - Express 5 Production Dockerfile
 # ============================================
 
 # Stage 1: Build & prepare deploy bundle
-FROM node:24.18.0-alpine AS builder
+FROM node:22-alpine AS builder
 RUN apk add --no-cache libc6-compat openssl qpdf
-RUN corepack enable && corepack prepare pnpm@11.13.1 --activate
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 WORKDIR /app
 
@@ -27,29 +27,28 @@ COPY packages/database/prisma.config.ts ./packages/database/prisma.config.ts
 RUN pnpm install --frozen-lockfile
 
 # Generate Prisma client
-RUN pnpm --filter @manut/database db:generate
+RUN pnpm --filter @nexora/database db:generate
 
 # Copy all source code
 COPY . .
 
 # Build shared workspace packages
-RUN pnpm --filter @manut/types build && \
-    pnpm --filter @manut/utils build && \
-    pnpm --filter @manut/database build
+RUN pnpm --filter @nexora/types build && \
+    pnpm --filter @nexora/utils build && \
+    pnpm --filter @nexora/database build
 
 # pnpm deploy creates a self-contained directory with all production
 # dependencies resolved (no symlinks). --legacy is required for pnpm v10+
-# unless the workspace uses inject-workspace-packages
-# (ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE).
-RUN pnpm --filter @manut/api deploy /app/deploy --prod --legacy
+# unless the workspace uses inject-workspace-packages (ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE).
+RUN pnpm --filter @nexora/api deploy /app/deploy --prod --legacy
 
 # Copy the Prisma generated client into the deployed output.
 # pnpm deploy only copies declared files, not codegen artifacts.
 RUN cp -r /app/packages/database/src/generated \
-    /app/deploy/node_modules/@manut/database/src/generated
+    /app/deploy/node_modules/@nexora/database/src/generated
 
 # Stage 2: Production runner
-FROM node:24.18.0-alpine AS runner
+FROM node:22-alpine AS runner
 RUN apk add --no-cache libc6-compat openssl qpdf
 WORKDIR /app
 

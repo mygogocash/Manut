@@ -22,7 +22,6 @@ import type {
   MyAttendanceQuery,
 } from "@/modules/hrms/attendance.validation";
 import { attendanceCalendarService } from "@/modules/hrms/attendance-calendar.service";
-import { parseAttendanceMonth } from "@/modules/hrms/attendance-period.util";
 import { serializeAttendanceRecord } from "@/modules/hrms/attendance-record.serializer";
 import {
   attendanceDateFromInstant,
@@ -36,7 +35,7 @@ function formatDateYmd(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function parseReportMonth(
+function parseMonth(
   month?: string,
   companyTz: string = COMPANY_DEFAULT_TIMEZONE,
 ): { from: Date; to: Date; label: string } {
@@ -44,7 +43,15 @@ function parseReportMonth(
   // server's UTC day, so a report opened near the month boundary in an
   // ahead-of-UTC office still defaults to the local month.
   const localDay = attendanceDateFromInstant(new Date(), companyTz);
-  return parseAttendanceMonth(month, localDay);
+  const [year, mon] = (
+    month ??
+    `${localDay.getUTCFullYear()}-${String(localDay.getUTCMonth() + 1).padStart(2, "0")}`
+  )
+    .split("-")
+    .map(Number);
+  const from = new Date(Date.UTC(year, mon - 1, 1));
+  const to = new Date(Date.UTC(year, mon, 0));
+  return { from, to, label: `${year}-${String(mon).padStart(2, "0")}` };
 }
 
 function countWeekdaysInRange(from: Date, to: Date): number {
@@ -415,7 +422,7 @@ export class AttendanceService {
       throw new ForbiddenException("Cannot view another employee's report");
     }
 
-    const { from, to, label } = parseReportMonth(query.month);
+    const { from, to, label } = parseMonth(query.month);
     const records = await attendanceRepository.findRecordsInRange(from, to, {
       employeeId: targetEmployeeId,
       department: query.department,
@@ -493,7 +500,7 @@ export class AttendanceService {
       );
     }
 
-    const { from, to } = parseReportMonth(query.month);
+    const { from, to } = parseMonth(query.month);
     const records = await attendanceRepository.findRecordsInRange(from, to, {
       department: query.department,
     });

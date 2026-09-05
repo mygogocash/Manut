@@ -156,11 +156,13 @@ export function AttendanceShiftAssignmentPanel() {
     },
     {
       key: "department",
+      mobileRole: "subtitle" as const,
       header: "Department",
       render: (r: AttendanceShiftAssignment) => r.employee?.department ?? "—",
     },
     {
       key: "shift",
+      mobileRole: "field" as const,
       header: "Shift",
       render: (r: AttendanceShiftAssignment) => (
         <span>
@@ -173,6 +175,7 @@ export function AttendanceShiftAssignmentPanel() {
     },
     {
       key: "effective",
+      mobileRole: "field" as const,
       header: "Effective",
       render: (r: AttendanceShiftAssignment) => (
         <span className="text-xs tabular-nums">
@@ -183,6 +186,7 @@ export function AttendanceShiftAssignmentPanel() {
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       render: (r: AttendanceShiftAssignment) => (
         <Button

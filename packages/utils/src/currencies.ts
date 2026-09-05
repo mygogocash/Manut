@@ -180,3 +180,103 @@ const CURRENCY_CODE_SET = new Set(ISO_CURRENCY_CODES);
 export function isIsoCurrencyCode(value: string): boolean {
   return CURRENCY_CODE_SET.has(value);
 }
+
+/**
+ * Currencies the FX sync pulls a THB rate for by default.
+ *
+ * Shared rather than declared in the API, because two things need to agree:
+ * the job that fetches rates, and any picker that offers a currency to file
+ * an expense in. They did not agree — the My Portal claim form offered a
+ * hardcoded AED/USD/EUR/GBP and defaulted to AED, which had no rate at all,
+ * so a claim left on the default could never be converted and surfaced later
+ * as a missing-rate line on the report.
+ *
+ * AED is included deliberately: the form has been defaulting to it, so real
+ * AED rows already exist and need a rate to convert.
+ *
+ * THB is absent because it is the base — a THB line needs no conversion.
+ *
+ * Caveat: the API's `BOT_FX_CURRENCIES` env var can override this at runtime,
+ * and a picker built from this constant would not know. That is tolerable —
+ * the list is a convenience and the API accepts any currency string — but if
+ * that variable ever gets set, this is the thing that goes stale.
+ */
+/**
+ * Non-ISO currency strings people actually type, mapped to the ISO code that
+ * prices them.
+ *
+ * Expense lines hold whatever was entered, and no rate provider can quote a
+ * string that is not an ISO code — so a line filed as "RMB" or "₹" stayed
+ * unconvertible and dropped out of the report total, which is how a THB total
+ * ends up quietly excluding real spend.
+ *
+ * Only unambiguous mappings belong here. A wrong guess does not fail loudly; it
+ * prices money at the wrong rate.
+ */
+const WRITTEN_CURRENCY_ALIASES: Readonly<Record<string, string>> = {
+  // Renminbi is the currency, yuan the unit. "RMB" is what people write and is
+  // not an ISO code; CNY is.
+  RMB: "CNY",
+  // Offshore yuan quotes under CNH but is the same currency onshore CNY prices.
+  CNH: "CNY",
+};
+
+/**
+ * Symbol → ISO code, but ONLY for symbols that identify exactly one currency.
+ *
+ * Derived from the table above rather than hand-written, so it cannot drift from
+ * it. The exclusions are the point:
+ *  - "¥" is BOTH CNY and JPY. Guessing would misprice by roughly twenty times.
+ *  - "$" is nineteen currencies, "£" seven, "₩" two.
+ *  - "Rs" is ISO's symbol for LKR, NOT INR — the obvious guess is the wrong one.
+ * Those stay unresolved and keep showing as a missing rate, which is honest.
+ * "₹", "€" and "฿" are unique, so they resolve.
+ */
+const SYMBOL_TO_CURRENCY_CODE: Readonly<Record<string, string>> = (() => {
+  const bySymbol = new Map<string, string[]>();
+  for (const c of ISO_CURRENCIES) {
+    if (!c.symbol) continue;
+    const codes = bySymbol.get(c.symbol) ?? [];
+    codes.push(c.code);
+    bySymbol.set(c.symbol, codes);
+  }
+  const out: Record<string, string> = {};
+  for (const [symbol, codes] of bySymbol) {
+    if (codes.length === 1 && codes[0]) out[symbol] = codes[0];
+  }
+  return out;
+})();
+
+/**
+ * The ISO code a stored currency value should be priced as.
+ *
+ * Returns the input's trimmed upper-case form when nothing maps it, so an
+ * unknown value stays visible as itself in a missing-rate warning rather than
+ * being silently coerced into something wrong.
+ */
+export function normaliseCurrencyCode(raw: string | null | undefined): string {
+  const trimmed = raw?.trim() ?? "";
+  if (!trimmed) return "";
+  // Symbols are matched before upper-casing: some are non-alphabetic, and
+  // upper-casing them is meaningless.
+  const bySymbol = SYMBOL_TO_CURRENCY_CODE[trimmed];
+  if (bySymbol) return bySymbol;
+  const upper = trimmed.toUpperCase();
+  return WRITTEN_CURRENCY_ALIASES[upper] ?? upper;
+}
+
+export const FX_DEFAULT_CURRENCY_CODES: readonly string[] = [
+  "AED",
+  "AUD",
+  "CNY",
+  "EUR",
+  "GBP",
+  "HKD",
+  "IDR",
+  "INR",
+  "JPY",
+  "KRW",
+  "MYR",
+  "SGD",
+  "USD",
+];

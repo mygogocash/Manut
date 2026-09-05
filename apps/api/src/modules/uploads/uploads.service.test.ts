@@ -24,15 +24,11 @@ vi.mock("@/infrastructure/storage/supabase-storage", () => ({
 }));
 
 vi.mock("@/modules/uploads/uploads.repository", () => ({
-  isModuleControlledUploadPurpose: (purpose: string | null | undefined) =>
-    ["payslip-document", "cash-advance-disbursement-proof"].includes(
-      purpose ?? "",
-    ),
   uploadsRepository: {
     findById: vi.fn(),
     findAll: vi.fn(),
     create: vi.fn(),
-    removeOwnedIfUnreferenced: vi.fn(),
+    remove: vi.fn(),
     linkToMessage: vi.fn(),
   },
 }));
@@ -40,11 +36,6 @@ vi.mock("@/modules/uploads/uploads.repository", () => ({
 describe("uploadsService — ownership enforcement (#517)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (uploadsRepository.removeOwnedIfUnreferenced as Mock).mockResolvedValue({
-      status: "deleted",
-      bucket: "uploads",
-      path: "user-a/file.png",
-    });
   });
 
   describe("getSignedUrl", () => {
@@ -81,64 +72,44 @@ describe("uploadsService — ownership enforcement (#517)", () => {
         uploadsService.getSignedUrl("missing", "user-a"),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
-
-    it.each(["payslip-document", "cash-advance-disbursement-proof"])(
-      "refuses generic signing for module-controlled purpose %s",
-      async (purpose) => {
-        (uploadsRepository.findById as Mock).mockResolvedValue({
-          id: "u1",
-          bucket: "documents",
-          path: "user-a/private.pdf",
-          uploadedBy: "user-a",
-          purpose,
-        });
-
-        await expect(
-          uploadsService.getSignedUrl("u1", "user-a"),
-        ).rejects.toBeInstanceOf(ForbiddenException);
-      },
-    );
   });
 
   describe("remove", () => {
     it("deletes when the caller owns the upload", async () => {
+      (uploadsRepository.findById as Mock).mockResolvedValue({
+        id: "u1",
+        bucket: "uploads",
+        path: "user-a/file.png",
+        uploadedBy: "user-a",
+      });
+
       await expect(
         uploadsService.remove("u1", "user-a"),
       ).resolves.toBeUndefined();
-      expect(uploadsRepository.removeOwnedIfUnreferenced).toHaveBeenCalledWith(
-        "u1",
-        "user-a",
-      );
+      expect(uploadsRepository.remove).toHaveBeenCalledWith("u1");
     });
 
     it("throws ForbiddenException when the caller is not the uploader", async () => {
-      (uploadsRepository.removeOwnedIfUnreferenced as Mock).mockResolvedValue({
-        status: "forbidden",
+      (uploadsRepository.findById as Mock).mockResolvedValue({
+        id: "u1",
+        bucket: "uploads",
+        path: "user-a/file.png",
+        uploadedBy: "user-a",
       });
 
       await expect(
         uploadsService.remove("u1", "user-b"),
       ).rejects.toBeInstanceOf(ForbiddenException);
+      // No deletion side-effect when the auth check fails.
+      expect(uploadsRepository.remove).not.toHaveBeenCalled();
     });
 
     it("throws NotFoundException when the upload does not exist", async () => {
-      (uploadsRepository.removeOwnedIfUnreferenced as Mock).mockResolvedValue({
-        status: "missing",
-      });
+      (uploadsRepository.findById as Mock).mockResolvedValue(null);
 
       await expect(
         uploadsService.remove("missing", "user-a"),
       ).rejects.toBeInstanceOf(NotFoundException);
-    });
-
-    it("retains an upload controlled by an application record", async () => {
-      (uploadsRepository.removeOwnedIfUnreferenced as Mock).mockResolvedValue({
-        status: "protected",
-      });
-
-      await expect(uploadsService.remove("u1", "user-a")).rejects.toThrow(
-        "retained by an application record",
-      );
     });
   });
 });

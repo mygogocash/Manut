@@ -1,9 +1,13 @@
 import { prisma } from "@/infrastructure/database/prisma";
 import { itBillingRepository } from "@/modules/it-billing/it-billing.repository";
 import {
+  itBillingService,
   seatMetrics,
   toMonthlySpend,
 } from "@/modules/it-billing/it-billing.service";
+
+/** Trailing months the dashboard's spend trend covers. */
+const SPEND_TREND_MONTHS = 12;
 
 type SpendRow = {
   currency: string;
@@ -71,6 +75,7 @@ export class ItOperationsService {
       pendingAccess,
       recentGranted,
       recentRevoked,
+      monthlySeries,
     ] = await Promise.all([
       itBillingRepository.activeSubscriptions(),
       itBillingRepository.countActiveSubscriptions(),
@@ -103,6 +108,10 @@ export class ItOperationsService {
         orderBy: { revokedAt: "desc" },
         take: 8,
       }),
+      // The SAME computation the Monthly tab renders, not a re-derivation.
+      // Two surfaces reporting the same spend by different code is how they
+      // came to disagree in the first place.
+      itBillingService.monthlySeriesReport({ months: SPEND_TREND_MONTHS }),
     ]);
 
     // Vendor spend breakdown (monthly-equivalent), top 8.
@@ -127,35 +136,35 @@ export class ItOperationsService {
       .sort((a, b) => b.monthlySpend - a.monthlySpend)
       .slice(0, 8);
 
-    // Monthly spend trend - annualized/12 isn't time-series, so we project
-    // the next 6 months at the current recurring run-rate (a stable, honest
-    // baseline; real per-month variance lives in billing records).
+    // Run-rate for the KPI cards: "what do we pay right now", so `activeSubs`
+    // (cancelled excluded) is the correct set here. This is a DIFFERENT question
+    // from the trend below, which needs the cancelled rows — the old code used
+    // one figure for both, which is how the chart came to hide cancellations.
     const monthlyTotals = monthlyByCurrency(activeSubs);
     const primaryCurrency =
       Object.entries(monthlyTotals).sort((a, b) => b[1] - a[1])[0]?.[0] ??
       "USD";
-    const runRate = monthlyTotals[primaryCurrency] ?? 0;
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const spendTrend = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-      return {
-        month: `${monthNames[d.getMonth()]} ${d.getFullYear()}`,
-        amount: Math.round(runRate),
-      };
-    });
+
+    // Monthly spend trend — the real trailing series.
+    //
+    // This used to project the current run-rate forward six months, which made
+    // it a FLAT line that could not show spend rising or falling however much it
+    // moved, and it read the future rather than the past. Worse, it drew its
+    // run-rate from `activeSubs`, which excludes cancelled subscriptions — so
+    // cancelling a service removed it from the chart instead of showing the
+    // saving.
+    //
+    // It now renders `monthlySeriesReport`, the same call behind the Monthly tab:
+    // trailing months, cancelled rows included in the months they were live, one
+    // currency. Deriving it separately here is what let the two surfaces
+    // disagree about the same spend, so the trend deliberately re-uses the
+    // series rather than recomputing from `activeSubs`.
+    const spendTrend = monthlySeries.data.points.map((point) => ({
+      month: point.month,
+      label: point.label,
+      amount: Math.round(point.total),
+    }));
+    const spendTrendCurrency = monthlySeries.data.currency;
 
     // License utilization KPIs ("paid for but not used").
     let totalLicenses = 0;
@@ -203,6 +212,9 @@ export class ItOperationsService {
         })),
         charts: {
           spendTrend,
+          // Named so the card can say WHICH currency it is charting — the
+          // series is one currency and the KPI cards above it are not.
+          spendTrendCurrency,
           vendorBreakdown,
         },
         tables: {

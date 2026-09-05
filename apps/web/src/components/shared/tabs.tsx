@@ -20,6 +20,16 @@ interface TabsProps {
   onChange: (id: string) => void;
   className?: string;
   children?: React.ReactNode;
+  /**
+   * `"line"` renders underlined triggers on a transparent track instead of
+   * the filled pill.
+   *
+   * Use it when this strip sits UNDER another one, so the two levels don't
+   * read as one undifferentiated block of tabs — the outer strip keeps the
+   * pill, the nested strip gets the lighter treatment. Defaults to the pill
+   * so every existing call site is unchanged.
+   */
+  variant?: "default" | "line";
 }
 
 export function Tabs({
@@ -28,6 +38,7 @@ export function Tabs({
   onChange,
   className,
   children,
+  variant = "default",
 }: TabsProps) {
   return (
     <ShadcnTabs
@@ -35,7 +46,7 @@ export function Tabs({
       onValueChange={onChange}
       className={cn("w-full", className)}
     >
-      <TabsList className="mb-4 h-9 w-fit">
+      <TabsList variant={variant} className="mb-4 h-9 w-fit">
         {tabs.map((tab) => (
           <TabsTrigger key={tab.id} value={tab.id} className="px-3 text-xs">
             {tab.label}

@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Tabs } from "@/components/shared/tabs";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import { type AuditLogEntry, listAuditLogs } from "@/services/admin.service";
@@ -48,7 +49,7 @@ export default function AdminPage() {
     return tabs;
   }, [canViewAudit, canViewUsage]);
 
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useTabParam("overview");
 
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [recentUsers, setRecentUsers] = useState<UserListItem[]>([]);

@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/infrastructure/database/prisma";
 import {
   isBotFxConfigured,
+  parseBotQuote,
   syncBotRates,
 } from "@/modules/exchange-rates/bot-fx.service";
-import { assertDefined, setTestEnv } from "@/test-utils/assertions";
 
 vi.mock("@/common/utils/logger", () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
@@ -13,7 +13,12 @@ vi.mock("@/common/utils/logger", () => ({
 
 vi.mock("@/infrastructure/database/prisma", () => ({
   prisma: {
-    exchangeRate: { upsert: vi.fn().mockResolvedValue({}) },
+    exchangeRate: {
+      // The sync reads the stored row before writing, so it can decline to
+      // overwrite a rate a person owns. Default: nothing stored yet.
+      findUnique: vi.fn().mockResolvedValue(null),
+      upsert: vi.fn().mockResolvedValue({}),
+    },
     expense: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
@@ -38,13 +43,45 @@ function botResponse(currencyId: string, midRate: string) {
   };
 }
 
+describe("parseBotQuote", () => {
+  it("uses buying_transfer and selling when present", () => {
+    expect(
+      parseBotQuote({
+        period: "2026-08-18",
+        mid_rate: "32.2",
+        buying_transfer: "32.1",
+        selling: "32.4",
+      }),
+    ).toEqual({
+      midRate: 32.2,
+      buyingRate: 32.1,
+      sellingRate: 32.4,
+      period: "2026-08-18",
+    });
+  });
+
+  it("falls back to mid when BOT omits sides", () => {
+    expect(parseBotQuote({ period: "2026-08-18", mid_rate: "32.2" })).toEqual({
+      midRate: 32.2,
+      buyingRate: 32.2,
+      sellingRate: 32.2,
+      period: "2026-08-18",
+    });
+  });
+});
+
 describe("bot-fx.service", () => {
   const ORIGINAL = { ...process.env };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps implementations but clears calls; re-arm the resolved
+    // values the sync depends on so each test starts from "nothing stored".
+    vi.mocked(prisma.exchangeRate.findUnique).mockResolvedValue(null as never);
+    vi.mocked(prisma.exchangeRate.upsert).mockResolvedValue({} as never);
+    vi.mocked(prisma.expense.findMany).mockResolvedValue([] as never);
     process.env = { ...ORIGINAL };
-    setTestEnv("BOT_API_CLIENT_ID", undefined);
+    delete process.env.BOT_API_CLIENT_ID;
   });
   afterEach(() => {
     process.env = { ...ORIGINAL };
@@ -68,9 +105,9 @@ describe("bot-fx.service", () => {
   });
 
   it("upserts <CUR>→THB and divides multi-unit currencies (IDR ÷1000)", async () => {
-    setTestEnv("BOT_API_CLIENT_ID", "test-client-id");
-    setTestEnv("BOT_FX_CURRENCIES", "USD,IDR");
-    setTestEnv("BOT_FX_UNITS", "IDR:1000");
+    process.env.BOT_API_CLIENT_ID = "test-client-id";
+    process.env.BOT_FX_CURRENCIES = "USD,IDR";
+    process.env.BOT_FX_UNITS = "IDR:1000";
 
     const fetchMock = vi.fn(async (url: string) => {
       const currency = new URL(url).searchParams.get("currency");
@@ -91,12 +128,14 @@ describe("bot-fx.service", () => {
     expect(idr?.unit).toBe(1000);
     expect(idr?.rate).toBeCloseTo(0.0018296, 9);
 
-    // Sends the API key in the Authorization header, base=<CUR>, THB.
+    // Sends the Client ID under both header names (new IBM portal +
+    // legacy v2 gateway), base=<CUR>, THB.
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("currency=USD"),
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "test-client-id",
+          "X-IBM-Client-Id": "test-client-id",
         }),
       }),
     );
@@ -113,8 +152,8 @@ describe("bot-fx.service", () => {
   });
 
   it("records an error for a currency the API rejects, without aborting others", async () => {
-    setTestEnv("BOT_API_CLIENT_ID", "test-client-id");
-    setTestEnv("BOT_FX_CURRENCIES", "USD,XYZ");
+    process.env.BOT_API_CLIENT_ID = "test-client-id";
+    process.env.BOT_FX_CURRENCIES = "USD,XYZ";
 
     const fetchMock = vi.fn(async (url: string) => {
       const currency = new URL(url).searchParams.get("currency");
@@ -142,8 +181,8 @@ describe("bot-fx.service", () => {
   });
 
   it("auto-includes currencies used in expenses (union with config)", async () => {
-    setTestEnv("BOT_API_CLIENT_ID", "test-client-id");
-    setTestEnv("BOT_FX_CURRENCIES", "USD");
+    process.env.BOT_API_CLIENT_ID = "test-client-id";
+    process.env.BOT_FX_CURRENCIES = "USD";
     // A receipt was filed in SGD even though it isn't in the configured
     // list — the sync should pull it anyway.
     vi.mocked(prisma.expense.findMany).mockResolvedValueOnce([
@@ -152,10 +191,7 @@ describe("bot-fx.service", () => {
 
     const seen: string[] = [];
     const fetchMock = vi.fn(async (url: string) => {
-      const currency = assertDefined(
-        new URL(url).searchParams.get("currency"),
-        "fallback currency query",
-      );
+      const currency = new URL(url).searchParams.get("currency")!;
       seen.push(currency);
       return botResponse(currency, "25");
     });
@@ -169,8 +205,8 @@ describe("bot-fx.service", () => {
   });
 
   it("falls back to the public API for currencies BOT doesn't publish", async () => {
-    setTestEnv("BOT_API_CLIENT_ID", "test-client-id");
-    setTestEnv("BOT_FX_CURRENCIES", "LKR");
+    process.env.BOT_API_CLIENT_ID = "test-client-id";
+    process.env.BOT_FX_CURRENCIES = "LKR";
 
     const fetchMock = vi.fn(async (url: string) => {
       if (url.includes("DAILY_AVG_EXG_RATE")) {
@@ -203,9 +239,9 @@ describe("bot-fx.service", () => {
   });
 
   it("uses the keyed exchangerate-api.com provider when FX_FALLBACK_API_KEY is set", async () => {
-    setTestEnv("BOT_API_CLIENT_ID", "test-client-id");
-    setTestEnv("BOT_FX_CURRENCIES", "LKR");
-    setTestEnv("FX_FALLBACK_API_KEY", "key-123");
+    process.env.BOT_API_CLIENT_ID = "test-client-id";
+    process.env.BOT_FX_CURRENCIES = "LKR";
+    process.env.FX_FALLBACK_API_KEY = "key-123";
 
     let fallbackUrl = "";
     const fetchMock = vi.fn(async (url: string) => {
@@ -238,5 +274,127 @@ describe("bot-fx.service", () => {
     const lkr = result.synced.find((s) => s.currency === "LKR");
     expect(lkr?.source).toBe("fallback");
     expect(lkr?.rate).toBeCloseTo(1 / 10.1, 6);
+  });
+
+  /*
+   * BOT_FX_UNITS used to REPLACE the divisor map, so the documented remedy for one
+   * missing divisor removed the others: adding "VND:100" silently dropped IDR
+   * ÷1000, making IDR rates a thousand times too high with no sign of a problem.
+   */
+  it("adding one divisor keeps the built-in ones", async () => {
+    process.env.BOT_API_CLIENT_ID = "test-client-id";
+    process.env.BOT_FX_CURRENCIES = "IDR,JPY,VND";
+    process.env.BOT_FX_UNITS = "VND:100";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const currency = new URL(url).searchParams.get("currency");
+        return botResponse(currency!, "100");
+      }),
+    );
+
+    const result = await syncBotRates();
+    const unitFor = (c: string) =>
+      result.synced.find((s) => s.currency === c)?.unit;
+
+    expect(unitFor("VND")).toBe(100); // the added one
+    expect(unitFor("IDR")).toBe(1000); // still divided
+    expect(unitFor("JPY")).toBe(100); // still divided
+  });
+
+  it("an explicit divisor still overrides the built-in one", async () => {
+    process.env.BOT_API_CLIENT_ID = "test-client-id";
+    process.env.BOT_FX_CURRENCIES = "IDR";
+    // BOT changing how it quotes IDR is the reason this override exists.
+    process.env.BOT_FX_UNITS = "IDR:1";
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const currency = new URL(url).searchParams.get("currency");
+        return botResponse(currency!, "1.8296");
+      }),
+    );
+
+    const result = await syncBotRates();
+    expect(result.synced[0]).toMatchObject({ unit: 1, rate: 1.8296 });
+  });
+
+  /*
+   * Both upserts used to write `{ rate, source }` unconditionally, so a rate
+   * finance had corrected by hand was reverted by the next cron and relabelled
+   * "bot" — losing the value and the provenance the FX dialog displays. The
+   * ten-day lookback re-touched up to ten published dates every run.
+   */
+  it("leaves a hand-corrected rate alone and reports it", async () => {
+    process.env.BOT_API_CLIENT_ID = "test-client-id";
+    process.env.BOT_FX_CURRENCIES = "USD";
+    vi.mocked(prisma.exchangeRate.findUnique).mockResolvedValue({
+      source: "manual",
+    } as never);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const currency = new URL(url).searchParams.get("currency");
+        return botResponse(currency!, "36.5");
+      }),
+    );
+
+    const result = await syncBotRates();
+
+    expect(prisma.exchangeRate.upsert).not.toHaveBeenCalled();
+    expect(result.synced).toEqual([]);
+    expect(result.preserved).toEqual([{ currency: "USD", source: "manual" }]);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("still refreshes a rate it wrote itself", async () => {
+    process.env.BOT_API_CLIENT_ID = "test-client-id";
+    process.env.BOT_FX_CURRENCIES = "USD";
+    vi.mocked(prisma.exchangeRate.findUnique).mockResolvedValue({
+      source: "bot",
+    } as never);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const currency = new URL(url).searchParams.get("currency");
+        return botResponse(currency!, "36.5");
+      }),
+    );
+
+    const result = await syncBotRates();
+
+    expect(prisma.exchangeRate.upsert).toHaveBeenCalledTimes(1);
+    expect(result.synced).toEqual([
+      expect.objectContaining({ currency: "USD", rate: 36.5 }),
+    ]);
+    expect(result.preserved).toEqual([]);
+  });
+
+  // A row whose provenance nobody recorded is the ambiguous case. Leaving it is
+  // the safe direction for money: a stale rate someone can see and retag beats
+  // overwriting a correction that was never labelled.
+  it("leaves a rate of unknown provenance alone", async () => {
+    process.env.BOT_API_CLIENT_ID = "test-client-id";
+    process.env.BOT_FX_CURRENCIES = "USD";
+    vi.mocked(prisma.exchangeRate.findUnique).mockResolvedValue({
+      source: null,
+    } as never);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        const currency = new URL(url).searchParams.get("currency");
+        return botResponse(currency!, "36.5");
+      }),
+    );
+
+    const result = await syncBotRates();
+
+    expect(prisma.exchangeRate.upsert).not.toHaveBeenCalled();
+    expect(result.preserved).toEqual([{ currency: "USD", source: null }]);
   });
 });

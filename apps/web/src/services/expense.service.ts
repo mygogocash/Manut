@@ -263,9 +263,12 @@ export interface ExpenseReportSummary {
   approver: { id: string; name: string; email: string } | null;
   totalAmount: number;
   /**
-   * Currency the `totalAmount` is expressed in. Single-currency
-   * reports keep their native code (INR / USD / …); mixed reports
-   * collapse to "THB" via the FX table on the server.
+   * Currency the `totalAmount` is expressed in — always "THB", the
+   * entity base. A single foreign-currency report (all-INR, all-LKR)
+   * converts just like a mixed one; only a THB-only report skips the
+   * FX table. Line items keep their native code, the total never does.
+   * Read it with `reportTotalCurrency` rather than falling back to a
+   * line's currency — that printed "INR" over a THB figure.
    */
   totalCurrency: string;
   /**
@@ -302,10 +305,19 @@ export interface ExpenseReportParams {
   period?: string;
   pendingForMe?: boolean;
   includeAll?: boolean;
+  /**
+   * Free-text match over title, period and employee name, applied by the server.
+   *
+   * Server-side because it has to span every page and every month: as a browser
+   * filter over the fetched page a name only matched when its row happened to be
+   * on screen, so searching an employee found nothing until a month was also
+   * picked — which shrank the set enough to pull the row onto page one.
+   */
+  search?: string;
 }
 
-// `allowance` is reserved for the configured fast-path approval chain and
-// is set by the API at submit time — never picked manually.
+// `allowance` is reserved for the IT-15 chain (Sarah → Payroll →
+// Kit) and is set by the API at submit time — never picked manually.
 // We still expose it so the admin approval-step dialog can route
 // steps by the allowance bucket and report-detail views can render
 // a label for already-submitted allowance reports.
@@ -516,12 +528,25 @@ export async function revertExpenseReportReimbursement(
 
 export type ExpenseApproverType = "manager" | "manager_l2" | "user";
 
+/**
+ * A `review` step validates and passes the report forward (accept/reject)
+ * but never finalises it and cannot reduce the approved amount; `approve`
+ * is the final-sign-off gate.
+ */
+export type ExpenseStageRole = "review" | "approve";
+
+export const EXPENSE_STAGE_ROLE_LABEL: Record<ExpenseStageRole, string> = {
+  review: "Review",
+  approve: "Approval",
+};
+
 export interface ExpenseApprovalStep {
   id: string;
   order: number;
   name: string;
   description: string | null;
   approverType: ExpenseApproverType;
+  stageRole: ExpenseStageRole;
   approverUserId: string | null;
   approverUser: { id: string; name: string; email: string } | null;
   skipWhenSubmitterIds: string[];
@@ -540,6 +565,7 @@ export interface ExpenseApprovalDecision {
   order: number;
   name: string;
   approverType: ExpenseApproverType;
+  stageRole: ExpenseStageRole;
   approverUserId: string | null;
   approverUser: { id: string; name: string; email: string } | null;
   status: "pending" | "approved" | "rejected" | "skipped";
@@ -554,6 +580,7 @@ export interface CreateExpenseApprovalStepInput {
   name: string;
   description?: string;
   approverType: ExpenseApproverType;
+  stageRole: ExpenseStageRole;
   approverUserId?: string | null;
   skipWhenSubmitterIds?: string[];
   onlyWhenSubmitterIds?: string[];

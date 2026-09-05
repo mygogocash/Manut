@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -26,10 +26,19 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
 import {
+  getDocusignStatus,
   type LegalSignature,
+  type LegalSignatureProvider,
   sendDocumentForSignature,
 } from "@/services/legal.service";
 
@@ -37,7 +46,7 @@ const signerSchema = z.object({
   signerName: z.string().trim().min(1, "Name is required").max(200),
   signerEmail: z.string().email("Invalid email"),
   signingOrder: z.coerce
-    .number<number | string>()
+    .number()
     .int("Whole number")
     .min(1, "Min 1")
     .max(50, "Max 50"),
@@ -47,10 +56,10 @@ const schema = z.object({
   signers: z.array(signerSchema).min(1, "Add at least one signer").max(20),
   inviteMessage: z.string().max(5000).optional().or(z.literal("")),
   expiresAt: z.string().optional().or(z.literal("")),
+  provider: z.enum(["inhouse", "docusign"]),
 });
 
-type FormInput = z.input<typeof schema>;
-type FormValues = z.output<typeof schema>;
+type FormValues = z.infer<typeof schema>;
 
 interface SendForSignatureDialogProps {
   open: boolean;
@@ -64,15 +73,8 @@ const EMPTY_DEFAULTS: FormValues = {
   signers: [{ signerName: "", signerEmail: "", signingOrder: 1 }],
   inviteMessage: "",
   expiresAt: "",
+  provider: "inhouse" as LegalSignatureProvider,
 };
-
-function todayLocalDate(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 export function SendForSignatureDialog({
   open,
@@ -82,9 +84,10 @@ export function SendForSignatureDialog({
   onSent,
 }: SendForSignatureDialogProps) {
   const [submitting, setSubmitting] = useState(false);
+  const [docusignReady, setDocusignReady] = useState(false);
 
-  const form = useForm<FormInput, unknown, FormValues>({
-    resolver: standardSchemaResolver(schema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
     defaultValues: EMPTY_DEFAULTS,
   });
 
@@ -96,7 +99,15 @@ export function SendForSignatureDialog({
   useEffect(() => {
     if (!open) {
       form.reset(EMPTY_DEFAULTS);
+      return;
     }
+    getDocusignStatus()
+      .then((res) => {
+        setDocusignReady(res.data.configured && res.data.consentGranted);
+      })
+      .catch(() => {
+        setDocusignReady(false);
+      });
   }, [open, form]);
 
   async function onSubmit(values: FormValues) {
@@ -104,7 +115,7 @@ export function SendForSignatureDialog({
     try {
       setSubmitting(true);
       const expiresAt = values.expiresAt
-        ? new Date(`${values.expiresAt}T23:59:59.999`).toISOString()
+        ? new Date(`${values.expiresAt}T23:59:59Z`).toISOString()
         : undefined;
       const signers = values.signers.map((s) => ({
         signerEmail: s.signerEmail,
@@ -115,6 +126,7 @@ export function SendForSignatureDialog({
         signers,
         inviteMessage: values.inviteMessage || undefined,
         expiresAt,
+        provider: values.provider,
       });
       const recipientLabel =
         signers.length === 1
@@ -170,6 +182,32 @@ export function SendForSignatureDialog({
             className="flex flex-col gap-4"
             id="send-for-signature-form"
           >
+            <FormField
+              control={form.control}
+              name="provider"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Provider</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="inhouse">
+                        In-house (Intranet)
+                      </SelectItem>
+                      <SelectItem value="docusign" disabled={!docusignReady}>
+                        DocuSign{docusignReady ? "" : " — not configured"}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <section className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <p
@@ -305,7 +343,7 @@ export function SendForSignatureDialog({
                 <FormItem>
                   <FormLabel>Expires (optional)</FormLabel>
                   <FormControl>
-                    <FormDatePicker {...field} minDate={todayLocalDate()} />
+                    <FormDatePicker {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

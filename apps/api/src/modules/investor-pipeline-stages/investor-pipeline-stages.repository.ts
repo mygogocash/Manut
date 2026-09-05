@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -23,6 +23,15 @@ export class InvestorPipelineStageRepository {
       select: { sortOrder: true },
     });
     return row?.sortOrder ?? -1;
+  }
+
+  async createManyIfMissing(
+    rows: { key: string; label: string; color: string; sortOrder: number }[],
+  ) {
+    return prisma.investorPipelineStage.createMany({
+      data: rows,
+      skipDuplicates: true,
+    });
   }
 
   async create(data: Prisma.InvestorPipelineStageCreateInput) {

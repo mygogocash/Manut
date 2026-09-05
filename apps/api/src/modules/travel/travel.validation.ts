@@ -1,4 +1,4 @@
-import { isIsoCurrencyCode } from "@manut/utils";
+import { isIsoCurrencyCode } from "@nexora/utils";
 import { z } from "zod";
 
 import { isValidOptionalYmdRange } from "@/common/optional-ymd-range";
@@ -21,7 +21,7 @@ const dateString = z
 //
 // `TRAVEL_CATEGORIES` drives amount-band approval routing. `general`
 // keeps a request on the universal chain (every step matches);
-// `business_or_bd` triggers the configured amount-band approval steps.
+// `business_or_bd` triggers the Sarah-vs-Sid amount-band steps.
 export const TRAVEL_CATEGORIES = ["general", "business_or_bd"] as const;
 const travelCategorySchema = z.enum(TRAVEL_CATEGORIES);
 

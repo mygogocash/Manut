@@ -371,6 +371,7 @@ export function VisaTrackerTab({ onHeaderActions }: VisaTrackerTabProps = {}) {
     },
     {
       key: "entity",
+      mobileRole: "field" as const,
       header: "Entity",
       render: (v: VisaRecord) =>
         v.entity ? (
@@ -381,15 +382,18 @@ export function VisaTrackerTab({ onHeaderActions }: VisaTrackerTabProps = {}) {
     },
     {
       key: "visaType",
+      mobileRole: "subtitle" as const,
       header: "Visa type",
       render: (v: VisaRecord) => VISA_TYPE_LABELS[v.visaType] ?? v.visaType,
     },
     {
       key: "country",
+      mobileRole: "detail" as const,
       header: "Country of Issue",
     },
     {
       key: "issueDate",
+      mobileRole: "detail" as const,
       header: "Issue date",
       render: (v: VisaRecord) =>
         v.issueDate
@@ -401,6 +405,7 @@ export function VisaTrackerTab({ onHeaderActions }: VisaTrackerTabProps = {}) {
     },
     {
       key: "expiryDate",
+      mobileRole: "field" as const,
       header: "Expiry date",
       render: (v: VisaRecord) =>
         format(
@@ -410,6 +415,7 @@ export function VisaTrackerTab({ onHeaderActions }: VisaTrackerTabProps = {}) {
     },
     {
       key: "status",
+      mobileRole: "badge" as const,
       header: "Status",
       render: (v: VisaRecord) => (
         <Badge status={v.status}>
@@ -419,6 +425,7 @@ export function VisaTrackerTab({ onHeaderActions }: VisaTrackerTabProps = {}) {
     },
     {
       key: "documentUrl",
+      mobileRole: "detail" as const,
       header: "Doc",
       className: "w-16",
       render: (v: VisaRecord) => {
@@ -439,6 +446,7 @@ export function VisaTrackerTab({ onHeaderActions }: VisaTrackerTabProps = {}) {
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-10",
       render: (v: VisaRecord) =>

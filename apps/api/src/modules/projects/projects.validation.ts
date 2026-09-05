@@ -10,7 +10,7 @@ const dateString = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD format");
 
-// Admin-defined custom fields. Each
+// Marketing feedback round #2 — admin-defined custom fields. Each
 // row is a stable id + label + free-text value. We cap the array at
 // 50 entries to keep the JSON column small and the UI manageable.
 export const customFieldSchema = z.object({
@@ -20,7 +20,7 @@ export const customFieldSchema = z.object({
 });
 
 /**
- * Project status taxonomy. Kept as a string column on
+ * BD-feedback status taxonomy (May 2026). Kept as a string column on
  * the database side; this whitelist is the single source of truth for
  * "what values may a project carry?" Frontend mirrors this list.
  */
@@ -32,7 +32,7 @@ export const PROJECT_STATUS_VALUES = [
   "staging_integrated",
   "prod_integrated",
   "uat",
-  // HR workflow statuses. The HR form
+  // HR-team feedback (2026-05-26) — HR workflow statuses. The HR form
   // surfaces a filtered subset of this enum (the four below + the
   // shared `not_yet_started | in_progress | completed`). Adding them
   // to the global whitelist keeps the existing string column +
@@ -41,9 +41,9 @@ export const PROJECT_STATUS_VALUES = [
   "pending_approval",
   "closed",
   "cancelled",
-  // Legal CRM tracks tasks against
-  // a simplified three-state workflow (Complete / In progress /
-  // Pending Dept. Info). The
+  // Legal-team feedback (2026-05-26) — Legal CRM tracks tasks against
+  // a simplified three-state workflow modelled after the team's
+  // Google Sheet (Complete / In progress / Pending Dept. Info). The
   // first two reuse existing values; `pending_dept_info` is new.
   "pending_dept_info",
 ] as const;
@@ -104,7 +104,7 @@ const projectBodySchema = z.object({
   status: projectStatusSchema.default("not_yet_started"),
   team: projectTeamSchema.default("general"),
   partnerId: z.string().optional(),
-  // Owner is a People-picker on the form. Optional on
+  // BD round #2 — Owner is a People-picker on the form. Optional on
   // input: on create it defaults to the caller's user id; on update
   // a manager can transfer ownership.
   ownerId: z.string().uuid().optional(),
@@ -114,34 +114,42 @@ const projectBodySchema = z.object({
   progress: z.coerce.number().int().min(0).max(100).optional(),
   memberIds: z.array(z.string().uuid()).optional(),
   customFields: z.array(customFieldSchema).max(50).optional(),
-  // `production_live` is a date so the workflow records when a project
-  // went live. Character limits on
+  // BD feedback (May 2026). Round #2 retyped production_live boolean
+  // → date so BD can record *when* a project went live. Char limits on
   // dependency / comment match the spreadsheet spec (200 / 1000).
   productionLiveDate: dateString.nullable().optional(),
   goLiveDate: dateString.nullable().optional(),
   revisedGoLiveDate: dateString.nullable().optional(),
-  // Agreement signing state shown
+  // Project-team feedback (2026-06-10) — agreement signing state shown
   // after Rev. GoLive on the Project CRM list. Whitelisted values; null
   // clears it.
   agreement: z.enum(["signed", "not_signed"]).nullable().optional(),
   dependency: z.string().max(200).nullable().optional(),
   comment: z.string().max(1000).nullable().optional(),
-  // Department label for the
+  // BD-feedback round #7 (May 2026) — Department label for the new
   // `/projects` Department column + filter dropdown. Accepted values
   // come from the shared `PROJECT_DEPARTMENT_VALUES` whitelist; null
   // clears it.
   department: projectDepartmentSchema.nullable().optional(),
-  // Workstream tags a Legal Task to the
+  // A project can span several departments. `departments` carries the full
+  // selection; the service keeps the scalar `department` above equal to the
+  // first entry so the dashboard groupBy, the list filter and exports go on
+  // working. Send either — sending only `department` still works.
+  departments: z
+    .array(projectDepartmentSchema)
+    .max(PROJECT_DEPARTMENT_VALUES.length)
+    .optional(),
+  // Legal team (2026-05-25) — Workstream tags a Legal Task to the
   // broader programme it belongs to (e.g. "Token Launch",
   // "Partnerships", "Compliance"). Free-text for now; promote to a
   // controlled vocabulary if the legal team builds up a stable
   // taxonomy. 200-char cap matches `dependency`.
   workstream: z.string().max(200).nullable().optional(),
-  // Long-form narrative for a Legal Task.
+  // Legal team (2026-05-26) — long-form narrative for a Legal Task.
   // 10 000-char cap matches the existing `description` field elsewhere
   // in the codebase. Nullable so non-Legal projects stay valid.
   details: z.string().max(10000).nullable().optional(),
-  // Task Type (Visa / HR / Admin /
+  // HR-team feedback (2026-05-26) — Task Type (Visa / HR / Admin /
   // F&A) and Assigned Team (HR / Visa / Admin / F&A) categorise HR
   // CRM rows. Free-text on the API; frontend enforces the dropdown
   // whitelist so non-HR rows that already have free-text in adjacent
@@ -192,10 +200,23 @@ export const projectQuerySchema = z.object({
   team: projectTeamSchema.optional(),
   // Optional Department filter for the /projects table dropdown.
   // Server-side filter so paging stays consistent across departments.
+  // Matches a project whose PRIMARY department is this value, or that lists it
+  // among its departments.
   department: projectDepartmentSchema.optional(),
+  // Optional Agreement filter for the Project CRM list dropdown
+  // (Project-team feedback). Server-side so paging stays consistent
+  // across the filtered set. Same controlled vocabulary as the body
+  // field; an unknown value is rejected rather than matching nothing.
+  agreement: z.enum(["signed", "not_signed"]).optional(),
   // Optional Partner filter — drives the Partner CRM detail page,
   // which lists the partner's projects via `/projects?partnerId=…`.
   partnerId: z.string().optional(),
+  // Active / Archived board filter. Default view (archived falsy) excludes
+  // archived projects; archived=true returns only archived ones.
+  archived: z
+    .string()
+    .optional()
+    .transform((v) => v === "true"),
 });
 
 /**
@@ -331,7 +352,7 @@ const combinedTaskSchema = z.object({
 
 const combinedProjectSchema = z.object({
   // For Legal CRM imports the "Legal Task" column maps here (may be
-  // blank in the import — the task title lives in the
+  // blank in the source spreadsheet — the task title lives in the
   // sibling `workstream` field instead). Allow an empty string so a
   // blank Legal-Task cell doesn't break the row; the service trims +
   // falls back to the workstream value when name is empty.
@@ -342,7 +363,7 @@ const combinedProjectSchema = z.object({
   comment: z.string().max(1000).nullable().optional(),
   goLiveDate: dateString.nullable().optional(),
   // Legal CRM import: the long task title from the "Workstream"
-  // column of the Legal CRM import.
+  // column of the Legal checklist xlsx.
   workstream: z.string().max(200).nullable().optional(),
   // Legal CRM import: free-text "Description" column. Maps to the
   // Legal-only `project.details` field (whitespace-preserved, multi-
@@ -385,6 +406,27 @@ export const updateColumnSchema = z.object({
 
 export const manageMembersSchema = z.object({
   memberIds: z.array(z.string().uuid()),
+});
+
+export const generateTasksSchema = z.object({
+  description: z
+    .string()
+    .min(10, "Description must be at least 10 characters")
+    .max(5000),
+  additionalContext: z.string().max(2000).optional(),
+  // Optional reference files the AI reads to suggest tasks. Images + PDF
+  // are passed to Gemini natively; office/text files are extracted to
+  // text server-side. ~15MB base64 (~11MB binary) per file, max 8.
+  files: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(255),
+        mimeType: z.string().min(1).max(150),
+        dataBase64: z.string().min(1).max(15_000_000),
+      }),
+    )
+    .max(8)
+    .optional(),
 });
 
 // ─── Milestones ─────────────────────────────────────────
@@ -487,6 +529,7 @@ export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type CreateColumnInput = z.infer<typeof createColumnSchema>;
 export type UpdateColumnInput = z.infer<typeof updateColumnSchema>;
 export type ManageMembersInput = z.infer<typeof manageMembersSchema>;
+export type GenerateTasksInput = z.infer<typeof generateTasksSchema>;
 export type CreateTaskCommentInput = z.infer<typeof createTaskCommentSchema>;
 export type CreateMilestoneInput = z.infer<typeof createMilestoneSchema>;
 export type UpdateMilestoneInput = z.infer<typeof updateMilestoneSchema>;

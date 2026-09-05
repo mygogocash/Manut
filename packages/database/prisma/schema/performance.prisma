@@ -1,13 +1,13 @@
 model AppraisalCycle {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
   name        String
   description String?
-  startDate   DateTime @map("start_date") @db.Date
-  endDate     DateTime @map("end_date") @db.Date
-  status      String   @default("draft") // draft, active, closed
-  createdBy   String   @map("created_by") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime  @map("end_date") @db.Date
+  status      String    @default("draft") // draft, active, closed
+  createdBy   String    @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   creator    User        @relation("AppraisalCycleCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   appraisals Appraisal[]
@@ -43,9 +43,9 @@ model Appraisal {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  cycle    AppraisalCycle     @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  employee User               @relation("AppraisalEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
-  manager  User?              @relation("AppraisalManager", fields: [managerId], references: [id], onDelete: SetNull)
+  cycle    AppraisalCycle    @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  employee User              @relation("AppraisalEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  manager  User?             @relation("AppraisalManager", fields: [managerId], references: [id], onDelete: SetNull)
   goals    Goal[]
   kras     AppraisalKRA[]
   comments AppraisalComment[]

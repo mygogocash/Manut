@@ -379,6 +379,12 @@ export default function MessagesPage() {
 
   return (
     <div className="-mx-6 -my-5 flex min-h-0 flex-1 overflow-hidden">
+      {/* The only dashboard route with no page heading of its own: this is a
+          full-height chat shell, and a visible title would take space the
+          conversation needs. `sr-only` gives it the page-level heading every
+          other route gets from PageHeader, using the sidebar's own label
+          rather than new copy. */}
+      <h1 className="sr-only">Messaging</h1>
       <div
         className={cn(
           "h-full w-72 shrink-0",

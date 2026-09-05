@@ -1,13 +1,12 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
-import { AppProviders } from "@/providers/app-providers";
-
+/** Auth screens + dashboard shell; NativeWind tokens land with the UI package wave. */
 export default function RootLayout() {
   return (
-    <AppProviders>
-      <StatusBar style="auto" />
+    <>
+      <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }} />
-    </AppProviders>
+    </>
   );
 }

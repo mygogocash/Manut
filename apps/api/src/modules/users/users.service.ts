@@ -9,7 +9,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
-import { isAuthenticationEligible } from "@/core/guards/auth-eligibility";
+import { logger } from "@/common/utils/logger";
 import { prisma } from "@/infrastructure/database/prisma";
 import { sendWelcomeTemplateEmail } from "@/infrastructure/email/email.service";
 import { supabaseAdmin } from "@/infrastructure/supabase/admin";
@@ -277,6 +277,37 @@ export class UsersService {
         createdBy,
       );
 
+      // Multi-company (PRD Rule 7). Going forward, a user created with a
+      // home entity also gets a membership for it + that entity selected.
+      // Best-effort (mirrors the tracking block): a failure here must
+      // never break user creation — the backfill migration is the safety
+      // net for existing users, and an admin can add memberships by hand.
+      if (input.entityId && user) {
+        try {
+          await prisma.userEntityMembership.upsert({
+            where: {
+              userId_entityId: { userId: user.id, entityId: input.entityId },
+            },
+            create: {
+              userId: user.id,
+              entityId: input.entityId,
+              isActive: true,
+            },
+            update: { isActive: true },
+          });
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { activeEntityId: input.entityId },
+          });
+        } catch (err) {
+          logger.warn("Failed to seed entity membership for new user", {
+            userId: user.id,
+            entityId: input.entityId,
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
       // Fire-and-forget welcome email with the temp password the admin
       // supplied. Mirrors auth.service.signUp; failures are logged inside
       // sendWelcomeTemplateEmail and never block the create. Payroll
@@ -477,11 +508,10 @@ export class UsersService {
   }
 
   async permanentDelete(id: string, actingUserId: string) {
-    const user = await usersRepository.findByIdIncludingDeleted(id);
+    const user = await prisma.user.findUnique({
+      where: { id },
+    });
     if (!user) throw new NotFoundException("User not found");
-    if (!user.deletedAt) {
-      throw new ConflictException("User is not deleted");
-    }
 
     if (id === actingUserId) {
       throw new BadRequestException("You cannot delete your own account");
@@ -504,9 +534,6 @@ export class UsersService {
   async resetPassword(id: string, input: ResetPasswordInput, actorId?: string) {
     const user = await usersRepository.findById(id);
     if (!user) throw new NotFoundException("User not found");
-    if (!isAuthenticationEligible(user)) {
-      throw new ForbiddenException("Account deactivated");
-    }
 
     await assertActorMayManageAdminUser(actorId, id);
 
@@ -550,7 +577,7 @@ export class UsersService {
   // "never activated" cohort before triggering bulk invite emails.
   async listUnactivated() {
     const dbUsers = await prisma.user.findMany({
-      where: { isActive: true, deletedAt: null },
+      where: { isActive: true },
       select: {
         id: true,
         email: true,
@@ -612,7 +639,7 @@ export class UsersService {
     }
 
     const users = await prisma.user.findMany({
-      where: { id: { in: userIds }, isActive: true, deletedAt: null },
+      where: { id: { in: userIds }, isActive: true },
       select: { id: true, email: true, name: true },
     });
 
@@ -829,6 +856,93 @@ export class UsersService {
     }
 
     return { successCount, failureCount, results };
+  }
+
+  // ── Multi-company memberships (PRD Rule 7, admin surface) ────────────
+  // Manage which entities a user belongs to. Stored now, ENFORCED in a
+  // later chunk — these writes never touch role/permission resolution.
+
+  /** List a user's entity memberships (admin view). */
+  async listMemberships(userId: string) {
+    const user = await usersRepository.findById(userId);
+    if (!user) throw new NotFoundException("User not found");
+
+    const rows = await prisma.userEntityMembership.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      include: {
+        entity: { select: { id: true, name: true, code: true } },
+        role: { select: { id: true, name: true } },
+      },
+    });
+
+    return {
+      data: rows.map((m) => ({
+        id: m.id,
+        entityId: m.entityId,
+        entity: m.entity,
+        roleId: m.roleId,
+        role: m.role,
+        isActive: m.isActive,
+      })),
+    };
+  }
+
+  /**
+   * Add (or re-activate) a membership for a user in an entity, with an
+   * optional per-company role. Idempotent via the (userId, entityId)
+   * unique key. Does not change the user's active company.
+   */
+  async addMembership(
+    userId: string,
+    entityId: string,
+    roleId?: string | null,
+  ) {
+    const user = await usersRepository.findById(userId);
+    if (!user) throw new NotFoundException("User not found");
+
+    const entity = await prisma.entity.findUnique({ where: { id: entityId } });
+    if (!entity) throw new NotFoundException("Entity not found");
+
+    if (roleId) {
+      const role = await prisma.role.findUnique({ where: { id: roleId } });
+      if (!role) throw new BadRequestException("Role not found");
+    }
+
+    const membership = await prisma.userEntityMembership.upsert({
+      where: { userId_entityId: { userId, entityId } },
+      create: { userId, entityId, roleId: roleId ?? null, isActive: true },
+      update: { roleId: roleId ?? null, isActive: true },
+      include: {
+        entity: { select: { id: true, name: true, code: true } },
+        role: { select: { id: true, name: true } },
+      },
+    });
+
+    return { data: membership };
+  }
+
+  /**
+   * Remove a user's membership in an entity. If it was their active
+   * company, clear `activeEntityId` so a stale selection can't linger.
+   */
+  async removeMembership(userId: string, entityId: string) {
+    const membership = await prisma.userEntityMembership.findUnique({
+      where: { userId_entityId: { userId, entityId } },
+    });
+    if (!membership) throw new NotFoundException("Membership not found");
+
+    await prisma.$transaction(async (tx) => {
+      await tx.userEntityMembership.delete({
+        where: { userId_entityId: { userId, entityId } },
+      });
+      await tx.user.updateMany({
+        where: { id: userId, activeEntityId: entityId },
+        data: { activeEntityId: null },
+      });
+    });
+
+    return { data: { success: true } };
   }
 }
 

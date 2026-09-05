@@ -1,4 +1,4 @@
-import { Prisma } from "@manut/database";
+import { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -55,6 +55,7 @@ export interface PerUserActivityRow {
   activeDays30d: number;
   leaveEvents30d: number;
   expenseEvents30d: number;
+  ariaEvents30d: number;
   topAction: string | null;
   lastActiveAt: Date | null;
 }
@@ -194,6 +195,7 @@ export const usageRepository = {
         active_days_30d: bigint | null;
         leave_events_30d: bigint | null;
         expense_events_30d: bigint | null;
+        aria_events_30d: bigint | null;
         top_action: string | null;
         last_active_at: Date | null;
       }>
@@ -207,6 +209,7 @@ export const usageRepository = {
         COUNT(*) FILTER (WHERE al.resource = 'leave')::bigint               AS leave_events_30d,
         COUNT(*) FILTER (WHERE al.resource IN ('expense', 'expense-report'))::bigint
                                                                             AS expense_events_30d,
+        COUNT(*) FILTER (WHERE al.resource LIKE 'aria%')::bigint            AS aria_events_30d,
         MAX(al.timestamp)                                                   AS last_active_at,
         ta.action                                                           AS top_action
       FROM users u
@@ -242,6 +245,7 @@ export const usageRepository = {
         activeDays30d: Number(r.active_days_30d ?? 0n),
         leaveEvents30d: Number(r.leave_events_30d ?? 0n),
         expenseEvents30d: Number(r.expense_events_30d ?? 0n),
+        ariaEvents30d: Number(r.aria_events_30d ?? 0n),
         topAction: r.top_action,
         lastActiveAt: r.last_active_at,
       })),

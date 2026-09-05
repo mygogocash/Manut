@@ -37,6 +37,12 @@ vi.mock("../../infrastructure/database/prisma", () => ({
       count: vi.fn(),
       create: vi.fn(),
     },
+    // Multi-company memberships (PRD Rule 7). Added for setActiveEntity /
+    // listMemberships coverage; unrelated tests never hit these.
+    userEntityMembership: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+    },
     $transaction: vi.fn((fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         user: { create: vi.fn(), findUnique: vi.fn() },
@@ -96,9 +102,8 @@ describe("AuthService", () => {
         department: "Engineering",
         jobTitle: "Developer",
         isActive: true,
-        deletedAt: null,
         mustChangePassword: false,
-        entity: { id: "entity-1", name: "Manut" },
+        entity: { id: "entity-1", name: "TBH" },
         userRoles: [
           {
             role: {
@@ -166,39 +171,14 @@ describe("AuthService", () => {
         ForbiddenException,
       );
     });
-
-    it("rejects a soft-deleted user even when Supabase accepts the password", async () => {
-      (supabaseAdmin.auth.signInWithPassword as Mock).mockResolvedValue({
-        data: {
-          user: { id: "user-123" },
-          session: {
-            access_token: "access-token",
-            refresh_token: "refresh-token",
-            expires_in: 3600,
-          },
-        },
-        error: null,
-      });
-      (prisma.user.findUnique as Mock).mockResolvedValue({
-        id: "user-123",
-        isActive: true,
-        deletedAt: new Date("2026-07-17T00:00:00.000Z"),
-        userRoles: [],
-      });
-
-      await expect(authService.login(loginInput)).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
   });
 
   describe("requestPasswordReset", () => {
     it("sends a reset email only for active intranet users", async () => {
       (prisma.user.findFirst as Mock).mockResolvedValue({
         id: "user-123",
-        email: "user@manut.example",
+        email: "user@thebinaryholdings.com",
         isActive: true,
-        deletedAt: null,
       });
       (supabaseAdmin.auth.resetPasswordForEmail as Mock).mockResolvedValue({
         data: {},
@@ -206,17 +186,17 @@ describe("AuthService", () => {
       });
 
       await authService.requestPasswordReset(
-        { email: " USER@MANUT.EXAMPLE " },
+        { email: " USER@TheBinaryHoldings.com " },
         { ip: "203.0.113.10" },
       );
 
       expect(supabaseAdmin.auth.resetPasswordForEmail).toHaveBeenCalledWith(
-        "user@manut.example",
+        "user@thebinaryholdings.com",
         { redirectTo: expect.stringMatching(/\/reset-password$/) },
       );
       expect(prisma.authLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          email: "user@manut.example",
+          email: "user@thebinaryholdings.com",
           ip: "203.0.113.10",
           action: "forgot-password",
           success: true,
@@ -247,16 +227,15 @@ describe("AuthService", () => {
     it("rate limits recovery requests by email before sending", async () => {
       (prisma.user.findFirst as Mock).mockResolvedValue({
         id: "user-123",
-        email: "user@manut.example",
+        email: "user@thebinaryholdings.com",
         isActive: true,
-        deletedAt: null,
       });
       (prisma.authLog.count as Mock)
         .mockResolvedValueOnce(3)
         .mockResolvedValueOnce(0);
 
       await authService.requestPasswordReset({
-        email: "user@manut.example",
+        email: "user@thebinaryholdings.com",
       });
 
       expect(supabaseAdmin.auth.resetPasswordForEmail).not.toHaveBeenCalled();
@@ -268,38 +247,14 @@ describe("AuthService", () => {
         }),
       });
     });
-
-    it("does not send recovery email for a soft-deleted active user", async () => {
-      (prisma.user.findFirst as Mock).mockResolvedValue({
-        id: "user-123",
-        email: "user@manut.example",
-        isActive: true,
-        deletedAt: new Date("2026-07-17T00:00:00.000Z"),
-      });
-
-      await authService.requestPasswordReset({
-        email: "user@manut.example",
-      });
-
-      expect(supabaseAdmin.auth.resetPasswordForEmail).not.toHaveBeenCalled();
-      expect(prisma.authLog.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          action: "forgot-password",
-          success: false,
-          errorMessage: "inactive-user",
-          userId: "user-123",
-        }),
-      });
-    });
   });
 
   describe("requestMagicLink", () => {
     it("uses Supabase OTP without auto-creating users", async () => {
       (prisma.user.findFirst as Mock).mockResolvedValue({
         id: "user-123",
-        email: "user@manut.example",
+        email: "user@thebinaryholdings.com",
         isActive: true,
-        deletedAt: null,
       });
       (supabaseAdmin.auth.signInWithOtp as Mock).mockResolvedValue({
         data: {},
@@ -307,11 +262,11 @@ describe("AuthService", () => {
       });
 
       await authService.requestMagicLink({
-        email: "user@manut.example",
+        email: "user@thebinaryholdings.com",
       });
 
       expect(supabaseAdmin.auth.signInWithOtp).toHaveBeenCalledWith({
-        email: "user@manut.example",
+        email: "user@thebinaryholdings.com",
         options: {
           shouldCreateUser: false,
           emailRedirectTo: expect.stringMatching(/\/auth\/callback$/),
@@ -322,9 +277,8 @@ describe("AuthService", () => {
     it("rejects users without the IT role and logs feature-not-enabled", async () => {
       (prisma.user.findFirst as Mock).mockResolvedValue({
         id: "user-456",
-        email: "marketer@manut.example",
+        email: "marketer@thebinaryholdings.com",
         isActive: true,
-        deletedAt: null,
       });
       // Override the default IT membership for this case — user has
       // only a non-allowed role.
@@ -333,7 +287,7 @@ describe("AuthService", () => {
       ]);
 
       await authService.requestMagicLink({
-        email: "marketer@manut.example",
+        email: "marketer@thebinaryholdings.com",
       });
 
       expect(supabaseAdmin.auth.signInWithOtp).not.toHaveBeenCalled();
@@ -349,9 +303,8 @@ describe("AuthService", () => {
     it("allows the system Admin role even when not in the allowlist", async () => {
       (prisma.user.findFirst as Mock).mockResolvedValue({
         id: "user-789",
-        email: "admin@manut.example",
+        email: "admin@thebinaryholdings.com",
         isActive: true,
-        deletedAt: null,
       });
       (prisma.userRole.findMany as Mock).mockResolvedValueOnce([
         { role: { name: "Admin", isSystem: true } },
@@ -362,32 +315,10 @@ describe("AuthService", () => {
       });
 
       await authService.requestMagicLink({
-        email: "admin@manut.example",
+        email: "admin@thebinaryholdings.com",
       });
 
       expect(supabaseAdmin.auth.signInWithOtp).toHaveBeenCalled();
-    });
-
-    it("does not issue a magic link for a soft-deleted active user", async () => {
-      (prisma.user.findFirst as Mock).mockResolvedValue({
-        id: "user-123",
-        email: "user@manut.example",
-        isActive: true,
-        deletedAt: new Date("2026-07-17T00:00:00.000Z"),
-      });
-
-      await authService.requestMagicLink({ email: "user@manut.example" });
-
-      expect(supabaseAdmin.auth.signInWithOtp).not.toHaveBeenCalled();
-      expect(prisma.userRole.findMany).not.toHaveBeenCalled();
-      expect(prisma.authLog.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          action: "magic-link",
-          success: false,
-          errorMessage: "inactive-user",
-          userId: "user-123",
-        }),
-      });
     });
   });
 
@@ -396,13 +327,13 @@ describe("AuthService", () => {
       (supabaseAdmin.auth.getUser as Mock)
         .mockResolvedValueOnce({
           data: {
-            user: { id: "user-123", email: "user@manut.example" },
+            user: { id: "user-123", email: "user@thebinaryholdings.com" },
           },
           error: null,
         })
         .mockResolvedValueOnce({
           data: {
-            user: { id: "user-123", email: "user@manut.example" },
+            user: { id: "user-123", email: "user@thebinaryholdings.com" },
           },
           error: null,
         });
@@ -424,21 +355,19 @@ describe("AuthService", () => {
       (prisma.user.findUnique as Mock)
         .mockResolvedValueOnce({
           id: "user-123",
-          email: "user@manut.example",
+          email: "user@thebinaryholdings.com",
           isActive: true,
-          deletedAt: null,
         })
         .mockResolvedValueOnce({
           id: "user-123",
-          email: "user@manut.example",
+          email: "user@thebinaryholdings.com",
           name: "Test User",
           avatarUrl: null,
           department: "Engineering",
           jobTitle: "Developer",
           isActive: true,
-          deletedAt: null,
           mustChangePassword: false,
-          entity: { id: "entity-1", name: "Manut" },
+          entity: { id: "entity-1", name: "TBH" },
           userRoles: [],
         });
       (prisma.user.update as Mock).mockResolvedValue({});
@@ -466,89 +395,6 @@ describe("AuthService", () => {
         }),
       });
     });
-
-    it("rejects password recovery for a soft-deleted active user before changing credentials", async () => {
-      (supabaseAdmin.auth.getUser as Mock)
-        .mockResolvedValueOnce({
-          data: { user: { id: "user-123", email: "user@manut.example" } },
-          error: null,
-        })
-        .mockResolvedValueOnce({
-          data: { user: { id: "user-123", email: "user@manut.example" } },
-          error: null,
-        });
-      (supabaseAdmin.auth.refreshSession as Mock).mockResolvedValue({
-        data: {
-          session: {
-            access_token: "new-access-token",
-            refresh_token: "new-refresh-token",
-            expires_in: 3600,
-          },
-        },
-        error: null,
-      });
-      (prisma.user.findUnique as Mock).mockResolvedValue({
-        id: "user-123",
-        email: "user@manut.example",
-        isActive: true,
-        deletedAt: new Date("2026-07-17T00:00:00.000Z"),
-      });
-
-      await expect(
-        authService.recoverPassword({
-          accessToken: "access-token",
-          refreshToken: "refresh-token",
-          newPassword: "NewPassword123!",
-        }),
-      ).rejects.toThrow(ForbiddenException);
-      expect(supabaseAdmin.auth.admin.updateUserById).not.toHaveBeenCalled();
-      expect(prisma.user.update).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("exchangeSession", () => {
-    it("rejects a soft-deleted active user after validating the provider tokens", async () => {
-      (supabaseAdmin.auth.getUser as Mock)
-        .mockResolvedValueOnce({
-          data: { user: { id: "user-123", email: "user@manut.example" } },
-          error: null,
-        })
-        .mockResolvedValueOnce({
-          data: { user: { id: "user-123", email: "user@manut.example" } },
-          error: null,
-        });
-      (supabaseAdmin.auth.refreshSession as Mock).mockResolvedValue({
-        data: {
-          session: {
-            access_token: "new-access-token",
-            refresh_token: "new-refresh-token",
-            expires_in: 3600,
-          },
-        },
-        error: null,
-      });
-      (prisma.user.findUnique as Mock).mockResolvedValue({
-        id: "user-123",
-        email: "user@manut.example",
-        isActive: true,
-        deletedAt: new Date("2026-07-17T00:00:00.000Z"),
-      });
-
-      await expect(
-        authService.exchangeSession({
-          accessToken: "access-token",
-          refreshToken: "refresh-token",
-        }),
-      ).rejects.toThrow(ForbiddenException);
-      expect(prisma.authLog.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          action: "exchange-session",
-          success: false,
-          errorMessage: "inactive-user",
-          userId: "user-123",
-        }),
-      });
-    });
   });
 
   describe("getMe", () => {
@@ -561,7 +407,7 @@ describe("AuthService", () => {
         department: "Engineering",
         jobTitle: "Developer",
         mustChangePassword: false,
-        entity: { id: "entity-1", name: "Manut" },
+        entity: { id: "entity-1", name: "TBH" },
         userRoles: [
           {
             role: {
@@ -618,10 +464,90 @@ describe("AuthService", () => {
       );
     });
 
+    it("includes memberships + activeEntityId additively (multi-company)", async () => {
+      const mockUser = {
+        id: "user-123",
+        email: "test@example.com",
+        name: "Test User",
+        avatarUrl: null,
+        department: null,
+        jobTitle: null,
+        mustChangePassword: false,
+        entity: { id: "entity-1", name: "TBH TH", code: "TH" },
+        activeEntityId: "entity-2",
+        entityMemberships: [
+          {
+            entityId: "entity-1",
+            roleId: null,
+            isActive: true,
+            entity: { id: "entity-1", name: "TBH TH", code: "TH" },
+          },
+          {
+            entityId: "entity-2",
+            roleId: "role-acct",
+            isActive: true,
+            entity: { id: "entity-2", name: "TBH SG", code: "SG" },
+          },
+        ],
+        userRoles: [
+          { role: { rolePermissions: [{ permissionCode: "leave:read" }] } },
+        ],
+      };
+
+      (prisma.user.findUnique as Mock).mockResolvedValue(mockUser);
+
+      const result = await authService.getMe("user-123");
+
+      // Existing fields untouched.
+      expect(result.user.id).toBe("user-123");
+      expect(result.permissions).toContain("leave:read");
+      // Additive fields present.
+      expect(result.activeEntityId).toBe("entity-2");
+      expect(result.memberships).toEqual([
+        {
+          entityId: "entity-1",
+          entityName: "TBH TH",
+          entityCode: "TH",
+          roleId: null,
+          isActive: true,
+        },
+        {
+          entityId: "entity-2",
+          entityName: "TBH SG",
+          entityCode: "SG",
+          roleId: "role-acct",
+          isActive: true,
+        },
+      ]);
+    });
+
+    it("defaults memberships to [] and activeEntityId to null when absent", async () => {
+      // Fixtures that don't hydrate the relation must still work — the
+      // service falls back rather than throwing.
+      const mockUser = {
+        id: "user-123",
+        email: "test@example.com",
+        name: "Test User",
+        avatarUrl: null,
+        department: null,
+        jobTitle: null,
+        mustChangePassword: false,
+        entity: null,
+        userRoles: [],
+      };
+
+      (prisma.user.findUnique as Mock).mockResolvedValue(mockUser);
+
+      const result = await authService.getMe("user-123");
+
+      expect(result.memberships).toEqual([]);
+      expect(result.activeEntityId).toBeNull();
+    });
+
     it("grants every permission code when user has the system Admin role", async () => {
       const mockUser = {
         id: "admin-1",
-        email: "admin@manut.example",
+        email: "admin@thebinaryholdings.com",
         name: "Admin",
         avatarUrl: null,
         department: null,
@@ -688,6 +614,77 @@ describe("AuthService", () => {
     });
   });
 
+  describe("setActiveEntity (multi-company)", () => {
+    it("throws ForbiddenException when the user has no membership in the target entity", async () => {
+      (prisma.userEntityMembership.findUnique as Mock).mockResolvedValue(null);
+
+      await expect(
+        authService.setActiveEntity("user-123", "entity-x"),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("throws ForbiddenException when the membership exists but is inactive", async () => {
+      (prisma.userEntityMembership.findUnique as Mock).mockResolvedValue({
+        entityId: "entity-2",
+        isActive: false,
+        entity: { id: "entity-2", name: "TBH SG", code: "SG" },
+      });
+
+      await expect(
+        authService.setActiveEntity("user-123", "entity-2"),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("updates activeEntityId when the user holds an active membership", async () => {
+      (prisma.userEntityMembership.findUnique as Mock).mockResolvedValue({
+        entityId: "entity-2",
+        isActive: true,
+        entity: { id: "entity-2", name: "TBH SG", code: "SG" },
+      });
+      (prisma.user.update as Mock).mockResolvedValue({});
+
+      const result = await authService.setActiveEntity("user-123", "entity-2");
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: "user-123" },
+        data: { activeEntityId: "entity-2" },
+      });
+      expect(result.activeEntityId).toBe("entity-2");
+      expect(result.entity).toEqual({
+        id: "entity-2",
+        name: "TBH SG",
+        code: "SG",
+      });
+    });
+  });
+
+  describe("listMemberships (multi-company)", () => {
+    it("maps active memberships to the switcher DTO shape", async () => {
+      (prisma.userEntityMembership.findMany as Mock).mockResolvedValue([
+        {
+          entityId: "entity-1",
+          roleId: "role-acct",
+          isActive: true,
+          entity: { id: "entity-1", name: "TBH TH", code: "TH" },
+        },
+      ]);
+
+      const result = await authService.listMemberships("user-123");
+
+      expect(result).toEqual([
+        {
+          entityId: "entity-1",
+          entityName: "TBH TH",
+          entityCode: "TH",
+          roleId: "role-acct",
+          isActive: true,
+        },
+      ]);
+    });
+  });
+
   describe("resetPassword", () => {
     it("should reset password successfully", async () => {
       (supabaseAdmin.auth.admin.updateUserById as Mock).mockResolvedValue({
@@ -717,105 +714,6 @@ describe("AuthService", () => {
       await expect(
         authService.resetPassword("user-123", "weak"),
       ).rejects.toThrow(BadRequestException);
-    });
-  });
-
-  describe("getMyProfile", () => {
-    it("selects and returns only the public entity identity", async () => {
-      (prisma.user.findUnique as Mock).mockResolvedValue({
-        id: "user-123",
-        email: "person@manut.example",
-        name: "Person",
-        avatarUrl: null,
-        isActive: true,
-        mustChangePassword: false,
-        phone: null,
-        phonePublic: false,
-        department: "Operations",
-        jobTitle: "Coordinator",
-        employeeId: "MNT-001",
-        employmentType: "full_time",
-        startDate: null,
-        endDate: null,
-        location: null,
-        country: null,
-        timezone: null,
-        entity: {
-          id: "entity-1",
-          name: "Manut",
-          code: "MNT",
-          taxId: "must-not-leak",
-          address: "must-not-leak",
-        },
-        userRoles: [{ role: { id: "role-1", name: "Employee" } }],
-      });
-
-      const result = await authService.getMyProfile("user-123");
-
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { id: "user-123" },
-        include: {
-          entity: { select: { id: true, name: true, code: true } },
-          userRoles: {
-            include: { role: { select: { id: true, name: true } } },
-          },
-        },
-      });
-      expect(result.profile.entity).toEqual({
-        id: "entity-1",
-        name: "Manut",
-        code: "MNT",
-      });
-      expect(result.profile.entity).not.toHaveProperty("taxId");
-    });
-  });
-
-  describe("updateMyProfile", () => {
-    it("preserves false, clears empty text, and selects only response fields", async () => {
-      (prisma.user.update as Mock).mockResolvedValue({
-        id: "user-123",
-        email: "person@manut.example",
-        name: "Person",
-        avatarUrl: null,
-        phone: null,
-        phonePublic: false,
-        location: null,
-        country: null,
-        timezone: null,
-      });
-
-      const result = await authService.updateMyProfile("user-123", {
-        phone: "",
-        phonePublic: false,
-        location: "",
-      });
-
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: "user-123" },
-        data: { phone: null, phonePublic: false, location: null },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          avatarUrl: true,
-          phone: true,
-          phonePublic: true,
-          location: true,
-          country: true,
-          timezone: true,
-        },
-      });
-      expect(result).toEqual({
-        id: "user-123",
-        email: "person@manut.example",
-        name: "Person",
-        avatarUrl: null,
-        phone: null,
-        phonePublic: false,
-        location: null,
-        country: null,
-        timezone: null,
-      });
     });
   });
 });

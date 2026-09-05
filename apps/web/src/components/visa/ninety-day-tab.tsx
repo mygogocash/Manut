@@ -381,6 +381,7 @@ export function NinetyDayTab({ onHeaderActions }: NinetyDayTabProps = {}) {
     },
     {
       key: "entity",
+      mobileRole: "subtitle" as const,
       header: "Entity",
       render: (r: NinetyDayNotification) =>
         r.entity ? (
@@ -391,31 +392,37 @@ export function NinetyDayTab({ onHeaderActions }: NinetyDayTabProps = {}) {
     },
     {
       key: "lastArrival",
+      mobileRole: "field" as const,
       header: "Last Arrival Date",
       render: (r: NinetyDayNotification) => fmt(r.lastArrivalDate),
     },
     {
       key: "due",
+      mobileRole: "field" as const,
       header: "90 Days Due Date",
       render: (r: NinetyDayNotification) => fmt(r.dueDate),
     },
     {
       key: "notify21",
+      mobileRole: "detail" as const,
       header: "21 Days Notification",
       render: (r: NinetyDayNotification) => fmt(r.notification21Date),
     },
     {
       key: "notify15",
+      mobileRole: "detail" as const,
       header: "15 Days Advance",
       render: (r: NinetyDayNotification) => fmt(r.notification15Date),
     },
     {
       key: "finalReport",
+      mobileRole: "detail" as const,
       header: "Last 7 Days Submission",
       render: (r: NinetyDayNotification) => fmt(r.finalReportDate),
     },
     {
       key: "status",
+      mobileRole: "badge" as const,
       header: "Status",
       render: (r: NinetyDayNotification) => (
         <Badge variant={statusTone(r.status)}>
@@ -425,6 +432,7 @@ export function NinetyDayTab({ onHeaderActions }: NinetyDayTabProps = {}) {
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-10",
       render: (r: NinetyDayNotification) =>

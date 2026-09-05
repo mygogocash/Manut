@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -12,8 +12,10 @@ export interface ListContactsFilters {
   search?: string;
   accountId?: string;
   // Restrict to contacts whose Account.ownerId is in this set. Used by the
-  // service to enforce account ownership scope.
+  // service to enforce PRD §7 ownership scope.
   accountOwnerScope?: string[];
+  // true = archived rows only; false/undefined = active rows only.
+  archived?: boolean;
 }
 
 export class ContactRepository {
@@ -31,6 +33,8 @@ export class ContactRepository {
     if (filters.accountOwnerScope) {
       where.account = { ownerId: { in: filters.accountOwnerScope } };
     }
+    // Default (active) view excludes archived rows; the Archived tab flips it.
+    where.archivedAt = filters.archived ? { not: null } : null;
 
     const [data, total] = await Promise.all([
       prisma.contact.findMany({

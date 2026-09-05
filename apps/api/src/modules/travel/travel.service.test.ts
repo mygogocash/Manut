@@ -3,9 +3,7 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
-  NotFoundException,
 } from "@/common/exceptions/http-exception";
 import { travelRepository } from "@/modules/travel/travel.repository";
 import { TravelService } from "@/modules/travel/travel.service";
@@ -15,7 +13,6 @@ vi.mock("./travel.repository", () => ({
     findUserById: vi.fn(),
     findRequests: vi.fn(),
     findRequestById: vi.fn(),
-    findRequestByIdIncludingDeleted: vi.fn(),
     findAllRequests: vi.fn(),
     createRequest: vi.fn(),
     updateRequest: vi.fn(),
@@ -31,7 +28,6 @@ vi.mock("./travel.repository", () => ({
     createDecisions: vi.fn(),
     findDecisions: vi.fn(),
     updateDecision: vi.fn(),
-    permanentDeleteRequest: vi.fn(),
   },
 }));
 
@@ -45,16 +41,12 @@ vi.mock("@/common/utils/data-scope", () => ({
 }));
 
 const baseInput = {
-  origin: "Bangkok",
   destination: "Tokyo",
   purpose: "Conference",
   departureDate: "2026-06-01",
   returnDate: "2026-06-05",
   estimatedBudget: 1000,
   currency: "USD",
-  category: "general" as const,
-  dummyTicketRequired: false,
-  visaRequired: false,
   hotelRequired: false,
 };
 
@@ -286,47 +278,6 @@ describe("TravelService — approval chain", () => {
       await expect(
         svc.rejectRequest("req-1", "mgr-1", "no", []),
       ).rejects.toThrow(BadRequestException);
-    });
-  });
-
-  describe("permanentDeleteRequest", () => {
-    it("purges a soft-deleted request", async () => {
-      const deletedRequest = { id: "req-1", deletedAt: new Date() };
-      (
-        travelRepository.findRequestByIdIncludingDeleted as Mock
-      ).mockResolvedValue(deletedRequest);
-      (travelRepository.permanentDeleteRequest as Mock).mockResolvedValue(
-        deletedRequest,
-      );
-
-      await expect(svc.permanentDeleteRequest("req-1")).resolves.toBe(
-        deletedRequest,
-      );
-      expect(travelRepository.permanentDeleteRequest).toHaveBeenCalledWith(
-        "req-1",
-      );
-    });
-
-    it("rejects an active request with conflict", async () => {
-      (
-        travelRepository.findRequestByIdIncludingDeleted as Mock
-      ).mockResolvedValue({ id: "req-1", deletedAt: null });
-
-      await expect(svc.permanentDeleteRequest("req-1")).rejects.toThrow(
-        ConflictException,
-      );
-      expect(travelRepository.permanentDeleteRequest).not.toHaveBeenCalled();
-    });
-
-    it("returns not found when the request does not exist", async () => {
-      (
-        travelRepository.findRequestByIdIncludingDeleted as Mock
-      ).mockResolvedValue(null);
-
-      await expect(svc.permanentDeleteRequest("missing")).rejects.toThrow(
-        NotFoundException,
-      );
-      expect(travelRepository.permanentDeleteRequest).not.toHaveBeenCalled();
     });
   });
 });

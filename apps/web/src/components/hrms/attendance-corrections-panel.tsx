@@ -40,19 +40,18 @@ export function AttendanceCorrectionsPanel({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
   const pag = usePagination();
-  const { page, pageSize, setTotalCount } = pag;
 
   const fetchRows = useCallback(async () => {
     try {
       setLoading(true);
       const res = await listAttendanceCorrections({
-        page,
-        limit: pageSize,
+        page: pag.page,
+        limit: pag.pageSize,
         scope,
         status: statusFilter || undefined,
       });
       setRows(res.data);
-      setTotalCount(res.meta.total);
+      pag.setTotalCount(res.meta.total);
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.message : "Failed to load corrections",
@@ -60,7 +59,7 @@ export function AttendanceCorrectionsPanel({
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, scope, statusFilter, setTotalCount]);
+  }, [pag.page, pag.pageSize, scope, statusFilter, pag.setTotalCount]);
 
   useEffect(() => {
     void fetchRows();
@@ -103,7 +102,7 @@ export function AttendanceCorrectionsPanel({
               value={scope}
               onValueChange={(v) => setScope(v as typeof scope)}
             >
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-[140px]" aria-label="Correction scope">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -117,7 +116,7 @@ export function AttendanceCorrectionsPanel({
             value={statusFilter || "__all__"}
             onValueChange={(v) => setStatusFilter(v === "__all__" ? "" : v)}
           >
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[140px]" aria-label="Filter by status">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -142,17 +141,20 @@ export function AttendanceCorrectionsPanel({
           { key: "date", header: "Date", render: (r) => r.attendanceDate },
           {
             key: "employee",
+            mobileRole: "subtitle" as const,
             header: "Employee",
             render: (r) => r.employee?.name ?? "—",
           },
           {
             key: "type",
+            mobileRole: "field" as const,
             header: "Type",
             render: (r) => r.correctionType.replace(/_/g, " "),
           },
-          { key: "reason", header: "Reason", render: (r) => r.reason },
+          { key: "reason", mobileRole: "detail" as const, header: "Reason", render: (r) => r.reason },
           {
             key: "status",
+            mobileRole: "badge" as const,
             header: "Status",
             render: (r) => (
               <Badge
@@ -170,6 +172,7 @@ export function AttendanceCorrectionsPanel({
           },
           {
             key: "actions",
+            mobileRole: "actions" as const,
             header: "",
             render: (r) =>
               canApprove && r.status === "pending" ? (

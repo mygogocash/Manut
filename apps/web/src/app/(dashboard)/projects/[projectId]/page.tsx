@@ -7,6 +7,7 @@ import {
   DragOverlay,
   type DragStartEvent,
   getFirstCollision,
+  KeyboardSensor,
   PointerSensor,
   pointerWithin,
   rectIntersection,
@@ -17,20 +18,25 @@ import {
   arrayMove,
   horizontalListSortingStrategy,
   SortableContext,
+  sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import {
   ArrowLeft,
   CalendarRange,
   KanbanSquare,
+  Lock,
   Plus,
   Settings,
+  Sparkles,
   UserPlus,
 } from "lucide-react";
+import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useRouter } from "nextjs-toploader/app";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { AIGenerateTasksDialog } from "@/components/projects/ai-generate-tasks-dialog";
 import {
   ColumnDragOverlay,
   DroppableColumn,
@@ -40,14 +46,19 @@ import { ColumnDialog } from "@/components/projects/column-dialog";
 import { CreateTaskDialog } from "@/components/projects/create-task-dialog";
 import { ManageMembersDialog } from "@/components/projects/manage-members-dialog";
 import { MilestoneDialog } from "@/components/projects/milestone-dialog";
+import { MoveToSheet } from "@/components/projects/move-to-sheet";
 import {
   DEFAULT_COLUMNS,
   getInitials,
 } from "@/components/projects/project-board-utils";
 import { TaskCardOverlay } from "@/components/projects/task-card";
 import { TaskDetailSheet } from "@/components/projects/task-detail-sheet";
+import { TaskMobileCard } from "@/components/projects/task-mobile-card";
+import { TimelineMobileList } from "@/components/projects/timeline-mobile-list";
 import { TimelineView } from "@/components/projects/timeline-view";
 import { PageHeader } from "@/components/shared/page-header";
+import { StateView } from "@/components/shared/responsive/state-view";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +77,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useIsBelow } from "@/hooks/use-breakpoint";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
@@ -89,7 +101,7 @@ import {
   updateTask,
 } from "@/services/project.service";
 
-// The Back button must preserve the originating team workspace; a
+// Tanny / 2026-05-26: the Back button hard-coded `/projects`, so a
 // user who entered the detail page from /it-crm / /product-crm /
 // /legal-crm / /hr-crm landed in the wrong workspace on click. Map
 // the project's `team` back to its CRM list URL; `qa` doesn't share
@@ -131,11 +143,12 @@ function resolveColumnSortableDropTarget(
 }
 
 export default function ProjectDetailPage() {
-  const params = useParams();
+  const params = useParams<{ projectId: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
-  const projectId = params.projectId as string;
+  const projectId =
+    typeof params?.projectId === "string" ? params.projectId : "";
   // Deep-link: `?task=<id>` opens that task's detail sheet once the
   // board has loaded (e.g. clicking a task sub-row in the IT CRM list).
   const deepLinkOpened = useRef(false);
@@ -162,7 +175,17 @@ export default function ProjectDetailPage() {
   const [deleteColTarget, setDeleteColTarget] = useState<ProjectColumn | null>(
     null,
   );
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [view, setView] = useState<"board" | "timeline">("board");
+
+  // Below `lg` the board is a status tab plus a card list. 1,414px of columns
+  // in a 390px viewport shows about one column at a time, and a card cannot be
+  // dragged on touch at all (PHASE_7B §11) — so the whole DndContext is simply
+  // not rendered there rather than rendered and left broken.
+  const isCompact = useIsBelow("lg");
+  const [activeStatus, setActiveStatus] = useState<string | null>(null);
+  const [moveTask, setMoveTask] = useState<Task | null>(null);
+  const statusStripRef = useRef<HTMLDivElement | null>(null);
   const [timeline, setTimeline] = useState<TimelineSnapshot | null>(null);
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [milestones, setMilestones] = useState<ProjectMilestone[]>([]);
@@ -179,6 +202,18 @@ export default function ProjectDetailPage() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    // Board drag has never been keyboard-operable, on any device. The activator
+    // is now a real focusable button on every card and column, so Space or
+    // Enter picks a task up, the arrow keys move it between and within columns,
+    // and Space or Enter drops it. Escape cancels without a write.
+    //
+    // `sortableKeyboardCoordinates` is the sortable package's own translator
+    // from key presses to the coordinates the collision detector expects —
+    // without it the arrow keys move a fixed 25px, which is meaningless against
+    // 270px columns.
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   );
 
   const collisionDetection: CollisionDetection = useCallback((args) => {
@@ -215,7 +250,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     if (deepLinkOpened.current) return;
-    const taskId = searchParams.get("task");
+    const taskId = searchParams?.get("task");
     if (!taskId || tasks.length === 0) return;
     const target = tasks.find((t) => t.id === taskId);
     if (target) {
@@ -287,6 +322,24 @@ export default function ProjectDetailPage() {
     return Boolean(oid && oid === user.id);
   }, [project, user]);
 
+  // The selected status defaults to the board's FIRST column — the same one a
+  // desktop user reads first, left to right. It is deliberately not persisted
+  // and not in the URL: the board has never had either, and inventing routing
+  // state here would change what `/projects/:id` means.
+  //
+  // Re-derived rather than only initialised, because columns arrive after the
+  // first render and can be added, renamed or deleted while the page is open;
+  // a selection pointing at a deleted column would show a permanently empty
+  // list with no way back.
+  useEffect(() => {
+    if (columns.length === 0) return;
+    setActiveStatus((current) =>
+      current && columns.some((c) => c.key === current)
+        ? current
+        : (columns[0]?.key ?? null),
+    );
+  }, [columns]);
+
   const tasksByStatus = useMemo(() => {
     const map: Record<string, Task[]> = {};
     for (const col of columns) map[col.key] = [];
@@ -301,6 +354,27 @@ export default function ProjectDetailPage() {
     }
     return map;
   }, [tasks, columns]);
+
+  const activeTasks = useMemo(
+    () => (activeStatus ? (tasksByStatus[activeStatus] ?? []) : []),
+    [tasksByStatus, activeStatus],
+  );
+  const activeColumnLabel = useMemo(
+    () => columns.find((c) => c.key === activeStatus)?.label,
+    [columns, activeStatus],
+  );
+
+  // Keep the selected status on screen when the strip scrolls. Feature-checked
+  // because an effect that throws during commit takes the page down over a
+  // cosmetic scroll (same guard as the requests queue).
+  useEffect(() => {
+    const el = statusStripRef.current?.querySelector<HTMLElement>(
+      '[aria-selected="true"]',
+    );
+    if (typeof el?.scrollIntoView === "function") {
+      el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, [activeStatus]);
 
   function findColumnForItem(id: string): string | null {
     if (id.startsWith("column-")) return id.replace("column-", "");
@@ -399,25 +473,47 @@ export default function ProjectDetailPage() {
     const targetStatus = findColumnForItem(overId);
     if (!targetStatus) return;
 
-    const originalStatus = draggedTask.status;
-
-    // Trello-style drop: compute the target column's new order with
-    // the dragged card inserted at the drop index. Same-column drags
-    // reorder; cross-column drags also flip `status`. The drop can
-    // land on either another task (insert at that task's index) or
-    // the column container itself (insert at the end).
+    // The drop can land on another task (insert at that task's index) or on the
+    // column container (append). `applyTaskMove` does the rest — the SAME
+    // function the mobile "Move to" sheet calls, so a card moved by tap and a
+    // card moved by drag take one code path to one endpoint.
     const isOverColumnContainer =
       overId.startsWith("col-") || overId.startsWith("column-");
     const overTask = !isOverColumnContainer
       ? tasks.find((t) => t.id === overId)
       : null;
 
+    void applyTaskMove(activeId, targetStatus, overTask?.id ?? null);
+  }
+
+  /**
+   * Move a task into a status, at a position.
+   *
+   * Extracted from the drag handler so the mobile list can reuse it verbatim.
+   * `beforeTaskId` is the task to insert in front of; `null` appends, which is
+   * what an explicit "Move to" means when there is no drop point.
+   *
+   * Optimistic, with the snapshot rollback the drag already had. Resolves
+   * `true` when the write landed — the sheet needs that to decide whether to
+   * close, and the drag path ignores it exactly as it ignored the old promise.
+   * It never rejects: failure is a toast plus a rollback, as before.
+   */
+  async function applyTaskMove(
+    activeId: string,
+    targetStatus: string,
+    beforeTaskId: string | null,
+  ): Promise<boolean> {
+    const draggedTask = tasks.find((t) => t.id === activeId);
+    if (!draggedTask) return false;
+
+    const originalStatus = draggedTask.status;
+
     const targetColCurrent = tasks.filter((t) => t.status === targetStatus);
     const targetWithoutActive = targetColCurrent.filter(
       (t) => t.id !== activeId,
     );
-    const insertIdx = overTask
-      ? targetWithoutActive.findIndex((t) => t.id === overTask.id)
+    const insertIdx = beforeTaskId
+      ? targetWithoutActive.findIndex((t) => t.id === beforeTaskId)
       : targetWithoutActive.length;
 
     // No-op: dropped onto itself or back into the same slot.
@@ -425,7 +521,7 @@ export default function ProjectDetailPage() {
       originalStatus === targetStatus &&
       targetColCurrent.findIndex((t) => t.id === activeId) === insertIdx
     ) {
-      return;
+      return true;
     }
 
     const movedTask = { ...draggedTask, status: targetStatus };
@@ -453,15 +549,19 @@ export default function ProjectDetailPage() {
       return [...others, ...sourceColRemaining, ...newTargetTasks];
     });
 
-    void reorderTasks(
-      projectId,
-      newTargetTasks.map((t) => t.id),
-      originalStatus !== targetStatus ? targetStatus : undefined,
-    ).catch(() => {
+    try {
+      await reorderTasks(
+        projectId,
+        newTargetTasks.map((t) => t.id),
+        originalStatus !== targetStatus ? targetStatus : undefined,
+      );
+      return true;
+    } catch {
       toast.error("Failed to save task order");
       setTasks(snapshot);
       void fetchProject();
-    });
+      return false;
+    }
   }
 
   async function handleDeleteColumn(colId: string) {
@@ -588,7 +688,49 @@ export default function ProjectDetailPage() {
         <Button onClick={() => handleAddClick("todo")}>
           <Plus className="size-3.5" /> Add Task
         </Button>
+        <Button
+          variant="outline"
+          onClick={() => setAiDialogOpen(true)}
+          className={`
+            border-violet-200 text-violet-700
+            hover:bg-violet-50
+            dark:border-violet-800 dark:text-violet-400 dark:hover:bg-violet-950
+          `}
+        >
+          <Sparkles className="size-3.5" /> AI Generate
+        </Button>
       </PageHeader>
+
+      {/*
+        Task work is blocked until the request is approved, so say so here
+        rather than letting someone discover it by getting an error when they
+        try to drag a card.
+      */}
+      {project?.workflowStatus &&
+      project.workflowStatus !== "approved" &&
+      /* The name `approved` carried before; a row on it is still approved. */
+      project.workflowStatus !== "pending_development" &&
+      project.workflowStatus !== "completed" ? (
+        <Alert className="mb-4">
+          <Lock className="size-4" />
+          <AlertTitle>
+            {project.workflowStatus === "rejected"
+              ? "This request was rejected"
+              : "This request is awaiting approval"}
+          </AlertTitle>
+          <AlertDescription>
+            {project.workflowStatus === "rejected"
+              ? "Its board is read-only. A Project Manager can reopen the request if the work should go ahead."
+              : "Tasks cannot be added or moved until the request is approved."}{" "}
+            <Link
+              href={`/projects/requests/${projectId}`}
+              className="underline"
+            >
+              View the request
+            </Link>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {members.length > 0 && (
         <div className="mb-4 flex items-center gap-2">
@@ -665,6 +807,20 @@ export default function ProjectDetailPage() {
         timelineLoading ? (
           <Skeleton className="h-[60vh] w-full rounded-md" />
         ) : timeline ? (
+          isCompact ? (
+            /* The Gantt's label pane is a non-shrinking 320px, so below `lg` it
+               leaves the chart no room at all, and its reschedule gestures are
+               mouse-only. Same snapshot, read as a chronology instead; tapping a
+               row opens the same task sheet, which is where dates stay
+               editable. */
+            <TimelineMobileList
+              snapshot={timeline}
+              onTaskClick={(taskId) => {
+                const task = tasks.find((t) => t.id === taskId);
+                if (task) handleOpenTask(task);
+              }}
+            />
+          ) : (
           <TimelineView
             snapshot={timeline}
             onTaskClick={(taskId) => {
@@ -707,7 +863,91 @@ export default function ProjectDetailPage() {
               }
             }}
           />
+          )
         ) : null
+      ) : isCompact ? (
+        /* ── Board, below lg ──────────────────────────────────────────────
+           Same columns, same tasks, same handlers — one status at a time.
+           No DndContext at all: rendering one here would offer a drag that
+           cannot complete on touch. */
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div
+            ref={statusStripRef}
+            role="tablist"
+            aria-label="Task status"
+            className={`
+              allow-x-scroll border-border mb-3 flex min-w-0 flex-nowrap gap-1
+              border-b pb-px
+            `}
+          >
+            {columns.map((col) => {
+              const active = col.key === activeStatus;
+              const count = (tasksByStatus[col.key] ?? []).length;
+              return (
+                <button
+                  key={col.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setActiveStatus(col.key)}
+                  className={cn(
+                    `
+                      -mb-px flex h-11 shrink-0 items-center gap-1.5
+                      rounded-t-md border-b-2 px-3 text-sm whitespace-nowrap
+                      transition-colors
+                    `,
+                    active
+                      ? "border-primary text-foreground font-medium"
+                      : `
+                        text-muted-foreground border-transparent
+                        hover:text-foreground
+                      `,
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn("size-2 shrink-0 rounded-full", col.color)}
+                  />
+                  {col.label}
+                  {/* Counts come from the data already on screen — no extra
+                      request, the same `tasksByStatus` the columns use. */}
+                  <span
+                    className={`
+                      bg-muted text-muted-foreground rounded-full px-1.5 py-0.5
+                      text-[10px] tabular-nums
+                    `}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto pb-4">
+            {activeTasks.length === 0 ? (
+              <StateView
+                kind="empty"
+                title="Nothing in this status"
+                message={
+                  activeColumnLabel
+                    ? `No tasks are in ${activeColumnLabel} right now.`
+                    : undefined
+                }
+                compact
+              />
+            ) : (
+              activeTasks.map((task) => (
+                <TaskMobileCard
+                  key={task.id}
+                  task={task}
+                  onOpen={handleOpenTask}
+                  onMove={(t) => setMoveTask(t)}
+                />
+              ))
+            )}
+          </div>
+        </div>
       ) : (
         <DndContext
           sensors={sensors}
@@ -761,6 +1001,21 @@ export default function ProjectDetailPage() {
           </DragOverlay>
         </DndContext>
       )}
+
+      {/* Mobile move. Destinations are the board's own columns and the write
+          goes through `applyTaskMove` — the same function the desktop drag
+          handler calls, to the same endpoint, with the same rollback. */}
+      <MoveToSheet
+        open={moveTask !== null}
+        onOpenChange={(next) => {
+          if (!next) setMoveTask(null);
+        }}
+        task={moveTask}
+        columns={columns}
+        onMove={(task, targetStatus) =>
+          applyTaskMove(task.id, targetStatus, null)
+        }
+      />
 
       <TaskDetailSheet
         task={detailTask}
@@ -821,6 +1076,17 @@ export default function ProjectDetailPage() {
         onSuccess={() => {
           void fetchMilestones();
           if (view === "timeline") void fetchTimeline();
+        }}
+      />
+
+      <AIGenerateTasksDialog
+        open={aiDialogOpen}
+        onOpenChange={setAiDialogOpen}
+        projectId={projectId}
+        projectDescription={project.description}
+        columns={columns}
+        onTasksCreated={(newTasks) => {
+          setTasks((prev) => [...prev, ...newTasks]);
         }}
       />
 

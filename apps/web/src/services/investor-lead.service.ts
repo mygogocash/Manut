@@ -30,8 +30,10 @@ export interface InvestorLead {
   notes: string | null;
   ownerId: string;
   owner: { id: string; name: string; email: string };
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  fundraisingEntity: string;
 }
 
 export interface CreateInvestorLeadInput {
@@ -42,6 +44,7 @@ export interface CreateInvestorLeadInput {
   source?: string;
   status?: InvestorLeadStatus;
   notes?: string;
+  fundraisingEntity?: string;
 }
 
 export type UpdateInvestorLeadInput = Partial<CreateInvestorLeadInput>;
@@ -52,6 +55,8 @@ export interface ListInvestorLeadsParams {
   status?: string;
   search?: string;
   ownerId?: string;
+  archived?: boolean;
+  fundraisingEntity?: string;
 }
 
 function buildQuery<T extends object>(params: T): string {
@@ -88,4 +93,16 @@ export async function deleteInvestorLead(
   id: string,
 ): Promise<ApiSuccessResponse<{ success: boolean }>> {
   return api.delete(`/investor/leads/${id}`);
+}
+
+export async function archiveInvestorLead(
+  id: string,
+): Promise<ApiSuccessResponse<InvestorLead>> {
+  return api.post(`/investor/leads/${id}/archive`, {});
+}
+
+export async function unarchiveInvestorLead(
+  id: string,
+): Promise<ApiSuccessResponse<InvestorLead>> {
+  return api.post(`/investor/leads/${id}/unarchive`, {});
 }

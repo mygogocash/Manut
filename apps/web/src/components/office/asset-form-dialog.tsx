@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { RemoteUserPicker } from "@/components/crm/remote-user-picker";
 import { FormDatePicker } from "@/components/shared/form-date-picker";
+import { ImageDropzone } from "@/components/shared/image-dropzone";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +22,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -65,6 +67,14 @@ const formSchema = z.object({
     .optional()
     .or(z.literal("")),
   notes: z.string().max(2000).optional().or(z.literal("")),
+  // Photo — any category, not only furniture.
+  imageUrl: z.string().max(1000).optional().or(z.literal("")),
+  // Furniture.
+  material: z.string().max(120).optional().or(z.literal("")),
+  dimensions: z.string().max(120).optional().or(z.literal("")),
+  condition: z.string().max(20).optional().or(z.literal("")),
+  locationDetail: z.string().max(200).optional().or(z.literal("")),
+  warrantyUntil: z.string().optional().or(z.literal("")),
   manufacturer: z.string().max(120).optional().or(z.literal("")),
   model: z.string().max(120).optional().or(z.literal("")),
   colour: z.string().max(60).optional().or(z.literal("")),
@@ -139,6 +149,15 @@ const HARDWARE_CATEGORIES = new Set([
 const COLOURED_CATEGORIES = new Set(["mobile", "peripheral", "usb_accessory"]);
 const OS_CATEGORIES = new Set(["laptop", "mobile"]);
 const SOFTWARE_CATEGORY = "software";
+const FURNITURE_CATEGORY = "furniture";
+
+// Condition ladder, mirroring the server's ASSET_CONDITIONS.
+const CONDITIONS = [
+  { value: "new", label: "New" },
+  { value: "good", label: "Good" },
+  { value: "fair", label: "Fair" },
+  { value: "poor", label: "Poor" },
+] as const;
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -161,7 +180,7 @@ export function AssetFormDialog({
   const [officesLoading, setOfficesLoading] = useState(false);
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       type: "",
@@ -170,6 +189,12 @@ export function AssetFormDialog({
       status: "available",
       assignedTo: "",
       notes: "",
+      imageUrl: "",
+      material: "",
+      dimensions: "",
+      condition: "",
+      locationDetail: "",
+      warrantyUntil: "",
       manufacturer: "",
       model: "",
       colour: "",
@@ -226,6 +251,14 @@ export function AssetFormDialog({
         status: asset.status,
         assignedTo: asset.assignee?.id ?? "",
         notes: asset.notes ?? "",
+        imageUrl: asset.imageUrl ?? "",
+        material: asset.material ?? "",
+        dimensions: asset.dimensions ?? "",
+        condition: asset.condition ?? "",
+        locationDetail: asset.locationDetail ?? "",
+        warrantyUntil: asset.warrantyUntil
+          ? asset.warrantyUntil.slice(0, 10)
+          : "",
         manufacturer: asset.manufacturer ?? "",
         model: asset.model ?? "",
         colour: asset.colour ?? "",
@@ -290,6 +323,15 @@ export function AssetFormDialog({
         status: values.status,
         assignedTo: values.assignedTo || undefined,
         notes: values.notes || undefined,
+        // Sent as "" rather than undefined when cleared, so the server writes
+        // null instead of leaving the previous photo attached — `undefined`
+        // would mean "not supplied" and skip the field entirely on update.
+        imageUrl: isEditing ? values.imageUrl : values.imageUrl || undefined,
+        material: values.material || undefined,
+        dimensions: values.dimensions || undefined,
+        condition: values.condition || undefined,
+        locationDetail: values.locationDetail || undefined,
+        warrantyUntil: values.warrantyUntil || undefined,
         manufacturer: values.manufacturer || undefined,
         model: values.model || undefined,
         colour: values.colour || undefined,
@@ -506,6 +548,149 @@ export function AssetFormDialog({
                 </FormItem>
               )}
             />
+
+            {/* Photo. Offered for every category — a picture identifies a
+                monitor on a shelf as readily as a chair in a room. */}
+            <FormField
+              control={form.control}
+              name="imageUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Photo</FormLabel>
+                  <FormControl>
+                    <ImageDropzone
+                      value={field.value ?? ""}
+                      onChange={(url) =>
+                        form.setValue("imageUrl", url, { shouldDirty: true })
+                      }
+                      purpose="office-asset-image"
+                      description="Drag an image here, or click to choose one. JPEG, PNG, WebP, GIF or HEIC."
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Location and warranty are NOT furniture-only. The Asset
+                Inventory Tracker records a room for its Accessories and
+                Electronics rows too, and while these sat inside the furniture
+                fieldset a non-furniture asset could hold a location in the
+                database that the form would neither show nor let anyone
+                edit. */}
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="locationDetail"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Location in office</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g. Meeting Room 2, 3rd floor"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="warrantyUntil"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Warranty until</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {watchedType === FURNITURE_CATEGORY && (
+              <fieldset
+                className={`
+                  border-border flex flex-col gap-3 rounded-md border p-3
+                `}
+              >
+                <legend
+                  className={`
+                    text-muted-foreground px-1 text-[11px] font-semibold
+                    tracking-wide uppercase
+                  `}
+                >
+                  Furniture
+                </legend>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="material"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Material</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. Oak veneer, steel"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="condition"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Condition</FormLabel>
+                        <Select
+                          value={field.value || ""}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select condition" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CONDITIONS.map((c) => (
+                              <SelectItem key={c.value} value={c.value}>
+                                {c.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="dimensions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dimensions</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g. W120 x D60 x H75 cm"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Free text, so odd shapes fit — &quot;Ø90 cm&quot;,
+                        &quot;2-seater&quot;.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </fieldset>
+            )}
 
             {(HARDWARE_CATEGORIES.has(watchedType) ||
               watchedType === SOFTWARE_CATEGORY) && (

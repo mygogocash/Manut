@@ -1,4 +1,4 @@
-import type { ProjectTask } from "@manut/database";
+import type { ProjectTask } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 

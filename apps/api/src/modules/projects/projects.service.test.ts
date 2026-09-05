@@ -12,7 +12,6 @@ import {
   createTaskSchema,
   updateTaskSchema,
 } from "@/modules/projects/projects.validation";
-import { arrayAt, mockArgument, mockCall } from "@/test-utils/assertions";
 
 vi.mock("@/modules/projects/projects.repository", () => ({
   projectRepository: {
@@ -56,9 +55,8 @@ vi.mock("@/infrastructure/email/email.service", () => ({
 }));
 
 vi.mock("@/infrastructure/storage/supabase-storage", () => ({
-  STORAGE_BUCKETS: { DOCUMENTS: "documents" },
   createSignedUrl: vi.fn(),
-  requireRegisteredStorageUrl: vi.fn(),
+  parseStorageUrl: vi.fn(),
 }));
 
 // Analytics is best-effort and isn't part of this surface area.
@@ -147,9 +145,7 @@ describe("createTaskSchema — date range refinement", () => {
     });
     expect(res.success).toBe(false);
     if (!res.success) {
-      expect(
-        arrayAt(res.error.issues, 0, "task validation issue").path,
-      ).toContain("endDate");
+      expect(res.error.issues[0].path).toContain("endDate");
     }
   });
 });
@@ -266,7 +262,7 @@ describe("ProjectService.addTask — N-level subtask nesting", () => {
       endDate: "2026-05-20",
     });
 
-    const passed = mockArgument(createTask.mock.calls, 0, 0);
+    const passed = createTask.mock.calls[0][0];
     expect(passed.endDate).toEqual(new Date("2026-05-20"));
     expect(passed.dueDate).toBeUndefined();
   });
@@ -308,7 +304,7 @@ describe("ProjectService.addTask — IT CRM auto-assign default", () => {
     await service.addTask(USER_ID, MANAGE_PERMS, PROJECT_ID, { ...taskInput });
 
     expect(resolveItDefaultAssignee).toHaveBeenCalledWith(PROJECT_ID, USER_ID);
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBe("u-default");
+    expect(createTask.mock.calls[0][0].ownerId).toBe("u-default");
     expect(setAssignees).toHaveBeenCalledWith("task-new", [
       { userId: "u-default" },
     ]);
@@ -325,9 +321,7 @@ describe("ProjectService.addTask — IT CRM auto-assign default", () => {
     });
 
     expect(resolveItDefaultAssignee).not.toHaveBeenCalled();
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBe(
-      "u-explicit",
-    );
+    expect(createTask.mock.calls[0][0].ownerId).toBe("u-explicit");
   });
 
   it("does not apply the default on non-IT boards", async () => {
@@ -338,7 +332,7 @@ describe("ProjectService.addTask — IT CRM auto-assign default", () => {
     await service.addTask(USER_ID, MANAGE_PERMS, PROJECT_ID, { ...taskInput });
 
     expect(resolveItDefaultAssignee).not.toHaveBeenCalled();
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBeUndefined();
+    expect(createTask.mock.calls[0][0].ownerId).toBeUndefined();
   });
 
   it("leaves the task unassigned when the default resolves to null", async () => {
@@ -349,7 +343,7 @@ describe("ProjectService.addTask — IT CRM auto-assign default", () => {
 
     await service.addTask(USER_ID, MANAGE_PERMS, PROJECT_ID, { ...taskInput });
 
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBeUndefined();
+    expect(createTask.mock.calls[0][0].ownerId).toBeUndefined();
     expect(setAssignees).not.toHaveBeenCalled();
   });
 });
@@ -375,7 +369,7 @@ describe("ProjectService.addTask — shared-board auto-assign (general/hr)", () 
       USER_ID,
     );
     expect(resolveItDefaultAssignee).not.toHaveBeenCalled();
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBe("u-default");
+    expect(createTask.mock.calls[0][0].ownerId).toBe("u-default");
     expect(setAssignees).toHaveBeenCalledWith("task-new", [
       { userId: "u-default" },
     ]);
@@ -393,7 +387,7 @@ describe("ProjectService.addTask — shared-board auto-assign (general/hr)", () 
       PROJECT_ID,
       USER_ID,
     );
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBe("u-hr");
+    expect(createTask.mock.calls[0][0].ownerId).toBe("u-hr");
   });
 
   it("does not resolve for an explicit owner (general)", async () => {
@@ -407,9 +401,7 @@ describe("ProjectService.addTask — shared-board auto-assign (general/hr)", () 
     });
 
     expect(resolveProjectDefaultAssignee).not.toHaveBeenCalled();
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBe(
-      "u-explicit",
-    );
+    expect(createTask.mock.calls[0][0].ownerId).toBe("u-explicit");
   });
 });
 
@@ -495,7 +487,7 @@ describe("ProjectService.addTask — native-mirror auto-assign (legal/accounting
     // Never falls through to the shared-projects resolver — the shared mirror
     // row never carries the config.
     expect(resolveProjectDefaultAssignee).not.toHaveBeenCalled();
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBe("u-legal");
+    expect(createTask.mock.calls[0][0].ownerId).toBe("u-legal");
     expect(setAssignees).toHaveBeenCalledWith("task-new", [
       { userId: "u-legal" },
     ]);
@@ -514,7 +506,7 @@ describe("ProjectService.addTask — native-mirror auto-assign (legal/accounting
       USER_ID,
     );
     expect(resolveProjectDefaultAssignee).not.toHaveBeenCalled();
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBe("u-acct");
+    expect(createTask.mock.calls[0][0].ownerId).toBe("u-acct");
   });
 
   it("never overrides an explicit owner (legal)", async () => {
@@ -528,9 +520,7 @@ describe("ProjectService.addTask — native-mirror auto-assign (legal/accounting
     });
 
     expect(resolveLegalDefaultAssignee).not.toHaveBeenCalled();
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBe(
-      "u-explicit",
-    );
+    expect(createTask.mock.calls[0][0].ownerId).toBe("u-explicit");
   });
 
   it("leaves the task unassigned when the native default resolves to null (accounting)", async () => {
@@ -541,7 +531,7 @@ describe("ProjectService.addTask — native-mirror auto-assign (legal/accounting
 
     await service.addTask(USER_ID, MANAGE_PERMS, PROJECT_ID, { ...taskInput });
 
-    expect(mockArgument(createTask.mock.calls, 0, 0).ownerId).toBeUndefined();
+    expect(createTask.mock.calls[0][0].ownerId).toBeUndefined();
     expect(setAssignees).not.toHaveBeenCalled();
   });
 });
@@ -561,7 +551,7 @@ describe("ProjectService.update — go-live edit re-arms reminder ladder", () =>
       revisedGoLiveDate: "2026-09-01T00:00:00.000Z",
     });
 
-    const payload = mockArgument(updateProject.mock.calls, 0, 1);
+    const payload = updateProject.mock.calls[0][1];
     expect(payload.remindersSent).toEqual([]);
     expect(payload.lastReminderSentAt).toBeNull();
   });
@@ -574,7 +564,7 @@ describe("ProjectService.update — go-live edit re-arms reminder ladder", () =>
       goLiveDate: "2026-10-15T00:00:00.000Z",
     });
 
-    const payload = mockArgument(updateProject.mock.calls, 0, 1);
+    const payload = updateProject.mock.calls[0][1];
     expect(payload.remindersSent).toEqual([]);
     expect(payload.lastReminderSentAt).toBeNull();
   });
@@ -585,7 +575,7 @@ describe("ProjectService.update — go-live edit re-arms reminder ladder", () =>
 
     await service.update(USER_ID, MANAGE_PERMS, PROJECT_ID, { progress: 50 });
 
-    const payload = mockArgument(updateProject.mock.calls, 0, 1);
+    const payload = updateProject.mock.calls[0][1];
     expect(payload.remindersSent).toBeUndefined();
     expect(payload.lastReminderSentAt).toBeUndefined();
   });
@@ -673,7 +663,7 @@ describe("ProjectService.addTaskDependency — cycle detection", () => {
 
     expect(result).toMatchObject({ id: "dep-1" });
     expect(createActivities).toHaveBeenCalledOnce();
-    expect(mockArgument(createActivities.mock.calls, 0, 0)[0]).toMatchObject({
+    expect(createActivities.mock.calls[0][0][0]).toMatchObject({
       kind: "dependency_added",
       field: "dependency",
     });
@@ -746,12 +736,11 @@ describe("ProjectService.getResourceDownloadUrl — Phase 4b", () => {
   it("mints a signed URL for file kind via Supabase helpers", async () => {
     const service = new ProjectService();
     const findResourceById = projectRepository.findResourceById as Mock;
-    const { requireRegisteredStorageUrl, createSignedUrl } =
+    const { parseStorageUrl, createSignedUrl } =
       await import("@/infrastructure/storage/supabase-storage");
-    (requireRegisteredStorageUrl as Mock).mockResolvedValueOnce({
+    (parseStorageUrl as Mock).mockReturnValueOnce({
       bucket: "documents",
       path: "u-1/abc.pdf",
-      uploadId: "upload-1",
     });
     (createSignedUrl as Mock).mockResolvedValueOnce(
       "https://supabase/sign/u-1/abc.pdf?token=xyz",
@@ -775,27 +764,17 @@ describe("ProjectService.getResourceDownloadUrl — Phase 4b", () => {
       "task-1",
       "res-1",
     );
-    expect(requireRegisteredStorageUrl).toHaveBeenCalledWith(
-      expect.stringContaining("u-1/abc.pdf"),
-      {
-        allowedBuckets: ["documents"],
-        purpose: "project_resource",
-        linkedTo: "task",
-        linkedId: "task-1",
-      },
-    );
+    expect(parseStorageUrl).toHaveBeenCalled();
     expect(createSignedUrl).toHaveBeenCalledWith("documents", "u-1/abc.pdf");
     expect(out.url).toContain("token=xyz");
   });
 
-  it("refuses an unregistered file URL instead of proxy-signing it", async () => {
+  it("falls back to the stored URL when parseStorageUrl returns null (manual import row)", async () => {
     const service = new ProjectService();
     const findResourceById = projectRepository.findResourceById as Mock;
-    const { requireRegisteredStorageUrl, createSignedUrl } =
+    const { parseStorageUrl, createSignedUrl } =
       await import("@/infrastructure/storage/supabase-storage");
-    (requireRegisteredStorageUrl as Mock).mockRejectedValueOnce(
-      new BadRequestException("File URL is not registered"),
-    );
+    (parseStorageUrl as Mock).mockReturnValueOnce(null);
 
     findTaskById.mockResolvedValueOnce({
       id: "task-1",
@@ -808,54 +787,15 @@ describe("ProjectService.getResourceDownloadUrl — Phase 4b", () => {
       url: "s3://legacy/path.pdf",
     });
 
-    await expect(
-      service.getResourceDownloadUrl(
-        USER_ID,
-        MANAGE_PERMS,
-        PROJECT_ID,
-        "task-1",
-        "res-1",
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(createSignedUrl).not.toHaveBeenCalled();
-  });
-});
-
-describe("ProjectService.addTaskResource — storage provenance", () => {
-  it("requires an owned task-linked upload before storing a file resource", async () => {
-    const service = new ProjectService();
-    const createResource = projectRepository.createResource as Mock;
-    const { requireRegisteredStorageUrl } =
-      await import("@/infrastructure/storage/supabase-storage");
-    (requireRegisteredStorageUrl as Mock).mockResolvedValueOnce({
-      bucket: "documents",
-      path: "u-1/abc.pdf",
-      uploadId: "upload-1",
-    });
-    findTaskById.mockResolvedValueOnce({
-      id: "task-1",
-      projectId: PROJECT_ID,
-    });
-    createResource.mockResolvedValueOnce({ id: "resource-1" });
-    createActivities.mockResolvedValueOnce([]);
-
-    await service.addTaskResource(USER_ID, MANAGE_PERMS, PROJECT_ID, "task-1", {
-      kind: "file",
-      label: "Agreement",
-      url: "https://manut.supabase.co/storage/v1/object/public/documents/u-1/abc.pdf",
-    });
-
-    expect(requireRegisteredStorageUrl).toHaveBeenCalledWith(
-      expect.stringContaining("u-1/abc.pdf"),
-      {
-        allowedBuckets: ["documents"],
-        purpose: "project_resource",
-        uploadedBy: USER_ID,
-        linkedTo: "task",
-        linkedId: "task-1",
-      },
+    const out = await service.getResourceDownloadUrl(
+      USER_ID,
+      MANAGE_PERMS,
+      PROJECT_ID,
+      "task-1",
+      "res-1",
     );
-    expect(createResource).toHaveBeenCalled();
+    expect(createSignedUrl).not.toHaveBeenCalled();
+    expect(out).toEqual({ url: "s3://legacy/path.pdf" });
   });
 });
 
@@ -919,7 +859,7 @@ describe("ProjectService.updateTask — Phase 4 unblock notification", () => {
 
     expect(listDeps).toHaveBeenCalledWith("task-A");
     expect(sendEmailMock).toHaveBeenCalledOnce();
-    const call = mockArgument(sendEmailMock.mock.calls, 0, 0);
+    const call = sendEmailMock.mock.calls[0][0];
     expect(call.subject).toMatch(/Unblocked.*Wire UI to API.*Demo Project/i);
     expect(call.to).toEqual(
       expect.arrayContaining([
@@ -1013,7 +953,7 @@ describe("ProjectService.updateTask — clearing a date", () => {
 
     // Clearing logs an activity, so the write goes through updateTaskAndLog.
     expect(updateTaskAndLog).toHaveBeenCalledTimes(1);
-    const [, data] = mockCall(updateTaskAndLog.mock.calls, 0);
+    const [, data] = updateTaskAndLog.mock.calls[0];
     expect(data.endDate).toBeNull();
   });
 

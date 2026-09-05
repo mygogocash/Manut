@@ -1,27 +1,19 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 
 import {
   BadRequestException,
-  ConflictException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
 import { logger } from "@/common/utils/logger";
 import { prisma } from "@/infrastructure/database/prisma";
-import {
-  sendEmail,
-  sendRequiredEmail,
-} from "@/infrastructure/email/email.service";
+import { sendEmail } from "@/infrastructure/email/email.service";
 import {
   createSignedUrl,
-  downloadToBuffer,
-  parseTrustedStorageUrl,
-  STORAGE_BUCKETS,
+  parseStorageUrl,
 } from "@/infrastructure/storage/supabase-storage";
 import { PORTAL_URL } from "@/lib/portal-url";
-import {
-  legalRepository,
-  type LegalSigningArtifactSnapshot,
-} from "@/modules/legal/legal.repository";
+import { docusignService } from "@/modules/legal/legal.docusign.service";
+import { legalRepository } from "@/modules/legal/legal.repository";
 import type {
   CreateLegalAttachmentInput,
   CreateLegalDocumentInput,
@@ -85,59 +77,14 @@ export class LegalService {
     if (!doc.fileUrl) {
       throw new NotFoundException("This document has no attached file");
     }
-    const parsed = await this.getTrustedLegalStorageObject(
-      doc.fileUrl,
-      "legal-document",
-      "Document",
-    );
-    const url = await createSignedUrl(parsed.bucket, parsed.path, 300);
-    return { data: { url, fileName: doc.fileName ?? null } };
-  }
-
-  private async getTrustedLegalStorageObject(
-    fileUrl: string,
-    purpose: "legal-document" | "legal-document-attachment",
-    label: "Document" | "Attachment",
-  ) {
-    const parsed = parseTrustedStorageUrl(fileUrl, [STORAGE_BUCKETS.DOCUMENTS]);
+    const parsed = parseStorageUrl(doc.fileUrl);
     if (!parsed) {
       throw new BadRequestException(
-        `${label} file URL is not from trusted document storage`,
+        "Document file URL is not a Supabase storage URL",
       );
     }
-    const upload = await legalRepository.findLegalUploadByPath(
-      parsed.bucket,
-      parsed.path,
-      purpose,
-    );
-    if (!upload) {
-      throw new BadRequestException(
-        `${label} file is not registered as a legal ${
-          purpose === "legal-document" ? "document" : "attachment"
-        } upload`,
-      );
-    }
-    return { ...parsed, upload };
-  }
-
-  private async verifySigningArtifact(sig: SerializableSignature) {
-    const artifact = signingArtifact(sig);
-    const storedSnapshot = await downloadToBuffer(
-      artifact.bucket,
-      artifact.path,
-    );
-    const storedSha256 = createHash("sha256")
-      .update(storedSnapshot.buffer)
-      .digest("hex");
-    if (
-      storedSnapshot.buffer.length !== artifact.size ||
-      storedSha256 !== artifact.sha256
-    ) {
-      throw new ConflictException(
-        "The signing document failed integrity verification",
-      );
-    }
-    return artifact;
+    const url = await createSignedUrl(parsed.bucket, parsed.path, 300);
+    return { data: { url, fileName: doc.fileName ?? null } };
   }
 
   async create(input: CreateLegalDocumentInput) {
@@ -167,7 +114,9 @@ export class LegalService {
     const existing = await legalRepository.findById(id);
     if (!existing) throw new NotFoundException("Legal document not found");
 
-    const nonSigningData = {
+    const doc = await legalRepository.update(id, {
+      title: input.title,
+      kind: input.kind,
       reference: input.reference,
       parties: input.parties,
       ownerId: input.ownerId,
@@ -185,34 +134,13 @@ export class LegalService {
             ? new Date(input.expiryDate)
             : undefined,
       renewalLeadDays: input.renewalLeadDays,
+      status: input.status,
+      fileUrl: input.fileUrl,
+      fileName: input.fileName,
       folder: input.folder,
       alertCategory: input.alertCategory,
       notes: input.notes,
-    };
-    const changesSigningArtifact =
-      (input.title !== undefined && input.title !== existing.title) ||
-      (input.kind !== undefined && input.kind !== existing.kind) ||
-      (input.fileUrl !== undefined && input.fileUrl !== existing.fileUrl) ||
-      (input.fileName !== undefined && input.fileName !== existing.fileName) ||
-      (input.status !== undefined && input.status !== existing.status);
-    const doc = changesSigningArtifact
-      ? await legalRepository.updateBeforeSigning(id, {
-          ...nonSigningData,
-          title: input.title,
-          kind: input.kind,
-          status: input.status,
-          fileUrl: input.fileUrl,
-          fileName: input.fileName,
-        })
-      : await legalRepository.update(id, nonSigningData);
-    if (doc === undefined) {
-      throw new NotFoundException("Legal document not found");
-    }
-    if (doc === null) {
-      throw new ConflictException(
-        "Signed or reviewed document evidence is immutable; create a new document version",
-      );
-    }
+    });
     return { data: serialize(doc) };
   }
 
@@ -223,12 +151,7 @@ export class LegalService {
   async remove(id: string) {
     const existing = await legalRepository.findById(id);
     if (!existing) throw new NotFoundException("Legal document not found");
-    const removed = await legalRepository.removeBeforeSigning(id);
-    if (!removed) {
-      throw new ConflictException(
-        "A document with signing evidence cannot be deleted",
-      );
-    }
+    await legalRepository.remove(id);
     return { data: { id } };
   }
 
@@ -364,11 +287,12 @@ export class LegalService {
     if (!doc.fileUrl) {
       throw new NotFoundException("This document has no attached file");
     }
-    const parsed = await this.getTrustedLegalStorageObject(
-      doc.fileUrl,
-      "legal-document",
-      "Document",
-    );
+    const parsed = parseStorageUrl(doc.fileUrl);
+    if (!parsed) {
+      throw new BadRequestException(
+        "Document file URL is not a Supabase storage URL",
+      );
+    }
     const url = await createSignedUrl(parsed.bucket, parsed.path, 300);
     return { data: { url, fileName: doc.fileName ?? null } };
   }
@@ -463,11 +387,12 @@ export class LegalService {
     if (!existing || existing.documentId !== documentId) {
       throw new NotFoundException("Attachment not found");
     }
-    const parsed = await this.getTrustedLegalStorageObject(
-      existing.fileUrl,
-      "legal-document-attachment",
-      "Attachment",
-    );
+    const parsed = parseStorageUrl(existing.fileUrl);
+    if (!parsed) {
+      throw new BadRequestException(
+        "Attachment file URL is not a Supabase storage URL",
+      );
+    }
     const url = await createSignedUrl(parsed.bucket, parsed.path, 300);
     return { data: { url, fileName: existing.fileName } };
   }
@@ -630,21 +555,11 @@ export class LegalService {
   ) {
     const doc = await legalRepository.findById(documentId);
     if (!doc) throw new NotFoundException("Legal document not found");
-    if (doc.status !== "active" && doc.status !== "draft") {
+    if (doc.status === "archived") {
       throw new BadRequestException(
-        "Only draft or active documents can be sent for signature",
+        "Cannot send an archived document for signature",
       );
     }
-    if (!doc.fileUrl) {
-      throw new BadRequestException(
-        "A document file is required before requesting signatures",
-      );
-    }
-    const trustedSource = await this.getTrustedLegalStorageObject(
-      doc.fileUrl,
-      "legal-document",
-      "Document",
-    );
 
     const actor = await prisma.user.findUnique({
       where: { id: actorId },
@@ -670,131 +585,72 @@ export class LegalService {
             },
           ];
 
+    if (input.provider === "docusign") {
+      return this.sendForSignatureDocusign(doc, input, actorId, recipients);
+    }
+
     // In-house multi-signer: one row per signer, each with its own
     // token + invite email. Sequential signers are nudged in order
     // (only the first row's invite goes out immediately; subsequent
     // signers are emailed once the previous order completes — handled
     // in submitSignature).
-    const batchId = randomUUID();
-    const sourceObject = await downloadToBuffer(
-      trustedSource.bucket,
-      trustedSource.path,
-    );
-    const snapshot: LegalSigningArtifactSnapshot = {
-      bucket: trustedSource.bucket,
-      path: trustedSource.path,
-      sha256: createHash("sha256").update(sourceObject.buffer).digest("hex"),
-      size: sourceObject.buffer.length,
-      mimeType:
-        sourceObject.contentType ||
-        trustedSource.upload.mimeType ||
-        "application/octet-stream",
-      fileName: doc.fileName || trustedSource.upload.originalName || "document",
-      title: doc.title,
-      kind: doc.kind,
-      sourceFileUrl: doc.fileUrl,
-      sourceFileName: doc.fileName ?? null,
-      uploadId: trustedSource.upload.id,
-    };
-    const lowestOrder = Math.min(...recipients.map((r) => r.signingOrder));
-    const created = await legalRepository.createSignatures(
-      documentId,
-      batchId,
-      snapshot,
-      recipients.map((r) => ({
+    const now = new Date();
+    const created: Awaited<
+      ReturnType<typeof legalRepository.createSignature>
+    >[] = [];
+    for (const r of recipients) {
+      const token = randomBytes(32).toString("hex");
+      const sig = await legalRepository.createSignature({
+        documentId,
         signerEmail: r.signerEmail,
         signerName: r.signerName,
-        token: randomBytes(32).toString("hex"),
-        status: "pending",
+        token,
+        status: "sent",
+        provider: "inhouse",
         signingOrder: r.signingOrder,
         inviteMessage: input.inviteMessage,
-        sentAt: undefined,
+        sentAt: now,
         expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
         createdById: actorId,
-      })),
-    );
-    if (!created) {
-      throw new ConflictException(
-        "The document is no longer available for signature",
-      );
+      });
+      created.push(sig);
     }
 
     // Email only the lowest-order signer(s) immediately. Higher
     // orders get emailed when the previous round finishes signing.
-    const activated = new Map<string, SerializableSignature>();
-    try {
-      for (const sig of created.filter((s) => s.signingOrder === lowestOrder)) {
-        const delivered = await this.deliverSignatureInvite(sig, {
-          signerEmail: sig.signerEmail,
-          signerName: sig.signerName,
-          inviterName: actor.name,
-          documentTitle: doc.title,
-          documentKind: doc.kind,
-          inviteMessage: sig.inviteMessage,
-          token: sig.token,
+    const lowestOrder = Math.min(...created.map((s) => s.signingOrder));
+    for (const sig of created.filter((s) => s.signingOrder === lowestOrder)) {
+      void this.sendInviteEmail({
+        signerEmail: sig.signerEmail,
+        signerName: sig.signerName,
+        inviterName: actor.name,
+        documentTitle: doc.title,
+        documentKind: doc.kind,
+        inviteMessage: sig.inviteMessage,
+        token: sig.token,
+      }).catch((err) => {
+        logger.warn("legal signing invite send failed", {
+          err: err instanceof Error ? err.message : String(err),
+          signature: sig.id,
         });
-        if (!delivered) {
-          throw new ConflictException(
-            "The signature invitation is already being processed",
-          );
-        }
-        activated.set(sig.id, delivered);
-      }
-    } catch (err) {
-      await legalRepository.cancelSignatureBatch(documentId, batchId);
-      throw err;
+      });
     }
-
-    const signatures = created.map((sig) => activated.get(sig.id) ?? sig);
 
     return {
       data:
-        signatures.length === 1
-          ? serializeSignature(signatures[0]!)
-          : signatures.map(serializeSignature),
+        created.length === 1
+          ? serializeSignature(created[0]!)
+          : created.map(serializeSignature),
     };
   }
 
   async getByToken(token: string) {
     const sig = await legalRepository.findSignatureByToken(token);
     if (!sig) throw new NotFoundException("Signature request not found");
-    if (sig.expiresAt && sig.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException("This signing link has expired");
-    }
-    if (sig.status === "pending") {
-      throw new BadRequestException("This signing request is not active yet");
-    }
-    const artifact = signingArtifact(sig);
-    const snapshotDocument = {
-      id: sig.document.id,
-      title: artifact.title,
-      kind: artifact.kind,
-      fileUrl: null as string | null,
-      fileName: artifact.fileName,
-      status: sig.document.status,
-    };
-    const canReviewDocument = sig.status === "sent" || sig.status === "viewed";
-    if (!canReviewDocument) {
-      return {
-        data: {
-          signature: serializePublicSignature(sig),
-          document: snapshotDocument,
-        },
-      };
-    }
-    await this.verifySigningArtifact(sig);
-    const documentFileUrl = await createSignedUrl(
-      artifact.bucket,
-      artifact.path,
-      300,
-    );
     return {
       data: {
         signature: serializePublicSignature(sig),
-        document: {
-          ...snapshotDocument,
-          fileUrl: documentFileUrl,
-        },
+        document: sig.document,
       },
     };
   }
@@ -804,10 +660,12 @@ export class LegalService {
     if (!sig) throw new NotFoundException("Signature request not found");
     if (sig.viewedAt) return; // first view only — keep original timestamp.
     if (sig.status === "sent") {
-      await legalRepository.transitionSignature(sig.id, ["sent"], {
+      await legalRepository.updateSignature(sig.id, {
         status: "viewed",
         viewedAt: new Date(),
       });
+    } else {
+      await legalRepository.updateSignature(sig.id, { viewedAt: new Date() });
     }
   }
 
@@ -828,74 +686,50 @@ export class LegalService {
     if (sig.status === "cancelled") {
       throw new BadRequestException("This signature request was cancelled");
     }
-    if (sig.status === "pending") {
-      throw new BadRequestException("This signing request is not active yet");
-    }
     if (sig.expiresAt && sig.expiresAt.getTime() < Date.now()) {
       throw new BadRequestException("This signing link has expired");
     }
 
-    await this.verifySigningArtifact(sig);
-
-    const updated = await legalRepository.transitionSignature(
-      sig.id,
-      ["sent", "viewed"],
-      {
-        status: "signed",
-        signedAt: new Date(),
-        signatureText: input.signatureText,
-        signatureMethod: "typed",
-        signedIp: ip ?? undefined,
-        signedUserAgent: userAgent ?? undefined,
-      },
-    );
-    if (!updated) {
-      throw new BadRequestException("This signing request is no longer active");
-    }
+    const updated = await legalRepository.updateSignature(sig.id, {
+      status: "signed",
+      signedAt: new Date(),
+      signatureText: input.signatureText,
+      signatureMethod: "typed",
+      signedIp: ip ?? undefined,
+      signedUserAgent: userAgent ?? undefined,
+    });
 
     // Sequential nudge: any signers in the next pending order get
     // their invite email now. Same-order signers (parallel) all
     // already received their invites at send time.
-    void this.nudgeNextPendingSigners(
-      sig.documentId,
-      sig.batchId,
-      sig.signingOrder,
-    ).catch((err) => {
-      logger.warn("legal next-signer nudge failed", {
-        err: err instanceof Error ? err.message : String(err),
-        documentId: sig.documentId,
-      });
-    });
+    if (sig.provider === "inhouse") {
+      void this.nudgeNextPendingSigners(sig.documentId, sig.signingOrder).catch(
+        (err) => {
+          logger.warn("legal next-signer nudge failed", {
+            err: err instanceof Error ? err.message : String(err),
+            documentId: sig.documentId,
+          });
+        },
+      );
+    }
 
     // Flip the parent doc to "signed" only when every signature on
     // this document is in a terminal state and at least one signed.
-    await this.maybeMarkDocumentSigned(sig.documentId, sig.batchId);
+    await this.maybeMarkDocumentSigned(sig.documentId);
 
-    return { data: serializePublicSignature(updated) };
+    return { data: serializeSignature(updated) };
   }
 
   /**
    * Email the lowest-order signers whose order > completedOrder and
-   * status is still "sent" / "pending" / "viewed".
+   * status is still "sent" / "pending" / "viewed". Used by both the
+   * in-house submit path and the DocuSign webhook handler.
    */
   private async nudgeNextPendingSigners(
     documentId: string,
-    batchId: string,
     completedOrder: number,
   ) {
-    const all = await legalRepository.findSignaturesByDocument(
-      documentId,
-      batchId,
-    );
-    const completedRound = all.filter(
-      (signature) => signature.signingOrder === completedOrder,
-    );
-    if (
-      completedRound.length === 0 ||
-      completedRound.some((signature) => signature.status !== "signed")
-    ) {
-      return;
-    }
+    const all = await legalRepository.findSignaturesByDocument(documentId);
     const pending = all.filter(
       (s) =>
         s.signingOrder > completedOrder &&
@@ -909,38 +743,41 @@ export class LegalService {
     const doc = await legalRepository.findById(documentId);
     if (!doc) return;
     for (const sig of next) {
-      try {
-        await this.deliverSignatureInvite(sig, {
-          signerEmail: sig.signerEmail,
-          signerName: sig.signerName,
-          inviterName: doc.owner?.name ?? "Legal team",
-          documentTitle: doc.title,
-          documentKind: doc.kind,
-          inviteMessage: sig.inviteMessage,
-          token: sig.token,
-        });
-      } catch (err) {
-        logger.warn("legal signing invite send failed", {
-          err: err instanceof Error ? err.message : String(err),
-          signature: sig.id,
-        });
-      }
+      // Only resend the in-house token email; DocuSign drives its
+      // own routing and handles next-signer notifications directly.
+      if (sig.provider !== "inhouse") continue;
+      await this.sendInviteEmail({
+        signerEmail: sig.signerEmail,
+        signerName: sig.signerName,
+        inviterName: doc.owner?.name ?? "Legal team",
+        documentTitle: doc.title,
+        documentKind: doc.kind,
+        inviteMessage: sig.inviteMessage,
+        token: sig.token,
+      });
     }
   }
 
   /**
-   * Flips the parent doc to "signed" only when every
+   * Helper used by both the in-house submit path and the DocuSign
+   * webhook. Flips the parent doc to "signed" only when every
    * signature on the document has reached a terminal state and at
    * least one of them succeeded.
    */
-  private async maybeMarkDocumentSigned(documentId: string, batchId: string) {
-    const all = await legalRepository.findSignaturesByDocument(
-      documentId,
-      batchId,
-    );
+  private async maybeMarkDocumentSigned(documentId: string) {
+    const all = await legalRepository.findSignaturesByDocument(documentId);
     if (all.length === 0) return;
-    if (!all.every((signature) => signature.status === "signed")) return;
-    await legalRepository.markDocumentSignedIfSignable(documentId, batchId);
+    const terminal = all.every((s) =>
+      ["signed", "declined", "cancelled"].includes(s.status),
+    );
+    if (!terminal) return;
+    const anySigned = all.some((s) => s.status === "signed");
+    if (!anySigned) return;
+    const doc = await legalRepository.findById(documentId);
+    if (!doc) return;
+    if (doc.status === "active" || doc.status === "draft") {
+      await legalRepository.update(documentId, { status: "signed" });
+    }
   }
 
   async declineSignature(
@@ -957,29 +794,16 @@ export class LegalService {
     if (sig.status === "declined" || sig.status === "cancelled") {
       throw new BadRequestException("This request is no longer active");
     }
-    if (sig.status === "pending") {
-      throw new BadRequestException("This signing request is not active yet");
-    }
-    if (sig.expiresAt && sig.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException("This signing link has expired");
-    }
 
-    const updated = await legalRepository.transitionSignature(
-      sig.id,
-      ["sent", "viewed"],
-      {
-        status: "declined",
-        declinedAt: new Date(),
-        declineReason: input.reason,
-        signedIp: ip ?? undefined,
-        signedUserAgent: userAgent ?? undefined,
-      },
-    );
-    if (!updated) {
-      throw new BadRequestException("This signing request is no longer active");
-    }
+    const updated = await legalRepository.updateSignature(sig.id, {
+      status: "declined",
+      declinedAt: new Date(),
+      declineReason: input.reason,
+      signedIp: ip ?? undefined,
+      signedUserAgent: userAgent ?? undefined,
+    });
 
-    return { data: serializePublicSignature(updated) };
+    return { data: serializeSignature(updated) };
   }
 
   async cancelSignature(signatureId: string) {
@@ -988,57 +812,242 @@ export class LegalService {
     if (sig.status === "signed") {
       throw new BadRequestException("Already signed — cannot cancel");
     }
-    const updated = await legalRepository.transitionSignature(
-      signatureId,
-      ["pending", "sent", "viewed"],
-      { status: "cancelled" },
-    );
-    if (!updated) {
-      throw new BadRequestException("This signing request is no longer active");
-    }
+    const updated = await legalRepository.cancelSignature(signatureId);
     return { data: serializeSignature(updated) };
   }
 
-  // ────────────────────────────────────────────────────────────────────
+  // ── DocuSign admin / status ──────────────────────────────────────────
 
-  private async deliverSignatureInvite(
-    signature: SerializableSignature,
-    email: Parameters<LegalService["sendInviteEmail"]>[0],
-  ): Promise<SerializableSignature | null> {
-    const claimedAt = new Date();
-    const claimed = await legalRepository.claimSignatureInvite(
-      signature.id,
-      claimedAt,
-    );
-    if (!claimed) return null;
+  async getDocusignStatus() {
+    const status = await docusignService.getStatus();
+    return { data: status };
+  }
 
-    try {
-      await this.sendInviteEmail(email);
-      const activated = await legalRepository.activateSignatureInvite(
-        signature.id,
-        claimedAt,
+  buildDocusignConsentUrl() {
+    return { data: { url: docusignService.buildConsentUrl() } };
+  }
+
+  // ── DocuSign branch ──────────────────────────────────────────────────
+
+  private async sendForSignatureDocusign(
+    doc: {
+      id: string;
+      title: string;
+      fileUrl: string | null;
+      fileName: string | null;
+    },
+    input: SendForSignatureInput,
+    actorId: string,
+    recipients: Array<{
+      signerEmail: string;
+      signerName: string;
+      signingOrder: number;
+    }>,
+  ) {
+    if (!doc.fileUrl) {
+      throw new BadRequestException(
+        "DocuSign requires the document file to be uploaded first",
       );
-      if (!activated) {
-        throw new ConflictException(
-          "The signature invitation could not be activated",
+    }
+    if (!docusignService.isConfigured()) {
+      throw new BadRequestException(
+        "DocuSign integration is not configured on this environment",
+      );
+    }
+
+    // Pull the source PDF + base64-encode for the envelope payload.
+    const fileRes = await fetch(doc.fileUrl);
+    if (!fileRes.ok) {
+      throw new BadRequestException(
+        `Could not fetch document file (HTTP ${fileRes.status})`,
+      );
+    }
+    const fileMime = fileRes.headers.get("content-type") ?? "application/pdf";
+    const fileBuf = Buffer.from(await fileRes.arrayBuffer());
+    const documentBase64 = fileBuf.toString("base64");
+
+    const envelope = await docusignService.createEnvelope({
+      documentTitle: doc.title,
+      documentBase64,
+      documentMime: fileMime,
+      documentFileName: doc.fileName ?? `${doc.title}.pdf`,
+      recipients,
+      emailSubject: `Signature requested: ${doc.title}`,
+      emailBlurb: input.inviteMessage,
+    });
+
+    // One LegalSignature row per recipient. They all share the same
+    // envelopeId; per-recipient webhook events route via
+    // (envelopeId, signerEmail). Each row keeps its own Intranet token
+    // so /sign/:token is a usable status / fallback endpoint per
+    // signer.
+    const created: Awaited<
+      ReturnType<typeof legalRepository.createSignature>
+    >[] = [];
+    for (const r of recipients) {
+      const token = randomBytes(32).toString("hex");
+      const sig = await legalRepository.createSignature({
+        documentId: doc.id,
+        signerEmail: r.signerEmail,
+        signerName: r.signerName,
+        token,
+        status: "sent",
+        provider: "docusign",
+        docusignEnvelopeId: envelope.envelopeId,
+        docusignSignerStatus: envelope.status,
+        signingOrder: r.signingOrder,
+        inviteMessage: input.inviteMessage,
+        sentAt: new Date(),
+        expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
+        createdById: actorId,
+      });
+      created.push(sig);
+    }
+
+    return {
+      data:
+        created.length === 1
+          ? serializeSignature(created[0]!)
+          : created.map(serializeSignature),
+    };
+  }
+
+  /**
+   * DocuSign Connect webhook handler. Maps the envelope-level event to
+   * our LegalSignature row and the parent LegalDocument status. Returns
+   * counters so the route can log them.
+   */
+  async handleDocusignWebhookEvent(payload: {
+    envelopeId: string;
+    status: string;
+    completedDateTime?: string | null;
+    declinedDateTime?: string | null;
+    voidedDateTime?: string | null;
+    voidedReason?: string | null;
+    // Optional per-recipient context for multi-signer envelopes.
+    // DocuSign Connect surfaces `recipients.signers[]` with each
+    // signer's email + status; the public controller flattens that
+    // into per-recipient webhook calls so we can route here.
+    recipientEmail?: string | null;
+    recipientStatus?: string | null;
+  }) {
+    const matches = await prisma.legalSignature.findMany({
+      where: { docusignEnvelopeId: payload.envelopeId },
+      include: { document: true },
+    });
+    if (matches.length === 0) {
+      logger.warn("docusign webhook for unknown envelope", {
+        envelopeId: payload.envelopeId,
+      });
+      return { matched: false };
+    }
+
+    // Decide which row(s) to mutate. If the payload carries a
+    // recipient hint, target only the matching row; otherwise apply
+    // the envelope-level status to every recipient (envelope-completed
+    // == every signer signed).
+    const targets = payload.recipientEmail
+      ? matches.filter(
+          (m) =>
+            m.signerEmail.toLowerCase() ===
+            (payload.recipientEmail ?? "").toLowerCase(),
+        )
+      : matches;
+
+    if (targets.length === 0) {
+      logger.warn("docusign webhook recipient not found", {
+        envelopeId: payload.envelopeId,
+        recipientEmail: payload.recipientEmail,
+      });
+      return { matched: false };
+    }
+
+    const effectiveStatus = payload.recipientStatus ?? payload.status;
+    let signedAt: Date | null = null;
+    let declinedAt: Date | null = null;
+    let declineReason: string | null = null;
+    let nextStatus: string | null = null;
+
+    switch (effectiveStatus) {
+      case "completed":
+        nextStatus = "signed";
+        signedAt = payload.completedDateTime
+          ? new Date(payload.completedDateTime)
+          : new Date();
+        break;
+      case "declined":
+        nextStatus = "declined";
+        declinedAt = payload.declinedDateTime
+          ? new Date(payload.declinedDateTime)
+          : new Date();
+        declineReason = "Declined via DocuSign";
+        break;
+      case "voided":
+        nextStatus = "cancelled";
+        declinedAt = payload.voidedDateTime
+          ? new Date(payload.voidedDateTime)
+          : new Date();
+        declineReason = payload.voidedReason ?? "Voided via DocuSign";
+        break;
+      case "delivered":
+        nextStatus = "viewed";
+        break;
+      default:
+        nextStatus = null;
+    }
+
+    for (const sig of targets) {
+      const status = nextStatus ?? sig.status;
+      const isViewedFromDelivered =
+        status === "viewed" &&
+        sig.status !== "sent" &&
+        sig.status !== "pending";
+      const finalStatus = isViewedFromDelivered ? sig.status : status;
+
+      await legalRepository.updateSignature(sig.id, {
+        status: finalStatus,
+        docusignSignerStatus: effectiveStatus,
+        signedAt: signedAt ?? undefined,
+        declinedAt: declinedAt ?? undefined,
+        declineReason: declineReason ?? undefined,
+      });
+
+      if (finalStatus === "signed") {
+        void this.captureSignedDocument(sig.id, payload.envelopeId).catch(
+          (err) => {
+            logger.warn("docusign signed pdf capture failed", {
+              err: err instanceof Error ? err.message : String(err),
+              sigId: sig.id,
+            });
+          },
         );
       }
-      return activated;
-    } catch (err) {
-      try {
-        await legalRepository.releaseSignatureInvite(signature.id, claimedAt);
-      } catch (releaseErr) {
-        logger.error("legal signing invite claim release failed", {
-          err:
-            releaseErr instanceof Error
-              ? releaseErr.message
-              : String(releaseErr),
-          signature: signature.id,
-        });
-      }
-      throw err;
     }
+
+    // Recompute parent doc status across all signers on the document.
+    await this.maybeMarkDocumentSigned(targets[0]!.documentId);
+
+    return {
+      matched: true,
+      signatureIds: targets.map((t) => t.id),
+      nextStatus,
+    };
   }
+
+  private async captureSignedDocument(signatureId: string, envelopeId: string) {
+    const buf = await docusignService.downloadCombinedDocument(envelopeId);
+    // We deliberately don't push to Supabase storage from inside the
+    // service to avoid widening the surface here. Instead we stash the
+    // bytes as a base64 data URL on the row — fine for short-term
+    // display; legal can later wire this through `uploads/multipart` if
+    // they want a permanent storage URL.
+    const dataUrl = `data:application/pdf;base64,${buf.toString("base64")}`;
+    await legalRepository.updateSignature(signatureId, {
+      signedPdfUrl: dataUrl,
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────────────
 
   private async sendInviteEmail(args: {
     signerEmail: string;
@@ -1055,7 +1064,7 @@ export class LegalService {
           args.inviteMessage,
         )}</blockquote>`
       : "";
-    await sendRequiredEmail({
+    await sendEmail({
       to: args.signerEmail,
       templateId: "legal-signature-request",
       variables: {
@@ -1217,7 +1226,6 @@ function serializeAttachment(a: SerializableAttachment) {
 interface SerializableSignature {
   id: string;
   documentId: string;
-  batchId: string;
   signerEmail: string;
   signerName: string;
   token: string;
@@ -1231,47 +1239,12 @@ interface SerializableSignature {
   signatureText: string | null;
   signatureMethod: string | null;
   expiresAt: Date | null;
-  signingOrder: number;
+  provider: string;
+  docusignEnvelopeId: string | null;
+  docusignSignerStatus: string | null;
   signedPdfUrl: string | null;
-  documentSnapshotBucket: string;
-  documentSnapshotPath: string;
-  documentSnapshotUploadId: string;
-  documentSnapshotSha256: string;
-  documentSnapshotSize: number;
-  documentSnapshotMimeType: string;
-  documentSnapshotFileName: string;
-  documentSnapshotTitle: string;
-  documentSnapshotKind: string;
   createdAt: Date;
   updatedAt: Date;
-}
-
-function signingArtifact(sig: SerializableSignature) {
-  if (
-    sig.documentSnapshotBucket !== STORAGE_BUCKETS.DOCUMENTS ||
-    !sig.documentSnapshotPath ||
-    !sig.documentSnapshotUploadId ||
-    !/^[0-9a-f]{64}$/.test(sig.documentSnapshotSha256) ||
-    sig.documentSnapshotSize < 0 ||
-    !sig.documentSnapshotMimeType ||
-    !sig.documentSnapshotFileName ||
-    !sig.documentSnapshotTitle ||
-    !sig.documentSnapshotKind
-  ) {
-    throw new ConflictException(
-      "This signing request has no valid immutable document snapshot",
-    );
-  }
-  return {
-    bucket: sig.documentSnapshotBucket,
-    path: sig.documentSnapshotPath,
-    sha256: sig.documentSnapshotSha256,
-    size: sig.documentSnapshotSize,
-    mimeType: sig.documentSnapshotMimeType,
-    fileName: sig.documentSnapshotFileName,
-    title: sig.documentSnapshotTitle,
-    kind: sig.documentSnapshotKind,
-  };
 }
 
 function serializeSignature(sig: SerializableSignature) {
@@ -1290,7 +1263,9 @@ function serializeSignature(sig: SerializableSignature) {
     signatureText: sig.signatureText,
     signatureMethod: sig.signatureMethod,
     expiresAt: sig.expiresAt ? sig.expiresAt.toISOString() : null,
-    signingOrder: sig.signingOrder,
+    provider: sig.provider,
+    docusignEnvelopeId: sig.docusignEnvelopeId,
+    docusignSignerStatus: sig.docusignSignerStatus,
     signedPdfUrl: sig.signedPdfUrl,
     createdAt: sig.createdAt.toISOString(),
     updatedAt: sig.updatedAt.toISOString(),

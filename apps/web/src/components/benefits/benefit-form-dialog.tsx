@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -45,7 +45,7 @@ const benefitFormSchema = z.object({
   description: z.string().optional(),
   provider: z.string().optional(),
   cost: z.coerce
-    .number<number | string>({ error: "Enter a valid cost" })
+    .number({ invalid_type_error: "Enter a valid cost" })
     .min(0, "Cost cannot be negative")
     .refine((n) => Number.isFinite(n), "Enter a valid cost"),
   currency: z
@@ -57,8 +57,7 @@ const benefitFormSchema = z.object({
   isActive: z.boolean(),
 });
 
-type BenefitFormInput = z.input<typeof benefitFormSchema>;
-type BenefitFormValues = z.output<typeof benefitFormSchema>;
+type BenefitFormValues = z.infer<typeof benefitFormSchema>;
 
 const defaultValues: BenefitFormValues = {
   name: "",
@@ -105,8 +104,8 @@ export function BenefitFormDialog({
   const isEdit = !!benefit;
   const [saving, setSaving] = useState(false);
 
-  const form = useForm<BenefitFormInput, unknown, BenefitFormValues>({
-    resolver: standardSchemaResolver(benefitFormSchema),
+  const form = useForm<BenefitFormValues>({
+    resolver: zodResolver(benefitFormSchema),
     defaultValues,
   });
 

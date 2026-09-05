@@ -93,7 +93,16 @@ export interface DashboardExpenseRequest {
 }
 
 export interface DashboardPendingAction {
-  kind: "leave" | "travel" | "expense";
+  kind:
+    | "leave"
+    | "travel"
+    | "expense"
+    | "project_review"
+    | "department_review"
+    | "business_head_review"
+    | "product_admin_review"
+    | "development_scheduling"
+    | "task_assignment";
   id: string;
   title: string;
   subtitle: string;

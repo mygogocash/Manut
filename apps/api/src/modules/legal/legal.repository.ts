@@ -1,9 +1,5 @@
-import { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
-import {
-  BadRequestException,
-  ConflictException,
-} from "@/common/exceptions/http-exception";
 import { prisma } from "@/infrastructure/database/prisma";
 
 const attachmentUploaderSelect = {
@@ -17,52 +13,6 @@ const shareInclude = {
   group: { select: { id: true, name: true } },
   createdBy: { select: { id: true, name: true, email: true } },
 } as const;
-
-const SIGNATURE_INVITE_CLAIM_LEASE_MS = 5 * 60 * 1000;
-
-type CreateSignatureForBatchInput = Omit<
-  Prisma.LegalSignatureUncheckedCreateInput,
-  | "batchId"
-  | "documentId"
-  | "documentSnapshotBucket"
-  | "documentSnapshotFileName"
-  | "documentSnapshotKind"
-  | "documentSnapshotMimeType"
-  | "documentSnapshotPath"
-  | "documentSnapshotSha256"
-  | "documentSnapshotSize"
-  | "documentSnapshotTitle"
-  | "documentSnapshotUploadId"
->;
-
-type SignatureTransitionInput = Omit<
-  Prisma.LegalSignatureUncheckedUpdateManyInput,
-  | "batchId"
-  | "documentId"
-  | "documentSnapshotBucket"
-  | "documentSnapshotFileName"
-  | "documentSnapshotKind"
-  | "documentSnapshotMimeType"
-  | "documentSnapshotPath"
-  | "documentSnapshotSha256"
-  | "documentSnapshotSize"
-  | "documentSnapshotTitle"
-  | "documentSnapshotUploadId"
->;
-
-export interface LegalSigningArtifactSnapshot {
-  bucket: string;
-  path: string;
-  sha256: string;
-  size: number;
-  mimeType: string;
-  fileName: string;
-  title: string;
-  kind: string;
-  sourceFileUrl: string;
-  sourceFileName: string | null;
-  uploadId: string;
-}
 
 const documentInclude = {
   owner: { select: { id: true, name: true, email: true } },
@@ -210,46 +160,8 @@ export class LegalRepository {
     });
   }
 
-  async updateBeforeSigning(
-    id: string,
-    data: Prisma.LegalDocumentUncheckedUpdateInput,
-  ) {
-    return prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-        SELECT id
-        FROM legal_documents
-        WHERE id = ${id}::uuid
-        FOR UPDATE
-      `);
-      if (!rows[0]) return undefined;
-      const signatures = await tx.legalSignature.count({
-        where: { documentId: id },
-      });
-      if (signatures > 0) return null;
-      return tx.legalDocument.update({
-        where: { id },
-        data,
-        include: documentInclude,
-      });
-    });
-  }
-
-  async removeBeforeSigning(id: string): Promise<boolean> {
-    return prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-        SELECT id
-        FROM legal_documents
-        WHERE id = ${id}::uuid
-        FOR UPDATE
-      `);
-      if (!rows[0]) return false;
-      const signatures = await tx.legalSignature.count({
-        where: { documentId: id },
-      });
-      if (signatures > 0) return false;
-      await tx.legalDocument.delete({ where: { id } });
-      return true;
-    });
+  async remove(id: string) {
+    return prisma.legalDocument.delete({ where: { id } });
   }
 
   async stats() {
@@ -312,137 +224,10 @@ export class LegalRepository {
 
   // ── Phase 2 signing flow ────────────────────────────────────────────────
 
-  async createSignatures(
-    documentId: string,
-    batchId: string,
-    artifact: LegalSigningArtifactSnapshot,
-    data: CreateSignatureForBatchInput[],
-  ) {
-    if (data.length === 0) {
-      throw new BadRequestException("At least one signer is required");
-    }
-
-    return prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<
-        Array<{
-          currentSigningBatchId: string | null;
-          fileName: string | null;
-          fileUrl: string | null;
-          kind: string;
-          status: string;
-          title: string;
-        }>
-      >(Prisma.sql`
-        SELECT
-          status,
-          title,
-          kind,
-          file_url AS "fileUrl",
-          file_name AS "fileName",
-          current_signing_batch_id AS "currentSigningBatchId"
-        FROM legal_documents
-        WHERE id = ${documentId}::uuid
-        FOR UPDATE
-      `);
-      if (!rows[0] || !["active", "draft"].includes(rows[0].status)) {
-        return null;
-      }
-      if (
-        rows[0].fileUrl !== artifact.sourceFileUrl ||
-        rows[0].fileName !== artifact.sourceFileName ||
-        rows[0].title !== artifact.title ||
-        rows[0].kind !== artifact.kind
-      ) {
-        return null;
-      }
-      const sourceUploads = await tx.$queryRaw<Array<{ id: string }>>(
-        Prisma.sql`
-          SELECT id
-          FROM file_uploads
-          WHERE id = ${artifact.uploadId}::uuid
-            AND bucket = ${artifact.bucket}
-            AND path = ${artifact.path}
-          FOR KEY SHARE
-        `,
-      );
-      if (!sourceUploads[0]) return null;
-      const activeBatchRows = await tx.legalSignature.findMany({
-        where: {
-          documentId,
-          status: { in: ["pending", "sent", "viewed"] },
-        },
-        select: { batchId: true, id: true, sentAt: true, status: true },
-      });
-      if (activeBatchRows.length > 0) {
-        const currentBatchId = rows[0].currentSigningBatchId;
-        if (
-          !currentBatchId ||
-          activeBatchRows.some(
-            (signature) => signature.batchId !== currentBatchId,
-          )
-        ) {
-          return null;
-        }
-        const currentBatchRows = await tx.legalSignature.findMany({
-          where: { documentId, batchId: currentBatchId },
-          select: { createdAt: true, id: true, sentAt: true, status: true },
-        });
-        const staleBefore = new Date(
-          Date.now() - SIGNATURE_INVITE_CLAIM_LEASE_MS,
-        );
-        const isRecoverableAbandonedBatch =
-          currentBatchRows.length > 0 &&
-          currentBatchRows.every(
-            (signature) =>
-              signature.status === "pending" &&
-              (signature.sentAt
-                ? signature.sentAt < staleBefore
-                : signature.createdAt < staleBefore),
-          );
-        if (!isRecoverableAbandonedBatch) return null;
-        const cancelled = await tx.legalSignature.updateMany({
-          where: {
-            documentId,
-            batchId: currentBatchId,
-            status: "pending",
-            OR: [
-              { sentAt: { lt: staleBefore } },
-              { sentAt: null, createdAt: { lt: staleBefore } },
-            ],
-          },
-          data: { status: "cancelled" },
-        });
-        if (cancelled.count !== currentBatchRows.length) {
-          throw new ConflictException(
-            "The existing signing workflow changed; retry the request",
-          );
-        }
-      }
-      await tx.legalDocument.update({
-        where: { id: documentId },
-        data: { currentSigningBatchId: batchId },
-      });
-      return Promise.all(
-        data.map((signature) =>
-          tx.legalSignature.create({
-            data: {
-              ...signature,
-              batchId,
-              documentId,
-              documentSnapshotBucket: artifact.bucket,
-              documentSnapshotPath: artifact.path,
-              documentSnapshotUploadId: artifact.uploadId,
-              documentSnapshotSha256: artifact.sha256,
-              documentSnapshotSize: artifact.size,
-              documentSnapshotMimeType: artifact.mimeType,
-              documentSnapshotFileName: artifact.fileName,
-              documentSnapshotTitle: artifact.title,
-              documentSnapshotKind: artifact.kind,
-            },
-            include: signatureDocumentInclude,
-          }),
-        ),
-      );
+  async createSignature(data: Prisma.LegalSignatureUncheckedCreateInput) {
+    return prisma.legalSignature.create({
+      data,
+      include: signatureDocumentInclude,
     });
   }
 
@@ -460,102 +245,30 @@ export class LegalRepository {
     });
   }
 
-  async findSignaturesByDocument(documentId: string, batchId?: string) {
+  async findSignaturesByDocument(documentId: string) {
     return prisma.legalSignature.findMany({
-      where: { documentId, ...(batchId ? { batchId } : {}) },
+      where: { documentId },
       orderBy: { createdAt: "desc" },
     });
   }
 
-  async findLegalUploadByPath(
-    bucket: string,
-    path: string,
-    purpose: "legal-document" | "legal-document-attachment",
-  ) {
-    return prisma.fileUpload.findFirst({
-      where: { bucket, path, purpose },
-      select: {
-        id: true,
-        mimeType: true,
-        originalName: true,
-        size: true,
-      },
-    });
-  }
-
-  async transitionSignature(
+  async updateSignature(
     id: string,
-    fromStatuses: string[],
-    data: SignatureTransitionInput,
+    data: Prisma.LegalSignatureUncheckedUpdateInput,
   ) {
-    const result = await prisma.legalSignature.updateMany({
-      where: { id, status: { in: fromStatuses } },
+    return prisma.legalSignature.update({
+      where: { id },
       data,
+      include: signatureDocumentInclude,
     });
-    if (result.count !== 1) return null;
-    return this.findSignatureById(id);
   }
 
-  async claimSignatureInvite(id: string, sentAt: Date): Promise<boolean> {
-    const staleBefore = new Date(
-      sentAt.getTime() - SIGNATURE_INVITE_CLAIM_LEASE_MS,
-    );
-    const result = await prisma.legalSignature.updateMany({
-      where: {
-        id,
-        status: "pending",
-        OR: [{ sentAt: null }, { sentAt: { lt: staleBefore } }],
-      },
-      data: { sentAt },
-    });
-    return result.count === 1;
-  }
-
-  async activateSignatureInvite(id: string, claimedAt: Date) {
-    const result = await prisma.legalSignature.updateMany({
-      where: { id, status: "pending", sentAt: claimedAt },
-      data: { status: "sent" },
-    });
-    if (result.count !== 1) return null;
-    return this.findSignatureById(id);
-  }
-
-  async releaseSignatureInvite(id: string, claimedAt: Date): Promise<boolean> {
-    const result = await prisma.legalSignature.updateMany({
-      where: { id, status: "pending", sentAt: claimedAt },
-      data: { sentAt: null },
-    });
-    return result.count === 1;
-  }
-
-  async cancelSignatureBatch(
-    documentId: string,
-    batchId: string,
-  ): Promise<number> {
-    const result = await prisma.legalSignature.updateMany({
-      where: {
-        documentId,
-        batchId,
-        status: { in: ["pending", "sent", "viewed"] },
-      },
+  async cancelSignature(id: string) {
+    return prisma.legalSignature.update({
+      where: { id },
       data: { status: "cancelled" },
+      include: signatureDocumentInclude,
     });
-    return result.count;
-  }
-
-  async markDocumentSignedIfSignable(
-    id: string,
-    batchId: string,
-  ): Promise<boolean> {
-    const result = await prisma.legalDocument.updateMany({
-      where: {
-        id,
-        currentSigningBatchId: batchId,
-        status: { in: ["active", "draft"] },
-      },
-      data: { status: "signed" },
-    });
-    return result.count === 1;
   }
 
   // ── Attachments ────────────────────────────────────────────────────────

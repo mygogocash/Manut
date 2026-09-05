@@ -103,7 +103,7 @@ export class AccountingCrmService {
   // ─── Project CRUD ─────────────────────────────────────────────
 
   async list(userId: string, perms: string[], query: AccountingProjectQuery) {
-    const { page, limit, search, status, department } = query;
+    const { page, limit, search, status, department, archived } = query;
     const canSeeAll =
       perms.includes(PERMISSIONS.ACCOUNTING_CRM_READ_ALL) ||
       perms.includes(PERMISSIONS.PROJECTS_READ_ALL);
@@ -122,6 +122,10 @@ export class AccountingCrmService {
     }
     if (status) where.status = status;
     if (department) where.department = department;
+    // Archive is orthogonal to status: default view shows active projects
+    // only; the Archived tab (archived=true) shows the archived ones. Applied
+    // to both findMany and count so pagination totals match the view.
+    where.archivedAt = archived ? { not: null } : null;
     if (!canSeeAll) {
       where.OR = [
         ...(where.OR ?? []),
@@ -300,6 +304,45 @@ export class AccountingCrmService {
     requireOwnerOrManage(role, perms);
     await prisma.accountingProject.delete({ where: { id } });
     return { success: true };
+  }
+
+  // Reversible hide. Owner-or-manage enforced in the SERVICE (not just the
+  // route) so a plain accounting-crm:update holder can't archive another team's
+  // project — same IDOR guard as delete/update. Idempotent: re-archiving keeps
+  // the original archive time; archive state lives on this native row only and
+  // is not propagated to the shared `projects` board mirror.
+  async archive(id: string, userId: string, perms: string[]) {
+    const role = await requireMembership(id, userId, perms);
+    requireOwnerOrManage(role, perms);
+    const existing = await prisma.accountingProject.findUnique({
+      where: { id },
+      select: { archivedAt: true },
+    });
+    if (!existing) throw new NotFoundException("Accounting project not found");
+    return prisma.accountingProject.update({
+      where: { id },
+      data: { archivedAt: existing.archivedAt ?? new Date() },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async unarchive(id: string, userId: string, perms: string[]) {
+    const role = await requireMembership(id, userId, perms);
+    requireOwnerOrManage(role, perms);
+    const existing = await prisma.accountingProject.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException("Accounting project not found");
+    return prisma.accountingProject.update({
+      where: { id },
+      data: { archivedAt: null },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
   }
 
   async reorder(input: ReorderAccountingProjectsInput) {

@@ -14,7 +14,6 @@ import {
   UserCheck,
   Wallet,
 } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   Bar,
@@ -30,6 +29,7 @@ import {
 import { toast } from "sonner";
 
 import { StatCard } from "@/components/dashboard/stat-card";
+import { ItWorkspaceTabs } from "@/components/it/it-workspace-tabs";
 import { Badge } from "@/components/shared/badge";
 import { DataTable } from "@/components/shared/data-table";
 import { PageHeader } from "@/components/shared/page-header";
@@ -94,8 +94,16 @@ export default function ItOperationsDashboardPage() {
     )
   ) {
     return (
-      <div className="px-6 py-6">
-        <PageHeader title="IT Operations" />
+      <div>
+        <PageHeader title="IT CRM" />
+        {/*
+          The strip stays on the dead-end branch on purpose: an access
+          REQUESTER clears the route gate but not this page's guard, and
+          without it they land somewhere with no way onward. Requesters get no
+          Operations tab, so what they see here is the Access tab they can
+          actually use.
+        */}
+        <ItWorkspaceTabs />
         <p className="text-muted-foreground text-sm">
           You don&apos;t have access to the IT Operations dashboard.
         </p>
@@ -104,27 +112,16 @@ export default function ItOperationsDashboardPage() {
   }
 
   return (
-    <div className="px-6 py-6">
+    <div>
       <PageHeader
-        title="IT Operations"
+        title="IT CRM"
         subtitle="Billing, access, and network health at a glance"
       >
-        {canBilling && (
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/it-operations/billing">
-              <Wallet className="mr-1 size-3.5" />
-              Billing
-            </Link>
-          </Button>
-        )}
-        {canAccess && (
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/it-operations/access">
-              <KeyRound className="mr-1 size-3.5" />
-              Access
-            </Link>
-          </Button>
-        )}
+        {/*
+          Billing and Access used to be buttons here. The workspace strip
+          below carries both, and two controls for one destination is worse
+          than either alone.
+        */}
         <Button
           variant="outline"
           size="sm"
@@ -135,6 +132,8 @@ export default function ItOperationsDashboardPage() {
           Refresh
         </Button>
       </PageHeader>
+
+      <ItWorkspaceTabs />
 
       {/* KPI band */}
       <div
@@ -252,14 +251,16 @@ export default function ItOperationsDashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium">
-                Monthly Spend Trend
+                Monthly Spend Trend ({snap.charts.spendTrendCurrency})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={snap.charts.spendTrend}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                  {/* `label` is the human month; `month` stays YYYY-MM on the
+                      row for any future drill-down. */}
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
                   <Line
@@ -314,6 +315,7 @@ export default function ItOperationsDashboardPage() {
                   { key: "productName", header: "Product" },
                   {
                     key: "vendorName",
+                    mobileRole: "subtitle" as const,
                     header: "Vendor",
                     render: (r) => (
                       <span className="text-muted-foreground">
@@ -323,6 +325,7 @@ export default function ItOperationsDashboardPage() {
                   },
                   {
                     key: "renewalDate",
+                    mobileRole: "field" as const,
                     header: "Renews",
                     render: (r) => (
                       <span>
@@ -337,6 +340,7 @@ export default function ItOperationsDashboardPage() {
                   },
                   {
                     key: "amount",
+                    mobileRole: "field" as const,
                     header: "Amount",
                     className: "text-right",
                     render: (r) =>
@@ -368,16 +372,19 @@ export default function ItOperationsDashboardPage() {
                   },
                   {
                     key: "employee",
+                    mobileRole: "subtitle" as const,
                     header: "Employee",
                     render: (r) => r.employee.name,
                   },
                   {
                     key: "system",
+                    mobileRole: "field" as const,
                     header: "System",
                     render: (r) => r.system.name,
                   },
                   {
                     key: "status",
+                    mobileRole: "badge" as const,
                     header: "Status",
                     render: (r) => (
                       <Badge status={r.status}>

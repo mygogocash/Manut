@@ -16,9 +16,9 @@ vi.mock("@/hooks/use-debounce", () => ({
 const mockArticles = [
   {
     id: "article-1",
-    title: "Manut Raises $10M Series A",
+    title: "TBH Raises $10M Series A",
     date: "2026-04-20",
-    link: "https://techcrunch.com/manut-series-a",
+    link: "https://techcrunch.com/tbh-series-a",
     img: "https://example.com/img1.jpg",
     authorId: "user-1",
     author: { id: "user-1", name: "Author" },
@@ -27,9 +27,9 @@ const mockArticles = [
   },
   {
     id: "article-2",
-    title: "Manut Launches New Product",
+    title: "TBH Launches New Product",
     date: "2026-04-22",
-    link: "https://forbes.com/manut-product",
+    link: "https://forbes.com/tbh-product",
     img: "https://example.com/img2.jpg",
     authorId: "user-1",
     author: { id: "user-1", name: "Author" },
@@ -97,12 +97,10 @@ describe("PRManagementPage", () => {
     render(<PRManagementPage />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Manut Raises $10M Series A"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("TBH Raises $10M Series A")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Manut Launches New Product")).toBeInTheDocument();
+    expect(screen.getByText("TBH Launches New Product")).toBeInTheDocument();
   });
 
   it("shows PR Article label on cards", async () => {
@@ -119,10 +117,10 @@ describe("PRManagementPage", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText("https://techcrunch.com/manut-series-a"),
+        screen.getByText("https://techcrunch.com/tbh-series-a"),
       ).toBeInTheDocument();
       expect(
-        screen.getByText("https://forbes.com/manut-product"),
+        screen.getByText("https://forbes.com/tbh-product"),
       ).toBeInTheDocument();
     });
   });
@@ -168,9 +166,7 @@ describe("PRManagementPage", () => {
     render(<PRManagementPage />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Manut Raises $10M Series A"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("TBH Raises $10M Series A")).toBeInTheDocument();
     });
 
     const editButtons = screen.getAllByText("Edit");

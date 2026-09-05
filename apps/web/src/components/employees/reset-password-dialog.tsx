@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Dices, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -56,7 +56,7 @@ export function ResetPasswordDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<ResetPasswordValues>({
-    resolver: standardSchemaResolver(resetPasswordSchema),
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: "" },
   });
 

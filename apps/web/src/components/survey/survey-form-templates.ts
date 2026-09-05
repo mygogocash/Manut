@@ -10,7 +10,7 @@ export interface SurveyTemplate {
   questions: QuestionInput[];
 }
 
-const Manut_VALUES = [
+const TBH_VALUES = [
   "Integrity",
   "Collaboration",
   "Excellence",
@@ -26,7 +26,7 @@ export const GO_EXTRA_MILE_AWARD_TEMPLATE: SurveyTemplate = {
   description:
     "Employee recognition nomination with nominee details, narrative questions, values checkboxes, and optional impact ratings.",
   title: "Go the Extra Mile Award — Nomination Form",
-  formDescription: `The Go the Extra Mile Award celebrates colleagues who go above and beyond their everyday responsibilities — those who step up, lift others, and deliver something exceptional. Anyone at Manut can nominate a colleague.
+  formDescription: `The Go the Extra Mile Award celebrates colleagues who go above and beyond their everyday responsibilities — those who step up, lift others, and deliver something exceptional. Anyone at The Binary Holdings can nominate a colleague.
 
 Award criteria — a strong nominee demonstrates one or more of the following:
 • Went beyond their normal role to help a colleague, customer, or team.
@@ -175,7 +175,7 @@ Our values: Integrity · Collaboration · Excellence · Innovation · Accountabi
       prompt: "Which values did this nominee demonstrate?",
       helperText: "Select all that apply.",
       required: true,
-      options: [...Manut_VALUES],
+      options: [...TBH_VALUES],
       settings: {},
     },
     {

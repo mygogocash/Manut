@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PERMISSIONS } from "@/common/constants/permissions";
 import { expenseReportsService } from "@/modules/expenses/expense-reports.service";
 import { expensesRepository } from "@/modules/expenses/expenses.repository";
-import { arrayAt } from "@/test-utils/assertions";
 
 // 1 IDR ≈ 0.0018296 THB. XYZ has no rate on file.
 const IDR_RATE = 0.0018296;
@@ -75,7 +74,7 @@ describe("monthlySummary (workspace-wide monthly roll-up)", () => {
     const { data, totals } = await expenseReportsService.monthlySummary(HR, {});
 
     expect(data.map((d) => d.period)).toEqual(["2026-06", "2026-05"]);
-    const june = arrayAt(data, 0, "June expense summary");
+    const june = data[0];
     expect(june.reportCount).toBe(2);
     expect(june.expenseCount).toBe(2);
     expect(june.converted).toBe(true);
@@ -99,10 +98,9 @@ describe("monthlySummary (workspace-wide monthly roll-up)", () => {
 
     const { data, totals } = await expenseReportsService.monthlySummary(HR, {});
 
-    const june = arrayAt(data, 0, "June expense summary");
-    expect(june.converted).toBe(false);
-    expect(june.missingRates).toContain("XYZ");
-    expect(june.totalThb).toBe(604); // XYZ line not summed
+    expect(data[0].converted).toBe(false);
+    expect(data[0].missingRates).toContain("XYZ");
+    expect(data[0].totalThb).toBe(604); // XYZ line not summed
     expect(totals.converted).toBe(false);
   });
 

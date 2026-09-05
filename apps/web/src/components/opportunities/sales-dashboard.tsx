@@ -29,7 +29,9 @@ import {
 } from "@/components/opportunities/sales-dashboard-utils";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useBusinessUnits } from "@/hooks/use-business-units";
 import { ApiError } from "@/lib/api-client";
+import { BUSINESS_UNIT_UNASSIGNED as UNASSIGNED_BU } from "@/services/crm-business-unit.service";
 import {
   getSalesDashboard,
   type SalesDashboardRow,
@@ -65,7 +67,10 @@ type SortCol =
   | "appUsers";
 
 type Drill =
-  null | `bucket:${StageBucket}` | `stage:${string}` | `region:${string}`;
+  | null
+  | `bucket:${StageBucket}`
+  | `stage:${string}`
+  | `region:${string}`;
 
 const TODAY = new Date();
 
@@ -177,6 +182,9 @@ export function SalesDashboard() {
   const [ownerF, setOwnerF] = useState("");
   const [industryF, setIndustryF] = useState("");
   const [engF, setEngF] = useState("");
+  // "Who is taking care of it" slice. Client-side like every other
+  // filter here — the whole row set arrives in one fetch.
+  const [businessUnitF, setBusinessUnitF] = useState("");
   const [monthF, setMonthF] = useState("");
   const [search, setSearch] = useState("");
 
@@ -208,6 +216,8 @@ export function SalesDashboard() {
   }, [fetchData]);
 
   // Filter options derived from the data.
+  const { units: businessUnits } = useBusinessUnits();
+
   const opts = useMemo(
     () => ({
       regions: distinct(rows.map((r) => r.region)),
@@ -235,10 +245,24 @@ export function SalesDashboard() {
           (!ownerF || r.ownerName === ownerF) &&
           (!industryF || r.industry === industryF) &&
           (!engF || r.engagementType === engF) &&
+          (!businessUnitF ||
+            (businessUnitF === UNASSIGNED_BU
+              ? (r.businessUnits ?? []).length === 0
+              : (r.businessUnits ?? []).includes(businessUnitF))) &&
           (!monthF ||
             (r.revenueLaunchDate && r.revenueLaunchDate.startsWith(monthF))),
       ),
-    [rows, regionF, countryF, stageF, ownerF, industryF, engF, monthF],
+    [
+      rows,
+      regionF,
+      countryF,
+      stageF,
+      ownerF,
+      industryF,
+      engF,
+      monthF,
+      businessUnitF,
+    ],
   );
 
   const drilled = useMemo(() => {
@@ -336,6 +360,33 @@ export function SalesDashboard() {
       .map(([industry, count]) => ({ industry, count }))
       .sort((a, b) => b.count - a.count);
   }, [base]);
+
+  // TCV + deal count per business unit. A deal tagged with two units is
+  // counted under BOTH, so these totals intentionally sum to more than the
+  // deal count — the question is "how much does each unit look after", not
+  // a partition of the pipeline.
+  const businessUnitData = useMemo(() => {
+    const m = new Map<string, { tcv: number; count: number }>();
+    for (const r of base) {
+      const codes = r.businessUnits?.length ? r.businessUnits : [UNASSIGNED_BU];
+      for (const code of codes) {
+        const cur = m.get(code) ?? { tcv: 0, count: 0 };
+        cur.tcv += r.value;
+        cur.count += 1;
+        m.set(code, cur);
+      }
+    }
+    return Array.from(m.entries())
+      .map(([code, v]) => ({
+        code,
+        label:
+          code === UNASSIGNED_BU
+            ? "Unassigned"
+            : (businessUnits.find((u) => u.code === code)?.label ?? code),
+        ...v,
+      }))
+      .sort((a, b) => b.tcv - a.tcv);
+  }, [base, businessUnits]);
 
   const regions = useMemo(() => distinct(base.map((r) => r.region)), [base]);
 
@@ -435,7 +486,7 @@ export function SalesDashboard() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Report title bar — McKinsey-style exhibit header in Manut brand */}
+      {/* Report title bar — McKinsey-style exhibit header in TBH brand */}
       <div
         className={`
           border-foreground flex items-end justify-between border-b-2 pb-3
@@ -522,6 +573,15 @@ export function SalesDashboard() {
           value={industryF}
           onChange={setIndustryF}
           options={opts.industries.map((v) => ({ value: v, label: v }))}
+        />
+        <FilterSelect
+          label="All business units"
+          value={businessUnitF}
+          onChange={setBusinessUnitF}
+          options={[
+            ...businessUnits.map((u) => ({ value: u.code, label: u.label })),
+            { value: UNASSIGNED_BU, label: "Unassigned" },
+          ]}
         />
         <FilterSelect
           label="All engagement"
@@ -1031,6 +1091,56 @@ export function SalesDashboard() {
             ))}
           </div>
         ) : null}
+      </SectionCard>
+
+      {/* Business-unit ownership */}
+      <SectionCard
+        title="Business unit ownership"
+        note={`${businessUnitData.length} units · a shared deal counts under each`}
+        exhibit="Exhibit 9 — TCV and deal count by business unit"
+      >
+        {businessUnitData.length === 0 ? (
+          <p className="text-muted-foreground py-6 text-center text-xs">
+            No deals in the current selection.
+          </p>
+        ) : (
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={businessUnitData}
+                layout="vertical"
+                margin={{ left: 20 }}
+              >
+                <XAxis
+                  type="number"
+                  tickFormatter={(v: number) => fmtMoney(v)}
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  width={120}
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                />
+                <Tooltip
+                  cursor={{ fill: "hsl(var(--accent))", opacity: 0.3 }}
+                  contentStyle={{
+                    background: "hsl(var(--popover))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: 4,
+                    fontSize: 12,
+                  }}
+                  formatter={(v) => fmtMoney(Number(v))}
+                />
+                <Bar dataKey="tcv" radius={[0, 2, 2, 0]}>
+                  {businessUnitData.map((d, i) => (
+                    <Cell key={d.code} fill={industryColor(i)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </SectionCard>
 
       {/* Deal table */}

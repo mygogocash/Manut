@@ -1,5 +1,5 @@
 /**
- * Parser for the equity-grant import template — the canonical
+ * Parser for HR's "Equity Summary Report" template — the canonical
  * per-employee grant sheet maintained off the employment contracts.
  *
  * Two layouts are supported:
@@ -10,8 +10,8 @@
  *
  *   V1 (current, long) — sheet "Equity Summary": long format with an
  *   assumptions header band, a section header per team, a person
- *   header row (encoding contract grants and performance bonuses as inline
- *   text), five fixed grant rows per person
+ *   header row (encoding "BNRY Tokens (Contract): ..." / "Shark Tank
+ *   Bonus: ..." as inline text), five fixed grant rows per person
  *   keyed by Equity Type, and a per-person Total row. The V1 parser
  *   collapses each person's block into one ParsedRow whose `grants[]`
  *   merges the person-header extras with the per-Equity-Type values.
@@ -50,8 +50,8 @@ interface GrantColumnSpec {
   /**
    * How to interpret a bare numeric cell:
    *   - "percent":     Equity % of base pay column (10 = 10% of base)
-   *   - "shares":      share-only columns (executive/retention equity, etc.)
-   *   - "currency_usd": performance bonus — bare number is a USD payout
+   *   - "shares":      share-only columns (CXO Equity, Golden Handcuff, etc.)
+   *   - "currency_usd": Shark Tank Winner — bare number is a USD payout
    *   - undefined: bare numbers are an error (the column needs an
    *                explicit currency prefix or "Shares" suffix).
    */
@@ -60,7 +60,7 @@ interface GrantColumnSpec {
 
 export const ESOP_IMPORT_GRANT_COLUMNS: readonly GrantColumnSpec[] = [
   {
-    header: "Token Grant (contract)",
+    header: "BNRY Tokens (contract)",
     grantType: "tokens",
   },
   {
@@ -73,8 +73,8 @@ export const ESOP_IMPORT_GRANT_COLUMNS: readonly GrantColumnSpec[] = [
     bareNumberMeans: "shares",
   },
   {
-    header: "Executive Equity",
-    grantType: "executive_equity",
+    header: "CXO Equity",
+    grantType: "cxo_equity",
     bareNumberMeans: "shares",
   },
   {
@@ -83,13 +83,13 @@ export const ESOP_IMPORT_GRANT_COLUMNS: readonly GrantColumnSpec[] = [
     bareNumberMeans: "percent",
   },
   {
-    header: "Retention Equity",
-    grantType: "retention",
+    header: "Golden Handcuff (transfer shares)",
+    grantType: "golden_handcuff",
     bareNumberMeans: "shares",
   },
   {
-    header: "Performance Bonus",
-    grantType: "performance_bonus",
+    header: "Shark Tank Winner",
+    grantType: "shark_tank",
     bareNumberMeans: "currency_usd",
   },
 ] as const;
@@ -278,7 +278,7 @@ function normaliseHeader(s: string): string {
  *
  * Header lookups are normalised (trimmed + lower-cased) because HR's
  * template often has stray leading/trailing whitespace in the header
- * cells (e.g. `" Token Grant (contract) "`).
+ * cells (e.g. `" BNRY Tokens (contract) "`).
  */
 export function parseWorkbookRow(
   row: Record<string, unknown>,
@@ -331,10 +331,10 @@ export const V1_EQUITY_TYPE_MAP: Record<string, EsopGrantType> = {
   "equity from contract": "equity",
   "sign-up equity": "sign_up_bonus",
   "sign up equity": "sign_up_bonus",
-  "executive equity": "executive_equity",
-  "annual review equity": "annual_review",
+  "cxo equity": "cxo_equity",
+  "equity from 2024 bonus": "annual_review",
   "equity from annual review": "annual_review",
-  "retention equity": "retention",
+  "golden handcuff": "golden_handcuff",
 };
 
 /**
@@ -550,9 +550,9 @@ const PERSON_HEADER_SPLIT = /\s+[—–]\s+|\s+-\s+/;
  * position).
  *
  * Examples:
- *   "Alex Rivera  —  Chief Executive Officer   |   Token Grant (Contract): THB 280,000   |   Performance Bonus: 50,000 Tokens"
- *   "Jamie Kim  —  VP of Business Development   |   Token Grant (Contract): THB 21,000"
- *   "Morgan Patel  —  Digital Marketing Manager   |   Token Grant (Contract): N/A"
+ *   "Manit Sachin Parikh  —  Chief Executive Officer   |   BNRY Tokens (Contract): THB 280,000   |   Shark Tank Bonus: 50,000 Tokens"
+ *   "Vivek Vadwa  —  VP of Business Development   |   BNRY Tokens (Contract): THB 21,000"
+ *   "Sakshi Dolia  —  Digital Marketing Manager   |   BNRY Tokens (Contract): N/A"
  */
 export function parsePersonHeaderV1(rawText: string): PersonHeaderV1 | null {
   const text = normaliseCell(rawText);
@@ -585,11 +585,11 @@ export function parsePersonHeaderV1(rawText: string): PersonHeaderV1 | null {
     const value = seg.slice(colon + 1).trim();
     if (!value || shouldSkip(value)) continue;
 
-    if (label.includes("token grant") || label.includes("tokens (contract)")) {
+    if (label.includes("bnry tokens") || label.includes("tokens (contract)")) {
       const parsed = parseCurrencyText(value, "THB");
       if (!parsed) continue;
       if ("error" in parsed) {
-        extraErrors.push(`Token Grant (Contract): ${parsed.error}`);
+        extraErrors.push(`BNRY Tokens (Contract): ${parsed.error}`);
         continue;
       }
       extras.push({
@@ -597,19 +597,19 @@ export function parsePersonHeaderV1(rawText: string): PersonHeaderV1 | null {
         grantType: "tokens",
         currencyCode: parsed.code,
         currencyAmount: parsed.amount,
-        sourceColumn: "Token Grant (Contract)",
+        sourceColumn: "BNRY Tokens (Contract)",
         rawValue: value,
       });
-    } else if (label.includes("performance bonus")) {
-      // A performance bonus may be expressed as a token/share count.
+    } else if (label.includes("shark tank")) {
+      // V1 expresses Shark Tank as a token count, e.g. "50,000 Tokens".
       const sharesMatch = value.match(/^([\d,\s.]+)\s*(?:tokens?|shares?)?$/i);
       const n = sharesMatch ? coerceImportNumber(sharesMatch[1]!) : null;
       if (n !== null && n > 0) {
         extras.push({
           kind: "shares",
-          grantType: "performance_bonus",
+          grantType: "shark_tank",
           shares: Math.round(n),
-          sourceColumn: "Performance Bonus",
+          sourceColumn: "Shark Tank Bonus",
           rawValue: value,
         });
         continue;
@@ -619,14 +619,14 @@ export function parsePersonHeaderV1(rawText: string): PersonHeaderV1 | null {
       if (parsed && !("error" in parsed)) {
         extras.push({
           kind: "currency",
-          grantType: "performance_bonus",
+          grantType: "shark_tank",
           currencyCode: parsed.code,
           currencyAmount: parsed.amount,
-          sourceColumn: "Performance Bonus",
+          sourceColumn: "Shark Tank Bonus",
           rawValue: value,
         });
       } else if (parsed && "error" in parsed) {
-        extraErrors.push(`Performance Bonus: ${parsed.error}`);
+        extraErrors.push(`Shark Tank Bonus: ${parsed.error}`);
       }
     }
   }

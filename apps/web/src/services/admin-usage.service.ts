@@ -43,6 +43,7 @@ export interface PerUserActivity {
   breakdown: {
     leaveEvents30d: number;
     expenseEvents30d: number;
+    ariaEvents30d: number;
   };
   topAction: string | null;
   lastActiveAt: string | null;

@@ -8,6 +8,12 @@ import { getCrmReminderRecipients } from "@/modules/crm-shared/crm-recipients";
 
 export type CrmTaskEventType = "task_status" | "task_assigned" | "task_comment";
 
+export interface CrmTaskPerson {
+  id: string;
+  name: string;
+  email: string;
+}
+
 interface NotifyInput {
   module: CrmModule;
   type: CrmTaskEventType;
@@ -19,6 +25,13 @@ interface NotifyInput {
   // Human-readable event line, e.g. "moved it to In Review" / "reassigned it"
   // / "commented". Prefixed with the actor's name in the body/email.
   summary: string;
+  // Native adapter — pure-native workspaces (qa) whose tasks do NOT live in
+  // the shared `project_tasks` pass their already-loaded owner + assignees
+  // here (the shared-table lookup would miss). Shared-board callers omit it.
+  people?: { owner: CrmTaskPerson | null; assignees: CrmTaskPerson[] };
+  // Native adapter — absolute deep-link override for boards that don't live
+  // at /projects/:id (qa's board is /qa-crm/:projectId).
+  link?: string;
 }
 
 const TITLE: Record<CrmTaskEventType, string> = {
@@ -33,27 +46,36 @@ const TITLE: Record<CrmTaskEventType, string> = {
  * every failure is logged and swallowed so it never affects the write that
  * triggered it. The caller gates by CRM (board team or native module).
  *
- * NOTE: reads task owner/assignees from the shared `project_tasks` table, so
- * this serves the shared-board CRMs. Native-table CRMs (qa, marketing) pass
- * their own resolved recipients through a thin adapter in a later phase.
+ * NOTE: by default reads task owner/assignees from the shared `project_tasks`
+ * table (the shared-board CRMs). Pure-native workspaces (qa) pass `people` +
+ * `link` instead — their tasks aren't in the shared table.
  */
 export async function notifyCrmTaskEvent(input: NotifyInput): Promise<void> {
   try {
-    const task = await prisma.projectTask.findUnique({
-      where: { id: input.taskId },
-      select: {
-        owner: { select: { id: true, name: true, email: true } },
-        assignees: {
-          select: { user: { select: { id: true, name: true, email: true } } },
+    let owner: CrmTaskPerson | null;
+    let assigneeUsers: CrmTaskPerson[];
+    if (input.people) {
+      owner = input.people.owner;
+      assigneeUsers = input.people.assignees;
+    } else {
+      const task = await prisma.projectTask.findUnique({
+        where: { id: input.taskId },
+        select: {
+          owner: { select: { id: true, name: true, email: true } },
+          assignees: {
+            select: { user: { select: { id: true, name: true, email: true } } },
+          },
         },
-      },
-    });
-    if (!task) return;
+      });
+      if (!task) return;
+      owner = task.owner;
+      assigneeUsers = task.assignees.map((a) => a.user);
+    }
 
     // Recipient users = task owner + assignees, deduped, minus the actor.
-    const byId = new Map<string, { id: string; name: string; email: string }>();
-    if (task.owner) byId.set(task.owner.id, task.owner);
-    for (const a of task.assignees) byId.set(a.user.id, a.user);
+    const byId = new Map<string, CrmTaskPerson>();
+    if (owner) byId.set(owner.id, owner);
+    for (const u of assigneeUsers) byId.set(u.id, u);
     byId.delete(input.actorId);
     const users = [...byId.values()];
 
@@ -65,7 +87,9 @@ export async function notifyCrmTaskEvent(input: NotifyInput): Promise<void> {
     const actorEmail = actor?.email?.trim().toLowerCase() ?? null;
 
     const slug = CRM_MODULES[input.module].listSlug;
-    const link = `${PORTAL_URL}/projects/${input.projectId}?task=${input.taskId}&from=${slug}`;
+    const link =
+      input.link ??
+      `${PORTAL_URL}/projects/${input.projectId}?task=${input.taskId}&from=${slug}`;
     const body = `${actorName} ${input.summary} — ${input.taskTitle} (${input.projectName})`;
 
     // Bell rows — one per recipient user (external configured emails have no

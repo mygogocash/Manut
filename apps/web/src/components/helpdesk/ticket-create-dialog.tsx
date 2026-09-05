@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Paperclip, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -82,7 +82,7 @@ export function TicketCreateDialog({
   const [attachments, setAttachments] = useState<TicketAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const form = useForm<TicketFormValues>({
-    resolver: standardSchemaResolver(ticketFormSchema),
+    resolver: zodResolver(ticketFormSchema),
     defaultValues: {
       title: "",
       description: "",

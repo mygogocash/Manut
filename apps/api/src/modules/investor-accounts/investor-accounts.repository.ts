@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -12,6 +12,10 @@ export interface ListInvestorAccountsFilters {
   region?: string;
   ownerId?: string;
   ownerScope?: string[];
+  // Archived view toggle. false/undefined → active rows (archivedAt IS NULL);
+  // true → archived rows (archivedAt IS NOT NULL).
+  archived?: boolean;
+  fundraisingEntity?: string;
 }
 
 export class InvestorAccountRepository {
@@ -25,12 +29,17 @@ export class InvestorAccountRepository {
     if (filters.region) where.region = filters.region;
     if (filters.ownerId) where.ownerId = filters.ownerId;
     if (filters.ownerScope) where.ownerId = { in: filters.ownerScope };
+    if (filters.fundraisingEntity) {
+      where.fundraisingEntity = filters.fundraisingEntity;
+    }
     if (filters.search) {
       where.OR = [
         { name: { contains: filters.search, mode: "insensitive" } },
         { location: { contains: filters.search, mode: "insensitive" } },
       ];
     }
+    // Shared by findMany + count below — default view hides archived rows.
+    where.archivedAt = filters.archived ? { not: null } : null;
 
     const [data, total] = await Promise.all([
       prisma.investorAccount.findMany({

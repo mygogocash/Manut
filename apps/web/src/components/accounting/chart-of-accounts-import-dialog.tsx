@@ -110,21 +110,39 @@ function resolveColumns(headerRow: unknown[]): {
   englishName: number;
   thaiCategory: number;
   englishCategory: number;
+  englishDescription: number;
+  thaiDescription: number;
 } {
   let code = -1;
   let thaiName = -1;
   let englishName = -1;
   let thaiCategory = -1;
   let englishCategory = -1;
+  let englishDescription = -1;
+  let thaiDescription = -1;
 
   for (let i = 0; i < headerRow.length; i++) {
     const cell = cellToString(headerRow[i]).toLowerCase();
     if (!cell) continue;
     if (cell === "code") code = i;
-    else if (cell === "account name") englishName = i;
-    else if (cell === "ชื่อบัญชี") thaiName = i;
+    else if (cell === "account name" || cell === "english_name") englishName = i;
+    else if (cell === "ชื่อบัญชี" || cell === "thai_name") thaiName = i;
     else if (cell === "category") englishCategory = i;
     else if (cell === "ประเภท") thaiCategory = i;
+    else if (
+      cell === "english description" ||
+      cell === "english_description" ||
+      cell === "description"
+    ) {
+      englishDescription = i;
+    } else if (
+      cell === "thai description" ||
+      cell === "thai_description" ||
+      cell === "คำอธิบาย" ||
+      cell === "คำอธิบายภาษาไทย"
+    ) {
+      thaiDescription = i;
+    }
   }
 
   // Fall back to fixed positions when something is missing.
@@ -134,7 +152,15 @@ function resolveColumns(headerRow: unknown[]): {
   if (thaiCategory < 0) thaiCategory = 3;
   if (englishCategory < 0) englishCategory = 4;
 
-  return { code, thaiName, englishName, thaiCategory, englishCategory };
+  return {
+    code,
+    thaiName,
+    englishName,
+    thaiCategory,
+    englishCategory,
+    englishDescription,
+    thaiDescription,
+  };
 }
 
 async function parseWorkbook(file: File): Promise<ParseResult> {
@@ -205,11 +231,19 @@ async function parseWorkbook(file: File): Promise<ParseResult> {
     seen.add(code);
 
     const thaiOnly = thaiName && thaiName !== name ? thaiName : "";
+    const englishDescription = cellToString(
+      cols.englishDescription >= 0 ? r[cols.englishDescription] : "",
+    );
+    const thaiDescription = cellToString(
+      cols.thaiDescription >= 0 ? r[cols.thaiDescription] : "",
+    );
 
     rows.push({
       code: code.slice(0, 20),
       name: name.slice(0, 200),
-      nameTh: thaiOnly ? thaiOnly.slice(0, 200) : undefined,
+      nameTh: (thaiOnly || thaiName).slice(0, 200) || undefined,
+      description: (englishDescription || englishName || name).slice(0, 2000),
+      descriptionTh: (thaiDescription || thaiName || name).slice(0, 2000),
       type,
     });
   }
@@ -505,7 +539,7 @@ export function ChartOfAccountsImportDialog({
               <div
                 className={`
                   grid grid-cols-2 gap-2
-                  sm:grid-cols-5
+                  sm:grid-cols-6
                 `}
               >
                 <SummaryCard label="Total rows" value={preview.summary.total} />
@@ -518,6 +552,13 @@ export function ChartOfAccountsImportDialog({
                   label="Thai back-fill"
                   value={preview.summary.updates}
                   tone={preview.summary.updates > 0 ? "positive" : undefined}
+                />
+                <SummaryCard
+                  label="Invalid"
+                  value={preview.summary.invalid ?? 0}
+                  tone={
+                    (preview.summary.invalid ?? 0) > 0 ? "warning" : undefined
+                  }
                 />
                 <SummaryCard
                   label="Already exists"
@@ -570,6 +611,8 @@ export function ChartOfAccountsImportDialog({
                             <Badge variant="amber">Skip</Badge>
                           ) : r.action === "update-th" ? (
                             <Badge variant="blue">Add Thai</Badge>
+                          ) : r.action === "invalid" ? (
+                            <Badge variant="red">Invalid</Badge>
                           ) : (
                             <Badge variant="green">Insert</Badge>
                           )}

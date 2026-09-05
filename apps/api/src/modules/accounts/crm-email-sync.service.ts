@@ -1,5 +1,5 @@
 /**
- * Sales CRM email auto-sync.
+ * Sales CRM email auto-sync (Sid + BD feedback, 2026-05-24).
  *
  * For every user with a connected Gmail account, list messages sent
  * or received since their last sync cursor, match the participating
@@ -15,7 +15,7 @@
  *
  * Triggered by `POST /api/cron/crm-email-sync` (Cloud Scheduler).
  */
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { logger } from "@/common/utils/logger";
 import { prisma } from "@/infrastructure/database/prisma";

@@ -14,8 +14,22 @@ import {
   trackLeadCreatedServer,
 } from "@/lib/events";
 import { PORTAL_URL } from "@/lib/portal-url";
-import { leadRepository } from "@/modules/leads/leads.repository";
 import {
+  applyBulkBusinessUnits,
+  type BulkApplyResult,
+} from "@/modules/crm-shared/bulk-apply";
+import {
+  applyBulkFieldSet,
+  type BulkFieldResult,
+} from "@/modules/crm-shared/bulk-field-set";
+import { resolveBulkWhere } from "@/modules/crm-shared/bulk-selection";
+import {
+  buildLeadWhere,
+  leadRepository,
+} from "@/modules/leads/leads.repository";
+import {
+  type BulkFieldUpdateLeadsInput,
+  type BulkUpdateLeadsInput,
   type ConvertLeadInput,
   type CreateLeadInput,
   type DisqualifyLeadInput,
@@ -28,9 +42,13 @@ import {
   type OpportunityStage,
   STAGE_PROBABILITY_DEFAULTS,
 } from "@/modules/opportunities/opportunities.constants";
+import {
+  ensureBusinessUnitRows,
+  recomputeOpportunityRollup,
+} from "@/modules/opportunities/opportunity-business-units.repository";
 
 export class LeadService {
-  // Default crm:read is owner-only; crm:team-read widens access to all.
+  // PRD §7 — default crm:read is "own records only"; crm:team-read widens to all.
   // Team-shared semantics (manager hierarchy) is a follow-up; for v2 this is
   // the simplest correct interpretation: own vs all.
   async list(userId: string, permissions: string[], query: ListLeadsQuery) {
@@ -50,7 +68,7 @@ export class LeadService {
     };
   }
 
-  // Daily digest email job. For each owner with at
+  // PRD §11.3 follow-up — daily digest email job. For each owner with at
   // least one stale lead, send one summary email with up to N rows
   // inline + a count of any hidden tail. Fired by /api/cron/stale-leads-
   // digest (caller is responsible for the daily schedule). Returns
@@ -137,7 +155,7 @@ export class LeadService {
     };
   }
 
-  // Stale-lead surface for managers + reps. Same own/team-read
+  // PRD §11.3 — stale-lead surface for managers + reps. Same own/team-read
   // scoping as `list`. Cutoff is computed here (not by the caller) so a
   // single source of truth applies across the API and the future digest job.
   async listStale(
@@ -190,6 +208,8 @@ export class LeadService {
       source: input.source,
       status: input.status,
       notes: input.notes,
+      // Business-unit tags — see the opportunities service for the contract.
+      businessUnits: input.businessUnits ?? [],
       owner: { connect: { id: ownerId } },
     });
 
@@ -205,7 +225,7 @@ export class LeadService {
     return created;
   }
 
-  // Source codes used to be a fixed Zod enum; now they
+  // PRD §11.7 — source codes used to be a fixed zod enum; now they
   // resolve against the workspace-admin-managed lead_sources table.
   // Reps can't pick a deactivated row on net-new leads, but existing
   // rows that reference a now-deactivated source stay valid (their
@@ -250,6 +270,9 @@ export class LeadService {
       ...(input.source !== undefined && { source: input.source }),
       ...(input.status !== undefined && { status: input.status }),
       ...(input.notes !== undefined && { notes: input.notes || null }),
+      ...(input.businessUnits !== undefined && {
+        businessUnits: input.businessUnits,
+      }),
     });
   }
 
@@ -281,10 +304,26 @@ export class LeadService {
     return leadRepository.delete(id);
   }
 
-  // Lead conversion. Single Prisma transaction:
-  //   1. Resolve / create Account with domain/name dedupe
+  // Archive is orthogonal to lifecycle status — allowed in any status, and
+  // deliberately NOT routed through `update()` (which blocks converted /
+  // disqualified rows). Reversible via `unarchive`. Idempotent: a re-archive
+  // keeps the original archivedAt stamp.
+  async archive(id: string, userId: string, permissions: string[]) {
+    const existing = await this.getById(id, userId, permissions);
+    return leadRepository.update(id, {
+      archivedAt: existing.archivedAt ?? new Date(),
+    });
+  }
+
+  async unarchive(id: string, userId: string, permissions: string[]) {
+    await this.getById(id, userId, permissions);
+    return leadRepository.update(id, { archivedAt: null });
+  }
+
+  // PRD §6 conversion. Single Prisma transaction:
+  //   1. Resolve / create Account (§11.2 dedupe)
   //   2. Resolve / create Contact under that Account (auto-primary on first)
-  //   3. Create Opportunity with stage probability defaults
+  //   3. Create Opportunity (§11.4 probability defaults)
   //   4. Update Lead → status=converted, convertedOpportunityId, convertedAt
   //   5. Re-target Lead activities to the new Opportunity (keep leadId for audit)
   async convert(
@@ -302,7 +341,7 @@ export class LeadService {
       throw new BadRequestException("Cannot convert a disqualified lead.");
     }
 
-    // Owner stays unless caller has crm:reassign and explicitly
+    // PRD §11.1 — owner stays unless caller has crm:reassign and explicitly
     // overrides. A non-reassign caller passing any ownerId (even their own)
     // is rejected so we can't accidentally normalise away an audit signal.
     let effectiveOwnerId = lead.ownerId;
@@ -334,7 +373,7 @@ export class LeadService {
           }
           accountId = existing.id;
         } else {
-          // newAccount or default-from-lead. Both go through the same
+          // newAccount or default-from-lead. Both go through the same §11.2
           // dedupe path so callers cannot bypass it via the convert endpoint.
           const newAccount = input.newAccount ?? { name: lead.company };
 
@@ -368,6 +407,10 @@ export class LeadService {
               size: newAccount.size,
               country: newAccount.country,
               website: newAccount.website,
+              // A brand-new account inherits whoever was looking after the
+              // lead. Attaching to an EXISTING account leaves its own tags
+              // alone — they are that account's, not this lead's.
+              businessUnits: lead.businessUnits,
               owner: { connect: { id: effectiveOwnerId } },
             },
             select: { id: true },
@@ -442,9 +485,21 @@ export class LeadService {
               ? new Date(input.opportunity.closeDate)
               : undefined,
             type: input.opportunity.type,
+            // Carry the lead's business units onto the deal — otherwise a
+            // lead someone was looking after converts into an "Unassigned"
+            // opportunity and quietly loses its owner-team.
+            businessUnits: lead.businessUnits,
             owner: { connect: { id: effectiveOwnerId } },
           },
         });
+
+        // The converted deal carries the lead's tags, so it needs its child
+        // rows too. It has none yet, so ensureBusinessUnitRows SEEDS them
+        // from the deal rather than treating every tag as a newly added
+        // unit. Without this the deal reads as untagged on the per-unit
+        // board despite showing chips on the card.
+        await ensureBusinessUnitRows(opportunity.id, lead.businessUnits, tx);
+        await recomputeOpportunityRollup(opportunity.id, tx);
 
         // ── 4. Mark lead converted ──────────────────────────────────────────
         const updatedLead = await tx.lead.update({
@@ -485,6 +540,114 @@ export class LeadService {
         }
         return result;
       });
+  }
+
+  /**
+   * Bulk business-unit assignment.
+   *
+   * Selection is either ticked ids or "all matching the current filter",
+   * resolved by `resolveBulkWhere` through the SAME where-builder the list
+   * uses, with owner scope ANDed in both modes so a caller without
+   * `crm:team-read` can never touch another rep's rows.
+   *
+   * Leads have no per-unit child rows; `update` is reused for the same
+   * uniformity reason as accounts.
+   *
+   * Rows already carrying the requested set are skipped, not rewritten.
+   */
+  async bulkUpdateBusinessUnits(
+    userId: string,
+    permissions: string[],
+    input: BulkUpdateLeadsInput,
+  ): Promise<BulkApplyResult & { selected: number }> {
+    const canSeeAll = permissions.includes("crm:team-read");
+    const ownerScope = canSeeAll ? undefined : [userId];
+
+    const where = resolveBulkWhere(
+      { ids: input.ids, allMatching: input.allMatching, filter: input.filter },
+      buildLeadWhere,
+      ownerScope,
+    );
+
+    // Fetch one past the cap so an over-large selection is detected rather
+    // than silently truncated.
+    const rows = await leadRepository.findIdsAndUnits(where, 500 + 1);
+    if (rows.length > 500) {
+      throw new BadRequestException(
+        "Selection is too large (over 500 records). Narrow the filter and try again.",
+      );
+    }
+
+    const result = await applyBulkBusinessUnits(
+      rows,
+      input.businessUnits.codes,
+      input.businessUnits.mode,
+      (id, next) =>
+        this.update(id, userId, permissions, { businessUnits: next }),
+      { module: "leads", actorId: userId },
+    );
+
+    return { ...result, selected: rows.length };
+  }
+
+  /**
+   * Bulk owner reassignment and archive/unarchive.
+   *
+   * Same selection contract as `bulkUpdateBusinessUnits`. Each write reuses the
+   * single-record `update` / `archive` / `unarchive`, so per-row ownership
+   * checks and any side effects keep running.
+   *
+   * `crm:reassign` is enforced HERE rather than on the route: the route's
+   * `requirePermission` cannot express "only when `set.ownerId` is present", so
+   * a caller may archive with `crm:update` alone but must hold `crm:reassign`
+   * to move ownership.
+   */
+  async bulkUpdateFields(
+    userId: string,
+    permissions: string[],
+    input: BulkFieldUpdateLeadsInput,
+  ): Promise<BulkFieldResult & { selected: number }> {
+    // No owner branch: a lead's owner is not settable through `update` (see
+    // bulkLeadFieldSetSchema), so there is nothing to gate on crm:reassign.
+    const canSeeAll = permissions.includes("crm:team-read");
+    const ownerScope = canSeeAll ? undefined : [userId];
+
+    const where = resolveBulkWhere(
+      { ids: input.ids, allMatching: input.allMatching, filter: input.filter },
+      buildLeadWhere,
+      ownerScope,
+    );
+
+    const rows = await leadRepository.findIdsForFieldSet(where, 500 + 1);
+    if (rows.length > 500) {
+      throw new BadRequestException(
+        "Selection is too large (over 500 records). Narrow the filter and try again.",
+      );
+    }
+
+    const result = await applyBulkFieldSet(
+      rows.map((r) => ({ ...r, lifecycle: r.status })),
+      {
+        ...input.set,
+        lifecycle: (input.set as { stage?: string; status?: string }).status,
+      },
+      {
+        setOwner: () => {
+          throw new BadRequestException(
+            "A lead's owner cannot be reassigned. Convert it instead.",
+          );
+        },
+        archive: (id) => this.archive(id, userId, permissions),
+        unarchive: (id) => this.unarchive(id, userId, permissions),
+        setLifecycle: (id, next) =>
+          this.update(id, userId, permissions, {
+            status: next as UpdateLeadInput["status"],
+          }),
+      },
+      { module: "leads", actorId: userId },
+    );
+
+    return { ...result, selected: rows.length };
   }
 }
 

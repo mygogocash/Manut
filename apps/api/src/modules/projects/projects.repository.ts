@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -40,7 +40,10 @@ export class ProjectRepository {
       search?: string;
       team?: string;
       department?: string;
+      agreement?: string;
       partnerId?: string;
+      /** When true, return ONLY archived projects; else active only. */
+      archived?: boolean;
       /** When set, only projects owned by or assigned to this user. */
       accessibleByUserId?: string;
     },
@@ -50,8 +53,23 @@ export class ProjectRepository {
     const clauses: Prisma.ProjectWhereInput[] = [];
     if (filters.status) clauses.push({ status: filters.status });
     if (filters.team) clauses.push({ team: filters.team });
-    if (filters.department) clauses.push({ department: filters.department });
+    // Match the primary department OR membership of the multi-select list, so
+    // filtering by "Product" still finds a project where Product is a
+    // secondary department.
+    if (filters.department) {
+      clauses.push({
+        OR: [
+          { department: filters.department },
+          { departments: { has: filters.department } },
+        ],
+      });
+    }
+    // Agreement signing state (Signed / Not Signed) — Project CRM filter.
+    if (filters.agreement) clauses.push({ agreement: filters.agreement });
     if (filters.partnerId) clauses.push({ partnerId: filters.partnerId });
+    // Active/Archived: default excludes archived; archived=true returns only
+    // archived. Pushed as a clause so findMany + count share the filter.
+    clauses.push({ archivedAt: filters.archived ? { not: null } : null });
     if (filters.search) {
       clauses.push({
         name: { contains: filters.search, mode: "insensitive" },
@@ -70,7 +88,7 @@ export class ProjectRepository {
       prisma.project.findMany({
         where,
         include: projectIncludes,
-        // User-driven manual order is primary;
+        // BD feedback (May 2026): user-driven manual order is primary;
         // createdAt is the deterministic tie-breaker so two projects
         // with the same sort_order (e.g. fresh inserts at 0) stay
         // stable across re-renders.
@@ -110,7 +128,9 @@ export class ProjectRepository {
    * doesn't block the cheaper `groupBy` calls.
    */
   async dashboardSnapshot(team: string) {
-    const where: Prisma.ProjectWhereInput = { team };
+    // Exclude archived projects so the CRM dashboard rollup matches what the
+    // active board shows.
+    const where: Prisma.ProjectWhereInput = { team, archivedAt: null };
     const now = new Date();
     const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -363,9 +383,25 @@ export class ProjectRepository {
             where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
             include: nativeInclude,
           });
-    const src = legal ?? accounting ?? itp;
+    // Product CRM is a native-mirror board too — its list opens the shared
+    // /projects/:id board, so post-migration rows must heal the same way
+    // (they 404'd before this branch existed).
+    const product =
+      legal || accounting || itp
+        ? null
+        : await prisma.productProject.findFirst({
+            where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+            include: nativeInclude,
+          });
+    const src = legal ?? accounting ?? itp ?? product;
     if (!src) return false;
-    const team = legal ? "legal" : accounting ? "accounting" : "it";
+    const team = legal
+      ? "legal"
+      : accounting
+        ? "accounting"
+        : itp
+          ? "it"
+          : "product";
 
     // A native slug can collide with an existing general project slug
     // (`projects.slug` is unique across every team). Suffix on clash —
@@ -803,6 +839,23 @@ export class ProjectRepository {
     return this.resolveDefaultAssignee(p, actorId);
   }
 
+  // Product CRM stores its default on the native product_projects row.
+  async resolveProductDefaultAssignee(
+    projectId: string,
+    actorId: string,
+  ): Promise<string | null> {
+    const p = await prisma.productProject.findUnique({
+      where: { id: projectId },
+      select: {
+        defaultAssigneeMode: true,
+        defaultAssigneeId: true,
+        ownerId: true,
+      },
+    });
+    if (!p) return null;
+    return this.resolveDefaultAssignee(p, actorId);
+  }
+
   // Propagate go-live date edits made on the shared (mirror) board row to the
   // CRM's NATIVE table, so the CRM's own list page and the native reminder
   // scans (it / legal / accounting) see the new date — and re-arm the native
@@ -846,6 +899,8 @@ export class ProjectRepository {
       await prisma.legalProject.updateMany(args);
     } else if (team === "accounting") {
       await prisma.accountingProject.updateMany(args);
+    } else if (team === "product") {
+      await prisma.productProject.updateMany(args);
     }
   }
 

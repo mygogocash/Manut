@@ -19,7 +19,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/drive.readonly",
   "https://www.googleapis.com/auth/drive.file",
-  // Calendar read scope lets the
+  // Calendar read scope (ARIA improvement #4, 2026-05-25). Lets the
   // `lookup_my_calendar` tool list upcoming events without write
   // permission. Users with stale tokens trip the insufficient-scope
   // detection and are prompted to reconnect.

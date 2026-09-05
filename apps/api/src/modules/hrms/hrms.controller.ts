@@ -121,7 +121,8 @@ router.get(
   requirePermission(PERMISSIONS.HRMS_ESOP_MANAGE),
   asyncHandler(async (req, res) => {
     // V1 long-format template. The 2-row assumptions band is
-    // copied so exports round-trip through the parser, which keys off the
+    // copied so the layout matches HR's "Equity Summary Report
+    // (Revised)" workbook exactly — the parser keys off the
     // header row "Name of Staff | Equity Type | ..." at row 4.
     const headerRow = [
       "Name of Staff",
@@ -137,9 +138,9 @@ router.get(
     const equityTypes = [
       "Equity from Contract",
       "Sign-up Equity",
-      "Executive Equity",
-      "Annual Review Equity",
-      "Retention Equity",
+      "CXO Equity",
+      "Equity from 2024 Bonus",
+      "Golden Handcuff",
     ];
     const personBlock = (
       name: string,
@@ -172,7 +173,7 @@ router.get(
     };
 
     const aoa: unknown[][] = [
-      ["Manut — Equity Grant Import"],
+      ["Binary Holdings — Equity Summary Report (Revised)"],
       [
         "Assumptions:",
         "USD/THB FX Rate",
@@ -190,23 +191,23 @@ router.get(
       ...personBlock(
         "Jane Doe",
         "Chief Example Officer",
-        "Token Grant (Contract): THB 280,000   |   Performance Bonus: 50,000 Tokens",
+        "BNRY Tokens (Contract): THB 280,000   |   Shark Tank Bonus: 50,000 Tokens",
         [
           {
             "Equity Type": "Equity from Contract",
             "Equity in THB": "280000/month",
           },
           { "Equity Type": "Sign-up Equity", "Equity in USD": 500000 },
-          { "Equity Type": "Executive Equity", "No. of Shares": 50000 },
-          { "Equity Type": "Retention Equity", "No. of Shares": 20000 },
+          { "Equity Type": "CXO Equity", "No. of Shares": 50000 },
+          { "Equity Type": "Golden Handcuff", "No. of Shares": 20000 },
         ],
       ),
       ["Marketing Team"],
       ...personBlock(
         "John Smith",
         "Digital Marketing Manager",
-        "Token Grant (Contract): N/A",
-        [{ "Equity Type": "Retention Equity", "No. of Shares": 1000 }],
+        "BNRY Tokens (Contract): N/A",
+        [{ "Equity Type": "Golden Handcuff", "No. of Shares": 1000 }],
       ),
     ];
 
@@ -652,7 +653,6 @@ router.put(
     const data = await hrmsService.updateAgreement(
       req.params.id as string,
       input,
-      req.user!.id,
     );
     res.json({ data });
   }),

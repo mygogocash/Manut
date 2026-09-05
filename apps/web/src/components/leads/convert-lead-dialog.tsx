@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -73,7 +73,7 @@ const formSchema = z
     accountId: z.string().optional(),
     contactMode: z.enum(["lead", "existing"]),
     contactId: z.string().optional(),
-    // Only used when caller has crm:reassign. Empty string =
+    // PRD §11.1 — only used when caller has crm:reassign. Empty string =
     // keep lead.ownerId; concrete uuid = override.
     ownerId: z.string().optional(),
   })
@@ -110,7 +110,7 @@ export function ConvertLeadDialog({
   onDone,
 }: ConvertLeadDialogProps) {
   const [submitting, setSubmitting] = useState(false);
-  // When account-name dedupe trips a 409, prompt the rep
+  // §11.2 fallback — when account-name dedupe trips a 409, prompt the rep
   // before sending a second request with confirmCreate=true.
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -120,7 +120,7 @@ export function ConvertLeadDialog({
   const canReassign = hasPermission("crm:reassign");
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       stage: "qualified",
@@ -191,7 +191,7 @@ export function ConvertLeadDialog({
       ...(values.contactMode === "existing" &&
         values.contactId && { contactId: values.contactId }),
       // Only forward ownerId when the rep actually picked a different owner.
-      // Sending the lead's own owner would make the reassignment guard reject the
+      // Sending the lead's own owner would make the §11.1 guard reject the
       // request for crm:reassign-less callers; for crm:reassign callers it's
       // still cleaner to omit unless they meant to change.
       ...(canReassign &&
@@ -210,7 +210,7 @@ export function ConvertLeadDialog({
       onDone();
       onOpenChange(false);
     } catch (err) {
-      // 409 fires only on the name-fallback path (new account).
+      // §11.2 — 409 fires only on the name-fallback path (new account).
       // Existing-account path doesn't trip dedupe.
       if (
         err instanceof ApiError &&
@@ -564,9 +564,9 @@ export function ConvertLeadDialog({
                           />
                         </FormControl>
                         <FormDescription>
-                          Leave blank to keep the lead owner. Picking another
-                          rep flips ownership on the new Account / Contact /
-                          Opportunity.
+                          §11.1 — leave blank to keep the lead owner. Picking
+                          another rep flips ownership on the new Account /
+                          Contact / Opportunity.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>

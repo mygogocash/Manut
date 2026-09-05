@@ -1,28 +1,49 @@
 model Entity {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
-  code          String    @unique
+  code          String   @unique
   country       String
   currency      String
-  accountingStd String    @default("IFRS") @map("accounting_std")
-  taxId         String?   @map("tax_id")
+  accountingStd String   @default("IFRS") @map("accounting_std")
+  taxId         String?  @map("tax_id")
   address       String?
-  isActive      Boolean   @default(true) @map("is_active")
-  deletedAt     DateTime? @map("deleted_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  isActive      Boolean  @default(true) @map("is_active")
 
-  users                  User[]
-  chartOfAccounts        ChartOfAccount[]
-  journalEntries         JournalEntry[]
-  invoices               Invoice[]
-  bankTransactions       BankTransaction[]
-  payrollRuns            PayrollRun[]
-  consultantInvoices     ConsultantInvoice[]
-  expenses               Expense[]               @relation("ExpenseEntity")
-  expenseReports         ExpenseReport[]         @relation("ExpenseReportEntity")
-  cashAdvanceRequests    CashAdvanceRequest[]    @relation("CashAdvanceRequestEntity")
-  visaRecords            VisaRecord[]
+  // ── Accounting company setup (Phase-1 Foundation, Chunk 2) ────────────────
+  // All additive / optional / defaulted so existing rows are unaffected.
+  // `setupState` defaults to "active" so the ADD COLUMN backfills every
+  // pre-existing entity to "active" — they keep issuing documents with no
+  // interruption (grandfathered). Only entities created through the new
+  // company-setup flow start life in "setup".
+  nameTh                String?   @map("name_th")
+  branchCode            String?   @map("branch_code") // head office = "00000"; nullable, no forced default on existing rows
+  logoUrl               String?   @map("logo_url")
+  vatRegistrationStatus String?   @map("vat_registration_status") // registered | not_registered | exempt
+  boiType               String?   @map("boi_type") // optional BOI metadata (PRD decision #5, single set of books in v1)
+  boiPeriod             String?   @map("boi_period")
+  fiscalYearStartMonth  Int       @default(1) @map("fiscal_year_start_month") // 1–12; PRD decision #1 default = January, configurable
+  firstFiscalYearStart  DateTime? @map("first_fiscal_year_start") // short/long first year
+  firstFiscalYearEnd    DateTime? @map("first_fiscal_year_end")
+  defaultRateSource     String    @default("bot") @map("default_rate_source") // bot | commercial_bank
+  enabledCurrencies     String[]  @default([]) @map("enabled_currencies") // Postgres text[]; default empty
+  setupState            String    @default("active") @map("setup_state") // active | setup — default "active" grandfathers existing rows
+
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  users              User[]
+  userMemberships    UserEntityMembership[]
+  chartOfAccounts    ChartOfAccount[]
+  journalEntries     JournalEntry[]
+  invoices           Invoice[]
+  bankTransactions   BankTransaction[]
+  payrollRuns        PayrollRun[]
+  consultantInvoices ConsultantInvoice[]
+  expenses         Expense[]       @relation("ExpenseEntity")
+  expenseReports   ExpenseReport[] @relation("ExpenseReportEntity")
+  cashAdvanceRequests CashAdvanceRequest[] @relation("CashAdvanceRequestEntity")
+  visaRecords        VisaRecord[]
   ninetyDayNotifications NinetyDayNotification[]
   onboardingRuns         OnboardingRun[]
   offboardingRuns        OffboardingRun[]
@@ -37,6 +58,15 @@ model Entity {
   vendors                Vendor[]
   attendancePolicies     AttendancePolicy[]
   attendanceShifts       AttendanceShift[]
+  bankAccounts           BankAccount[]
+  payments               Payment[]
+  quotes                 Quote[]
+  purchaseOrders         PurchaseOrder[]
+  creditNotes            CreditNote[]
+  taxCodes               TaxCode[]
+  accountMappings        AccountMapping[]
+  documentSequences      DocumentSequence[]
+  fiscalPeriods          FiscalPeriod[]
 
   @@map("entities")
 }
@@ -49,6 +79,11 @@ model User {
   phone              String?
   phonePublic        Boolean   @default(false) @map("phone_public")
   entityId           String?   @map("entity_id")
+  // Multi-company (Accounting Phase-1, PRD Rule 7). The company the user
+  // currently has selected. ADDITIVE + nullable; plain String (no FK) so
+  // an entity delete can't cascade into users — membership is validated
+  // in the service. `entityId` above stays the user's home entity.
+  activeEntityId     String?   @map("active_entity_id")
   department         String?
   jobTitle           String?   @map("job_title")
   employeeId         String?   @unique @map("employee_id")
@@ -79,211 +114,260 @@ model User {
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
   entity        Entity? @relation(fields: [entityId], references: [id], onDelete: SetNull)
+  entityMemberships UserEntityMembership[]
   manager       User?   @relation("UserManager", fields: [reportingTo], references: [id], onDelete: SetNull)
   directReports User[]  @relation("UserManager")
 
-  userRoles                        UserRole[]
-  sessions                         Session[]
-  conversationsCreated             Conversation[]
-  conversationMemberships          ConversationMember[]
-  messagesAuthored                 Message[]
-  messagesDeleted                  Message[]                       @relation("MessageDeleter")
-  messageHiddenFor                 MessageHiddenFor[]
-  messageReactions                 MessageReaction[]
-  projectsOwned                    Project[]
-  partnersOwned                    Partner[]                       @relation("PartnerOwner")
-  // Partner-native workspace mirrors the existing Project task back-relations.
-  partnerTasksOwned                PartnerTask[]                   @relation("PartnerTaskOwner")
-  partnerTaskComments              PartnerTaskComment[]            @relation("PartnerTaskCommentAuthor")
-  partnerTaskAssignments           PartnerTaskAssignee[]           @relation("PartnerTaskAssigneeUser")
-  partnerMemberships               PartnerMember[]
-  // IT CRM standalone workspace. Same back-relation
+  userRoles               UserRole[]
+  sessions                Session[]
+  conversationsCreated    Conversation[]
+  conversationMemberships ConversationMember[]
+  messagesAuthored        Message[]
+  messagesDeleted         Message[]          @relation("MessageDeleter")
+  messageHiddenFor        MessageHiddenFor[]
+  messageReactions        MessageReaction[]
+  projectsOwned           Project[]
+  partnersOwned           Partner[]            @relation("PartnerOwner")
+  // Partner-native workspace (Phase 1 of the Project decouple,
+  // 2026-05-26). Mirrors the existing Project task back-relations.
+  partnerTasksOwned       PartnerTask[]        @relation("PartnerTaskOwner")
+  partnerTaskComments     PartnerTaskComment[] @relation("PartnerTaskCommentAuthor")
+  partnerTaskAssignments  PartnerTaskAssignee[] @relation("PartnerTaskAssigneeUser")
+  partnerMemberships      PartnerMember[]
+  // IT CRM standalone workspace (2026-05-26). Same back-relation
   // shape as the Partner workspace.
-  itProjectsOwned                  ItProject[]                     @relation("ItProjectOwner")
-  itProjectTasksOwned              ItProjectTask[]                 @relation("ItProjectTaskOwner")
-  itProjectTaskComments            ItProjectTaskComment[]          @relation("ItProjectTaskCommentAuthor")
-  itProjectTaskAssignments         ItProjectTaskAssignee[]         @relation("ItProjectTaskAssigneeUser")
-  itProjectMemberships             ItProjectMember[]               @relation("ItProjectMembership")
-  // QA CRM standalone workspace. Same back-relation
+  itProjectsOwned         ItProject[]          @relation("ItProjectOwner")
+  itProjectTasksOwned     ItProjectTask[]      @relation("ItProjectTaskOwner")
+  itProjectTaskComments   ItProjectTaskComment[] @relation("ItProjectTaskCommentAuthor")
+  itProjectTaskAssignments ItProjectTaskAssignee[] @relation("ItProjectTaskAssigneeUser")
+  itProjectMemberships    ItProjectMember[]    @relation("ItProjectMembership")
+  // QA CRM standalone workspace (2026-05-26). Same back-relation
   // shape as IT/Partner; task model extends with QA template fields.
-  qaProjectsOwned                  QaProject[]                     @relation("QaProjectOwner")
-  qaProjectTasksOwned              QaProjectTask[]                 @relation("QaProjectTaskOwner")
-  qaProjectTaskComments            QaProjectTaskComment[]          @relation("QaProjectTaskCommentAuthor")
-  qaProjectTaskAssignments         QaProjectTaskAssignee[]         @relation("QaProjectTaskAssigneeUser")
-  qaProjectMemberships             QaProjectMember[]               @relation("QaProjectMembership")
-  // Legal CRM standalone workspace. Mirrors the IT/QA
+  qaProjectsOwned         QaProject[]          @relation("QaProjectOwner")
+  qaProjectTasksOwned     QaProjectTask[]      @relation("QaProjectTaskOwner")
+  qaProjectTaskComments   QaProjectTaskComment[] @relation("QaProjectTaskCommentAuthor")
+  qaProjectTaskAssignments QaProjectTaskAssignee[] @relation("QaProjectTaskAssigneeUser")
+  qaProjectMemberships    QaProjectMember[]    @relation("QaProjectMembership")
+  // Legal CRM standalone workspace (2026-05-26). Mirrors the IT/QA
   // shape with `workstream` + `details` carried on the project row.
-  legalProjectsOwned               LegalProject[]                  @relation("LegalProjectOwner")
-  legalProjectTasksOwned           LegalProjectTask[]              @relation("LegalProjectTaskOwner")
-  legalProjectTaskComments         LegalProjectTaskComment[]       @relation("LegalProjectTaskCommentAuthor")
-  legalProjectTaskAssignments      LegalProjectTaskAssignee[]      @relation("LegalProjectTaskAssigneeUser")
-  legalProjectMemberships          LegalProjectMember[]            @relation("LegalProjectMembership")
+  legalProjectsOwned         LegalProject[]            @relation("LegalProjectOwner")
+  legalProjectTasksOwned     LegalProjectTask[]        @relation("LegalProjectTaskOwner")
+  legalProjectTaskComments   LegalProjectTaskComment[] @relation("LegalProjectTaskCommentAuthor")
+  legalProjectTaskAssignments LegalProjectTaskAssignee[] @relation("LegalProjectTaskAssigneeUser")
+  legalProjectMemberships    LegalProjectMember[]      @relation("LegalProjectMembership")
   // Accounting CRM standalone workspace. Mirrors Legal with workstream
   // + details on the project row.
-  accountingProjectsOwned          AccountingProject[]             @relation("AccountingProjectOwner")
-  accountingProjectTasksOwned      AccountingProjectTask[]         @relation("AccountingProjectTaskOwner")
-  accountingProjectTaskComments    AccountingProjectTaskComment[]  @relation("AccountingProjectTaskCommentAuthor")
+  accountingProjectsOwned         AccountingProject[]            @relation("AccountingProjectOwner")
+  accountingProjectTasksOwned     AccountingProjectTask[]        @relation("AccountingProjectTaskOwner")
+  accountingProjectTaskComments   AccountingProjectTaskComment[] @relation("AccountingProjectTaskCommentAuthor")
   accountingProjectTaskAssignments AccountingProjectTaskAssignee[] @relation("AccountingProjectTaskAssigneeUser")
-  accountingProjectMemberships     AccountingProjectMember[]       @relation("AccountingProjectMembership")
-  // Product CRM standalone workspace. Same back-relation
+  accountingProjectMemberships    AccountingProjectMember[]      @relation("AccountingProjectMembership")
+  // Product CRM standalone workspace (2026-05-26). Same back-relation
   // shape as IT/QA — standard Project workspace fields only.
-  productProjectsOwned             ProductProject[]                @relation("ProductProjectOwner")
-  productProjectTasksOwned         ProductProjectTask[]            @relation("ProductProjectTaskOwner")
-  productProjectTaskComments       ProductProjectTaskComment[]     @relation("ProductProjectTaskCommentAuthor")
-  productProjectTaskAssignments    ProductProjectTaskAssignee[]    @relation("ProductProjectTaskAssigneeUser")
-  productProjectMemberships        ProductProjectMember[]          @relation("ProductProjectMembership")
-  tasksOwned                       ProjectTask[]
-  projectTaskComments              ProjectTaskComment[]            @relation("ProjectTaskCommentAuthor")
-  projectTaskActivities            ProjectTaskActivity[]           @relation("ProjectTaskActivityActor")
-  visaEventLogs                    VisaEventLog[]                  @relation("VisaEventLogActor")
-  visaKnowledgeArticles            VisaKnowledgeArticle[]          @relation("VisaKnowledgeArticleAuthor")
-  projectMemberships               ProjectMember[]
-  projectMilestonesOwned           ProjectMilestone[]              @relation("ProjectMilestoneOwner")
-  projectTaskAssignments           ProjectTaskAssignee[]           @relation("ProjectTaskAssigneeUser")
-  projectTaskResources             ProjectTaskResource[]           @relation("ProjectTaskResourceCreator")
-  dealsOwned                       Deal[]
-  wallPostsAuthored                WallPost[]
-  wallCommentsAuthored             WallComment[]
-  newsAuthored                     CompanyNews[]
-  companyDatesAdded                CompanyDate[]
-  investorsAdded                   Investor[]
-  investorUpdatesCreated           InvestorUpdate[]
-  dataRoomDocsUploaded             DataRoomDocument[]
-  leaveBalances                    LeaveBalance[]
-  balanceTransactions              BalanceTransaction[]
-  leaveRequestsSubmitted           LeaveRequest[]                  @relation("LeaveRequestEmployee")
-  leaveRequestsApproved            LeaveRequest[]                  @relation("LeaveRequestApprover")
-  leaveRequestsDelegated           LeaveRequest[]                  @relation("LeaveRequestDelegate")
-  leavePolicyApprovers             LeavePolicyApprover[]           @relation("LeavePolicyApproverUser")
-  payslips                         Payslip[]
-  consultantInvoices               ConsultantInvoice[]
-  esopGrants                       EsopGrant[]
-  onboardingRuns                   OnboardingRun[]
-  offboardingRuns                  OffboardingRun[]
-  attendanceRecords                AttendanceRecord[]              @relation("AttendanceRecordEmployee")
-  attendanceAuditAsEmployee        AttendanceAuditLog[]            @relation("AttendanceAuditEmployee")
-  attendanceAuditAsActor           AttendanceAuditLog[]            @relation("AttendanceAuditActor")
-  attendanceCorrections            AttendanceCorrection[]          @relation("AttendanceCorrectionEmployee")
-  attendanceCorrectionsApproved    AttendanceCorrection[]          @relation("AttendanceCorrectionApprover")
-  attendanceEmployeeShifts         AttendanceEmployeeShift[]       @relation("AttendanceEmployeeShiftUser")
-  attendanceExceptions             AttendanceException[]           @relation("AttendanceExceptionEmployee")
-  attendanceExceptionsApproved     AttendanceException[]           @relation("AttendanceExceptionApprover")
-  employeeAgreements               EmployeeAgreement[]             @relation("EmployeeAgreementOwner")
-  employeeAgreementsUploaded       EmployeeAgreement[]             @relation("EmployeeAgreementUploader")
-  trainingCompletions              TrainingCompletion[]
-  visaRecords                      VisaRecord[]
-  ninetyDayNotifications           NinetyDayNotification[]
-  benefitEnrollments               BenefitEnrollment[]
-  deskBookings                     DeskBooking[]
-  roomBookings                     RoomBooking[]
-  assetsAssigned                   Asset[]
-  voucherEntriesCreated            VoucherEntry[]                  @relation("VoucherEntryCreator")
-  travelRequestsSubmitted          TravelRequest[]                 @relation("TravelRequestEmployee")
-  travelRequestsApproved           TravelRequest[]                 @relation("TravelRequestApprover")
-  travelRequestsDelegated          TravelRequest[]                 @relation("TravelRequestDelegate")
-  payrollApprovalSteps             PayrollApprovalStep[]           @relation("PayrollApprovalStepApprover")
-  travelApprovalSteps              TravelApprovalStep[]            @relation("TravelApprovalStepUser")
-  travelApprovalDecisions          TravelApprovalDecision[]        @relation("TravelApprovalDecisionApprover")
-  travelApprovalDecisionsMade      TravelApprovalDecision[]        @relation("TravelApprovalDecisionDecidedBy")
-  cashAdvancesSubmitted            CashAdvanceRequest[]            @relation("CashAdvanceRequestEmployee")
-  cashAdvancesApproved             CashAdvanceRequest[]            @relation("CashAdvanceRequestApprover")
-  cashAdvanceApprovalSteps         CashAdvanceApprovalStep[]       @relation("CashAdvanceApprovalStepUser")
-  cashAdvanceDecisionsApprover     CashAdvanceApprovalDecision[]   @relation("CashAdvanceApprovalDecisionApprover")
-  cashAdvanceDecisionsDecided      CashAdvanceApprovalDecision[]   @relation("CashAdvanceApprovalDecisionDecidedBy")
-  expensesSubmitted                Expense[]                       @relation("ExpenseEmployee")
-  expensesApproved                 Expense[]                       @relation("ExpenseApprover")
-  expenseReportsSubmitted          ExpenseReport[]                 @relation("ExpenseReportEmployee")
-  expenseReportsApproved           ExpenseReport[]                 @relation("ExpenseReportApprover")
-  expenseApprovalSteps             ExpenseApprovalStep[]           @relation("ExpenseApprovalStepUser")
-  expenseApprovalDecisions         ExpenseApprovalDecision[]       @relation("ExpenseApprovalDecisionApprover")
-  expenseApprovalDecisionsMade     ExpenseApprovalDecision[]       @relation("ExpenseApprovalDecisionDecidedBy")
-  leaveApprovalSteps               LeaveApprovalStep[]             @relation("LeaveApprovalStepUser")
-  leaveApprovalDecisions           LeaveApprovalDecision[]         @relation("LeaveApprovalDecisionApprover")
-  leaveApprovalDecisionsMade       LeaveApprovalDecision[]         @relation("LeaveApprovalDecisionDecidedBy")
-  companyPoliciesUploaded          CompanyPolicy[]                 @relation("CompanyPolicyUploader")
-  surveyFormsCreated               SurveyForm[]                    @relation("SurveyFormCreator")
-  surveyFormResponses              SurveyFormResponse[]            @relation("SurveyFormRespondent")
-  surveysCreated                   Survey[]                        @relation("SurveyCreator")
-  surveyResponsesGiven             SurveyResponse[]                @relation("SurveyRespondent")
-  journalsCreated                  JournalEntry[]                  @relation("JournalCreator")
-  journalsApproved                 JournalEntry[]                  @relation("JournalApprover")
-  payrollRunsCreated               PayrollRun[]                    @relation("PayrollRunner")
-  payrollRunsApproved              PayrollRun[]                    @relation("PayrollApprover")
-  auditLogs                        AuditLog[]
-  authLogs                         AuthLog[]                       @relation("AuthLogTarget")
-  moduleOwnerships                 ModuleOwner[]
-  moduleAccessGrants               ModuleAccess[]                  @relation("ModuleAccessUser")
-  moduleAccessGrantedBy            ModuleAccess[]                  @relation("ModuleAccessGranter")
-  blogsAuthored                    Blog[]
-  articlesAuthored                 Article[]
-  wikiPagesCreated                 WikiPage[]                      @relation("WikiPageCreator")
-  wikiPagesUpdated                 WikiPage[]                      @relation("WikiPageUpdater")
-  wikiPageVersionsCreated          WikiPageVersion[]               @relation("WikiPageVersionCreator")
-  wikiPagePermissions              WikiPagePermission[]            @relation("WikiPagePermissionUser")
-  appraisalCyclesCreated           AppraisalCycle[]                @relation("AppraisalCycleCreator")
-  appraisalsAsEmployee             Appraisal[]                     @relation("AppraisalEmployee")
-  appraisalsAsManager              Appraisal[]                     @relation("AppraisalManager")
-  appraisalComments                AppraisalComment[]              @relation("AppraisalCommentAuthor")
-  appraisalRatings                 AppraisalRating[]               @relation("AppraisalRatingRater")
-  userGroupsCreated                UserGroup[]                     @relation("UserGroupCreator")
-  userGroupMemberships             UserGroupMember[]
-  googleConnection                 UserGoogleConnection?
-  // Sales CRM back-relations.
+  productProjectsOwned         ProductProject[]            @relation("ProductProjectOwner")
+  productProjectTasksOwned     ProductProjectTask[]        @relation("ProductProjectTaskOwner")
+  productProjectTaskComments   ProductProjectTaskComment[] @relation("ProductProjectTaskCommentAuthor")
+  productProjectTaskAssignments ProductProjectTaskAssignee[] @relation("ProductProjectTaskAssigneeUser")
+  productProjectMemberships    ProductProjectMember[]      @relation("ProductProjectMembership")
+  tasksOwned              ProjectTask[]
+  projectTaskComments     ProjectTaskComment[] @relation("ProjectTaskCommentAuthor")
+  projectTaskActivities   ProjectTaskActivity[] @relation("ProjectTaskActivityActor")
+  visaEventLogs           VisaEventLog[]        @relation("VisaEventLogActor")
+  visaKnowledgeArticles   VisaKnowledgeArticle[] @relation("VisaKnowledgeArticleAuthor")
+  projectMemberships      ProjectMember[]
+  projectMilestonesOwned  ProjectMilestone[]   @relation("ProjectMilestoneOwner")
+  projectTaskAssignments  ProjectTaskAssignee[] @relation("ProjectTaskAssigneeUser")
+  projectTaskResources    ProjectTaskResource[] @relation("ProjectTaskResourceCreator")
+  dealsOwned              Deal[]
+  wallPostsAuthored       WallPost[]
+  wallCommentsAuthored    WallComment[]
+  newsAuthored            CompanyNews[]
+  companyDatesAdded       CompanyDate[]
+  investorsAdded          Investor[]
+  investorUpdatesCreated  InvestorUpdate[]
+  dataRoomDocsUploaded    DataRoomDocument[]
+  leaveBalances           LeaveBalance[]
+  balanceTransactions     BalanceTransaction[]
+  leaveRequestsSubmitted  LeaveRequest[] @relation("LeaveRequestEmployee")
+  leaveRequestsApproved   LeaveRequest[] @relation("LeaveRequestApprover")
+  leaveRequestsDelegated  LeaveRequest[] @relation("LeaveRequestDelegate")
+  leavePolicyApprovers    LeavePolicyApprover[] @relation("LeavePolicyApproverUser")
+  payslips                Payslip[]
+  consultantInvoices      ConsultantInvoice[]
+  esopGrants              EsopGrant[]
+  onboardingRuns          OnboardingRun[]
+  offboardingRuns         OffboardingRun[]
+  attendanceRecords            AttendanceRecord[]       @relation("AttendanceRecordEmployee")
+  attendanceAuditAsEmployee    AttendanceAuditLog[]     @relation("AttendanceAuditEmployee")
+  attendanceAuditAsActor       AttendanceAuditLog[]     @relation("AttendanceAuditActor")
+  attendanceCorrections        AttendanceCorrection[]   @relation("AttendanceCorrectionEmployee")
+  attendanceCorrectionsApproved AttendanceCorrection[]  @relation("AttendanceCorrectionApprover")
+  attendanceEmployeeShifts     AttendanceEmployeeShift[] @relation("AttendanceEmployeeShiftUser")
+  attendanceExceptions         AttendanceException[]    @relation("AttendanceExceptionEmployee")
+  attendanceExceptionsApproved AttendanceException[]    @relation("AttendanceExceptionApprover")
+  employeeAgreements      EmployeeAgreement[] @relation("EmployeeAgreementOwner")
+  employeeAgreementsUploaded EmployeeAgreement[] @relation("EmployeeAgreementUploader")
+  trainingCompletions     TrainingCompletion[]
+  visaRecords             VisaRecord[]
+  ninetyDayNotifications  NinetyDayNotification[]
+  benefitEnrollments      BenefitEnrollment[]
+  deskBookings            DeskBooking[]
+  roomBookings            RoomBooking[]
+  assetsAssigned          Asset[]
+  voucherEntriesCreated   VoucherEntry[]  @relation("VoucherEntryCreator")
+  marketingCampaigns      MarketingCampaign[] @relation("MarketingCampaignCreator")
+  travelRequestsSubmitted TravelRequest[] @relation("TravelRequestEmployee")
+  travelRequestsApproved  TravelRequest[] @relation("TravelRequestApprover")
+  travelRequestsDelegated TravelRequest[] @relation("TravelRequestDelegate")
+  // Project CRM configurable chains (project requests + proposals) — see
+  // approval-chains.prisma. Distinct from the HR/Finance chains below, which
+  // keep their own tables.
+  approvalChainSteps         ApprovalChainStep[]      @relation("ApprovalChainStepApprover")
+  approvalChainDecisions     ApprovalChainDecision[]  @relation("ApprovalChainDecisionApprover")
+  approvalChainDecisionsMade ApprovalChainDecision[]  @relation("ApprovalChainDecisionDecidedBy")
+  payrollApprovalSteps       PayrollApprovalStep[]    @relation("PayrollApprovalStepApprover")
+  travelApprovalSteps        TravelApprovalStep[]     @relation("TravelApprovalStepUser")
+  travelApprovalDecisions    TravelApprovalDecision[] @relation("TravelApprovalDecisionApprover")
+  travelApprovalDecisionsMade TravelApprovalDecision[] @relation("TravelApprovalDecisionDecidedBy")
+  cashAdvancesSubmitted   CashAdvanceRequest[] @relation("CashAdvanceRequestEmployee")
+  cashAdvancesApproved    CashAdvanceRequest[] @relation("CashAdvanceRequestApprover")
+  cashAdvanceApprovalSteps     CashAdvanceApprovalStep[]     @relation("CashAdvanceApprovalStepUser")
+  cashAdvanceDecisionsApprover CashAdvanceApprovalDecision[] @relation("CashAdvanceApprovalDecisionApprover")
+  cashAdvanceDecisionsDecided  CashAdvanceApprovalDecision[] @relation("CashAdvanceApprovalDecisionDecidedBy")
+  expensesSubmitted          Expense[]                 @relation("ExpenseEmployee")
+  expensesApproved           Expense[]                 @relation("ExpenseApprover")
+  expenseReportsSubmitted    ExpenseReport[]           @relation("ExpenseReportEmployee")
+  expenseReportsApproved     ExpenseReport[]           @relation("ExpenseReportApprover")
+  expenseApprovalSteps       ExpenseApprovalStep[]     @relation("ExpenseApprovalStepUser")
+  expenseApprovalDecisions   ExpenseApprovalDecision[] @relation("ExpenseApprovalDecisionApprover")
+  expenseApprovalDecisionsMade ExpenseApprovalDecision[] @relation("ExpenseApprovalDecisionDecidedBy")
+  leaveApprovalSteps           LeaveApprovalStep[]       @relation("LeaveApprovalStepUser")
+  leaveApprovalDecisions       LeaveApprovalDecision[]   @relation("LeaveApprovalDecisionApprover")
+  leaveApprovalDecisionsMade   LeaveApprovalDecision[]   @relation("LeaveApprovalDecisionDecidedBy")
+  companyPoliciesUploaded      CompanyPolicy[]           @relation("CompanyPolicyUploader")
+  surveyFormsCreated           SurveyForm[]              @relation("SurveyFormCreator")
+  surveyFormResponses          SurveyFormResponse[]      @relation("SurveyFormRespondent")
+  surveysCreated               Survey[]                  @relation("SurveyCreator")
+  surveyResponsesGiven         SurveyResponse[]          @relation("SurveyRespondent")
+  journalsCreated              JournalEntry[]            @relation("JournalCreator")
+  journalsApproved             JournalEntry[]            @relation("JournalApprover")
+  journalsRejected             JournalEntry[]            @relation("JournalRejector")
+  journalsCancelled            JournalEntry[]            @relation("JournalCanceller")
+  payrollRunsCreated           PayrollRun[]              @relation("PayrollRunner")
+  payrollRunsApproved          PayrollRun[]              @relation("PayrollApprover")
+  auditLogs                    AuditLog[]
+  authLogs                     AuthLog[]                 @relation("AuthLogTarget")
+  moduleOwnerships             ModuleOwner[]
+  moduleAccessGrants           ModuleAccess[]            @relation("ModuleAccessUser")
+  moduleAccessGrantedBy        ModuleAccess[]            @relation("ModuleAccessGranter")
+  ariaConversations            AriaConversation[]
+  ariaKnowledgeArticles        AriaKnowledgeArticle[]    @relation("AriaKnowledgeArticleAuthor")
+  ariaQueryLogs                AriaQueryLog[]
+  ariaFeedback                 AriaFeedback[]            @relation("AriaFeedbackAuthor")
+  ariaFeedbackReviewed         AriaFeedback[]            @relation("AriaFeedbackReviewer")
+  ariaAttachments              AriaAttachment[]          @relation("AriaAttachmentUploader")
+  ariaBriefSubscription        AriaBriefSubscription?
+  ariaBriefDeliveries          AriaBriefDelivery[]
+  blogsAuthored                Blog[]
+  articlesAuthored             Article[]
+  wikiPagesCreated             WikiPage[]                @relation("WikiPageCreator")
+  wikiPagesUpdated             WikiPage[]                @relation("WikiPageUpdater")
+  wikiPageVersionsCreated      WikiPageVersion[]         @relation("WikiPageVersionCreator")
+  wikiPagePermissions          WikiPagePermission[]      @relation("WikiPagePermissionUser")
+  appraisalCyclesCreated       AppraisalCycle[]          @relation("AppraisalCycleCreator")
+  appraisalsAsEmployee         Appraisal[]               @relation("AppraisalEmployee")
+  appraisalsAsManager          Appraisal[]               @relation("AppraisalManager")
+  appraisalComments            AppraisalComment[]        @relation("AppraisalCommentAuthor")
+  appraisalRatings             AppraisalRating[]         @relation("AppraisalRatingRater")
+  userGroupsCreated            UserGroup[]               @relation("UserGroupCreator")
+  userGroupMemberships         UserGroupMember[]
+  googleConnection             UserGoogleConnection?
+  // Sales CRM v2 (PRD #76, #84) — back-relations for the new CRM models.
   // The legacy `dealsOwned` above stays until the Phase 3 cutover.
-  crmAccountsOwned                 Account[]                       @relation("AccountOwner")
-  crmLeadsOwned                    Lead[]                          @relation("LeadOwner")
-  crmOpportunitiesOwned            Opportunity[]                   @relation("OpportunityOwner")
-  crmActivitiesOwned               CrmActivity[]                   @relation("CrmActivityOwner")
-  crmTasksOwned                    CrmTask[]                       @relation("CrmTaskOwner")
-  revenueAccountsOwned             RevenueAccount[]                @relation("RevenueAccountOwner")
-  revenueLeadsOwned                RevenueLead[]                   @relation("RevenueLeadOwner")
-  revenueOpportunitiesOwned        RevenueOpportunity[]            @relation("RevenueOpportunityOwner")
-  revenueActivitiesOwned           RevenueActivity[]               @relation("RevenueActivityOwner")
-  revenueTasksOwned                RevenueTask[]                   @relation("RevenueTaskOwner")
-  revenueSettingsUpdated           RevenueSettings[]               @relation("RevenueSettingsUpdater")
-  investorTasksOwned               InvestorTask[]                  @relation("InvestorTaskOwner")
-  investorActivitiesOwned          InvestorActivity[]              @relation("InvestorActivityOwner")
-  investorLeadsOwned               InvestorLead[]                  @relation("InvestorLeadOwner")
-  investorAccountsOwned            InvestorAccount[]               @relation("InvestorAccountOwner")
-  investorContactsOwned            InvestorContact[]               @relation("InvestorContactOwner")
-  legalDocuments                   LegalDocument[]                 @relation("LegalDocumentOwner")
-  legalSignaturesCreated           LegalSignature[]                @relation("LegalSignatureCreator")
-  legalDocAttachmentsUploaded      LegalDocumentAttachment[]       @relation("LegalDocAttachmentUploader")
-  legalDocSharesReceived           LegalDocumentShare[]            @relation("LegalDocumentShareUser")
-  legalDocSharesCreated            LegalDocumentShare[]            @relation("LegalDocumentShareCreator")
-  helpdeskTicketsCreated           HelpdeskTicket[]                @relation("HelpdeskTicketCreator")
-  helpdeskTicketsAssigned          HelpdeskTicket[]                @relation("HelpdeskTicketAssignee")
-  helpdeskCommentsAuthored         HelpdeskComment[]               @relation("HelpdeskCommentAuthor")
-  helpdeskSettingsUpdated          HelpdeskSettings[]              @relation("HelpdeskSettingsUpdater")
-  crmSettingsUpdated               CrmSettings[]                   @relation("CrmSettingsUpdater")
-  validatorNodeAlertsCreated       ValidatorNodeAlert[]            @relation("ValidatorNodeAlertCreator")
-  legalAnnouncementsAuthored       LegalAnnouncement[]             @relation("LegalAnnouncementAuthor")
-  legalAnnouncementAcks            LegalAnnouncementAck[]          @relation("LegalAnnouncementAcker")
-  certificatesReceived             Certificate[]                   @relation("CertificateRecipient")
-  certificatesIssued               Certificate[]                   @relation("CertificateIssuer")
+  crmAccountsOwned             Account[]                 @relation("AccountOwner")
+  crmLeadsOwned                Lead[]                    @relation("LeadOwner")
+  crmOpportunitiesOwned        Opportunity[]             @relation("OpportunityOwner")
+  crmActivitiesOwned           CrmActivity[]             @relation("CrmActivityOwner")
+  crmTasksOwned                CrmTask[]                 @relation("CrmTaskOwner")
+  revenueAccountsOwned         RevenueAccount[]          @relation("RevenueAccountOwner")
+  revenueLeadsOwned            RevenueLead[]             @relation("RevenueLeadOwner")
+  revenueOpportunitiesOwned    RevenueOpportunity[]      @relation("RevenueOpportunityOwner")
+  revenueActivitiesOwned       RevenueActivity[]         @relation("RevenueActivityOwner")
+  revenueTasksOwned            RevenueTask[]             @relation("RevenueTaskOwner")
+  revenueSettingsUpdated       RevenueSettings[]         @relation("RevenueSettingsUpdater")
+  investorTasksOwned           InvestorTask[]            @relation("InvestorTaskOwner")
+  investorActivitiesOwned      InvestorActivity[]        @relation("InvestorActivityOwner")
+  investorLeadsOwned           InvestorLead[]            @relation("InvestorLeadOwner")
+  investorAccountsOwned        InvestorAccount[]         @relation("InvestorAccountOwner")
+  investorContactsOwned        InvestorContact[]         @relation("InvestorContactOwner")
+  legalDocuments               LegalDocument[]           @relation("LegalDocumentOwner")
+  legalSignaturesCreated       LegalSignature[]          @relation("LegalSignatureCreator")
+  legalDocAttachmentsUploaded  LegalDocumentAttachment[] @relation("LegalDocAttachmentUploader")
+  legalDocSharesReceived       LegalDocumentShare[]      @relation("LegalDocumentShareUser")
+  legalDocSharesCreated        LegalDocumentShare[]      @relation("LegalDocumentShareCreator")
+  docusignConnection           UserDocusignConnection?   @relation("UserDocusignConnection")
+  helpdeskTicketsCreated       HelpdeskTicket[]          @relation("HelpdeskTicketCreator")
+  helpdeskTicketsAssigned      HelpdeskTicket[]          @relation("HelpdeskTicketAssignee")
+  helpdeskCommentsAuthored     HelpdeskComment[]         @relation("HelpdeskCommentAuthor")
+  helpdeskSettingsUpdated      HelpdeskSettings[]        @relation("HelpdeskSettingsUpdater")
+  crmSettingsUpdated           CrmSettings[]             @relation("CrmSettingsUpdater")
+  validatorNodeAlertsCreated   ValidatorNodeAlert[]      @relation("ValidatorNodeAlertCreator")
+  legalAnnouncementsAuthored   LegalAnnouncement[]       @relation("LegalAnnouncementAuthor")
+  legalAnnouncementAcks        LegalAnnouncementAck[]    @relation("LegalAnnouncementAcker")
+  certificatesReceived         Certificate[]            @relation("CertificateRecipient")
+  certificatesIssued           Certificate[]            @relation("CertificateIssuer")
   // IT Operations (IT Billing Monitoring + Access Management).
-  itVendorsCreated                 ItVendor[]                      @relation("ItVendorCreator")
-  itSubscriptionsOwned             ItSubscription[]                @relation("ItSubscriptionOwner")
-  itSubscriptionsCreated           ItSubscription[]                @relation("ItSubscriptionCreator")
-  itSubscriptionRenewalDecisions   ItSubscription[]                @relation("ItSubscriptionRenewalDecider")
-  itBillingRecordsCreated          ItBillingRecord[]               @relation("ItBillingRecordCreator")
-  itBillingAlertsAcked             ItBillingAlert[]                @relation("ItBillingAlertAck")
-  itAccessRequestsSubmitted        ItAccessRequest[]               @relation("ItAccessRequestEmployee")
-  itAccessRequestsGranted          ItAccessRequest[]               @relation("ItAccessRequestGrantedBy")
-  itAccessDecisionsApprover        ItAccessApprovalDecision[]      @relation("ItAccessDecisionApprover")
-  itAccessDecisionsDecided         ItAccessApprovalDecision[]      @relation("ItAccessDecisionDecidedBy")
-  itAccessAssignmentsHeld          ItAccessAssignment[]            @relation("ItAccessAssignmentEmployee")
-  itAccessAssignmentsGranted       ItAccessAssignment[]            @relation("ItAccessAssignmentGrantedBy")
-  itAccessAssignmentsRevoked       ItAccessAssignment[]            @relation("ItAccessAssignmentRevokedBy")
-  itAccessAuditAsActor             ItAccessAuditLog[]              @relation("ItAccessAuditActor")
-  itAccessAuditAsTarget            ItAccessAuditLog[]              @relation("ItAccessAuditTarget")
+  itVendorsCreated             ItVendor[]                @relation("ItVendorCreator")
+  itSubscriptionsOwned         ItSubscription[]          @relation("ItSubscriptionOwner")
+  itSubscriptionsCreated       ItSubscription[]          @relation("ItSubscriptionCreator")
+  itSubscriptionRenewalDecisions ItSubscription[]        @relation("ItSubscriptionRenewalDecider")
+  itBillingRecordsCreated      ItBillingRecord[]         @relation("ItBillingRecordCreator")
+  itBillingAlertsAcked         ItBillingAlert[]          @relation("ItBillingAlertAck")
+  itAccessRequestsSubmitted    ItAccessRequest[]         @relation("ItAccessRequestEmployee")
+  itAccessRequestsGranted      ItAccessRequest[]         @relation("ItAccessRequestGrantedBy")
+  itAccessDecisionsApprover    ItAccessApprovalDecision[] @relation("ItAccessDecisionApprover")
+  itAccessDecisionsDecided     ItAccessApprovalDecision[] @relation("ItAccessDecisionDecidedBy")
+  itAccessAssignmentsHeld      ItAccessAssignment[]      @relation("ItAccessAssignmentEmployee")
+  itAccessAssignmentsGranted   ItAccessAssignment[]      @relation("ItAccessAssignmentGrantedBy")
+  itAccessAssignmentsRevoked   ItAccessAssignment[]      @relation("ItAccessAssignmentRevokedBy")
+  itAccessAuditAsActor         ItAccessAuditLog[]        @relation("ItAccessAuditActor")
+  itAccessAuditAsTarget        ItAccessAuditLog[]        @relation("ItAccessAuditTarget")
   // Marketing CRM - Campaign CRM (Phase 2).
+  mktCampaignsOwned            MktCampaign[]             @relation("MktCampaignOwner")
+  mktCampaignsCreated          MktCampaign[]             @relation("MktCampaignCreator")
+  mktCreativesUploaded         MktCreative[]             @relation("MktCreativeUploader")
+  mktPredictionsUploaded       MktPrediction[]           @relation("MktPredictionUploader")
 
   @@index([entityId])
   @@index([email])
   @@index([isActive])
   @@index([deletedAt])
   @@map("users")
+}
+
+// Multi-company foundation (Accounting Phase-1, PRD Rule 7). Which
+// entities a user belongs to, plus an optional per-company role. This
+// table is ADDITIVE and DOES NOT participate in permission resolution —
+// `resolvePermissions` is unchanged. `roleId` is stored now and ENFORCED
+// in a later chunk (per-entity RBAC). The company switcher reads these
+// rows; switching writes `User.activeEntityId` after validating a matching
+// active membership exists.
+model UserEntityMembership {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id") @db.Uuid
+  entityId  String   @map("entity_id")
+  roleId    String?  @map("role_id") @db.Uuid
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entity Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  role   Role?   @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, entityId])
+  @@index([entityId])
+  @@map("user_entity_memberships")
 }
 
 model Session {
@@ -345,16 +429,16 @@ model AuthLog {
 }
 
 model Department {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String    @unique @db.VarChar(100)
-  code        String?   @unique @db.VarChar(20)
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  code        String?  @unique @db.VarChar(20)
   description String?
-  headId      String?   @map("head_id") @db.Uuid
-  parentId    String?   @map("parent_id") @db.Uuid
-  isActive    Boolean   @default(true) @map("is_active")
+  headId      String?  @map("head_id") @db.Uuid
+  parentId    String?  @map("parent_id") @db.Uuid
+  isActive    Boolean  @default(true) @map("is_active")
   deletedAt   DateTime? @map("deleted_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   parent   Department?  @relation("DepartmentParent", fields: [parentId], references: [id], onDelete: SetNull)
   children Department[] @relation("DepartmentParent")

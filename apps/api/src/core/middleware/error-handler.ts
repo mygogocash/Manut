@@ -4,7 +4,6 @@ import { ZodError } from "zod";
 
 import { HttpException } from "@/common/exceptions/http-exception";
 import { logger } from "@/common/utils/logger";
-import { redactSensitiveRequestPath } from "@/core/middleware/request-path";
 import { trackFormValidationFailed } from "@/lib/events";
 
 /** Prisma throws this class name; avoid importing @prisma/client in the API layer. */
@@ -65,10 +64,8 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ) {
-  const requestPath = redactSensitiveRequestPath(req.path);
-
   if (err instanceof ZodError) {
-    logger.warn(`${req.method} ${requestPath}`, {
+    logger.warn(`${req.method} ${req.path}`, {
       code: "VALIDATION_ERROR",
       issues: zodIssuesForLog(err),
     });
@@ -76,7 +73,7 @@ export function errorHandler(
       trackFormValidationFailed(
         { id: req.user.id, entityId: req.user.entityId },
         {
-          form: requestPath.replace(/^\/api\//, "").split("/")[0] ?? "unknown",
+          form: req.path.replace(/^\/api\//, "").split("/")[0] ?? "unknown",
           field_count: err.issues.length,
         },
       );
@@ -91,7 +88,7 @@ export function errorHandler(
   }
 
   if (err instanceof multer.MulterError) {
-    logger.warn(`${req.method} ${requestPath}`, {
+    logger.warn(`${req.method} ${req.path}`, {
       code: err.code,
       message: err.message,
     });
@@ -114,9 +111,9 @@ export function errorHandler(
   if (err instanceof HttpException) {
     const logPayload = { code: err.code, message: err.message };
     if (err.status >= 500) {
-      logger.error(`${req.method} ${requestPath}`, logPayload);
+      logger.error(`${req.method} ${req.path}`, logPayload);
     } else {
-      logger.warn(`${req.method} ${requestPath}`, logPayload);
+      logger.warn(`${req.method} ${req.path}`, logPayload);
     }
     return res.status(err.status).json({
       error: {
@@ -127,10 +124,26 @@ export function errorHandler(
     });
   }
 
+  if (
+    err.constructor.name === "PrismaClientInitializationError" ||
+    err.name === "PrismaClientInitializationError"
+  ) {
+    logger.error(`${req.method} ${req.path}`, {
+      code: "PRISMA_INIT",
+      message: err.message,
+    });
+    return res.status(503).json({
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "Database is unavailable",
+      },
+    });
+  }
+
   if (isPrismaClientKnownRequestError(err)) {
     const mapped = mapPrismaKnownRequestError(err);
     const logFn = mapped.status >= 500 ? logger.error : logger.warn;
-    logFn(`${req.method} ${requestPath}`, {
+    logFn(`${req.method} ${req.path}`, {
       prismaCode: err.code,
       message: err.message,
     });
@@ -142,7 +155,7 @@ export function errorHandler(
     });
   }
 
-  logger.error(`${req.method} ${requestPath}`, {
+  logger.error(`${req.method} ${req.path}`, {
     error: err.message,
     stack: err.stack,
   });

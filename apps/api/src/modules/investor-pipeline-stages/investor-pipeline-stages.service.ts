@@ -2,6 +2,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
+import { ensureCatalogSeeded } from "@/common/utils/lazy-catalog";
 import { investorPipelineStageRepository } from "@/modules/investor-pipeline-stages/investor-pipeline-stages.repository";
 import type {
   CreateInvestorStageInput,
@@ -19,9 +20,69 @@ function slugify(label: string): string {
     .slice(0, 60);
 }
 
+/**
+ * The pipeline board the product ships with. Also written by
+ * `20261003000000_investor_pipeline_stages`, whose INSERT only runs where
+ * `prisma migrate deploy` runs. On a `db:push`-synced database (staging, and
+ * local) the table is created empty, the board renders ZERO columns, and the
+ * module looks broken rather than unconfigured. `Investor.status` defaults to
+ * `investors`, which is the first key here, so seeding restores coherence
+ * between existing rows and the board.
+ */
+export const DEFAULT_INVESTOR_STAGES = [
+  {
+    key: "investors",
+    label: "Investors",
+    color: "border-t-zinc-500",
+    sortOrder: 0,
+  },
+  { key: "lead", label: "Lead", color: "border-t-slate-500", sortOrder: 1 },
+  {
+    key: "discovery_call",
+    label: "Discovery Call / Ongoing Communication",
+    color: "border-t-blue-500",
+    sortOrder: 2,
+  },
+  { key: "dd", label: "DD", color: "border-t-violet-500", sortOrder: 3 },
+  {
+    key: "verbal_commitment",
+    label: "Verbal Commitment",
+    color: "border-t-amber-500",
+    sortOrder: 4,
+  },
+  {
+    key: "agreement_signed",
+    label: "Agreement Signed",
+    color: "border-t-purple-500",
+    sortOrder: 5,
+  },
+  {
+    key: "funds_cleared",
+    label: "Funds Cleared",
+    color: "border-t-emerald-500",
+    sortOrder: 6,
+  },
+  {
+    key: "relationship_management",
+    label: "Relationship Management",
+    color: "border-t-teal-500",
+    sortOrder: 7,
+  },
+] as const;
+
+async function ensureSeeded() {
+  return ensureCatalogSeeded({
+    findAll: () => investorPipelineStageRepository.findAll(),
+    seed: () =>
+      investorPipelineStageRepository.createManyIfMissing(
+        DEFAULT_INVESTOR_STAGES.map((r) => ({ ...r })),
+      ),
+  });
+}
+
 export class InvestorPipelineStageService {
   async list() {
-    return investorPipelineStageRepository.findAll();
+    return ensureSeeded();
   }
 
   async create(input: CreateInvestorStageInput) {

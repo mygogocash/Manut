@@ -16,6 +16,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Archive,
+  ArchiveRestore,
+  BellRing,
   Download,
   Edit,
   Eye,
@@ -47,11 +50,13 @@ import {
 } from "@/components/accounting-crm/accounting-status";
 import { Badge } from "@/components/shared/badge";
 import { CrmImportDialog } from "@/components/shared/crm-import-dialog";
+import { CrmReminderSettingsDialog } from "@/components/shared/crm-reminder-settings-dialog";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { ExpandableText } from "@/components/shared/expandable-text";
 import { PageHeader } from "@/components/shared/page-header";
 import { PermissionButton } from "@/components/shared/permission-button";
 import { SortableColumnHead } from "@/components/shared/sortable-column-head";
+import { Tabs } from "@/components/shared/tabs";
 import { useColumnOrder } from "@/components/shared/use-column-order";
 import { useColumnWidths } from "@/components/shared/use-column-widths";
 import {
@@ -96,12 +101,18 @@ import { type ExportFormat, exportRows } from "@/lib/crm-export";
 import { useAuth } from "@/providers/auth-provider";
 import {
   type AccountingProject,
+  archiveAccountingProject,
   type CreateAccountingProjectInput,
   deleteAccountingProject,
   importAccountingProjects,
   listAccountingProjects,
   reorderAccountingProjects,
+  unarchiveAccountingProject,
 } from "@/services/accounting-crm.service";
+import {
+  getCrmReminderSettings,
+  updateCrmReminderSettings,
+} from "@/services/crm-reminder-settings.service";
 import {
   type AssignableUser,
   listAssignableUsers,
@@ -113,7 +124,7 @@ import {
 // it into a `CreateAccountingProjectInput` per row.
 type AccountingImportRow = {
   workstream?: string;
-  name?: string; // "Accounting Task" cell — optional in imported rows
+  name?: string; // "Accounting Task" cell — often blank in real data
   owner?: string;
   date?: string;
   dependency?: string;
@@ -122,7 +133,7 @@ type AccountingImportRow = {
   priority?: string;
 };
 
-// Imports can contain dates in several human formats — try them in
+// Source xlsx ships dates in several human formats — try them in
 // order and skip anything we can't pin to a real day so a row with
 // "TBD" still imports (just without a date).
 function parseAccountingDate(raw: string | null | undefined): string | null {
@@ -234,6 +245,13 @@ export function AccountingCrmList() {
     "projects:delete",
     "projects:manage",
   );
+  // The org-wide reminder-recipients setting is manage-only on the backend —
+  // gate its button/dialog on the same level so an update-only holder isn't
+  // shown a control that would 403 on save.
+  const canManageSettings = hasAnyPermission(
+    "accounting-crm:manage",
+    "projects:manage",
+  );
 
   const [projects, setProjects] = useState<AccountingProject[]>([]);
   const [users, setUsers] = useState<AssignableUser[]>([]);
@@ -242,6 +260,9 @@ export function AccountingCrmList() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 350);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  // Active | Archived view. Archived is orthogonal to the status filter — it
+  // shows projects that were archived regardless of their status.
+  const [archived, setArchived] = useState(false);
 
   const pagination = usePagination();
   const { page, pageSize, setPage, setPageSize, setTotalCount, totalPages } =
@@ -254,12 +275,25 @@ export function AccountingCrmList() {
   );
   const [deleting, setDeleting] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   // List (table) vs Board (kanban grouped by status). The board fetches
   // its own snapshot; `boardRefreshKey` bumps after a save/delete so it
   // reloads in step with the table.
   const [view, setView] = useState<"list" | "board">("list");
   const [boardRefreshKey, setBoardRefreshKey] = useState(0);
+
+  // Stable load/save fns for the shared reminder-settings dialog —
+  // it keys its load-on-open effect on `load`.
+  const loadReminderSettings = useCallback(
+    async () => (await getCrmReminderSettings("accounting")).data,
+    [],
+  );
+  const saveReminderSettings = useCallback(
+    async (recipients: string[]) =>
+      (await updateCrmReminderSettings("accounting", recipients)).data,
+    [],
+  );
 
   const { colOrder, isColumnId, reorderColumns } = useColumnOrder(
     ACCT_COL_STORAGE_KEY,
@@ -273,8 +307,8 @@ export function AccountingCrmList() {
   // Drag-to-reorder is disabled while a filter / search is active so a
   // partial view can't corrupt the global ordering.
   const reorderEnabled = useMemo(
-    () => !debouncedSearch.trim() && !statusFilter && !loading,
-    [debouncedSearch, statusFilter, loading],
+    () => !debouncedSearch.trim() && !statusFilter && !archived && !loading,
+    [debouncedSearch, statusFilter, archived, loading],
   );
   const prePersistOrder = useRef<AccountingProject[] | null>(null);
 
@@ -286,6 +320,7 @@ export function AccountingCrmList() {
         limit: pageSize,
         search: debouncedSearch || undefined,
         status: statusFilter || undefined,
+        archived: archived || undefined,
       });
       setProjects(res.data);
       setTotalCount(res.meta.total);
@@ -298,7 +333,7 @@ export function AccountingCrmList() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, debouncedSearch, statusFilter, setTotalCount]);
+  }, [page, pageSize, debouncedSearch, statusFilter, archived, setTotalCount]);
 
   useEffect(() => {
     void fetchProjects();
@@ -306,7 +341,7 @@ export function AccountingCrmList() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, setPage]);
+  }, [debouncedSearch, statusFilter, archived, setPage]);
 
   // Owner picker — lean list via `/directory/assignable` (auth-only).
   useEffect(() => {
@@ -379,7 +414,9 @@ export function AccountingCrmList() {
     (saved: AccountingProject) => {
       if (editing) {
         setProjects((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
-      } else {
+      } else if (!archived) {
+        // A newly created project is active — it belongs to the Active view
+        // only. On the Archived tab, skip the optimistic insert + count bump.
         setTotalCount((c) => c + 1);
         if (page === 1) {
           setProjects((prev) => {
@@ -391,7 +428,7 @@ export function AccountingCrmList() {
       // Keep the board's own snapshot in sync after a create/edit.
       setBoardRefreshKey((k) => k + 1);
     },
-    [editing, page, pageSize, setTotalCount],
+    [editing, archived, page, pageSize, setTotalCount],
   );
 
   const handleExport = useCallback(
@@ -403,6 +440,7 @@ export function AccountingCrmList() {
           limit: 500,
           search: debouncedSearch || undefined,
           status: statusFilter || undefined,
+          archived: archived || undefined,
         });
         if (res.data.length === 0) {
           toast.error("Nothing to export");
@@ -452,7 +490,7 @@ export function AccountingCrmList() {
         setExporting(false);
       }
     },
-    [debouncedSearch, statusFilter],
+    [debouncedSearch, statusFilter, archived],
   );
 
   async function confirmDelete() {
@@ -473,6 +511,44 @@ export function AccountingCrmList() {
       setDeleting(false);
     }
   }
+
+  // Archive / restore. The current view (active vs archived) is the opposite
+  // of the row's new state, so the row leaves the current list either way —
+  // drop it optimistically and adjust the total. Bump the board snapshot key
+  // so the Kanban view drops the row in step, same as delete.
+  const handleArchive = useCallback(
+    async (p: AccountingProject) => {
+      try {
+        await archiveAccountingProject(p.id);
+        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        setBoardRefreshKey((k) => k + 1);
+        toast.success("Accounting Task archived");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to archive project",
+        );
+      }
+    },
+    [setTotalCount],
+  );
+
+  const handleUnarchive = useCallback(
+    async (p: AccountingProject) => {
+      try {
+        await unarchiveAccountingProject(p.id);
+        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        setBoardRefreshKey((k) => k + 1);
+        toast.success("Accounting Task restored");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to restore project",
+        );
+      }
+    },
+    [setTotalCount],
+  );
 
   const skeletonRows = useMemo(
     () => Array.from({ length: 6 }, (_, i) => i),
@@ -502,6 +578,16 @@ export function AccountingCrmList() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          {canManageSettings ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReminderOpen(true)}
+            >
+              <BellRing className="size-3.5" />
+              Reminders
+            </Button>
+          ) : null}
           <PermissionButton
             variant="outline"
             permission="accounting-crm:create"
@@ -548,6 +634,15 @@ export function AccountingCrmList() {
         />
       ) : (
         <>
+          <Tabs
+            tabs={[
+              { id: "active", label: "Active" },
+              { id: "archived", label: "Archived" },
+            ]}
+            active={archived ? "archived" : "active"}
+            onChange={(v) => setArchived(v === "archived")}
+          />
+
           <div className="mb-4 flex items-center gap-3">
             <div className="relative max-w-sm flex-1">
               <Search
@@ -581,9 +676,12 @@ export function AccountingCrmList() {
             </Select>
           </div>
 
-          {!reorderEnabled && (debouncedSearch.trim() || statusFilter) ? (
+          {!reorderEnabled &&
+          (debouncedSearch.trim() || statusFilter || archived) ? (
             <p className="text-muted-foreground mb-2 text-[11px]">
-              Drag-to-reorder is disabled while a filter or search is active.
+              {archived
+                ? "Drag-to-reorder is disabled in the Archived view."
+                : "Drag-to-reorder is disabled while a filter or search is active."}
             </p>
           ) : null}
 
@@ -593,7 +691,7 @@ export function AccountingCrmList() {
               // drag-to-resize (Notion-style).
               className="table-fixed"
               containerClassName={`
-            max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
+            max-h-[60svh] md:max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
           `}
             >
               <TableHeader className="bg-background sticky top-0 z-10">
@@ -653,12 +751,15 @@ export function AccountingCrmList() {
                         canDrag={reorderEnabled}
                         canManageRow={p.ownerId === user?.id || canManageAny}
                         canDelete={canDeleteAny}
+                        isArchivedView={archived}
                         // Row click opens the workstream's Kanban board on
                         // the shared /projects page (accounting projects are
                         // mirrored there as team='accounting'); the kebab "Edit"
                         // still opens the field dialog.
                         onView={() => openBoard(p)}
                         onEdit={() => handleEdit(p)}
+                        onArchive={() => void handleArchive(p)}
+                        onUnarchive={() => void handleUnarchive(p)}
                         onDelete={() => setDeleteTarget(p)}
                       />
                     ))}
@@ -689,6 +790,15 @@ export function AccountingCrmList() {
         onSaved={handleSaved}
       />
 
+      {canManageSettings ? (
+        <CrmReminderSettingsDialog
+          open={reminderOpen}
+          onOpenChange={setReminderOpen}
+          load={loadReminderSettings}
+          save={saveReminderSettings}
+        />
+      ) : null}
+
       <CrmImportDialog<AccountingImportRow>
         open={importOpen}
         onOpenChange={setImportOpen}
@@ -697,7 +807,7 @@ export function AccountingCrmList() {
         entityLabel="tasks"
         templateName="accounting-crm-import-template"
         fields={[
-          // Workstream is the imported row identity
+          // Workstream is the row identity in the team's source xlsx
           // — every real row has it, while the "Accounting Task" cell is
           // often left blank. Marking it required (instead of name)
           // matches the real shape and stops the dialog rejecting
@@ -718,7 +828,7 @@ export function AccountingCrmList() {
         ]}
         submit={async (rows) => {
           // Owner is intentionally not threaded through: the xlsx
-          // ships free-text names ("Alex/Jordan") and the API takes an
+          // ships free-text names ("Maysa/Kit") and the API takes an
           // ownerId. Rows import owner-less and get re-assigned via
           // the UI after import.
           const payload: CreateAccountingProjectInput[] = rows.map((r) => {
@@ -777,8 +887,11 @@ function SortableItRow({
   canDrag,
   canManageRow,
   canDelete,
+  isArchivedView,
   onView,
   onEdit,
+  onArchive,
+  onUnarchive,
   onDelete,
 }: {
   project: AccountingProject;
@@ -787,8 +900,11 @@ function SortableItRow({
   canDrag: boolean;
   canManageRow: boolean;
   canDelete: boolean;
+  isArchivedView: boolean;
   onView: () => void;
   onEdit: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
   onDelete: () => void;
 }) {
   const {
@@ -949,6 +1065,19 @@ function SortableItRow({
                 <Edit className="size-3.5" />
                 Edit
               </DropdownMenuItem>
+            ) : null}
+            {canManageRow ? (
+              isArchivedView ? (
+                <DropdownMenuItem onClick={onUnarchive}>
+                  <ArchiveRestore className="size-3.5" />
+                  Restore
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={onArchive}>
+                  <Archive className="size-3.5" />
+                  Archive
+                </DropdownMenuItem>
+              )
             ) : null}
             {canDelete ? (
               <>

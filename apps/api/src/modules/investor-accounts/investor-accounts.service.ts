@@ -1,5 +1,6 @@
 import { PERMISSIONS } from "@/common/constants/permissions";
 import { NotFoundException } from "@/common/exceptions/http-exception";
+import { resolveFundraisingEntityKey } from "@/modules/fundraising-entities/fundraising-entities.service";
 import { investorAccountRepository } from "@/modules/investor-accounts/investor-accounts.repository";
 import type {
   CreateInvestorAccountInput,
@@ -41,6 +42,9 @@ export class InvestorAccountService {
   }
 
   async create(ownerId: string, input: CreateInvestorAccountInput) {
+    const fundraisingEntity = await resolveFundraisingEntityKey(
+      input.fundraisingEntity,
+    );
     return investorAccountRepository.create({
       name: input.name,
       type: input.type ?? null,
@@ -48,6 +52,7 @@ export class InvestorAccountService {
       location: input.location ?? null,
       region: input.region ?? null,
       notes: input.notes ?? null,
+      fundraisingEntity,
       owner: { connect: { id: ownerId } },
     });
   }
@@ -66,12 +71,32 @@ export class InvestorAccountService {
       ...(input.location !== undefined && { location: input.location }),
       ...(input.region !== undefined && { region: input.region }),
       ...(input.notes !== undefined && { notes: input.notes }),
+      ...(input.fundraisingEntity !== undefined && {
+        fundraisingEntity: await resolveFundraisingEntityKey(
+          input.fundraisingEntity,
+        ),
+      }),
     });
   }
 
   async delete(id: string, userId: string, permissions: string[]) {
     await this.getById(id, userId, permissions);
     return investorAccountRepository.delete(id);
+  }
+
+  // Reversible archive — orthogonal to the record's other fields. Reuses the
+  // owner-or-read-all guard in getById; preserves an existing archivedAt so a
+  // re-archive doesn't reset the timestamp.
+  async archive(id: string, userId: string, permissions: string[]) {
+    const existing = await this.getById(id, userId, permissions);
+    return investorAccountRepository.update(id, {
+      archivedAt: existing.archivedAt ?? new Date(),
+    });
+  }
+
+  async unarchive(id: string, userId: string, permissions: string[]) {
+    await this.getById(id, userId, permissions);
+    return investorAccountRepository.update(id, { archivedAt: null });
   }
 }
 

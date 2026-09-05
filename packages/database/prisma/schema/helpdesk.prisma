@@ -7,47 +7,47 @@
 /// reveal ordering, and so we can hand out the id without leaking the
 /// total ticket count.
 model HelpdeskTicket {
-  id                String    @id @default(uuid()) @db.Uuid
-  ticketNumber      Int       @unique @default(autoincrement()) @map("ticket_number")
-  title             String    @db.VarChar(200)
-  description       String
+  id             String    @id @default(uuid()) @db.Uuid
+  ticketNumber   Int       @unique @default(autoincrement()) @map("ticket_number")
+  title          String    @db.VarChar(200)
+  description    String
   /// 'account-access' | 'software-access' | 'hardware' | 'network'
   /// | 'file-drive' | 'security' | 'procurement' | 'other'
-  category          String    @default("other")
+  category       String    @default("other")
   /// 'low' | 'medium' | 'high' | 'urgent'
-  priority          String    @default("medium")
+  priority       String    @default("medium")
   /// 'open' | 'in-progress' | 'review' | 'resolved' | 'closed'
   /// `review` = work done by IT, awaiting requester confirmation before
   /// the ticket flips to `resolved` / `closed`.
-  status            String    @default("open")
-  createdById       String    @map("created_by") @db.Uuid
-  assigneeId        String?   @map("assignee_id") @db.Uuid
-  resolutionNote    String?   @map("resolution_note")
-  resolvedAt        DateTime? @map("resolved_at")
-  closedAt          DateTime? @map("closed_at")
-  /// SLA + quality signals for the IT CRM dashboard.
+  status         String    @default("open")
+  createdById    String    @map("created_by") @db.Uuid
+  assigneeId     String?   @map("assignee_id") @db.Uuid
+  resolutionNote String?   @map("resolution_note")
+  resolvedAt     DateTime? @map("resolved_at")
+  closedAt       DateTime? @map("closed_at")
+  /// SLA + quality signals (IT CRM dashboard redesign, 2026-05-30).
   /// `firstResponseAt` is stamped the first time IT engages — the status
   /// leaves `open` or an assignee is set — and drives response-SLA
   /// attainment. `reopenedCount` increments whenever the ticket bounces
   /// from a resolved/closed state back to an active one, feeding the
   /// first-fix-rate / quality exhibit.
-  firstResponseAt   DateTime? @map("first_response_at")
-  reopenedCount     Int       @default(0) @map("reopened_count")
+  firstResponseAt DateTime? @map("first_response_at")
+  reopenedCount   Int       @default(0) @map("reopened_count")
   /// Array of `{ name, url, mimeType, size }` for attachments uploaded via
   /// the shared `uploads` Supabase bucket. Kept as JSON because v1 doesn't
   /// need separate join-table queries.
-  attachments       Json?
-  /// Optional cross-system link to a GitHub issue. Populated by the
-  /// outbound sync worker when GitHub
+  attachments    Json?
+  /// Optional cross-system link to a GitHub issue (Sid + BD feedback,
+  /// 2026-05-24). Populated by the outbound sync worker when GitHub
   /// integration is enabled; nullable for tickets created before the
   /// feature shipped or while the integration is off.
-  githubIssueNumber Int?      @unique @map("github_issue_number")
-  githubIssueUrl    String?   @map("github_issue_url")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  githubIssueNumber Int?    @unique @map("github_issue_number")
+  githubIssueUrl    String? @map("github_issue_url")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  createdBy User              @relation("HelpdeskTicketCreator", fields: [createdById], references: [id], onDelete: Cascade)
-  assignee  User?             @relation("HelpdeskTicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy User  @relation("HelpdeskTicketCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  assignee  User? @relation("HelpdeskTicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   comments  HelpdeskComment[]
 
   @@index([status])
@@ -102,17 +102,17 @@ model ValidatorNodeAlert {
 /// the IT-team fan-out is operator-controlled, since that's the
 /// noisiest channel.
 model HelpdeskSettings {
-  id                    String   @id @default(uuid()) @db.Uuid
+  id                       String   @id @default(uuid()) @db.Uuid
   /// Always `true`; the unique constraint enforces a single row.
-  singleton             Boolean  @unique @default(true)
+  singleton                Boolean  @unique @default(true)
   /// Email addresses fanned out on every new ticket creation.
-  notifyEmails          String[] @default([]) @map("notify_emails")
+  notifyEmails             String[] @default([]) @map("notify_emails")
   /// Master toggles: operator can suppress either fan-out without
   /// emptying the recipient list.
-  notifyOnCreate        Boolean  @default(true) @map("notify_on_create")
-  notifyCreatorOnCreate Boolean  @default(true) @map("notify_creator_on_create")
-  notifyCreatorOnStatus Boolean  @default(true) @map("notify_creator_on_status")
-  /// GitHub workflow integration. When
+  notifyOnCreate           Boolean  @default(true) @map("notify_on_create")
+  notifyCreatorOnCreate    Boolean  @default(true) @map("notify_creator_on_create")
+  notifyCreatorOnStatus    Boolean  @default(true) @map("notify_creator_on_status")
+  /// GitHub workflow integration (Sid + BD feedback, 2026-05-24). When
   /// `githubEnabled` is true, ticket creation pushes an issue to the
   /// configured repo and an inbound webhook mirrors issue / PR state
   /// changes back onto ticket.status:
@@ -121,16 +121,16 @@ model HelpdeskSettings {
   ///   issue closed                           → status = "resolved"
   /// Token is AES-GCM encrypted at rest (same envelope as Google).
   /// Webhook secret is plaintext (treated as HMAC seed, not a credential).
-  githubEnabled         Boolean  @default(false) @map("github_enabled")
-  githubRepoOwner       String?  @map("github_repo_owner")
-  githubRepoName        String?  @map("github_repo_name")
-  githubTokenEncrypted  String?  @map("github_token_encrypted")
-  githubWebhookSecret   String?  @map("github_webhook_secret")
-  githubLabelInProgress String   @default("in progress") @map("github_label_in_progress")
-  githubLabelReview     String   @default("review") @map("github_label_review")
-  updatedById           String?  @map("updated_by") @db.Uuid
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  githubEnabled            Boolean @default(false) @map("github_enabled")
+  githubRepoOwner          String? @map("github_repo_owner")
+  githubRepoName           String? @map("github_repo_name")
+  githubTokenEncrypted     String? @map("github_token_encrypted")
+  githubWebhookSecret      String? @map("github_webhook_secret")
+  githubLabelInProgress    String  @default("in progress") @map("github_label_in_progress")
+  githubLabelReview        String  @default("review") @map("github_label_review")
+  updatedById              String?  @map("updated_by") @db.Uuid
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
 
   updatedBy User? @relation("HelpdeskSettingsUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
 

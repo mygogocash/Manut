@@ -11,6 +11,7 @@ import { Tabs, TabsContent } from "@/components/shared/tabs";
 import { SurveyFormAnnouncementSettingsDialog } from "@/components/survey-forms/survey-form-announcement-settings-dialog";
 import { SurveyFormNotificationSettingsDialog } from "@/components/survey-forms/survey-form-notification-settings-dialog";
 import { Button } from "@/components/ui/button";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -43,7 +44,7 @@ export default function SurveyFormsPage() {
   const canManage = hasPermission("survey:manage-wave");
 
   type TabId = "available" | "mine" | "all" | "archived";
-  const [activeTab, setActiveTab] = useState<TabId>("available");
+  const [activeTab, setActiveTab] = useTabParam("available");
   const [available, setAvailable] = useState<SurveyFormSummary[]>([]);
   const [mine, setMine] = useState<SurveyFormSummary[]>([]);
   const [all, setAll] = useState<SurveyFormSummary[]>([]);
@@ -73,7 +74,7 @@ export default function SurveyFormsPage() {
   }, []);
 
   useEffect(() => {
-    void fetchTab(activeTab);
+    void fetchTab(activeTab as TabId);
   }, [activeTab, fetchTab]);
 
   const tabsList = useMemo(() => {

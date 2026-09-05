@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { format, parseISO } from "date-fns";
 import { ImagePlus, Plus, X } from "lucide-react";
 import Image from "next/image";
@@ -55,7 +55,7 @@ export function CreatePRDialog({ onPRCreated }: CreatePRDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm({
-    resolver: standardSchemaResolver(prSchema),
+    resolver: zodResolver(prSchema),
     defaultValues: {
       title: "",
       link: "",

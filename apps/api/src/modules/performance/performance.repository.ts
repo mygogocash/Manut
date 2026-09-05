@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -89,6 +89,7 @@ export class PerformanceRepository {
       employeeId?: string;
       managerId?: string;
       status?: string;
+      search?: string;
     },
     page: number,
     limit: number,
@@ -98,6 +99,19 @@ export class PerformanceRepository {
     if (filters.employeeId) and.push({ employeeId: filters.employeeId });
     if (filters.managerId) and.push({ managerId: filters.managerId });
     if (filters.status) and.push({ status: filters.status });
+    // Pushed onto the same AND list as the scoping filters, so a search narrows
+    // whichever set the caller is entitled to rather than widening it. Email is
+    // matched as well as name because two people can share a display name and
+    // the table shows the email beside it.
+    const search = filters.search?.trim();
+    if (search) {
+      and.push({
+        OR: [
+          { employee: { name: { contains: search, mode: "insensitive" } } },
+          { employee: { email: { contains: search, mode: "insensitive" } } },
+        ],
+      });
+    }
 
     const where: Prisma.AppraisalWhereInput =
       and.length > 0 ? { AND: and } : {};

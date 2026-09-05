@@ -1,6 +1,11 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
+import {
+  excludeDeleted,
+  restoreUpdate,
+  softDeleteUpdate,
+} from "@/infrastructure/soft-delete";
 
 const CERTIFICATE_INCLUDE = {
   recipient: {
@@ -33,9 +38,36 @@ export const certificatesRepository = {
     ]);
   },
 
+  // Excludes reverted (soft-deleted) rows — used by the download path so a
+  // reverted certificate 404s.
   findById(id: string) {
+    return prisma.certificate.findFirst({
+      where: { id, ...excludeDeleted() },
+      include: CERTIFICATE_INCLUDE,
+    });
+  },
+
+  // Includes reverted rows — used by revert / restore / permanent-delete,
+  // which must resolve a row regardless of its deleted state.
+  findByIdIncludingDeleted(id: string) {
     return prisma.certificate.findUnique({
       where: { id },
+      include: CERTIFICATE_INCLUDE,
+    });
+  },
+
+  softDelete(id: string) {
+    return prisma.certificate.update({
+      where: { id },
+      data: softDeleteUpdate(),
+      include: CERTIFICATE_INCLUDE,
+    });
+  },
+
+  restore(id: string) {
+    return prisma.certificate.update({
+      where: { id },
+      data: restoreUpdate(),
       include: CERTIFICATE_INCLUDE,
     });
   },

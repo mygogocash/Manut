@@ -28,7 +28,12 @@ export interface ProjectCustomField {
 }
 
 export type ProjectTeam =
-  "general" | "it" | "product" | "legal" | "accounting" | "hr";
+  | "general"
+  | "it"
+  | "product"
+  | "legal"
+  | "accounting"
+  | "hr";
 
 /**
  * Owning Department on a Project. Mirrors `PROJECT_DEPARTMENT_VALUES`
@@ -54,7 +59,7 @@ export const PROJECT_DEPARTMENT_OPTIONS = [
 ] as const;
 export type ProjectDepartment = (typeof PROJECT_DEPARTMENT_OPTIONS)[number];
 
-// Agreement signing state, shown
+// Project-team feedback (2026-06-10) — Agreement signing state, shown
 // after Rev. GoLive on the Project CRM list and edited in the project
 // dialog. `null` = not set.
 export const AGREEMENT_OPTIONS = [
@@ -79,23 +84,31 @@ export interface Project {
   createdAt: string;
   taskCount: number;
   members?: ProjectMember[];
-  // Structured roll-out tracking columns. productionLive is a date so
-  // the workflow records when a project went live.
+  // BD feedback (May 2026) — structured roll-out tracking columns.
+  // Round #2 retyped productionLive boolean → date (when it went live).
   productionLiveDate?: string | null;
   goLiveDate?: string | null;
   revisedGoLiveDate?: string | null;
   agreement?: AgreementValue | null;
   dependency?: string | null;
   comment?: string | null;
+  /**
+   * Approval state. Null on projects that predate the workflow, which read as
+   * drafts and are never blocked.
+   */
+  workflowStatus?: string | null;
+  /** Primary department, always `departments[0]`, kept for filters and charts. */
   department?: ProjectDepartment | null;
-  // Workstream tag. Free-text, surfaced
+  /** Full multi-select. Empty on legacy rows that only ever had the scalar. */
+  departments?: ProjectDepartment[];
+  // Legal team (2026-05-25) — Workstream tag. Free-text, surfaced
   // only in the Legal CRM list + form.
   workstream?: string | null;
-  // Long-form details (counterparty notes,
+  // Legal team (2026-05-26) — long-form details (counterparty notes,
   // deal mechanics, drive links). Surfaced as a dedicated column in
   // the Legal CRM list, right of `Legal Task`.
   details?: string | null;
-  // Task Type + Assigned Team categorise HR
+  // HR team (2026-05-26) — Task Type + Assigned Team categorise HR
   // CRM rows. Frontend constrains to a fixed whitelist; backend
   // stores free-text.
   taskType?: string | null;
@@ -104,6 +117,8 @@ export interface Project {
   defaultAssigneeMode?: "none" | "creator" | "owner" | "user";
   defaultAssigneeId?: string | null;
   sortOrder?: number;
+  // Active/Archived board tabs. `null` = active; a timestamp = archived.
+  archivedAt?: string | null;
 }
 
 export interface TaskAssignee {
@@ -153,7 +168,10 @@ export interface ProjectMilestone {
 }
 
 export type DependencyType =
-  "finish_to_start" | "start_to_start" | "finish_to_finish" | "start_to_finish";
+  | "finish_to_start"
+  | "start_to_start"
+  | "finish_to_finish"
+  | "start_to_finish";
 
 export interface TaskDependency {
   id: string;
@@ -238,7 +256,7 @@ export interface CreateProjectInput {
   progress?: number;
   memberIds?: string[];
   customFields?: ProjectCustomField[];
-  // Structured roll-out tracking fields.
+  // BD feedback (May 2026)
   productionLiveDate?: string | null;
   goLiveDate?: string | null;
   revisedGoLiveDate?: string | null;
@@ -246,6 +264,8 @@ export interface CreateProjectInput {
   dependency?: string | null;
   comment?: string | null;
   department?: ProjectDepartment | null;
+  /** Send this to set several. The server derives `department` from its head. */
+  departments?: ProjectDepartment[];
   workstream?: string | null;
   details?: string | null;
   taskType?: string | null;
@@ -267,14 +287,14 @@ export const PROJECT_STATUS_OPTIONS = [
   { value: "prod_integrated", label: "Prod. Integrated" },
   { value: "on_hold", label: "On Hold" },
   { value: "completed", label: "Completed" },
-  // HR-only statuses. The HR form picker surfaces a
+  // HR-only statuses (2026-05-26). The HR form picker surfaces a
   // subset of this list; other CRMs continue to render the shared
-  // Default project statuses.
+  // BD-style statuses.
   { value: "pending_documents", label: "Pending Documents" },
   { value: "pending_approval", label: "Pending Approval" },
   { value: "closed", label: "Closed" },
   { value: "cancelled", label: "Cancelled" },
-  // Legal-team status — third state in the three-pill
+  // Legal-team status (2026-05-26) — third state in their three-pill
   // workflow alongside Complete / In progress.
   { value: "pending_dept_info", label: "Pending Dept. Info" },
 ] as const;
@@ -289,7 +309,7 @@ export function projectStatusLabel(value: string): string {
   );
 }
 
-// HR Workflow Status whitelist.
+// HR-team feedback (2026-05-26) — HR Workflow Status whitelist.
 // Subset of PROJECT_STATUS_OPTIONS, in the order the HR team
 // requested. Used by the HR CRM form picker and the HR layout list
 // status badge.
@@ -337,7 +357,11 @@ export interface ProjectParams {
   status?: string;
   team?: ProjectTeam;
   department?: ProjectDepartment;
+  /** Agreement signing state filter (Signed / Not Signed). */
+  agreement?: AgreementValue;
   partnerId?: string;
+  // When true, return ONLY archived projects; omit/false shows active only.
+  archived?: boolean;
 }
 
 // ─── Projects ───────────────────────────────────────────
@@ -350,7 +374,11 @@ export function getProjects(params?: ProjectParams) {
   if (params?.status) qs.set("status", params.status);
   if (params?.team) qs.set("team", params.team);
   if (params?.department) qs.set("department", params.department);
+  if (params?.agreement) qs.set("agreement", params.agreement);
   if (params?.partnerId) qs.set("partnerId", params.partnerId);
+  // Serialize only when true, a falsy value is dropped so the default
+  // (active-only) view sends no `archived` param.
+  if (params?.archived) qs.set("archived", "true");
   const query = qs.toString();
   return api.get<ApiPaginatedResponse<Project>>(
     `/projects${query ? `?${query}` : ""}`,
@@ -377,6 +405,23 @@ export function reorderProjects(orderedIds: string[]) {
   return api.put<ApiSuccessResponse<{ updated: number }>>("/projects/reorder", {
     orderedIds,
   });
+}
+
+// Active/Archived board tabs (mirrors IT CRM). Archive/restore is owner-or-
+// manage on the backend, same gate as update/delete. Both return the updated
+// project row.
+export function archiveProject(id: string) {
+  return api.post<ApiSuccessResponse<ProjectDetail>>(
+    `/projects/${id}/archive`,
+    {},
+  );
+}
+
+export function unarchiveProject(id: string) {
+  return api.post<ApiSuccessResponse<ProjectDetail>>(
+    `/projects/${id}/unarchive`,
+    {},
+  );
 }
 
 // Move a project into another CRM module. Partner is the only
@@ -427,6 +472,7 @@ export function exportProjectTasks(params?: ProjectParams) {
   if (params?.search) qs.set("search", params.search);
   if (params?.status) qs.set("status", params.status);
   if (params?.department) qs.set("department", params.department);
+  if (params?.agreement) qs.set("agreement", params.agreement);
   const query = qs.toString();
   return api.get<ApiSuccessResponse<ProjectTaskExportRow[]>>(
     `/projects/tasks/export${query ? `?${query}` : ""}`,
@@ -611,6 +657,40 @@ export function createTaskComment(
 ) {
   return api.post<ApiSuccessResponse<TaskComment>>(
     `/projects/${projectId}/tasks/${taskId}/comments`,
+    data,
+  );
+}
+
+// ─── AI ──────────────────────────────────────────────────
+
+export interface GeneratedTask {
+  title: string;
+  description: string;
+  priority: string;
+  status: string;
+  sortOrder: number;
+}
+
+export interface GenerateTasksResponse {
+  tasks: GeneratedTask[];
+}
+
+export interface AiSourceFile {
+  name: string;
+  mimeType: string;
+  dataBase64: string;
+}
+
+export function generateTasksWithAI(
+  projectId: string,
+  data: {
+    description: string;
+    additionalContext?: string;
+    files?: AiSourceFile[];
+  },
+) {
+  return api.post<ApiSuccessResponse<GenerateTasksResponse>>(
+    `/projects/${projectId}/ai/generate-tasks`,
     data,
   );
 }

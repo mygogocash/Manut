@@ -10,21 +10,24 @@ import {
 // Locks the per-phase rollout gates so a CRM can't be silently turned on/off.
 // Update these expectations deliberately when a phase enables a new CRM.
 describe("crm-modules rollout gates", () => {
-  it("enables notifications for it/general/hr (Phase B) + legal/accounting (Phase C pt1)", () => {
+  it("enables notifications for it/general/hr (Phase B) + legal/accounting (pt1) + product/qa (pt3)", () => {
     expect([...NOTIFY_ENABLED_MODULES].sort()).toEqual(
-      ["accounting", "general", "hr", "it", "legal"].sort(),
+      ["accounting", "general", "hr", "it", "legal", "product", "qa"].sort(),
     );
   });
 
-  it("does NOT yet enable the pure-native CRMs (product/qa/marketing)", () => {
-    for (const m of ["product", "qa", "marketing"]) {
+  it("does NOT yet enable marketing, and never the reminder-only sales CRM", () => {
+    // "revenue" stays in this list as a string even though the CrmModule
+    // union no longer carries it — the retired ARIA Revenue CRM must never
+    // sneak back into the notify set under its old name.
+    for (const m of ["marketing", "sales", "revenue"]) {
       expect(NOTIFY_ENABLED_MODULES).not.toContain(m);
     }
   });
 
-  it("scans shared project_tasks for it/general/hr/legal/accounting task reminders", () => {
+  it("scans shared project_tasks for it/general/hr/legal/accounting/product task reminders (qa is native)", () => {
     expect([...TASK_REMINDER_TEAMS].sort()).toEqual(
-      ["accounting", "general", "hr", "it", "legal"].sort(),
+      ["accounting", "general", "hr", "it", "legal", "product"].sort(),
     );
   });
 
@@ -39,8 +42,9 @@ describe("crm-modules rollout gates", () => {
     expect(notifyModuleForTeam("legal")).toBe("legal");
     expect(notifyModuleForTeam("accounting")).toBe("accounting");
     expect(notifyModuleForTeam("it")).toBe("it");
-    // Not yet enabled → gate returns null so the notifier no-ops.
-    expect(notifyModuleForTeam("product")).toBeNull();
+    // Phase C pt3 — product is a native-mirror board worked on the shared
+    // /projects board, so the shared-board gate now resolves it.
+    expect(notifyModuleForTeam("product")).toBe("product");
     // Unknown / no team.
     expect(notifyModuleForTeam("marketing")).toBeNull();
     expect(notifyModuleForTeam(null)).toBeNull();

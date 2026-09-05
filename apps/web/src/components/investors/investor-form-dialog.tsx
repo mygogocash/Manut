@@ -1,12 +1,14 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { Loader2 } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2, Tag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { InvestorTagsManagerDialog } from "@/components/investor-crm/investor-tags-manager-dialog";
+import { CodeMultiSelect } from "@/components/shared/code-multi-select";
 import { FormDatePicker } from "@/components/shared/form-date-picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,8 +36,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useInvestorTags } from "@/hooks/use-investor-tags";
 import { useInvestorTypes } from "@/hooks/use-investor-types";
 import { ApiError } from "@/lib/api-client";
+import { useAuth } from "@/providers/auth-provider";
+import { useFundraisingEntity } from "@/providers/fundraising-entity-provider";
 import {
   createInvestor,
   type Investor,
@@ -48,14 +53,20 @@ import {
 const formSchema = z.object({
   name: z.string().min(1, "Name is required").max(300),
   type: z.string().min(1, "Type is required"),
+  fundraisingEntity: z.string().min(1, "Entity is required"),
   status: z.string().min(1),
   visibility: z.string().min(1),
+  // Required rather than `.default([])`: a defaulted field makes zod's input
+  // type `tags?: string[]` while its output stays `string[]`, and zodResolver
+  // then cannot reconcile the two generics. Every defaultValues and reset
+  // branch supplies it explicitly, so the default would be dead weight anyway.
+  tags: z.array(z.string()),
   contactName: z.string().max(200).optional().or(z.literal("")),
   contactEmail: z.string().email("Invalid email").optional().or(z.literal("")),
   contactPhone: z.string().max(50).optional().or(z.literal("")),
   website: z.string().url("Invalid URL").optional().or(z.literal("")),
   location: z.string().max(200).optional().or(z.literal("")),
-  // Pipeline import fields.
+  // Pipeline-master fields (2026-05-28).
   title: z.string().max(200).optional().or(z.literal("")),
   linkedinUrl: z.string().url("Invalid URL").optional().or(z.literal("")),
   revenueStream: z.string().max(500).optional().or(z.literal("")),
@@ -78,6 +89,7 @@ interface InvestorFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   investor?: Investor | null;
+  fundraisingEntity?: string;
   onSaved: (saved: Investor) => void;
 }
 
@@ -85,19 +97,31 @@ export function InvestorFormDialog({
   open,
   onOpenChange,
   investor,
+  fundraisingEntity,
   onSaved,
 }: InvestorFormDialogProps) {
   const isEditing = !!investor;
   const [submitting, setSubmitting] = useState(false);
   const { types: investorTypes } = useInvestorTypes();
+  const { tags: investorTags, refresh: refreshInvestorTags } =
+    useInvestorTags();
+  const { hasPermission } = useAuth();
+  const canManageTags = hasPermission("investors:update");
+  const [tagsManagerOpen, setTagsManagerOpen] = useState(false);
+  const { entities, entityKey, entityLabel } = useFundraisingEntity();
+  // New investors land on the tab the rep is looking at; an edit starts
+  // from whatever the record already carries.
+  const defaultEntity = fundraisingEntity ?? entityKey;
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       type: "",
+      fundraisingEntity: defaultEntity,
       status: "lead",
       visibility: "team",
+      tags: [],
       contactName: "",
       contactEmail: "",
       contactPhone: "",
@@ -122,8 +146,10 @@ export function InvestorFormDialog({
       form.reset({
         name: investor.name,
         type: investor.type,
+        fundraisingEntity: investor.fundraisingEntity,
         status: investor.status,
         visibility: investor.visibility ?? "team",
+        tags: investor.tags ?? [],
         contactName: investor.contactName ?? "",
         contactEmail: investor.contactEmail ?? "",
         contactPhone: investor.contactPhone ?? "",
@@ -144,8 +170,10 @@ export function InvestorFormDialog({
       form.reset({
         name: "",
         type: "",
+        fundraisingEntity: defaultEntity,
         status: "lead",
         visibility: "team",
+        tags: [],
         contactName: "",
         contactEmail: "",
         contactPhone: "",
@@ -163,7 +191,7 @@ export function InvestorFormDialog({
         notesText: "",
       });
     }
-  }, [open, investor, form]);
+  }, [open, investor, form, defaultEntity]);
 
   async function onSubmit(values: FormValues) {
     try {
@@ -171,8 +199,10 @@ export function InvestorFormDialog({
       const payload = {
         name: values.name,
         type: values.type,
+        fundraisingEntity: values.fundraisingEntity,
         status: values.status,
         visibility: values.visibility,
+        tags: values.tags,
         contactName: values.contactName || undefined,
         contactEmail: values.contactEmail || undefined,
         contactPhone: values.contactPhone || undefined,
@@ -191,8 +221,15 @@ export function InvestorFormDialog({
       };
 
       if (isEditing) {
+        const moved = values.fundraisingEntity !== investor.fundraisingEntity;
         const res = await updateInvestor(investor.id, payload);
-        toast.success("Investor updated");
+        // A move drops the row out of the active tab. Say where it went,
+        // otherwise the disappearance reads as a failed save.
+        toast.success(
+          moved
+            ? `Moved to ${entityLabel(values.fundraisingEntity)}`
+            : "Investor updated",
+        );
         onSaved(res.data);
       } else {
         const res = await createInvestor(payload);
@@ -301,6 +338,33 @@ export function InvestorFormDialog({
                 />
                 <FormField
                   control={form.control}
+                  name="fundraisingEntity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Entity *</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select entity" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {entities.map((e) => (
+                            <SelectItem key={e.key} value={e.key}>
+                              {e.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="status"
                   render={({ field }) => (
                     <FormItem>
@@ -349,6 +413,44 @@ export function InvestorFormDialog({
                           ))}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tags"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Tags</FormLabel>
+                      <FormControl>
+                        <CodeMultiSelect
+                          options={investorTags.map((t) => ({
+                            code: t.code,
+                            label: t.label,
+                          }))}
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Select tags"
+                          emptyLabel={
+                            canManageTags
+                              ? "No tags defined yet — add one from Tag management below."
+                              : "No tags defined yet."
+                          }
+                        />
+                      </FormControl>
+                      {canManageTags ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-fit px-2 text-xs"
+                          onClick={() => setTagsManagerOpen(true)}
+                        >
+                          <Tag className="size-3.5" />
+                          Tag management
+                        </Button>
+                      ) : null}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -503,7 +605,7 @@ export function InvestorFormDialog({
                     <FormItem>
                       <FormLabel>Revenue stream</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Manut + SunJoy" {...field} />
+                        <Input placeholder="e.g. TBH + SunJoy" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -574,7 +676,7 @@ export function InvestorFormDialog({
                     <FormItem>
                       <FormLabel>Cross-sell</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Manut + SunJoy" {...field} />
+                        <Input placeholder="e.g. TBH + SunJoy" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -632,6 +734,21 @@ export function InvestorFormDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/*
+        Sibling of DialogContent, not a child: nested inside, the manager
+        would inherit this dialog's portal and its dismiss would bubble to the
+        parent, closing the half-filled investor form under it.
+
+        onChanged drops the module-level tag cache via the hook's refresh, so
+        a tag created here appears in the picker above without a remount —
+        see use-investor-tags.test.ts for the trap this avoids.
+      */}
+      <InvestorTagsManagerDialog
+        open={tagsManagerOpen}
+        onOpenChange={setTagsManagerOpen}
+        onChanged={() => void refreshInvestorTags()}
+      />
     </Dialog>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * IT Helpdesk ↔ GitHub Issues sync.
+ * IT Helpdesk ↔ GitHub Issues sync (Sid + BD feedback, 2026-05-24).
  *
  * Two flows:
  *

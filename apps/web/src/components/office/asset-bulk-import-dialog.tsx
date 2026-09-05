@@ -5,6 +5,10 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
+import {
+  type InventoryParseResult,
+  parseInventorySheet,
+} from "@/components/office/asset-inventory-mapping";
 import { Badge } from "@/components/shared/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
 import {
   ASSET_STATUS_LABELS,
+  type AssetImportOffice,
   type AssetImportPreview,
   type AssetImportRow,
   commitAssetImport,
@@ -243,7 +248,7 @@ function buildAssetTemplate(): XLSX.WorkBook {
       "U3223QE",
       "ABC123XYZ",
       "Active",
-      "Sample row — replace before import",
+      "Sample row — replace with real data",
       "https://example.com",
       "2025-01-15",
       "Engineering",
@@ -312,7 +317,7 @@ function buildAssetTemplate(): XLSX.WorkBook {
       "Jane Doe",
       "",
       "",
-      "jane@manut.example",
+      "jane@thebinaryholdings.com",
       "Management",
       "",
     ],
@@ -419,7 +424,22 @@ function buildAssetTemplate(): XLSX.WorkBook {
   return wb;
 }
 
-async function parseWorkbook(file: File): Promise<AssetImportRow[]> {
+export interface ParsedWorkbook {
+  rows: AssetImportRow[];
+  /** Set only when the file was read as an Asset Inventory Tracker. */
+  inventory: InventoryParseResult | null;
+}
+
+/**
+ * Read the workbook.
+ *
+ * The HR template's sheets are looked up by name and parsed by fixed column
+ * index. A fixed-asset tracker matches none of those names, so when the template
+ * path yields nothing we fall back to the header-driven inventory mapper across
+ * every sheet — detection by content, because the tracker's sheet name is
+ * arbitrary and its header is not on row 1.
+ */
+async function parseWorkbook(file: File): Promise<ParsedWorkbook> {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array", cellDates: false });
   const rows: AssetImportRow[] = [
@@ -440,7 +460,15 @@ async function parseWorkbook(file: File): Promise<AssetImportRow[]> {
     ),
     ...parseUsb(sheetMatrix(wb, "Usb")),
   ];
-  return rows;
+  if (rows.length > 0) return { rows, inventory: null };
+
+  for (const name of wb.SheetNames) {
+    const matrix = sheetMatrix(wb, name);
+    if (!matrix) continue;
+    const inventory = parseInventorySheet(matrix, { sourceSheet: name });
+    if (inventory.rows.length > 0) return { rows: inventory.rows, inventory };
+  }
+  return { rows: [], inventory: null };
 }
 
 export function AssetBulkImportDialog({
@@ -455,6 +483,13 @@ export function AssetBulkImportDialog({
   const [parsing, setParsing] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Set only for an Asset Inventory Tracker file. The HR template infers the
+  // office from each row's assignee; a purchase log has no assignees at all, so
+  // the office has to be stated rather than guessed.
+  const [inventory, setInventory] = useState<InventoryParseResult | null>(null);
+  const [officeName, setOfficeName] = useState("");
+  const [officeCity, setOfficeCity] = useState("");
+  const [officeCountry, setOfficeCountry] = useState("");
 
   function reset() {
     setFile(null);
@@ -463,6 +498,7 @@ export function AssetBulkImportDialog({
     setParsing(false);
     setCommitting(false);
     setDragOver(false);
+    setInventory(null);
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -498,23 +534,59 @@ export function AssetBulkImportDialog({
     );
   }
 
+  /**
+   * The office block, or undefined to leave the API's legacy inference alone.
+   * All three fields are required together because `Office.city` and
+   * `Office.country` are non-nullable.
+   */
+  /**
+   * Change an office field and drop any preview taken against the old one.
+   *
+   * The preview's insert-vs-update counts are computed per row from the resolved
+   * office — the natural-key match is (officeId, name, purchaseDate) — so editing
+   * the office after previewing leaves the counts on screen describing a
+   * different import than the one Commit would perform.
+   */
+  function setOfficeField(set: (v: string) => void, value: string) {
+    set(value);
+    if (preview) setPreview(null);
+  }
+
+  function officePayload(): AssetImportOffice | undefined {
+    const name = officeName.trim();
+    const city = officeCity.trim();
+    const country = officeCountry.trim();
+    if (!name || !city || !country) return undefined;
+    return { name, city, country };
+  }
+
   async function handleFile(f: File) {
     setFile(f);
     setPreview(null);
     try {
       setParsing(true);
       const parsed = await parseWorkbook(f);
-      if (parsed.length === 0) {
+      if (parsed.rows.length === 0) {
         toast.error("No asset rows found in the workbook");
         setParsing(false);
         return;
       }
-      setRows(parsed);
-      const res = await previewAssetImport(parsed);
+      setRows(parsed.rows);
+      setInventory(parsed.inventory);
+      const res = await previewAssetImport(parsed.rows, officePayload());
       setPreview(res.data);
-      toast.success(
-        `Parsed ${res.data.summary.total} rows — ${res.data.summary.valid} valid, ${res.data.summary.unresolvedAssignees} without an assignee`,
-      );
+      if (parsed.inventory) {
+        const { totals, issues, blankRows } = parsed.inventory;
+        toast.success(
+          `Parsed ${parsed.rows.length} rows — ${totals.units} units, ${totals.value.toLocaleString()} total` +
+            (blankRows > 0 ? `, ${blankRows} blank rows skipped` : "") +
+            (issues.length > 0 ? `, ${issues.length} to check` : ""),
+        );
+      } else {
+        toast.success(
+          `Parsed ${res.data.summary.total} rows — ${res.data.summary.valid} valid, ${res.data.summary.unresolvedAssignees} without an assignee`,
+        );
+      }
     } catch (err) {
       const msg =
         err instanceof ApiError
@@ -532,7 +604,7 @@ export function AssetBulkImportDialog({
     if (rows.length === 0) return;
     try {
       setCommitting(true);
-      const res = await commitAssetImport(rows);
+      const res = await commitAssetImport(rows, officePayload());
       const { inserts, updates, skipped } = res.data;
       toast.success(
         `Imported ${inserts + updates} rows (${inserts} new, ${updates} updated${
@@ -573,10 +645,10 @@ export function AssetBulkImportDialog({
         <DialogHeader>
           <DialogTitle>Import IT assets</DialogTitle>
           <DialogDescription>
-            Upload an asset-management workbook. We&apos;ll parse the Hardware,
-            Software, Laptop, Mouse, Mobile and Usb sheets, resolve assignees by
-            email or name, and route each row to the office that matches the
-            user&apos;s entity.
+            Upload HR&apos;s &ldquo;IT Asset Management Template.xlsx&rdquo;.
+            We&apos;ll parse the Hardware, Software, Laptop, Mouse, Mobile and
+            Usb sheets, resolve assignees by email or name, and route each row
+            to the office that matches the user&apos;s entity.
           </DialogDescription>
         </DialogHeader>
 
@@ -677,6 +749,87 @@ export function AssetBulkImportDialog({
             >
               <Loader2 className="size-4 animate-spin" />
               Parsing and validating…
+            </div>
+          ) : null}
+
+          {inventory ? (
+            <div className="border-border grid gap-3 rounded-md border p-3">
+              <p className="text-muted-foreground text-xs">
+                Read as an Asset Inventory Tracker: {inventory.totals.units}{" "}
+                units, {inventory.totals.value.toLocaleString()} total value.
+                Unit price becomes the asset&apos;s purchase cost, so quantity ×
+                cost reproduces the sheet&apos;s Total Value.
+              </p>
+              <div
+                className={`
+                  grid gap-2
+                  sm:grid-cols-3
+                `}
+              >
+                {/* A purchase log has no assignees, so the office cannot be
+                    inferred the way the HR template's is. All three are needed
+                    together: city and country are non-nullable on Office. */}
+                <Input
+                  value={officeName}
+                  onChange={(e) =>
+                    setOfficeField(setOfficeName, e.target.value)
+                  }
+                  placeholder="Office name"
+                  className="h-9"
+                />
+                <Input
+                  value={officeCity}
+                  onChange={(e) =>
+                    setOfficeField(setOfficeCity, e.target.value)
+                  }
+                  placeholder="City"
+                  className="h-9"
+                />
+                <Input
+                  value={officeCountry}
+                  onChange={(e) =>
+                    setOfficeField(setOfficeCountry, e.target.value)
+                  }
+                  placeholder="Country"
+                  className="h-9"
+                />
+              </div>
+              {!officePayload() && (
+                <p className="text-muted-foreground text-xs">
+                  Leave blank to use the default office, or fill all three to
+                  find or create one.
+                </p>
+              )}
+              {preview?.rows.some((r) =>
+                r.warnings.includes("office_will_be_created"),
+              ) && (
+                <p className="text-muted-foreground text-xs">
+                  That office does not exist yet — it will be created on import,
+                  so every row counts as new.
+                </p>
+              )}
+              {rows.length > 0 && !preview && (
+                <p className="text-muted-foreground text-xs">
+                  Office changed — re-select the file to preview against it.
+                </p>
+              )}
+              {inventory.issues.length > 0 && (
+                <div className="grid gap-1">
+                  <p className="text-destructive text-xs font-medium">
+                    {inventory.issues.length} row
+                    {inventory.issues.length === 1 ? "" : "s"} to check — these
+                    still import:
+                  </p>
+                  {inventory.issues.slice(0, 8).map((issue) => (
+                    <p
+                      key={`${issue.sheetRow}-${issue.problem}`}
+                      className="text-muted-foreground text-xs"
+                    >
+                      Row {issue.sheetRow} ({issue.name}): {issue.problem}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           ) : null}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { FileText, Loader2, UploadCloud, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -10,7 +10,6 @@ import { RemoteUserPicker } from "@/components/crm/remote-user-picker";
 import { LegalAttachmentsSection } from "@/components/legal/legal-attachments-section";
 import {
   LEGAL_FORM_DEFAULTS,
-  type LegalFormInput,
   legalFormSchema,
   type LegalFormValues,
 } from "@/components/legal/legal-form-schema";
@@ -122,8 +121,8 @@ export function LegalFormDialog({
     return true;
   }
 
-  const form = useForm<LegalFormInput, unknown, LegalFormValues>({
-    resolver: standardSchemaResolver(legalFormSchema),
+  const form = useForm<LegalFormValues>({
+    resolver: zodResolver(legalFormSchema),
     defaultValues: LEGAL_FORM_DEFAULTS,
   });
 
@@ -153,6 +152,7 @@ export function LegalFormDialog({
     };
   }, [open, document?.id]);
 
+  const resetKey = `${open}-${detail?.id ?? "new"}-${user?.id ?? ""}`;
   useEffect(() => {
     if (!open) return;
     if (isEditing && detail) {
@@ -183,7 +183,8 @@ export function LegalFormDialog({
         ownerId: user?.id ?? "",
       });
     }
-  }, [detail, form, isEditing, open, user?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
 
   const onSubmit = useCallback(
     async (values: LegalFormValues) => {
@@ -327,7 +328,10 @@ export function LegalFormDialog({
                 <FormItem>
                   <FormLabel>Title *</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. AI service agreement" {...field} />
+                    <Input
+                      placeholder="e.g. Software Licence — Gemini"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

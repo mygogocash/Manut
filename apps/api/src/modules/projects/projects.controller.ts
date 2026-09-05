@@ -16,6 +16,7 @@ import {
   createResourceSchema,
   createTaskCommentSchema,
   createTaskSchema,
+  generateTasksSchema,
   importCombinedProjectsSchema,
   importProjectsSchema,
   importProjectTasksSchema,
@@ -30,6 +31,15 @@ import {
   updateProjectSchema,
   updateTaskSchema,
 } from "@/modules/projects/projects.validation";
+import { workflowService } from "@/modules/projects/workflow/workflow.service";
+import {
+  workflowActionSchema,
+  workflowArchiveSchema,
+  workflowEscalateSchema,
+  workflowQuerySchema,
+  workflowRejectSchema,
+} from "@/modules/projects/workflow/workflow.validation";
+import { workflowEmailService } from "@/modules/projects/workflow/workflow-email.service";
 
 const router = Router();
 
@@ -37,9 +47,12 @@ router.use(authenticate, requireActive);
 
 // Centralised perm bundles so every sub-route on `/projects/:id/*`
 // accepts the broad `projects:*` codes AND every team-CRM equivalent.
-// Team workspaces need the same Owner / Members / column / task /
-// milestone route access as the top-level project surface. Accept each
-// team permission here, then enforce row-level ownership in the service.
+// Tanatcha (HR, 2026-05-25) reported that opening Edit Project from
+// /hr-crm let her change fields but the Owner / Members / column /
+// task / milestone routes 403'd because they only accepted
+// `projects:*`. Same pattern applies to IT / Product / Legal team
+// members. Mirrors the fix #583 landed on the top-level CRUD routes
+// — extended here to every sub-resource.
 const PROJECT_READ_PERMS = [
   PERMISSIONS.PROJECTS_READ,
   PERMISSIONS.PROJECTS_READ_ALL,
@@ -76,6 +89,231 @@ const PROJECT_WRITE_PERMS = [
   PERMISSIONS.HR_CRM_MANAGE,
 ];
 
+// ─── Project approval workflow ──────────────────────────
+// Linear chain: Draft -> Pending PM -> Pending Business Head -> Pending
+// Product Admin -> Pending Development -> Completed (any pending -> Rejected).
+// The route guard only checks "may this caller see the project at all"; the
+// stage-specific permission depends on the project's CURRENT state and is
+// enforced inside the workflow service (same pattern as travel / cash-advance
+// approval chains). These literal paths are registered BEFORE `/:id` so they
+// are never swallowed by the id route (see CLAUDE.md route-order pitfall).
+
+// One-click approval from an email. Deliberately UNAUTHENTICATED at the route
+// level — the signed token IS the credential — so it is mounted on its own
+// router below (outside the `authenticate` guard) rather than here.
+
+// Delivery log for a request's emails.
+router.get(
+  "/:id/workflow/emails",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    // The delivery log carries recipient addresses, so it is scoped exactly
+    // like the request it belongs to.
+    await workflowService.assertCanViewRequest(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    const data = await workflowEmailService.listForProject(
+      req.params.id as string,
+    );
+    res.json({ data });
+  }),
+);
+
+// Re-attempt this request's failed emails.
+router.post(
+  "/:id/workflow/emails/retry",
+  requirePermission(...PROJECT_WRITE_PERMS),
+  asyncHandler(async (req, res) => {
+    await workflowService.assertCanViewRequest(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    const data = await workflowEmailService.retryFailed(
+      req.params.id as string,
+    );
+    res.json({ data });
+  }),
+);
+
+// Request queue for the five views. Literal path, declared before `/:id`.
+router.get(
+  "/workflow/queue",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const { view } = workflowQuerySchema.parse(req.query);
+    const data = await workflowService.listQueue(
+      req.user!.id,
+      req.user!.permissions,
+      view,
+    );
+    res.json({ data });
+  }),
+);
+
+router.get(
+  "/:id/workflow",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const data = await workflowService.getState(
+      req.params.id as string,
+      req.user!.permissions,
+      req.user!.id,
+    );
+    res.json({ data });
+  }),
+);
+
+// Everything the request detail page needs in one round trip.
+router.get(
+  "/:id/workflow/detail",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const data = await workflowService.getRequestDetail(
+      req.params.id as string,
+      req.user!.permissions,
+      req.user!.id,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/workflow/submit",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const input = workflowActionSchema.parse(req.body);
+    const data = await workflowService.submit(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+      input.comment,
+      req,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/workflow/approve",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const input = workflowActionSchema.parse(req.body);
+    const data = await workflowService.approve(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+      input.comment,
+      req,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/workflow/complete",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const input = workflowActionSchema.parse(req.body);
+    const data = await workflowService.complete(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+      input.comment,
+      req,
+    );
+    res.json({ data });
+  }),
+);
+
+// Project Manager: return a request to the requester for changes.
+router.post(
+  "/:id/workflow/return",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const input = workflowRejectSchema.parse(req.body);
+    const data = await workflowService.returnToRequester(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+      input.reason,
+      req,
+    );
+    res.json({ data });
+  }),
+);
+
+// Project Manager: escalate to a named approver.
+router.post(
+  "/:id/workflow/escalate",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const input = workflowEscalateSchema.parse(req.body);
+    const data = await workflowService.escalate(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+      input.escalateToId,
+      input.comment,
+      req,
+    );
+    res.json({ data });
+  }),
+);
+
+// Project Manager: reopen a rejected request.
+router.post(
+  "/:id/workflow/reopen",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const input = workflowActionSchema.parse(req.body);
+    const data = await workflowService.reopen(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+      input.comment,
+      req,
+    );
+    res.json({ data });
+  }),
+);
+
+// Project Manager: archive / unarchive. Archived projects are read-only.
+router.post(
+  "/:id/workflow/archive",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const input = workflowArchiveSchema.parse(req.body);
+    const data = await workflowService.setArchived(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+      input.archived,
+      input.comment,
+      req,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/workflow/reject",
+  requirePermission(...PROJECT_READ_PERMS),
+  asyncHandler(async (req, res) => {
+    const input = workflowRejectSchema.parse(req.body);
+    const data = await workflowService.reject(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+      input.reason,
+      req,
+    );
+    res.json({ data });
+  }),
+);
+
 // ─── Projects CRUD ──────────────────────────────────────
 
 router.get(
@@ -84,7 +322,9 @@ router.get(
   // read perm. Without this, a user who holds only `hr-crm:read`
   // (no `projects:read`) lands on `/hr-crm`, the page issues
   // `GET /projects?team=hr`, and the route 403s before the
-  // service-layer `accessibleByUserId` scoping ever runs.
+  // service-layer `accessibleByUserId` scoping ever runs. Tanny
+  // (HR, 2026-05-25) hit exactly that — empty page + permission-
+  // denied toast.
   requirePermission(
     PERMISSIONS.PROJECTS_READ,
     PERMISSIONS.PROJECTS_READ_ALL,
@@ -286,7 +526,7 @@ router.get(
   }),
 );
 
-// Owner-edit bypass: project owners need
+// Owner-edit bypass: BD-feedback project owners (Employee role) need
 // to drive their own projects without holding `projects:update`. The
 // service-layer `requireOwnerOrManage` already enforces "owner OR
 // projects:manage" — so this route just needs to let any project
@@ -370,6 +610,62 @@ router.delete(
       req.params.id as string,
     );
     res.json({ data: { success: true } });
+  }),
+);
+
+// Archive / restore — owner-or-manage (service-enforced). Same reader-admitting
+// route bundle as DELETE /:id so any board reader reaches it and the service
+// gates the row-level owner/manage check.
+const PROJECT_ARCHIVE_PERMS = [
+  PERMISSIONS.PROJECTS_READ,
+  PERMISSIONS.PROJECTS_READ_ALL,
+  PERMISSIONS.PROJECTS_DELETE,
+  PERMISSIONS.PROJECTS_MANAGE,
+  PERMISSIONS.IT_CRM_READ,
+  PERMISSIONS.IT_CRM_READ_ALL,
+  PERMISSIONS.IT_CRM_DELETE,
+  PERMISSIONS.IT_CRM_MANAGE,
+  PERMISSIONS.PRODUCT_CRM_READ,
+  PERMISSIONS.PRODUCT_CRM_READ_ALL,
+  PERMISSIONS.PRODUCT_CRM_DELETE,
+  PERMISSIONS.PRODUCT_CRM_MANAGE,
+  PERMISSIONS.LEGAL_CRM_READ,
+  PERMISSIONS.LEGAL_CRM_READ_ALL,
+  PERMISSIONS.LEGAL_CRM_DELETE,
+  PERMISSIONS.LEGAL_CRM_MANAGE,
+  PERMISSIONS.ACCOUNTING_CRM_READ,
+  PERMISSIONS.ACCOUNTING_CRM_READ_ALL,
+  PERMISSIONS.ACCOUNTING_CRM_DELETE,
+  PERMISSIONS.ACCOUNTING_CRM_MANAGE,
+  PERMISSIONS.HR_CRM_READ,
+  PERMISSIONS.HR_CRM_READ_ALL,
+  PERMISSIONS.HR_CRM_DELETE,
+  PERMISSIONS.HR_CRM_MANAGE,
+] as const;
+
+router.post(
+  "/:id/archive",
+  requirePermission(...PROJECT_ARCHIVE_PERMS),
+  asyncHandler(async (req, res) => {
+    const data = await projectService.archive(
+      req.user!.id,
+      req.user!.permissions,
+      req.params.id as string,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/unarchive",
+  requirePermission(...PROJECT_ARCHIVE_PERMS),
+  asyncHandler(async (req, res) => {
+    const data = await projectService.unarchive(
+      req.user!.id,
+      req.user!.permissions,
+      req.params.id as string,
+    );
+    res.json({ data });
   }),
 );
 
@@ -465,6 +761,23 @@ router.delete(
       req.params.columnId as string,
     );
     res.json({ data: { success: true } });
+  }),
+);
+
+// ─── AI Generate Tasks ──────────────────────────────────
+
+router.post(
+  "/:id/ai/generate-tasks",
+  requirePermission(...PROJECT_WRITE_PERMS),
+  asyncHandler(async (req, res) => {
+    const input = generateTasksSchema.parse(req.body);
+    const data = await projectService.generateTasks(
+      req.user!.id,
+      req.user!.permissions,
+      req.params.id as string,
+      input,
+    );
+    res.json({ data });
   }),
 );
 

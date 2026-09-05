@@ -53,6 +53,7 @@ export interface PerUserActivityDto {
   breakdown: {
     leaveEvents30d: number;
     expenseEvents30d: number;
+    ariaEvents30d: number;
   };
   topAction: string | null;
   lastActiveAt: string | null;
@@ -162,6 +163,7 @@ export const usageService = {
         breakdown: {
           leaveEvents30d: r.leaveEvents30d,
           expenseEvents30d: r.expenseEvents30d,
+          ariaEvents30d: r.ariaEvents30d,
         },
         topAction: r.topAction,
         lastActiveAt: r.lastActiveAt ? r.lastActiveAt.toISOString() : null,

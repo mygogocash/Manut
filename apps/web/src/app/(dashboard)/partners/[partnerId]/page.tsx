@@ -45,10 +45,11 @@ import {
 // `/projects/<primaryProjectId>`. Now renders a native board view
 // backed by the Phase 2 endpoints (#605).
 export default function PartnerDetailPage() {
-  const params = useParams();
+  const params = useParams<{ partnerId: string }>();
   const router = useRouter();
   const { hasPermission } = useAuth();
-  const partnerId = params.partnerId as string;
+  const partnerId =
+    typeof params?.partnerId === "string" ? params.partnerId : "";
 
   const canEdit = hasPermission("partners:update");
 

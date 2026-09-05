@@ -16,6 +16,9 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Archive,
+  ArchiveRestore,
+  BellRing,
   Edit,
   GripVertical,
   MoreHorizontal,
@@ -29,11 +32,13 @@ import { toast } from "sonner";
 
 import { QaCrmProjectDialog } from "@/components/qa-crm/qa-crm-project-dialog";
 import { Badge } from "@/components/shared/badge";
+import { CrmReminderSettingsDialog } from "@/components/shared/crm-reminder-settings-dialog";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { ExpandableText } from "@/components/shared/expandable-text";
 import { PageHeader } from "@/components/shared/page-header";
 import { PermissionButton } from "@/components/shared/permission-button";
 import { SortableColumnHead } from "@/components/shared/sortable-column-head";
+import { Tabs } from "@/components/shared/tabs";
 import { useColumnOrder } from "@/components/shared/use-column-order";
 import { useColumnWidths } from "@/components/shared/use-column-widths";
 import {
@@ -76,14 +81,20 @@ import { usePagination } from "@/hooks/use-pagination";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
+  getCrmReminderSettings,
+  updateCrmReminderSettings,
+} from "@/services/crm-reminder-settings.service";
+import {
   type AssignableUser,
   listAssignableUsers,
 } from "@/services/directory.service";
 import {
+  archiveQaProject,
   deleteQaProject,
   listQaProjects,
   type QaProject,
   reorderQaProjects,
+  unarchiveQaProject,
 } from "@/services/qa-crm.service";
 
 const STATUS_OPTIONS = [
@@ -155,6 +166,13 @@ export function QaCrmList() {
   const { user, hasAnyPermission } = useAuth();
   const canManageAny = hasAnyPermission("qa-crm:update", "qa-crm:manage");
   const canDeleteAny = hasAnyPermission("qa-crm:delete", "qa-crm:manage");
+  // The org-wide reminder-recipients setting is manage-only on the backend —
+  // gate its button/dialog on the same level so an update-only holder isn't
+  // shown a control that would 403 on save.
+  const canManageSettings = hasAnyPermission(
+    "qa-crm:manage",
+    "projects:manage",
+  );
 
   const [projects, setProjects] = useState<QaProject[]>([]);
   const [users, setUsers] = useState<AssignableUser[]>([]);
@@ -163,6 +181,9 @@ export function QaCrmList() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 350);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  // Active | Archived view. Archived is orthogonal to the status filter — it
+  // shows projects that were archived regardless of their status.
+  const [archived, setArchived] = useState(false);
 
   const pagination = usePagination();
   const { page, pageSize, setPage, setPageSize, setTotalCount, totalPages } =
@@ -172,6 +193,19 @@ export function QaCrmList() {
   const [editing, setEditing] = useState<QaProject | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<QaProject | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
+
+  // Stable load/save fns for the shared reminder-settings dialog —
+  // it keys its load-on-open effect on `load`.
+  const loadReminderSettings = useCallback(
+    async () => (await getCrmReminderSettings("qa")).data,
+    [],
+  );
+  const saveReminderSettings = useCallback(
+    async (recipients: string[]) =>
+      (await updateCrmReminderSettings("qa", recipients)).data,
+    [],
+  );
 
   const { colOrder, isColumnId, reorderColumns } = useColumnOrder(
     QA_COL_STORAGE_KEY,
@@ -185,8 +219,8 @@ export function QaCrmList() {
   // Drag-to-reorder disabled while filter/search active so a partial
   // view can't corrupt global ordering.
   const reorderEnabled = useMemo(
-    () => !debouncedSearch.trim() && !statusFilter && !loading,
-    [debouncedSearch, statusFilter, loading],
+    () => !debouncedSearch.trim() && !statusFilter && !archived && !loading,
+    [debouncedSearch, statusFilter, archived, loading],
   );
   const prePersistOrder = useRef<QaProject[] | null>(null);
 
@@ -198,6 +232,7 @@ export function QaCrmList() {
         limit: pageSize,
         search: debouncedSearch || undefined,
         status: statusFilter || undefined,
+        archived: archived || undefined,
       });
       setProjects(res.data);
       setTotalCount(res.meta.total);
@@ -208,7 +243,7 @@ export function QaCrmList() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, debouncedSearch, statusFilter, setTotalCount]);
+  }, [page, pageSize, debouncedSearch, statusFilter, archived, setTotalCount]);
 
   useEffect(() => {
     void fetchProjects();
@@ -216,7 +251,7 @@ export function QaCrmList() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, setPage]);
+  }, [debouncedSearch, statusFilter, archived, setPage]);
 
   useEffect(() => {
     listAssignableUsers({ limit: 500 })
@@ -275,7 +310,9 @@ export function QaCrmList() {
     (saved: QaProject) => {
       if (editing) {
         setProjects((prev) => prev.map((p) => (p.id === saved.id ? saved : p)));
-      } else {
+      } else if (!archived) {
+        // A newly created project is active — it belongs to the Active view
+        // only. On the Archived tab, skip the optimistic insert + count bump.
         setTotalCount((c) => c + 1);
         if (page === 1) {
           setProjects((prev) => {
@@ -285,7 +322,7 @@ export function QaCrmList() {
         }
       }
     },
-    [editing, page, pageSize, setTotalCount],
+    [editing, archived, page, pageSize, setTotalCount],
   );
 
   async function confirmDelete() {
@@ -306,6 +343,41 @@ export function QaCrmList() {
     }
   }
 
+  // Archive / restore. The current view (active vs archived) is the opposite
+  // of the row's new state, so the row leaves the current list either way —
+  // drop it optimistically and adjust the total.
+  const handleArchive = useCallback(
+    async (p: QaProject) => {
+      try {
+        await archiveQaProject(p.id);
+        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        toast.success("Project archived");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to archive project",
+        );
+      }
+    },
+    [setTotalCount],
+  );
+
+  const handleUnarchive = useCallback(
+    async (p: QaProject) => {
+      try {
+        await unarchiveQaProject(p.id);
+        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        toast.success("Project restored");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to restore project",
+        );
+      }
+    },
+    [setTotalCount],
+  );
+
   const skeletonRows = useMemo(
     () => Array.from({ length: 6 }, (_, i) => i),
     [],
@@ -317,15 +389,36 @@ export function QaCrmList() {
         title="QA CRM"
         subtitle="QA issue tracking — group by release, product, or regression sweep"
       >
-        <PermissionButton
-          variant="accent"
-          permission="qa-crm:create"
-          onClick={handleCreate}
-        >
-          <Plus className="size-3.5" />
-          New project
-        </PermissionButton>
+        <div className="flex items-center gap-2">
+          {canManageSettings ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReminderOpen(true)}
+            >
+              <BellRing className="size-3.5" />
+              Reminders
+            </Button>
+          ) : null}
+          <PermissionButton
+            variant="accent"
+            permission="qa-crm:create"
+            onClick={handleCreate}
+          >
+            <Plus className="size-3.5" />
+            New project
+          </PermissionButton>
+        </div>
       </PageHeader>
+
+      <Tabs
+        tabs={[
+          { id: "active", label: "Active" },
+          { id: "archived", label: "Archived" },
+        ]}
+        active={archived ? "archived" : "active"}
+        onChange={(v) => setArchived(v === "archived")}
+      />
 
       <div className="mb-4 flex items-center gap-3">
         <div className="relative max-w-sm flex-1">
@@ -360,9 +453,12 @@ export function QaCrmList() {
         </Select>
       </div>
 
-      {!reorderEnabled && (debouncedSearch.trim() || statusFilter) ? (
+      {!reorderEnabled &&
+      (debouncedSearch.trim() || statusFilter || archived) ? (
         <p className="text-muted-foreground mb-2 text-[11px]">
-          Drag-to-reorder is disabled while a filter or search is active.
+          {archived
+            ? "Drag-to-reorder is disabled in the Archived view."
+            : "Drag-to-reorder is disabled while a filter or search is active."}
         </p>
       ) : null}
 
@@ -372,7 +468,7 @@ export function QaCrmList() {
           // drag-to-resize (Notion-style).
           className="table-fixed"
           containerClassName={`
-            max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
+            max-h-[60svh] md:max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
           `}
         >
           <TableHeader className="bg-background sticky top-0 z-10">
@@ -430,8 +526,11 @@ export function QaCrmList() {
                     canDrag={reorderEnabled}
                     canManageRow={p.ownerId === user?.id || canManageAny}
                     canDelete={canDeleteAny}
+                    isArchivedView={archived}
                     onOpen={() => router.push(`/qa-crm/${p.id}`)}
                     onEdit={() => handleEdit(p)}
+                    onArchive={() => void handleArchive(p)}
+                    onUnarchive={() => void handleUnarchive(p)}
                     onDelete={() => setDeleteTarget(p)}
                   />
                 ))}
@@ -459,6 +558,15 @@ export function QaCrmList() {
         project={editing}
         onSaved={handleSaved}
       />
+
+      {canManageSettings ? (
+        <CrmReminderSettingsDialog
+          open={reminderOpen}
+          onOpenChange={setReminderOpen}
+          load={loadReminderSettings}
+          save={saveReminderSettings}
+        />
+      ) : null}
 
       <AlertDialog
         open={!!deleteTarget}
@@ -498,8 +606,11 @@ function SortableQaRow({
   canDrag,
   canManageRow,
   canDelete,
+  isArchivedView,
   onOpen,
   onEdit,
+  onArchive,
+  onUnarchive,
   onDelete,
 }: {
   project: QaProject;
@@ -508,8 +619,11 @@ function SortableQaRow({
   canDrag: boolean;
   canManageRow: boolean;
   canDelete: boolean;
+  isArchivedView: boolean;
   onOpen: () => void;
   onEdit: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
   onDelete: () => void;
 }) {
   const {
@@ -631,6 +745,19 @@ function SortableQaRow({
                 <Edit className="size-3.5" />
                 Edit
               </DropdownMenuItem>
+            ) : null}
+            {canManageRow ? (
+              isArchivedView ? (
+                <DropdownMenuItem onClick={onUnarchive}>
+                  <ArchiveRestore className="size-3.5" />
+                  Restore
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={onArchive}>
+                  <Archive className="size-3.5" />
+                  Archive
+                </DropdownMenuItem>
+              )
             ) : null}
             {canDelete ? (
               <>

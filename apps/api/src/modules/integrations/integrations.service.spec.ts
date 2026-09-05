@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { mockArgument, mockCall } from "@/test-utils/assertions";
-
 vi.mock("@/common/utils/logger", () => ({
   logger: {
     error: vi.fn(),
@@ -129,7 +127,7 @@ describe("integrationsService (REST)", () => {
       const result = await service.listGmail("user-1", { folder: "inbox" });
 
       // First call: list endpoint
-      const firstUrl = mockArgument(fetchMock.mock.calls, 0, 0) as string;
+      const firstUrl = fetchMock.mock.calls[0][0] as string;
       expect(firstUrl).toContain(
         "gmail.googleapis.com/gmail/v1/users/me/messages",
       );
@@ -165,7 +163,7 @@ describe("integrationsService (REST)", () => {
       const service = await loadService();
       await service.listGmail("user-1", { folder: "sent" });
 
-      const url = mockArgument(fetchMock.mock.calls, 0, 0) as string;
+      const url = fetchMock.mock.calls[0][0] as string;
       expect(url).toContain("labelIds=SENT");
     });
 
@@ -176,7 +174,7 @@ describe("integrationsService (REST)", () => {
       const service = await loadService();
       await service.listGmail("user-1", { folder: "drafts" });
 
-      const url = mockArgument(fetchMock.mock.calls, 0, 0) as string;
+      const url = fetchMock.mock.calls[0][0] as string;
       expect(url).toContain("labelIds=DRAFT");
     });
 
@@ -233,7 +231,7 @@ describe("integrationsService (REST)", () => {
       expect(result.subject).toBe("hi");
       expect(result.bodyText).toBe("hello world");
       expect(result.bodyHtml).toBe("");
-      const url = mockArgument(fetchMock.mock.calls, 0, 0) as string;
+      const url = fetchMock.mock.calls[0][0] as string;
       expect(url).toContain("/messages/m1?format=full");
     });
 
@@ -311,7 +309,7 @@ describe("integrationsService (REST)", () => {
 
       expect(result.result).toContain("sent-1");
 
-      const [url, init] = mockCall(fetchMock.mock.calls, 0) as [
+      const [url, init] = fetchMock.mock.calls[0] as [
         string,
         { method: string; headers: Record<string, string>; body: string },
       ];
@@ -340,7 +338,7 @@ describe("integrationsService (REST)", () => {
       const service = await loadService();
       await service.sendGmail("user-1", { to: "a@b.c", subject: "s" });
 
-      const init = mockArgument(fetchMock.mock.calls, 0, 1) as { body: string };
+      const init = fetchMock.mock.calls[0][1] as { body: string };
       const parsed = JSON.parse(init.body) as { raw: string };
       const decoded = Buffer.from(parsed.raw, "base64url").toString("utf-8");
       expect(decoded).toContain("To: a@b.c");
@@ -399,7 +397,7 @@ describe("integrationsService (REST)", () => {
       const service = await loadService();
       const result = await service.listDrive("user-1");
 
-      const url = mockArgument(fetchMock.mock.calls, 0, 0) as string;
+      const url = fetchMock.mock.calls[0][0] as string;
       expect(url).toContain("googleapis.com/drive/v3/files");
       expect(url).toContain("pageSize=25");
       expect(url).toContain("orderBy=modifiedTime+desc");
@@ -414,7 +412,7 @@ describe("integrationsService (REST)", () => {
         },
       ]);
 
-      const init = mockArgument(fetchMock.mock.calls, 0, 1) as {
+      const init = fetchMock.mock.calls[0][1] as {
         headers: Record<string, string>;
       };
       expect(init.headers.Authorization).toBe("Bearer tok-d");
@@ -427,7 +425,7 @@ describe("integrationsService (REST)", () => {
       const service = await loadService();
       await service.listDrive("user-1", "design");
 
-      const url = mockArgument(fetchMock.mock.calls, 0, 0) as string;
+      const url = fetchMock.mock.calls[0][0] as string;
       expect(url).toContain("q=name+contains+%27design%27");
     });
 

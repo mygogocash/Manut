@@ -2,11 +2,16 @@
 
 import {
   ArrowUpRight,
+  CalendarClock,
   CalendarPlus,
   Clock3,
   FileText,
+  FolderKanban,
+  Gavel,
+  ListChecks,
   MapPin,
   Receipt,
+  ShieldCheck,
   Users,
   Zap,
 } from "lucide-react";
@@ -18,7 +23,16 @@ import { Badge } from "@/components/shared/badge";
 import { useAuth } from "@/providers/auth-provider";
 
 type PendingAction = {
-  kind: "leave" | "travel" | "expense";
+  kind:
+    | "leave"
+    | "travel"
+    | "expense"
+    | "project_review"
+    | "department_review"
+    | "business_head_review"
+    | "product_admin_review"
+    | "development_scheduling"
+    | "task_assignment";
   id: string;
   title: string;
   subtitle: string;
@@ -44,6 +58,41 @@ const KIND_META: Record<
     label: "Expense",
     icon: <Receipt className="size-4" aria-hidden />,
     accent: "bg-info/10 text-info",
+  },
+  // AI Project Orchestrator — Phase 2 PM review queue item.
+  project_review: {
+    label: "Project",
+    icon: <FolderKanban className="size-4" aria-hidden />,
+    accent: "bg-primary/10 text-primary",
+  },
+  // AI Project Orchestrator — Phase 3 department review assignment.
+  department_review: {
+    label: "Review",
+    icon: <FolderKanban className="size-4" aria-hidden />,
+    accent: "bg-info/10 text-info",
+  },
+  // AI Project Orchestrator — Phase 4 executive approval gates.
+  business_head_review: {
+    label: "Approval",
+    icon: <Gavel className="size-4" aria-hidden />,
+    accent: "bg-primary/10 text-primary",
+  },
+  product_admin_review: {
+    label: "Final",
+    icon: <ShieldCheck className="size-4" aria-hidden />,
+    accent: "bg-primary/10 text-primary",
+  },
+  // AI Project Orchestrator — Phase 5 development scheduling queue.
+  development_scheduling: {
+    label: "Schedule",
+    icon: <CalendarClock className="size-4" aria-hidden />,
+    accent: "bg-info/10 text-info",
+  },
+  // AI Project Orchestrator — Phase 6 generated task assignment.
+  task_assignment: {
+    label: "Task",
+    icon: <ListChecks className="size-4" aria-hidden />,
+    accent: "bg-primary/10 text-primary",
   },
 };
 

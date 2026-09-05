@@ -32,7 +32,7 @@ export default function AuthCallbackPage() {
                 uppercase
               `}
             >
-              Manut
+              The Binary Holdings
             </div>
           </div>
         </div>

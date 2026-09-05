@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
+import { safeHref, URL_PATTERN, URL_TEST } from "@/components/shared/linkify";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getErrorMessage } from "@/lib/error-message";
 import { sanitizeRichHtml } from "@/lib/utils";
@@ -212,24 +213,6 @@ export function RichTextEditor({
   );
 }
 
-// Resolve a user-supplied URL to a safe, absolute href, or null when it
-// isn't a clickable web/mail link. `www.` is treated as https. Anything
-// that isn't http(s)/mailto (e.g. `javascript:`, `data:`) returns null so
-// the caller can neutralize it — these viewers render imported HTML, so a
-// hostile href must never become a live link.
-function safeHref(raw: string): string | null {
-  const trimmed = raw.trim();
-  if (/^mailto:/i.test(trimmed)) return trimmed;
-  const candidate = /^www\./i.test(trimmed) ? `https://${trimmed}` : trimmed;
-  try {
-    const u = new URL(candidate);
-    if (u.protocol === "http:" || u.protocol === "https:") return u.href;
-  } catch {
-    // not a parseable absolute URL
-  }
-  return null;
-}
-
 // Force existing anchors to open in a new tab with a safe rel, and strip
 // hrefs that don't resolve to a safe web/mail link.
 function hardenAnchors(root: HTMLElement): void {
@@ -244,13 +227,6 @@ function hardenAnchors(root: HTMLElement): void {
     a.setAttribute("rel", "noopener noreferrer nofollow");
   });
 }
-
-// Two regexes for one pattern: the global form drives the replace loop
-// (a fresh copy per call keeps `lastIndex` isolated), the non-global form
-// is for stateless boolean tests — calling `.test()` on a `/g` regex
-// mutates its `lastIndex` and would skip matches across nodes.
-const URL_PATTERN = /\b(?:https?:\/\/|www\.)[^\s<]+/gi;
-const URL_TEST = /\b(?:https?:\/\/|www\.)[^\s<]+/i;
 
 // Replace bare URLs inside a single text node with anchor elements.
 // Building anchors via the DOM (href/textContent set as properties) lets

@@ -103,7 +103,7 @@ export function DataPagination({
               value={String(pageSize)}
               onValueChange={(value) => onPageSizeChange(Number(value))}
             >
-              <SelectTrigger className="h-7 w-16 text-xs">
+              <SelectTrigger className="h-7 w-16 text-xs" aria-label="Rows per page">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent align="end">

@@ -1,38 +1,17 @@
-import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
-import { defineConfig } from "vitest/config";
+import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
 
-const nodeContractTests = [
-  "tests/cloudflare-builds.test.ts",
-  "tests/deploy-workflow-secrets.test.ts",
-  "tests/ensure-cloudflare-resources.test.ts",
-] as const;
-
-export default defineConfig({
+export default defineWorkersConfig({
   test: {
-    restoreMocks: true,
-    projects: [
-      {
-        plugins: [
-          cloudflareTest({
-            wrangler: { configPath: "./wrangler.jsonc" },
-          }),
-        ],
-        test: {
-          name: "workers",
-          restoreMocks: true,
-          include: ["tests/**/*.test.ts"],
-          exclude: [...nodeContractTests, "**/node_modules/**"],
+    include: ["test/**/*.test.ts", "src/**/*.test.ts"],
+    poolOptions: {
+      workers: {
+        // Tests run inside workerd with the same bindings as `wrangler dev`.
+        wrangler: { configPath: "./wrangler.jsonc" },
+        miniflare: {
+          // Assets dir may not exist in CI before `expo export`; tests never touch it.
+          assets: undefined,
         },
       },
-      {
-        test: {
-          name: "node-contracts",
-          environment: "node",
-          pool: "forks",
-          include: [...nodeContractTests],
-          exclude: ["**/node_modules/**"],
-        },
-      },
-    ],
+    },
   },
 });

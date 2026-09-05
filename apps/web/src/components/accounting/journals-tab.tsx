@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Send, Trash2 } from "lucide-react";
+import { Ban, CheckCircle, Send, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -32,12 +32,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { usePagination } from "@/hooks/use-pagination";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import {
   approveJournal,
   bulkDeleteJournals,
+  cancelJournal,
   deleteAllJournals,
   type JournalEntry,
   type JournalSortField,
@@ -110,6 +112,10 @@ export function JournalsTab({
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<JournalEntry | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const handleBulkDelete = useCallback(async () => {
     const ids = Array.from(selectedIds);
@@ -240,18 +246,22 @@ export function JournalsTab({
 
   const handleApproveJournal = useCallback(
     async (je: JournalEntry) => {
+      if (busyId) return;
       try {
+        setBusyId(je.id);
         await approveJournal(je.id);
-        toast.success("Journal entry approved");
+        toast.success("Journal entry approved and posted");
         void fetchJournals();
         onDataChanged();
       } catch (err) {
         const msg =
           err instanceof ApiError ? err.message : "Failed to approve entry";
         toast.error(msg);
+      } finally {
+        setBusyId(null);
       }
     },
-    [fetchJournals, onDataChanged],
+    [busyId, fetchJournals, onDataChanged],
   );
 
   const handlePostJournal = useCallback(
@@ -270,10 +280,48 @@ export function JournalsTab({
     [fetchJournals, onDataChanged],
   );
 
+  const handleCancelJournal = useCallback(async () => {
+    if (!cancelTarget || !cancelReason.trim()) return;
+    try {
+      setCancelling(true);
+      const res = await cancelJournal(cancelTarget.id, {
+        reason: cancelReason.trim(),
+      });
+      toast.success(`Cancelled ${cancelTarget.entryNo}`);
+      // A reversal into a later month can move tax out of a filed return, or
+      // restate retained earnings. Shown after the fact because the
+      // cancellation has already gone through — these are consequences to act
+      // on, not a confirmation prompt. Long duration: the credit-note advice is
+      // the actionable half and is easy to miss.
+      for (const warning of res.data.warnings ?? []) {
+        toast.warning(warning.message, { duration: 12000 });
+      }
+      setCancelTarget(null);
+      setCancelReason("");
+      void fetchJournals();
+      onDataChanged();
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Failed to cancel entry";
+      toast.error(msg);
+    } finally {
+      setCancelling(false);
+    }
+  }, [cancelTarget, cancelReason, fetchJournals, onDataChanged]);
+
   const columns = useMemo(
     () => [
       {
+        key: "entryNo",
+        header: "Number",
+        sortable: true,
+        render: (j: JournalEntry) => (
+          <span className="font-medium tabular-nums">{j.entryNo}</span>
+        ),
+      },
+      {
         key: "reference",
+        mobileRole: "title" as const,
         header: "Reference",
         sortable: true,
         render: (j: JournalEntry) => (
@@ -282,6 +330,7 @@ export function JournalsTab({
       },
       {
         key: "date",
+        mobileRole: "field" as const,
         header: "Date",
         sortable: true,
         render: (j: JournalEntry) => (
@@ -290,12 +339,14 @@ export function JournalsTab({
       },
       {
         key: "entity",
+        mobileRole: "detail" as const,
         header: "Entity",
         sortable: true,
         render: (j: JournalEntry) => j.entity.name,
       },
       {
         key: "description",
+        mobileRole: "subtitle" as const,
         header: "Description",
         sortable: true,
         render: (j: JournalEntry) => {
@@ -325,6 +376,7 @@ export function JournalsTab({
       },
       {
         key: "totalDebit",
+        mobileRole: "field" as const,
         header: "Debit",
         sortable: true,
         render: (j: JournalEntry) => (
@@ -334,6 +386,7 @@ export function JournalsTab({
       },
       {
         key: "totalCredit",
+        mobileRole: "detail" as const,
         header: "Credit",
         sortable: true,
         render: (j: JournalEntry) => (
@@ -343,6 +396,7 @@ export function JournalsTab({
       },
       {
         key: "status",
+        mobileRole: "badge" as const,
         header: "Status",
         sortable: true,
         render: (j: JournalEntry) => (
@@ -351,6 +405,7 @@ export function JournalsTab({
       },
       {
         key: "actions",
+        mobileRole: "actions" as const,
         header: "",
         render: (j: JournalEntry) => (
           <div className="flex items-center justify-end gap-1">
@@ -358,6 +413,7 @@ export function JournalsTab({
               <Button
                 size="xs"
                 variant="outline"
+                disabled={busyId === j.id}
                 onClick={(e) => {
                   e.stopPropagation();
                   void handleApproveJournal(j);
@@ -380,12 +436,37 @@ export function JournalsTab({
                 Post
               </Button>
             )}
+            {canPost &&
+              (j.status === "posted" || j.status === "approved") &&
+              !j.reversesEntryId &&
+              (!j.sourceType || j.sourceType === "manual") &&
+              (j.sourceType === "manual" || !!j.draftNo) && (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCancelReason("");
+                    setCancelTarget(j);
+                  }}
+                >
+                  <Ban className="mr-1 size-3" />
+                  Cancel
+                </Button>
+              )}
           </div>
         ),
         className: "text-right",
       },
     ],
-    [canApprove, canPost, handleApproveJournal, handlePostJournal, descLang],
+    [
+      busyId,
+      canApprove,
+      canPost,
+      handleApproveJournal,
+      handlePostJournal,
+      descLang,
+    ],
   );
 
   const filtersDirty = useMemo(
@@ -573,9 +654,8 @@ export function JournalsTab({
               Delete selected journal entries?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {selectedIds.size} entr{selectedIds.size === 1 ? "y" : "ies"} will
-              be permanently removed along with every journal line. This
-              bypasses the draft-only guard. Cannot be undone.
+              {selectedIds.size} selected. Only drafts and rejected entries are
+              removed. Issued numbers stay reserved — cancel those instead.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -604,10 +684,8 @@ export function JournalsTab({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete every journal entry?</AlertDialogTitle>
             <AlertDialogDescription>
-              This wipes the entire journal ledger across every entity and every
-              status — drafts, approved, and posted. Lines cascade
-              automatically. Cannot be undone. Re-import the GL spreadsheet to
-              rebuild the data.
+              This removes every draft and rejected journal. Posted, cancelled,
+              and reversed entries keep their numbers and stay on the ledger.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -622,7 +700,54 @@ export function JournalsTab({
                 hover:bg-destructive/90
               `}
             >
-              Delete all data
+              Delete drafts
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={cancelTarget !== null}
+        onOpenChange={(o) => {
+          if (!o && !cancelling) {
+            setCancelTarget(null);
+            setCancelReason("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Cancel {cancelTarget?.entryNo ?? "journal"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The number stays reserved. If this period is open, balances
+              reverse immediately. If it is closed, a reversing journal is
+              created in the current open period.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Cancellation reason (required)"
+            rows={3}
+            disabled={cancelling}
+            aria-label="Cancellation reason"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Keep</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleCancelJournal();
+              }}
+              disabled={cancelling || !cancelReason.trim()}
+              className={`
+                bg-destructive
+                hover:bg-destructive/90
+              `}
+            >
+              Cancel entry
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

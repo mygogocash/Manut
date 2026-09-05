@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -8,6 +8,11 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { AccountFormDialog } from "@/components/accounts/account-form-dialog";
+import {
+  BusinessUnitStageTable,
+  rollUpStage,
+  type UnitStageRow,
+} from "@/components/crm/business-unit-stage-table";
 import { RemoteAccountPicker } from "@/components/crm/remote-account-picker";
 import { FormDatePicker } from "@/components/shared/form-date-picker";
 import { Button } from "@/components/ui/button";
@@ -37,11 +42,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useBusinessUnits } from "@/hooks/use-business-units";
 import { ApiError } from "@/lib/api-client";
 import { getAccount, updateAccount } from "@/services/crm-account.service";
 import {
   createOpportunity,
+  listDealBusinessUnits,
   listOpportunityStageConfigs,
+  moveBusinessUnitCard,
   type Opportunity,
   OPPORTUNITY_STAGE_LABELS,
   OPPORTUNITY_STAGES,
@@ -62,6 +70,8 @@ const formSchema = z.object({
   launchDate: z.string().optional().or(z.literal("")),
   revenueLaunchDate: z.string().optional().or(z.literal("")),
   type: z.string().max(100).optional().or(z.literal("")),
+  // Multi-select: which business unit(s) are taking care of this deal.
+  businessUnits: z.array(z.string()),
   notes: z.string().max(5000).optional().or(z.literal("")),
 });
 
@@ -84,12 +94,12 @@ export function OpportunityFormDialog({
 }: OpportunityFormDialogProps) {
   const isEditing = !!opportunity;
   const [submitting, setSubmitting] = useState(false);
-  // Inline "+ New account" affordance so reps don't have
+  // BD-feedback — inline "+ New account" affordance so reps don't have
   // to leave this dialog to create a fresh account.
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       accountId: "",
@@ -102,6 +112,7 @@ export function OpportunityFormDialog({
       revenueLaunchDate: "",
       type: "",
       notes: "",
+      businessUnits: [],
     },
   });
 
@@ -127,7 +138,9 @@ export function OpportunityFormDialog({
           ? String(opportunity.revenueLaunchDate).slice(0, 10)
           : "",
         type: opportunity.type ?? "",
-        // Notes mirror the linked Account so edits in Pipeline + Accounts stay in
+        businessUnits: opportunity.businessUnits ?? [],
+        // Notes mirror the linked Account (Vivek BD-feedback,
+        // 2026-05-25 — edits in Pipeline + Accounts must stay in
         // sync). Fall back to opportunity.notes only if the account
         // fetch fails so legacy rows whose notes were authored on the
         // opportunity row don't appear blank.
@@ -156,6 +169,7 @@ export function OpportunityFormDialog({
         revenueLaunchDate: "",
         type: "",
         notes: "",
+        businessUnits: [],
       });
       // Pre-fill notes from the preset account on create so reps
       // immediately see the existing account-level context.
@@ -180,14 +194,54 @@ export function OpportunityFormDialog({
 
       // Notes are sourced from + persisted to the linked Account so
       // changes here propagate to the Accounts tab and every other
-      // opportunity bound to the same account. The opportunity.notes column is still updated
+      // opportunity bound to the same account (Vivek BD-feedback,
+      // 2026-05-25). The opportunity.notes column is still updated
       // for backward compat with reports that read the legacy field.
       const notesValue = values.notes?.trim() ?? "";
+
+      // Tags come from the table now — it is the only place units are added
+      // or removed, so deriving them here keeps one source of truth.
+      const unitCodes = unitRows.map((r) => r.businessUnit);
+      // With units present the deal's stage is DERIVED, so send the roll-up
+      // rather than the (read-only) form field. The server recomputes it
+      // anyway; sending the stale field would just lose a race with itself.
+      const dealStage = (rolledUpStage ?? values.stage) as OpportunityStage;
+
+      // Only units whose stage actually changed. Moving every unit would
+      // reset sortOrderWithinStage on rows nobody touched and reshuffle the
+      // board under the rep.
+      const baseline = new Map(
+        loadedRows.map((r) => [r.businessUnit, r.stage]),
+      );
+      const movedUnits = unitRows.filter(
+        (r) =>
+          baseline.has(r.businessUnit) &&
+          baseline.get(r.businessUnit) !== r.stage,
+      );
+
+      async function applyUnitStages(opportunityId: string) {
+        for (const row of movedUnits) {
+          try {
+            await moveBusinessUnitCard(opportunityId, row.businessUnit, {
+              stage: row.stage as OpportunityStage,
+            });
+          } catch (err) {
+            // The deal itself already saved; surface the unit that did not so
+            // the rep knows which one to retry rather than assuming all of it
+            // failed.
+            const message =
+              err instanceof ApiError
+                ? err.message
+                : `Could not move ${row.businessUnit}`;
+            toast.warning(message);
+          }
+        }
+      }
 
       if (isEditing && opportunity) {
         await updateOpportunity(opportunity.id, {
           name: values.name,
-          stage: values.stage,
+          stage: dealStage,
           value: Number(values.value),
           currency: values.currency.toUpperCase(),
           probability: probabilityNum,
@@ -196,7 +250,11 @@ export function OpportunityFormDialog({
           revenueLaunchDate: values.revenueLaunchDate || undefined,
           type: values.type || undefined,
           notes: notesValue || undefined,
+          businessUnits: unitCodes,
         });
+        // AFTER the deal write: a unit added in this same save has no row
+        // until the deal's tags land, and the server seeds it then.
+        await applyUnitStages(opportunity.id);
         try {
           await updateAccount(opportunity.accountId, {
             notes: notesValue,
@@ -216,7 +274,7 @@ export function OpportunityFormDialog({
         const created = await createOpportunity({
           name: values.name,
           accountId: values.accountId,
-          stage: values.stage,
+          stage: dealStage,
           value: Number(values.value),
           currency: values.currency.toUpperCase(),
           probability: probabilityNum,
@@ -225,7 +283,22 @@ export function OpportunityFormDialog({
           revenueLaunchDate: values.revenueLaunchDate || undefined,
           type: values.type || undefined,
           notes: notesValue || undefined,
+          businessUnits: unitCodes,
         });
+        // A new deal is seeded from itself, so every unit starts at
+        // `dealStage`; move the ones the rep set higher.
+        for (const row of unitRows) {
+          if (row.stage === dealStage) continue;
+          try {
+            await moveBusinessUnitCard(created.data.id, row.businessUnit, {
+              stage: row.stage as OpportunityStage,
+            });
+          } catch {
+            toast.warning(
+              `Created — but ${row.businessUnit} kept its default stage`,
+            );
+          }
+        }
         // Mirror notes onto the linked account for symmetry with the
         // edit path above.
         try {
@@ -259,6 +332,57 @@ export function OpportunityFormDialog({
 
   const currentStage = form.watch("stage");
 
+  // Only ACTIVE units are offered; a record already tagged with a
+  // deactivated unit keeps it until someone edits the selection.
+  const { units: businessUnitRows } = useBusinessUnits();
+  const businessUnitOptions = businessUnitRows.map((u) => ({
+    code: u.code,
+    label: u.label,
+  }));
+
+  // Stage per business unit. `unitRows` is what the rep edits; `loadedRows`
+  // is the baseline so submit can move only the units that actually changed —
+  // moving every unit would rewrite sortOrderWithinStage on rows nobody
+  // touched, reshuffling the board.
+  const [unitRows, setUnitRows] = useState<UnitStageRow[]>([]);
+  const [loadedRows, setLoadedRows] = useState<UnitStageRow[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!opportunity) {
+      setUnitRows([]);
+      setLoadedRows([]);
+      return;
+    }
+    let cancelled = false;
+    // Seed from the deal's tags first so the table renders immediately, then
+    // fill in each unit's real stage. The API routes this through getById, so
+    // a deal untouched since the per-unit migration still returns one row per
+    // tag rather than an empty list.
+    const fallback = (opportunity.businessUnits ?? []).map((code) => ({
+      businessUnit: code,
+      stage: opportunity.stage,
+    }));
+    setUnitRows(fallback);
+    setLoadedRows(fallback);
+    listDealBusinessUnits(opportunity.id)
+      .then((res) => {
+        if (cancelled) return;
+        const rows = res.data.map((r) => ({
+          businessUnit: r.businessUnit,
+          stage: r.stage as string,
+        }));
+        setUnitRows(rows);
+        setLoadedRows(rows);
+      })
+      .catch(() => {
+        // Best-effort — the tag-derived fallback above stays on screen.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, opportunity]);
+
   // Live stage config — admin-editable label + probability per stage.
   // Falls back to the hardcoded constants when the fetch hasn't landed
   // yet, so the form stays usable on cold open.
@@ -286,6 +410,22 @@ export function OpportunityFormDialog({
       OPPORTUNITY_STAGE_LABELS[s]
     );
   }
+  // Catalog sort order, so the read-only roll-up this dialog shows is the one
+  // computeOpportunityRollup will store. Falls back to the canonical order
+  // when the config fetch has not landed.
+  function stageSortOrder(s: string): number {
+    const configured = stageConfigs.find((c) => c.key === s)?.sortOrder;
+    if (typeof configured === "number") return configured;
+    const idx = OPPORTUNITY_STAGES.indexOf(s as OpportunityStage);
+    return idx === -1 ? Number.MAX_SAFE_INTEGER : idx * 10;
+  }
+
+  const rolledUpStage = rollUpStage(unitRows, stageSortOrder);
+  const firstStage =
+    [...OPPORTUNITY_STAGES].sort(
+      (a, b) => stageSortOrder(a) - stageSortOrder(b),
+    )[0] ?? "qualified";
+
   function stageProbability(s: OpportunityStage): number {
     return (
       stageConfigs.find((c) => c.key === s)?.probability ??
@@ -383,20 +523,45 @@ export function OpportunityFormDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Stage *</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select stage" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {OPPORTUNITY_STAGES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {stageLabel(s)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {rolledUpStage ? (
+                      // Derived, not typed. The deal still HAS a stage — the
+                      // list, exports and reports read it — but with units
+                      // present it is the least-advanced unit's, so an
+                      // editable field here would be a second source of truth
+                      // that silently disagrees with the board.
+                      <div
+                        className={`
+                          border-border bg-muted/40 text-muted-foreground flex
+                          h-9 items-center rounded-md border border-dashed px-3
+                          text-sm
+                        `}
+                      >
+                        {stageLabel(rolledUpStage as OpportunityStage)}
+                      </div>
+                    ) : (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select stage" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {OPPORTUNITY_STAGES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {stageLabel(s)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <FormDescription>
+                      {rolledUpStage
+                        ? "Rolls up from the business units below — the least advanced one."
+                        : "This deal has no business units, so it carries a single stage."}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -525,6 +690,26 @@ export function OpportunityFormDialog({
                 )}
               />
             </div>
+
+            <FormItem>
+              <BusinessUnitStageTable
+                options={businessUnitOptions}
+                rows={unitRows}
+                onChange={setUnitRows}
+                stages={OPPORTUNITY_STAGES}
+                stageLabel={(s) => stageLabel(s as OpportunityStage)}
+                stageProbability={(s) =>
+                  stageProbability(s as OpportunityStage)
+                }
+                firstStage={firstStage}
+                disabled={submitting}
+              />
+              <FormDescription>
+                Who is taking care of this deal, and how far along each one is.
+                Leave it empty and the deal shows under
+                &ldquo;Unassigned&rdquo;.
+              </FormDescription>
+            </FormItem>
 
             <FormField
               control={form.control}

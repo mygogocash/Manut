@@ -1,13 +1,13 @@
 model UserGoogleConnection {
-  id                 String    @id @default(uuid()) @db.Uuid
-  userId             String    @unique @map("user_id") @db.Uuid
-  accountEmail       String    @map("account_email")
-  accessToken        String    @map("access_token")
-  refreshToken       String    @map("refresh_token")
-  scope              String
-  expiresAt          DateTime  @map("expires_at")
-  tokenType          String    @default("Bearer") @map("token_type")
-  encryptionVersion  Int       @default(1) @map("encryption_version")
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @map("user_id") @db.Uuid
+  accountEmail      String   @map("account_email")
+  accessToken       String   @map("access_token")
+  refreshToken      String   @map("refresh_token")
+  scope             String
+  expiresAt         DateTime @map("expires_at")
+  tokenType         String   @default("Bearer") @map("token_type")
+  encryptionVersion Int      @default(1) @map("encryption_version")
   /// Cursor for the periodic Gmail → Sales CRM sync worker. Each run
   /// lists messages newer than this timestamp, logs them as
   /// CrmActivity rows for any matched contact, then advances the
@@ -15,8 +15,8 @@ model UserGoogleConnection {
   /// worker seeds it at "24h ago" so first runs don't drown the
   /// pipeline.
   lastCrmEmailSyncAt DateTime? @map("last_crm_email_sync_at")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

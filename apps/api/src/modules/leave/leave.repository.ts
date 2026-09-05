@@ -1,6 +1,5 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
-import { ConflictException } from "@/common/exceptions/http-exception";
 import { prisma } from "@/infrastructure/database/prisma";
 import { excludeDeleted, softDeleteUpdate } from "@/infrastructure/soft-delete";
 
@@ -14,16 +13,7 @@ const requestIncludes = {
       reportingTo: true,
     },
   },
-  leaveType: {
-    select: {
-      id: true,
-      name: true,
-      code: true,
-      category: true,
-      daysPerYear: true,
-      requiresApproval: true,
-    },
-  },
+  leaveType: { select: { id: true, name: true, code: true, category: true } },
   approver: { select: { id: true, name: true, email: true } },
   delegate: { select: { id: true, name: true, email: true } },
   entity: { select: { id: true, name: true } },
@@ -34,71 +24,6 @@ const typeInclude = {
 } satisfies Prisma.LeaveTypeInclude;
 
 export class LeaveRepository {
-  private async materializeBalance(
-    tx: Prisma.TransactionClient,
-    data: {
-      employeeId: string;
-      leaveTypeId: string;
-      year: number;
-      defaultEntitlement: number;
-    },
-  ) {
-    return tx.leaveBalance.upsert({
-      where: {
-        employeeId_leaveTypeId_year: {
-          employeeId: data.employeeId,
-          leaveTypeId: data.leaveTypeId,
-          year: data.year,
-        },
-      },
-      create: {
-        employeeId: data.employeeId,
-        leaveTypeId: data.leaveTypeId,
-        year: data.year,
-        entitled: data.defaultEntitlement,
-        used: 0,
-        carriedUsed: 0,
-      },
-      update: {},
-    });
-  }
-
-  /**
-   * Consumes a balance bucket with the capacity predicate on the same row
-   * update. Competing approvals therefore serialize on the balance row and
-   * cannot both spend the same remaining entitlement.
-   */
-  private async consumeBalance(
-    tx: Prisma.TransactionClient,
-    data: {
-      employeeId: string;
-      leaveTypeId: string;
-      year: number;
-      days: number;
-      source: "entitled" | "carried";
-      defaultEntitlement: number;
-    },
-  ) {
-    const balance = await this.materializeBalance(tx, data);
-    const isCarried = data.source === "carried";
-    const maximumUsed = isCarried
-      ? Number(balance.carried) - data.days
-      : Number(balance.entitled) + Number(balance.adjustment) - data.days;
-    const consumed = await tx.leaveBalance.updateMany({
-      where: isCarried
-        ? { id: balance.id, carriedUsed: { lte: maximumUsed } }
-        : { id: balance.id, used: { lte: maximumUsed } },
-      data: isCarried
-        ? { carriedUsed: { increment: data.days } }
-        : { used: { increment: data.days } },
-    });
-    if (consumed.count !== 1) {
-      throw new ConflictException(
-        "Leave balance changed and no longer has enough available days; refresh and try again",
-      );
-    }
-  }
-
   /**
    * Active policies visible to a given entity. Passing null returns
    * only global policies (entity-agnostic). The Apply-for-leave UI and
@@ -140,14 +65,14 @@ export class LeaveRepository {
   }
 
   async findTypeByNameInEntity(name: string, entityId: string | null) {
-    return prisma.leaveType.findFirst({
-      where: { entityId, name },
+    return prisma.leaveType.findUnique({
+      where: { entityId_name: { entityId: entityId ?? null, name } },
     });
   }
 
   async findTypeByCodeInEntity(code: string, entityId: string | null) {
-    return prisma.leaveType.findFirst({
-      where: { entityId, code },
+    return prisma.leaveType.findUnique({
+      where: { entityId_code: { entityId: entityId ?? null, code } },
     });
   }
 
@@ -203,6 +128,10 @@ export class LeaveRepository {
       order: number;
       approverType: string;
       approverUserId?: string | null;
+      skipWhenSubmitterIds?: string[];
+      onlyWhenSubmitterIds?: string[];
+      minDays?: number | null;
+      maxDays?: number | null;
     }>,
   ) {
     return prisma.$transaction(async (tx) => {
@@ -214,6 +143,10 @@ export class LeaveRepository {
           order: r.order,
           approverType: r.approverType,
           approverUserId: r.approverUserId ?? null,
+          skipWhenSubmitterIds: r.skipWhenSubmitterIds ?? [],
+          onlyWhenSubmitterIds: r.onlyWhenSubmitterIds ?? [],
+          minDays: r.minDays ?? null,
+          maxDays: r.maxDays ?? null,
         })),
       });
       return tx.leavePolicyApprover.findMany({
@@ -344,298 +277,21 @@ export class LeaveRepository {
     halfDayPeriod?: "am" | "pm" | null;
     reason?: string;
     source?: "entitled" | "carried";
-    defaultEntitlement: number;
-    requiresApproval: boolean;
-    approvalDescription: string;
   }) {
-    const source = data.source ?? "entitled";
-    const autoApproved = !data.requiresApproval;
-
-    return prisma.$transaction(async (tx) => {
-      const balanceData = {
+    return prisma.leaveRequest.create({
+      data: {
         employeeId: data.employeeId,
         leaveTypeId: data.leaveTypeId,
-        year: data.startDate.getFullYear(),
-        defaultEntitlement: data.defaultEntitlement,
-      };
-      if (autoApproved) {
-        await this.consumeBalance(tx, {
-          ...balanceData,
-          days: data.days,
-          source,
-        });
-      } else {
-        await this.materializeBalance(tx, balanceData);
-      }
-
-      const request = await tx.leaveRequest.create({
-        data: {
-          employeeId: data.employeeId,
-          leaveTypeId: data.leaveTypeId,
-          entityId: data.entityId ?? null,
-          startDate: data.startDate,
-          endDate: data.endDate,
-          days: data.days,
-          durationType: data.durationType ?? "full_day",
-          halfDayPeriod: data.halfDayPeriod ?? null,
-          reason: data.reason,
-          source,
-          status: autoApproved ? "approved" : "pending",
-          approvedAt: autoApproved ? new Date() : null,
-        },
-        include: requestIncludes,
-      });
-
-      if (autoApproved) {
-        await tx.balanceTransaction.create({
-          data: {
-            employeeId: data.employeeId,
-            leaveTypeId: data.leaveTypeId,
-            year: data.startDate.getFullYear(),
-            type: source === "carried" ? "used_carried" : "used",
-            amount: data.days,
-            description: data.approvalDescription,
-            referenceId: request.id,
-          },
-        });
-      }
-
-      return request;
-    });
-  }
-
-  /**
-   * Atomically advances one approval step. On the final step, the request
-   * status, materialized balance, and audit transaction commit together.
-   * A null result means another actor already changed the expected request
-   * state, so callers must fail closed instead of replaying the mutation.
-   */
-  async approveRequestStep(data: {
-    requestId: string;
-    approverId: string;
-    currentDecisionId: string | null;
-    expectedStepOrder: number | null;
-    nextStepOrder: number | null;
-    employeeId: string;
-    leaveTypeId: string;
-    year: number;
-    days: number;
-    source: "entitled" | "carried";
-    defaultEntitlement: number;
-    description: string;
-  }) {
-    return prisma.$transaction(async (tx) => {
-      const transition = await tx.leaveRequest.updateMany({
-        where: {
-          id: data.requestId,
-          status: "pending",
-          currentStepOrder: data.expectedStepOrder,
-        },
-        data:
-          data.nextStepOrder === null
-            ? {
-                status: "approved",
-                approvedBy: data.approverId,
-                approvedAt: new Date(),
-                currentStepOrder: null,
-              }
-            : { currentStepOrder: data.nextStepOrder },
-      });
-      if (transition.count !== 1) return null;
-
-      if (data.currentDecisionId) {
-        await tx.leaveApprovalDecision.update({
-          where: { id: data.currentDecisionId },
-          data: {
-            status: "approved",
-            decidedById: data.approverId,
-            decidedAt: new Date(),
-          },
-        });
-      }
-
-      if (data.nextStepOrder === null) {
-        await this.consumeBalance(tx, {
-          employeeId: data.employeeId,
-          leaveTypeId: data.leaveTypeId,
-          year: data.year,
-          days: data.days,
-          source: data.source,
-          defaultEntitlement: data.defaultEntitlement,
-        });
-        await tx.balanceTransaction.create({
-          data: {
-            employeeId: data.employeeId,
-            leaveTypeId: data.leaveTypeId,
-            year: data.year,
-            type: data.source === "carried" ? "used_carried" : "used",
-            amount: data.days,
-            description: data.description,
-            referenceId: data.requestId,
-          },
-        });
-      }
-
-      return tx.leaveRequest.findUniqueOrThrow({
-        where: { id: data.requestId },
-        include: requestIncludes,
-      });
-    });
-  }
-
-  /**
-   * Cancels the expected request state and, when required, reverses the
-   * approved balance plus ledger entry in the same transaction. The status
-   * predicate is the idempotency guard for concurrent retries.
-   */
-  async cancelRequestAtomically(data: {
-    requestId: string;
-    expectedStatus: "pending" | "approved" | "pending_cancellation";
-    approvedBy?: string;
-    refund: {
-      employeeId: string;
-      leaveTypeId: string;
-      year: number;
-      days: number;
-      source: "entitled" | "carried";
-      defaultEntitlement: number;
-      description: string;
-    } | null;
-  }) {
-    return prisma.$transaction(async (tx) => {
-      const transition = await tx.leaveRequest.updateMany({
-        where: { id: data.requestId, status: data.expectedStatus },
-        data: {
-          status: "cancelled",
-          ...(data.approvedBy
-            ? { approvedBy: data.approvedBy, approvedAt: new Date() }
-            : {}),
-        },
-      });
-      if (transition.count !== 1) return null;
-
-      if (data.refund) {
-        const refund = data.refund;
-        const balance = await tx.leaveBalance.upsert({
-          where: {
-            employeeId_leaveTypeId_year: {
-              employeeId: refund.employeeId,
-              leaveTypeId: refund.leaveTypeId,
-              year: refund.year,
-            },
-          },
-          create: {
-            employeeId: refund.employeeId,
-            leaveTypeId: refund.leaveTypeId,
-            year: refund.year,
-            entitled: refund.defaultEntitlement,
-            used: refund.source === "entitled" ? refund.days : 0,
-            carried: refund.source === "carried" ? refund.days : 0,
-            carriedUsed: refund.source === "carried" ? refund.days : 0,
-          },
-          update: {},
-        });
-        const refunded = await tx.leaveBalance.updateMany({
-          where:
-            refund.source === "carried"
-              ? { id: balance.id, carriedUsed: { gte: refund.days } }
-              : { id: balance.id, used: { gte: refund.days } },
-          data:
-            refund.source === "carried"
-              ? { carriedUsed: { decrement: refund.days } }
-              : { used: { decrement: refund.days } },
-        });
-        if (refunded.count !== 1) {
-          throw new ConflictException(
-            "Leave balance is inconsistent with this approved request; repair the balance before cancelling",
-          );
-        }
-        await tx.balanceTransaction.create({
-          data: {
-            employeeId: refund.employeeId,
-            leaveTypeId: refund.leaveTypeId,
-            year: refund.year,
-            type:
-              refund.source === "carried"
-                ? "cancellation_refund_carried"
-                : "cancellation_refund",
-            amount: -refund.days,
-            description: refund.description,
-            referenceId: data.requestId,
-          },
-        });
-      }
-
-      return tx.leaveRequest.findUniqueOrThrow({
-        where: { id: data.requestId },
-        include: requestIncludes,
-      });
-    });
-  }
-
-  /** A late rejection cannot overwrite an approval that already committed. */
-  async rejectRequestStepAtomically(data: {
-    requestId: string;
-    approverId: string;
-    currentDecisionId: string | null;
-    expectedStepOrder: number | null;
-    reason: string;
-  }) {
-    return prisma.$transaction(async (tx) => {
-      const transition = await tx.leaveRequest.updateMany({
-        where: {
-          id: data.requestId,
-          status: "pending",
-          currentStepOrder: data.expectedStepOrder,
-        },
-        data: {
-          status: "rejected",
-          approvedBy: data.approverId,
-          approvedAt: new Date(),
-          rejectReason: data.reason,
-          currentStepOrder: null,
-          delegatedToId: null,
-        },
-      });
-      if (transition.count !== 1) return null;
-
-      if (data.currentDecisionId) {
-        const decision = await tx.leaveApprovalDecision.updateMany({
-          where: { id: data.currentDecisionId, status: "pending" },
-          data: {
-            status: "rejected",
-            decidedById: data.approverId,
-            decidedAt: new Date(),
-            notes: data.reason,
-          },
-        });
-        if (decision.count !== 1) {
-          throw new ConflictException(
-            "Leave approval decision changed while the request was being rejected; refresh and try again",
-          );
-        }
-      }
-
-      return tx.leaveRequest.findUniqueOrThrow({
-        where: { id: data.requestId },
-        include: requestIncludes,
-      });
-    });
-  }
-
-  /** A late cancellation rejection cannot undo a committed refund. */
-  async rejectCancellationAtomically(requestId: string) {
-    return prisma.$transaction(async (tx) => {
-      const transition = await tx.leaveRequest.updateMany({
-        where: { id: requestId, status: "pending_cancellation" },
-        data: { status: "approved" },
-      });
-      if (transition.count !== 1) return null;
-
-      return tx.leaveRequest.findUniqueOrThrow({
-        where: { id: requestId },
-        include: requestIncludes,
-      });
+        entityId: data.entityId ?? null,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        days: data.days,
+        durationType: data.durationType ?? "full_day",
+        halfDayPeriod: data.halfDayPeriod ?? null,
+        reason: data.reason,
+        source: data.source ?? "entitled",
+      },
+      include: requestIncludes,
     });
   }
 
@@ -741,14 +397,21 @@ export class LeaveRepository {
     return prisma.leaveRequest.findFirst({ where });
   }
 
+  /**
+   * Apply a signed delta to one bucket of a leave balance. Pass `client`
+   * to enrol the write in a caller-owned interactive transaction — the
+   * approval path does, so the status flip and the deduction commit or
+   * roll back together.
+   */
   async updateBalance(
     employeeId: string,
     leaveTypeId: string,
     year: number,
     usedDelta: number,
     source: "entitled" | "carried" = "entitled",
+    client: Prisma.TransactionClient = prisma,
   ) {
-    return prisma.leaveBalance.update({
+    return client.leaveBalance.update({
       where: {
         employeeId_leaveTypeId_year: { employeeId, leaveTypeId, year },
       },
@@ -756,6 +419,22 @@ export class LeaveRepository {
         source === "carried"
           ? { carriedUsed: { increment: usedDelta } }
           : { used: { increment: usedDelta } },
+    });
+  }
+
+  /**
+   * Flip the "days are currently drawn down" flag on a request. Every
+   * balance mutation keeps this in lockstep so refunds and restores are
+   * idempotent.
+   */
+  async setBalanceDeducted(
+    id: string,
+    balanceDeducted: boolean,
+    client: Prisma.TransactionClient = prisma,
+  ) {
+    return client.leaveRequest.update({
+      where: { id },
+      data: { balanceDeducted },
     });
   }
 
@@ -869,16 +548,135 @@ export class LeaveRepository {
     });
   }
 
-  async createBalanceTransaction(data: {
-    employeeId: string;
-    leaveTypeId: string;
-    year: number;
-    type: string;
-    amount: number;
-    description?: string;
-    referenceId?: string;
-  }) {
-    return prisma.balanceTransaction.create({ data });
+  async createBalanceTransaction(
+    data: {
+      employeeId: string;
+      leaveTypeId: string;
+      year: number;
+      type: string;
+      amount: number;
+      description?: string;
+      referenceId?: string;
+    },
+    client: Prisma.TransactionClient = prisma,
+  ) {
+    return client.balanceTransaction.create({ data });
+  }
+
+  /**
+   * Rows where the stored `LeaveBalance` counter disagrees with the sum
+   * of the employee's own visible approved requests.
+   *
+   * `used` is a stored counter, not a derived value, so it can drift
+   * from `leave_requests` and nothing in the product notices. This is
+   * the read model that makes that drift visible.
+   *
+   * Year is derived with `EXTRACT(YEAR FROM start_date)`, matching the
+   * service's `startDate.getFullYear()` — `start_date` is a DATE, Prisma
+   * hands it back as UTC midnight, and the API runs UTC, so the two
+   * agree. They would not on a host west of UTC.
+   *
+   * Sums are cast to float8 rather than left as numeric: leave days are
+   * always multiples of 0.5, which float64 represents exactly, and it
+   * saves coercing a Decimal on every field.
+   */
+  async findBalanceDrift(year: number | null) {
+    return prisma.$queryRaw<
+      Array<{
+        balance_id: string;
+        employee_id: string;
+        employee_name: string;
+        employee_email: string;
+        leave_type_id: string;
+        leave_type_name: string;
+        year: number;
+        entitled: number;
+        used: number;
+        carried_used: number;
+        approved_days: number;
+        approved_carried_days: number;
+        drift: number;
+        carried_drift: number;
+        deleted_approved_days: number;
+        undeducted_approved_days: number;
+        ledger_row_count: number;
+        ledger_delta: number;
+      }>
+    >`
+      WITH approved AS (
+        SELECT lr.employee_id,
+               lr.leave_type_id,
+               EXTRACT(YEAR FROM lr.start_date)::int AS year,
+               SUM(CASE WHEN lr.source = 'carried' THEN 0 ELSE lr.days END)::float8 AS entitled_days,
+               SUM(CASE WHEN lr.source = 'carried' THEN lr.days ELSE 0 END)::float8 AS carried_days,
+               SUM(CASE WHEN lr.balance_deducted THEN 0 ELSE lr.days END)::float8 AS undeducted_days
+        FROM leave_requests lr
+        WHERE lr.status = 'approved' AND lr.deleted_at IS NULL
+        GROUP BY 1, 2, 3
+      ),
+      deleted_approved AS (
+        SELECT lr.employee_id,
+               lr.leave_type_id,
+               EXTRACT(YEAR FROM lr.start_date)::int AS year,
+               SUM(lr.days)::float8 AS days
+        FROM leave_requests lr
+        WHERE lr.status = 'approved' AND lr.deleted_at IS NOT NULL
+        GROUP BY 1, 2, 3
+      ),
+      ledger AS (
+        SELECT bt.employee_id,
+               bt.leave_type_id,
+               bt.year,
+               COUNT(*)::int AS row_count,
+               SUM(bt.amount)::float8 AS delta
+        FROM balance_transactions bt
+        WHERE bt.type IN ('manual_adjustment', 'bulk_import')
+        GROUP BY 1, 2, 3
+      )
+      SELECT lb.id                              AS balance_id,
+             u.id                               AS employee_id,
+             u.name                             AS employee_name,
+             u.email                            AS employee_email,
+             lt.id                              AS leave_type_id,
+             lt.name                            AS leave_type_name,
+             lb.year                            AS year,
+             lb.entitled::float8                AS entitled,
+             lb.used::float8                    AS used,
+             lb.carried_used::float8            AS carried_used,
+             COALESCE(a.entitled_days, 0)       AS approved_days,
+             COALESCE(a.carried_days, 0)        AS approved_carried_days,
+             (lb.used::float8 - COALESCE(a.entitled_days, 0))        AS drift,
+             (lb.carried_used::float8 - COALESCE(a.carried_days, 0)) AS carried_drift,
+             COALESCE(d.days, 0)                AS deleted_approved_days,
+             COALESCE(a.undeducted_days, 0)     AS undeducted_approved_days,
+             COALESCE(l.row_count, 0)           AS ledger_row_count,
+             COALESCE(l.delta, 0)               AS ledger_delta
+      FROM leave_balances lb
+      JOIN users u        ON u.id = lb.employee_id
+      JOIN leave_types lt ON lt.id = lb.leave_type_id
+      LEFT JOIN approved a         ON a.employee_id = lb.employee_id
+                                  AND a.leave_type_id = lb.leave_type_id
+                                  AND a.year = lb.year
+      LEFT JOIN deleted_approved d ON d.employee_id = lb.employee_id
+                                  AND d.leave_type_id = lb.leave_type_id
+                                  AND d.year = lb.year
+      LEFT JOIN ledger l           ON l.employee_id = lb.employee_id
+                                  AND l.leave_type_id = lb.leave_type_id
+                                  AND l.year = lb.year
+      WHERE (${year}::int IS NULL OR lb.year = ${year}::int)
+        AND (lb.used::float8        <> COALESCE(a.entitled_days, 0)
+          OR lb.carried_used::float8 <> COALESCE(a.carried_days, 0))
+      ORDER BY ABS(lb.used::float8 - COALESCE(a.entitled_days, 0)) DESC,
+               u.name ASC,
+               lt.name ASC
+    `;
+  }
+
+  /** Total balance rows in scope, so the report can say "12 of 480". */
+  async countBalances(year: number | null) {
+    return prisma.leaveBalance.count({
+      where: year === null ? {} : { year },
+    });
   }
 
   async findBalanceTransactions(
@@ -978,39 +776,6 @@ export class LeaveRepository {
   }
 
   // ── Per-request decisions ──
-
-  async initializeApprovalChainAtomically(
-    leaveRequestId: string,
-    rows: Array<{
-      order: number;
-      name: string;
-      approverType: string;
-      approverUserId?: string | null;
-    }>,
-  ) {
-    return prisma.$transaction(async (tx) => {
-      const claimed = await tx.leaveRequest.updateMany({
-        where: {
-          id: leaveRequestId,
-          status: "pending",
-          currentStepOrder: null,
-        },
-        data: { currentStepOrder: 1 },
-      });
-      if (claimed.count !== 1) return false;
-
-      await tx.leaveApprovalDecision.createMany({
-        data: rows.map((row) => ({
-          leaveRequestId,
-          order: row.order,
-          name: row.name,
-          approverType: row.approverType,
-          approverUserId: row.approverUserId ?? null,
-        })),
-      });
-      return true;
-    });
-  }
 
   async createDecisions(
     leaveRequestId: string,

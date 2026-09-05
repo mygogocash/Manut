@@ -56,6 +56,7 @@ export interface ListInvestorActivitiesParams {
   type?: string;
   investorId?: string;
   ownerId?: string;
+  fundraisingEntity?: string;
 }
 
 function buildQuery<T extends object>(params: T): string {

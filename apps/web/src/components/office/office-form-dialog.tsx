@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -38,11 +38,10 @@ const formSchema = z.object({
   country: z.string().min(1, "Country is required").max(120),
   address: z.string().max(500).optional().or(z.literal("")),
   timezone: z.string().max(80).optional().or(z.literal("")),
-  capacity: z.coerce.number<number | string>().int().nonnegative(),
+  capacity: z.coerce.number().int().nonnegative(),
 });
 
-type FormInput = z.input<typeof formSchema>;
-type FormValues = z.output<typeof formSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 interface OfficeFormDialogProps {
   open: boolean;
@@ -60,8 +59,8 @@ export function OfficeFormDialog({
   const isEditing = !!office;
   const [submitting, setSubmitting] = useState(false);
 
-  const form = useForm<FormInput, unknown, FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       city: "",

@@ -1,0 +1,1444 @@
+<title>Intranet Migration Pack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+:root {
+  --paper:        #F4F6F8;
+  --surface:      #FFFFFF;
+  --surface-sunk: #EBEEF2;
+  --rule:         #D7DCE3;
+  --rule-strong:  #B6BEC9;
+  --ink:          #111721;
+  --ink-soft:     #3B4553;
+  --muted:        #66717F;
+  --copper:       #A8500C;
+  --copper-soft:  #F3E5D8;
+  --verified:     #0E6650;
+  --verified-bg:  #DCEDE7;
+  --attention:    #7D5100;
+  --attention-bg: #F6E9CE;
+  --hazard:       #9C2A24;
+  --hazard-bg:    #F5DFDD;
+  --shadow:       0 1px 2px rgba(17,23,33,.05), 0 8px 24px -16px rgba(17,23,33,.18);
+
+  --step--1: .8125rem;
+  --step-0:  1rem;
+  --step-1:  1.1875rem;
+  --step-2:  1.5rem;
+  --step-3:  2rem;
+  --step-4:  2.75rem;
+
+  --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:        #0D1117;
+    --surface:      #141A22;
+    --surface-sunk: #1B222C;
+    --rule:         #262E39;
+    --rule-strong:  #3A4451;
+    --ink:          #E4E9EF;
+    --ink-soft:     #B3BDC9;
+    --muted:        #8B96A4;
+    --copper:       #E2903F;
+    --copper-soft:  #2E2214;
+    --verified:     #55C0A0;
+    --verified-bg:  #12352D;
+    --attention:    #DDB055;
+    --attention-bg: #33290F;
+    --hazard:       #EC8078;
+    --hazard-bg:    #38191A;
+    --shadow:       0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:        #0D1117;
+  --surface:      #141A22;
+  --surface-sunk: #1B222C;
+  --rule:         #262E39;
+  --rule-strong:  #3A4451;
+  --ink:          #E4E9EF;
+  --ink-soft:     #B3BDC9;
+  --muted:        #8B96A4;
+  --copper:       #E2903F;
+  --copper-soft:  #2E2214;
+  --verified:     #55C0A0;
+  --verified-bg:  #12352D;
+  --attention:    #DDB055;
+  --attention-bg: #33290F;
+  --hazard:       #EC8078;
+  --hazard-bg:    #38191A;
+  --shadow:       0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: var(--step-0);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  gap: 0;
+  max-width: 84rem;
+  margin: 0 auto;
+}
+
+/* ── rail ─────────────────────────────────────────── */
+
+.rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 2.25rem 1.5rem 2rem 1.75rem;
+  border-right: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.rail-mark {
+  font-family: var(--mono);
+  font-size: .625rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--copper);
+  margin: 0 0 .35rem;
+}
+
+.rail-title {
+  font-family: var(--sans);
+  font-size: var(--step-1);
+  font-weight: 700;
+  letter-spacing: -.015em;
+  line-height: 1.2;
+  margin: 0 0 .5rem;
+}
+
+.rail-meta {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0 0 1.75rem;
+}
+
+.rail nav ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  counter-reset: sec;
+}
+
+.rail nav a {
+  display: flex;
+  gap: .625rem;
+  align-items: baseline;
+  padding: .3rem .5rem .3rem 0;
+  font-family: var(--sans);
+  font-size: .8125rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-radius: 3px;
+}
+
+.rail nav li { counter-increment: sec; }
+
+.rail nav a::before {
+  content: counter(sec, decimal-leading-zero);
+  font-family: var(--mono);
+  font-size: .625rem;
+  font-weight: 500;
+  color: var(--rule-strong);
+  flex: none;
+}
+
+.rail nav a:hover { color: var(--copper); }
+.rail nav a:hover::before { color: var(--copper); }
+.rail nav a.on { color: var(--copper); font-weight: 600; }
+.rail nav a.on::before { color: var(--copper); }
+
+.rail-foot {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: .625rem;
+  line-height: 1.8;
+  color: var(--muted);
+}
+
+/* ── main ─────────────────────────────────────────── */
+
+main { padding: 2.25rem clamp(1.25rem, 4vw, 3.5rem) 6rem; min-width: 0; }
+
+.masthead { margin-bottom: 2.5rem; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 .75rem;
+}
+
+h1 {
+  font-family: var(--sans);
+  font-size: var(--step-4);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1.04;
+  text-wrap: balance;
+  margin: 0 0 1rem;
+}
+
+.standfirst {
+  max-width: 60ch;
+  font-size: var(--step-1);
+  line-height: 1.55;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+/* fact strip */
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 1px;
+  margin: 2.25rem 0 0;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.fact {
+  background: var(--surface);
+  padding: .875rem 1rem 1rem;
+}
+
+.fact b {
+  display: block;
+  font-family: var(--mono);
+  font-size: 1.375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.fact span {
+  display: block;
+  margin-top: .3rem;
+  font-family: var(--sans);
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* sections */
+
+section { margin-top: 4rem; scroll-margin-top: 1.5rem; }
+
+h2 {
+  font-family: var(--sans);
+  font-size: var(--step-2);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+  text-wrap: balance;
+  margin: 0 0 .25rem;
+  padding-bottom: .75rem;
+  border-bottom: 2px solid var(--ink);
+}
+
+h3 {
+  font-family: var(--sans);
+  font-size: var(--step-1);
+  font-weight: 600;
+  letter-spacing: -.01em;
+  text-wrap: balance;
+  margin: 2.25rem 0 .5rem;
+}
+
+h4 {
+  font-family: var(--sans);
+  font-size: var(--step-0);
+  font-weight: 600;
+  margin: 1.75rem 0 .35rem;
+}
+
+p, ul, ol { max-width: 68ch; }
+p { margin: 0 0 1rem; }
+.lead { margin-top: 1.25rem; }
+
+ul, ol { padding-left: 1.35rem; margin: 0 0 1rem; }
+li { margin-bottom: .4rem; }
+
+a { color: var(--copper); text-decoration-thickness: 1px; text-underline-offset: .15em; }
+
+strong { font-weight: 600; }
+
+code, .m {
+  font-family: var(--mono);
+  font-size: .875em;
+  background: var(--surface-sunk);
+  padding: .1em .32em;
+  border-radius: 3px;
+  word-break: break-word;
+}
+
+:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* status chips — encode the real state of each claim */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-family: var(--sans);
+  font-size: .625rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: .15rem .45rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  vertical-align: .1em;
+}
+.chip--ok   { background: var(--verified-bg);  color: var(--verified); }
+.chip--warn { background: var(--attention-bg); color: var(--attention); }
+.chip--bad  { background: var(--hazard-bg);    color: var(--hazard); }
+.chip--open { background: var(--copper-soft);  color: var(--copper); }
+
+/* callout */
+
+.note {
+  max-width: 68ch;
+  margin: 1.5rem 0;
+  padding: 1rem 1.125rem;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  border-radius: 3px;
+  font-size: var(--step--1);
+  line-height: 1.6;
+}
+.note > :last-child { margin-bottom: 0; }
+.note--bad  { border-left-color: var(--hazard); }
+.note--warn { border-left-color: var(--attention); }
+.note--ok   { border-left-color: var(--verified); }
+
+.note-head {
+  display: block;
+  font-family: var(--sans);
+  font-size: .6875rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  margin-bottom: .35rem;
+}
+.note--bad  .note-head { color: var(--hazard); }
+.note--warn .note-head { color: var(--attention); }
+.note--ok   .note-head { color: var(--verified); }
+
+/* tables */
+
+.tw {
+  overflow-x: auto;
+  margin: 1.25rem 0 1.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+table { border-collapse: collapse; width: 100%; font-size: var(--step--1); }
+
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-sunk);
+  font-family: var(--sans);
+  font-size: .625rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--ink-soft);
+  padding: .55rem .75rem;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+td {
+  padding: .5rem .75rem;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--surface-sunk); }
+
+td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td.id { font-family: var(--mono); font-size: .78rem; white-space: nowrap; }
+.dim { color: var(--muted); }
+
+/* browser controls */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .625rem;
+  align-items: center;
+  margin: 1.25rem 0 .75rem;
+}
+
+.controls input[type="search"] {
+  flex: 1 1 14rem;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--step--1);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: .45rem .625rem;
+}
+
+.controls select {
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: .45rem .5rem;
+}
+
+.count {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: var(--copper); }
+.sortable[aria-sort]:not([aria-sort="none"]) { color: var(--copper); }
+.sortable[aria-sort="ascending"]::after  { content: " ▲"; font-size: .5rem; }
+.sortable[aria-sort="descending"]::after { content: " ▼"; font-size: .5rem; }
+
+.scroller { max-height: 30rem; overflow: auto; }
+
+/* checklist */
+
+.check { list-style: none; padding: 0; max-width: 68ch; }
+.check li {
+  position: relative;
+  padding-left: 1.6rem;
+  margin-bottom: .55rem;
+  font-size: var(--step--1);
+  line-height: 1.6;
+}
+.check li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .35em;
+  width: .8rem;
+  height: .8rem;
+  border: 1.5px solid var(--rule-strong);
+  border-radius: 2px;
+}
+
+.phase {
+  font-family: var(--sans);
+  font-size: .6875rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--copper);
+  margin: 1.75rem 0 .625rem;
+}
+
+/* decision cards */
+
+.decks { display: grid; gap: 1rem; margin: 1.25rem 0 1.5rem; }
+@media (min-width: 56rem) { .decks { grid-template-columns: repeat(3, 1fr); } }
+
+.deck {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1rem 1.125rem 1.125rem;
+  box-shadow: var(--shadow);
+}
+.deck h4 { margin: .5rem 0 .5rem; }
+.deck p { font-size: var(--step--1); max-width: none; }
+.deck > :last-child { margin-bottom: 0; }
+
+.qs { counter-reset: q; list-style: none; padding: 0; }
+.qs li {
+  counter-increment: q;
+  position: relative;
+  padding-left: 2.25rem;
+  margin-bottom: .875rem;
+  max-width: 68ch;
+}
+.qs li::before {
+  content: "Q" counter(q);
+  position: absolute;
+  left: 0;
+  top: .15em;
+  font-family: var(--mono);
+  font-size: .6875rem;
+  font-weight: 700;
+  color: var(--copper);
+}
+
+@media (max-width: 60rem) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+    padding: 1.5rem 1.25rem;
+  }
+  .rail nav ol { flex-direction: row; flex-wrap: wrap; gap: .25rem .875rem; }
+  .rail-foot { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="shell">
+  <aside class="rail">
+    <p class="rail-mark">GCP → AWS</p>
+    <p class="rail-title">Intranet<br>Migration Pack</p>
+    <p class="rail-meta">
+      main @ 0479db8d<br>
+      2026-08-26<br>
+      for Sanjeev
+    </p>
+    <nav aria-label="Sections">
+      <ol>
+        <li><a href="#framing">The framing fact</a></li>
+        <li><a href="#codebase">Codebase</a></li>
+        <li><a href="#schema">Database</a></li>
+        <li><a href="#browser">Table browser</a></li>
+        <li><a href="#gcp">On GCP today</a></li>
+        <li><a href="#supabase">The Supabase surface</a></li>
+        <li><a href="#config">Secrets &amp; config</a></li>
+        <li><a href="#mapping">AWS mapping</a></li>
+        <li><a href="#decisions">Three decisions</a></li>
+        <li><a href="#cutover">Cutover checklist</a></li>
+        <li><a href="#questions">Open questions</a></li>
+      </ol>
+    </nav>
+    <p class="rail-foot">
+      Full pack in repo:<br>
+      docs/migration/
+    </p>
+  </aside>
+
+  <main>
+    <header class="masthead">
+      <p class="eyebrow">Migration assessment · prepared 26 Aug 2026</p>
+      <h1>Intranet, from Cloud Run to AWS</h1>
+      <p class="standfirst">
+        The full codebase and database structure Sanjeev asked for, plus the
+        infrastructure context needed to act on it. Read the framing fact first —
+        it changes the shape of the whole project.
+      </p>
+
+      <div class="facts">
+        <div class="fact"><b>274</b><span>Tables</span></div>
+        <div class="fact"><b>3,228</b><span>Columns</span></div>
+        <div class="fact"><b>444</b><span>Foreign keys</span></div>
+        <div class="fact"><b>1,350</b><span>API routes</span></div>
+        <div class="fact"><b>99</b><span>API modules</span></div>
+        <div class="fact"><b>112</b><span>Web pages</span></div>
+        <div class="fact"><b>~478k</b><span>Lines TS/TSX</span></div>
+        <div class="fact"><b>20</b><span>Cron endpoints</span></div>
+      </div>
+    </header>
+
+    <section id="framing">
+      <h2>The framing fact</h2>
+      <p class="lead">
+        <strong>The database is already on AWS.</strong> Supabase runs on AWS,
+        and the production connection strings point at
+        <code>*.pooler.supabase.com</code> in an
+        <code>aws-*-ap-southeast-*</code> region. The production data plane is
+        not moving clouds — it is only moving <em>vendor</em>, and only if you
+        decide it should.
+      </p>
+      <p>
+        What is actually on GCP is compact: two Cloud Run services, one Artifact
+        Registry repository, some Cloud Scheduler jobs, Workload Identity
+        Federation for CI, and the custom domain mappings. Nothing in the
+        application code is GCP-coupled — there are no
+        <code>@google-cloud/*</code> imports and no metadata-server calls.
+      </p>
+      <p>
+        So the large, risky parts of this migration are the Supabase question
+        (§6) and the Socket.IO question (§9). Not the containers.
+      </p>
+    </section>
+
+    <section id="codebase">
+      <h2>Codebase</h2>
+
+      <p class="lead">
+        A single-tenant internal business platform: HR/HRMS, payroll, leave,
+        attendance, visa, Thai statutory accounting including a fixed-asset
+        register, expenses, travel, cash advance, five CRMs, investor relations,
+        IT operations and helpdesk, appraisals, a document knowledge base,
+        real-time messaging, and an AI assistant (ARIA).
+      </p>
+      <p>
+        One deployable web app plus one deployable API. No microservices, no
+        message queues, no worker fleet — scheduled work is HTTP endpoints
+        invoked by a cron scheduler.
+      </p>
+
+      <h3>Stack</h3>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>Layer</th><th>What</th><th>Notes that matter for the move</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="id">apps/api</td>
+              <td>Express 5, TypeScript, Prisma 6.19.3, Node 22</td>
+              <td>Runs <strong>directly under <code>tsx</code></strong> — there is no build step and no <code>dist/</code>. The image <em>is</em> the source tree.</td>
+            </tr>
+            <tr>
+              <td class="id">apps/web</td>
+              <td>Next.js 16.3.1 App Router, React 19.2, Tailwind v4</td>
+              <td><code>output: "standalone"</code>. <code>NEXT_PUBLIC_*</code> is inlined at build time, so it travels as <code>--build-arg</code>, never a runtime env var.</td>
+            </tr>
+            <tr>
+              <td class="id">packages/*</td>
+              <td>database, types, utils, ui, okf, eslint-config</td>
+              <td>All <code>workspace:*</code>, all built with <code>tsc</code> inside both Dockerfiles.</td>
+            </tr>
+            <tr>
+              <td class="id">monorepo</td>
+              <td>Turborepo 2.10 + pnpm 10.33</td>
+              <td>Frozen lockfile in CI. Generated Prisma client is gitignored; CI runs <code>db:generate</code> first.</td>
+            </tr>
+            <tr>
+              <td class="id">realtime</td>
+              <td>Socket.IO 4.8, namespace <code>/messages</code></td>
+              <td>Same HTTP server as the REST API. No shared adapter — see §9.</td>
+            </tr>
+            <tr>
+              <td class="id">native dep</td>
+              <td><code>qpdf</code> CLI</td>
+              <td>Password-protects payslip PDFs, writes to <code>os.tmpdir()</code>. Any replacement base image must still carry it.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Size</h3>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Area</th><th class="n">Files</th><th class="n">Lines</th></tr></thead>
+          <tbody>
+            <tr><td class="id">apps/web/src</td><td class="n">879</td><td class="n">268,064</td></tr>
+            <tr><td class="id">apps/api/src</td><td class="n">895</td><td class="n">200,277</td></tr>
+            <tr><td class="id">packages/database</td><td class="n">9</td><td class="n">8,085</td></tr>
+            <tr><td class="id">SQL migrations</td><td class="n">258</td><td class="n">14,087</td></tr>
+            <tr><td class="id">test files</td><td class="n">282</td><td class="n dim">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Request path, and why it matters</h3>
+      <p>
+        The browser talks only to the web origin. <code>next.config.ts</code>
+        rewrites <code>/api/:path*</code> to the API server-side, and
+        <code>/ingest/*</code> to PostHog. Auth rides <strong>httpOnly cookies
+        the API sets itself</strong> (<code>nexora_access_token</code> /
+        <code>nexora_refresh_token</code>) — <code>apps/web</code> has
+        <em>zero</em> <code>@supabase/*</code> imports.
+      </p>
+      <div class="note note--warn">
+        <span class="note-head">One exception, and it is load-bearing</span>
+        <p>
+          <code>NEXT_PUBLIC_SOCKET_URL</code> is unset in prod, so the web build
+          falls back to the <code>API_URL</code> build arg and the browser opens
+          the WebSocket <strong>directly at the API hostname</strong>. A
+          private-only API breaks messaging even though every REST call would
+          still work through the Next.js rewrite.
+        </p>
+      </div>
+    </section>
+
+    <section id="schema">
+      <h2>Database</h2>
+
+      <p class="lead">
+        PostgreSQL on Supabase. The authoritative DDL was generated with
+        <code>prisma migrate diff --from-empty --to-schema-datamodel</code> —
+        the canonical <em>current</em> shape, deliberately not a concatenation
+        of the 258 migration files, which are history and include retired
+        tables and one-off backfills.
+      </p>
+
+      <div class="tw">
+        <table>
+          <thead><tr><th>Property</th><th class="n">Value</th><th>Note</th></tr></thead>
+          <tbody>
+            <tr><td>Tables</td><td class="n">274</td><td class="dim">All Prisma models carry an explicit <code>@@map</code></td></tr>
+            <tr><td>Columns</td><td class="n">3,228</td><td class="dim">1,234 TEXT · 558 TIMESTAMP · 543 UUID · 215 INT · 161 DATE · 155 DECIMAL · 78 JSONB · 23 TEXT[]</td></tr>
+            <tr><td>Foreign keys</td><td class="n">444</td><td class="dim"><code>users</code> is referenced by 202 tables; <code>entities</code> by 35</td></tr>
+            <tr><td>Secondary indexes</td><td class="n">590</td><td class="dim">132 of them unique</td></tr>
+            <tr><td>Prisma enums</td><td class="n">0</td><td class="dim">Every status/type column is a plain string</td></tr>
+            <tr><td>Primary keys</td><td class="n">274</td><td class="dim">184 UUID, 78 TEXT (<code>cuid()</code>), 10 composite join keys. Both styles mix inside single FK graphs — do not normalise them</td></tr>
+            <tr><td>Soft-delete tables</td><td class="n">25</td><td class="dim">A <code>deleted_at</code> column plus <code>excludeDeleted()</code> filters</td></tr>
+            <tr><td>Extensions required</td><td class="n">1</td><td class="dim"><code>vector</code> (pgvector)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Two things a schema dump will not tell you</h3>
+
+      <div class="note note--bad">
+        <span class="note-head">Fails silently · pgvector</span>
+        <p>
+          <code>aria_knowledge_articles.embedding vector(768)</code> and its
+          <code>ivfflat</code> cosine index exist <strong>only in raw migration
+          SQL</strong> and are absent from the Prisma schema — ARIA reads the
+          column through <code>$queryRaw</code>. A target Postgres without the
+          <code>vector</code> extension will boot, serve traffic, and quietly
+          degrade ARIA retrieval to keyword overlap. Same story for the two GIN
+          indexes on <code>projects.departments</code> and
+          <code>investors.tags</code>, which <code>prisma db push</code> has
+          never created — staging has never had them.
+        </p>
+      </div>
+
+      <div class="note note--warn">
+        <span class="note-head">Confirm intent · Row-Level Security is not a tenancy model</span>
+        <p>
+          <code>0000_init</code> names 94 tables, each getting exactly one
+          policy, <code>service_role_full_access</code>, gated on
+          <code>public.is_service_role()</code>, plus a blanket revoke of
+          <code>anon</code> and <code>authenticated</code>. The Express API is
+          the sole database client and authorises in application code. Two
+          drifts: three of those 94 tables no longer exist
+          (<code>survey_definitions</code>, <code>survey_waves</code>,
+          <code>upload_jobs</code>), so the live count is <strong>91</strong>;
+          and the 183 tables added since have no policy at all. They stay
+          unreachable by <code>anon</code>/<code>authenticated</code> thanks to
+          the revokes, so it is a defence-in-depth gap, not an exposure.
+        </p>
+      </div>
+
+      <h3>Verification performed <span class="chip chip--ok">Verified</span></h3>
+      <p>
+        Both SQL files were applied to an empty <strong>PostgreSQL 16.14</strong>
+        database and the resulting objects counted, rather than taken on trust
+        from the generator. The addendum is idempotent — a second run exits 0.
+      </p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Check</th><th class="n">Expected</th><th class="n">Actual</th></tr></thead>
+          <tbody>
+            <tr><td>Tables</td><td class="n">274</td><td class="n">274</td></tr>
+            <tr><td>Columns</td><td class="n">3,228</td><td class="n">3,228</td></tr>
+            <tr><td>Foreign-key constraints</td><td class="n">444</td><td class="n">444</td></tr>
+            <tr><td>Indexes (274 PK + 590 secondary)</td><td class="n">864</td><td class="n">864</td></tr>
+            <tr><td>RLS policies (addendum)</td><td class="n">91</td><td class="n">91</td></tr>
+            <tr><td>GIN indexes (addendum)</td><td class="n">2</td><td class="n">2</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        That exercise turned up two things now folded into the files: the
+        historical RLS block <strong>cannot be replayed verbatim</strong>
+        (<code>ERROR: relation "public.survey_definitions" does not exist</code>),
+        and the <code>anon</code> / <code>authenticated</code> /
+        <code>service_role</code> roles are Supabase-specific, so the
+        <code>REVOKE</code> statements would error off Supabase. The addendum now
+        guards both. Section 1 of the addendum could not be exercised locally —
+        the test server has no <code>vector</code> extension, which is exactly
+        the failure a staging rehearsal on AWS needs to surface before
+        production.
+      </p>
+    </section>
+
+    <section id="browser">
+      <h2>Table browser</h2>
+      <p class="lead">
+        All 274 tables. Search matches table name, Prisma model or domain; every
+        numeric column sorts. The per-column detail — types, nullability,
+        defaults, every FK and index — is in
+        <code>docs/migration/02-data-dictionary.md</code>.
+      </p>
+
+      <div class="controls">
+        <input type="search" id="q" placeholder="table, model or domain…" aria-label="Filter tables">
+        <select id="dom" aria-label="Filter by domain"></select>
+        <span class="count" id="count"></span>
+      </div>
+
+      <div class="tw scroller">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th class="sortable" data-k="0" aria-sort="ascending">Table</th>
+              <th class="sortable" data-k="1">Domain</th>
+              <th class="sortable" data-k="2">Prisma model</th>
+              <th class="n sortable" data-k="3">Cols</th>
+              <th>PK</th>
+              <th class="n sortable" data-k="6">FK out</th>
+              <th class="n sortable" data-k="7">Ref by</th>
+              <th class="n sortable" data-k="8">Idx</th>
+              <th class="n sortable" data-k="11">JSONB</th>
+              <th class="n sortable" data-k="12">Arr</th>
+              <th class="n sortable" data-k="13">Dec</th>
+              <th class="sortable" data-k="10">Soft del</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="gcp">
+      <h2>On GCP today</h2>
+
+      <div class="tw">
+        <table>
+          <thead><tr><th>Asset</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td>Project (prod + staging share it)</td><td class="id">tbh-nexora</td></tr>
+            <tr><td>Region</td><td class="id">asia-southeast1</td></tr>
+            <tr><td>Artifact Registry</td><td class="id">asia-southeast1-docker.pkg.dev/tbh-nexora/nexora</td></tr>
+            <tr><td>Images</td><td class="id">api · web · api-staging · web-staging</td></tr>
+            <tr><td>CI → GCP auth</td><td>Workload Identity Federation, no SA key</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Cloud Run services</h3>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Service</th><th class="n">Port</th><th class="n">Memory</th><th class="n">CPU</th><th>Instances</th><th>Ingress</th></tr></thead>
+          <tbody>
+            <tr><td class="id">nexora-api</td><td class="n">3001</td><td class="n">512Mi</td><td class="n">1</td><td class="id">0 → 10</td><td>unauthenticated, CPU boost</td></tr>
+            <tr><td class="id">nexora-web</td><td class="n">3000</td><td class="n">512Mi</td><td class="n">1</td><td class="id">0 → 10</td><td>unauthenticated, CPU boost</td></tr>
+            <tr><td class="id">nexora-api-staging</td><td class="n">3001</td><td class="n dim">—</td><td class="n dim">—</td><td class="dim">same pattern</td><td class="dim">separate Supabase project</td></tr>
+            <tr><td class="id">nexora-web-staging</td><td class="n">3000</td><td class="n dim">—</td><td class="n dim">—</td><td class="dim">same pattern</td><td class="dim">gates hardcoded on</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        No VPC connector, no Cloud SQL, no Memorystore, no Pub/Sub, and no GCS
+        bucket in use — <code>GCS_BUCKET</code> and <code>GCP_PROJECT_ID</code>
+        survive in <code>.env.example</code> but nothing reads them.
+      </p>
+
+      <h3>Cloud Scheduler <span class="chip chip--warn">Confirm live</span></h3>
+      <p>
+        The API exposes <strong>20 distinct cron endpoints</strong> (21 route
+        registrations — one is a legacy alias), all
+        <code>POST /api/cron/*</code>, all authenticated by
+        <code>X-Cron-Secret</code>, all idempotent, all taking an empty
+        <code>{}</code> body. <strong>Only 4 are provisioned by CI.</strong>
+      </p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Endpoint</th><th>Cadence (Asia/Bangkok)</th><th>Owner</th><th>Provisioned</th></tr></thead>
+          <tbody>
+            <tr><td class="id">/aria-purge-pii</td><td class="id">30 2 * * *</td><td>ARIA</td><td><span class="chip chip--ok">Auto</span></td></tr>
+            <tr><td class="id">/aria-knowledge-sync</td><td class="id">0 3 * * *</td><td>ARIA</td><td><span class="chip chip--ok">Auto</span></td></tr>
+            <tr><td class="id">/sync-storage-snapshot</td><td class="id">30 4 * * *</td><td>Workspace Usage</td><td><span class="chip chip--ok">Auto</span></td></tr>
+            <tr><td class="id">/expense-monthly-reminders</td><td class="id">0 9 22 * *</td><td>Expenses / HR</td><td><span class="chip chip--ok">Auto</span></td></tr>
+            <tr><td class="id">/leave-escalation</td><td class="dim">daily</td><td>Leave / HR</td><td>manual</td></tr>
+            <tr><td class="id">/stale-leads-digest</td><td class="dim">daily</td><td>Sales CRM</td><td>manual</td></tr>
+            <tr><td class="id">/legal-expiry-digest</td><td class="dim">daily</td><td>Legal</td><td>manual</td></tr>
+            <tr><td class="id">/sync-telemetry</td><td class="dim">~04:00</td><td>Telemetry</td><td>manual</td></tr>
+            <tr><td class="id">/crm-email-sync</td><td class="dim">every 10 min</td><td>Sales CRM</td><td>manual</td></tr>
+            <tr><td class="id">/visa-expiry-reminders</td><td class="dim">~08:00</td><td>Visa / HR</td><td>manual</td></tr>
+            <tr><td class="id">/ninety-day-reminders</td><td class="dim">~08:00</td><td>Immigration (TM.47)</td><td>manual</td></tr>
+            <tr><td class="id">/attendance-missed-checks</td><td class="dim">hourly</td><td>Attendance / HR</td><td>manual</td></tr>
+            <tr><td class="id">/attendance-manager-alerts</td><td class="dim">~10:00 daily</td><td>Attendance / HR</td><td>manual</td></tr>
+            <tr><td class="id">/aria-daily-brief</td><td class="dim">hourly, filters by local hour</td><td>ARIA</td><td>manual</td></tr>
+            <tr><td class="id">/ow-snapshot-refresh</td><td class="dim">a few times/day, TBC</td><td>Marketing / OneWave</td><td>manual</td></tr>
+            <tr><td class="id">/fx-sync</td><td class="dim">~07:00, no-op until BOT_API_CLIENT_ID set</td><td>Expenses / FX</td><td>manual</td></tr>
+            <tr><td class="id">/crm-deadline-reminders</td><td class="dim">08:00 — schedule exactly ONE of it and its alias</td><td>All CRMs</td><td>manual</td></tr>
+            <tr><td class="id">/accounting-status</td><td class="dim">08:00 daily</td><td>Accounting</td><td>manual</td></tr>
+            <tr><td class="id">/it-billing-reminders</td><td class="dim">08:00 daily</td><td>IT Operations</td><td>manual</td></tr>
+            <tr><td class="id">/marketing-drift-check</td><td class="dim">09:00 daily</td><td>Marketing analytics</td><td><span class="chip chip--bad">Paused</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note note--warn">
+        <span class="note-head">Before cutover</span>
+        <p>
+          Run <code>gcloud scheduler jobs list --project=tbh-nexora
+          --location=asia-southeast1</code> and archive the output.
+          <strong>That list, not this table, is the source of truth</strong> —
+          the repo's own ops doc has drifted by three entries, and
+          <code>/marketing-drift-check</code> exists but is paused because the
+          endpoint reached <code>main</code> after the job was created.
+        </p>
+      </div>
+    </section>
+
+    <section id="supabase">
+      <h2>The Supabase surface</h2>
+      <p class="lead">
+        The single biggest decision, because "Supabase" is doing three unrelated
+        jobs and each has a different exit cost. They can be decided separately,
+        and staged.
+      </p>
+
+      <h3>PostgreSQL — the primary datastore</h3>
+      <p>
+        Prisma connects through <strong>two</strong> URLs:
+        <code>DATABASE_URL</code> (shared pooler, port 6543,
+        <code>?pgbouncer=true</code>, transaction mode) and
+        <code>DIRECT_URL</code> (port 5432, session mode). Migrations run
+        against the direct URL; the app runs against the pooled one. Any
+        replacement must preserve that split — PgBouncer transaction mode cannot
+        run DDL or prepared statements.
+      </p>
+      <div class="note note--warn">
+        <span class="note-head">Confirm live · region disagreement</span>
+        <p>
+          <code>.env.example</code> (a dev project) shows
+          <code>aws-1-ap-southeast-2</code>; <code>CLAUDE.md</code> states
+          <code>aws-1-ap-southeast-1</code> for prod. Read the actual prod
+          <code>DATABASE_URL</code> secret and settle it.
+        </p>
+      </div>
+
+      <h3>Auth — small, and entirely server-side</h3>
+      <p>
+        Nine call sites, all in <code>apps/api</code>, none in the frontend:
+        <code>signInWithPassword</code>, <code>signInWithOtp</code>,
+        <code>resetPasswordForEmail</code>, <code>refreshSession</code>,
+        <code>getUser</code>, and the four admin calls
+        (<code>createUser</code>, <code>updateUserById</code>,
+        <code>deleteUser</code>, <code>listUsers</code>). Because the browser
+        only ever sees the API's own cookies, the identity provider is swappable
+        without touching a line of frontend code.
+      </p>
+      <div class="note note--bad">
+        <span class="note-head">The real cost is the user migration</span>
+        <p>
+          <code>users.id</code> <em>is</em> the Supabase
+          <code>auth.users.id</code> UUID, and 202 tables reference
+          <code>users</code>. Cognito will not accept an arbitrary
+          <code>sub</code>, so either keep <code>public.users.id</code> as the
+          canonical key and store the Cognito sub alongside it, or accept an ID
+          remap across 202 foreign keys. The first is the only sane option.
+          Separately, password hashes cannot be exported in a form Cognito
+          accepts — that means a forced reset for everyone, or a Cognito
+          migration-Lambda trigger validating against Supabase during a grace
+          window.
+        </p>
+      </div>
+
+      <h3>Storage — six buckets</h3>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Bucket</th><th>Visibility</th><th class="n">Max file</th><th>Contents</th></tr></thead>
+          <tbody>
+            <tr><td class="id">article</td><td>public</td><td class="n">10 MB</td><td class="dim">jpeg, png, webp</td></tr>
+            <tr><td class="id">avatars</td><td>public</td><td class="n">2 MB</td><td class="dim">jpeg, png, webp</td></tr>
+            <tr><td class="id">blog</td><td>public</td><td class="n">10 MB</td><td class="dim">jpeg, png, webp</td></tr>
+            <tr><td class="id">uploads</td><td>public</td><td class="n">50 MB</td><td class="dim">images + short clips; SVG and HTML deliberately excluded (stored-XSS on a public CDN path)</td></tr>
+            <tr><td class="id">receipts</td><td>private</td><td class="n">10 MB</td><td class="dim">images + pdf</td></tr>
+            <tr><td class="id">documents</td><td>private</td><td class="n">50 MB</td><td class="dim">pdf, office, csv, text, and HTML + zip — allowed only here, because downloads come from short-lived signed URLs on the storage origin, not the app origin</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Private-bucket downloads go through a per-resource
+        <code>GET /&lt;resource&gt;/:id/download</code> route that re-checks
+        ownership and mints a <strong>5-minute signed URL</strong>. Whatever
+        replaces this must reproduce that pattern, not just "make the bucket
+        private". Note also that every stored <code>fileUrl</code> currently
+        contains a Supabase URL, and <code>next.config.ts</code> allowlists
+        <code>**.supabase.co</code> as a remote image host.
+      </p>
+    </section>
+
+    <section id="config">
+      <h2>Secrets &amp; config</h2>
+      <p class="lead">
+        Configuration reaches Cloud Run entirely through
+        <code>--set-env-vars</code> from GitHub Actions secrets.
+        <strong>There is no secret manager in the loop</strong> — no runtime
+        fetch, no rotation automation, and the values are visible in the service
+        revision. Moving to Secrets Manager or SSM is a strict improvement, not
+        a like-for-like port.
+      </p>
+
+      <div class="tw">
+        <table>
+          <thead><tr><th>Group</th><th class="n">Count</th><th>Names</th></tr></thead>
+          <tbody>
+            <tr><td>Infrastructure</td><td class="n">2</td><td class="id">WIF_PROVIDER · GCP_SERVICE_ACCOUNT</td></tr>
+            <tr><td>Database</td><td class="n">2</td><td class="id">DATABASE_URL · DIRECT_URL</td></tr>
+            <tr><td>Supabase</td><td class="n">3</td><td class="id">NEXT_PUBLIC_SUPABASE_URL · NEXT_PUBLIC_SUPABASE_ANON_KEY · SUPABASE_SERVICE_ROLE_KEY</td></tr>
+            <tr><td>AI</td><td class="n">2</td><td class="id">GEMINI_API_KEY · ANTHROPIC_API_KEY <span class="dim">(declared, unused)</span></td></tr>
+            <tr><td>Email</td><td class="n">2</td><td class="id">EMAIL_SERVICE_URL · EMAIL_SERVICE_API_KEY</td></tr>
+            <tr><td>App</td><td class="n">5</td><td class="id">CRON_SECRET · WORKFLOW_EMAIL_TOKEN_SECRET · NEXT_PUBLIC_APP_URL · LEAVE_NOTIFICATION_EXCLUDE · INTEGRATIONS_TOKEN_KEY</td></tr>
+            <tr><td>Google Workspace</td><td class="n">6</td><td class="id">GOOGLE_OAUTH_CLIENT_ID · …_SECRET · …_REDIRECT_URI · GOOGLE_SHEETS_SA_KEY · OW_TRACTION_SHEET_ID · …_RANGE</td></tr>
+            <tr><td>Analytics</td><td class="n">5</td><td class="id">POSTHOG_API_KEY · POSTHOG_HOST · POSTHOG_PERSONAL_API_KEY · POSTHOG_PROJECT_ID · NEXT_PUBLIC_POSTHOG_KEY</td></tr>
+            <tr><td>Marketing upstream</td><td class="n">3</td><td class="id">MARKETING_ANALYTICS_API_URL · …_PARTNER_IDS · …_BACKFILL_FROM</td></tr>
+            <tr><td>FX</td><td class="n">7</td><td class="id">BOT_API_CLIENT_ID · BOT_API_BASE_URL · BOT_FX_CURRENCIES · BOT_FX_UNITS · FX_FALLBACK_ENABLED · …_BASE_URL · …_API_KEY</td></tr>
+            <tr><td>Ops</td><td class="n">1</td><td class="id">VALIDATOR_MONITOR_GITHUB_TOKEN</td></tr>
+            <tr><td><strong>Staging-only</strong></td><td class="n">7</td><td class="id dim">STAGING_ prefixed variants of the DB, Supabase, app-URL and token secrets</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Feature gates — GitHub <em>variables</em>, not secrets</h3>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Variable</th><th>Effect</th></tr></thead>
+          <tbody>
+            <tr><td class="id">ACCOUNTING_FIXED_ASSETS</td><td>Fail-closed gate on the Fixed Asset Register. Unset ⇒ empty ⇒ module hidden.</td></tr>
+            <tr><td class="id">MARKETING_ANALYTICS_ENABLED</td><td>Same pattern for the marketing-analytics module.</td></tr>
+            <tr><td class="id">SKIP_SCHEDULER_PROVISION</td><td>Set <code>true</code> to short-circuit Cloud Scheduler provisioning.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note note--bad">
+        <span class="note-head">Fails silently · the gate needs three edits</span>
+        <p>
+          Dockerfile <code>ARG</code> + <code>ENV</code>, the web build's
+          <code>--build-arg</code>, <em>and</em> the API deploy's
+          <code>--set-env-vars</code>. Docker drops a <code>--build-arg</code>
+          with no matching <code>ARG</code> without erroring — which is exactly
+          how the Fixed Asset tab stayed invisible on staging once already.
+        </p>
+      </div>
+
+      <h3>Referenced in code but never set in prod <span class="chip chip--open">Review, don't clone</span></h3>
+      <p>
+        Thirty variables fall back to code defaults in production. The
+        interesting ones:
+      </p>
+      <ul>
+        <li><strong>DocuSign is entirely unwired.</strong> All nine <code>DOCUSIGN_*</code> vars are declared and read by code; none is set. The integration is dormant.</li>
+        <li><code>CORS_ALLOWED_ORIGINS</code> is unset, so the allowlist resolves from <code>PORTAL_URL</code> (<code>https://intranet.thebinaryholdings.com</code>). Socket.IO reads the same chain — through a <em>separate</em> code path that has broken independently before.</li>
+        <li><code>TELEMETRY_ENABLED</code> is unset, but both trackers also enable on <code>NODE_ENV === "production"</code>, so <strong>PostHog is live in prod</strong>; the flags exist only to opt non-prod in.</li>
+        <li><code>ARIA_PII_RETENTION_DAYS</code> is unset and defaults to 30 — the window in which raw user prompts are redacted from <code>aria_query_logs</code>.</li>
+      </ul>
+
+      <h3>Third-party dependencies that outlive the cloud move</h3>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Dependency</th><th>Role</th><th>Migration impact</th></tr></thead>
+          <tbody>
+            <tr><td>Supabase</td><td>Postgres + Auth + Storage</td><td>The main decision — §6</td></tr>
+            <tr><td>Google Gemini</td><td>ARIA chat, embeddings, receipt parsing, doc extraction</td><td>API key only, no GCP project coupling. Works unchanged from AWS</td></tr>
+            <tr><td>OneWave email service</td><td>All transactional email, by template ID</td><td>A missing template returns <code>TEMPLATE_NOT_FOUND</code> and the email never arrives. Templates are registered out-of-band</td></tr>
+            <tr><td>PostHog US Cloud</td><td>Product analytics, same-origin via <code>/ingest/*</code></td><td>Rewrite lives in <code>next.config.ts</code> and moves with the app</td></tr>
+            <tr><td>Google Workspace OAuth</td><td>Gmail, Drive, Calendar; tokens encrypted at rest</td><td><strong><code>GOOGLE_OAUTH_REDIRECT_URI</code> must be re-registered</strong> for the new API hostname or every connect flow breaks</td></tr>
+            <tr><td>Bank of Thailand API</td><td>FX rates, with two public fallbacks</td><td><span class="chip chip--warn">Confirm</span> whether <code>BOT_API_CLIENT_ID</code> is IP-allowlisted — a new NAT egress IP would silently break <code>/fx-sync</code></td></tr>
+            <tr><td><code>bnii-analytics-api</code></td><td>Upstream for marketing DAU/MAU and OneWave partner metrics</td><td><strong>Itself a Cloud Run service</strong>, hardcoded as a default in two files. Separate repo, separate decision</td></tr>
+            <tr><td>GitHub API</td><td>Validator Monitor proxies a private repo's <code>report.json</code></td><td>PAT only</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Data protection</h3>
+      <p>
+        The database holds employee PII and payroll data across four
+        jurisdictions (Thailand, India, Vietnam, Indonesia — the
+        <code>entities</code> dimension). In <code>users</code> alone:
+        <code>date_of_birth</code>, <code>passport_number</code>,
+        <code>thai_id</code>, <code>tax_id</code>,
+        <code>aadhaar_number</code>, <code>pan_card_number</code>,
+        <code>salary</code>, <code>permit_number</code> — plus tables for
+        payslips, ESOP grants, visa records, benefits and appraisals. Region
+        choice on the target is therefore a compliance question, not a latency
+        one.
+      </p>
+    </section>
+
+    <section id="mapping">
+      <h2>AWS mapping</h2>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Today (GCP)</th><th>AWS equivalent</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td class="id">Cloud Run nexora-api</td><td>ECS Fargate service behind an ALB</td><td>Needs WebSocket support — §9</td></tr>
+            <tr><td class="id">Cloud Run nexora-web</td><td>ECS Fargate, or CloudFront with a Fargate origin</td><td>Next standalone, <code>node server.js</code>, stateless</td></tr>
+            <tr><td class="id">Artifact Registry</td><td>ECR repository per image</td><td>Same <code>:&lt;sha&gt;</code> + <code>:latest</code> tagging; add a lifecycle policy, which GCP lacks today</td></tr>
+            <tr><td class="id">Cloud Scheduler</td><td>EventBridge Scheduler</td><td>Cron + timezone + HTTP target with a custom header. Keeps <code>X-Cron-Secret</code> unchanged</td></tr>
+            <tr><td class="id">Workload Identity Federation</td><td>IAM role + GitHub OIDC provider</td><td>Same keyless model; <code>aws-actions/configure-aws-credentials</code> swaps in</td></tr>
+            <tr><td class="id">--set-env-vars</td><td>Secrets Manager or SSM, injected as task-definition <code>secrets</code></td><td>Strictly better than today</td></tr>
+            <tr><td class="id">Cloud Run domain mapping</td><td>Route 53 + ACM + ALB listener</td><td>ACM cert in the ALB's region; CloudFront needs one in <code>us-east-1</code></td></tr>
+            <tr><td class="id">min-instances=0</td><td>No clean Fargate equivalent</td><td>You will run ≥1 task continuously — better latency, higher cost floor</td></tr>
+            <tr><td class="id">Cloud Logging</td><td>CloudWatch Logs via the <code>awslogs</code> driver</td><td>winston already writes JSON to stdout; no code change</td></tr>
+            <tr><td class="id">Artifact Registry propagation retry</td><td>Not needed</td><td>The retry loop exists because Cloud Run's image lookup lags <code>docker push</code>; ECS has no such race</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>What actually changes in the repository</h3>
+      <p>Small, and confined to the pipeline. <strong>No application code changes are required for the compute move.</strong></p>
+      <ul>
+        <li>Both deploy workflows — auth action, push target, deploy command, and the four scheduler-provisioning steps.</li>
+        <li>Dockerfiles: unchanged in substance. Keep <code>qpdf</code> and <code>openssl</code> in both stages of the API image, and keep the <code>@swc/helpers</code> workaround in the web image — Next 16 traces only the CJS build and the container dies at boot without it.</li>
+        <li><code>.env.example</code>: drop the vestigial <code>GCS_BUCKET</code> / <code>GCP_PROJECT_ID</code>.</li>
+        <li><code>next.config.ts</code>: only if storage moves.</li>
+      </ul>
+      <div class="note note--bad">
+        <span class="note-head">Fails silently · trust proxy</span>
+        <p>
+          <code>app.set("trust proxy", 1)</code> assumes exactly one proxy hop.
+          <strong>ALB alone is still one hop, so <code>1</code> stays
+          correct.</strong> ALB behind CloudFront is two — leaving it at
+          <code>1</code> makes <code>req.ip</code> resolve to the CloudFront
+          edge, which mis-buckets both rate limiters (login at 30 per 15 min,
+          everything else at 2,000) and pollutes
+          <code>sessions.ip_address</code>.
+        </p>
+      </div>
+    </section>
+
+    <section id="decisions">
+      <h2>Three decisions</h2>
+
+      <h3>1 · How far to unbundle Supabase</h3>
+      <div class="decks">
+        <article class="deck">
+          <span class="chip chip--ok">Lowest risk</span>
+          <h4>A · Keep Supabase entirely</h4>
+          <p>
+            Zero data, auth or storage migration. The project reduces to moving
+            two containers and a scheduler. Cost: a non-AWS vendor stays in the
+            critical path.
+          </p>
+        </article>
+        <article class="deck">
+          <span class="chip chip--warn">Most hidden work</span>
+          <h4>B · Postgres to RDS, keep Auth + Storage</h4>
+          <p>
+            pgvector must exist on the target with the <code>ivfflat</code>
+            opclass. The pooler split must be reproduced — RDS Proxy for the
+            pooled URL, the instance endpoint for migrations; point both at the
+            pooled one and <code>migrate deploy</code> fails on DDL. The RLS
+            layer becomes inert; decide deliberately rather than porting it by
+            accident.
+          </p>
+        </article>
+        <article class="deck">
+          <span class="chip chip--bad">Touches every user</span>
+          <h4>C · Full exit to RDS + Cognito + S3</h4>
+          <p>
+            Everything in B, plus the user migration and the password-hash
+            problem, plus rewriting every stored <code>fileUrl</code>. If this is
+            the destination, stage it: compute → storage → Postgres → Auth last.
+            Each step is independently reversible.
+          </p>
+        </article>
+      </div>
+
+      <h3>2 · Fargate, App Runner, or EKS</h3>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Option</th><th>Fits because</th><th>Watch out for</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>ECS Fargate + ALB</strong><br><span class="dim">default recommendation</span></td>
+              <td>Closest operational analogue to Cloud Run; full control over WebSockets, stickiness, health checks, autoscaling</td>
+              <td>No scale-to-zero — a warm task runs 24/7</td>
+            </tr>
+            <tr>
+              <td><strong>App Runner</strong></td>
+              <td>Closest developer experience to Cloud Run; managed HTTPS and autoscaling</td>
+              <td><strong>Verify WebSocket support before choosing it.</strong> The <code>/messages</code> namespace is a hard requirement, and this is the one question that can disqualify the option outright</td>
+            </tr>
+            <tr>
+              <td><strong>EKS</strong></td>
+              <td>If there is already a cluster and a platform team</td>
+              <td>Large operational surface for two containers</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Regardless: <code>/health</code> already exists and is the natural ALB
+        target-group check for the API; the web service's <code>/</code> is a
+        redirect, so pick a concrete page rather than health-checking a 3xx.
+        Current sizing is 512Mi / 1 vCPU, but the API buffers uploads in memory
+        (up to 50 MB) and shells out to <code>qpdf</code> — right-size from real
+        metrics, not from the present flags.
+      </p>
+
+      <h3>3 · Socket.IO fan-out — a real bug, currently masked</h3>
+      <p>
+        <code>messages.bus.ts</code> is an <strong>in-process</strong> emitter, a
+        <code>Map&lt;channelId, Set&lt;handler&gt;&gt;</code>. No Redis adapter,
+        no shared pub/sub. Cloud Run already runs up to 10 instances, so a
+        message sent through instance A never reaches a subscriber on instance B.
+        This is pre-existing, not introduced by the migration — but the migration
+        forces the call:
+      </p>
+      <ul>
+        <li><strong>Fix it</strong> — <code>@socket.io/redis-adapter</code> backed by ElastiCache for Redis/Valkey. Correct at any instance count; adds a cache cluster.</li>
+        <li><strong>Pin the API to one task</strong> — cheapest, honest, a documented ceiling.</li>
+        <li><strong>Sticky sessions alone</strong> — insufficient. Stickiness keeps one <em>client</em> on one instance; it does nothing about two clients in the same channel landing on different ones.</li>
+      </ul>
+      <p>
+        Either way the ALB target group needs its idle timeout raised above
+        Socket.IO's ping interval, and the API must stay publicly reachable over
+        HTTPS.
+      </p>
+    </section>
+
+    <section id="cutover">
+      <h2>Cutover checklist</h2>
+      <p class="lead">
+        Ordered, because it is a sequence. Every item is here because skipping it
+        fails <em>silently</em> rather than loudly.
+      </p>
+
+      <p class="phase">Before anything</p>
+      <ul class="check">
+        <li>Archive the real Cloud Scheduler job list — the repo documents 4 of 20 and its ops doc has drifted by three entries.</li>
+        <li>Read the prod <code>DATABASE_URL</code> secret and record the actual Supabase region; repo sources disagree.</li>
+        <li>Enumerate live Cloud Run domain mappings, and any Firebase Hosting site (<code>tbh-intranet.web.app</code> is referenced in <code>CLAUDE.md</code>).</li>
+        <li>Confirm whether the Bank of Thailand FX client ID is IP-allowlisted.</li>
+        <li>Decide the fate of <code>bnii-analytics-api</code> — a separate Cloud Run service in its own repo.</li>
+        <li>Capture 30 days of request-count, p95-latency and memory metrics so Fargate sizing and cost are computed, not guessed.</li>
+      </ul>
+
+      <p class="phase">Schema</p>
+      <ul class="check">
+        <li>Apply <code>03-schema.sql</code>, then <strong><code>04-schema-addendum.sql</code></strong>. A database built from the Prisma schema alone boots fine and quietly breaks ARIA retrieval.</li>
+        <li><code>SELECT extname FROM pg_extension</code> includes <code>vector</code>.</li>
+        <li><code>aria_knowledge_articles_embedding_idx</code> exists and is an ivfflat index.</li>
+        <li><code>projects_departments_idx</code> and <code>investors_tags_gin_idx</code> exist.</li>
+        <li><code>SELECT count(*) FROM pg_policies WHERE schemaname='public'</code> returns <strong>91</strong>.</li>
+        <li>Run <code>prisma migrate resolve --applied 0000_init</code> on a restored database so history is not re-attempted.</li>
+      </ul>
+
+      <p class="phase">Pipeline</p>
+      <ul class="check">
+        <li>GitHub OIDC → IAM role, replacing WIF.</li>
+        <li>All 38 prod secrets and 7 staging secrets re-homed — ideally into Secrets Manager, not plain task env vars.</li>
+        <li>All 3 GitHub variables preserved, including both fail-closed gates, with all three edit points wired.</li>
+        <li><code>GOOGLE_OAUTH_REDIRECT_URI</code> re-registered for the new API hostname.</li>
+        <li>All 20 scheduler jobs re-created with the <code>X-Cron-Secret</code> header intact — and exactly <em>one</em> of <code>/crm-deadline-reminders</code> and its legacy alias.</li>
+        <li>Decide whether the paused <code>marketing-drift-check</code> goes live.</li>
+        <li><code>prisma migrate deploy</code> still runs against the session-mode URL, before the image build, aborting the deploy on failure — and keep the <code>migrate resolve --rolled-back … || true</code> step.</li>
+      </ul>
+
+      <p class="phase">After</p>
+      <ul class="check">
+        <li><code>POST /api/aria/chat</code> still streams — <code>compression</code> is explicitly bypassed for that route, and a buffering ALB or CloudFront undoes it.</li>
+        <li>The Socket.IO handshake succeeds from the production web origin.</li>
+        <li>A private-bucket download returns a short-lived signed URL, not a raw object URL.</li>
+        <li>A payslip PDF still generates — that path shells out to <code>qpdf</code>.</li>
+        <li><code>/health</code> returns 200 through the ALB, and rate-limit buckets see real client IPs rather than the proxy's.</li>
+      </ul>
+    </section>
+
+    <section id="questions">
+      <h2>Open questions</h2>
+      <ol class="qs">
+        <li>Is Supabase in scope, or is this a compute-only migration? Everything else follows from this.</li>
+        <li>If Postgres moves: RDS or Aurora, and which engine version — the answer has to satisfy pgvector with the <code>ivfflat</code> opclass.</li>
+        <li>Fargate, App Runner, or an existing EKS cluster? If App Runner, WebSocket support has to be confirmed first.</li>
+        <li>What downtime window is acceptable for the database cut? That decides <code>pg_dump</code>/restore versus DMS.</li>
+        <li>Does messaging need to scale horizontally, or is a single API task an acceptable documented ceiling?</li>
+        <li>Which region? The data sits in AWS Singapore today and holds Thai, Indian, Vietnamese and Indonesian employee PII including Aadhaar and PAN numbers.</li>
+        <li>Is <code>bnii-analytics-api</code> migrating too, and by whom?</li>
+        <li>Should DocuSign be wired up during the move, or formally retired? Nine env vars and a code path exist for an integration prod never configured.</li>
+      </ol>
+    </section>
+  </main>
+</div>
+
+<script id="data" type="application/json">[["account_mappings","finance","AccountMapping",6,"id","TEXT",2,0,1,1,0,0,0,0],["accounting_fx_rates","finance","AccountingFxRate",7,"id","TEXT",0,0,1,1,0,0,0,2],["accounting_project_columns","operations","AccountingProjectColumn",6,"id","UUID",1,0,2,1,0,0,0,0],["accounting_project_members","operations","AccountingProjectMember",5,"id","UUID",2,0,1,1,0,0,0,0],["accounting_project_task_assignees","operations","AccountingProjectTaskAssignee",5,"id","UUID",2,0,2,1,0,0,0,0],["accounting_project_task_comments","operations","AccountingProjectTaskComment",6,"id","UUID",2,0,2,0,0,0,0,0],["accounting_project_tasks","operations","AccountingProjectTask",13,"id","UUID",3,3,2,0,0,0,0,0],["accounting_projects","operations","AccountingProject",25,"id","TEXT",1,3,4,1,0,1,1,0],["applications","content","Application",9,"id","UUID",1,0,2,0,0,0,0,0],["appraisal_comments","performance","AppraisalComment",5,"id","UUID",2,0,1,0,0,0,0,0],["appraisal_cycles","performance","AppraisalCycle",9,"id","UUID",1,1,0,0,0,0,0,0],["appraisal_kras","performance","AppraisalKRA",9,"id","UUID",2,0,1,0,0,0,0,0],["appraisal_ratings","performance","AppraisalRating",7,"id","UUID",2,0,2,1,0,0,0,0],["appraisals","performance","Appraisal",13,"id","UUID",3,4,3,1,0,0,0,0],["approval_chain_decisions","approval-chains","ApprovalChainDecision",12,"id","TEXT",4,0,4,2,0,0,0,0],["approval_chain_steps","approval-chains","ApprovalChainStep",10,"id","TEXT",2,0,2,1,0,0,0,0],["approval_chains","approval-chains","ApprovalChain",7,"id","TEXT",0,1,1,1,0,0,0,0],["aria_attachments","comms","AriaAttachment",12,"id","UUID",2,0,2,0,0,0,0,0],["aria_brief_deliveries","comms","AriaBriefDelivery",6,"id","UUID",1,0,2,1,0,2,0,0],["aria_brief_subscriptions","comms","AriaBriefSubscription",10,"user_id","UUID",1,0,1,0,0,0,5,0],["aria_conversation_memory","comms","AriaConversationMemory",6,"id","UUID",1,0,2,1,0,0,0,0],["aria_conversation_summaries","comms","AriaConversationSummary",7,"conversation_id","UUID",1,0,0,0,0,0,0,0],["aria_conversations","comms","AriaConversation",5,"id","UUID",1,4,1,0,0,0,0,0],["aria_feedback","comms","AriaFeedback",12,"id","UUID",4,0,3,1,0,0,0,0],["aria_knowledge_articles","comms","AriaKnowledgeArticle",12,"id","UUID",1,1,3,1,0,0,5,0],["aria_messages","comms","AriaMessage",6,"id","UUID",1,2,1,0,0,1,0,0],["aria_query_logs","comms","AriaQueryLog",21,"id","UUID",2,0,3,0,0,0,9,0],["articles","content","Article",8,"id","UUID",1,0,1,0,0,0,0,0],["assets","operations","Asset",26,"id","UUID",2,0,3,0,0,0,0,3],["attendance_audit_logs","hr","AttendanceAuditLog",7,"id","UUID",3,0,3,0,0,1,0,0],["attendance_corrections","hr","AttendanceCorrection",16,"id","UUID",3,0,3,0,0,0,0,0],["attendance_employee_shifts","hr","AttendanceEmployeeShift",7,"id","UUID",2,0,3,0,0,0,0,0],["attendance_exceptions","hr","AttendanceException",11,"id","UUID",2,0,2,0,0,0,0,0],["attendance_policies","hr","AttendancePolicy",17,"id","UUID",1,0,1,1,0,2,0,2],["attendance_records","hr","AttendanceRecord",17,"id","UUID",1,2,3,1,0,0,0,1],["attendance_shifts","hr","AttendanceShift",9,"id","UUID",1,1,1,0,0,0,0,0],["audit_log","system","AuditLog",9,"id","UUID",1,0,3,0,0,1,0,0],["auth_logs","core","AuthLog",8,"id","UUID",1,0,3,0,0,0,0,0],["balance_transactions","hr","BalanceTransaction",9,"id","UUID",2,0,1,0,0,0,0,1],["bank_accounts","finance","BankAccount",14,"id","TEXT",2,2,2,0,1,0,0,2],["bank_transactions","finance","BankTransaction",20,"id","UUID",5,0,3,0,0,0,0,2],["benefit_enrollments","hr","BenefitEnrollment",6,"id","UUID",2,0,1,1,0,0,0,0],["benefits","hr","Benefit",11,"id","TEXT",1,1,0,0,0,0,0,1],["blogs","content","Blog",9,"id","UUID",1,0,1,0,0,0,0,0],["bnry_transactions","finance","BnryTransaction",8,"id","UUID",0,0,1,0,0,0,0,1],["cash_advance_approval_decisions","finance","CashAdvanceApprovalDecision",11,"id","UUID",3,0,3,1,0,0,0,0],["cash_advance_approval_steps","finance","CashAdvanceApprovalStep",14,"id","UUID",1,0,1,1,0,3,3,2],["cash_advance_items","finance","CashAdvanceItem",10,"id","UUID",2,0,1,0,0,0,0,2],["cash_advance_requests","finance","CashAdvanceRequest",29,"id","UUID",3,2,6,1,1,0,0,2],["certificates","hr","Certificate",15,"id","UUID",2,0,4,0,1,1,1,0],["chart_of_accounts","finance","ChartOfAccount",14,"id","TEXT",2,7,2,0,1,0,0,1],["company_dates","comms","CompanyDate",9,"id","UUID",1,0,1,0,0,1,0,0],["company_news","comms","CompanyNews",10,"id","UUID",1,0,1,0,0,1,0,0],["company_policies","hr","CompanyPolicy",15,"id","UUID",2,0,3,0,0,0,0,0],["consultant_invoices","hr","ConsultantInvoice",12,"id","UUID",2,0,0,0,0,0,0,4],["conversation_members","comms","ConversationMember",6,"conversation_id,user_id","",2,0,1,0,0,0,0,0],["conversations","comms","Conversation",8,"id","UUID",1,2,4,1,0,0,0,0],["credit_note_lines","finance","CreditNoteLine",11,"id","TEXT",2,0,1,0,0,0,0,5],["credit_notes","finance","CreditNote",19,"id","TEXT",3,1,3,1,1,0,0,3],["crm_accounts","sales-crm","Account",28,"id","TEXT",2,3,6,1,0,0,3,0],["crm_activities","sales-crm","CrmActivity",13,"id","TEXT",5,0,6,1,0,0,0,0],["crm_business_units","sales-crm","CrmBusinessUnit",9,"id","TEXT",0,0,2,1,0,0,0,0],["crm_contacts","sales-crm","Contact",12,"id","TEXT",1,2,3,0,0,0,0,0],["crm_lead_sources","sales-crm","LeadSource",8,"id","TEXT",0,0,2,1,0,0,0,0],["crm_leads","sales-crm","Lead",19,"id","TEXT",2,2,4,1,0,0,3,0],["crm_lost_reasons","sales-crm","LostReason",8,"id","TEXT",0,0,2,1,0,0,0,0],["crm_notifications","operations","CrmNotification",12,"id","UUID",0,0,2,0,0,0,0,0],["crm_opportunities","sales-crm","Opportunity",24,"id","TEXT",3,4,7,1,0,1,4,1],["crm_opportunity_business_units","sales-crm","OpportunityBusinessUnit",16,"id","TEXT",1,0,3,1,0,1,1,1],["crm_settings","sales-crm","CrmSettings",9,"id","UUID",1,0,1,1,0,0,3,0],["crm_tasks","sales-crm","CrmTask",12,"id","TEXT",3,0,3,0,0,1,1,0],["customer_advances","finance","CustomerAdvance",13,"id","TEXT",0,0,2,0,0,0,0,2],["data_room_documents","investors","DataRoomDocument",10,"id","UUID",1,0,0,0,0,0,0,0],["deals","operations","Deal",14,"id","TEXT",2,0,1,0,0,0,0,1],["departments","core","Department",10,"id","UUID",1,1,4,2,1,0,0,0],["desk_bookings","operations","DeskBooking",5,"id","UUID",2,0,1,1,0,0,0,0],["document_sequences","finance","DocumentSequence",10,"id","TEXT",1,0,1,1,0,0,0,0],["employee_agreements","hr","EmployeeAgreement",14,"id","UUID",2,0,3,0,0,0,0,0],["entities","core","Entity",24,"id","TEXT",0,35,1,1,1,0,3,0],["entity_tax_rates","finance","EntityTaxRate",8,"id","UUID",0,0,1,0,0,0,0,1],["equity_monthly_salary","hr","EquityMonthlySalary",10,"id","UUID",0,0,1,0,0,1,0,0],["esop_grants","hr","EsopGrant",24,"id","UUID",1,0,0,0,0,0,0,4],["exchange_rates","finance","ExchangeRate",7,"id","UUID",0,0,2,1,0,0,0,1],["expense_approval_decisions","finance","ExpenseApprovalDecision",13,"id","UUID",3,0,3,1,0,0,0,1],["expense_approval_steps","finance","ExpenseApprovalStep",15,"id","UUID",1,0,1,1,0,3,3,2],["expense_categories","finance","ExpenseCategory",9,"id","TEXT",0,2,1,1,0,0,0,1],["expense_reports","finance","ExpenseReport",18,"id","UUID",3,2,3,0,1,0,0,1],["expenses","finance","Expense",21,"id","UUID",6,0,5,0,1,0,0,1],["file_uploads","system","FileUpload",14,"id","UUID",0,0,2,0,1,0,0,0],["fiscal_periods","finance","FiscalPeriod",10,"id","TEXT",1,0,2,1,0,0,0,0],["fixed_asset_categories","finance","FixedAssetCategory",16,"id","UUID",0,0,2,1,0,0,0,0],["fixed_asset_count_lines","finance","FixedAssetCountLine",9,"id","UUID",2,0,2,0,0,0,0,0],["fixed_asset_count_sessions","finance","FixedAssetCountSession",11,"id","UUID",0,1,2,1,0,0,0,0],["fixed_asset_disposals","finance","FixedAssetDisposal",28,"id","UUID",2,0,2,0,0,0,0,9],["fixed_asset_remeasurements","finance","FixedAssetRemeasurement",30,"id","UUID",2,0,2,0,0,0,0,10],["fixed_asset_transfers","finance","FixedAssetTransfer",26,"id","UUID",2,0,2,0,0,0,0,2],["fixed_assets","finance","FixedAsset",32,"id","UUID",0,5,5,1,1,0,0,6],["fundraising_entities","investors","FundraisingEntity",5,"key","TEXT",0,0,1,0,0,0,0,0],["goals","performance","Goal",10,"id","UUID",1,0,1,0,0,0,0,0],["google_oauth_states","integrations","GoogleOauthState",5,"state","TEXT",0,0,1,0,0,0,0,0],["helpdesk_comments","helpdesk","HelpdeskComment",6,"id","UUID",2,0,1,0,0,0,0,0],["helpdesk_settings","helpdesk","HelpdeskSettings",16,"id","UUID",1,0,1,1,0,0,3,0],["helpdesk_tickets","helpdesk","HelpdeskTicket",19,"id","UUID",2,1,6,2,0,1,0,0],["investments","investors","Investment",13,"id","UUID",1,0,0,0,0,1,0,2],["investor_accounts","investors","InvestorAccount",12,"id","TEXT",1,1,3,0,0,0,0,0],["investor_activities","investors","InvestorActivity",9,"id","TEXT",2,0,2,0,0,0,0,0],["investor_contacts","investors","InvestorContact",12,"id","TEXT",2,0,4,0,0,0,0,0],["investor_leads","investors","InvestorLead",13,"id","TEXT",1,0,3,0,0,0,0,0],["investor_pipeline_stages","investors","InvestorPipelineStage",6,"key","TEXT",0,0,1,0,0,0,0,0],["investor_tags","investors","InvestorTag",9,"id","TEXT",0,0,2,1,0,0,0,0],["investor_tasks","investors","InvestorTask",9,"id","TEXT",2,0,2,0,0,0,0,0],["investor_type_options","investors","InvestorTypeOption",5,"key","TEXT",0,0,1,0,0,0,0,0],["investor_updates","investors","InvestorUpdate",9,"id","UUID",1,0,0,0,0,0,0,0],["investors","investors","Investor",28,"id","TEXT",1,3,2,0,0,1,3,0],["invoice_line_items","finance","InvoiceLineItem",14,"id","TEXT",1,0,1,0,0,0,0,6],["invoices","finance","Invoice",38,"id","TEXT",3,4,7,1,1,0,0,10],["it_access_approval_decisions","it-operations","ItAccessApprovalDecision",11,"id","UUID",3,0,3,1,0,0,0,0],["it_access_assignments","it-operations","ItAccessAssignment",14,"id","UUID",5,0,3,0,0,0,0,0],["it_access_audit_logs","it-operations","ItAccessAuditLog",10,"id","UUID",2,0,4,0,0,2,0,0],["it_access_requests","it-operations","ItAccessRequest",19,"id","UUID",3,2,4,1,0,0,0,0],["it_billing_alerts","it-operations","ItBillingAlert",8,"id","UUID",2,0,3,0,0,0,0,0],["it_billing_records","it-operations","ItBillingRecord",13,"id","UUID",2,0,2,0,0,0,0,1],["it_project_columns","operations","ItProjectColumn",6,"id","UUID",1,0,2,1,0,0,0,0],["it_project_members","operations","ItProjectMember",5,"id","UUID",2,0,1,1,0,0,0,0],["it_project_task_assignees","operations","ItProjectTaskAssignee",5,"id","UUID",2,0,2,1,0,0,0,0],["it_project_task_comments","operations","ItProjectTaskComment",6,"id","UUID",2,0,2,0,0,0,0,0],["it_project_tasks","operations","ItProjectTask",16,"id","UUID",3,3,2,0,0,0,0,0],["it_projects","operations","ItProject",25,"id","TEXT",1,3,4,1,0,1,1,0],["it_subscriptions","it-operations","ItSubscription",26,"id","UUID",4,2,4,0,0,2,1,1],["it_systems","it-operations","ItSystem",8,"id","TEXT",0,2,2,1,0,0,0,0],["it_vendors","it-operations","ItVendor",11,"id","UUID",1,1,1,0,0,1,0,0],["jobs","content","Job",10,"id","UUID",0,1,3,1,0,0,0,0],["journal_entries","finance","JournalEntry",28,"id","TEXT",7,7,5,3,1,0,0,0],["journal_entry_lines","finance","JournalEntryLine",6,"id","UUID",2,0,1,0,0,0,0,2],["kra_templates","performance","KRATemplate",6,"id","UUID",0,1,0,0,0,0,0,0],["leave_approval_decisions","hr","LeaveApprovalDecision",11,"id","UUID",3,0,3,1,0,0,0,0],["leave_approval_steps","hr","LeaveApprovalStep",11,"id","UUID",1,0,1,1,0,2,2,0],["leave_balances","hr","LeaveBalance",10,"id","UUID",2,0,1,1,0,0,0,5],["leave_policy_approvers","hr","LeavePolicyApprover",11,"id","UUID",2,0,3,1,0,2,2,0],["leave_requests","hr","LeaveRequest",23,"id","UUID",5,1,4,0,1,0,0,1],["leave_types","hr","LeaveType",10,"id","TEXT",1,4,3,2,0,0,0,0],["legal_announcement_acks","legal","LegalAnnouncementAck",4,"announcement_id,user_id","",2,0,1,0,0,0,0,0],["legal_announcement_attachments","legal","LegalAnnouncementAttachment",5,"id","UUID",1,0,1,0,0,0,0,0],["legal_announcements","legal","LegalAnnouncement",13,"id","UUID",2,2,3,0,0,0,0,0],["legal_document_attachments","legal","LegalDocumentAttachment",11,"id","UUID",2,0,2,0,0,0,0,0],["legal_document_shares","legal","LegalDocumentShare",8,"id","UUID",4,0,4,0,0,0,0,0],["legal_documents","legal","LegalDocument",19,"id","UUID",2,3,5,0,0,0,1,0],["legal_notification_settings","legal","LegalNotificationSettings",10,"id","UUID",0,0,1,1,0,0,3,0],["legal_project_columns","operations","LegalProjectColumn",6,"id","UUID",1,0,2,1,0,0,0,0],["legal_project_members","operations","LegalProjectMember",5,"id","UUID",2,0,1,1,0,0,0,0],["legal_project_task_assignees","operations","LegalProjectTaskAssignee",5,"id","UUID",2,0,2,1,0,0,0,0],["legal_project_task_comments","operations","LegalProjectTaskComment",6,"id","UUID",2,0,2,0,0,0,0,0],["legal_project_tasks","operations","LegalProjectTask",13,"id","UUID",3,3,2,0,0,0,0,0],["legal_projects","operations","LegalProject",25,"id","TEXT",1,3,4,1,0,1,1,0],["legal_signatures","legal","LegalSignature",25,"id","UUID",2,0,5,1,0,0,0,0],["marketing_campaigns","operations","MarketingCampaign",13,"id","UUID",1,0,1,0,0,0,0,0],["meeting_rooms","operations","MeetingRoom",7,"id","UUID",1,1,0,0,0,0,0,0],["message_hidden_for","comms","MessageHiddenFor",3,"message_id,user_id","",2,0,1,0,0,0,0,0],["message_reactions","comms","MessageReaction",4,"message_id,user_id","",2,0,1,0,0,0,0,0],["messages","comms","Message",9,"id","UUID",3,2,3,0,0,0,0,0],["mkt_campaign_levers","marketing-crm","MktCampaignLever",4,"id","UUID",2,0,3,1,0,0,0,0],["mkt_campaigns","marketing-crm","MktCampaign",24,"id","UUID",2,3,6,0,0,0,0,1],["mkt_creatives","marketing-crm","MktCreative",11,"id","UUID",2,0,1,0,0,0,0,0],["mkt_levers","marketing-crm","MktLever",6,"id","TEXT",0,1,2,1,0,0,0,0],["mkt_predictions","marketing-crm","MktPrediction",9,"id","UUID",2,0,1,0,0,0,0,0],["module_access","rbac","ModuleAccess",5,"user_id,module_id","",2,0,0,0,0,0,0,0],["module_owners","rbac","ModuleOwner",2,"module_id","VARCHAR(50)",1,0,0,0,0,0,0,0],["ninety_day_notifications","hr","NinetyDayNotification",17,"id","UUID",2,0,3,0,0,0,0,0],["offboarding_runs","hr","OffboardingRun",16,"id","UUID",2,0,3,0,1,1,0,0],["office_desks","operations","OfficeDesk",6,"id","UUID",1,1,0,0,0,0,0,0],["offices","operations","Office",8,"id","TEXT",0,3,0,0,0,0,0,0],["onboarding_runs","hr","OnboardingRun",11,"id","UUID",2,0,1,0,1,1,0,0],["opportunity_stage_config","sales-crm","OpportunityStageConfig",6,"key","TEXT",0,0,1,0,0,0,0,0],["ow_daily_metrics","operations","OwDailyMetric",33,"id","UUID",0,0,2,1,0,1,0,0],["ow_snapshots","operations","OwSnapshot",4,"id","UUID",0,0,1,0,0,2,0,0],["partner_columns","operations","PartnerColumn",6,"id","UUID",1,0,2,1,0,0,0,0],["partner_contacts","operations","PartnerContact",7,"id","UUID",1,0,0,0,0,0,0,0],["partner_members","operations","PartnerMember",5,"id","UUID",2,0,1,1,0,0,0,0],["partner_task_assignees","operations","PartnerTaskAssignee",5,"id","UUID",2,0,2,1,0,0,0,0],["partner_task_comments","operations","PartnerTaskComment",6,"id","UUID",2,0,2,0,0,0,0,0],["partner_task_resources","operations","PartnerTaskResource",7,"id","UUID",1,0,1,0,0,0,0,0],["partner_tasks","operations","PartnerTask",13,"id","UUID",3,4,2,0,0,0,0,0],["partners","operations","Partner",25,"id","TEXT",1,8,4,1,0,0,0,1],["payment_allocations","finance","PaymentAllocation",7,"id","UUID",2,0,2,0,0,0,0,3],["payments","finance","Payment",23,"id","TEXT",4,2,4,1,1,0,0,7],["payroll_approval_steps","hr","PayrollApprovalStep",8,"id","UUID",1,0,1,1,0,0,0,0],["payroll_runs","hr","PayrollRun",15,"id","TEXT",3,1,1,1,0,1,0,3],["payslips","hr","Payslip",15,"id","UUID",2,0,1,1,0,2,0,5],["po_lines","finance","PoLine",12,"id","TEXT",2,0,1,0,0,0,0,6],["product_project_columns","operations","ProductProjectColumn",6,"id","UUID",1,0,2,1,0,0,0,0],["product_project_members","operations","ProductProjectMember",5,"id","UUID",2,0,1,1,0,0,0,0],["product_project_task_assignees","operations","ProductProjectTaskAssignee",5,"id","UUID",2,0,2,1,0,0,0,0],["product_project_task_comments","operations","ProductProjectTaskComment",6,"id","UUID",2,0,2,0,0,0,0,0],["product_project_tasks","operations","ProductProjectTask",13,"id","UUID",3,3,2,0,0,0,0,0],["product_projects","operations","ProductProject",22,"id","TEXT",1,3,4,1,0,1,1,0],["project_columns","operations","ProjectColumn",6,"id","UUID",1,0,2,1,0,0,0,0],["project_members","operations","ProjectMember",5,"id","UUID",2,0,1,1,0,0,0,0],["project_milestones","operations","ProjectMilestone",11,"id","UUID",2,1,1,0,0,0,0,0],["project_task_activities","operations","ProjectTaskActivity",8,"id","UUID",2,0,1,0,0,0,0,0],["project_task_assignees","operations","ProjectTaskAssignee",5,"id","UUID",2,0,3,1,0,0,0,0],["project_task_comments","operations","ProjectTaskComment",6,"id","UUID",2,0,1,0,0,0,0,0],["project_task_dependencies","operations","ProjectTaskDependency",5,"id","UUID",2,0,3,1,0,0,0,0],["project_task_resources","operations","ProjectTaskResource",8,"id","UUID",2,0,1,0,0,0,0,0],["project_tasks","operations","ProjectTask",16,"id","UUID",4,7,3,0,0,1,1,0],["project_workflow_emails","operations","ProjectWorkflowEmail",13,"id","TEXT",1,0,3,1,0,0,0,0],["project_workflow_transitions","operations","ProjectWorkflowTransition",7,"id","TEXT",1,0,1,0,0,0,0,0],["projects","operations","Project",38,"id","TEXT",2,8,6,1,0,2,5,1],["proposal_emails","proposals","ProposalEmail",12,"id","TEXT",1,0,3,1,0,0,0,0],["proposal_information_requests","proposals","ProposalInformationRequest",9,"id","TEXT",1,0,2,0,0,0,0,0],["proposal_transitions","proposals","ProposalTransition",8,"id","TEXT",1,0,1,0,0,0,0,0],["proposals","proposals","Proposal",12,"id","TEXT",1,4,4,0,0,0,0,0],["public_holidays","hr","PublicHoliday",8,"id","UUID",1,0,2,1,0,0,0,0],["purchase_orders","finance","PurchaseOrder",17,"id","TEXT",2,1,3,1,1,0,0,3],["qa_project_columns","operations","QaProjectColumn",6,"id","UUID",1,0,2,1,0,0,0,0],["qa_project_members","operations","QaProjectMember",5,"id","UUID",2,0,1,1,0,0,0,0],["qa_project_task_assignees","operations","QaProjectTaskAssignee",5,"id","UUID",2,0,2,1,0,0,0,0],["qa_project_task_comments","operations","QaProjectTaskComment",6,"id","UUID",2,0,2,0,0,0,0,0],["qa_project_tasks","operations","QaProjectTask",23,"id","UUID",3,3,6,0,0,1,1,0],["qa_projects","operations","QaProject",18,"id","TEXT",1,3,4,1,0,1,1,0],["quote_lines","finance","QuoteLine",11,"id","TEXT",2,0,1,0,0,0,0,5],["quotes","finance","Quote",17,"id","TEXT",2,1,3,1,1,0,0,3],["revenue_accounts","sales-revenue-crm","RevenueAccount",28,"id","TEXT",2,3,6,1,0,0,3,0],["revenue_activities","sales-revenue-crm","RevenueActivity",13,"id","TEXT",5,0,6,1,0,0,0,0],["revenue_contacts","sales-revenue-crm","RevenueContact",12,"id","TEXT",1,2,3,0,0,0,0,0],["revenue_lead_sources","sales-revenue-crm","RevenueLeadSource",8,"id","TEXT",0,0,2,1,0,0,0,0],["revenue_leads","sales-revenue-crm","RevenueLead",19,"id","TEXT",2,2,4,1,0,0,3,0],["revenue_lost_reasons","sales-revenue-crm","RevenueLostReason",8,"id","TEXT",0,0,2,1,0,0,0,0],["revenue_opportunities","sales-revenue-crm","RevenueOpportunity",24,"id","TEXT",3,4,7,1,0,1,4,1],["revenue_opportunity_business_units","sales-revenue-crm","RevenueOpportunityBusinessUnit",16,"id","TEXT",1,0,3,1,0,1,1,1],["revenue_settings","sales-revenue-crm","RevenueSettings",9,"id","UUID",1,0,1,1,0,0,3,0],["revenue_stage_config","sales-revenue-crm","RevenueStageConfig",6,"key","TEXT",0,0,1,0,0,0,0,0],["revenue_tasks","sales-revenue-crm","RevenueTask",12,"id","TEXT",3,0,3,0,0,1,1,0],["role_permissions","rbac","RolePermission",2,"role_id,permission_code","",1,0,0,0,0,0,0,0],["roles","rbac","Role",8,"id","UUID",0,3,1,1,1,0,0,0],["room_bookings","operations","RoomBooking",11,"id","UUID",2,0,2,0,0,0,0,0],["sessions","core","Session",7,"id","UUID",1,0,3,1,0,0,0,0],["storage_snapshots","system","StorageSnapshot",5,"id","UUID",0,0,2,0,0,0,0,0],["survey_answers","hr","SurveyAnswer",4,"id","UUID",2,0,2,1,0,1,0,0],["survey_form_answers","hr","SurveyFormAnswer",4,"id","UUID",2,0,2,1,0,1,0,0],["survey_form_questions","hr","SurveyFormQuestion",9,"id","UUID",1,1,1,0,0,2,1,0],["survey_form_responses","hr","SurveyFormResponse",4,"id","UUID",2,1,2,1,0,0,0,0],["survey_forms","hr","SurveyForm",17,"id","UUID",1,2,4,0,0,3,3,0],["survey_questions","hr","SurveyQuestion",9,"id","UUID",1,1,1,0,0,2,1,0],["survey_responses","hr","SurveyResponse",4,"id","UUID",2,1,2,1,0,0,0,0],["surveys","hr","Survey",17,"id","UUID",1,2,4,0,0,3,3,0],["system_settings","system","SystemSetting",3,"key","VARCHAR(100)",0,0,0,0,0,1,0,0],["tax_codes","finance","TaxCode",10,"id","TEXT",2,3,1,1,0,0,0,1],["tax_filings","finance","TaxFiling",14,"id","TEXT",0,0,2,1,0,1,0,0],["training_completions","hr","TrainingCompletion",4,"employee_id,module_id","",2,0,0,0,0,0,0,0],["training_modules","hr","TrainingModule",11,"id","TEXT",0,1,0,0,0,0,0,0],["travel_approval_decisions","hr","TravelApprovalDecision",11,"id","UUID",3,0,3,1,0,0,0,0],["travel_approval_steps","hr","TravelApprovalStep",14,"id","UUID",1,0,1,1,0,3,3,2],["travel_requests","hr","TravelRequest",37,"id","UUID",4,2,5,1,1,1,1,2],["user_docusign_connections","legal","UserDocusignConnection",10,"id","UUID",1,0,1,1,0,0,1,0],["user_entity_memberships","core","UserEntityMembership",7,"id","TEXT",3,0,2,1,0,0,0,0],["user_google_connections","integrations","UserGoogleConnection",12,"id","UUID",1,0,2,1,0,0,0,0],["user_group_members","rbac","UserGroupMember",4,"group_id,user_id","",2,0,0,0,0,0,0,0],["user_groups","rbac","UserGroup",8,"id","UUID",1,2,1,1,1,0,0,0],["user_roles","rbac","UserRole",4,"user_id,role_id","",2,0,0,0,0,0,0,0],["user_settings","system","UserSetting",3,"user_id,key","",0,0,0,0,0,1,0,0],["users","core","User",36,"id","UUID",2,202,6,2,1,1,0,1],["validator_node_alerts","helpdesk","ValidatorNodeAlert",13,"id","UUID",1,0,2,0,0,0,0,1],["vendors","finance","Vendor",38,"id","UUID",2,5,5,0,1,0,0,2],["visa_checklist_items","hr","VisaChecklistItem",12,"id","UUID",1,0,1,0,0,0,0,0],["visa_checklist_templates","hr","VisaChecklistTemplate",9,"id","UUID",0,0,1,0,0,1,1,0],["visa_event_logs","hr","VisaEventLog",9,"id","UUID",2,0,1,0,0,0,0,0],["visa_knowledge_articles","hr","VisaKnowledgeArticle",13,"id","UUID",1,0,3,1,0,0,4,0],["visa_records","hr","VisaRecord",24,"id","UUID",2,2,4,0,1,1,1,0],["voucher_entries","operations","VoucherEntry",11,"id","UUID",1,0,2,0,0,0,0,0],["wall_comments","comms","WallComment",6,"id","UUID",2,0,1,0,0,0,0,0],["wall_posts","comms","WallPost",10,"id","UUID",1,1,1,0,0,3,0,0],["wiki_page_permissions","content","WikiPagePermission",5,"id","UUID",2,0,2,1,0,0,0,0],["wiki_page_versions","content","WikiPageVersion",7,"id","UUID",2,0,2,1,0,0,0,0],["wiki_pages","content","WikiPage",14,"id","UUID",3,3,4,1,0,1,1,0]]</script>
+<script>
+(function () {
+  "use strict";
+
+  var DATA = JSON.parse(document.getElementById("data").textContent);
+  var rowsEl = document.getElementById("rows");
+  var qEl = document.getElementById("q");
+  var domEl = document.getElementById("dom");
+  var countEl = document.getElementById("count");
+  var heads = Array.prototype.slice.call(
+    document.querySelectorAll("#tbl th.sortable")
+  );
+
+  var sortKey = 0;
+  var sortDir = 1;
+
+  var domains = DATA.map(function (r) { return r[1]; })
+    .filter(function (d, i, a) { return a.indexOf(d) === i; })
+    .sort();
+
+  domEl.innerHTML =
+    '<option value="">All domains (' + domains.length + ")</option>" +
+    domains
+      .map(function (d) {
+        var n = DATA.filter(function (r) { return r[1] === d; }).length;
+        return '<option value="' + d + '">' + d + " · " + n + "</option>";
+      })
+      .join("");
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function render() {
+    var q = qEl.value.trim().toLowerCase();
+    var dom = domEl.value;
+
+    var view = DATA.filter(function (r) {
+      if (dom && r[1] !== dom) return false;
+      if (!q) return true;
+      return (
+        r[0].toLowerCase().indexOf(q) > -1 ||
+        r[2].toLowerCase().indexOf(q) > -1 ||
+        r[1].toLowerCase().indexOf(q) > -1
+      );
+    });
+
+    view.sort(function (a, b) {
+      var x = a[sortKey];
+      var y = b[sortKey];
+      if (typeof x === "number") return (x - y) * sortDir;
+      return String(x).localeCompare(String(y)) * sortDir;
+    });
+
+    rowsEl.innerHTML = view
+      .map(function (r) {
+        return (
+          "<tr>" +
+          '<td class="id">' + esc(r[0]) + "</td>" +
+          '<td class="dim">' + esc(r[1]) + "</td>" +
+          '<td class="id dim">' + esc(r[2]) + "</td>" +
+          '<td class="n">' + r[3] + "</td>" +
+          '<td class="id dim">' + esc(r[4]) + "</td>" +
+          '<td class="n">' + (r[6] || '<span class="dim">·</span>') + "</td>" +
+          '<td class="n">' + (r[7] || '<span class="dim">·</span>') + "</td>" +
+          '<td class="n">' + (r[8] || '<span class="dim">·</span>') + "</td>" +
+          '<td class="n">' + (r[11] || '<span class="dim">·</span>') + "</td>" +
+          '<td class="n">' + (r[12] || '<span class="dim">·</span>') + "</td>" +
+          '<td class="n">' + (r[13] || '<span class="dim">·</span>') + "</td>" +
+          "<td>" +
+          (r[10]
+            ? '<span class="chip chip--warn">yes</span>'
+            : '<span class="dim">—</span>') +
+          "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+
+    countEl.textContent =
+      view.length === DATA.length
+        ? DATA.length + " tables"
+        : view.length + " of " + DATA.length + " tables";
+  }
+
+  heads.forEach(function (th) {
+    th.setAttribute("tabindex", "0");
+    function go() {
+      var k = Number(th.dataset.k);
+      if (k === sortKey) {
+        sortDir = -sortDir;
+      } else {
+        sortKey = k;
+        sortDir = typeof DATA[0][k] === "number" ? -1 : 1;
+      }
+      heads.forEach(function (h) { h.setAttribute("aria-sort", "none"); });
+      th.setAttribute("aria-sort", sortDir === 1 ? "ascending" : "descending");
+      render();
+    }
+    th.addEventListener("click", go);
+    th.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); }
+    });
+  });
+
+  qEl.addEventListener("input", render);
+  domEl.addEventListener("change", render);
+  render();
+
+  // rail: mark the section currently in view
+  var links = Array.prototype.slice.call(
+    document.querySelectorAll(".rail nav a")
+  );
+  var sections = links
+    .map(function (a) { return document.querySelector(a.hash); })
+    .filter(Boolean);
+
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (en) {
+          if (!en.isIntersecting) return;
+          links.forEach(function (a) {
+            a.classList.toggle("on", a.hash === "#" + en.target.id);
+          });
+        });
+      },
+      { rootMargin: "-10% 0px -80% 0px" }
+    );
+    sections.forEach(function (s) { io.observe(s); });
+  }
+})();
+</script>

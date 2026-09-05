@@ -98,6 +98,12 @@ export interface ItSubscription {
   renewalDecision: "renew" | "cancel" | null;
   renewalDecisionAt: string | null;
   renewalDecisionNotes: string | null;
+  /**
+   * Effective date the cost stops — the paid-through date, not the date the
+   * decision was taken. This is what the monthly spend series reads to place
+   * the step-down, so it is NOT interchangeable with `renewalDecisionAt`.
+   */
+  cancelledAt: string | null;
   // Documents
   attachments: ItAttachment[];
   createdAt: string;
@@ -150,6 +156,8 @@ export interface SubscriptionInput {
   status?: SubscriptionStatus;
   ownerUserId?: string | null;
   notes?: string | null;
+  /** Effective date the cost stops. Correctable after a cancellation. */
+  cancelledAt?: string | null;
   totalSeats?: number | null;
   assignedSeats?: number;
   activeSeats?: number;
@@ -291,10 +299,109 @@ export function licenseUtilizationReport(query: {
   );
 }
 
+// ── Monthly spend series ──
+// Distinct from monthlySpendReport above, which is a single run-rate snapshot.
+// This is an actual time series, and it includes cancelled subscriptions in the
+// months they were still live — which is what makes a cancellation show up as a
+// fall rather than as a row that quietly disappeared.
+
+/** A subscription named as the cause of a month-on-month movement. */
+export interface MonthlyMovementRow {
+  id: string;
+  productName: string;
+  vendorName: string;
+  category: string;
+  monthlyAmount: number;
+  /** A completed purchase, not a cancellation — label it differently. */
+  isOneTime: boolean;
+}
+
+export interface MonthlySeriesPoint {
+  /** `YYYY-MM` */
+  month: string;
+  /** `Aug 2026` */
+  label: string;
+  total: number;
+  activeCount: number;
+  /** Null on the first point — nothing to compare against. */
+  deltaVsPrevious: number | null;
+  started: MonthlyMovementRow[];
+  ended: MonthlyMovementRow[];
+}
+
+export interface MonthlySeriesSummary {
+  currency: string;
+  currentMonthlySpend: number;
+  changeOverWindow: number;
+  activeCount: number;
+  monthlyRunRateRemoved: number;
+  cumulativeAvoided: number;
+  endedCount: number;
+}
+
+export interface MonthlySeries {
+  currency: string;
+  from: string;
+  to: string;
+  points: MonthlySeriesPoint[];
+  /** Every currency in the data — drives whether to show a currency selector. */
+  currenciesPresent: string[];
+  summary: MonthlySeriesSummary;
+  endedInWindow: Array<MonthlyMovementRow & { lastChargedMonth: string }>;
+}
+
+export function monthlySeriesReport(query: {
+  from?: string;
+  to?: string;
+  months?: number;
+  currency?: string;
+}) {
+  return api.get<ApiSuccessResponse<MonthlySeries>>(
+    `/it-billing/reports/monthly-series${qs(query)}`,
+  );
+}
+
+export interface MonthlyDetailRow extends MonthlyMovementRow {
+  billingFrequency: BillingFrequency;
+  /** As invoiced, before monthly amortisation. */
+  invoiceAmount: number;
+  status: SubscriptionStatus;
+  startedThisMonth: boolean;
+  endedThisMonth: boolean;
+  contractStartDate: string | null;
+  renewalDate: string | null;
+  cancelledAt: string | null;
+}
+
+export interface MonthlyDetail {
+  month: string;
+  label: string;
+  currency: string;
+  total: number;
+  rows: MonthlyDetailRow[];
+}
+
+export function monthlyDetailReport(query: {
+  month: string;
+  currency?: string;
+}) {
+  return api.get<ApiSuccessResponse<MonthlyDetail>>(
+    `/it-billing/reports/monthly-detail${qs(query)}`,
+  );
+}
+
 // ── Renewal decision ──
 export function recordRenewalDecision(
   id: string,
-  input: { decision: "renew" | "cancel"; notes?: string },
+  input: {
+    decision: "renew" | "cancel";
+    notes?: string;
+    /**
+     * When a cancellation takes effect. Omitted, the API defaults it to the
+     * subscription's renewal date (the paid-through date).
+     */
+    effectiveDate?: string;
+  },
 ) {
   return api.post<ApiSuccessResponse<ItSubscription>>(
     `/it-billing/subscriptions/${id}/renewal-decision`,
@@ -610,7 +717,13 @@ export interface ItOpsDashboard {
     revokedAt: string | null;
   }>;
   charts: {
-    spendTrend: Array<{ month: string; amount: number }>;
+    /**
+     * Trailing months of committed spend, oldest first — the same series the
+     * Billing → Monthly tab charts. `month` is `YYYY-MM`, `label` is `Aug 2026`.
+     */
+    spendTrend: Array<{ month: string; label: string; amount: number }>;
+    /** The one currency `spendTrend` is denominated in. */
+    spendTrendCurrency: string;
     vendorBreakdown: Array<{
       vendorId: string;
       vendorName: string;

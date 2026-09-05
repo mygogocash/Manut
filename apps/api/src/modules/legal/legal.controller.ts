@@ -27,6 +27,29 @@ const router = Router();
 
 router.use(authenticate, requireActive);
 
+// ── DocuSign admin endpoints — literal paths, gated on admin perm ──
+
+router.get(
+  "/docusign/status",
+  requirePermission(
+    PERMISSIONS.LEGAL_SIGN_DOCUSIGN_ADMIN,
+    PERMISSIONS.LEGAL_SIGN_SEND,
+  ),
+  asyncHandler(async (_req, res) => {
+    const result = await legalService.getDocusignStatus();
+    res.json(result);
+  }),
+);
+
+router.get(
+  "/docusign/consent-url",
+  requirePermission(PERMISSIONS.LEGAL_SIGN_DOCUSIGN_ADMIN),
+  asyncHandler(async (_req, res) => {
+    const result = legalService.buildDocusignConsentUrl();
+    res.json(result);
+  }),
+);
+
 // ── Phase 2 signing routes — literal paths must come before "/:id" ──
 
 router.post(

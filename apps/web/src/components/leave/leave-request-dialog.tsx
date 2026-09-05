@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -138,7 +138,7 @@ export function LeaveRequestDialog({
   const schema = useMemo(() => buildSchema(mode), [mode]);
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(schema),
+    resolver: zodResolver(schema),
     defaultValues: {
       leaveTypeId: defaultLeaveTypeId ?? "",
       startDate: "",

@@ -89,6 +89,7 @@ export function OffboardingTab({
     () => [
       {
         key: "expand",
+        mobileRole: "hidden" as const,
         header: "",
         className: "w-[36px]",
         render: (r: OffboardingRun) => (
@@ -103,6 +104,7 @@ export function OffboardingTab({
       },
       {
         key: "employeeName",
+        mobileRole: "title" as const,
         header: "Employee",
         render: (r: OffboardingRun) => (
           <span className="text-foreground text-xs font-medium">
@@ -110,9 +112,14 @@ export function OffboardingTab({
           </span>
         ),
       },
-      { key: "department", header: "Department" },
+      {
+        key: "department",
+        mobileRole: "subtitle" as const,
+        header: "Department",
+      },
       {
         key: "lastWorkingDay",
+        mobileRole: "field" as const,
         header: "Last Working Day",
         render: (r: OffboardingRun) => (
           <span className="tabular-nums">
@@ -122,6 +129,7 @@ export function OffboardingTab({
       },
       {
         key: "status",
+        mobileRole: "badge" as const,
         header: "Status",
         render: (r: OffboardingRun) => (
           <Badge status={r.status}>{r.status.replace("_", " ")}</Badge>
@@ -129,6 +137,7 @@ export function OffboardingTab({
       },
       {
         key: "progress",
+        mobileRole: "field" as const,
         header: "Progress",
         render: (r: OffboardingRun) => {
           const t = r.tasks ?? [];
@@ -146,6 +155,7 @@ export function OffboardingTab({
         ? [
             {
               key: "actions",
+              mobileRole: "actions" as const,
               header: "",
               className: "w-[56px]",
               render: (r: OffboardingRun) =>
@@ -187,12 +197,15 @@ export function OffboardingTab({
     <>
       <div
         className={`
-          border-border bg-surface flex items-center gap-2 rounded-lg border p-3
-          shadow-sm
+          border-border bg-surface flex flex-wrap items-center gap-2 rounded-lg
+          border p-3 shadow-sm
         `}
       >
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="h-10 w-[160px] text-xs">
+          <SelectTrigger
+            className="h-10 w-[160px] text-xs"
+            aria-label="Filter offboarding by status"
+          >
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>

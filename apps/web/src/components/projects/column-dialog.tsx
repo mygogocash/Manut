@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -73,7 +73,7 @@ export function ColumnDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<ColumnFormValues>({
-    resolver: standardSchemaResolver(columnFormSchema),
+    resolver: zodResolver(columnFormSchema),
     defaultValues: {
       label: "",
       key: "",

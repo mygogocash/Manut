@@ -106,7 +106,7 @@ export const mockPrisma = {
   $disconnect: vi.fn(),
 };
 
-vi.mock("@manut/database", () => ({
+vi.mock("@nexora/database", () => ({
   prisma: mockPrisma,
 }));
 

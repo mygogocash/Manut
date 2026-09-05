@@ -1,7 +1,6 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
-import { excludeDeleted } from "@/infrastructure/soft-delete";
 
 const userSelect = {
   id: true,
@@ -28,8 +27,6 @@ const userSelect = {
       email: true,
       jobTitle: true,
       avatarUrl: true,
-      isActive: true,
-      deletedAt: true,
     },
   },
 } satisfies Prisma.UserSelect;
@@ -40,7 +37,7 @@ const detailSelect = {
   metadata: true,
   createdAt: true,
   directReports: {
-    where: { isActive: true, ...excludeDeleted() },
+    where: { isActive: true },
     select: {
       id: true,
       name: true,
@@ -64,10 +61,7 @@ export class DirectoryRepository {
     page: number,
     limit: number,
   ) {
-    const where: Prisma.UserWhereInput = {
-      isActive: true,
-      ...excludeDeleted(),
-    };
+    const where: Prisma.UserWhereInput = { isActive: true };
 
     if (filters.search) {
       where.OR = [
@@ -101,10 +95,7 @@ export class DirectoryRepository {
     page: number,
     limit: number,
   ) {
-    const where: Prisma.UserWhereInput = {
-      isActive: true,
-      ...excludeDeleted(),
-    };
+    const where: Prisma.UserWhereInput = { isActive: true };
 
     if (filters.search) {
       where.OR = [
@@ -138,8 +129,8 @@ export class DirectoryRepository {
   }
 
   async findAssignableById(id: string) {
-    return prisma.user.findFirst({
-      where: { id, isActive: true, ...excludeDeleted() },
+    return prisma.user.findUnique({
+      where: { id },
       select: {
         id: true,
         name: true,
@@ -151,8 +142,8 @@ export class DirectoryRepository {
   }
 
   async findById(id: string) {
-    return prisma.user.findFirst({
-      where: { id, isActive: true, ...excludeDeleted() },
+    return prisma.user.findUnique({
+      where: { id },
       select: detailSelect,
     });
   }
@@ -160,26 +151,52 @@ export class DirectoryRepository {
   async getDepartments() {
     const departments = await prisma.user.groupBy({
       by: ["department"],
-      where: {
-        isActive: true,
-        ...excludeDeleted(),
-        department: { not: null },
-      },
+      where: { isActive: true, department: { not: null } },
       _count: { id: true },
       orderBy: { department: "asc" },
     });
 
-    // Department names must originate from clean runtime data. A future
-    // configurable catalogue can extend this endpoint once it has its own
-    // Manut-owned persistence boundary.
-    return departments.flatMap(({ department, _count }) =>
-      department ? [{ name: department, count: _count.id }] : [],
-    );
+    // Canonical list — keep this in sync with the employee form
+    // dropdown so HR can filter by an empty department before any
+    // users are assigned to it. Otherwise the dropdown collapses to
+    // whatever names happen to be present (e.g. "Operations" only on
+    // a freshly-seeded prod DB).
+    const CANONICAL = [
+      "Management",
+      "Legal",
+      "Marketing",
+      "HR",
+      "Accounting",
+      "Finance",
+      "Product",
+      "Project Management",
+      "Digital Social",
+      "Business Team",
+      "IT",
+    ];
+
+    const counts = new Map<string, number>();
+    for (const d of departments) {
+      if (d.department) counts.set(d.department, d._count.id);
+    }
+
+    const result: Array<{ name: string; count: number }> = [];
+    const seen = new Set<string>();
+    for (const name of CANONICAL) {
+      result.push({ name, count: counts.get(name) ?? 0 });
+      seen.add(name);
+    }
+    // Surface any free-text department that admins typed but isn't in
+    // the canonical list (e.g. "Operations" from older seeds).
+    for (const [name, count] of counts) {
+      if (!seen.has(name)) result.push({ name, count });
+    }
+    return result.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async getOrgChart() {
     const users = await prisma.user.findMany({
-      where: { isActive: true, ...excludeDeleted() },
+      where: { isActive: true },
       select: {
         id: true,
         name: true,

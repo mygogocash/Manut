@@ -257,6 +257,7 @@ export default function DataRoomPage() {
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-10",
       render: (d: DataRoomDocument) => (

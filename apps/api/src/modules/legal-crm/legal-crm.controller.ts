@@ -146,6 +146,37 @@ router.delete(
   }),
 );
 
+// Reversible archive/unarchive. Gated like update (write perms); the service
+// enforces owner-or-manage so a plain write-perm holder can't archive another
+// team's project.
+router.post(
+  "/:id/archive",
+  requirePermission(...IT_READ_PERMS, ...IT_WRITE_PERMS),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const data = await legalCrmService.archive(
+      id,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/unarchive",
+  requirePermission(...IT_READ_PERMS, ...IT_WRITE_PERMS),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const data = await legalCrmService.unarchive(
+      id,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
 // ─── Board ──────────────────────────────────────────────────
 
 router.get(

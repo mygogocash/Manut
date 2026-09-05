@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/card";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -61,7 +62,7 @@ export default function BenefitsPage() {
   const canBrowseCatalog = canRead || canManage || canEnroll;
   const canViewMyEnrollments = canRead || canManage || canEnroll;
 
-  const [activeTab, setActiveTab] = useState(() =>
+  const [activeTab, setActiveTab] = useTabParam(
     canEnroll && !canRead && !canManage ? "my-enrollments" : "benefits",
   );
   const [benefits, setBenefits] = useState<Benefit[]>([]);
@@ -268,11 +269,13 @@ export default function BenefitsPage() {
     },
     {
       key: "category",
+      mobileRole: "detail" as const,
       header: "Category",
       render: (b: Benefit) => <Badge variant="blue">{b.category}</Badge>,
     },
     {
       key: "provider",
+      mobileRole: "subtitle" as const,
       header: "Provider",
       render: (b: Benefit) => (
         <span className="text-muted-foreground">{b.provider ?? "—"}</span>
@@ -280,6 +283,7 @@ export default function BenefitsPage() {
     },
     {
       key: "cost",
+      mobileRole: "field" as const,
       header: "Annual Cost",
       render: (b: Benefit) => (
         <span className="tabular-nums">
@@ -289,6 +293,7 @@ export default function BenefitsPage() {
     },
     {
       key: "enrollments",
+      mobileRole: "field" as const,
       header: "Enrolled",
       render: (b: Benefit) => (
         <span className="tabular-nums">{b._count.enrollments}</span>
@@ -296,6 +301,7 @@ export default function BenefitsPage() {
     },
     {
       key: "status",
+      mobileRole: "badge" as const,
       header: "Status",
       render: (b: Benefit) => (
         <Badge status={b.isActive ? "active" : "inactive"}>
@@ -305,6 +311,7 @@ export default function BenefitsPage() {
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-[100px] text-right",
       render: (b: Benefit) =>
@@ -341,6 +348,7 @@ export default function BenefitsPage() {
     },
     {
       key: "category",
+      mobileRole: "detail" as const,
       header: "Category",
       render: (e: BenefitEnrollment) => (
         <Badge variant="blue">{e.benefit?.category ?? "—"}</Badge>
@@ -348,6 +356,7 @@ export default function BenefitsPage() {
     },
     {
       key: "provider",
+      mobileRole: "subtitle" as const,
       header: "Provider",
       render: (e: BenefitEnrollment) => (
         <span className="text-muted-foreground">
@@ -357,6 +366,7 @@ export default function BenefitsPage() {
     },
     {
       key: "cost",
+      mobileRole: "field" as const,
       header: "Annual Cost",
       render: (e: BenefitEnrollment) =>
         e.benefit ? (
@@ -369,11 +379,13 @@ export default function BenefitsPage() {
     },
     {
       key: "startDate",
+      mobileRole: "field" as const,
       header: "Start Date",
       render: (e: BenefitEnrollment) => formatDate(e.startDate),
     },
     {
       key: "status",
+      mobileRole: "badge" as const,
       header: "Status",
       render: (e: BenefitEnrollment) => (
         <Badge status={e.status}>{e.status}</Badge>

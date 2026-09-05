@@ -9,13 +9,17 @@ import {
 import { asyncHandler } from "@/core/middleware/async-handler";
 import { opportunityService } from "@/modules/opportunities/opportunities.service";
 import {
+  bulkFieldUpdateOpportunitiesSchema,
+  bulkUpdateOpportunitiesSchema,
   bulkUpdateStageConfigsSchema,
   closeLostSchema,
   createOpportunitySchema,
   forecastQuerySchema,
   listOpportunitiesSchema,
+  moveBusinessUnitSchema,
+  pipelineQuerySchema,
   reopenSchema,
-  reorderWithinStageSchema,
+  reorderOpportunityCardsSchema,
   updateOpportunitySchema,
 } from "@/modules/opportunities/opportunities.validation";
 
@@ -41,9 +45,13 @@ router.get(
   "/pipeline",
   requirePermission(PERMISSIONS.CRM_READ),
   asyncHandler(async (req, res) => {
+    // Board filters narrow the header rollup exactly as they narrow the
+    // cards, so the two can never describe different row sets.
+    const query = pipelineQuerySchema.parse(req.query);
     const data = await opportunityService.pipeline(
       req.user!.id,
       req.user!.permissions,
+      query,
     );
     res.json({ data });
   }),
@@ -63,7 +71,7 @@ router.get(
   }),
 );
 
-// Distinct country / region values for
+// BD-feedback (Vivek, May 2026) — distinct country / region values for
 // the pipeline filter selects. Literal path registered before `/:id` so
 // the param route does not eat the request (CLAUDE.md route-order rule).
 router.get(
@@ -134,14 +142,46 @@ router.put(
   }),
 );
 
-// Manual within-column reorder for the pipeline kanban. Literal path,
-// registered before `/:id`. Gated on crm:update — same as a stage move.
+// Manual within-column reorder for the pipeline kanban. Deal ids, because a
+// card IS a deal. Literal path, registered before `/:id`.
 router.post(
-  "/reorder-within-stage",
+  "/reorder",
   requirePermission(PERMISSIONS.CRM_UPDATE),
   asyncHandler(async (req, res) => {
-    const input = reorderWithinStageSchema.parse(req.body);
-    const data = await opportunityService.reorderWithinStage(
+    const input = reorderOpportunityCardsSchema.parse(req.body);
+    const data = await opportunityService.reorderCards(
+      req.user!.id,
+      req.user!.permissions,
+      input,
+    );
+    res.json({ data });
+  }),
+);
+
+// Bulk select-and-act. Literal path MUST precede `/:id` — Express matches in
+// order and `/:id` would otherwise swallow `/bulk-business-units`.
+// Owner + archive in bulk. `crm:reassign` for the owner half is enforced in the
+// service, since requirePermission cannot express "only when a field is set".
+router.post(
+  "/bulk-update",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const input = bulkFieldUpdateOpportunitiesSchema.parse(req.body);
+    const data = await opportunityService.bulkUpdateFields(
+      req.user!.id,
+      req.user!.permissions,
+      input,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/bulk-business-units",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const input = bulkUpdateOpportunitiesSchema.parse(req.body);
+    const data = await opportunityService.bulkUpdateBusinessUnits(
       req.user!.id,
       req.user!.permissions,
       input,
@@ -208,6 +248,35 @@ router.post(
   }),
 );
 
+// Reversible archive / unarchive. Gated like update (crm:update); the
+// service re-checks owner-or-team-read so a rep can't archive another
+// rep's deal. Archive is orthogonal to stage — a card keeps its stage.
+router.post(
+  "/:id/archive",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const data = await opportunityService.archive(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/unarchive",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const data = await opportunityService.unarchive(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
 router.delete(
   "/:id",
   requirePermission(PERMISSIONS.CRM_DELETE),
@@ -218,6 +287,35 @@ router.delete(
       req.user!.permissions,
     );
     res.json({ data: { success: true } });
+  }),
+);
+
+router.get(
+  "/:id/business-units",
+  requirePermission(PERMISSIONS.CRM_READ),
+  asyncHandler(async (req, res) => {
+    const data = await opportunityService.businessUnitsForDeal(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
+router.put(
+  "/:id/business-units/:businessUnit",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const input = moveBusinessUnitSchema.parse(req.body);
+    const data = await opportunityService.moveBusinessUnit(
+      req.params.id as string,
+      req.params.businessUnit as string,
+      req.user!.id,
+      req.user!.permissions,
+      input,
+    );
+    res.json({ data });
   }),
 );
 

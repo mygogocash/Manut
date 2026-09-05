@@ -6,6 +6,7 @@ import { useRouter } from "nextjs-toploader/app";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { AriaBriefTab } from "@/components/settings/aria-brief-tab";
 import { IntegrationsTab } from "@/components/settings/integrations-tab";
 import { PreferencesTab } from "@/components/settings/preferences-tab";
 import { ProfileTab } from "@/components/settings/profile-tab";
@@ -20,6 +21,7 @@ import {
 import { SystemTab } from "@/components/settings/system-tab";
 import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent } from "@/components/shared/tabs";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -52,7 +54,7 @@ export default function SettingsPage() {
 
 function SettingsPageInner() {
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/settings";
   const searchParams = useSearchParams();
   const { user, hasPermission } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -63,8 +65,10 @@ function SettingsPageInner() {
   // `admin:manage` capability instead.
   const canViewSystem = hasPermission("admin:manage");
 
-  const initialTab = searchParams?.get("tab") ?? "profile";
-  const [tab, setTab] = useState(initialTab);
+  // Active tab persisted in the URL (?tab=) via useTabParam so a reload stays
+  // on the same tab. The OAuth callback effect below still reads ?tab= from
+  // searchParams to preserve it when stripping ?connected / ?error.
+  const [tab, setTab] = useTabParam("profile");
   const [prefs, setPrefs] = useState<LocalPreferences>(DEFAULT_PREFS);
 
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({});
@@ -184,6 +188,10 @@ function SettingsPageInner() {
 
         <TabsContent value="integrations">
           <IntegrationsTab />
+        </TabsContent>
+
+        <TabsContent value="aria-brief">
+          <AriaBriefTab />
         </TabsContent>
 
         {canViewSystem && (

@@ -1,12 +1,7 @@
 import type { Server as HttpServer } from "node:http";
 
-import { parseCookie } from "cookie";
-import {
-  type Namespace,
-  type RemoteSocket,
-  Server,
-  type Socket,
-} from "socket.io";
+import { parse as parseCookie } from "cookie";
+import { type Namespace, Server, type Socket } from "socket.io";
 
 import { PERMISSIONS } from "@/common/constants/permissions";
 import { logger } from "@/common/utils/logger";
@@ -16,11 +11,10 @@ import {
   loadUserPermissions,
   resolveAuthUserFromToken,
 } from "@/core/guards/auth.guard";
-import { isAuthenticationEligible } from "@/core/guards/auth-eligibility";
 import {
   assertCanAccessChannel,
+  channelMemberIds,
   type MessageAccessChannel,
-  shouldBroadcastChannelToUser,
 } from "@/modules/messages/messages.access";
 import {
   messageBus,
@@ -69,16 +63,6 @@ type MessagesSocket = Socket<
   MessagesSocketData
 >;
 
-type MessagesNamespace = Namespace<
-  ClientToServerEvents,
-  ServerToClientEvents,
-  Record<string, never>,
-  MessagesSocketData
->;
-
-type ManagedMessagesSocket =
-  MessagesSocket | RemoteSocket<ServerToClientEvents, MessagesSocketData>;
-
 export interface MessagesSocketOptions {
   resolveUserFromToken?: typeof resolveAuthUserFromToken;
   loadPermissionsForUser?: typeof loadUserPermissions;
@@ -94,7 +78,7 @@ export interface MessagesSocketOptions {
 // errors. This now reads the same chain the Express middleware
 // uses, plus a hardcoded production fallback so a missing env var
 // never breaks the realtime channel.
-const PROD_FALLBACK_ORIGIN = "https://intranet.manut.example";
+const PROD_FALLBACK_ORIGIN = "https://intranet.thebinaryholdings.com";
 
 function allowedOrigins() {
   const raw =
@@ -142,7 +126,7 @@ function tokenFromSocket(socket: Socket) {
   const cookies = parseCookie(
     firstHeader(socket.handshake.headers.cookie) ?? "",
   );
-  return cookies.manut_access_token;
+  return cookies.nexora_access_token;
 }
 
 function isRawChannelPayload(
@@ -175,105 +159,40 @@ async function channelForEvent(event: MessageBusEvent) {
   return messagesRepository.findChannelById(event.channelId);
 }
 
-async function disconnectUnauthorizedSocket(socket: ManagedMessagesSocket) {
-  await Promise.all(
-    Array.from(socket.rooms)
-      .filter((room) => room !== socket.id)
-      .map((room) => socket.leave(room)),
-  );
-  socket.disconnect(true);
-}
-
-async function revalidateSocketAuthorization(
-  socket: ManagedMessagesSocket,
-  options: Required<MessagesSocketOptions>,
-  requiredPermission?: string,
-) {
-  let profile: Awaited<
-    ReturnType<typeof messagesRepository.findUserAuthorizationById>
-  >;
-  let permissions: Set<string>;
-
-  try {
-    profile = await messagesRepository.findUserAuthorizationById(
-      socket.data.user.id,
-    );
-    if (!profile || !isAuthenticationEligible(profile)) {
-      await disconnectUnauthorizedSocket(socket);
-      throw new Error("Unauthorized");
-    }
-    permissions = await options.loadPermissionsForUser(profile.id);
-  } catch (err) {
-    await disconnectUnauthorizedSocket(socket);
-    throw err instanceof Error ? err : new Error("Unauthorized");
-  }
-
-  const user: AuthUser = {
-    ...profile,
-    permissions: Array.from(permissions),
-  };
-  socket.data.user = user;
-
-  if (!permissions.has(PERMISSIONS.MESSAGES_READ)) {
-    await disconnectUnauthorizedSocket(socket);
-    throw new Error("Permission denied");
-  }
-
-  await socket.join(userRoom(user.id));
-  await socket.join(READ_ROOM);
-  if (permissions.has(PERMISSIONS.MESSAGES_ADMIN)) {
-    await socket.join(ADMIN_ROOM);
-  } else {
-    await socket.leave(ADMIN_ROOM);
-  }
-
-  if (requiredPermission && !permissions.has(requiredPermission)) {
-    throw new Error("Permission denied");
-  }
-
-  return user;
-}
-
-async function emitMessageEvent(
-  nsp: MessagesNamespace,
+function broadcastRoomsForEvent(
   event: MessageBusEvent,
-  options: Required<MessagesSocketOptions>,
+  channel: MessageAccessChannel,
 ) {
+  if (event.type === "typing") {
+    return [channelRoom(event.channelId)];
+  }
+
+  if (channel.type === "direct") {
+    return channelMemberIds(channel).map(userRoom);
+  }
+
+  if (channel.type === "private") {
+    return [...channelMemberIds(channel).map(userRoom), ADMIN_ROOM];
+  }
+
+  return [READ_ROOM];
+}
+
+async function emitMessageEvent(nsp: Namespace, event: MessageBusEvent) {
   const channel = await channelForEvent(event);
   if (!channel) return;
 
-  const sockets = await nsp.fetchSockets();
-  await Promise.all(
-    sockets.map(async (socket) => {
-      try {
-        const user = await revalidateSocketAuthorization(socket, options);
-        const canAccess = shouldBroadcastChannelToUser(user, channel);
-        if (!canAccess) {
-          await socket.leave(channelRoom(event.channelId));
-          return;
-        }
+  const rooms = Array.from(new Set(broadcastRoomsForEvent(event, channel)));
+  if (rooms.length === 0) return;
 
-        if (
-          event.type === "typing" &&
-          !socket.rooms.has(channelRoom(event.channelId))
-        ) {
-          return;
-        }
-
-        socket.emit("messages:event", event);
-      } catch {
-        // Revalidation is fail-closed and disconnects sockets whose lifecycle
-        // or baseline read access can no longer be confirmed.
-      }
-    }),
-  );
+  nsp.to(rooms).emit("messages:event", event);
 }
 
 function socketAuthMiddleware(options: Required<MessagesSocketOptions>) {
-  return async (socket: MessagesSocket, next: (err?: Error) => void) => {
+  return async (socket: Socket, next: (err?: Error) => void) => {
     try {
       const user = await options.resolveUserFromToken(tokenFromSocket(socket));
-      if (!isAuthenticationEligible(user)) {
+      if (!user.isActive) {
         next(new Error("Account deactivated"));
         return;
       }
@@ -285,7 +204,7 @@ function socketAuthMiddleware(options: Required<MessagesSocketOptions>) {
         return;
       }
 
-      socket.data.user = user;
+      (socket as MessagesSocket).data.user = user;
       next();
     } catch {
       next(new Error("Unauthorized"));
@@ -293,20 +212,16 @@ function socketAuthMiddleware(options: Required<MessagesSocketOptions>) {
   };
 }
 
-function registerConnectionHandlers(
-  socket: MessagesSocket,
-  options: Required<MessagesSocketOptions>,
-) {
-  const connectedUserId = socket.data.user.id;
-  socket.join(userRoom(connectedUserId));
+function registerConnectionHandlers(socket: MessagesSocket) {
+  const user = socket.data.user;
+  socket.join(userRoom(user.id));
   socket.join(READ_ROOM);
-  if (socket.data.user.permissions.includes(PERMISSIONS.MESSAGES_ADMIN)) {
+  if (user.permissions.includes(PERMISSIONS.MESSAGES_ADMIN)) {
     socket.join(ADMIN_ROOM);
   }
 
   socket.on("channel:join", async (payload, ack?: (res: unknown) => void) => {
     try {
-      const user = await revalidateSocketAuthorization(socket, options);
       const channelId =
         payload &&
         typeof payload === "object" &&
@@ -349,11 +264,6 @@ function registerConnectionHandlers(
 
   socket.on("message:send", async (payload, ack) => {
     try {
-      const user = await revalidateSocketAuthorization(
-        socket,
-        options,
-        PERMISSIONS.MESSAGES_CREATE,
-      );
       const channelId =
         payload &&
         typeof payload === "object" &&
@@ -386,6 +296,11 @@ function registerConnectionHandlers(
         return;
       }
 
+      if (!user.permissions.includes(PERMISSIONS.MESSAGES_CREATE)) {
+        ack?.({ ok: false, error: "Permission denied" });
+        return;
+      }
+
       const message = await messagesService.sendMessage(
         channelId,
         user.id,
@@ -404,11 +319,6 @@ function registerConnectionHandlers(
 
   socket.on("message:delete", async (payload, ack) => {
     try {
-      const user = await revalidateSocketAuthorization(
-        socket,
-        options,
-        PERMISSIONS.MESSAGES_DELETE,
-      );
       const channelId =
         payload &&
         typeof payload === "object" &&
@@ -429,6 +339,11 @@ function registerConnectionHandlers(
         return;
       }
 
+      if (!user.permissions.includes(PERMISSIONS.MESSAGES_DELETE)) {
+        ack?.({ ok: false, error: "Permission denied" });
+        return;
+      }
+
       await messagesService.deleteMessage(messageId, user, channelId);
       ack?.({ ok: true });
     } catch (err) {
@@ -441,11 +356,6 @@ function registerConnectionHandlers(
 
   socket.on("typing", async (payload, ack) => {
     try {
-      const user = await revalidateSocketAuthorization(
-        socket,
-        options,
-        PERMISSIONS.MESSAGES_CREATE,
-      );
       const channelId =
         payload &&
         typeof payload === "object" &&
@@ -474,10 +384,7 @@ function registerConnectionHandlers(
   });
 
   socket.on("disconnect", (reason) => {
-    logger.debug("Messages socket disconnected", {
-      userId: connectedUserId,
-      reason,
-    });
+    logger.debug("Messages socket disconnected", { userId: user.id, reason });
   });
 }
 
@@ -486,16 +393,12 @@ export function registerMessagesSocket(
   options: MessagesSocketOptions = {},
 ) {
   const origins = allowedOrigins();
-  const io = new Server<
-    ClientToServerEvents,
-    ServerToClientEvents,
-    Record<string, never>,
-    MessagesSocketData
-  >(server, {
+  const io = new Server(server, {
     path: SOCKET_PATH,
-    // This compatibility bridge uses WebSocket-only transport so a
-    // horizontally scaled container never splits polling and upgrade
-    // requests. New realtime traffic is handled by the edge Durable Object.
+    // Match the client: WebSocket only. Cloud Run multi-instance
+    // breaks the polling→upgrade flow because the upgrade can land
+    // on a different instance than the polling handshake. Pure WS
+    // sidesteps the upgrade step entirely.
     transports: ["websocket"],
     cors: {
       origin(origin, callback) {
@@ -518,11 +421,11 @@ export function registerMessagesSocket(
 
   nsp.use(socketAuthMiddleware(resolvedOptions));
   nsp.on("connection", (socket) => {
-    registerConnectionHandlers(socket, resolvedOptions);
+    registerConnectionHandlers(socket as MessagesSocket);
   });
 
   const unsubscribe = messageBus.subscribeAll((event) => {
-    void emitMessageEvent(nsp, event, resolvedOptions).catch((err) => {
+    void emitMessageEvent(nsp, event).catch((err) => {
       logger.warn("Failed to emit messages socket event", {
         eventType: event.type,
         channelId: event.channelId,

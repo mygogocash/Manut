@@ -550,7 +550,7 @@ export function QaCrmIssueTable({ projectId }: Props) {
           // drag-to-resize (Notion-style).
           className="table-fixed"
           containerClassName={`
-            max-h-[calc(100vh-300px)] overflow-auto rounded-lg border
+            max-h-[60svh] md:max-h-[calc(100vh-300px)] overflow-auto rounded-lg border
           `}
         >
           <TableHeader className="bg-background sticky top-0 z-10">

@@ -1,12 +1,13 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { CodeMultiSelect } from "@/components/shared/code-multi-select";
 import { FormDatePicker } from "@/components/shared/form-date-picker";
 import {
   AlertDialog,
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CRM_ACCOUNT_REGIONS, CRM_ALL_COUNTRIES } from "@/constants/crm-geo";
+import { useBusinessUnits } from "@/hooks/use-business-units";
 import { ApiError } from "@/lib/api-client";
 import {
   type Account,
@@ -88,6 +90,8 @@ const formSchema = z.object({
   uatEndDate: dateOrEmpty.optional(),
   blocker: z.string().max(2000).optional().or(z.literal("")),
   remarks: z.string().max(2000).optional().or(z.literal("")),
+  // Which business unit(s) are taking care of this account.
+  businessUnits: z.array(z.string()),
   // Pipeline sync — saved to linked Opportunity (bidirectional with Pipeline tab).
   dealOpportunityId: z.string().optional().or(z.literal("")),
   dealStage: z.enum(OPPORTUNITY_STAGES),
@@ -123,7 +127,7 @@ export function AccountFormDialog({
 }: AccountFormDialogProps) {
   const isEditing = !!account;
   const [submitting, setSubmitting] = useState(false);
-  // The form's country
+  // Vivek BD-feedback (2026-05-25 follow-up): the form's country
   // picker was still on the curated shortlist + opportunity-derived
   // merge, so Morocco / Laos / Qatar / etc. were missing. Switched
   // to the full ISO 3166-1 list (CRM_ALL_COUNTRIES, 249 entries).
@@ -131,14 +135,22 @@ export function AccountFormDialog({
     ...CRM_ALL_COUNTRIES,
   ]);
 
-  // When account-name dedupe trips a 409 on create, prompt
+  // §11.2 fallback — when account-name dedupe trips a 409 on create, prompt
   // the rep before sending a second request with confirmCreate=true.
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
 
+  // Only ACTIVE units are offered; a record already tagged with a
+  // deactivated unit keeps it until someone edits the selection.
+  const { units: businessUnitRows } = useBusinessUnits();
+  const businessUnitOptions = businessUnitRows.map((u) => ({
+    code: u.code,
+    label: u.label,
+  }));
+
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       domain: "",
@@ -160,6 +172,7 @@ export function AccountFormDialog({
       uatEndDate: "",
       blocker: "",
       remarks: "",
+      businessUnits: [],
       dealOpportunityId: "",
       dealStage: "qualified",
       dealProbability: "20",
@@ -204,6 +217,7 @@ export function AccountFormDialog({
         uatEndDate: account.uatEndDate?.slice(0, 10) ?? "",
         blocker: account.blocker ?? "",
         remarks: account.remarks ?? "",
+        businessUnits: account.businessUnits ?? [],
         dealOpportunityId: opp?.id ?? "",
         dealStage: (opp?.stage as OpportunityStage) ?? "qualified",
         dealProbability: opp ? String(opp.probability) : "20",
@@ -234,6 +248,7 @@ export function AccountFormDialog({
         uatEndDate: "",
         blocker: "",
         remarks: "",
+        businessUnits: [],
         dealOpportunityId: "",
         dealStage: "qualified",
         dealProbability: "20",
@@ -285,6 +300,7 @@ export function AccountFormDialog({
       uatEndDate: values.uatEndDate ?? "",
       blocker: values.blocker ?? "",
       remarks: values.remarks ?? "",
+      businessUnits: values.businessUnits,
       ...(confirmCreate && { confirmCreate: true }),
       deal: {
         ...(values.dealOpportunityId
@@ -341,7 +357,7 @@ export function AccountFormDialog({
       onSaved(saved);
       onOpenChange(false);
     } catch (err) {
-      // 409 only fires on create when the name fallback hits a
+      // §11.2 — 409 only fires on create when the name fallback hits a
       // duplicate. Update returns 409 only on domain collision, where
       // confirmCreate doesn't apply — surface the error instead.
       if (
@@ -742,6 +758,25 @@ export function AccountFormDialog({
                             rows={2}
                             placeholder="Anything blocking this deal moving forward…"
                             {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="businessUnits"
+                    render={({ field }) => (
+                      <FormItem className="col-span-2">
+                        <FormLabel>Business units</FormLabel>
+                        <FormControl>
+                          <CodeMultiSelect
+                            options={businessUnitOptions}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select business units"
+                            emptyLabel="No business units defined yet."
                           />
                         </FormControl>
                         <FormMessage />

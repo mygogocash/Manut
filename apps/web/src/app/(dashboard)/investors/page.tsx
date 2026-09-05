@@ -17,6 +17,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   Activity,
+  Archive,
+  ArchiveRestore,
   CheckSquare,
   ChevronDown,
   ChevronRight,
@@ -29,6 +31,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  Tag,
   Target,
   Trash2,
   Upload,
@@ -44,7 +47,11 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { InvestorBulkTagsDialog } from "@/components/investor-crm/investor-bulk-tags-dialog";
+import { InvestorTagChips } from "@/components/investor-crm/investor-tag-chips";
+import { InvestorTagsManagerDialog } from "@/components/investor-crm/investor-tags-manager-dialog";
 import { DeleteInvestorDialog } from "@/components/investors/delete-investor-dialog";
+import { FundraisingEntitySwitcher } from "@/components/investors/fundraising-entity-switcher";
 import { InvestorAccountsTab } from "@/components/investors/investor-accounts-tab";
 import { InvestorActivitiesTab } from "@/components/investors/investor-activities-tab";
 import { InvestorContactsTab } from "@/components/investors/investor-contacts-tab";
@@ -61,6 +68,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PermissionButton } from "@/components/shared/permission-button";
 import { PermissionDropdownMenuItem } from "@/components/shared/permission-dropdown-menu-item";
 import { SortableColumnHead } from "@/components/shared/sortable-column-head";
+import { Tabs as ArchiveTabs } from "@/components/shared/tabs";
 import { useColumnOrder } from "@/components/shared/use-column-order";
 import { useColumnWidths } from "@/components/shared/use-column-widths";
 import { Button } from "@/components/ui/button";
@@ -90,17 +98,25 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useInvestorTags } from "@/hooks/use-investor-tags";
 import { useInvestorTypes } from "@/hooks/use-investor-types";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { type ExportFormat, exportRows } from "@/lib/crm-export";
 import { useAuth } from "@/providers/auth-provider";
+import {
+  FundraisingEntityProvider,
+  useFundraisingEntity,
+} from "@/providers/fundraising-entity-provider";
 import {
   type AssignableUser,
   listAssignableUsers,
 } from "@/services/directory.service";
 import {
+  archiveInvestor,
   bulkDeleteInvestors,
+  bulkSetInvestorTags,
   bulkUpdateInvestors,
   type CreateInvestorInput,
   formatInvestmentAmount,
@@ -112,11 +128,13 @@ import {
   listInvestors,
   normalizeInvestorStatus,
   reorderInvestors,
+  unarchiveInvestor,
 } from "@/services/investor.service";
 import {
   type InvestorPipelineStage,
   listInvestorStages,
 } from "@/services/investor-pipeline-stage.service";
+import { INVESTOR_TAG_UNTAGGED } from "@/services/investor-tag.service";
 
 const ALL_FILTER = "__all__";
 const NO_GROUP = "__none__";
@@ -182,7 +200,7 @@ interface InvestorImportRow {
   contactPhone?: string;
   website?: string;
   location?: string;
-  // Supported import-template columns.
+  // Pipeline-master columns (2026-05-28).
   title?: string;
   linkedinUrl?: string;
   revenueStream?: string;
@@ -193,9 +211,42 @@ interface InvestorImportRow {
   crossSell?: string;
   region?: string;
   notesText?: string;
+  // Fundraising vehicle, as the label or key the sheet carries. Resolved
+  // against the catalog on submit; anything unrecognised falls back to
+  // the active tab.
+  entity?: string;
+  // Comma- or semicolon-separated tag codes. The API has always accepted
+  // `tags` on an import row (createInvestorSchema carries it) but this
+  // interface never mapped the column, so nothing sent them and a tagged
+  // import silently arrived untagged.
+  tags?: string;
 }
 
-// Parse the assorted date shapes an input workbook may contain ("2025-05-15",
+/**
+ * Split a Tags cell into codes.
+ *
+ * Accepts commas or semicolons, and slugifies each entry so a sheet may write
+ * either the machine code ("golden-gate-ventures") or the human label
+ * ("Golden Gate Ventures") — both resolve to the same tag. Entries that cannot
+ * become a code are dropped rather than failing the whole row.
+ */
+function parseImportTags(raw: unknown): string[] | undefined {
+  if (raw === null || raw === undefined) return undefined;
+  const codes = String(raw)
+    .split(/[,;]/)
+    .map((part) =>
+      part
+        .trim()
+        .toLowerCase()
+        .replace(/&/g, " and ")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, ""),
+    )
+    .filter(Boolean);
+  return codes.length > 0 ? [...new Set(codes)] : undefined;
+}
+
+// Parse the assorted date shapes the source xlsx ships ("2025-05-15",
 // "5/15/2025", or a serial number when xlsx is read in raw mode). Empty
 // + unparseable cells fall through to undefined so the field clears.
 function parseImportDate(raw: unknown): string | undefined {
@@ -217,7 +268,7 @@ function parseImportDate(raw: unknown): string | undefined {
   return undefined;
 }
 
-// Map the free-text "Category" cell from an import workbook onto a
+// Map the free-text "Category" cell from the pipeline-master sheet onto a
 // configurable investor-type key. Unknown values fall through to "other"
 // (the rep can re-tag via the Investors tab "Set type" bulk action or the
 // type picker). Keys match the seeded InvestorTypeOption set.
@@ -247,7 +298,7 @@ function normaliseInvestorVisibility(raw: string | undefined): string {
   return "team";
 }
 
-// Real-world workbooks may contain "TBD" / "—" / "N/A" in Email + Website
+// Real-world xlsx ships "TBD" / "—" / "N/A" in the Email + Website
 // columns when the rep hasn't filled them in. The server's zod
 // validators (`z.string().email()` / `z.string().url()`) reject those
 // strings, so every row gets dropped under `skipped` even though the
@@ -255,6 +306,24 @@ function normaliseInvestorVisibility(raw: string | undefined): string {
 // before sending so the row imports and reps fill in the contact
 // fields later via the form.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Resolve an Entity cell against the catalog. Accepts either the display
+// label ("The Binary Labs") or the stored key ("tbl"), case-insensitively.
+// A blank or unrecognised cell falls back to the active tab rather than
+// failing the row — same tolerance as the status / visibility coercions
+// above, and the row stays visible where the rep imported it.
+function resolveImportEntity(
+  raw: string | undefined,
+  entities: { key: string; label: string }[],
+  fallback: string,
+): string {
+  const s = (raw ?? "").trim().toLowerCase();
+  if (!s) return fallback;
+  const hit = entities.find(
+    (e) => e.key.toLowerCase() === s || e.label.toLowerCase() === s,
+  );
+  return hit?.key ?? fallback;
+}
+
 function coerceEmail(raw: string | undefined): string | undefined {
   const s = (raw ?? "").trim();
   if (!s || !EMAIL_RE.test(s)) return undefined;
@@ -295,8 +364,8 @@ type InvColKey =
   | "crossSell"
   | "investments";
 
-const INV_COL_ORDER_STORAGE_ID = "investors-col-order-v1";
-const INV_COL_WIDTH_STORAGE_ID = "investors-col-width-v1";
+const INV_COL_ORDER_KEY = "investors-col-order-v1";
+const INV_COL_WIDTH_KEY = "investors-col-width-v1";
 
 const INV_COL_DEFAULT_ORDER: readonly InvColKey[] = [
   "name",
@@ -374,6 +443,14 @@ const INV_COL_DEFAULT_WIDTHS: Record<InvColKey, number> = {
 };
 
 export default function InvestorsPage() {
+  return (
+    <FundraisingEntityProvider>
+      <InvestorsWorkspace />
+    </FundraisingEntityProvider>
+  );
+}
+
+function InvestorsWorkspace() {
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -381,6 +458,16 @@ export default function InvestorsPage() {
   const debouncedSearch = useDebounce(search, 350);
   const [typeFilter, setTypeFilter] = useState<string>(ALL_FILTER);
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
+  // Searchable label facet. ALL_FILTER = no constraint; the reserved
+  // `__none__` code means "untagged".
+  const [tagFilter, setTagFilter] = useState<string>(ALL_FILTER);
+  const { tags: investorTags, refresh: refreshInvestorTags } =
+    useInvestorTags();
+  const [tagsManagerOpen, setTagsManagerOpen] = useState(false);
+  // Active | Archived view for the Investors list. Archived is orthogonal to
+  // the pipeline stage — it shows archived investors regardless of status.
+  // The Pipeline kanban always shows active-only (backend default).
+  const [archived, setArchived] = useState(false);
   // Column sort — undefined means "use the server's default manual
   // order". Clicking a sortable header toggles asc → desc → undefined
   // so reps can fall back to the manual order without a page reload.
@@ -418,7 +505,7 @@ export default function InvestorsPage() {
 
   // Workspace tab + a refresh key the Pipeline kanban watches so it
   // refetches after a create / edit / delete on the Investors tab.
-  const [tab, setTab] = useState<InvestorTabValue>("pipeline");
+  const [tab, setTab] = useTabParam("pipeline");
   const [pipelineRefreshKey, setPipelineRefreshKey] = useState(0);
 
   // Investors-tab grouping: fold the current page into collapsible
@@ -460,6 +547,7 @@ export default function InvestorsPage() {
 
   // ── Bulk selection ──
   const { hasPermission } = useAuth();
+  const { entities, entityKey, entityLabel } = useFundraisingEntity();
   const canBulkReassign = hasPermission("investors:read-all");
   const canManageTypes = hasPermission("investors:update");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -467,6 +555,7 @@ export default function InvestorsPage() {
   // the per-row id set when on.
   const [selectAllMatching, setSelectAllMatching] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
   // Stages for the bulk "Update status" picker + users for "Reassign
   // owner" (admins only).
   const [stages, setStages] = useState<InvestorPipelineStage[]>([]);
@@ -500,11 +589,11 @@ export default function InvestorsPage() {
   }
 
   const { colOrder, isColumnId, reorderColumns } = useColumnOrder(
-    INV_COL_ORDER_STORAGE_ID,
+    INV_COL_ORDER_KEY,
     INV_COL_DEFAULT_ORDER,
   );
   const { widths, setWidth } = useColumnWidths(
-    INV_COL_WIDTH_STORAGE_ID,
+    INV_COL_WIDTH_KEY,
     INV_COL_DEFAULT_WIDTHS,
   );
 
@@ -516,9 +605,19 @@ export default function InvestorsPage() {
       !debouncedSearch.trim() &&
       typeFilter === ALL_FILTER &&
       statusFilter === ALL_FILTER &&
+      tagFilter === ALL_FILTER &&
       !sortBy &&
+      !archived &&
       !loading,
-    [debouncedSearch, typeFilter, statusFilter, sortBy, loading],
+    [
+      debouncedSearch,
+      typeFilter,
+      statusFilter,
+      tagFilter,
+      sortBy,
+      archived,
+      loading,
+    ],
   );
   // Snapshot the pre-drag order so a failed reorder POST can roll the
   // UI back without a refetch.
@@ -537,8 +636,11 @@ export default function InvestorsPage() {
         search: debouncedSearch || undefined,
         type: typeFilter !== ALL_FILTER ? typeFilter : undefined,
         status: statusFilter !== ALL_FILTER ? statusFilter : undefined,
+        tag: tagFilter !== ALL_FILTER ? tagFilter : undefined,
         sortBy,
         sortOrder,
+        archived: archived || undefined,
+        fundraisingEntity: entityKey,
       });
 
       setInvestors(result.data);
@@ -556,8 +658,11 @@ export default function InvestorsPage() {
     debouncedSearch,
     typeFilter,
     statusFilter,
+    tagFilter,
     sortBy,
     sortOrder,
+    archived,
+    entityKey,
     setTotalCount,
   ]);
 
@@ -567,7 +672,15 @@ export default function InvestorsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, typeFilter, statusFilter, setPage]);
+  }, [
+    debouncedSearch,
+    typeFilter,
+    statusFilter,
+    tagFilter,
+    archived,
+    entityKey,
+    setPage,
+  ]);
 
   const handleCreate = useCallback(() => {
     setEditingInvestor(null);
@@ -590,7 +703,9 @@ export default function InvestorsPage() {
         setInvestors((prev) =>
           prev.map((i) => (i.id === saved.id ? saved : i)),
         );
-      } else {
+      } else if (!archived) {
+        // A newly created investor is active — it belongs to the Active view
+        // only. On the Archived tab, skip the optimistic insert + count bump.
         setTotalCount((c) => c + 1);
         if (page === 1) {
           setInvestors((prev) => {
@@ -601,7 +716,7 @@ export default function InvestorsPage() {
       }
       setPipelineRefreshKey((k) => k + 1);
     },
-    [editingInvestor, page, pageSize, setTotalCount],
+    [editingInvestor, archived, page, pageSize, setTotalCount],
   );
 
   const handleInvestorDeleted = useCallback(
@@ -614,20 +729,60 @@ export default function InvestorsPage() {
     [setTotalCount],
   );
 
+  // Archive / restore. The current view (active vs archived) is the opposite
+  // of the row's new state, so the row leaves the current list either way —
+  // drop it optimistically and adjust the total. Bump the pipeline refresh key
+  // so the kanban drops (archive) or regains (restore) the card.
+  const handleArchive = useCallback(
+    async (investor: Investor) => {
+      try {
+        await archiveInvestor(investor.id);
+        setInvestors((prev) => prev.filter((i) => i.id !== investor.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        setPipelineRefreshKey((k) => k + 1);
+        toast.success("Investor archived");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to archive investor",
+        );
+      }
+    },
+    [setTotalCount],
+  );
+
+  const handleUnarchive = useCallback(
+    async (investor: Investor) => {
+      try {
+        await unarchiveInvestor(investor.id);
+        setInvestors((prev) => prev.filter((i) => i.id !== investor.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        setPipelineRefreshKey((k) => k + 1);
+        toast.success("Investor restored");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to restore investor",
+        );
+      }
+    },
+    [setTotalCount],
+  );
+
   const filtersDirty = useMemo(
     () =>
       Boolean(
         debouncedSearch ||
         typeFilter !== ALL_FILTER ||
-        statusFilter !== ALL_FILTER,
+        statusFilter !== ALL_FILTER ||
+        tagFilter !== ALL_FILTER,
       ),
-    [debouncedSearch, typeFilter, statusFilter],
+    [debouncedSearch, typeFilter, statusFilter, tagFilter],
   );
 
   function clearFilters() {
     setSearch("");
     setTypeFilter(ALL_FILTER);
     setStatusFilter(ALL_FILTER);
+    setTagFilter(ALL_FILTER);
     // Reset sort to manual-order default so "Clear" gets the rep back
     // to the drag-arranged baseline in one click.
     setSortBy(undefined);
@@ -665,13 +820,16 @@ export default function InvestorsPage() {
           search: debouncedSearch || undefined,
           type: typeFilter !== ALL_FILTER ? typeFilter : undefined,
           status: statusFilter !== ALL_FILTER ? statusFilter : undefined,
+          tag: tagFilter !== ALL_FILTER ? tagFilter : undefined,
+          archived: archived || undefined,
+          fundraisingEntity: entityKey,
         });
         if (result.data.length === 0) {
           toast.error("Nothing to export");
           return;
         }
-        // Header set mirrors the supported import template so users can
-        // export → edit → re-import without renaming columns.
+        // Header set mirrors the "TBH Pipeline Master.xlsx" so reps
+        // can export → edit → re-import without renaming columns.
         // Extra audit columns (Investments / Added By / Created /
         // Notes JSON / Phone / Website / Visibility) are appended
         // after the pipeline set since the source file doesn't carry
@@ -680,7 +838,17 @@ export default function InvestorsPage() {
           "investors",
           [
             { header: "Org Name", value: (i: Investor) => i.name },
+            {
+              header: "Entity",
+              value: (i: Investor) => entityLabel(i.fundraisingEntity),
+            },
             { header: "Category", value: (i: Investor) => i.type },
+            // Exported so a tagged batch round-trips through xlsx — the
+            // import mapper reads the same header back.
+            {
+              header: "Tags",
+              value: (i: Investor) => (i.tags ?? []).join(", "),
+            },
             { header: "Location", value: (i: Investor) => i.location ?? "" },
             {
               header: "Key Contact",
@@ -755,7 +923,15 @@ export default function InvestorsPage() {
         setExporting(false);
       }
     },
-    [debouncedSearch, typeFilter, statusFilter],
+    [
+      debouncedSearch,
+      typeFilter,
+      statusFilter,
+      tagFilter,
+      archived,
+      entityKey,
+      entityLabel,
+    ],
   );
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -797,12 +973,22 @@ export default function InvestorsPage() {
     switch (key) {
       case "name":
         return (
-          <span
-            className="text-foreground block truncate text-xs font-medium"
-            title={i.name}
-          >
-            {i.name}
-          </span>
+          <div className="min-w-0">
+            <span
+              className="text-foreground block truncate text-xs font-medium"
+              title={i.name}
+            >
+              {i.name}
+            </span>
+            {/*
+              Chips under the name rather than a column of their own: this
+              table's columns are a reorderable registry keyed by InvColKey,
+              and tags are a set, not a sortable scalar. The filter Select
+              above is what makes them queryable. Same placement the kanban
+              cards use for business units.
+            */}
+            <InvestorTagChips codes={i.tags} max={2} className="mt-0.5" />
+          </div>
         );
       case "type":
         return (
@@ -941,7 +1127,15 @@ export default function InvestorsPage() {
   // Reset selection when the matching set changes underneath it.
   useEffect(() => {
     clearSelection();
-  }, [debouncedSearch, typeFilter, statusFilter, clearSelection]);
+  }, [
+    debouncedSearch,
+    typeFilter,
+    statusFilter,
+    tagFilter,
+    archived,
+    entityKey,
+    clearSelection,
+  ]);
 
   // Build the payload for the active selection mode.
   function bulkSelectionPayload(): InvestorBulkSelection {
@@ -952,6 +1146,11 @@ export default function InvestorsPage() {
           search: debouncedSearch || undefined,
           type: typeFilter !== ALL_FILTER ? typeFilter : undefined,
           status: statusFilter !== ALL_FILTER ? statusFilter : undefined,
+          tag: tagFilter !== ALL_FILTER ? tagFilter : undefined,
+          // Scope "all matching" to the view the rep is looking at so a bulk
+          // action in the Archived view can't hit active rows.
+          archived: archived || undefined,
+          fundraisingEntity: entityKey,
         },
       };
     }
@@ -959,14 +1158,24 @@ export default function InvestorsPage() {
   }
 
   async function runBulk(
-    fn: () => Promise<{ data: { updated?: number; deleted?: number } }>,
+    fn: () => Promise<{
+      data: { updated?: number; deleted?: number; skipped?: number };
+    }>,
     verb: string,
   ) {
     try {
       setBulkBusy(true);
       const res = await fn();
       const n = res.data.updated ?? res.data.deleted ?? 0;
-      toast.success(`${verb} ${n} investor${n === 1 ? "" : "s"}`);
+      // Report skipped rows explicitly. Archive/restore narrows its where to
+      // rows not already in the target state, so "Archived 7" against a
+      // selection of 10 reads as a partial failure unless the other 3 are
+      // named as deliberately untouched.
+      const skipped = res.data.skipped ?? 0;
+      // "unchanged" reads correctly for both directions — already archived
+      // when archiving, already active when restoring.
+      const suffix = skipped > 0 ? `, ${skipped} unchanged` : "";
+      toast.success(`${verb} ${n} investor${n === 1 ? "" : "s"}${suffix}`);
       clearSelection();
       await fetchInvestors();
       setPipelineRefreshKey((k) => k + 1);
@@ -993,6 +1202,16 @@ export default function InvestorsPage() {
       "Updated",
     );
   }
+  function bulkSetEntity(fundraisingEntity: string) {
+    void runBulk(
+      () =>
+        bulkUpdateInvestors({
+          ...bulkSelectionPayload(),
+          set: { fundraisingEntity },
+        }),
+      "Moved",
+    );
+  }
   function bulkSetOwner(addedBy: string) {
     void runBulk(
       () =>
@@ -1000,6 +1219,20 @@ export default function InvestorsPage() {
       "Reassigned",
     );
   }
+  // Archive / restore. The API narrows its own where so an already-archived
+  // row keeps its original archivedAt — re-archiving is a no-op, not a
+  // silent re-stamp.
+  function bulkArchive(next: boolean) {
+    void runBulk(
+      () =>
+        bulkUpdateInvestors({
+          ...bulkSelectionPayload(),
+          set: { archived: next },
+        }),
+      next ? "Archived" : "Restored",
+    );
+  }
+
   function bulkDelete() {
     if (
       !window.confirm(
@@ -1017,7 +1250,7 @@ export default function InvestorsPage() {
         title="Investor Dashboard"
         subtitle="Cap table and investor relations"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" disabled={exporting}>
@@ -1034,6 +1267,14 @@ export default function InvestorsPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <PermissionButton
+            variant="outline"
+            permission="investors:update"
+            onClick={() => setTagsManagerOpen(true)}
+          >
+            <Tag className="size-3.5" />
+            Tag management
+          </PermissionButton>
           <PermissionButton
             variant="outline"
             permission="investors:create"
@@ -1053,8 +1294,22 @@ export default function InvestorsPage() {
         </div>
       </PageHeader>
 
+      <FundraisingEntitySwitcher />
+
       <Tabs value={tab} onValueChange={(v) => setTab(v as InvestorTabValue)}>
-        <TabsList className="mb-6 flex flex-wrap">
+        {/*
+          `group-data-[orientation=horizontal]/tabs:h-auto` comes from the
+          responsive work (#1188): TabsList's own height is set by that same
+          variant, and twMerge only dedupes classes carrying the SAME variant,
+          so a bare `h-auto` would not conflict and the seven-tab strip would
+          stay a fixed 32px box while wrapping to three rows inside it.
+        */}
+        <TabsList
+          className={`
+            mb-6 flex flex-wrap
+            group-data-[orientation=horizontal]/tabs:h-auto
+          `}
+        >
           {INVESTOR_TABS.map(({ value, label, icon: Icon }) => (
             <TabsTrigger key={value} value={value} className="gap-1.5">
               <Icon className="size-3.5" />
@@ -1091,6 +1346,15 @@ export default function InvestorsPage() {
 
         <TabsContent value="investors">
           <div className="flex flex-col gap-4">
+            <ArchiveTabs
+              tabs={[
+                { id: "active", label: "Active" },
+                { id: "archived", label: "Archived" },
+              ]}
+              active={archived ? "archived" : "active"}
+              onChange={(v) => setArchived(v === "archived")}
+            />
+
             <div
               className={`
                 border-border bg-surface flex flex-col gap-2 rounded-lg border
@@ -1146,6 +1410,30 @@ export default function InvestorsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                {/*
+                  Tag facet. Rendered only when the catalog has rows, so a
+                  workspace that has never created a tag sees no dead
+                  control. "Untagged" uses the reserved __none__ sentinel.
+                */}
+                {investorTags.length > 0 ? (
+                  <Select value={tagFilter} onValueChange={setTagFilter}>
+                    <SelectTrigger className="h-10 min-w-[120px] text-xs">
+                      <SelectValue placeholder="Tag" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_FILTER}>All tags</SelectItem>
+                      <SelectItem value={INVESTOR_TAG_UNTAGGED}>
+                        Untagged
+                      </SelectItem>
+                      {investorTags.map((t) => (
+                        <SelectItem key={t.code} value={t.code}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
 
                 <Select value={groupBy} onValueChange={setGroupBy}>
                   <SelectTrigger className="h-10 min-w-[130px] text-xs">
@@ -1257,6 +1545,27 @@ export default function InvestorsPage() {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={bulkBusy}>
+                        Move to entity
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="max-h-72 overflow-auto"
+                    >
+                      {entities.map((e) => (
+                        <DropdownMenuItem
+                          key={e.key}
+                          onClick={() => bulkSetEntity(e.key)}
+                        >
+                          {e.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                   {canBulkReassign ? (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -1279,6 +1588,28 @@ export default function InvestorsPage() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   ) : null}
+
+                  <PermissionButton
+                    permission="investors:update"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBulkTagsOpen(true)}
+                    disabled={bulkBusy}
+                  >
+                    Set tags
+                  </PermissionButton>
+
+                  {/* Offered per view so a no-op button never sits beside a
+                      real one: Archive in Active, Restore in Archived. */}
+                  <PermissionButton
+                    permission="investors:update"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => bulkArchive(!archived)}
+                    disabled={bulkBusy}
+                  >
+                    {archived ? "Restore" : "Archive"}
+                  </PermissionButton>
 
                   <PermissionButton
                     permission="investors:delete"
@@ -1315,7 +1646,7 @@ export default function InvestorsPage() {
               <Table
                 className="table-fixed"
                 containerClassName={`
-              max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
+              max-h-[60svh] md:max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
             `}
               >
                 <TableHeader className="bg-background sticky top-0 z-10">
@@ -1448,6 +1779,9 @@ export default function InvestorsPage() {
                                 onRowClick={() => openDetail(i)}
                                 onEdit={() => handleEdit(i)}
                                 onDelete={() => handleDelete(i)}
+                                isArchivedView={archived}
+                                onArchive={() => void handleArchive(i)}
+                                onUnarchive={() => void handleUnarchive(i)}
                               />
                             ))}
                         </Fragment>
@@ -1470,6 +1804,9 @@ export default function InvestorsPage() {
                           onRowClick={() => openDetail(i)}
                           onEdit={() => handleEdit(i)}
                           onDelete={() => handleDelete(i)}
+                          isArchivedView={archived}
+                          onArchive={() => void handleArchive(i)}
+                          onUnarchive={() => void handleUnarchive(i)}
                         />
                       ))}
                     </SortableContext>
@@ -1506,6 +1843,7 @@ export default function InvestorsPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         investor={editingInvestor}
+        fundraisingEntity={entityKey}
         onSaved={handleInvestorSaved}
       />
 
@@ -1514,6 +1852,33 @@ export default function InvestorsPage() {
         onOpenChange={setManageTypesOpen}
         onChanged={() => {
           void refreshTypes();
+          void fetchInvestors();
+        }}
+      />
+
+      {/*
+        Refetches the rows as well as the catalog: deleting a tag strips it
+        from investors server-side, so the chips on screen are stale until
+        the list is re-read.
+      */}
+      <InvestorBulkTagsDialog
+        open={bulkTagsOpen}
+        onOpenChange={setBulkTagsOpen}
+        count={selectedCount}
+        selection={bulkSelectionPayload()}
+        submit={bulkSetInvestorTags}
+        onDone={() => {
+          clearSelection();
+          void fetchInvestors();
+          setPipelineRefreshKey((k) => k + 1);
+        }}
+      />
+
+      <InvestorTagsManagerDialog
+        open={tagsManagerOpen}
+        onOpenChange={setTagsManagerOpen}
+        onChanged={() => {
+          void refreshInvestorTags();
           void fetchInvestors();
         }}
       />
@@ -1542,7 +1907,7 @@ export default function InvestorsPage() {
           // "Company", "Fund", etc. CrmImportDialog matches headers
           // case-insensitively against this list, so the first hit
           // wins and the rest fall through to undefined.
-          // Aligned with the supported import-template column set
+          // Aligned with the "TBH Pipeline Master.xlsx" column set
           // (Org Name | Category | Location | Key Contact | Title |
           // Email | LinkedIn URL | Revenue Stream | Pipeline Status |
           // Last Contact | Next Action | Est Commission | Cross-Sell |
@@ -1561,6 +1926,16 @@ export default function InvestorsPage() {
             ],
             type: "string",
             required: true,
+          },
+          {
+            key: "tags",
+            headers: ["Tags", "Tag", "Groups", "Group"],
+            type: "string",
+          },
+          {
+            key: "entity",
+            headers: ["Entity", "Fundraising Entity", "Vehicle"],
+            type: "string",
           },
           {
             key: "type",
@@ -1671,7 +2046,7 @@ export default function InvestorsPage() {
             visibility: normaliseInvestorVisibility(r.visibility),
             contactName: r.contactName?.trim() || undefined,
             // `coerceEmail` / `coerceUrl` filter the "TBD" / "—" /
-            // "N/A" placeholders that input workbooks may contain so the server's
+            // "N/A" placeholders the real xlsx ships so the server's
             // strict `z.string().email() / .url()` doesn't reject the
             // whole row. Rep can fill in the real address later via
             // the form.
@@ -1689,11 +2064,47 @@ export default function InvestorsPage() {
             crossSell: r.crossSell?.trim() || undefined,
             region: r.region?.trim() || undefined,
             notesText: r.notesText?.trim() || undefined,
+            fundraisingEntity: resolveImportEntity(
+              r.entity,
+              entities,
+              entityKey,
+            ),
+            tags: parseImportTags(r.tags),
           }));
           const res = await importInvestors(payload);
-          if (res.data.skipped > 0) {
+          // The import UPSERTS now, so say how many were updated rather than
+          // letting a re-import look like it did nothing.
+          if ((res.data.updated ?? 0) > 0) {
             toast.message(
-              `${res.data.skipped} row${res.data.skipped === 1 ? "" : "s"} skipped (invalid email / url or duplicate).`,
+              `${res.data.updated} existing investor${res.data.updated === 1 ? "" : "s"} updated (matched on name + entity).`,
+            );
+          }
+          if ((res.data.tagsCreated?.length ?? 0) > 0) {
+            toast.message(
+              `Added ${res.data.tagsCreated!.length} new tag${res.data.tagsCreated!.length === 1 ? "" : "s"} to the catalog: ${res.data.tagsCreated!.join(", ")}`,
+            );
+          }
+          if (res.data.skipped > 0) {
+            // The server now returns a reason per row. Naming the first few
+            // beats the old blanket "invalid email / url or duplicate", which
+            // was a guess printed as a fact.
+            const detail = (res.data.errors ?? [])
+              .slice(0, 3)
+              .map((e) => `row ${e.row} (${e.name}): ${e.errors.join("; ")}`)
+              .join(" · ");
+            toast.message(
+              `${res.data.skipped} row${res.data.skipped === 1 ? "" : "s"} skipped.${detail ? ` ${detail}` : ""}`,
+            );
+          }
+          // Rows whose Entity cell named another vehicle land on THAT
+          // tab, so they are invisible from here the moment the import
+          // succeeds. Say so, or the count reads as rows that vanished.
+          const elsewhere = payload.filter(
+            (row) => row.fundraisingEntity !== entityKey,
+          ).length;
+          if (elsewhere > 0) {
+            toast.message(
+              `${elsewhere} row${elsewhere === 1 ? "" : "s"} imported to another entity — switch tabs to see ${elsewhere === 1 ? "it" : "them"}.`,
             );
           }
           return { created: res.data.created };
@@ -1713,6 +2124,9 @@ function SortableInvestorRow({
   onRowClick,
   onEdit,
   onDelete,
+  isArchivedView,
+  onArchive,
+  onUnarchive,
 }: {
   investor: Investor;
   colOrder: InvColKey[];
@@ -1723,6 +2137,9 @@ function SortableInvestorRow({
   onRowClick: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  isArchivedView: boolean;
+  onArchive: () => void;
+  onUnarchive: () => void;
 }) {
   const {
     attributes,
@@ -1811,6 +2228,23 @@ function SortableInvestorRow({
               <Pencil className="mr-2 size-3.5" />
               Edit
             </PermissionDropdownMenuItem>
+            {isArchivedView ? (
+              <PermissionDropdownMenuItem
+                permission="investors:update"
+                onClick={onUnarchive}
+              >
+                <ArchiveRestore className="mr-2 size-3.5" />
+                Restore
+              </PermissionDropdownMenuItem>
+            ) : (
+              <PermissionDropdownMenuItem
+                permission="investors:update"
+                onClick={onArchive}
+              >
+                <Archive className="mr-2 size-3.5" />
+                Archive
+              </PermissionDropdownMenuItem>
+            )}
             <PermissionDropdownMenuItem
               permission="investors:delete"
               className="text-destructive"

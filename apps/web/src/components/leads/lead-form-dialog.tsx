@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { LeadSourceCombobox } from "@/components/leads/lead-source-combobox";
+import { CodeMultiSelect } from "@/components/shared/code-multi-select";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useBusinessUnits } from "@/hooks/use-business-units";
 import { useLeadSources } from "@/hooks/use-lead-sources";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -62,6 +64,8 @@ const formSchema = z.object({
     .min(1, "Source is required")
     .regex(/^[a-z][a-z0-9-]*$/, "Source must be a lowercase code"),
   status: z.enum(REP_STATUSES),
+  // Which business unit(s) are taking care of this lead.
+  businessUnits: z.array(z.string()),
   notes: z.string().max(5000).optional().or(z.literal("")),
 });
 
@@ -82,11 +86,16 @@ export function LeadFormDialog({
 }: LeadFormDialogProps) {
   const isEditing = !!lead;
   const [submitting, setSubmitting] = useState(false);
-  // Sources come from the lead_sources table.
+  // PRD §11.7 — sources come from the lead_sources table now.
   const { sources } = useLeadSources();
+  const { units: businessUnitRows } = useBusinessUnits();
+  const businessUnitOptions = businessUnitRows.map((u) => ({
+    code: u.code,
+    label: u.label,
+  }));
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       company: "",
       firstName: "",
@@ -105,6 +114,7 @@ export function LeadFormDialog({
       source: "",
       status: "new",
       notes: "",
+      businessUnits: [],
     },
   });
 
@@ -128,6 +138,7 @@ export function LeadFormDialog({
         source: lead.source,
         status: editableStatus,
         notes: lead.notes ?? "",
+        businessUnits: lead.businessUnits ?? [],
       });
     } else {
       form.reset({
@@ -140,6 +151,7 @@ export function LeadFormDialog({
         source: "",
         status: "new",
         notes: "",
+        businessUnits: [],
       });
     }
   }, [open, lead, form]);
@@ -171,6 +183,7 @@ export function LeadFormDialog({
         source: values.source,
         status: values.status,
         notes: values.notes || undefined,
+        businessUnits: values.businessUnits,
       };
 
       if (isEditing) {
@@ -395,6 +408,25 @@ export function LeadFormDialog({
               >
                 Notes
               </p>
+              <FormField
+                control={form.control}
+                name="businessUnits"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Business units</FormLabel>
+                    <FormControl>
+                      <CodeMultiSelect
+                        options={businessUnitOptions}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Select business units"
+                        emptyLabel="No business units defined yet."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="notes"
