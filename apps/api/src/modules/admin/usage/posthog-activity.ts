@@ -88,6 +88,7 @@ export async function findPerUserActivityFromPostHog(params: {
       uniqExact(toDate(timestamp))                                         AS active_days_30d,
       countIf(event LIKE 'leave_request.%')                                AS leave_events_30d,
       countIf(event LIKE 'expense.%')                                      AS expense_events_30d,
+      countIf(event LIKE 'aria.%')                                         AS aria_events_30d,
       topK(1)(event)[1]                                                    AS top_action,
       max(timestamp)                                                       AS last_active_at
     FROM events
@@ -152,10 +153,10 @@ export async function findPerUserActivityFromPostHog(params: {
     }
 
     const lastTs =
-      typeof r[6] === "string"
-        ? new Date(r[6])
-        : r[6] instanceof Date
-          ? r[6]
+      typeof r[7] === "string"
+        ? new Date(r[7])
+        : r[7] instanceof Date
+          ? r[7]
           : null;
 
     return [
@@ -167,7 +168,8 @@ export async function findPerUserActivityFromPostHog(params: {
         activeDays30d: Number(r[2] ?? 0),
         leaveEvents30d: Number(r[3] ?? 0),
         expenseEvents30d: Number(r[4] ?? 0),
-        topAction: typeof r[5] === "string" ? r[5] : null,
+        ariaEvents30d: Number(r[5] ?? 0),
+        topAction: typeof r[6] === "string" ? r[6] : null,
         lastActiveAt: lastTs,
       },
     ];

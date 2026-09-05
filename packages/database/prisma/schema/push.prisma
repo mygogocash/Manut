@@ -1,0 +1,41 @@
+// Web Push subscriptions.
+//
+// One row per browser, not per user: a person may have a desktop browser, an
+// Android Chrome tab and an installed iOS PWA, and each issues its own endpoint.
+// See docs/pwa/PHASE_6_SCHEMA_PROPOSAL.md for the full rationale — including why
+// there is no relation to `User`, why there is no preference or delivery-log
+// table, and what the cleanup rules are.
+
+model PushSubscription {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Recipient. No Prisma relation, matching `CrmNotification` — the service
+  /// always loads by userId and never traverses from a user, and adding a
+  /// relation field to `User` for that would change a heavily-used model.
+  userId String @map("user_id") @db.Uuid
+
+  /// The push service URL. Unique because a browser reissues the same endpoint
+  /// for the same device, so re-subscribing must update rather than accumulate.
+  endpoint String @unique @db.Text
+
+  /// RFC 8291 payload-encryption keys, issued by the browser per subscription.
+  /// Not user credentials, but never logged and never returned to a client.
+  p256dh String @db.Text
+  auth   String @db.Text
+
+  /// Truncated on write. Enough for a person to tell two devices apart; not a
+  /// fingerprint.
+  userAgent String? @map("user_agent") @db.Text
+
+  /// Transient-failure counter. Reset on success, and the row is deleted once
+  /// it reaches the cap, so a permanently dead endpoint cannot be retried
+  /// forever. A 404/410 deletes immediately without waiting for the cap.
+  failureCount  Int       @default(0) @map("failure_count")
+  lastSuccessAt DateTime? @map("last_success_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}

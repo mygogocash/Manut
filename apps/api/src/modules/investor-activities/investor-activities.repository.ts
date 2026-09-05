@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -12,6 +12,7 @@ export interface ListInvestorActivitiesFilters {
   investorId?: string;
   ownerId?: string;
   ownerScope?: string[];
+  fundraisingEntity?: string;
 }
 
 export class InvestorActivityRepository {
@@ -26,6 +27,9 @@ export class InvestorActivityRepository {
     if (filters.investorId) where.investorId = filters.investorId;
     if (filters.ownerId) where.ownerId = filters.ownerId;
     if (filters.ownerScope) where.ownerId = { in: filters.ownerScope };
+    if (filters.fundraisingEntity) {
+      where.investor = { fundraisingEntity: filters.fundraisingEntity };
+    }
 
     const [data, total] = await Promise.all([
       prisma.investorActivity.findMany({

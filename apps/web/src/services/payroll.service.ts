@@ -79,7 +79,12 @@ export interface Payslip {
    * - `missing`: no path to the entity currency — UI renders a dash.
    */
   fxSource?:
-    "identity" | "direct" | "inverse" | "triangulated" | "import" | "missing";
+    | "identity"
+    | "direct"
+    | "inverse"
+    | "triangulated"
+    | "import"
+    | "missing";
   /** Bridge currency when fxSource === "triangulated". */
   fxBridge?: string | null;
   /**
@@ -407,7 +412,8 @@ export async function uploadPayslipDocument(
     },
   );
   const json = (await res.json()) as
-    ApiSuccessResponse<Payslip> | { error?: { message?: string } | string };
+    | ApiSuccessResponse<Payslip>
+    | { error?: { message?: string } | string };
   if (!res.ok) {
     const message =
       ("error" in json &&
@@ -466,6 +472,36 @@ export async function downloadGeneratedPayslip(
   const disposition = res.headers.get("content-disposition") ?? "";
   const match = /filename="?([^";]+)"?/i.exec(disposition);
   const filename = match?.[1] ?? `payslip.${format}`;
+  triggerBlobDownload(blob, filename);
+}
+
+/**
+ * HRMS → Payslip Management "Export data". Streams the full-breakdown payslip
+ * list as Excel / CSV, honouring the tab's server-side period + PDF filters.
+ */
+export async function downloadPayslipsExport(
+  format: "xlsx" | "csv",
+  query: HrPayslipQuery = {},
+): Promise<void> {
+  const qs = new URLSearchParams({ format });
+  if (query.period) qs.set("period", query.period);
+  if (query.entityId) qs.set("entityId", query.entityId);
+  if (query.employeeId) qs.set("employeeId", query.employeeId);
+  if (query.hasDocument !== undefined) {
+    qs.set("hasDocument", String(query.hasDocument));
+  }
+  const res = await fetch(
+    `${apiBaseUrl}/payroll/payslips/export?${qs.toString()}`,
+    authFetchInit(),
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Failed to export payslips (${res.status})`);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get("content-disposition") ?? "";
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  const filename = match?.[1] ?? `payslips.${format}`;
   triggerBlobDownload(blob, filename);
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { Download } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -29,9 +30,20 @@ import type { Entity } from "@/services/entity.service";
 interface AccountsTabProps {
   entities: Entity[];
   onAccountsLoaded: (accounts: ChartOfAccount[]) => void;
+  onEditAccount?: (account: ChartOfAccount) => void;
 }
 
-export function AccountsTab({ entities, onAccountsLoaded }: AccountsTabProps) {
+function csvEscape(value: string | null | undefined): string {
+  const text = value ?? "";
+  if (/[",\n]/.test(text)) return `"${text.replaceAll('"', '""')}"`;
+  return text;
+}
+
+export function AccountsTab({
+  entities,
+  onAccountsLoaded,
+  onEditAccount,
+}: AccountsTabProps) {
   const [accounts, setAccounts] = useState<ChartOfAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [entityFilter, setEntityFilter] = useState(ALL_FILTER);
@@ -85,6 +97,7 @@ export function AccountsTab({ entities, onAccountsLoaded }: AccountsTabProps) {
     () => [
       {
         key: "code",
+        mobileRole: "title" as const,
         header: "Code",
         sortable: true,
         render: (a: ChartOfAccount) => (
@@ -93,6 +106,7 @@ export function AccountsTab({ entities, onAccountsLoaded }: AccountsTabProps) {
       },
       {
         key: "name",
+        mobileRole: "subtitle" as const,
         header: "Name",
         sortable: true,
         render: (a: ChartOfAccount) => (
@@ -108,12 +122,14 @@ export function AccountsTab({ entities, onAccountsLoaded }: AccountsTabProps) {
       },
       {
         key: "type",
+        mobileRole: "detail" as const,
         header: "Type",
         sortable: true,
         render: (a: ChartOfAccount) => <Badge status={a.type}>{a.type}</Badge>,
       },
       {
         key: "balance",
+        mobileRole: "field" as const,
         header: "Balance",
         sortable: true,
         render: (a: ChartOfAccount) => (
@@ -181,6 +197,51 @@ export function AccountsTab({ entities, onAccountsLoaded }: AccountsTabProps) {
             Clear
           </Button>
         )}
+
+        <Button
+          type="button"
+          variant="outline"
+          size="xs"
+          className="md:ml-auto"
+          disabled={accounts.length === 0}
+          onClick={() => {
+            const header = [
+              "code",
+              "type",
+              "thai_name",
+              "english_name",
+              "thai_description",
+              "english_description",
+              "active",
+            ];
+            const lines = [
+              header.join(","),
+              ...accounts.map((a) =>
+                [
+                  csvEscape(a.code),
+                  csvEscape(a.type),
+                  csvEscape(a.nameTh),
+                  csvEscape(a.name),
+                  csvEscape(a.descriptionTh),
+                  csvEscape(a.description),
+                  a.isActive ? "true" : "false",
+                ].join(","),
+              ),
+            ];
+            const blob = new Blob([`${lines.join("\n")}\n`], {
+              type: "text/csv;charset=utf-8",
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "chart-of-accounts.csv";
+            link.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          <Download className="size-3.5" />
+          Export CSV
+        </Button>
       </div>
 
       <DataTable
@@ -191,6 +252,7 @@ export function AccountsTab({ entities, onAccountsLoaded }: AccountsTabProps) {
         sortBy={sortBy}
         sortOrder={sortOrder}
         onSortChange={handleSortChange}
+        onRowClick={onEditAccount}
       />
     </div>
   );

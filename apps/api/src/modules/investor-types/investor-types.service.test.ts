@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from "@/common/exceptions/http-exception";
 import { investorTypeRepository } from "@/modules/investor-types/investor-types.repository";
-import { InvestorTypeService } from "@/modules/investor-types/investor-types.service";
+import {
+  DEFAULT_INVESTOR_TYPES,
+  InvestorTypeService,
+} from "@/modules/investor-types/investor-types.service";
 
 vi.mock("@/modules/investor-types/investor-types.repository", () => ({
   investorTypeRepository: {
@@ -16,10 +19,12 @@ vi.mock("@/modules/investor-types/investor-types.repository", () => ({
     update: vi.fn(),
     deleteAndReassign: vi.fn(),
     applySortOrder: vi.fn(),
+    createManyIfMissing: vi.fn(),
   },
 }));
 
 const findAll = investorTypeRepository.findAll as Mock;
+const createManyIfMissing = investorTypeRepository.createManyIfMissing as Mock;
 const findByKey = investorTypeRepository.findByKey as Mock;
 const maxSortOrder = investorTypeRepository.maxSortOrder as Mock;
 const create = investorTypeRepository.create as Mock;
@@ -82,5 +87,43 @@ describe("InvestorTypeService.delete", () => {
   it("404s on an unknown type", async () => {
     findAll.mockResolvedValue([{ key: "a" }, { key: "b" }]);
     await expect(service.delete("ghost")).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe("investor type catalog lazy seeding", () => {
+  // The rows ship as an INSERT inside a migration, which `db:push` never runs —
+  // staging had an empty table, so the board rendered zero columns / the picker
+  // had no options and the module looked broken.
+  it("backfills the shipped catalog when the table is empty", async () => {
+    const seeded = DEFAULT_INVESTOR_TYPES.map((r) => ({ ...r }));
+    findAll.mockResolvedValueOnce([]).mockResolvedValueOnce(seeded);
+    createManyIfMissing.mockResolvedValue({ count: seeded.length });
+
+    const res = await new InvestorTypeService().list();
+
+    expect(createManyIfMissing).toHaveBeenCalledTimes(1);
+    expect(createManyIfMissing.mock.calls[0][0]).toHaveLength(12);
+    expect(createManyIfMissing.mock.calls[0][0][0]).toMatchObject({
+      key: "family_office",
+    });
+    expect(res).toHaveLength(12);
+  });
+
+  it("never repopulates a catalog an admin deliberately pruned", async () => {
+    findAll.mockResolvedValue([
+      { key: "family_office", label: "Kept", sortOrder: 0 },
+    ]);
+
+    const res = await new InvestorTypeService().list();
+
+    expect(createManyIfMissing).not.toHaveBeenCalled();
+    expect(res).toHaveLength(1);
+  });
+
+  it("degrades to an empty catalog when the repository yields nothing", async () => {
+    findAll.mockResolvedValue(undefined);
+    createManyIfMissing.mockResolvedValue({ count: 0 });
+
+    await expect(new InvestorTypeService().list()).resolves.toEqual([]);
   });
 });

@@ -25,6 +25,21 @@ export function formatDate(iso: string) {
   });
 }
 
+/**
+ * Full timestamp for the `title` tooltip on the Submitted column. `createdAt`
+ * is a true instant (unlike start/end, which are calendar dates pinned to UTC
+ * midnight), so it renders in the viewer's local zone with no date-slicing.
+ */
+export function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function getBaseColumns() {
   return [
     {
@@ -47,9 +62,32 @@ export function getBaseColumns() {
       ),
     },
     {
+      key: "submittedAt",
+      header: "Submitted",
+      // When the employee filed the request. Distinct from the "Dates" column
+      // (the leave itself) — answers "how long has this been sitting?".
+      render: (r: LeaveRequest) => (
+        <span className="tabular-nums" title={formatDateTime(r.createdAt)}>
+          {formatDate(r.createdAt)}
+        </span>
+      ),
+    },
+    {
       key: "status",
       header: "Status",
-      render: (r: LeaveRequest) => <Badge status={r.status}>{r.status}</Badge>,
+      // `approver` is whoever decided the request — approve, reject, and
+      // cancel all stamp `approvedBy`. Surfacing the name answers "who
+      // actioned this?" without opening DevTools; pending rows have none.
+      render: (r: LeaveRequest) => (
+        <div className="flex flex-col gap-0.5">
+          <Badge status={r.status}>{r.status}</Badge>
+          {r.status !== "pending" && r.approver?.name ? (
+            <span className="text-muted-foreground text-[11px]">
+              by {r.approver.name}
+            </span>
+          ) : null}
+        </div>
+      ),
     },
   ];
 }
@@ -59,6 +97,7 @@ export function getMyColumns(onCancel: (r: LeaveRequest) => void) {
     ...getBaseColumns(),
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-[80px] text-right",
       // Employees can cancel a still-pending request OR recall an
@@ -96,6 +135,7 @@ export function getAllColumns(
     ...getBaseColumns(),
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-[140px] text-right",
       render: (r: LeaveRequest) =>

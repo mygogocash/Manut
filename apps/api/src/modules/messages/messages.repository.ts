@@ -8,20 +8,6 @@ export function directChannelName(userIds: string[]) {
 }
 
 export const messagesRepository = {
-  async findUserAuthorizationById(id: string) {
-    return prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        isActive: true,
-        deletedAt: true,
-        entityId: true,
-      },
-    });
-  },
-
   async findAllChannels() {
     return prisma.conversation.findMany({
       include: {

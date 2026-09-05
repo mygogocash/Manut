@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   ClipboardList,
   Pencil,
@@ -52,6 +52,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -161,25 +162,22 @@ const cycleSchema = z.object({
 });
 type CycleForm = z.infer<typeof cycleSchema>;
 const selfSchema = z.object({
-  selfRating: z.coerce.number<number | string>().min(1).max(5),
+  selfRating: z.coerce.number().min(1).max(5),
   selfComment: z.string().optional(),
 });
-type SelfFormInput = z.input<typeof selfSchema>;
-type SelfForm = z.output<typeof selfSchema>;
+type SelfForm = z.infer<typeof selfSchema>;
 const mgrSchema = z.object({
-  managerRating: z.coerce.number<number | string>().min(1).max(5),
+  managerRating: z.coerce.number().min(1).max(5),
   managerComment: z.string().optional(),
-  finalRating: z.coerce.number<number | string>().min(1).max(5).optional(),
+  finalRating: z.coerce.number().min(1).max(5).optional(),
 });
-type MgrFormInput = z.input<typeof mgrSchema>;
-type MgrForm = z.output<typeof mgrSchema>;
+type MgrForm = z.infer<typeof mgrSchema>;
 const goalSchema = z.object({
   title: z.string().min(1, "Required"),
   description: z.string().optional(),
-  weight: z.coerce.number<number | string>().min(0).max(100).optional(),
+  weight: z.coerce.number().min(0).max(100).optional(),
 });
-type GoalFormInput = z.input<typeof goalSchema>;
-type GoalForm = z.output<typeof goalSchema>;
+type GoalForm = z.infer<typeof goalSchema>;
 
 // ─── Columns ─────────────────────────────────────────────
 function cycleColumns(
@@ -218,6 +216,7 @@ function cycleColumns(
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "Actions",
       className: "text-right",
       render: (c: AppraisalCycle) => (
@@ -301,6 +300,7 @@ function appraisalColumns(
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "Actions",
       className: "text-right",
       render: (a: Appraisal) => (
@@ -339,7 +339,7 @@ export default function PerformancePage() {
   const canMgr = hasPermission("performance:manager-review");
   const canGoals = hasPermission("performance:goals");
 
-  const [activeTab, setActiveTab] = useState(
+  const [activeTab, setActiveTab] = useTabParam(
     canSelf ? "my-review" : "appraisals",
   );
 
@@ -405,6 +405,10 @@ export default function PerformancePage() {
       const p: AppraisalQueryParams = { page: aPage, limit: aPageSize };
       if (statusFilter !== ALL) p.status = statusFilter;
       if (cycleFilter !== ALL) p.cycleId = cycleFilter;
+      // The box has always been here; the term just never left the component, so
+      // typing a name reset the page and showed the same rows.
+      const term = debouncedSearch.trim();
+      if (term) p.search = term;
       const res = await listAppraisals(p);
       setAppraisals(res.data);
       setATotalCount(res.meta.total);
@@ -415,7 +419,14 @@ export default function PerformancePage() {
     } finally {
       setLoadingAppraisals(false);
     }
-  }, [aPage, aPageSize, setATotalCount, statusFilter, cycleFilter]);
+  }, [
+    aPage,
+    aPageSize,
+    setATotalCount,
+    statusFilter,
+    cycleFilter,
+    debouncedSearch,
+  ]);
 
   const fetchMy = useCallback(async () => {
     if (!canSelf || !user?.id) return;
@@ -456,25 +467,22 @@ export default function PerformancePage() {
     setEditingCycle(null);
     setCycleDialogOpen(true);
   };
-  const openEdit = useCallback((c: AppraisalCycle) => {
+  const openEdit = (c: AppraisalCycle) => {
     setEditingCycle(c);
     setCycleDialogOpen(true);
-  }, []);
-  const toggleCycle = useCallback(
-    async (c: AppraisalCycle) => {
-      const next = c.status === "draft" ? "active" : "closed";
-      try {
-        await updateCycle(c.id, { status: next as "active" | "closed" });
-        toast.success(`Cycle ${next === "active" ? "activated" : "closed"}`);
-        refreshAll();
-      } catch (err) {
-        toast.error(
-          err instanceof ApiError ? err.message : "Failed to update cycle",
-        );
-      }
-    },
-    [refreshAll],
-  );
+  };
+  const toggleCycle = async (c: AppraisalCycle) => {
+    const next = c.status === "draft" ? "active" : "closed";
+    try {
+      await updateCycle(c.id, { status: next as "active" | "closed" });
+      toast.success(`Cycle ${next === "active" ? "activated" : "closed"}`);
+      refreshAll();
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Failed to update cycle",
+      );
+    }
+  };
   const openSelf = (a: Appraisal) => {
     setSelAppraisal(a);
     setSelfDialogOpen(true);
@@ -489,10 +497,10 @@ export default function PerformancePage() {
   };
 
   // ── Column memos ──────────────────────────────────────
-  const cCols = useMemo(
-    () => cycleColumns(openEdit, toggleCycle),
-    [openEdit, toggleCycle],
-  );
+  // openEdit/toggleCycle close over latest state; column factory only
+  // needs the reference once, so the empty dep array is intentional.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const cCols = useMemo(() => cycleColumns(openEdit, toggleCycle), []);
   const aCols = useMemo(
     () => appraisalColumns(canSelf, canMgr, openSelf, openMgr),
     [canSelf, canMgr],
@@ -799,7 +807,7 @@ function CycleDialog({
 }: DialogProps<AppraisalCycle | null> & { cycle: AppraisalCycle | null }) {
   const isEdit = !!cycle;
   const form = useForm<CycleForm>({
-    resolver: standardSchemaResolver(cycleSchema),
+    resolver: zodResolver(cycleSchema),
     defaultValues: { name: "", description: "", startDate: "", endDate: "" },
   });
   const [busy, setBusy] = useState(false);
@@ -944,8 +952,8 @@ function SelfReviewDialog({
   appraisal,
   onSuccess,
 }: DialogProps) {
-  const form = useForm<SelfFormInput, unknown, SelfForm>({
-    resolver: standardSchemaResolver(selfSchema),
+  const form = useForm<SelfForm>({
+    resolver: zodResolver(selfSchema),
     defaultValues: { selfRating: 3, selfComment: "" },
   });
   const [busy, setBusy] = useState(false);
@@ -1042,8 +1050,8 @@ function ManagerReviewDialog({
   appraisal,
   onSuccess,
 }: DialogProps) {
-  const form = useForm<MgrFormInput, unknown, MgrForm>({
-    resolver: standardSchemaResolver(mgrSchema),
+  const form = useForm<MgrForm>({
+    resolver: zodResolver(mgrSchema),
     defaultValues: {
       managerRating: 3,
       managerComment: "",
@@ -1171,8 +1179,8 @@ function ManagerReviewDialog({
 }
 
 function GoalDialog({ open, onOpenChange, appraisal, onSuccess }: DialogProps) {
-  const form = useForm<GoalFormInput, unknown, GoalForm>({
-    resolver: standardSchemaResolver(goalSchema),
+  const form = useForm<GoalForm>({
+    resolver: zodResolver(goalSchema),
     defaultValues: { title: "", description: "", weight: 20 },
   });
   const [busy, setBusy] = useState(false);

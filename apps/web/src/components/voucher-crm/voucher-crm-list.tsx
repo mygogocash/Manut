@@ -16,6 +16,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Archive,
+  ArchiveRestore,
   Download,
   Edit,
   GripVertical,
@@ -33,6 +35,7 @@ import { DataPagination } from "@/components/shared/data-pagination";
 import { PageHeader } from "@/components/shared/page-header";
 import { PermissionButton } from "@/components/shared/permission-button";
 import { SortableColumnHead } from "@/components/shared/sortable-column-head";
+import { Tabs } from "@/components/shared/tabs";
 import { useColumnWidths } from "@/components/shared/use-column-widths";
 import {
   AlertDialog,
@@ -69,11 +72,13 @@ import { ApiError } from "@/lib/api-client";
 import { type ExportFormat, exportRows } from "@/lib/crm-export";
 import { useAuth } from "@/providers/auth-provider";
 import {
+  archiveVoucherEntry,
   type CreateVoucherEntryInput,
   deleteVoucherEntry,
   importVoucherEntries,
   listVoucherEntries,
   reorderVoucherEntries,
+  unarchiveVoucherEntry,
   type VoucherEntry,
   type VoucherTotals,
 } from "@/services/voucher-crm.service";
@@ -142,6 +147,10 @@ export function VoucherCrmList() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 350);
 
+  // Active | Archived view. Orthogonal to search — the Archived tab shows
+  // archived rows regardless of the search term.
+  const [archived, setArchived] = useState(false);
+
   const pagination = usePagination();
   const { page, pageSize, setPage, setPageSize, setTotalCount, totalPages } =
     pagination;
@@ -192,8 +201,8 @@ export function VoucherCrmList() {
   // Row drag-to-reorder is disabled while a search is active (a
   // partial view can't safely persist a global ordering).
   const reorderEnabled = useMemo(
-    () => !debouncedSearch.trim() && !loading,
-    [debouncedSearch, loading],
+    () => !debouncedSearch.trim() && !archived && !loading,
+    [debouncedSearch, archived, loading],
   );
   const prePersistOrder = useRef<VoucherEntry[] | null>(null);
   const sensors = useSensors(
@@ -244,6 +253,7 @@ export function VoucherCrmList() {
         page,
         limit: pageSize,
         search: debouncedSearch.trim() || undefined,
+        archived: archived || undefined,
       });
       setEntries(res.data);
       setTotals(res.totals);
@@ -255,7 +265,7 @@ export function VoucherCrmList() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, debouncedSearch, setTotalCount]);
+  }, [page, pageSize, debouncedSearch, archived, setTotalCount]);
 
   useEffect(() => {
     void fetchEntries();
@@ -285,6 +295,7 @@ export function VoucherCrmList() {
           page: 1,
           limit: 1000,
           search: debouncedSearch.trim() || undefined,
+          archived: archived || undefined,
         });
         if (res.data.length === 0) {
           toast.error("Nothing to export");
@@ -309,7 +320,7 @@ export function VoucherCrmList() {
         setExporting(false);
       }
     },
-    [debouncedSearch],
+    [debouncedSearch, archived],
   );
 
   async function confirmDelete() {
@@ -328,6 +339,51 @@ export function VoucherCrmList() {
       setDeleting(false);
     }
   }
+
+  // Archive / restore. The row's new state is the opposite of the current
+  // view, so it leaves the visible list either way — drop it optimistically,
+  // decrement the page total, and subtract its amounts from the summary row.
+  const handleArchive = useCallback(
+    async (e: VoucherEntry) => {
+      try {
+        await archiveVoucherEntry(e.id);
+        setEntries((prev) => prev.filter((x) => x.id !== e.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        setTotals((t) => ({
+          redeemed: t.redeemed - e.redeemed,
+          issued: t.issued - e.issued,
+          refund: t.refund - e.refund,
+        }));
+        toast.success("Voucher row archived");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to archive row",
+        );
+      }
+    },
+    [setTotalCount],
+  );
+
+  const handleUnarchive = useCallback(
+    async (e: VoucherEntry) => {
+      try {
+        await unarchiveVoucherEntry(e.id);
+        setEntries((prev) => prev.filter((x) => x.id !== e.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        setTotals((t) => ({
+          redeemed: t.redeemed - e.redeemed,
+          issued: t.issued - e.issued,
+          refund: t.refund - e.refund,
+        }));
+        toast.success("Voucher row restored");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to restore row",
+        );
+      }
+    },
+    [setTotalCount],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -371,6 +427,18 @@ export function VoucherCrmList() {
         </div>
       </PageHeader>
 
+      <Tabs
+        tabs={[
+          { id: "active", label: "Active" },
+          { id: "archived", label: "Archived" },
+        ]}
+        active={archived ? "archived" : "active"}
+        onChange={(v) => {
+          setArchived(v === "archived");
+          setPage(1);
+        }}
+      />
+
       <div className="relative max-w-sm">
         <Search
           className={`
@@ -386,9 +454,11 @@ export function VoucherCrmList() {
         />
       </div>
 
-      {!reorderEnabled && debouncedSearch.trim() ? (
+      {!reorderEnabled && (debouncedSearch.trim() || archived) ? (
         <p className="text-muted-foreground text-[11px]">
-          Drag-to-reorder is disabled while a search is active.
+          {archived
+            ? "Drag-to-reorder is disabled in the Archived view."
+            : "Drag-to-reorder is disabled while a search is active."}
         </p>
       ) : null}
 
@@ -398,7 +468,7 @@ export function VoucherCrmList() {
           // drag-to-resize sticks (Notion-style).
           className="table-fixed"
           containerClassName={`
-            max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
+            max-h-[60svh] md:max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
           `}
         >
           <TableHeader className="bg-background sticky top-0 z-10">
@@ -459,7 +529,10 @@ export function VoucherCrmList() {
                     canDrag={reorderEnabled}
                     canManage={canManage}
                     canDelete={canDelete}
+                    isArchivedView={archived}
                     onEdit={() => handleEdit(e)}
+                    onArchive={() => void handleArchive(e)}
+                    onUnarchive={() => void handleUnarchive(e)}
                     onDelete={() => setDeleteTarget(e)}
                   />
                 ))}
@@ -577,7 +650,10 @@ function SortableVoucherRow({
   canDrag,
   canManage,
   canDelete,
+  isArchivedView,
   onEdit,
+  onArchive,
+  onUnarchive,
   onDelete,
 }: {
   entry: VoucherEntry;
@@ -586,7 +662,10 @@ function SortableVoucherRow({
   canDrag: boolean;
   canManage: boolean;
   canDelete: boolean;
+  isArchivedView: boolean;
   onEdit: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
   onDelete: () => void;
 }) {
   const {
@@ -690,6 +769,19 @@ function SortableVoucherRow({
                 <Edit className="size-3.5" />
                 Edit
               </DropdownMenuItem>
+            ) : null}
+            {canManage ? (
+              isArchivedView ? (
+                <DropdownMenuItem onClick={onUnarchive}>
+                  <ArchiveRestore className="size-3.5" />
+                  Restore
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={onArchive}>
+                  <Archive className="size-3.5" />
+                  Archive
+                </DropdownMenuItem>
+              )
             ) : null}
             {canDelete ? (
               <>

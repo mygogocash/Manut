@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Settings, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -65,7 +65,7 @@ export function ChannelSettingsDialog({
   const [deleting, setDeleting] = useState(false);
 
   const form = useForm<SettingsFormValues>({
-    resolver: standardSchemaResolver(settingsSchema),
+    resolver: zodResolver(settingsSchema),
     defaultValues: { name: channel.name },
   });
 

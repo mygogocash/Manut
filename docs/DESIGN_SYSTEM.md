@@ -46,12 +46,12 @@ Intranet's design language reflects **institutional quality** with **warm, profe
 
 #### Background Colors
 
-| Token      | Hex       | CSS Variable             | Usage                 |
-| ---------- | --------- | ------------------------ | --------------------- |
-| `bg`       | `#F4F2EC` | `--background`           | Page background       |
-| `bg2`      | `#F5F2EB` | `--background-secondary` | Secondary background  |
-| `surface`  | `#FFFFFF` | `--surface`              | Card/panel background |
-| `surface2` | `#F9F7F2` | `--surface-secondary`    | Elevated surface      |
+| Token      | Hex       | CSS Variable          | Usage                 |
+| ---------- | --------- | --------------------- | --------------------- |
+| `bg`       | `#F4F2EC` | `--background`        | Page background       |
+| `bg2`      | `#F5F2EB` | `--background-secondary` | Secondary background |
+| `surface`  | `#FFFFFF` | `--surface`           | Card/panel background |
+| `surface2` | `#F9F7F2` | `--surface-secondary` | Elevated surface      |
 
 #### Text Colors
 
@@ -938,7 +938,7 @@ export default config;
 ### Button Component
 
 ```typescript
-// packages/ui/src/components/button.tsx
+// apps/web/src/components/ui/button.tsx
 import { cva, type VariantProps } from "class-variance-authority";
 
 const buttonVariants = cva(
@@ -975,7 +975,7 @@ const buttonVariants = cva(
 ### Badge Component
 
 ```typescript
-// packages/ui/src/components/badge.tsx
+// apps/web/src/components/ui/badge.tsx
 const badgeVariants = cva(
   "inline-flex items-center rounded-md px-2 py-0.5 text-[9.5px] font-bold capitalize",
   {
@@ -999,7 +999,7 @@ const badgeVariants = cva(
 ### Card Component
 
 ```typescript
-// packages/ui/src/components/card.tsx
+// apps/web/src/components/ui/card.tsx
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
@@ -1017,7 +1017,7 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
 ### Input Component
 
 ```typescript
-// packages/ui/src/components/input.tsx
+// apps/web/src/components/ui/input.tsx
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, ...props }, ref) => (
     <input

@@ -1,0 +1,30 @@
+{
+  "name": "@nexora/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@nexora/auth": "workspace:*",
+    "@nexora/contracts": "workspace:*",
+    "@nexora/db": "workspace:*",
+    "@nexora/utils": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "pdf-lib": "^1.17.1",
+    "jszip": "^3.10.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

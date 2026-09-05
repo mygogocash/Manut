@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowLeft,
   Check,
   Loader2,
   Plus,
@@ -10,10 +9,10 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { ItWorkspaceTabs } from "@/components/it/it-workspace-tabs";
 import { Badge } from "@/components/shared/badge";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { DataTable } from "@/components/shared/data-table";
@@ -38,6 +37,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -72,23 +72,22 @@ export default function AccessManagementPage() {
     "it:access:manage",
   );
   const canManage = hasPermission("it:access:manage");
+  const [tab, setTab] = useTabParam("requests");
 
   return (
-    <div className="px-6 py-6">
+    <div>
       <PageHeader
-        title="Access Management"
+        title="IT CRM"
         subtitle="Request, approve, grant, and audit system access"
-      >
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/it-operations">
-            <ArrowLeft className="mr-1 size-3.5" />
-            IT Operations
-          </Link>
-        </Button>
-      </PageHeader>
+      />
 
-      <Tabs defaultValue="requests">
-        <TabsList>
+      {/* Replaces the back-to-Operations button this header used to carry. */}
+      <ItWorkspaceTabs />
+
+      <Tabs value={tab} onValueChange={setTab}>
+        {/* Nested under the workspace strip — lighter treatment so the two
+            levels do not read as one block of tabs. */}
+        <TabsList variant="line">
           <TabsTrigger value="requests">Requests</TabsTrigger>
           {canViewAll && (
             <TabsTrigger value="assignments">Assignments</TabsTrigger>
@@ -203,19 +202,27 @@ function RequestsTab({
             ? [
                 {
                   key: "employee",
+                  mobileRole: "subtitle" as const,
                   header: "Employee",
                   render: (r: AccessRequest) => r.employee.name,
                 },
               ]
             : []),
-          { key: "system", header: "System", render: (r) => r.system.name },
+          {
+            key: "system",
+            mobileRole: "field" as const,
+            header: "System",
+            render: (r) => r.system.name,
+          },
           {
             key: "requestType",
+            mobileRole: "field" as const,
             header: "Type",
             render: (r) => ACCESS_REQUEST_TYPE_LABELS[r.requestType],
           },
           {
             key: "status",
+            mobileRole: "badge" as const,
             header: "Status",
             render: (r) => (
               <Badge status={r.status}>{ACCESS_STATUS_LABELS[r.status]}</Badge>
@@ -327,7 +334,7 @@ function CreateRequestDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>New Access Request</DialogTitle>
         </DialogHeader>
@@ -476,7 +483,7 @@ function RequestDetailDialog({
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             Request #{request.requestNumber} - {request.system.name}
@@ -670,20 +677,32 @@ function AssignmentsTab({ canManage }: { canManage: boolean }) {
             header: "Employee",
             render: (r) => r.employee.name,
           },
-          { key: "system", header: "System", render: (r) => r.system.name },
-          { key: "accessLevel", header: "Access level" },
+          {
+            key: "system",
+            mobileRole: "subtitle" as const,
+            header: "System",
+            render: (r) => r.system.name,
+          },
+          {
+            key: "accessLevel",
+            mobileRole: "field" as const,
+            header: "Access level",
+          },
           {
             key: "status",
+            mobileRole: "badge" as const,
             header: "Status",
             render: (r) => <Badge status={r.status}>{r.status}</Badge>,
           },
           {
             key: "grantedAt",
+            mobileRole: "field" as const,
             header: "Granted",
             render: (r) => new Date(r.grantedAt).toLocaleDateString("en-GB"),
           },
           {
             key: "actions",
+            mobileRole: "actions" as const,
             header: "",
             className: "w-[100px] text-right",
             render: (r) =>
@@ -804,6 +823,7 @@ function SystemsTab() {
           },
           {
             key: "actions",
+            mobileRole: "actions" as const,
             header: "",
             className: "w-[80px] text-right",
             render: (r) => (

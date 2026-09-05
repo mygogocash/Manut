@@ -1,23 +1,25 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "lib": ["ES2023", "WebWorker"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "noEmit": true,
-    "noUncheckedIndexedAccess": true,
-    "strict": true,
+    "outDir": "./dist",
     "types": [
-      "@cloudflare/vitest-pool-workers/types",
-      "@cloudflare/workers-types",
-      "vitest/globals"
-    ]
+      "@cloudflare/workers-types/2023-07-01"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "declaration": false,
+    "declarationMap": false
   },
   "include": [
-    "scripts/**/*.d.mts",
-    "src/**/*.ts",
-    "tests/**/*.ts",
-    "vitest.config.ts",
-    "worker-configuration.d.ts"
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test"
   ]
 }

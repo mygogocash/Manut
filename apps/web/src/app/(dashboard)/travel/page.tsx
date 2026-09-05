@@ -42,6 +42,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -98,7 +99,7 @@ export default function TravelPage() {
   const canExport = hasAnyPermission("travel:export", "travel:hr-read");
   const canManageApprovals = hasPermission("travel:hr-settings");
 
-  const [activeTab, setActiveTab] = useState("my");
+  const [activeTab, setActiveTab] = useTabParam("my");
 
   const [myRequests, setMyRequests] = useState<TravelRequest[]>([]);
   const [loadingMy, setLoadingMy] = useState(true);
@@ -287,6 +288,7 @@ export default function TravelPage() {
     },
     {
       key: "route",
+      mobileRole: "subtitle" as const,
       header: "Route",
       render: (r: TravelRequest) => (
         <span className="font-medium">
@@ -296,6 +298,7 @@ export default function TravelPage() {
     },
     {
       key: "purpose",
+      mobileRole: "detail" as const,
       header: "Purpose",
       render: (r: TravelRequest) => (
         <span className="max-w-[200px] truncate">{r.purpose}</span>
@@ -303,12 +306,14 @@ export default function TravelPage() {
     },
     {
       key: "dates",
+      mobileRole: "field" as const,
       header: "Dates",
       render: (r: TravelRequest) =>
         `${formatDate(r.departureDate)} – ${formatDate(r.returnDate)}`,
     },
     {
       key: "budget",
+      mobileRole: "field" as const,
       header: "Budget",
       render: (r: TravelRequest) => (
         <span className="tabular-nums">
@@ -318,6 +323,7 @@ export default function TravelPage() {
     },
     {
       key: "status",
+      mobileRole: "badge" as const,
       header: "Status",
       render: (r: TravelRequest) => (
         <Badge
@@ -339,6 +345,7 @@ export default function TravelPage() {
     ...baseColumns,
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-[160px] text-right",
       render: (r: TravelRequest) => {
@@ -391,6 +398,7 @@ export default function TravelPage() {
     ...baseColumns,
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-[200px] text-right",
       render: (r: TravelRequest) => {

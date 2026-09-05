@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -76,7 +76,7 @@ export function MilestoneDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<MilestoneValues>({
-    resolver: standardSchemaResolver(milestoneSchema),
+    resolver: zodResolver(milestoneSchema),
     defaultValues: {
       title: "",
       description: "",
@@ -88,7 +88,7 @@ export function MilestoneDialog({
   });
 
   // Re-seed form whenever the dialog opens or the target milestone
-  // changes. Mirrors the existing employee-form-dialog pattern.
+  // changes. Mirrors the employee-form-dialog pattern from CLAUDE.md
   // (open + payload + form in the deps array).
   useEffect(() => {
     if (open) {

@@ -10,7 +10,7 @@ import { logger } from "@/common/utils/logger";
  * (flushAt: 20 / flushInterval: 10s); short-lived containers (cron, SIGTERM)
  * MUST `await tracking.shutdown()` before exiting or events will be lost.
  *
- * Runtime credentials must come from a verified Manut-owned environment.
+ * See .telemetry/implementation-guide.md for the wiring contract.
  */
 
 const isEnabled =

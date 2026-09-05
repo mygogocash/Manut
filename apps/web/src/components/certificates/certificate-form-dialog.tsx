@@ -1,7 +1,7 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { Loader2 } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -38,7 +38,11 @@ import {
   type CertificateType,
   createCertificate,
 } from "@/services/certificate.service";
+import { uploadFile } from "@/services/upload.service";
 import { listUsers, type UserListItem } from "@/services/user.service";
+
+const MAX_SIGNATURE_BYTES = 2 * 1024 * 1024; // 2 MB
+const SIGNATURE_MIME_TYPES = ["image/png", "image/jpeg"];
 
 const TYPES: { value: CertificateType; label: string }[] = [
   { value: "achievement", label: "Achievement" },
@@ -83,15 +87,34 @@ export function CertificateFormDialog({
 }: CertificateFormDialogProps) {
   const [submitting, setSubmitting] = useState(false);
   const [recipients, setRecipients] = useState<UserListItem[]>([]);
+  // Signature images per signatory (index 0 = signatory 1). Kept out of
+  // react-hook-form since RHF doesn't manage File objects cleanly.
+  const [signatureFiles, setSignatureFiles] = useState<(File | null)[]>([
+    null,
+    null,
+  ]);
+  // Preview object URLs are derived from `signatureFiles` in an effect (not
+  // inline in render) and revoked on change/unmount so we don't leak a fresh
+  // blob URL on every re-render.
+  const [signaturePreviews, setSignaturePreviews] = useState<(string | null)[]>(
+    [null, null],
+  );
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(schema),
+    resolver: zodResolver(schema),
     defaultValues: DEFAULTS,
   });
 
   useEffect(() => {
+    const urls = signatureFiles.map((f) => (f ? URL.createObjectURL(f) : null));
+    setSignaturePreviews(urls);
+    return () => urls.forEach((u) => u && URL.revokeObjectURL(u));
+  }, [signatureFiles]);
+
+  useEffect(() => {
     if (!open) return;
     form.reset(DEFAULTS);
+    setSignatureFiles([null, null]);
     void listUsers({
       isActive: true,
       limit: 200,
@@ -102,20 +125,80 @@ export function CertificateFormDialog({
       .catch(() => toast.error("Failed to load employees"));
   }, [open, form]);
 
+  function handleSignatureChange(index: number, input: HTMLInputElement) {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!SIGNATURE_MIME_TYPES.includes(file.type)) {
+      toast.error("Signature must be a PNG or JPG image");
+      // Clear so re-picking the same (rejected) file still fires onChange.
+      input.value = "";
+      return;
+    }
+    if (file.size > MAX_SIGNATURE_BYTES) {
+      toast.error("Signature image must be 2 MB or smaller");
+      input.value = "";
+      return;
+    }
+    setSignatureFiles((prev) => {
+      const next = [...prev];
+      next[index] = file;
+      return next;
+    });
+  }
+
+  function clearSignature(index: number) {
+    setSignatureFiles((prev) => {
+      const next = [...prev];
+      next[index] = null;
+      return next;
+    });
+  }
+
   async function onSubmit(values: FormValues) {
-    const signatories = [
-      {
-        name: values.sig1Name?.trim() ?? "",
-        title: values.sig1Title?.trim() ?? "",
-      },
-      {
-        name: values.sig2Name?.trim() ?? "",
-        title: values.sig2Title?.trim() ?? "",
-      },
-    ].filter((s) => s.name.length > 0);
+    const names = [
+      values.sig1Name?.trim() ?? "",
+      values.sig2Name?.trim() ?? "",
+    ];
+    const titles = [
+      values.sig1Title?.trim() ?? "",
+      values.sig2Title?.trim() ?? "",
+    ];
+
+    // A signature image has no place to render without a name beneath it.
+    for (let i = 0; i < 2; i++) {
+      if (signatureFiles[i] && !names[i]) {
+        toast.error(
+          `Add a name for signatory ${i + 1} to include its signature.`,
+        );
+        return;
+      }
+    }
 
     setSubmitting(true);
     try {
+      // Upload signature images first so we can send stable storage URLs in
+      // the create payload. Private `documents` bucket — signatures are
+      // sensitive and never need a public URL.
+      const signatureUrls: (string | undefined)[] = [undefined, undefined];
+      for (let i = 0; i < 2; i++) {
+        const file = signatureFiles[i];
+        if (file && names[i]) {
+          const uploaded = await uploadFile(file, {
+            bucket: "documents",
+            purpose: "certificate-signature",
+          });
+          signatureUrls[i] = uploaded.url;
+        }
+      }
+
+      const signatories = [0, 1]
+        .map((i) => ({
+          name: names[i],
+          title: titles[i],
+          signatureUrl: signatureUrls[i],
+        }))
+        .filter((s) => s.name.length > 0);
+
       const res = await createCertificate({
         recipientId: values.recipientId,
         title: values.title,
@@ -247,40 +330,82 @@ export function CertificateFormDialog({
               <p className="text-muted-foreground text-xs font-medium">
                 Signatures (optional, up to two)
               </p>
-              {[1, 2].map((n) => (
-                <div key={n} className="grid grid-cols-2 gap-3">
-                  <FormField
-                    control={form.control}
-                    name={n === 1 ? "sig1Name" : "sig2Name"}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input
-                            placeholder={`Signatory ${n} name`}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+              {[1, 2].map((n) => {
+                const idx = n - 1;
+                const preview = signaturePreviews[idx];
+                return (
+                  <div key={n} className="space-y-2 rounded-md border p-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name={n === 1 ? "sig1Name" : "sig2Name"}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                placeholder={`Signatory ${n} name`}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={n === 1 ? "sig1Title" : "sig2Title"}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input
+                                placeholder={`Signatory ${n} title`}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {preview ? (
+                      <div className="flex items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={preview}
+                          alt={`Signatory ${n} signature`}
+                          className={`
+                            h-10 w-auto max-w-[160px] rounded border bg-white
+                            object-contain p-1
+                          `}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => clearSignature(idx)}
+                        >
+                          <X className="mr-1 size-3.5" aria-hidden />
+                          Remove signature
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Input
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          aria-label={`Signatory ${n} signature image`}
+                          className="text-xs"
+                          onChange={(e) => handleSignatureChange(idx, e.target)}
+                        />
+                        <p className="text-muted-foreground text-[11px]">
+                          Optional signature image — PNG or JPG, max 2 MB.
+                        </p>
+                      </div>
                     )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={n === 1 ? "sig1Title" : "sig2Title"}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input
-                            placeholder={`Signatory ${n} title`}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex justify-end gap-2 pt-2">

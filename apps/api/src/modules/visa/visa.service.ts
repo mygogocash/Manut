@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
@@ -13,21 +13,22 @@ import { sendEmail } from "@/infrastructure/email/email.service";
 import { visaExpiryReminderEmail } from "@/infrastructure/email/templates";
 import {
   createSignedUrl,
+  downloadToBuffer,
   parseStorageUrl,
-  requireRegisteredStorageUrl,
-  STORAGE_BUCKETS,
 } from "@/infrastructure/storage/supabase-storage";
 import { actorFromId, trackVisaRequestSubmittedServer } from "@/lib/events";
 import { PORTAL_URL } from "@/lib/portal-url";
+import { ariaDocumentParseService } from "@/modules/aria/aria-document-parse.service";
 import { visaRepository } from "@/modules/visa/visa.repository";
 import type {
   CreateVisaInput,
+  ParseScanInput,
   UpdateVisaInput,
   VisaQuery,
 } from "@/modules/visa/visa.validation";
 import { visaChecklistService } from "@/modules/visa-checklist/visa-checklist.service";
 
-// Milestone buckets re-ping the employee at
+// Milestone buckets HR asked for (May 2026): re-ping the employee at
 // 3 months, 2 months, 1 month, 2 weeks, and 1 week before expiry. The
 // cron fires once daily; a record only re-sends when its days-left
 // crosses into a closer bucket than the one last stamped on the row.
@@ -38,40 +39,6 @@ const DEFAULT_REMINDER_MILESTONES_DAYS = [90, 60, 30, 14, 7] as const;
 const VISA_RECIPIENTS_KEY = "visa.notification_recipients";
 const VISA_LEAD_DAYS_KEY = "visa.notification_lead_days";
 const VISA_NOTIFY_EMPLOYEE_KEY = "visa.notify_employee";
-
-async function validateVisaDocumentUrl(
-  url: string,
-  actorId?: string,
-): Promise<void> {
-  // Historical external links remain plain links. Any URL shaped like a
-  // Supabase object is privileged because the API can sign it, so it must be
-  // owned by this module before it is persisted.
-  if (!parseStorageUrl(url)) return;
-  await requireRegisteredStorageUrl(url, {
-    allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-    purpose: "visa-document",
-    ...(actorId !== undefined && { uploadedBy: actorId }),
-  });
-}
-
-function documentUrls(
-  documentUrl: string | null | undefined,
-  documents: unknown,
-): string[] {
-  const urls = documentUrl ? [documentUrl] : [];
-  if (!Array.isArray(documents)) return urls;
-  for (const document of documents) {
-    if (
-      document &&
-      typeof document === "object" &&
-      "url" in document &&
-      typeof document.url === "string"
-    ) {
-      urls.push(document.url);
-    }
-  }
-  return urls;
-}
 
 async function loadVisaNotificationRecipients(): Promise<string[]> {
   const row = await prisma.systemSetting.findUnique({
@@ -216,6 +183,21 @@ interface ParsedRow {
 
 interface ResolvedRow extends ParsedRow {
   employeeId: string;
+}
+
+// Best-effort MIME from a storage path extension, used only as a fallback
+// when Supabase doesn't report a content type. Unknown → octet-stream so the
+// parser's allow-list rejects it with a clear message.
+function mimeFromPath(path: string): string {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  const map: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    pdf: "application/pdf",
+  };
+  return map[ext] ?? "application/octet-stream";
 }
 
 type VisaRecordRow = NonNullable<
@@ -375,20 +357,11 @@ export class VisaService {
       // Externally-hosted URL — return as-is.
       return { url: target.url, name: target.name };
     }
-    const trusted = await requireRegisteredStorageUrl(target.url, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "visa-document",
-    });
-    const signed = await createSignedUrl(trusted.bucket, trusted.path, 300);
+    const signed = await createSignedUrl(parsed.bucket, parsed.path, 300);
     return { url: signed, name: target.name };
   }
 
-  async create(input: CreateVisaInput, actorId: string) {
-    await Promise.all(
-      documentUrls(input.documentUrl, input.documents).map((url) =>
-        validateVisaDocumentUrl(url, actorId),
-      ),
-    );
+  async create(input: CreateVisaInput, actorId?: string) {
     // For employee-type rows the holder fields stay null; the FE's
     // existing path always sends `holderType = "employee"` so legacy
     // submits keep working untouched.
@@ -461,19 +434,8 @@ export class VisaService {
     return created;
   }
 
-  async update(id: string, input: UpdateVisaInput, actorId: string) {
+  async update(id: string, input: UpdateVisaInput, actorId?: string) {
     const existing = await this.getById(id);
-    const existingUrls = new Set(
-      documentUrls(existing.documentUrl, existing.documents),
-    );
-    await Promise.all(
-      documentUrls(input.documentUrl, input.documents).map((url) =>
-        validateVisaDocumentUrl(
-          url,
-          existingUrls.has(url) ? undefined : actorId,
-        ),
-      ),
-    );
     const statusChanged =
       input.status !== undefined && input.status !== existing.status;
     const updated = await visaRepository.update(id, {
@@ -568,14 +530,28 @@ export class VisaService {
   }
 
   async permanentDelete(id: string) {
-    const existing = await visaRepository.findByIdIncludingDeleted(id);
-    if (!existing) {
-      throw new NotFoundException("Visa record not found");
-    }
-    if (!existing.deletedAt) {
-      throw new ConflictException("Record is not deleted");
-    }
+    await this.getById(id);
     return visaRepository.permanentDelete(id);
+  }
+
+  // OCR autofill — download a just-uploaded visa/passport scan from the
+  // private bucket (service-role key, server-side only) and run Gemini
+  // vision to extract structured fields. The caller already has the stored
+  // URL from the upload response; we never trust client-supplied bytes.
+  async parseDocumentScan(input: ParseScanInput) {
+    const parsed = parseStorageUrl(input.fileUrl);
+    if (!parsed) {
+      throw new BadRequestException(
+        "Document must be an uploaded file before it can be scanned.",
+      );
+    }
+    const { buffer, contentType } = await downloadToBuffer(
+      parsed.bucket,
+      parsed.path,
+    );
+    // Prefer the storage-reported MIME; fall back to the file extension.
+    const mime = contentType || mimeFromPath(parsed.path);
+    return ariaDocumentParseService.parseVisaDocument(buffer, mime);
   }
 
   async previewImport(rows: Array<Record<string, unknown>>) {
@@ -607,7 +583,7 @@ export class VisaService {
         "name",
       );
       // employeeIdRaw may be either a UUID or the User.employeeId code
-      // (e.g. "MANUT-001"). Treat anything non-UUID as a code.
+      // (e.g. "TBH-001"). Treat anything non-UUID as a code.
       const employeeCode =
         employeeIdRaw && !UUID_REGEX.test(employeeIdRaw) ? employeeIdRaw : "";
 
@@ -944,10 +920,7 @@ export class VisaService {
 
       try {
         await sendEmail({
-          to:
-            recipients.length === 1
-              ? (recipients[0] ?? recipients)
-              : recipients,
+          to: recipients.length === 1 ? recipients[0] : recipients,
           ...email,
         });
         await prisma.visaRecord.update({

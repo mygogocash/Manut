@@ -32,7 +32,14 @@ export const STATUS_LABELS: Record<string, string> = {
 };
 
 export type StatusVariant =
-  "green" | "amber" | "red" | "gold" | "blue" | "grey" | "purple" | "teal";
+  | "green"
+  | "amber"
+  | "red"
+  | "gold"
+  | "blue"
+  | "grey"
+  | "purple"
+  | "teal";
 
 // Colours mirror the task board's DEFAULT_COLUMNS so a workstream's status
 // and its task columns read as one palette: backlog grey, todo blue,

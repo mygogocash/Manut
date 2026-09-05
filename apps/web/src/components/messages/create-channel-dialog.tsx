@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, Loader2, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -70,7 +70,7 @@ export function CreateChannelDialog({
   );
 
   const form = useForm<CreateChannelFormValues>({
-    resolver: standardSchemaResolver(createChannelSchema),
+    resolver: zodResolver(createChannelSchema),
     defaultValues,
   });
 

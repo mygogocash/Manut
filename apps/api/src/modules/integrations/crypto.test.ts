@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { decrypt, encrypt } from "@/modules/integrations/crypto";
-import { assertDefined, getTestEnv, setTestEnv } from "@/test-utils/assertions";
 
 const VALID_KEY_HEX = "0".repeat(64);
 
@@ -9,12 +8,13 @@ describe("crypto", () => {
   let originalKey: string | undefined;
 
   beforeEach(() => {
-    originalKey = getTestEnv("INTEGRATIONS_TOKEN_KEY");
-    setTestEnv("INTEGRATIONS_TOKEN_KEY", VALID_KEY_HEX);
+    originalKey = process.env.INTEGRATIONS_TOKEN_KEY;
+    process.env.INTEGRATIONS_TOKEN_KEY = VALID_KEY_HEX;
   });
 
   afterEach(() => {
-    setTestEnv("INTEGRATIONS_TOKEN_KEY", originalKey);
+    if (originalKey === undefined) delete process.env.INTEGRATIONS_TOKEN_KEY;
+    else process.env.INTEGRATIONS_TOKEN_KEY = originalKey;
   });
 
   describe("encrypt", () => {
@@ -25,7 +25,7 @@ describe("crypto", () => {
     });
 
     it("given missing key > throws INTEGRATIONS_TOKEN_KEY missing or wrong length", () => {
-      setTestEnv("INTEGRATIONS_TOKEN_KEY", undefined);
+      delete process.env.INTEGRATIONS_TOKEN_KEY;
       expect(() => encrypt("x")).toThrow(
         "INTEGRATIONS_TOKEN_KEY missing or wrong length",
       );
@@ -43,12 +43,8 @@ describe("crypto", () => {
       const enc = encrypt("hello");
       const parts = enc.split(":");
       // Flip a bit in cipher segment
-      const tamperedCipher = Buffer.from(
-        assertDefined(parts[3], "ciphertext segment"),
-        "base64",
-      );
-      const firstByte = assertDefined(tamperedCipher.at(0), "ciphertext byte");
-      tamperedCipher.set([firstByte ^ 0x01], 0);
+      const tamperedCipher = Buffer.from(parts[3], "base64");
+      tamperedCipher[0] = tamperedCipher[0] ^ 0x01;
       parts[3] = tamperedCipher.toString("base64");
       const tampered = parts.join(":");
       expect(() => decrypt(tampered)).toThrow();

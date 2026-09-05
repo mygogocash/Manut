@@ -14,7 +14,7 @@ import type {
 } from "@/modules/deals/deals.validation";
 
 /**
- * Mirrors the leads/opportunities/accounts pattern: default
+ * Mirrors the leads/opportunities/accounts pattern (PRD §7): default
  * `deals:read` is "own records only"; `crm:team-read` widens to all
  * deals in the workspace. Threaded through every list / detail /
  * mutation method so a rep without `crm:team-read` can't list, fetch,

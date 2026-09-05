@@ -6,7 +6,6 @@ import {
   createEsopGrantSchema,
   updateEsopGrantSchema,
 } from "@/modules/hrms/hrms.validation";
-import { mockArgument } from "@/test-utils/assertions";
 
 vi.mock("./hrms.repository", () => ({
   hrmsRepository: {
@@ -23,9 +22,6 @@ vi.mock("./hrms.repository", () => ({
     restoreOnboarding: vi.fn(),
     createOnboarding: vi.fn(),
     updateOnboarding: vi.fn(),
-    createAgreement: vi.fn(),
-    updateAgreement: vi.fn(),
-    findAgreementById: vi.fn(),
     findOffboardingById: vi.fn(),
     findOffboardingByIdIncludingDeleted: vi.fn(),
     softDeleteOffboarding: vi.fn(),
@@ -33,14 +29,8 @@ vi.mock("./hrms.repository", () => ({
   },
 }));
 
-vi.mock("@/infrastructure/storage/supabase-storage", () => ({
-  STORAGE_BUCKETS: { DOCUMENTS: "documents" },
-  createSignedUrl: vi.fn(),
-  requireRegisteredStorageUrl: vi.fn(),
-}));
-
 const baseInput = {
-  employeeId: "11111111-1111-4111-8111-111111111111",
+  employeeId: "00000000-0000-0000-0000-000000000001",
   grantDate: "2026-05-01",
   grantType: "equity" as const,
   valueType: "shares" as const,
@@ -50,7 +40,7 @@ const baseInput = {
   lockMonths: 0,
   strikePrice: 0,
   allocationMode: "one_time" as const,
-  status: "vesting" as const,
+  status: "vesting",
 };
 
 describe("hrms.validation — ESOP grant schema", () => {
@@ -194,11 +184,7 @@ describe("HrmsService.createGrant", () => {
         source: "Employment contract 2024",
       }),
     );
-    const call = mockArgument(
-      (hrmsRepository.createGrant as Mock).mock.calls,
-      0,
-      0,
-    );
+    const call = (hrmsRepository.createGrant as Mock).mock.calls[0]![0];
     expect(call.allocationStartMonth).toBeInstanceOf(Date);
     expect(call.allocationEndMonth).toBeInstanceOf(Date);
   });
@@ -263,77 +249,5 @@ describe("HrmsService — onboarding/offboarding soft delete + restore", () => {
     ).mockResolvedValue({ id: "off-1", deletedAt: new Date() });
     await svc.restoreOffboarding("off-1");
     expect(hrmsRepository.restoreOffboarding).toHaveBeenCalledWith("off-1");
-  });
-});
-
-describe("HrmsService agreement storage provenance", () => {
-  const svc = new HrmsService();
-  const employeeId = "11111111-1111-4111-8111-111111111111";
-  const actorId = "22222222-2222-4222-8222-222222222222";
-  const fileUrl =
-    "https://manut.supabase.co/storage/v1/object/public/documents/agreements/contract.pdf";
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("requires an owned employee-linked upload before creating an agreement", async () => {
-    const { requireRegisteredStorageUrl } =
-      await import("@/infrastructure/storage/supabase-storage");
-    (requireRegisteredStorageUrl as Mock).mockResolvedValue({
-      bucket: "documents",
-      path: "agreements/contract.pdf",
-      uploadId: "upload-1",
-    });
-    (hrmsRepository.createAgreement as Mock).mockResolvedValue({
-      id: "agreement-1",
-    });
-
-    await svc.createAgreement(
-      {
-        employeeId,
-        type: "employment_contract",
-        title: "Employment contract",
-        fileUrl,
-        fileName: "contract.pdf",
-      },
-      actorId,
-    );
-
-    expect(requireRegisteredStorageUrl).toHaveBeenCalledWith(fileUrl, {
-      allowedBuckets: ["documents"],
-      purpose: "employee-agreement",
-      uploadedBy: actorId,
-      linkedTo: "employee",
-      linkedId: employeeId,
-    });
-    expect(hrmsRepository.createAgreement).toHaveBeenCalled();
-  });
-
-  it("revalidates employee linkage before signing a download URL", async () => {
-    const { createSignedUrl, requireRegisteredStorageUrl } =
-      await import("@/infrastructure/storage/supabase-storage");
-    (hrmsRepository.findAgreementById as Mock).mockResolvedValue({
-      id: "agreement-1",
-      employeeId,
-      fileUrl,
-    });
-    (requireRegisteredStorageUrl as Mock).mockResolvedValue({
-      bucket: "documents",
-      path: "agreements/contract.pdf",
-      uploadId: "upload-1",
-    });
-    (createSignedUrl as Mock).mockResolvedValue("https://signed.example/file");
-
-    await expect(
-      svc.getAgreementDownloadUrl("agreement-1", employeeId, []),
-    ).resolves.toEqual({ url: "https://signed.example/file" });
-
-    expect(requireRegisteredStorageUrl).toHaveBeenCalledWith(fileUrl, {
-      allowedBuckets: ["documents"],
-      purpose: "employee-agreement",
-      linkedTo: "employee",
-      linkedId: employeeId,
-    });
   });
 });

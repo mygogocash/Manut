@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NinetyDayTab } from "@/components/visa/ninety-day-tab";
 import { VisaTrackerTab } from "@/components/visa/visa-tracker-tab";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { useAuth } from "@/providers/auth-provider";
 
 type TabId = "tracker" | "ninety-day";
@@ -17,7 +18,7 @@ export default function VisaPage() {
   // means employees with self-service access still get the existing UX.
   const showNinetyDay =
     hasPermission("visa:hr-read") || hasPermission("visa:manage");
-  const [tab, setTab] = useState<TabId>("tracker");
+  const [tab, setTab] = useTabParam("tracker");
   // Action buttons live in the header next to the title; the active tab
   // registers its own set here (only the active tab is mounted, so they
   // never clash).

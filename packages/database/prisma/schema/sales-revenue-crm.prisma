@@ -9,17 +9,17 @@
 // prefixed `Revenue*` so it stays globally unique alongside the originals.
 
 model RevenueAccount {
-  id                  String    @id @default(cuid())
-  name                String
-  domain              String?   @unique
-  industry            String?
-  size                String?
-  country             String?
-  region              String?
-  website             String?
-  notes               String?
-  totalUsers          Int?      @map("total_users")
-  appUsers            Int?      @map("app_users")
+  id        String  @id @default(cuid())
+  name      String
+  domain    String? @unique
+  industry  String?
+  size      String?
+  country   String?
+  region    String?
+  website   String?
+  notes     String?
+  totalUsers Int?   @map("total_users")
+  appUsers   Int?   @map("app_users")
   picName             String?   @map("pic_name")
   designation         String?
   department          String?
@@ -30,11 +30,15 @@ model RevenueAccount {
   uatEndDate          DateTime? @map("uat_end_date") @db.Date
   blocker             String?
   remarks             String?
-  ownerId             String    @map("owner_id") @db.Uuid
-  partnerId           String?   @map("partner_id")
-  sortOrder           Int       @default(0) @map("sort_order")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  ownerId   String  @map("owner_id") @db.Uuid
+  partnerId String? @map("partner_id")
+  sortOrder Int     @default(0) @map("sort_order")
+  // Business-unit tags — same shared CrmBusinessUnit code list the Sales
+  // CRM uses (no FK, open text[]). See sales-crm.prisma for the rationale.
+  businessUnits String[] @default([]) @map("business_units")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
 
   owner         User                 @relation("RevenueAccountOwner", fields: [ownerId], references: [id])
   partner       Partner?             @relation("PartnerRevenueAccounts", fields: [partnerId], references: [id], onDelete: SetNull)
@@ -46,21 +50,23 @@ model RevenueAccount {
   @@index([partnerId])
   @@index([name])
   @@index([sortOrder])
+  @@index([archivedAt])
   @@map("revenue_accounts")
 }
 
 model RevenueContact {
-  id        String   @id @default(cuid())
-  accountId String   @map("account_id")
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
-  email     String?
-  phone     String?
-  title     String?
-  isPrimary Boolean  @default(false) @map("is_primary")
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
+  accountId  String   @map("account_id")
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  email      String?
+  phone      String?
+  title      String?
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
 
   account       RevenueAccount       @relation(fields: [accountId], references: [id], onDelete: Cascade)
   opportunities RevenueOpportunity[] @relation("RevenueOpportunityPrimaryContact")
@@ -68,27 +74,32 @@ model RevenueContact {
 
   @@index([accountId])
   @@index([email])
+  @@index([archivedAt])
   @@map("revenue_contacts")
 }
 
 model RevenueLead {
-  id                     String    @id @default(cuid())
-  company                String
-  legacyDealId           String?   @unique @map("legacy_deal_id")
-  firstName              String    @map("first_name")
-  lastName               String    @map("last_name")
-  email                  String?
-  phone                  String?
-  title                  String?
-  source                 String
-  status                 String    @default("new")
-  ownerId                String    @map("owner_id") @db.Uuid
-  notes                  String?
+  id        String  @id @default(cuid())
+  company   String
+  legacyDealId String? @unique @map("legacy_deal_id")
+  firstName String  @map("first_name")
+  lastName  String  @map("last_name")
+  email     String?
+  phone     String?
+  title     String?
+  source    String
+  status    String  @default("new")
+  ownerId   String  @map("owner_id") @db.Uuid
+  notes     String?
   convertedOpportunityId String?   @map("converted_opportunity_id")
   convertedAt            DateTime? @map("converted_at")
   disqualifyReason       String?   @map("disqualify_reason")
+  // Business-unit tags — same shared CrmBusinessUnit code list the Sales
+  // CRM uses (no FK, open text[]). See sales-crm.prisma for the rationale.
+  businessUnits String[] @default([]) @map("business_units")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
+  archivedAt             DateTime? @map("archived_at")
 
   owner                User                @relation("RevenueLeadOwner", fields: [ownerId], references: [id])
   convertedOpportunity RevenueOpportunity? @relation("RevenueLeadConvertedOpportunity", fields: [convertedOpportunityId], references: [id], onDelete: SetNull)
@@ -97,30 +108,39 @@ model RevenueLead {
 
   @@index([ownerId, status])
   @@index([source])
+  @@index([archivedAt])
   @@map("revenue_leads")
 }
 
 model RevenueOpportunity {
-  id                   String    @id @default(cuid())
-  name                 String
-  legacyDealId         String?   @unique @map("legacy_deal_id")
-  accountId            String    @map("account_id")
-  contactId            String?   @map("contact_id")
-  stage                String    @default("qualified")
-  sortOrderWithinStage Int       @default(0) @map("sort_order_within_stage")
-  value                Decimal   @db.Decimal(15, 2)
-  currency             String    @default("USD")
-  probability          Int       @default(20)
-  probabilityCustom    Boolean   @default(false) @map("probability_custom")
-  closeDate            DateTime? @map("close_date") @db.Date
-  launchDate           DateTime? @map("launch_date") @db.Date
-  revenueLaunchDate    DateTime? @map("revenue_launch_date") @db.Date
-  type                 String?
-  notes                String?
-  ownerId              String    @map("owner_id") @db.Uuid
-  lostReason           String?   @map("lost_reason")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  id          String  @id @default(cuid())
+  name        String
+  legacyDealId String? @unique @map("legacy_deal_id")
+  accountId   String  @map("account_id")
+  contactId   String? @map("contact_id")
+  stage       String  @default("qualified")
+  sortOrderWithinStage Int @default(0) @map("sort_order_within_stage")
+  value       Decimal @db.Decimal(15, 2)
+  currency    String  @default("USD")
+  probability       Int       @default(20)
+  probabilityCustom Boolean   @default(false) @map("probability_custom")
+  closeDate         DateTime? @map("close_date") @db.Date
+  launchDate        DateTime? @map("launch_date") @db.Date
+  revenueLaunchDate DateTime? @map("revenue_launch_date") @db.Date
+  type              String?
+  notes             String?
+  ownerId           String    @map("owner_id") @db.Uuid
+  lostReason        String?   @map("lost_reason")
+  // Business-unit tags — same shared CrmBusinessUnit code list the Sales
+  // CRM uses (no FK, open text[]). See sales-crm.prisma for the rationale.
+  businessUnits String[] @default([]) @map("business_units")
+  // Close-date reminder debounce ladder (generalized CRM deadline cron).
+  // Fired rung markers e.g. "close-7"/"close-overdue"; a closeDate edit
+  // re-arms. Terminal stages (closed_won/closed_lost/live) are skipped.
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   account    RevenueAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   contact    RevenueContact?   @relation("RevenueOpportunityPrimaryContact", fields: [contactId], references: [id], onDelete: SetNull)
@@ -128,12 +148,15 @@ model RevenueOpportunity {
   activities RevenueActivity[]
   tasks      RevenueTask[]
   fromLeads  RevenueLead[]     @relation("RevenueLeadConvertedOpportunity")
+  businessUnitProgress RevenueOpportunityBusinessUnit[]
 
+  archivedAt  DateTime? @map("archived_at")
   @@index([stage])
   @@index([stage, sortOrderWithinStage])
   @@index([ownerId, stage])
   @@index([accountId])
   @@index([closeDate])
+  @@index([archivedAt])
   @@map("revenue_opportunities")
 }
 
@@ -215,6 +238,10 @@ model RevenueTask {
   opportunityId String?   @map("opportunity_id")
   leadId        String?   @map("lead_id")
   completedAt   DateTime? @map("completed_at")
+  // Due-date reminder debounce ladder (generalized CRM deadline cron).
+  // Fired rung markers e.g. "due-3"/"due-overdue"; a dueDate edit re-arms.
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
@@ -244,4 +271,52 @@ model RevenueSettings {
   updatedBy User? @relation("RevenueSettingsUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("revenue_settings")
+}
+
+// One row per (opportunity x business unit). Holds everything that
+// describes how far along and how big THAT unit is, so a deal whose units
+// disagree — Onewave live while Onewave Revenue is still at proposal —
+// can say so. The deal-level fields on RevenueOpportunity become a roll-up
+// of these rows; see modules/crm-shared/opportunity-rollup.ts.
+//
+// No `currency`: the deal has one currency and every value here is
+// denominated in it. Summing units across currencies would be meaningless
+// and v2 has no FX.
+model RevenueOpportunityBusinessUnit {
+  id            String @id @default(cuid())
+  opportunityId String @map("opportunity_id")
+  // CrmBusinessUnit.code with NO FK, exactly like RevenueOpportunity.businessUnits.
+  // Deleting a unit must never cascade into history.
+  businessUnit String @map("business_unit")
+
+  stage                String    @default("qualified")
+  probability          Int       @default(20)
+  probabilityCustom    Boolean   @default(false) @map("probability_custom")
+  value                Decimal   @default(0) @db.Decimal(15, 2)
+  closeDate            DateTime? @map("close_date") @db.Date
+  launchDate           DateTime? @map("launch_date") @db.Date
+  revenueLaunchDate    DateTime? @map("revenue_launch_date") @db.Date
+  lostReason           String?   @map("lost_reason")
+  sortOrderWithinStage Int       @default(0) @map("sort_order_within_stage")
+
+  // Per-unit reminder debounce. PR1 only stores these; crm-reminders.ts
+  // starts reading them in PR3.
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  opportunity RevenueOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  // Names are pinned with `map:` because Postgres silently truncates
+  // identifiers over 63 bytes. The unpinned/derived names for this model
+  // exceed that limit, which lets `db push` (staging) and this migration
+  // (production) truncate them differently and disagree about a
+  // constraint's identity. Pinning keeps both environments byte-for-byte
+  // in sync.
+  @@unique([opportunityId, businessUnit], map: "revenue_opp_business_units_opportunity_id_business_unit_key")
+  @@index([businessUnit, stage], map: "revenue_opp_business_units_business_unit_stage_idx")
+  @@index([stage, sortOrderWithinStage], map: "revenue_opp_business_units_stage_sort_idx")
+  @@map("revenue_opportunity_business_units")
 }

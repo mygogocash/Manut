@@ -16,7 +16,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   cancelled: "Cancelled",
 };
 
-// "Today list" UX bucket maps server-side to a UTC date range.
+// "Today list" UX bucket from PRD §10. Maps server-side to a UTC date range.
 export const TASK_BUCKETS = ["overdue", "today", "soon"] as const;
 
 export type TaskBucket = (typeof TASK_BUCKETS)[number];
@@ -62,9 +62,11 @@ export interface CrmTask {
 }
 
 // At least one of leadId / opportunityId is required by the API.
+// Owner defaults to the creator; assigning another user emails them.
 export interface CreateCrmTaskInput {
   subject: string;
   dueDate: string;
+  ownerId?: string;
   leadId?: string;
   opportunityId?: string;
 }
@@ -73,6 +75,7 @@ export interface UpdateCrmTaskInput {
   subject?: string;
   dueDate?: string;
   status?: TaskStatus;
+  ownerId?: string;
 }
 
 export interface ListCrmTasksParams {

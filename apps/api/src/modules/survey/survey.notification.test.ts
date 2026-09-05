@@ -30,16 +30,19 @@ describe("survey notification recipients", () => {
     db.systemSetting.findUnique.mockResolvedValue({
       value: {
         recipients: [
-          "  HR@manut.example ",
-          "hr@manut.example",
-          "Ops@manut.example",
+          "  HR@thebinaryholdings.com ",
+          "hr@thebinaryholdings.com",
+          "Ops@thebinaryholdings.com",
           42,
           "",
         ],
       },
     });
     const res = await surveyService.getNotificationRecipients();
-    expect(res.recipients).toEqual(["hr@manut.example", "ops@manut.example"]);
+    expect(res.recipients).toEqual([
+      "hr@thebinaryholdings.com",
+      "ops@thebinaryholdings.com",
+    ]);
   });
 
   it("persists a normalized recipient list on save", async () => {

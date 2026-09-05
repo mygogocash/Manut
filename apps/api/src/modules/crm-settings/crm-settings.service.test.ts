@@ -27,7 +27,7 @@ describe("CrmSettingsService", () => {
       (prisma.crmSettings.findFirst as Mock).mockResolvedValue({
         id: "row-1",
         singleton: true,
-        notifyEmails: ["bd@manut.example"],
+        notifyEmails: ["bd@thebinaryholdings.com"],
         notifyOnCreate: true,
         notifyOwnerOnCreate: false,
         notifyOwnerOnStageChange: true,
@@ -38,7 +38,7 @@ describe("CrmSettingsService", () => {
 
       expect(result).toEqual({
         data: {
-          notifyEmails: ["bd@manut.example"],
+          notifyEmails: ["bd@thebinaryholdings.com"],
           notifyOnCreate: true,
           notifyOwnerOnCreate: false,
           notifyOwnerOnStageChange: true,

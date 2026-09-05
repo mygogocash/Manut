@@ -1,4 +1,4 @@
-import { type InputJsonValue, Prisma } from "@manut/database";
+import type { InputJsonValue, Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { createExchangeRateService } from "@/modules/exchange-rates/exchange-rates.service";
@@ -192,7 +192,7 @@ export class PayrollRepository {
    * Total Tax / Total Net) expressed in the run's entity currency.
    *
    * Headline totals now convert each off-currency payslip through the
-   * latest exchange rate so a MANUT-Thailand run that pays a USD
+   * latest exchange rate so a TBH-Thailand run that pays a USD
    * contractor + an INR contractor reports a real "Total Net (THB)"
    * — the previous version only summed THB-currency payslips, which
    * silently dropped 32 of 51 slips on the Jan-2026 run.
@@ -349,7 +349,7 @@ export class PayrollRepository {
   }
 
   /**
-   * Case-insensitive lookup so "Alex Morgan" matches "alex morgan".
+   * Case-insensitive lookup so "Kunanon Jarat" matches "kunanon jarat".
    * Resigned (`isActive = false`) employees are included so HR can still
    * import a final payslip for someone who left mid-period.
    */
@@ -427,10 +427,9 @@ export class PayrollRepository {
         totalNet: totals.net,
         totalTax: totals.tax,
         ...(currencyTotals !== undefined && {
-          currencyTotals:
-            currencyTotals === null
-              ? Prisma.DbNull
-              : (currencyTotals as InputJsonValue),
+          currencyTotals: (currencyTotals === null
+            ? null
+            : currencyTotals) as InputJsonValue | null,
         }),
       },
     });

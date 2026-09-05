@@ -4,8 +4,9 @@ import type {
   ApiSuccessResponse,
 } from "@/types/api.type";
 
-// Typed client for the IT CRM standalone workspace.
-// Mounted at `/api/it-crm`.
+// Phase 3 of the IT CRM standalone workspace (Option A per-CRM
+// schema isolation, 2026-05-26). Typed client for the Phase 2
+// backend endpoints (#610). Mounted at `/api/it-crm`.
 
 export interface ItCrmUser {
   id: string;

@@ -55,12 +55,36 @@ router.get(
   }),
 );
 
+// Restore a reverted certificate. Literal-suffix route — must be registered
+// before the bare "/:id" delete below.
+router.post(
+  "/:id/restore",
+  requirePermission(PERMISSIONS.CERTIFICATE_MANAGE),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const result = await certificatesService.restore(id);
+    res.json({ data: result });
+  }),
+);
+
+// Permanently delete a certificate (record + stored PDF). Not recoverable.
+router.delete(
+  "/:id/permanent",
+  requirePermission(PERMISSIONS.CERTIFICATE_MANAGE),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const result = await certificatesService.remove(id);
+    res.json({ data: result });
+  }),
+);
+
+// Revert (soft delete): hide from the active list, keep restorable.
 router.delete(
   "/:id",
   requirePermission(PERMISSIONS.CERTIFICATE_MANAGE),
   asyncHandler(async (req, res) => {
     const id = getRequiredParam(req.params, "id");
-    const result = await certificatesService.remove(id);
+    const result = await certificatesService.revert(id);
     res.json({ data: result });
   }),
 );

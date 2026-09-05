@@ -1,11 +1,24 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { AgreementUploadDialog } from "@/components/hrms/agreement-upload-dialog";
+import { AgreementsTab } from "@/components/hrms/agreements-tab";
 import { AttendanceTab } from "@/components/hrms/attendance-tab";
+import { DeleteGrantDialog } from "@/components/hrms/delete-grant-dialog";
+import { EquityMonthlySalaryTab } from "@/components/hrms/equity-monthly-salary-tab";
+import { EquitySalaryImportDialog } from "@/components/hrms/equity-salary-import-dialog";
+import { EsopBulkImportDialog } from "@/components/hrms/esop-bulk-import-dialog";
+import { EsopGrantDialog } from "@/components/hrms/esop-grant-dialog";
+import { EsopPoolCards } from "@/components/hrms/esop-pool-cards";
+import { EsopTab } from "@/components/hrms/esop-tab";
 import { TABS_LIST } from "@/components/hrms/hrms-constants";
+import { OffboardingDialog } from "@/components/hrms/offboarding-dialog";
+import { OffboardingTab } from "@/components/hrms/offboarding-tab";
+import { OnboardingDialog } from "@/components/hrms/onboarding-dialog";
+import { OnboardingTab } from "@/components/hrms/onboarding-tab";
+import { PayslipManagementTab } from "@/components/hrms/payslip-management-tab";
 import { PageHeader } from "@/components/shared/page-header";
 import { Tabs, TabsContent } from "@/components/shared/tabs";
 import {
@@ -19,6 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import { type Entity, listEntities } from "@/services/entity.service";
@@ -57,92 +71,6 @@ import {
 
 const ALL_FILTER = "__all__";
 
-function DeferredPanelFallback() {
-  return <div className="bg-muted/30 min-h-[300px] animate-pulse rounded-lg" />;
-}
-
-const EsopPoolCards = dynamic(
-  () =>
-    import("@/components/hrms/esop-pool-cards").then(
-      (module) => module.EsopPoolCards,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const EsopTab = dynamic(
-  () => import("@/components/hrms/esop-tab").then((module) => module.EsopTab),
-  { loading: DeferredPanelFallback },
-);
-const EquityMonthlySalaryTab = dynamic(
-  () =>
-    import("@/components/hrms/equity-monthly-salary-tab").then(
-      (module) => module.EquityMonthlySalaryTab,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const PayslipManagementTab = dynamic(
-  () =>
-    import("@/components/hrms/payslip-management-tab").then(
-      (module) => module.PayslipManagementTab,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const OnboardingTab = dynamic(
-  () =>
-    import("@/components/hrms/onboarding-tab").then(
-      (module) => module.OnboardingTab,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const OffboardingTab = dynamic(
-  () =>
-    import("@/components/hrms/offboarding-tab").then(
-      (module) => module.OffboardingTab,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const AgreementsTab = dynamic(
-  () =>
-    import("@/components/hrms/agreements-tab").then(
-      (module) => module.AgreementsTab,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const EsopGrantDialog = dynamic(() =>
-  import("@/components/hrms/esop-grant-dialog").then(
-    (module) => module.EsopGrantDialog,
-  ),
-);
-const EsopBulkImportDialog = dynamic(() =>
-  import("@/components/hrms/esop-bulk-import-dialog").then(
-    (module) => module.EsopBulkImportDialog,
-  ),
-);
-const DeleteGrantDialog = dynamic(() =>
-  import("@/components/hrms/delete-grant-dialog").then(
-    (module) => module.DeleteGrantDialog,
-  ),
-);
-const OnboardingDialog = dynamic(() =>
-  import("@/components/hrms/onboarding-dialog").then(
-    (module) => module.OnboardingDialog,
-  ),
-);
-const OffboardingDialog = dynamic(() =>
-  import("@/components/hrms/offboarding-dialog").then(
-    (module) => module.OffboardingDialog,
-  ),
-);
-const AgreementUploadDialog = dynamic(() =>
-  import("@/components/hrms/agreement-upload-dialog").then(
-    (module) => module.AgreementUploadDialog,
-  ),
-);
-const EquitySalaryImportDialog = dynamic(() =>
-  import("@/components/hrms/equity-salary-import-dialog").then(
-    (module) => module.EquitySalaryImportDialog,
-  ),
-);
-
 export default function HrmsPage() {
   const { hasPermission, user: authUser } = useAuth();
   const canRead = hasPermission("hrms:read");
@@ -170,7 +98,7 @@ export default function HrmsPage() {
   const canAccessOnboarding = canRead || canManageOnboarding;
   const canAccessOffboarding = canRead || canManageOffboarding;
 
-  const [activeTab, setActiveTab] = useState("attendance");
+  const [activeTab, setActiveTab] = useTabParam("attendance");
 
   const [pool, setPool] = useState<EsopPool | null>(null);
   const [grants, setGrants] = useState<EsopGrant[]>([]);
@@ -493,7 +421,7 @@ export default function HrmsPage() {
     if (!canAccessEsop && canAccessOnboarding) {
       setActiveTab("onboarding");
     }
-  }, [canAccessEsop, canAccessOnboarding]);
+  }, [canAccessEsop, canAccessOnboarding, setActiveTab]);
 
   useEffect(() => {
     listEntities()
@@ -804,216 +732,183 @@ export default function HrmsPage() {
 
       <Tabs tabs={TABS_LIST} active={activeTab} onChange={setActiveTab}>
         <TabsContent value="esop" className="flex flex-col gap-4">
-          {activeTab === "esop" ? (
-            <>
-              {canManageEsop ? (
-                <EsopPoolCards pool={pool} loading={loadingPool} />
-              ) : null}
-              <EsopTab
-                grants={grants}
-                loading={loadingGrants}
-                statusFilter={esopStatusFilter}
-                onStatusFilterChange={setEsopStatusFilter}
-                page={esopPage}
-                pageSize={esopPageSize}
-                totalCount={esopTotalCount}
-                totalPages={esopTotalPages}
-                onPageChange={setEsopPage}
-                onPageSizeChange={setEsopPageSize}
-                canManage={canManageEsop}
-                onCreateGrant={handleCreateGrant}
-                onImportGrants={() => setImportDialogOpen(true)}
-                onEditGrant={handleEditGrant}
-                onDeleteGrant={handleDeleteGrant}
-                selectedIds={selectedGrantIds}
-                onSelectedIdsChange={setSelectedGrantIds}
-                onBulkDeleteSelected={handleBulkDeleteSelected}
-                onDeleteAll={handleDeleteAllClick}
-                sortBy={esopSortBy}
-                sortOrder={esopSortOrder}
-                onSortChange={handleEsopSortChange}
-              />
-            </>
-          ) : null}
+          {canManageEsop && <EsopPoolCards pool={pool} loading={loadingPool} />}
+
+          <EsopTab
+            grants={grants}
+            loading={loadingGrants}
+            statusFilter={esopStatusFilter}
+            onStatusFilterChange={setEsopStatusFilter}
+            page={esopPage}
+            pageSize={esopPageSize}
+            totalCount={esopTotalCount}
+            totalPages={esopTotalPages}
+            onPageChange={setEsopPage}
+            onPageSizeChange={setEsopPageSize}
+            canManage={canManageEsop}
+            onCreateGrant={handleCreateGrant}
+            onImportGrants={() => setImportDialogOpen(true)}
+            onEditGrant={handleEditGrant}
+            onDeleteGrant={handleDeleteGrant}
+            selectedIds={selectedGrantIds}
+            onSelectedIdsChange={setSelectedGrantIds}
+            onBulkDeleteSelected={handleBulkDeleteSelected}
+            onDeleteAll={handleDeleteAllClick}
+            sortBy={esopSortBy}
+            sortOrder={esopSortOrder}
+            onSortChange={handleEsopSortChange}
+          />
         </TabsContent>
 
         <TabsContent
           value="equity-monthly-salary"
           className="flex flex-col gap-4"
         >
-          {activeTab === "equity-monthly-salary" ? (
-            <EquityMonthlySalaryTab
-              rows={equitySalaries}
-              loading={loadingEquitySalaries}
-              canManage={canManageEsop}
-              onImport={() => setEquitySalaryImportOpen(true)}
-              onDeleteAll={() => setEquitySalaryDeleteAllOpen(true)}
-            />
-          ) : null}
+          <EquityMonthlySalaryTab
+            rows={equitySalaries}
+            loading={loadingEquitySalaries}
+            canManage={canManageEsop}
+            onImport={() => setEquitySalaryImportOpen(true)}
+            onDeleteAll={() => setEquitySalaryDeleteAllOpen(true)}
+          />
         </TabsContent>
 
         <TabsContent value="payslips" className="flex flex-col gap-4">
-          {activeTab === "payslips" ? (
-            <PayslipManagementTab canManage={canManagePayslips} />
-          ) : null}
+          <PayslipManagementTab canManage={canManagePayslips} />
         </TabsContent>
 
         <TabsContent value="attendance" className="flex flex-col gap-4">
-          {activeTab === "attendance" ? (
-            <AttendanceTab
-              canViewReports={canViewAttendance}
-              canCheckIn={canAccessAttendance}
-              canApproveCorrections={canApproveCorrections}
-              canManagePolicy={canManageAttendancePolicy}
-              canExportReports={canExportAttendanceReports}
-            />
-          ) : null}
+          <AttendanceTab
+            canViewReports={canViewAttendance}
+            canCheckIn={canAccessAttendance}
+            canApproveCorrections={canApproveCorrections}
+            canManagePolicy={canManageAttendancePolicy}
+            canExportReports={canExportAttendanceReports}
+          />
         </TabsContent>
 
         <TabsContent value="onboarding" className="flex flex-col gap-4">
-          {activeTab === "onboarding" ? (
-            <OnboardingTab
-              runs={runs}
-              loading={loadingRuns}
-              statusFilter={onbStatusFilter}
-              onStatusFilterChange={setOnbStatusFilter}
-              page={onbPage}
-              pageSize={onbPageSize}
-              totalCount={onbTotalCount}
-              totalPages={onbTotalPages}
-              onPageChange={setOnbPage}
-              onPageSizeChange={setOnbPageSize}
-              canManage={canManageOnboarding}
-              onCreateOnboarding={() => setOnboardingDialogOpen(true)}
-              expandedRunId={expandedRunId}
-              onExpandRun={setExpandedRunId}
-              updatingTasks={updatingTasks}
-              onToggleTask={handleToggleTask}
-              onSaveTasks={canManageOnboarding ? handleSaveTasks : undefined}
-              showDeleted={showDeletedOnb}
-              onShowDeletedChange={(v) => {
-                setShowDeletedOnb(v);
-                setOnbPage(1);
-                setExpandedRunId(null);
-              }}
-              onDeleteRun={setPendingDeleteOnbRun}
-              onRestoreRun={handleRestoreOnbRun}
-            />
-          ) : null}
+          <OnboardingTab
+            runs={runs}
+            loading={loadingRuns}
+            statusFilter={onbStatusFilter}
+            onStatusFilterChange={setOnbStatusFilter}
+            page={onbPage}
+            pageSize={onbPageSize}
+            totalCount={onbTotalCount}
+            totalPages={onbTotalPages}
+            onPageChange={setOnbPage}
+            onPageSizeChange={setOnbPageSize}
+            canManage={canManageOnboarding}
+            onCreateOnboarding={() => setOnboardingDialogOpen(true)}
+            expandedRunId={expandedRunId}
+            onExpandRun={setExpandedRunId}
+            updatingTasks={updatingTasks}
+            onToggleTask={handleToggleTask}
+            onSaveTasks={canManageOnboarding ? handleSaveTasks : undefined}
+            showDeleted={showDeletedOnb}
+            onShowDeletedChange={(v) => {
+              setShowDeletedOnb(v);
+              setOnbPage(1);
+              setExpandedRunId(null);
+            }}
+            onDeleteRun={setPendingDeleteOnbRun}
+            onRestoreRun={handleRestoreOnbRun}
+          />
         </TabsContent>
 
         <TabsContent value="offboarding" className="flex flex-col gap-4">
-          {activeTab === "offboarding" ? (
-            <OffboardingTab
-              runs={offRuns}
-              loading={loadingOffRuns}
-              statusFilter={offStatusFilter}
-              onStatusFilterChange={setOffStatusFilter}
-              page={offPage}
-              pageSize={offPageSize}
-              totalCount={offTotalCount}
-              totalPages={offTotalPages}
-              onPageChange={setOffPage}
-              onPageSizeChange={setOffPageSize}
-              canManage={canManageOffboarding}
-              currentUserName={authUser?.name ?? ""}
-              onCreateOffboarding={() => setOffboardingDialogOpen(true)}
-              expandedRunId={offExpandedRunId}
-              onExpandRun={setOffExpandedRunId}
-              updatingTasks={offUpdatingTasks}
-              onToggleTask={handleToggleOffTask}
-              onSaveTasks={
-                canManageOffboarding ? handleSaveOffTasks : undefined
-              }
-              onSign={canManageOffboarding ? handleSignOff : undefined}
-              showDeleted={showDeletedOff}
-              onShowDeletedChange={(v) => {
-                setShowDeletedOff(v);
-                setOffPage(1);
-                setOffExpandedRunId(null);
-              }}
-              onDeleteRun={setPendingDeleteOffRun}
-              onRestoreRun={handleRestoreOffRun}
-            />
-          ) : null}
+          <OffboardingTab
+            runs={offRuns}
+            loading={loadingOffRuns}
+            statusFilter={offStatusFilter}
+            onStatusFilterChange={setOffStatusFilter}
+            page={offPage}
+            pageSize={offPageSize}
+            totalCount={offTotalCount}
+            totalPages={offTotalPages}
+            onPageChange={setOffPage}
+            onPageSizeChange={setOffPageSize}
+            canManage={canManageOffboarding}
+            currentUserName={authUser?.name ?? ""}
+            onCreateOffboarding={() => setOffboardingDialogOpen(true)}
+            expandedRunId={offExpandedRunId}
+            onExpandRun={setOffExpandedRunId}
+            updatingTasks={offUpdatingTasks}
+            onToggleTask={handleToggleOffTask}
+            onSaveTasks={canManageOffboarding ? handleSaveOffTasks : undefined}
+            onSign={canManageOffboarding ? handleSignOff : undefined}
+            showDeleted={showDeletedOff}
+            onShowDeletedChange={(v) => {
+              setShowDeletedOff(v);
+              setOffPage(1);
+              setOffExpandedRunId(null);
+            }}
+            onDeleteRun={setPendingDeleteOffRun}
+            onRestoreRun={handleRestoreOffRun}
+          />
         </TabsContent>
 
         <TabsContent value="agreements" className="flex flex-col gap-4">
-          {activeTab === "agreements" ? (
-            <AgreementsTab
-              currentUserId={authUser?.id ?? ""}
-              canManage={canManageAgreements}
-              refreshKey={agreementsRefreshKey}
-              onUpload={handleUploadAgreement}
-              onEdit={handleEditAgreement}
-              onDelete={setPendingDeleteAgreement}
-            />
-          ) : null}
+          <AgreementsTab
+            currentUserId={authUser?.id ?? ""}
+            canManage={canManageAgreements}
+            refreshKey={agreementsRefreshKey}
+            onUpload={handleUploadAgreement}
+            onEdit={handleEditAgreement}
+            onDelete={setPendingDeleteAgreement}
+          />
         </TabsContent>
       </Tabs>
 
-      {grantDialogOpen ? (
-        <EsopGrantDialog
-          open
-          onOpenChange={setGrantDialogOpen}
-          grant={editingGrant}
-          onSaved={handleGrantSaved}
-        />
-      ) : null}
+      <EsopGrantDialog
+        open={grantDialogOpen}
+        onOpenChange={setGrantDialogOpen}
+        grant={editingGrant}
+        onSaved={handleGrantSaved}
+      />
 
-      {importDialogOpen ? (
-        <EsopBulkImportDialog
-          open
-          onOpenChange={setImportDialogOpen}
-          onImported={handleGrantSaved}
-        />
-      ) : null}
+      <EsopBulkImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onImported={handleGrantSaved}
+      />
 
-      {deleteGrantOpen ? (
-        <DeleteGrantDialog
-          open
-          onOpenChange={setDeleteGrantOpen}
-          grant={deleteGrant}
-          onDeleted={handleGrantSaved}
-        />
-      ) : null}
+      <DeleteGrantDialog
+        open={deleteGrantOpen}
+        onOpenChange={setDeleteGrantOpen}
+        grant={deleteGrant}
+        onDeleted={handleGrantSaved}
+      />
 
-      {onboardingDialogOpen ? (
-        <OnboardingDialog
-          open
-          onOpenChange={setOnboardingDialogOpen}
-          entities={entities}
-          onSaved={handleOnboardingSaved}
-        />
-      ) : null}
+      <OnboardingDialog
+        open={onboardingDialogOpen}
+        onOpenChange={setOnboardingDialogOpen}
+        entities={entities}
+        onSaved={handleOnboardingSaved}
+      />
 
-      {offboardingDialogOpen ? (
-        <OffboardingDialog
-          open
-          onOpenChange={setOffboardingDialogOpen}
-          entities={entities}
-          onSaved={handleOffboardingSaved}
-        />
-      ) : null}
+      <OffboardingDialog
+        open={offboardingDialogOpen}
+        onOpenChange={setOffboardingDialogOpen}
+        entities={entities}
+        onSaved={handleOffboardingSaved}
+      />
 
-      {agreementDialogOpen ? (
-        <AgreementUploadDialog
-          open
-          onOpenChange={setAgreementDialogOpen}
-          agreement={editingAgreement}
-          defaultEmployeeId={agreementDefaultEmployeeId}
-          defaultType={agreementDefaultType}
-          onSaved={handleAgreementSaved}
-        />
-      ) : null}
+      <AgreementUploadDialog
+        open={agreementDialogOpen}
+        onOpenChange={setAgreementDialogOpen}
+        agreement={editingAgreement}
+        defaultEmployeeId={agreementDefaultEmployeeId}
+        defaultType={agreementDefaultType}
+        onSaved={handleAgreementSaved}
+      />
 
-      {equitySalaryImportOpen ? (
-        <EquitySalaryImportDialog
-          open
-          onOpenChange={setEquitySalaryImportOpen}
-          onImported={handleEquitySalaryImported}
-        />
-      ) : null}
+      <EquitySalaryImportDialog
+        open={equitySalaryImportOpen}
+        onOpenChange={setEquitySalaryImportOpen}
+        onImported={handleEquitySalaryImported}
+      />
 
       <AlertDialog
         open={equitySalaryDeleteAllOpen}

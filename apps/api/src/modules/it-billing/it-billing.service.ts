@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 import type { Request } from "express";
 
 import {
@@ -16,6 +16,8 @@ import type {
   CreateSubscriptionInput,
   CreateVendorInput,
   LicenseReportQuery,
+  MonthDetailQuery,
+  MonthlySeriesQuery,
   RemoveAttachmentInput,
   RenewalDecisionInput,
   SubscriptionQuery,
@@ -23,6 +25,26 @@ import type {
   UpdateSubscriptionInput,
   UpdateVendorInput,
 } from "@/modules/it-billing/it-billing.validation";
+import {
+  buildMonthDetail,
+  buildMonthlySeries,
+  monthKey,
+  type MonthlySubscription,
+  pickPrimaryCurrency,
+  realisedSavings,
+  resolveWindow,
+  summariseSeries,
+  toMonthlySpend,
+} from "@/modules/it-billing/it-billing-monthly";
+
+/**
+ * Re-exported, not defined here.
+ *
+ * The definition moved to `it-billing-monthly.ts` because `chargeInMonth` needs
+ * it and that module must not import this one (circular). Re-exporting keeps the
+ * import path `it-operations.service.ts` and the existing tests already use.
+ */
+export { toMonthlySpend };
 
 interface Attachment {
   name: string;
@@ -95,20 +117,6 @@ function daysUntil(date: Date | null): number | null {
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
-/** Monthly-equivalent spend for an invoice given its billing frequency. */
-export function toMonthlySpend(amount: number, frequency: string): number {
-  switch (frequency) {
-    case "annual":
-      return amount / 12;
-    case "quarterly":
-      return amount / 3;
-    case "monthly":
-      return amount;
-    default:
-      return 0; // one-time / unknown - not a recurring monthly cost
-  }
-}
-
 /**
  * Effective lifecycle badge. Manual terminal states (renewed / cancelled)
  * are respected; otherwise we surface pending-payment / expiring-soon
@@ -179,9 +187,42 @@ function subscriptionDTO(s: ItSubscriptionWithRelations) {
     renewalDecision: s.renewalDecision,
     renewalDecisionAt: s.renewalDecisionAt?.toISOString() ?? null,
     renewalDecisionNotes: s.renewalDecisionNotes,
+    cancelledAt: s.cancelledAt?.toISOString() ?? null,
     attachments: readAttachments(s.attachments),
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
+  };
+}
+
+type MonthlySeriesRow = Awaited<
+  ReturnType<typeof itBillingRepository.subscriptionsForMonthlySeries>
+>[number];
+
+/**
+ * Flatten a subscription row for the month-series engine.
+ *
+ * The engine takes plain values so it stays pure and its tests need no Prisma —
+ * so `Decimal` is coerced to a number exactly here, once, rather than at every
+ * use inside the engine.
+ */
+function toMonthlySubscription(s: MonthlySeriesRow): MonthlySubscription {
+  return {
+    id: s.id,
+    productName: s.productName,
+    vendorId: s.vendorId,
+    vendorName: s.vendor.name,
+    category: s.category,
+    currency: s.currency,
+    invoiceAmount: Number(s.invoiceAmount),
+    billingFrequency: s.billingFrequency,
+    status: s.status,
+    contractStartDate: s.contractStartDate,
+    renewalDate: s.renewalDate,
+    cancelledAt: s.cancelledAt,
+    renewalDecision: s.renewalDecision,
+    renewalDecisionAt: s.renewalDecisionAt,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
   };
 }
 
@@ -305,6 +346,7 @@ export class ItBillingService {
       status: input.status,
       ownerUserId: input.ownerUserId ?? null,
       notes: input.notes ?? null,
+      cancelledAt: parseDate(input.cancelledAt) ?? null,
       totalSeats: input.totalSeats ?? null,
       assignedSeats: input.assignedSeats ?? 0,
       activeSeats: input.activeSeats ?? 0,
@@ -353,6 +395,35 @@ export class ItBillingService {
         ? { ownerUserId: input.ownerUserId ?? null }
         : {}),
       ...("notes" in input ? { notes: input.notes ?? null } : {}),
+      // Reviving a CANCELLED subscription has to clear the stop date, or the
+      // spend series keeps the step-down for ever and the revived cost never
+      // comes back.
+      //
+      // `existing.status === "cancelled"` is load-bearing. Without it, a row
+      // that is still active but carries a FUTURE cancelledAt — a scheduled
+      // cancellation — had that date wiped by any ordinary edit, because the
+      // edit form always sends `status`, and `status: "active"` on a row with a
+      // cancelledAt looked exactly like a revival.
+      ...(existing.status === "cancelled" &&
+      input.status &&
+      input.status !== "cancelled" &&
+      existing.cancelledAt
+        ? { cancelledAt: null }
+        : {}),
+      // Cancelling through the edit form must stamp a date, not leave one to
+      // be inferred. `endMonth`'s last-resort fallback is `updatedAt`, which is
+      // MUTABLE: without this, a cancellation with no renewal date had its
+      // step-down month silently move every time anyone touched the row again.
+      ...(input.status === "cancelled" &&
+      !("cancelledAt" in input) &&
+      !existing.cancelledAt
+        ? { cancelledAt: existing.renewalDate ?? new Date() }
+        : {}),
+      // Ordered last so a caller that sends an explicit date always wins over
+      // either default above.
+      ...("cancelledAt" in input
+        ? { cancelledAt: parseDate(input.cancelledAt) }
+        : {}),
       ...("totalSeats" in input
         ? { totalSeats: input.totalSeats ?? null }
         : {}),
@@ -539,6 +610,51 @@ export class ItBillingService {
     };
   }
 
+  /**
+   * Committed spend per calendar month across a window, in one currency, with
+   * what started and ended in each month.
+   *
+   * Reads EVERY subscription including cancelled ones — that is the whole point,
+   * and it is why this does not go through `activeSubscriptions()`.
+   */
+  async monthlySeriesReport(query: MonthlySeriesQuery) {
+    const rows = await this.monthlySubscriptions();
+    const today = new Date();
+    const window = resolveWindow(query, today);
+    const currency = query.currency ?? pickPrimaryCurrency(rows, today);
+    const series = buildMonthlySeries(rows, { ...window, currency });
+    const savings = realisedSavings(rows, {
+      ...window,
+      currency,
+      today: monthKey(today),
+    });
+    return {
+      data: {
+        ...series,
+        summary: summariseSeries(series, savings),
+        endedInWindow: savings.ended,
+      },
+    };
+  }
+
+  /**
+   * The subscriptions live in one month — what a month group expands to.
+   *
+   * Returned whole rather than paginated: the month's subtotal has to equal the
+   * sum of the rows behind it, and a total derived from one loaded page would
+   * not (see the paginated-aggregates rule in CLAUDE.md).
+   */
+  async monthlyDetailReport(query: MonthDetailQuery) {
+    const rows = await this.monthlySubscriptions();
+    const currency = query.currency ?? pickPrimaryCurrency(rows, new Date());
+    return { data: buildMonthDetail(rows, query.month, currency) };
+  }
+
+  private async monthlySubscriptions(): Promise<MonthlySubscription[]> {
+    const rows = await itBillingRepository.subscriptionsForMonthlySeries();
+    return rows.map(toMonthlySubscription);
+  }
+
   async vendorCostReport() {
     const subs = await itBillingRepository.activeSubscriptions();
     const byVendor = new Map<
@@ -668,12 +784,27 @@ export class ItBillingService {
     const existing = await itBillingRepository.findSubscription(id);
     if (!existing) throw new NotFoundException("Subscription not found");
     const nextStatus = input.decision === "renew" ? "renewed" : "cancelled";
+    // The date the cost STOPS, which is not the date the decision was taken.
+    // Default to the renewal date because that is the paid-through date the
+    // money actually follows — cancelling in August a service paid through
+    // December still costs money until December. Falling back to today only
+    // when there is no renewal date at all.
+    //
+    // A renew CLEARS it: reviving a previously cancelled subscription must undo
+    // the step-down in the spend series, or the cost never reappears.
+    const cancelledAt =
+      input.decision === "renew"
+        ? null
+        : (parseDate(input.effectiveDate) ??
+          existing.renewalDate ??
+          new Date());
     const row = await itBillingRepository.updateSubscription(id, {
       status: nextStatus,
       renewalDecision: input.decision,
       renewalDecisionAt: new Date(),
       renewalDecisionById: actorId,
       renewalDecisionNotes: input.notes ?? null,
+      cancelledAt,
       // A fresh decision re-arms the reminder ladder for the next cycle.
       remindersSent: [],
     });
@@ -686,6 +817,11 @@ export class ItBillingService {
         previousStatus: existing.status,
         newStatus: nextStatus,
         notes: input.notes ?? null,
+        // Recorded because it is what the spend trend reads, and because an
+        // override differing from the renewal date is a judgement call someone
+        // may need to justify later.
+        cancelledAt: cancelledAt ? cancelledAt.toISOString() : null,
+        effectiveDateOverridden: Boolean(input.effectiveDate),
       },
       req,
     });

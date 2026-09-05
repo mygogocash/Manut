@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ExpenseRowFormDialog } from "@/components/expenses/expense-row-form-dialog";
+import { reportTotalCurrency } from "@/components/expenses/report-total-currency";
 import { Badge } from "@/components/shared/badge";
 import { PageHeader } from "@/components/shared/page-header";
 import {
@@ -67,7 +68,11 @@ import {
 } from "@/services/expense.service";
 
 type ExpenseSortKey =
-  "date" | "description" | "category" | "amount" | "receipt";
+  | "date"
+  | "description"
+  | "category"
+  | "amount"
+  | "receipt";
 type ExpenseSort = { key: ExpenseSortKey; dir: "asc" | "desc" };
 
 const STATUS_VARIANT: Record<
@@ -291,7 +296,11 @@ export default function ExpenseReportDetailPage() {
     isOwner && (report.status === "draft" || report.status === "rejected");
   const canSubmit = isEditable && report.expenses.length > 0;
 
+  // Currency for a NEW line item — the native code colleagues are
+  // already claiming in. Never label a report total with it: the total
+  // is converted, `totalCurrency` says what to.
   const defaultCurrency = report.expenses[0]?.currency ?? "THB";
+  const totalCurrency = reportTotalCurrency(report);
 
   async function handleSubmit() {
     try {
@@ -595,20 +604,14 @@ export default function ExpenseReportDetailPage() {
           label={report.approvedTotal !== null ? "Submitted" : "Total"}
           value={
             report.converted
-              ? formatAmount(
-                  report.totalAmount,
-                  report.totalCurrency ?? defaultCurrency,
-                )
+              ? formatAmount(report.totalAmount, totalCurrency)
               : `— (${report.missingRates.join(", ")}→THB rate missing)`
           }
         />
         {report.approvedTotal !== null ? (
           <SummaryStat
             label="Approved"
-            value={formatAmount(
-              report.approvedTotal,
-              report.totalCurrency ?? defaultCurrency,
-            )}
+            value={formatAmount(report.approvedTotal, totalCurrency)}
           />
         ) : (
           <SummaryStat
@@ -623,18 +626,9 @@ export default function ExpenseReportDetailPage() {
         report.approvedTotal !== report.totalAmount && (
           <p className="text-muted-foreground -mt-1 text-xs">
             Finance-adjusted on approval — payroll will reimburse{" "}
-            <strong>
-              {formatAmount(
-                report.approvedTotal,
-                report.totalCurrency ?? defaultCurrency,
-              )}
-            </strong>
+            <strong>{formatAmount(report.approvedTotal, totalCurrency)}</strong>
             , not the submitted{" "}
-            {formatAmount(
-              report.totalAmount,
-              report.totalCurrency ?? defaultCurrency,
-            )}
-            .
+            {formatAmount(report.totalAmount, totalCurrency)}.
           </p>
         )}
 
@@ -850,7 +844,7 @@ export default function ExpenseReportDetailPage() {
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="approve-amount" className="text-sm">
-                Approved amount ({defaultCurrency})
+                Approved amount ({totalCurrency})
               </Label>
               <Input
                 id="approve-amount"
@@ -865,7 +859,7 @@ export default function ExpenseReportDetailPage() {
               />
               <p className="text-muted-foreground text-xs">
                 Submitted total:{" "}
-                {formatCurrency(report.totalAmount, defaultCurrency)}. Leave at
+                {formatCurrency(report.totalAmount, totalCurrency)}. Leave at
                 the submitted value to approve in full, or lower it to apply a
                 haircut.
               </p>
@@ -1013,8 +1007,8 @@ function ReceiptViewLink({
     // Chrome's popup blocker stays out of the way. Once the signed
     // URL comes back we redirect that tab — or close it on error.
     // The previous implementation `await`-ed first then called
-    // `window.open`, which Chrome treats as a blocked popup and can
-    // leave the user with a blank tab instead of the PDF.
+    // `window.open`, which Chrome treats as a blocked popup → Pat
+    // saw a blank tab while Vivek (owner) got the PDF.
     //
     // We deliberately omit `noopener`/`noreferrer` here — both null
     // the returned handle so we can't redirect the popup. Acceptable

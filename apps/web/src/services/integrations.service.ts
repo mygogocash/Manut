@@ -3,6 +3,11 @@ import type { ApiSuccessResponse } from "@/types/api.type";
 
 // ─── Types ──────────────────────────────────────────────
 
+export interface IntegrationStatus {
+  configured: boolean;
+  status: "connected" | "not_configured";
+}
+
 export interface GoogleConnectionStatus {
   connected: boolean;
   accountEmail?: string;
@@ -13,6 +18,9 @@ export interface GoogleConnectionStatus {
 }
 
 export interface IntegrationsStatus {
+  anthropic: IntegrationStatus;
+  gmail: IntegrationStatus;
+  drive: IntegrationStatus;
   google: GoogleConnectionStatus;
 }
 

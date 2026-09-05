@@ -22,6 +22,7 @@ export interface Contact {
   title: string | null;
   isPrimary: boolean;
   notes: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
   account: ContactAccountRef;
@@ -47,6 +48,9 @@ export interface ListContactsParams {
   limit?: number;
   search?: string;
   accountId?: string;
+  // When true, return ONLY archived contacts; omit/false shows active only.
+  // buildQuery serialises truthy values, so pass `archived || undefined`.
+  archived?: boolean;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
@@ -91,4 +95,16 @@ export async function updateContact(
 
 export async function deleteContact(id: string): Promise<void> {
   await api.delete(`/contacts/${id}`);
+}
+
+export async function archiveContact(
+  id: string,
+): Promise<ApiSuccessResponse<Contact>> {
+  return api.post(`/contacts/${id}/archive`, {});
+}
+
+export async function unarchiveContact(
+  id: string,
+): Promise<ApiSuccessResponse<Contact>> {
+  return api.post(`/contacts/${id}/unarchive`, {});
 }

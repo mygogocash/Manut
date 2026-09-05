@@ -150,8 +150,9 @@ export function TicketKanban({
             <div
               key={status}
               className={`
-                bg-muted/30 flex max-h-[calc(100vh-13rem)] min-h-[60vh] flex-col
-                rounded-md border border-t-4
+                bg-muted/30 flex max-h-[60svh] min-h-[60vh] flex-col rounded-md
+                border border-t-4
+                md:max-h-[calc(100vh-13rem)]
                 ${statusBorderClass(status)}
                 ${isDropTarget ? "ring-primary/40 ring-2" : ""}
               `}

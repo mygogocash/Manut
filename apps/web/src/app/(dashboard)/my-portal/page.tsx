@@ -69,6 +69,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
@@ -143,8 +144,8 @@ export default function MyPortalPage() {
     [hasPermission],
   );
 
-  const [activeTab, setActiveTab] = useState(
-    () => visibleTabs[0]?.id ?? "profile",
+  const [activeTab, setActiveTab] = useTabParam(
+    visibleTabs[0]?.id ?? "profile",
   );
 
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
@@ -798,7 +799,7 @@ export default function MyPortalPage() {
                   <TableHead>End Date</TableHead>
                   <TableHead>Days</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>Submitted</TableHead>
                   <TableHead className="w-20">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -977,7 +978,7 @@ export default function MyPortalPage() {
                   <TableHead>Return</TableHead>
                   <TableHead>Budget</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>Submitted</TableHead>
                   <TableHead className="w-20">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1166,7 +1167,7 @@ export default function MyPortalPage() {
                   <TableHead>Entity</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>Submitted</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

@@ -213,6 +213,18 @@ router.post(
   }),
 );
 
+// Owner pulls a submitted request back to draft to edit + resubmit.
+// Ownership is enforced in the service, like submit.
+router.post(
+  "/:id/withdraw",
+  requirePermission(PERMISSIONS.CASH_ADVANCE_CREATE),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const result = await cashAdvanceService.withdraw(id, req.user!.id);
+    res.json(result);
+  }),
+);
+
 // Approve / reject open to any cash-advance reader; the service's
 // assertCanActOnStep enforces that only the current step's approver
 // (manager / assigned user) or HR-with-approve can actually act.

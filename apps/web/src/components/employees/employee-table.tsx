@@ -108,6 +108,7 @@ export function EmployeeTable({
     () => [
       {
         key: "rowNo",
+        mobileRole: "hidden" as const,
         header: "#",
         className: "w-12 tabular-nums",
         render: (_u: UserListItem, index: number) => (
@@ -118,6 +119,7 @@ export function EmployeeTable({
       },
       {
         key: "employeeId",
+        mobileRole: "subtitle" as const,
         header: "Employee ID",
         className: "w-[7.5rem] min-w-[7rem]",
         sortable: true,
@@ -132,6 +134,7 @@ export function EmployeeTable({
       },
       {
         key: "employee",
+        mobileRole: "title" as const,
         header: "Employee",
         render: (u: UserListItem) => (
           <div className="flex items-center gap-2.5">
@@ -165,6 +168,7 @@ export function EmployeeTable({
       },
       {
         key: "department",
+        mobileRole: "field" as const,
         header: "Dept / Title",
         render: (u: UserListItem) => (
           <div className="leading-tight">
@@ -177,6 +181,7 @@ export function EmployeeTable({
       },
       {
         key: "entity",
+        mobileRole: "detail" as const,
         header: "Entity",
         render: (u: UserListItem) =>
           u.entity ? (
@@ -187,6 +192,7 @@ export function EmployeeTable({
       },
       {
         key: "employmentType",
+        mobileRole: "detail" as const,
         header: "Type",
         render: (u: UserListItem) => {
           const type = u.employmentType as EmploymentType;
@@ -200,6 +206,7 @@ export function EmployeeTable({
       },
       {
         key: "roles",
+        mobileRole: "detail" as const,
         header: "Roles",
         render: (u: UserListItem) => (
           <div className="flex max-w-[180px] flex-wrap gap-1">
@@ -219,6 +226,7 @@ export function EmployeeTable({
       },
       {
         key: "status",
+        mobileRole: "badge" as const,
         header: "Status",
         render: (u: UserListItem) => (
           <Badge variant={u.isActive ? "green" : "grey"}>
@@ -228,6 +236,7 @@ export function EmployeeTable({
       },
       {
         key: "actions",
+        mobileRole: "actions" as const,
         header: "",
         className: "w-10 text-right",
         render: (u: UserListItem) => {

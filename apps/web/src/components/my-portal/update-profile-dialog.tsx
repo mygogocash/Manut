@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Camera, Loader2, Save, User } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -71,7 +71,7 @@ export function UpdateProfileDialog({
   } = useDragImage();
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       phone: "",
       location: "",

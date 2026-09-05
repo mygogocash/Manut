@@ -4,6 +4,14 @@ import { expenseReportsService } from "@/modules/expenses/expense-reports.servic
 
 const PENDING_ACTIONS_LIMIT = 10;
 
+/**
+ * Fault isolation — resolve a dashboard sub-query to a safe default if it
+ * rejects, so one failing subsystem never blanks the entire dashboard.
+ */
+function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
+  return p.catch(() => fallback);
+}
+
 export class DashboardService {
   async getStats(actorId: string, actorPermissions: string[]) {
     // "Awaiting your approval" needs to actually be the caller's
@@ -49,35 +57,51 @@ export class DashboardService {
       itCrmReminders,
       itCrmUpdates,
     ] = await Promise.all([
-      dashboardRepository.countActiveEmployees(),
-      dashboardRepository.countActiveProjects(projectScope),
-      dashboardRepository.countPendingLeaveRequests(leaveScope),
-      dashboardRepository.countPendingTravelRequests(travelScope),
-      dashboardRepository.sumExpensesCurrentMonth(),
-      dashboardRepository.getRecentWallPosts(5),
-      dashboardRepository.getRecentNews(5),
-      dashboardRepository.getUpcomingCompanyDates(5),
-      dashboardRepository.getPendingLeaveRequests(5, leaveScope),
-      dashboardRepository.getPendingTravelRequests(5, travelScope),
+      // Fault isolation — a single failing subsystem (e.g. a drifted table)
+      // degrades to a safe default instead of blanking the whole dashboard.
+      safe(dashboardRepository.countActiveEmployees(), 0),
+      safe(dashboardRepository.countActiveProjects(projectScope), 0),
+      safe(dashboardRepository.countPendingLeaveRequests(leaveScope), 0),
+      safe(dashboardRepository.countPendingTravelRequests(travelScope), 0),
+      safe(dashboardRepository.sumExpensesCurrentMonth(), 0),
+      safe(dashboardRepository.getRecentWallPosts(5), []),
+      safe(dashboardRepository.getRecentNews(5), []),
+      safe(dashboardRepository.getUpcomingCompanyDates(5), []),
+      safe(dashboardRepository.getPendingLeaveRequests(5, leaveScope), []),
+      safe(dashboardRepository.getPendingTravelRequests(5, travelScope), []),
       // Reuse the vetted v1 approver query (chain decisions + manager
       // parallel-approver fallback + legacy no-chain reports). Prod runs
       // Expenses; the old read hit the dark-shipped v2 `Expense`
       // table and linked to `/expenses` (404 in prod).
-      expenseReportsService.listReports(actorId, actorPermissions, {
-        pendingForMe: true,
-        page: 1,
-        limit: PENDING_ACTIONS_LIMIT,
-      }),
-      dashboardRepository.getExpenseSummaryByMonth(6),
-      dashboardRepository.getProjectStatusBreakdown(projectScope),
-      dashboardRepository.getEmployeesByDepartment(),
-      dashboardRepository.getActiveProjectsWithProgress(4, projectScope),
-      dashboardRepository.getUrgentItems(),
-      dashboardRepository.getOpenSurveyFormsForUser(actorId, 5),
-      dashboardRepository.getOpenSurveysForUser(actorId, 5),
-      dashboardRepository.getUpcomingBirthdays(),
-      dashboardRepository.getCrmRemindersForUser(actorId, 8),
-      dashboardRepository.getCrmNotificationsForUser(actorId, 10),
+      safe(
+        expenseReportsService.listReports(actorId, actorPermissions, {
+          pendingForMe: true,
+          page: 1,
+          limit: PENDING_ACTIONS_LIMIT,
+        }),
+        {
+          data: [],
+          meta: {
+            page: 1,
+            limit: PENDING_ACTIONS_LIMIT,
+            total: 0,
+            totalPages: 0,
+          },
+        },
+      ),
+      safe(dashboardRepository.getExpenseSummaryByMonth(6), []),
+      safe(dashboardRepository.getProjectStatusBreakdown(projectScope), []),
+      safe(dashboardRepository.getEmployeesByDepartment(), []),
+      safe(
+        dashboardRepository.getActiveProjectsWithProgress(4, projectScope),
+        [],
+      ),
+      safe(dashboardRepository.getUrgentItems(), []),
+      safe(dashboardRepository.getOpenSurveyFormsForUser(actorId, 5), []),
+      safe(dashboardRepository.getOpenSurveysForUser(actorId, 5), []),
+      safe(dashboardRepository.getUpcomingBirthdays(), []),
+      safe(dashboardRepository.getCrmRemindersForUser(actorId, 8), []),
+      safe(dashboardRepository.getCrmNotificationsForUser(actorId, 10), []),
     ]);
 
     // v1 listReports yields both the list (top pending reports for this

@@ -7,7 +7,7 @@ import dealsRoutes from "@/modules/deals/deals.controller";
 import { dealService } from "@/modules/deals/deals.service";
 
 // Mock the service so the integration test exercises only the controller +
-// router shape. The Sales CRM cutover lives behind /api/leads,
+// router shape. The Sales CRM v2 cutover (PRD §9) lives behind /api/leads,
 // /api/accounts, /api/opportunities; legacy /api/deals must keep responding
 // with the same envelope until Phase 3 drops the route.
 vi.mock("@/modules/deals/deals.service", () => ({
@@ -32,7 +32,6 @@ vi.mock("@/core/guards/auth.guard", () => ({
       email: "u@example.com",
       name: "U",
       isActive: true,
-      deletedAt: null,
       entityId: null,
       permissions: ["deals:read"],
     };
@@ -80,7 +79,7 @@ const baseDeal = {
   partner: null,
 };
 
-describe("GET /api/deals — legacy response shape stability", () => {
+describe("GET /api/deals — legacy response shape (PRD §9 stability)", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("returns the same { data, meta } envelope as before the v2 cutover", async () => {

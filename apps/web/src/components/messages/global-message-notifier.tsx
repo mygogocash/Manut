@@ -34,8 +34,8 @@ export function GlobalMessageNotifier() {
   const canUseMessaging = hasAnyPermission("messages:read");
 
   // Cache the channel directory so a `message.created` event can resolve
-  // to a friendly label ("Alex in #general" vs "Direct message from
-  // Alex") without an HTTP round-trip per event. Kept fresh via
+  // to a friendly label ("Sarah in #general" vs "Direct message from
+  // Sarah") without an HTTP round-trip per event. Kept fresh via
   // channel.* socket events below.
   const channelMapRef = useRef<Map<string, Channel>>(new Map());
 

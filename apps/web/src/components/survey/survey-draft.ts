@@ -8,7 +8,7 @@ import type { AnswerMap } from "@/components/survey/survey-form-renderer";
 // try/catch so quota / private-mode / malformed-data failures never break the
 // form. The user id is part of the key to avoid leaking a draft to another
 // account on a shared browser; anonymous is keyed under "anon".
-const DRAFT_PREFIX = "manut:survey-standalone:draft-v1:";
+const DRAFT_PREFIX = "nexora:survey-standalone:draft-v1:";
 
 function draftKey(formId: string, userId: string | null): string {
   return `${DRAFT_PREFIX}${formId}:${userId ?? "anon"}`;

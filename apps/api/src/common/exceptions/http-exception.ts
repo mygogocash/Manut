@@ -3,7 +3,11 @@ export class HttpException extends Error {
     public readonly status: number,
     public readonly code: string,
     message: string,
-    public readonly details?: Array<{ field?: string; message: string }>,
+    public readonly details?: Array<{
+      field?: string;
+      message: string;
+      messageTh?: string;
+    }>,
   ) {
     super(message);
     this.name = "HttpException";
@@ -13,7 +17,7 @@ export class HttpException extends Error {
 export class BadRequestException extends HttpException {
   constructor(
     message: string,
-    details?: Array<{ field?: string; message: string }>,
+    details?: Array<{ field?: string; message: string; messageTh?: string }>,
   ) {
     super(400, "BAD_REQUEST", message, details);
   }
@@ -44,7 +48,9 @@ export class ConflictException extends HttpException {
 }
 
 export class ValidationException extends HttpException {
-  constructor(details: Array<{ field?: string; message: string }>) {
+  constructor(
+    details: Array<{ field?: string; message: string; messageTh?: string }>,
+  ) {
     super(422, "VALIDATION_ERROR", "Validation failed", details);
   }
 }

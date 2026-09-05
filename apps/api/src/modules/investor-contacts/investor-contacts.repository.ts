@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -11,7 +11,11 @@ export interface ListInvestorContactsFilters {
   search?: string;
   accountId?: string;
   ownerId?: string;
+  // Archived view toggle. false/undefined → active rows (archivedAt IS NULL);
+  // true → archived rows (archivedAt IS NOT NULL).
+  archived?: boolean;
   ownerScope?: string[];
+  fundraisingEntity?: string;
 }
 
 export class InvestorContactRepository {
@@ -25,6 +29,11 @@ export class InvestorContactRepository {
     if (filters.accountId) where.accountId = filters.accountId;
     if (filters.ownerId) where.ownerId = filters.ownerId;
     if (filters.ownerScope) where.ownerId = { in: filters.ownerScope };
+    if (filters.fundraisingEntity) {
+      where.fundraisingEntity = filters.fundraisingEntity;
+    }
+    // Shared by findMany + count below — default view hides archived rows.
+    where.archivedAt = filters.archived ? { not: null } : null;
     if (filters.search) {
       where.OR = [
         { firstName: { contains: filters.search, mode: "insensitive" } },

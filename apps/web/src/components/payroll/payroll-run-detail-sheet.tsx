@@ -67,7 +67,7 @@ function NumberCell({ value }: { value: number | null }) {
 /**
  * Per-currency total payout cell. The row's currency picks which one
  * of the three columns lights up — the others render a soft dash so
- * the layout still matches the import format.
+ * the layout still matches the source spreadsheet.
  */
 function PayoutCell({
   value,
@@ -448,6 +448,7 @@ export function PayrollRunDetailSheet({
         ? [
             {
               key: "actions",
+              mobileRole: "actions" as const,
               header: "",
               className: "w-[60px] align-top",
               render: (p: Payslip) => (
@@ -477,7 +478,7 @@ export function PayrollRunDetailSheet({
 
   // Column-sum footer for the payslip table. Mirrors the totals row HR
   // adds at the bottom of the import xlsx so the on-screen layout
-  // matches the import without HR cross-checking three
+  // matches the source spreadsheet without HR cross-checking three
   // numbers in their head. `Total Net (THB equiv)` sums the FX-
   // converted values so it stays in sync with the headline.
   const payslipFooter = useMemo(() => {
@@ -833,6 +834,18 @@ export function PayrollRunDetailSheet({
                 on production after #337–#340.
               */}
               <DataTable
+                // A payroll run is read DOWN its columns -- is anyone's tax
+                // wrong, does the run foot -- and base + allowances -
+                // deductions = total only means anything with the parts
+                // side by side. Measured at 390px: as cards, 0 of 12
+                // figures are visible without expanding, an expanded card
+                // is 645px of 19 labelled rows, and the run totals row is
+                // not rendered on the card path AT ALL, so it cannot be
+                // reached at any depth. As a table: 12/12 figures, totals
+                // present, 2781px scrolling inside a 356px container with
+                // zero page overflow and a sticky header that stays
+                // aligned with its column.
+                mobileMode="table"
                 columns={payslipColumns}
                 data={detail.payslips}
                 title="Payslips"

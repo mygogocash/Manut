@@ -102,17 +102,12 @@ export class PerformanceService {
     );
 
     const scopedFilters = { ...filters };
-    if (scopedFilters.employeeId === userId) {
-      // Managers are employees too. An explicit self query must not also be
-      // constrained to appraisals they manage, or their own review vanishes.
-      delete scopedFilters.managerId;
-    } else if (isManager) {
-      // A requested employee remains useful as a direct-report filter, but the
-      // manager boundary itself always comes from the authenticated caller.
-      scopedFilters.managerId = userId;
+    if (isManager) {
+      if (!scopedFilters.employeeId && !scopedFilters.managerId) {
+        scopedFilters.managerId = userId;
+      }
     } else {
       scopedFilters.employeeId = userId;
-      delete scopedFilters.managerId;
     }
 
     const { data, total } = await performanceRepository.findAppraisals(
@@ -260,18 +255,6 @@ export class PerformanceService {
     if (!isOwner && !isManager) {
       throw new ForbiddenException(
         "Only the employee or manager of this appraisal can update goals",
-      );
-    }
-
-    if (input.selfScore !== undefined && !isOwner) {
-      throw new ForbiddenException(
-        "Only the assigned employee can update a goal self-score",
-      );
-    }
-
-    if (input.managerScore !== undefined && !isManager) {
-      throw new ForbiddenException(
-        "Only the assigned manager can update a goal manager score",
       );
     }
 

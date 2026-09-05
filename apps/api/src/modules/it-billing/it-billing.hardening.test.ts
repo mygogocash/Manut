@@ -15,6 +15,7 @@ vi.mock("./it-billing.repository", () => ({
     findSubscription: vi.fn(),
     updateSubscription: vi.fn(),
     activeSubscriptions: vi.fn(),
+    subscriptionsForMonthlySeries: vi.fn(),
   },
 }));
 
@@ -49,6 +50,7 @@ function sub(over: Record<string, unknown> = {}) {
     renewalDecisionAt: null,
     renewalDecisionById: null,
     renewalDecisionNotes: null,
+    cancelledAt: null,
     attachments: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -169,6 +171,87 @@ describe("recordRenewalDecision", () => {
   });
 });
 
+describe("cancellation effective date", () => {
+  // `cancelledAt` is what the monthly spend series reads to place the
+  // step-down, so getting it from the wrong date silently moves a whole month
+  // of spend.
+  const RENEWAL = new Date("2026-12-31T00:00:00.000Z");
+
+  it("defaults to the renewal date, not today — that is the paid-through date", async () => {
+    findSubscription.mockResolvedValue(sub({ renewalDate: RENEWAL }));
+    await service.recordRenewalDecision("sub-1", { decision: "cancel" }, ACTOR);
+    expect(updateSubscription).toHaveBeenCalledWith(
+      "sub-1",
+      expect.objectContaining({ cancelledAt: RENEWAL }),
+    );
+  });
+
+  it("uses an explicit effectiveDate over the renewal date", async () => {
+    findSubscription.mockResolvedValue(sub({ renewalDate: RENEWAL }));
+    await service.recordRenewalDecision(
+      "sub-1",
+      { decision: "cancel", effectiveDate: "2026-08-31" },
+      ACTOR,
+    );
+    expect(updateSubscription).toHaveBeenCalledWith(
+      "sub-1",
+      expect.objectContaining({
+        cancelledAt: new Date("2026-08-31T00:00:00.000Z"),
+      }),
+    );
+  });
+
+  it("falls back to today when there is no renewal date, never to null", async () => {
+    // A null stop date on a cancelled row would read as "still running" in the
+    // series, so the spend would never fall.
+    findSubscription.mockResolvedValue(sub({ renewalDate: null }));
+    await service.recordRenewalDecision("sub-1", { decision: "cancel" }, ACTOR);
+    const payload = updateSubscription.mock.calls[0]?.[1] as {
+      cancelledAt: Date | null;
+    };
+    expect(payload.cancelledAt).toBeInstanceOf(Date);
+  });
+
+  it("clears the date on renew, so a revived subscription costs money again", async () => {
+    findSubscription.mockResolvedValue(
+      sub({ status: "cancelled", cancelledAt: RENEWAL }),
+    );
+    await service.recordRenewalDecision("sub-1", { decision: "renew" }, ACTOR);
+    expect(updateSubscription).toHaveBeenCalledWith(
+      "sub-1",
+      expect.objectContaining({ cancelledAt: null }),
+    );
+  });
+
+  it("clears the date when an edit moves status off cancelled", async () => {
+    findSubscription.mockResolvedValue(
+      sub({ status: "cancelled", cancelledAt: RENEWAL }),
+    );
+    await service.updateSubscription("sub-1", { status: "active" }, ACTOR);
+    expect(updateSubscription).toHaveBeenCalledWith(
+      "sub-1",
+      expect.objectContaining({ status: "active", cancelledAt: null }),
+    );
+  });
+
+  it("lets an explicit cancelledAt in the same edit win over that clearing", async () => {
+    findSubscription.mockResolvedValue(
+      sub({ status: "cancelled", cancelledAt: RENEWAL }),
+    );
+    await service.updateSubscription(
+      "sub-1",
+      { status: "active", cancelledAt: "2027-01-31" },
+      ACTOR,
+    );
+    expect(updateSubscription).toHaveBeenCalledWith(
+      "sub-1",
+      expect.objectContaining({
+        cancelledAt: new Date("2027-01-31T00:00:00.000Z"),
+      }),
+    );
+  });
+});
+
 describe("attachment management", () => {
   it("appends an attachment to the JSON column", async () => {
     findSubscription.mockResolvedValue(sub({ attachments: [] }));
@@ -207,5 +290,68 @@ describe("attachment management", () => {
         attachments: [expect.objectContaining({ url: "https://x/b.pdf" })],
       }),
     );
+  });
+});
+
+describe("cancellation date via the edit form (not the decision flow)", () => {
+  const RENEWAL_END = new Date("2026-12-31T00:00:00.000Z");
+
+  it("keeps a SCHEDULED future cancellation through an unrelated edit", async () => {
+    // Found by adversarial review. The edit form always sends `status`, so on an
+    // active row carrying a future cancelledAt, `status: "active"` looked like a
+    // revival and silently wiped the scheduled date.
+    findSubscription.mockResolvedValue(
+      sub({ status: "active", cancelledAt: RENEWAL_END }),
+    );
+    await service.updateSubscription(
+      "sub-1",
+      { status: "active", notes: "moved to floor 3" },
+      ACTOR,
+    );
+    const payload = updateSubscription.mock.calls[0]?.[1] as Record<
+      string,
+      unknown
+    >;
+    expect("cancelledAt" in payload).toBe(false);
+  });
+
+  it("still clears the date when a genuinely cancelled row is revived", async () => {
+    findSubscription.mockResolvedValue(
+      sub({ status: "cancelled", cancelledAt: RENEWAL_END }),
+    );
+    await service.updateSubscription("sub-1", { status: "active" }, ACTOR);
+    expect(updateSubscription).toHaveBeenCalledWith(
+      "sub-1",
+      expect.objectContaining({ cancelledAt: null }),
+    );
+  });
+
+  it("stamps a date when the edit form cancels, instead of leaving it inferred", async () => {
+    // endMonth's last-resort fallback is `updatedAt`, which is MUTABLE — without
+    // a stamp the step-down month moved every time anyone touched the row.
+    findSubscription.mockResolvedValue(
+      sub({ status: "active", cancelledAt: null, renewalDate: RENEWAL_END }),
+    );
+    await service.updateSubscription("sub-1", { status: "cancelled" }, ACTOR);
+    expect(updateSubscription).toHaveBeenCalledWith(
+      "sub-1",
+      expect.objectContaining({
+        status: "cancelled",
+        cancelledAt: RENEWAL_END,
+      }),
+    );
+  });
+
+  it("does not overwrite a cancelledAt the row already has", async () => {
+    const already = new Date("2026-05-31T00:00:00.000Z");
+    findSubscription.mockResolvedValue(
+      sub({ status: "cancelled", cancelledAt: already }),
+    );
+    await service.updateSubscription("sub-1", { status: "cancelled" }, ACTOR);
+    const payload = updateSubscription.mock.calls[0]?.[1] as Record<
+      string,
+      unknown
+    >;
+    expect("cancelledAt" in payload).toBe(false);
   });
 });

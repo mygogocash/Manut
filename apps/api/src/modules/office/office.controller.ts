@@ -269,8 +269,9 @@ router.delete(
 router.get(
   "/assets",
   // Any employee with the basic office bundle (`office:read`,
-  // `office:book`, or `office:manage`) can browse the asset list. Widening
-  // the read gate matches the intent ("anyone in HR /
+  // `office:book`, or `office:manage`) can browse the asset list. Pat +
+  // Sarah were stuck on a non-manage role and the page sat empty for
+  // them; widening the read gate matches the intent ("anyone in HR /
   // ops should see the inventory") without granting edit rights.
   requirePermission(
     PERMISSIONS.OFFICE_READ,
@@ -288,7 +289,8 @@ router.post(
   "/assets",
   // Asset CRUD is treated as an HR-side operation — anyone with
   // `office:manage` (facilities) or `user:update` (HR Manager) can
-  // create / edit / delete inventory rows without granting broad writes.
+  // create / edit / delete inventory rows. This unblocked Pat + Sarah
+  // from "only one person can manage assets".
   requirePermission(PERMISSIONS.OFFICE_MANAGE, PERMISSIONS.USER_UPDATE),
   asyncHandler(async (req, res) => {
     const input = createAssetSchema.parse(req.body);
@@ -305,8 +307,8 @@ router.post(
   "/assets/import/preview",
   requirePermission(PERMISSIONS.OFFICE_MANAGE, PERMISSIONS.USER_UPDATE),
   asyncHandler(async (req, res) => {
-    const { rows } = assetImportSchema.parse(req.body);
-    const result = await officeService.previewAssetImport(rows);
+    const { rows, office } = assetImportSchema.parse(req.body);
+    const result = await officeService.previewAssetImport(rows, office);
     res.json({ data: result });
   }),
 );
@@ -315,8 +317,8 @@ router.post(
   "/assets/import/commit",
   requirePermission(PERMISSIONS.OFFICE_MANAGE, PERMISSIONS.USER_UPDATE),
   asyncHandler(async (req, res) => {
-    const { rows } = assetImportSchema.parse(req.body);
-    const result = await officeService.commitAssetImport(rows);
+    const { rows, office } = assetImportSchema.parse(req.body);
+    const result = await officeService.commitAssetImport(rows, office);
     res.json({ data: result });
   }),
 );

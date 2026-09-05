@@ -224,6 +224,30 @@ export async function getVisaTimeline(
   return api.get(`/visa/${id}/timeline`);
 }
 
+// ── OCR autofill ────────────────────────────────────────────────────────
+
+export interface VisaParseResult {
+  holderName: string;
+  visaType: string;
+  country: string;
+  nationality: string;
+  issueDate: string;
+  expiryDate: string;
+  workPermitNumber: string;
+  workPermitIssueDate: string;
+  workPermitExpiryDate: string;
+  parsingNotes: string;
+}
+
+// Extract structured fields from an already-uploaded scan (private-bucket
+// URL). The API downloads it server-side and runs Gemini vision.
+export async function parseVisaScan(
+  fileUrl: string,
+  docCategory?: VisaDocumentCategory,
+): Promise<ApiSuccessResponse<VisaParseResult>> {
+  return api.post("/visa/parse-scan", { fileUrl, docCategory });
+}
+
 // Mint a short-lived signed URL for a visa document. Pass `docIndex` to
 // pick an entry from `documents[]`; omit it to use the legacy single
 // `documentUrl` column. Bucket is private.

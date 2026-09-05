@@ -1,4 +1,4 @@
-import type { AttendanceRecord } from "@manut/database";
+import type { AttendanceRecord } from "@nexora/database";
 
 import type {
   AttendanceRecordDto,

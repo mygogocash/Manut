@@ -1,0 +1,55 @@
+# =============================================================================
+# Shared workspace setup for the PR Checks jobs.
+#
+# pr-checks.yml runs its gates as PARALLEL jobs, and every job needs the same
+# five setup steps. Keeping them here means the pnpm version, the Node version
+# and the Prisma generate step cannot drift between jobs — a mismatch that
+# would produce a gate passing against a different toolchain than its siblings.
+# =============================================================================
+name: Setup workspace
+description: Install pnpm + Node, restore caches, install deps, generate the Prisma client.
+
+inputs:
+  turbo-cache-key:
+    description: >
+      Job-scoped prefix for the turbo cache. Each job keeps its own entry so
+      concurrent jobs never race to write the same key; restore-keys still let
+      a job warm-start from its own previous run.
+    required: true
+  prisma:
+    description: Run pnpm db:generate. Set false for gates that never touch the client.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v6
+      with:
+        version: 10.33.0
+
+    - name: Setup Node
+      uses: actions/setup-node@v6
+      with:
+        node-version: 22
+        cache: pnpm
+
+    - name: Restore turbo cache
+      uses: actions/cache@v4
+      with:
+        path: .turbo
+        key: turbo-${{ inputs.turbo-cache-key }}-${{ github.sha }}
+        restore-keys: |
+          turbo-${{ inputs.turbo-cache-key }}-
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Generate Prisma client
+      if: inputs.prisma == 'true'
+      shell: bash
+      # The generated client is gitignored (CLAUDE.md), so every gate that
+      # type-checks or imports it must generate first or fail on missing models.
+      run: pnpm db:generate

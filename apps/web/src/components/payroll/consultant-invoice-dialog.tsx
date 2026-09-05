@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -42,17 +42,14 @@ const schema = z.object({
   entityId: z.string().min(1, "Entity is required"),
   consultantId: z.string().min(1, "Consultant is required"),
   invoiceNo: z.string().min(1, "Invoice number is required"),
-  amount: z.coerce
-    .number<number | string>()
-    .positive("Amount must be positive"),
-  whtRate: z.coerce.number<number | string>().min(0).max(100),
+  amount: z.coerce.number().positive("Amount must be positive"),
+  whtRate: z.coerce.number().min(0).max(100),
   period: z
     .string()
     .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Period must be YYYY-MM format"),
 });
 
-type FormInput = z.input<typeof schema>;
-type FormValues = z.output<typeof schema>;
+type FormValues = z.infer<typeof schema>;
 
 function getCurrentPeriod(): string {
   const d = new Date();
@@ -76,8 +73,8 @@ export function ConsultantInvoiceDialog({
 }: ConsultantInvoiceDialogProps) {
   const [submitting, setSubmitting] = useState(false);
 
-  const form = useForm<FormInput, unknown, FormValues>({
-    resolver: standardSchemaResolver(schema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
     defaultValues: {
       entityId: "",
       consultantId: "",

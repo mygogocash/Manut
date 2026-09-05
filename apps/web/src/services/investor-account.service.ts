@@ -15,8 +15,10 @@ export interface InvestorAccount {
   ownerId: string;
   owner: { id: string; name: string; email: string };
   _count: { contacts: number };
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  fundraisingEntity: string;
 }
 
 export interface CreateInvestorAccountInput {
@@ -26,6 +28,7 @@ export interface CreateInvestorAccountInput {
   location?: string;
   region?: string;
   notes?: string;
+  fundraisingEntity?: string;
 }
 
 export type UpdateInvestorAccountInput = Partial<CreateInvestorAccountInput>;
@@ -36,6 +39,9 @@ export interface ListInvestorAccountsParams {
   search?: string;
   region?: string;
   ownerId?: string;
+  // When true, return ONLY archived accounts; omit/false shows active only.
+  archived?: boolean;
+  fundraisingEntity?: string;
 }
 
 function buildQuery<T extends object>(params: T): string {
@@ -72,4 +78,16 @@ export async function deleteInvestorAccount(
   id: string,
 ): Promise<ApiSuccessResponse<{ success: boolean }>> {
   return api.delete(`/investor/accounts/${id}`);
+}
+
+export async function archiveInvestorAccount(
+  id: string,
+): Promise<ApiSuccessResponse<InvestorAccount>> {
+  return api.post(`/investor/accounts/${id}/archive`, {});
+}
+
+export async function unarchiveInvestorAccount(
+  id: string,
+): Promise<ApiSuccessResponse<InvestorAccount>> {
+  return api.post(`/investor/accounts/${id}/unarchive`, {});
 }

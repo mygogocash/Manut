@@ -8,6 +8,45 @@ import { useCallback, useEffect, useState } from "react";
 // reordering in localStorage and tolerates schema drift (unknown keys
 // dropped, newly-added default keys appended). Mirrors the original
 // inline implementations in it-crm-list / voucher-crm-list (#665 era).
+/**
+ * Reconcile a stored column layout against the current default order.
+ *
+ * Keys the table no longer defines are dropped. Keys added to defaultOrder
+ * after the layout was stored (a new column, or one restored after removal)
+ * are spliced in at their default-relative slot rather than appended —
+ * appended, a restored column lands past every column the user has ever seen
+ * and reads as still missing.
+ *
+ * The anchor is the newcomer's NEAREST neighbour in defaultOrder that survives
+ * in the stored layout: the closest preceding key, or the closest following one
+ * when nothing precedes it. Both fallbacks matter — anchoring on the last
+ * preceding key drags the newcomer to the end when a predecessor was moved
+ * there, and anchoring on the first following key teleports it to index 0 when
+ * a follower was moved to the front.
+ */
+export function mergeStoredColumnOrder<K extends string>(
+  stored: readonly unknown[],
+  defaultOrder: readonly K[],
+): K[] {
+  const next = stored.filter((k): k is K => defaultOrder.includes(k as K));
+  // Ascending, so a run of new keys anchors on the ones already spliced in.
+  for (const key of defaultOrder) {
+    if (next.includes(key)) continue;
+    const target = defaultOrder.indexOf(key);
+    let pos = -1;
+    for (let i = target - 1; i >= 0 && pos < 0; i--) {
+      const at = next.indexOf(defaultOrder[i]);
+      if (at >= 0) pos = at + 1;
+    }
+    for (let i = target + 1; i < defaultOrder.length && pos < 0; i++) {
+      const at = next.indexOf(defaultOrder[i]);
+      if (at >= 0) pos = at;
+    }
+    next.splice(pos < 0 ? next.length : pos, 0, key);
+  }
+  return next;
+}
+
 export function useColumnOrder<K extends string>(
   storageKey: string,
   defaultOrder: readonly K[],
@@ -23,11 +62,7 @@ export function useColumnOrder<K extends string>(
       if (!raw) return;
       const parsed = JSON.parse(raw) as unknown;
       if (!Array.isArray(parsed)) return;
-      const filtered = parsed.filter((k): k is K =>
-        defaultOrder.includes(k as K),
-      );
-      const missing = defaultOrder.filter((k) => !filtered.includes(k));
-      setColOrder([...filtered, ...missing]);
+      setColOrder(mergeStoredColumnOrder(parsed, defaultOrder));
     } catch {
       // corrupt storage — keep the default order
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -92,7 +92,7 @@ export function CashAdvanceApprovalStepDialog({
   const editing = Boolean(step);
 
   const form = useForm<StepFormValues>({
-    resolver: standardSchemaResolver(stepSchema),
+    resolver: zodResolver(stepSchema),
     defaultValues: {
       name: "",
       description: "",

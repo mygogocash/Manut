@@ -1,6 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
+import dayjs from "dayjs";
 import {
   Download,
   ExternalLink,
@@ -195,16 +195,17 @@ export function ApplicationsManagement({
       render: (a: Application) => (
         <div>
           <p className="text-[12.5px]">
-            {format(new Date(a.createdAt), "MMM d, yyyy")}
+            {dayjs(a.createdAt).format("MMM D, YYYY")}
           </p>
           <p className="text-muted-foreground text-[11px]">
-            {format(new Date(a.createdAt), "h:mm a")}
+            {dayjs(a.createdAt).format("h:mm A")}
           </p>
         </div>
       ),
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-[140px] text-right",
       render: (a: Application) => (

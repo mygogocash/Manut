@@ -126,6 +126,7 @@ export function ActivityTable({
                 label="Expense"
                 value={row.breakdown.expenseEvents30d}
               />
+              <MiniStat label="Aria" value={row.breakdown.ariaEvents30d} />
             </div>
           ),
         },

@@ -1,4 +1,4 @@
-import type { InputJsonValue } from "@manut/database";
+import type { InputJsonValue } from "@nexora/database";
 
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
@@ -9,8 +9,7 @@ import {
 import { prisma } from "@/infrastructure/database/prisma";
 import {
   createSignedUrl,
-  requireRegisteredStorageUrl,
-  STORAGE_BUCKETS,
+  parseStorageUrl,
 } from "@/infrastructure/storage/supabase-storage";
 import {
   actorFromId,
@@ -353,7 +352,7 @@ export class HrmsService {
   }
 
   /**
-   * Bulk-import ESOP grants from the equity-grant import template.
+   * Bulk-import ESOP grants from HR's Equity Summary Report template.
    * Each parsed row may yield multiple grants (one per non-empty grant
    * column). Employees are matched case-insensitively against `User.name`.
    *
@@ -883,13 +882,6 @@ export class HrmsService {
   }
 
   async createAgreement(input: CreateAgreementInput, uploadedById: string) {
-    await requireRegisteredStorageUrl(input.fileUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "employee-agreement",
-      uploadedBy: uploadedById,
-      linkedTo: "employee",
-      linkedId: input.employeeId,
-    });
     const created = await hrmsRepository.createAgreement({
       employeeId: input.employeeId,
       type: input.type,
@@ -920,22 +912,9 @@ export class HrmsService {
     return created;
   }
 
-  async updateAgreement(
-    id: string,
-    input: UpdateAgreementInput,
-    actorId: string,
-  ) {
+  async updateAgreement(id: string, input: UpdateAgreementInput) {
     const existing = await hrmsRepository.findAgreementById(id);
     if (!existing) throw new NotFoundException("Agreement not found");
-    if (input.fileUrl !== undefined) {
-      await requireRegisteredStorageUrl(input.fileUrl, {
-        allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-        purpose: "employee-agreement",
-        uploadedBy: actorId,
-        linkedTo: "employee",
-        linkedId: existing.employeeId,
-      });
-    }
 
     return hrmsRepository.updateAgreement(id, {
       ...(input.type !== undefined && { type: input.type }),
@@ -984,12 +963,12 @@ export class HrmsService {
     actorPermissions: string[],
   ) {
     const agreement = await this.getAgreement(id, actorId, actorPermissions);
-    const parsed = await requireRegisteredStorageUrl(agreement.fileUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "employee-agreement",
-      linkedTo: "employee",
-      linkedId: agreement.employeeId,
-    });
+    const parsed = parseStorageUrl(agreement.fileUrl);
+    if (!parsed) {
+      throw new BadRequestException(
+        "Agreement file URL is not a Supabase storage URL",
+      );
+    }
     const url = await createSignedUrl(parsed.bucket, parsed.path, 300);
 
     try {

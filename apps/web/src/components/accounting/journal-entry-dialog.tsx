@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -42,8 +42,8 @@ import type { Entity } from "@/services/entity.service";
 
 const lineSchema = z.object({
   accountId: z.string().min(1, "Account is required"),
-  debit: z.coerce.number<number | string>().min(0),
-  credit: z.coerce.number<number | string>().min(0),
+  debit: z.coerce.number().min(0),
+  credit: z.coerce.number().min(0),
   memo: z.string().max(500).optional(),
 });
 
@@ -68,8 +68,7 @@ const schema = z
     path: ["lines"],
   });
 
-type FormInput = z.input<typeof schema>;
-type FormValues = z.output<typeof schema>;
+type FormValues = z.infer<typeof schema>;
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -92,8 +91,8 @@ export function JournalEntryDialog({
 }: JournalEntryDialogProps) {
   const [submitting, setSubmitting] = useState(false);
 
-  const form = useForm<FormInput, unknown, FormValues>({
-    resolver: standardSchemaResolver(schema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
     defaultValues: {
       entityId: "",
       date: todayISO(),

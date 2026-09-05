@@ -8,6 +8,25 @@ import {
 } from "@/common/exceptions/http-exception";
 import { leadRepository } from "@/modules/leads/leads.repository";
 import { LeadService } from "@/modules/leads/leads.service";
+import {
+  ensureBusinessUnitRows,
+  recomputeOpportunityRollup,
+} from "@/modules/opportunities/opportunity-business-units.repository";
+
+// The converted deal's per-unit child rows are seeded inside the same
+// transaction. Stubbed so these tests need no database; the seeding call
+// itself is asserted in the business-units case below.
+vi.mock(
+  "@/modules/opportunities/opportunity-business-units.repository",
+  () => ({
+    ensureBusinessUnitRows: vi.fn(async () => ({
+      mode: "seeded",
+      added: [],
+      removed: [],
+    })),
+    recomputeOpportunityRollup: vi.fn(async () => {}),
+  }),
+);
 
 vi.mock("@/modules/leads/leads.repository", () => ({
   leadRepository: {
@@ -70,6 +89,7 @@ const baseLead = {
   title: null,
   source: "web",
   status: "qualified",
+  businessUnits: [] as string[],
   ownerId: USER_ID,
   notes: null,
   convertedOpportunityId: null,
@@ -113,6 +133,9 @@ function resetTxState() {
   });
   txState.crmActivity.updateMany.mockResolvedValue({ count: 0 });
 }
+
+const ensureRows = ensureBusinessUnitRows as Mock;
+const recomputeRollup = recomputeOpportunityRollup as Mock;
 
 describe("LeadService.convert", () => {
   let service: LeadService;
@@ -178,7 +201,7 @@ describe("LeadService.convert", () => {
     });
   });
 
-  it("hard-rejects when newAccount.domain already exists", async () => {
+  it("hard-rejects when newAccount.domain already exists (§11.2)", async () => {
     findLeadById.mockResolvedValue(baseLead);
     txState.account.findUnique.mockResolvedValue({ id: "existing-acc" });
 
@@ -191,7 +214,7 @@ describe("LeadService.convert", () => {
     expect(txState.account.create).not.toHaveBeenCalled();
   });
 
-  it("returns 409 candidate on case-insensitive name match without confirmCreate", async () => {
+  it("returns 409 candidate on case-insensitive name match without confirmCreate (§11.2)", async () => {
     findLeadById.mockResolvedValue(baseLead);
     txState.account.findFirst.mockResolvedValue({
       id: "existing-acc",
@@ -280,7 +303,7 @@ describe("LeadService.convert", () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it("rejects ownerId override without crm:reassign", async () => {
+  it("§11.1 — rejects ownerId override without crm:reassign", async () => {
     findLeadById.mockResolvedValue(baseLead);
 
     await expect(
@@ -291,7 +314,7 @@ describe("LeadService.convert", () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it("applies ownerId override when caller has crm:reassign", async () => {
+  it("§11.1 — applies ownerId override when caller has crm:reassign", async () => {
     findLeadById.mockResolvedValue(baseLead);
 
     await service.convert("lead-1", USER_ID, ["crm:update", "crm:reassign"], {
@@ -364,6 +387,92 @@ describe("LeadService.convert", () => {
     expect(txState.contact.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ isPrimary: false }),
+      }),
+    );
+  });
+
+  // Regression: the tag used to be dropped here, so a lead somebody was
+  // looking after converted into an "Unassigned" opportunity.
+  it("carries the lead's business units onto the new opportunity", async () => {
+    findLeadById.mockResolvedValue({
+      ...baseLead,
+      businessUnits: ["onewave", "aria"],
+    });
+
+    await service.convert("lead-1", USER_ID, ["crm:update"], {
+      opportunity: opportunityBody,
+    });
+
+    expect(txState.opportunity.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          businessUnits: ["onewave", "aria"],
+        }),
+      }),
+    );
+  });
+
+  // The tags alone are not enough: this path creates the deal with
+  // tx.opportunity.create, bypassing OpportunityService entirely, so it
+  // never went through the write-path wiring. A converted deal used to
+  // carry chips on its card and no child rows at all, reading as untagged
+  // on the per-unit board until the next backfill.
+  it("seeds the new deal's per-unit rows inside the same transaction", async () => {
+    findLeadById.mockResolvedValue({
+      ...baseLead,
+      businessUnits: ["onewave", "aria"],
+    });
+
+    await service.convert("lead-1", USER_ID, ["crm:update"], {
+      opportunity: opportunityBody,
+    });
+
+    expect(ensureRows).toHaveBeenCalledWith(
+      expect.any(String),
+      ["onewave", "aria"],
+      // The tx client, so the rows commit or roll back with the deal.
+      expect.anything(),
+    );
+    expect(recomputeRollup).toHaveBeenCalled();
+  });
+
+  it("gives a synthesised account the lead's business units", async () => {
+    findLeadById.mockResolvedValue({
+      ...baseLead,
+      businessUnits: ["onewave"],
+    });
+
+    await service.convert("lead-1", USER_ID, ["crm:update"], {
+      opportunity: opportunityBody,
+    });
+
+    expect(txState.account.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ businessUnits: ["onewave"] }),
+      }),
+    );
+  });
+
+  it("leaves an EXISTING account's business units alone", async () => {
+    findLeadById.mockResolvedValue({
+      ...baseLead,
+      businessUnits: ["onewave"],
+    });
+    txState.account.findUnique.mockResolvedValue({
+      id: "acc-existing",
+      ownerId: USER_ID,
+    });
+
+    await service.convert("lead-1", USER_ID, ["crm:update"], {
+      accountId: "acc-existing",
+      opportunity: opportunityBody,
+    });
+
+    // Attaching, not creating — the account's own tags are its own.
+    expect(txState.account.create).not.toHaveBeenCalled();
+    expect(txState.opportunity.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ businessUnits: ["onewave"] }),
       }),
     );
   });

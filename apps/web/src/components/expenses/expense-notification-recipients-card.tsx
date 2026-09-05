@@ -192,7 +192,7 @@ export function ExpenseNotificationRecipientsCard({
         <div className="flex gap-2">
           <Input
             type="email"
-            placeholder={placeholder ?? "name@manut.example"}
+            placeholder={placeholder ?? "name@thebinaryholdings.com"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

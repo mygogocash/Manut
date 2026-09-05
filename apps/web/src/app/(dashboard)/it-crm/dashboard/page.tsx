@@ -40,6 +40,7 @@ import {
 import { toast } from "sonner";
 
 import { StatCard } from "@/components/dashboard/stat-card";
+import { ItWorkspaceTabs } from "@/components/it/it-workspace-tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -338,7 +339,7 @@ function buildHtmlReport(
 <body>
 <header>
   <h1>IT CRM Intelligence Report</h1>
-  <div class="subtitle">Generated ${escapeHtml(stamp)} · intranet.manut.example</div>
+  <div class="subtitle">Generated ${escapeHtml(stamp)} · intranet.thebinaryholdings.com</div>
 </header>
 
 <div class="kpis">
@@ -559,7 +560,7 @@ function buildHtmlReport(
   }</tbody></table>
 </section>
 
-<footer>Manut · Internal use only · Generated from the live IT CRM workspace.</footer>
+<footer>The Binary Holdings · Internal use only · Generated from the live IT CRM workspace.</footer>
 </body>
 </html>`;
 }
@@ -618,10 +619,11 @@ function ReportHeader({
             {asOf}
           </div>
         </div>
+        {/*
+          "Back to list" lived here until the workspace strip above carried a
+          Projects tab pointing at the same route.
+        */}
         <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/it-crm">Back to list</Link>
-          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -938,12 +940,26 @@ export default function ItCrmDashboardPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/*
+        Heading first, then the strip — the same order as the other four
+        surfaces. ReportHeader is this page's heading block (serif title,
+        subtitle, 2px rule) and stands in for the PageHeader those pages use.
+        The strip sat above it until this read as the one inconsistent surface
+        in the workspace.
+      */}
       <ReportHeader
         total={snapshot?.total ?? 0}
         asOf={asOf}
         onExport={handleExportHtml}
         disabled={loading || !snapshot}
       />
+
+      {/*
+        mb-0 because this page's column already supplies a gap-5; the strip's
+        own mb-6 would stack on top of it and space this surface 44px where
+        the others use 24px.
+      */}
+      <ItWorkspaceTabs className="mb-0" />
 
       {/* Report scope — McKinsey reports state their parameters rather than
           hide them behind controls; the analytic windows are fixed. */}

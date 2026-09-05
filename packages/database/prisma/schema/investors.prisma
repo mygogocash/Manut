@@ -1,52 +1,94 @@
 model Investor {
-  id              String    @id @default(cuid())
-  name            String
-  type            String
-  contactName     String?   @map("contact_name")
-  contactEmail    String?   @map("contact_email")
-  contactPhone    String?   @map("contact_phone")
-  website         String?
-  location        String?
-  notes           Json?
-  visibility      String    @default("team")
+  id           String   @id @default(cuid())
+  name         String
+  type         String
+  contactName  String?  @map("contact_name")
+  contactEmail String?  @map("contact_email")
+  contactPhone String?  @map("contact_phone")
+  website      String?
+  location     String?
+  notes        Json?
+  visibility   String   @default("team")
   // Pipeline stage key — references InvestorPipelineStage.key (no FK so
   // stages stay freely editable). Default is the leftmost intake stage.
-  status          String    @default("investors")
-  // Pipeline-tracking fields aligned with the investor import/export
-  // column set. `title` is the key
+  status       String   @default("investors")
+  // BD-feedback (2026-05-28) — pipeline-tracking fields aligned with
+  // the "TBH Pipeline Master" xlsx so the team can import / export
+  // the same column set they already work in. `title` is the key
   // contact's title; `linkedinUrl` accepts either a profile or
   // company URL; `revenueStream` / `nextAction` / `crossSell` /
   // `region` are free-text. `actInvestment` (actual) + `estInvestment`
-  // (estimate) replace the original single `estCommission` field;
-  // both are text because imports can contain
+  // (estimate) replaced the original single `estCommission` field
+  // in the 2026-05-28 round; both are text because the xlsx ships
   // "TBD" / "—" / amount strings interchangeably. `notesText` is
   // the long-form pipeline note (the legacy JSON `notes` column
   // stays for structured back-compat).
-  title           String?
-  linkedinUrl     String?   @map("linkedin_url")
-  revenueStream   String?   @map("revenue_stream")
+  title          String?
+  linkedinUrl    String?  @map("linkedin_url")
+  revenueStream  String?  @map("revenue_stream")
   lastContactDate DateTime? @map("last_contact_date") @db.Date
-  nextAction      String?   @map("next_action")
-  actInvestment   String?   @map("act_investment")
-  estInvestment   String?   @map("est_investment")
-  crossSell       String?   @map("cross_sell")
-  region          String?
-  notesText       String?   @map("notes_text")
+  nextAction     String?  @map("next_action")
+  actInvestment  String?  @map("act_investment")
+  estInvestment  String?  @map("est_investment")
+  crossSell      String?  @map("cross_sell")
+  region         String?
+  notesText      String?  @map("notes_text")
   // Manual ordering for the Investor Dashboard grid. Lower values
   // render first; ties fall back to `createdAt desc` so fresh
   // inserts surface above older zeros. Mirrors the legal_projects +
   // crm_accounts sortOrder pattern.
-  sortOrder       Int       @default(0) @map("sort_order")
-  addedBy         String    @map("added_by") @db.Uuid
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  sortOrder      Int      @default(0) @map("sort_order")
+  addedBy      String   @map("added_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  // Open key (no FK) so catalog rows stay deletable/renamable.
+  fundraisingEntity String @default("tbh") @map("fundraising_entity")
 
   adder       User               @relation(fields: [addedBy], references: [id], onDelete: Cascade)
   investments Investment[]
   tasks       InvestorTask[]
   activities  InvestorActivity[]
 
+  archivedAt  DateTime? @map("archived_at")
+
+  // Free-form searchable labels, e.g. "seed-checks" for a batch imported
+  // from an outreach list. Codes are open strings with NO FK to
+  // InvestorTag, so the catalog stays freely editable and renaming a tag
+  // never has to touch investor rows. Queried with `{ tags: { has: code } }`
+  // and backed by a GIN index (added in the migration — Prisma cannot
+  // express one) because the whole point of tagging is finding a batch once
+  // the list runs to thousands.
+  tags        String[] @default([])
+
+  @@index([archivedAt])
+  @@index([fundraisingEntity])
   @@map("investors")
+}
+
+/**
+ * Admin-editable investor tags.
+ *
+ * Same shape as CrmBusinessUnit — code/label/color/isSystem/isActive/
+ * sortOrder, no FK from the rows that reference it. `color` holds a shared
+ * Badge variant NAME (green | amber | red | gold | blue | grey | purple |
+ * teal | violet), never a Tailwind class, so chips resolve through Badge's
+ * literal VARIANT_STYLES map and survive Tailwind's static scan.
+ */
+model InvestorTag {
+  id        String   @id @default(cuid())
+  // Stable machine code stored inside `investors.tags` (e.g. "seed-checks").
+  // Lowercase, dash-separated, validated at the API edge.
+  code      String   @unique
+  label     String
+  color     String   @default("grey")
+  isSystem  Boolean  @default(false) @map("is_system")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(100) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sortOrder])
+  @@map("investor_tags")
 }
 
 // Investor-scoped to-do. Mirrors CrmTask but anchored to a single
@@ -106,6 +148,18 @@ model InvestorTypeOption {
   @@map("investor_type_options")
 }
 
+// Catalog of fundraising vehicles. Stored as an open key on CRM rows.
+model FundraisingEntity {
+  key       String   @id
+  label     String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sortOrder])
+  @@map("fundraising_entities")
+}
+
 // Investor CRM "Leads" tab — a raw fundraising prospect not yet promoted
 // to a tracked Investor. status: new | qualified | converted | disqualified.
 model InvestorLead {
@@ -120,10 +174,15 @@ model InvestorLead {
   ownerId   String   @map("owner_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+
+  fundraisingEntity String @default("tbh") @map("fundraising_entity")
 
   owner User @relation("InvestorLeadOwner", fields: [ownerId], references: [id])
 
   @@index([ownerId, status])
+  @@index([archivedAt])
+  @@index([fundraisingEntity])
   @@map("investor_leads")
 }
 
@@ -139,11 +198,16 @@ model InvestorAccount {
   ownerId   String   @map("owner_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+
+  fundraisingEntity String @default("tbh") @map("fundraising_entity")
 
   owner    User              @relation("InvestorAccountOwner", fields: [ownerId], references: [id])
   contacts InvestorContact[]
 
   @@index([ownerId])
+  @@index([archivedAt])
+  @@index([fundraisingEntity])
   @@map("investor_accounts")
 }
 
@@ -159,12 +223,17 @@ model InvestorContact {
   ownerId   String   @map("owner_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
+
+  fundraisingEntity String @default("tbh") @map("fundraising_entity")
 
   owner   User             @relation("InvestorContactOwner", fields: [ownerId], references: [id])
   account InvestorAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   @@index([ownerId])
   @@index([accountId])
+  @@index([archivedAt])
+  @@index([fundraisingEntity])
   @@map("investor_contacts")
 }
 

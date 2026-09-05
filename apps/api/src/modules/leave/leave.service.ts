@@ -1,3 +1,5 @@
+import type { Prisma } from "@nexora/database";
+
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
   BadRequestException,
@@ -5,6 +7,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
+import { logger } from "@/common/utils/logger";
 import { prisma } from "@/infrastructure/database/prisma";
 import { sendEmail } from "@/infrastructure/email/email.service";
 import {
@@ -46,6 +49,45 @@ import type {
   UpsertLeaveBalanceInput,
 } from "@/modules/leave/leave.validation";
 
+/** Prisma raises P2025 when an update/delete matches no row. */
+function isRecordNotFound(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === "P2025"
+  );
+}
+
+/**
+ * Compare-and-swap on a still-pending leave request. Prisma lets a
+ * unique `id` be combined with a plain filter in `where`, so the update
+ * lands only while the row is `pending`. approveRequest's pre-flight
+ * status check reads the row outside the transaction, so on a
+ * double-submit both callers can pass it — only one can win here. The
+ * loser matches nothing, Prisma raises P2025, and we surface a 409
+ * rather than letting it apply a second balance mutation.
+ */
+async function claimPendingRequest(
+  tx: Prisma.TransactionClient,
+  requestId: string,
+  data: Prisma.LeaveRequestUncheckedUpdateInput,
+) {
+  try {
+    return await tx.leaveRequest.update({
+      where: { id: requestId, status: "pending" },
+      data,
+    });
+  } catch (err) {
+    if (isRecordNotFound(err)) {
+      throw new ConflictException(
+        "This leave request was already actioned by someone else",
+      );
+    }
+    throw err;
+  }
+}
+
 const LEAVE_NOTIFICATION_KEY = "leave.notification_recipients";
 
 async function loadLeaveNotificationRecipients(): Promise<string[]> {
@@ -77,6 +119,33 @@ function countBusinessDays(start: Date, end: Date): number {
     current.setDate(current.getDate() + 1);
   }
   return count;
+}
+
+// Does an approval step apply to this request? Shared by the per-policy
+// (LeavePolicyApprover) and org-wide (LeaveApprovalStep) snapshot paths.
+// Submitter gating mirrors the original global-chain filter; the day band
+// (minDays/maxDays, inclusive, null = unbounded) is per-policy only —
+// global steps carry no band, so those checks no-op for them.
+function stepApplies(
+  step: {
+    skipWhenSubmitterIds?: unknown;
+    onlyWhenSubmitterIds?: unknown;
+    minDays?: number | null;
+    maxDays?: number | null;
+  },
+  ctx: { submitterId: string; days: number },
+): boolean {
+  const skip = Array.isArray(step.skipWhenSubmitterIds)
+    ? (step.skipWhenSubmitterIds as string[])
+    : [];
+  if (skip.includes(ctx.submitterId)) return false;
+  const only = Array.isArray(step.onlyWhenSubmitterIds)
+    ? (step.onlyWhenSubmitterIds as string[])
+    : [];
+  if (only.length > 0 && !only.includes(ctx.submitterId)) return false;
+  if (step.minDays != null && ctx.days < step.minDays) return false;
+  if (step.maxDays != null && ctx.days > step.maxDays) return false;
+  return true;
 }
 
 export class LeaveService {
@@ -226,6 +295,10 @@ export class LeaveService {
       order: idx + 1,
       approverType: a.approverType,
       approverUserId: a.approverType === "user" ? a.approverUserId : null,
+      skipWhenSubmitterIds: a.skipWhenSubmitterIds ?? [],
+      onlyWhenSubmitterIds: a.onlyWhenSubmitterIds ?? [],
+      minDays: a.minDays ?? null,
+      maxDays: a.maxDays ?? null,
     }));
 
     return leaveRepository.replaceApprovers(leaveTypeId, rows);
@@ -287,12 +360,7 @@ export class LeaveService {
         : Math.max(0, carried - carriedUsed);
       return {
         id: b.id,
-        leaveType: {
-          id: b.leaveType.id,
-          name: b.leaveType.name,
-          code: b.leaveType.code,
-          category: b.leaveType.category,
-        },
+        leaveType: b.leaveType,
         year: b.year,
         entitled,
         used,
@@ -587,14 +655,6 @@ export class LeaveService {
     if (!targetUser.isActive) {
       throw new BadRequestException("Employee account is not active");
     }
-    if (
-      leaveType.entityId != null &&
-      leaveType.entityId !== targetUser.entityId
-    ) {
-      throw new BadRequestException(
-        "Leave type does not apply to this employee's entity",
-      );
-    }
 
     if (forOtherEmployee) {
       const actor = await leaveRepository.findUserById(actorId);
@@ -614,8 +674,8 @@ export class LeaveService {
       year,
     );
 
-    if (input.source === "carried") {
-      if (balance) {
+    if (balance) {
+      if (input.source === "carried") {
         const carried = Number(balance.carried);
         const carriedUsed = Number(balance.carriedUsed);
         const expiry = balance.carriedExpiry
@@ -634,25 +694,20 @@ export class LeaveService {
           );
         }
       } else {
-        throw new BadRequestException(
-          "No carried balance available for this leave type — submit against the entitled bucket.",
-        );
-      }
-    } else {
-      // A missing row is the persisted counterpart of the synthesized
-      // balance shown by the read API. Validate against the policy default;
-      // createRequest materializes that row in the same transaction as the
-      // request so later approval/refund always has a safe update target.
-      const available = balance
-        ? Number(balance.entitled) +
+        const available =
+          Number(balance.entitled) +
           Number(balance.adjustment) -
-          Number(balance.used)
-        : leaveType.daysPerYear;
-      if (days > available) {
-        throw new BadRequestException(
-          `Insufficient leave balance. Available: ${available} day(s), requested: ${days} day(s)`,
-        );
+          Number(balance.used);
+        if (days > available) {
+          throw new BadRequestException(
+            `Insufficient leave balance. Available: ${available} day(s), requested: ${days} day(s)`,
+          );
+        }
       }
+    } else if (input.source === "carried") {
+      throw new BadRequestException(
+        "No carried balance available for this leave type — submit against the entitled bucket.",
+      );
     }
 
     const overlap = await leaveRepository.checkOverlap(
@@ -666,8 +721,6 @@ export class LeaveService {
       );
     }
 
-    const requiresApproval = leaveType.requiresApproval !== false;
-    const approvalDescription = `Leave ${requiresApproval ? "approved" : "auto-approved"} (${input.source}): ${fmtDate(startDate)} – ${fmtDate(endDate)}`;
     const created = await leaveRepository.createRequest({
       employeeId,
       leaveTypeId: input.leaveTypeId,
@@ -680,26 +733,18 @@ export class LeaveService {
         durationType === "half_day" ? (input.halfDayPeriod ?? null) : null,
       reason: input.reason,
       source: input.source,
-      defaultEntitlement: leaveType.daysPerYear,
-      requiresApproval,
-      approvalDescription,
     });
 
-    if (requiresApproval) {
-      // Snapshot the org-wide approval chain so chain edits later cannot
-      // rewrite in-flight requests. Falls back to a single manager step
-      // when no chain is configured (legacy "your line manager approves"
-      // behaviour). Same pattern as travel / expense chains.
-      const initialized = await this.snapshotApprovalDecisions(
-        created.id,
-        employeeId,
-      );
-      if (!initialized) {
-        throw new ConflictException(
-          "Leave approval chain changed while the request was being submitted; refresh and try again",
-        );
-      }
-    }
+    // Snapshot the resolved approval chain (per-policy → global → manager)
+    // so later chain edits can't rewrite in-flight requests. Same pattern
+    // as travel / expense chains.
+    const decisionRows = await this.snapshotApprovalDecisions(
+      created.id,
+      employeeId,
+      input.leaveTypeId,
+      days,
+    );
+    await leaveRepository.updateRequestStepOrder(created.id, 1);
 
     try {
       const trackingActor = await actorFromId(actorId);
@@ -714,84 +759,36 @@ export class LeaveService {
       // analytics is best-effort
     }
 
-    const isWfh = leaveType.code === "WFH";
-
-    if (requiresApproval && isWfh) {
-      const wfhApprovers = await prisma.user.findMany({
-        where: {
-          isActive: true,
-          userRoles: {
-            some: {
-              role: {
-                rolePermissions: {
-                  some: {
-                    permissionCode: PERMISSIONS.LEAVE_APPROVE_WFH,
-                  },
-                },
-              },
-            },
-          },
-        },
-        select: { name: true, email: true },
-      });
-      for (const approver of wfhApprovers) {
-        const email = leaveSubmittedEmail({
-          approverName: approver.name,
-          employeeName: targetUser.name,
-          leaveType: leaveType.name,
-          startDate: fmtDate(startDate),
-          endDate: fmtDate(endDate),
-          reason: input.reason ?? "",
-          portalUrl: `${PORTAL_URL}/leave`,
-        });
-        void sendEmail({ to: approver.email, ...email });
-      }
-    } else if (requiresApproval && targetUser.reportingTo) {
-      const manager = await leaveRepository.findUserById(
-        targetUser.reportingTo,
-      );
-      if (manager?.email) {
-        const email = leaveSubmittedEmail({
-          approverName: manager.name,
-          employeeName: targetUser.name,
-          leaveType: leaveType.name,
-          startDate: fmtDate(startDate),
-          endDate: fmtDate(endDate),
-          reason: input.reason ?? "",
-          portalUrl: `${PORTAL_URL}/leave`,
-        });
-        void sendEmail({ to: manager.email, ...email });
-      }
-    }
+    // Leave-submit heads-up goes to the resolved first approver of the
+    // snapshotted chain: a specific-user first step emails that user; a
+    // manager step emails the submitter's line manager. WFH is routed like
+    // any other leave type (its legacy executive-line fan-out was removed).
+    await this.notifyFirstApprover(decisionRows[0], targetUser, {
+      leaveTypeName: leaveType.name,
+      startDate,
+      endDate,
+      reason: input.reason ?? "",
+    });
 
     // Submitter confirmation — they should know the request landed
     // and who's been looped in, not just hear back when it's
     // approved / rejected days later.
     if (targetUser.email) {
-      const email = requiresApproval
-        ? leaveSubmittedConfirmationEmail({
-            employeeName: targetUser.name,
-            leaveType: leaveType.name,
-            startDate: fmtDate(startDate),
-            endDate: fmtDate(endDate),
-            days,
-            reason: input.reason ?? null,
-            portalUrl: `${PORTAL_URL}/leave`,
-          })
-        : leaveApprovedEmail({
-            employeeName: targetUser.name,
-            leaveType: leaveType.name,
-            startDate: fmtDate(startDate),
-            endDate: fmtDate(endDate),
-            approverName: "Automatic policy approval",
-            portalUrl: `${PORTAL_URL}/leave`,
-          });
+      const email = leaveSubmittedConfirmationEmail({
+        employeeName: targetUser.name,
+        leaveType: leaveType.name,
+        startDate: fmtDate(startDate),
+        endDate: fmtDate(endDate),
+        days,
+        reason: input.reason ?? null,
+        portalUrl: `${PORTAL_URL}/leave`,
+      });
       void sendEmail({ to: targetUser.email, ...email });
     }
 
     // HR-desk fan-out on submit. The same admin-managed recipients
     // that get the approved-summary email now also get a "submitted"
-    // FYI so configured HR recipients are looped in before approval, not
+    // FYI so HR (Sara, Pat, …) are looped in before approval, not
     // only after. Wrapped in try/catch so a mail-server hiccup
     // doesn't blow up the submission itself.
     try {
@@ -827,33 +824,57 @@ export class LeaveService {
     return created;
   }
 
-  // Build the per-request chain snapshot. Mirrors the travel- and
-  // expense-chain helpers — filter active steps by submitter conditions,
-  // snapshot them into `leave_approval_decisions`. Falls back to a single
-  // "manager" step when no chain is configured.
+  // Build the per-request chain snapshot. Resolution precedence:
+  //   1. the leave type's own approver chain (LeavePolicyApprover), if any;
+  //   2. else the org-wide default chain (LeaveApprovalStep);
+  //   3. else a single "manager" step.
+  // Steps are filtered by `stepApplies` (submitter gating + day band). A
+  // per-policy chain whose rows all filter out for this submitter/day-count
+  // falls back to the single manager step (NOT the global chain) — a
+  // configured per-policy chain fully overrides the org default.
   private async snapshotApprovalDecisions(
     requestId: string,
     submitterId: string,
+    leaveTypeId: string,
+    days: number,
   ) {
-    const allSteps = await leaveRepository.findApprovalSteps({
-      activeOnly: true,
-    });
-    const applicableSteps = allSteps.filter((s) => {
-      const skip = Array.isArray(s.skipWhenSubmitterIds)
-        ? (s.skipWhenSubmitterIds as string[])
-        : [];
-      if (skip.includes(submitterId)) return false;
-      const only = Array.isArray(s.onlyWhenSubmitterIds)
-        ? (s.onlyWhenSubmitterIds as string[])
-        : [];
-      if (only.length > 0 && !only.includes(submitterId)) return false;
-      return true;
-    });
+    const ctx = { submitterId, days };
+
+    const policySteps = await leaveRepository.findApprovers(leaveTypeId);
+    let applicableSteps: Array<{
+      name?: string;
+      approverType: string;
+      approverUserId: string | null;
+    }>;
+
+    if (policySteps.length > 0) {
+      applicableSteps = policySteps
+        .filter((s) => stepApplies(s, ctx))
+        .map((s, idx) => ({
+          name: `Step ${idx + 1} — ${
+            s.approverType === "manager" ? "Manager" : "Approver"
+          }`,
+          approverType: s.approverType,
+          approverUserId: s.approverUserId,
+        }));
+    } else {
+      const globalSteps = await leaveRepository.findApprovalSteps({
+        activeOnly: true,
+      });
+      applicableSteps = globalSteps
+        .filter((s) => stepApplies(s, ctx))
+        .map((s) => ({
+          name: s.name,
+          approverType: s.approverType,
+          approverUserId: s.approverUserId,
+        }));
+    }
+
     const decisionRows =
       applicableSteps.length > 0
         ? applicableSteps.map((s, idx) => ({
             order: idx + 1,
-            name: s.name,
+            name: s.name ?? `Step ${idx + 1}`,
             approverType: s.approverType,
             approverUserId: s.approverType === "user" ? s.approverUserId : null,
           }))
@@ -865,10 +886,56 @@ export class LeaveService {
               approverUserId: null,
             },
           ];
-    return leaveRepository.initializeApprovalChainAtomically(
-      requestId,
-      decisionRows,
-    );
+    await leaveRepository.deleteDecisionsForRequest(requestId);
+    await leaveRepository.createDecisions(requestId, decisionRows);
+    return decisionRows;
+  }
+
+  // Email the resolved approver of the first (pending) decision step on
+  // submit. `user` → that specific user; `manager` → the submitter's
+  // reportingTo. Logs and no-ops when no approver can be resolved (e.g. a
+  // manager step for a submitter with no reportingTo) so the gap is
+  // observable rather than silent.
+  private async notifyFirstApprover(
+    first: { approverType: string; approverUserId: string | null } | undefined,
+    submitter: { name: string; reportingTo: string | null },
+    details: {
+      leaveTypeName: string;
+      startDate: Date;
+      endDate: Date;
+      reason: string;
+    },
+  ) {
+    if (!first) return;
+    let approverEmail: string | null | undefined;
+    let approverName: string | undefined;
+    if (first.approverType === "user" && first.approverUserId) {
+      const approver = await leaveRepository.findUserById(first.approverUserId);
+      approverEmail = approver?.email;
+      approverName = approver?.name;
+    } else if (first.approverType === "manager" && submitter.reportingTo) {
+      const manager = await leaveRepository.findUserById(submitter.reportingTo);
+      approverEmail = manager?.email;
+      approverName = manager?.name;
+    }
+    if (!approverEmail) {
+      logger.warn("leave submit: no resolvable first approver to notify", {
+        approverType: first.approverType,
+        approverUserId: first.approverUserId,
+        submitterReportingTo: submitter.reportingTo,
+      });
+      return;
+    }
+    const email = leaveSubmittedEmail({
+      approverName: approverName ?? "Approver",
+      employeeName: submitter.name,
+      leaveType: details.leaveTypeName,
+      startDate: fmtDate(details.startDate),
+      endDate: fmtDate(details.endDate),
+      reason: details.reason,
+      portalUrl: `${PORTAL_URL}/leave`,
+    });
+    void sendEmail({ to: approverEmail, ...email });
   }
 
   // ── Approval chain admin ────────────────────────────────
@@ -1141,11 +1208,81 @@ export class LeaveService {
       year,
       leaveTypeId,
     );
+    // `amount` is Decimal — Prisma serialises those as strings over JSON,
+    // so normalise to a number the way the balance endpoints do.
     return {
-      data: transactions.map((transaction) => ({
-        ...transaction,
-        amount: Number(transaction.amount),
-      })),
+      data: transactions.map((t) => ({ ...t, amount: Number(t.amount) })),
+    };
+  }
+
+  /**
+   * Balances whose stored `used` counter disagrees with the sum of the
+   * employee's visible approved requests.
+   *
+   * `LeaveBalance.used` is a stored counter with three independent
+   * writers (approval, refund, HR manual/bulk overwrite) and nothing
+   * recomputes it, so it can drift from the request list silently — the
+   * employee sees one number on the balance card and a different total
+   * in "My requests", and the first anyone hears of it is a complaint.
+   * This is the read model that surfaces it instead.
+   *
+   * Each row carries the likely cause alongside the delta:
+   * - `deletedApprovedDays` — days sitting on soft-deleted approved
+   *   requests. Before #1118 those were never refunded, so they are the
+   *   classic source of a card reading high.
+   * - `undeductedApprovedDays` — visible approved days NOT flagged
+   *   `balanceDeducted`, i.e. the opposite error: approved but never
+   *   charged.
+   * - `ledgerRowCount` — how many times HR wrote to this balance by
+   *   hand or by xlsx import. Zero means no human touched it, so the
+   *   drift is code-caused and safe to correct mechanically. Non-zero
+   *   means ask HR before touching it.
+   *
+   * `ledgerDelta` is reported but deliberately NOT subtracted from the
+   * drift: `manual_adjustment` rows written before #1118 recorded the
+   * change to `entitled`, not to `used`, so summing across the boundary
+   * mixes two meanings. Treat the count as the signal and the delta as
+   * indicative.
+   */
+  async getBalanceDrift(year?: number) {
+    const scopedYear = year ?? null;
+    const [rows, scanned] = await Promise.all([
+      leaveRepository.findBalanceDrift(scopedYear),
+      leaveRepository.countBalances(scopedYear),
+    ]);
+
+    const data = rows.map((r) => ({
+      balanceId: r.balance_id,
+      employee: {
+        id: r.employee_id,
+        name: r.employee_name,
+        email: r.employee_email,
+      },
+      leaveType: { id: r.leave_type_id, name: r.leave_type_name },
+      year: r.year,
+      entitled: r.entitled,
+      used: r.used,
+      carriedUsed: r.carried_used,
+      approvedDays: r.approved_days,
+      approvedCarriedDays: r.approved_carried_days,
+      drift: r.drift,
+      carriedDrift: r.carried_drift,
+      deletedApprovedDays: r.deleted_approved_days,
+      undeductedApprovedDays: r.undeducted_approved_days,
+      ledgerRowCount: r.ledger_row_count,
+      ledgerDelta: r.ledger_delta,
+    }));
+
+    return {
+      data,
+      meta: {
+        year: scopedYear,
+        scanned,
+        drifted: data.length,
+        // Drift on a balance no human ever edited is code-caused, so it
+        // is the subset a mechanical repair can safely take.
+        untouchedByHr: data.filter((r) => r.ledgerRowCount === 0).length,
+      },
     };
   }
 
@@ -1307,54 +1444,95 @@ export class LeaveService {
     // Advance the chain. Lazy-snapshot for legacy rows that pre-date
     // the chain landing, so older requests still flow through.
     let decisions = await leaveRepository.findDecisions(requestId);
-    let expectedStepOrder = request.currentStepOrder;
     if (decisions.length === 0) {
-      const initialized = await this.snapshotApprovalDecisions(
+      await this.snapshotApprovalDecisions(
         requestId,
         request.employeeId,
+        request.leaveTypeId,
+        Number(request.days),
       );
-      if (!initialized) {
-        throw new ConflictException(
-          "Leave request changed while its approval chain was being initialized; refresh and try again",
-        );
-      }
+      await leaveRepository.updateRequestStepOrder(requestId, 1);
       decisions = await leaveRepository.findDecisions(requestId);
-      expectedStepOrder = 1;
     }
-    const currentOrder = expectedStepOrder ?? decisions[0]?.order ?? 1;
+    const currentOrder = request.currentStepOrder ?? decisions[0]?.order ?? 1;
     const current = decisions.find((d) => d.order === currentOrder) ?? null;
 
     const remainingPending = decisions.filter(
       (d) => d.order > currentOrder && d.status === "pending",
     );
-    const nextPending = remainingPending[0] ?? null;
-    const isFinalStep = nextPending === null;
+    const isFinalStep = remainingPending.length === 0;
 
     const year = request.startDate.getFullYear();
     const days = Number(request.days);
     const source = (request.source === "carried" ? "carried" : "entitled") as
-      "entitled" | "carried";
+      | "entitled"
+      | "carried";
 
-    const result = await leaveRepository.approveRequestStep({
-      requestId,
-      approverId,
-      currentDecisionId:
-        current && current.status === "pending" ? current.id : null,
-      expectedStepOrder,
-      nextStepOrder: nextPending?.order ?? null,
-      employeeId: request.employeeId,
-      leaveTypeId: request.leaveTypeId,
-      year,
-      days,
-      source,
-      defaultEntitlement: request.leaveType.daysPerYear,
-      description: `Leave approved (${source}): ${fmtDate(request.startDate)} – ${fmtDate(request.endDate)}`,
+    const result = await prisma.$transaction(async (tx) => {
+      if (current && current.status === "pending") {
+        await tx.leaveApprovalDecision.update({
+          where: { id: current.id },
+          data: {
+            status: "approved",
+            decidedById: approverId,
+            decidedAt: new Date(),
+          },
+        });
+      }
+
+      if (isFinalStep) {
+        // `status: "pending"` in the where clause makes this a
+        // compare-and-swap: the pre-flight guard above read the row
+        // outside any transaction, so two concurrent approvals could
+        // both pass it. Only one can flip the row here; the loser
+        // matches nothing and Prisma raises P2025, which we translate
+        // to a 409 below. Without this the balance was decremented
+        // once per racing call.
+        const r = await claimPendingRequest(tx, requestId, {
+          status: "approved",
+          approvedBy: approverId,
+          approvedAt: new Date(),
+          currentStepOrder: null,
+          balanceDeducted: true,
+        });
+
+        // Mutate balance only after the *whole* chain approves so a
+        // mid-chain reject doesn't have to claw back balance. Bucket
+        // (`entitled` vs `carried`) comes from the request.source set
+        // at create time — main's #362 carried-bucket support. Both
+        // writes ride the same transaction as the status flip, so a
+        // failure here can no longer leave a request approved with its
+        // days never deducted.
+        await leaveRepository.updateBalance(
+          request.employeeId,
+          request.leaveTypeId,
+          year,
+          days,
+          source,
+          tx,
+        );
+
+        await leaveRepository.createBalanceTransaction(
+          {
+            employeeId: request.employeeId,
+            leaveTypeId: request.leaveTypeId,
+            year,
+            type: source === "carried" ? "used_carried" : "used",
+            amount: days,
+            description: `Leave approved (${source}): ${fmtDate(request.startDate)} – ${fmtDate(request.endDate)}`,
+            referenceId: requestId,
+          },
+          tx,
+        );
+
+        return r;
+      }
+
+      const r = await claimPendingRequest(tx, requestId, {
+        currentStepOrder: remainingPending[0]!.order,
+      });
+      return r;
     });
-    if (!result) {
-      throw new ConflictException(
-        "Leave request changed while it was being approved; refresh and try again",
-      );
-    }
 
     if (isFinalStep) {
       const approver = await leaveRepository.findUserById(approverId);
@@ -1403,12 +1581,12 @@ export class LeaveService {
       } catch {
         // best-effort
       }
-    } else if (nextPending) {
+    } else {
       // Mid-chain: notify the next approver if they're a specific user.
       // Manager-step routing has no single email to target without
       // re-resolving the submitter's reportingTo each time, so we keep
       // it simple and skip the courtesy mail for that case.
-      const next = nextPending;
+      const next = remainingPending[0]!;
       if (next.approverType === "user" && next.approverUserId) {
         const nextUser = await leaveRepository.findUserById(
           next.approverUserId,
@@ -1460,39 +1638,37 @@ export class LeaveService {
 
     await this.assertCanApproveOrReject(request, approverId, userPermissions);
 
-    // Resolve the current snapshot decision, then let the repository guard
-    // and commit both the request transition and decision audit together.
-    // Lazy-snapshot for legacy rows.
+    // Mark the current snapshot decision rejected (audit trail) before
+    // flipping the request itself. Lazy-snapshot for legacy rows.
     let decisions = await leaveRepository.findDecisions(requestId);
-    let expectedStepOrder = request.currentStepOrder;
     if (decisions.length === 0) {
-      const initialized = await this.snapshotApprovalDecisions(
+      await this.snapshotApprovalDecisions(
         requestId,
         request.employeeId,
+        request.leaveTypeId,
+        Number(request.days),
       );
-      if (!initialized) {
-        throw new ConflictException(
-          "Leave request changed while its approval chain was being initialized; refresh and try again",
-        );
-      }
+      await leaveRepository.updateRequestStepOrder(requestId, 1);
       decisions = await leaveRepository.findDecisions(requestId);
-      expectedStepOrder = 1;
     }
-    const currentOrder = expectedStepOrder ?? decisions[0]?.order ?? 1;
+    const currentOrder = request.currentStepOrder ?? decisions[0]?.order ?? 1;
     const current = decisions.find((d) => d.order === currentOrder) ?? null;
-    const result = await leaveRepository.rejectRequestStepAtomically({
-      requestId,
-      approverId,
-      currentDecisionId:
-        current && current.status === "pending" ? current.id : null,
-      expectedStepOrder,
-      reason,
-    });
-    if (!result) {
-      throw new ConflictException(
-        "Leave request changed while it was being rejected; refresh and try again",
-      );
+    if (current && current.status === "pending") {
+      await leaveRepository.updateDecision(current.id, {
+        status: "rejected",
+        decidedBy: { connect: { id: approverId } },
+        decidedAt: new Date(),
+        notes: reason,
+      });
     }
+
+    const result = await leaveRepository.updateRequestStatus(requestId, {
+      status: "rejected",
+      approvedBy: approverId,
+      approvedAt: new Date(),
+      rejectReason: reason,
+    });
+    await leaveRepository.updateRequestStepOrder(requestId, null);
 
     const approver = await leaveRepository.findUserById(approverId);
     const email = leaveRejectedEmail({
@@ -1518,24 +1694,93 @@ export class LeaveService {
     return result;
   }
 
-  private cancellationRefund(
+  /**
+   * Give back the days an approved leave drew down at final approval.
+   * Mirrors the deduction in the approval final-step (updateBalance with
+   * +days, transaction type `used`) with the opposite sign, and writes a
+   * refund BalanceTransaction so the employee's balance history stays
+   * auditable.
+   *
+   * Guarded on `balanceDeducted`, so it is idempotent: calling it for a
+   * request whose days are not currently drawn down (a pending request,
+   * or one already refunded by an earlier cancel) is a no-op. That is
+   * what lets the cancel, cancellation-approval, soft-delete and
+   * permanent-delete paths all call it without any of them handing the
+   * employee free days.
+   */
+  private async refundLeaveBalance(
     request: NonNullable<
       Awaited<ReturnType<typeof leaveRepository.findRequestById>>
     >,
+    context: "cancellation" | "deletion" = "cancellation",
   ) {
+    if (!request.balanceDeducted) return;
+
+    const year = request.startDate.getFullYear();
+    const days = Number(request.days);
+    const source = (request.source === "carried" ? "carried" : "entitled") as
+      | "entitled"
+      | "carried";
+    const prefix =
+      context === "deletion" ? "deletion_refund" : "cancellation_refund";
+    const verb = context === "deletion" ? "deleted" : "cancelled";
+
+    await leaveRepository.updateBalance(
+      request.employeeId,
+      request.leaveTypeId,
+      year,
+      -days,
+      source,
+    );
+    await leaveRepository.createBalanceTransaction({
+      employeeId: request.employeeId,
+      leaveTypeId: request.leaveTypeId,
+      year,
+      type: source === "carried" ? `${prefix}_carried` : prefix,
+      amount: -days,
+      description: `Leave ${verb} (${source}): ${fmtDate(request.startDate)} – ${fmtDate(request.endDate)}`,
+      referenceId: request.id,
+    });
+    await leaveRepository.setBalanceDeducted(request.id, false);
+  }
+
+  /**
+   * Re-draw the days for a request whose refund is being undone — today
+   * only the restore-a-soft-deleted-approved-request path. The inverse
+   * of refundLeaveBalance, and guarded the same way so restoring twice
+   * cannot charge the employee twice.
+   */
+  private async deductLeaveBalance(
+    request: NonNullable<
+      Awaited<
+        ReturnType<typeof leaveRepository.findRequestByIdIncludingDeleted>
+      >
+    >,
+  ) {
+    if (request.balanceDeducted) return;
+
     const year = request.startDate.getFullYear();
     const days = Number(request.days);
     const source = (request.source === "carried" ? "carried" : "entitled") as
       "entitled" | "carried";
-    return {
-      employeeId: request.employeeId,
-      leaveTypeId: request.leaveTypeId,
+
+    await leaveRepository.updateBalance(
+      request.employeeId,
+      request.leaveTypeId,
       year,
       days,
       source,
-      defaultEntitlement: request.leaveType.daysPerYear,
-      description: `Leave cancelled (${source}): ${fmtDate(request.startDate)} – ${fmtDate(request.endDate)}`,
-    };
+    );
+    await leaveRepository.createBalanceTransaction({
+      employeeId: request.employeeId,
+      leaveTypeId: request.leaveTypeId,
+      year,
+      type: source === "carried" ? "used_carried" : "used",
+      amount: days,
+      description: `Leave restored (${source}): ${fmtDate(request.startDate)} – ${fmtDate(request.endDate)}`,
+      referenceId: request.id,
+    });
+    await leaveRepository.setBalanceDeducted(request.id, true);
   }
 
   async cancelRequest(requestId: string, userId: string) {
@@ -1552,20 +1797,17 @@ export class LeaveService {
       );
     }
 
-    // The expected status is the idempotency key. Only the first caller can
-    // transition it; refund, ledger entry, and cancellation commit together.
-    const result = await leaveRepository.cancelRequestAtomically({
-      requestId,
-      expectedStatus: request.status,
-      approvedBy: undefined,
-      refund:
-        request.status === "approved" ? this.cancellationRefund(request) : null,
+    // Instant self-cancel (product decision 2026-06-03): an employee can
+    // pull back their own leave without a second approval round. An
+    // approved request already drew its days down at final approval, so
+    // cancelling refunds the balance immediately; a pending request was
+    // never deducted, so refundLeaveBalance no-ops and it just flips to
+    // cancelled.
+    await this.refundLeaveBalance(request);
+
+    const result = await leaveRepository.updateRequestStatus(requestId, {
+      status: "cancelled",
     });
-    if (!result) {
-      throw new ConflictException(
-        "Leave request changed while it was being cancelled; refresh and try again",
-      );
-    }
 
     const employee = await leaveRepository.findUserById(userId);
     if (employee?.reportingTo) {
@@ -1601,20 +1843,16 @@ export class LeaveService {
 
     await this.assertCanApproveOrReject(request, approverId, userPermissions);
 
-    // Legacy pending-cancellation rows represent previously approved leave.
-    // The conditional status write prevents a retry from refunding twice.
-    const result = await leaveRepository.cancelRequestAtomically({
-      requestId,
-      expectedStatus: "pending_cancellation",
+    // Legacy path: pre-2026-06-03 reports could sit in
+    // `pending_cancellation` awaiting a manager. New self-cancels refund
+    // inline (see cancelRequest); this still resolves any such rows.
+    await this.refundLeaveBalance(request);
+
+    return leaveRepository.updateRequestStatus(requestId, {
+      status: "cancelled",
       approvedBy: approverId,
-      refund: this.cancellationRefund(request),
+      approvedAt: new Date(),
     });
-    if (!result) {
-      throw new ConflictException(
-        "Leave request changed while cancellation was being approved; refresh and try again",
-      );
-    }
-    return result;
   }
 
   async rejectCancellation(
@@ -1632,21 +1870,19 @@ export class LeaveService {
 
     await this.assertCanApproveOrReject(request, approverId, userPermissions);
 
-    const result =
-      await leaveRepository.rejectCancellationAtomically(requestId);
-    if (!result) {
-      throw new ConflictException(
-        "Leave request changed while cancellation was being rejected; refresh and try again",
-      );
-    }
-    return result;
+    return leaveRepository.updateRequestStatus(requestId, {
+      status: "approved",
+    });
   }
 
   /**
    * HR-driven manual edit of a single LeaveBalance. Writes a
    * BalanceTransaction (type=`manual_adjustment`) that captures the
-   * before/after snapshot and any reason. The decimal transaction amount
-   * preserves half-day adjustments exactly.
+   * before/after snapshot and any reason. `amount` carries the change to
+   * `used` — the ledger exists to explain how `used` got where it is, and
+   * recording the entitled-delta there (as this did) made a manual edit
+   * of `used` invisible to any reconciliation. Every other field is in
+   * the description.
    */
   async updateBalance(
     balanceId: string,
@@ -1691,7 +1927,7 @@ export class LeaveService {
       leaveTypeId: existing.leaveTypeId,
       year: existing.year,
       type: "manual_adjustment",
-      amount: next.entitled - Number(existing.entitled),
+      amount: next.used - Number(existing.used),
       description: `Manual adjustment by ${actorId}: before [${before}], after [${after}]${reasonSuffix}`,
     });
 
@@ -1770,7 +2006,7 @@ export class LeaveService {
       leaveTypeId: type.id,
       year: input.year,
       type: "manual_adjustment",
-      amount: input.entitled,
+      amount: Math.round(input.entitled),
       description: `HR create by ${actorId}: entitled=${input.entitled}, used=${input.used}, carried=${input.carried}, adjustment=${input.adjustment}${reasonSuffix}`,
     });
 
@@ -1896,14 +2132,14 @@ export class LeaveService {
             ...(r.used !== undefined && { used: r.used }),
           },
         });
-        // Preserve the exact decimal delta so half-day adjustments remain
-        // reconcilable with the balance row.
+        // `amount` is the change to `used` so the ledger can explain the
+        // balance card; the description carries every other field.
         await leaveRepository.createBalanceTransaction({
           employeeId: user.id,
           leaveTypeId: type.id,
           year: r.year,
           type: "bulk_import",
-          amount: entitledValue - Number(existing.entitled),
+          amount: usedValue - Number(existing.used),
           description: `Bulk import update: entitled=${entitledValue}, used=${usedValue}, carried=${r.carried}, adj=${r.adjustment}`,
         });
         updated++;
@@ -1924,7 +2160,7 @@ export class LeaveService {
           leaveTypeId: type.id,
           year: r.year,
           type: "bulk_import",
-          amount: entitledValue,
+          amount: usedValue,
           description: `Bulk import: entitled=${entitledValue}, used=${usedValue}, carried=${r.carried}, adj=${r.adjustment}`,
         });
         created++;
@@ -1954,6 +2190,14 @@ export class LeaveService {
         );
       }
     }
+
+    // HR can delete an approved request, and the list query filters on
+    // deletedAt — so without this the row vanishes from the employee's
+    // history while its days stay charged against the balance forever.
+    // That silent drift is exactly what makes the balance card disagree
+    // with "My requests".
+    await this.refundLeaveBalance(existing, "deletion");
+
     return leaveRepository.softDeleteRequest(id);
   }
 
@@ -1971,17 +2215,30 @@ export class LeaveService {
         "You can only restore your own leave requests",
       );
     }
+
+    // Bringing an approved request back into the employee's history has
+    // to re-charge the days that removeRequest refunded, or the restore
+    // hands out free leave. Deduct before restoring: if the balance
+    // write fails, the row stays deleted and the two remain consistent.
+    if (existing.status === "approved") {
+      await this.deductLeaveBalance(existing);
+    }
+
     return leaveRepository.restoreRequest(id);
   }
 
   async permanentDeleteRequest(id: string) {
+    // Include deleted rows — the normal flow is soft-delete first, and
+    // findRequestById hides those, so the old lookup 404'd on exactly
+    // the rows this route exists to purge.
     const existing = await leaveRepository.findRequestByIdIncludingDeleted(id);
     if (!existing) {
       throw new NotFoundException("Leave request not found");
     }
-    if (!existing.deletedAt) {
-      throw new ConflictException("Request is not deleted");
-    }
+    // Hard-deleting the row destroys the only record of why the days
+    // were charged, so give them back first. No-ops when the soft-delete
+    // already refunded them.
+    await this.refundLeaveBalance(existing, "deletion");
     return leaveRepository.permanentDeleteRequest(id);
   }
 }

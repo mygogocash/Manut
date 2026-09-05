@@ -40,12 +40,6 @@ const payslipDocUpload = multer({
   limits: { fileSize: MULTIPART_UPLOAD_MAX_BYTES },
 });
 
-const requirePayrollManager = requirePermission(
-  PERMISSIONS.PAYROLL_CREATE,
-  PERMISSIONS.PAYROLL_APPROVE,
-  PERMISSIONS.PAYROLL_HR_ADMIN,
-);
-
 // ── Employee-facing /my-portal payslip endpoints ──
 //
 // Mounted ahead of `/runs/...` so the literal `/my-payslips` prefix
@@ -59,8 +53,8 @@ router.get(
   }),
 );
 
-// HR-only diagnostic for an empty My Payslip tab. `?email=` is
-// required; output shows whether the
+// HR-only diagnostic for the "empty My Payslip tab" report (Sarah,
+// 2026-05-25). `?email=` is required; output shows whether the
 // target's Payslip rows exist + which similarly-named users hold
 // rows that may have been misbound by an older xlsx import. Use to
 // pick the wrong-user.id and rebind via a one-line SQL UPDATE.
@@ -79,37 +73,31 @@ router.get(
 
 // ── HR-facing flat payslip list (HRMS → Payslip Management) ──
 //
-// Unlike the run-level list, this endpoint is deliberately manager-only:
-// it returns every employee's payslip without ownership scoping.
-// Pagination is intentionally omitted in v1: the underlying table is
-// small enough to ship the whole filtered set, and the HRMS tab applies
-// its own client-side search on top.
+// Same payroll:read perm as the run-level list — HR users who can see
+// runs can see the slips on those runs. Pagination intentionally
+// omitted in v1: the underlying table is small enough to ship the
+// whole filtered set, and the HRMS tab applies its own client-side
+// search on top.
 router.get(
   "/payslips",
-  requirePayrollManager,
+  requirePermission(PERMISSIONS.PAYROLL_READ),
   asyncHandler(async (req, res) => {
     const query = hrPayslipQuerySchema.parse(req.query);
-    const data = await payrollService.listPayslipsForHr(
-      query,
-      req.user!.permissions,
-    );
+    const data = await payrollService.listPayslipsForHr(query);
     res.json({ data });
   }),
 );
 
 // Bulk delete must register BEFORE `/payslips/:id/...` so Express
 // matches the literal `bulk-delete` segment instead of routing it
-// into the `:id` param handler. It shares the manager boundary used by
-// PDF upload / removal and repeats that check inside the service.
+// into the `:id` param handler. Same guard as PDF upload / remove —
+// payroll:create scopes who can mutate payslip rows.
 router.post(
   "/payslips/bulk-delete",
-  requirePayrollManager,
+  requirePermission(PERMISSIONS.PAYROLL_CREATE),
   asyncHandler(async (req, res) => {
     const input = bulkDeletePayslipsSchema.parse(req.body);
-    const data = await payrollService.bulkDeletePayslips(
-      input.ids,
-      req.user!.permissions,
-    );
+    const data = await payrollService.bulkDeletePayslips(input.ids);
     res.json({ data });
   }),
 );
@@ -135,15 +123,30 @@ router.put(
   }),
 );
 
+// HRMS "Export data" — flat payslip list as Excel / CSV, one row per payslip
+// with the full breakdown. Same `payroll:read` gate + filter schema as the
+// list it exports. Literal `export` registered BEFORE `/payslips/:id/...` so
+// Express doesn't route it into the `:id` param handler.
+router.get(
+  "/payslips/export",
+  requirePermission(PERMISSIONS.PAYROLL_READ),
+  asyncHandler(async (req, res) => {
+    const query = hrPayslipQuerySchema.parse(req.query);
+    const format = req.query.format === "csv" ? "csv" : "xlsx";
+    const { buffer, filename, contentType } =
+      await payrollService.exportPayslips(query, format);
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(buffer);
+  }),
+);
+
 router.get(
   "/payslips/:id/download",
-  requirePayrollManager,
+  requirePermission(PERMISSIONS.PAYROLL_READ),
   asyncHandler(async (req, res) => {
     const id = getRequiredParam(req.params, "id");
-    const data = await payrollService.getPayslipDownloadUrlForHr(
-      id,
-      req.user!.permissions,
-    );
+    const data = await payrollService.getPayslipDownloadUrlForHr(id);
     res.json({ data });
   }),
 );
@@ -153,14 +156,13 @@ router.get(
 // query string so a single FE button can switch between Excel / PDF.
 router.get(
   "/payslips/:id/export",
-  requirePayrollManager,
+  requirePermission(PERMISSIONS.PAYROLL_READ),
   asyncHandler(async (req, res) => {
     const id = getRequiredParam(req.params, "id");
     const format = req.query.format === "pdf" ? "pdf" : "xlsx";
     const { buffer, filename } = await payrollService.exportPayslipDocument(
       id,
       format,
-      req.user!.permissions,
     );
     res.setHeader(
       "Content-Type",
@@ -177,14 +179,13 @@ router.get(
 // files. HR clicks "Generate all" to ship a full month at once.
 router.get(
   "/runs/:runId/payslips/export",
-  requirePayrollManager,
+  requirePermission(PERMISSIONS.PAYROLL_READ),
   asyncHandler(async (req, res) => {
     const runId = getRequiredParam(req.params, "runId");
     const format = req.query.format === "pdf" ? "pdf" : "xlsx";
     const { buffer, filename } = await payrollService.exportRunPayslipsZip(
       runId,
       format,
-      req.user!.permissions,
     );
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -392,7 +393,7 @@ router.post(
 
 router.post(
   "/runs/:runId/payslips/:payslipId/document",
-  requirePayrollManager,
+  requirePermission(PERMISSIONS.PAYROLL_CREATE),
   payslipDocUpload.single("file"),
   asyncHandler(async (req, res) => {
     if (!req.file) {
@@ -417,7 +418,6 @@ router.post(
         mimeType: req.file.mimetype,
         size: req.file.size,
       },
-      req.user!.permissions,
     );
     res.json({ data });
   }),
@@ -425,15 +425,11 @@ router.post(
 
 router.delete(
   "/runs/:runId/payslips/:payslipId/document",
-  requirePayrollManager,
+  requirePermission(PERMISSIONS.PAYROLL_CREATE),
   asyncHandler(async (req, res) => {
     const runId = getRequiredParam(req.params, "runId");
     const payslipId = getRequiredParam(req.params, "payslipId");
-    const data = await payrollService.removePayslipDocument(
-      runId,
-      payslipId,
-      req.user!.permissions,
-    );
+    const data = await payrollService.removePayslipDocument(runId, payslipId);
     res.json({ data });
   }),
 );

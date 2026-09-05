@@ -444,8 +444,8 @@ router.post(
 // submitter's direct line manager must be able to act on the report
 // even when their role lacks `expense:approve` (e.g. an Employee role
 // holder who happens to manage someone). Adding a route-level perm
-// guard short-circuits that fallback; a manager could otherwise view but
-// not approve. Anyone else hits
+// guard short-circuits that fallback and surfaces as the bug Sid hit
+// where Vivek's manager could view but not approve. Anyone else hits
 // `ForbiddenException` from the service.
 router.post(
   "/reports/:reportId/approve",
@@ -453,7 +453,7 @@ router.post(
     // No `requirePermission(...)` middleware here (see block comment
     // above), so the auth guard ships an empty `permissions` array.
     // The service consults the HR-approve bypass against this list,
-    // which then silently no-ops for an admin. Lazy-load before
+    // which then silently no-ops for Sarah / admin. Lazy-load before
     // the service call so the bypass actually sees the caller's
     // perms.
     await ensurePermissionsLoaded(req);

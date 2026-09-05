@@ -6,14 +6,19 @@ import {
   CalendarClock,
   ClipboardCheck,
   ClipboardList,
+  FolderKanban,
+  Gavel,
+  ListChecks,
   MapPin,
   MessageSquare,
   Newspaper,
   Receipt,
+  ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { PushOptIn } from "@/components/pwa/push-opt-in";
 import {
   Popover,
   PopoverContent,
@@ -33,7 +38,7 @@ const POLL_INTERVAL_MS = 60_000;
 // counted as unread again after a couple of polling intervals.
 // Switching to a per-id "seen" set fixes that without breaking the
 // approval / news flows.
-const SEEN_IDS_KEY = "manut:notifications:seen-ids-v2";
+const SEEN_IDS_KEY = "nexora:notifications:seen-ids-v2";
 // Cap on stored ids so a long-running tab with thousands of past
 // notifications doesn't bloat localStorage. New ids land at the tail;
 // the oldest get evicted when the cap is hit.
@@ -43,7 +48,7 @@ const SEEN_IDS_CAP = 500;
 // so the shared group can name the source CRM). Falls back to the raw key.
 const CRM_LABELS: Record<string, string> = {
   it: "IT CRM",
-  general: "Project CRM",
+  general: "Integration CRM",
   product: "Product CRM",
   legal: "Legal CRM",
   accounting: "Accounting CRM",
@@ -110,7 +115,15 @@ function writeSeenIds(ids: Set<string>) {
 }
 
 const APPROVAL_ICON: Record<
-  "leave" | "travel" | "expense",
+  | "leave"
+  | "travel"
+  | "expense"
+  | "project_review"
+  | "department_review"
+  | "business_head_review"
+  | "product_admin_review"
+  | "development_scheduling"
+  | "task_assignment",
   { icon: React.ReactNode; iconClass: string }
 > = {
   leave: {
@@ -124,6 +137,35 @@ const APPROVAL_ICON: Record<
   expense: {
     icon: <Receipt className="size-3.5" aria-hidden />,
     iconClass: "bg-info/10 text-info",
+  },
+  // AI Project Orchestrator — Phase 2 PM review queue.
+  project_review: {
+    icon: <FolderKanban className="size-3.5" aria-hidden />,
+    iconClass: "bg-primary/10 text-primary",
+  },
+  // AI Project Orchestrator — Phase 3 department review assignment.
+  department_review: {
+    icon: <ClipboardCheck className="size-3.5" aria-hidden />,
+    iconClass: "bg-info/10 text-info",
+  },
+  // AI Project Orchestrator — Phase 4 executive approval gates.
+  business_head_review: {
+    icon: <Gavel className="size-3.5" aria-hidden />,
+    iconClass: "bg-primary/10 text-primary",
+  },
+  product_admin_review: {
+    icon: <ShieldCheck className="size-3.5" aria-hidden />,
+    iconClass: "bg-primary/10 text-primary",
+  },
+  // AI Project Orchestrator — Phase 5 development scheduling queue.
+  development_scheduling: {
+    icon: <CalendarClock className="size-3.5" aria-hidden />,
+    iconClass: "bg-info/10 text-info",
+  },
+  // AI Project Orchestrator — Phase 6 generated task assignment.
+  task_assignment: {
+    icon: <ListChecks className="size-3.5" aria-hidden />,
+    iconClass: "bg-primary/10 text-primary",
   },
 };
 
@@ -189,7 +231,11 @@ function buildItems(stats: DashboardStats | null): NotificationItem[] {
     out.push({
       id: r.id,
       group: "it-crm",
-      title: r.kind === "project" ? `Go-live: ${r.title}` : `Task: ${r.title}`,
+      // QA projects deadline on endDate, not a go-live.
+      title:
+        r.kind === "project"
+          ? `${r.module === "qa" ? "Project" : "Go-live"}: ${r.title}`
+          : `Task: ${r.title}`,
       subtitle: `${crmLabel(r.module)} · ${label} (${r.dueDate})`,
       href: r.href,
       createdAt: itemsBuildIso,
@@ -233,7 +279,18 @@ function buildItems(stats: DashboardStats | null): NotificationItem[] {
   );
 }
 
-export function NotificationBell() {
+/**
+ * `variant` changes only the trigger's presentation. The popover, the badge
+ * derivation, the DashboardStats fetch and the seen-set stay shared, because
+ * the mobile dock renders THIS component rather than linking to an inbox —
+ * there is no /notifications route. Reuse is what makes the dock's badge
+ * incapable of disagreeing with the topbar's.
+ */
+export function NotificationBell({
+  variant = "topbar",
+}: {
+  variant?: "topbar" | "dock";
+} = {}) {
   const { isAuthenticated } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [open, setOpen] = useState(false);
@@ -326,15 +383,30 @@ export function NotificationBell() {
               ? `Notifications, ${unreadCount} unread`
               : "Notifications"
           }
-          className={`
-            text-muted-foreground ring-offset-background relative inline-flex
-            size-7 items-center justify-center rounded-md transition-colors
-            hover:text-foreground
-            focus-visible:ring-ring focus-visible:ring-2
-            focus-visible:ring-offset-2 focus-visible:outline-none
-          `}
+          className={
+            variant === "dock"
+              ? `
+                text-muted-foreground relative flex flex-1 flex-col items-center
+                gap-0.5 py-2 text-[11px] transition-colors
+                hover:text-foreground
+                focus-visible:ring-ring focus-visible:ring-2
+                focus-visible:outline-none
+              `
+              : `
+                text-muted-foreground ring-offset-background relative
+                inline-flex size-9 items-center justify-center rounded-md
+                transition-colors
+                hover:text-foreground
+                focus-visible:ring-ring focus-visible:ring-2
+                focus-visible:ring-offset-2 focus-visible:outline-none
+                md:size-7
+              `
+          }
         >
-          <Bell className="size-4" aria-hidden />
+          <Bell
+            className={variant === "dock" ? "size-5" : "size-4"}
+            aria-hidden
+          />
           {unreadCount > 0 && (
             <span
               className={`
@@ -347,14 +419,26 @@ export function NotificationBell() {
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
+          {/* Dock items are labelled; the topbar icon is not, so the badge
+              keeps its absolute anchor in both. */}
+          {variant === "dock" ? <span>Inbox</span> : null}
         </button>
       </PopoverTrigger>
       <PopoverContent
-        align="end"
+        /*
+         * The dock renders this trigger at the BOTTOM of the screen, so the
+         * panel must open upward and centre on the bar; `align="end"` is tuned
+         * for the top-right topbar bell and anchors to an arbitrary edge when
+         * the trigger sits mid-bar.
+         */
+        side={variant === "dock" ? "top" : "bottom"}
+        align={variant === "dock" ? "center" : "end"}
         sideOffset={8}
+        /* Fit the viewport first, then cap. `w-[360px]` was wider than a
+           320px screen, so the panel was clipped on the narrowest phones. */
         className={`
-          w-[360px] gap-0 p-0
-          sm:w-[400px]
+          w-[calc(100vw-1.5rem)] max-w-[360px] gap-0 p-0
+          sm:w-[400px] sm:max-w-[400px]
         `}
       >
         <div className="flex items-center justify-between border-b px-4 py-3">
@@ -389,7 +473,14 @@ export function NotificationBell() {
           </div>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto">
+        {/* 60svh leaves roughly four rows visible on a phone once the header
+            and footer are subtracted. Taller below sm; unchanged above. */}
+        <div
+          className={`
+            max-h-[70svh] overflow-y-auto overscroll-contain
+            sm:max-h-[60svh]
+          `}
+        >
           {items.length === 0 ? (
             <div
               className={`
@@ -449,6 +540,12 @@ export function NotificationBell() {
               )}
             </>
           )}
+        </div>
+        {/* Opt-in lives here because this is where somebody looks when they
+            wonder why they missed something. It renders nothing when the
+            browser or the server cannot do push. */}
+        <div className="border-border border-t px-4 py-3">
+          <PushOptIn />
         </div>
       </PopoverContent>
     </Popover>

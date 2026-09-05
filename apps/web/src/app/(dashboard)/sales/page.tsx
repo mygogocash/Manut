@@ -3,6 +3,7 @@
 import {
   Activity,
   Bell,
+  BellRing,
   CheckSquare,
   Contact2,
   KanbanSquare,
@@ -10,18 +11,31 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
-import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
+import { AccountsTab } from "@/components/accounts/accounts-tab";
+import { ContactsTab } from "@/components/contacts/contacts-tab";
+import { ActivitiesTab } from "@/components/crm-activities/activities-tab";
+import { TasksTab } from "@/components/crm-tasks/tasks-tab";
+import { LeadsTab } from "@/components/leads/leads-tab";
 import { PipelineKanban } from "@/components/opportunities/pipeline-kanban";
+import { SalesDashboard } from "@/components/opportunities/sales-dashboard";
+import { CrmNotificationSettingsDialog } from "@/components/sales/notification-settings-dialog";
+import { CrmReminderSettingsDialog } from "@/components/shared/crm-reminder-settings-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { PermissionButton } from "@/components/shared/permission-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { useAuth } from "@/providers/auth-provider";
+import {
+  getCrmReminderSettings,
+  updateCrmReminderSettings,
+} from "@/services/crm-reminder-settings.service";
 
 // Phase 2 of Sales CRM v2 — `/sales` shell. Phase 1 backend is live behind
 // /api/leads, /api/accounts, /api/contacts, /api/opportunities, /api/crm/*.
-// This page lays out the six Sales CRM sub-tabs.
+// This page lays out the six sub-tabs from PRD §10. Subsequent slices fill
 // each TabsContent with its real surface (data table, kanban, detail sheet).
 
 const TABS = [
@@ -33,56 +47,6 @@ const TABS = [
   { value: "activities", label: "Activities", icon: Activity },
   { value: "tasks", label: "Tasks", icon: CheckSquare },
 ] as const;
-
-function DeferredPanelFallback() {
-  return <div className="bg-muted/30 min-h-[300px] animate-pulse rounded-lg" />;
-}
-
-const SalesDashboard = dynamic(
-  () =>
-    import("@/components/opportunities/sales-dashboard").then(
-      (module) => module.SalesDashboard,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const LeadsTab = dynamic(
-  () =>
-    import("@/components/leads/leads-tab").then((module) => module.LeadsTab),
-  { loading: DeferredPanelFallback },
-);
-const AccountsTab = dynamic(
-  () =>
-    import("@/components/accounts/accounts-tab").then(
-      (module) => module.AccountsTab,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const ContactsTab = dynamic(
-  () =>
-    import("@/components/contacts/contacts-tab").then(
-      (module) => module.ContactsTab,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const ActivitiesTab = dynamic(
-  () =>
-    import("@/components/crm-activities/activities-tab").then(
-      (module) => module.ActivitiesTab,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const TasksTab = dynamic(
-  () =>
-    import("@/components/crm-tasks/tasks-tab").then(
-      (module) => module.TasksTab,
-    ),
-  { loading: DeferredPanelFallback },
-);
-const CrmNotificationSettingsDialog = dynamic(() =>
-  import("@/components/sales/notification-settings-dialog").then(
-    (module) => module.CrmNotificationSettingsDialog,
-  ),
-);
 
 function PlaceholderTab({ label }: { label: string }) {
   return (
@@ -103,17 +67,53 @@ function PlaceholderTab({ label }: { label: string }) {
   );
 }
 
+// The sidebar's per-business-unit views link to
+// `/sales?tab=pipeline&bu=<code>`, so this page reads the query string.
+// `useSearchParams` needs a Suspense boundary, so the body is wrapped
+// (same shape as (dashboard)/settings/page.tsx).
 export default function SalesPage() {
-  const [tab, setTab] = useState<(typeof TABS)[number]["value"]>("pipeline");
+  return (
+    <Suspense fallback={null}>
+      <SalesPageInner />
+    </Suspense>
+  );
+}
+
+function SalesPageInner() {
+  const [tab, setTab] = useTabParam("pipeline");
+  // useTabParam seeds from the URL on mount only. A sidebar link into an
+  // already-open page changes the query without remounting, so re-sync
+  // here or the board would stay on whichever tab was last open.
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get("tab") ?? "";
+  useEffect(() => {
+    if (tabParam && tabParam !== tab) setTab(tabParam);
+    // `tab` is intentionally omitted: this effect reacts to the URL, not
+    // to in-page tab clicks (which already own the state).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabParam, setTab]);
   // Two counters — Accounts saves bump the Pipeline key, Pipeline
   // mutations (drag-stage, create, edit, close-lost, reopen, delete)
-  // bump the Accounts key so the two
+  // bump the Accounts key. BD feedback (Vivek, May 2026): the two
   // surfaces must agree without a manual tab switch.
   const [pipelineRefreshKey, setPipelineRefreshKey] = useState(0);
   const [accountsRefreshKey, setAccountsRefreshKey] = useState(0);
   const { hasPermission } = useAuth();
   const canManageSettings = hasPermission("crm:settings-manage");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
+
+  // Stable load/save fns for the shared reminder-settings dialog —
+  // it keys its load-on-open effect on `load`.
+  const loadReminderSettings = useCallback(
+    async () => (await getCrmReminderSettings("sales")).data,
+    [],
+  );
+  const saveReminderSettings = useCallback(
+    async (recipients: string[]) =>
+      (await updateCrmReminderSettings("sales", recipients)).data,
+    [],
+  );
 
   function onAccountSaved() {
     setPipelineRefreshKey((k) => k + 1);
@@ -129,21 +129,40 @@ export default function SalesPage() {
         subtitle="Leads, accounts, opportunities, activities — the new Sales CRM workspace"
       >
         {canManageSettings && (
-          <PermissionButton
-            permission="crm:settings-manage"
-            variant="outline"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Bell className="mr-1 size-4" />
-            Notification settings
-          </PermissionButton>
+          <>
+            <PermissionButton
+              permission="crm:settings-manage"
+              variant="outline"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Bell className="mr-1 size-4" />
+              Notification settings
+            </PermissionButton>
+            <PermissionButton
+              permission="crm:settings-manage"
+              variant="outline"
+              onClick={() => setReminderOpen(true)}
+            >
+              <BellRing className="mr-1 size-4" />
+              Reminders
+            </PermissionButton>
+          </>
         )}
       </PageHeader>
 
-      {canManageSettings && settingsOpen && (
+      {canManageSettings && (
         <CrmNotificationSettingsDialog
           open={settingsOpen}
           onOpenChange={setSettingsOpen}
+        />
+      )}
+
+      {canManageSettings && (
+        <CrmReminderSettingsDialog
+          open={reminderOpen}
+          onOpenChange={setReminderOpen}
+          load={loadReminderSettings}
+          save={saveReminderSettings}
         />
       )}
 
@@ -162,7 +181,7 @@ export default function SalesPage() {
 
         {TABS.map(({ value, label }) => (
           <TabsContent key={value} value={value}>
-            {tab !== value ? null : value === "dashboard" ? (
+            {value === "dashboard" ? (
               <SalesDashboard />
             ) : value === "leads" ? (
               <LeadsTab />

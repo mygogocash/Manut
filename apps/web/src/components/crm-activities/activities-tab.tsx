@@ -130,6 +130,7 @@ export function ActivitiesTab() {
   const columns = [
     {
       key: "type",
+      mobileRole: "badge" as const,
       header: "Type",
       render: (a: CrmActivity) => (
         <Badge status={a.type}>
@@ -139,6 +140,7 @@ export function ActivitiesTab() {
     },
     {
       key: "subject",
+      mobileRole: "title" as const,
       header: "Subject",
       render: (a: CrmActivity) => (
         <span className="text-foreground font-medium">{a.subject}</span>
@@ -146,11 +148,13 @@ export function ActivitiesTab() {
     },
     {
       key: "anchor",
+      mobileRole: "subtitle" as const,
       header: "Tied to",
       render: (a: CrmActivity) => activityAnchor(a),
     },
     {
       key: "occurredAt",
+      mobileRole: "field" as const,
       header: "When",
       render: (a: CrmActivity) =>
         a.occurredAt
@@ -159,17 +163,20 @@ export function ActivitiesTab() {
     },
     {
       key: "duration",
+      mobileRole: "detail" as const,
       header: "Duration",
       render: (a: CrmActivity) =>
         a.durationMins !== null ? `${a.durationMins}m` : "—",
     },
     {
       key: "owner",
+      mobileRole: "field" as const,
       header: "Logged by",
       render: (a: CrmActivity) => a.owner?.name ?? "—",
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-10",
       render: (a: CrmActivity) => (

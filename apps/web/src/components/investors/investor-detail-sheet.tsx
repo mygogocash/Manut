@@ -129,7 +129,7 @@ export function InvestorDetailSheet({
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`
-                        text-primary text-xs
+                        text-primary text-xs break-all
                         hover:underline
                       `}
                     >
@@ -145,7 +145,7 @@ export function InvestorDetailSheet({
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`
-                        text-primary text-xs
+                        text-primary text-xs break-all
                         hover:underline
                       `}
                     >
@@ -200,7 +200,17 @@ export function InvestorDetailSheet({
                 >
                   Notes
                 </p>
-                <p className="text-foreground text-xs whitespace-pre-wrap">
+                {/*
+                  `whitespace-pre-wrap` keeps the newlines the team writes in
+                  their notes; `break-words` stops a long unbroken URL from
+                  forcing the whole sheet to scroll sideways. Both are needed
+                  — pre-wrap alone will not break inside a single long token.
+                */}
+                <p
+                  className={`
+                    text-foreground text-xs break-words whitespace-pre-wrap
+                  `}
+                >
                   {investor.notesText}
                 </p>
               </section>

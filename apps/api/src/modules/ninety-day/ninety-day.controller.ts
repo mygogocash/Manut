@@ -33,7 +33,7 @@ router.post(
   requirePermission(PERMISSIONS.VISA_MANAGE),
   asyncHandler(async (req, res) => {
     const input = createNinetyDaySchema.parse(req.body);
-    const data = await ninetyDayService.create(input, req.user!.id);
+    const data = await ninetyDayService.create(input);
     res.status(201).json({ data });
   }),
 );
@@ -95,11 +95,7 @@ router.put(
   requirePermission(PERMISSIONS.VISA_MANAGE),
   asyncHandler(async (req, res) => {
     const input = updateNinetyDaySchema.parse(req.body);
-    const data = await ninetyDayService.update(
-      req.params.id as string,
-      input,
-      req.user!.id,
-    );
+    const data = await ninetyDayService.update(req.params.id as string, input);
     res.json({ data });
   }),
 );

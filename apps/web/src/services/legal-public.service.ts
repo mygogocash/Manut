@@ -11,7 +11,7 @@
 import { ApiError } from "@/lib/api-client";
 import type {
   LegalKind,
-  LegalSignatureStatus,
+  LegalSignature,
   LegalStatus,
 } from "@/services/legal.service";
 
@@ -27,19 +27,8 @@ export interface PublicSigningDocument {
   status: LegalStatus;
 }
 
-/** Exact signature shape returned to the public signer — token/audit data omitted. */
-export interface PublicSigningSignature {
-  id: string;
-  documentId: string;
-  signerEmail: string;
-  signerName: string;
-  status: LegalSignatureStatus;
-  inviteMessage: string | null;
-  signedAt: string | null;
-  declinedAt: string | null;
-  declineReason: string | null;
-  expiresAt: string | null;
-}
+/** Signature shape returned to the public signer — token is NOT echoed back. */
+export type PublicSigningSignature = Omit<LegalSignature, "documentId">;
 
 export interface PublicSigningRequest {
   signature: PublicSigningSignature;

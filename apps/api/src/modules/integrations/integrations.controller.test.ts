@@ -6,7 +6,6 @@ import type * as AuthGuardModuleNs from "@/core/guards/auth.guard";
 import { errorHandler } from "@/core/middleware/error-handler";
 import integrationsRoutes from "@/modules/integrations/integrations.controller";
 import { integrationsService } from "@/modules/integrations/integrations.service";
-import { setTestEnv } from "@/test-utils/assertions";
 
 // Mock the service entirely so the controller is tested in isolation.
 vi.mock("@/modules/integrations/integrations.service", () => ({
@@ -42,7 +41,6 @@ vi.mock("@/core/guards/auth.guard", async () => {
           email: "test@example.com",
           name: "Test",
           isActive: true,
-          deletedAt: null,
           entityId: null,
           permissions: ["integrations:use"],
         };
@@ -124,7 +122,7 @@ describe("GET /api/integrations/google/oauth-start", () => {
 describe("GET /api/integrations/google/oauth-callback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setTestEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
   });
 
   it("with valid state > 303 to settings?connected=1", async () => {
@@ -223,6 +221,7 @@ describe("GET /api/integrations/status", () => {
 
   it("authenticated > passes userId to service.getStatus", async () => {
     (integrationsService.getStatus as Mock).mockResolvedValue({
+      anthropic: { configured: false, status: "not_configured" },
       gmail: { configured: false, status: "not_configured" },
       drive: { configured: false, status: "not_configured" },
       google: { connected: false },

@@ -1,6 +1,13 @@
 "use client";
 
-import { FileText, Loader2, Mail, Sparkles } from "lucide-react";
+import {
+  CheckCircle2,
+  FileText,
+  Loader2,
+  Mail,
+  Sparkles,
+  XCircle,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -23,6 +30,7 @@ import {
   getIntegrationsStatus,
   type GoogleConnectionStatus,
   type IntegrationsStatus,
+  type IntegrationStatus,
   startGoogleOauth,
 } from "@/services/integrations.service";
 
@@ -60,7 +68,7 @@ function parseScopes(scope?: string): {
   };
 }
 
-function AiPlatformCard() {
+function AnthropicStatus({ s }: { s: IntegrationStatus }) {
   return (
     <Card>
       <CardContent className="flex items-center gap-4 py-4">
@@ -73,13 +81,25 @@ function AiPlatformCard() {
           <Sparkles className="size-5" />
         </div>
         <div className="flex flex-1 flex-col gap-1">
-          <span className="text-sm font-medium">Manut AI platform</span>
+          <span className="text-sm font-medium">Anthropic Claude API</span>
           <p className="text-muted-foreground text-xs">
-            New AI features use Workers AI through AI Gateway with Manut-owned
-            Cloudflare bindings.
+            Powers ARIA + integrations. Configured via Cloud Run env (admin).
           </p>
           <div className="mt-1">
-            <Badge variant="outline">Platform managed</Badge>
+            {s.configured ? (
+              <Badge
+                variant="outline"
+                className={`border-success/40 bg-success/10 text-success`}
+              >
+                <CheckCircle2 className="mr-1 size-3" />
+                Configured
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-muted-foreground">
+                <XCircle className="mr-1 size-3" />
+                Not Configured
+              </Badge>
+            )}
           </div>
         </div>
       </CardContent>
@@ -303,7 +323,7 @@ export function IntegrationsTab() {
         connecting={connecting}
         disconnecting={disconnecting}
       />
-      <AiPlatformCard />
+      <AnthropicStatus s={status.anthropic} />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

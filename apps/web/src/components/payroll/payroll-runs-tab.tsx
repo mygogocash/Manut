@@ -81,16 +81,19 @@ export function PayrollRunsTab({
     },
     {
       key: "entity",
+      mobileRole: "subtitle" as const,
       header: "Entity",
       render: (r: PayrollRun) => r.entity.name,
     },
     {
       key: "status",
+      mobileRole: "badge" as const,
       header: "Status",
       render: (r: PayrollRun) => <Badge status={r.status}>{r.status}</Badge>,
     },
     {
       key: "totalNet",
+      mobileRole: "field" as const,
       header: "Total Net",
       render: (r: PayrollRun) => (
         <span className="tabular-nums">{formatCurrency(r.totalNet)}</span>
@@ -104,6 +107,7 @@ export function PayrollRunsTab({
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       render: (r: PayrollRun) => {
         const showApprove = canApprove && r.status === "draft";

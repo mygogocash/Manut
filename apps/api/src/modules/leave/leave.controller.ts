@@ -10,6 +10,7 @@ import {
 import { asyncHandler } from "@/core/middleware/async-handler";
 import { leaveService } from "@/modules/leave/leave.service";
 import {
+  balanceDriftQuerySchema,
   balanceQuerySchema,
   balanceTransactionsQuerySchema,
   bulkImportBalanceSchema,
@@ -186,6 +187,20 @@ router.get(
       req.user!.id,
       req.user!.permissions,
     );
+    res.json(result);
+  }),
+);
+
+// Read-only drift report: balances whose stored `used` counter no longer
+// matches the employee's visible approved requests. Literal path, so it
+// is registered alongside the other /balances routes and well clear of
+// the "/balances/:id" PUT.
+router.get(
+  "/balances/drift",
+  requirePermission(PERMISSIONS.LEAVE_HR_READ),
+  asyncHandler(async (req, res) => {
+    const query = balanceDriftQuerySchema.parse(req.query);
+    const result = await leaveService.getBalanceDrift(query.year);
     res.json(result);
   }),
 );

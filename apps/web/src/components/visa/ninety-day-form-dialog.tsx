@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Paperclip, Trash2, UploadCloud } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -239,7 +239,7 @@ export function NinetyDayFormDialog({
   }, [open]);
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       employeeId: "",
       entityId: "",
@@ -448,7 +448,7 @@ export function NinetyDayFormDialog({
                         For a non-employee applicant — spouse, child, parent —
                         whose 90-day filing we track. Fill in the holder name
                         and pick a sponsor employee so reminders still route to
-                        a Manut inbox.
+                        a TBH inbox.
                       </p>
                     )}
                     <FormMessage />

@@ -17,6 +17,7 @@ import {
   usersService,
 } from "@/modules/users/users.service";
 import {
+  addMembershipSchema,
   assignRolesSchema,
   createUserSchema,
   listUsersQuerySchema,
@@ -35,7 +36,7 @@ const csvUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-// The bulk-import template lists every column the
+// PRD addendum — the bulk-import template lists every column the
 // importer accepts in the order it expects them. Optional columns are
 // noted in the description row at the top of the sheet rendered by the
 // template-download endpoint.
@@ -148,13 +149,13 @@ router.get(
     // One-row sample so admins see the expected shape without opening
     // a separate doc.
     const sample = {
-      email: "jane.doe@manut.example",
+      email: "jane.doe@thebinaryholdings.com",
       name: "Jane Doe",
       phone: "+971 50 000 0000",
       entityCode: "AE",
       department: "Marketing",
       jobTitle: "Content Lead",
-      employeeId: "MANUT-100",
+      employeeId: "TBH-100",
       employmentType: "full_time",
       startDate: "2026-05-07",
       dateOfBirth: "1998-10-31",
@@ -345,6 +346,61 @@ router.put(
       resource: "user",
       resourceId: id,
       details: { roleIds: input.roleIds },
+      req,
+    });
+    res.json(result);
+  }),
+);
+
+// ── Multi-company memberships (PRD Rule 7, admin surface) ──────────────
+// Manage which entities a user belongs to + the stored per-company role.
+// Read gated on USER_READ, writes on USER_UPDATE (existing user-management
+// perms). These are stored now and ENFORCED in a later chunk — nothing
+// here affects permission resolution or login.
+router.get(
+  "/:id/memberships",
+  requirePermission(PERMISSIONS.USER_READ),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const result = await usersService.listMemberships(id);
+    res.json(result);
+  }),
+);
+
+router.post(
+  "/:id/memberships",
+  requirePermission(PERMISSIONS.USER_UPDATE),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const input = addMembershipSchema.parse(req.body);
+    const result = await usersService.addMembership(
+      id,
+      input.entityId,
+      input.roleId,
+    );
+    void logAudit({
+      action: "add-membership",
+      resource: "user",
+      resourceId: id,
+      details: { entityId: input.entityId, roleId: input.roleId ?? null },
+      req,
+    });
+    res.status(201).json(result);
+  }),
+);
+
+router.delete(
+  "/:id/memberships/:entityId",
+  requirePermission(PERMISSIONS.USER_UPDATE),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const entityId = getRequiredParam(req.params, "entityId");
+    const result = await usersService.removeMembership(id, entityId);
+    void logAudit({
+      action: "remove-membership",
+      resource: "user",
+      resourceId: id,
+      details: { entityId },
       req,
     });
     res.json(result);

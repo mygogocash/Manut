@@ -46,6 +46,7 @@ export interface ListInvestorTasksParams {
   investorId?: string;
   ownerId?: string;
   bucket?: "overdue" | "today" | "soon";
+  fundraisingEntity?: string;
 }
 
 function buildQuery<T extends object>(params: T): string {

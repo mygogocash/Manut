@@ -1,0 +1,32 @@
+{
+  "name": "@nexora/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./rbac": "./src/rbac.ts",
+    "./client": "./src/client.ts",
+    "./magic-link": "./src/magic-link.ts",
+    "./manager-implicit-perms": "./src/manager-implicit-perms.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nexora/contracts": "workspace:*",
+    "@nexora/db": "workspace:*",
+    "bcryptjs": "^3.0.2",
+    "better-auth": "^1.7.2",
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

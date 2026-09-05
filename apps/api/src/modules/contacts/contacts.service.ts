@@ -9,7 +9,7 @@ import type {
 } from "@/modules/contacts/contacts.validation";
 
 export class ContactService {
-  // Scope by parent Account.ownerId rather than a Contact-level field
+  // PRD §7 — scope by parent Account.ownerId rather than a Contact-level field
   // (Contact has no owner). Reps see contacts on accounts they own.
   async list(userId: string, permissions: string[], query: ListContactsQuery) {
     const { page, limit, ...filters } = query;
@@ -143,6 +143,20 @@ export class ContactService {
   async delete(id: string, userId: string, permissions: string[]) {
     await this.getById(id, userId, permissions);
     return contactRepository.delete(id);
+  }
+
+  // Reversible archive. Reuses the same ownership guard as update/delete
+  // (getById). Idempotent: re-archiving keeps the original timestamp.
+  async archive(id: string, userId: string, permissions: string[]) {
+    const existing = await this.getById(id, userId, permissions);
+    return contactRepository.update(id, {
+      archivedAt: existing.archivedAt ?? new Date(),
+    });
+  }
+
+  async unarchive(id: string, userId: string, permissions: string[]) {
+    await this.getById(id, userId, permissions);
+    return contactRepository.update(id, { archivedAt: null });
   }
 }
 

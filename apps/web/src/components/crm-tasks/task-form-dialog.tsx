@@ -1,8 +1,8 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ApiError } from "@/lib/api-client";
+import { useAuth } from "@/providers/auth-provider";
 import { type Lead, listLeads } from "@/services/crm-lead.service";
 import {
   listOpportunities,
@@ -48,6 +49,10 @@ import {
   type TaskStatus,
   updateCrmTask,
 } from "@/services/crm-task.service";
+import {
+  type AssignableUser,
+  listAssignableUsers,
+} from "@/services/directory.service";
 
 const NONE = "__none__";
 
@@ -58,6 +63,7 @@ const formSchema = z
     subject: z.string().min(1, "Subject is required").max(300),
     dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a due date"),
     status: z.enum(TASK_STATUSES),
+    ownerId: z.string().optional(),
     leadId: z.string().optional(),
     opportunityId: z.string().optional(),
   })
@@ -92,17 +98,22 @@ export function TaskFormDialog({
   onSaved,
 }: TaskFormDialogProps) {
   const isEditing = !!task;
+  const { user: currentUser } = useAuth();
+  const currentUserId = currentUser?.id;
   const [submitting, setSubmitting] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [opps, setOpps] = useState<Opportunity[]>([]);
   const [pickerLoading, setPickerLoading] = useState(false);
+  const [users, setUsers] = useState<AssignableUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
 
   const form = useForm<FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       subject: "",
       dueDate: "",
       status: "open",
+      ownerId: "",
       leadId: "",
       opportunityId: "",
     },
@@ -137,6 +148,49 @@ export function TaskFormDialog({
     };
   }, [open, isEditing]);
 
+  // Owner options — lean assignable projection, open to any signed-in
+  // user (no `directory:read` needed). The picker degrades to just the
+  // current user if the fetch fails.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setUsersLoading(true);
+    listAssignableUsers({ limit: 500 })
+      .then((res) => {
+        if (!cancelled) setUsers(res.data);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setUsersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  // Current user first (rendered as "Me"); when editing, the task's
+  // existing owner stays selectable even if missing from the directory
+  // response (e.g. deactivated since assignment).
+  const ownerOptions = useMemo(() => {
+    const opts: Array<{ id: string; name: string }> = [];
+    const seen = new Set<string>();
+    if (currentUser) {
+      opts.push({ id: currentUser.id, name: currentUser.name });
+      seen.add(currentUser.id);
+    }
+    if (task?.owner && !seen.has(task.owner.id)) {
+      opts.push({ id: task.owner.id, name: task.owner.name });
+      seen.add(task.owner.id);
+    }
+    for (const u of users) {
+      if (!seen.has(u.id)) {
+        opts.push({ id: u.id, name: u.name });
+        seen.add(u.id);
+      }
+    }
+    return opts;
+  }, [currentUser, task, users]);
+
   useEffect(() => {
     if (!open) return;
     if (task) {
@@ -144,6 +198,7 @@ export function TaskFormDialog({
         subject: task.subject,
         dueDate: task.dueDate ? String(task.dueDate).slice(0, 10) : "",
         status: task.status as TaskStatus,
+        ownerId: task.ownerId ?? "",
         leadId: task.leadId ?? "",
         opportunityId: task.opportunityId ?? "",
       });
@@ -152,11 +207,12 @@ export function TaskFormDialog({
         subject: "",
         dueDate: "",
         status: "open",
+        ownerId: currentUserId ?? "",
         leadId: presetLeadId ?? "",
         opportunityId: presetOpportunityId ?? "",
       });
     }
-  }, [open, task, presetLeadId, presetOpportunityId, form]);
+  }, [open, task, presetLeadId, presetOpportunityId, currentUserId, form]);
 
   async function onSubmit(values: FormValues) {
     try {
@@ -166,12 +222,14 @@ export function TaskFormDialog({
           subject: values.subject,
           dueDate: values.dueDate,
           status: values.status,
+          ownerId: values.ownerId || undefined,
         });
         toast.success("Task updated");
       } else {
         await createCrmTask({
           subject: values.subject,
           dueDate: values.dueDate,
+          ownerId: values.ownerId || undefined,
           leadId: values.leadId || undefined,
           opportunityId: values.opportunityId || undefined,
         });
@@ -280,6 +338,35 @@ export function TaskFormDialog({
                   )}
                 />
               ) : null}
+              <FormField
+                control={form.control}
+                name="ownerId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Owner</FormLabel>
+                    <Select
+                      value={field.value || undefined}
+                      onValueChange={field.onChange}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="w-full">
+                          <SelectValue
+                            placeholder={usersLoading ? "Loading…" : "Me"}
+                          />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {ownerOptions.map((u) => (
+                          <SelectItem key={u.id} value={u.id}>
+                            {u.id === currentUserId ? "Me" : u.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             {!isEditing ? (

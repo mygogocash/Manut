@@ -3,11 +3,21 @@ import * as XLSX from "xlsx";
 import { neutralizeFormula, rowsToCsv } from "@/common/utils/csv";
 import { attendanceRepository } from "@/modules/hrms/attendance.repository";
 import { attendanceCalendarService } from "@/modules/hrms/attendance-calendar.service";
-import {
-  parseAttendanceDate,
-  parseAttendanceMonth,
-} from "@/modules/hrms/attendance-period.util";
 import type { ExportQuery } from "@/modules/hrms/attendance-phase2.validation";
+
+function parseMonth(month?: string): { from: Date; to: Date } {
+  const now = new Date();
+  const [year, mon] = (
+    month ??
+    `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`
+  )
+    .split("-")
+    .map(Number);
+  return {
+    from: new Date(Date.UTC(year, mon - 1, 1)),
+    to: new Date(Date.UTC(year, mon, 0)),
+  };
+}
 
 function buildFilename(base: string, format: string) {
   return `${base}.${format === "xlsx" ? "xlsx" : "csv"}`;
@@ -29,7 +39,7 @@ function toBuffer(headers: string[], rows: unknown[][], format: string) {
 export const attendanceExportService = {
   async exportDaily(query: ExportQuery) {
     const date = query.date
-      ? parseAttendanceDate(query.date).date
+      ? new Date(`${query.date}T00:00:00.000Z`)
       : new Date(
           Date.UTC(
             new Date().getUTCFullYear(),
@@ -83,7 +93,7 @@ export const attendanceExportService = {
   },
 
   async exportMonthly(query: ExportQuery) {
-    const { from, to } = parseAttendanceMonth(query.month);
+    const { from, to } = parseMonth(query.month);
     const records = await attendanceRepository.findRecordsInRange(from, to, {
       department: query.department,
     });
@@ -123,7 +133,7 @@ export const attendanceExportService = {
   },
 
   async exportDepartment(query: ExportQuery) {
-    const { from, to } = parseAttendanceMonth(query.month);
+    const { from, to } = parseMonth(query.month);
     const records = await attendanceRepository.findRecordsInRange(from, to, {
       department: query.department,
     });

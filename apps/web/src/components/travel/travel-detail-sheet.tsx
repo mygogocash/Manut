@@ -82,6 +82,7 @@ function statusVariant(status: string): "approved" | "rejected" | "pending" {
 const expenseColumns = [
   {
     key: "date",
+    mobileRole: "subtitle" as const,
     header: "Date",
     render: (e: TravelLinkedExpense) => (
       <span className="text-xs tabular-nums">{formatDate(e.date)}</span>
@@ -89,6 +90,7 @@ const expenseColumns = [
   },
   {
     key: "description",
+    mobileRole: "title" as const,
     header: "Description",
     render: (e: TravelLinkedExpense) => (
       <span className="text-sm">{e.description}</span>
@@ -96,6 +98,7 @@ const expenseColumns = [
   },
   {
     key: "amount",
+    mobileRole: "field" as const,
     header: "Amount",
     className: "text-right",
     render: (e: TravelLinkedExpense) => (
@@ -104,6 +107,7 @@ const expenseColumns = [
   },
   {
     key: "status",
+    mobileRole: "badge" as const,
     header: "Status",
     render: (e: TravelLinkedExpense) => (
       <Badge status={statusVariant(e.status)}>{e.status}</Badge>

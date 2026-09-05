@@ -4,8 +4,9 @@ import type {
   ApiSuccessResponse,
 } from "@/types/api.type";
 
-// Typed client for the Product CRM standalone workspace.
-// Mounted at `/api/product-crm`.
+// Phase 3 of the Product CRM standalone workspace (Option A per-CRM
+// schema isolation, 2026-05-26). Typed client for the Phase 2
+// backend endpoints (#610). Mounted at `/api/product-crm`.
 
 export interface ProductCrmUser {
   id: string;
@@ -30,6 +31,9 @@ export interface ProductProject {
   comment: string | null;
   sortOrder: number;
   department: string | null;
+  // Auto-assign default for new tasks: none | creator | owner | user.
+  defaultAssigneeMode: string;
+  defaultAssigneeId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -98,6 +102,8 @@ export interface CreateProductProjectInput {
   comment?: string | null;
   department?: string | null;
   sortOrder?: number;
+  defaultAssigneeMode?: "none" | "creator" | "owner" | "user";
+  defaultAssigneeId?: string | null;
 }
 
 export type UpdateProductProjectInput = Partial<CreateProductProjectInput>;
@@ -108,6 +114,8 @@ export interface ProductProjectListParams {
   search?: string;
   status?: string;
   department?: string;
+  // When true, return ONLY archived projects; omit/false shows active only.
+  archived?: boolean;
 }
 
 // ─── Project CRUD ──────────────────────────────────────────
@@ -146,6 +154,18 @@ export async function deleteProductProject(
   id: string,
 ): Promise<ApiSuccessResponse<{ success: true }>> {
   return api.delete(`/product-crm/${id}`);
+}
+
+export async function archiveProductProject(
+  id: string,
+): Promise<ApiSuccessResponse<ProductProject>> {
+  return api.post(`/product-crm/${id}/archive`, {});
+}
+
+export async function unarchiveProductProject(
+  id: string,
+): Promise<ApiSuccessResponse<ProductProject>> {
+  return api.post(`/product-crm/${id}/unarchive`, {});
 }
 
 export async function reorderProductProjects(

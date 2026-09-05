@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,6 +20,10 @@ import {
   PersonalInfoSection,
   RolesSection,
 } from "@/components/employees/employee-form-sections";
+import {
+  mergeManagerCandidates,
+  seedManagerCandidates,
+} from "@/components/employees/manager-candidates";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -101,7 +105,7 @@ export function EmployeeFormDialog({
   } = useDragImage();
 
   const form = useForm<EmployeeFormValues>({
-    resolver: standardSchemaResolver(employeeFormSchema),
+    resolver: zodResolver(employeeFormSchema),
     defaultValues: EMPLOYEE_FORM_DEFAULTS,
   });
 
@@ -147,6 +151,12 @@ export function EmployeeFormDialog({
   // Reset form whenever the data source becomes ready. For edit, that's
   // when the fetched `detail` arrives (or the parent already passed a
   // UserDetail). For create, we reset immediately on open.
+  const resetSourceId = isEditing ? (detail?.id ?? null) : "new";
+  const resetKey = useMemo(
+    () => `${open}-${resetSourceId}-${employeeRole?.id ?? ""}`,
+    [open, resetSourceId, employeeRole?.id],
+  );
+
   useEffect(() => {
     if (!open) return;
 
@@ -209,13 +219,31 @@ export function EmployeeFormDialog({
 
     setShowPassword(false);
     resetDragImage();
-  }, [detail, employeeRole?.id, form, isEditing, open, resetDragImage]);
+    // resetKey changes on `open` toggle + detail load + role switch;
+    // listing the live deps would loop the reset on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
 
   useEffect(() => {
     if (!open) {
       setManagerCandidates([]);
       return;
     }
+
+    const selfId = employee?.id;
+    // The bound manager is read from `employee.manager` (UserListItem)
+    // or `detail.manager` (UserDetail) — whichever is available.
+    const boundManager = employee?.manager ?? detail?.manager ?? null;
+
+    // Seed the dropdown with the bound manager BEFORE fetching the
+    // candidate list. The #574 merge (inactive / past-the-cap managers)
+    // only ran on the fetch success path — a transient listUsers failure
+    // silently left an empty list, so the Select showed the "Select
+    // manager" placeholder even though `reportingTo` was set, and HR
+    // kept "re-fixing" a manager that was never lost. Seeding first
+    // guarantees the current manager renders no matter how the fetch
+    // ends. See manager-candidates.ts for the full history.
+    setManagerCandidates(seedManagerCandidates(boundManager, selfId));
 
     let cancelled = false;
     setManagersLoading(true);
@@ -229,34 +257,18 @@ export function EmployeeFormDialog({
           sortOrder: "asc",
         });
         if (cancelled) return;
-        const selfId = employee?.id;
-        const candidates = res.data
-          .filter((u) => u.id !== selfId)
-          .map((u) => ({ id: u.id, name: u.name }));
-
-        // Guarantee the currently-bound manager appears in the
-        // dropdown so the Select can render the label, even when:
-        //   • the manager is inactive (filtered out by isActive=true),
-        //   • the manager sits past the 500-row limit, or
-        //   • we hit the list endpoint's pagination ceiling.
-        // Without this the Radix Select shows the placeholder text
-        // even though `reportingTo` is set — looks like an empty
-        // field. The bound manager is read from `employee.manager`
-        // (UserListItem) or `detail.manager` (UserDetail) — whichever
-        // is available — and merged at the top of the list so HR
-        // sees it pre-selected on open.
-        const boundManager = employee?.manager ?? detail?.manager ?? null;
-        if (
-          boundManager &&
-          boundManager.id !== selfId &&
-          !candidates.some((c) => c.id === boundManager.id)
-        ) {
-          candidates.unshift({ id: boundManager.id, name: boundManager.name });
-        }
-
-        setManagerCandidates(candidates);
+        setManagerCandidates(
+          mergeManagerCandidates(res.data, boundManager, selfId),
+        );
       } catch {
-        if (!cancelled) setManagerCandidates([]);
+        // Keep the seeded bound manager and say what happened — the old
+        // silent `setManagerCandidates([])` rendered a state identical
+        // to "no manager assigned".
+        if (!cancelled) {
+          toast.error(
+            "Couldn't load the manager list. Close and reopen the form to retry.",
+          );
+        }
       } finally {
         if (!cancelled) setManagersLoading(false);
       }

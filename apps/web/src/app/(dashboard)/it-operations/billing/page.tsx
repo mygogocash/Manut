@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowLeft, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
-import Link from "next/link";
+import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { ItBillingMonthlyTab } from "@/components/it/it-billing-monthly-tab";
+import { ItWorkspaceTabs } from "@/components/it/it-workspace-tabs";
 import { Badge } from "@/components/shared/badge";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { DataTable } from "@/components/shared/data-table";
@@ -30,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -62,27 +64,38 @@ import { uploadFile } from "@/services/upload.service";
 export default function ItBillingPage() {
   const { hasPermission } = useAuth();
   const canManage = hasPermission("it:billing:manage");
+  // Monthly is the default: "what are we spending and is it going up or down"
+  // is the question this page exists to answer, and the flat register cannot
+  // answer it. `?tab=subscriptions` links still land where they always did.
+  const [tab, setTab] = useTabParam("monthly");
 
   return (
-    <div className="px-6 py-6">
+    <div>
+      {/*
+        Title names the workspace, subtitle names the surface — the strip
+        below is what says where you are. Matches /sales, where every tab
+        sits under one "Sales CRM" heading.
+      */}
       <PageHeader
-        title="IT Billing Monitoring"
+        title="IT CRM"
         subtitle="Vendors, subscriptions, renewals, and spend"
-      >
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/it-operations">
-            <ArrowLeft className="mr-1 size-3.5" />
-            IT Operations
-          </Link>
-        </Button>
-      </PageHeader>
+      />
 
-      <Tabs defaultValue="subscriptions">
-        <TabsList>
+      {/* Replaces the back-to-Operations button this header used to carry. */}
+      <ItWorkspaceTabs />
+
+      <Tabs value={tab} onValueChange={setTab}>
+        {/* Nested under the workspace strip — lighter treatment so the two
+            levels do not read as one block of tabs. */}
+        <TabsList variant="line">
+          <TabsTrigger value="monthly">Monthly</TabsTrigger>
           <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
           <TabsTrigger value="vendors">Vendors</TabsTrigger>
           <TabsTrigger value="licenses">License Utilization</TabsTrigger>
         </TabsList>
+        <TabsContent value="monthly" className="mt-4">
+          <ItBillingMonthlyTab />
+        </TabsContent>
         <TabsContent value="subscriptions" className="mt-4">
           <SubscriptionsTab canManage={canManage} />
         </TabsContent>
@@ -206,6 +219,7 @@ function SubscriptionsTab({ canManage }: { canManage: boolean }) {
           { key: "productName", header: "Product" },
           {
             key: "vendor",
+            mobileRole: "subtitle" as const,
             header: "Vendor",
             render: (r) => (
               <span className="text-muted-foreground">{r.vendor.name}</span>
@@ -213,6 +227,7 @@ function SubscriptionsTab({ canManage }: { canManage: boolean }) {
           },
           {
             key: "renewalDate",
+            mobileRole: "field" as const,
             header: "Renewal",
             render: (r) =>
               r.renewalDate
@@ -221,11 +236,13 @@ function SubscriptionsTab({ canManage }: { canManage: boolean }) {
           },
           {
             key: "invoiceAmount",
+            mobileRole: "field" as const,
             header: "Invoice",
             render: (r) => `${r.currency} ${r.invoiceAmount.toLocaleString()}`,
           },
           {
             key: "status",
+            mobileRole: "badge" as const,
             header: "Status",
             render: (r) => (
               <Badge status={r.effectiveStatus}>
@@ -235,6 +252,7 @@ function SubscriptionsTab({ canManage }: { canManage: boolean }) {
           },
           {
             key: "actions",
+            mobileRole: "actions" as const,
             header: "",
             className: "w-[90px] text-right",
             render: (r) =>
@@ -346,7 +364,7 @@ function SubscriptionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             {editing ? "Edit Subscription" : "New Subscription"}
@@ -604,6 +622,14 @@ function SubscriptionExtras({
   );
   const [busy, setBusy] = useState(false);
   const [decisionNotes, setDecisionNotes] = useState("");
+  // Cancelling is two-step so the effective date is VISIBLE before it is
+  // applied. It defaults to the renewal date — the paid-through date — and that
+  // default silently moving a month of spend is exactly what a hidden default
+  // would do.
+  const [cancelArmed, setCancelArmed] = useState(false);
+  const [effectiveDate, setEffectiveDate] = useState(
+    subscription.renewalDate ? subscription.renewalDate.slice(0, 10) : "",
+  );
 
   async function onUpload(file: File) {
     try {
@@ -647,6 +673,9 @@ function SubscriptionExtras({
       await recordRenewalDecision(subscription.id, {
         decision,
         notes: decisionNotes || undefined,
+        // Only meaningful for a cancellation; a renew clears the date instead.
+        effectiveDate:
+          decision === "cancel" && effectiveDate ? effectiveDate : undefined,
       });
       toast.success(
         decision === "renew" ? "Marked renewed" : "Marked cancelled",
@@ -718,6 +747,11 @@ function SubscriptionExtras({
                   subscription.renewalDecisionAt,
                 ).toLocaleDateString("en-GB")}`
               : ""}
+            {subscription.cancelledAt
+              ? ` · cost stops ${new Date(
+                  subscription.cancelledAt,
+                ).toLocaleDateString("en-GB")}`
+              : ""}
           </p>
         ) : (
           <>
@@ -726,19 +760,59 @@ function SubscriptionExtras({
               value={decisionNotes}
               onChange={(e) => setDecisionNotes(e.target.value)}
             />
+            {cancelArmed && (
+              <div className="grid gap-1.5">
+                <Label htmlFor="cancel-effective-date">
+                  Cost stops after (effective from)
+                </Label>
+                <Input
+                  id="cancel-effective-date"
+                  type="date"
+                  value={effectiveDate}
+                  onChange={(e) => setEffectiveDate(e.target.value)}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Defaults to the renewal date, because a term already paid for
+                  still costs money until it ends. This is the month the spend
+                  trend steps down.
+                </p>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button size="sm" disabled={busy} onClick={() => decide("renew")}>
                 Renew
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-destructive"
-                disabled={busy}
-                onClick={() => decide("cancel")}
-              >
-                Cancel subscription
-              </Button>
+              {cancelArmed ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive"
+                    disabled={busy}
+                    onClick={() => decide("cancel")}
+                  >
+                    Confirm cancellation
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => setCancelArmed(false)}
+                  >
+                    Back
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive"
+                  disabled={busy}
+                  onClick={() => setCancelArmed(true)}
+                >
+                  Cancel subscription
+                </Button>
+              )}
             </div>
           </>
         )}
@@ -818,6 +892,7 @@ function VendorsTab({ canManage }: { canManage: boolean }) {
           },
           {
             key: "actions",
+            mobileRole: "actions" as const,
             header: "",
             className: "w-[90px] text-right",
             render: (r) =>
@@ -904,7 +979,7 @@ function VendorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{editing ? "Edit Vendor" : "New Vendor"}</DialogTitle>
         </DialogHeader>
@@ -1050,6 +1125,7 @@ function LicenseReportTab() {
           { key: "productName", header: "Software" },
           {
             key: "vendorName",
+            mobileRole: "subtitle" as const,
             header: "Vendor",
             render: (r) => (
               <span className="text-muted-foreground">{r.vendorName}</span>
@@ -1057,24 +1133,28 @@ function LicenseReportTab() {
           },
           {
             key: "totalSeats",
+            mobileRole: "detail" as const,
             header: "Purchased",
             className: "text-right",
             render: (r) => r.totalSeats ?? "-",
           },
           {
             key: "assignedSeats",
+            mobileRole: "detail" as const,
             header: "Assigned",
             className: "text-right",
             render: (r) => r.assignedSeats,
           },
           {
             key: "activeSeats",
+            mobileRole: "detail" as const,
             header: "Active",
             className: "text-right",
             render: (r) => r.activeSeats,
           },
           {
             key: "unusedSeats",
+            mobileRole: "detail" as const,
             header: "Unused",
             className: "text-right",
             render: (r) => (
@@ -1087,6 +1167,7 @@ function LicenseReportTab() {
           },
           {
             key: "utilizationPercentage",
+            mobileRole: "field" as const,
             header: "Utilization",
             className: "text-right",
             render: (r) =>
@@ -1096,12 +1177,14 @@ function LicenseReportTab() {
           },
           {
             key: "monthlyCost",
+            mobileRole: "field" as const,
             header: "Monthly Cost",
             className: "text-right",
             render: (r) => `${r.currency} ${r.monthlyCost.toLocaleString()}`,
           },
           {
             key: "potentialMonthlySavings",
+            mobileRole: "field" as const,
             header: "Potential Savings",
             className: "text-right",
             render: (r) => (

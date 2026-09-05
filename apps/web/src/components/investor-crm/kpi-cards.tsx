@@ -7,14 +7,9 @@ import type { InvestorDashboard } from "@/services/investor.service";
 interface KpiCardsProps {
   dashboard: InvestorDashboard | null;
   activeCount: number;
-  avgInvestment: number;
 }
 
-export function KpiCards({
-  dashboard,
-  activeCount,
-  avgInvestment,
-}: KpiCardsProps) {
+export function KpiCards({ dashboard, activeCount }: KpiCardsProps) {
   return (
     <div
       className={`
@@ -164,7 +159,7 @@ export function KpiCards({
                   tracking-widest uppercase
                 `}
               >
-                Avg. Investment
+                Total Invested
               </div>
               <div
                 className={`
@@ -172,7 +167,7 @@ export function KpiCards({
                   tabular-nums
                 `}
               >
-                {formatCurrency(avgInvestment)}
+                {formatCurrency(dashboard?.totalActInvestment ?? 0)}
               </div>
             </div>
             <div
@@ -185,7 +180,7 @@ export function KpiCards({
             </div>
           </div>
           <p className="text-muted-foreground mt-2 text-[10.5px]">
-            Average per investor
+            Actual money received to date
           </p>
         </CardContent>
       </Card>

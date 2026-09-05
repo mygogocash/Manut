@@ -15,6 +15,8 @@ import {
   createSubscriptionSchema,
   createVendorSchema,
   licenseReportQuerySchema,
+  monthDetailQuerySchema,
+  monthlySeriesQuerySchema,
   removeAttachmentSchema,
   renewalDecisionSchema,
   subscriptionQuerySchema,
@@ -35,6 +37,24 @@ router.get(
   requirePermission(...VIEW),
   asyncHandler(async (_req, res) => {
     res.json(await itBillingService.monthlySpendReport());
+  }),
+);
+// Committed spend per calendar month + what started/ended in each. Distinct
+// from /reports/monthly-spend, which is a single run-rate snapshot, not a series.
+router.get(
+  "/reports/monthly-series",
+  requirePermission(...VIEW),
+  asyncHandler(async (req, res) => {
+    const query = monthlySeriesQuerySchema.parse(req.query);
+    res.json(await itBillingService.monthlySeriesReport(query));
+  }),
+);
+router.get(
+  "/reports/monthly-detail",
+  requirePermission(...VIEW),
+  asyncHandler(async (req, res) => {
+    const query = monthDetailQuerySchema.parse(req.query);
+    res.json(await itBillingService.monthlyDetailReport(query));
   }),
 );
 router.get(

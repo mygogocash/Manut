@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { excludeDeleted, softDeleteUpdate } from "@/infrastructure/soft-delete";

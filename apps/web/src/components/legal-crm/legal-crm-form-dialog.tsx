@@ -87,8 +87,8 @@ export function LegalCrmFormDialog({
       setGoLiveDate(project.goLiveDate?.slice(0, 10) ?? "");
       setDependency(project.dependency ?? "");
       setDefaultAssigneeMode(
-        (project.defaultAssigneeMode as
-          "none" | "creator" | "owner" | "user") ?? "none",
+        (project.defaultAssigneeMode as "none" | "creator" | "owner" | "user") ??
+          "none",
       );
       setDefaultAssigneeId(project.defaultAssigneeId ?? "");
     } else {
@@ -251,12 +251,12 @@ export function LegalCrmFormDialog({
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="legal-dep">Dependency</Label>
+            <Label htmlFor="legal-dep">Assignee</Label>
             <Input
               id="legal-dep"
               value={dependency}
               onChange={(e) => setDependency(e.target.value)}
-              placeholder="Upstream blocker, vendor, team..."
+              placeholder="Assigned person or team..."
             />
           </div>
           <div className="grid grid-cols-2 gap-3">

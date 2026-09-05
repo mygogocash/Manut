@@ -1,4 +1,4 @@
-import { nodeConfig } from "@manut/eslint-config/node";
+import { nodeConfig } from "@nexora/eslint-config/node";
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [

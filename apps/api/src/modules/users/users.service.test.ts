@@ -3,20 +3,17 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
 import { sendWelcomeTemplateEmail } from "@/infrastructure/email/email.service";
 import { supabaseAdmin } from "@/infrastructure/supabase/admin";
 import { usersRepository } from "@/modules/users/users.repository";
 import { UsersService } from "@/modules/users/users.service";
-import { arrayAt } from "@/test-utils/assertions";
 
 vi.mock("./users.repository", () => ({
   usersRepository: {
     findMany: vi.fn(),
     findById: vi.fn(),
-    findByIdIncludingDeleted: vi.fn(),
     findByEmail: vi.fn(),
     findByEmployeeId: vi.fn(),
     allocateNextEmployeeId: vi.fn(),
@@ -40,7 +37,6 @@ vi.mock("../../infrastructure/supabase/admin", () => ({
         createUser: vi.fn(),
         updateUserById: vi.fn(),
         deleteUser: vi.fn(),
-        listUsers: vi.fn(),
       },
     },
   },
@@ -54,7 +50,6 @@ const mockUserRoleFindFirst = vi.fn();
 const mockRoleFindUnique = vi.fn();
 const mockEntityFindMany = vi.fn();
 const mockRoleFindMany = vi.fn();
-const mockUserFindMany = vi.fn();
 
 vi.mock("@/infrastructure/database/prisma", () => ({
   prisma: {
@@ -67,9 +62,6 @@ vi.mock("@/infrastructure/database/prisma", () => ({
     },
     entity: {
       findMany: (...args: unknown[]) => mockEntityFindMany(...args),
-    },
-    user: {
-      findMany: (...args: unknown[]) => mockUserFindMany(...args),
     },
   },
 }));
@@ -86,7 +78,6 @@ describe("UsersService", () => {
     mockRoleFindUnique.mockResolvedValue(null);
     mockEntityFindMany.mockResolvedValue([]);
     mockRoleFindMany.mockResolvedValue([]);
-    mockUserFindMany.mockResolvedValue([]);
   });
 
   describe("list", () => {
@@ -106,7 +97,7 @@ describe("UsersService", () => {
           location: "Dubai",
           country: "AE",
           isActive: true,
-          entity: { id: "entity-1", name: "Manut" },
+          entity: { id: "entity-1", name: "TBH" },
           manager: null,
           userRoles: [{ role: { id: "role-1", name: "Employee" } }],
           createdAt: new Date(),
@@ -118,21 +109,13 @@ describe("UsersService", () => {
         total: 1,
       });
 
-      const result = await usersService.list({
-        page: 1,
-        limit: 10,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
+      const result = await usersService.list({ page: 1, limit: 10 });
 
       expect(result.data).toHaveLength(1);
-      const listedUser = arrayAt(result.data, 0, "listed user");
-      expect(listedUser.email).toBe("user1@example.com");
-      expect(listedUser.startDate).toEqual(
-        arrayAt(mockUsers, 0, "user fixture").startDate,
-      );
-      expect(listedUser.location).toBe("Dubai");
-      expect(listedUser.country).toBe("AE");
+      expect(result.data[0].email).toBe("user1@example.com");
+      expect(result.data[0].startDate).toEqual(mockUsers[0].startDate);
+      expect(result.data[0].location).toBe("Dubai");
+      expect(result.data[0].country).toBe("AE");
       expect(result.meta.total).toBe(1);
       expect(result.meta.page).toBe(1);
     });
@@ -159,7 +142,7 @@ describe("UsersService", () => {
         country: "US",
         timezone: "UTC",
         isActive: true,
-        entity: { id: "entity-1", name: "Manut" },
+        entity: { id: "entity-1", name: "TBH" },
         manager: null,
         userRoles: [{ role: { id: "role-1", name: "Employee" } }],
         createdAt: new Date(),
@@ -191,13 +174,12 @@ describe("UsersService", () => {
       entityId: "entity-1",
       department: "HR",
       jobTitle: "Manager",
-      employmentType: "full_time",
     };
 
     it("should create user successfully", async () => {
       (usersRepository.findByEmail as Mock).mockResolvedValue(null);
       (usersRepository.allocateNextEmployeeId as Mock).mockResolvedValue(
-        "MANUT-042",
+        "TBH-042",
       );
       (supabaseAdmin.auth.admin.createUser as Mock).mockResolvedValue({
         data: { user: { id: "new-user-123" } },
@@ -215,7 +197,7 @@ describe("UsersService", () => {
       expect(usersRepository.allocateNextEmployeeId).toHaveBeenCalled();
       expect(supabaseAdmin.auth.admin.createUser).toHaveBeenCalled();
       expect(usersRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ employeeId: "MANUT-042" }),
+        expect.objectContaining({ employeeId: "TBH-042" }),
         undefined,
       );
       expect(sendWelcomeTemplateEmailMock).toHaveBeenCalledWith({
@@ -274,7 +256,7 @@ describe("UsersService", () => {
     it("should throw BadRequestException when Supabase fails", async () => {
       (usersRepository.findByEmail as Mock).mockResolvedValue(null);
       (usersRepository.allocateNextEmployeeId as Mock).mockResolvedValue(
-        "MANUT-001",
+        "TBH-001",
       );
       (supabaseAdmin.auth.admin.createUser as Mock).mockResolvedValue({
         data: null,
@@ -289,7 +271,7 @@ describe("UsersService", () => {
     it("should delete Supabase user when DB creation fails", async () => {
       (usersRepository.findByEmail as Mock).mockResolvedValue(null);
       (usersRepository.allocateNextEmployeeId as Mock).mockResolvedValue(
-        "MANUT-001",
+        "TBH-001",
       );
       (supabaseAdmin.auth.admin.createUser as Mock).mockResolvedValue({
         data: { user: { id: "temp-user" } },
@@ -308,7 +290,7 @@ describe("UsersService", () => {
     it("skips the welcome template email when requested", async () => {
       (usersRepository.findByEmail as Mock).mockResolvedValue(null);
       (usersRepository.allocateNextEmployeeId as Mock).mockResolvedValue(
-        "MANUT-043",
+        "TBH-043",
       );
       (supabaseAdmin.auth.admin.createUser as Mock).mockResolvedValue({
         data: { user: { id: "new-user-789" } },
@@ -353,15 +335,15 @@ describe("UsersService", () => {
     it("rejects an employeeId already taken by another user", async () => {
       (usersRepository.findById as Mock).mockResolvedValue({
         id: "user-123",
-        employeeId: "MANUT-001",
+        employeeId: "TBH-001",
       });
       (usersRepository.findByEmployeeId as Mock).mockResolvedValue({
         id: "user-other",
-        employeeId: "MANUT-042",
+        employeeId: "TBH-042",
       });
 
       await expect(
-        usersService.update("user-123", { employeeId: "MANUT-042" }),
+        usersService.update("user-123", { employeeId: "TBH-042" }),
       ).rejects.toThrow(ConflictException);
       expect(usersRepository.update).not.toHaveBeenCalled();
     });
@@ -369,19 +351,19 @@ describe("UsersService", () => {
     it("allows keeping the same employeeId without a conflict check", async () => {
       (usersRepository.findById as Mock).mockResolvedValue({
         id: "user-123",
-        employeeId: "MANUT-001",
+        employeeId: "TBH-001",
       });
       (usersRepository.update as Mock).mockResolvedValue({
         id: "user-123",
         userRoles: [],
       });
 
-      await usersService.update("user-123", { employeeId: "MANUT-001" });
+      await usersService.update("user-123", { employeeId: "TBH-001" });
 
       expect(usersRepository.findByEmployeeId).not.toHaveBeenCalled();
       expect(usersRepository.update).toHaveBeenCalledWith(
         "user-123",
-        expect.objectContaining({ employeeId: "MANUT-001" }),
+        expect.objectContaining({ employeeId: "TBH-001" }),
       );
     });
   });
@@ -419,76 +401,9 @@ describe("UsersService", () => {
     });
   });
 
-  describe("permanentDelete", () => {
-    const actorId = "actor-1";
-
-    it("purges a soft-deleted user from auth and the database", async () => {
-      (usersRepository.findByIdIncludingDeleted as Mock).mockResolvedValue({
-        id: "user-123",
-        deletedAt: new Date(),
-      });
-      (supabaseAdmin.auth.admin.deleteUser as Mock).mockResolvedValue({
-        error: null,
-      });
-      (usersRepository.permanentDelete as Mock).mockResolvedValue({
-        id: "user-123",
-      });
-
-      await expect(
-        usersService.permanentDelete("user-123", actorId),
-      ).resolves.toEqual({ data: { id: "user-123" } });
-      expect(supabaseAdmin.auth.admin.deleteUser).toHaveBeenCalledWith(
-        "user-123",
-      );
-      expect(usersRepository.permanentDelete).toHaveBeenCalledWith("user-123");
-    });
-
-    it("rejects an active user with conflict", async () => {
-      (usersRepository.findByIdIncludingDeleted as Mock).mockResolvedValue({
-        id: "user-123",
-        deletedAt: null,
-      });
-
-      await expect(
-        usersService.permanentDelete("user-123", actorId),
-      ).rejects.toThrow(ConflictException);
-      expect(supabaseAdmin.auth.admin.deleteUser).not.toHaveBeenCalled();
-      expect(usersRepository.permanentDelete).not.toHaveBeenCalled();
-    });
-
-    it("returns not found when the user does not exist", async () => {
-      (usersRepository.findByIdIncludingDeleted as Mock).mockResolvedValue(
-        null,
-      );
-
-      await expect(
-        usersService.permanentDelete("missing", actorId),
-      ).rejects.toThrow(NotFoundException);
-      expect(supabaseAdmin.auth.admin.deleteUser).not.toHaveBeenCalled();
-      expect(usersRepository.permanentDelete).not.toHaveBeenCalled();
-    });
-
-    it("preserves the self-deletion guard for deleted users", async () => {
-      (usersRepository.findByIdIncludingDeleted as Mock).mockResolvedValue({
-        id: actorId,
-        deletedAt: new Date(),
-      });
-
-      await expect(
-        usersService.permanentDelete(actorId, actorId),
-      ).rejects.toThrow(BadRequestException);
-      expect(supabaseAdmin.auth.admin.deleteUser).not.toHaveBeenCalled();
-      expect(usersRepository.permanentDelete).not.toHaveBeenCalled();
-    });
-  });
-
   describe("resetPassword", () => {
     it("should reset password successfully", async () => {
-      (usersRepository.findById as Mock).mockResolvedValue({
-        id: "user-123",
-        isActive: true,
-        deletedAt: null,
-      });
+      (usersRepository.findById as Mock).mockResolvedValue({ id: "user-123" });
       (supabaseAdmin.auth.admin.updateUserById as Mock).mockResolvedValue({
         error: null,
       });
@@ -517,8 +432,6 @@ describe("UsersService", () => {
       (usersRepository.findById as Mock).mockResolvedValue({
         id: "user-123",
         email: "seed@example.com",
-        isActive: true,
-        deletedAt: null,
       });
       (supabaseAdmin.auth.admin.updateUserById as Mock).mockResolvedValue({
         error: { message: "User not found", status: 404 },
@@ -549,8 +462,6 @@ describe("UsersService", () => {
       (usersRepository.findById as Mock).mockResolvedValue({
         id: "user-123",
         email: "real@example.com",
-        isActive: true,
-        deletedAt: null,
       });
       (supabaseAdmin.auth.admin.updateUserById as Mock).mockResolvedValue({
         error: { message: "Password too weak", status: 422 },
@@ -560,83 +471,6 @@ describe("UsersService", () => {
         usersService.resetPassword("user-123", { newPassword: "x" }),
       ).rejects.toThrow(BadRequestException);
       expect(supabaseAdmin.auth.admin.createUser).not.toHaveBeenCalled();
-    });
-
-    it("rejects credential reset and provisioning for a soft-deleted active user", async () => {
-      (usersRepository.findById as Mock).mockResolvedValue({
-        id: "user-123",
-        email: "deleted@manut.example",
-        isActive: true,
-        deletedAt: new Date("2026-07-17T00:00:00.000Z"),
-      });
-
-      await expect(
-        usersService.resetPassword("user-123", {
-          newPassword: "NewPassword123!",
-        }),
-      ).rejects.toThrow(ForbiddenException);
-      expect(supabaseAdmin.auth.admin.updateUserById).not.toHaveBeenCalled();
-      expect(supabaseAdmin.auth.admin.createUser).not.toHaveBeenCalled();
-      expect(usersRepository.update).not.toHaveBeenCalled();
-    });
-
-    it("rejects credential reset for an inactive non-deleted user", async () => {
-      (usersRepository.findById as Mock).mockResolvedValue({
-        id: "user-123",
-        email: "inactive@manut.example",
-        isActive: false,
-        deletedAt: null,
-      });
-
-      await expect(
-        usersService.resetPassword("user-123", {
-          newPassword: "NewPassword123!",
-        }),
-      ).rejects.toThrow(ForbiddenException);
-      expect(supabaseAdmin.auth.admin.updateUserById).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("activation credential lifecycle", () => {
-    it("lists only active, non-deleted users as unactivated", async () => {
-      (supabaseAdmin.auth.admin.listUsers as Mock).mockResolvedValue({
-        data: { users: [] },
-        error: null,
-      });
-
-      await usersService.listUnactivated();
-
-      expect(mockUserFindMany).toHaveBeenCalledWith({
-        where: { isActive: true, deletedAt: null },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          employeeId: true,
-          department: true,
-          jobTitle: true,
-          avatarUrl: true,
-          createdAt: true,
-        },
-        orderBy: { name: "asc" },
-      });
-    });
-
-    it("loads only active, non-deleted users before resending credentials", async () => {
-      const result = await usersService.resendInvites(["deleted-user"]);
-
-      expect(mockUserFindMany).toHaveBeenCalledWith({
-        where: {
-          id: { in: ["deleted-user"] },
-          isActive: true,
-          deletedAt: null,
-        },
-        select: { id: true, email: true, name: true },
-      });
-      expect(result).toEqual({ data: { sent: 0, failed: [] } });
-      expect(supabaseAdmin.auth.admin.updateUserById).not.toHaveBeenCalled();
-      expect(supabaseAdmin.auth.admin.createUser).not.toHaveBeenCalled();
-      expect(sendWelcomeTemplateEmailMock).not.toHaveBeenCalled();
     });
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Github, Loader2 } from "lucide-react";
+import { FolderGit2, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -29,7 +29,7 @@ interface Props {
 
 /**
  * Admin dialog for the IT Helpdesk ↔ GitHub Issues two-way sync
- * without requiring per-ticket manual linking.
+ * (Sid + BD feedback, 2026-05-24).
  *
  * Token + webhook secret are write-only: the API never echoes them
  * back, the field shows "configured" when a value is stored, and the
@@ -130,10 +130,10 @@ export function GithubWorkflowConfigDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Github className="size-4" />
+            <FolderGit2 className="size-4" />
             GitHub workflow configuration
           </DialogTitle>
           <DialogDescription>
@@ -172,7 +172,7 @@ export function GithubWorkflowConfigDialog({ open, onOpenChange }: Props) {
                 </Label>
                 <Input
                   id="gh-owner"
-                  placeholder="mygogocash"
+                  placeholder="The-Binary-Holdings"
                   value={repoOwner}
                   onChange={(e) => setRepoOwner(e.target.value)}
                   disabled={saving}
@@ -184,7 +184,7 @@ export function GithubWorkflowConfigDialog({ open, onOpenChange }: Props) {
                 </Label>
                 <Input
                   id="gh-repo"
-                  placeholder="new-manut-intranet"
+                  placeholder="new-tbh-intranet"
                   value={repoName}
                   onChange={(e) => setRepoName(e.target.value)}
                   disabled={saving}

@@ -1,11 +1,12 @@
 "use client";
 
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { Archive, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AccountDetailsSection } from "@/components/accounts/account-details-section";
+import { BusinessUnitChips } from "@/components/crm/business-unit-chips";
 import { Badge } from "@/components/shared/badge";
 import { PermissionButton } from "@/components/shared/permission-button";
 import {
@@ -54,6 +55,7 @@ import {
   listCrmActivities,
 } from "@/services/crm-activity.service";
 import {
+  archiveOpportunity,
   closeOpportunityAsLost,
   deleteOpportunity,
   getOpportunity,
@@ -120,9 +122,12 @@ interface OpportunityDetailSheetProps {
   // handles both dialogs internally to keep call sites simple.
   onClosedLost?: (opportunity: Opportunity) => void;
   onReopened?: (opportunity: Opportunity) => void;
-  // Let owners purge a stale card from
+  // Vivek BD-feedback (May 2026) — let owners purge a stale card from
   // any stage. Sheet closes itself; parent refetches the pipeline.
   onDeleted?: (opportunityId: string) => void;
+  // Reversible archive — hides the card from the active pipeline. Sheet
+  // closes itself; parent refetches so the archived card drops out.
+  onArchived?: (opportunity: Opportunity) => void;
 }
 
 export function OpportunityDetailSheet({
@@ -133,6 +138,7 @@ export function OpportunityDetailSheet({
   onClosedLost,
   onReopened,
   onDeleted,
+  onArchived,
 }: OpportunityDetailSheetProps) {
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
   const [account, setAccount] = useState<Account | null>(null);
@@ -143,12 +149,13 @@ export function OpportunityDetailSheet({
   const [reopenStage, setReopenStage] =
     useState<(typeof REOPEN_STAGES)[number]>("qualified");
   const [reopenLoading, setReopenLoading] = useState(false);
-  // Close-lost dialog with lookup-table reason picker.
+  // PRD §11.7 — close-lost dialog with lookup-table reason picker.
   const [closeLostOpen, setCloseLostOpen] = useState(false);
   const [closeLostReason, setCloseLostReason] = useState("");
   const [closeLostLoading, setCloseLostLoading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [archiveLoading, setArchiveLoading] = useState(false);
   const { reasons: lostReasons } = useLostReasons();
 
   const fetchData = useCallback(async () => {
@@ -268,6 +275,23 @@ export function OpportunityDetailSheet({
     }
   }
 
+  async function handleArchive() {
+    if (!opportunity) return;
+    try {
+      setArchiveLoading(true);
+      const res = await archiveOpportunity(opportunity.id);
+      toast.success("Opportunity archived");
+      onArchived?.(res.data);
+      onOpenChange(false);
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to archive opportunity";
+      toast.error(message);
+    } finally {
+      setArchiveLoading(false);
+    }
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -312,6 +336,20 @@ export function OpportunityDetailSheet({
                       opportunity.stage as OpportunityStage
                     ] ?? opportunity.stage}
                   </Badge>
+                }
+              />
+              <DetailRow
+                label="Business units"
+                value={
+                  opportunity.businessUnits?.length ? (
+                    <BusinessUnitChips
+                      codes={opportunity.businessUnits}
+                      // Roomier than a kanban card, so show them all.
+                      max={opportunity.businessUnits.length}
+                    />
+                  ) : (
+                    <span className="text-muted-foreground">Unassigned</span>
+                  )
                 }
               />
               <DetailRow
@@ -400,7 +438,7 @@ export function OpportunityDetailSheet({
             {/*
              * Notes were previously rendered here from
              * `opportunity.notes`. After the Pipeline ↔ Accounts notes-
-             * sync change; notes live
+             * sync change (Vivek BD-feedback, 2026-05-25), notes live
              * on the linked Account record — surfaced by the
              * `<AccountDetailsSection />` block above. The legacy
              * `opportunity.notes` column is still written for
@@ -560,6 +598,19 @@ export function OpportunityDetailSheet({
               </PermissionButton>
             ) : null}
             <PermissionButton
+              permission="crm:update"
+              variant="outline"
+              onClick={handleArchive}
+              disabled={archiveLoading}
+            >
+              {archiveLoading ? (
+                <Loader2 className="mr-1 size-4 animate-spin" />
+              ) : (
+                <Archive className="mr-1 size-4" />
+              )}
+              Archive
+            </PermissionButton>
+            <PermissionButton
               permission="crm:delete"
               variant="outline"
               className={`
@@ -664,8 +715,8 @@ export function OpportunityDetailSheet({
               </SelectContent>
             </Select>
             <p className="text-muted-foreground text-[11px]">
-              Probability snaps to 0%. Reopen later to move the deal back into
-              the pipeline.
+              Probability snaps to 0% per PRD §11.4. Reopen later to move the
+              deal back into the pipeline.
             </p>
           </div>
           <DialogFooter>

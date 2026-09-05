@@ -81,40 +81,40 @@ model Article {
 // the root ancestor's title — new code should treat parentId as the
 // source of truth and folder as a denormalised label.
 model WikiPage {
-  id           String   @id @default(uuid()) @db.Uuid
-  title        String
-  parentId     String?  @map("parent_id") @db.Uuid
-  position     Int      @default(0)
+  id         String   @id @default(uuid()) @db.Uuid
+  title      String
+  parentId   String?  @map("parent_id") @db.Uuid
+  position   Int      @default(0)
   // Legacy free-text grouping label. Kept for backfill but new pages
   // should rely on parentId for nesting. Phased out client-side after
   // the tree migration lands.
-  folder       String?
-  body         String
+  folder     String?
+  body       String
   // Attachments uploaded with the page. JSON array of
   // `{ url, name, mimeType, size }` so HR can drop docs / sheets /
   // PDFs / images / video alongside the prose without modelling a
   // dedicated `wiki_page_attachments` table.
-  attachments  Json     @default("[]")
+  attachments Json    @default("[]")
   // Slug for clean URLs. Optional — server falls back to id when empty.
-  slug         String?  @unique
+  slug       String?  @unique
   // Soft-delete flag. Hard delete removes the row entirely; this lets
   // admins archive a page without breaking external links pointed at
   // its slug.
-  isPublished  Boolean  @default(true) @map("is_published")
+  isPublished Boolean @default(true) @map("is_published")
   // When true, only users listed in WikiPagePermission can read/edit.
   // When false, the module-level docs:read / docs:update gates apply.
-  isRestricted Boolean  @default(false) @map("is_restricted")
-  createdById  String   @map("created_by_id") @db.Uuid
-  updatedById  String   @map("updated_by_id") @db.Uuid
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  isRestricted Boolean @default(false) @map("is_restricted")
+  createdById String  @map("created_by_id") @db.Uuid
+  updatedById String  @map("updated_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  parent      WikiPage?            @relation("WikiPageHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    WikiPage[]           @relation("WikiPageHierarchy")
+  parent      WikiPage?  @relation("WikiPageHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    WikiPage[] @relation("WikiPageHierarchy")
   versions    WikiPageVersion[]
   permissions WikiPagePermission[]
-  createdBy   User                 @relation("WikiPageCreator", fields: [createdById], references: [id], onDelete: Cascade)
-  updatedBy   User                 @relation("WikiPageUpdater", fields: [updatedById], references: [id], onDelete: Cascade)
+  createdBy User @relation("WikiPageCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  updatedBy User @relation("WikiPageUpdater", fields: [updatedById], references: [id], onDelete: Cascade)
 
   @@index([parentId, position])
   @@index([folder])

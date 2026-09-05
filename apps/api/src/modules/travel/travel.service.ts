@@ -248,11 +248,11 @@ export class TravelService {
     //
     // Each step carries optional submitter-conditional routing:
     //   - skipWhenSubmitterIds: skip the step entirely if the
-    //     submitter is on the list (e.g. don't ask an approver to approve
-    //     their own request).
+    //     submitter is on the list (e.g. don't ask Sid to approve his
+    //     own request).
     //   - onlyWhenSubmitterIds: when non-empty, the step only fires
     //     for these submitters; everyone else skips it (e.g. "CEO
-    //     approval" only routes for the configured submitter).
+    //     approval" only routes when Sid is the submitter).
     const allSteps = await travelRepository.findApprovalSteps({
       activeOnly: true,
     });
@@ -299,7 +299,7 @@ export class TravelService {
       // Amount band — applied against the THB-converted cashAdvance.
       // If conversion failed (no FX rate) or no cashAdvance was given,
       // the step's amount filter is treated as not-matching so the
-      // request doesn't silently slip past an intended approval gate.
+      // request doesn't silently slip past an intended Sarah/Sid gate.
       const hasAmountFilter =
         s.amountMinBaht != null || s.amountMaxBaht != null;
       if (hasAmountFilter) {
@@ -663,7 +663,7 @@ export class TravelService {
       portalUrl: `${PORTAL_URL}/travel`,
     });
     // Notify applicant + their direct supervisor on the approved email
-    // HR can also subscribe via TRAVEL_APPROVED_CC
+    // (HR feedback May 2026). HR can also subscribe via TRAVEL_APPROVED_CC
     // if they want a copy of every approval.
     const recipients = new Set<string>([request.employee.email]);
     if (request.employee.reportingTo) {
@@ -680,7 +680,7 @@ export class TravelService {
     }
     void sendEmail({ to: Array.from(recipients), ...email });
 
-    // Travel-desk long-form summary. Recipients
+    // Travel-desk long-form summary (HR feedback May 2026). Recipients
     // are admin-managed via SystemSetting; we ship a separate template
     // so the desk doesn't have to chase fields across the approved /
     // submitted templates.
@@ -1028,12 +1028,9 @@ export class TravelService {
   }
 
   async permanentDeleteRequest(id: string) {
-    const request = await travelRepository.findRequestByIdIncludingDeleted(id);
+    const request = await travelRepository.findRequestById(id);
     if (!request) {
       throw new NotFoundException("Travel request not found");
-    }
-    if (!request.deletedAt) {
-      throw new ConflictException("Request is not deleted");
     }
     return travelRepository.permanentDeleteRequest(id);
   }

@@ -40,6 +40,11 @@ export interface WikiPage extends WikiPageListItem {
   attachments: WikiPageAttachment[];
 }
 
+export interface WikiExtractionResult {
+  title: string;
+  body: string;
+}
+
 export interface CreateWikiPageInput {
   title: string;
   body: string;
@@ -136,6 +141,13 @@ export async function updateWikiPage(
 
 export async function deleteWikiPage(id: string): Promise<void> {
   await api.delete(`/docs/${id}`);
+}
+
+export async function extractWikiFromAttachment(
+  url: string,
+  mimeType: string,
+): Promise<ApiSuccessResponse<WikiExtractionResult>> {
+  return api.post("/docs/extract", { url, mimeType });
 }
 
 export async function moveWikiPage(

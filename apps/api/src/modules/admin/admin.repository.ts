@@ -1,4 +1,4 @@
-import type { InputJsonValue, JsonValue, Prisma } from "@manut/database";
+import type { InputJsonValue, JsonValue, Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 

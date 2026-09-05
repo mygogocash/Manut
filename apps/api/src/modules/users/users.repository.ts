@@ -1,4 +1,4 @@
-import { Prisma } from "@manut/database";
+import { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 import { excludeDeleted, softDeleteUpdate } from "@/infrastructure/soft-delete";
@@ -59,9 +59,9 @@ export class UsersRepository {
     } as const;
 
     if (sortBy === "employeeId") {
-      // Natural-numeric order: extract trailing digits so e.g. MANUT-0088 sorts
-      // as 88 (after MANUT-009/MANUT-045) instead of lexicographically between
-      // MANUT-008 and MANUT-009. Falls back to raw employee_id for ties.
+      // Natural-numeric order: extract trailing digits so e.g. TBH-0088 sorts
+      // as 88 (after TBH-009/TBH-045) instead of lexicographically between
+      // TBH-008 and TBH-009. Falls back to raw employee_id for ties.
       const dir = sortOrder === "desc" ? Prisma.raw("DESC") : Prisma.raw("ASC");
       const searchPattern = search ? `%${search.toLowerCase()}%` : null;
 
@@ -124,8 +124,8 @@ export class UsersRepository {
   }
 
   async findById(id: string) {
-    return prisma.user.findFirst({
-      where: { id, ...excludeDeleted("deletedAt") },
+    return prisma.user.findUnique({
+      where: { id },
       include: {
         entity: { select: { id: true, name: true } },
         userRoles: {
@@ -140,14 +140,6 @@ export class UsersRepository {
     });
   }
 
-  /** Load deletion state without filtering soft-deleted users. */
-  async findByIdIncludingDeleted(id: string) {
-    return prisma.user.findUnique({
-      where: { id },
-      select: { id: true, deletedAt: true },
-    });
-  }
-
   async findByEmail(email: string) {
     return prisma.user.findUnique({ where: { email } });
   }
@@ -157,19 +149,19 @@ export class UsersRepository {
   }
 
   /**
-   * Next MANUT-### code from existing MANUT-{digits} employee_id values (seed convention).
+   * Next TBH-### code from existing TBH-{digits} employee_id values (seed convention).
    */
   async allocateNextEmployeeId(): Promise<string> {
     const rows = await prisma.$queryRaw<Array<{ max: number | null }>>`
       SELECT MAX(
-        ((regexp_match(employee_id, '^MANUT-([0-9]+)$', 'i'))[1])::integer
+        ((regexp_match(employee_id, '^TBH-([0-9]+)$', 'i'))[1])::integer
       ) AS max
       FROM users
       WHERE employee_id IS NOT NULL
     `;
     const max = rows[0]?.max ?? 0;
     const next = max + 1;
-    return `MANUT-${String(next).padStart(3, "0")}`;
+    return `TBH-${String(next).padStart(3, "0")}`;
   }
 
   async create(
@@ -191,7 +183,7 @@ export class UsersRepository {
         });
       }
 
-      return tx.user.findUniqueOrThrow({
+      return tx.user.findUnique({
         where: { id: user.id },
         include: {
           entity: { select: { id: true, name: true } },
@@ -291,6 +283,8 @@ export class UsersRepository {
       await tx.wallPost.deleteMany({ where: { authorId: id } });
       await tx.companyNews.deleteMany({ where: { authorId: id } });
       await tx.companyDate.deleteMany({ where: { addedBy: id } });
+      await tx.ariaConversation.deleteMany({ where: { userId: id } });
+
       await tx.blog.deleteMany({ where: { authorId: id } });
       await tx.article.deleteMany({ where: { authorId: id } });
 

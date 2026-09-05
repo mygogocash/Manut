@@ -35,10 +35,46 @@ export const deptConfig = {
   count: { label: "Employees", color: "hsl(var(--primary))" },
 } satisfies ChartConfig;
 
+/**
+ * Compact currency for a KPI tile.
+ *
+ * The scale used to stop at millions, so anything larger kept counting in
+ * millions: 18,000,000,000,000 rendered as `$18000000.0M` — twelve characters,
+ * unreadable, and wide enough to break a KPI card on a phone. Billions and
+ * trillions now have their own tiers, which keeps every figure to at most six
+ * characters (`$18.0T`).
+ *
+ * Negatives are formatted by magnitude with the sign restored, so a refund or a
+ * negative variance reads `-$4.2M` rather than falling through to the raw
+ * branch and printing `$-4200000`.
+ */
+/** Largest first, so index-1 is always the next tier up. */
+const CURRENCY_TIERS = [
+  { size: 1_000_000_000_000, suffix: "T" },
+  { size: 1_000_000_000, suffix: "B" },
+  { size: 1_000_000, suffix: "M" },
+  { size: 1_000, suffix: "K" },
+] as const;
+
 export function formatCurrency(value: number): string {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
-  return `$${value.toFixed(0)}`;
+  const sign = value < 0 ? "-" : "";
+  const n = Math.abs(value);
+
+  const index = CURRENCY_TIERS.findIndex((t) => n >= t.size);
+  if (index === -1) return `${sign}$${n.toFixed(0)}`;
+
+  let tier = CURRENCY_TIERS[index]!;
+  let scaled = Number((n / tier.size).toFixed(1));
+
+  // Rounding can push a value out of the tier it was picked for: 999,999 is
+  // below a million, so it lands in K and then rounds to 1000.0 — "$1000.0K".
+  // Promote it instead, unless there is no larger tier to promote into.
+  if (scaled >= 1000 && index > 0) {
+    tier = CURRENCY_TIERS[index - 1]!;
+    scaled = Number((n / tier.size).toFixed(1));
+  }
+
+  return `${sign}$${scaled.toFixed(1)}${tier.suffix}`;
 }
 
 export function formatMonthLabel(yyyyMm: string): string {

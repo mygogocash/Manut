@@ -1,6 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
+import dayjs from "dayjs";
 import { CalendarIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -40,7 +40,7 @@ export function DatePickerField({
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {value ? format(value, "MMMM d, yyyy") : placeholder}
+          {value ? dayjs(value).format("MMMM D, YYYY") : placeholder}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">

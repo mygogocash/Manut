@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from "@/common/exceptions/http-exception";
 import { expensesService } from "@/modules/expenses/expenses.service";
-import { mockArgument } from "@/test-utils/assertions";
 
 /**
  * Focused regression test for `ExpensesService.revertReportReimbursement`.
@@ -83,11 +82,8 @@ describe("ExpensesService.revertReportReimbursement", () => {
     expect(result.status).toBe("approved");
     expect(result.reimbursedAt).toBeNull();
 
-    const reportUpdateArgs = mockArgument(
-      prismaMock.tx.expenseReport.update.mock.calls,
-      0,
-      0,
-    );
+    const reportUpdateArgs =
+      prismaMock.tx.expenseReport.update.mock.calls[0]?.[0];
     expect(reportUpdateArgs.where).toEqual({ id: REPORT_ID });
     expect(reportUpdateArgs.data.status).toBe("approved");
     expect(reportUpdateArgs.data.reimbursedAt).toBeNull();
@@ -95,11 +91,8 @@ describe("ExpensesService.revertReportReimbursement", () => {
     // not rewrite the audit trail.
     expect(reportUpdateArgs.data.approvedBy).toBeUndefined();
 
-    const expenseUpdateArgs = mockArgument(
-      prismaMock.tx.expense.updateMany.mock.calls,
-      0,
-      0,
-    );
+    const expenseUpdateArgs =
+      prismaMock.tx.expense.updateMany.mock.calls[0]?.[0];
     expect(expenseUpdateArgs.where).toEqual({
       reportId: REPORT_ID,
       status: "reimbursed",

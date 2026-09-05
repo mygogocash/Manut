@@ -59,8 +59,9 @@ export function exportRows<T>(
 
 /**
  * Pick the row most likely to be a header inside the first ~15 rows
- * of a sheet. Real-world workbooks often have a title banner and a metadata
- * row before the actual column headers — naively using row 0 means every imported
+ * of a sheet. Real-world xlsx files (TBH Pipeline Master, L&D Program
+ * List, …) often have a title banner + a metadata row before the
+ * actual column headers — naively using row 0 means every imported
  * row drops every field, and the dialog toasts "Need 'X' column"
  * even though the file is valid.
  *
@@ -103,8 +104,10 @@ function detectHeaderRow(aoa: unknown[][]): number {
  * the "Both" requirement. Returns raw string-ish cells; the caller
  * maps + validates against its own schema.
  *
- * Header-row detection lets us absorb inputs with a title banner above the
- * real columns, including merged-cell prose before the actual field names.
+ * Header-row detection lets us absorb files with a title banner above
+ * the real columns (e.g. TBH Pipeline Master.xlsx where rows 0 + 1
+ * are merged-cell prose and row 2 is the actual `Org Name | Category
+ * | …` header).
  */
 export async function parseImportFile(
   file: File,

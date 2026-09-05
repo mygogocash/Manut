@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -64,7 +64,7 @@ const shiftSchema = z.object({
   shiftName: z.string().min(1).max(100),
   startTime: z.string().min(1),
   endTime: z.string().min(1),
-  graceMinutes: z.coerce.number<number | string>().min(0).max(120),
+  graceMinutes: z.coerce.number().min(0).max(120),
 });
 
 function AttendanceShiftsCard({ canManage }: { canManage: boolean }) {
@@ -73,12 +73,8 @@ function AttendanceShiftsCard({ canManage }: { canManage: boolean }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const form = useForm<
-    z.input<typeof shiftSchema>,
-    unknown,
-    z.output<typeof shiftSchema>
-  >({
-    resolver: standardSchemaResolver(shiftSchema),
+  const form = useForm<z.infer<typeof shiftSchema>>({
+    resolver: zodResolver(shiftSchema),
     defaultValues: {
       shiftName: "",
       startTime: "09:00",
@@ -151,11 +147,13 @@ function AttendanceShiftsCard({ canManage }: { canManage: boolean }) {
             { key: "end", header: "End", render: (r) => r.endTime },
             {
               key: "grace",
+              mobileRole: "field" as const,
               header: "Grace (min)",
               render: (r) => String(r.graceMinutes),
             },
             {
               key: "active",
+              mobileRole: "badge" as const,
               header: "Status",
               render: (r) => (
                 <Badge variant={r.active ? "green" : "grey"}>
@@ -253,12 +251,8 @@ function AttendanceExceptionsCard() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const form = useForm<
-    z.input<typeof exceptionSchema>,
-    unknown,
-    z.output<typeof exceptionSchema>
-  >({
-    resolver: standardSchemaResolver(exceptionSchema),
+  const form = useForm<z.infer<typeof exceptionSchema>>({
+    resolver: zodResolver(exceptionSchema),
     defaultValues: {
       type: "business_travel",
       startDate: "",
@@ -327,9 +321,10 @@ function AttendanceExceptionsCard() {
             },
             { key: "start", header: "Start", render: (r) => r.startDate },
             { key: "end", header: "End", render: (r) => r.endDate },
-            { key: "reason", header: "Reason", render: (r) => r.reason },
+            { key: "reason", mobileRole: "field" as const, header: "Reason", render: (r) => r.reason },
             {
               key: "status",
+              mobileRole: "badge" as const,
               header: "Status",
               render: (r) => (
                 <Badge variant={r.status === "approved" ? "green" : "amber"}>

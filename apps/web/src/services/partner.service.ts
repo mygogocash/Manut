@@ -46,7 +46,7 @@ export interface Partner {
   company: string;
   type: string;
   status: string;
-  // `primaryProjectId` was dropped once Partner
+  // `primaryProjectId` was dropped in Phase 4b (2026-05-26). Partner
   // CRM owns its native workspace via the `/partners/:id/board`
   // endpoint now.
   region: string | null;
@@ -243,5 +243,5 @@ export async function importPartnerTasks(
 }
 
 // `ensurePartnerWorkspace` was removed in Phase 4a of the Partner ↔
-// Partner CRM now owns its native
+// Project decouple (2026-05-26). Partner CRM now owns its native
 // `partner_*` workspace; the legacy redirect-shim is gone.

@@ -10,6 +10,7 @@ import { asyncHandler } from "@/core/middleware/async-handler";
 import { visaService } from "@/modules/visa/visa.service";
 import {
   createVisaSchema,
+  parseScanSchema,
   updateVisaSchema,
   visaQuerySchema,
 } from "@/modules/visa/visa.validation";
@@ -81,6 +82,18 @@ router.get(
       req.user!.permissions,
       docIndex,
     );
+    res.json({ data });
+  }),
+);
+
+// OCR autofill — extract structured fields from an uploaded visa/passport
+// scan. Literal path before "/:id". HR-desk only (visa:manage).
+router.post(
+  "/parse-scan",
+  requirePermission(PERMISSIONS.VISA_MANAGE),
+  asyncHandler(async (req, res) => {
+    const input = parseScanSchema.parse(req.body);
+    const data = await visaService.parseDocumentScan(input);
     res.json({ data });
   }),
 );

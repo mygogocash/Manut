@@ -74,6 +74,32 @@ router.put(
   }),
 );
 
+router.post(
+  "/:id/archive",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const data = await contactService.archive(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/unarchive",
+  requirePermission(PERMISSIONS.CRM_UPDATE),
+  asyncHandler(async (req, res) => {
+    const data = await contactService.unarchive(
+      req.params.id as string,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data });
+  }),
+);
+
 router.delete(
   "/:id",
   requirePermission(PERMISSIONS.CRM_DELETE),

@@ -7,6 +7,7 @@ import { asyncHandler } from "@/core/middleware/async-handler";
 import { investorsService } from "@/modules/investors/investors.service";
 import {
   bulkDeleteInvestorsSchema,
+  bulkTagsInvestorsSchema,
   bulkUpdateInvestorsSchema,
   createInvestorSchema,
   importInvestorsSchema,
@@ -20,8 +21,12 @@ router.get(
   "/dashboard",
   authenticate,
   requirePermission(PERMISSIONS.INVESTOR_DASHBOARD_READ),
-  asyncHandler(async (_req, res) => {
-    const result = await investorsService.dashboard();
+  asyncHandler(async (req, res) => {
+    const fundraisingEntity =
+      typeof req.query.fundraisingEntity === "string"
+        ? req.query.fundraisingEntity
+        : undefined;
+    const result = await investorsService.dashboard(fundraisingEntity);
     res.json({ data: result });
   }),
 );
@@ -33,9 +38,19 @@ router.get(
   authenticate,
   requirePermission(PERMISSIONS.INVESTORS_READ),
   asyncHandler(async (req, res) => {
+    const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
     const result = await investorsService.pipelineTotals(
       req.user!.id,
       req.user!.permissions,
+      {
+        fundraisingEntity: str(req.query.fundraisingEntity),
+        // The board's own facets. Without these the column headers roll up a
+        // different set than the cards below them.
+        search: str(req.query.search),
+        type: str(req.query.type),
+        tag: str(req.query.tag),
+        archived: req.query.archived === "true",
+      },
     );
     res.json({ data: result });
   }),
@@ -63,6 +78,20 @@ router.get(
       req.query.sortOrder === "desc" || req.query.sortOrder === "asc"
         ? req.query.sortOrder
         : undefined;
+    // Default view excludes archived; only an explicit `archived=true`
+    // returns the archived set.
+    const archived = req.query.archived === "true";
+    const fundraisingEntity =
+      typeof req.query.fundraisingEntity === "string"
+        ? req.query.fundraisingEntity
+        : undefined;
+    // `tag` is a single code (or the `__none__` untagged sentinel). One
+    // facet rather than a list: the ask is "find this batch", and an AND/OR
+    // multi-tag filter is a bigger UI question than it is worth guessing at.
+    const tag =
+      typeof req.query.tag === "string" && req.query.tag.trim()
+        ? req.query.tag.trim()
+        : undefined;
     const result = await investorsService.list(
       req.user!.id,
       req.user!.permissions,
@@ -73,6 +102,9 @@ router.get(
       status,
       sortBy,
       sortOrder,
+      archived,
+      fundraisingEntity,
+      tag,
     );
     res.json(result);
   }),
@@ -92,6 +124,19 @@ router.post(
 // Literal /import must register before the /:id routes — Express
 // matches in order and would otherwise parse "import" as an id
 // (CLAUDE.md route-order pitfall).
+// Dry run. Reports insert-vs-update per row and which tag catalog entries a
+// commit would create, and writes nothing — so an abandoned dialog leaves no
+// stray tags behind. Literal path, registered with the others before "/:id".
+router.post(
+  "/import/preview",
+  authenticate,
+  requirePermission(PERMISSIONS.INVESTORS_CREATE),
+  asyncHandler(async (req, res) => {
+    const input = importInvestorsSchema.parse(req.body);
+    res.json({ data: await investorsService.previewImport(input) });
+  }),
+);
+
 router.post(
   "/import",
   authenticate,
@@ -129,6 +174,23 @@ router.post(
   asyncHandler(async (req, res) => {
     const input = bulkUpdateInvestorsSchema.parse(req.body);
     const data = await investorsService.bulkUpdate(
+      req.user!.id,
+      req.user!.permissions,
+      input,
+    );
+    res.json({ data });
+  }),
+);
+
+// Tag assignment is its own route rather than a key on bulk-update, because
+// it has a MODE (add unions per row, replace overwrites) instead of a value.
+router.post(
+  "/bulk-tags",
+  authenticate,
+  requirePermission(PERMISSIONS.INVESTORS_UPDATE),
+  asyncHandler(async (req, res) => {
+    const input = bulkTagsInvestorsSchema.parse(req.body);
+    const data = await investorsService.bulkSetTags(
       req.user!.id,
       req.user!.permissions,
       input,
@@ -192,6 +254,39 @@ router.delete(
     const id = getRequiredParam(req.params, "id");
     await investorsService.delete(id, req.user!.id, req.user!.permissions);
     res.json({ data: { success: true } });
+  }),
+);
+
+// Reversible archive/unarchive. Gated like update (investors:update); the
+// service enforces owner-or-read-all so a non-read-all caller can't archive
+// another rep's investor. Archive is orthogonal to the pipeline stage.
+router.post(
+  "/:id/archive",
+  authenticate,
+  requirePermission(PERMISSIONS.INVESTORS_UPDATE),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const investor = await investorsService.archive(
+      id,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data: investor });
+  }),
+);
+
+router.post(
+  "/:id/unarchive",
+  authenticate,
+  requirePermission(PERMISSIONS.INVESTORS_UPDATE),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const investor = await investorsService.unarchive(
+      id,
+      req.user!.id,
+      req.user!.permissions,
+    );
+    res.json({ data: investor });
   }),
 );
 

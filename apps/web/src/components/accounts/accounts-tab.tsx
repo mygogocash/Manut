@@ -17,6 +17,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { format } from "date-fns";
 import {
+  Archive,
+  ArchiveRestore,
   Download,
   Edit,
   GripVertical,
@@ -31,11 +33,20 @@ import { toast } from "sonner";
 
 import { AccountDetailSheet } from "@/components/accounts/account-detail-sheet";
 import { AccountFormDialog } from "@/components/accounts/account-form-dialog";
+import { BulkActionBar } from "@/components/crm/bulk-action-bar";
+import { BulkBusinessUnitsDialog } from "@/components/crm/bulk-business-units-dialog";
+import {
+  BulkFieldDialog,
+  type BulkFieldMode,
+} from "@/components/crm/bulk-field-dialog";
+import { BusinessUnitChips } from "@/components/crm/business-unit-chips";
+import { parseBusinessUnitCell } from "@/components/crm/business-unit-import";
 import { CrmImportDialog } from "@/components/shared/crm-import-dialog";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { PermissionButton } from "@/components/shared/permission-button";
 import { PermissionDropdownMenuItem } from "@/components/shared/permission-dropdown-menu-item";
 import { SortableColumnHead } from "@/components/shared/sortable-column-head";
+import { Tabs } from "@/components/shared/tabs";
 import { useColumnOrder } from "@/components/shared/use-column-order";
 import { useColumnWidths } from "@/components/shared/use-column-widths";
 import {
@@ -49,6 +60,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +86,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CRM_ACCOUNT_REGIONS, CRM_ALL_COUNTRIES } from "@/constants/crm-geo";
+import { useBulkSelection } from "@/hooks/use-bulk-selection";
+import { useBusinessUnits } from "@/hooks/use-business-units";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
 import { ApiError } from "@/lib/api-client";
@@ -81,12 +95,19 @@ import { type ExportFormat, exportRows } from "@/lib/crm-export";
 import { useAuth } from "@/providers/auth-provider";
 import {
   type Account,
+  archiveAccount,
   type CreateAccountInput,
   deleteAccount,
   importAccounts,
   listAccounts,
   reorderAccounts,
+  unarchiveAccount,
 } from "@/services/crm-account.service";
+import {
+  bulkAssignAccountsBusinessUnits,
+  bulkUpdateAccountsFields,
+} from "@/services/crm-account.service";
+import { BUSINESS_UNIT_UNASSIGNED } from "@/services/crm-business-unit.service";
 import {
   OPPORTUNITY_STAGE_LABELS,
   OPPORTUNITY_STAGES,
@@ -143,6 +164,7 @@ function parseImportDate(raw: unknown): string | undefined {
 // after import so the deal sync runs through its own validation.
 interface AccountImportRow {
   name?: string;
+  businessUnits?: string;
   domain?: string;
   industry?: string;
   size?: string;
@@ -170,6 +192,7 @@ interface AccountImportRow {
 // set changes in a way that should reset saved orders.
 type AccColKey =
   | "name"
+  | "businessUnits"
   | "country"
   | "region"
   | "industry"
@@ -198,6 +221,7 @@ const ACC_COL_WIDTH_KEY = "sales-accounts-col-width-v1";
 
 const ACC_COL_DEFAULT_ORDER: readonly AccColKey[] = [
   "name",
+  "businessUnits",
   "country",
   "region",
   "industry",
@@ -227,6 +251,7 @@ const ACC_COL_META: Record<
   { label: string; headClassName?: string }
 > = {
   name: { label: "Name" },
+  businessUnits: { label: "Business units" },
   country: { label: "Country" },
   region: { label: "Region" },
   industry: { label: "Industry" },
@@ -253,6 +278,7 @@ const ACC_COL_META: Record<
 
 const ACC_COL_DEFAULT_WIDTHS: Record<AccColKey, number> = {
   name: 200,
+  businessUnits: 180,
   country: 120,
   region: 120,
   industry: 140,
@@ -301,22 +327,37 @@ export function AccountsTab({
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  // Country + region filters. Reps work on regional books
+  // BD-feedback — country + region filters. Reps work on regional books
   // and need to slice the list without hunting via search.
   const [countryFilter, setCountryFilter] = useState("");
   const [regionFilter, setRegionFilter] = useState("");
-  // Stage + Owner filters. Stage
+  // BD-feedback (Vivek, 2026-05-25) — Stage + Owner filters. Stage
   // filters on the linked opportunity; Owner narrows to a rep's book.
   const [stageFilter, setStageFilter] = useState("");
   const [ownerFilter, setOwnerFilter] = useState("");
+  // "Who is taking care of this account" tag filter.
+  const [businessUnitFilter, setBusinessUnitFilter] = useState("");
   const [ownerOptions, setOwnerOptions] = useState<UserListItem[]>([]);
+  // Active | Archived view. Orthogonal to the other filters — the Archived
+  // tab surfaces archived accounts regardless of stage / owner / region.
+  const [archived, setArchived] = useState(false);
   const debouncedSearch = useDebounce(search, 300);
   const debouncedCountry = useDebounce(countryFilter, 300);
   const debouncedRegion = useDebounce(regionFilter, 300);
   const debouncedStage = useDebounce(stageFilter, 300);
   const debouncedOwner = useDebounce(ownerFilter, 300);
+  const debouncedBusinessUnit = useDebounce(businessUnitFilter, 300);
+  const { units: businessUnits } = useBusinessUnits();
   const pagination = usePagination();
   const { page, pageSize, setTotalCount } = pagination;
+
+  // Bulk select-and-act. `pagination.totalCount` is the server total; the table
+  // holds one page, so it must not be derived from `accounts.length`.
+  const selection = useBulkSelection(pagination.totalCount);
+  const [bulkUnitsOpen, setBulkUnitsOpen] = useState(false);
+  const [bulkFieldMode, setBulkFieldMode] = useState<BulkFieldMode | null>(
+    null,
+  );
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Account | null>(null);
@@ -347,6 +388,8 @@ export function AccountsTab({
       !debouncedRegion &&
       !debouncedStage &&
       !debouncedOwner &&
+      !debouncedBusinessUnit &&
+      !archived &&
       !loading,
     [
       debouncedSearch,
@@ -354,6 +397,8 @@ export function AccountsTab({
       debouncedRegion,
       debouncedStage,
       debouncedOwner,
+      debouncedBusinessUnit,
+      archived,
       loading,
     ],
   );
@@ -375,6 +420,8 @@ export function AccountsTab({
         region: debouncedRegion || undefined,
         stage: debouncedStage || undefined,
         ownerId: debouncedOwner || undefined,
+        businessUnit: debouncedBusinessUnit || undefined,
+        archived: archived || undefined,
       });
       setAccounts(res.data);
       setTotalCount(res.meta.total);
@@ -393,6 +440,8 @@ export function AccountsTab({
     debouncedRegion,
     debouncedStage,
     debouncedOwner,
+    debouncedBusinessUnit,
+    archived,
     setTotalCount,
   ]);
 
@@ -455,6 +504,35 @@ export function AccountsTab({
     }
   }
 
+  // Archive / restore. The current view (Active vs Archived) is the opposite
+  // of the row's new state, so the row leaves the current list either way —
+  // drop it optimistically and adjust the total.
+  async function handleArchive(account: Account) {
+    try {
+      await archiveAccount(account.id);
+      setAccounts((prev) => prev.filter((a) => a.id !== account.id));
+      setTotalCount((c) => Math.max(0, c - 1));
+      toast.success("Account archived");
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to archive account";
+      toast.error(message);
+    }
+  }
+
+  async function handleUnarchive(account: Account) {
+    try {
+      await unarchiveAccount(account.id);
+      setAccounts((prev) => prev.filter((a) => a.id !== account.id));
+      setTotalCount((c) => Math.max(0, c - 1));
+      toast.success("Account restored");
+    } catch (err) {
+      const message =
+        err instanceof ApiError ? err.message : "Failed to restore account";
+      toast.error(message);
+    }
+  }
+
   // Pull every Account the active filters allow (capped at 1000, the
   // same ceiling the import dialog enforces) and emit a CSV / xlsx
   // matching the on-screen column set. Mirrors `handleExport` in
@@ -472,6 +550,8 @@ export function AccountsTab({
           region: debouncedRegion || undefined,
           stage: debouncedStage || undefined,
           ownerId: debouncedOwner || undefined,
+          businessUnit: debouncedBusinessUnit || undefined,
+          archived: archived || undefined,
         });
         if (res.data.length === 0) {
           toast.error("Nothing to export");
@@ -484,6 +564,10 @@ export function AccountsTab({
             { header: "Domain", value: (a: Account) => a.domain ?? "" },
             { header: "Industry", value: (a: Account) => a.industry ?? "" },
             { header: "Size", value: (a: Account) => a.size ?? "" },
+            {
+              header: "Business Units",
+              value: (a: Account) => (a.businessUnits ?? []).join(", "),
+            },
             { header: "Country", value: (a: Account) => a.country ?? "" },
             { header: "Region", value: (a: Account) => a.region ?? "" },
             { header: "Website", value: (a: Account) => a.website ?? "" },
@@ -576,6 +660,8 @@ export function AccountsTab({
       debouncedRegion,
       debouncedStage,
       debouncedOwner,
+      debouncedBusinessUnit,
+      archived,
     ],
   );
 
@@ -621,6 +707,18 @@ export function AccountsTab({
 
   return (
     <div>
+      <Tabs
+        tabs={[
+          { id: "active", label: "Active" },
+          { id: "archived", label: "Archived" },
+        ]}
+        active={archived ? "archived" : "active"}
+        onChange={(v) => {
+          setArchived(v === "archived");
+          pagination.setPage(1);
+        }}
+      />
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative w-full max-w-xs">
@@ -725,6 +823,28 @@ export function AccountsTab({
               ))}
             </SelectContent>
           </Select>
+          <Select
+            value={businessUnitFilter || "__all__"}
+            onValueChange={(v) => {
+              setBusinessUnitFilter(v === "__all__" ? "" : v);
+              pagination.setPage(1);
+            }}
+          >
+            <SelectTrigger className="h-9 w-44 text-xs">
+              <SelectValue placeholder="Business unit" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All business units</SelectItem>
+              {businessUnits.map((u) => (
+                <SelectItem key={u.code} value={u.code}>
+                  {u.label}
+                </SelectItem>
+              ))}
+              <SelectItem value={BUSINESS_UNIT_UNASSIGNED}>
+                Unassigned
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center gap-2">
           <DropdownMenu>
@@ -760,8 +880,9 @@ export function AccountsTab({
 
       {!reorderEnabled && !loading ? (
         <p className="text-muted-foreground mb-2 text-[11px]">
-          Drag-to-reorder rows is disabled while a filter or search is active.
-          Column reorder still works.
+          {archived
+            ? "Drag-to-reorder rows is disabled in the Archived view."
+            : `Drag-to-reorder rows is disabled while a filter or search is active. Column reorder still works.`}
         </p>
       ) : null}
 
@@ -771,11 +892,29 @@ export function AccountsTab({
           // drag-to-resize (Notion-style).
           className="table-fixed"
           containerClassName={`
-            max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
+            max-h-[60svh] md:max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
           `}
         >
           <TableHeader className="bg-background sticky top-0 z-10">
             <TableRow>
+              <TableHead className="w-[40px]">
+                {canEdit && accounts.length > 0 && (
+                  // Ticks the LOADED page only — the board-wide escalation is
+                  // "select all N matching" in the action bar. Guarded on
+                  // length because [].every() is true and would render a
+                  // checked box over an empty table.
+                  <Checkbox
+                    checked={accounts.every((a) => selection.isSelected(a.id))}
+                    onCheckedChange={(next) =>
+                      selection.toggleMany(
+                        accounts.map((a) => a.id),
+                        next === true,
+                      )
+                    }
+                    aria-label="Select all accounts on this page"
+                  />
+                )}
+              </TableHead>
               <TableHead className="w-[36px]" />
               <SortableContext
                 items={colOrder}
@@ -801,7 +940,7 @@ export function AccountsTab({
             {loading ? (
               skeletonRows.map((i) => (
                 <TableRow key={`skeleton-${i}`}>
-                  <TableCell colSpan={colOrder.length + 3}>
+                  <TableCell colSpan={colOrder.length + 4}>
                     <Skeleton className="h-6 w-full" />
                   </TableCell>
                 </TableRow>
@@ -809,7 +948,7 @@ export function AccountsTab({
             ) : accounts.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={colOrder.length + 3}
+                  colSpan={colOrder.length + 4}
                   className="text-muted-foreground py-10 text-center text-xs"
                 >
                   No accounts yet. Create one or convert a lead to start your
@@ -829,8 +968,15 @@ export function AccountsTab({
                     canDrag={reorderEnabled}
                     canEdit={canEdit}
                     canDelete={canDelete}
+                    isArchivedView={archived}
+                    selected={selection.isSelected(a.id)}
+                    onSelectedChange={
+                      canEdit ? () => selection.toggle(a.id) : null
+                    }
                     onRowClick={() => (canEdit ? openEdit(a) : openDetail(a))}
                     onEdit={() => openEdit(a)}
+                    onArchive={() => void handleArchive(a)}
+                    onUnarchive={() => void handleUnarchive(a)}
                     onDelete={() => openDelete(a)}
                   />
                 ))}
@@ -850,6 +996,91 @@ export function AccountsTab({
           onPageSizeChange={pagination.setPageSize}
         />
       </div>
+
+      <BulkActionBar
+        selection={selection}
+        recordLabel={selection.count === 1 ? "account" : "accounts"}
+        total={pagination.totalCount}
+        actions={[
+          {
+            key: "business-units",
+            label: "Business units",
+            onClick: () => setBulkUnitsOpen(true),
+          },
+          {
+            key: "owner",
+            label: "Owner",
+            onClick: () => setBulkFieldMode("owner"),
+          },
+          {
+            key: "archive",
+            label: archived ? "Restore" : "Archive",
+            variant: "outline",
+            onClick: () => setBulkFieldMode(archived ? "unarchive" : "archive"),
+          },
+        ]}
+      />
+
+      <BulkFieldDialog
+        mode={bulkFieldMode}
+        onClose={() => setBulkFieldMode(null)}
+        count={selection.count}
+        recordLabel={selection.count === 1 ? "account" : "accounts"}
+        selection={{
+          ...(selection.allMatching
+            ? {
+                allMatching: true,
+                filter: {
+                  search: debouncedSearch || undefined,
+                  country: debouncedCountry || undefined,
+                  region: debouncedRegion || undefined,
+                  stage: debouncedStage || undefined,
+                  ownerId: debouncedOwner || undefined,
+                  businessUnit: debouncedBusinessUnit || undefined,
+                  archived: archived || undefined,
+                },
+              }
+            : { ids: selection.ids }),
+        }}
+        submit={bulkUpdateAccountsFields}
+        onDone={() => {
+          selection.clear();
+          void fetchAccounts();
+          onPipelineMutate?.();
+        }}
+      />
+
+      <BulkBusinessUnitsDialog
+        open={bulkUnitsOpen}
+        onOpenChange={setBulkUnitsOpen}
+        count={selection.count}
+        recordLabel={selection.count === 1 ? "account" : "accounts"}
+        selection={{
+          ...(selection.allMatching
+            ? {
+                allMatching: true,
+                // Mirrors the debounced values the list actually queried with,
+                // not the raw inputs — otherwise "select all matching" can act
+                // on a filter the table has not applied yet.
+                filter: {
+                  search: debouncedSearch || undefined,
+                  country: debouncedCountry || undefined,
+                  region: debouncedRegion || undefined,
+                  stage: debouncedStage || undefined,
+                  ownerId: debouncedOwner || undefined,
+                  businessUnit: debouncedBusinessUnit || undefined,
+                  archived: archived || undefined,
+                },
+              }
+            : { ids: selection.ids }),
+        }}
+        submit={bulkAssignAccountsBusinessUnits}
+        onDone={() => {
+          selection.clear();
+          void fetchAccounts();
+          onPipelineMutate?.();
+        }}
+      />
 
       <AccountFormDialog
         open={formOpen}
@@ -878,6 +1109,11 @@ export function AccountsTab({
           { key: "size", headers: ["Size"], type: "string" },
           { key: "country", headers: ["Country"], type: "string" },
           { key: "region", headers: ["Region"], type: "string" },
+          {
+            key: "businessUnits",
+            headers: ["Business Units", "Business Unit"],
+            type: "string",
+          },
           { key: "website", headers: ["Website"], type: "string" },
           { key: "notes", headers: ["Notes"], type: "string" },
           { key: "totalUsers", headers: ["Total Users"], type: "number" },
@@ -909,6 +1145,22 @@ export function AccountsTab({
           // Coerce free-text dates + drop empty-string optionals so the
           // server's zod schema accepts the payload. `name` is the only
           // required field; everything else falls through nullable.
+          // Surface unresolvable business-unit tokens instead of quietly
+          // importing rows with the tag missing.
+          const unresolvedUnits = Array.from(
+            new Set(
+              rows.flatMap(
+                (r) =>
+                  parseBusinessUnitCell(r.businessUnits, businessUnits).unknown,
+              ),
+            ),
+          );
+          if (unresolvedUnits.length > 0) {
+            toast.warning(
+              `Unknown business unit${unresolvedUnits.length > 1 ? "s" : ""} ignored: ${unresolvedUnits.join(", ")}. Add them under Manage business units and re-import to tag those rows.`,
+            );
+          }
+
           const payload: CreateAccountInput[] = rows.map((r) => ({
             name: (r.name ?? "").trim(),
             domain: r.domain?.trim() || undefined,
@@ -916,6 +1168,8 @@ export function AccountsTab({
             size: r.size?.trim() || undefined,
             country: r.country?.trim() || undefined,
             region: r.region?.trim() || undefined,
+            businessUnits: parseBusinessUnitCell(r.businessUnits, businessUnits)
+              .codes,
             website: r.website?.trim() || undefined,
             notes: r.notes?.trim() || undefined,
             totalUsers: r.totalUsers || undefined,
@@ -988,8 +1242,13 @@ function SortableAccountRow({
   canDrag,
   canEdit,
   canDelete,
+  isArchivedView,
+  selected,
+  onSelectedChange,
   onRowClick,
   onEdit,
+  onArchive,
+  onUnarchive,
   onDelete,
 }: {
   account: Account;
@@ -997,8 +1256,14 @@ function SortableAccountRow({
   canDrag: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  isArchivedView: boolean;
+  selected: boolean;
+  /** Null when the viewer cannot edit — the cell renders empty. */
+  onSelectedChange: ((next: boolean) => void) | null;
   onRowClick: () => void;
   onEdit: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
   onDelete: () => void;
 }) {
   const {
@@ -1032,6 +1297,21 @@ function SortableAccountRow({
       }
       onClick={onRowClick}
     >
+      <TableCell
+        className="w-[40px]"
+        // Same guards as the drag handle below: without them, ticking the box
+        // would also open the row.
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {onSelectedChange && (
+          <Checkbox
+            checked={selected}
+            onCheckedChange={(next) => onSelectedChange(next === true)}
+            aria-label={`Select ${account.name}`}
+          />
+        )}
+      </TableCell>
       <TableCell
         className="w-[36px]"
         onClick={(e) => e.stopPropagation()}
@@ -1072,6 +1352,16 @@ function SortableAccountRow({
                 >
                   {account.name}
                 </span>
+              </TableCell>
+            );
+          case "businessUnits":
+            return (
+              <TableCell key={key} className="overflow-hidden text-xs">
+                {account.businessUnits?.length ? (
+                  <BusinessUnitChips codes={account.businessUnits} />
+                ) : (
+                  "—"
+                )}
               </TableCell>
             );
           case "country":
@@ -1267,6 +1557,25 @@ function SortableAccountRow({
                 <Edit className="mr-2 size-3.5" />
                 Edit
               </PermissionDropdownMenuItem>
+            ) : null}
+            {canEdit ? (
+              isArchivedView ? (
+                <PermissionDropdownMenuItem
+                  permissions={["crm:update"]}
+                  onClick={onUnarchive}
+                >
+                  <ArchiveRestore className="mr-2 size-3.5" />
+                  Restore
+                </PermissionDropdownMenuItem>
+              ) : (
+                <PermissionDropdownMenuItem
+                  permissions={["crm:update"]}
+                  onClick={onArchive}
+                >
+                  <Archive className="mr-2 size-3.5" />
+                  Archive
+                </PermissionDropdownMenuItem>
+              )
             ) : null}
             {canDelete ? (
               <>

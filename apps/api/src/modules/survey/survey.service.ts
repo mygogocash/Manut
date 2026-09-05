@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
@@ -958,7 +958,7 @@ export class SurveyService {
 
   // Email the form owner + active Admins/HR Managers when an employee
   // submits a response (deduped; anonymous respondents shown as "Anonymous").
-  // Requires the configured survey response email template.
+  // Requires the OneWave email template "survey-form-response-submitted".
   private async notifyFormSubmission(
     form: {
       id: string;

@@ -2,7 +2,7 @@
  * Expense category CRUD and per-category spending overview.
  */
 
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { PERMISSIONS } from "@/common/constants/permissions";
 import { NotFoundException } from "@/common/exceptions/http-exception";

@@ -26,13 +26,18 @@ beforeAll(() => {
     },
   });
 
+  // A class, not `vi.fn().mockImplementation(() => ({…}))`: a mock whose
+  // implementation is an arrow function cannot be called with `new`, so the old
+  // stub threw "is not a constructor" the first time a component actually
+  // constructed one — Phase 8D's Table, which observes its own overflow. The
+  // bug was latent because nothing had done that before.
   Object.defineProperty(window, "ResizeObserver", {
     writable: true,
-    value: vi.fn().mockImplementation(() => ({
-      observe: vi.fn(),
-      unobserve: vi.fn(),
-      disconnect: vi.fn(),
-    })),
+    value: class {
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+    },
   });
 });
 

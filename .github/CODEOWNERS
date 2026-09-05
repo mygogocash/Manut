@@ -1,6 +1,0 @@
-# Repository and security-sensitive controls require review from the Manut owner.
-* @mygogocash
-/.github/ @mygogocash
-/.gitleaks.toml @mygogocash
-/scripts/check-credential-boundary.mjs @mygogocash
-/packages/database/prisma/migrations/ @mygogocash

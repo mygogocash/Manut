@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 import {
@@ -7,6 +7,11 @@ import {
   SHARED_PROJECT_REMINDER_TEAMS,
   TASK_REMINDER_TEAMS,
 } from "@/modules/crm-shared/crm-modules";
+import {
+  isTerminalTaskStatus,
+  loadTerminalTaskKeysByProject,
+  TASK_TERMINAL_ALIASES,
+} from "@/modules/crm-shared/crm-task-terminal";
 import {
   birthdayWindowLabel,
   daysUntilBirthday,
@@ -309,6 +314,9 @@ export class DashboardRepository {
       boardProjects,
       legalProjects,
       accountingProjects,
+      productProjects,
+      qaProjects,
+      qaTasks,
       tasks,
     ] = await Promise.all([
       prisma.itProject.findMany({
@@ -346,22 +354,48 @@ export class DashboardRepository {
         where: nativeGoLiveWhere,
         select: nativeGoLiveSelect,
       }),
+      prisma.productProject.findMany({
+        where: nativeGoLiveWhere,
+        select: nativeGoLiveSelect,
+      }),
+      // QA is pure-native with no go-live — its project deadline is endDate
+      // and its tasks live only in qa_project_tasks.
+      prisma.qaProject.findMany({
+        where: {
+          status: { notIn: NATIVE_PROJECT_TERMINAL },
+          endDate: { lte: soon },
+          OR: [{ ownerId: userId }, { members: { some: { userId } } }],
+        },
+        select: { id: true, name: true, endDate: true },
+      }),
+      prisma.qaProjectTask.findMany({
+        where: {
+          status: { notIn: [...TASK_TERMINAL_ALIASES] },
+          endDate: { lte: soon },
+          OR: [{ ownerId: userId }, { assignees: { some: { userId } } }],
+        },
+        select: { id: true, title: true, endDate: true, projectId: true },
+      }),
       prisma.projectTask.findMany({
         where: {
           project: { team: { in: [...TASK_REMINDER_TEAMS] } },
-          status: { notIn: ["done"] },
+          status: { notIn: [...TASK_TERMINAL_ALIASES] },
           endDate: { lte: soon },
           OR: [{ ownerId: userId }, { assignees: { some: { userId } } }],
         },
         select: {
           id: true,
           title: true,
+          status: true,
           endDate: true,
           projectId: true,
           project: { select: { team: true } },
         },
       }),
     ]);
+
+    const terminalByProject =
+      await loadTerminalTaskKeysByProject(TASK_REMINDER_TEAMS);
 
     const goLiveItem = (
       module: string,
@@ -393,8 +427,35 @@ export class DashboardRepository {
       }),
       ...legalProjects.map((p) => goLiveItem("legal", p)),
       ...accountingProjects.map((p) => goLiveItem("accounting", p)),
-      ...tasks
+      ...productProjects.map((p) => goLiveItem("product", p)),
+      ...qaProjects
+        .filter((p) => p.endDate !== null)
+        .map((p) => ({
+          id: `crm-due-${p.id}`,
+          module: "qa",
+          kind: "project" as const,
+          title: p.name,
+          dueDate: dayStr(p.endDate as Date),
+          daysLeft: daysLeft(p.endDate as Date),
+          linkUrl: `/qa-crm/${p.id}`,
+        })),
+      ...qaTasks
         .filter((t) => t.endDate !== null)
+        .map((t) => ({
+          id: `crm-task-${t.id}`,
+          module: "qa",
+          kind: "task" as const,
+          title: t.title,
+          dueDate: dayStr(t.endDate as Date),
+          daysLeft: daysLeft(t.endDate as Date),
+          linkUrl: `/qa-crm/${t.projectId}`,
+        })),
+      ...tasks
+        .filter(
+          (t) =>
+            t.endDate !== null &&
+            !isTerminalTaskStatus(t.status, terminalByProject.get(t.projectId)),
+        )
         .map((t) => {
           const module = moduleForTeam(t.project.team);
           if (!module) return null;

@@ -2,7 +2,12 @@ import { api, apiBaseUrl } from "@/lib/api-client";
 import type { ApiSuccessResponse } from "@/types/api.type";
 
 type StorageBucket =
-  "article" | "avatars" | "blog" | "receipts" | "documents" | "uploads";
+  | "article"
+  | "avatars"
+  | "blog"
+  | "receipts"
+  | "documents"
+  | "uploads";
 
 interface UploadedFile {
   id: string;

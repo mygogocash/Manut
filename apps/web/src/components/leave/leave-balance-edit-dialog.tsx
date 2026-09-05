@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -35,21 +35,20 @@ import {
 } from "@/services/leave.service";
 
 const formSchema = z.object({
-  entitled: z.coerce.number<number | string>().multipleOf(0.5).min(0),
-  used: z.coerce.number<number | string>().multipleOf(0.5).min(0),
-  carried: z.coerce.number<number | string>().multipleOf(0.5).min(0),
-  carriedUsed: z.coerce.number<number | string>().multipleOf(0.5).min(0),
+  entitled: z.coerce.number().multipleOf(0.5).min(0),
+  used: z.coerce.number().multipleOf(0.5).min(0),
+  carried: z.coerce.number().multipleOf(0.5).min(0),
+  carriedUsed: z.coerce.number().multipleOf(0.5).min(0),
   carriedExpiry: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date")
     .optional()
     .or(z.literal("")),
-  adjustment: z.coerce.number<number | string>().multipleOf(0.5),
+  adjustment: z.coerce.number().multipleOf(0.5),
   reason: z.string().max(500).optional(),
 });
 
-type FormInput = z.input<typeof formSchema>;
-type FormValues = z.output<typeof formSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 export interface LeaveBalanceEditTarget {
   /**
@@ -101,8 +100,8 @@ export function LeaveBalanceEditDialog({
   onSuccess,
 }: LeaveBalanceEditDialogProps) {
   const [submitting, setSubmitting] = useState(false);
-  const form = useForm<FormInput, unknown, FormValues>({
-    resolver: standardSchemaResolver(formSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       entitled: 0,
       used: 0,

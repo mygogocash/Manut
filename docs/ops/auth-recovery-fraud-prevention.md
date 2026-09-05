@@ -1,10 +1,5 @@
 # Auth Recovery Fraud Prevention
 
-> **Temporary legacy runbook.** Sole forward identity/recovery roadmap:
-> [`docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`](../EXPO_CLOUDFLARE_MASTER_PLAN.md)
-> (§§6 and 14). Password-reset paths are retired in the target; do not extend
-> this runbook as the long-term design.
-
 This note covers the public auth recovery endpoints added for password reset
 and magic-link sign-in.
 

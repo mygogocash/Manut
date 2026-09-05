@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -69,7 +69,7 @@ export class NinetyDayRepository {
   }
 
   // Bulk-import lookup helpers — mirror visa.repository's surface so HR
-  // can paste a sheet keyed by UUID, staff code (e.g. "MANUT-001"), email,
+  // can paste a sheet keyed by UUID, staff code (e.g. "TBH-001"), email,
   // or full name and the importer resolves it to a real User row.
   findUsersByIds(ids: string[]) {
     if (ids.length === 0) {

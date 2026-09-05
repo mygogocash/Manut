@@ -16,7 +16,7 @@ services:
     depends_on:
       - api
     networks:
-      - manut-network
+      - nexora-network
 
   api:
     build:
@@ -32,9 +32,12 @@ services:
       - SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - GCS_BUCKET=${GCS_BUCKET}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     networks:
-      - manut-network
+      - nexora-network
 
 networks:
-  manut-network:
+  nexora-network:
     driver: bridge

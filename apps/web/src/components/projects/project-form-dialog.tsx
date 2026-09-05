@@ -1,16 +1,21 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { Loader2, Plus, Search, Trash2, Users } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Check,
+  ChevronsUpDown,
+  Loader2,
+  Plus,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { FormDatePicker } from "@/components/shared/form-date-picker";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
 import { type AssignableUser } from "@/services/directory.service";
@@ -43,6 +49,8 @@ import {
   AGREEMENT_OPTIONS,
   createProject,
   type CreateProjectInput,
+  createTask,
+  generateTasksWithAI,
   HR_ASSIGNED_TEAM_OPTIONS,
   HR_TASK_TYPE_OPTIONS,
   HR_WORKFLOW_STATUS_VALUES,
@@ -54,21 +62,11 @@ import {
   updateProject,
 } from "@/services/project.service";
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
 export const projectFormSchema = z
   .object({
     name: z.string().min(1, "Project name is required").max(200),
     description: z.string().max(2000).optional().or(z.literal("")),
     status: z.string().min(1, "Status is required"),
-    memberIds: z.array(z.string()).optional(),
     customFields: z
       .array(
         z.object({
@@ -79,41 +77,46 @@ export const projectFormSchema = z
       )
       .max(50, "At most 50 custom fields per project")
       .optional(),
-    // productionLive
+    // BD round #1 (May 2026), retyped in round #2: productionLive
     // boolean → productionLiveDate (when the project actually went
     // live). Dependency / Comment char limits match the BD spreadsheet
     // spec (200 / 1000).
     productionLiveDate: z.string().optional().or(z.literal("")),
     goLiveDate: z.string().optional().or(z.literal("")),
+    // Restored 2026-08-14 alongside the Rev. GoLive list column. The
+    // column is only useful if the date is settable here, and the
+    // field/API/schema never went away, only the two UI surfaces.
     revisedGoLiveDate: z.string().optional().or(z.literal("")),
     dependency: z.string().max(200).optional().or(z.literal("")),
     comment: z.string().max(1000).optional().or(z.literal("")),
-    // Agreement signing state.
+    // Project-team feedback (2026-06-10), Agreement signing state.
     // "" = unset; cleared to null on submit.
     agreement: z.enum(["signed", "not_signed"]).optional().or(z.literal("")),
-    // Department picker for the /projects
+    // BD round #7 (May 2026), Department picker for the /projects
     // Department column + filter dropdown. Empty string = unset.
-    department: z.enum(PROJECT_DEPARTMENT_OPTIONS).optional().or(z.literal("")),
-    // Workstream tag (free-text, surfaced
+    departments: z.array(z.enum(PROJECT_DEPARTMENT_OPTIONS)),
+    // Legal team (2026-05-25), Workstream tag (free-text, surfaced
     // only when team=legal).
     workstream: z.string().max(200).optional().or(z.literal("")),
-    // Long-form details. 10 000-char cap
+    // Legal team (2026-05-26), long-form details. 10 000-char cap
     // matches the API + the existing `description` field elsewhere.
     details: z.string().max(10000).optional().or(z.literal("")),
-    // Task Type + Assigned Team
+    // HR-team feedback (2026-05-26), Task Type + Assigned Team
     // dropdowns on the HR CRM form. Frontend constrains values via
     // PROJECT_STATUS / HR_TASK_TYPE / HR_ASSIGNED_TEAM whitelists.
     taskType: z.string().max(60).optional().or(z.literal("")),
     assignedTeam: z.string().max(60).optional().or(z.literal("")),
-    // Owner is a People-picker. Optional on the form so
+    // BD round #2, Owner is a People-picker. Optional on the form so
     // create-flow stays default-to-self.
     ownerId: z.string().uuid().optional().or(z.literal("")),
-    // Auto-assign default for new tasks (shared-board CRMs — surfaced only
+    // Auto-assign default for new tasks (shared-board CRMs, surfaced only
     // when the dialog is opened for general / hr).
     defaultAssigneeMode: z
       .enum(["none", "creator", "owner", "user"])
       .optional(),
     defaultAssigneeId: z.string().uuid().optional().or(z.literal("")),
+    aiGenerateTasks: z.boolean().optional(),
+    aiDescription: z.string().max(5000).optional().or(z.literal("")),
   })
   .refine(
     (data) => {
@@ -129,6 +132,29 @@ export const projectFormSchema = z
   );
 
 export type ProjectFormValues = z.infer<typeof projectFormSchema>;
+
+/**
+ * The project's departments, restricted to values the picker can offer.
+ *
+ * `projects.department` is free text at the database level, so rows exist with
+ * labels outside the whitelist (Engineering, Compliance, Trading …). Loading
+ * one of those into the form used to make it unsubmittable: zod rejected the
+ * value, and because it was not in the dropdown the user could not untick it
+ * either. Filtering here keeps the form usable; the stale label is dropped on
+ * the next save, which is the same convergence the API whitelist enforces.
+ */
+function knownDepartments(project: {
+  department?: string | null;
+  departments?: string[] | null;
+}): ProjectDepartment[] {
+  const raw = project.departments?.length
+    ? project.departments
+    : project.department
+      ? [project.department]
+      : [];
+  const allowed = new Set<string>(PROJECT_DEPARTMENT_OPTIONS);
+  return raw.filter((d): d is ProjectDepartment => allowed.has(d));
+}
 
 export function ProjectFormDialog({
   open,
@@ -168,12 +194,11 @@ export function ProjectFormDialog({
   // (general + hr). Product/Legal/Accounting get it in a later phase.
   const showAutoAssign = team === "general" || team === "hr";
   const [submitting, setSubmitting] = useState(false);
-  const [memberSearch, setMemberSearch] = useState("");
 
   // HR uses its own Workflow Status whitelist (Pending Documents /
   // Pending Approval / Closed / Cancelled in addition to the shared
   // Not yet started / In Progress / Completed). Other teams keep
-  // the default status set (UAT / Staging Integrated / Prod.
+  // the BD-style status set (UAT / Staging Integrated / Prod.
   // Integrated / On Hold).
   const statusOptionsForTeam = useMemo(() => {
     if (isHr) {
@@ -193,19 +218,18 @@ export function ProjectFormDialog({
   }, [isHr]);
 
   const form = useForm<ProjectFormValues>({
-    resolver: standardSchemaResolver(projectFormSchema),
+    resolver: zodResolver(projectFormSchema),
     defaultValues: {
       name: "",
       description: "",
       status: "not_yet_started",
-      memberIds: [],
       customFields: [],
       productionLiveDate: "",
       goLiveDate: "",
       revisedGoLiveDate: "",
       dependency: "",
       comment: "",
-      department: "",
+      departments: [],
       agreement: "",
       workstream: "",
       details: "",
@@ -214,6 +238,8 @@ export function ProjectFormDialog({
       ownerId: "",
       defaultAssigneeMode: "none",
       defaultAssigneeId: "",
+      aiGenerateTasks: false,
+      aiDescription: "",
     },
   });
 
@@ -222,26 +248,56 @@ export function ProjectFormDialog({
     name: "customFields",
   });
 
+  const aiEnabled = form.watch("aiGenerateTasks");
+  // The two go-live pickers bound each other: neither calendar offers a
+  // day that would invert the pair, so the refine above is a backstop
+  // rather than the primary guard.
   const goLiveDateWatch = form.watch("goLiveDate");
   const revisedGoLiveDateWatch = form.watch("revisedGoLiveDate");
-  const selectedMemberIds = form.watch("memberIds") ?? [];
+  const [deptOpen, setDeptOpen] = useState(false);
+  const deptRef = useRef<HTMLDivElement | null>(null);
+
+  // An in-flow panel gets none of a portalled popover's dismiss behaviour for
+  // free, so wire it up explicitly. Without this the only way out was clicking
+  // the trigger again, and the panel pushes the form down far enough that the
+  // trigger can scroll out of reach.
+  useEffect(() => {
+    if (!deptOpen) return;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (!deptRef.current?.contains(e.target as Node)) setDeptOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        // Stop the dialog itself closing on the same keypress.
+        e.stopPropagation();
+        setDeptOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [deptOpen]);
 
   useEffect(() => {
     if (!open) return;
-    setMemberSearch("");
+    setDeptOpen(false);
     if (project) {
       form.reset({
         name: project.name,
         description: project.description ?? "",
         status: project.status,
-        memberIds: project.members?.map((m) => m.user.id ?? m.userId) ?? [],
         customFields: project.customFields ?? [],
         productionLiveDate: project.productionLiveDate?.slice(0, 10) ?? "",
         goLiveDate: project.goLiveDate?.slice(0, 10) ?? "",
         revisedGoLiveDate: project.revisedGoLiveDate?.slice(0, 10) ?? "",
         dependency: project.dependency ?? "",
         comment: project.comment ?? "",
-        department: (project.department as ProjectDepartment) ?? "",
+        departments: knownDepartments(project),
         agreement: project.agreement ?? "",
         workstream: project.workstream ?? "",
         details: project.details ?? "",
@@ -253,20 +309,21 @@ export function ProjectFormDialog({
             : "",
         defaultAssigneeMode: project.defaultAssigneeMode ?? "none",
         defaultAssigneeId: project.defaultAssigneeId ?? "",
+        aiGenerateTasks: false,
+        aiDescription: "",
       });
     } else {
       form.reset({
         name: "",
         description: "",
         status: "not_yet_started",
-        memberIds: [],
         customFields: [],
         productionLiveDate: "",
         goLiveDate: "",
         revisedGoLiveDate: "",
         dependency: "",
         comment: "",
-        department: "",
+        departments: [],
         agreement: "",
         workstream: "",
         details: "",
@@ -275,18 +332,11 @@ export function ProjectFormDialog({
         ownerId: "",
         defaultAssigneeMode: "none",
         defaultAssigneeId: "",
+        aiGenerateTasks: false,
+        aiDescription: "",
       });
     }
   }, [project, open, form]);
-
-  const filteredUsers = useMemo(() => {
-    if (!memberSearch.trim()) return users;
-    const q = memberSearch.toLowerCase().trim();
-    return users.filter(
-      (u) =>
-        u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q),
-    );
-  }, [users, memberSearch]);
 
   async function onSubmit(values: ProjectFormValues) {
     if (
@@ -301,7 +351,7 @@ export function ProjectFormDialog({
     try {
       const payload: CreateProjectInput = {
         name: values.name.trim(),
-        // Edits to Task detail
+        // HR / Tanny feedback (2026-05-26): edits to Task detail
         // (description) didn't persist on Legal CRM when the user
         // cleared the field. `||` short-circuited the empty string to
         // `undefined`, which the server treats as "not touched";
@@ -317,10 +367,6 @@ export function ProjectFormDialog({
         // partner picker yet, so we don't want to accidentally clear
         // the link on an unrelated update.
         ...(!isEdit && defaultPartnerId && { partnerId: defaultPartnerId }),
-        memberIds:
-          values.memberIds && values.memberIds.length > 0
-            ? values.memberIds
-            : undefined,
         customFields:
           values.customFields && values.customFields.length > 0
             ? values.customFields
@@ -331,7 +377,7 @@ export function ProjectFormDialog({
                 }))
                 .filter((f) => f.label.length > 0)
             : [],
-        // Empty strings → null so the server
+        // BD feedback (May 2026). Empty strings → null so the server
         // can distinguish "user cleared this field" from "not touched".
         productionLiveDate: values.productionLiveDate?.trim()
           ? values.productionLiveDate
@@ -343,7 +389,7 @@ export function ProjectFormDialog({
         dependency: values.dependency?.trim() ? values.dependency.trim() : null,
         comment: values.comment?.trim() ? values.comment.trim() : null,
         // Empty selection clears the Department label on the server.
-        department: values.department ? values.department : null,
+        departments: values.departments,
         agreement: values.agreement ? values.agreement : null,
         workstream: values.workstream?.trim() ? values.workstream.trim() : null,
         details: values.details?.trim() ? values.details.trim() : null,
@@ -351,7 +397,7 @@ export function ProjectFormDialog({
         assignedTeam: values.assignedTeam?.trim()
           ? values.assignedTeam.trim()
           : null,
-        // Owner changes on the Edit
+        // HR / Tanny feedback (2026-05-26): Owner change on the Edit
         // dialog wasn't persisting across Product / Legal / HR CRM.
         // The previous spread (`values.ownerId?.trim() && { ownerId }`)
         // dropped the key when the picker was cleared — that's fine on
@@ -385,6 +431,33 @@ export function ProjectFormDialog({
         const res = await createProject(payload);
         savedProject = res.data;
         toast.success("Project created");
+      }
+
+      if (!isEdit && values.aiGenerateTasks && values.aiDescription?.trim()) {
+        try {
+          toast.info("Generating tasks with AI...");
+          const aiResult = await generateTasksWithAI(savedProject.id, {
+            description: values.aiDescription.trim(),
+          });
+
+          let count = 0;
+          for (const task of aiResult.data.tasks) {
+            await createTask(savedProject.id, {
+              title: task.title,
+              description: task.description,
+              status: task.status,
+              priority: task.priority,
+            });
+            count++;
+          }
+          toast.success(`AI generated ${count} tasks`);
+        } catch (aiErr) {
+          const msg =
+            aiErr instanceof ApiError
+              ? aiErr.message
+              : "Failed to generate AI tasks";
+          toast.error(msg);
+        }
       }
 
       onOpenChange(false);
@@ -847,30 +920,109 @@ export function ProjectFormDialog({
                   />
                   <FormField
                     control={form.control}
-                    name="department"
+                    name="departments"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Department</FormLabel>
-                        <Select
-                          value={field.value || ""}
-                          onValueChange={(v) =>
-                            field.onChange(v === "__none__" ? "" : v)
-                          }
-                        >
-                          <FormControl>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select department" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="__none__">— None —</SelectItem>
-                            {PROJECT_DEPARTMENT_OPTIONS.map((d) => (
-                              <SelectItem key={d} value={d}>
-                                {d}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Departments</FormLabel>
+                        {/*
+                          Deliberately NOT a portalled Popover. The dialog uses
+                          react-remove-scroll, which blocks wheel/trackpad
+                          events over anything portalled outside it, the list
+                          could then only be moved by dragging its scrollbar.
+                          Rendering the panel inside the dialog's own subtree
+                          makes normal scrolling work. It stays in flow rather
+                          than absolutely positioned because DialogContent is
+                          `overflow-y-auto` and would clip an overlay.
+                        */}
+                        <div ref={deptRef}>
+                          <button
+                            type="button"
+                            aria-expanded={deptOpen}
+                            onClick={() => setDeptOpen((o) => !o)}
+                            className={`
+                              border-input bg-background flex h-9 w-full
+                              items-center justify-between rounded-md border
+                              px-3 text-sm
+                              ${
+                                field.value.length
+                                  ? ""
+                                  : `text-muted-foreground`
+                              }
+                            `}
+                          >
+                            <span className="truncate">
+                              {field.value.length === 0
+                                ? "Select departments"
+                                : field.value.length === 1
+                                  ? field.value[0]
+                                  : `${field.value[0]} +${field.value.length - 1} more`}
+                            </span>
+                            <ChevronsUpDown
+                              className={`ml-2 size-3.5 shrink-0 opacity-50`}
+                            />
+                          </button>
+                          {deptOpen ? (
+                            <div
+                              className={`
+                                bg-popover mt-1 max-h-56 overflow-y-auto
+                                rounded-md border p-1
+                              `}
+                            >
+                              {PROJECT_DEPARTMENT_OPTIONS.map((d) => {
+                                const checked = field.value.includes(d);
+                                return (
+                                  <button
+                                    key={d}
+                                    type="button"
+                                    onClick={() =>
+                                      // Order is preserved, so the first pick
+                                      // stays primary until it is unticked.
+                                      field.onChange(
+                                        checked
+                                          ? field.value.filter((v) => v !== d)
+                                          : [...field.value, d],
+                                      )
+                                    }
+                                    className={`
+                                      hover:bg-accent
+                                      flex w-full items-center gap-2 rounded-sm
+                                      px-2 py-1.5 text-left text-sm
+                                    `}
+                                  >
+                                    <Check
+                                      className={`
+                                        size-3.5 shrink-0
+                                        ${checked ? "opacity-100" : "opacity-0"}
+                                      `}
+                                    />
+                                    {d}
+                                  </button>
+                                );
+                              })}
+                              <div
+                                className={`
+                                  mt-1 flex items-center justify-between
+                                  border-t px-2 pt-1.5
+                                `}
+                              >
+                                <span className="text-muted-foreground text-xs">
+                                  {field.value.length === 0
+                                    ? "None selected"
+                                    : `${field.value.length} selected, ${field.value[0]} is primary`}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs"
+                                  onClick={() => setDeptOpen(false)}
+                                >
+                                  Done
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -929,142 +1081,7 @@ export function ProjectFormDialog({
                 />
               ) : null}
 
-              {/* Members */}
-              {!isWorkstreamCrm ? (
-                <FormField
-                  control={form.control}
-                  name="memberIds"
-                  render={() => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel className="flex items-center gap-1.5">
-                          <Users className="size-3.5" />
-                          Members
-                        </FormLabel>
-                        {selectedMemberIds.length > 0 && (
-                          <span
-                            className={`
-                              text-muted-foreground text-[10px] tabular-nums
-                            `}
-                          >
-                            {selectedMemberIds.length} selected
-                          </span>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <Search
-                          className={`
-                            text-muted-foreground pointer-events-none absolute
-                            top-1/2 left-2.5 size-3.5 -translate-y-1/2
-                          `}
-                        />
-                        <Input
-                          value={memberSearch}
-                          onChange={(e) => setMemberSearch(e.target.value)}
-                          placeholder="Search by name or email..."
-                          className="h-8 pl-8 text-xs"
-                        />
-                      </div>
-                      <div
-                        className={`
-                          scrollbar-thin scrollbar-track-transparent
-                          scrollbar-thumb-border mt-1 max-h-[152px]
-                          overflow-y-auto rounded-lg border
-                          hover:scrollbar-thumb-muted-foreground/30
-                        `}
-                      >
-                        <div className="flex flex-col py-1">
-                          {filteredUsers.map((u) => (
-                            <FormField
-                              key={u.id}
-                              control={form.control}
-                              name="memberIds"
-                              render={({ field }) => {
-                                const checked =
-                                  field.value?.includes(u.id) ?? false;
-                                return (
-                                  <FormItem>
-                                    <FormLabel
-                                      className={`
-                                        flex cursor-pointer items-center gap-2.5
-                                        px-3 py-2 font-normal transition-colors
-                                        ${
-                                          checked
-                                            ? "bg-primary/5"
-                                            : "hover:bg-muted/60"
-                                        }
-                                      `}
-                                    >
-                                      <FormControl>
-                                        <Checkbox
-                                          checked={checked}
-                                          onCheckedChange={(v) => {
-                                            const cur = field.value ?? [];
-                                            field.onChange(
-                                              v
-                                                ? [...cur, u.id]
-                                                : cur.filter(
-                                                    (id) => id !== u.id,
-                                                  ),
-                                            );
-                                          }}
-                                        />
-                                      </FormControl>
-                                      <Avatar className="size-6">
-                                        <AvatarFallback
-                                          className={`text-[9px] font-semibold`}
-                                        >
-                                          {getInitials(u.name)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <div
-                                        className={`
-                                          flex min-w-0 flex-1 flex-col
-                                        `}
-                                      >
-                                        <span
-                                          className={`
-                                            truncate text-xs leading-tight
-                                            font-medium
-                                          `}
-                                        >
-                                          {u.name}
-                                        </span>
-                                        <span
-                                          className={`
-                                            text-muted-foreground truncate
-                                            text-[10px] leading-tight
-                                          `}
-                                        >
-                                          {u.email}
-                                        </span>
-                                      </div>
-                                    </FormLabel>
-                                  </FormItem>
-                                );
-                              }}
-                            />
-                          ))}
-                          {filteredUsers.length === 0 && (
-                            <p
-                              className={`
-                                text-muted-foreground py-6 text-center text-xs
-                              `}
-                            >
-                              {memberSearch.trim()
-                                ? "No members match your search"
-                                : "No users found"}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ) : null}
-
-              {/* Admin-defined custom fields */}
+              {/* Custom fields — Marketing feedback round #2 */}
               {!isWorkstreamCrm ? (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
@@ -1159,6 +1176,122 @@ export function ProjectFormDialog({
                   )}
                 </div>
               ) : null}
+
+              {/* AI Generate Tasks */}
+              {!isWorkstreamCrm && !isEdit && (
+                <div
+                  className={`
+                    overflow-hidden rounded-lg border transition-colors
+                    ${
+                      aiEnabled
+                        ? `
+                          border-violet-300 bg-violet-50/60
+                          dark:border-violet-700 dark:bg-violet-950/40
+                        `
+                        : "border-border bg-muted/30"
+                    }
+                  `}
+                >
+                  <div className="flex items-center justify-between px-3.5 py-3">
+                    <Label
+                      htmlFor="ai-toggle"
+                      className={`
+                        flex cursor-pointer items-center gap-2 text-[13px]
+                        font-medium
+                      `}
+                    >
+                      <div
+                        className={`
+                          flex size-6 items-center justify-center rounded-md
+                          transition-colors
+                          ${
+                            aiEnabled
+                              ? `
+                                bg-violet-100
+                                dark:bg-violet-900/50
+                              `
+                              : "bg-muted"
+                          }
+                        `}
+                      >
+                        <Sparkles
+                          className={`
+                            size-3.5 transition-colors
+                            ${
+                              aiEnabled
+                                ? `
+                                  text-violet-600
+                                  dark:text-violet-400
+                                `
+                                : "text-muted-foreground"
+                            }
+                          `}
+                        />
+                      </div>
+                      Generate tasks with AI
+                    </Label>
+                    <FormField
+                      control={form.control}
+                      name="aiGenerateTasks"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Switch
+                              id="ai-toggle"
+                              checked={field.value ?? false}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  {aiEnabled && (
+                    <div
+                      className={`
+                        border-t border-violet-200 px-3.5 pt-3 pb-3.5
+                        dark:border-violet-700/50
+                      `}
+                    >
+                      <FormField
+                        control={form.control}
+                        name="aiDescription"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-medium">
+                              Describe what the project should accomplish
+                            </FormLabel>
+                            <FormControl>
+                              <Textarea
+                                {...field}
+                                placeholder="E.g: Build a landing page with React, Tailwind. Includes hero section, pricing, contact form..."
+                                rows={3}
+                                className={`
+                                  resize-none border-violet-200 bg-white text-xs
+                                  placeholder:text-violet-300
+                                  focus-visible:ring-violet-400
+                                  dark:border-violet-700 dark:bg-violet-950/60
+                                  dark:placeholder:text-violet-600
+                                `}
+                              />
+                            </FormControl>
+                            <p
+                              className={`
+                                text-muted-foreground text-[10px]
+                                leading-relaxed
+                              `}
+                            >
+                              AI will auto-generate tasks after the project is
+                              created.
+                            </p>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </form>
           </Form>
         </div>

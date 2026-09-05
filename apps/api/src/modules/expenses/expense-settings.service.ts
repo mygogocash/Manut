@@ -77,6 +77,7 @@ async function createApprovalStep(input: CreateExpenseApprovalStepInput) {
     name: input.name,
     description: input.description,
     approverType: input.approverType,
+    stageRole: input.stageRole,
     isActive: input.isActive,
     skipWhenSubmitterIds: input.skipWhenSubmitterIds,
     onlyWhenSubmitterIds: input.onlyWhenSubmitterIds,
@@ -100,6 +101,7 @@ async function updateApprovalStep(
   if (input.name !== undefined) data.name = input.name;
   if (input.description !== undefined) data.description = input.description;
   if (input.order !== undefined) data.order = input.order;
+  if (input.stageRole !== undefined) data.stageRole = input.stageRole;
   if (input.isActive !== undefined) data.isActive = input.isActive;
   if (input.skipWhenSubmitterIds !== undefined) {
     data.skipWhenSubmitterIds = input.skipWhenSubmitterIds;
@@ -307,7 +309,7 @@ async function setReminderSettings(
 // ── Monthly reminder cron ─────────────────────────────────────────
 
 /**
- * Monthly expense submission reminders.
+ * Monthly expense submission reminders (HR request, May 2026).
  * Intended to run on the reminder day (default 22) via Cloud Scheduler
  * (`Asia/Bangkok`). Skips employees who already filed the current period.
  * Pass `{ force: true }` to bypass the day-of-month guard for testing.

@@ -1,7 +1,7 @@
 import { api } from "@/lib/api-client";
 import type { ApiSuccessResponse } from "@/types/api.type";
 
-// Mirrors the LeadSource Prisma model: workspace-admin
+// Mirrors the LeadSource Prisma model. PRD §11.7 — workspace-admin
 // managed lookup table.
 
 export interface LeadSource {

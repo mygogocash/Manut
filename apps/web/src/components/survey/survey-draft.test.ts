@@ -8,7 +8,7 @@ import {
 
 const FORM = "form-1";
 const USER = "user-1";
-const KEY = `manut:survey-standalone:draft-v1:${FORM}:${USER}`;
+const KEY = `nexora:survey-standalone:draft-v1:${FORM}:${USER}`;
 
 // The global test setup (src/test/setup.ts) stubs window.localStorage with
 // no-op vi.fn() mocks. Back them with a real in-memory Map so these tests
@@ -70,7 +70,7 @@ describe("survey-draft", () => {
     writeSurveyDraft(FORM, null, { q1: "anon-answer" });
     expect(
       window.localStorage.getItem(
-        `manut:survey-standalone:draft-v1:${FORM}:anon`,
+        `nexora:survey-standalone:draft-v1:${FORM}:anon`,
       ),
     ).toBe(JSON.stringify({ q1: "anon-answer" }));
     expect(readSurveyDraft(FORM, null)).toEqual({ q1: "anon-answer" });

@@ -1,5 +1,5 @@
 {
-  "name": "@manut/utils",
+  "name": "@nexora/utils",
   "version": "0.1.0",
   "private": true,
   "main": "./src/index.ts",
@@ -9,6 +9,6 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "typescript": "6.0.3"
+    "typescript": "^5.9.3"
   }
 }

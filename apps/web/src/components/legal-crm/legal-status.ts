@@ -17,7 +17,14 @@ export const STATUS_LABELS: Record<string, string> = Object.fromEntries(
 );
 
 export type StatusVariant =
-  "green" | "amber" | "red" | "gold" | "blue" | "grey" | "purple" | "teal";
+  | "green"
+  | "amber"
+  | "red"
+  | "gold"
+  | "blue"
+  | "grey"
+  | "purple"
+  | "teal";
 
 export const STATUS_VARIANTS: Record<string, StatusVariant> = {
   completed: "green",

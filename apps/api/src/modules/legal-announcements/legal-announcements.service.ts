@@ -6,8 +6,7 @@ import {
 import { prisma } from "@/infrastructure/database/prisma";
 import {
   createSignedUrl,
-  requireRegisteredStorageUrl,
-  STORAGE_BUCKETS,
+  parseStorageUrl,
 } from "@/infrastructure/storage/supabase-storage";
 import { legalAnnouncementRepository } from "@/modules/legal-announcements/legal-announcements.repository";
 import type {
@@ -38,48 +37,6 @@ function normaliseAttachments(
   return out;
 }
 
-async function validateAttachments(
-  attachments: ReturnType<typeof normaliseAttachments>,
-  actorId: string,
-  existingUrls: ReadonlySet<string> = new Set(),
-) {
-  if (!attachments) return attachments;
-  await Promise.all(
-    attachments.map((attachment) =>
-      requireRegisteredStorageUrl(attachment.fileUrl, {
-        allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-        purpose: "legal-announcement",
-        ...(!existingUrls.has(attachment.fileUrl) && { uploadedBy: actorId }),
-      }),
-    ),
-  );
-  return attachments;
-}
-
-function assertAnnouncementVisible(
-  announcement: {
-    status: string;
-    entityId: string | null;
-    publishedAt: Date | null;
-    expiresAt: Date | null;
-  },
-  userEntityId: string | null,
-  canManage: boolean,
-): void {
-  if (canManage) return;
-  const now = new Date();
-  const isPublished = announcement.status === "published";
-  const hasStarted =
-    announcement.publishedAt === null || announcement.publishedAt <= now;
-  const hasNotExpired =
-    announcement.expiresAt === null || announcement.expiresAt >= now;
-  const isInEntityScope =
-    announcement.entityId === null || announcement.entityId === userEntityId;
-  if (!isPublished || !hasStarted || !hasNotExpired || !isInEntityScope) {
-    throw new NotFoundException("Announcement not found");
-  }
-}
-
 export class LegalAnnouncementService {
   async list(
     userId: string,
@@ -107,23 +64,16 @@ export class LegalAnnouncementService {
     };
   }
 
-  async getById(
-    id: string,
-    userId: string,
-    userEntityId: string | null,
-    canManage: boolean,
-  ) {
+  async getById(id: string, userId: string, canManage: boolean) {
     const row = await legalAnnouncementRepository.findById(id, userId);
     if (!row) throw new NotFoundException("Announcement not found");
-    assertAnnouncementVisible(row, userEntityId, canManage);
+    if (!canManage && row.status !== "published") {
+      throw new NotFoundException("Announcement not found");
+    }
     return { data: serialize(row, userId) };
   }
 
   async create(input: CreateAnnouncementInput, authorId: string) {
-    const attachments = await validateAttachments(
-      normaliseAttachments(input.attachments),
-      authorId,
-    );
     const row = await legalAnnouncementRepository.create({
       title: input.title,
       body: input.body,
@@ -140,7 +90,7 @@ export class LegalAnnouncementService {
       requiresAck: input.requiresAck,
       pinned: input.pinned,
       authorId,
-      attachments,
+      attachments: normaliseAttachments(input.attachments),
     });
     return { data: serialize(row, authorId) };
   }
@@ -148,14 +98,6 @@ export class LegalAnnouncementService {
   async update(id: string, input: UpdateAnnouncementInput, userId: string) {
     const existing = await legalAnnouncementRepository.findById(id);
     if (!existing) throw new NotFoundException("Announcement not found");
-    const existingAttachmentUrls = new Set(
-      existing.attachments.map((attachment) => attachment.fileUrl),
-    );
-    const attachments = await validateAttachments(
-      normaliseAttachments(input.attachments),
-      userId,
-      existingAttachmentUrls,
-    );
 
     // Auto-stamp publishedAt the first time a draft flips to published
     // unless the caller passed one explicitly.
@@ -192,7 +134,7 @@ export class LegalAnnouncementService {
             : undefined,
       requiresAck: input.requiresAck,
       pinned: input.pinned,
-      attachments,
+      attachments: normaliseAttachments(input.attachments),
     });
     return { data: serialize(row, userId) };
   }
@@ -204,16 +146,9 @@ export class LegalAnnouncementService {
     return { data: { id } };
   }
 
-  async acknowledge(
-    id: string,
-    userId: string,
-    userEntityId: string | null,
-    canManage: boolean,
-    ip: string | null,
-  ) {
+  async acknowledge(id: string, userId: string, ip: string | null) {
     const row = await legalAnnouncementRepository.findById(id);
     if (!row) throw new NotFoundException("Announcement not found");
-    assertAnnouncementVisible(row, userEntityId, canManage);
     if (row.status !== "published") {
       throw new BadRequestException(
         "Only published announcements can be acknowledged",
@@ -267,24 +202,19 @@ export class LegalAnnouncementService {
 
   // Mints a short-lived signed URL for an inline attachment. The
   // `documents` bucket is private, so the raw fileUrl 404s.
-  async getAttachmentDownloadUrl(
-    announcementId: string,
-    attachmentId: string,
-    userId: string,
-    userEntityId: string | null,
-    canManage: boolean,
-  ) {
-    await this.getById(announcementId, userId, userEntityId, canManage);
+  async getAttachmentDownloadUrl(announcementId: string, attachmentId: string) {
     const att = await prisma.legalAnnouncementAttachment.findUnique({
       where: { id: attachmentId },
     });
     if (!att || att.announcementId !== announcementId) {
       throw new NotFoundException("Attachment not found");
     }
-    const parsed = await requireRegisteredStorageUrl(att.fileUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "legal-announcement",
-    });
+    const parsed = parseStorageUrl(att.fileUrl);
+    if (!parsed) {
+      throw new BadRequestException(
+        "Attachment file URL is not a Supabase storage URL",
+      );
+    }
     const url = await createSignedUrl(parsed.bucket, parsed.path, 300);
     return { data: { url, fileName: att.fileName } };
   }

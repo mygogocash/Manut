@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { withFxConversion } from "@/modules/expenses/expense-reports.service";
 import { expensesRepository } from "@/modules/expenses/expenses.repository";
-import { arrayAt } from "@/test-utils/assertions";
 
 // 1 IDR ≈ 0.0018296 THB (BOT per-1000 quote, the rate the report Total
 // uses). XYZ has no rate on file.
@@ -28,11 +27,9 @@ describe("withFxConversion (per-line FX on report detail)", () => {
 
   it("leaves THB lines untouched (no conversion, no lookup)", async () => {
     const spy = mockConvert();
-    const row = arrayAt(
-      await withFxConversion([{ amount: "604", currency: "THB", date: DAY }]),
-      0,
-      "converted THB expense",
-    );
+    const [row] = await withFxConversion([
+      { amount: "604", currency: "THB", date: DAY },
+    ]);
     expect(row).toMatchObject({
       fxRate: null,
       fxConvertedThb: null,
@@ -43,13 +40,9 @@ describe("withFxConversion (per-line FX on report detail)", () => {
 
   it("attaches rate + converted THB for a foreign line", async () => {
     mockConvert();
-    const row = arrayAt(
-      await withFxConversion([
-        { amount: "1157400", currency: "IDR", date: DAY },
-      ]),
-      0,
-      "converted foreign expense",
-    );
+    const [row] = await withFxConversion([
+      { amount: "1157400", currency: "IDR", date: DAY },
+    ]);
     expect(row.fxRate).toBe(IDR_RATE);
     // Same rounding as convertAmount / the report Total.
     expect(row.fxConvertedThb).toBe(Math.round(1157400 * IDR_RATE * 100) / 100);
@@ -58,11 +51,9 @@ describe("withFxConversion (per-line FX on report detail)", () => {
 
   it("flags missing-rate lines instead of inventing a number", async () => {
     mockConvert();
-    const row = arrayAt(
-      await withFxConversion([{ amount: "100", currency: "XYZ", date: DAY }]),
-      0,
-      "expense missing an FX rate",
-    );
+    const [row] = await withFxConversion([
+      { amount: "100", currency: "XYZ", date: DAY },
+    ]);
     expect(row).toMatchObject({
       fxRate: null,
       fxConvertedThb: null,

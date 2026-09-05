@@ -1,8 +1,4 @@
 import { datePartsInTimezone } from "@/modules/expenses/expense-shared";
-import {
-  parseAttendanceDate,
-  parseAttendanceTime,
-} from "@/modules/hrms/attendance-period.util";
 
 export const SUPPORTED_EMPLOYEE_TIMEZONES = [
   "Asia/Kolkata",
@@ -79,12 +75,12 @@ export function zonedLocalToUtc(
   timeHHmm: string,
   timeZone: string,
 ): Date {
-  const { year, month, day } = parseAttendanceDate(dateYmd);
-  const { hour, minute } = parseAttendanceTime(timeHHmm);
-  let utcMs = Date.UTC(year, month - 1, day, hour, minute, 0);
+  const [y, mo, d] = dateYmd.split("-").map(Number);
+  const [hh, mm] = timeHHmm.split(":").map(Number);
+  let utcMs = Date.UTC(y, mo - 1, d, hh, mm, 0);
   for (let i = 0; i < 4; i++) {
     const zp = zonedParts(new Date(utcMs), timeZone);
-    const desired = Date.UTC(year, month - 1, day, hour, minute, 0);
+    const desired = Date.UTC(y, mo - 1, d, hh, mm, 0);
     const actual = Date.UTC(
       zp.year,
       zp.month - 1,

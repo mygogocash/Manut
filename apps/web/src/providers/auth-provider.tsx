@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { useRouter } from "nextjs-toploader/app";
 import {
   createContext,
@@ -11,104 +10,101 @@ import {
   useState,
 } from "react";
 
-import { apiErrorStatus } from "@/lib/api-client";
-import { isEmployeeOnlyRoles, postLoginPath } from "@/lib/auth-return-path";
 import { trackSessionEnded, trackSessionStarted } from "@/lib/events";
-import { isPublicSigningPath } from "@/lib/public-signing-path";
 import { tracking } from "@/lib/tracking";
-import type { AuthRole, AuthUser } from "@/services/auth.service";
+import type {
+  AuthRole,
+  AuthUser,
+  EntityMembership,
+} from "@/services/auth.service";
 import * as authService from "@/services/auth.service";
+import { unsubscribeAllDevices } from "@/services/push.service";
 
 const REFRESH_INTERVAL_MS = 4 * 60 * 1000; // 4 minutes
-
-export interface SessionVerificationError {
-  code: "NETWORK_ERROR" | "RATE_LIMITED" | "VERIFICATION_FAILED";
-  message: string;
-  status?: number;
-  retryable: true;
-}
 
 interface AuthState {
   user: AuthUser | null;
   roles: AuthRole[];
   permissions: string[];
+  // Multi-company (PRD Rule 7). Empty for single-company users.
+  memberships: EntityMembership[];
+  activeEntityId: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  sessionVerificationError: SessionVerificationError | null;
 }
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string, returnTo?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   hasPermission: (code: string) => boolean;
   hasAnyPermission: (...codes: string[]) => boolean;
   hasRole: (name: string) => boolean;
+  /**
+   * Is this the system Admin role, rather than a custom role of the same name?
+   *
+   * For hiding controls that only a super admin may use. The API enforces the
+   * same rule independently — this exists so the UI does not offer something that
+   * would be refused.
+   */
+  isSystemAdmin: boolean;
   isEmployeeOnly: boolean;
   refreshUser: () => Promise<void>;
+  // Switch the active company, then re-pull /me. No-op enforcement yet.
+  switchEntity: (entityId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function sessionVerificationError(error: unknown): SessionVerificationError {
-  const status = apiErrorStatus(error);
-  if (status === 429) {
-    return {
-      code: "RATE_LIMITED",
-      message:
-        "Session verification was rate limited. Please wait a moment and retry.",
-      status,
-      retryable: true,
-    };
+/**
+ * The path `ProtectedRoute` parked in `?redirect=`, if it is safe to use.
+ *
+ * Only same-origin absolute paths are accepted. A value like
+ * `//evil.example.com` or `https://evil.example.com` is a protocol-relative or
+ * absolute URL that the browser would treat as another origin, so it is
+ * rejected, an open redirect on the sign-in page is a phishing primitive.
+ */
+function safeRedirectTarget(): string | null {
+  if (typeof window === "undefined") return null;
+  const raw = new URLSearchParams(window.location.search).get("redirect");
+  if (!raw) return null;
+  let target: string;
+  try {
+    target = decodeURIComponent(raw);
+  } catch {
+    return null;
   }
-  if (status === 0 || status === undefined) {
-    return {
-      code: "NETWORK_ERROR",
-      message:
-        "We couldn't verify your session. Check your connection and retry.",
-      ...(status === undefined ? {} : { status }),
-      retryable: true,
-    };
-  }
-  return {
-    code: "VERIFICATION_FAILED",
-    message: "Session verification is temporarily unavailable. Please retry.",
-    status,
-    retryable: true,
-  };
+  if (!target.startsWith("/")) return null; // not a relative path
+  if (target.startsWith("//")) return null; // protocol-relative -> other origin
+  if (target.startsWith("/sign-in")) return null; // no bounce loops
+  return target;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const publicSigningPage = isPublicSigningPath(pathname);
   const [state, setState] = useState<AuthState>({
     user: null,
     roles: [],
     permissions: [],
+    memberships: [],
+    activeEntityId: null,
     isLoading: true,
     isAuthenticated: false,
-    sessionVerificationError: null,
   });
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const identifiedUserRef = useRef<string | null>(null);
   const sessionStartedAtRef = useRef<number | null>(null);
-  const verificationSequenceRef = useRef(0);
 
   const refreshUser = useCallback(async () => {
-    const sequence = ++verificationSequenceRef.current;
-    setState((current) =>
-      current.isAuthenticated ? current : { ...current, isLoading: true },
-    );
     try {
       const result = await authService.getMe();
-      if (sequence !== verificationSequenceRef.current) return;
       setState({
         user: result.user,
         roles: result.roles ?? [],
         permissions: result.permissions ?? [],
+        memberships: result.memberships ?? [],
+        activeEntityId: result.activeEntityId ?? null,
         isLoading: false,
         isAuthenticated: true,
-        sessionVerificationError: null,
       });
 
       const roles = result.roles ?? [];
@@ -141,44 +137,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionStartedAtRef.current = Date.now();
         trackSessionStarted({ source: "token_refresh" });
       }
-    } catch (error) {
-      if (sequence !== verificationSequenceRef.current) return;
-      const status = apiErrorStatus(error);
-      const terminal = status === 401 || status === 403;
-
-      if (terminal) {
-        setState({
-          user: null,
-          roles: [],
-          permissions: [],
-          isLoading: false,
-          isAuthenticated: false,
-          sessionVerificationError: null,
-        });
+    } catch {
+      setState({
+        user: null,
+        roles: [],
+        permissions: [],
+        memberships: [],
+        activeEntityId: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
+      if (identifiedUserRef.current !== null) {
         identifiedUserRef.current = null;
         tracking.reset();
-        return;
       }
-
-      const verificationError = sessionVerificationError(error);
-      setState((current) =>
-        current.isAuthenticated && current.user
-          ? {
-              ...current,
-              isLoading: false,
-              sessionVerificationError: verificationError,
-            }
-          : {
-              user: null,
-              roles: [],
-              permissions: [],
-              isLoading: false,
-              isAuthenticated: false,
-              sessionVerificationError: verificationError,
-            },
-      );
     }
   }, []);
+
+  // Switch the active company, then re-pull /me so the new selection (and
+  // any future per-entity gating) is reflected in React state. Errors
+  // bubble to the caller so the switcher can surface a toast.
+  const switchEntity = useCallback(
+    async (entityId: string) => {
+      await authService.setActiveEntity(entityId);
+      await refreshUser();
+    },
+    [refreshUser],
+  );
 
   const startRefreshTimer = useCallback(() => {
     if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
@@ -202,39 +187,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (publicSigningPage) {
-      ++verificationSequenceRef.current;
-      setState((current) => ({
-        ...current,
-        isLoading: false,
-        sessionVerificationError: null,
-      }));
-      return;
-    }
     void refreshUser();
-  }, [publicSigningPage, refreshUser]);
+  }, [refreshUser]);
 
   useEffect(() => {
-    if (state.isAuthenticated && !publicSigningPage) {
+    if (state.isAuthenticated) {
       startRefreshTimer();
     } else {
       stopRefreshTimer();
     }
     return stopRefreshTimer;
-  }, [
-    publicSigningPage,
-    state.isAuthenticated,
-    startRefreshTimer,
-    stopRefreshTimer,
-  ]);
+  }, [state.isAuthenticated, startRefreshTimer, stopRefreshTimer]);
 
   useEffect(() => {
     const onVisible = () => {
-      if (
-        document.visibilityState === "visible" &&
-        state.isAuthenticated &&
-        !publicSigningPage
-      ) {
+      if (document.visibilityState === "visible" && state.isAuthenticated) {
         authService.refreshSession().catch(() => {});
         // Pull /me on tab return so a user whose role was just changed
         // sees the new sidebar / route guards as soon as they switch
@@ -245,15 +212,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [
-    publicSigningPage,
-    state.isAuthenticated,
-    startRefreshTimer,
-    refreshUser,
-  ]);
+  }, [state.isAuthenticated, startRefreshTimer, refreshUser]);
 
-  const login = async (email: string, password: string, returnTo?: string) => {
-    ++verificationSequenceRef.current;
+  const login = async (email: string, password: string) => {
     const result = await authService.login(email, password);
 
     const loginRoles = result.roles ?? [];
@@ -263,9 +224,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: result.user,
       roles: loginRoles,
       permissions: loginPermissions,
+      memberships: result.memberships ?? [],
+      activeEntityId: result.activeEntityId ?? null,
       isLoading: false,
       isAuthenticated: true,
-      sessionVerificationError: null,
     });
 
     const employeeOnlyAtLogin =
@@ -292,19 +254,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     identifiedUserRef.current = result.user.id;
     sessionStartedAtRef.current = Date.now();
     trackSessionStarted({ source: "login" });
-    router.replace(
-      postLoginPath(
-        {
-          mustChangePassword: result.user.mustChangePassword,
-          roles: loginRoles,
-        },
-        returnTo,
-      ),
-    );
+    if (result.user.mustChangePassword) {
+      router.push("/change-password");
+    } else {
+      // Everyone with full-staff access lands on the Home dashboard
+      // regardless of their role's stored defaultRoute. Employee-only
+      // accounts stay on their portal — they have no Home in the
+      // sidebar and the dashboard guard would bounce them anyway.
+      const onlyEmployee =
+        loginRoles.length > 0 && loginRoles.every((r) => r.name === "Employee");
+      const home = onlyEmployee ? "/my-portal" : "/dashboard";
+      // `ProtectedRoute` parks the page you were trying to reach in
+      // `?redirect=`. Honour it, so a deep link from an approval email
+      // survives the sign-in bounce instead of dumping you on Home.
+      router.push(safeRedirectTarget() ?? home);
+    }
   };
 
   const logout = async () => {
-    ++verificationSequenceRef.current;
+    // Drop this device's push subscriptions BEFORE the session goes, since the
+    // call needs the cookie. Otherwise a shared or handed-on laptop keeps
+    // delivering the previous person's notifications and they have no way to
+    // revoke it. Best-effort and non-blocking: a failure here must never stop
+    // somebody logging out.
+    try {
+      await unsubscribeAllDevices();
+    } catch {
+      // ignore — push cleanup is not worth failing a logout over
+    }
+
     try {
       await authService.logout();
     } catch {
@@ -314,9 +292,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: null,
       roles: [],
       permissions: [],
+      memberships: [],
+      activeEntityId: null,
       isLoading: false,
       isAuthenticated: false,
-      sessionVerificationError: null,
     });
     identifiedUserRef.current = null;
     const startedAt = sessionStartedAtRef.current;
@@ -327,7 +306,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         : {},
     );
     tracking.reset();
-    router.replace("/sign-in");
+    router.push("/sign-in");
   };
 
   const hasPermission = (code: string) =>
@@ -337,8 +316,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasRole = (name: string) =>
     (state.roles ?? []).some((r) => r.name === name);
 
+  const isSystemAdmin = (state.roles ?? []).some(
+    (r) => r.isSystem === true && r.name === "Admin",
+  );
+
   const roles = state.roles ?? [];
-  const isEmployeeOnly = isEmployeeOnlyRoles(roles);
+  const isEmployeeOnly =
+    roles.length > 0 && roles.every((r) => r.name === "Employee");
 
   return (
     <AuthContext.Provider
@@ -349,8 +333,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasPermission,
         hasAnyPermission,
         hasRole,
+        isSystemAdmin,
         isEmployeeOnly,
         refreshUser,
+        switchEntity,
       }}
     >
       {children}

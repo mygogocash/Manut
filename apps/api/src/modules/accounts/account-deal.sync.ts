@@ -16,7 +16,7 @@ function launchDateValue(raw: string | null | undefined): string | undefined {
  * Upsert the account's primary opportunity so the Pipeline kanban
  * and the Accounts list stay aligned.
  *
- * Every Account is represented by at least one
+ * BD feedback (Vivek, May 2026): every Account is by definition a
  * deal we're tracking, so the previous "only sync when the deal
  * subsection has at least one filled field" gate was the wrong
  * default — it left Accounts orphaned from the Pipeline and made

@@ -1,11 +1,20 @@
 "use client";
 
-import { Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { DataPagination } from "@/components/shared/data-pagination";
 import { PermissionButton } from "@/components/shared/permission-button";
+import { Tabs } from "@/components/shared/tabs";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,16 +37,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { usePagination } from "@/hooks/use-pagination";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
+import { useFundraisingEntity } from "@/providers/fundraising-entity-provider";
 import {
+  archiveInvestorAccount,
   createInvestorAccount,
   deleteInvestorAccount,
   type InvestorAccount,
   listInvestorAccounts,
+  unarchiveInvestorAccount,
   updateInvestorAccount,
 } from "@/services/investor-account.service";
 
 export function InvestorAccountsTab() {
   const { hasPermission } = useAuth();
+  const { entityKey } = useFundraisingEntity();
   const canCreate = hasPermission("investors:create");
   const canUpdate = hasPermission("investors:update");
   const canDelete = hasPermission("investors:delete");
@@ -46,6 +59,9 @@ export function InvestorAccountsTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Active (default) vs Archived view. Orthogonal to search — an archived
+  // account stays hidden from the Active list regardless of the search term.
+  const [archived, setArchived] = useState(false);
   const {
     page,
     pageSize,
@@ -71,6 +87,8 @@ export function InvestorAccountsTab() {
         page,
         limit: pageSize,
         search: debouncedSearch || undefined,
+        archived: archived || undefined,
+        fundraisingEntity: entityKey,
       });
       setAccounts(res.data);
       setTotalCount(res.meta.total);
@@ -81,11 +99,15 @@ export function InvestorAccountsTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, debouncedSearch, setTotalCount]);
+  }, [page, pageSize, debouncedSearch, archived, entityKey, setTotalCount]);
 
   useEffect(() => {
     void fetchAccounts();
   }, [fetchAccounts]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [entityKey, setPage]);
 
   async function remove(a: InvestorAccount) {
     if (!canDelete || !window.confirm(`Delete account "${a.name}"?`)) return;
@@ -102,10 +124,51 @@ export function InvestorAccountsTab() {
     }
   }
 
+  // Archive / restore. The row leaves the current view either way (its new
+  // state is the opposite of the active view), so drop it optimistically and
+  // adjust the total; restore the snapshot on failure.
+  async function archiveRow(a: InvestorAccount) {
+    if (!canUpdate) return;
+    const previous = accounts;
+    setAccounts((prev) => prev.filter((x) => x.id !== a.id));
+    setTotalCount((c) => Math.max(0, c - 1));
+    try {
+      if (archived) {
+        await unarchiveInvestorAccount(a.id);
+        toast.success("Account restored");
+      } else {
+        await archiveInvestorAccount(a.id);
+        toast.success("Account archived");
+      }
+    } catch (err) {
+      setAccounts(previous);
+      setTotalCount((c) => c + 1);
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : archived
+            ? "Failed to restore account"
+            : "Failed to archive account";
+      toast.error(msg);
+    }
+  }
+
   const skeleton = Array.from({ length: Math.min(pageSize, 6) });
 
   return (
     <div className="flex flex-col gap-4">
+      <Tabs
+        tabs={[
+          { id: "active", label: "Active" },
+          { id: "archived", label: "Archived" },
+        ]}
+        active={archived ? "archived" : "active"}
+        onChange={(v) => {
+          setArchived(v === "archived");
+          setPage(1);
+        }}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="relative">
           <Search
@@ -136,7 +199,7 @@ export function InvestorAccountsTab() {
         </PermissionButton>
       </div>
 
-      <Table containerClassName="max-h-[calc(100vh-340px)] overflow-auto rounded-lg border">
+      <Table containerClassName="max-h-[60svh] md:max-h-[calc(100vh-340px)] overflow-auto rounded-lg border">
         <TableHeader className="bg-background sticky top-0 z-10">
           <TableRow>
             <TableHead>Name</TableHead>
@@ -163,7 +226,7 @@ export function InvestorAccountsTab() {
                 colSpan={7}
                 className="text-muted-foreground py-10 text-center text-xs"
               >
-                No accounts yet
+                {archived ? "No archived accounts" : "No accounts yet"}
               </TableCell>
             </TableRow>
           ) : (
@@ -201,6 +264,23 @@ export function InvestorAccountsTab() {
                         aria-label="Edit account"
                       >
                         <Pencil className="size-3.5" />
+                      </Button>
+                    ) : null}
+                    {canUpdate ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => void archiveRow(a)}
+                        aria-label={
+                          archived ? "Restore account" : "Archive account"
+                        }
+                      >
+                        {archived ? (
+                          <ArchiveRestore className="size-3.5" />
+                        ) : (
+                          <Archive className="size-3.5" />
+                        )}
                       </Button>
                     ) : null}
                     {canDelete ? (
@@ -258,8 +338,10 @@ function AccountFormDialog({
   canSubmit: boolean;
   onSaved: () => void;
 }) {
+  const { entities, entityKey, entityLabel } = useFundraisingEntity();
   const [name, setName] = useState("");
   const [type, setType] = useState("");
+  const [entity, setEntity] = useState(entityKey);
   const [website, setWebsite] = useState("");
   const [location, setLocation] = useState("");
   const [region, setRegion] = useState("");
@@ -274,7 +356,8 @@ function AccountFormDialog({
     setLocation(account?.location ?? "");
     setRegion(account?.region ?? "");
     setNotes(account?.notes ?? "");
-  }, [open, account]);
+    setEntity(account?.fundraisingEntity ?? entityKey);
+  }, [open, account, entityKey]);
 
   async function submit() {
     if (!name.trim()) {
@@ -288,12 +371,18 @@ function AccountFormDialog({
       location: location.trim() || undefined,
       region: region.trim() || undefined,
       notes: notes.trim() || undefined,
+      fundraisingEntity: entity,
     };
     try {
       setSaving(true);
       if (account) {
+        const moved = entity !== account.fundraisingEntity;
         await updateInvestorAccount(account.id, payload);
-        toast.success("Account updated");
+        // A move drops the row out of the active tab — name the
+        // destination so the disappearance reads as intentional.
+        toast.success(
+          moved ? `Moved to ${entityLabel(entity)}` : "Account updated",
+        );
       } else {
         await createInvestorAccount(payload);
         toast.success("Account created");
@@ -359,6 +448,23 @@ function AccountFormDialog({
                 onChange={(e) => setWebsite(e.target.value)}
               />
             </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="acct-entity">Entity</Label>
+            <select
+              id="acct-entity"
+              value={entity}
+              onChange={(e) => setEntity(e.target.value)}
+              className={`
+                border-border bg-background h-9 rounded-md border px-2 text-sm
+              `}
+            >
+              {entities.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="acct-notes">Notes</Label>

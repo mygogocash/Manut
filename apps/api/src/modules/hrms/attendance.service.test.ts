@@ -4,7 +4,6 @@ import { BadRequestException } from "@/common/exceptions/http-exception";
 import { attendanceRepository } from "@/modules/hrms/attendance.repository";
 import { attendanceService } from "@/modules/hrms/attendance.service";
 import { attendanceCalendarService } from "@/modules/hrms/attendance-calendar.service";
-import { mockArgument } from "@/test-utils/assertions";
 
 vi.mock("@/modules/hrms/attendance.repository", () => ({
   attendanceRepository: {
@@ -38,7 +37,7 @@ const EMPLOYEE = {
   name: "Jane",
   email: "jane@example.com",
   department: "HR",
-  employeeId: "MANUT-001",
+  employeeId: "TBH-001",
   timezone: "Asia/Bangkok",
 };
 
@@ -202,12 +201,8 @@ describe("AttendanceService", () => {
 
       await attendanceService.checkOut("user-1", {});
 
-      const data = mockArgument(
-        vi.mocked(attendanceRepository.updateRecord).mock.calls,
-        0,
-        1,
-      );
-      expect(data).toMatchObject({ totalHours: 8 });
+      const call = vi.mocked(attendanceRepository.updateRecord).mock.calls[0];
+      expect(call?.[1]).toMatchObject({ totalHours: 8 });
     });
   });
 

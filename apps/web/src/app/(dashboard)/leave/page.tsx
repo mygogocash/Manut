@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { LeaveActionDialog } from "@/components/leave/leave-action-dialog";
 import { LeaveBalanceCards } from "@/components/leave/leave-balance-cards";
+import { LeaveBalanceDriftCard } from "@/components/leave/leave-balance-drift-card";
 import {
   LeaveBalanceEditDialog,
   type LeaveBalanceEditTarget,
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/select";
 import { useDebounce } from "@/hooks/use-debounce";
 import { usePagination } from "@/hooks/use-pagination";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -73,7 +75,7 @@ export default function LeavePage() {
       : showMineTab
         ? "mine"
         : "team";
-  const [activeTab, setActiveTab] = useState(defaultTab);
+  const [activeTab, setActiveTab] = useTabParam(defaultTab);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
 
   const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
@@ -791,6 +793,23 @@ export default function LeavePage() {
               loading={teamBalancesLoading}
               onEdit={canManagePolicies ? handleEditBalance : undefined}
             />
+          </section>
+        )}
+
+        {/* HR-only. `used` is a stored counter that can silently diverge
+            from the request list, so surface the divergence here rather
+            than waiting for an employee to report a wrong balance. */}
+        {canViewAll && (
+          <section aria-label="Balance drift" className="flex flex-col gap-2">
+            <h3
+              className={`
+                text-muted-foreground text-xs font-semibold tracking-wide
+                uppercase
+              `}
+            >
+              Data health
+            </h3>
+            <LeaveBalanceDriftCard />
           </section>
         )}
       </div>

@@ -200,6 +200,12 @@ export function submitCashAdvance(
   return api.post(`/cash-advance/${id}/submit`);
 }
 
+export function withdrawCashAdvance(
+  id: string,
+): Promise<ApiSuccessResponse<CashAdvanceRequest>> {
+  return api.post(`/cash-advance/${id}/withdraw`);
+}
+
 export function approveCashAdvance(
   id: string,
   input: {

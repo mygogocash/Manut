@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { useRouter } from "nextjs-toploader/app";
 import { useState } from "react";
@@ -57,7 +57,7 @@ function BrandHeader() {
             uppercase
           `}
         >
-          Manut
+          The Binary Holdings
         </div>
       </div>
     </div>
@@ -70,7 +70,7 @@ export default function ChangePasswordPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<ChangePasswordValues>({
-    resolver: standardSchemaResolver(changePasswordSchema),
+    resolver: zodResolver(changePasswordSchema),
     defaultValues: {
       currentPassword: "",
       newPassword: "",

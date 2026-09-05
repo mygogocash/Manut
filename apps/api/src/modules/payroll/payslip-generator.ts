@@ -1,7 +1,7 @@
 /**
  * Payslip document generator — produces a downloadable Excel workbook
  * and a PDF rendition of an individual payslip. Mirrors the HR-supplied
- * payroll export layout cell-for-cell so finance can keep the
+ * "Payslips Testing.xlsx" layout cell-for-cell so finance can keep the
  * same archival format whether the document was uploaded by hand or
  * generated from the bulk-imported payroll run.
  *
@@ -31,7 +31,7 @@
  *  41   Employee Signature :   Employer Signature :
  */
 
-import type { Payslip, User } from "@manut/database";
+import type { Payslip, User } from "@nexora/database";
 import { readFileSync } from "fs";
 import JSZip from "jszip";
 import { join } from "path";
@@ -161,9 +161,9 @@ function readBreakdown(input: PayslipExportInput) {
 // ── Excel generator ───────────────────────────────────────────────
 
 /**
- * Payroll export template — shipped as a binary
+ * HR-supplied template ("Payslips Testing.xlsx") — shipped as a binary
  * asset so the generated workbook keeps every merged range, formula,
- * styling, and the constant "Manut" company header
+ * styling, and the constant "The Binary Holdings" company header
  * intact. The generator only mutates the per-payslip data cells.
  *
  * Cached on first read; the file is small (~75 KB) and the buffer is
@@ -371,10 +371,10 @@ export async function buildPayslipPdfBuffer(
 
   // Title
   drawText(ctx, "P A Y S L I P", MID - 70, 60, { bold: true, size: 18 });
-  // Company header — matches the constant "Manut"
+  // Company header — matches the constant "The Binary Holdings"
   // header on the HR-supplied template. `entityName` is no longer used
   // here (the parent brand is the legal payer, not the sub-entity).
-  drawText(ctx, "Manut", LEFT, 100, { bold: true, size: 13 });
+  drawText(ctx, "The Binary Holdings", LEFT, 100, { bold: true, size: 13 });
   drawLine(ctx, LEFT, 110, RIGHT, 110);
 
   // Net Pay headline (right side)

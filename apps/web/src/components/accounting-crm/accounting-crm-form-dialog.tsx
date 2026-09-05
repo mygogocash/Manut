@@ -87,8 +87,8 @@ export function AccountingCrmFormDialog({
       setGoLiveDate(project.goLiveDate?.slice(0, 10) ?? "");
       setDependency(project.dependency ?? "");
       setDefaultAssigneeMode(
-        (project.defaultAssigneeMode as
-          "none" | "creator" | "owner" | "user") ?? "none",
+        (project.defaultAssigneeMode as "none" | "creator" | "owner" | "user") ??
+          "none",
       );
       setDefaultAssigneeId(project.defaultAssigneeId ?? "");
     } else {

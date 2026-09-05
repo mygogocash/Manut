@@ -1,11 +1,12 @@
 "use client";
 
-import { FileUp, Plus, Search } from "lucide-react";
+import { FileUp, GitMerge, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { VendorBulkImportDialog } from "@/components/accounting/vendor-bulk-import-dialog";
 import { VendorFormDialog } from "@/components/accounting/vendor-form-dialog";
+import { VendorMergeDialog } from "@/components/accounting/vendor-merge-dialog";
 import { Badge } from "@/components/shared/badge";
 import { DataPagination } from "@/components/shared/data-pagination";
 import { DataTable, type SortOrder } from "@/components/shared/data-table";
@@ -35,6 +36,7 @@ export function VendorsTab() {
   const { hasPermission } = useAuth();
   const canImport = hasPermission("accounting:create");
   const canCreate = hasPermission("accounting:create");
+  const canAdmin = hasPermission("accounting:admin");
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +46,7 @@ export function VendorsTab() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
   const [importOpen, setImportOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [sortBy, setSortBy] = useState<VendorSortField>("name");
@@ -138,7 +141,7 @@ export function VendorsTab() {
   }
 
   // Distinct contact types from the loaded page — gives HR a filter
-  // without us hardcoding a list. Imports may mix localized
+  // without us hardcoding a list. The source xlsx mixes localized
   // labels ("Supplier", "Client", "Cash Sale / ขายเงินสด", …) so
   // pulling them from data is safer than a static enum.
   const contactTypes = useMemo(() => {
@@ -160,6 +163,11 @@ export function VendorsTab() {
             <p className="text-foreground text-xs font-medium">{v.name}</p>
             {v.contactId ? (
               <p className="text-muted-foreground text-[11px]">{v.contactId}</p>
+            ) : null}
+            {v.mergedInto ? (
+              <p className="text-muted-foreground text-[11px]">
+                Merged into {v.mergedInto.contactId || v.mergedInto.name}
+              </p>
             ) : null}
           </div>
         ),
@@ -336,6 +344,12 @@ export function VendorsTab() {
             Import xlsx
           </Button>
         )}
+        {canAdmin && (
+          <Button onClick={() => setMergeOpen(true)} variant="outline">
+            <GitMerge className="size-3.5" />
+            Merge duplicates
+          </Button>
+        )}
       </div>
 
       <DataTable
@@ -373,6 +387,14 @@ export function VendorsTab() {
         entities={entities}
         defaultEntityId={entityFilter === ALL ? undefined : entityFilter}
         onSaved={() => void fetchVendors()}
+      />
+
+      <VendorMergeDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        entities={entities}
+        defaultEntityId={entityFilter === ALL ? undefined : entityFilter}
+        onMerged={() => void fetchVendors()}
       />
     </div>
   );

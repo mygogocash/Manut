@@ -7,6 +7,7 @@ import type {
 // ─── Types ──────────────────────────────────────────────
 
 export interface Investor {
+  tags: string[];
   id: string;
   name: string;
   type: string;
@@ -18,7 +19,7 @@ export interface Investor {
   website: string | null;
   location: string | null;
   notes: Record<string, unknown> | null;
-  // Pipeline import columns. All nullable so existing
+  // Pipeline-master columns (2026-05-28). All nullable so legacy
   // rows render fine; the dashboard / form / table show "—" when
   // empty.
   title: string | null;
@@ -31,6 +32,7 @@ export interface Investor {
   crossSell: string | null;
   region: string | null;
   notesText: string | null;
+  fundraisingEntity: string;
   addedBy: string;
   adder: { id: string; name: string; avatarUrl: string | null };
   _count: { investments: number };
@@ -141,6 +143,7 @@ export function formatInvestmentAmount(raw: string | null | undefined): string {
 }
 
 export interface CreateInvestorInput {
+  tags?: string[];
   name: string;
   type: string;
   status?: string;
@@ -163,11 +166,14 @@ export interface CreateInvestorInput {
   crossSell?: string | null;
   region?: string | null;
   notesText?: string | null;
+  fundraisingEntity?: string;
 }
 
 export type UpdateInvestorInput = Partial<CreateInvestorInput>;
 
 export interface InvestorParams {
+  /** Single tag code, or `__none__` for untagged. */
+  tag?: string;
   page?: number;
   limit?: number;
   search?: string;
@@ -175,6 +181,9 @@ export interface InvestorParams {
   status?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  // When true, return ONLY archived investors; omit/false shows active only.
+  archived?: boolean;
+  fundraisingEntity?: string;
 }
 
 export const INVESTOR_TYPES = [
@@ -311,10 +320,22 @@ export async function deleteInvestor(id: string): Promise<void> {
   await api.delete(`/investors/${id}`);
 }
 
-export async function getInvestorDashboard(): Promise<
-  ApiSuccessResponse<InvestorDashboard>
-> {
-  return api.get("/investors/dashboard");
+export async function archiveInvestor(
+  id: string,
+): Promise<ApiSuccessResponse<Investor>> {
+  return api.post(`/investors/${id}/archive`, {});
+}
+
+export async function unarchiveInvestor(
+  id: string,
+): Promise<ApiSuccessResponse<Investor>> {
+  return api.post(`/investors/${id}/unarchive`, {});
+}
+
+export async function getInvestorDashboard(params?: {
+  fundraisingEntity?: string;
+}): Promise<ApiSuccessResponse<InvestorDashboard>> {
+  return api.get(`/investors/dashboard${buildQuery(params ?? {})}`);
 }
 
 /** Per-stage roll-up keyed by status slug: count + summed est/act. */
@@ -323,16 +344,62 @@ export type InvestorPipelineTotals = Record<
   { count: number; est: number; act: number }
 >;
 
-export async function getInvestorPipelineTotals(): Promise<
-  ApiSuccessResponse<InvestorPipelineTotals>
-> {
-  return api.get("/investors/pipeline-totals");
+export async function getInvestorPipelineTotals(params?: {
+  fundraisingEntity?: string;
+  // The board's own facets. Sending them keeps the column-header money
+  // roll-up describing the same rows as the cards underneath.
+  search?: string;
+  type?: string;
+  tag?: string;
+  archived?: boolean;
+}): Promise<ApiSuccessResponse<InvestorPipelineTotals>> {
+  return api.get(`/investors/pipeline-totals${buildQuery(params ?? {})}`);
+}
+
+/** What a commit did. `created` + `skipped` are kept for back-compat. */
+export interface InvestorImportResult {
+  created: number;
+  /** Rows matched on (name, fundraising entity) and updated in place. */
+  updated: number;
+  skipped: number;
+  /** Why each skipped row was skipped — the old API returned only a count. */
+  errors: Array<{ row: number; name: string; errors: string[] }>;
+  /** Tag codes added to the shared catalog to back the rows' tags. */
+  tagsCreated: string[];
 }
 
 export async function importInvestors(
   rows: CreateInvestorInput[],
-): Promise<ApiSuccessResponse<{ created: number; skipped: number }>> {
+): Promise<ApiSuccessResponse<InvestorImportResult>> {
   return api.post("/investors/import", { rows });
+}
+
+export interface InvestorImportPreview {
+  rows: Array<{
+    row: number;
+    name: string;
+    fundraisingEntity: string;
+    action: "insert" | "update";
+    matchedId: string | null;
+    tags: string[];
+    errors: string[];
+  }>;
+  /** Tag codes a commit would add to the catalog. */
+  missingTags: string[];
+  summary: {
+    total: number;
+    inserts: number;
+    updates: number;
+    invalid: number;
+    tagsToCreate: number;
+  };
+}
+
+/** Dry run — writes nothing, creates no tags. */
+export async function previewInvestorImport(
+  rows: CreateInvestorInput[],
+): Promise<ApiSuccessResponse<InvestorImportPreview>> {
+  return api.post("/investors/import/preview", { rows });
 }
 
 export async function reorderInvestors(
@@ -346,15 +413,61 @@ export async function reorderInvestors(
 export interface InvestorBulkSelection {
   ids?: string[];
   allMatching?: boolean;
-  filter?: { search?: string; type?: string; status?: string };
+  filter?: {
+    search?: string;
+    type?: string;
+    status?: string;
+    archived?: boolean;
+    fundraisingEntity?: string;
+    tag?: string;
+    // Sent by the pipeline board only. It renders one column per configured
+    // stage, but `status` is an open string and legacy values have no column,
+    // so an unconstrained "select all matching" from the board would resolve
+    // wider than the board counted.
+    statusIn?: string[];
+  };
+}
+
+// What every investor bulk endpoint returns. `skipped` is only ever non-zero
+// for archive/restore and tag-add, the actions whose write is guarded.
+export interface InvestorBulkResult {
+  updated: number;
+  selected: number;
+  skipped: number;
+  failed: { id: string; reason: string }[];
 }
 
 export async function bulkUpdateInvestors(
   input: InvestorBulkSelection & {
-    set: { status?: string; type?: string; addedBy?: string };
+    set: {
+      status?: string;
+      type?: string;
+      // Move the selection to another fundraising vehicle.
+      fundraisingEntity?: string;
+      addedBy?: string;
+      // true archives, false restores. The API narrows its where so an
+      // already-archived row keeps its original archivedAt.
+      archived?: boolean;
+    };
   },
-): Promise<ApiSuccessResponse<{ updated: number }>> {
+): Promise<ApiSuccessResponse<InvestorBulkResult>> {
   return api.post("/investors/bulk-update", input);
+}
+
+/**
+ * Add or replace tags across a selection.
+ *
+ * Its own endpoint rather than a key on bulk-update because tagging has a
+ * MODE: `add` unions per row, `replace` overwrites. `replace` with an empty
+ * array is meaningful and clears every tag.
+ */
+export async function bulkSetInvestorTags(
+  input: InvestorBulkSelection & {
+    mode: "add" | "replace";
+    codes: string[];
+  },
+): Promise<ApiSuccessResponse<InvestorBulkResult>> {
+  return api.post("/investors/bulk-tags", input);
 }
 
 export async function bulkDeleteInvestors(

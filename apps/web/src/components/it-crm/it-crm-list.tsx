@@ -25,14 +25,12 @@ import {
   Edit,
   Eye,
   GripVertical,
-  LayoutDashboard,
   MoreHorizontal,
   Plus,
   Search,
   Trash2,
   Upload,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "nextjs-toploader/app";
 import {
   type ReactNode,
@@ -44,6 +42,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { ItWorkspaceTabs } from "@/components/it/it-workspace-tabs";
 import { ItCrmFormDialog } from "@/components/it-crm/it-crm-form-dialog";
 import { ItCrmReminderSettingsDialog } from "@/components/it-crm/it-crm-reminder-settings-dialog";
 import { Badge } from "@/components/shared/badge";
@@ -591,12 +590,6 @@ export function ItCrmList() {
     <div>
       <PageHeader title="IT CRM" subtitle="Every project owned by the IT team">
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href="/it-crm/dashboard">
-              <LayoutDashboard className="size-3.5" />
-              Dashboard
-            </Link>
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" disabled={exporting}>
@@ -642,6 +635,12 @@ export function ItCrmList() {
         </div>
       </PageHeader>
 
+      <ItWorkspaceTabs />
+
+      {/*
+        Active | Archived filters THIS surface; it is not a peer of the
+        workspace tabs above, so the two strips stay separate.
+      */}
       <Tabs
         tabs={[
           { id: "active", label: "Active" },
@@ -649,6 +648,7 @@ export function ItCrmList() {
         ]}
         active={archived ? "archived" : "active"}
         onChange={(v) => setArchived(v === "archived")}
+        variant="line"
       />
 
       <div className="mb-4 flex items-center gap-3">
@@ -699,7 +699,7 @@ export function ItCrmList() {
           // drag-to-resize (Notion-style).
           className="table-fixed"
           containerClassName={`
-            max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
+            max-h-[60svh] md:max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
           `}
         >
           <TableHeader className="bg-background sticky top-0 z-10">

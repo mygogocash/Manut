@@ -35,19 +35,19 @@ model ConversationMember {
 }
 
 model Message {
-  id                   String    @id @default(uuid()) @db.Uuid
-  conversationId       String    @map("conversation_id") @db.Uuid
-  authorId             String    @map("author_id") @db.Uuid
-  content              String?
-  kind                 String    @default("text") @db.VarChar(20)
+  id                  String    @id @default(uuid()) @db.Uuid
+  conversationId      String    @map("conversation_id") @db.Uuid
+  authorId            String    @map("author_id") @db.Uuid
+  content             String?
+  kind                String    @default("text") @db.VarChar(20)
   deletedForEveryoneAt DateTime? @map("deleted_for_everyone_at")
-  deletedBy            String?   @map("deleted_by") @db.Uuid
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  deletedBy           String?   @map("deleted_by") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  conversation Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  author       User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  deleter      User?              @relation("MessageDeleter", fields: [deletedBy], references: [id])
+  conversation Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  author       User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  deleter      User?            @relation("MessageDeleter", fields: [deletedBy], references: [id])
   hiddenFor    MessageHiddenFor[]
   reactions    MessageReaction[]
 
@@ -85,12 +85,12 @@ model MessageReaction {
 }
 
 model WallPost {
-  id          String   @id @default(uuid()) @db.Uuid
-  authorId    String   @map("author_id") @db.Uuid
-  content     String
-  type        String   @default("post")
-  likes       Json?
-  reactions   Json?
+  id        String   @id @default(uuid()) @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  content   String
+  type      String   @default("post")
+  likes     Json?
+  reactions Json?
   /// Array of `{ name, url, mimeType, size }` for files (images / PDFs)
   /// uploaded via the shared `uploads` Supabase bucket. Same shape as
   /// `HelpdeskTicket.attachments` so the home-page UI can render chips
@@ -98,9 +98,9 @@ model WallPost {
   attachments Json?
   /// Optional in-app deep link (e.g. an auto-posted survey announcement
   /// points at "/survey-forms/:id/respond"). Null for ordinary posts.
-  linkUrl     String?  @map("link_url")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  linkUrl   String?  @map("link_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments WallComment[]
@@ -125,20 +125,20 @@ model WallComment {
 }
 
 model CompanyNews {
-  id          String   @id @default(uuid()) @db.Uuid
-  title       String
-  content     String
-  category    String?
-  authorId    String   @map("author_id") @db.Uuid
-  isPinned    Boolean  @default(false) @map("is_pinned")
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  content   String
+  category  String?
+  authorId  String   @map("author_id") @db.Uuid
+  isPinned  Boolean  @default(false) @map("is_pinned")
   /// Array of `{ name, url, mimeType, size }` for files (images / PDFs)
   /// uploaded via the shared `uploads` Supabase bucket.
   attachments Json?
   /// Optional in-app deep link (survey announcements point at the respond
   /// page). Null for ordinary news.
-  linkUrl     String?  @map("link_url")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  linkUrl   String?  @map("link_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
@@ -147,23 +147,297 @@ model CompanyNews {
 }
 
 model CompanyDate {
-  id          String   @id @default(uuid()) @db.Uuid
-  title       String
-  date        DateTime @db.Date
-  type        String
-  location    String?
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  date      DateTime @db.Date
+  type      String
+  location  String?
   /// Array of `{ name, url, mimeType, size }` for supporting files
   /// (invitation PDFs, hero images) uploaded via the shared `uploads`
   /// Supabase bucket.
   attachments Json?
   /// Optional in-app deep link (survey "closes" reminders point at the
   /// respond page). Null for ordinary dates.
-  linkUrl     String?  @map("link_url")
-  addedBy     String   @map("added_by") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at")
+  linkUrl   String?  @map("link_url")
+  addedBy   String   @map("added_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
 
   adder User @relation(fields: [addedBy], references: [id], onDelete: Cascade)
 
   @@index([date])
   @@map("company_dates")
+}
+
+model AriaConversation {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user       User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages   AriaMessage[]
+  queryLogs  AriaQueryLog[]
+  summary    AriaConversationSummary?
+  memory     AriaConversationMemory[]
+
+  @@index([userId])
+  @@map("aria_conversations")
+}
+
+// Compacted "earlier in this conversation" summary for chats that have
+// outgrown the 40-message verbatim window. Stored 1:1 with the
+// conversation; regenerated whenever the verbatim window slides past
+// `coversThroughMessageId`. Kept lightweight (single TEXT column) so a
+// summary write never blocks the user-facing stream — the call to the
+// summariser is fired-and-forgotten after the assistant reply.
+model AriaConversationSummary {
+  conversationId          String   @id @map("conversation_id") @db.Uuid
+  summary                 String
+  // Last message id incorporated into the summary. The next time the
+  // verbatim window slides past this id we regenerate.
+  coversThroughMessageId  String?  @map("covers_through_message_id") @db.Uuid
+  messageCount            Int      @default(0) @map("message_count")
+  model                   String
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  conversation AriaConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("aria_conversation_summaries")
+}
+
+// Pinned key/value facts extracted from a conversation. Injected into
+// the system prompt every turn so ARIA "remembers" persistent details
+// (e.g. "user is reviewing Q2 expenses for TBH-TH"). Background
+// extractor runs after each assistant reply.
+model AriaConversationMemory {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  key            String
+  value          String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  conversation AriaConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, key])
+  @@index([conversationId])
+  @@map("aria_conversation_memory")
+}
+
+model AriaMessage {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  role           String
+  content        String
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation AriaConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback     AriaFeedback[]
+  attachments  AriaAttachment[]
+
+  @@index([conversationId])
+  @@map("aria_messages")
+}
+
+/// A file a user attached to an ARIA chat message (image / document / video).
+/// Uploaded first (upload-first flow) — `messageId` is null until the message
+/// that references it is sent. Bytes live in a private Supabase bucket; the
+/// chat turn rebuilds the Claude content block from `storagePath` (image/pdf)
+/// or from `extractedText` (text docs + video transcript). `status` is `ready`
+/// except while a video is being transcribed (`processing`).
+model AriaAttachment {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  messageId      String?   @map("message_id") @db.Uuid
+  /// 'image' | 'document' | 'video'
+  kind           String
+  name           String
+  mimeType       String    @map("mime_type")
+  size           Int
+  storageBucket  String    @map("storage_bucket")
+  storagePath    String    @map("storage_path")
+  /// Extracted text (txt/csv/md/office) or video transcript; null for image/pdf.
+  extractedText  String?   @map("extracted_text")
+  /// 'ready' | 'processing' | 'failed'
+  status         String    @default("ready")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user    User         @relation("AriaAttachmentUploader", fields: [userId], references: [id], onDelete: Cascade)
+  message AriaMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([messageId])
+  @@map("aria_attachments")
+}
+
+// Phase 6 — self-improvement loop.
+//
+// Per-user thumbs rating on a specific assistant message, with
+// optional free-text reason on thumbs-down. The unique on
+// (messageId, userId) lets a user revise their rating but keeps one
+// row per pair so we don't double-count in the improvement queue.
+//
+// `reviewed` flips when an admin clears the row from the queue
+// (either by drafting a knowledge article or marking it dismissed).
+// `resultingArticleId` closes the loop — if the feedback drove a new
+// article, we can later report on how often that article was
+// retrieved + how it changed downstream ratings.
+model AriaFeedback {
+  id                 String   @id @default(uuid()) @db.Uuid
+  messageId          String   @map("message_id") @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  rating             String   // "up" | "down"
+  reason             String?  @db.VarChar(1000)
+  reviewed           Boolean  @default(false)
+  reviewedById       String?  @map("reviewed_by_id") @db.Uuid
+  reviewedAt         DateTime? @map("reviewed_at")
+  reviewNote         String?  @map("review_note") @db.VarChar(500)
+  resultingArticleId String?  @map("resulting_article_id") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  message          AriaMessage           @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user             User                  @relation("AriaFeedbackAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy       User?                 @relation("AriaFeedbackReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  resultingArticle AriaKnowledgeArticle? @relation(fields: [resultingArticleId], references: [id], onDelete: SetNull)
+
+  @@unique([messageId, userId])
+  @@index([rating, reviewed, createdAt])
+  @@index([reviewedById])
+  @@map("aria_feedback")
+}
+
+// Curated knowledge corpus surfaced into the ARIA system prompt at
+// chat time. v1 uses keyword matching against the user's message;
+// a future iteration can swap in vector embeddings without changing
+// the public shape.
+model AriaKnowledgeArticle {
+  id          String   @id @default(uuid()) @db.Uuid
+  // 'immigration' | 'hr' | 'finance' | 'policy' | 'other'
+  category    String
+  title       String
+  slug        String   @unique
+  body        String
+  keywords    String[]
+  tags        String[]
+  // Permission gate for retrieval. Empty list = article is public for
+  // any signed-in user. Non-empty list = user must hold AT LEAST ONE
+  // of these permission codes for ARIA to surface the article in
+  // chat. Matches the OR shape of the existing `canSee*` helpers in
+  // `aria-context.ts` so reviewers don't need to learn a new pattern.
+  // Stored as plain strings (no FK to permissions catalog) so HR can
+  // reference future perms without a join.
+  requiredPermissions String[] @default([]) @map("required_permissions")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  createdBy        User?          @relation("AriaKnowledgeArticleAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  sourceFeedback   AriaFeedback[]
+
+  @@index([category, isActive])
+  @@index([slug])
+  @@map("aria_knowledge_articles")
+}
+
+// Per-turn telemetry written by `aria.service.chatStream`. Powers the
+// admin insights page (hit-rate, latency, token spend, empty-retrieval
+// queries to curate). Best-effort writes — failures are swallowed so
+// telemetry never breaks chat. Retention policy applied via cron
+// (PII-bearing `userMessage` is purged after 30 days).
+model AriaQueryLog {
+  id                  String   @id @default(uuid()) @db.Uuid
+  conversationId      String?  @map("conversation_id") @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  userMessage         String   @map("user_message")
+  retrievedArticleIds String[] @default([]) @map("retrieved_article_ids") @db.Uuid
+  // Cosine distances aligned 1:1 with `retrievedArticleIds`. Stored as
+  // Float[] so we can compute p50/p95 over a window without re-running
+  // retrieval.
+  retrievedDistances  Float[]  @default([]) @map("retrieved_distances")
+  // Lowest distance seen across the full candidate set (incl. rows
+  // filtered out by the threshold). Lets us tune the threshold from
+  // real traffic.
+  topDistance         Float?   @map("top_distance")
+  retrievalMode       String   @default("vector") @map("retrieval_mode")
+  workspaceBytes      Int      @default(0) @map("workspace_bytes")
+  knowledgeBytes      Int      @default(0) @map("knowledge_bytes")
+  latencyMs           Int      @map("latency_ms")
+  tokensIn            Int?     @map("tokens_in")
+  tokensOut           Int?     @map("tokens_out")
+  cacheReadTokens     Int?     @map("cache_read_tokens")
+  cacheCreateTokens   Int?     @map("cache_create_tokens")
+  model               String
+  error               Boolean  @default(false)
+  errorMessage        String?  @map("error_message")
+  // Phase 3 — Anthropic tool-calling. Captures how many tools the
+  // model invoked in this turn and which ones. Empty array = no tool
+  // use (most policy-only / chit-chat turns).
+  toolUseCount        Int      @default(0) @map("tool_use_count")
+  toolNames           String[] @default([]) @map("tool_names")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation AriaConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([conversationId])
+  @@map("aria_query_logs")
+}
+
+// Phase 8 — proactive daily brief.
+//
+// Per-user opt-in for ARIA's morning brief. A cron sweeps every hour
+// and fires deliveries for any row whose `hourLocal` matches the
+// subscriber's current local hour. `sections` is empty by default
+// which means "every section the user has permission for"; an
+// explicit list lets users mute noisy sections (e.g. drop "pipeline"
+// for engineers). `channels` is in_app + email today; slack is
+// reserved for a later integration but already part of the contract.
+model AriaBriefSubscription {
+  userId          String    @id @map("user_id") @db.Uuid
+  enabled         Boolean   @default(true)
+  hourLocal       Int       @default(7) @map("hour_local")
+  timezone        String    @default("Asia/Bangkok")
+  channels        String[]  @default(["in_app", "email"])
+  // Empty array = "all sections the user has permission to see".
+  // Non-empty = explicit allowlist (e.g. ["calendar", "approvals"]).
+  sections        String[]  @default([])
+  weekdaysOnly    Boolean   @default(false) @map("weekdays_only")
+  lastDeliveredAt DateTime? @map("last_delivered_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([enabled, hourLocal])
+  @@map("aria_brief_subscriptions")
+}
+
+// One row per delivery. `payloadJson` carries the rendered sections so
+// the in-app inbox can replay an old brief without re-running the
+// builder. `channelStatus` is a `{channel: "ok" | "skipped:<reason>" |
+// "error:<code>"}` map so we can spot a Resend outage without trawling
+// logs. The unique constraint on (userId, deliveredOn) makes the cron
+// idempotent — a re-run inside the same calendar day no-ops.
+model AriaBriefDelivery {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  // Calendar date in the subscriber's local timezone. Stored as
+  // ISO yyyy-mm-dd string so the unique key survives DST.
+  deliveredOn   String   @map("delivered_on")
+  generatedAt   DateTime @default(now()) @map("generated_at")
+  payloadJson   Json     @map("payload_json")
+  channelStatus Json     @default("{}") @map("channel_status")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deliveredOn])
+  @@index([userId, generatedAt])
+  @@map("aria_brief_deliveries")
 }

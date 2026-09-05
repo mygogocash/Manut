@@ -5,7 +5,6 @@ import { NotFoundException } from "@/common/exceptions/http-exception";
 import { investorActivityRepository } from "@/modules/investor-activities/investor-activities.repository";
 import { InvestorActivityService } from "@/modules/investor-activities/investor-activities.service";
 import { investorsRepository } from "@/modules/investors/investors.repository";
-import { mockArgument } from "@/test-utils/assertions";
 
 vi.mock("@/modules/investor-activities/investor-activities.repository", () => ({
   investorActivityRepository: {
@@ -106,7 +105,7 @@ describe("InvestorActivityService.update — parent immutable + scoping", () => 
     await service.update("a-1", USER_ID, [PERMISSIONS.INVESTORS_READ_ALL], {
       subject: "Renamed",
     });
-    const data = mockArgument(update.mock.calls, 0, 1);
+    const data = update.mock.calls[0][1];
     expect(data).not.toHaveProperty("investor");
     expect(data).not.toHaveProperty("investorId");
     expect(data).toMatchObject({ subject: "Renamed" });

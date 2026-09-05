@@ -3,8 +3,20 @@ import { ForbiddenException } from "@/common/exceptions/http-exception";
 import { attendanceRepository } from "@/modules/hrms/attendance.repository";
 import type { AttendanceAnalyticsSummary } from "@/modules/hrms/attendance.types";
 import { attendanceCalendarService } from "@/modules/hrms/attendance-calendar.service";
-import { parseAttendanceMonth } from "@/modules/hrms/attendance-period.util";
 import type { AnalyticsQuery } from "@/modules/hrms/attendance-phase2.validation";
+
+function parseMonth(month?: string): { from: Date; to: Date; label: string } {
+  const now = new Date();
+  const [year, mon] = (
+    month ??
+    `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`
+  )
+    .split("-")
+    .map(Number);
+  const from = new Date(Date.UTC(year, mon - 1, 1));
+  const to = new Date(Date.UTC(year, mon, 0));
+  return { from, to, label: `${year}-${String(mon).padStart(2, "0")}` };
+}
 
 export const attendanceAnalyticsService = {
   async getSummary(
@@ -20,7 +32,7 @@ export const attendanceAnalyticsService = {
       );
     }
 
-    const { from, to } = parseAttendanceMonth(query.month);
+    const { from, to } = parseMonth(query.month);
     const records = await attendanceRepository.findRecordsInRange(from, to, {
       department: query.department,
     });

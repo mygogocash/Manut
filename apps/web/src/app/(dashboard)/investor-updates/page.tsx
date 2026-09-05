@@ -180,6 +180,7 @@ export default function InvestorUpdatesPage() {
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-10",
       render: (u: InvestorUpdate) => (

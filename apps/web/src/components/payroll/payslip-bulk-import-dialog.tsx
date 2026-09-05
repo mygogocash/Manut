@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
+import { downloadPayslipImportTemplate } from "@/components/payroll/payroll-import-template";
 import { formatCurrency } from "@/components/payroll/payroll-utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -68,99 +69,11 @@ const NUMERIC_KEYS = [
   "Total Payout THB",
 ] as const;
 
-// Mirrors the HR payroll template (two-row header where Allowances spans
-// Meal / Transportation / Telephone / Wifi). Match by Employee Name —
-// Email and Employee ID still work if HR drops them in. Allowance /
-// deduction columns are summed by the importer and stored as a
-// structured breakdown on the payslip.
-// Aligned with HR's May-2026 template revision (rev 2): Currency
-// column at F, single "Total" replaced with per-currency Total Payout
-// columns (INR / USD / THB) so HR can sanity-check the row regardless
-// of which currency the salary is denominated in.
-// HR template, May-2026 rev: Designation / Date of Joining / Basic
-// Salary terminology, Overtime + Pay Period top-level columns, and a
-// grouped Allowances band that now covers Meal / Transportation /
-// Phone / House (Internet Bills sits as its own top-level column).
-// Old-spelling sheets still import — the parser aliases both flavours.
-const TEMPLATE_HEADERS_ROW1 = [
-  "Employee Name",
-  "Designation",
-  "Department",
-  "Date of Joining",
-  "Basic Salary",
-  "Currency",
-  "Pay Period",
-  "Overtime",
-  "Allowances",
-  "",
-  "",
-  "",
-  "Internet Bills",
-  "Other income",
-  "Reimbursement",
-  "Tax",
-  "SSF",
-  "Other Deduction",
-  "Total Payout INR",
-  "Total Payout USD",
-  "Total Payout THB",
-];
-
-const TEMPLATE_HEADERS_ROW2 = [
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "Meal Allowance",
-  "Transportation Allowance",
-  "Phone Allowance",
-  "House Allowance",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-];
-
-// Sample row uses the new template layout (21 columns):
-// Employee Name | Designation | Department | Date of Joining |
-// Basic Salary | Currency | Pay Period | Overtime |
-// Meal | Transportation | Phone | House | Internet Bills |
-// Other income | Reimbursement | Tax | SSF | Other Deduction |
-// Total Payout INR | Total Payout USD | Total Payout THB
-const TEMPLATE_SAMPLE_ROWS = [
-  [
-    "Alex Morgan",
-    "Senior Engineer",
-    "IT",
-    "16-Feb-24",
-    100000,
-    "THB",
-    "01-Jan-26",
-    0,
-    1500,
-    1000,
-    500,
-    0,
-    0,
-    0,
-    0,
-    7500,
-    750,
-    0,
-    "",
-    "",
-    "",
-  ],
-];
+// The blank import template (headers, sample row, Total Payout formulas)
+// lives in `payroll-import-template.ts` so this dialog and the Payslip
+// Management toolbar share one definition and can't drift. `parseFile`
+// below still ingests whatever HR uploads — including old-spelling sheets
+// (Meal / Transportation / Telephone / Wifi) — via header aliasing.
 
 /** Flatten the two-row header into one row of composite keys. */
 function flattenHeaders(row1: unknown[], row2: unknown[]): string[] {
@@ -328,12 +241,12 @@ export function PayslipBulkImportDialog({
       // Auto-generated password — HR sends a reset on first login. The
       // Supabase admin endpoint requires *something*, and we don't want
       // HR juggling a temp password in chat.
-      const password = `Manut-${crypto.randomUUID().slice(0, 12)}-Tmp!`;
+      const password = `Tbh-${crypto.randomUUID().slice(0, 12)}-Tmp!`;
       await createUser({
         email,
         name,
         password,
-        // Payroll quick-create mints a dormant employee so
+        // BD-feedback — payroll quick-create mints a dormant employee so
         // the run can include this name without polluting the employee
         // directory. Marked `contract` + `isActive=false`; the welcome
         // email is suppressed because the address is usually a
@@ -370,57 +283,6 @@ export function PayslipBulkImportDialog({
     } finally {
       setQuickCreating(false);
     }
-  }
-
-  function downloadTemplate(format: "xlsx" | "csv") {
-    const data = [
-      TEMPLATE_HEADERS_ROW1,
-      TEMPLATE_HEADERS_ROW2,
-      ...TEMPLATE_SAMPLE_ROWS,
-    ];
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    // Merge the "Allowances" group cell across the four sub-columns
-    // (columns I–L — Pay Period + Overtime pushed the allowances band
-    // two columns to the right vs the old template).
-    ws["!merges"] = [{ s: { r: 0, c: 8 }, e: { r: 0, c: 11 } }];
-    // Three per-currency Total Payout columns. Each is gated on the
-    // Currency cell (column F) so only one of the three lights up per
-    // row, which keeps HR's totalling sheet legible when a payroll run
-    // mixes THB / USD / INR rows.
-    //
-    // Earnings:   E (Basic Salary) + H (Overtime) + I..L (Allowances)
-    //             + M (Internet Bills) + N (Other income) + O (Reimbursement)
-    // Deductions: P (Tax) + Q (SSF) + R (Other Deduction)
-    const total = (r: number) =>
-      `E${r}+H${r}+I${r}+J${r}+K${r}+L${r}+M${r}+N${r}+O${r}-P${r}-Q${r}-R${r}`;
-    for (let i = 0; i < TEMPLATE_SAMPLE_ROWS.length; i += 1) {
-      const rowNo = 3 + i; // 1-indexed; header rows are 1 and 2
-      // S → INR (18), T → USD (19), U → THB (20)
-      const inrRef = XLSX.utils.encode_cell({ r: 1 + i + 1, c: 18 });
-      ws[inrRef] = {
-        t: "n",
-        f: `IF(F${rowNo}="INR", ${total(rowNo)}, "")`,
-      };
-      const usdRef = XLSX.utils.encode_cell({ r: 1 + i + 1, c: 19 });
-      ws[usdRef] = {
-        t: "n",
-        f: `IF(F${rowNo}="USD", ${total(rowNo)}, "")`,
-      };
-      const thbRef = XLSX.utils.encode_cell({ r: 1 + i + 1, c: 20 });
-      ws[thbRef] = {
-        t: "n",
-        f: `IF(F${rowNo}="THB", ${total(rowNo)}, "")`,
-      };
-    }
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Payslips");
-    XLSX.writeFile(
-      wb,
-      format === "xlsx"
-        ? "payslip-import-template.xlsx"
-        : "payslip-import-template.csv",
-      format === "csv" ? { bookType: "csv" } : undefined,
-    );
   }
 
   // Read file → xlsx workbook → first sheet → array of objects keyed by
@@ -662,7 +524,7 @@ export function PayslipBulkImportDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => downloadTemplate("xlsx")}
+                onClick={() => downloadPayslipImportTemplate("xlsx")}
               >
                 <Download className="size-3.5" />
                 Download XLSX template
@@ -671,7 +533,7 @@ export function PayslipBulkImportDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => downloadTemplate("csv")}
+                onClick={() => downloadPayslipImportTemplate("csv")}
               >
                 <Download className="size-3.5" />
                 Download CSV template
@@ -1160,7 +1022,7 @@ export function PayslipBulkImportDialog({
                   onChange={(e) =>
                     setQuickCreate({ ...quickCreate, email: e.target.value })
                   }
-                  placeholder="name@manut.example"
+                  placeholder="name@thebinaryholdings.com"
                 />
                 <p className="text-muted-foreground text-xs">
                   Leave blank if you don&apos;t have one yet — we&apos;ll attach

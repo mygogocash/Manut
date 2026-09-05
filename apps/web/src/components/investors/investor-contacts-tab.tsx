@@ -1,11 +1,20 @@
 "use client";
 
-import { Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { DataPagination } from "@/components/shared/data-pagination";
 import { PermissionButton } from "@/components/shared/permission-button";
+import { Tabs } from "@/components/shared/tabs";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,12 +36,15 @@ import {
 import { usePagination } from "@/hooks/use-pagination";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
+import { useFundraisingEntity } from "@/providers/fundraising-entity-provider";
 import { listInvestorAccounts } from "@/services/investor-account.service";
 import {
+  archiveInvestorContact,
   createInvestorContact,
   deleteInvestorContact,
   type InvestorContact,
   listInvestorContacts,
+  unarchiveInvestorContact,
   updateInvestorContact,
 } from "@/services/investor-contact.service";
 
@@ -47,6 +59,7 @@ function fullName(c: InvestorContact): string {
 
 export function InvestorContactsTab() {
   const { hasPermission } = useAuth();
+  const { entityKey } = useFundraisingEntity();
   const canCreate = hasPermission("investors:create");
   const canUpdate = hasPermission("investors:update");
   const canDelete = hasPermission("investors:delete");
@@ -55,6 +68,9 @@ export function InvestorContactsTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Active (default) vs Archived view. Archived rows are hidden from the
+  // default list; the switch flips the server-side archivedAt filter.
+  const [archived, setArchived] = useState(false);
   const [accountOptions, setAccountOptions] = useState<AccountOption[]>([]);
   const {
     page,
@@ -81,6 +97,8 @@ export function InvestorContactsTab() {
         page,
         limit: pageSize,
         search: debouncedSearch || undefined,
+        archived: archived || undefined,
+        fundraisingEntity: entityKey,
       });
       setContacts(res.data);
       setTotalCount(res.meta.total);
@@ -91,19 +109,23 @@ export function InvestorContactsTab() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, debouncedSearch, setTotalCount]);
+  }, [page, pageSize, debouncedSearch, archived, entityKey, setTotalCount]);
 
   useEffect(() => {
     void fetchContacts();
   }, [fetchContacts]);
 
   useEffect(() => {
-    listInvestorAccounts({ limit: 200 })
+    setPage(1);
+  }, [debouncedSearch, archived, entityKey, setPage]);
+
+  useEffect(() => {
+    listInvestorAccounts({ limit: 200, fundraisingEntity: entityKey })
       .then((r) =>
         setAccountOptions(r.data.map((a) => ({ id: a.id, name: a.name }))),
       )
       .catch(() => undefined);
-  }, []);
+  }, [entityKey]);
 
   async function remove(c: InvestorContact) {
     if (!canDelete || !window.confirm(`Delete contact "${fullName(c)}"?`)) {
@@ -122,10 +144,58 @@ export function InvestorContactsTab() {
     }
   }
 
+  // Archive / restore. The row's new state is the opposite of the current
+  // view, so it leaves the visible list either way — drop it optimistically
+  // and decrement the total, restoring on failure.
+  async function archiveRow(c: InvestorContact) {
+    if (!canUpdate) return;
+    const previous = contacts;
+    const previousTotal = totalCount;
+    setContacts((prev) => prev.filter((x) => x.id !== c.id));
+    setTotalCount(Math.max(0, previousTotal - 1));
+    try {
+      await archiveInvestorContact(c.id);
+      toast.success("Contact archived");
+    } catch (err) {
+      setContacts(previous);
+      setTotalCount(previousTotal);
+      const msg =
+        err instanceof ApiError ? err.message : "Failed to archive contact";
+      toast.error(msg);
+    }
+  }
+
+  async function unarchiveRow(c: InvestorContact) {
+    if (!canUpdate) return;
+    const previous = contacts;
+    const previousTotal = totalCount;
+    setContacts((prev) => prev.filter((x) => x.id !== c.id));
+    setTotalCount(Math.max(0, previousTotal - 1));
+    try {
+      await unarchiveInvestorContact(c.id);
+      toast.success("Contact restored");
+    } catch (err) {
+      setContacts(previous);
+      setTotalCount(previousTotal);
+      const msg =
+        err instanceof ApiError ? err.message : "Failed to restore contact";
+      toast.error(msg);
+    }
+  }
+
   const skeleton = Array.from({ length: Math.min(pageSize, 6) });
 
   return (
     <div className="flex flex-col gap-4">
+      <Tabs
+        tabs={[
+          { id: "active", label: "Active" },
+          { id: "archived", label: "Archived" },
+        ]}
+        active={archived ? "archived" : "active"}
+        onChange={(v) => setArchived(v === "archived")}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="relative">
           <Search
@@ -156,7 +226,7 @@ export function InvestorContactsTab() {
         </PermissionButton>
       </div>
 
-      <Table containerClassName="max-h-[calc(100vh-340px)] overflow-auto rounded-lg border">
+      <Table containerClassName="max-h-[60svh] md:max-h-[calc(100vh-340px)] overflow-auto rounded-lg border">
         <TableHeader className="bg-background sticky top-0 z-10">
           <TableRow>
             <TableHead>Name</TableHead>
@@ -223,6 +293,29 @@ export function InvestorContactsTab() {
                         <Pencil className="size-3.5" />
                       </Button>
                     ) : null}
+                    {canUpdate ? (
+                      archived ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void unarchiveRow(c)}
+                          aria-label="Restore contact"
+                        >
+                          <ArchiveRestore className="size-3.5" />
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void archiveRow(c)}
+                          aria-label="Archive contact"
+                        >
+                          <Archive className="size-3.5" />
+                        </Button>
+                      )
+                    ) : null}
                     {canDelete ? (
                       <Button
                         type="button"
@@ -281,12 +374,14 @@ function ContactFormDialog({
   canSubmit: boolean;
   onSaved: () => void;
 }) {
+  const { entities, entityKey, entityLabel } = useFundraisingEntity();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [title, setTitle] = useState("");
   const [accountId, setAccountId] = useState("");
+  const [entity, setEntity] = useState(entityKey);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -297,7 +392,8 @@ function ContactFormDialog({
     setPhone(contact?.phone ?? "");
     setTitle(contact?.title ?? "");
     setAccountId(contact?.accountId ?? "");
-  }, [open, contact]);
+    setEntity(contact?.fundraisingEntity ?? entityKey);
+  }, [open, contact, entityKey]);
 
   async function submit() {
     if (!firstName.trim()) {
@@ -307,6 +403,7 @@ function ContactFormDialog({
     try {
       setSaving(true);
       if (contact) {
+        const moved = entity !== contact.fundraisingEntity;
         await updateInvestorContact(contact.id, {
           firstName: firstName.trim(),
           lastName: lastName.trim() || null,
@@ -314,8 +411,13 @@ function ContactFormDialog({
           phone: phone.trim() || null,
           title: title.trim() || null,
           accountId: accountId || null,
+          fundraisingEntity: entity,
         });
-        toast.success("Contact updated");
+        // A move drops the row out of the active tab — name the
+        // destination so the disappearance reads as intentional.
+        toast.success(
+          moved ? `Moved to ${entityLabel(entity)}` : "Contact updated",
+        );
       } else {
         await createInvestorContact({
           firstName: firstName.trim(),
@@ -324,6 +426,7 @@ function ContactFormDialog({
           phone: phone.trim() || undefined,
           title: title.trim() || undefined,
           accountId: accountId || undefined,
+          fundraisingEntity: entity,
         });
         toast.success("Contact created");
       }
@@ -388,6 +491,23 @@ function ContactFormDialog({
                 onChange={(e) => setPhone(e.target.value)}
               />
             </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="contact-entity">Entity</Label>
+            <select
+              id="contact-entity"
+              value={entity}
+              onChange={(e) => setEntity(e.target.value)}
+              className={`
+                border-border bg-background h-9 rounded-md border px-2 text-sm
+              `}
+            >
+              {entities.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="contact-account">Account (optional)</Label>

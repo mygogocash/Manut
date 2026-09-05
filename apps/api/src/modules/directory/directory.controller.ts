@@ -38,7 +38,7 @@ router.get(
 // only the fields the picker needs (id, name, email, jobTitle,
 // avatarUrl) and never any HR-sensitive data, so it's safe to expose
 // without `directory:read`. Solves the "I can't pick another person
-// as owner" case where a team-specific role
+// as owner" report from Legal (Juthamas, May 2026) where her role
 // lacked `directory:read`.
 router.get(
   "/assignable",

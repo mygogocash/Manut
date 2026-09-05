@@ -12,7 +12,6 @@ import { prisma } from "@/infrastructure/database/prisma";
 import * as googleOauthService from "@/modules/integrations/google-oauth.service";
 import { googleTokenRepository } from "@/modules/integrations/google-token.repository";
 import { integrationsService } from "@/modules/integrations/integrations.service";
-import { mockArgument, setTestEnv } from "@/test-utils/assertions";
 
 vi.mock("@/infrastructure/database/prisma", () => ({
   prisma: {
@@ -52,9 +51,9 @@ describe("integrationsService.startOauth", () => {
 
   beforeEach(() => {
     for (const k of ENV_KEYS) saved[k] = process.env[k];
-    setTestEnv("GOOGLE_OAUTH_CLIENT_ID", "cid");
-    setTestEnv("GOOGLE_OAUTH_CLIENT_SECRET", "csec");
-    setTestEnv("GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:3001/cb");
+    process.env.GOOGLE_OAUTH_CLIENT_ID = "cid";
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET = "csec";
+    process.env.GOOGLE_OAUTH_REDIRECT_URI = "http://localhost:3001/cb";
     (googleOauthService.buildAuthUrl as Mock).mockImplementation(
       ({ state }: { state: string }) =>
         `https://accounts.google.com/x?state=${state}`,
@@ -77,11 +76,8 @@ describe("integrationsService.startOauth", () => {
     expect(out.url).toMatch(/^https:\/\/accounts\.google\.com\/x\?state=/);
 
     expect(prisma.googleOauthState.create).toHaveBeenCalledTimes(1);
-    const createCall = mockArgument(
-      (prisma.googleOauthState.create as Mock).mock.calls,
-      0,
-      0,
-    );
+    const createCall = (prisma.googleOauthState.create as Mock).mock
+      .calls[0][0];
     expect(createCall.data.userId).toBe("u-1");
     expect(createCall.data.redirect).toBe("/settings");
     expect(typeof createCall.data.state).toBe("string");
@@ -95,7 +91,7 @@ describe("integrationsService.startOauth", () => {
   });
 
   it("given missing GOOGLE_OAUTH_CLIENT_ID > throws", async () => {
-    setTestEnv("GOOGLE_OAUTH_CLIENT_ID", undefined);
+    delete process.env.GOOGLE_OAUTH_CLIENT_ID;
     await expect(
       integrationsService.startOauth({ userId: "u" }),
     ).rejects.toThrow(/GOOGLE_OAUTH_CLIENT_ID/);
@@ -107,9 +103,9 @@ describe("integrationsService.completeOauth", () => {
 
   beforeEach(() => {
     for (const k of ENV_KEYS) saved[k] = process.env[k];
-    setTestEnv("GOOGLE_OAUTH_CLIENT_ID", "cid");
-    setTestEnv("GOOGLE_OAUTH_CLIENT_SECRET", "csec");
-    setTestEnv("GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:3001/cb");
+    process.env.GOOGLE_OAUTH_CLIENT_ID = "cid";
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET = "csec";
+    process.env.GOOGLE_OAUTH_REDIRECT_URI = "http://localhost:3001/cb";
   });
 
   afterEach(() => {
@@ -264,7 +260,8 @@ describe("integrationsService.getStatus", () => {
       // gmail.send. The `openid email` mock here lacks it.
       canSendMail: false,
     });
-    // Approved Google integration status keys are preserved.
+    // Other status keys preserved
+    expect(status.anthropic).toBeDefined();
     expect(status.gmail).toBeDefined();
     expect(status.drive).toBeDefined();
   });

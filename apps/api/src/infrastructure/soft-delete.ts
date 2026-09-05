@@ -1,37 +1,41 @@
+// Soft-delete helpers. `deletedAtField` is a runtime column name (default
+// "deletedAt"); a computed string key already types as a Record, so no cast
+// is needed.
+
 export function excludeDeleted(
   deletedAtField: string = "deletedAt",
-): Record<string, null> {
+): Record<string, unknown> {
   return { [deletedAtField]: null };
 }
 
 export function softDeleteUpdate(
   deletedAtField: string = "deletedAt",
-): Record<string, Date> {
+): Record<string, unknown> {
   return { [deletedAtField]: new Date() };
 }
 
 export function restoreUpdate(
   deletedAtField: string = "deletedAt",
-): Record<string, null> {
+): Record<string, unknown> {
   return { [deletedAtField]: null };
 }
 
-export class SoftDeleteQuery<Field extends string = "deletedAt"> {
-  constructor(private readonly field: Field = "deletedAt" as Field) {}
+export class SoftDeleteQuery {
+  constructor(private field: string = "deletedAt") {}
 
-  excludeDeleted(): Record<Field, null> {
-    return { [this.field]: null } as Record<Field, null>;
+  excludeDeleted(): Record<string, unknown> {
+    return { [this.field]: null };
   }
 
-  onlyDeleted(): Record<Field, { not: null }> {
-    return { [this.field]: { not: null } } as Record<Field, { not: null }>;
+  onlyDeleted(): Record<string, unknown> {
+    return { [this.field]: { not: null } };
   }
 
-  softDelete(): Record<Field, Date> {
-    return { [this.field]: new Date() } as Record<Field, Date>;
+  softDelete(): Record<string, unknown> {
+    return { [this.field]: new Date() };
   }
 
-  restore(): Record<Field, null> {
-    return { [this.field]: null } as Record<Field, null>;
+  restore(): Record<string, unknown> {
+    return { [this.field]: null };
   }
 }

@@ -1,5 +1,4 @@
 import {
-  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
@@ -10,10 +9,7 @@ import {
   resolveDisplayUrl,
   uploadBase64,
 } from "@/infrastructure/storage/supabase-storage";
-import {
-  isModuleControlledUploadPurpose,
-  uploadsRepository,
-} from "@/modules/uploads/uploads.repository";
+import { uploadsRepository } from "@/modules/uploads/uploads.repository";
 import type { UploadBase64Input } from "@/modules/uploads/uploads.validation";
 
 export const uploadsService = {
@@ -78,11 +74,6 @@ export const uploadsService = {
     if (upload.uploadedBy !== userId) {
       throw new ForbiddenException("You do not have access to this upload");
     }
-    if (isModuleControlledUploadPurpose(upload.purpose)) {
-      throw new ForbiddenException(
-        "Use the module-specific download endpoint for this file",
-      );
-    }
 
     const signedUrl = await createSignedUrl(
       upload.bucket || "uploads",
@@ -95,27 +86,22 @@ export const uploadsService = {
    * Delete an upload. Same ownership rule as `getSignedUrl`. (#517.)
    */
   async remove(uploadId: string, userId: string) {
-    // The repository locks and deletes the database row before this method
-    // touches storage. Legal signatures hold a restrictive FK to that row,
-    // so concurrent signing and deletion cannot orphan retained evidence.
-    const result = await uploadsRepository.removeOwnedIfUnreferenced(
-      uploadId,
-      userId,
-    );
-    if (result.status === "missing") {
+    const upload = await uploadsRepository.findById(uploadId);
+    if (!upload) {
       throw new NotFoundException("Upload not found");
     }
-    if (result.status === "forbidden") {
+    if (upload.uploadedBy !== userId) {
       throw new ForbiddenException(
         "You do not have access to delete this upload",
       );
     }
-    if (result.status === "protected") {
-      throw new ConflictException(
-        "This file is retained by an application record and cannot be deleted",
-      );
-    }
 
-    await deleteFile(result.bucket, result.path);
+    const accountingLinks = new Set(["invoice", "payment", "journal_entry"]);
+    if (upload.linkedTo && accountingLinks.has(upload.linkedTo)) {
+      await uploadsRepository.softRemove(uploadId, userId);
+      return;
+    }
+    await deleteFile(upload.bucket || "uploads", upload.path);
+    await uploadsRepository.remove(uploadId);
   },
 };

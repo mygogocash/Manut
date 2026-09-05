@@ -10,6 +10,7 @@ export type CertificateStatus = "draft" | "issued";
 export interface CertificateSignatory {
   name: string;
   title: string;
+  signatureUrl?: string | null;
 }
 
 export interface Certificate {
@@ -26,6 +27,7 @@ export interface Certificate {
   issuedById: string | null;
   issuedAt: string | null;
   createdAt: string;
+  deletedAt: string | null;
   recipient: {
     id: string;
     name: string;
@@ -44,11 +46,14 @@ export interface CreateCertificateInput {
   signatories: CertificateSignatory[];
 }
 
+export type CertificateView = "active" | "reverted";
+
 export interface ListCertificatesParams {
   page?: number;
   limit?: number;
   recipientId?: string;
   status?: CertificateStatus;
+  view?: CertificateView;
 }
 
 export const CERTIFICATE_TYPE_LABELS: Record<CertificateType, string> = {
@@ -88,8 +93,23 @@ export async function getCertificateDownloadUrl(
   return api.get(`/certificates/${id}/download`);
 }
 
-export async function deleteCertificate(
+/** Revert (soft delete): hides the certificate but keeps it restorable. */
+export async function revertCertificate(
+  id: string,
+): Promise<ApiSuccessResponse<Certificate>> {
+  return api.delete(`/certificates/${id}`);
+}
+
+/** Restore a reverted certificate back to the active list. */
+export async function restoreCertificate(
+  id: string,
+): Promise<ApiSuccessResponse<Certificate>> {
+  return api.post(`/certificates/${id}/restore`, {});
+}
+
+/** Permanently delete a certificate (record + stored PDF). Not recoverable. */
+export async function permanentlyDeleteCertificate(
   id: string,
 ): Promise<ApiSuccessResponse<{ success: boolean }>> {
-  return api.delete(`/certificates/${id}`);
+  return api.delete(`/certificates/${id}/permanent`);
 }

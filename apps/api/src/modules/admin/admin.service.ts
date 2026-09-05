@@ -1,4 +1,4 @@
-import type { JsonValue } from "@manut/database";
+import type { JsonValue } from "@nexora/database";
 
 import { NotFoundException } from "@/common/exceptions/http-exception";
 import { prisma } from "@/infrastructure/database/prisma";
@@ -12,6 +12,7 @@ import type {
   UpdateSettingsInput,
   UpdateUserGroupInput,
 } from "@/modules/admin/admin.validation";
+import { isAdminSettingKey } from "@/modules/admin/admin.validation";
 
 export const adminService = {
   async listAuditLogs(
@@ -51,7 +52,14 @@ export const adminService = {
   async getSettings() {
     const settings = await adminRepository.findAllSettings();
     const result: Record<string, JsonValue> = {};
-    for (const s of settings) result[s.key] = s.value;
+    for (const s of settings) {
+      // Only what this endpoint can also WRITE. The table is shared, so an
+      // unfiltered read handed the Settings screen the company bank account and
+      // every notification distribution list — which it then rendered as text
+      // inputs and posted straight back, stringifying them. Filtering the read
+      // keeps the screen's contents and its capabilities the same set.
+      if (isAdminSettingKey(s.key)) result[s.key] = s.value;
+    }
     return result;
   },
 

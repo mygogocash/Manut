@@ -27,7 +27,6 @@ import {
   fmtAmount,
   loadExpenseNotificationRecipients,
   recipientEmailsFor,
-  validateExpenseReceiptUrl,
   withSignedReceipt,
   withSignedReceipts,
 } from "@/modules/expenses/expense-shared";
@@ -284,8 +283,10 @@ async function snapshotApprovalDecisions(
   // steps can be snapshotted as fixed-user decisions when an actual
   // person sits in those roles. When `reportingTo` is unset (admin
   // accounts, system users, etc.) the corresponding manager step is
-  // dropped so a submitter without a configured manager cannot stall
-  // the chain before a later amount-band approval becomes active.
+  // dropped — Tanny / 2026-05-26: an Office-Admin submitter stalled
+  // the chain on a `manager` step that had no approver, so Sid's
+  // amount-band step (`approverType=user`) never became active and
+  // his Pending approvals tab stayed empty.
   let l1UserId: string | null = null;
   let l2UserId: string | null = null;
   const submitter = await prisma.user.findUnique({
@@ -305,6 +306,7 @@ async function snapshotApprovalDecisions(
     order: number;
     name: string;
     approverType: string;
+    stageRole: string;
     approverUserId: string | null;
   };
 
@@ -317,6 +319,7 @@ async function snapshotApprovalDecisions(
               order: idx + 1,
               name: s.name,
               approverType: "user",
+              stageRole: s.stageRole,
               approverUserId: l2UserId,
             };
           }
@@ -329,6 +332,7 @@ async function snapshotApprovalDecisions(
               order: idx + 1,
               name: s.name,
               approverType: s.approverType,
+              stageRole: s.stageRole,
               approverUserId: null,
             };
           }
@@ -336,6 +340,7 @@ async function snapshotApprovalDecisions(
             order: idx + 1,
             name: s.name,
             approverType: s.approverType,
+            stageRole: s.stageRole,
             approverUserId: s.approverType === "user" ? s.approverUserId : null,
           };
         })
@@ -344,6 +349,7 @@ async function snapshotApprovalDecisions(
             order: 1,
             name: "Manager approval",
             approverType: "manager",
+            stageRole: "approve",
             approverUserId: null,
           },
         ];
@@ -359,6 +365,7 @@ async function snapshotApprovalDecisions(
       order: 1,
       name: "Manager approval",
       approverType: "manager",
+      stageRole: "approve",
       approverUserId: null,
     });
   }
@@ -599,6 +606,9 @@ async function listReports(
       reportIds,
       status: filters.status,
       period: filters.period,
+      // Passed straight through: a term must reach the database, or it can only
+      // ever match the page already on screen.
+      search: filters.search,
     },
     page,
     limit,
@@ -883,12 +893,9 @@ async function restoreReport(
 }
 
 async function permanentDeleteReport(id: string) {
-  const report = await expensesRepository.findReportByIdIncludingDeleted(id);
+  const report = await expensesRepository.findReportById(id);
   if (!report) {
     throw new NotFoundException("Expense report not found");
-  }
-  if (!report.deletedAt) {
-    throw new ConflictException("Report is not deleted");
   }
   return expensesRepository.permanentDeleteReport(id);
 }
@@ -928,10 +935,6 @@ async function addExpenseToReport(
         }
       }
     }
-  }
-
-  if (input.receiptUrl !== undefined) {
-    await validateExpenseReceiptUrl(input.receiptUrl, userId);
   }
 
   const expense = await prisma.expense.create({
@@ -982,10 +985,6 @@ async function updateExpenseInReport(
   const expense = await expensesRepository.findExpenseById(expenseId);
   if (!expense || expense.reportId !== reportId) {
     throw new NotFoundException("Expense not found in this report");
-  }
-
-  if (input.receiptUrl !== undefined) {
-    await validateExpenseReceiptUrl(input.receiptUrl, expense.employeeId);
   }
 
   const updated = await expensesRepository.updateExpense(expenseId, {
@@ -1161,26 +1160,11 @@ async function approveReport(
     );
   }
 
-  // Cap the optional override at the submitted total — approvers can
-  // only *reduce* the amount, never inflate it past what was claimed.
+  // The optional approved-amount override is validated AFTER the current
+  // step is resolved, because a `review` stage cannot haircut the amount
+  // at all (Q1: reviewers validate, only `approve` stages authorise a
+  // reduced figure). Kept null until an `approve` stage supplies a valid one.
   let approvedAmountOverride: number | null = null;
-  if (opts.approvedAmount !== undefined) {
-    // Cap against the report's own display total (native for a
-    // single-currency report, THB for a converted mixed one). A mixed
-    // report with a missing rate can't be capped on one figure → block.
-    const { totalAmount, converted, missingRates } =
-      await computeReportTotal(reportId);
-    assertReportConvertible(
-      converted ? [] : missingRates,
-      "approve this report",
-    );
-    if (opts.approvedAmount > totalAmount) {
-      throw new BadRequestException(
-        `Approved amount (${opts.approvedAmount}) cannot exceed submitted total (${totalAmount})`,
-      );
-    }
-    approvedAmountOverride = opts.approvedAmount;
-  }
 
   let decisions = await expensesRepository.findDecisions(reportId);
   if (decisions.length === 0) {
@@ -1198,6 +1182,27 @@ async function approveReport(
     throw new BadRequestException(
       "No pending approval step is waiting on this report",
     );
+  }
+
+  // Amount haircut is an approve-stage power only. A review stage advances
+  // the chain untouched; any amount the client sent is ignored rather than
+  // errored, so a reviewer's "accept" never mutates the claimed figure.
+  if (current.stageRole !== "review" && opts.approvedAmount !== undefined) {
+    // Cap against the report's own display total (native for a
+    // single-currency report, THB for a converted mixed one). A mixed
+    // report with a missing rate can't be capped on one figure → block.
+    const { totalAmount, converted, missingRates } =
+      await computeReportTotal(reportId);
+    assertReportConvertible(
+      converted ? [] : missingRates,
+      "approve this report",
+    );
+    if (opts.approvedAmount > totalAmount) {
+      throw new BadRequestException(
+        `Approved amount (${opts.approvedAmount}) cannot exceed submitted total (${totalAmount})`,
+      );
+    }
+    approvedAmountOverride = opts.approvedAmount;
   }
 
   let isAuthorisedApprover = false;
@@ -1241,7 +1246,20 @@ async function approveReport(
   const remainingPending = decisions.filter(
     (d) => d.order > current.order && d.status === "pending",
   );
-  const isFinalStep = remainingPending.length === 0;
+  // A `review` stage must NEVER finalise the report — it only advances the
+  // chain toward an approval gate. Fail closed if a review stage is the last
+  // pending step (a chain misconfigured with no approval after it, or one
+  // whose only approval steps were filtered out for this report): completing
+  // here would wrongly stamp the report `approved` and release it for
+  // reimbursement on a validate-only gate. Block instead of escalating.
+  if (current.stageRole === "review" && remainingPending.length === 0) {
+    throw new BadRequestException(
+      "This review stage has no approval stage after it. Add an approval " +
+        "step to the chain before this report can be completed.",
+    );
+  }
+  const isFinalStep =
+    current.stageRole !== "review" && remainingPending.length === 0;
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.expenseApprovalDecision.update({

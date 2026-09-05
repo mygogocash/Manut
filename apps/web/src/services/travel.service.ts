@@ -8,7 +8,7 @@ import type {
 
 // Canonical menus surfaced on the request form. Stored as plain strings
 // on the row, but the UI uses these enums + label maps as the source of
-// truth for all clients.
+// truth (HR feedback, Tanny, May 2026).
 export const FLIGHT_TYPES = ["one_way", "round_trip", "multi_trip"] as const;
 export type FlightType = (typeof FLIGHT_TYPES)[number];
 export const FLIGHT_TYPE_LABELS: Record<FlightType, string> = {

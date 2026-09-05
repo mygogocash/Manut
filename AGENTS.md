@@ -1,153 +1,115 @@
-# AGENTS.md — Manut development rules
+# AGENTS.md — how we build on the Intranet
 
-`CLAUDE.md` is the binding repository guide. Keep this file and that guide in
-sync when architecture or verification changes.
+This is the orientation for any AI agent or new engineer picking up work in this repo. It captures **how we work** and **the patterns we've learned**, distilled from real shipped features. Read it once, then lean on:
 
-**Forward roadmap:** `docs/EXPO_CLOUDFLARE_MASTER_PLAN.md` is the sole
-authoritative migration/architecture plan. SoR dual-track:
-`docs/ADR-010-postgres-strangler-vs-d1-target.md`. Dependency freeze:
-`docs/DEPENDENCY_FREEZE.md`.
+- **`CLAUDE.md`** — the binding rules + conventions (route order, RBAC, migrations, the reusable-patterns catalogue). If AGENTS.md and CLAUDE.md ever disagree, CLAUDE.md wins.
+- **`CONTEXT.md`** — the map of the codebase (modules, schema files, where things live).
+- **`docs/`** — product contract (`PROJECT_OVERVIEW`, `MODULES_SPECIFICATION`, `AUTH_RBAC`, `DATABASE_SCHEMA`, `DESIGN_SYSTEM`).
 
-## Delivery boundary
+---
 
-- The product is Manut Intranet. Do not add inherited company names, domains,
-  identifiers, sample people, credentials, assets, or provider resources.
-- Web delivery comes first through `apps/app`, but every change must keep web,
-  iOS, and Android compilation healthy from the same Expo Router project.
-- `apps/web` is a temporary parity reference. Remove a legacy route or web-only
-  dependency only after the universal route has browser E2E acceptance.
-- Production (`main`) deploys through Cloudflare Workers Builds. GitHub Actions
-  owns preview and staging deploys only; those workflows fail closed without
-  their GitHub Environment secrets. Disable native non-production Workers
-  Builds after preview validation so a branch has one deploy owner. No code
-  change authorizes DNS cutover, database provisioning, mobile-store release,
-  or inventing Hyperdrive ids. Keep Cloudflare Pages auto-deploy off; see
-  `docs/CICD_CLOUDFLARE.md`.
-- Do not add new direct Supabase SDKs, Prisma Client in Expo/client bundles,
-  Next.js product dependencies, or Express provider SDKs without an accepted
-  ADR (`docs/DEPENDENCY_FREEZE.md`).
+## Working agreement (the loop that's worked)
 
-## Architecture
+1. **Plan before big builds.** For anything beyond a small fix, map the existing template first (the codebase almost always has one — Travel for approval chains, Sales CRM for tabbed workspaces, the configurable-stages module for editable lists). Surface the real design decisions to the user with concrete options rather than guessing.
+2. **Mirror, don't invent.** Match the conventions of the nearest existing module: file layout (`controller`/`service`/`repository`/`validation`/`index` per module), naming, error types (`*Exception`, never `throw new Error`), the dnd-kit table, the shadcn dialog. New code should read like the code next to it.
+3. **Branch + PR per feature.** Branch `claude/<slug>` off `main`. Conventional-commit titles (`feat(scope):`, `fix(scope):`). PR body = Summary + Test plan checklist.
+4. **Verify locally before pushing — every gate:**
+   - `pnpm db:generate` (if schema changed)
+   - `pnpm type-check` (10/10 workspaces)
+   - `pnpm lint` (api + web; warnings allowed, errors block)
+   - `pnpm test` (api + web vitest)
+   - `pnpm --filter @nexora/web build` (all pages)
+   Run `eslint --fix` on touched files; it auto-sorts imports + fixes prettier/tailwind warnings. Restore `apps/web/tsconfig.tsbuildinfo` (`git checkout --`) before committing — it's generated.
+5. **CI is the source of truth.** Push, then watch the `Validate` job in `pr-checks.yml` (type-check + lint + test + brand-drift). A green Validate ≈ merge-ready.
+6. **Migrations: verify they apply.** See "Migrations" below — don't assume.
+7. **Combining PRs.** When asked to combine, check file overlap first (`git diff --name-only main <branch>`). Disjoint siblings → new branch off `main`, cherry-pick each PR's commits, `Closes #a #b`. If one branch was cut from another (stacked), the child already contains the parent — just relabel the child and close the parent. No redundant PR.
 
-- `apps/app`: universal Expo Router routes and platform adapters.
-- `packages/app-core`: API, DTO, auth, RBAC, query, validation, and domain logic
-  with no browser, Next.js, Node-only, or concrete storage dependency.
-- `packages/ui`: universal components and tokens.
-- `apps/edge`: Cloudflare Worker gateway, Static Assets, R2 intents, rate limits,
-  Queues, Durable Objects, and fail-closed capability boundaries.
-- `apps/api`: strict Express business API during progressive edge migration.
-- `packages/database`: Prisma 7 and the clean PostgreSQL baseline.
+---
 
-**Dual-track SoR (ADR-010):** PostgreSQL through Hyperdrive is the strangler
-transactional system of record until master-plan Phase 8+ D1-per-tenant gates
-pass for a module. D1 is not transactional SoR yet. The target end state is
-tenant-isolated D1 plus Identity/Control-plane D1 per the master plan. R2
-objects are private unless explicitly public.
+## Deploy reality (read this)
 
-## Working loop
+- `main` push → `Deploy to GCP Cloud Run` (`nexora-api` / `nexora-web`), which runs **`prisma migrate deploy`** (applies only *pending* migrations against prod, which already holds the prior history) **before** the Docker build.
+- `dev` push → `deploy-staging.yml` (`nexora-api-staging` / `nexora-web-staging`, separate Supabase via `STAGING_*` secrets). Staging syncs schema with **`pnpm db:push`** — it does NOT run `prisma migrate deploy`, so **data-migration SQL embedded in a migration never fires on staging**. If a change relies on a backfill/data migration, it shows up on prod (where `migrate deploy` runs) but not on staging — seed/patch staging by hand or expect the column empty there.
+- **The prod deploy has been billing-blocked.** Merged-to-`main` code + CI-green does NOT mean it's live on `tbh-intranet...`. Always tell the user a feature is "live after the billing-blocked deploy runs," and that any migration applies on that deploy. Don't claim something is visible in the deployed app.
+- Because the prod deploy is blocked, **CI (`pr-checks`, which gates both `main` and `dev`) is how we prove correctness** — it runs independently of the deploy.
 
-1. Map the existing route/module and its permission boundary.
-2. Add or update a failing test for behavior changes.
-3. Keep shared behavior in `app-core`; use `.web.tsx`/`.native.tsx` only for
-   genuine platform differences.
-4. Run the focused test, then the relevant gates below.
-5. Do not claim deployment or provider revocation without live evidence.
+---
 
-## Required gates
+## Migrations — the verification recipe
 
-```bash
-pnpm install --frozen-lockfile
-pnpm db:generate
-pnpm type-check
-pnpm lint
-pnpm test
-pnpm --filter @manut/app export:web
-pnpm --filter @manut/app export:ios
-pnpm --filter @manut/app export:android
-pnpm --filter @manut/edge build
-pnpm migration:check
-pnpm security:credentials
-git diff --check
-```
+We write migrations by hand (idempotent) and **prove they apply** on a throwaway Postgres, because deploy is the only place they run for real and it's gated.
 
-Hosted authenticated E2E additionally requires the five approved `E2E_*`
-secrets and the independent dedicated-project marker. Never bypass that guard.
+- **Idempotent always:** `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `INSERT ... ON CONFLICT DO NOTHING`, and FK adds wrapped in `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN NULL; END $$;`. Data migrations must be guarded so a re-run is a no-op (e.g. retag `WHERE type='other'`).
+- **Test like deploy, not like a fresh DB.** `migrate deploy` runs only the *pending* migrations against a DB that already has prior history — so seed the prerequisite tables on a throwaway PG, then apply just the new migration file(s) **in order**, twice (the second pass proves idempotency). A full-history replay from `0000_init` fails on pre-existing Supabase-isms (`anon` role, `vector` extension) that aren't your change — don't use it to judge your migration.
+  ```bash
+  docker run -d --name pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=verify -p 5440:5432 postgres:16
+  # seed prerequisite tables (users, the parent table, etc.), then:
+  docker exec -i pg psql -U postgres -d verify -v ON_ERROR_STOP=1 -f - < path/to/migration.sql   # pass 1
+  docker exec -i pg psql -U postgres -d verify -v ON_ERROR_STOP=1 -f - < path/to/migration.sql   # pass 2 = idempotency
+  ```
+- Confirm the result: tables/columns present, FK `ON DELETE` actions match the schema (`SELECT confdeltype FROM pg_constraint ...`), and any data migration actually fired.
 
-## API and database conventions
+---
 
-- Validate inputs with Zod; controllers route, services authorize and apply
-  business rules, repositories access Prisma.
-- API authorization is authoritative. Client route guards improve navigation
-  but never grant access.
-- Register literal Express routes before `/:id`.
-- Permanent deletion must load including-deleted state: missing `404`, active
-  `409`, soft-deleted purge only.
-- Authenticate webhook raw bytes before parsing or mutation.
-- The clean baseline is immutable. Every new migration needs `setup.sql` and
-  `assert.sql`, must apply through `prisma migrate deploy`, and replay safely.
+## Patterns playbook (cross-refs to CLAUDE.md → "Module-specific patterns to reuse")
 
-## Security
+These are battle-tested here — reach for them before designing from scratch:
 
-- Never add secrets to Turbo global environment declarations or client bundles.
-- Never commit Playwright storage state, Expo/EAS signing data, Wrangler local
-  state, provider config, or environment files.
-- Run the credential-boundary scanner after touching auth, fixtures, docs,
-  imports, assets, generated output, or deployment configuration.
-- GitHub Actions must be commit-SHA pinned, read-only by default, and must never
-  use `pull_request_target`.
+- **Configurable list** (admin-editable enum): config table + `/api/<x>` CRUD/reorder + `use<X>` hook + Manage dialog. The consuming row stores the key as an open string (no FK). Gate on an existing module perm. _Built for pipeline stages, investor types, cash-advance steps._
+- **Approval chain**: `*ApprovalStep` config + per-request `*ApprovalDecision` snapshot + `currentStepOrder`; conditions evaluated at submit; email each approver + a `SystemSetting`-stored recipient list on finalise; authz via `assertCanActOnStep` (permissive route + service check). _Travel → Cash Advance._
+- **Bulk select-and-act**: explicit ids OR `allMatching` + filter through the same where-builder the list uses; owner-scope in SQL. _Investors._
+- **Tabbed CRM workspace**: a `Tabs` shell with per-tab entities, each its own `/api/<entity>` module gated on the parent module's perms. _Sales CRM → Investor CRM (Leads/Accounts/Contacts/Tasks/Activities)._
+- **Server-side roll-ups** for any total spanning more than one page. _Pipeline column Est/Act totals._
+- **RBAC**: owner-sees-own / admin-sees-all via a `*:read-all` perm; scope in the service, never trust the client filter (CLAUDE.md → "RBAC scoping conventions"). Prefer reusing a module's existing perms for its sub-entities over minting new codes.
+- **Soft delete + restore**: add a `deletedAt` column, filter every list/count with `excludeDeleted()` and turn the existing delete into `softDeleteUpdate()` (`apps/api/src/infrastructure/soft-delete.ts`); expose `POST /:id/restore` + `DELETE /:id/permanent`. Restore/remove must re-fetch through a `find*ByIdIncludingDeleted` repo method (the default finder hides deleted rows) and enforce owner-or-HR ownership in the service — `requirePermission` alone can't express "the owner OR HR." _Built across users / leave / travel / expenses / cash-advance / visa._
+- **Email safety**: `escapeHtml()` every user-supplied value in HTML bodies; `sendEmail` is fire-and-forget (`void sendEmail(...)`); never let a notification failure roll back the action it follows.
+- **Dashboard intelligence**: a flat KPI page becomes a McKinsey exhibit report by adding *transition-stamped* lifecycle columns (`statusChangedAt`/`completedAt`/`firstResponseAt`, written only on a real status change), keeping SLA thresholds as a tunable code constant, and computing every exhibit in one read-only snapshot. _Built for the IT CRM Intelligence dashboard; full recipe in CLAUDE.md._
 
-## Learned User Preferences
+---
 
-- Use Node `24.18.0` and pnpm `11.13.1` (`source ~/.nvm/nvm.sh && nvm use` /
-  `.nvmrc`) before installs, gates, and package scripts in this repo.
-- When a commit request supplies an authoritative staged-file list, commit only
-  those staged portions — do not stage or include additional files.
-- Never paste raw credential values; report paths or HMACs only.
-- Do not run destructive git cleanup in this worktree (`git reset --hard`,
-  `git checkout --`, `git clean -fd`) or broad publishes (`git push --all`,
-  `git push --mirror`).
-- For universal route migration, land foundation / read-only Expo + `app-core`
-  slices before deepen work (approvals, attachments, R2 uploads). Deepen one
-  vertical per slice (one write/board path or CRM hub); document the pattern in
-  handoff rather than broadening every hub at once.
-- Prefer extending existing app-core + Expo foundations; do not rewrite landed
-  list/detail screens from scratch when deepening.
-- When multiple agents work in parallel, touch only owned modules, re-read
-  shared files before editing, and do not stage unrelated work from other agents.
-  For handoff docs, append only a `### Parallel: <slug>` section at the END (or
-  skip handoff); leave consolidation to a reconcile pass.
-- Client DTOs and projections must strip sensitive fields (emails, budgets,
-  storage paths); ownership and authz checks stay server-side.
+## Gotchas that have bitten us (full list in CLAUDE.md → "Common pitfalls")
 
-## Learned Workspace Facts
+- Express **literal routes before `/:id`** (`/approval-steps`, `/reorder`, `/bulk-update`, `/pipeline-totals` all register first).
+- **Prisma needs both relation sides** — adding `X.owner → User` requires the inverse `User.xOwned X[]` or `prisma generate` fails.
+- **Tailwind purges runtime-built class strings** — use literal maps.
+- **Paginated aggregates** must be server-side.
+- The generated Prisma client + `tsbuildinfo` are generated artefacts — don't commit them; regenerate.
+- `perl -0pi` on files with unicode double-encodes UTF-8 — use the Edit tool or Python (utf-8), never perl, for content with em-dashes/emoji.
 
-- Work only in this clean-room checkout
-  (`manut-intranet-full-hardening`); do not continue in the original
-  audited-source worktree.
-- This checkout is a linked worktree sharing a Git object store with the
-  audited-source tree — unrelated local branches may belong to other worktrees;
-  do not delete them. Scope history and secret scans to the replacement range,
-  not every local ref.
-- Forward architecture/migration schedule:
-  `docs/EXPO_CLOUDFLARE_MASTER_PLAN.md`. Continuation evidence and parallel
-  agent notes live in `docs/CURSOR_HANDOFF.md` (with
-  `docs/ROUTE_DISPOSITION.md`, `docs/CREDENTIAL_BOUNDARY.md`,
-  `docs/CLOUDFLARE_MIGRATION_CHECKLIST.md`, and related docs) — historical
-  relative to the master plan.
-- The configured publish remote for this replacement work is `manut` (GitHub
-  `mygogocash/Manut`); use `claude/<slug>` branches (for example
-  `claude/intranet-full-hardening`).
-- Keep the GitHub repo detached from the inherited `toeverything/AFFiNE` fork
-  network; do not reintroduce inherited AFFiNE About branding on that repo.
-- `/drive` is Google Drive via integrations APIs (not R2); keep it separate from
-  `/files` (uploads/R2). Route disposition stays `foundation` until Expo browser
-  E2E acceptance.
-- Edge Hyperdrive dual-path: `ENABLE_HYPERDRIVE_BOUNDARY=true` plus
-  `HYPERDRIVE_DATABASE` uses Worker Prisma; flag off proxies to Express; flag on
-  without binding fails closed with `503 HYPERDRIVE_NOT_PROVISIONED` (never
-  silent Express fallback). Port a route only when Express authz and business
-  rules can be mirrored honestly; otherwise keep it proxied and document the gap.
-- Ops env names for edge deepen (values stay out of git):
-  `TRUSTED_STORAGE_ORIGINS` (empty means managed expense/CA receipt writes still
-  proxy); `EDGE_REALTIME_ORIGIN` and `EDGE_REALTIME_BRIDGE_SECRET` (must match
-  Worker `EDGE_SIGNING_KEY`) for Express `messageBus` → Durable Object fan-out.
+---
+
+## Module map — how to find your way into any module
+
+**Universal layout** (holds for every module — learn it once, navigate all ~70):
+
+- **API**: `apps/api/src/modules/<name>/` → `<name>.controller.ts` (routes + `requirePermission`), `<name>.service.ts` (logic), `<name>.repository.ts` (Prisma), `<name>.validation.ts` (zod + inferred `*Input` types), `<name>.service.test.ts` (vitest), `index.ts` (exports the router). Registered in `apps/api/src/modules/index.ts` (`app.use("/api/<base>", <name>Routes)`).
+- **Web**: route page `apps/web/src/app/(dashboard)/<route>/page.tsx`; API calls via `apps/web/src/services/<name>.service.ts` (never `fetch` in components); dialogs/sheets in `apps/web/src/components/<name>/`.
+- **Schema**: one `packages/database/prisma/schema/<domain>.prisma` per domain; migrations in `packages/database/prisma/migrations/`.
+- **Perms**: codes in `apps/api/src/common/constants/permissions.ts` (`module:action`); seeded to roles in `packages/database/prisma/seed.ts`.
+
+To extend a module: read its `service.ts` + `validation.ts`, find the nearest sibling that already does what you need, and mirror it. To build a new one: copy the structure of the closest module in the same area below.
+
+**By area** (module → web route → schema file → dominant pattern to mirror):
+
+| Area | API modules | Web route(s) | Schema | Pattern |
+| ---- | ----------- | ------------ | ------ | ------- |
+| **Sales CRM** | `leads` `accounts` `contacts` `opportunities` `crm-tasks` `crm-activities` `crm-settings` `lead-sources` `lost-reasons` | `/sales` | `sales-crm.prisma` | tabbed workspace; pipeline kanban; configurable stages |
+| **Investor CRM** | `investors` `investor-{leads,accounts,contacts,tasks,activities,types,pipeline-stages}` `investor-updates` `dataroom` | `/investors` `/investor-crm` `/dataroom` `/investor-updates` | `investors.prisma` | tabbed workspace; configurable list; bulk select-and-act; server roll-ups |
+| **Project / team CRMs** | `projects` `it-crm` `legal-crm` `product-crm` `qa-crm` `voucher-crm` `partners` `deals` | `/projects` `/it-crm` `/legal-crm` `/product-crm` `/qa-crm` `/voucher-crm` `/partners` `/deals` | `operations.prisma`, `legal.prisma` | shared `/projects/:id` board (native-table mirror); per-project Kanban |
+| **Finance** | `cash-advance` `expenses` `accounting` `revenue` `vendors` `exchange-rates` | `/cash-advance` `/expenses` `/accounting` `/revenue` | `finance.prisma` | approval chain (cash-advance); owner-scoped lists |
+| **HR / People** | `hrms` (incl. attendance phase1/2/3 + ESOP) `leave` `payroll` `travel` `visa` `benefits` `performance` `ninety-day` `holidays` `learning` `career` `applications` `office` `directory` `users` `roles` | `/hrms` `/leave` `/payroll` `/travel` `/visa` `/benefits` `/performance` `/employees` `/roles` … | `hr.prisma`, `core.prisma`, `rbac.prisma` | approval chain (travel); per-entity scoping; RBAC owner/admin; soft-delete + restore |
+| **Helpdesk** | `helpdesk` | `/it-helpdesk` | `helpdesk.prisma` | scrollable kanban; GitHub webhook intake |
+| **Content / Comms** | `blogs` `articles` `news` `wall` `messages` `survey` `survey-forms` `docs` `policies` `legal-announcements` | `/blog-management` `/pr-management` `/messages` `/survey` `/docs` `/policies` `/legal` | `content.prisma`, `comms.prisma` | rich-text (`sanitizeRichHtml`); signed-URL downloads |
+| **ARIA (AI)** | `aria` | `/aria` | (corpus tables) | eval-gated tools; see CLAUDE.md ARIA evals |
+| **Platform** | `auth` `admin` `integrations` `uploads` `dashboard` `cron` `company-dates` `validator-monitor` `telemetry` | `/admin` `/settings` `/gmail` `/drive` | `core.prisma`, `integrations.prisma`, `system.prisma` | Supabase auth; Google OAuth; SystemSetting key/value |
+
+Anything not listed still follows the universal layout above — open the folder and mirror its neighbours.
+
+---
+
+## House style
+
+- TS strict; no `any` leaking across boundaries. Validate inputs with zod in `<module>.validation.ts`; export inferred `*Input` types.
+- Comments explain **why**, not what. Match the surrounding density.
+- Tests: vitest, mock the repository layer, assert the service's scoping/branching (not Prisma). Add a happy path + the auth/condition edge for anything with an access rule.
+- Brand: the product is **Intranet**; `@nexora/*` package names are internal and never user-visible. The brand-drift CI gate scans `apps/web/src` only.

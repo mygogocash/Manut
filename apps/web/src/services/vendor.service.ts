@@ -4,6 +4,20 @@ import type {
   ApiSuccessResponse,
 } from "@/types/api.type";
 
+// Payment-term keyword; `custom` defers to the exact creditDays count.
+export type PaymentTerms =
+  | "cash"
+  | "net7"
+  | "net14"
+  | "net30"
+  | "net45"
+  | "net60"
+  | "net90"
+  | "eom"
+  | "custom";
+
+export type TaxTreatment = "vat7" | "vat0" | "exempt";
+
 export interface Vendor {
   id: string;
   entityId: string;
@@ -13,10 +27,15 @@ export interface Vendor {
   businessType: string | null;
   businessLocation: string | null;
   name: string;
+  nameTh: string | null;
+  nameEn: string | null;
   addressTh: string | null;
   addressEn: string | null;
   address2: string | null;
   address3: string | null;
+  // Delivery address, distinct from the tax-invoice address (addressTh/En).
+  deliveryAddressTh: string | null;
+  deliveryAddressEn: string | null;
   zipCode: string | null;
   taxId: string | null;
   branchCode: string | null;
@@ -25,10 +44,21 @@ export interface Vendor {
   email: string | null;
   mobile: string | null;
   creditDays: number | null;
+  paymentTerms: PaymentTerms | null;
+  defaultCurrency: string | null;
+  taxTreatment: TaxTreatment | null;
+  defaultRevenueAccountId: string | null;
+  defaultExpenseAccountId: string | null;
+  // Decimal columns arrive as strings over JSON.
+  defaultWhtRate: string | number | null;
+  creditLimit: string | number | null;
   phone: string | null;
   faxNumber: string | null;
   notes: string | null;
   isActive: boolean;
+  mergedIntoId?: string | null;
+  mergedInto?: { id: string; name: string; contactId: string | null } | null;
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -64,10 +94,14 @@ export interface CreateVendorInput {
   businessType?: string;
   businessLocation?: string;
   name: string;
+  nameTh?: string;
+  nameEn?: string;
   addressTh?: string;
   addressEn?: string;
   address2?: string;
   address3?: string;
+  deliveryAddressTh?: string;
+  deliveryAddressEn?: string;
   zipCode?: string;
   taxId?: string;
   branchCode?: string;
@@ -76,6 +110,13 @@ export interface CreateVendorInput {
   email?: string;
   mobile?: string;
   creditDays?: number;
+  paymentTerms?: PaymentTerms;
+  defaultCurrency?: string;
+  taxTreatment?: TaxTreatment;
+  defaultRevenueAccountId?: string;
+  defaultExpenseAccountId?: string;
+  defaultWhtRate?: number;
+  creditLimit?: number;
   phone?: string;
   faxNumber?: string;
   notes?: string;
@@ -83,6 +124,18 @@ export interface CreateVendorInput {
 }
 
 export type UpdateVendorInput = Partial<CreateVendorInput>;
+
+// Non-blocking warning returned alongside a successful create (e.g. a close
+// name match). The write still succeeded.
+export interface VendorWarning {
+  code: "name-similarity";
+  message: string;
+  matches: Array<{ id: string; name: string }>;
+}
+
+export interface VendorMutationResponse extends ApiSuccessResponse<Vendor> {
+  warning?: VendorWarning;
+}
 
 export interface VendorImportRow {
   contactType?: string;
@@ -145,7 +198,7 @@ export async function getVendor(
 
 export async function createVendor(
   input: CreateVendorInput,
-): Promise<ApiSuccessResponse<Vendor>> {
+): Promise<VendorMutationResponse> {
   return api.post("/vendors", input);
 }
 
@@ -158,6 +211,12 @@ export async function updateVendor(
 
 export async function deleteVendor(id: string): Promise<void> {
   await api.delete(`/vendors/${id}`);
+}
+
+export async function restoreVendor(
+  id: string,
+): Promise<ApiSuccessResponse<Vendor>> {
+  return api.post(`/vendors/${id}/restore`, {});
 }
 
 export async function bulkImportVendors(

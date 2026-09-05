@@ -42,8 +42,8 @@ interface FormDatePickerProps {
   maxDate?: string;
   /**
    * Show an inline ✕ to wipe the date back to blank. Defaults to true so
-   * any caller picks up the affordance automatically; optional go-live
-   * fields must be clearable.
+   * any caller picks up the affordance automatically (BD-feedback May
+   * 2026 — GoLive / Rev. GoLive / Production Live need to be clearable).
    * Pass `false` for required fields where empty is invalid.
    */
   clearable?: boolean;

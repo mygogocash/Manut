@@ -1,56 +1,120 @@
 model ChartOfAccount {
-  id        String    @id @default(cuid())
-  entityId  String    @map("entity_id")
-  code      String    @db.VarChar(20)
+  id        String  @id @default(cuid())
+  entityId  String  @map("entity_id")
+  code      String  @db.VarChar(20)
   name      String
-  nameTh    String?   @map("name_th")
+  nameTh    String? @map("name_th")
+  /// English description (auditor packages). Required on newly created
+  /// accounts; existing rows stay nullable.
+  description   String?
+  descriptionTh String? @map("description_th")
+  /// Lowercased, trimmed, collapsed-space English name used for
+  /// active-account uniqueness. Backfilled; not a user-facing field.
+  nameNormalized String? @map("name_normalized")
   type      String
-  parentId  String?   @map("parent_id")
-  balance   Decimal   @default(0) @db.Decimal(18, 2)
-  isActive  Boolean   @default(true) @map("is_active")
+  // Finer classification under `type` (e.g. current-asset, fixed-asset,
+  // current-liability). Free text validated in Zod; drives report grouping.
+  subType   String? @map("sub_type")
+  parentId  String? @map("parent_id")
+  /// Stored running counter, incremented at post time. Convenient for lists,
+  /// but it is a counter and counters drift — anything that BLOCKS a user must
+  /// derive the balance from journal_entry_lines instead (see
+  /// accountLedgerFacts).
+  balance   Decimal @default(0) @db.Decimal(18, 2)
+  isActive  Boolean @default(true) @map("is_active")
+  /// When isActive last flipped to false. Null on rows deactivated before this
+  /// column existed, and on accounts that were never deactivated.
+  deactivatedAt DateTime? @map("deactivated_at")
+  /// Set when this account was created on a code or English name that a
+  /// DEACTIVATED account had used. Keeps historical reports able to say which
+  /// account a code meant, and over which period.
+  reusedFromAccountId   String?   @map("reused_from_account_id")
+  reuseAcknowledgedBy   String?   @map("reuse_acknowledged_by") @db.Uuid
+  reuseAcknowledgedAt   DateTime? @map("reuse_acknowledged_at")
   deletedAt DateTime? @map("deleted_at")
 
-  entity        Entity             @relation(fields: [entityId], references: [id])
-  parent        ChartOfAccount?    @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children      ChartOfAccount[]   @relation("AccountHierarchy")
-  journalLines  JournalEntryLine[]
-  bankSuggested BankTransaction[]  @relation("BankSuggested")
-  bankMapped    BankTransaction[]  @relation("BankMapped")
+  entity          Entity             @relation(fields: [entityId], references: [id])
+  parent          ChartOfAccount?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children        ChartOfAccount[]   @relation("AccountHierarchy")
+  reusedFrom      ChartOfAccount?    @relation("AccountCodeReuse", fields: [reusedFromAccountId], references: [id])
+  reusedBy        ChartOfAccount[]   @relation("AccountCodeReuse")
+  journalLines    JournalEntryLine[]
+  bankSuggested   BankTransaction[]  @relation("BankSuggested")
+  bankMapped      BankTransaction[]  @relation("BankMapped")
+  accountMappings AccountMapping[]   @relation("AccountMappingAccount")
+  taxCodes        TaxCode[]          @relation("TaxCodeAccount")
+  bankAccounts    BankAccount[]      @relation("BankAccountGl")
 
-  @@unique([entityId, code])
+  // Active uniqueness is a partial unique index in SQL
+  // (`chart_of_accounts_entity_code_active`) so an inactive code may be
+  // reused. Application code also enforces it (staging uses db:push).
+  @@index([entityId, code])
+  @@index([entityId, nameNormalized])
+  @@index([reusedFromAccountId])
   @@map("chart_of_accounts")
 }
 
 model JournalEntry {
-  id            String    @id @default(cuid())
-  entityId      String    @map("entity_id")
-  entryNo       String    @map("entry_no")
-  date          DateTime  @db.Date
-  description   String?
+  id          String    @id @default(cuid())
+  entityId    String    @map("entity_id")
+  entryNo     String    @map("entry_no")
+  date        DateTime  @db.Date
+  description String?
   // Thai-language mirror of `description`. HR/admin imports the GL
   // twice — once per language — and the importer fills whichever
   // column matches the chosen language. UI flips between the two via
   // a toggle. Null on rows that have only been imported in the other
   // language so far.
-  descriptionTh String?   @map("description_th")
-  reference     String?
-  status        String    @default("draft")
-  fromExpense   String?   @map("from_expense") @db.Uuid
-  createdBy     String    @map("created_by") @db.Uuid
-  approvedBy    String?   @map("approved_by") @db.Uuid
-  approvedAt    DateTime? @map("approved_at")
-  postedAt      DateTime? @map("posted_at")
-  deletedAt     DateTime? @map("deleted_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  descriptionTh String?  @map("description_th")
+  reference   String?
+  status      String    @default("draft")
+  fromExpense String?   @map("from_expense") @db.Uuid
+  // Provenance of an auto-posted entry from the GL posting engine.
+  // sourceType ∈ invoice | bill | payment | credit-note | manual | adjustment;
+  // sourceRef = the source document id. Null on legacy / manual entries.
+  sourceType  String?   @map("source_type")
+  sourceRef   String?   @map("source_ref")
+  createdBy   String    @map("created_by") @db.Uuid
+  approvedBy  String?   @map("approved_by") @db.Uuid
+  approvedAt  DateTime? @map("approved_at")
+  rejectedBy  String?   @map("rejected_by") @db.Uuid
+  rejectedAt  DateTime? @map("rejected_at")
+  rejectReason String?  @map("reject_reason")
+  postedAt    DateTime? @map("posted_at")
+  // Draft placeholder (DRAFT-000123). Kept after approval so the issued
+  // JE{YYYY}{MM}### can be traced back to the draft that consumed no
+  // period sequence.
+  draftNo     String?   @map("draft_no")
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelledBy String?   @map("cancelled_by") @db.Uuid
+  cancelReason String?  @map("cancel_reason")
+  // Closed-period cancel: original.reversedByEntryId → reversing JE;
+  // reversing.reversesEntryId → original. Both nullable.
+  reversedByEntryId String? @unique @map("reversed_by_entry_id")
+  reversesEntryId   String? @unique @map("reverses_entry_id")
+  deletedAt   DateTime? @map("deleted_at")
+  deletedBy   String?   @map("deleted_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   entity   Entity             @relation(fields: [entityId], references: [id])
   creator  User               @relation("JournalCreator", fields: [createdBy], references: [id], onDelete: Cascade)
   approver User?              @relation("JournalApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  rejector User?              @relation("JournalRejector", fields: [rejectedBy], references: [id], onDelete: SetNull)
+  canceller User?             @relation("JournalCanceller", fields: [cancelledBy], references: [id], onDelete: SetNull)
+  reversedByEntry JournalEntry? @relation("JournalReversedBy", fields: [reversedByEntryId], references: [id])
+  reversingOf     JournalEntry? @relation("JournalReversedBy")
+  reversesEntry   JournalEntry? @relation("JournalReverses", fields: [reversesEntryId], references: [id])
+  reversedOriginal JournalEntry? @relation("JournalReverses")
   lines    JournalEntryLine[]
   invoices Invoice[]
+  payments Payment[]          @relation("PaymentJournal")
+  fixedAssetDisposals FixedAssetDisposal[] @relation("FixedAssetDisposalJournal")
+  fixedAssetRemeasurements FixedAssetRemeasurement[] @relation("FixedAssetRemeasurementJournal")
 
+  @@unique([entityId, entryNo])
   @@index([entityId, status])
+  @@index([sourceType, sourceRef])
   @@map("journal_entries")
 }
 
@@ -70,27 +134,126 @@ model JournalEntryLine {
 }
 
 model Invoice {
-  id           String    @id @default(cuid())
-  entityId     String    @map("entity_id")
-  invoiceNo    String    @map("invoice_no")
+  id           String @id @default(cuid())
+  entityId     String @map("entity_id")
+  invoiceNo    String @map("invoice_no")
   type         String
   counterparty String
-  amount       Decimal   @db.Decimal(15, 2)
+  // FK to the Vendor directory (customer for AR, supplier for AP). Nullable:
+  // rows created before this link stay on the free-text `counterparty` only.
+  vendorId     String? @map("vendor_id") @db.Uuid
+  // Grand total due (server-computed from line items + VAT − WHT). Kept as a
+  // stored column so the list/aggregates read one value; subtotal / vatAmount
+  // / whtAmount are derived from lineItems + rates at render time.
+  amount       Decimal @db.Decimal(15, 2)
+  // Sum of recorded payments against this invoice. Drives partial/paid status
+  // (amountPaid vs amount) so partial receipts/bill-pays are tracked exactly.
+  amountPaid   Decimal @default(0) @map("amount_paid") @db.Decimal(15, 2)
   currency     String
-  issueDate    DateTime  @map("issue_date") @db.Date
-  dueDate      DateTime  @map("due_date") @db.Date
-  paidDate     DateTime? @map("paid_date") @db.Date
-  status       String    @default("draft")
-  linkedJeId   String?   @map("linked_je_id")
-  notes        String?
-  deletedAt    DateTime? @map("deleted_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
+  // FX (M8): the document-date rate (source currency → the entity's base
+  // currency) captured at issue, and the resulting base/reporting amount.
+  // Nullable — every legacy row is THB (rate 1, baseAmount = amount); the
+  // migration backfills them and the service treats null as rate 1 so staging
+  // (db:push, which skips the backfill SQL) stays correct.
+  exchangeRate  Decimal? @default(1) @map("exchange_rate") @db.Decimal(18, 8)
+  baseAmount    Decimal? @map("base_amount") @db.Decimal(15, 2)
+  // TAS 21 carrying rate for remaining AR/AP (updated when a period-end
+  // revaluation JE is approved). Realised FX at collection uses this, not the
+  // original send-time rate, so month-end differences are not double-counted.
+  carryingRate  Decimal? @map("carrying_rate") @db.Decimal(18, 8)
+  // Full-document fields (faithful to the printed invoice template). All
+  // nullable so legacy summary rows created before the line-item model keep
+  // working; new invoices populate them.
+  billToAddress String?   @map("bill_to_address")
+  reference     String?
+  paymentTerms  String?   @map("payment_terms")
+  vatRate       Decimal   @default(0) @db.Decimal(5, 2) @map("vat_rate")
+  // Optional extra named tax (e.g. "GST") shown below VAT on the document.
+  taxLabel      String?   @map("tax_label")
+  taxRate       Decimal   @default(0) @db.Decimal(5, 2) @map("tax_rate")
+  whtRate       Decimal   @default(0) @db.Decimal(5, 2) @map("wht_rate")
+  issueDate     DateTime  @map("issue_date") @db.Date
+  dueDate       DateTime  @map("due_date") @db.Date
+  paidDate      DateTime? @map("paid_date") @db.Date
+  status        String    @default("draft")
+  draftNo       String?   @map("draft_no")
+  headerDiscount Decimal  @default(0) @map("header_discount") @db.Decimal(15, 2)
+  roundingAmount Decimal  @default(0) @map("rounding_amount") @db.Decimal(15, 2)
+  vendorTaxInvoiceNo String? @map("vendor_tax_invoice_no")
+  taxInvoiceReceived Boolean @default(false) @map("tax_invoice_received")
+  fxSide        String?   @map("fx_side")
+  fxRateDate    DateTime? @map("fx_rate_date") @db.Date
+  cancelReason  String?   @map("cancel_reason")
+  cancelledAt   DateTime? @map("cancelled_at")
+  // Second-level approval (PRD 9.6). A document over the configured threshold
+  // waits on a SECOND person before it gets a real number and posts.
+  approvedById   String?   @map("approved_by_1") @db.Uuid
+  approvedAt     DateTime? @map("approved_at_1")
+  secondApprovedById String? @map("approved_by_2") @db.Uuid
+  secondApprovedAt   DateTime? @map("approved_at_2")
+  /// The threshold in force when this document was approved. Snapshotted so a
+  /// later change to the configured limit never restates what already happened.
+  thresholdApplied Decimal? @map("threshold_applied") @db.Decimal(18, 2)
+  /// Set when this document looked like part of a same-day set cut up to stay
+  /// under the threshold. A warning, never a block.
+  splitFlagged    Boolean  @default(false) @map("split_flagged")
+  linkedJeId    String?   @map("linked_je_id")
+  notes         String?
+  // Author of the document. Drives own-document RBAC scoping (Chunk 5): a
+  // caller without `accounting:read-all` / `accounting:admin` only sees rows
+  // where createdBy = their user id. Nullable: rows created before this
+  // column stay null and remain visible only to read-all/admin holders (no
+  // current reader loses access — read-all is granted to every prior reader).
+  // Stored as a bare user-id string (no FK) to avoid a back-relation on User.
+  createdBy     String?   @map("created_by") @db.Uuid
+  deletedAt     DateTime? @map("deleted_at")
+  deletedBy     String?   @map("deleted_by") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
 
-  entity   Entity        @relation(fields: [entityId], references: [id])
-  linkedJe JournalEntry? @relation(fields: [linkedJeId], references: [id])
+  entity      Entity            @relation(fields: [entityId], references: [id])
+  linkedJe    JournalEntry?     @relation(fields: [linkedJeId], references: [id])
+  vendor      Vendor?           @relation("InvoiceVendor", fields: [vendorId], references: [id])
+  lineItems   InvoiceLineItem[]
+  payments    Payment[]
+  allocations PaymentAllocation[]
+  creditNotes CreditNote[]      @relation("InvoiceCreditNotes")
 
   @@unique([entityId, invoiceNo])
+  @@index([entityId, vendorId, vendorTaxInvoiceNo])
+  @@index([entityId, type, status])
+  @@index([vendorId])
+  @@index([dueDate])
+  @@index([deletedAt])
+  // Hot path for own-document scoping: scoped list queries filter on createdBy.
+  @@index([createdBy])
   @@map("invoices")
+}
+
+// One billable line on an Invoice (Description / Qty / Unit Price). Line total
+// = quantity × unitPrice, derived — never stored — so an edit can't drift.
+model InvoiceLineItem {
+  id          String   @id @default(cuid())
+  invoiceId   String   @map("invoice_id")
+  description String
+  quantity    Decimal  @default(1) @db.Decimal(15, 2)
+  unitPrice   Decimal  @default(0) @db.Decimal(15, 2) @map("unit_price")
+  lineDiscount Decimal @default(0) @map("line_discount") @db.Decimal(15, 2)
+  vatRate     Decimal? @map("line_vat_rate") @db.Decimal(5, 2)
+  vatReason   String?  @map("vat_reason")
+  taxBase     Decimal? @map("tax_base") @db.Decimal(15, 2)
+  vatAmount   Decimal? @map("vat_amount") @db.Decimal(15, 2)
+  capitalised Boolean  @default(false)
+  // Optional per-line GL routing (mirrors PoLine). When set, invoice-send
+  // posting books this line's revenue/expense to this account; unset lines fall
+  // back to the entity's revenue_default / expense_default mapping.
+  glAccountId String?  @map("gl_account_id")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
 }
 
 model BankTransaction {
@@ -101,19 +264,51 @@ model BankTransaction {
   amount           Decimal  @db.Decimal(15, 2)
   balance          Decimal? @db.Decimal(15, 2)
   reference        String?
+  // Legacy free-text account label. Superseded by bankAccountId (FK) but kept
+  // as a fallback for imported rows that predate the BankAccount master.
   bankAccount      String?  @map("bank_account")
+  bankAccountId    String?  @map("bank_account_id")
+  // 'in' (money received) | 'out' (money paid). Null on legacy imported rows.
+  direction        String?
+  category         String?
+  reconciled       Boolean  @default(false)
+  reconciledAt     DateTime? @map("reconciled_at")
   suggestedAccount String?  @map("suggested_account")
   mappedAccount    String?  @map("mapped_account")
   jeRef            String?  @map("je_ref")
   status           String   @default("unmatched")
+  // Provenance of this row: 'payment' (auto-written by a recorded payment),
+  // 'manual' (bank module), 'import' (statement upload), or null for legacy.
+  source           String?
+  // Back-link to the Payment that produced this row, so a payment void can
+  // reverse its exact cash movement and reconciliation can guard it.
+  paymentId        String?  @map("payment_id")
   importedAt       DateTime @default(now()) @map("imported_at")
 
-  entity    Entity          @relation(fields: [entityId], references: [id])
-  suggested ChartOfAccount? @relation("BankSuggested", fields: [suggestedAccount], references: [id])
-  mapped    ChartOfAccount? @relation("BankMapped", fields: [mappedAccount], references: [id])
+  entity         Entity          @relation(fields: [entityId], references: [id])
+  bankAccountRef BankAccount?    @relation("BankAccountTx", fields: [bankAccountId], references: [id])
+  suggested      ChartOfAccount? @relation("BankSuggested", fields: [suggestedAccount], references: [id])
+  mapped         ChartOfAccount? @relation("BankMapped", fields: [mappedAccount], references: [id])
+  payment        Payment?        @relation("PaymentBankTx", fields: [paymentId], references: [id])
 
   @@index([entityId, date])
+  @@index([bankAccountId])
+  @@index([paymentId])
   @@map("bank_transactions")
+}
+
+model BnryTransaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  date        DateTime @db.Date
+  type        String
+  amount      Decimal  @db.Decimal(18, 4)
+  reference   String?
+  description String?
+  jeRef       String?  @map("je_ref") @db.VarChar(30)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([date])
+  @@map("bnry_transactions")
 }
 
 model ExchangeRate {
@@ -130,6 +325,21 @@ model ExchangeRate {
   @@map("exchange_rates")
 }
 
+/// Accounting-owned BOT buying/selling snapshot (PRD). Expenses keep using
+/// ExchangeRate averages; this table is not written by bot-fx.service.ts.
+model AccountingFxRate {
+  id            String   @id @default(cuid())
+  currency      String   @db.VarChar(10)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  buyingRate    Decimal  @map("buying_rate") @db.Decimal(18, 8)
+  sellingRate   Decimal  @map("selling_rate") @db.Decimal(18, 8)
+  source        String   @default("bot")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([currency, effectiveDate])
+  @@map("accounting_fx_rates")
+}
+
 model ExpenseCategory {
   id              String   @id @default(cuid())
   name            String   @unique
@@ -142,35 +352,48 @@ model ExpenseCategory {
   // Allowance categories (e.g. Thailand Travel, Phone Bill) bypass the
   // manager-approval chain on submit. The report short-circuits to
   // `reimbursed` and the finance-desk recipients (HR/finance admin)
-  // receive a one-row notification email instead of
+  // receive a one-row notification email — Sara, etc. — instead of
   // landing in someone's approver inbox.
   isAllowance     Boolean  @default(false) @map("is_allowance")
 
-  expenses         Expense[]         @relation("ExpenseCategory")
+  expenses       Expense[]      @relation("ExpenseCategory")
   cashAdvanceItems CashAdvanceItem[]
 
   @@map("expense_categories")
 }
 
+
 // Vendors / clients / suppliers / contacts directory. Mirrors the
-// vendor/contact import format used by finance exports. Records are
-// entity-scoped so the same shape supports multiple entities.
+// "Contact Lists" xlsx the finance team uses today (Thai accounting
+// software exports). Records are entity-scoped — most reports live on
+// the TBH Thailand entity but a future expansion to other entities
+// reuses the same shape.
 model Vendor {
   id               String   @id @default(uuid()) @db.Uuid
   entityId         String   @map("entity_id")
   // 'Supplier' | 'Client' | 'Client, Supplier' | 'Individual' | 'Cash Sale' etc.
   contactType      String?  @map("contact_type")
-  // Free-text contact code from an import (e.g. "AC0001"). Not unique
-  // because imported identifiers can overlap across entities.
+  // Free-text contact code from the source system (e.g. "AC0001"). Not unique
+  // because the source is authoritative — we store whatever HR/finance imports.
   contactId        String?  @map("contact_id")
   // 'Corporation' | 'Individual' | 'Foreign' (free text — source may add new buckets).
   businessType     String?  @map("business_type")
   businessLocation String?  @map("business_location")
+  // `name` stays the canonical display name (referenced widely across AR/AP
+  // documents). `nameTh` / `nameEn` are the M1 bilingual overhaul — optional
+  // language-specific names layered on top; `name_en` is backfilled from
+  // `name` for existing rows.
   name             String
+  nameTh           String?  @map("name_th")
+  nameEn           String?  @map("name_en")
   addressTh        String?  @map("address_th")
   addressEn        String?  @map("address_en")
   address2         String?
   address3         String?
+  // Delivery / shipping address, distinct from the tax-invoice address held by
+  // addressTh/addressEn. Optional — most contacts ship where they're billed.
+  deliveryAddressTh String? @map("delivery_address_th")
+  deliveryAddressEn String? @map("delivery_address_en")
   zipCode          String?  @map("zip_code")
   taxId            String?  @map("tax_id")
   branchCode       String?  @map("branch_code")
@@ -179,19 +402,46 @@ model Vendor {
   email            String?
   mobile           String?
   creditDays       Int?     @map("credit_days")
+  // Standard payment term keyword: cash | net7 | net14 | net30 | net45 |
+  // net60 | net90 | eom | custom. Free string validated in Zod (no DB enum);
+  // `creditDays` still carries the exact day count for `custom` / legacy rows.
+  paymentTerms     String?  @map("payment_terms")
+  // Accounting defaults applied when this contact is picked on a new document.
+  // All optional — a blank falls back to the entity / document-level default.
+  defaultCurrency         String?  @map("default_currency")
+  // Tax treatment keyword: vat7 | vat0 | exempt. Validated in Zod.
+  taxTreatment            String?  @map("tax_treatment")
+  // Default GL routing (open string ids into chart_of_accounts; no FK so the
+  // master stays editable and import-tolerant, mirroring InvoiceLineItem.glAccountId).
+  defaultRevenueAccountId String?  @map("default_revenue_account_id")
+  defaultExpenseAccountId String?  @map("default_expense_account_id")
+  // Default withholding-tax rate as a fraction (e.g. 0.03 for WHT 3%).
+  defaultWhtRate          Decimal? @db.Decimal(7, 4) @map("default_wht_rate")
+  // Soft credit ceiling in the contact's default currency (informational; not
+  // enforced by the posting engine yet).
+  creditLimit             Decimal? @db.Decimal(18, 2) @map("credit_limit")
   phone            String?
   faxNumber        String?  @map("fax_number")
   notes            String?
   isActive         Boolean  @default(true) @map("is_active")
+  mergedIntoId     String?  @map("merged_into_id") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  entity Entity @relation(fields: [entityId], references: [id])
+  entity         Entity          @relation(fields: [entityId], references: [id])
+  mergedInto     Vendor?         @relation("VendorMergedInto", fields: [mergedIntoId], references: [id])
+  mergedSources  Vendor[]        @relation("VendorMergedInto")
+  invoices       Invoice[]       @relation("InvoiceVendor")
+  quotes         Quote[]         @relation("QuoteVendor")
+  purchaseOrders PurchaseOrder[] @relation("PurchaseOrderVendor")
+  creditNotes    CreditNote[]    @relation("CreditNoteVendor")
 
   @@index([entityId, isActive])
   @@index([entityId, name])
   @@index([contactId])
   @@index([taxId])
+  @@index([deletedAt])
   @@map("vendors")
 }
 
@@ -209,52 +459,50 @@ model Vendor {
 /// approve time. Snapshotted on the request row so finance reports
 /// don't re-aggregate from line items.
 model CashAdvanceRequest {
-  id                   String    @id @default(uuid()) @db.Uuid
+  id              String   @id @default(uuid()) @db.Uuid
   /// Friendly serial for UI / email subjects (CA-123). UUID stays
   /// primary key so URLs don't leak ordering.
-  requestNumber        Int       @unique @default(autoincrement()) @map("request_number")
-  employeeId           String    @map("employee_id") @db.Uuid
-  entityId             String?   @map("entity_id")
-  requestDate          DateTime  @default(now()) @map("request_date") @db.Date
-  position             String?
-  department           String?
-  directManager        String?   @map("direct_manager")
+  requestNumber   Int      @unique @default(autoincrement()) @map("request_number")
+  employeeId      String   @map("employee_id") @db.Uuid
+  entityId        String?  @map("entity_id")
+  requestDate     DateTime @default(now()) @map("request_date") @db.Date
+  position        String?
+  department      String?
+  directManager   String?  @map("direct_manager")
   /// 'cash' | 'bank-transfer' — drives which bank fields are required.
-  payoutMode           String    @default("bank-transfer") @map("payout_mode")
-  bankName             String?   @map("bank_name")
-  bankCountry          String?   @map("bank_country")
-  bankAccountNo        String?   @map("bank_account_no")
-  swiftCode            String?   @map("swift_code")
-  currency             String    @default("THB") @db.VarChar(10)
+  payoutMode      String   @default("bank-transfer") @map("payout_mode")
+  bankName        String?  @map("bank_name")
+  bankCountry     String?  @map("bank_country")
+  bankAccountNo   String?  @map("bank_account_no")
+  swiftCode       String?  @map("swift_code")
+  currency        String   @default("THB") @db.VarChar(10)
   /// 'draft' | 'submitted' | 'approved' | 'rejected' | 'disbursed' | 'cleared'
   /// While in the approval chain the request stays 'submitted' and
   /// `currentStepOrder` points at the pending step.
-  status               String    @default("draft")
-  currentStepOrder     Int?      @map("current_step_order")
-  requestedTotal       Decimal   @default(0) @map("requested_total") @db.Decimal(15, 2)
-  approvedTotal        Decimal   @default(0) @map("approved_total") @db.Decimal(15, 2)
-  notes                String?
-  rejectReason         String?   @map("reject_reason")
-  submittedAt          DateTime? @map("submitted_at")
-  approvedById         String?   @map("approved_by") @db.Uuid
-  approvedAt           DateTime? @map("approved_at")
-  disbursedAt          DateTime? @map("disbursed_at")
+  status          String   @default("draft")
+  currentStepOrder Int?     @map("current_step_order")
+  requestedTotal  Decimal  @default(0) @map("requested_total") @db.Decimal(15, 2)
+  approvedTotal   Decimal  @default(0) @map("approved_total") @db.Decimal(15, 2)
+  notes           String?
+  rejectReason    String?  @map("reject_reason")
+  submittedAt     DateTime? @map("submitted_at")
+  approvedById    String?  @map("approved_by") @db.Uuid
+  approvedAt      DateTime? @map("approved_at")
+  disbursedAt     DateTime? @map("disbursed_at")
   /// Finance-uploaded payout proof (bank slip, transfer receipt, etc.)
   /// required before marking disbursed. Stored in the private
   /// `documents` bucket; served via a signed-URL route.
-  disbursementProofUrl      String?   @map("disbursement_proof_url")
-  disbursementProofUploadId String?   @unique(map: "cash_advance_requests_disbursement_proof_upload_id_key") @map("disbursement_proof_upload_id") @db.Uuid
-  clearedAt                 DateTime? @map("cleared_at")
-  deletedAt                 DateTime? @map("deleted_at")
-  createdAt                 DateTime  @default(now()) @map("created_at")
-  updatedAt                 DateTime  @updatedAt @map("updated_at")
+  disbursementProofUrl String? @map("disbursement_proof_url")
+  clearedAt       DateTime? @map("cleared_at")
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  employee                 User                          @relation("CashAdvanceRequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
-  entity                   Entity?                       @relation("CashAdvanceRequestEntity", fields: [entityId], references: [id], onDelete: SetNull)
-  approver                 User?                         @relation("CashAdvanceRequestApprover", fields: [approvedById], references: [id], onDelete: SetNull)
-  disbursementProofUpload  FileUpload?                   @relation("CashAdvanceDisbursementProof", fields: [disbursementProofUploadId], references: [id], onDelete: Restrict)
-  items                    CashAdvanceItem[]
-  approvalDecisions        CashAdvanceApprovalDecision[]
+  employee  User              @relation("CashAdvanceRequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  entity    Entity?           @relation("CashAdvanceRequestEntity", fields: [entityId], references: [id], onDelete: SetNull)
+  approver  User?             @relation("CashAdvanceRequestApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  items     CashAdvanceItem[]
+  approvalDecisions CashAdvanceApprovalDecision[]
 
   @@index([employeeId, status])
   @@index([entityId])
@@ -354,34 +602,34 @@ model CashAdvanceItem {
 // overhaul was removed and this — formerly "v1" — is now the sole module.)
 
 model Expense {
-  id              String    @id @default(uuid()) @db.Uuid
-  employeeId      String    @map("employee_id") @db.Uuid
-  entityId        String    @map("entity_id")
-  categoryId      String?   @map("category_id")
-  travelRequestId String?   @map("travel_request_id") @db.Uuid
-  reportId        String?   @map("report_id") @db.Uuid
-  description     String
-  amount          Decimal   @db.Decimal(15, 2)
-  currency        String
-  date            DateTime  @db.Date
-  receiptUrl      String?   @map("receipt_url")
-  status          String    @default("pending")
-  approvedBy      String?   @map("approved_by") @db.Uuid
-  approvedAt      DateTime? @map("approved_at")
-  rejectReason    String?   @map("reject_reason")
-  reimbursedAt    DateTime? @map("reimbursed_at")
-  notes           String?
-  jeRef           String?   @map("je_ref")
-  deletedAt       DateTime? @map("deleted_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id               String    @id @default(uuid()) @db.Uuid
+  employeeId       String    @map("employee_id") @db.Uuid
+  entityId         String    @map("entity_id")
+  categoryId       String?   @map("category_id")
+  travelRequestId  String?   @map("travel_request_id") @db.Uuid
+  reportId         String?   @map("report_id") @db.Uuid
+  description      String
+  amount           Decimal   @db.Decimal(15, 2)
+  currency         String
+  date             DateTime  @db.Date
+  receiptUrl       String?   @map("receipt_url")
+  status           String    @default("pending")
+  approvedBy       String?   @map("approved_by") @db.Uuid
+  approvedAt       DateTime? @map("approved_at")
+  rejectReason     String?   @map("reject_reason")
+  reimbursedAt     DateTime? @map("reimbursed_at")
+  notes            String?
+  jeRef            String?   @map("je_ref")
+  deletedAt        DateTime? @map("deleted_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
   employee      User             @relation("ExpenseEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
   entity        Entity           @relation("ExpenseEntity", fields: [entityId], references: [id])
   category      ExpenseCategory? @relation("ExpenseCategory", fields: [categoryId], references: [id])
   approver      User?            @relation("ExpenseApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
   travelRequest TravelRequest?   @relation("ExpenseTravel", fields: [travelRequestId], references: [id], onDelete: SetNull)
-  report        ExpenseReport?   @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  report        ExpenseReport? @relation(fields: [reportId], references: [id], onDelete: SetNull)
 
   @@index([employeeId])
   @@index([status])
@@ -411,9 +659,9 @@ model ExpenseReport {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  employee          User                      @relation("ExpenseReportEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
-  entity            Entity                    @relation("ExpenseReportEntity", fields: [entityId], references: [id])
-  approver          User?                     @relation("ExpenseReportApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  employee          User                        @relation("ExpenseReportEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  entity            Entity                      @relation("ExpenseReportEntity", fields: [entityId], references: [id])
+  approver          User?                       @relation("ExpenseReportApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
   expenses          Expense[]
   approvalDecisions ExpenseApprovalDecision[]
 
@@ -429,6 +677,11 @@ model ExpenseApprovalStep {
   name                 String   @db.VarChar(100)
   description          String?
   approverType         String   @default("manager") @map("approver_type")
+  /// Distinguishes a validate-only "review" gate from a final "approve"
+  /// gate. `review` steps advance the chain but never finalise the report
+  /// and cannot reduce the approved amount; `approve` steps behave as
+  /// today. Defaults to `approve` so pre-existing steps keep their meaning.
+  stageRole            String   @default("approve") @map("stage_role") // review | approve
   approverUserId       String?  @map("approver_user_id") @db.Uuid
   skipWhenSubmitterIds Json     @default("[]") @map("skip_when_submitter_ids")
   onlyWhenSubmitterIds Json     @default("[]") @map("only_when_submitter_ids")
@@ -450,6 +703,9 @@ model ExpenseApprovalDecision {
   order           Int
   name            String    @db.VarChar(100)
   approverType    String    @map("approver_type")
+  /// Snapshotted from the step's `stageRole` at submit time so a later
+  /// chain-config edit never mutates an in-flight report's stage meaning.
+  stageRole       String    @default("approve") @map("stage_role")
   approverUserId  String?   @map("approver_user_id") @db.Uuid
   status          String    @default("pending")
   decidedById     String?   @map("decided_by_id") @db.Uuid
@@ -459,11 +715,803 @@ model ExpenseApprovalDecision {
   createdAt       DateTime  @default(now()) @map("created_at")
 
   expenseReport ExpenseReport @relation(fields: [expenseReportId], references: [id], onDelete: Cascade)
-  approverUser  User?         @relation("ExpenseApprovalDecisionApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
-  decidedBy     User?         @relation("ExpenseApprovalDecisionDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  approverUser  User?           @relation("ExpenseApprovalDecisionApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
+  decidedBy     User?           @relation("ExpenseApprovalDecisionDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
 
   @@unique([expenseReportId, order])
   @@index([approverUserId, status])
   @@index([expenseReportId])
   @@map("expense_approval_decisions")
+}
+
+// ─── Accounting suite — GL posting engine config + AR/AP documents ──────────
+// Adds a double-entry posting layer + AP procurement on top of the #948
+// invoices/finance-overview module. Every AR/AP/bank event posts a balanced
+// JournalEntry via the GL engine, resolving accounts through AccountMapping.
+// Money is Decimal; statuses are plain strings validated in Zod (no DB enums).
+
+/// Bank / cash account master. The posting engine maintains `currentBalance`
+/// (opening + net posted movements); payments/bill-pays also move the linked
+/// GL cash account (`glAccountId`).
+model BankAccount {
+  id             String    @id @default(cuid())
+  entityId       String    @map("entity_id")
+  name           String
+  /// 'bank' | 'cash'
+  kind           String    @default("bank")
+  accountNumber  String?   @map("account_number")
+  currency       String    @default("THB") @db.VarChar(10)
+  openingBalance Decimal   @default(0) @map("opening_balance") @db.Decimal(15, 2)
+  currentBalance Decimal   @default(0) @map("current_balance") @db.Decimal(15, 2)
+  glAccountId    String?   @map("gl_account_id")
+  isActive       Boolean   @default(true) @map("is_active")
+  sortOrder      Int       @default(0) @map("sort_order")
+  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  entity       Entity            @relation(fields: [entityId], references: [id])
+  glAccount    ChartOfAccount?   @relation("BankAccountGl", fields: [glAccountId], references: [id])
+  transactions BankTransaction[] @relation("BankAccountTx")
+  payments     Payment[]
+
+  @@index([entityId, isActive])
+  @@index([deletedAt])
+  @@map("bank_accounts")
+}
+
+/// A payment: receipt against an AR invoice, or disbursement against an AP
+/// bill. Recording one bumps Invoice.amountPaid, recomputes status, moves the
+/// bank balance, and posts a JE — all in one transaction. `whtAmount` = tax
+/// withheld by/from the counterparty.
+model Payment {
+  id            String    @id @default(cuid())
+  entityId      String    @map("entity_id")
+  invoiceId     String    @map("invoice_id")
+  bankAccountId String?   @map("bank_account_id")
+  date          DateTime  @db.Date
+  amount        Decimal   @db.Decimal(15, 2)
+  // FX (M8): payment currency (defaults to the invoice currency), the
+  // settlement-date rate (payment currency → the entity's base currency), and
+  // the base/reporting cash amount. Nullable for legacy rows (all THB: currency
+  // 'THB', rate 1, baseAmount = amount).
+  currency      String?   @db.VarChar(10)
+  exchangeRate  Decimal?  @default(1) @map("exchange_rate") @db.Decimal(18, 8)
+  baseAmount    Decimal?  @map("base_amount") @db.Decimal(15, 2)
+  /// 'cash' | 'bank-transfer' | 'cheque' | 'other'
+  method        String    @default("bank-transfer")
+  receiptNo     String?   @map("receipt_no")
+  bankFee       Decimal   @default(0) @map("bank_fee") @db.Decimal(15, 2)
+  vatRecognised Decimal   @default(0) @map("vat_recognised") @db.Decimal(15, 2)
+  whtAmount     Decimal   @default(0) @map("wht_amount") @db.Decimal(15, 2)
+  writeOffAmount Decimal  @default(0) @map("write_off_amount") @db.Decimal(15, 2)
+  writeOffReason String?  @map("write_off_reason")
+  whtCertificateReceivedAt DateTime? @map("wht_certificate_received_at")
+  reference     String?
+  notes         String?
+  createdBy     String    @map("created_by") @db.Uuid
+  linkedJeId    String?   @map("linked_je_id")
+  deletedAt     DateTime? @map("deleted_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  entity           Entity            @relation(fields: [entityId], references: [id])
+  invoice          Invoice           @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  bankAccount      BankAccount?      @relation(fields: [bankAccountId], references: [id])
+  linkedJe         JournalEntry?     @relation("PaymentJournal", fields: [linkedJeId], references: [id])
+  bankTransactions BankTransaction[] @relation("PaymentBankTx")
+  allocations      PaymentAllocation[]
+
+  @@index([entityId])
+  @@index([invoiceId])
+  @@index([deletedAt])
+  @@unique([entityId, receiptNo])
+  @@map("payments")
+}
+
+/// Settlement allocation (M3/M6): spreads ONE payment across many invoices so a
+/// single receipt can clear several documents. Additive to the legacy 1:1
+/// Payment→Invoice link (which stays as the "primary" invoice + is back-filled
+/// into a single allocation); the multi-invoice write path is gated behind
+/// ACCOUNTING_SETTLEMENT_V2. `amount` / `whtAmount` are the source-currency
+/// figures applied to this invoice; `baseAmount` is the base-currency equivalent.
+model PaymentAllocation {
+  id         String   @id @default(uuid()) @db.Uuid
+  paymentId  String   @map("payment_id")
+  invoiceId  String   @map("invoice_id")
+  amount     Decimal  @db.Decimal(15, 2)
+  whtAmount  Decimal  @default(0) @map("wht_amount") @db.Decimal(15, 2)
+  baseAmount Decimal? @map("base_amount") @db.Decimal(15, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([paymentId])
+  @@index([invoiceId])
+  @@map("payment_allocations")
+}
+
+/// Sales quote (AR). Convert an accepted quote into an invoice, copying lines.
+model Quote {
+  id                 String      @id @default(cuid())
+  entityId           String      @map("entity_id")
+  quoteNo            String      @map("quote_no")
+  vendorId           String?     @map("vendor_id") @db.Uuid
+  issueDate          DateTime    @map("issue_date") @db.Date
+  expiryDate         DateTime?   @map("expiry_date") @db.Date
+  /// draft | sent | accepted | declined | expired | converted
+  status             String      @default("draft")
+  currency           String      @default("THB") @db.VarChar(10)
+  subtotal           Decimal     @default(0) @db.Decimal(15, 2)
+  taxTotal           Decimal     @default(0) @map("tax_total") @db.Decimal(15, 2)
+  grandTotal         Decimal     @default(0) @map("grand_total") @db.Decimal(15, 2)
+  notes              String?
+  convertedInvoiceId String?     @map("converted_invoice_id")
+  deletedAt          DateTime?   @map("deleted_at")
+  createdBy          String      @map("created_by") @db.Uuid
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  entity Entity      @relation(fields: [entityId], references: [id])
+  vendor Vendor?     @relation("QuoteVendor", fields: [vendorId], references: [id])
+  lines  QuoteLine[]
+
+  @@unique([entityId, quoteNo])
+  @@index([entityId, status])
+  @@index([deletedAt])
+  @@map("quotes")
+}
+
+model QuoteLine {
+  id          String  @id @default(cuid())
+  quoteId     String  @map("quote_id")
+  description String
+  quantity    Decimal @default(1) @db.Decimal(15, 4)
+  unitPrice   Decimal @default(0) @map("unit_price") @db.Decimal(15, 2)
+  lineTotal   Decimal @default(0) @map("line_total") @db.Decimal(15, 2)
+  taxCodeId   String? @map("tax_code_id")
+  taxRate     Decimal @default(0) @map("tax_rate") @db.Decimal(7, 4)
+  taxAmount   Decimal @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  glAccountId String? @map("gl_account_id")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  taxCode TaxCode? @relation(fields: [taxCodeId], references: [id])
+
+  @@index([quoteId])
+  @@map("quote_lines")
+}
+
+/// Purchase order (AP). Receive (full/partial) then convert to a bill.
+model PurchaseOrder {
+  id                 String    @id @default(cuid())
+  entityId           String    @map("entity_id")
+  poNo               String    @map("po_no")
+  vendorId           String?   @map("vendor_id") @db.Uuid
+  orderDate          DateTime  @map("order_date") @db.Date
+  expectedDate       DateTime? @map("expected_date") @db.Date
+  /// draft | sent | awaiting-delivery | partially-received | completed | billed | cancelled
+  status             String    @default("draft")
+  currency           String    @default("THB") @db.VarChar(10)
+  subtotal           Decimal   @default(0) @db.Decimal(15, 2)
+  taxTotal           Decimal   @default(0) @map("tax_total") @db.Decimal(15, 2)
+  grandTotal         Decimal   @default(0) @map("grand_total") @db.Decimal(15, 2)
+  notes              String?
+  convertedInvoiceId String?   @map("converted_invoice_id")
+  deletedAt          DateTime? @map("deleted_at")
+  createdBy          String    @map("created_by") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  entity Entity   @relation(fields: [entityId], references: [id])
+  vendor Vendor?  @relation("PurchaseOrderVendor", fields: [vendorId], references: [id])
+  lines  PoLine[]
+
+  @@unique([entityId, poNo])
+  @@index([entityId, status])
+  @@index([deletedAt])
+  @@map("purchase_orders")
+}
+
+model PoLine {
+  id          String  @id @default(cuid())
+  poId        String  @map("po_id")
+  description String
+  quantity    Decimal @default(1) @db.Decimal(15, 4)
+  qtyReceived Decimal @default(0) @map("qty_received") @db.Decimal(15, 4)
+  unitPrice   Decimal @default(0) @map("unit_price") @db.Decimal(15, 2)
+  lineTotal   Decimal @default(0) @map("line_total") @db.Decimal(15, 2)
+  taxCodeId   String? @map("tax_code_id")
+  taxRate     Decimal @default(0) @map("tax_rate") @db.Decimal(7, 4)
+  taxAmount   Decimal @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  glAccountId String? @map("gl_account_id")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  po      PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  taxCode TaxCode?      @relation(fields: [taxCodeId], references: [id])
+
+  @@index([poId])
+  @@map("po_lines")
+}
+
+/// Credit note / adjustment (NFR-8). A locked (paid/reconciled) document is
+/// corrected via a credit note that reverses its GL posting — never by editing
+/// the original. type = 'receivable' | 'payable'.
+model CreditNote {
+  id              String           @id @default(cuid())
+  entityId        String           @map("entity_id")
+  creditNoteNo    String           @map("credit_note_no")
+  // AR ('receivable') or AP ('payable') side.
+  type            String
+  // Statutory adjustment kind (M4): 'credit' (ใบลดหนี้ — reduces the balance)
+  // or 'debit' (ใบเพิ่มหนี้ — increases it). Every legacy row is a credit note.
+  noteKind        String           @default("credit") @map("note_kind")
+  vendorId        String?          @map("vendor_id") @db.Uuid
+  linkedInvoiceId String?          @map("linked_invoice_id")
+  issueDate       DateTime         @map("issue_date") @db.Date
+  subtotal        Decimal          @default(0) @db.Decimal(15, 2)
+  taxTotal        Decimal          @default(0) @map("tax_total") @db.Decimal(15, 2)
+  grandTotal      Decimal          @default(0) @map("grand_total") @db.Decimal(15, 2)
+  reason          String?
+  /// draft | issued | applied | cancelled
+  status          String           @default("draft")
+  linkedJeId      String?          @map("linked_je_id")
+  notes           String?
+  deletedAt       DateTime?        @map("deleted_at")
+  createdBy       String           @map("created_by") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at")
+
+  entity        Entity           @relation(fields: [entityId], references: [id])
+  vendor        Vendor?          @relation("CreditNoteVendor", fields: [vendorId], references: [id])
+  linkedInvoice Invoice?         @relation("InvoiceCreditNotes", fields: [linkedInvoiceId], references: [id])
+  lines         CreditNoteLine[]
+
+  @@unique([entityId, creditNoteNo])
+  @@index([entityId, status])
+  @@index([deletedAt])
+  @@map("credit_notes")
+}
+
+model CreditNoteLine {
+  id           String  @id @default(cuid())
+  creditNoteId String  @map("credit_note_id")
+  description  String
+  quantity     Decimal @default(1) @db.Decimal(15, 4)
+  unitPrice    Decimal @default(0) @map("unit_price") @db.Decimal(15, 2)
+  lineTotal    Decimal @default(0) @map("line_total") @db.Decimal(15, 2)
+  taxCodeId    String? @map("tax_code_id")
+  taxRate      Decimal @default(0) @map("tax_rate") @db.Decimal(7, 4)
+  taxAmount    Decimal @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  glAccountId  String? @map("gl_account_id")
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  creditNote CreditNote @relation(fields: [creditNoteId], references: [id], onDelete: Cascade)
+  taxCode    TaxCode?   @relation(fields: [taxCodeId], references: [id])
+
+  @@index([creditNoteId])
+  @@map("credit_note_lines")
+}
+
+/// Tax code (Thai VAT + WHT). Drives line-level tax computation and the GL
+/// account tax posts to. kind = 'vat-output' | 'vat-input' | 'wht'.
+model TaxCode {
+  id          String   @id @default(cuid())
+  entityId    String   @map("entity_id")
+  code        String
+  name        String
+  kind        String
+  /// Fractional rate, e.g. 0.07 for VAT 7%, 0.03 for WHT 3%.
+  rate        Decimal  @default(0) @db.Decimal(7, 4)
+  glAccountId String?  @map("gl_account_id")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  entity          Entity           @relation(fields: [entityId], references: [id])
+  glAccount       ChartOfAccount?  @relation("TaxCodeAccount", fields: [glAccountId], references: [id])
+  quoteLines      QuoteLine[]
+  poLines         PoLine[]
+  creditNoteLines CreditNoteLine[]
+
+  @@unique([entityId, code])
+  @@map("tax_codes")
+}
+
+/// GL account-mapping config — the posting engine's routing table. Resolves a
+/// semantic role to the concrete ChartOfAccount that auto-posts should hit.
+/// role ∈ ar_control | ap_control | revenue_default | expense_default |
+/// vat_output | vat_input | wht_payable | wht_receivable | retained_earnings |
+/// rounding (bank account GL is resolved per BankAccount, not here).
+/// A month a company has closed its books for. A closed period rejects new or
+/// edited postings dated into it (assertPostingPeriodOpen). Default-open: no
+/// row = open, so nothing is blocked until an admin explicitly closes a month.
+model FiscalPeriod {
+  id        String    @id @default(cuid())
+  entityId  String    @map("entity_id")
+  year      Int
+  month     Int
+  status    String    @default("closed")
+  note      String?
+  closedAt  DateTime  @default(now()) @map("closed_at")
+  closedBy  String?   @map("closed_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  entity Entity @relation(fields: [entityId], references: [id])
+
+  @@unique([entityId, year, month])
+  @@index([entityId])
+  @@map("fiscal_periods")
+}
+
+/// A filed tax period (M9). One row per (entity, filingType, year, month).
+/// A row with status 'filed' LOCKS the tax month: AR/AP documents dated into it
+/// cannot be created or edited until an admin reopens it (status 'reopened').
+/// `snapshot` captures the register totals at filing time for the audit trail.
+/// entityId is a bare scalar (no relation) to keep the change self-contained.
+model TaxFiling {
+  id         String    @id @default(cuid())
+  entityId   String    @map("entity_id")
+  filingType String    @default("vat") @map("filing_type")
+  year       Int
+  month      Int
+  status     String    @default("filed")
+  snapshot   Json?
+  notes      String?
+  filedAt    DateTime  @default(now()) @map("filed_at")
+  filedBy    String    @map("filed_by") @db.Uuid
+  reopenedAt DateTime? @map("reopened_at")
+  reopenedBy String?   @map("reopened_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([entityId, filingType, year, month])
+  @@index([entityId, status])
+  @@map("tax_filings")
+}
+
+/// A customer advance / unapplied credit (M3): the excess when a receipt
+/// overpays an AR invoice. `balance` is the still-unapplied amount; applying it
+/// to a future invoice draws it down (status open → applied at zero). Amounts
+/// are in `currency` (the capturing receipt's currency = the entity base for the
+/// gated overpayment path). entityId/createdBy are bare scalars (no relation),
+/// and the customer is the free-text `counterparty` (invoices aren't linked to a
+/// Vendor row), matching how invoices identify their counterparty.
+///
+/// Payable counterpart: AP overpay writes a row here with notes="vendor-advance"
+/// and posts to the situational `vendor_advances` mapping role. The AR list and
+/// applyAdvance path exclude those rows so CustomerAdvance stays AR-only. A
+/// dedicated vendor_advances table is not required.
+/// Money received from a customer, or paid to a supplier, that is not settling
+/// an invoice. Despite the table name this holds BOTH sides — `side` says which.
+///
+/// `kind` is the tax-critical field:
+///   'advance'    — payment for goods or services still to come. Output VAT is
+///                  due at receipt (the system issues the tax invoice then), so
+///                  `vatAmount` is carried and RELIEVED when the advance is
+///                  applied, otherwise the later invoice taxes the same base a
+///                  second time. NON-MONETARY under TAS 21 — the obligation is
+///                  to deliver services, not cash — so it is never retranslated
+///                  at month end.
+///   'refundable' — money received or paid in error. No sale, so no VAT and no
+///                  tax invoice. MONETARY (the obligation is to repay cash), so
+///                  it IS retranslated at month end like a receivable.
+///
+/// Getting `kind` wrong is not cosmetic: it decides whether tax is charged and
+/// whether an FX difference is recognised.
+model CustomerAdvance {
+  id              String    @id @default(cuid())
+  entityId        String    @map("entity_id")
+  /// Free-text name, kept for rows created before vendorId existed. New rows
+  /// set both; `vendorId` is what a contact merge repoints.
+  counterparty    String
+  vendorId        String?   @map("vendor_id") @db.Uuid
+  /// 'ar' (received from a customer) | 'ap' (paid to a supplier). Backfilled
+  /// from the old `notes = 'vendor-advance'` sentinel.
+  side            String    @default("ar")
+  /// 'advance' | 'refundable' — see the model comment.
+  kind            String    @default("refundable")
+  currency        String
+  originalAmount  Decimal   @map("original_amount") @db.Decimal(15, 2)
+  balance         Decimal   @db.Decimal(15, 2)
+  /// VAT inside `originalAmount` for kind='advance'; always 0 for 'refundable'.
+  vatAmount       Decimal   @default(0) @map("vat_amount") @db.Decimal(15, 2)
+  /// Receipt / tax-invoice number the VAT was declared on, so a refund can find
+  /// the document its credit note must reference.
+  taxInvoiceNo    String?   @map("tax_invoice_no")
+  status          String    @default("open")
+  sourcePaymentId String?   @map("source_payment_id")
+  linkedJeId      String?   @map("linked_je_id")
+  refundedAt      DateTime? @map("refunded_at")
+  refundJeId      String?   @map("refund_je_id")
+  notes           String?
+  createdBy       String    @map("created_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([entityId, status])
+  @@index([entityId, counterparty])
+  @@index([entityId, side, status])
+  @@index([vendorId])
+  @@map("customer_advances")
+}
+
+model AccountMapping {
+  id               String   @id @default(cuid())
+  entityId         String   @map("entity_id")
+  role             String
+  chartOfAccountId String   @map("chart_of_account_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  entity  Entity         @relation(fields: [entityId], references: [id])
+  account ChartOfAccount @relation("AccountMappingAccount", fields: [chartOfAccountId], references: [id])
+
+  @@unique([entityId, role])
+  @@map("account_mappings")
+}
+
+/// Per-entity, per-doc-type running number. Incremented inside the posting
+/// transaction (single upsert → native ON CONFLICT, row-locked) so concurrent
+/// creates never collide. docType ∈ invoice | bill | quote | po | credit-note |
+/// je | receipt | debit-note | wht-certificate | payment.
+///
+/// `resetPeriod` (none | monthly | annual) governs whether the counter restarts
+/// each period; `periodKey` is the concrete period bucket ("" for none,
+/// "YYYYMM" for monthly, "YYYY" for annual) computed in Asia/Bangkok time. The
+/// counter is unique per (entity, docType, periodKey) so each period owns an
+/// independent running number. Default reset_period='none' + period_key=''
+/// reproduces the previous per-(entity, docType) behavior exactly.
+model DocumentSequence {
+  id          String   @id @default(cuid())
+  entityId    String   @map("entity_id")
+  docType     String   @map("doc_type")
+  prefix      String   @default("")
+  nextNumber  Int      @default(1) @map("next_number")
+  padWidth    Int      @default(5) @map("pad_width")
+  resetPeriod String   @default("none") @map("reset_period")
+  periodKey   String   @default("") @map("period_key")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  entity Entity @relation(fields: [entityId], references: [id])
+
+  @@unique([entityId, docType, periodKey])
+  @@map("document_sequences")
+}
+
+/// Fixed Asset register (Thailand statutory PPE ledger). One row per asset
+/// line (a line may hold multiple units — see `quantity`). Money excludes VAT.
+/// Depreciation is NOT stored per period; it is computed on demand by the
+/// depreciation engine (fixed-asset-depreciation.ts) from these fields, so
+/// there is no drift between the register and any report.
+///
+/// Opening-balance load: for assets whose `purchaseDate` is on/before the
+/// cut-over, `openingBookValue` (NBV at `openingAsOfDate`) is stored and the
+/// engine depreciates forward from that anchor at the original daily rate.
+/// Post-cut-over assets leave both null and depreciate from `startDate`.
+///
+/// `assetClass` (IT | PFA | FF) drives the generated code prefix + the default
+/// useful life; `categoryCode` is the finer, admin-editable category (open
+/// string into fixed_asset_categories.code so the list stays editable).
+///
+/// status ∈ active | idle | pending_disposal | disposed | written_off |
+/// transferred. active/idle/pending_disposal are "asset using"; the rest are
+/// "asset not using". A disposal stays pending (asset in pending_disposal, still
+/// "using") until an approver actions it — see FixedAssetDisposal.
+model FixedAsset {
+  id                    String    @id @default(uuid()) @db.Uuid
+  entityId              String    @map("entity_id")
+  assetNo               String    @map("asset_no")
+  name                  String
+  nameTh                String?   @map("name_th")
+  categoryCode          String    @map("category_code")
+  assetClass            String    @map("asset_class")
+  location              String?
+  assignedUser          String?   @map("assigned_user")
+  supplier              String?
+  serialNo              String?   @map("serial_no")
+  purchaseDate          DateTime  @map("purchase_date") @db.Date
+  startDate             DateTime  @map("start_date") @db.Date
+  usefulLifeMonths      Int       @map("useful_life_months")
+  quantity              Int       @default(1)
+  purchasePrice         Decimal   @map("purchase_price") @db.Decimal(15, 2)
+  openingBookValue      Decimal?  @map("opening_book_value") @db.Decimal(15, 2)
+  openingAsOfDate       DateTime? @map("opening_as_of_date") @db.Date
+  /// TAX basis, parallel to the book basis above. Thai RD lives differ from the
+  /// book lives, and the difference is what a deferred tax schedule measures.
+  /// All null until an accountant supplies them; the schedule must treat null
+  /// as "no tax basis known" and exclude the asset, NEVER fall back to the book
+  /// life — that yields a temporary difference of exactly zero and a clean,
+  /// plausible, entirely wrong 0.00 for every asset.
+  taxUsefulLifeMonths   Int?      @map("tax_useful_life_months")
+  openingTaxWdv         Decimal?  @map("opening_tax_wdv") @db.Decimal(15, 2)
+  openingTaxAsOfDate    DateTime? @map("opening_tax_as_of_date") @db.Date
+  status                String    @default("active")
+  disposalDate          DateTime? @map("disposal_date") @db.Date
+  sellingPrice          Decimal?  @map("selling_price") @db.Decimal(15, 2)
+  notes                 String?
+  linkGroup             String?   @map("link_group")
+  createdBy             String    @map("created_by") @db.Uuid
+  deletedAt             DateTime? @map("deleted_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  /// Cumulative revaluation surplus (OCI/equity) and cumulative decrease charged
+  /// to P&L, per IAS 16.39-40. Running balances, NOT derivable from the carrying
+  /// amount: two assets at the same carrying amount split the same movement
+  /// differently depending on their history. See fixed-asset-revaluation.ts.
+  revaluationSurplus    Decimal   @default(0) @map("revaluation_surplus") @db.Decimal(15, 2)
+  impairmentPlLoss      Decimal   @default(0) @map("impairment_pl_loss") @db.Decimal(15, 2)
+
+  disposals       FixedAssetDisposal[]
+  remeasurements  FixedAssetRemeasurement[]
+  transfersOut    FixedAssetTransfer[]      @relation("TransferSourceAsset")
+  transfersIn     FixedAssetTransfer[]      @relation("TransferDestinationAsset")
+  countLines      FixedAssetCountLine[]
+
+  @@unique([entityId, assetNo])
+  @@index([entityId, status])
+  @@index([entityId, categoryCode])
+  @@index([deletedAt])
+  @@index([createdBy])
+  @@map("fixed_assets")
+}
+
+/// Disposal / write-off approval record. Additions need NO approval; disposals
+/// and write-offs do (PRD §2). Single-approver status flow mirroring
+/// JournalEntry's write-once stamps: pending → approved | rejected, immutable
+/// once past pending. The DISPOSAL DATE governs the accounting period, never
+/// the approval date — an approval landing after month-end still recognises the
+/// disposal in the disposal date's period. Supports partial (unitsDisposed) and
+/// grouped (linkGroupId) disposals under one approval.
+model FixedAssetDisposal {
+  id            String    @id @default(uuid()) @db.Uuid
+  assetId       String    @map("asset_id") @db.Uuid
+  entityId      String    @map("entity_id")
+  disposalType  String    @map("disposal_type")
+  disposalDate  DateTime  @map("disposal_date") @db.Date
+  unitsDisposed Int       @default(1) @map("units_disposed")
+  proceeds      Decimal   @default(0) @db.Decimal(15, 2)
+  nbvDisposed   Decimal?  @map("nbv_disposed") @db.Decimal(15, 2)
+  gainLoss      Decimal?  @map("gain_loss") @db.Decimal(15, 2)
+  /// Point-in-time snapshot of the asset AS IT WAS immediately before this
+  /// disposal was approved. A partial disposal reduces the live row's cost and
+  /// quantity, which would otherwise restate history — an old-dated report
+  /// recomputed against today's reduced cost. Reports rebuild the asset's state
+  /// at a past date from the EARLIEST approved disposal dated after it.
+  /// Null on rows approved before this snapshot shipped (reports then fall back
+  /// to the live values, i.e. the previous behaviour).
+  quantityBefore          Int?     @map("quantity_before")
+  costBefore              Decimal? @map("cost_before") @db.Decimal(15, 2)
+  openingBookValueBefore  Decimal? @map("opening_book_value_before") @db.Decimal(15, 2)
+  costRemoved             Decimal? @map("cost_removed") @db.Decimal(15, 2)
+  accumulatedRemoved      Decimal? @map("accumulated_removed") @db.Decimal(15, 2)
+  /// Tax-basis counterparts of the snapshot above. Without them a partial
+  /// disposal restates TAX history exactly the way it once restated book
+  /// history — the same bug, on the basis nobody can eyeball.
+  accumulatedTaxRemoved   Decimal? @map("accumulated_tax_removed") @db.Decimal(15, 2)
+  openingTaxWdvBefore     Decimal? @map("opening_tax_wdv_before") @db.Decimal(15, 2)
+  /// The posted journal entry, when GL posting is on. Doubles as the
+  /// idempotency handle: a disposal that already carries one is never posted
+  /// twice (mirrors Invoice.linkedJeId).
+  linkedJeId    String?   @map("linked_je_id")
+  reason        String?
+  linkGroupId   String?   @map("link_group_id")
+  status        String    @default("pending")
+  createdBy     String    @map("created_by") @db.Uuid
+  requestedAt   DateTime  @default(now()) @map("requested_at")
+  approvedBy    String?   @map("approved_by") @db.Uuid
+  approvedAt    DateTime? @map("approved_at")
+  rejectedBy    String?   @map("rejected_by") @db.Uuid
+  rejectedAt    DateTime? @map("rejected_at")
+  rejectReason  String?   @map("reject_reason")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  asset    FixedAsset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  linkedJe JournalEntry? @relation("FixedAssetDisposalJournal", fields: [linkedJeId], references: [id])
+
+  @@index([entityId, status])
+  @@index([assetId])
+  @@map("fixed_asset_disposals")
+}
+
+/// Admin-editable Asset Category list, entity-scoped (mirrors TaxCode). Carries
+/// the default useful life (3y IT, 5y PFA/FF) and the asset class that drives
+/// the generated code prefix.
+///
+/// The four `*GlAccountId` columns are bare chart_of_accounts ids used by the
+/// Phase 2 posting engine. They are the PER-CATEGORY override; when null the
+/// posting resolver falls back to the entity-level AccountMapping role (see
+/// fixed-asset-accounts.ts). Depreciation needs TWO accounts — the expense and
+/// the accumulated-depreciation contra — so `depreciationGlAccountId` (the
+/// expense) is paired with `accumulatedDepreciationGlAccountId`; a single field
+/// could not express the entry.
+///
+/// Usage-guarded delete: a category referenced by any live asset is deactivated
+/// (isActive=false), not hard-deleted, so historical assets keep their linkage.
+model FixedAssetCategory {
+  id                                 String   @id @default(uuid()) @db.Uuid
+  entityId                           String   @map("entity_id")
+  code                               String
+  name                               String
+  nameTh                             String?  @map("name_th")
+  assetClass                         String   @map("asset_class")
+  usefulLifeMonths                   Int      @map("useful_life_months")
+  /// Default TAX useful life for the class. Null means "no separate tax basis
+  /// configured" — deliberately NOT a silent fallback to usefulLifeMonths,
+  /// which would compute a temporary difference of exactly zero and render a
+  /// clean, plausible, entirely wrong deferred tax schedule.
+  taxUsefulLifeMonths                Int?     @map("tax_useful_life_months")
+  assetGlAccountId                   String?  @map("asset_gl_account_id")
+  depreciationGlAccountId            String?  @map("depreciation_gl_account_id")
+  accumulatedDepreciationGlAccountId String?  @map("accumulated_depreciation_gl_account_id")
+  disposalGainGlAccountId            String?  @map("disposal_gain_gl_account_id")
+  disposalLossGlAccountId            String?  @map("disposal_loss_gl_account_id")
+  isActive                           Boolean  @default(true) @map("is_active")
+  createdAt                          DateTime @default(now()) @map("created_at")
+  updatedAt                          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([entityId, code])
+  @@index([entityId, isActive])
+  @@map("fixed_asset_categories")
+}
+
+
+/// Revaluation / impairment / impairment reversal (WS2). One row per approved
+/// remeasurement. The *Before columns are the point-in-time snapshot the report
+/// layer rebuilds history from — see fixed-asset-state.ts; without them a later
+/// remeasurement restates every earlier report.
+model FixedAssetRemeasurement {
+  id                    String    @id @default(uuid()) @db.Uuid
+  assetId               String    @map("asset_id") @db.Uuid
+  entityId              String    @map("entity_id")
+  /// revaluation | impairment | impairment_reversal
+  kind                  String
+  effectiveDate         DateTime  @map("effective_date") @db.Date
+  carryingBefore        Decimal   @map("carrying_before") @db.Decimal(15, 2)
+  carryingAfter         Decimal   @map("carrying_after") @db.Decimal(15, 2)
+  movement              Decimal   @db.Decimal(15, 2)
+  /// The recognition split. profitOrLoss + oci always equals movement exactly.
+  profitOrLoss          Decimal   @map("profit_or_loss") @db.Decimal(15, 2)
+  oci                   Decimal   @db.Decimal(15, 2)
+  /// Balances AFTER this event, persisted so the next one does not re-derive them.
+  surplusAfter          Decimal   @map("surplus_after") @db.Decimal(15, 2)
+  plLossAfter           Decimal   @map("pl_loss_after") @db.Decimal(15, 2)
+  /// Set when IAS 36.117 clipped an impairment reversal.
+  cappedAt              Decimal?  @map("capped_at") @db.Decimal(15, 2)
+  /// Remaining life the asset depreciates the new amount over — never a fresh life.
+  remainingLifeMonths   Int?      @map("remaining_life_months")
+  reason                String?
+  /// Appraiser report / impairment indicator evidence.
+  evidenceUrl           String?   @map("evidence_url")
+  quantityBefore        Int?      @map("quantity_before")
+  costBefore            Decimal?  @map("cost_before") @db.Decimal(15, 2)
+  openingBookValueBefore Decimal? @map("opening_book_value_before") @db.Decimal(15, 2)
+  openingAsOfDateBefore DateTime? @map("opening_as_of_date_before") @db.Date
+  status                String    @default("pending")
+  createdBy             String    @map("created_by") @db.Uuid
+  requestedAt           DateTime  @default(now()) @map("requested_at")
+  approvedBy            String?   @map("approved_by") @db.Uuid
+  approvedAt            DateTime? @map("approved_at")
+  rejectedBy            String?   @map("rejected_by") @db.Uuid
+  rejectedAt            DateTime? @map("rejected_at")
+  rejectReason          String?   @map("reject_reason")
+  linkedJeId            String?   @map("linked_je_id")
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  asset    FixedAsset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  linkedJe JournalEntry? @relation("FixedAssetRemeasurementJournal", fields: [linkedJeId], references: [id])
+
+  @@index([entityId, status])
+  @@index([assetId, effectiveDate])
+  @@map("fixed_asset_remeasurements")
+}
+
+/// Location / custodian / cross-entity transfer with a movement trail (WS3).
+/// Location and custodian moves carry no value; an entity move is a disposal in
+/// the source plus an acquisition in the destination, carried at NET BOOK VALUE.
+model FixedAssetTransfer {
+  id                   String    @id @default(uuid()) @db.Uuid
+  assetId              String    @map("asset_id") @db.Uuid
+  entityId             String    @map("entity_id")
+  /// location | custodian | entity
+  kind                 String
+  transferDate         DateTime  @map("transfer_date") @db.Date
+  fromLocation         String?   @map("from_location")
+  toLocation           String?   @map("to_location")
+  fromCustodian        String?   @map("from_custodian")
+  toCustodian          String?   @map("to_custodian")
+  toEntityId           String?   @map("to_entity_id")
+  /// The asset row created in the destination entity (cross-entity only).
+  destinationAssetId   String?   @map("destination_asset_id") @db.Uuid
+  /// Cost and accumulated depreciation carried across; NBV is preserved.
+  costTransferred      Decimal?  @map("cost_transferred") @db.Decimal(15, 2)
+  accumulatedTransferred Decimal? @map("accumulated_transferred") @db.Decimal(15, 2)
+  remainingLifeMonths  Int?      @map("remaining_life_months")
+  reason               String?
+  status               String    @default("pending")
+  createdBy            String    @map("created_by") @db.Uuid
+  requestedAt          DateTime  @default(now()) @map("requested_at")
+  approvedBy           String?   @map("approved_by") @db.Uuid
+  approvedAt           DateTime? @map("approved_at")
+  rejectedBy           String?   @map("rejected_by") @db.Uuid
+  rejectedAt           DateTime? @map("rejected_at")
+  rejectReason         String?   @map("reject_reason")
+  /// Two entries for a cross-entity move: out of the source, into the destination.
+  linkedJeOutId        String?   @map("linked_je_out_id")
+  linkedJeInId         String?   @map("linked_je_in_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+
+  asset            FixedAsset  @relation("TransferSourceAsset", fields: [assetId], references: [id], onDelete: Cascade)
+  destinationAsset FixedAsset? @relation("TransferDestinationAsset", fields: [destinationAssetId], references: [id])
+
+  @@index([entityId, status])
+  @@index([assetId, transferDate])
+  @@map("fixed_asset_transfers")
+}
+
+/// Physical count session (WS4). Touches no GL: a shortfall produces a
+/// recommendation routed into the existing write-off disposal flow.
+model FixedAssetCountSession {
+  id          String    @id @default(uuid()) @db.Uuid
+  entityId    String    @map("entity_id")
+  sessionNo   String    @map("session_no")
+  /// The date the count is AS AT — expected quantities are resolved at this date,
+  /// not today, because a year-end count runs over the following fortnight.
+  asOfDate    DateTime  @map("as_of_date") @db.Date
+  name        String?
+  locationFilter String? @map("location_filter")
+  /// open | closed
+  status      String    @default("open")
+  createdBy   String    @map("created_by") @db.Uuid
+  closedBy    String?   @map("closed_by") @db.Uuid
+  closedAt    DateTime? @map("closed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  lines FixedAssetCountLine[]
+
+  @@unique([entityId, sessionNo])
+  @@index([entityId, status])
+  @@map("fixed_asset_count_sessions")
+}
+
+model FixedAssetCountLine {
+  id               String   @id @default(uuid()) @db.Uuid
+  sessionId        String   @map("session_id") @db.Uuid
+  /// Null for something found that is not in the register at all.
+  assetId          String?  @map("asset_id") @db.Uuid
+  scannedTag       String?  @map("scanned_tag")
+  expectedQuantity Int      @map("expected_quantity")
+  countedQuantity  Int      @map("counted_quantity")
+  note             String?
+  countedBy        String   @map("counted_by") @db.Uuid
+  countedAt        DateTime @default(now()) @map("counted_at")
+
+  session FixedAssetCountSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  asset   FixedAsset?            @relation(fields: [assetId], references: [id])
+
+  @@index([sessionId])
+  @@index([assetId])
+  @@map("fixed_asset_count_lines")
+}
+
+/// Effective-dated corporate income tax rate per entity (WS5). Dated because a
+/// temporary difference is measured at the rate expected when it REVERSES
+/// (IAS 12.47), and because BOI promotions start and end on fixed dates.
+/// Absence of a row is a hard stop for the deferred tax schedule, never a cue
+/// to assume the headline rate.
+model EntityTaxRate {
+  id            String    @id @default(uuid()) @db.Uuid
+  entityId      String    @map("entity_id")
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  ratePercent   Decimal   @map("rate_percent") @db.Decimal(6, 3)
+  label         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([entityId, effectiveFrom])
+  @@map("entity_tax_rates")
 }

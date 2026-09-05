@@ -9,8 +9,6 @@ import { ninetyDayReminderEmail } from "@/infrastructure/email/templates";
 import {
   createSignedUrl,
   parseStorageUrl,
-  requireRegisteredStorageUrl,
-  STORAGE_BUCKETS,
 } from "@/infrastructure/storage/supabase-storage";
 import { PORTAL_URL } from "@/lib/portal-url";
 import { ninetyDayRepository } from "@/modules/ninety-day/ninety-day.repository";
@@ -88,7 +86,7 @@ interface ResolvedRow extends ParsedRow {
   employeeId: string;
 }
 
-// Reminder milestones for the reporting workflow:
+// Reminder milestones per HR (Tanny, May 2026, xlsx columns):
 //   T-21d  — first heads-up
 //   T-15d  — advance submission window opens
 //   T+7d   — final report day (TM.47 deadline is +7 days past 90)
@@ -99,7 +97,7 @@ interface ResolvedRow extends ParsedRow {
 
 const RECIPIENTS_SETTING_KEY = "visa.notification_recipients";
 
-// The legacy import assumed a fixed always-CC pair. The setting
+// xlsx hardcodes Tanatsha + Sarah as the always-CC pair. The setting
 // key above is shared with the visa-expiry workflow; both reuse the
 // same HR distribution. Env fallback keeps ops bootstrap working
 // before the UI lands.
@@ -213,14 +211,7 @@ export class NinetyDayService {
     return this.serialize(row);
   }
 
-  async create(input: CreateNinetyDayInput, actorId: string) {
-    if (input.receipt?.url && parseStorageUrl(input.receipt.url)) {
-      await requireRegisteredStorageUrl(input.receipt.url, {
-        allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-        purpose: "ninety-day-receipt",
-        uploadedBy: actorId,
-      });
-    }
+  async create(input: CreateNinetyDayInput) {
     const arrival = parseDateOnly(input.lastArrivalDate);
     const due = addDays(arrival, 89);
     const created = await ninetyDayRepository.create({
@@ -242,18 +233,8 @@ export class NinetyDayService {
     return this.serialize(created);
   }
 
-  async update(id: string, input: UpdateNinetyDayInput, actorId: string) {
-    const existing = await ninetyDayRepository.findById(id);
-    if (!existing) throw new NotFoundException("90-day notification not found");
-    if (input.receipt?.url && parseStorageUrl(input.receipt.url)) {
-      await requireRegisteredStorageUrl(input.receipt.url, {
-        allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-        purpose: "ninety-day-receipt",
-        ...(input.receipt.url !== existing.receiptUrl && {
-          uploadedBy: actorId,
-        }),
-      });
-    }
+  async update(id: string, input: UpdateNinetyDayInput) {
+    await this.getById(id);
     const data: Record<string, unknown> = {};
     if (input.lastArrivalDate !== undefined) {
       const arrival = parseDateOnly(input.lastArrivalDate);
@@ -303,11 +284,7 @@ export class NinetyDayService {
     if (!parsed) {
       return { url: row.receiptUrl, name };
     }
-    const trusted = await requireRegisteredStorageUrl(row.receiptUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "ninety-day-receipt",
-    });
-    const signed = await createSignedUrl(trusted.bucket, trusted.path, 300);
+    const signed = await createSignedUrl(parsed.bucket, parsed.path, 300);
     return { url: signed, name };
   }
 

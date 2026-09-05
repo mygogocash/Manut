@@ -1,19 +1,19 @@
 model Partner {
-  id                 String    @id @default(cuid())
-  slug               String    @unique
-  company            String
-  type               String
-  status             String    @default("prospect")
-  region             String?
-  country            String?
-  website            String?
-  description        String?
-  contractValue      Decimal?  @map("contract_value") @db.Decimal(15, 2)
-  contractStart      DateTime? @map("contract_start") @db.Date
-  contractEnd        DateTime? @map("contract_end") @db.Date
-  notes              String?
-  // Partner CRM list layout mirrors the Projects dashboard.
-  // These columns drive the same "roll-out tracking" view the sales team
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  company       String
+  type          String
+  status        String    @default("prospect")
+  region        String?
+  country       String?
+  website       String?
+  description   String?
+  contractValue Decimal?  @map("contract_value") @db.Decimal(15, 2)
+  contractStart DateTime? @map("contract_start") @db.Date
+  contractEnd   DateTime? @map("contract_end") @db.Date
+  notes         String?
+  // Partner CRM list layout mirrors the Projects dashboard (#534).
+  // These columns drive the same "roll-out tracking" view the BD team
   // uses for projects, scoped to a partnership instead of a project.
   productionLiveDate DateTime? @map("production_live_date") @db.Date
   goLiveDate         DateTime? @map("go_live_date") @db.Date
@@ -26,35 +26,41 @@ model Partner {
   comment            String?
   // Manual ordering (drag-to-reorder on /partners). Lower values first;
   // createdAt is the deterministic tie-breaker.
-  sortOrder          Int       @default(0) @map("sort_order")
+  sortOrder  Int     @default(0) @map("sort_order")
   // Relationship / account manager. Free of any business-logic gating
   // (any active user is selectable); when set, surfaces in the
   // Owner column on the list view.
-  ownerId            String?   @map("owner_id") @db.Uuid
+  ownerId    String? @map("owner_id") @db.Uuid
   // Owning department — drawn from the same whitelist as Project
   // department so HR / BD / Marketing can share filters across modules.
-  department         String?
-  // Partner CRM owns its native `partner_*` workspace, so the retired
-  // redirect shim no longer needs a primary-project foreign key.
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  department String?
+  // `primaryProjectId` was dropped in Phase 4b of the Partner ↔
+  // Project decouple (2026-05-26). Partner CRM now owns its native
+  // `partner_*` workspace; the redirect-shim that needed this FK
+  // was retired in Phase 4a (#607).
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
-  contacts        PartnerContact[]
+  contacts PartnerContact[]
   // Optional many-to-one back-link for BD reporting (which projects
   // mention this partner). No cascade — deleting a Project sets the
   // FK on the Project side to NULL, not the Partner here.
-  projects        Project[]        @relation("PartnerProjects")
-  // Partner-native task tables prevent project deletion from cascading
-  // into an independently owned partner workspace.
-  partnerTasks    PartnerTask[]
-  partnerColumns  PartnerColumn[]
-  partnerMembers  PartnerMember[]
-  deals           Deal[]
-  // Sales CRM soft link to sales accounts. Records stay separate.
-  crmAccounts     Account[]        @relation("PartnerAccounts")
+  projects Project[]      @relation("PartnerProjects")
+  // Marketing-team incident (Darpan, 2026-05-26): the redirect-shim
+  // architecture (#576) caused a delete-from-/projects to cascade
+  // and wipe Marketing's Partner-side WIP. Phase 1 of the decouple
+  // adds Partner-native task tables; Phase 2+ migrates the UI off
+  // the redirect. Existing `primaryProjectId` link stays for now
+  // so the legacy redirect still works during the transition.
+  partnerTasks   PartnerTask[]
+  partnerColumns PartnerColumn[]
+  partnerMembers PartnerMember[]
+  deals    Deal[]
+  // Sales CRM v2 — soft link to sales accounts (PRD §11.6). Records stay separate.
+  crmAccounts Account[] @relation("PartnerAccounts")
   // Sales Revenue CRM — independent parallel soft link.
   revenueAccounts RevenueAccount[] @relation("PartnerRevenueAccounts")
-  owner           User?            @relation("PartnerOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  owner       User?     @relation("PartnerOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([sortOrder])
   @@index([ownerId])
@@ -78,10 +84,12 @@ model PartnerContact {
 
 // ─── Partner-native workspace ─────────────────────────────
 //
-// These tables let the Partner CRM own its
+// Phase 1 of the Partner ↔ Project decouple (Marketing incident,
+// Darpan, 2026-05-26). These tables let the Partner CRM own its
 // own board (tasks / columns / members / comments) without
 // reaching through `Partner.primaryProjectId` into the Project
-// graph.
+// graph. The redirect-shim from #576 still operates during the
+// transition; Phase 2+ migrates the UI off it.
 //
 // Shape mirrors the equivalent Project tables one-for-one to keep
 // the eventual UI port mechanical. Cascade rules: deleting a
@@ -133,10 +141,10 @@ model PartnerTask {
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  partner   Partner               @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  owner     User?                 @relation("PartnerTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  parent    PartnerTask?          @relation("PartnerTaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
-  subtasks  PartnerTask[]         @relation("PartnerTaskSubtasks")
+  partner   Partner                @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  owner     User?                  @relation("PartnerTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  parent    PartnerTask?           @relation("PartnerTaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks  PartnerTask[]          @relation("PartnerTaskSubtasks")
   comments  PartnerTaskComment[]
   assignees PartnerTaskAssignee[]
   resources PartnerTaskResource[]
@@ -220,87 +228,122 @@ model Deal {
 }
 
 model Project {
-  id                  String    @id @default(cuid())
-  name                String
-  slug                String    @unique
-  description         String?
-  status              String    @default("not_yet_started")
-  ownerId             String    @map("owner_id") @db.Uuid
-  partnerId           String?   @map("partner_id")
-  startDate           DateTime? @map("start_date") @db.Date
-  endDate             DateTime? @map("end_date") @db.Date
-  budget              Decimal?  @db.Decimal(15, 2)
-  progress            Int       @default(0)
-  // Admin-defined custom fields. Stored
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  status      String    @default("not_yet_started")
+  ownerId     String    @map("owner_id") @db.Uuid
+  partnerId   String?   @map("partner_id")
+  startDate   DateTime? @map("start_date") @db.Date
+  endDate     DateTime? @map("end_date") @db.Date
+  budget      Decimal?  @db.Decimal(15, 2)
+  progress    Int       @default(0)
+  // Marketing feedback round #2 — admin-defined custom fields. Stored
   // as a JSON array of `{ id, label, value }` objects so each project
   // can attach arbitrary metadata (campaign tag, channel, KPI, etc.)
   // without a schema migration. Tighter typing (date / number / link)
   // is a follow-up.
-  customFields        Json      @default("[]") @map("custom_fields")
-  // Structured roll-out tracking columns for the project dashboard. These replace
+  customFields Json     @default("[]") @map("custom_fields")
+  // BD feedback round #1 (May 2026) — structured roll-out tracking
+  // columns the BD team wants to see on the dashboard. These replace
   // the loosely-typed Progress + Due Date columns that were dropped.
   //
-  // `production_live` is a date so the dashboard can
+  // BD round #2 retyped `production_live` boolean → date so BD can
   // record *when* a project went live in production. `null` = not
   // yet live (replacing the old `false`).
-  productionLiveDate  DateTime? @map("production_live_date") @db.Date
-  goLiveDate          DateTime? @map("go_live_date") @db.Date
-  revisedGoLiveDate   DateTime? @map("revised_go_live_date") @db.Date
-  // Agreement signing state shown
+  productionLiveDate DateTime? @map("production_live_date") @db.Date
+  goLiveDate         DateTime? @map("go_live_date") @db.Date
+  revisedGoLiveDate  DateTime? @map("revised_go_live_date") @db.Date
+  // Project-team feedback (2026-06-10) — agreement signing state shown
   // after Rev. GoLive on the Project CRM list. Free-text from a fixed
   // frontend whitelist (`signed` / `not_signed`); null = not set.
-  agreement           String?
-  dependency          String?
-  comment             String?
+  agreement          String?
+  dependency         String?
+  comment            String?
   // Manual ordering for the list view (BD-driven drag-to-reorder).
   // Lower values render first; ties break on createdAt desc.
-  sortOrder           Int       @default(0) @map("sort_order")
+  sortOrder         Int       @default(0) @map("sort_order")
   // Owning team. `general` projects live on /projects (BD dashboard),
   // `it` projects live on the IT Helpdesk → Projects tab with the same
   // schema + UI but scoped to IT team visibility. Adding a new team
   // value here means surfacing a matching filter / tab in the UI.
-  team                String    @default("general")
+  team        String   @default("general")
   // Owning department — free-form label drawn from the shared
   // `PROJECT_DEPARTMENTS` list (Management / Marketing / HR / etc.).
   // Nullable so existing rows + non-departmental projects stay valid.
   // Tracked alongside `team` so multiple departments can collaborate
   // on the same BD workspace.
-  department          String?
-  // Workstream tags a Legal Task to
+  //
+  // A project can span several departments (`departments`), but ONE of them is
+  // the primary and stays in this scalar column. Keeping it is what lets the
+  // dashboard's `groupBy(["department"])`, the list filter and every export go
+  // on working unchanged — a scalar list cannot be grouped. `department` is
+  // always `departments[0]`; the service keeps the two in step.
+  department   String?
+  departments  String[] @default([])
+  // Legal-team feedback (2026-05-25) — Workstream tags a Legal Task to
   // the broader programme it belongs to (e.g. "Token Launch",
   // "Partnerships", "Compliance"). Free-text for now; promote to a
   // controlled vocabulary if the legal team starts collecting a
   // stable taxonomy. Nullable so non-Legal projects stay valid.
-  workstream          String?
-  // `details` is the long-form
+  workstream  String?
+  // Legal-team feedback (2026-05-26) — `details` is the long-form
   // narrative the Legal team uses to keep context on a Legal Task
   // (counterparty notes, deal mechanics, link to drive, etc.).
   // Distinct from `description` which is the short summary; this
   // field is the long body. Postgres `TEXT` for unbounded length.
   // Nullable so non-Legal projects stay valid.
-  details             String?   @db.Text
-  // HR CRM uses Project rows to track
+  details     String?   @db.Text
+  // HR-team feedback (2026-05-26) — HR CRM uses Project rows to track
   // operational HR tasks (visa runs, admin tickets, F&A approvals)
   // rather than long-lived projects. `taskType` is the issue category
   // and `assignedTeam` is the inbox the task should land in. Both are
   // free-text from a fixed whitelist on the frontend; null for
   // non-HR projects.
-  taskType            String?   @map("task_type")
-  assignedTeam        String?   @map("assigned_team")
+  taskType     String? @map("task_type")
+  assignedTeam String? @map("assigned_team")
   // Auto-assign default for NEW tasks on this project (shared-board CRMs:
   // general / hr / product / legal / accounting). `mode`: none | creator |
   // owner | user; resolved in projects.service.addTask when the creator
   // leaves the assignee blank. IT CRM keeps its own copy on it_projects.
-  defaultAssigneeMode String    @default("none") @map("default_assignee_mode")
-  defaultAssigneeId   String?   @map("default_assignee_id") @db.Uuid
+  defaultAssigneeMode String  @default("none") @map("default_assignee_mode")
+  defaultAssigneeId   String? @map("default_assignee_id") @db.Uuid
   // Go-live deadline-reminder debounce for shared-board CRMs (general / hr),
   // whose projects live here rather than in a native table. Fired rung markers
   // (e.g. "golive-7", "golive-overdue"); the generalized CRM deadline cron
   // reads/writes these. IT keeps its own copy on it_projects.
-  remindersSent       Json      @default("[]") @map("reminders_sent")
-  lastReminderSentAt  DateTime? @map("last_reminder_sent_at")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+  // Approval workflow engine. Kept in a DEDICATED column, separate from the
+  // board `status` field, so the existing Kanban / list / dashboard behaviour
+  // is completely untouched. `null` = the project is not in the workflow
+  // (every pre-existing project), which keeps the Project CRM backward
+  // compatible. Values: draft | pending_pm_approval |
+  // pending_business_head_approval | pending_product_admin_approval |
+  // pending_development | completed | rejected.
+  workflowStatus    String?   @map("workflow_status")
+  workflowUpdatedAt DateTime? @map("workflow_updated_at") @db.Timestamptz(6)
+  // Whom the Project Manager escalated to, when the status is
+  // `pending_escalation`. A named person rather than a role: who needs to sign
+  // off varies per request, so the target is data on the row instead of another
+  // stage in the machine. Plain scalar, not a relation — avoids a third
+  // Project->User relation alongside `owner` and `defaultAssignee`.
+  escalatedToId     String?   @map("escalated_to_id") @db.Uuid
+  // Which stage of the configured approval chain this request is waiting at,
+  // 1..N. Null on every project that predates configurable chains, and on
+  // anything not in the workflow, so the coded single-PM behaviour still reads
+  // correctly. `workflowStatus` still says WHAT the request is doing;
+  // this says WHERE in the chain it is. See approval-chains.prisma.
+  currentStepOrder  Int?      @map("current_step_order")
+  // Request priority, surfaced to approvers in the notification emails.
+  // Nullable — pre-existing projects read as "Normal". low|normal|high|urgent.
+  priority          String?
+  // Archived by the Project Manager (workflow owner). Archived projects are
+  // read-only for every role. Null = active.
+  archivedAt        DateTime? @map("archived_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   owner      User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   partner    Partner?           @relation("PartnerProjects", fields: [partnerId], references: [id])
@@ -308,11 +351,74 @@ model Project {
   members    ProjectMember[]
   columns    ProjectColumn[]
   milestones ProjectMilestone[]
+  // Immutable, append-only history of every workflow transition.
+  workflowTransitions ProjectWorkflowTransition[]
+  // Delivery log for every approval email raised by this project.
+  workflowEmails      ProjectWorkflowEmail[]
+  // Change requests raised against this project. See proposals.prisma.
+  proposals           Proposal[]
+  // Snapshot of the approval chain taken when this request was submitted.
+  approvalDecisions   ApprovalChainDecision[]
 
   @@index([sortOrder])
   @@index([team])
   @@index([department])
+  @@index([workflowStatus])
+  @@index([archivedAt])
   @@map("projects")
+}
+
+// Approval-workflow transition log. Append-only: one row per state change,
+// written inside the same transaction as the status update so a project can
+// never change state without a corresponding history entry.
+model ProjectWorkflowTransition {
+  id         String   @id @default(cuid())
+  projectId  String   @map("project_id")
+  // `null` on the very first transition (project entering the workflow).
+  fromStatus String?  @map("from_status")
+  toStatus   String   @map("to_status")
+  // Plain audit scalar (no relation) — avoids a second Project->User relation
+  // alongside the existing `owner`.
+  actorId    String?  @map("actor_id") @db.Uuid
+  // Mandatory on reject, optional otherwise.
+  comment    String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@map("project_workflow_transitions")
+}
+
+// Delivery log for approval-workflow emails. One row per (transition,
+// recipient, kind). `idempotencyKey` is UNIQUE and is claimed BEFORE the send
+// is attempted, so a replayed or concurrent trigger can never deliver the same
+// notification twice. Also the retry ledger: `attempts` / `error` record what
+// happened, and a row left in `pending` or `failed` is safe to retry.
+model ProjectWorkflowEmail {
+  id             String    @id @default(cuid())
+  projectId      String    @map("project_id")
+  // The transition that raised this email; null for reminders.
+  transitionId   String?   @map("transition_id")
+  // Workflow stage the email concerns, e.g. pending_pm_approval.
+  stage          String
+  // approval_request | decision_notice | completion_notice
+  kind           String
+  recipient      String
+  subject        String
+  // pending | sent | failed
+  status         String    @default("pending")
+  attempts       Int       @default(0)
+  error          String?   @db.Text
+  idempotencyKey String    @unique @map("idempotency_key")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  sentAt         DateTime? @map("sent_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([status])
+  @@map("project_workflow_emails")
 }
 
 model ProjectMember {
@@ -345,37 +451,37 @@ model ProjectColumn {
 }
 
 model ProjectTask {
-  id                 String    @id @default(uuid()) @db.Uuid
-  projectId          String    @map("project_id")
-  milestoneId        String?   @map("milestone_id") @db.Uuid
-  parentTaskId       String?   @map("parent_task_id") @db.Uuid
-  title              String
-  description        String?
-  status             String    @default("todo")
-  priority           String    @default("P1")
-  ownerId            String?   @map("owner_id") @db.Uuid
-  startDate          DateTime? @map("start_date") @db.Date
-  endDate            DateTime? @map("end_date") @db.Date
-  sortOrder          Int       @default(0) @map("sort_order")
+  id           String    @id @default(uuid()) @db.Uuid
+  projectId    String    @map("project_id")
+  milestoneId  String?   @map("milestone_id") @db.Uuid
+  parentTaskId String?   @map("parent_task_id") @db.Uuid
+  title        String
+  description  String?
+  status       String    @default("todo")
+  priority     String    @default("P1")
+  ownerId      String?   @map("owner_id") @db.Uuid
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  sortOrder    Int       @default(0) @map("sort_order")
   // Task-deadline reminder debounce ladder. The generalized CRM cron scans
   // project_tasks WHERE project.team IN the enabled board CRMs (it / general /
   // hr …). Fired rung markers, e.g. "due-3" / "due-overdue"; keeps the daily
   // cron idempotent.
-  remindersSent      Json      @default("[]") @map("reminders_sent")
+  remindersSent Json     @default("[]") @map("reminders_sent")
   lastReminderSentAt DateTime? @map("last_reminder_sent_at")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  project      Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  milestone    ProjectMilestone?       @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
-  owner        User?                   @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  parent       ProjectTask?            @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
-  subtasks     ProjectTask[]           @relation("TaskSubtasks")
+  project      Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone    ProjectMilestone?        @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  owner        User?                    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  parent       ProjectTask?             @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks     ProjectTask[]            @relation("TaskSubtasks")
   comments     ProjectTaskComment[]
   activities   ProjectTaskActivity[]
   assignees    ProjectTaskAssignee[]
-  dependencies ProjectTaskDependency[] @relation("DependentTask")
-  dependents   ProjectTaskDependency[] @relation("BlockingTask")
+  dependencies ProjectTaskDependency[]  @relation("DependentTask")
+  dependents   ProjectTaskDependency[]  @relation("BlockingTask")
   resources    ProjectTaskResource[]
 
   @@index([projectId])
@@ -439,12 +545,12 @@ model ProjectMilestone {
 }
 
 model ProjectTaskAssignee {
-  id            String   @id @default(uuid()) @db.Uuid
-  taskId        String   @map("task_id") @db.Uuid
-  userId        String   @map("user_id") @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
+  taskId       String   @map("task_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
   // 0..100 — capacity planning. `null` = unspecified.
-  allocationPct Int?     @map("allocation_pct")
-  createdAt     DateTime @default(now()) @map("created_at")
+  allocationPct Int?    @map("allocation_pct")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   task ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user User        @relation("ProjectTaskAssigneeUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -467,7 +573,7 @@ model ProjectTaskDependency {
   createdAt       DateTime @default(now()) @map("created_at")
 
   task          ProjectTask @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
-  dependsOnTask ProjectTask @relation("BlockingTask", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+  dependsOnTask ProjectTask @relation("BlockingTask",  fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, dependsOnTaskId])
   @@index([taskId])
@@ -496,7 +602,8 @@ model ProjectTaskResource {
 
 // ─── IT CRM workspace ───────────────────────────────────────
 //
-// IT CRM uses a standalone workspace and is moving
+// Phase 1 of the IT CRM standalone workspace. Follows the per-team
+// schema-isolation plan (Option A, 2026-05-26) — IT CRM is moving
 // off the shared `projects` table (filtered by `team="it"`) into
 // dedicated tables, same template as Partner phases 1-4. MVP shape
 // matches Partner: project + member + column + task + comment +
@@ -510,38 +617,38 @@ model ProjectTaskResource {
 // outside this graph.
 
 model ItProject {
-  id                  String    @id @default(cuid())
-  name                String
-  slug                String    @unique
-  description         String?
-  status              String    @default("not_yet_started")
-  ownerId             String    @map("owner_id") @db.Uuid
-  startDate           DateTime? @map("start_date") @db.Date
-  endDate             DateTime? @map("end_date") @db.Date
-  productionLiveDate  DateTime? @map("production_live_date") @db.Date
-  goLiveDate          DateTime? @map("go_live_date") @db.Date
-  revisedGoLiveDate   DateTime? @map("revised_go_live_date") @db.Date
-  dependency          String?
-  comment             String?
-  sortOrder           Int       @default(0) @map("sort_order")
-  department          String?
-  // Intelligence fields for IT CRM dashboard metrics.
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  description        String?
+  status             String    @default("not_yet_started")
+  ownerId            String    @map("owner_id") @db.Uuid
+  startDate          DateTime? @map("start_date") @db.Date
+  endDate            DateTime? @map("end_date") @db.Date
+  productionLiveDate DateTime? @map("production_live_date") @db.Date
+  goLiveDate         DateTime? @map("go_live_date") @db.Date
+  revisedGoLiveDate  DateTime? @map("revised_go_live_date") @db.Date
+  dependency         String?
+  comment            String?
+  sortOrder          Int       @default(0) @map("sort_order")
+  department         String?
+  // Intelligence fields (IT CRM dashboard redesign, 2026-05-30).
   // `statusChangedAt` is stamped whenever `status` changes so the
   // dashboard computes stage-aging / cycle-time directly instead of
   // inferring from `updatedAt` (which any edit bumps). `healthStatus`
   // is a manual RAG rating — "green" | "yellow" | "red" — driving the
   // portfolio heat-map exhibit; null = not yet rated. `effortPoints` is
   // relative sizing (story points / person-days) for velocity + load.
-  statusChangedAt     DateTime? @map("status_changed_at")
-  healthStatus        String?   @map("health_status")
-  effortPoints        Int?      @map("effort_points")
+  statusChangedAt    DateTime? @map("status_changed_at")
+  healthStatus       String?   @map("health_status")
+  effortPoints       Int?      @map("effort_points")
   // Reversible archive (orthogonal to `status`): a set `archivedAt` hides the
   // project from the default IT CRM list (Active tab) while preserving its real
   // status. Null = active. Mirrors the SurveyForm archive convention; NOT the
   // hard-delete path. The dashboard analytics still count archived projects as
   // historical record. Archive state lives on this native row only — it does
   // not propagate to the shared `projects` board mirror.
-  archivedAt          DateTime? @map("archived_at")
+  archivedAt         DateTime? @map("archived_at")
   // Auto-assign default for NEW tasks on this project (IT CRM only). `mode`
   // decides who a task's owner defaults to when the creator leaves it blank:
   //   none    – no default (current behaviour)
@@ -552,17 +659,17 @@ model ItProject {
   // is the live writer). `defaultAssigneeId` is a plain user id with no FK —
   // matches the PartnerTaskResource.createdBy precedent — so it is validated
   // (must be an active user) before it is applied.
-  defaultAssigneeMode String    @default("none") @map("default_assignee_mode")
-  defaultAssigneeId   String?   @map("default_assignee_id") @db.Uuid
+  defaultAssigneeMode String  @default("none") @map("default_assignee_mode")
+  defaultAssigneeId   String? @map("default_assignee_id") @db.Uuid
   // Deadline-reminder debounce ladder. `remindersSent` holds the fired rung
   // markers (e.g. "golive-7", "golive-overdue") so the daily cron is
   // idempotent — re-running the same day is a no-op. Reset to [] in
   // ItCrmService.update() whenever a go-live date is edited, so a slipped
   // deadline re-arms its countdown. See it-crm.reminders.ts.
-  remindersSent       Json      @default("[]") @map("reminders_sent")
-  lastReminderSentAt  DateTime? @map("last_reminder_sent_at")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   owner   User              @relation("ItProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members ItProjectMember[]
@@ -605,18 +712,18 @@ model ItProjectColumn {
 }
 
 model ItProjectTask {
-  id              String    @id @default(uuid()) @db.Uuid
-  projectId       String    @map("project_id")
-  parentTaskId    String?   @map("parent_task_id") @db.Uuid
-  title           String
-  description     String?
-  status          String    @default("todo")
-  priority        String    @default("medium")
-  ownerId         String?   @map("owner_id") @db.Uuid
-  startDate       DateTime? @map("start_date") @db.Date
-  endDate         DateTime? @map("end_date") @db.Date
-  sortOrder       Int       @default(0) @map("sort_order")
-  // Flow metrics for the IT CRM dashboard.
+  id           String    @id @default(uuid()) @db.Uuid
+  projectId    String    @map("project_id")
+  parentTaskId String?   @map("parent_task_id") @db.Uuid
+  title        String
+  description  String?
+  status       String    @default("todo")
+  priority     String    @default("medium")
+  ownerId      String?   @map("owner_id") @db.Uuid
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  sortOrder    Int       @default(0) @map("sort_order")
+  // Flow metrics (IT CRM dashboard redesign, 2026-05-30).
   // `statusChangedAt` = last status transition; `completedAt` = when the
   // task entered the terminal `done` column (cleared if it moves back
   // out). Together they give precise cycle-time + throughput instead of
@@ -625,8 +732,8 @@ model ItProjectTask {
   statusChangedAt DateTime? @map("status_changed_at")
   completedAt     DateTime? @map("completed_at")
   effortPoints    Int?      @map("effort_points")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   project   ItProject               @relation(fields: [projectId], references: [id], onDelete: Cascade)
   owner     User?                   @relation("ItProjectTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -701,7 +808,8 @@ model CrmNotification {
 
 // ─── QA CRM workspace ───────────────────────────────────────
 //
-// QA CRM uses the same standalone workspace shape as IT/Partner —
+// Phase 1 of the QA CRM standalone workspace (Option A per-CRM
+// schema isolation, 2026-05-26). Same template as IT/Partner —
 // project + member + column + task + comment + assignee — but the
 // Task model extends with the QA team's Excel template fields:
 // issueDate, product, issueType, observation, expectation, eta,
@@ -725,9 +833,19 @@ model QaProject {
   comment     String?
   sortOrder   Int       @default(0) @map("sort_order")
   department  String?
+  // Auto-assign default for NEW tasks (Phase C pt3). QA is a pure-native
+  // workspace (its own /qa-crm/:id board), so `mode` is resolved in
+  // qa-crm.service.createTask. none|creator|owner|user.
+  defaultAssigneeMode String  @default("none") @map("default_assignee_mode")
+  defaultAssigneeId   String? @map("default_assignee_id") @db.Uuid
+  // Deadline-reminder debounce ladder (Phase C pt3). QA projects have no
+  // go-live — the cron reminds on `endDate` with "due-N"/"due-overdue"
+  // markers instead of the golive prefix used by the go-live boards.
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
-
+  archivedAt  DateTime? @map("archived_at")
   owner   User              @relation("QaProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members QaProjectMember[]
   columns QaProjectColumn[]
@@ -735,6 +853,7 @@ model QaProject {
 
   @@index([sortOrder])
   @@index([department])
+  @@index([archivedAt])
   @@map("qa_projects")
 }
 
@@ -782,19 +901,23 @@ model QaProjectTask {
   // QA template fields — direct port of the team's Excel columns.
   // `qaComment` is the long-form Comment column (distinct from the
   // workspace's threaded `QaProjectTaskComment`). `partner` matches
-  // the import spreadsheet column that sits between Date and
-  // Product — free-text counterparty / vendor /
+  // the QA team's spreadsheet column that sits between Date and
+  // Product (2026-05-26 feedback) — free-text counterparty / vendor /
   // partner the issue applies to.
-  issueDate    DateTime? @map("issue_date") @db.Date
-  partner      String?
-  product      String?
-  issueType    String?   @map("issue_type")
-  observation  String?   @db.Text
-  expectation  String?   @db.Text
-  eta          String?
-  qaComment    String?   @map("qa_comment") @db.Text
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  issueDate   DateTime? @map("issue_date") @db.Date
+  partner     String?
+  product     String?
+  issueType   String?   @map("issue_type")
+  observation String?   @db.Text
+  expectation String?   @db.Text
+  eta         String?
+  qaComment   String?   @map("qa_comment") @db.Text
+  // Due-date reminder debounce (Phase C pt3) — QA tasks live ONLY here
+  // (pure-native board), so the CRM deadline cron scans this table.
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   project   QaProject               @relation(fields: [projectId], references: [id], onDelete: Cascade)
   owner     User?                   @relation("QaProjectTaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
@@ -845,46 +968,47 @@ model QaProjectTaskAssignee {
 
 // ─── Legal CRM workspace ────────────────────────────────────
 //
-// Legal CRM uses the same standalone workspace shape as IT / QA / Partner
+// Phase 1 of the Legal CRM standalone workspace (Option A per-CRM
+// schema isolation, 2026-05-26). Same template as IT / QA / Partner
 // — project + member + column + task + comment + assignee — plus
 // the Legal-only fields the team already uses: `workstream` (tag)
 // and `details` (long-form context introduced in #619).
 
 model LegalProject {
-  id                  String    @id @default(cuid())
-  name                String
-  slug                String    @unique
-  description         String?
-  status              String    @default("not_yet_started")
-  ownerId             String    @map("owner_id") @db.Uuid
-  startDate           DateTime? @map("start_date") @db.Date
-  endDate             DateTime? @map("end_date") @db.Date
-  productionLiveDate  DateTime? @map("production_live_date") @db.Date
-  goLiveDate          DateTime? @map("go_live_date") @db.Date
-  revisedGoLiveDate   DateTime? @map("revised_go_live_date") @db.Date
-  dependency          String?
-  comment             String?
-  sortOrder           Int       @default(0) @map("sort_order")
-  department          String?
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  description        String?
+  status             String    @default("not_yet_started")
+  ownerId            String    @map("owner_id") @db.Uuid
+  startDate          DateTime? @map("start_date") @db.Date
+  endDate            DateTime? @map("end_date") @db.Date
+  productionLiveDate DateTime? @map("production_live_date") @db.Date
+  goLiveDate         DateTime? @map("go_live_date") @db.Date
+  revisedGoLiveDate  DateTime? @map("revised_go_live_date") @db.Date
+  dependency         String?
+  comment            String?
+  sortOrder          Int       @default(0) @map("sort_order")
+  department         String?
   // Legal team specifics — `workstream` is the programme tag
   // (e.g. Token Launch / Partnerships / Compliance), `details` is
   // the long-form narrative the team logged in #619.
-  workstream          String?
-  details             String?   @db.Text
-  priority            String    @default("medium")
+  workstream  String?
+  details     String?   @db.Text
+  priority    String    @default("medium")
   // Auto-assign default for NEW tasks (Phase C pt2). `mode`: none|creator|
   // owner|user; resolved in projects.service.addTask (team='legal') from THIS
   // native row, not the shared mirror (which never copies these).
-  defaultAssigneeMode String    @default("none") @map("default_assignee_mode")
-  defaultAssigneeId   String?   @map("default_assignee_id") @db.Uuid
+  defaultAssigneeMode String  @default("none") @map("default_assignee_mode")
+  defaultAssigneeId   String? @map("default_assignee_id") @db.Uuid
   // Go-live deadline-reminder debounce ladder (Phase C pt2). The generalized
   // CRM cron scans this native table directly (the shared mirror is lazy +
   // never carries these), fired rung markers e.g. "golive-7"/"golive-overdue".
-  remindersSent       Json      @default("[]") @map("reminders_sent")
-  lastReminderSentAt  DateTime? @map("last_reminder_sent_at")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
-
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
   owner   User                 @relation("LegalProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members LegalProjectMember[]
   columns LegalProjectColumn[]
@@ -892,6 +1016,7 @@ model LegalProject {
 
   @@index([sortOrder])
   @@index([department])
+  @@index([archivedAt])
   @@map("legal_projects")
 }
 
@@ -984,42 +1109,43 @@ model LegalProjectTaskAssignee {
 
 // ─── Accounting CRM workspace ─────────────────────────────────
 //
-// Mirrors the Legal CRM standalone workspace: project + member + column + task +
+// Mirrors the Legal CRM standalone workspace (Option A per-CRM schema
+// isolation). Same template — project + member + column + task +
 // comment + assignee — with `workstream` + `details` for the flat
-// flat accounting checklist.
+// checklist the Accounting team uses.
 
 model AccountingProject {
-  id                  String    @id @default(cuid())
-  name                String
-  slug                String    @unique
-  description         String?
-  status              String    @default("not_yet_started")
-  ownerId             String    @map("owner_id") @db.Uuid
-  startDate           DateTime? @map("start_date") @db.Date
-  endDate             DateTime? @map("end_date") @db.Date
-  productionLiveDate  DateTime? @map("production_live_date") @db.Date
-  goLiveDate          DateTime? @map("go_live_date") @db.Date
-  revisedGoLiveDate   DateTime? @map("revised_go_live_date") @db.Date
-  dependency          String?
-  comment             String?
-  sortOrder           Int       @default(0) @map("sort_order")
-  department          String?
-  workstream          String?
-  details             String?   @db.Text
-  priority            String    @default("medium")
+  id                 String    @id @default(cuid())
+  name               String
+  slug               String    @unique
+  description        String?
+  status             String    @default("not_yet_started")
+  ownerId            String    @map("owner_id") @db.Uuid
+  startDate          DateTime? @map("start_date") @db.Date
+  endDate            DateTime? @map("end_date") @db.Date
+  productionLiveDate DateTime? @map("production_live_date") @db.Date
+  goLiveDate         DateTime? @map("go_live_date") @db.Date
+  revisedGoLiveDate  DateTime? @map("revised_go_live_date") @db.Date
+  dependency         String?
+  comment            String?
+  sortOrder          Int       @default(0) @map("sort_order")
+  department         String?
+  workstream         String?
+  details            String?   @db.Text
+  priority           String    @default("medium")
   // Auto-assign default for NEW tasks (Phase C pt2). `mode`: none|creator|
   // owner|user; resolved in projects.service.addTask (team='accounting') from
   // THIS native row, not the shared mirror (which never copies these).
-  defaultAssigneeMode String    @default("none") @map("default_assignee_mode")
-  defaultAssigneeId   String?   @map("default_assignee_id") @db.Uuid
+  defaultAssigneeMode String  @default("none") @map("default_assignee_mode")
+  defaultAssigneeId   String? @map("default_assignee_id") @db.Uuid
   // Go-live deadline-reminder debounce ladder (Phase C pt2). The generalized
   // CRM cron scans this native table directly (the shared mirror is lazy +
   // never carries these), fired rung markers e.g. "golive-7"/"golive-overdue".
-  remindersSent       Json      @default("[]") @map("reminders_sent")
-  lastReminderSentAt  DateTime? @map("last_reminder_sent_at")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
-
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
   owner   User                      @relation("AccountingProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members AccountingProjectMember[]
   columns AccountingProjectColumn[]
@@ -1027,6 +1153,7 @@ model AccountingProject {
 
   @@index([sortOrder])
   @@index([department])
+  @@index([archivedAt])
   @@map("accounting_projects")
 }
 
@@ -1119,7 +1246,8 @@ model AccountingProjectTaskAssignee {
 
 // ─── Product CRM workspace ────────────────────────────────────
 //
-// Product CRM uses the same standalone workspace shape as IT/Legal/QA/Partner.
+// Phase 1 of the Product CRM standalone workspace (Option A per-CRM
+// schema isolation, 2026-05-26). Same template as IT/Legal/QA/Partner.
 
 model ProductProject {
   id                 String    @id @default(cuid())
@@ -1137,9 +1265,19 @@ model ProductProject {
   comment            String?
   sortOrder          Int       @default(0) @map("sort_order")
   department         String?
+  // Auto-assign default for NEW tasks (Phase C pt3). `mode`: none|creator|
+  // owner|user; resolved in projects.service.addTask (team='product') from
+  // THIS native row, not the shared mirror (which never copies these).
+  defaultAssigneeMode String  @default("none") @map("default_assignee_mode")
+  defaultAssigneeId   String? @map("default_assignee_id") @db.Uuid
+  // Go-live deadline-reminder debounce ladder (Phase C pt3). The generalized
+  // CRM cron scans this native table directly (the shared mirror is lazy +
+  // never carries these), fired rung markers e.g. "golive-7"/"golive-overdue".
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
-
+  archivedAt  DateTime? @map("archived_at")
   owner   User                   @relation("ProductProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members ProductProjectMember[]
   columns ProductProjectColumn[]
@@ -1147,6 +1285,7 @@ model ProductProject {
 
   @@index([sortOrder])
   @@index([department])
+  @@index([archivedAt])
   @@map("product_projects")
 }
 
@@ -1288,8 +1427,8 @@ model MeetingRoom {
   name      String
   capacity  Int     @default(0)
   amenities String?
-  // Public preview image (Supabase `uploads` bucket) so staff can see
-  // what the room looks like before booking.
+  // Public preview image (Supabase `uploads` bucket). HR feedback (May
+  // 2026) — staff want to see what the room looks like before booking.
   imageUrl  String? @map("image_url")
   isActive  Boolean @default(true) @map("is_active")
 
@@ -1344,7 +1483,12 @@ model Asset {
   status       String    @default("available")
   notes        String?
 
-  // Hardware metadata accepted by the asset import format.
+  /// Who it was bought FROM, which is not who made it. A fixed-asset register
+  /// is audited on the purchase, so the retailer ("Index Living Mall", "IKANO")
+  /// is the field that gets asked about; `manufacturer` below stays the maker.
+  supplier          String?
+
+  // Hardware metadata (from the IT-asset-template spreadsheet).
   manufacturer      String?
   model             String?
   colour            String?
@@ -1357,16 +1501,37 @@ model Asset {
   // Sticker / QR code printed on the asset. Generated as
   // `<serialNo>-<YYYYMMDD>` when blank, but writeable so finance can
   // override with their own asset-register code.
-  assetCode         String?   @map("asset_code")
+  assetCode    String? @map("asset_code")
   // Software-specific (folded into Asset for v1; carve out into a
   // SoftwareLicense model later if licensing/seat tracking lands).
-  version           String?
+  version      String?
+  /// Photo of the asset. Held in the PUBLIC `uploads` bucket so a thumbnail
+  /// renders straight from the URL — a private bucket would need a signed URL
+  /// minted per row, which is a request per asset on every list render.
+  imageUrl     String? @map("image_url")
+
+  // Furniture metadata. A desk has no serial number, no manufacturer support
+  // page and no operating system; what identifies it is what it is made of,
+  // how big it is, what condition it is in and which room it is standing in.
+  material       String?
+  /// Free text rather than three numeric columns: catalogues quote sizes in
+  /// wildly different forms ("W120 x D60 x H75 cm", "Ø90 cm", "2-seater") and
+  /// forcing them into L/W/H loses the ones that do not fit.
+  dimensions     String?
+  /// new | good | fair | poor — validated in Zod, not a DB enum, so facilities
+  /// can extend the ladder without a migration.
+  condition      String?
+  /// Where it physically is inside the office ("Meeting Room 2, 3rd floor").
+  /// officeId says which building; furniture moves around inside one.
+  locationDetail String?   @map("location_detail")
+  warrantyUntil  DateTime? @map("warranty_until") @db.Date
+
   // Accounting / fixed-asset register fields.
-  quantity          Int       @default(1)
-  usefulLifeMonths  Int?      @map("useful_life_months")
-  bookValue         Decimal?  @map("book_value") @db.Decimal(15, 2)
-  disposalDate      DateTime? @map("disposal_date") @db.Date
-  sellingPrice      Decimal?  @map("selling_price") @db.Decimal(15, 2)
+  quantity         Int      @default(1)
+  usefulLifeMonths Int?     @map("useful_life_months")
+  bookValue        Decimal? @map("book_value") @db.Decimal(15, 2)
+  disposalDate     DateTime? @map("disposal_date") @db.Date
+  sellingPrice     Decimal? @map("selling_price") @db.Decimal(15, 2)
 
   office   Office @relation(fields: [officeId], references: [id])
   assignee User?  @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
@@ -1395,6 +1560,98 @@ model VoucherEntry {
 
   creator User? @relation("VoucherEntryCreator", fields: [addedBy], references: [id], onDelete: SetNull)
 
+  archivedAt  DateTime? @map("archived_at")
   @@index([partner])
+  @@index([archivedAt])
   @@map("voucher_entries")
+}
+
+// OneWave marketing-campaign CRM. Feeds the OW Dashboard alongside the
+// synced traction sheet: marketing logs upcoming campaigns here with the
+// lever sequence, copy + banner designs (rich text w/ inline uploaded
+// images), and a prediction spreadsheet (xlsx in the private `documents`
+// bucket, fetched via a signed-URL download route).
+model MarketingCampaign {
+  id                 String   @id @default(uuid()) @db.Uuid
+  title              String   @db.VarChar(300)
+  campaignDate       DateTime @map("campaign_date") @db.Date
+  // Campaign duration in hours (fractional allowed, e.g. 1.5).
+  hours              Float?
+  // Levers Pulled (sequence) — free rich text describing the push /
+  // in-app banner cadence.
+  leversPulled       String?  @map("levers_pulled")
+  // Copy + banner designs — rich-text HTML with inline uploaded images.
+  copyDesign         String?  @map("copy_design")
+  // Prediction spreadsheet (xlsx) forecasting traffic for the campaign.
+  predictionFileUrl  String?  @map("prediction_file_url")
+  predictionFileName String?  @map("prediction_file_name")
+  status             String   @default("planned") @db.VarChar(20)
+  sortOrder          Int      @default(0) @map("sort_order")
+  addedBy            String?  @map("added_by") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  creator User? @relation("MarketingCampaignCreator", fields: [addedBy], references: [id], onDelete: SetNull)
+
+  @@index([campaignDate])
+  @@map("marketing_campaigns")
+}
+
+/// OneWave holistic dashboard (2026-06-11) — one normalized daily metric
+/// row per (date, telco), written by the /api/cron/ow-snapshot-refresh
+/// job from the multi-tab OW2.0 traction sheet. The deterministic facts
+/// layer; the dashboard + AI narrative read from here, never re-parse the
+/// sheet inline.
+model OwDailyMetric {
+  id              String   @id @default(uuid()) @db.Uuid
+  date            DateTime @db.Date
+  telco           String   @db.VarChar(20) // gopay|dialog|ryze|...|all
+  homepageViews   Int?     @map("homepage_views")
+  dauCrm          Int?     @map("dau_crm")
+  dauGa           Int?     @map("dau_ga")
+  mauRolling30    Int?     @map("mau_rolling_30")
+  uniqueUsers     Int?     @map("unique_users")
+  newUsers        Int?     @map("new_users")
+  repeatUsers     Int?     @map("repeat_users")
+  avgSessionSec   Int?     @map("avg_session_sec")
+  stwWins         Int?     @map("stw_wins")
+  clicksBnryGames Int?     @map("clicks_bnry_games")
+  accessPassUsers Int?     @map("access_pass_users")
+  bnryEarned      BigInt?  @map("bnry_earned")
+  bnryRedeemed    BigInt?  @map("bnry_redeemed")
+  mauNexus         Int?    @map("mau_nexus")
+  newUsersGa       Int?    @map("new_users_ga")
+  repeatUsersGa    Int?    @map("repeat_users_ga")
+  sessionsGa       Int?    @map("sessions_ga")
+  totalCredit      BigInt? @map("total_credit")
+  totalDebit       BigInt? @map("total_debit")
+  totalTransactions Int?   @map("total_transactions")
+  spinUsage        Int?    @map("spin_usage")
+  spinWinTokens    BigInt? @map("spin_win_tokens")
+  uniqueSpinUsers  Int?    @map("unique_spin_users")
+  usersFando       Int?    @map("users_fando")
+  usersNgage       Int?    @map("users_ngage")
+  txMetrics        Json?   @map("tx_metrics")
+  isAnomaly       Boolean  @default(false) @map("is_anomaly")
+  isIntraday      Boolean  @default(false) @map("is_intraday")
+  sourceTab       String?  @map("source_tab") @db.VarChar(120)
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([date, telco])
+  @@index([telco, date])
+  @@map("ow_daily_metrics")
+}
+
+/// Latest computed holistic dashboard payload + (later) AI narrative.
+/// Upserted by the snapshot cron; the dashboard reads the most recent row
+/// rather than recomputing inline. `narrative` stays null until the P3 AI
+/// layer lands.
+model OwSnapshot {
+  id          String   @id @default(uuid()) @db.Uuid
+  payload     Json
+  narrative   Json?
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  @@index([generatedAt(sort: Desc)])
+  @@map("ow_snapshots")
 }

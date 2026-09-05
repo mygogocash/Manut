@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ImagePlus, Plus, X } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
@@ -57,7 +57,7 @@ export function CreateBlogDialog({ onBlogCreated }: CreateBlogDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm({
-    resolver: standardSchemaResolver(blogSchema),
+    resolver: zodResolver(blogSchema),
     defaultValues: {
       title: "",
       slug: "",

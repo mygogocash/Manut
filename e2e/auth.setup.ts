@@ -1,63 +1,81 @@
 import { expect, test as setup } from "@playwright/test";
 
-import {
-  ADMIN_STORAGE_STATE,
-  EMPLOYEE_STORAGE_STATE,
-} from "../scripts/e2e/paths";
-import { requirePersona } from "../scripts/e2e/personas";
+import { STORAGE_STATE } from "./storage-state";
 
-/** Next.js parity reference — admin project + legacy shell checks. */
-const NEXT_WEB_ORIGIN = "http://127.0.0.1:3000";
-/** Expo universal app — employee/leave cutover target. */
-const EXPO_WEB_ORIGIN = "http://127.0.0.1:8081";
+// Authenticated Playwright setup.
+//
+// Runs once as its own project; every authenticated project depends on it and
+// then reuses the storage state it writes, so no spec performs its own login.
+//
+// Credentials come from the environment and nowhere else. Nothing in this file
+// prints, logs, asserts on or otherwise reveals a credential value — a failure
+// here says which variable is missing, never what it contains.
 
-setup.describe.configure({ mode: "serial" });
+/**
+ * Reads a required credential.
+ *
+ * Fails loudly and specifically when it is absent. There is deliberately NO
+ * fallback: not to a seeded account, not to an admin, not to a literal. A
+ * silent fallback is how a test suite ends up authenticating as somebody it
+ * should not, which is exactly the state this repository was in.
+ */
+function required(name: "E2E_EMAIL" | "E2E_PASSWORD"): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      [
+        `${name} is not set.`,
+        "",
+        "Authenticated E2E requires a dedicated non-admin test account.",
+        "Set E2E_EMAIL and E2E_PASSWORD in your environment (or CI secrets).",
+        "Never hardcode them, and never reuse an employee's own credentials.",
+        "See docs/pwa/PHASE_7G1_SAFE_E2E_AUTH_SETUP.md.",
+      ].join("\n"),
+    );
+  }
+  return value;
+}
 
-setup(
-  "authenticate admin and restore the protected return path",
-  async ({ page }) => {
-    const admin = await requirePersona("admin");
+setup("authenticate", async ({ page }) => {
+  const email = required("E2E_EMAIL");
+  const password = required("E2E_PASSWORD");
 
-    await page.goto(`${NEXT_WEB_ORIGIN}/leave?view=mine`);
-    await expect(page).toHaveURL((url) => {
-      return (
-        url.origin === NEXT_WEB_ORIGIN &&
-        url.pathname === "/sign-in" &&
-        url.searchParams.get("returnTo") === "/leave?view=mine"
-      );
-    });
+  await page.goto("/sign-in");
+  await page.getByLabel(/email/i).fill(email);
+  await page.getByLabel(/password/i).fill(password);
+  await page.getByRole("button", { name: /sign in/i }).click();
 
-    await page.getByLabel("Email", { exact: true }).fill(admin.email);
-    await page.getByLabel("Password", { exact: true }).fill(admin.password);
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
-
-    await expect(page).toHaveURL((url) => {
-      return (
-        url.origin === NEXT_WEB_ORIGIN &&
-        url.pathname === "/leave" &&
-        url.searchParams.get("view") === "mine"
-      );
-    });
-    await expect(
-      page.getByRole("heading", { name: "Leave Management", exact: true }),
-    ).toBeVisible();
-    await page.context().storageState({ path: ADMIN_STORAGE_STATE });
-  },
-);
-
-setup("authenticate employee once on Expo web", async ({ page }) => {
-  const employee = await requirePersona("employee");
-
-  await page.goto(`${EXPO_WEB_ORIGIN}/sign-in`);
-  await page.getByLabel("Email", { exact: true }).fill(employee.email);
-  await page.getByLabel("Password", { exact: true }).fill(employee.password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
-
-  await expect(page).toHaveURL((url) => {
-    return url.origin === EXPO_WEB_ORIGIN && url.pathname === "/my-portal";
+  // Where a successful login lands depends on the account:
+  //   /dashboard       staff
+  //   /my-portal       Employee-only roles
+  //   /change-password a first login, or an account flagged mustChangePassword
+  //
+  // Accepting only /dashboard — as the old specs did — silently breaks for a
+  // non-admin test user, which is precisely the kind of account this setup is
+  // meant to use.
+  await page.waitForURL(/\/(dashboard|my-portal|change-password)/, {
+    timeout: 30_000,
   });
+
+  if (new URL(page.url()).pathname.startsWith("/change-password")) {
+    throw new Error(
+      [
+        "The E2E account is flagged mustChangePassword.",
+        "",
+        "Complete that once by hand, then update E2E_PASSWORD. The setup will",
+        "not change it: rotating a password from a test fixture would leave the",
+        "credential in a place nobody expects it.",
+      ].join("\n"),
+    );
+  }
+
+  // Prove the session is real rather than trusting the URL. A redirect can be
+  // in flight, and an unauthenticated shell can render at the same path.
   await expect(
-    page.getByRole("heading", { name: "My Portal", exact: true }),
-  ).toBeVisible();
-  await page.context().storageState({ path: EMPLOYEE_STORAGE_STATE });
+    page.getByRole("button", { name: /account|profile|menu/i }).or(
+      page.locator("aside").first(),
+    ),
+  ).toBeVisible({ timeout: 15_000 });
+
+  await page.context().storageState({ path: STORAGE_STATE });
 });

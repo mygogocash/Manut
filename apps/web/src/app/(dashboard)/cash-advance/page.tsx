@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Plus, SlidersHorizontal } from "lucide-react";
+import { Loader2, Paperclip, Plus, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -12,6 +12,13 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PermissionButton } from "@/components/shared/permission-button";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Table,
   TableBody,
   TableCell,
@@ -20,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
@@ -30,9 +38,11 @@ import {
   clearCashAdvance,
   deleteCashAdvance,
   getCashAdvanceDisbursementProofUrl,
+  getCashAdvanceItemReceiptUrl,
   listCashAdvances,
   rejectCashAdvance,
   submitCashAdvance,
+  withdrawCashAdvance,
 } from "@/services/cash-advance.service";
 
 const STATUS_TONE: Record<
@@ -68,7 +78,7 @@ export default function CashAdvancePage() {
     "cash-advance:approve",
   );
 
-  const [tab, setTab] = useState<"mine" | "all">(canSeeAll ? "all" : "mine");
+  const [tab, setTab] = useTabParam(canSeeAll ? "all" : "mine");
   const [rows, setRows] = useState<CashAdvanceRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -110,6 +120,19 @@ export default function CashAdvancePage() {
       const res = await submitCashAdvance(req.id);
       onSaved(res.data);
       toast.success("Submitted for review");
+    } catch (err) {
+      if (err instanceof ApiError) toast.error(err.message);
+    }
+  }
+
+  async function handleWithdraw(req: CashAdvanceRequest) {
+    try {
+      const res = await withdrawCashAdvance(req.id);
+      onSaved(res.data);
+      toast.success("Unsubmitted — you can edit and resubmit");
+      // Reopen the edit dialog on the now-draft request so the owner can
+      // adjust details straight away (onSaved just cleared it).
+      setEditing(res.data);
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
     }
@@ -158,6 +181,23 @@ export default function CashAdvancePage() {
       });
   }
 
+  // Line-item receipts live in the private `receipts` bucket, so the stored
+  // URL is unreachable — mint a fresh signed one on click. Opening a blank
+  // tab first keeps the popup blocker happy while the request is in flight.
+  function handleViewReceipt(requestId: string, itemId: string) {
+    const popup = window.open("about:blank", "_blank");
+    getCashAdvanceItemReceiptUrl(requestId, itemId)
+      .then((res) => {
+        if (popup && !popup.closed) popup.location.href = res.data.url;
+        else window.location.href = res.data.url;
+      })
+      .catch((err) => {
+        popup?.close();
+        if (err instanceof ApiError) toast.error(err.message);
+        else toast.error("Could not open receipt");
+      });
+  }
+
   async function handleClear(req: CashAdvanceRequest) {
     try {
       const res = await clearCashAdvance(req.id);
@@ -169,17 +209,79 @@ export default function CashAdvancePage() {
   }
 
   async function handleDelete(req: CashAdvanceRequest) {
-    if (!confirm(`Delete request CA-${req.requestNumber}? Cannot be undone.`)) {
+    if (
+      !confirm(
+        `Remove request CA-${req.requestNumber}? It will no longer appear in the Cash Advance lists.`,
+      )
+    ) {
       return;
     }
     try {
       await deleteCashAdvance(req.id);
       setRows((prev) => prev.filter((r) => r.id !== req.id));
-      toast.success("Deleted");
+      toast.success("Removed");
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
     }
   }
+
+  // Receipts attached to the request's line items. Visible at every status to
+  // anyone who can already see the row (the owner or an approver) — the
+  // receipt route re-checks that server-side before signing a URL.
+  const renderAttachments = (req: CashAdvanceRequest) => {
+    const withReceipts = req.items.filter((it) => it.receiptUrl);
+    if (withReceipts.length === 0) {
+      return <span className="text-muted-foreground text-xs">—</span>;
+    }
+    if (withReceipts.length === 1) {
+      const only = withReceipts[0]!;
+      return (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2"
+          title={`View receipt — ${only.description || "line item"}`}
+          aria-label={`View receipt for CA-${req.requestNumber}`}
+          onClick={() => handleViewReceipt(req.id, only.id)}
+        >
+          <Paperclip className="size-3.5" />
+        </Button>
+      );
+    }
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1 px-2"
+            aria-label={`View ${withReceipts.length} receipts for CA-${req.requestNumber}`}
+          >
+            <Paperclip className="size-3.5" />
+            <span className="text-[11px] tabular-nums">
+              {withReceipts.length}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuLabel className="text-muted-foreground text-xs">
+            Receipts
+          </DropdownMenuLabel>
+          {withReceipts.map((it) => (
+            <DropdownMenuItem
+              key={it.id}
+              onSelect={() => handleViewReceipt(req.id, it.id)}
+            >
+              <Paperclip className="size-3.5 shrink-0" />
+              <span className="truncate">{it.description || "Line item"}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   const renderActions = (req: CashAdvanceRequest) => {
     const isOwner = req.employeeId === user?.id;
@@ -191,6 +293,12 @@ export default function CashAdvancePage() {
     if (isOwner && (req.status === "draft" || req.status === "rejected")) {
       actions.push({ label: "Edit", onClick: () => setEditing(req) });
       actions.push({ label: "Submit", onClick: () => void handleSubmit(req) });
+    }
+    if (isOwner && req.status === "submitted") {
+      actions.push({
+        label: "Unsubmit",
+        onClick: () => void handleWithdraw(req),
+      });
     }
     if (canApprove && req.status === "submitted") {
       actions.push({
@@ -225,9 +333,14 @@ export default function CashAdvancePage() {
         onClick: () => void handleClear(req),
       });
     }
-    if (isOwner && req.status === "draft") {
+    // Owner may remove their own draft; an approver (HR / Finance / Accounting
+    // manager, cash-advance:approve) may remove any request at any status —
+    // e.g. purging a stale approved line. The DELETE route soft-deletes and
+    // re-checks owner-or-approve, so this button is a display gate only.
+    const canRemove = canApprove || (isOwner && req.status === "draft");
+    if (canRemove) {
       actions.push({
-        label: "Delete",
+        label: "Remove",
         onClick: () => void handleDelete(req),
         tone: "destructive",
       });
@@ -263,13 +376,14 @@ export default function CashAdvancePage() {
               <TableHead className="text-right">Requested</TableHead>
               <TableHead className="text-right">Approved</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-[90px] text-center">Attachment</TableHead>
               <TableHead className="w-[260px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-12 text-center">
+                <TableCell colSpan={9} className="py-12 text-center">
                   <Loader2
                     className={`
                       text-muted-foreground mx-auto h-5 w-5 animate-spin
@@ -280,7 +394,7 @@ export default function CashAdvancePage() {
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="text-muted-foreground py-12 text-center text-sm"
                 >
                   No cash advance requests yet.
@@ -316,6 +430,9 @@ export default function CashAdvancePage() {
                     <Badge variant={STATUS_TONE[r.status]}>
                       {CASH_ADVANCE_STATUS_LABELS[r.status]}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {renderAttachments(r)}
                   </TableCell>
                   <TableCell>{renderActions(r)}</TableCell>
                 </TableRow>
@@ -355,11 +472,7 @@ export default function CashAdvancePage() {
         )}
       </PageHeader>
 
-      <Tabs
-        value={tab}
-        onValueChange={(v) => setTab(v as "mine" | "all")}
-        className="space-y-4"
-      >
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="mine">My requests</TabsTrigger>
           {canSeeAll && <TabsTrigger value="all">All requests</TabsTrigger>}

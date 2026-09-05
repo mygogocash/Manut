@@ -1,370 +1,360 @@
+# =============================================================================
+# Intranet - PR Validation
+#
+# The gates run as PARALLEL jobs, not steps in one job. That shape is the whole
+# point of this file, so the reasoning is recorded here:
+#
+# Measured across three consecutive green runs of the old single-job version,
+# type-check was 79-89s and unit tests 89-105s — both stable — while Lint came
+# in at 93s, 136s and 466s. All the variance is Lint, and `apps/api` eslint can
+# hang outright (reproduced locally at 19+ minutes without finishing). In a
+# sequential job that hang consumed the 15-minute job budget and the run was
+# cancelled BEFORE unit tests and the brand guard ran, so a red "Validate"
+# meant "nothing after Lint executed" rather than "a check failed". That
+# happened three times on 2026-08-24 and cost four re-runs.
+#
+# Split into jobs, a hung lint fails its own job at its own timeout while every
+# other gate still reports. Wall clock also drops from the sum of the steps to
+# the slowest single gate.
+#
+# Docs-only changes stay path-ignored here; okf-checks.yml deliberately covers
+# `docs/**` and `CLAUDE.md` so those changes still meet their own gates.
+# =============================================================================
+
 name: PR Checks
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
+    # Markdown/docs-only PRs don't affect type-check, lint, or test.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".agents/**"
+  # Also run on the branch itself. A squash merge can land a red commit when no
+  # required status check blocks it (this repo has none configured), and without
+  # a push run there is no branch-level signal that main went red — which is
+  # exactly how the okf coverage break sat unnoticed on main on 2026-08-24.
+  push:
+    branches: [main, dev]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".agents/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
+  # dorny/paths-filter reads the changed-file list through the PR API on
+  # pull_request events (on push it diffs git instead, which is why
+  # deploy.yml never needed this). Without it the filter step fails with
+  # "Resource not accessible by integration".
   pull-requests: read
 
 concurrency:
-  group: pr-checks-${{ github.event.pull_request.number }}
+  group: pr-checks-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  NODE_VERSION: 24.18.0
-  PNPM_VERSION: 11.13.1
-
 jobs:
+  # ---------------------------------------------------------------------------
+  # Which halves of the monorepo did this change touch? Filters mirror
+  # deploy.yml so CI and deploy agree on what "the api changed" means.
+  # ---------------------------------------------------------------------------
   changes:
-    name: Changes
+    name: Detect changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
-      app: ${{ steps.filter.outputs.app }}
-      database: ${{ steps.filter.outputs.database }}
-      edge: ${{ steps.filter.outputs.edge }}
-      e2e: ${{ steps.filter.outputs.e2e }}
+      api: ${{ steps.decide.outputs.api }}
+      web: ${{ steps.decide.outputs.web }}
+      edge: ${{ steps.decide.outputs.edge }}
+      code: ${{ steps.decide.outputs.code }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Classify changes
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Path filter
+        # v4 runs on Node 24; v3 was Node 20 and deprecated on the runner
+        # 2026-06-16. Same filters/outputs API. dorny/paths-filter#294.
+        uses: dorny/paths-filter@v4
         id: filter
-        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         with:
           filters: |
-            app:
-              - 'apps/app/**'
-              - 'packages/app-core/**'
-              - 'packages/ui/**'
-            database:
-              - 'packages/database/**'
-              - 'scripts/*migration*'
+            api:
+              - 'apps/api/**'
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - '.github/workflows/pr-checks.yml'
+              - '.github/actions/setup-workspace/**'
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - '.github/workflows/pr-checks.yml'
+              - '.github/actions/setup-workspace/**'
             edge:
               - 'apps/edge/**'
-            e2e:
-              - 'e2e/**'
-              - 'playwright.config.ts'
-              - 'scripts/e2e/**'
+              - 'apps/edge-jobs/**'
+              - 'apps/app/**'
+              - 'packages/db/**'
+              - 'packages/auth/**'
+              - 'packages/contracts/**'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - '.github/workflows/pr-checks.yml'
+              - '.github/workflows/deploy-edge-staging.yml'
+              - '.github/actions/setup-workspace/**'
 
-  secret-scan:
-    name: Secret scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout full history
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          fetch-depth: 0
-      - name: Install verified Gitleaks CLI
+      - name: Decide
+        id: decide
+        # A push to main/dev, or a manual run, always gets the full set — a
+        # branch-health signal that skipped half its gates is not a signal.
         run: |
-          mkdir -p .tools/gitleaks
-          curl --fail --location --silent --show-error \
-            --output .tools/gitleaks/gitleaks.tar.gz \
-            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
-          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  .tools/gitleaks/gitleaks.tar.gz" | sha256sum --check
-          tar -xzf .tools/gitleaks/gitleaks.tar.gz -C .tools/gitleaks gitleaks
-      - name: Gitleaks PR commit range
-        run: >-
-          .tools/gitleaks/gitleaks git --redact --no-banner
-          --config .gitleaks.toml
-          --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
-          .
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Verify clean-room fingerprints
-        env:
-          CREDENTIAL_SCAN_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: node scripts/check-credential-boundary.mjs
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "api=true"  >> "$GITHUB_OUTPUT"
+            echo "web=true"  >> "$GITHUB_OUTPUT"
+            echo "edge=true" >> "$GITHUB_OUTPUT"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            api='${{ steps.filter.outputs.api }}'
+            web='${{ steps.filter.outputs.web }}'
+            edge='${{ steps.filter.outputs.edge }}'
+            echo "api=$api" >> "$GITHUB_OUTPUT"
+            echo "web=$web" >> "$GITHUB_OUTPUT"
+            echo "edge=$edge" >> "$GITHUB_OUTPUT"
+            if [ "$api" = "true" ] || [ "$web" = "true" ] || [ "$edge" = "true" ]; then
+              echo "code=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "code=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
 
-  dependency-review:
-    name: Dependency review
+  type-check:
+    name: Type-check
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      # GitHub Dependency Review requires Dependency graph + GHAS, which Free
-      # private orgs do not provide. Keep OSV + SBOM as the private-repo gate.
-      - name: Review dependency changes
-        if: ${{ !github.event.repository.private }}
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
-        with:
-          fail-on-severity: high
-          show-openssf-scorecard: true
-      - name: Scan lockfile with OSV
-        uses: google/osv-scanner-action/osv-scanner-action@8dc09193bb540e09b23da07ad7e30bd33bf87018 # v2.3.8
-        with:
-          scan-args: |-
-            --lockfile=pnpm-lock.yaml
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - name: Install with reviewed lifecycle policy
-        run: pnpm install --frozen-lockfile
-      - name: Generate CycloneDX SBOM
-        run: pnpm run sbom
-      - name: Upload SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: cyclonedx-sbom
-          path: bom.cdx.json
-          if-no-files-found: error
-          retention-days: 14
-
-  static-unit:
-    name: Static and unit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          fetch-depth: 0
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: Generate Prisma client
-        run: pnpm db:generate
-      - name: Strict TypeScript
-        run: pnpm type-check
-      - name: Zero-warning lint
-        run: pnpm lint
-      - name: Unit and integration tests
-        run: pnpm test
-      - name: Whitespace safety
-        run: >-
-          git diff --check
-          "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}"
-
-  web-build:
-    name: Web build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: Build retained parity bridge
-        env:
-          NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
-          NEXT_PUBLIC_SUPABASE_URL: https://example.invalid
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: public-placeholder
-        run: pnpm --filter @manut/web build
-      - name: Export universal web app
-        run: pnpm --filter @manut/app export:web
-      - name: Enforce transfer bundle threshold
-        run: pnpm bundle:check
-      - name: Scan exported web artifacts
-        run: pnpm security:credentials apps/app/dist apps/web/.next
-      - name: Upload Expo web export
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: expo-web-export
-          path: apps/app/dist
-          if-no-files-found: error
-          retention-days: 3
-
-  worker-build:
-    name: Worker build
-    needs: web-build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Download Expo web export
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          name: expo-web-export
-          path: apps/app/dist
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: Generate Prisma client
-        run: pnpm db:generate
-      - name: Type-check Worker
-        run: pnpm --filter @manut/edge type-check
-      - name: Test Worker
-        run: pnpm --filter @manut/edge test
-      - name: Dry-run Worker bundle
-        run: pnpm --filter @manut/edge build
-      - name: Scan Worker bundle
-        run: pnpm security:credentials apps/edge/dist
-
-  native-readiness:
-    name: Native readiness
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: Expo Doctor
-        working-directory: apps/app
-        run: pnpm exec expo-doctor
-      - name: Export iOS JavaScript
-        run: pnpm --filter @manut/app export:ios
-      - name: Export Android JavaScript
-        run: pnpm --filter @manut/app export:android
-      - name: Scan native exports
-        run: pnpm security:credentials apps/app/dist-ios apps/app/dist-android
-
-  migration-safety:
-    name: Migration safety
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: manut_migration
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d manut_migration"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
+    # Stable at 79-89s across sampled runs. 10 leaves headroom without letting
+    # a pathological run sit for a quarter of an hour.
+    timeout-minutes: 10
     env:
-      MIGRATION_TEST_URL: postgresql://postgres:postgres@127.0.0.1:5432/manut_migration
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/manut_migration
-      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/manut_migration
-      GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
-      - name: Checkout full history
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-workspace
         with:
-          fetch-depth: 0
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: Generate Prisma client
-        run: pnpm db:generate
-      - name: Verify migration manifest and replay
-        run: pnpm migration:harness
-      - name: Prove current-schema convergence twice
-        run: |
-          pnpm db:push
-          pnpm db:push
+          turbo-cache-key: type-check
+      - run: pnpm type-check
 
-  e2e:
-    name: Authenticated E2E
+  lint-api:
+    name: Lint (api)
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
-    environment: e2e
-    timeout-minutes: 30
-    concurrency:
-      group: manut-intranet-e2e
-      cancel-in-progress: false
+    # `eslint src/` in apps/api is the unstable one — observed running 19+
+    # minutes locally without finishing. Capping at 8 turns that into a lint
+    # failure in 8 minutes instead of a cancelled run that also loses the test
+    # and brand-guard signal.
+    timeout-minutes: 8
     steps:
-      - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Setup pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-workspace
         with:
-          version: ${{ env.PNPM_VERSION }}
-      - name: Setup Node
-        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: Generate Prisma client
-        run: pnpm db:generate
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
-      - name: Run authenticated browser suite
-        run: pnpm test:e2e
-        env:
-          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
-          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
-          E2E_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_ROLE_KEY }}
-          E2E_DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
-          E2E_DIRECT_URL: ${{ secrets.E2E_DIRECT_URL }}
-      - name: Upload failure-only browser artifacts
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: playwright-failures-${{ github.run_attempt }}
-          path: e2e/.artifacts/test-results
-          if-no-files-found: ignore
-          retention-days: 5
+          turbo-cache-key: lint-api
+      - run: pnpm --filter @nexora/api lint
 
-  Validate:
-    name: Validate
+  lint-web:
+    name: Lint (web)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-workspace
+        with:
+          turbo-cache-key: lint-web
+      - run: pnpm --filter @nexora/web lint
+
+  test:
+    name: Unit tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-workspace
+        with:
+          turbo-cache-key: test
+      # Deliberately the full turbo run, NOT per-package filters. `packages/okf`
+      # carries the CLAUDE.md coverage gates and exists on some branches only;
+      # filtering by app would silently stop running it. Verifying #1125 with
+      # per-package filters is exactly how that gate reached main red.
+      - run: pnpm test
+
+
+  edge-check:
+    name: Edge (type-check + test + drizzle-check + dry-run)
+    needs: changes
+    if: needs.changes.outputs.edge == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-workspace
+        with:
+          turbo-cache-key: edge-check
+      - name: Type-check edge packages
+        run: |
+          pnpm --filter @nexora/db type-check
+          pnpm --filter @nexora/contracts type-check
+          pnpm --filter @nexora/auth type-check
+          pnpm --filter @nexora/edge type-check
+          pnpm --filter @nexora/edge-jobs type-check
+      - name: Drizzle kit check
+        run: pnpm --filter @nexora/db db:check
+      - name: Workers unit tests
+        run: |
+          pnpm --filter @nexora/edge test
+          pnpm --filter @nexora/edge-jobs test
+          pnpm --filter @nexora/auth test
+      - name: Expo web export (SPA shell)
+        run: pnpm --filter @nexora/app export:web
+      - name: Wrangler dry-run (edge)
+        run: pnpm --filter @nexora/edge exec wrangler deploy --env="" --dry-run --outdir /tmp/edge-dry-run
+      - name: Wrangler dry-run (edge-jobs)
+        run: pnpm --filter @nexora/edge-jobs exec wrangler deploy --env="" --dry-run --outdir /tmp/edge-jobs-dry-run
+
+  brand-drift:
+    name: Brand colour drift guard
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    # A grep — no install, no Node. It used to sit behind ~11 minutes of other
+    # work and was skipped whenever anything upstream failed.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check for legacy brand colours
+        # Phases 7-12 retired the legacy blue/teal palette across the workspace.
+        # Block any PR that reintroduces the literal hex codes in app source.
+        # If one of these ever needs to come back (e.g. a deliberate marketing
+        # page) update this list and the brand guidelines together.
+        run: |
+          set -euo pipefail
+          PATTERNS='1847f0|00d4b4|0f38d0|rgba\(24,71,240'
+          if grep -rEn "$PATTERNS" apps/web/src --include='*.ts' --include='*.tsx' --include='*.css'; then
+            echo ""
+            echo "::error::Legacy brand colours detected. Use hsl(var(--primary)) / hsl(var(--primary-light)) tokens instead — see project_design_system_nexora memory and PR #75."
+            exit 1
+          fi
+          echo "No legacy brand colours found."
+
+  long-lines:
+    name: Long-line guard
+    needs: changes
+    # Always runs: the payload this guards against was injected into config
+    # files, which no path filter would reliably scope. It is a grep — the cost
+    # of running it unconditionally is seconds.
     if: always()
-    needs:
-      - changes
-      - secret-scan
-      - dependency-review
-      - static-unit
-      - web-build
-      - worker-build
-      - native-readiness
-      - migration-safety
-      - e2e
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Require every gate
-        env:
-          RESULTS: ${{ toJson(needs) }}
+      - uses: actions/checkout@v6
+      - name: Check for over-long lines
+        # An obfuscated payload sat on the last line of three config files for
+        # seven weeks from 2026-07-03, hidden behind a run of spaces. Length is
+        # the structural tell; thresholds and rationale live in the script.
+        run: bash scripts/check-line-length.sh
+
+  deploy-gate:
+    name: Deploy gate guard
+    needs: changes
+    # Always runs. What it guards is a two-part rule in the DEPLOY workflows,
+    # which a PR can revert without touching anything a path filter would
+    # notice — and the resulting outage (new api served against old web) is
+    # invisible until somebody opens an affected page.
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check the deploy freshness + atomicity gate is intact
+        # Rationale, and the 2026-08-26 incident it comes from, live in the
+        # script and in the "Deploy gate" step of each deploy workflow.
+        run: bash scripts/check-deploy-gate.sh
+
+  # ---------------------------------------------------------------------------
+  # One aggregate status, kept named "Validate" so existing history and any
+  # future branch protection have a single stable context to require. Requiring
+  # the individual gates directly would mean a legitimately skipped job reads as
+  # "never reported" and blocks the PR forever; this job always runs and fails
+  # only when a gate actually failed.
+  # ---------------------------------------------------------------------------
+  validate:
+    name: Validate
+    needs:
+      [
+        changes,
+        type-check,
+        lint-api,
+        lint-web,
+        test,
+        edge-check,
+        brand-drift,
+        long-lines,
+        deploy-gate,
+      ]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Assess gate results
         run: |
-          node <<'NODE'
-          const results = JSON.parse(process.env.RESULTS);
-          const failed = Object.entries(results).filter(
-            ([, value]) => value.result !== "success",
-          );
-          if (failed.length > 0) {
-            console.error("Required jobs failed:", failed.map(([name]) => name));
-            process.exit(1);
+          set -euo pipefail
+          failed=0
+          # `changes` gates every other job. If it did not succeed, the gates
+          # below are "skipped" because nothing ran — NOT because they were
+          # inapplicable. Treating that as a pass reports green on a pipeline
+          # that never executed, which is exactly what the first run of this
+          # workflow did.
+          changes_result="${{ needs.changes.result }}"
+          if [ "$changes_result" != "success" ]; then
+            echo "  FAIL   detect-changes ($changes_result)"
+            echo "::error::Detect changes did not succeed, so no gate ran. Failing rather than reporting a green Validate."
+            exit 1
+          fi
+          assess() {
+            case "$2" in
+              success) printf '  pass   %s\n' "$1" ;;
+              skipped) printf '  n/a    %s (not affected by this change)\n' "$1" ;;
+              *)       printf '  FAIL   %s (%s)\n' "$1" "$2"; failed=1 ;;
+            esac
           }
-          console.log("All required PR gates passed.");
-          NODE
+          assess "type-check"  "${{ needs.type-check.result }}"
+          assess "lint-api"    "${{ needs.lint-api.result }}"
+          assess "lint-web"    "${{ needs.lint-web.result }}"
+          assess "test"        "${{ needs.test.result }}"
+          assess "edge-check"  "${{ needs.edge-check.result }}"
+          assess "brand-drift" "${{ needs.brand-drift.result }}"
+          assess "long-lines"  "${{ needs.long-lines.result }}"
+          assess "deploy-gate" "${{ needs.deploy-gate.result }}"
+          if [ "$failed" = "1" ]; then
+            echo "::error::One or more gates failed. A 'cancelled' gate hit its own timeout — open that job, not this one."
+            exit 1
+          fi
+          echo "All applicable gates passed."

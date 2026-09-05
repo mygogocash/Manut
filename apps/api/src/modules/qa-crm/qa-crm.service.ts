@@ -5,6 +5,11 @@ import {
   NotFoundException,
 } from "@/common/exceptions/http-exception";
 import { prisma } from "@/infrastructure/database/prisma";
+import { PORTAL_URL } from "@/lib/portal-url";
+import {
+  type CrmTaskPerson,
+  notifyCrmTaskEvent,
+} from "@/modules/crm-shared/crm-notifications";
 import type {
   CreateQaProjectColumnInput,
   CreateQaProjectInput,
@@ -72,6 +77,73 @@ async function uniqueSlug(base: string): Promise<string> {
   }
 }
 
+// Auto-assign default (Phase C pt3). QA is a pure-native workspace, so the
+// default lives on qa_projects and is resolved here (not in the shared
+// projects.service). A "user" mode id is validated as an active, non-deleted
+// account before applying — mirrors projectRepository.resolveDefaultAssignee.
+async function resolveQaDefaultOwner(
+  projectId: string,
+  actorId: string,
+): Promise<string | null> {
+  const p = await prisma.qaProject.findUnique({
+    where: { id: projectId },
+    select: {
+      defaultAssigneeMode: true,
+      defaultAssigneeId: true,
+      ownerId: true,
+    },
+  });
+  if (!p) return null;
+  switch (p.defaultAssigneeMode) {
+    case "creator":
+      return actorId;
+    case "owner":
+      return p.ownerId;
+    case "user": {
+      if (!p.defaultAssigneeId) return null;
+      const user = await prisma.user.findFirst({
+        where: { id: p.defaultAssigneeId, isActive: true, deletedAt: null },
+        select: { id: true },
+      });
+      return user?.id ?? null;
+    }
+    default:
+      return null;
+  }
+}
+
+// Native notify adapter (Phase C pt3): QA tasks live only in qa_project_tasks,
+// so the shared notifier can't look their people up — pass the already-loaded
+// owner + assignees and a deep-link to the native /qa-crm board instead.
+function notifyQaTaskEvent(input: {
+  type: "task_status" | "task_assigned" | "task_comment";
+  projectId: string;
+  projectName: string;
+  taskId: string;
+  taskTitle: string;
+  actorId: string;
+  summary: string;
+  owner: CrmTaskPerson | null;
+  assignees: CrmTaskPerson[];
+}): void {
+  void notifyCrmTaskEvent({
+    module: "qa",
+    type: input.type,
+    projectId: input.projectId,
+    projectName: input.projectName,
+    taskId: input.taskId,
+    taskTitle: input.taskTitle,
+    actorId: input.actorId,
+    summary: input.summary,
+    people: { owner: input.owner, assignees: input.assignees },
+    link: `${PORTAL_URL}/qa-crm/${input.projectId}`,
+  });
+}
+
+function prettyStatus(status: string): string {
+  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 async function requireMembership(
   projectId: string,
   userId: string,
@@ -107,11 +179,12 @@ export class QaCrmService {
   // ─── Project CRUD ─────────────────────────────────────────────
 
   async list(userId: string, perms: string[], query: QaProjectQuery) {
-    const { page, limit, search, status, department } = query;
+    const { page, limit, search, status, department, archived } = query;
     const canSeeAll = perms.includes(PERMISSIONS.QA_CRM_READ_ALL);
 
     const where: Parameters<typeof prisma.qaProject.findMany>[0] extends
-      { where?: infer W } | undefined
+      | { where?: infer W }
+      | undefined
       ? W
       : never = {};
     if (search) {
@@ -122,6 +195,10 @@ export class QaCrmService {
     }
     if (status) where.status = status;
     if (department) where.department = department;
+    // Archive is orthogonal to status: default view shows active projects
+    // only; the Archived tab (archived=true) shows the archived ones. Applied
+    // to both findMany and count so pagination totals match the view.
+    where.archivedAt = archived ? { not: null } : null;
     if (!canSeeAll) {
       where.OR = [
         ...(where.OR ?? []),
@@ -164,6 +241,13 @@ export class QaCrmService {
         comment: input.comment ?? null,
         department: input.department ?? null,
         sortOrder: input.sortOrder,
+        // Auto-assign default (Phase C pt3) — a non-`user` mode never keeps a
+        // stale specific-user id. Mirrors legal-crm.service.create.
+        defaultAssigneeMode: input.defaultAssigneeMode ?? "none",
+        defaultAssigneeId:
+          input.defaultAssigneeMode === "user"
+            ? (input.defaultAssigneeId ?? null)
+            : null,
         columns: { createMany: { data: DEFAULT_COLUMNS } },
         members: { create: { userId: ownerId, role: "owner" } },
       },
@@ -204,10 +288,32 @@ export class QaCrmService {
         slugUpdate = { slug: await uniqueSlug(generateSlug(input.name)) };
       }
     }
+    // Normalize the auto-assign default (a non-`user` mode clears any stale
+    // specific-user id) and re-arm the reminder ladder on an endDate edit
+    // (QA's project deadline; fired "due-*" markers were tied to the old
+    // date). Mirrors legal-crm.service.update.
+    const defaultAssigneeUpdate: {
+      defaultAssigneeMode?: string;
+      defaultAssigneeId?: string | null;
+    } = {};
+    if (input.defaultAssigneeMode !== undefined) {
+      defaultAssigneeUpdate.defaultAssigneeMode = input.defaultAssigneeMode;
+      defaultAssigneeUpdate.defaultAssigneeId =
+        input.defaultAssigneeMode === "user"
+          ? (input.defaultAssigneeId ?? null)
+          : null;
+    } else if (input.defaultAssigneeId !== undefined) {
+      defaultAssigneeUpdate.defaultAssigneeId = input.defaultAssigneeId;
+    }
     return prisma.qaProject.update({
       where: { id },
       data: {
         ...slugUpdate,
+        ...defaultAssigneeUpdate,
+        ...(input.endDate !== undefined && {
+          remindersSent: [],
+          lastReminderSentAt: null,
+        }),
         ...(input.name !== undefined && { name: input.name }),
         ...(input.description !== undefined && {
           description: input.description,
@@ -235,6 +341,44 @@ export class QaCrmService {
     requireOwnerOrManage(role, perms);
     await prisma.qaProject.delete({ where: { id } });
     return { success: true };
+  }
+
+  // Reversible hide. Owner-or-manage enforced in the SERVICE (not just the
+  // route) so a plain qa-crm:update holder can't archive another team's
+  // project — same IDOR guard as delete/update. Idempotent: re-archiving keeps
+  // the original archive time.
+  async archive(id: string, userId: string, perms: string[]) {
+    const role = await requireMembership(id, userId, perms);
+    requireOwnerOrManage(role, perms);
+    const existing = await prisma.qaProject.findUnique({
+      where: { id },
+      select: { archivedAt: true },
+    });
+    if (!existing) throw new NotFoundException("QA project not found");
+    return prisma.qaProject.update({
+      where: { id },
+      data: { archivedAt: existing.archivedAt ?? new Date() },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
+  async unarchive(id: string, userId: string, perms: string[]) {
+    const role = await requireMembership(id, userId, perms);
+    requireOwnerOrManage(role, perms);
+    const existing = await prisma.qaProject.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException("QA project not found");
+    return prisma.qaProject.update({
+      where: { id },
+      data: { archivedAt: null },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+      },
+    });
   }
 
   async reorder(input: ReorderQaProjectsInput) {
@@ -334,7 +478,15 @@ export class QaCrmService {
       }
     }
     const { assigneeIds, ...taskFields } = input;
-    return prisma.$transaction(async (tx) => {
+    // CRM auto-assign default: when the creator leaves the owner + assignees
+    // blank, fall back to the project's configured default. An explicit owner
+    // or any explicit assignees always wins; the final `?? userId` preserves
+    // QA's original owner-defaults-to-creator behavior for mode "none".
+    let ownerId = taskFields.ownerId;
+    if (!ownerId && !assigneeIds?.length) {
+      ownerId = (await resolveQaDefaultOwner(projectId, userId)) ?? undefined;
+    }
+    const created = await prisma.$transaction(async (tx) => {
       const task = await tx.qaProjectTask.create({
         data: {
           projectId,
@@ -343,7 +495,7 @@ export class QaCrmService {
           description: taskFields.description,
           status: taskFields.status,
           priority: taskFields.priority,
-          ownerId: taskFields.ownerId ?? userId,
+          ownerId: ownerId ?? userId,
           startDate: taskFields.startDate
             ? new Date(taskFields.startDate)
             : null,
@@ -380,6 +532,11 @@ export class QaCrmService {
         },
       });
     });
+
+    // No creation notification — matches the shared board (addTask is silent;
+    // assignment/status/comment UPDATES notify). Bulk import reuses this
+    // method, so a create-path notify would also spam on imports.
+    return created;
   }
 
   async importTasks(
@@ -411,16 +568,39 @@ export class QaCrmService {
     requireOwnerOrManage(role, perms);
     const existing = await prisma.qaProjectTask.findUnique({
       where: { id: taskId },
-      select: { id: true, projectId: true },
+      select: {
+        id: true,
+        projectId: true,
+        title: true,
+        status: true,
+        ownerId: true,
+        project: { select: { name: true } },
+        assignees: { select: { userId: true } },
+      },
     });
     if (!existing || existing.projectId !== projectId) {
       throw new NotFoundException("Task not found");
     }
     const { assigneeIds, ...taskFields } = input;
-    return prisma.$transaction(async (tx) => {
+    // Set-compare so a dialog that always sends assigneeIds doesn't fire a
+    // reassignment notice on every unrelated edit.
+    const beforeAssignees = existing.assignees
+      .map((a) => a.userId)
+      .sort()
+      .join(",");
+    const assigneeChanged =
+      assigneeIds !== undefined &&
+      [...assigneeIds].sort().join(",") !== beforeAssignees;
+    const updated = await prisma.$transaction(async (tx) => {
       await tx.qaProjectTask.update({
         where: { id: taskId },
         data: {
+          // Re-arm the due-date reminder ladder when the deadline moves —
+          // fired "due-*" markers were tied to the old date.
+          ...(taskFields.endDate !== undefined && {
+            remindersSent: [],
+            lastReminderSentAt: null,
+          }),
           ...(taskFields.title !== undefined && { title: taskFields.title }),
           ...(taskFields.description !== undefined && {
             description: taskFields.description,
@@ -490,6 +670,46 @@ export class QaCrmService {
         },
       });
     });
+
+    // Post-commit CRM update notifications (bell + email) — the NEW people
+    // set is on `updated`, so a fresh assignee is notified about their own
+    // assignment while the actor is dropped by the notifier.
+    const people = {
+      owner: updated.owner,
+      assignees: updated.assignees.map((a) => a.user),
+    };
+    if (
+      taskFields.status !== undefined &&
+      taskFields.status !== existing.status
+    ) {
+      notifyQaTaskEvent({
+        type: "task_status",
+        projectId,
+        projectName: existing.project.name,
+        taskId,
+        taskTitle: existing.title,
+        actorId: userId,
+        summary: `moved it to ${prettyStatus(taskFields.status)}`,
+        ...people,
+      });
+    }
+    const ownerChanged =
+      taskFields.ownerId !== undefined &&
+      (taskFields.ownerId || null) !== (existing.ownerId ?? null);
+    if (ownerChanged || assigneeChanged) {
+      notifyQaTaskEvent({
+        type: "task_assigned",
+        projectId,
+        projectName: existing.project.name,
+        taskId,
+        taskTitle: existing.title,
+        actorId: userId,
+        summary: "updated the assignees on",
+        ...people,
+      });
+    }
+
+    return updated;
   }
 
   async deleteTask(
@@ -637,17 +857,40 @@ export class QaCrmService {
     requireOwnerOrManage(role, perms);
     const existing = await prisma.qaProjectTask.findUnique({
       where: { id: taskId },
-      select: { id: true, projectId: true },
+      select: {
+        id: true,
+        projectId: true,
+        title: true,
+        project: { select: { name: true } },
+        owner: { select: { id: true, name: true, email: true } },
+        assignees: {
+          select: { user: { select: { id: true, name: true, email: true } } },
+        },
+      },
     });
     if (!existing || existing.projectId !== projectId) {
       throw new NotFoundException("Task not found");
     }
-    return prisma.qaProjectTaskComment.create({
+    const comment = await prisma.qaProjectTaskComment.create({
       data: { taskId, authorId: userId, body: input.body },
       include: {
         author: { select: { id: true, name: true, email: true } },
       },
     });
+
+    notifyQaTaskEvent({
+      type: "task_comment",
+      projectId,
+      projectName: existing.project.name,
+      taskId,
+      taskTitle: existing.title,
+      actorId: userId,
+      summary: "commented on",
+      owner: existing.owner,
+      assignees: existing.assignees.map((a) => a.user),
+    });
+
+    return comment;
   }
 
   // ─── Assignees ────────────────────────────────────────────────
@@ -663,12 +906,19 @@ export class QaCrmService {
     requireOwnerOrManage(role, perms);
     const existing = await prisma.qaProjectTask.findUnique({
       where: { id: taskId },
-      select: { id: true, projectId: true },
+      select: {
+        id: true,
+        projectId: true,
+        title: true,
+        project: { select: { name: true } },
+        owner: { select: { id: true, name: true, email: true } },
+        assignees: { select: { userId: true } },
+      },
     });
     if (!existing || existing.projectId !== projectId) {
       throw new NotFoundException("Task not found");
     }
-    return prisma.$transaction(async (tx) => {
+    const rows = await prisma.$transaction(async (tx) => {
       await tx.qaProjectTaskAssignee.deleteMany({ where: { taskId } });
       if (input.assignees.length > 0) {
         await tx.qaProjectTaskAssignee.createMany({
@@ -685,6 +935,33 @@ export class QaCrmService {
         include: { user: { select: { id: true, name: true, email: true } } },
       });
     });
+
+    // Post-commit reassignment notification against the NEW assignee set, so
+    // a freshly-added assignee hears about their own assignment. Skipped when
+    // the set is unchanged (set-compare).
+    const beforeSet = existing.assignees
+      .map((a) => a.userId)
+      .sort()
+      .join(",");
+    const afterSet = rows
+      .map((r) => r.userId)
+      .sort()
+      .join(",");
+    if (beforeSet !== afterSet) {
+      notifyQaTaskEvent({
+        type: "task_assigned",
+        projectId,
+        projectName: existing.project.name,
+        taskId,
+        taskTitle: existing.title,
+        actorId: userId,
+        summary: "updated the assignees on",
+        owner: existing.owner,
+        assignees: rows.map((r) => r.user),
+      });
+    }
+
+    return rows;
   }
 }
 

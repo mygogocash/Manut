@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { PERMISSIONS } from "@/common/constants/permissions";
 import { helpdeskRepository } from "@/modules/helpdesk/helpdesk.repository";
 import { helpdeskService } from "@/modules/helpdesk/helpdesk.service";
-import { mockArgument } from "@/test-utils/assertions";
 
 // Only the methods update() touches need stubbing. createdBy.email is null
 // on the returned row so the status-email branch is skipped — keeping this
@@ -44,7 +43,7 @@ function makeTicket(overrides: Record<string, unknown> = {}) {
 
 function lastUpdateData(): Record<string, unknown> {
   const calls = (helpdeskRepository.update as Mock).mock.calls;
-  return mockArgument(calls, calls.length - 1, 1) as Record<string, unknown>;
+  return calls[calls.length - 1][1] as Record<string, unknown>;
 }
 
 beforeEach(() => {

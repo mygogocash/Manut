@@ -62,7 +62,8 @@ export async function importEquitySalaries(
     body: formData,
   });
   const json = (await res.json()) as
-    ApiSuccessResponse<EquitySalaryImportResult> | { error?: string };
+    | ApiSuccessResponse<EquitySalaryImportResult>
+    | { error?: string };
   if (!res.ok) {
     const message = ("error" in json && json.error) || "Import failed";
     throw new Error(typeof message === "string" ? message : "Import failed");

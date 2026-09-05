@@ -14,7 +14,7 @@ export const legalFormSchema = z
     effectiveDate: z.string().optional().or(z.literal("")),
     expiryDate: z.string().optional().or(z.literal("")),
     renewalLeadDays: z.coerce
-      .number<number | string>()
+      .number()
       .int("Must be a whole number")
       .min(0, "Must be 0 or greater"),
     status: z.enum(LEGAL_STATUSES),
@@ -38,8 +38,7 @@ export const legalFormSchema = z
     },
   );
 
-export type LegalFormInput = z.input<typeof legalFormSchema>;
-export type LegalFormValues = z.output<typeof legalFormSchema>;
+export type LegalFormValues = z.infer<typeof legalFormSchema>;
 
 export const LEGAL_FORM_DEFAULTS: LegalFormValues = {
   title: "",

@@ -1,0 +1,11 @@
+{
+  "artboards": [
+    { "file": "Current.dc.html", "x": 0, "y": 0, "w": 676, "h": 440, "title": "Today — one stage for the deal" },
+    { "file": "Main.dc.html", "x": 796, "y": 0, "w": 868, "h": 900, "title": "Proposed — stage per business unit" },
+    { "file": "States.dc.html", "x": 0, "y": 560, "w": 676, "h": 720, "title": "States & decisions" }
+  ],
+  "annotations": [
+    { "id": "brief", "x": 0, "y": -132, "w": 640, "text": "MTN: Onewave at Qualified, ARIA at Live.\nToday the dialog has ONE Stage field, so the two cannot differ.\n\nThe backend already supports this — PUT /opportunities/:id/business-units/:code sets one unit's stage, and the deal Stage is already a derived roll-up. This is a form change." }
+  ],
+  "launch": { "view": "canvas" }
+}

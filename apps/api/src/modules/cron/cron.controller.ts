@@ -1,8 +1,11 @@
 import { type Request, Router } from "express";
 
 import { asyncHandler } from "@/core/middleware/async-handler";
+import { accountingService } from "@/modules/accounting/accounting.service";
 import { syncCrmEmailsForAllUsers } from "@/modules/accounts/crm-email-sync.service";
 import { storageSnapshotService } from "@/modules/admin/usage/storage-snapshot.service";
+import { ariaService } from "@/modules/aria/aria.service";
+import { runBriefDispatcher } from "@/modules/aria/aria-brief.service";
 import { processCrmDeadlineReminders } from "@/modules/crm-shared/crm-reminders";
 import { botFxService } from "@/modules/exchange-rates/bot-fx.service";
 import { expensesService } from "@/modules/expenses/expenses.service";
@@ -12,6 +15,8 @@ import { processBillingReminders } from "@/modules/it-billing/it-billing.reminde
 import { leadService } from "@/modules/leads/leads.service";
 import { leaveService } from "@/modules/leave/leave.service";
 import { legalService } from "@/modules/legal/legal.service";
+import { marketingService } from "@/modules/marketing/marketing.service";
+import { runMarketingDriftCheck } from "@/modules/marketing-analytics/drift/drift.service";
 import { ninetyDayService } from "@/modules/ninety-day/ninety-day.service";
 import { telemetryService } from "@/modules/telemetry";
 import { visaService } from "@/modules/visa/visa.service";
@@ -51,6 +56,21 @@ router.post(
     const data = await expensesService.processMonthlySubmissionReminders({
       force,
     });
+    res.json({ data });
+  }),
+);
+
+// Accounting daily status check: auto-expire sent quotes past expiry, flag
+// sent/partial invoices+bills past due as overdue. "Today" = Asia/Bangkok.
+// Idempotent — safe to re-run. Schedule daily, e.g. `0 8 * * *`.
+router.post(
+  "/accounting-status",
+  asyncHandler(async (req, res) => {
+    if (!verifyCronSecret(readSecret(req))) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const data = await accountingService.runStatusChecks();
     res.json({ data });
   }),
 );
@@ -110,11 +130,20 @@ router.post(
       return;
     }
     const data = await botFxService.syncBotRates();
+    await accountingService.syncAccountingFxRates(
+      data.synced.map((row) => ({
+        currency: row.currency,
+        effectiveDate: new Date(`${row.period}T00:00:00.000Z`),
+        buyingRate: row.buyingRate,
+        sellingRate: row.sellingRate,
+        source: row.source,
+      })),
+    );
     res.json({ data });
   }),
 );
 
-// Daily stale-lead digest. Caller schedules this
+// PRD §11.3 follow-up — daily stale-lead digest. Caller schedules this
 // once per day (e.g. Cloud Scheduler). The job sends one email per owner
 // with at least one stale lead and returns counters for monitoring.
 router.post(
@@ -129,7 +158,7 @@ router.post(
   }),
 );
 
-// Sales CRM email auto-sync. For every
+// Sales CRM email auto-sync (Sid + BD feedback, 2026-05-24). For every
 // user with a connected Gmail account, scans messages newer than the
 // per-user cursor, matches recipients against `Contact.email`, and
 // logs a `CrmActivity` for each matched account. Idempotent via
@@ -213,8 +242,8 @@ router.post(
   }),
 );
 
-// Daily analytics snapshot sync. The replacement deployment will enqueue this
-// from a Cloudflare Cron Trigger; no inherited scheduler is active.
+// Daily PostHog snapshot sync — refreshes person/group traits with rolling
+// 30-day counts. Schedule via Cloud Scheduler at quiet hours (e.g. 04:00 SGT).
 router.post(
   "/sync-telemetry",
   asyncHandler(async (req, res) => {
@@ -224,6 +253,42 @@ router.post(
     }
     const data = await telemetryService.runSnapshotSync();
     res.json({ data });
+  }),
+);
+
+// Phase 4 — daily auto-sync of operational tables into the ARIA
+// knowledge corpus. Pulls active leave types, public holidays,
+// partners, projects, and company policies, upserts one
+// `aria_knowledge_articles` row per source row, and soft-deactivates
+// orphans. Idempotent — safe to retry. Schedule alongside the other
+// nightly crons (e.g. 03:00 SGT).
+router.post(
+  "/aria-knowledge-sync",
+  asyncHandler(async (req, res) => {
+    if (!verifyCronSecret(readSecret(req))) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const data = await ariaService.runKnowledgeSync();
+    res.json(data);
+  }),
+);
+
+// Daily PII redaction on `aria_query_logs.user_message`. Retention
+// window is `ARIA_PII_RETENTION_DAYS` (defaults to 30 per CLAUDE.md).
+// Idempotent — rows already carrying the sentinel are skipped via
+// the `NOT user_message = sentinel` filter. Schedule daily at quiet
+// hours (e.g. 02:30 SGT, between the visa cron and the knowledge
+// sync cron).
+router.post(
+  "/aria-purge-pii",
+  asyncHandler(async (req, res) => {
+    if (!verifyCronSecret(readSecret(req))) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const data = await ariaService.runPiiPurge();
+    res.json(data);
   }),
 );
 
@@ -252,6 +317,90 @@ router.post(
     }
     await attendanceNotificationService.runDailyManagerAlerts();
     res.json({ data: { ok: true } });
+  }),
+);
+
+// Phase 8 — proactive daily brief. Cloud Scheduler hits this once per
+// hour; the dispatcher filters subscribers by their local hour, so a
+// user opted into 07:00 Asia/Bangkok and a user opted into 07:00
+// Asia/Kolkata both get one brief at 07:00 of their respective
+// timezones from a single hourly cron. Idempotent — a same-day re-run
+// no-ops on the (user_id, delivered_on) unique key.
+router.post(
+  "/aria-daily-brief",
+  asyncHandler(async (req, res) => {
+    if (!verifyCronSecret(readSecret(req))) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const data = await runBriefDispatcher();
+    // Surface a non-2xx when the whole batch failed so Cloud Scheduler
+    // (or whatever's calling) raises an alert instead of swallowing
+    // it. "Some errored but some delivered" stays as 200 because
+    // partial success is still useful work, and `errors` in the
+    // payload tells the operator what to dig into.
+    const totalFailure =
+      data.errors > 0 && data.delivered === 0 && data.skippedEmpty === 0;
+    if (totalFailure) {
+      res.status(500).json({ data, error: "All brief deliveries failed" });
+      return;
+    }
+    if (data.errors > 0) {
+      // Partial-failure visibility — surfaces in Cloud Logging without
+      // tripping the 5xx alert.
+      const { logger } = await import("@/common/utils/logger");
+      logger.warn("ARIA brief dispatcher had per-user errors", { ...data });
+    }
+    res.json({ data });
+  }),
+);
+
+// OneWave holistic dashboard (P1) — re-ingest the multi-tab OW2.0 sheet
+// into normalized ow_daily_metrics + a fresh ow_snapshots row. Idempotent
+// (upsert on (date,telco)). Schedule a few times/day (refresh cadence TBC
+// with marketing); the dashboard also self-refreshes past its TTL.
+router.post(
+  "/ow-snapshot-refresh",
+  asyncHandler(async (req, res) => {
+    if (!verifyCronSecret(readSecret(req))) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const data = await marketingService.refreshSnapshot();
+    res.json({ data });
+  }),
+);
+
+// DAU/MAU drift check — audits that the two readers of BNII still agree.
+// `/marketing-analytics/dau-mau` queries the API live and persists nothing,
+// while the OneWave dashboard reads ow_daily_metrics written by the snapshot
+// cron above; nothing previously compared them, so a missed run or an upstream
+// restatement could leave the two pages disagreeing about the same day.
+// Read-only apart from the alert-debounce fingerprint, so re-runs are safe.
+// Schedule: `0 9 * * *` Asia/Bangkok — after the 08:00 reminder jobs.
+// Body accepts `{ "force": true }` to re-send an unchanged alert,
+// `{ "dryRun": true }` to report without emailing, and `{ "today": "YYYY-MM-DD" }`
+// to audit a historical window.
+router.post(
+  "/marketing-drift-check",
+  asyncHandler(async (req, res) => {
+    if (!verifyCronSecret(readSecret(req))) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    const body = (req.body ?? {}) as {
+      force?: unknown;
+      dryRun?: unknown;
+      today?: unknown;
+      days?: unknown;
+    };
+    const data = await runMarketingDriftCheck({
+      force: body.force === true,
+      dryRun: body.dryRun === true,
+      ...(typeof body.today === "string" ? { today: body.today } : {}),
+      ...(typeof body.days === "number" ? { days: body.days } : {}),
+    });
+    res.json({ data });
   }),
 );
 

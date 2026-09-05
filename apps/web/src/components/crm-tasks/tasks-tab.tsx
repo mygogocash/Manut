@@ -150,6 +150,7 @@ export function TasksTab() {
   const columns = [
     {
       key: "complete",
+      mobileRole: "field" as const, mobileLabel: "Done",
       header: "",
       className: "w-8",
       render: (t: CrmTask) => (
@@ -165,6 +166,7 @@ export function TasksTab() {
     },
     {
       key: "subject",
+      mobileRole: "title" as const,
       header: "Subject",
       render: (t: CrmTask) => (
         <span
@@ -180,6 +182,7 @@ export function TasksTab() {
     },
     {
       key: "anchor",
+      mobileRole: "subtitle" as const,
       header: "Tied to",
       render: (t: CrmTask) => {
         if (t.opportunity) return t.opportunity.name;
@@ -189,6 +192,7 @@ export function TasksTab() {
     },
     {
       key: "dueDate",
+      mobileRole: "field" as const,
       header: "Due",
       render: (t: CrmTask) =>
         t.dueDate
@@ -200,6 +204,7 @@ export function TasksTab() {
     },
     {
       key: "status",
+      mobileRole: "badge" as const,
       header: "Status",
       render: (t: CrmTask) => (
         <Badge status={t.status}>
@@ -214,6 +219,7 @@ export function TasksTab() {
     },
     {
       key: "actions",
+      mobileRole: "actions" as const,
       header: "",
       className: "w-10",
       render: (t: CrmTask) => (

@@ -7,12 +7,21 @@ import type {
   AttendanceStatus,
 } from "@/modules/hrms/attendance.types";
 import { attendanceCalendarService } from "@/modules/hrms/attendance-calendar.service";
-import {
-  listAttendanceMonthDays,
-  parseAttendanceMonth,
-} from "@/modules/hrms/attendance-period.util";
 import type { CalendarQuery } from "@/modules/hrms/attendance-phase3.validation";
 import { leaveRepository } from "@/modules/leave/leave.repository";
+
+function parseMonth(month: string): { from: Date; to: Date; days: string[] } {
+  const [year, mon] = month.split("-").map(Number);
+  const from = new Date(Date.UTC(year, mon - 1, 1));
+  const to = new Date(Date.UTC(year, mon, 0));
+  const days: string[] = [];
+  const cursor = new Date(from);
+  while (cursor <= to) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return { from, to, days };
+}
 
 function statusToCode(status: AttendanceStatus): AttendanceCalendarCode {
   switch (status) {
@@ -51,9 +60,7 @@ export const attendanceCalendarViewService = {
     const canRead =
       canViewAll || actorPermissions.includes(PERMISSIONS.HRMS_ATTENDANCE_READ);
 
-    const period = parseAttendanceMonth(query.month);
-    const { from, to } = period;
-    const days = listAttendanceMonthDays(period);
+    const { from, to, days } = parseMonth(query.month);
 
     let employees: Array<{
       id: string;

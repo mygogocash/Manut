@@ -1,0 +1,18 @@
+ALTER TABLE "ow_daily_metrics"
+  ADD COLUMN IF NOT EXISTS "mau_nexus" INTEGER,
+  ADD COLUMN IF NOT EXISTS "new_users_ga" INTEGER,
+  ADD COLUMN IF NOT EXISTS "repeat_users_ga" INTEGER,
+  ADD COLUMN IF NOT EXISTS "sessions_ga" INTEGER,
+  ADD COLUMN IF NOT EXISTS "total_credit" BIGINT,
+  ADD COLUMN IF NOT EXISTS "total_debit" BIGINT,
+  ADD COLUMN IF NOT EXISTS "total_transactions" INTEGER,
+  ADD COLUMN IF NOT EXISTS "spin_usage" INTEGER,
+  ADD COLUMN IF NOT EXISTS "spin_win_tokens" BIGINT,
+  ADD COLUMN IF NOT EXISTS "unique_spin_users" INTEGER,
+  ADD COLUMN IF NOT EXISTS "users_fando" INTEGER,
+  ADD COLUMN IF NOT EXISTS "users_ngage" INTEGER,
+  ADD COLUMN IF NOT EXISTS "tx_metrics" JSONB;
+
+ALTER TABLE "ow_daily_metrics"
+  ALTER COLUMN "bnry_earned" SET DATA TYPE BIGINT,
+  ALTER COLUMN "bnry_redeemed" SET DATA TYPE BIGINT;

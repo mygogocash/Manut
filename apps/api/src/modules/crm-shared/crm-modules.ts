@@ -17,7 +17,8 @@ export type CrmModule =
   | "accounting"
   | "hr"
   | "qa"
-  | "marketing";
+  | "marketing"
+  | "sales";
 
 export interface CrmModuleConfig {
   /** Stored on CrmNotification.module + used for logging. */
@@ -40,7 +41,7 @@ export const CRM_MODULES: Record<CrmModule, CrmModuleConfig> = {
   },
   general: {
     module: "general",
-    label: "Project CRM",
+    label: "Integration CRM",
     listSlug: "project-crm",
     recipientKey: "project-crm.reminder_recipients",
   },
@@ -80,6 +81,18 @@ export const CRM_MODULES: Record<CrmModule, CrmModuleConfig> = {
     listSlug: "partners",
     recipientKey: "marketing-crm.reminder_recipients",
   },
+  // Sales / Sales Revenue are reminder-only: single-owner to-do tasks with a
+  // required dueDate, no board — so no update notifications and `listSlug`
+  // is the module page path (their reminder links skip the /projects board).
+  sales: {
+    module: "sales",
+    label: "Sales CRM",
+    listSlug: "sales",
+    recipientKey: "sales-crm.reminder_recipients",
+  },
+  // No `revenue` entry: the ARIA Revenue CRM was retired 2026-08-26 and its
+  // deals migrated onto the Sales board tagged `aria`. Its reminder scans and
+  // the `revenue-crm.reminder_recipients` SystemSetting died with it.
 };
 
 // The shared `projects` board teams that flow through projects.service.addTask.
@@ -104,19 +117,24 @@ export function moduleForTeam(
 // CRMs whose deadline reminders + update notifications are LIVE. This is the
 // per-phase rollout toggle — enabling a CRM is (mostly) adding it here.
 //   #896: it. Phase B: general (Project CRM) + hr (HR CRM).
-//   Phase C pt1 (this): legal (Legal CRM) + accounting (Accounting CRM) —
+//   Phase C pt1: legal (Legal CRM) + accounting (Accounting CRM) —
 //     native-mirror boards whose TASKS live in shared project_tasks, so their
-//     task notifications + task due-date reminders are toggle-only. Their
-//     project GO-LIVES stay on native tables (lazy mirror) and are NOT yet
-//     reminded — that needs native reminder columns + a native scan (pt2).
-//   Later: product (pure-native workspace, needs a native notifier adapter —
-//     bucketed with qa / marketing), then qa / marketing.
+//     task notifications + task due-date reminders are toggle-only.
+//   Phase C pt2: legal/accounting native go-live scans.
+//   Phase C pt3 (this): product — a native-mirror board like legal/accounting
+//     (its list opens /projects/:id; the heal now mirrors product rows), so
+//     shared-board hooks cover it. Plus qa — a pure-native workspace whose
+//     notifications flow through the native adapter (`people`/`link` overrides
+//     on notifyCrmTaskEvent). Sales / revenue are reminder-only (never here).
+//   Later: marketing.
 export const NOTIFY_ENABLED_MODULES: readonly CrmModule[] = [
   "it",
   "general",
   "hr",
   "legal",
   "accounting",
+  "product",
+  "qa",
 ];
 
 // Board teams whose PROJECT rows live DIRECTLY in the shared `projects` table
@@ -131,14 +149,16 @@ export const SHARED_PROJECT_REMINDER_TEAMS: readonly string[] = [
 
 // Task due-date reminders scan `project_tasks` filtered to these teams. Every
 // enabled board CRM whose tasks live in the shared project_tasks table belongs
-// here — IT, general, hr, and the native-mirror boards legal + accounting
-// (their tasks are worked on the shared /projects board).
+// here — IT, general, hr, and the native-mirror boards legal + accounting +
+// product (their tasks are worked on the shared /projects board). QA is NOT
+// here: its tasks live only in qa_project_tasks and get a native scan.
 export const TASK_REMINDER_TEAMS: readonly string[] = [
   "it",
   "general",
   "hr",
   "legal",
   "accounting",
+  "product",
 ];
 
 // Resolve a board team to its module ONLY if that module's notifications are

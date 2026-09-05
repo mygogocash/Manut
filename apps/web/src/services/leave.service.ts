@@ -7,7 +7,12 @@ import type {
 // ─── Types ──────────────────────────────────────────────
 
 export type LeaveCategory =
-  "sick" | "casual" | "earned" | "paid" | "unpaid" | "other";
+  | "sick"
+  | "casual"
+  | "earned"
+  | "paid"
+  | "unpaid"
+  | "other";
 
 export const LEAVE_CATEGORY_ORDER: LeaveCategory[] = [
   "earned",
@@ -84,6 +89,10 @@ export interface LeavePolicyApprover {
     name: string;
     email: string;
   } | null;
+  skipWhenSubmitterIds: string[];
+  onlyWhenSubmitterIds: string[];
+  minDays: number | null;
+  maxDays: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -92,6 +101,10 @@ export interface SetLeavePolicyApproversInput {
   approvers: Array<{
     approverType: LeaveApproverType;
     approverUserId?: string | null;
+    skipWhenSubmitterIds?: string[];
+    onlyWhenSubmitterIds?: string[];
+    minDays?: number | null;
+    maxDays?: number | null;
   }>;
 }
 
@@ -158,7 +171,11 @@ export interface LeaveRequest {
   days: string;
   reason: string | null;
   status:
-    "pending" | "approved" | "rejected" | "cancelled" | "pending_cancellation";
+    | "pending"
+    | "approved"
+    | "rejected"
+    | "cancelled"
+    | "pending_cancellation";
   approver: { id: string; name: string } | null;
   delegatedToId?: string | null;
   delegate?: { id: string; name: string; email: string | null } | null;
@@ -361,6 +378,47 @@ export async function getTeamBalances(
   year?: number,
 ): Promise<ApiSuccessResponse<TeamBalanceRow[]>> {
   return api.get(`/leave/team-balances${buildQuery({ year })}`);
+}
+
+/**
+ * One balance whose stored `used` counter disagrees with the sum of the
+ * employee's visible approved requests. See `getBalanceDrift`.
+ */
+export interface BalanceDriftRow {
+  balanceId: string;
+  employee: { id: string; name: string; email: string };
+  leaveType: { id: string; name: string };
+  year: number;
+  entitled: number;
+  used: number;
+  carriedUsed: number;
+  approvedDays: number;
+  approvedCarriedDays: number;
+  drift: number;
+  carriedDrift: number;
+  /** Days on soft-deleted approved requests — invisible to the employee. */
+  deletedApprovedDays: number;
+  /** Visible approved days never charged to the balance. */
+  undeductedApprovedDays: number;
+  /** How many times HR wrote this balance by hand or by xlsx import. */
+  ledgerRowCount: number;
+  ledgerDelta: number;
+}
+
+export interface BalanceDriftResult {
+  data: BalanceDriftRow[];
+  meta: {
+    year: number | null;
+    scanned: number;
+    drifted: number;
+    untouchedByHr: number;
+  };
+}
+
+export async function getBalanceDrift(
+  year?: number,
+): Promise<BalanceDriftResult> {
+  return api.get(`/leave/balances/drift${buildQuery({ year })}`);
 }
 
 export interface UpdateLeaveBalanceInput {

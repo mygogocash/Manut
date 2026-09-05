@@ -4,7 +4,9 @@ import type {
   ApiSuccessResponse,
 } from "@/types/api.type";
 
-// Typed client for the QA CRM standalone workspace. Mounted at `/api/qa-crm`. The
+// Phase 3 of the QA CRM standalone workspace (Option A per-CRM
+// schema isolation, 2026-05-26). Typed client for the Phase 2
+// backend endpoints (#612 chain). Mounted at `/api/qa-crm`. The
 // task model extends with the QA team's Excel template fields
 // (issueDate / product / issueType / observation / expectation /
 // eta / qaComment) — see qa-crm.service.ts in the API.
@@ -31,6 +33,9 @@ export interface QaProject {
   comment: string | null;
   sortOrder: number;
   department: string | null;
+  // Auto-assign default for new tasks: none | creator | owner | user.
+  defaultAssigneeMode: string;
+  defaultAssigneeId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -104,6 +109,8 @@ export interface CreateQaProjectInput {
   comment?: string | null;
   department?: string | null;
   sortOrder?: number;
+  defaultAssigneeMode?: "none" | "creator" | "owner" | "user";
+  defaultAssigneeId?: string | null;
 }
 
 export type UpdateQaProjectInput = Partial<CreateQaProjectInput>;
@@ -114,6 +121,8 @@ export interface QaProjectListParams {
   search?: string;
   status?: string;
   department?: string;
+  // When true, return ONLY archived projects; omit/false shows active only.
+  archived?: boolean;
 }
 
 export interface CreateQaProjectTaskInput {
@@ -178,6 +187,18 @@ export async function deleteQaProject(
   id: string,
 ): Promise<ApiSuccessResponse<{ success: true }>> {
   return api.delete(`/qa-crm/${id}`);
+}
+
+export async function archiveQaProject(
+  id: string,
+): Promise<ApiSuccessResponse<QaProject>> {
+  return api.post(`/qa-crm/${id}/archive`, {});
+}
+
+export async function unarchiveQaProject(
+  id: string,
+): Promise<ApiSuccessResponse<QaProject>> {
+  return api.post(`/qa-crm/${id}/unarchive`, {});
 }
 
 export async function reorderQaProjects(

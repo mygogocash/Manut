@@ -25,6 +25,7 @@ vi.mock("./it-billing.repository", () => ({
     updateSubscription: vi.fn(),
     deleteSubscription: vi.fn(),
     activeSubscriptions: vi.fn(),
+    subscriptionsForMonthlySeries: vi.fn(),
     countActiveSubscriptions: vi.fn(),
     upcomingRenewals: vi.fn(),
   },

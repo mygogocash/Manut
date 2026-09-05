@@ -122,7 +122,10 @@ export class RevenueRepository {
     const since = getDateRange(period);
     const fx = createExchangeRateService();
 
-    const where: Record<string, unknown> = { issueDate: { gte: since } };
+    const where: Record<string, unknown> = {
+      issueDate: { gte: since },
+      deletedAt: null, // exclude soft-deleted invoices (PRD Rule 3)
+    };
     if (entityId) where.entityId = entityId;
 
     const invoices = await prisma.invoice.findMany({
@@ -203,6 +206,23 @@ export class RevenueRepository {
     return results;
   }
 
+  async getBnryTransactionSummary(period: string) {
+    // BnryTransaction has no per-row currency; legacy data is already
+    // denominated in the platform's native unit. Leave untouched.
+    const since = getDateRange(period);
+
+    const result = await prisma.bnryTransaction.aggregate({
+      where: { date: { gte: since } },
+      _sum: { amount: true },
+      _count: { id: true },
+    });
+
+    return {
+      totalVolume: Number(result._sum.amount ?? 0),
+      transactionCount: result._count.id,
+    };
+  }
+
   async getDealsPipelineValue() {
     // The legacy `Deal` model has no per-row currency column, so values
     // are assumed to already be denominated in `REPORT_CURRENCY` (USD).
@@ -227,6 +247,7 @@ export class RevenueRepository {
     const where: Record<string, unknown> = {
       issueDate: { gte: since },
       status: "paid",
+      deletedAt: null, // exclude soft-deleted invoices (PRD Rule 3)
     };
     if (entityId) where.entityId = entityId;
 
@@ -252,17 +273,14 @@ export class RevenueRepository {
       .map(([month, revenue]) => ({ month, revenue }))
       .sort((a, b) => a.month.localeCompare(b.month));
 
-    return months.map((month, index) => {
-      const previousRevenue = months[index - 1]?.revenue ?? 0;
-      return {
-        ...month,
-        previousRevenue,
-        growth:
-          previousRevenue > 0
-            ? ((month.revenue - previousRevenue) / previousRevenue) * 100
-            : 0,
-      };
-    });
+    return months.map((m, i) => ({
+      ...m,
+      previousRevenue: i > 0 ? months[i - 1].revenue : 0,
+      growth:
+        i > 0 && months[i - 1].revenue > 0
+          ? ((m.revenue - months[i - 1].revenue) / months[i - 1].revenue) * 100
+          : 0,
+    }));
   }
 }
 

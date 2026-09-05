@@ -323,7 +323,8 @@ export async function bulkImportEmployees(
     body: formData,
   });
   const json = (await res.json()) as
-    ApiSuccessResponse<BulkImportResult> | { error?: string };
+    | ApiSuccessResponse<BulkImportResult>
+    | { error?: string };
   if (!res.ok) {
     const message = ("error" in json && json.error) || "Bulk import failed";
     throw new Error(

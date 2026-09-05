@@ -1,28 +1,31 @@
-// Sales CRM — Lead → Opportunity → Account/Contact pipeline.
-// The legacy `Deal` model in operations.prisma stays separate so data can be
-// migrated incrementally without changing the active workflow in place.
+// Sales CRM v2 — Lead → Opportunity → Account/Contact pipeline.
+// Spec: docs/PRD_SALES_CRM_V2.md (PR #76 + decisions in #84).
+//
+// Phase 1.0 (this file): schema only. No endpoints, UI, or backfill yet.
+// The legacy `Deal` model in operations.prisma stays untouched — it will be
+// migrated row-by-row in a separate Phase 1 PR per PRD §12.
 
 model Account {
-  id                  String    @id @default(cuid())
-  name                String
-  // Domain is the dedupe key — unique when present, nullable for
+  id        String    @id @default(cuid())
+  name      String
+  // domain is the dedupe key per PRD §11.2 — unique when present, nullable for
   // companies the rep hasn't yet entered a domain for.
-  domain              String?   @unique
-  industry            String?
-  size                String?
-  country             String?
-  // Coarse geographic grouping above country
+  domain    String?   @unique
+  industry  String?
+  size      String?
+  country   String?
+  // BD-feedback rollup — coarse geo grouping above country
   // (e.g. APAC / EMEA / NA / LATAM / Other). Plain text so the pickers
   // are admin-managed at the application layer.
-  region              String?
-  website             String?
-  notes               String?
-  // `totalUsers` = total registered users at the
+  region    String?
+  website   String?
+  notes     String?
+  // BD-feedback metrics — `totalUsers` = total registered users at the
   // partner platform, `appUsers` = of those, how many are on the app /
   // active. Both nullable until the rep collects the data.
-  totalUsers          Int?      @map("total_users")
-  appUsers            Int?      @map("app_users")
-  // Account-level engagement tracking. Every
+  totalUsers Int?    @map("total_users")
+  appUsers   Int?    @map("app_users")
+  // BD-feedback round 3 — Account-level engagement tracking. Every
   // field is nullable; reps populate them as the relationship matures.
   // PIC = Person In Charge (the rep's primary contact at the
   // partner). engagementType is free-text "engagement" / "revenue"
@@ -38,16 +41,22 @@ model Account {
   uatEndDate          DateTime? @map("uat_end_date") @db.Date
   blocker             String?
   remarks             String?
-  ownerId             String    @map("owner_id") @db.Uuid
-  // Soft link to Partner CRM. Records stay separate.
-  partnerId           String?   @map("partner_id")
+  ownerId   String    @map("owner_id") @db.Uuid
+  // Soft link to Partner CRM per PRD §11.6. Records stay separate.
+  partnerId String?   @map("partner_id")
   // Manual ordering for the Sales CRM Accounts table — reps drag rows
   // to group related deals. Lower values render first; ties fall back
   // to `createdAt desc` so freshly-created rows still surface to the
-  // top. Same shape as legal_projects.sort_order.
-  sortOrder           Int       @default(0) @map("sort_order")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  // top. Same shape as legal_projects.sort_order (#697).
+  sortOrder Int       @default(0) @map("sort_order")
+  // Admin-editable business-unit tags (Onewave / Onewave Revenue / ARIA …).
+  // Codes reference CrmBusinessUnit.code with NO FK, exactly like
+  // Opportunity.lostReason / Lead.source — deleting a unit never cascades
+  // into history. Empty array = untagged ("Unassigned" in the pickers).
+  businessUnits String[] @default([]) @map("business_units")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
 
   owner         User          @relation("AccountOwner", fields: [ownerId], references: [id])
   partner       Partner?      @relation("PartnerAccounts", fields: [partnerId], references: [id], onDelete: SetNull)
@@ -57,24 +66,26 @@ model Account {
 
   @@index([ownerId])
   @@index([partnerId])
-  // Case-insensitive name lookup for the fallback dedupe path.
+  // Case-insensitive name lookup for the §11.2 fallback dedupe path.
   @@index([name])
   @@index([sortOrder])
+  @@index([archivedAt])
   @@map("crm_accounts")
 }
 
 model Contact {
-  id        String   @id @default(cuid())
-  accountId String   @map("account_id")
-  firstName String   @map("first_name")
-  lastName  String   @map("last_name")
-  email     String?
-  phone     String?
-  title     String?
-  isPrimary Boolean  @default(false) @map("is_primary")
-  notes     String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
+  accountId  String   @map("account_id")
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  email      String?
+  phone      String?
+  title      String?
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
 
   account       Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
   opportunities Opportunity[] @relation("OpportunityPrimaryContact")
@@ -82,105 +93,127 @@ model Contact {
 
   @@index([accountId])
   @@index([email])
+  @@index([archivedAt])
   @@map("crm_contacts")
 }
 
 model Lead {
-  id                     String    @id @default(cuid())
+  id        String  @id @default(cuid())
   // Free-text company name on the Lead — promoted to Account.name on convert.
-  company                String
-  // Set by the legacy backfill script. Lets the script run
+  company   String
+  // Set by the Phase 1 backfill script (PRD §9). Lets the script run
   // idempotently — re-runs skip rows that already point at a legacy `Deal`.
   // Stays nullable forever so net-new leads (created post-cutover) carry no
   // value here.
-  legacyDealId           String?   @unique @map("legacy_deal_id")
-  firstName              String    @map("first_name")
-  lastName               String    @map("last_name")
-  email                  String?
-  phone                  String?
-  title                  String?
-  // Source codes start with web | referral | conference | partner | cold | other.
+  legacyDealId String? @unique @map("legacy_deal_id")
+  firstName String  @map("first_name")
+  lastName  String  @map("last_name")
+  email     String?
+  phone     String?
+  title     String?
+  // PRD §11.7: fixed enum (web | referral | conference | partner | cold | other).
   // Validated by zod at the API boundary; stored as plain text here.
-  source                 String
+  source    String
   // new | contacted | qualified | converted | disqualified
-  status                 String    @default("new")
-  ownerId                String    @map("owner_id") @db.Uuid
-  notes                  String?
-  // Set during conversion to keep the Lead row as an audit trail.
+  status    String  @default("new")
+  ownerId   String  @map("owner_id") @db.Uuid
+  notes     String?
+  // Set during conversion (PRD §6) — keeps the Lead row as an audit trail.
   convertedOpportunityId String?   @map("converted_opportunity_id")
   convertedAt            DateTime? @map("converted_at")
   // Set when the Lead is disqualified instead of converted.
   disqualifyReason       String?   @map("disqualify_reason")
+  // Admin-editable business-unit tags (Onewave / Onewave Revenue / ARIA …).
+  // Codes reference CrmBusinessUnit.code with NO FK, exactly like
+  // Opportunity.lostReason / Lead.source — deleting a unit never cascades
+  // into history. Empty array = untagged ("Unassigned" in the pickers).
+  businessUnits String[] @default([]) @map("business_units")
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
+  archivedAt             DateTime? @map("archived_at")
 
-  owner                User          @relation("LeadOwner", fields: [ownerId], references: [id])
-  convertedOpportunity Opportunity?  @relation("LeadConvertedOpportunity", fields: [convertedOpportunityId], references: [id], onDelete: SetNull)
+  owner                User         @relation("LeadOwner", fields: [ownerId], references: [id])
+  convertedOpportunity Opportunity? @relation("LeadConvertedOpportunity", fields: [convertedOpportunityId], references: [id], onDelete: SetNull)
   activities           CrmActivity[]
   tasks                CrmTask[]
 
   @@index([ownerId, status])
   @@index([source])
+  @@index([archivedAt])
   @@map("crm_leads")
 }
 
 model Opportunity {
-  id                   String    @id @default(cuid())
-  name                 String
+  id          String    @id @default(cuid())
+  name        String
   // Mirror of Lead.legacyDealId — backfill stamps this on the qualified-and-
   // up Deal cohort so re-runs are idempotent and the row keeps a pointer to
   // the row it replaced.
-  legacyDealId         String?   @unique @map("legacy_deal_id")
-  accountId            String    @map("account_id")
-  contactId            String?   @map("contact_id")
+  legacyDealId String?  @unique @map("legacy_deal_id")
+  accountId   String    @map("account_id")
+  contactId   String?   @map("contact_id")
   // qualified | proposal | negotiation | closed_won | live | closed_lost
-  stage                String    @default("qualified")
+  stage       String    @default("qualified")
   // Manual within-column ordering on the pipeline kanban. Lower sorts
   // first; ties fall back to createdAt desc. Shared across all viewers
   // (one column per row), mirroring Account.sortOrder. Reset to 0 when a
   // card changes stage so it lands at the top of the destination column.
-  sortOrderWithinStage Int       @default(0) @map("sort_order_within_stage")
-  value                Decimal   @db.Decimal(15, 2)
-  // Per-Opportunity currency; the pipeline does not perform implicit FX.
-  currency             String    @default("USD")
-  // 0..100. Stage moves auto-set this to the stage default UNTIL the rep
+  sortOrderWithinStage Int @default(0) @map("sort_order_within_stage")
+  value       Decimal   @db.Decimal(15, 2)
+  // PRD §11.5: per-Opportunity currency, no FX in v2.
+  currency    String    @default("USD")
+  // 0..100. Stage moves auto-set this to the §11.4 default UNTIL the rep
   // sets it manually, after which probabilityCustom flips to true and the
   // auto-set is suppressed for the rest of the Opportunity's lifecycle.
-  probability          Int       @default(20)
-  probabilityCustom    Boolean   @default(false) @map("probability_custom")
-  closeDate            DateTime? @map("close_date") @db.Date
-  // Keep "deal closed" separate from "launched in production".
+  probability       Int       @default(20)
+  probabilityCustom Boolean   @default(false) @map("probability_custom")
+  closeDate         DateTime? @map("close_date") @db.Date
+  // BD-feedback — segregate "deal closed" from "launched in production".
   // Reps fill `closeDate` when the contract signs; `launchDate` is set
   // later when the partner actually goes live, often weeks after.
-  launchDate           DateTime? @map("launch_date") @db.Date
-  // Keep the soft/product launch
+  launchDate        DateTime? @map("launch_date") @db.Date
+  // BD-feedback (2026-05-28) — separate the soft / product launch
   // (`launchDate`) from the moment the partner starts producing
   // booked revenue. Reps update this once invoicing or take-rate
   // actually kicks in; surfaced as its own Accounts-grid column.
-  revenueLaunchDate    DateTime? @map("revenue_launch_date") @db.Date
-  type                 String?
-  notes                String?
-  ownerId              String    @map("owner_id") @db.Uuid
-  lostReason           String?   @map("lost_reason")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  revenueLaunchDate DateTime? @map("revenue_launch_date") @db.Date
+  type              String?
+  notes             String?
+  ownerId           String    @map("owner_id") @db.Uuid
+  lostReason        String?   @map("lost_reason")
+  // Admin-editable business-unit tags (Onewave / Onewave Revenue / ARIA …).
+  // Codes reference CrmBusinessUnit.code with NO FK, exactly like
+  // Opportunity.lostReason / Lead.source — deleting a unit never cascades
+  // into history. Empty array = untagged ("Unassigned" in the pickers).
+  businessUnits String[] @default([]) @map("business_units")
+  // Close-date reminder debounce ladder (generalized CRM deadline cron).
+  // Fired rung markers e.g. "close-7"/"close-overdue"; a closeDate edit
+  // re-arms. Terminal stages (closed_won/closed_lost/live) are skipped.
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   // Cascade matches Contact/CrmActivity siblings so deleting an
   // Account sweeps its opportunities with it. Previously the FK
-  // defaulted to Restrict, which prevented removal of an account with
-  // opportunities attached.
+  // defaulted to Restrict, which surfaced as a generic "Related data
+  // is missing or invalid" 400 on the Sales CRM Accounts page when
+  // HR tried to remove an account with any opportunity attached.
   account    Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
   contact    Contact?      @relation("OpportunityPrimaryContact", fields: [contactId], references: [id], onDelete: SetNull)
   owner      User          @relation("OpportunityOwner", fields: [ownerId], references: [id])
   activities CrmActivity[]
   tasks      CrmTask[]
   fromLeads  Lead[]        @relation("LeadConvertedOpportunity")
+  businessUnitProgress OpportunityBusinessUnit[]
 
+  archivedAt  DateTime? @map("archived_at")
   @@index([stage])
   @@index([stage, sortOrderWithinStage])
   @@index([ownerId, stage])
   @@index([accountId])
   @@index([closeDate])
+  @@index([archivedAt])
   @@map("crm_opportunities")
 }
 
@@ -222,14 +255,14 @@ model CrmActivity {
   @@map("crm_activities")
 }
 
-// Workspace-admin-managed lookup table for
+// PRD §11.7 follow-up — workspace-admin-managed lookup table for
 // Opportunity lost reasons. Same shape as LeadSource: code/label/
 // isSystem/isActive/sortOrder. Opportunity.lostReason was a free-text
 // column in v2; the close-lost UI now persists a code that resolves
 // against this table at render time. Existing free-text values stay
 // intact (the column is still nullable text), so historical rows that
 // don't match a code render verbatim.
-// Admin-configurable per-stage label + auto-fill
+// PRD §11.4 follow-up — admin-configurable per-stage label + auto-fill
 // probability. The 5 stage CODES stay hardcoded (validation enum +
 // closed_won/closed_lost branches in the service); only label,
 // probability and sortOrder are mutable. Rows are seeded one-per-code
@@ -264,7 +297,33 @@ model LostReason {
   @@map("crm_lost_reasons")
 }
 
-// Promote the fixed `source` enum on Lead to a
+// Workspace-admin-managed business units — the "who is taking care of this
+// card" tag on every Sales CRM record. Same shape as LostReason/LeadSource
+// (code/label/isSystem/isActive/sortOrder) so the manager dialog, the
+// service rules and the seeding style are all copies of a proven pattern.
+// Shared by BOTH CRMs: /sales and /sales-revenue read this one list.
+model CrmBusinessUnit {
+  id        String   @id @default(cuid())
+  // Stable machine code stored inside the records' `business_units` text[]
+  // (e.g. "onewave"). Lowercase, dash-separated, validated at the API edge.
+  code      String   @unique
+  label     String
+  // One of the shared Badge variants (green | amber | red | gold | blue |
+  // grey | purple | teal | violet). Stored as the variant NAME, not a
+  // Tailwind class, so chips resolve through Badge's literal VARIANT_STYLES
+  // map and survive Tailwind's static scan.
+  color     String   @default("grey")
+  isSystem  Boolean  @default(false) @map("is_system")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(100) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("crm_business_units")
+}
+
+// PRD §11.7 follow-up — promote the fixed `source` enum on Lead to a
 // workspace-admin-managed lookup table. Lead.source remains a plain
 // string column referencing `code` (no FK) so deleting/disabling a
 // source row never cascades into existing leads.
@@ -302,6 +361,10 @@ model CrmTask {
   opportunityId String?   @map("opportunity_id")
   leadId        String?   @map("lead_id")
   completedAt   DateTime? @map("completed_at")
+  // Due-date reminder debounce ladder (generalized CRM deadline cron).
+  // Fired rung markers e.g. "due-3"/"due-overdue"; a dueDate edit re-arms.
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
@@ -319,7 +382,7 @@ model CrmTask {
 /// `HelpdeskSettings` — same shape, same single-row enforcement via
 /// `singleton @unique`, same envelope of "team fan-out + owner-confirm
 /// on create + owner-notify on status change". The `notifyEmails`
-/// array is the sales distribution list emailed on new opportunities and
+/// array is the BD distribution list emailed on new opportunities and
 /// stage changes (replaces the old `CRM_NOTIFICATION_EMAILS` env var).
 /// Toggles let ops mute individual fan-outs without dropping the
 /// recipient list.
@@ -343,4 +406,52 @@ model CrmSettings {
   updatedBy User? @relation("CrmSettingsUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@map("crm_settings")
+}
+
+// One row per (opportunity x business unit). Holds everything that
+// describes how far along and how big THAT unit is, so a deal whose units
+// disagree — Onewave live while Onewave Revenue is still at proposal —
+// can say so. The deal-level fields on Opportunity become a roll-up of
+// these rows; see modules/crm-shared/opportunity-rollup.ts.
+//
+// No `currency`: the deal has one currency and every value here is
+// denominated in it. Summing units across currencies would be meaningless
+// and v2 has no FX.
+model OpportunityBusinessUnit {
+  id            String @id @default(cuid())
+  opportunityId String @map("opportunity_id")
+  // CrmBusinessUnit.code with NO FK, exactly like Opportunity.businessUnits.
+  // Deleting a unit must never cascade into history.
+  businessUnit String @map("business_unit")
+
+  stage                String    @default("qualified")
+  probability          Int       @default(20)
+  probabilityCustom    Boolean   @default(false) @map("probability_custom")
+  value                Decimal   @default(0) @db.Decimal(15, 2)
+  closeDate            DateTime? @map("close_date") @db.Date
+  launchDate           DateTime? @map("launch_date") @db.Date
+  revenueLaunchDate    DateTime? @map("revenue_launch_date") @db.Date
+  lostReason           String?   @map("lost_reason")
+  sortOrderWithinStage Int       @default(0) @map("sort_order_within_stage")
+
+  // Per-unit reminder debounce. PR1 only stores these; crm-reminders.ts
+  // starts reading them in PR3.
+  remindersSent      Json      @default("[]") @map("reminders_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  // Names are pinned with `map:` because Postgres silently truncates
+  // identifiers over 63 bytes. The unpinned/derived names for this model
+  // exceed that limit, which lets `db push` (staging) and this migration
+  // (production) truncate them differently and disagree about a
+  // constraint's identity. Pinning keeps both environments byte-for-byte
+  // in sync.
+  @@unique([opportunityId, businessUnit], map: "crm_opportunity_business_units_opportunity_id_business_unit_key")
+  @@index([businessUnit, stage], map: "crm_opportunity_business_units_business_unit_stage_idx")
+  @@index([stage, sortOrderWithinStage], map: "crm_opportunity_business_units_stage_sort_idx")
+  @@map("crm_opportunity_business_units")
 }

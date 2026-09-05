@@ -15,7 +15,7 @@ const TABS = [
 ];
 
 export function MarketingCrmTabs() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   return (
     <div className="border-border flex gap-1 border-b">
       {TABS.map((t) => {

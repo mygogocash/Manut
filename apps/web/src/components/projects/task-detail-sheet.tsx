@@ -192,7 +192,7 @@ export function TaskDetailSheet({
   const [postingComment, setPostingComment] = useState(false);
   const [subtaskDraft, setSubtaskDraft] = useState("");
   const [addingSubtask, setAddingSubtask] = useState(false);
-  // The task detail sheet needs an
+  // HR / Tanny feedback (2026-05-26): the task detail sheet had no
   // way to delete a task — parent passed `onDelete` but the sheet
   // never wired it to UI. AlertDialog gating the action so an
   // accidental click can't nuke a task with subtasks / activity.
@@ -687,11 +687,34 @@ export function TaskDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
+      {/*
+        Two mobile geometry fixes, both scoped so nothing at md+ moves.
+
+        Width: the Sheet primitive sets `data-[side=right]:w-3/4`, and an
+        attribute-prefixed utility outranks a plain `w-full` however the classes
+        are ordered — which is why the `sm:max-w-...` below already needed `!`.
+        Measured at 390px the sheet came out 292.5px wide, leaving a 98px dead
+        strip; at 768px it was 576px, and because the row splits into a 300px
+        sidebar at `md` the content column came to 275px — narrower than the
+        same content gets on a 320px phone, and narrower than the sidebar
+        annotating it. `max-lg:w-full!` forces full width below `lg`, the same
+        1024px boundary the board uses (Phase 7C). At `lg` and above the
+        `sm:max-w-...` cap still governs and the geometry is unchanged.
+
+        Close button: 28px, from the primitive. Raised to 44px below `md` here
+        rather than in sheet.tsx, so no other sheet in the app changes.
+        `size-11` and not the `.touch-target` utility, because Tailwind cannot
+        re-emit a hand-written utility through an arbitrary variant —
+        `[&_...]:touch-target` silently produced nothing, confirmed by measuring
+        the pseudo-element, which stayed `auto`.
+      */}
       <SheetContent
         className={cn(
           `
             flex h-full w-full max-w-none flex-col gap-0 overflow-hidden p-0
             sm:max-w-[min(1080px,calc(100vw-24px))]!
+            max-lg:w-full!
+            max-md:[&_[data-slot=sheet-close]]:size-11
           `,
         )}
         showCloseButton
@@ -735,16 +758,32 @@ export function TaskDetailSheet({
             Loading…
           </div>
         ) : (
+          /*
+            Scroll ownership.
+
+            Below `md` the sheet is one column and the SHEET BODY scrolls: main
+            content, then the metadata rail, read top to bottom. Previously main
+            owned the only scroller while the rail sat below it as `shrink-0`
+            inside an `overflow-hidden` sheet, so the two competed for a fixed
+            height — measured at 390px, the rail took 381px of an 844px viewport
+            and left main 426px to scroll 1,815px of content, with no way to
+            push the metadata out of the way.
+
+            At `md` and above nothing changes: the row splits, main regains its
+            own scroller and the rail becomes the 300px sidebar it has always
+            been.
+          */
           <div
             className={`
-              flex min-h-0 flex-1 flex-col
-              md:flex-row
+              flex min-h-0 flex-1 flex-col overflow-y-auto
+              md:flex-row md:overflow-hidden
             `}
           >
             {/* Main column */}
             <div
               className={`
-                flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-5 py-4
+                flex min-w-0 flex-col px-4 py-4
+                md:min-h-0 md:flex-1 md:overflow-y-auto md:px-5
               `}
             >
               {effectiveTask?.parent && (
@@ -1172,8 +1211,16 @@ export function TaskDetailSheet({
                     </span>
                   </div>
 
+                  {/* Four controls on one row needs ~400px. Inside a 293px
+                      sheet the two text inputs were squeezed to about 50px
+                      each — technically not overflowing, because `Input`
+                      carries `min-w-0`, and entirely unusable. Stacked below
+                      `sm`; the desktop row is untouched. */}
                   <div
-                    className={`mt-2 grid grid-cols-[120px_1fr_1fr_auto] gap-2`}
+                    className={`
+                      mt-2 grid grid-cols-1 gap-2
+                      sm:grid-cols-[120px_1fr_1fr_auto]
+                    `}
                   >
                     <Select
                       value={resKind}
@@ -1194,13 +1241,13 @@ export function TaskDetailSheet({
                       value={resLabel}
                       onChange={(e) => setResLabel(e.target.value)}
                       placeholder="Label"
-                      className="h-9 text-[13px]"
+                      className="h-9 text-base md:text-[13px]"
                     />
                     <Input
                       value={resUrl}
                       onChange={(e) => setResUrl(e.target.value)}
                       placeholder="URL"
-                      className="h-9 text-[13px]"
+                      className="h-9 text-base md:text-[13px]"
                     />
                     <Button
                       type="button"
@@ -1267,7 +1314,7 @@ export function TaskDetailSheet({
                       value={subtaskDraft}
                       onChange={(e) => setSubtaskDraft(e.target.value)}
                       placeholder="Add subtask…"
-                      className="h-9 text-[13px]"
+                      className="h-9 text-base md:text-[13px]"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") void handleAddSubtask();
                       }}
@@ -1330,7 +1377,7 @@ export function TaskDetailSheet({
                         onChange={(e) => setCommentDraft(e.target.value)}
                         placeholder="Add a comment…"
                         rows={3}
-                        className="resize-y text-[13px]"
+                        className="resize-y text-base md:text-[13px]"
                       />
                       <Button
                         type="button"
@@ -1446,7 +1493,7 @@ export function TaskDetailSheet({
                         onChange={(e) => setCommentDraft(e.target.value)}
                         placeholder="Add a comment…"
                         rows={3}
-                        className="resize-y text-[13px]"
+                        className="resize-y text-base md:text-[13px]"
                       />
                       <Button
                         type="button"

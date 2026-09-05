@@ -1,0 +1,170 @@
+/// Product proposals: ideas, change requests, and anything else product-related
+/// that needs a decision.
+///
+/// A separate flow from Project Requests, not a variant of it. A project request
+/// asks "may we run this project"; a proposal asks "is this idea worth doing at
+/// all". They differ in who decides and in shape: proposals always run two
+/// tiers, a first reviewer then a final approver, and the first reviewer can
+/// route a proposal SIDEWAYS to people who are not approvers to gather
+/// information before deciding.
+///
+/// Both approver slots are admin-configurable via `SystemSetting`, so no role or
+/// person is baked into the schema.
+
+model Proposal {
+  id          String  @id @default(cuid())
+  title       String
+  description String  @db.Text
+  /// idea | change_request | other. A label for filtering and reporting, NOT
+  /// for routing: every type follows the same path.
+  type        String  @default("idea")
+  /// Optional link to the project this concerns. A change request usually
+  /// points at one; an idea normally does not. `SetNull` on delete rather than
+  /// cascade, because the decision history is worth keeping even once the
+  /// project is gone.
+  projectId   String? @map("project_id")
+  /// low | normal | high | urgent. Surfaced to reviewers for triage.
+  priority    String?
+
+  /// Who submitted it. A plain scalar rather than a relation, matching
+  /// `project_workflow_transitions.actor_id`: these are audit-style pointers,
+  /// and a real relation would add another `users` back-reference for no gain.
+  /// Names are resolved in the service with a single batched lookup.
+  raisedById String @map("raised_by_id") @db.Uuid
+
+  /// pending_pm_review | pending_ceo_approval | approved | declined. Validated
+  /// in code, deliberately not a database enum, so adding a state needs no
+  /// migration.
+  ///
+  /// There is no `awaiting_information`: asking a question does not move the
+  /// proposal. See proposal.types.ts for why that turned out to be the wrong
+  /// model.
+  status String @default("pending_pm_review")
+  /// Stamped ONLY when the status actually changes, never on an ordinary edit.
+  /// That is what makes "time in stage" exact rather than inferred from
+  /// `updated_at`.
+  statusChangedAt DateTime? @map("status_changed_at") @db.Timestamptz(6)
+
+  /// Which stage of the configured chain this proposal waits at, 1..N.
+  ///
+  /// Null on proposals raised before configurable chains, which read as the
+  /// original fixed two tiers. `status` says what the proposal is doing;
+  /// this says where in the chain it is. See approval-chains.prisma.
+  currentStepOrder Int? @map("current_step_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  project             Project?                      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  informationRequests ProposalInformationRequest[]
+  transitions         ProposalTransition[]
+  emails              ProposalEmail[]
+  /// Snapshot of the approval chain taken when this proposal was raised.
+  approvalDecisions   ApprovalChainDecision[]
+
+  @@index([status])
+  @@index([raisedById])
+  @@index([projectId])
+  // The queue orders by recency within a status.
+  @@index([status, createdAt])
+  @@map("proposals")
+}
+
+/// One question asked of one person.
+///
+/// A child table rather than a column on `proposals` because a reviewer can ask
+/// several people at once: needing Legal on the contract AND Finance on the cost
+/// is the normal case, not an edge case, and a single `assigned_to` column
+/// cannot express it.
+model ProposalInformationRequest {
+  id         String @id @default(cuid())
+  proposalId String @map("proposal_id")
+
+  /// Who asked, and who must answer. Scalars, as on Proposal.
+  askedById    String @map("asked_by_id") @db.Uuid
+  assignedToId String @map("assigned_to_id") @db.Uuid
+
+  /// The stage the question was raised from. Both tiers can ask, and a proposal
+  /// can move on while a question is still open, so the answering stage cannot
+  /// be derived after the fact. Kept for display and audit.
+  raisedAtStatus String @map("raised_at_status")
+
+  question String  @db.Text
+  /// What the assignee wrote. Null while the question is open, which is also
+  /// how "still waiting" is determined; `responded_at` is the authoritative
+  /// marker, because an answer could legitimately be an empty string.
+  response String? @db.Text
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  respondedAt DateTime? @map("responded_at") @db.Timestamptz(6)
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId, createdAt])
+  // Drives "questions waiting on me": open rows for one assignee.
+  @@index([assignedToId, respondedAt])
+  @@map("proposal_information_requests")
+}
+
+/// Append-only decision log. Nothing in the application updates or deletes a
+/// row here; it is the record of what was decided, by whom, and why.
+model ProposalTransition {
+  id         String  @id @default(cuid())
+  proposalId String  @map("proposal_id")
+  /// Null on the first transition, when the proposal enters the flow.
+  fromStatus String? @map("from_status")
+  toStatus   String  @map("to_status")
+  /// Null when the system moved it, for example the automatic return once the
+  /// last open question is answered.
+  actorId    String? @map("actor_id") @db.Uuid
+  /// pass | decline | question. Null for system moves and the initial submit.
+  /// Recorded alongside the status change because "declined" does not say
+  /// whether a human chose it or a rule produced it.
+  choice     String?
+  /// Mandatory on decline and question, optional on pass.
+  comment    String? @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId, createdAt])
+  @@map("proposal_transitions")
+}
+
+/// Delivery log for every proposal notification.
+///
+/// Its own table rather than reusing project_workflow_emails, which is keyed to a
+/// project: a proposal need not have one. Same contract though, because the
+/// guarantees are what matter: `idempotency_key` is UNIQUE and claimed BEFORE
+/// sending, so duplicate delivery is prevented by the database rather than by an
+/// application check that would lose under concurrency.
+model ProposalEmail {
+  id         String @id @default(cuid())
+  proposalId String @map("proposal_id")
+
+  /// The event this concerns: submitted | question_asked | answer_received |
+  /// decision. Part of the idempotency key, so the same recipient can be mailed
+  /// about two different events but never twice about one.
+  kind      String
+  /// Status the proposal was in when this was raised, for context in the log.
+  stage     String
+  recipient String
+  subject   String
+
+  /// pending | sent | failed
+  status   String  @default("pending")
+  attempts Int     @default(0)
+  error    String? @db.Text
+
+  idempotencyKey String @unique @map("idempotency_key")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  sentAt    DateTime? @map("sent_at") @db.Timestamptz(6)
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId, createdAt])
+  // Drives the failed-notification sweep.
+  @@index([status])
+  @@map("proposal_emails")
+}

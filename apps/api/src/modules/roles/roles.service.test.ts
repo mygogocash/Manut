@@ -7,7 +7,6 @@ import {
 } from "@/common/exceptions/http-exception";
 import { rolesRepository } from "@/modules/roles/roles.repository";
 import { RolesService } from "@/modules/roles/roles.service";
-import { arrayAt } from "@/test-utils/assertions";
 
 vi.mock("./roles.repository", () => ({
   rolesRepository: {
@@ -60,10 +59,9 @@ describe("RolesService", () => {
       const result = await rolesService.list();
 
       expect(result.data).toHaveLength(2);
-      const admin = arrayAt(result.data, 0, "admin role");
-      expect(admin.name).toBe("Admin");
-      expect(admin.permissionCount).toBe(10);
-      expect(admin.userCount).toBe(5);
+      expect(result.data[0].name).toBe("Admin");
+      expect(result.data[0].permissionCount).toBe(10);
+      expect(result.data[0].userCount).toBe(5);
     });
   });
 

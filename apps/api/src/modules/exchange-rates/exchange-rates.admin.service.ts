@@ -9,7 +9,7 @@ import type {
   UpdateExchangeRateInput,
 } from "@/modules/exchange-rates/exchange-rates.validation";
 
-// Admin CRUD service for the finance
+// PRD §11.5 follow-up — admin CRUD service for the finance
 // exchange_rates table. Kept separate from the lookup helper
 // (createExchangeRateService) so unit tests for the lookup don't pull
 // in the admin path and vice-versa.

@@ -4,11 +4,23 @@ import { prisma } from "@/infrastructure/database/prisma";
 import { attendanceRepository } from "@/modules/hrms/attendance.repository";
 import type { ExecutiveAttendanceAnalytics } from "@/modules/hrms/attendance.types";
 import { attendanceCalendarService } from "@/modules/hrms/attendance-calendar.service";
-import { parseAttendanceMonth } from "@/modules/hrms/attendance-period.util";
 import type { ExecutiveAnalyticsQuery } from "@/modules/hrms/attendance-phase3.validation";
 import { serializeAttendanceRecord } from "@/modules/hrms/attendance-record.serializer";
 import { attendanceShiftService } from "@/modules/hrms/attendance-shift.service";
 import { COMPANY_DEFAULT_TIMEZONE } from "@/modules/hrms/attendance-timezone.util";
+
+function parseMonth(month?: string): { from: Date; to: Date; label: string } {
+  const now = new Date();
+  const [year, mon] = (
+    month ??
+    `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`
+  )
+    .split("-")
+    .map(Number);
+  const from = new Date(Date.UTC(year, mon - 1, 1));
+  const to = new Date(Date.UTC(year, mon, 0));
+  return { from, to, label: `${year}-${String(mon).padStart(2, "0")}` };
+}
 
 export const attendanceExecutiveService = {
   async getExecutiveAnalytics(
@@ -24,7 +36,7 @@ export const attendanceExecutiveService = {
       );
     }
 
-    const { from, to } = parseAttendanceMonth(query.month);
+    const { from, to } = parseMonth(query.month);
     const employees = await attendanceRepository.findActiveEmployees(
       query.department,
     );
@@ -191,7 +203,7 @@ export const attendanceExecutiveService = {
     });
     if (!user) return null;
 
-    const { from, to, label } = parseAttendanceMonth(month);
+    const { from, to, label } = parseMonth(month);
     const records = await attendanceRepository.findRecordsInRange(from, to, {
       employeeId,
     });

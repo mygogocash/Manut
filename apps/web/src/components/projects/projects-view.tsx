@@ -16,7 +16,11 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Archive,
+  ArchiveRestore,
   ArrowRightLeft,
+  BellRing,
+  ClipboardCheck,
   Download,
   Edit,
   Eye,
@@ -25,6 +29,7 @@ import {
   MoreHorizontal,
   Plus,
   Search,
+  SlidersHorizontal,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -34,13 +39,34 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { ProjectMobileCard } from "@/components/projects/project-mobile-card";
+import {
+  formatDate,
+  isProjectColVisible,
+  PROJECT_COL_DEFAULT_ORDER,
+  PROJECT_COL_META,
+  PROJECT_COL_STORAGE_KEY,
+  type ProjectColKey,
+  projectDetailHref,
+  renderProjectCell,
+} from "@/components/projects/projects-view-cells";
 import { Badge, type BadgeVariant } from "@/components/shared/badge";
 import { CrmImportDialog } from "@/components/shared/crm-import-dialog";
+import { CrmReminderSettingsDialog } from "@/components/shared/crm-reminder-settings-dialog";
 import { DataPagination } from "@/components/shared/data-pagination";
+import { EmptyState } from "@/components/shared/empty-state";
 import { ExpandableText } from "@/components/shared/expandable-text";
 import { PageHeader } from "@/components/shared/page-header";
 import { PermissionButton } from "@/components/shared/permission-button";
+import {
+  FilterGroup,
+  FilterSheet,
+  useFilterDraft,
+} from "@/components/shared/responsive/filters";
+import { ListSkeleton } from "@/components/shared/responsive/loading";
+import { SearchInput } from "@/components/shared/responsive/search-input";
 import { SortableColumnHead } from "@/components/shared/sortable-column-head";
+import { Tabs } from "@/components/shared/tabs";
 import { useColumnOrder } from "@/components/shared/use-column-order";
 import {
   AlertDialog,
@@ -84,11 +110,18 @@ import { type ExportFormat, exportRows } from "@/lib/crm-export";
 import { stripHtmlToText } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
 import {
+  type CrmSettingsModule,
+  getCrmReminderSettings,
+  updateCrmReminderSettings,
+} from "@/services/crm-reminder-settings.service";
+import {
   type AssignableUser,
   listAssignableUsers,
 } from "@/services/directory.service";
 import {
   AGREEMENT_OPTIONS,
+  type AgreementValue,
+  archiveProject,
   type CombinedImportProject,
   deleteProject,
   exportProjectTasks,
@@ -103,6 +136,7 @@ import {
   type ProjectTaskExportRow,
   type ProjectTeam,
   reorderProjects,
+  unarchiveProject,
 } from "@/services/project.service";
 
 // One row of the combined Projects+Tasks import sheet. `type` flags
@@ -129,22 +163,13 @@ function getOwnerId(p: Project): string | undefined {
     : undefined;
 }
 
-function formatDate(iso: string | null | undefined) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-// Per-team column overrides. Default = full project set with three
+// Per-team column overrides. Default = BD-style full set with three
 // rollout dates, dependency, comment, department. Legal team's
 // 2026-05-25 checklist xlsx only tracks Task | Owner | Date |
 // Dependency | Status, so the workspace collapses to that shape
 // while the underlying schema stays shared. Add an entry here to
 // scope future teams (HR, etc.) without forking the table.
-interface ProjectColumnConfig {
+export interface ProjectColumnConfig {
   projectLabel: string;
   dateLabel: string;
   showProductionLive: boolean;
@@ -152,16 +177,16 @@ interface ProjectColumnConfig {
   showComment: boolean;
   showDepartment: boolean;
   // Project-team feedback (2026-06-10) — Agreement column (Signed /
-  // Not Signed), shown after Rev. GoLive on the default layout.
+  // Not Signed), shown after Rev. GoLive on the BD-style layout.
   showAgreement: boolean;
   // Legal team requested a different column shape AND a different
   // column order (Workstream | Legal Task | Owner | Due Date |
   // Status). When true, the header + row render the alternate
-  // legal-only layout instead of the default one.
+  // legal-only layout instead of the default BD-style one.
   legalLayout: boolean;
   // HR team layout (2026-05-26) — HR CRM uses Project rows as
   // operational tasks. Layout: # | Task | Task Type | Workflow
-  // Status | Assigned Team | Due Date | Owner | actions. Default
+  // Status | Assigned Team | Due Date | Owner | actions. BD-style
   // GoLive / Dependency / Department cells are hidden.
   hrLayout: boolean;
 }
@@ -224,208 +249,8 @@ function getColumnConfig(team: ProjectTeam): ProjectColumnConfig {
 }
 
 // Agreement column (Project-team feedback, 2026-06-10). Signed reads as
-// settled (green); Not Signed as outstanding (grey).
-const AGREEMENT_LABELS: Record<string, string> = Object.fromEntries(
-  AGREEMENT_OPTIONS.map((a) => [a.value, a.label]),
-);
-const AGREEMENT_VARIANTS: Record<string, BadgeVariant> = {
-  signed: "green",
-  not_signed: "grey",
-};
-
-// ── Default layout column reorder ────────────────────────
-// Drag-to-reorder columns on the general Project CRM list, persisted to
-// localStorage via useColumnOrder. The drag handle + "#" stay fixed on
-// the left and the actions menu on the right; everything between is
-// reorderable. Legal / HR layouts keep their bespoke fixed order.
-type ProjectColKey =
-  | "project"
-  | "status"
-  | "productionLive"
-  | "goLive"
-  | "revGoLive"
-  | "agreement"
-  | "dependency"
-  | "comment"
-  | "owner";
-
-const PROJECT_COL_STORAGE_KEY = "project-crm-col-order-v1";
-
-const PROJECT_COL_DEFAULT_ORDER: readonly ProjectColKey[] = [
-  "project",
-  "status",
-  "productionLive",
-  "goLive",
-  "revGoLive",
-  "agreement",
-  "dependency",
-  "comment",
-  "owner",
-];
-
-const PROJECT_COL_META: Record<
-  ProjectColKey,
-  { label: string; headClassName?: string }
-> = {
-  project: { label: "Project" },
-  status: { label: "Status" },
-  productionLive: { label: "Production Live", headClassName: "w-[120px]" },
-  goLive: { label: "GoLive Date", headClassName: "w-[120px]" },
-  revGoLive: { label: "Rev. GoLive", headClassName: "w-[120px]" },
-  agreement: { label: "Agreement", headClassName: "w-[120px]" },
-  dependency: { label: "Dependency", headClassName: "w-[140px]" },
-  comment: { label: "Comment", headClassName: "w-[240px]" },
-  owner: { label: "Owner", headClassName: "w-[140px]" },
-};
-
-// A column is shown only when its config flag is on (mirrors the old
-// hardcoded `colConfig.show*` guards). Project / Status / GoLive /
-// Dependency / Owner are always present in the default layout.
-function isProjectColVisible(
-  key: ProjectColKey,
-  cfg: ProjectColumnConfig,
-): boolean {
-  switch (key) {
-    case "productionLive":
-      return cfg.showProductionLive;
-    case "revGoLive":
-      return cfg.showRevGoLive;
-    case "agreement":
-      return cfg.showAgreement;
-    case "comment":
-      return cfg.showComment;
-    default:
-      return true;
-  }
-}
-
-// Render one default-layout body cell by column key. Mirrors the JSX
-// that used to be inlined in SortableProjectRow's default branch.
-function renderProjectCell(
-  key: ProjectColKey,
-  project: Project,
-  team: ProjectTeam,
-): React.ReactElement {
-  switch (key) {
-    case "project":
-      return (
-        <TableCell key={key}>
-          <Link
-            href={projectDetailHref(project, team)}
-            className={`
-              hover:text-primary
-              group block
-            `}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <span
-              className={`
-                font-medium
-                group-hover:underline
-              `}
-            >
-              {project.name}
-            </span>
-            {project.description && (
-              <p
-                className={`
-                  text-muted-foreground mt-0.5 max-w-[280px] truncate
-                  text-[11px]
-                `}
-                title={stripHtmlToText(project.description)}
-              >
-                {stripHtmlToText(project.description)}
-              </p>
-            )}
-          </Link>
-        </TableCell>
-      );
-    case "status":
-      return (
-        <TableCell key={key}>
-          <Badge status={project.status}>
-            {projectStatusLabel(project.status)}
-          </Badge>
-        </TableCell>
-      );
-    case "productionLive":
-      return (
-        <TableCell key={key}>
-          <span className="text-xs tabular-nums">
-            {formatDate(project.productionLiveDate)}
-          </span>
-        </TableCell>
-      );
-    case "goLive":
-      return (
-        <TableCell key={key}>
-          <span className="text-xs tabular-nums">
-            {formatDate(project.goLiveDate)}
-          </span>
-        </TableCell>
-      );
-    case "revGoLive":
-      return (
-        <TableCell key={key}>
-          <span className="text-xs tabular-nums">
-            {formatDate(project.revisedGoLiveDate)}
-          </span>
-        </TableCell>
-      );
-    case "agreement":
-      return (
-        <TableCell key={key}>
-          {project.agreement ? (
-            <Badge variant={AGREEMENT_VARIANTS[project.agreement] ?? "grey"}>
-              {AGREEMENT_LABELS[project.agreement] ?? project.agreement}
-            </Badge>
-          ) : (
-            <span className="text-muted-foreground text-xs">—</span>
-          )}
-        </TableCell>
-      );
-    case "dependency":
-      return (
-        <TableCell key={key}>
-          <span
-            className={`
-              text-foreground-secondary block max-w-[220px] truncate text-xs
-            `}
-          >
-            {project.dependency || "—"}
-          </span>
-        </TableCell>
-      );
-    case "comment":
-      return (
-        <TableCell key={key} className="max-w-[240px] align-top">
-          <span
-            className={`
-              text-foreground-secondary line-clamp-2 block max-w-[240px] text-xs
-              break-words whitespace-normal
-            `}
-            title={
-              project.comment ? stripHtmlToText(project.comment) : undefined
-            }
-          >
-            {project.comment ? stripHtmlToText(project.comment) : "—"}
-          </span>
-        </TableCell>
-      );
-    case "owner":
-      return (
-        <TableCell key={key}>
-          <span className="text-foreground-secondary text-xs">
-            {typeof project.owner === "string"
-              ? project.owner
-              : (project.owner?.name ?? "—")}
-          </span>
-        </TableCell>
-      );
-    default:
-      return <TableCell key={key} />;
-  }
-}
+// settled (green); Not Signed as an outstanding item that needs chasing
+// (red), per Project-team feedback.
 
 // HR CRM Workflow-Status colours (2026-06-02). The shared Badge
 // STATUS_MAP follows the BD project spec (in_progress = red,
@@ -459,31 +284,6 @@ function hrStatusVariant(status?: string): BadgeVariant | undefined {
 // project-detail URL with `?from=<crm>` so the sidebar highlights
 // the CRM the user navigated from instead of falling back to
 // "Project CRM" via the generic `/projects/` longest-match.
-function teamCrmSlug(team: ProjectTeam): string | null {
-  switch (team) {
-    case "it":
-      return "it-crm";
-    case "product":
-      return "product-crm";
-    case "legal":
-      return "legal-crm";
-    case "accounting":
-      return "accounting-crm";
-    case "hr":
-      return "hr-crm";
-    default:
-      return null;
-  }
-}
-
-function projectDetailHref(
-  project: { id: string; slug?: string | null },
-  team: ProjectTeam,
-): string {
-  const base = `/projects/${project.slug ?? project.id}`;
-  const from = teamCrmSlug(team);
-  return from ? `${base}?from=${from}` : base;
-}
 
 // Legal CRM import helpers. The Legal checklist xlsx ships dates in
 // several human formats (e.g. "04/27", "5/13", "2026-07-05 00:00:00",
@@ -599,7 +399,7 @@ export interface ProjectsViewProps {
 export function ProjectsView({
   team,
   showPageHeader = true,
-  title = "Project CRM",
+  title = "Integration CRM",
   subtitle,
   createPermission = "projects:create",
 }: ProjectsViewProps) {
@@ -631,12 +431,23 @@ export function ProjectsView({
     (team === "legal" && hasAnyPermission("legal-crm:manage")) ||
     (team === "accounting" && hasAnyPermission("accounting-crm:manage")) ||
     (team === "hr" && hasAnyPermission("hr-crm:manage"));
+  // Deadline-reminder recipients. This component only owns the button
+  // for the general (/projects) and HR (/hr-crm) workspaces — every
+  // other team CRM mounts its own on its standalone list. The setting
+  // is manage-only on the backend, so gate the button/dialog at the
+  // same level to avoid a control that would 403 on save.
+  const reminderModule: CrmSettingsModule = team === "hr" ? "hr" : "general";
+  const canManageReminders =
+    (team === "general" || team === "hr") &&
+    (team === "hr"
+      ? hasAnyPermission("hr-crm:manage", "projects:manage")
+      : hasAnyPermission("projects:manage"));
 
   const colConfig = getColumnConfig(team);
   const colCount = getColumnCount(colConfig);
 
   // Default-layout column drag-to-reorder (persisted to localStorage).
-  // Only the default layout is reorderable; legal / HR keep their fixed
+  // Only the BD-style layout is reorderable; legal / HR keep their fixed
   // bespoke order. `visibleProjectCols` drops columns whose config flag
   // is off so the header and body stay in lockstep.
   const { colOrder, isColumnId, reorderColumns } = useColumnOrder(
@@ -658,7 +469,7 @@ export function ProjectsView({
   // Owner / Members picker source. Switched from `listUsers` (which
   // requires `user:read`) to the lean `/directory/assignable`
   // endpoint — auth-only, no perm gate — so team-CRM-only users
-  // from each team can populate the picker
+  // (Tanny / HR, Kunanon / IT, etc.) can populate the picker
   // without holding the HR-side `user:read` perm. Mirrors the
   // pattern the project detail page already uses for the
   // multi-assign picker (see #project_detail_page).
@@ -666,13 +477,47 @@ export function ProjectsView({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  // Agreement filter (Project-team feedback), "" = All, else a value
+  // from AGREEMENT_OPTIONS ("signed" / "not_signed"). Server-side so
+  // paging covers the whole filtered set, mirroring the status filter.
+  const [agreementFilter, setAgreementFilter] = useState<string>("");
+
+  // Mobile filter sheet. The draft mirrors whatever is applied and resyncs
+  // whenever the sheet opens, so abandoning it cannot leak into the next open.
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const appliedFilters = useMemo(
+    () => ({ status: statusFilter, agreement: agreementFilter }),
+    [statusFilter, agreementFilter],
+  );
+  const {
+    draft: filterDraft,
+    setDraft: setFilterDraft,
+    dirty: filterDraftDirty,
+  } = useFilterDraft(appliedFilters, filterSheetOpen);
+  const activeFilterCount = (statusFilter ? 1 : 0) + (agreementFilter ? 1 : 0);
+  // Active | Archived view. Orthogonal to the status filter, Archived shows
+  // projects that were archived regardless of their board status.
+  const [archived, setArchived] = useState(false);
   // Department filter UI removed (2026-06-10); kept as a constant "" so
   // the existing list-param / dependency plumbing stays intact.
   const [departmentFilter] = useState<string>("");
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // Stable load/save fns for the shared reminder-settings dialog —
+  // it keys its load-on-open effect on `load`.
+  const loadReminderSettings = useCallback(
+    async () => (await getCrmReminderSettings(reminderModule)).data,
+    [reminderModule],
+  );
+  const saveReminderSettings = useCallback(
+    async (recipients: string[]) =>
+      (await updateCrmReminderSettings(reminderModule, recipients)).data,
+    [reminderModule],
+  );
   // Move-to-Partner: only offered on the general Project CRM, to admins
   // / managers who can also create partners.
   const [moveTarget, setMoveTarget] = useState<Project | null>(null);
@@ -721,7 +566,9 @@ export function ProjectsView({
         status: statusFilter || undefined,
         department: (departmentFilter || undefined) as
           ProjectDepartment | undefined,
+        agreement: (agreementFilter || undefined) as AgreementValue | undefined,
         team,
+        archived: archived || undefined,
       });
       setProjects(result.data);
       setTotalCount(result.meta.total);
@@ -738,13 +585,21 @@ export function ProjectsView({
     debouncedSearch,
     statusFilter,
     departmentFilter,
+    agreementFilter,
     team,
+    archived,
     setTotalCount,
   ]);
 
   useEffect(() => {
     void fetchProjects();
   }, [fetchProjects]);
+
+  // Reset to page 1 when switching Active ⇄ Archived so the new view opens
+  // at its first page instead of a stale page index from the prior tab.
+  useEffect(() => {
+    setPage(1);
+  }, [archived, setPage]);
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -795,14 +650,16 @@ export function ProjectsView({
       const row = projectDetailToRow(saved);
       if (editProject) {
         setProjects((prev) => prev.map((p) => (p.id === row.id ? row : p)));
-        // A stale `editProject` ref
+        // HR / Tanny feedback (2026-05-26): a stale `editProject` ref
         // here meant reopening the dialog right after a save replayed
         // the old field values — the list state was up to date but
         // the dialog's `project` prop pointed at the row from before
         // the update. Refresh the ref so the next open hits a fresh
         // snapshot.
         setEditProject(row);
-      } else {
+      } else if (!archived) {
+        // A newly created project is active, it belongs to the Active view
+        // only. On the Archived tab, skip the optimistic insert + count bump.
         setTotalCount((c) => c + 1);
         if (page === 1) {
           setProjects((prev) => {
@@ -812,7 +669,7 @@ export function ProjectsView({
         }
       }
     },
-    [editProject, page, pageSize, setTotalCount],
+    [editProject, archived, page, pageSize, setTotalCount],
   );
 
   function handleEdit(p: Project) {
@@ -824,6 +681,41 @@ export function ProjectsView({
     setEditProject(null);
     setDialogOpen(true);
   }
+
+  // Archive / restore. The current view (active vs archived) is the opposite
+  // of the row's new state, so the row leaves the current list either way
+  // drop it optimistically and adjust the total.
+  const handleArchive = useCallback(
+    async (p: Project) => {
+      try {
+        await archiveProject(p.id);
+        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        toast.success("Project archived");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to archive project",
+        );
+      }
+    },
+    [setTotalCount],
+  );
+
+  const handleUnarchive = useCallback(
+    async (p: Project) => {
+      try {
+        await unarchiveProject(p.id);
+        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+        setTotalCount((c) => Math.max(0, c - 1));
+        toast.success("Project restored");
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Failed to restore project",
+        );
+      }
+    },
+    [setTotalCount],
+  );
 
   // Combined export — one file carrying each project row immediately
   // followed by its task rows (incl. subtasks), distinguished by a
@@ -838,6 +730,8 @@ export function ProjectsView({
           status: statusFilter || undefined,
           department: (departmentFilter || undefined) as
             ProjectDepartment | undefined,
+          agreement: (agreementFilter || undefined) as
+            AgreementValue | undefined,
         };
         const [projectsRes, tasksRes] = await Promise.all([
           getProjects({ page: 1, limit: 1000, ...filters }),
@@ -986,7 +880,7 @@ export function ProjectsView({
         setExporting(false);
       }
     },
-    [team, debouncedSearch, statusFilter, departmentFilter],
+    [team, debouncedSearch, statusFilter, departmentFilter, agreementFilter],
   );
 
   // Reordering is page-local: API persists a global sort_order but we
@@ -997,6 +891,8 @@ export function ProjectsView({
     !debouncedSearch.trim() &&
     !statusFilter &&
     !departmentFilter &&
+    !agreementFilter &&
+    !archived &&
     !loading &&
     projects.length > 1;
 
@@ -1060,6 +956,16 @@ export function ProjectsView({
           </Link>
         </Button>
       ) : null}
+      {team === "general" ? (
+        // Single entry point into the approval workflow, the five request
+        // views live behind this one link, so navigation stays one level deep.
+        <Button asChild variant="outline" size="sm">
+          <Link href="/projects/requests">
+            <ClipboardCheck className="size-3.5" />
+            Requests
+          </Link>
+        </Button>
+      ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" disabled={exporting}>
@@ -1076,6 +982,16 @@ export function ProjectsView({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {canManageReminders ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setReminderOpen(true)}
+        >
+          <BellRing className="size-3.5" />
+          Reminders
+        </Button>
+      ) : null}
       <PermissionButton
         variant="outline"
         permission={createPermission}
@@ -1103,47 +1019,188 @@ export function ProjectsView({
         </div>
       )}
 
-      <div className="mb-4 flex items-center gap-3">
-        <div className="relative max-w-sm flex-1">
-          <Search
-            className={`
-              text-muted-foreground absolute top-1/2 left-2.5 size-3.5
-              -translate-y-1/2
-            `}
-          />
-          <Input
+      <Tabs
+        tabs={[
+          { id: "active", label: "Active" },
+          { id: "archived", label: "Archived" },
+        ]}
+        active={archived ? "archived" : "active"}
+        onChange={(v) => setArchived(v === "archived")}
+      />
+
+      {/* Toolbar.
+
+          Desktop keeps the inline selects it has always had. Below `md` they
+          would not fit — a flex row of a search box plus a 180px and a 160px
+          select overflows a 320px screen — so the same two filters move into a
+          sheet. The FILTER VALUES AND SEMANTICS ARE UNCHANGED: same state, same
+          option lists, same server query. Only where you tap them differs. */}
+      <div
+        className={`
+          mb-4 flex flex-col gap-2
+          md:flex-row md:items-center md:gap-3
+        `}
+      >
+        <div
+          className={`
+            min-w-0
+            md:max-w-sm md:flex-1
+          `}
+        >
+          <SearchInput
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onValueChange={setSearch}
             placeholder="Search projects..."
-            className="h-8 pl-8 text-xs"
+            aria-label="Search projects"
           />
         </div>
-        <Select
-          value={statusFilter || "all"}
-          onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}
+
+        {/* Mobile: chips summarise what is applied, and open the sheet. */}
+        <div
+          className={`
+            flex items-center gap-2
+            md:hidden
+          `}
         >
-          <SelectTrigger className="h-10 w-[180px] text-xs">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {PROJECT_STATUS_OPTIONS.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {/* Department filter removed (Project-team feedback, 2026-06-10)
-            along with the Department column. The `department` field still
-            exists on the model + project dialog; it's just no longer a
-            list filter. */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => setFilterSheetOpen(true)}
+          >
+            <SlidersHorizontal className="size-3.5" />
+            Filters
+            {activeFilterCount > 0 ? (
+              <span
+                className={`
+                  bg-primary text-primary-foreground ml-0.5 rounded-full px-1.5
+                  text-[10px] font-semibold tabular-nums
+                `}
+              >
+                {activeFilterCount}
+              </span>
+            ) : null}
+          </Button>
+          {activeFilterCount > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground h-9"
+              onClick={() => {
+                setStatusFilter("");
+                setAgreementFilter("");
+              }}
+            >
+              Clear
+            </Button>
+          ) : null}
+        </div>
+
+        {/* Desktop: unchanged. */}
+        <div
+          className={`
+            hidden items-center gap-3
+            md:flex
+          `}
+        >
+          <Select
+            value={statusFilter || "all"}
+            onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}
+          >
+            <SelectTrigger className="h-10 w-[180px] text-xs">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {PROJECT_STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Agreement filter (Project-team feedback) — gated on the same
+              flag as the Agreement column, so it appears wherever that
+              column does (the default Project CRM layout) and is hidden on
+              the HR layout, which doesn't track agreements. */}
+          {colConfig.showAgreement ? (
+            <Select
+              value={agreementFilter || "all"}
+              onValueChange={(v) => setAgreementFilter(v === "all" ? "" : v)}
+            >
+              <SelectTrigger className="h-10 w-[160px] text-xs">
+                <SelectValue placeholder="All agreements" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All agreements</SelectItem>
+                {AGREEMENT_OPTIONS.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>
+                    {a.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+          {/* Department filter removed (Project-team feedback, 2026-06-10)
+              along with the Department column. The `department` field still
+              exists on the model + project dialog; it's just no longer a
+              list filter. */}
+        </div>
       </div>
 
+      {/* The same two filters, in a sheet. Selections are held as a draft and
+          only committed on Apply, so the list behind does not churn on every
+          tap and Cancel genuinely discards. */}
+      <FilterSheet
+        open={filterSheetOpen}
+        onOpenChange={setFilterSheetOpen}
+        applyDisabled={!filterDraftDirty}
+        onReset={() => setFilterDraft({ status: "", agreement: "" })}
+        onApply={() => {
+          setStatusFilter(filterDraft.status);
+          setAgreementFilter(filterDraft.agreement);
+        }}
+      >
+        <FilterGroup
+          title="Status"
+          includeAll
+          allLabel="All statuses"
+          selected={filterDraft.status}
+          onChange={(v) =>
+            setFilterDraft((d) => ({ ...d, status: v as string }))
+          }
+          options={PROJECT_STATUS_OPTIONS.map((s) => ({
+            value: s.value,
+            label: s.label,
+          }))}
+        />
+        {colConfig.showAgreement ? (
+          <FilterGroup
+            title="Agreement"
+            includeAll
+            allLabel="All agreements"
+            selected={filterDraft.agreement}
+            onChange={(v) =>
+              setFilterDraft((d) => ({ ...d, agreement: v as string }))
+            }
+            options={AGREEMENT_OPTIONS.map((a) => ({
+              value: a.value,
+              label: a.label,
+            }))}
+          />
+        ) : null}
+      </FilterSheet>
+
       {!reorderEnabled &&
-      (debouncedSearch.trim() || statusFilter || departmentFilter) ? (
+      (debouncedSearch.trim() ||
+        statusFilter ||
+        departmentFilter ||
+        agreementFilter ||
+        archived) ? (
         <p className="text-muted-foreground mb-2 text-[11px]">
-          Drag-to-reorder is disabled while a filter or search is active.
+          {archived
+            ? "Drag-to-reorder is disabled in the Archived view."
+            : "Drag-to-reorder is disabled while a filter or search is active."}
         </p>
       ) : null}
 
@@ -1158,119 +1215,182 @@ export function ProjectsView({
        * Net effect was the header looking pinned in dev but vanishing
        * on real-size data (#503 + this PR's bug report).
        */}
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <Table
-          containerClassName={`
-            max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
+      {/* Mobile: one card per project.
+          The table below is hidden rather than unmounted-by-JS so there is no
+          layout flash while a media query resolves, and so both paths render
+          from exactly the same `projects` array, filters, sort and page. */}
+      <div
+        className={`
+          space-y-2.5
+          md:hidden
+        `}
+      >
+        {loading ? (
+          <ListSkeleton rows={5} />
+        ) : projects.length === 0 ? (
+          <EmptyState
+            title={
+              search || statusFilter || agreementFilter
+                ? "No projects match your filters"
+                : archived
+                  ? "No archived projects"
+                  : "No projects yet"
+            }
+            description={
+              search || statusFilter || agreementFilter
+                ? "Try clearing a filter or searching for something else."
+                : undefined
+            }
+          />
+        ) : (
+          projects.map((p, index) => (
+            <ProjectMobileCard
+              key={p.id}
+              project={p}
+              index={(page - 1) * pageSize + index + 1}
+              visibleCols={visibleProjectCols}
+              team={team}
+              canManageRow={getOwnerId(p) === user?.id || canManageAny}
+              isArchivedView={archived}
+              onView={() => router.push(`/projects/${p.slug ?? p.id}`)}
+              onEdit={() => handleEdit(p)}
+              onArchive={() => void handleArchive(p)}
+              onUnarchive={() => void handleUnarchive(p)}
+              onDelete={() => {
+                setDeleteTarget(p);
+                setDeleteDialogOpen(true);
+              }}
+              onMove={canMoveToPartner ? () => openMoveDialog(p) : undefined}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Desktop / tablet: the table, unchanged. Drag-to-reorder is desktop-only
+          — on a touch list the drag gesture competes with scrolling. */}
+      <div
+        className={`
+          hidden
+          md:block
+        `}
+      >
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <Table
+            containerClassName={`
+            max-h-[60svh] md:max-h-[calc(100vh-280px)] overflow-auto rounded-lg border
           `}
-        >
-          <TableHeader
-            // bg-background covers the body rows when they scroll
-            // under; z-10 keeps the header above sticky cells in the
-            // first column (none here, but defensive).
-            className="bg-background sticky top-0 z-10"
           >
-            {colConfig.legalLayout ? (
-              <TableRow>
-                <TableHead className="w-[36px]" />
-                <TableHead className="w-[48px]">#</TableHead>
-                <TableHead className="w-[180px]">Workstream</TableHead>
-                <TableHead>{colConfig.projectLabel}</TableHead>
-                <TableHead className="w-[320px]">Details</TableHead>
-                <TableHead className="w-[160px]">Owner</TableHead>
-                <TableHead className="w-[120px]">
-                  {colConfig.dateLabel}
-                </TableHead>
-                <TableHead className="w-[140px]">Status</TableHead>
-                <TableHead className="w-[40px]" />
-              </TableRow>
-            ) : colConfig.hrLayout ? (
-              <TableRow>
-                <TableHead className="w-[36px]" />
-                <TableHead className="w-[48px]">#</TableHead>
-                <TableHead>{colConfig.projectLabel}</TableHead>
-                <TableHead className="w-[120px]">Task Type</TableHead>
-                <TableHead className="w-[160px]">Workflow Status</TableHead>
-                <TableHead className="w-[120px]">Assigned Team</TableHead>
-                <TableHead className="w-[120px]">
-                  {colConfig.dateLabel}
-                </TableHead>
-                <TableHead className="w-[160px]">Owner</TableHead>
-                <TableHead className="w-[40px]" />
-              </TableRow>
-            ) : (
-              <TableRow>
-                <TableHead className="w-[36px]" />
-                <TableHead className="w-[48px]">#</TableHead>
-                {/* Reorderable data columns. The "#" + drag handle stay
+            <TableHeader
+              // bg-background covers the body rows when they scroll
+              // under; z-10 keeps the header above sticky cells in the
+              // first column (none here, but defensive).
+              className="bg-background sticky top-0 z-10"
+            >
+              {colConfig.legalLayout ? (
+                <TableRow>
+                  <TableHead className="w-[36px]" />
+                  <TableHead className="w-[48px]">#</TableHead>
+                  <TableHead className="w-[180px]">Workstream</TableHead>
+                  <TableHead>{colConfig.projectLabel}</TableHead>
+                  <TableHead className="w-[320px]">Details</TableHead>
+                  <TableHead className="w-[160px]">Owner</TableHead>
+                  <TableHead className="w-[120px]">
+                    {colConfig.dateLabel}
+                  </TableHead>
+                  <TableHead className="w-[140px]">Status</TableHead>
+                  <TableHead className="w-[40px]" />
+                </TableRow>
+              ) : colConfig.hrLayout ? (
+                <TableRow>
+                  <TableHead className="w-[36px]" />
+                  <TableHead className="w-[48px]">#</TableHead>
+                  <TableHead>{colConfig.projectLabel}</TableHead>
+                  <TableHead className="w-[120px]">Task Type</TableHead>
+                  <TableHead className="w-[160px]">Workflow Status</TableHead>
+                  <TableHead className="w-[120px]">Assigned Team</TableHead>
+                  <TableHead className="w-[120px]">
+                    {colConfig.dateLabel}
+                  </TableHead>
+                  <TableHead className="w-[160px]">Owner</TableHead>
+                  <TableHead className="w-[40px]" />
+                </TableRow>
+              ) : (
+                <TableRow>
+                  <TableHead className="w-[36px]" />
+                  <TableHead className="w-[48px]">#</TableHead>
+                  {/* Reorderable data columns. The "#" + drag handle stay
                     fixed on the left and the actions menu on the right;
                     everything between can be dragged via its header. */}
+                  <SortableContext
+                    items={visibleProjectCols}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    {visibleProjectCols.map((key) => (
+                      <SortableColumnHead
+                        key={key}
+                        colKey={key}
+                        label={PROJECT_COL_META[key].label}
+                        className={PROJECT_COL_META[key].headClassName}
+                      />
+                    ))}
+                  </SortableContext>
+                  <TableHead className="w-[40px]" />
+                </TableRow>
+              )}
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                skeletonRows.map((i) => (
+                  <TableRow key={`skeleton-${i}`}>
+                    <TableCell colSpan={colCount}>
+                      <Skeleton className="h-6 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : projects.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={colCount}
+                    className="text-muted-foreground py-10 text-center text-xs"
+                  >
+                    No projects found
+                  </TableCell>
+                </TableRow>
+              ) : (
                 <SortableContext
-                  items={visibleProjectCols}
-                  strategy={horizontalListSortingStrategy}
+                  items={projects.map((p) => p.id)}
+                  strategy={verticalListSortingStrategy}
                 >
-                  {visibleProjectCols.map((key) => (
-                    <SortableColumnHead
-                      key={key}
-                      colKey={key}
-                      label={PROJECT_COL_META[key].label}
-                      className={PROJECT_COL_META[key].headClassName}
+                  {projects.map((p, index) => (
+                    <SortableProjectRow
+                      key={p.id}
+                      project={p}
+                      index={(page - 1) * pageSize + index + 1}
+                      canDrag={reorderEnabled}
+                      canManageRow={getOwnerId(p) === user?.id || canManageAny}
+                      colConfig={colConfig}
+                      visibleCols={visibleProjectCols}
+                      team={team}
+                      isArchivedView={archived}
+                      onView={() => router.push(`/projects/${p.slug ?? p.id}`)}
+                      onEdit={() => handleEdit(p)}
+                      onArchive={() => void handleArchive(p)}
+                      onUnarchive={() => void handleUnarchive(p)}
+                      onDelete={() => {
+                        setDeleteTarget(p);
+                        setDeleteDialogOpen(true);
+                      }}
+                      onMove={
+                        canMoveToPartner ? () => openMoveDialog(p) : undefined
+                      }
                     />
                   ))}
                 </SortableContext>
-                <TableHead className="w-[40px]" />
-              </TableRow>
-            )}
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              skeletonRows.map((i) => (
-                <TableRow key={`skeleton-${i}`}>
-                  <TableCell colSpan={colCount}>
-                    <Skeleton className="h-6 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : projects.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={colCount}
-                  className="text-muted-foreground py-10 text-center text-xs"
-                >
-                  No projects found
-                </TableCell>
-              </TableRow>
-            ) : (
-              <SortableContext
-                items={projects.map((p) => p.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                {projects.map((p, index) => (
-                  <SortableProjectRow
-                    key={p.id}
-                    project={p}
-                    index={(page - 1) * pageSize + index + 1}
-                    canDrag={reorderEnabled}
-                    canManageRow={getOwnerId(p) === user?.id || canManageAny}
-                    colConfig={colConfig}
-                    visibleCols={visibleProjectCols}
-                    team={team}
-                    onView={() => router.push(`/projects/${p.slug ?? p.id}`)}
-                    onEdit={() => handleEdit(p)}
-                    onDelete={() => {
-                      setDeleteTarget(p);
-                      setDeleteDialogOpen(true);
-                    }}
-                    onMove={
-                      canMoveToPartner ? () => openMoveDialog(p) : undefined
-                    }
-                  />
-                ))}
-              </SortableContext>
-            )}
-          </TableBody>
-        </Table>
-      </DndContext>
+              )}
+            </TableBody>
+          </Table>
+        </DndContext>
+      </div>
 
       <div className="mt-3">
         <DataPagination
@@ -1291,6 +1411,15 @@ export function ProjectsView({
         team={team}
         onSuccess={handleProjectSaved}
       />
+
+      {canManageReminders ? (
+        <CrmReminderSettingsDialog
+          open={reminderOpen}
+          onOpenChange={setReminderOpen}
+          load={loadReminderSettings}
+          save={saveReminderSettings}
+        />
+      ) : null}
 
       {/* Legal CRM uses the team's own xlsx template — a flat row
           per project with Workstream | Legal Task | Owner | Date |
@@ -1333,7 +1462,7 @@ export function ProjectsView({
           submit={async (rows) => {
             // Owner is intentionally not threaded through: the
             // server's import payload takes an owner-id and the xlsx
-            // ships a free-text name ("Alex/Jordan", "Morgan/Alex").
+            // ships a free-text name ("Maysa/Kit", "Shahab/Maysa").
             // Importers re-assign owners via the row dropdown after
             // import — same pattern the existing combined import
             // already follows.
@@ -1475,8 +1604,8 @@ export function ProjectsView({
             <AlertDialogTitle>Move to Partner CRM</AlertDialogTitle>
             <AlertDialogDescription>
               Copies this project and all its tasks into Partner CRM, then
-              removes it from Project CRM. The project name becomes the partner
-              Company — recheck it below before moving.
+              removes it from Integration CRM. The project name becomes the
+              partner Company — recheck it below before moving.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-1.5">
@@ -1514,8 +1643,11 @@ function SortableProjectRow({
   colConfig,
   visibleCols,
   team,
+  isArchivedView,
   onView,
   onEdit,
+  onArchive,
+  onUnarchive,
   onDelete,
   onMove,
 }: {
@@ -1526,8 +1658,11 @@ function SortableProjectRow({
   colConfig: ProjectColumnConfig;
   visibleCols: ProjectColKey[];
   team: ProjectTeam;
+  isArchivedView: boolean;
   onView: () => void;
   onEdit: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
   onDelete: () => void;
   onMove?: () => void;
 }) {
@@ -1712,7 +1847,7 @@ function SortableProjectRow({
           </TableCell>
         </>
       ) : (
-        // Default layout — cells render in the user's saved
+        // Default (BD-style) layout — cells render in the user's saved
         // column order. Comment / Agreement / etc. resolve by key so the
         // body stays in lockstep with the reorderable header.
         <>{visibleCols.map((key) => renderProjectCell(key, project, team))}</>
@@ -1740,6 +1875,17 @@ function SortableProjectRow({
                   <Edit className="mr-2 size-3.5" />
                   Edit
                 </DropdownMenuItem>
+                {isArchivedView ? (
+                  <DropdownMenuItem onClick={onUnarchive}>
+                    <ArchiveRestore className="mr-2 size-3.5" />
+                    Restore
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={onArchive}>
+                    <Archive className="mr-2 size-3.5" />
+                    Archive
+                  </DropdownMenuItem>
+                )}
                 {onMove ? (
                   <DropdownMenuItem onClick={onMove}>
                     <ArrowRightLeft className="mr-2 size-3.5" />

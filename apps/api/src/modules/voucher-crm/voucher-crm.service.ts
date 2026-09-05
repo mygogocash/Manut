@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { NotFoundException } from "@/common/exceptions/http-exception";
 import { prisma } from "@/infrastructure/database/prisma";
@@ -16,7 +16,7 @@ const creatorSelect = {
 
 export class VoucherCrmService {
   async list(query: VoucherQuery) {
-    const { page, limit, search, country } = query;
+    const { page, limit, search, country, archived } = query;
     const where: Prisma.VoucherEntryWhereInput = {};
     if (search?.trim()) {
       where.OR = [
@@ -25,6 +25,11 @@ export class VoucherCrmService {
       ];
     }
     if (country?.trim()) where.country = country;
+    // Archive is orthogonal to search/country: the default view shows active
+    // rows only; the Archived tab (archived=true) shows the archived ones.
+    // Applied to the same `where` used by findMany, count AND the aggregate so
+    // pagination totals and the summary row all match the visible set.
+    where.archivedAt = archived ? { not: null } : null;
 
     const [data, total, totals] = await Promise.all([
       prisma.voucherEntry.findMany({
@@ -36,7 +41,7 @@ export class VoucherCrmService {
       }),
       prisma.voucherEntry.count({ where }),
       // Grand totals across EVERY matching row (not just this page),
-      // so the UI's summary row mirrors the imported values.
+      // so the UI's summary row mirrors the source spreadsheet.
       prisma.voucherEntry.aggregate({
         where,
         _sum: { redeemed: true, issued: true, refund: true },
@@ -104,6 +109,31 @@ export class VoucherCrmService {
     await this.getById(id);
     await prisma.voucherEntry.delete({ where: { id } });
     return { success: true as const };
+  }
+
+  // Reversible hide. Same route-level write gate as update/delete; no extra
+  // owner check because this module has none (writes are permission-gated
+  // only). Idempotent — re-archiving keeps the original archive time.
+  async archive(id: string) {
+    const existing = await prisma.voucherEntry.findUnique({
+      where: { id },
+      select: { archivedAt: true },
+    });
+    if (!existing) throw new NotFoundException("Voucher entry not found");
+    return prisma.voucherEntry.update({
+      where: { id },
+      data: { archivedAt: existing.archivedAt ?? new Date() },
+      include: creatorSelect,
+    });
+  }
+
+  async unarchive(id: string) {
+    await this.getById(id);
+    return prisma.voucherEntry.update({
+      where: { id },
+      data: { archivedAt: null },
+      include: creatorSelect,
+    });
   }
 
   async importRows(input: ImportVoucherEntriesInput, actorId: string) {

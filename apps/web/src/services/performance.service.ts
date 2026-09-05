@@ -119,6 +119,8 @@ export interface AppraisalQueryParams {
   employeeId?: string;
   managerId?: string;
   status?: string;
+  /** Matches the employee's name or email, applied by the server. */
+  search?: string;
 }
 
 // ─── Helpers ────────────────────────────────────────────

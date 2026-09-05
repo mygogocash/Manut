@@ -5,10 +5,13 @@ import { accountingCrmRoutes } from "@/modules/accounting-crm";
 import { accountsRoutes } from "@/modules/accounts";
 import { adminRoutes, adminUsageRoutes } from "@/modules/admin";
 import { applicationsRoutes } from "@/modules/applications";
+import { approvalChainsRoutes } from "@/modules/approval-chains";
+import { ariaRoutes } from "@/modules/aria";
 import { articlesRoutes } from "@/modules/articles";
 import { authRoutes } from "@/modules/auth";
 import { benefitsRoutes } from "@/modules/benefits";
 import { blogsRoutes } from "@/modules/blogs";
+import { businessUnitsRoutes } from "@/modules/business-units";
 import { careerRoutes } from "@/modules/career";
 import { cashAdvanceRoutes } from "@/modules/cash-advance";
 import { certificatesRoutes } from "@/modules/certificates";
@@ -16,6 +19,7 @@ import { companyDatesRoutes } from "@/modules/company-dates";
 import { contactsRoutes } from "@/modules/contacts";
 import { crmActivitiesRoutes } from "@/modules/crm-activities";
 import { crmSettingsRoutes } from "@/modules/crm-settings";
+import { crmReminderSettingsRoutes } from "@/modules/crm-shared/crm-settings.controller";
 import { crmTasksRoutes } from "@/modules/crm-tasks";
 import { cronRoutes } from "@/modules/cron";
 import { dashboardRoutes } from "@/modules/dashboard";
@@ -25,6 +29,7 @@ import { directoryRoutes } from "@/modules/directory";
 import { docsRoutes } from "@/modules/docs";
 import { exchangeRatesRoutes } from "@/modules/exchange-rates";
 import { expensesRoutes } from "@/modules/expenses";
+import { fundraisingEntitiesRoutes } from "@/modules/fundraising-entities";
 import { helpdeskPublicRoutes, helpdeskRoutes } from "@/modules/helpdesk";
 import { holidaysRoutes } from "@/modules/holidays";
 import { hrmsRoutes } from "@/modules/hrms";
@@ -34,6 +39,7 @@ import { investorActivitiesRoutes } from "@/modules/investor-activities";
 import { investorContactsRoutes } from "@/modules/investor-contacts";
 import { investorLeadsRoutes } from "@/modules/investor-leads";
 import { investorPipelineStagesRoutes } from "@/modules/investor-pipeline-stages";
+import { investorTagsRoutes } from "@/modules/investor-tags";
 import { investorTasksRoutes } from "@/modules/investor-tasks";
 import { investorTypesRoutes } from "@/modules/investor-types";
 import { investorUpdatesRoutes } from "@/modules/investor-updates";
@@ -50,6 +56,12 @@ import { legalPublicRoutes, legalRoutes } from "@/modules/legal";
 import { legalAnnouncementsRoutes } from "@/modules/legal-announcements";
 import { legalCrmRoutes } from "@/modules/legal-crm";
 import { lostReasonsRoutes } from "@/modules/lost-reasons";
+import { marketingRoutes } from "@/modules/marketing";
+import { marketingAnalyticsRoutes } from "@/modules/marketing-analytics";
+import { isMarketingAnalyticsEnabled } from "@/modules/marketing-analytics/marketing.flags";
+import { marketingCampaignsRoutes } from "@/modules/marketing-campaigns";
+import { marketingRecapRoutes } from "@/modules/marketing-recap";
+import { marketingReportsRoutes } from "@/modules/marketing-reports";
 import { messagesRoutes } from "@/modules/messages";
 import { newsRoutes } from "@/modules/news";
 import { ninetyDayRoutes } from "@/modules/ninety-day";
@@ -60,24 +72,22 @@ import { payrollRoutes } from "@/modules/payroll";
 import { performanceRoutes } from "@/modules/performance";
 import { policiesRoutes } from "@/modules/policies";
 import { productCrmRoutes } from "@/modules/product-crm";
-import { projectsRoutes } from "@/modules/projects";
+import {
+  projectsRoutes,
+  projectsWorkflowPublicRoutes,
+} from "@/modules/projects";
+import { proposalsRoutes } from "@/modules/proposals";
+import { pushRoutes } from "@/modules/push";
 import { qaCrmRoutes } from "@/modules/qa-crm";
 import { revenueRoutes } from "@/modules/revenue";
-import { revenueAccountsRoutes } from "@/modules/revenue-accounts";
-import { revenueActivitiesRoutes } from "@/modules/revenue-activities";
-import { revenueContactsRoutes } from "@/modules/revenue-contacts";
-import { revenueLeadSourcesRoutes } from "@/modules/revenue-lead-sources";
-import { revenueLeadsRoutes } from "@/modules/revenue-leads";
-import { revenueLostReasonsRoutes } from "@/modules/revenue-lost-reasons";
-import { revenueOpportunitiesRoutes } from "@/modules/revenue-opportunities";
-import { revenueSettingsRoutes } from "@/modules/revenue-settings";
-import { revenueTasksRoutes } from "@/modules/revenue-tasks";
 import { rolesRoutes } from "@/modules/roles";
 import { surveyRouter } from "@/modules/survey";
 import { surveyFormsRouter } from "@/modules/survey-forms";
+import { tableLayoutsRoutes } from "@/modules/table-layouts";
 import { travelRoutes } from "@/modules/travel";
 import { uploadsRoutes } from "@/modules/uploads";
 import { usersRoutes } from "@/modules/users";
+import { validatorMonitorRoutes } from "@/modules/validator-monitor";
 import { vendorsRoutes } from "@/modules/vendors";
 import { visaRoutes } from "@/modules/visa";
 import { visaChecklistRoutes } from "@/modules/visa-checklist";
@@ -98,11 +108,13 @@ export function registerModules(app: Express) {
   app.use("/api/exchange-rates", exchangeRatesRoutes);
   app.use("/api/expenses", expensesRoutes);
   app.use("/api/wall", wallRoutes);
+  app.use("/api/validator-monitor", validatorMonitorRoutes);
   app.use("/api/news", newsRoutes);
   app.use("/api/certificates", certificatesRoutes);
   app.use("/api/company-dates", companyDatesRoutes);
   app.use("/api/dashboard", dashboardRoutes);
   app.use("/api/messages", messagesRoutes);
+  app.use("/api/aria", ariaRoutes);
   app.use("/api/integrations", integrationsRoutes);
   app.use("/api/investors", investorsRoutes);
   app.use("/api/investor/tasks", investorTasksRoutes);
@@ -112,31 +124,60 @@ export function registerModules(app: Express) {
   app.use("/api/investor/contacts", investorContactsRoutes);
   app.use("/api/investor/pipeline-stages", investorPipelineStagesRoutes);
   app.use("/api/investor/types", investorTypesRoutes);
+  app.use("/api/investor/tags", investorTagsRoutes);
+  app.use("/api/investor/entities", fundraisingEntitiesRoutes);
   app.use("/api/uploads", uploadsRoutes);
   app.use("/api/admin/usage", adminUsageRoutes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/partners", partnersRoutes);
+  // `/api/marketing` is the ORIGINAL module and is already in production —
+  // it stays ungated.
+  app.use("/api/marketing", marketingRoutes);
+
+  // The Marketing Analytics family ships dark. Gating the mount (rather than
+  // excluding these modules from every release) is what lets them travel to
+  // `main` inert; a permission gate would not do it, because Admin bypasses
+  // every permission check. Fail-closed: unset keeps them hidden.
+  if (isMarketingAnalyticsEnabled()) {
+    app.use("/api/marketing-analytics", marketingAnalyticsRoutes);
+    app.use("/api/marketing-campaigns", marketingCampaignsRoutes);
+    app.use("/api/marketing-recap", marketingRecapRoutes);
+    app.use("/api/marketing-reports", marketingReportsRoutes);
+  }
   app.use("/api/deals", dealsRoutes);
   app.use("/api/leads", leadsRoutes);
   app.use("/api/lead-sources", leadSourcesRoutes);
   app.use("/api/lost-reasons", lostReasonsRoutes);
+  // Business units (Onewave / Onewave Revenue / ARIA …) — the Sales CRM's
+  // admin-editable tag list. Its delete path still strips codes from the
+  // PARKED revenue_* tables (see the retired-module note below).
+  app.use("/api/business-units", businessUnitsRoutes);
   app.use("/api/accounts", accountsRoutes);
   app.use("/api/contacts", contactsRoutes);
   app.use("/api/opportunities", opportunitiesRoutes);
   app.use("/api/crm/activities", crmActivitiesRoutes);
   app.use("/api/crm/tasks", crmTasksRoutes);
   app.use("/api/crm/settings", crmSettingsRoutes);
-  // Sales Revenue CRM — independent parallel of the Sales CRM above.
-  app.use("/api/sales-revenue/opportunities", revenueOpportunitiesRoutes);
-  app.use("/api/sales-revenue/accounts", revenueAccountsRoutes);
-  app.use("/api/sales-revenue/contacts", revenueContactsRoutes);
-  app.use("/api/sales-revenue/leads", revenueLeadsRoutes);
-  app.use("/api/sales-revenue/lead-sources", revenueLeadSourcesRoutes);
-  app.use("/api/sales-revenue/lost-reasons", revenueLostReasonsRoutes);
-  app.use("/api/sales-revenue/activities", revenueActivitiesRoutes);
-  app.use("/api/sales-revenue/tasks", revenueTasksRoutes);
-  app.use("/api/sales-revenue/settings", revenueSettingsRoutes);
+  // /api/sales-revenue/* is GONE — the ARIA Revenue CRM was retired
+  // 2026-08-26 and its deals migrated onto the Sales CRM board tagged
+  // `aria`. Its `revenue_*` tables are parked (see CLAUDE.md), not dropped,
+  // and business-units/revenue-rollup.repository.ts is the one remaining
+  // code path that writes them.
+  app.use("/api/project-workflow", projectsWorkflowPublicRoutes);
   app.use("/api/projects", projectsRoutes);
+  app.use("/api/proposals", proposalsRoutes);
+  // Project CRM approval chain configuration. Reads are open to Project CRM
+  // readers; every write is system-admin only.
+  app.use("/api/approval-chains", approvalChainsRoutes);
+  // Web Push subscriptions. Every route acts on the caller's OWN devices, so
+  // `authenticate` is the whole authorisation — there is no route here that can
+  // address another user's device. The `/test` route inside is additionally
+  // fenced off in production; see push.controller.ts.
+  app.use("/api/push", pushRoutes);
+  // Per-CRM reminder-recipient settings (parameterized; IT keeps its own).
+  // Mounted AFTER the literal /api/crm/* routers above so activities / tasks /
+  // settings never fall through to the :module param.
+  app.use("/api/crm", crmReminderSettingsRoutes);
   app.use("/api/it-crm", itCrmRoutes);
   app.use("/api/it-operations", itOperationsRoutes);
   app.use("/api/it-billing", itBillingRoutes);
@@ -168,6 +209,7 @@ export function registerModules(app: Express) {
   app.use("/api/applications", applicationsRoutes);
   app.use("/api/survey", surveyRouter);
   app.use("/api/survey-forms", surveyFormsRouter);
+  app.use("/api/table-layouts", tableLayoutsRoutes);
   app.use("/api/travel", travelRoutes);
   app.use("/api/performance", performanceRoutes);
   app.use("/api/legal", legalRoutes);

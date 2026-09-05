@@ -41,17 +41,9 @@ export function decrypt(payload: string): string {
   if (parts.length !== 4 || parts[0] !== "v1") {
     throw new Error("Invalid token envelope");
   }
-  const [, encodedIv, encodedTag, encodedCipherText] = parts;
-  if (
-    encodedIv === undefined ||
-    encodedTag === undefined ||
-    encodedCipherText === undefined
-  ) {
-    throw new Error("Invalid token envelope");
-  }
-  const iv = Buffer.from(encodedIv, "base64");
-  const tag = Buffer.from(encodedTag, "base64");
-  const cipherText = Buffer.from(encodedCipherText, "base64");
+  const iv = Buffer.from(parts[1], "base64");
+  const tag = Buffer.from(parts[2], "base64");
+  const cipherText = Buffer.from(parts[3], "base64");
   const decipher = createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(tag);
   const dec = Buffer.concat([decipher.update(cipherText), decipher.final()]);

@@ -1,7 +1,7 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
-import { ISO_CURRENCIES } from "@manut/utils";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ISO_CURRENCIES } from "@nexora/utils";
 import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -68,8 +68,8 @@ const schema = z
     returnDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Return date is required"),
-    estimatedBudget: z.coerce.number<number | string>().positive().optional(),
-    cashAdvance: z.coerce.number<number | string>().nonnegative().optional(),
+    estimatedBudget: z.coerce.number().positive().optional(),
+    cashAdvance: z.coerce.number().nonnegative().optional(),
     currency: z.string().min(1),
     category: z.enum(["general", "business_or_bd"]),
     flightType: z.enum(FLIGHT_TYPES).optional(),
@@ -101,8 +101,7 @@ const schema = z
     },
   );
 
-type FormInput = z.input<typeof schema>;
-type FormValues = z.output<typeof schema>;
+type FormValues = z.infer<typeof schema>;
 
 interface TravelRequestDialogProps {
   open: boolean;
@@ -140,8 +139,8 @@ export function TravelRequestDialog({
   const [step, setStep] = useState<1 | 2>(1);
   const submittedRef = useRef(false);
 
-  const form = useForm<FormInput, unknown, FormValues>({
-    resolver: standardSchemaResolver(schema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
     defaultValues: {
       origin: "",
       destination: "",

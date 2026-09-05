@@ -39,6 +39,7 @@ import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/providers/auth-provider";
 import {
   deleteExpenseApprovalStep,
+  EXPENSE_STAGE_ROLE_LABEL,
   type ExpenseApprovalStep,
   type ExpenseRecipient,
   getExpenseNotificationRecipients,
@@ -210,8 +211,9 @@ export default function ExpenseApprovalConfigPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[90px]">Order</TableHead>
-                <TableHead className="w-[38%]">Name</TableHead>
-                <TableHead className="w-[32%]">Approver</TableHead>
+                <TableHead className="w-[30%]">Name</TableHead>
+                <TableHead className="w-[110px]">Stage</TableHead>
+                <TableHead className="w-[26%]">Approver</TableHead>
                 <TableHead className="w-[100px]">Status</TableHead>
                 <TableHead className="w-[160px] text-right">Actions</TableHead>
               </TableRow>
@@ -219,7 +221,7 @@ export default function ExpenseApprovalConfigPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-12 text-center">
+                  <TableCell colSpan={6} className="py-12 text-center">
                     <Loader2
                       className={`
                         text-muted-foreground mx-auto h-5 w-5 animate-spin
@@ -248,6 +250,29 @@ export default function ExpenseApprovalConfigPage() {
                         >
                           {s.description}
                         </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="align-top">
+                      {s.stageRole === "review" ? (
+                        <Badge
+                          variant="outline"
+                          className={`
+                            border-amber-500 text-amber-700
+                            dark:text-amber-400
+                          `}
+                        >
+                          {EXPENSE_STAGE_ROLE_LABEL.review}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className={`
+                            border-emerald-500 text-emerald-700
+                            dark:text-emerald-400
+                          `}
+                        >
+                          {EXPENSE_STAGE_ROLE_LABEL.approve}
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell className="align-top text-sm break-words">
@@ -332,7 +357,7 @@ export default function ExpenseApprovalConfigPage() {
         <ExpenseNotificationRecipientsCard
           title="Finance-desk notifications"
           description="Addresses that receive a long-form summary email when an expense report is fully approved. Choose `Every event` per recipient to also email at submit time — useful for finance staff who plan the next payroll batch before the approval chain finishes."
-          placeholder="finance-desk@manut.example"
+          placeholder="finance-desk@thebinaryholdings.com"
           fetcher={fetchExpenseRecipients}
           persister={saveExpenseRecipients}
         />

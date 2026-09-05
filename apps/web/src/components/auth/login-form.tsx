@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, LogIn } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -34,17 +34,13 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-interface LoginFormProps {
-  returnTo?: string;
-}
-
-export function LoginForm({ returnTo }: LoginFormProps) {
+export function LoginForm() {
   const { login } = useAuth();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const form = useForm<LoginFormValues>({
-    resolver: standardSchemaResolver(loginSchema),
+    resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
       password: "",
@@ -56,7 +52,7 @@ export function LoginForm({ returnTo }: LoginFormProps) {
     setLoading(true);
 
     try {
-      await login(data.email, data.password, returnTo);
+      await login(data.email, data.password);
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -91,7 +87,7 @@ export function LoginForm({ returnTo }: LoginFormProps) {
                 <Input
                   {...field}
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="you@thebinaryholdings.com"
                   autoComplete="email"
                   className={`
                     bg-background-secondary h-10

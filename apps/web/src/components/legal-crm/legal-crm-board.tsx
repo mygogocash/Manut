@@ -159,7 +159,8 @@ function SortableStatusColumn({
         onDragLeave={() => onCardDragLeave(status)}
         onDrop={(e) => (canMoveCards ? onCardDrop(e, status) : undefined)}
         className={`
-          flex max-h-[calc(100vh-320px)] flex-col gap-2 overflow-y-auto p-2
+          flex max-h-[60svh] flex-col gap-2 overflow-y-auto p-2
+          md:max-h-[calc(100vh-320px)]
           ${
             dragOverStatus === status
               ? "bg-accent/30 ring-primary ring-2 ring-inset"
@@ -240,7 +241,7 @@ function SortableStatusColumn({
                   {date ? <span>{date}</span> : null}
                   {p.dependency ? (
                     <span>
-                      <span className="opacity-70">Dep </span>
+                      <span className="opacity-70">Assignee </span>
                       {p.dependency}
                     </span>
                   ) : null}

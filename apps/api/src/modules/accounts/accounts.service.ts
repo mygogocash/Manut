@@ -1,18 +1,33 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
 import { logger } from "@/common/utils/logger";
 import { syncAccountDeal } from "@/modules/accounts/account-deal.sync";
-import { accountRepository } from "@/modules/accounts/accounts.repository";
+import {
+  accountRepository,
+  buildAccountWhere,
+} from "@/modules/accounts/accounts.repository";
 import type {
+  BulkFieldUpdateAccountsInput,
+  BulkUpdateAccountsInput,
   CreateAccountInput,
   ImportAccountsInput,
   ListAccountsQuery,
   ReorderAccountsInput,
   UpdateAccountInput,
 } from "@/modules/accounts/accounts.validation";
+import {
+  applyBulkBusinessUnits,
+  type BulkApplyResult,
+} from "@/modules/crm-shared/bulk-apply";
+import {
+  applyBulkFieldSet,
+  type BulkFieldResult,
+} from "@/modules/crm-shared/bulk-field-set";
+import { resolveBulkWhere } from "@/modules/crm-shared/bulk-selection";
 
 // Form sends "" for unset date pickers; persist as null. Returns the
 // parsed Date for valid YYYY-MM-DD strings.
@@ -23,7 +38,7 @@ function toDateOrNull(v: string | null | undefined): Date | null {
 }
 
 export class AccountService {
-  // Default to owner scope; team-read permission widens access to all.
+  // PRD §7 — own + team-shared. Until manager hierarchy lands, "own vs all".
   async list(userId: string, permissions: string[], query: ListAccountsQuery) {
     const { page, limit, ...filters } = query;
     const canSeeAll = permissions.includes("crm:team-read");
@@ -52,7 +67,24 @@ export class AccountService {
     return account;
   }
 
-  // Domain-first account dedupe.
+  // Reversible hide. `getById` enforces ownership / `crm:team-read` (throws
+  // NotFound for a non-owner without team-read), so we don't re-check here.
+  // We update the row directly rather than through `update()` — that path runs
+  // domain-dedupe + deal-sync we don't want to trigger on an archive toggle.
+  // Idempotent: re-archiving keeps the original archive time.
+  async archive(id: string, userId: string, permissions: string[]) {
+    const existing = await this.getById(id, userId, permissions);
+    return accountRepository.update(id, {
+      archivedAt: existing.archivedAt ?? new Date(),
+    });
+  }
+
+  async unarchive(id: string, userId: string, permissions: string[]) {
+    await this.getById(id, userId, permissions);
+    return accountRepository.update(id, { archivedAt: null });
+  }
+
+  // PRD §11.2 dedupe.
   // - domain present: hard reject if domain exists
   // - domain absent: case-insensitive name match → 409 with candidate unless
   //   the client passes `confirmCreate: true` to override
@@ -81,6 +113,13 @@ export class AccountService {
 
     const { deal, ...accountFields } = input;
 
+    // Same gate as the opportunities service: only a team-read holder may
+    // name another owner; everyone else silently gets themselves.
+    const effectiveOwnerId =
+      permissions.includes("crm:team-read") && accountFields.ownerId
+        ? accountFields.ownerId
+        : ownerId;
+
     const created = await accountRepository.create({
       name: accountFields.name,
       domain: accountFields.domain,
@@ -104,13 +143,24 @@ export class AccountService {
       uatEndDate: toDateOrNull(accountFields.uatEndDate) ?? undefined,
       blocker: accountFields.blocker ?? undefined,
       remarks: accountFields.remarks ?? undefined,
-      owner: { connect: { id: ownerId } },
+      // Business-unit tags — see the opportunities service for the contract.
+      businessUnits: accountFields.businessUnits ?? [],
+      owner: { connect: { id: effectiveOwnerId } },
       partner: accountFields.partnerId
         ? { connect: { id: accountFields.partnerId } }
         : undefined,
     });
 
-    await syncAccountDeal(created.id, created.name, ownerId, permissions, deal);
+    // The stub deal inherits the same effective owner — an account owned by
+    // one rep with its auto-spawned deal owned by whoever clicked Create
+    // would split the pair across two people's scoped views.
+    await syncAccountDeal(
+      created.id,
+      created.name,
+      effectiveOwnerId,
+      permissions,
+      deal,
+    );
 
     const refreshed = await accountRepository.findById(created.id);
     return refreshed ?? created;
@@ -193,6 +243,9 @@ export class AccountService {
       }),
       ...(accountFields.remarks !== undefined && {
         remarks: accountFields.remarks || null,
+      }),
+      ...(accountFields.businessUnits !== undefined && {
+        businessUnits: accountFields.businessUnits,
       }),
       ...(accountFields.partnerId !== undefined && {
         partner: accountFields.partnerId
@@ -300,6 +353,115 @@ export class AccountService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Bulk business-unit assignment.
+   *
+   * Selection is either ticked ids or "all matching the current filter",
+   * resolved by `resolveBulkWhere` through the SAME where-builder the list
+   * uses, with owner scope ANDed in both modes so a caller without
+   * `crm:team-read` can never touch another rep's rows.
+   *
+   * Accounts have no per-unit child rows, so the tag array is the whole story
+   * — but the single-record `update` is reused rather than an `updateMany`, so
+   * the ownership check and any future side effect apply uniformly across all
+   * three record types.
+   *
+   * Rows already carrying the requested set are skipped, not rewritten.
+   */
+  async bulkUpdateBusinessUnits(
+    userId: string,
+    permissions: string[],
+    input: BulkUpdateAccountsInput,
+  ): Promise<BulkApplyResult & { selected: number }> {
+    const canSeeAll = permissions.includes("crm:team-read");
+    const ownerScope = canSeeAll ? undefined : [userId];
+
+    const where = resolveBulkWhere(
+      { ids: input.ids, allMatching: input.allMatching, filter: input.filter },
+      buildAccountWhere,
+      ownerScope,
+    );
+
+    // Fetch one past the cap so an over-large selection is detected rather
+    // than silently truncated.
+    const rows = await accountRepository.findIdsAndUnits(where, 500 + 1);
+    if (rows.length > 500) {
+      throw new BadRequestException(
+        "Selection is too large (over 500 records). Narrow the filter and try again.",
+      );
+    }
+
+    const result = await applyBulkBusinessUnits(
+      rows,
+      input.businessUnits.codes,
+      input.businessUnits.mode,
+      (id, next) =>
+        this.update(id, userId, permissions, { businessUnits: next }),
+      { module: "accounts", actorId: userId },
+    );
+
+    return { ...result, selected: rows.length };
+  }
+
+  /**
+   * Bulk owner reassignment and archive/unarchive.
+   *
+   * Same selection contract as `bulkUpdateBusinessUnits`. Each write reuses the
+   * single-record `update` / `archive` / `unarchive`, so per-row ownership
+   * checks and any side effects keep running.
+   *
+   * `crm:reassign` is enforced HERE rather than on the route: the route's
+   * `requirePermission` cannot express "only when `set.ownerId` is present", so
+   * a caller may archive with `crm:update` alone but must hold `crm:reassign`
+   * to move ownership.
+   */
+  async bulkUpdateFields(
+    userId: string,
+    permissions: string[],
+    input: BulkFieldUpdateAccountsInput,
+  ): Promise<BulkFieldResult & { selected: number }> {
+    if (
+      input.set.ownerId !== undefined &&
+      !permissions.includes("crm:reassign")
+    ) {
+      throw new ForbiddenException(
+        "Reassigning owner in bulk requires the crm:reassign permission.",
+      );
+    }
+
+    const canSeeAll = permissions.includes("crm:team-read");
+    const ownerScope = canSeeAll ? undefined : [userId];
+
+    const where = resolveBulkWhere(
+      { ids: input.ids, allMatching: input.allMatching, filter: input.filter },
+      buildAccountWhere,
+      ownerScope,
+    );
+
+    const rows = await accountRepository.findIdsForFieldSet(where, 500 + 1);
+    if (rows.length > 500) {
+      throw new BadRequestException(
+        "Selection is too large (over 500 records). Narrow the filter and try again.",
+      );
+    }
+
+    const result = await applyBulkFieldSet(
+      // Accounts have no stage/status of their own, so a constant keeps the
+      // shared row type satisfied while making `wantsLifecycle` unreachable.
+      rows.map((r) => ({ ...r, lifecycle: "" })),
+      input.set,
+      {
+        setOwner: (id, ownerId) =>
+          this.update(id, userId, permissions, { ownerId }),
+        archive: (id) => this.archive(id, userId, permissions),
+        unarchive: (id) => this.unarchive(id, userId, permissions),
+      },
+      { module: "accounts", actorId: userId },
+    );
+
+    return { ...result, selected: rows.length };
   }
 }
 

@@ -30,7 +30,7 @@ import {
   type VendorImportRow,
 } from "@/services/vendor.service";
 
-// Header → field key map for vendor/contact finance exports.
+// Header → field key map for the "Contact Lists" xlsx finance exports.
 // Matched case-insensitively and after trimming so locale-specific
 // whitespace doesn't trip it up. Add new keys here when accounting
 // renames a column.
@@ -249,11 +249,11 @@ export function VendorBulkImportDialog({
         <DialogHeader>
           <DialogTitle>Bulk import vendors</DialogTitle>
           <DialogDescription>
-            Upload a vendor/contact accounting workbook. Columns we recognise:
-            Contact Type / ID, Business Type / Location, Business Name (or Full
-            Name), Address (THA / ENG / 2 / 3), Zip, Tax ID, Branch Code /
-            Branch, Contact Name, Email, Mobile, Credit (Days), Phone, Fax.
-            Title rows above the headers are skipped automatically.
+            Upload the Thai accounting &quot;Contact Lists&quot; xlsx. Columns
+            we recognise: Contact Type / ID, Business Type / Location, Business
+            Name (or Full Name), Address (THA / ENG / 2 / 3), Zip, Tax ID,
+            Branch Code / Branch, Contact Name, Email, Mobile, Credit (Days),
+            Phone, Fax. Title rows above the headers are skipped automatically.
           </DialogDescription>
         </DialogHeader>
 

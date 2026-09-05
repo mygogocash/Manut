@@ -29,7 +29,6 @@ export const LEGAL_STATUSES = [
   "expired",
   "archived",
   "draft",
-  "signed",
 ] as const;
 
 export type LegalStatus = (typeof LEGAL_STATUSES)[number];
@@ -39,7 +38,6 @@ export const LEGAL_STATUS_LABELS: Record<LegalStatus, string> = {
   expired: "Expired",
   archived: "Archived",
   draft: "Draft",
-  signed: "Signed",
 };
 
 // ─── Types ──────────────────────────────────────────────
@@ -483,6 +481,8 @@ export interface LegalSignatureCreator {
   email: string;
 }
 
+export type LegalSignatureProvider = "inhouse" | "docusign";
+
 export interface LegalSignature {
   id: string;
   documentId: string;
@@ -498,7 +498,10 @@ export interface LegalSignature {
   signatureText: string | null;
   signatureMethod: "typed" | null;
   expiresAt: string | null;
+  provider: LegalSignatureProvider;
   signingOrder: number;
+  docusignEnvelopeId: string | null;
+  docusignSignerStatus: string | null;
   signedPdfUrl: string | null;
   createdAt: string;
   createdBy?: LegalSignatureCreator | null;
@@ -519,12 +522,32 @@ export interface SendForSignatureInput {
   signers?: SendForSignatureSignerInput[];
   inviteMessage?: string;
   expiresAt?: string;
+  provider?: LegalSignatureProvider;
+}
+
+export interface DocusignStatus {
+  configured: boolean;
+  consentGranted: boolean;
+  accountId: string | null;
+  apiBase: string | null;
+}
+
+export async function getDocusignStatus(): Promise<
+  ApiSuccessResponse<DocusignStatus>
+> {
+  return api.get(`/legal/docusign/status`);
+}
+
+export async function getDocusignConsentUrl(): Promise<
+  ApiSuccessResponse<{ url: string }>
+> {
+  return api.get(`/legal/docusign/consent-url`);
 }
 
 export async function sendDocumentForSignature(
   documentId: string,
   input: SendForSignatureInput,
-): Promise<ApiSuccessResponse<LegalSignature | LegalSignature[]>> {
+): Promise<ApiSuccessResponse<LegalSignature>> {
   return api.post(`/legal/${documentId}/signatures`, input);
 }
 

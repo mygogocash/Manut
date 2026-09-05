@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expensesService } from "@/modules/expenses/expenses.service";
-import { mockArgument } from "@/test-utils/assertions";
 
 /**
  * IT-15 — Allowance approval chain routing.
@@ -191,7 +190,7 @@ describe("ExpensesService.submitReport — allowance routing (IT-15)", () => {
       {
         id: "step-100",
         order: 100,
-        name: "Allowance — First Approval",
+        name: "Allowance — First Approval (Sarah)",
         approverType: "user",
         approverUserId: null,
         skipWhenSubmitterIds: [],
@@ -263,11 +262,7 @@ describe("ExpensesService.submitReport — allowance routing (IT-15)", () => {
     // Fast-path runs the report transition inside prisma.$transaction
     // and sets status="reimbursed" on both the report and its lines.
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
-    const reportTxCall = mockArgument(
-      prismaMock.tx.expenseReport.update.mock.calls,
-      0,
-      0,
-    );
+    const reportTxCall = prismaMock.tx.expenseReport.update.mock.calls[0]?.[0];
     expect(reportTxCall.data).toMatchObject({
       status: "reimbursed",
       reimbursedAt: expect.any(Date),
@@ -304,9 +299,9 @@ describe("ExpensesService.submitReport — allowance routing (IT-15)", () => {
       {
         id: "step-100",
         order: 100,
-        name: "Allowance — First Approval",
+        name: "Allowance — First Approval (Sarah)",
         approverType: "user",
-        approverUserId: "user-approver",
+        approverUserId: "user-sarah",
         skipWhenSubmitterIds: [],
         onlyWhenSubmitterIds: [],
         categoryFilter: ["allowance"],

@@ -93,7 +93,7 @@ export function PersonalInfoSection({
               <FormControl>
                 <Input
                   type="email"
-                  placeholder="name@manut.ae"
+                  placeholder="name@tbh.ae"
                   disabled={isEditing}
                   {...field}
                 />
@@ -198,7 +198,7 @@ export function EmploymentSection({ form, entities }: EmploymentSectionProps) {
               <FormLabel>Employee ID</FormLabel>
               <FormControl>
                 <Input
-                  placeholder="MANUT-001"
+                  placeholder="TBH-001"
                   {...field}
                   onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                 />

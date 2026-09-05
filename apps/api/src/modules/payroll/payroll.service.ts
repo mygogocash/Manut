@@ -1,4 +1,5 @@
-import type { InputJsonValue } from "@manut/database";
+import type { InputJsonValue } from "@nexora/database";
+import * as XLSX from "xlsx";
 
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
@@ -7,12 +8,12 @@ import {
   ForbiddenException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
-import { logger } from "@/common/utils/logger";
+import { rowsToCsv } from "@/common/utils/csv";
 import { prisma } from "@/infrastructure/database/prisma";
 import {
   createSignedUrl,
   deleteFile,
-  requireRegisteredStorageUrl,
+  parseStorageUrl,
   STORAGE_BUCKETS,
   uploadFile,
 } from "@/infrastructure/storage/supabase-storage";
@@ -46,7 +47,6 @@ import {
   type ExportFormat,
   type PayslipExportInput,
 } from "@/modules/payroll/payslip-generator";
-import { uploadsRepository } from "@/modules/uploads/uploads.repository";
 
 interface AllowanceDeductionBreakdown {
   meal: number;
@@ -158,7 +158,7 @@ function matchImportRowToUser<
 }
 
 // Admin-managed company legal block printed in the payslip footer.
-// Stored as a single global SystemSetting; the default is Manut Thailand
+// Stored as a single global SystemSetting; the default is TBH Thailand
 // (HR feedback 2026-06-04) until edited in Payslip Management.
 const PAYSLIP_COMPANY_KEY = "payslip.company";
 export interface PayslipCompany {
@@ -167,7 +167,7 @@ export interface PayslipCompany {
   phone: string;
 }
 const DEFAULT_PAYSLIP_COMPANY: PayslipCompany = {
-  legalName: "Manut (Thailand) Co., Ltd.",
+  legalName: "The Binary Holdings (Thailand) Co., Ltd.",
   address:
     "150 T-Place Building, 7th Floor, Rooms 702-703, Soi Sukhumvit 55 " +
     "(Thong Lo), Khlong Tan Nuea, Watthana, Bangkok, 10110, Thailand",
@@ -227,12 +227,6 @@ export class PayrollService {
       actorPermissions.includes(PERMISSIONS.PAYROLL_APPROVE) ||
       actorPermissions.includes(PERMISSIONS.PAYROLL_HR_ADMIN)
     );
-  }
-
-  private static requirePayrollManager(actorPermissions: string[]): void {
-    if (!PayrollService.isPayrollManager(actorPermissions)) {
-      throw new ForbiddenException("Payroll manager permission required");
-    }
   }
 
   async listRuns(
@@ -301,7 +295,7 @@ export class PayrollService {
       run.payslips.map(async (p) => {
         const gross = Number(p.grossPay ?? 0);
         const net = Number(p.netPay ?? 0);
-        // When the bulk importer stored
+        // BD-feedback (Vivek, May 2026) — when the bulk importer stored
         // HR's pre-converted equivalents we use them verbatim so the
         // "Total Payout (entityCurrency)" column in the detail sheet
         // matches the spreadsheet exactly and never depends on whether
@@ -476,7 +470,7 @@ export class PayrollService {
     // createRunWithPayslips stores a raw mixed-currency sum on the run
     // row. Re-aggregate with FX so the headline totals match the
     // entity currency across every payslip (THB + converted USD/INR
-    // for a MANUT-Thailand run, etc.).
+    // for a TBH-Thailand run, etc.).
     const recalc = await payrollRepository.sumPayslipTotalsForRun(result.id);
     await payrollRepository.setRunTotals(result.id, recalc);
 
@@ -651,6 +645,12 @@ export class PayrollService {
       currency,
       grossPay,
       netPay,
+      // Pass-through documentUrl so HR can attach / clear the PDF via
+      // the same edit path. `null` clears the field; `undefined`
+      // leaves it untouched.
+      ...(input.documentUrl !== undefined && {
+        documentUrl: input.documentUrl,
+      }),
     });
 
     const totals = await payrollRepository.sumPayslipTotalsForRun(runId);
@@ -715,7 +715,7 @@ export class PayrollService {
     const run = await payrollRepository.findRunById(runId);
     if (!run) throw new NotFoundException("Payroll run not found");
 
-    // The payroll import ships per-row
+    // BD-feedback (Vivek, May 2026) — HR's template ships per-row
     // "Total Payout INR / USD / THB" columns where exactly one matches
     // the row's native currency and the entity-currency one holds the
     // pre-converted equivalent (FX baked in by HR's spreadsheet formulas).
@@ -932,7 +932,7 @@ export class PayrollService {
 
       // HR template stores the row's net-payout-in-entity-currency under a
       // header that depends on the run's entity (e.g. "Total Payout THB"
-      // for Manut Thailand). Read just that one cell — the other currency
+      // for TBH Thailand). Read just that one cell — the other currency
       // columns are informational only and never feed the headline.
       const totalPayoutBaseRaw = pickNumber(
         row,
@@ -1097,7 +1097,7 @@ export class PayrollService {
       //     the schema's `@@unique([run, employee, currency])` lets both
       //     land. Merging across currencies would mix units (50k THB +
       //     7k USD ≠ 57k of anything) and was the source of the by-currency
-      //     rollup corruption we hit on the Jan-2026 MANUT-Thailand run.
+      //     rollup corruption we hit on the Jan-2026 TBH-Thailand run.
       const indexByEmployeeCurrency = new Map<string, number>();
       const employeeCurrencyKey = (employeeId: string, currency: string) =>
         `${employeeId}|${currency}`;
@@ -1298,7 +1298,7 @@ export class PayrollService {
     // re-insert the canonical set. Lets HR re-upload a corrected file
     // without hitting the @@unique([payrollRunId, employeeId]) constraint.
     //
-    // Bucket totals by currency: a MANUT-Thailand run that pays a USD
+    // Bucket totals by currency: a TBH-Thailand run that pays a USD
     // contractor + an INR contractor used to sum 100,000 THB + 8,000
     // USD + 40,000 INR into a single `totalNet` cell. Now we split:
     // `currencyTotals` keeps the full per-currency rollup, and the
@@ -1543,8 +1543,8 @@ export class PayrollService {
    * HR-only diagnostic. Surfaces why a specific employee sees an
    * empty /my-portal "My Payslip" tab — typically because a stale
    * bulk import bound their Payslip rows to a different User.id
-   * whose name token-set matches (e.g. "Alex Lopez" vs
-   * "Alex Morgan"). Output lets HR pick the misbound row and
+   * whose name token-set matches (e.g. "Sara Lopez" vs the real
+   * "Sarah Smith"). Output lets HR pick the misbound row and
    * rebind it with a one-line SQL UPDATE.
    *
    * Returns:
@@ -1553,8 +1553,8 @@ export class PayrollService {
    * - `ownPayslipCount`: how many Payslip rows currently point at
    *   the target user's id.
    * - `candidates`: every OTHER user whose name shares the same
-   *   sorted-token-set as the target (so "Alex Morgan" matches
-   *   "Morgan Alex" and "Alex  Morgan "), with their payslip
+   *   sorted-token-set as the target (so "Sarah Smith" matches
+   *   "Smith Sarah" and "Sarah  Smith "), with their payslip
    *   counts. The misbound user typically shows up here with a
    *   non-zero count.
    */
@@ -1612,12 +1612,12 @@ export class PayrollService {
     if (!slip.documentUrl) {
       throw new NotFoundException("No payslip document attached yet");
     }
-    const parsed = await requireRegisteredStorageUrl(slip.documentUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "payslip-document",
-      linkedTo: "payslip",
-      linkedId: payslipId,
-    });
+    const parsed = parseStorageUrl(slip.documentUrl);
+    if (!parsed) {
+      throw new BadRequestException(
+        "Payslip document URL is not a Supabase storage URL",
+      );
+    }
     const url = await createSignedUrl(parsed.bucket, parsed.path, 300);
     return { url };
   }
@@ -1639,124 +1639,200 @@ export class PayrollService {
       mimeType: string;
       size: number;
     },
-    actorPermissions: string[],
   ) {
-    PayrollService.requirePayrollManager(actorPermissions);
     const slip = await payrollRepository.findPayslipById(payslipId);
     if (!slip) throw new NotFoundException("Payslip not found");
     if (slip.payrollRunId !== runId) {
       throw new BadRequestException("Payslip does not belong to this run");
     }
     const uploaded = await uploadFile(STORAGE_BUCKETS.DOCUMENTS, actorId, file);
-    let updated: Awaited<ReturnType<typeof payrollRepository.updatePayslip>>;
-    try {
-      await uploadsRepository.create({
-        filename: file.originalName.replace(/[^a-zA-Z0-9._-]/g, "_"),
-        originalName: file.originalName,
-        mimeType: file.mimeType,
-        size: file.size,
-        path: uploaded.path,
-        bucket: uploaded.bucket,
-        uploadedBy: actorId,
-        purpose: "payslip-document",
-        linkedTo: "payslip",
-        linkedId: payslipId,
-      });
-      updated = await payrollRepository.updatePayslip(payslipId, {
-        documentUrl: uploaded.url,
-      });
-    } catch (error) {
-      try {
-        await deleteFile(uploaded.bucket, uploaded.path);
-      } catch (cleanupError) {
-        logger.warn("payslip upload cleanup failed", {
-          cleanupError,
-          path: uploaded.path,
-        });
-      }
-      throw error;
-    }
-
-    await this.deleteRegisteredPayslipDocument(slip.documentUrl, payslipId);
-    return updated;
+    return payrollRepository.updatePayslip(payslipId, {
+      documentUrl: uploaded.url,
+    });
   }
 
   /**
    * HR-facing flat list (HRMS → Payslip Management). Returns rows
-   * across every employee + run with the filters applied. Manager
-   * authorization is repeated here so callers cannot bypass the route.
+   * across every employee + run with the filters applied. Permission
+   * gating is route-level (`payroll:read`).
    */
-  async listPayslipsForHr(query: HrPayslipQuery, actorPermissions: string[]) {
-    PayrollService.requirePayrollManager(actorPermissions);
+  async listPayslipsForHr(query: HrPayslipQuery) {
     return payrollRepository.findPayslipsForHr(query);
   }
 
   /**
-   * HR-side signed-URL download. Mirrors `getMyPayslipDownloadUrl`
-   * but without the employee-id ownership check, so it requires a payroll
-   * manager capability at both the route and service layers. 404 when the
-   * row has no PDF attached.
+   * HRMS → Payslip Management "Export data" (Excel / CSV). One row per payslip
+   * with the full breakdown, using the SAME leaf-column names the importer
+   * reads (`previewPayslipImport`), so an export can be edited and re-imported.
+   *
+   * Fidelity note: the persisted `allowances` JSON only keeps meal /
+   * transportation / telephone / wifi / otherIncome / reimbursement / flat
+   * `allowance` as individual keys — House / Overtime / new-style Internet are
+   * folded into the total, not stored per-column. To keep a re-import's gross
+   * exact, the leftover (`gross − base − namedAllowances`) is written into the
+   * flat "Allowances" column; House / Overtime therefore export as 0. The
+   * `deductions` JSON keeps ssf / otherDeduction / flat `deduction` (tax is the
+   * scalar `tax` column), so deductions round-trip 1:1.
    */
-  async getPayslipDownloadUrlForHr(
-    payslipId: string,
-    actorPermissions: string[],
-  ) {
-    PayrollService.requirePayrollManager(actorPermissions);
+  async exportPayslips(
+    query: HrPayslipQuery,
+    format: "xlsx" | "csv",
+    now: Date = new Date(),
+  ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
+    const slips = await payrollRepository.findPayslipsForHr(query);
+
+    const num = (v: unknown): number => {
+      const n = typeof v === "number" ? v : Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const mapNum = (map: unknown, key: string): number =>
+      map && typeof map === "object" && !Array.isArray(map)
+        ? num((map as Record<string, unknown>)[key])
+        : 0;
+
+    // Leaf columns mirror the import template; trailing columns are read-only
+    // review context the importer ignores.
+    const headers = [
+      "Employee Name",
+      "Employee ID",
+      "Email",
+      "Designation",
+      "Department",
+      "Date of Joining",
+      "Basic Salary",
+      "Currency",
+      "Pay Period",
+      "Overtime",
+      "Meal Allowance",
+      "Transportation Allowance",
+      "Phone Allowance",
+      "House Allowance",
+      "Internet Bills",
+      "Other income",
+      "Reimbursement",
+      "Allowances",
+      "Tax",
+      "SSF",
+      "Other Deduction",
+      "Deductions",
+      "Gross Pay",
+      "Net Pay",
+      "Net Pay (base)",
+      "Status",
+      "PDF Attached",
+    ];
+
+    const rows: unknown[][] = slips.map((s) => {
+      const base = num(s.baseSalary);
+      const gross = num(s.grossPay);
+      const net = num(s.netPay);
+      const meal = mapNum(s.allowances, "meal");
+      const transportation = mapNum(s.allowances, "transportation");
+      const telephone = mapNum(s.allowances, "telephone");
+      const internet = mapNum(s.allowances, "wifi"); // legacy internet key
+      const otherIncome = mapNum(s.allowances, "otherIncome");
+      const reimbursement = mapNum(s.allowances, "reimbursement");
+      const namedAllowances =
+        meal +
+        transportation +
+        telephone +
+        internet +
+        otherIncome +
+        reimbursement;
+      // Remainder absorbs House / Overtime / new-Internet / original flat.
+      const flatAllowance = Math.max(0, gross - base - namedAllowances);
+      // Tax isn't a Payslip column — it's folded into the deductions JSON.
+      const tax = mapNum(s.deductions, "tax");
+      const ssf = mapNum(s.deductions, "ssf");
+      const otherDeduction = mapNum(s.deductions, "otherDeduction");
+      const flatDeduction = mapNum(s.deductions, "deduction");
+      return [
+        s.employee?.name ?? "",
+        s.employee?.id ?? "",
+        s.employee?.email ?? "",
+        s.positionSnapshot ?? "",
+        s.departmentSnapshot ?? s.employee?.department ?? "",
+        s.startDateSnapshot ?? "",
+        base,
+        s.currency ?? "",
+        s.payrollRun?.period ?? "",
+        0, // Overtime — folded into Allowances (not stored per-column)
+        meal,
+        transportation,
+        telephone,
+        0, // House Allowance — folded into Allowances
+        internet,
+        otherIncome,
+        reimbursement,
+        flatAllowance,
+        tax,
+        ssf,
+        otherDeduction,
+        flatDeduction,
+        gross,
+        net,
+        s.netPayBase != null ? num(s.netPayBase) : "",
+        s.payrollRun?.status ?? "",
+        s.documentUrl ? "Yes" : "No",
+      ];
+    });
+
+    const stamp = now.toISOString().slice(0, 10);
+    const scope = query.period ?? "all";
+
+    if (format === "csv") {
+      return {
+        buffer: Buffer.from(rowsToCsv(headers, rows), "utf-8"),
+        filename: `payslips-${scope}-${stamp}.csv`,
+        contentType: "text/csv; charset=utf-8",
+      };
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Payslips");
+    const buffer = XLSX.write(wb, {
+      type: "buffer",
+      bookType: "xlsx",
+    }) as Buffer;
+    return {
+      buffer,
+      filename: `payslips-${scope}-${stamp}.xlsx`,
+      contentType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    };
+  }
+
+  /**
+   * HR-side signed-URL download. Mirrors `getMyPayslipDownloadUrl`
+   * but without the employee-id ownership check — route gates on
+   * `payroll:read`. 404 when the row has no PDF attached.
+   */
+  async getPayslipDownloadUrlForHr(payslipId: string) {
     const slip = await payrollRepository.findPayslipById(payslipId);
     if (!slip) throw new NotFoundException("Payslip not found");
     if (!slip.documentUrl) {
       throw new NotFoundException("No payslip document attached yet");
     }
-    const parsed = await requireRegisteredStorageUrl(slip.documentUrl, {
-      allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-      purpose: "payslip-document",
-      linkedTo: "payslip",
-      linkedId: payslipId,
-    });
+    const parsed = parseStorageUrl(slip.documentUrl);
+    if (!parsed) {
+      throw new BadRequestException(
+        "Payslip document URL is not a Supabase storage URL",
+      );
+    }
     const url = await createSignedUrl(parsed.bucket, parsed.path, 300);
     return { url };
   }
 
-  private async deleteRegisteredPayslipDocument(
-    documentUrl: string | null | undefined,
-    payslipId: string,
-  ): Promise<void> {
-    if (!documentUrl) return;
-
-    try {
-      const parsed = await requireRegisteredStorageUrl(documentUrl, {
-        allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-        purpose: "payslip-document",
-        linkedTo: "payslip",
-        linkedId: payslipId,
-      });
-      await deleteFile(parsed.bucket, parsed.path);
-    } catch (error) {
-      // Legacy rows may pre-date the upload registry. Never turn an
-      // unproven URL into a service-role delete primitive.
-      if (error instanceof BadRequestException) return;
-      // The URL mutation has already committed. Cleanup failures must not
-      // report the whole operation as failed and invite a duplicate retry.
-      logger.warn("payslip document cleanup failed", { error, payslipId });
-    }
-  }
-
-  async removePayslipDocument(
-    runId: string,
-    payslipId: string,
-    actorPermissions: string[],
-  ) {
-    PayrollService.requirePayrollManager(actorPermissions);
+  async removePayslipDocument(runId: string, payslipId: string) {
     const slip = await payrollRepository.findPayslipById(payslipId);
     if (!slip) throw new NotFoundException("Payslip not found");
     if (slip.payrollRunId !== runId) {
       throw new BadRequestException("Payslip does not belong to this run");
     }
-    const updated = await payrollRepository.updatePayslip(payslipId, {
+    return payrollRepository.updatePayslip(payslipId, {
       documentUrl: null,
     });
-    await this.deleteRegisteredPayslipDocument(slip.documentUrl, payslipId);
-    return updated;
   }
 
   // ── Payslip document generation ───────────────────────────────
@@ -1823,16 +1899,11 @@ export class PayrollService {
 
   /**
    * Render a single payslip as either an Excel workbook or a PDF.
-   * Mirrors the payroll export layout cell-for-cell
+   * Mirrors the HR-supplied "Payslips Testing.xlsx" layout cell-for-cell
    * so finance can drop the generated file into the archival folder
    * alongside historical hand-uploaded payslips.
    */
-  async exportPayslipDocument(
-    payslipId: string,
-    format: ExportFormat,
-    actorPermissions: string[],
-  ) {
-    PayrollService.requirePayrollManager(actorPermissions);
+  async exportPayslipDocument(payslipId: string, format: ExportFormat) {
     const slip = await prisma.payslip.findUnique({
       where: { id: payslipId },
       include: {
@@ -1869,12 +1940,7 @@ export class PayrollService {
    * Render every payslip in a payroll run as a single zip archive. HR
    * clicks "Generate all" to ship a month's worth of payslips at once.
    */
-  async exportRunPayslipsZip(
-    runId: string,
-    format: ExportFormat,
-    actorPermissions: string[],
-  ) {
-    PayrollService.requirePayrollManager(actorPermissions);
+  async exportRunPayslipsZip(runId: string, format: ExportFormat) {
     const run = await payrollRepository.findRunById(runId);
     if (!run) throw new NotFoundException("Payroll run not found");
 
@@ -1910,60 +1976,17 @@ export class PayrollService {
    * deletes are best-effort (deleteFile logs + swallows errors) so a
    * missing or already-removed object can't block the DB delete.
    */
-  async bulkDeletePayslips(ids: string[], actorPermissions: string[]) {
-    PayrollService.requirePayrollManager(actorPermissions);
+  async bulkDeletePayslips(ids: string[]) {
     if (ids.length === 0) {
       return { deletedCount: 0 };
     }
     const slips = await payrollRepository.findPayslipDocumentUrls(ids);
-    const registeredFiles = await Promise.all(
-      slips.map(async (slip) => {
-        if (!slip.documentUrl) return null;
-        try {
-          const registered = await requireRegisteredStorageUrl(
-            slip.documentUrl,
-            {
-              allowedBuckets: [STORAGE_BUCKETS.DOCUMENTS],
-              purpose: "payslip-document",
-              linkedTo: "payslip",
-              linkedId: slip.id,
-            },
-          );
-          return { ...registered, payslipId: slip.id };
-        } catch (error) {
-          // Legacy/corrupt rows must not turn a shared-bucket URL into a
-          // service-role delete primitive. Delete the payslip row, but leave
-          // unproven storage untouched for an operator to reconcile.
-          if (error instanceof BadRequestException) return null;
-          throw error;
-        }
-      }),
-    );
     const result = await payrollRepository.bulkDeletePayslips(ids);
     await Promise.all(
-      registeredFiles
-        .filter(
-          (
-            p,
-          ): p is {
-            bucket: typeof STORAGE_BUCKETS.DOCUMENTS;
-            path: string;
-            uploadId: string;
-            payslipId: string;
-          } => p !== null,
-        )
-        .map(async ({ bucket, path, payslipId }) => {
-          try {
-            await deleteFile(bucket, path);
-          } catch (error) {
-            // Rows are already deleted. Keep cleanup best-effort so a retry
-            // cannot turn a completed delete into a misleading failure.
-            logger.warn("payslip document cleanup failed", {
-              error,
-              payslipId,
-            });
-          }
-        }),
+      slips
+        .map((s) => (s.documentUrl ? parseStorageUrl(s.documentUrl) : null))
+        .filter((p): p is { bucket: string; path: string } => p !== null)
+        .map(({ bucket, path }) => deleteFile(bucket, path)),
     );
     return { deletedCount: result.count };
   }

@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
@@ -221,7 +221,7 @@ export class HelpdeskService {
         error: err,
       });
     });
-    // Outbound GitHub-issue mirror.
+    // Outbound GitHub-issue mirror (Sid + BD feedback, 2026-05-24).
     // No-op when GitHub integration is disabled; errors swallowed +
     // logged so the API contract for ticket creation stays clean.
     const { syncTicketToGithub } =

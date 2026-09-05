@@ -1,6 +1,6 @@
 "use client";
 
-import { standardSchemaResolver } from "@hookform/resolvers/standard-schema";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -66,7 +66,7 @@ export function RoleFormDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<RoleFormValues>({
-    resolver: standardSchemaResolver(roleSchema),
+    resolver: zodResolver(roleSchema),
     defaultValues: {
       name: "",
       description: "",

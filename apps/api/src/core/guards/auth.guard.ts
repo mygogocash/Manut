@@ -8,7 +8,6 @@ import {
   ForbiddenException,
   UnauthorizedException,
 } from "@/common/exceptions/http-exception";
-import { isAuthenticationEligible } from "@/core/guards/auth-eligibility";
 import { prisma } from "@/infrastructure/database/prisma";
 import { supabaseAdmin } from "@/infrastructure/supabase/admin";
 import { trackPermissionDenied } from "@/lib/events";
@@ -22,7 +21,6 @@ export interface AuthUser {
   email: string;
   name: string;
   isActive: boolean;
-  deletedAt: Date | null;
   entityId: string | null;
   permissions: string[];
 }
@@ -64,17 +62,12 @@ export async function resolveAuthUserFromToken(
       email: true,
       name: true,
       isActive: true,
-      deletedAt: true,
       entityId: true,
     },
   });
 
   if (!profile) {
     throw new UnauthorizedException("User not found");
-  }
-
-  if (!isAuthenticationEligible(profile)) {
-    throw new ForbiddenException("Account deactivated");
   }
 
   return { ...profile, permissions: [] };
@@ -88,17 +81,14 @@ export async function authenticate(
   try {
     let token = getBearerToken(req.headers.authorization) ?? undefined;
 
-    if (!token && req.cookies?.manut_access_token) {
-      token = req.cookies.manut_access_token;
+    if (!token && req.cookies?.nexora_access_token) {
+      token = req.cookies.nexora_access_token;
     }
 
     req.user = await resolveAuthUserFromToken(token);
     next();
   } catch (err) {
-    if (
-      err instanceof UnauthorizedException ||
-      err instanceof ForbiddenException
-    ) {
+    if (err instanceof UnauthorizedException) {
       return next(err);
     }
     next(new UnauthorizedException());
@@ -113,7 +103,7 @@ export async function requireActive(
   if (!req.user) {
     return next(new UnauthorizedException());
   }
-  if (!isAuthenticationEligible(req.user)) {
+  if (!req.user.isActive) {
     return next(new ForbiddenException("Account deactivated"));
   }
   next();
@@ -208,10 +198,17 @@ export async function loadUserPermissions(
 }
 
 export function requirePermission(...requiredPermissions: string[]) {
-  return async (req: Request, _res: Response, next: NextFunction) => {
+  // Named rather than anonymous so it is identifiable in an Express middleware
+  // stack, which lets a test assert a route is gated, and so it reads as itself
+  // in a stack trace.
+  return async function requirePermissionGuard(
+    req: Request,
+    _res: Response,
+    next: NextFunction,
+  ) {
     try {
       if (!req.user) return next(new UnauthorizedException());
-      if (!isAuthenticationEligible(req.user)) {
+      if (!req.user.isActive) {
         return next(new ForbiddenException("Account deactivated"));
       }
 
@@ -232,6 +229,67 @@ export function requirePermission(...requiredPermissions: string[]) {
           },
         );
         return next(new ForbiddenException("Permission denied"));
+      }
+
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+}
+
+/**
+ * Is this user in the system "Admin" role?
+ *
+ * Deliberately NOT a permission check. A super admin is granted every
+ * permission code (see `loadUserPermissions`), so no code can ever be exclusive
+ * to them: any code, `admin:manage` included, can also be granted to a custom
+ * role. Identity is the only thing that distinguishes them, which is why this
+ * reads the role assignment rather than `req.user.permissions`.
+ */
+export async function isSystemAdmin(userId: string): Promise<boolean> {
+  const match = await prisma.userRole.findFirst({
+    where: {
+      userId,
+      role: { isSystem: true, name: "Admin", deletedAt: null },
+    },
+    select: { userId: true },
+  });
+  return match !== null;
+}
+
+/**
+ * Restricts a route to the system "Admin" role.
+ *
+ * For settings that decide how a whole flow behaves rather than one record —
+ * configuring an approval chain, for instance, where a bad edit changes who may
+ * approve everything. `requirePermission` cannot express this, per the note on
+ * `isSystemAdmin` above.
+ *
+ * Costs one indexed lookup, on the handful of routes that need it.
+ */
+export function requireSystemAdmin() {
+  return async function requireSystemAdminGuard(
+    req: Request,
+    _res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      if (!req.user) return next(new UnauthorizedException());
+      if (!req.user.isActive) {
+        return next(new ForbiddenException("Account deactivated"));
+      }
+
+      if (!(await isSystemAdmin(req.user.id))) {
+        trackPermissionDenied(
+          { id: req.user.id, entityId: req.user.entityId },
+          { permission: "system-admin", route: req.path },
+        );
+        return next(
+          new ForbiddenException(
+            "Only a system administrator can change this setting",
+          ),
+        );
       }
 
       next();

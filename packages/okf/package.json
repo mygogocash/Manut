@@ -1,0 +1,16 @@
+{
+  "name": "@nexora/okf",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'okf is source-only, no build needed'",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.17",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.5",
+    "yaml": "^2.9.0"
+  }
+}

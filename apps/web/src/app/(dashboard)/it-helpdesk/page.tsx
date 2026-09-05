@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Github, Plus } from "lucide-react";
+import { Bell, FolderGit2, Plus } from "lucide-react";
 import { useState } from "react";
 
 import { GithubWorkflowConfigDialog } from "@/components/helpdesk/github-workflow-config-dialog";
@@ -12,6 +12,7 @@ import { TicketList } from "@/components/helpdesk/ticket-list";
 import { PageHeader } from "@/components/shared/page-header";
 import { PermissionButton } from "@/components/shared/permission-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTabParam } from "@/hooks/use-tab-param";
 import { useAuth } from "@/providers/auth-provider";
 
 export default function ITHelpdeskPage() {
@@ -21,6 +22,7 @@ export default function ITHelpdeskPage() {
     hasPermission("it:update") || hasPermission("it:resolve");
   const canManageSettings = hasPermission("it:settings-manage");
 
+  const [tab, setTab] = useTabParam(canSeeAll ? "kanban" : "mine");
   const [createOpen, setCreateOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [workflowOpen, setWorkflowOpen] = useState(false);
@@ -47,7 +49,7 @@ export default function ITHelpdeskPage() {
             variant="outline"
             onClick={() => setWorkflowOpen(true)}
           >
-            <Github className="mr-1 size-4" />
+            <FolderGit2 className="mr-1 size-4" />
             Workflow
           </PermissionButton>
         )}
@@ -70,7 +72,7 @@ export default function ITHelpdeskPage() {
         </PermissionButton>
       </PageHeader>
 
-      <Tabs defaultValue={canSeeAll ? "kanban" : "mine"} className="space-y-4">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="mine">My tickets</TabsTrigger>
           {canSeeAll && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
+import dayjs from "dayjs";
 import { Briefcase, MapPin, Pencil, Trash2 } from "lucide-react";
 
 import { UpdateJobDialog } from "@/components/careers/update-job-dialog";
@@ -69,7 +69,7 @@ export function JobCard({
 
         <div className="mt-3 flex items-center justify-between">
           <p className="text-muted-foreground/60 text-[10px]">
-            {format(new Date(job.createdAt), "MMM d, yyyy")}
+            {dayjs(job.createdAt).format("MMM D, YYYY")}
           </p>
           {job._count.applications > 0 && (
             <span className="text-muted-foreground text-[10px]">

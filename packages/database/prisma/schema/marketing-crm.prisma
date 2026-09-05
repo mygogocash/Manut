@@ -1,0 +1,139 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Marketing CRM - Campaign CRM (Phase 2).
+//
+// New models under the Marketing (analytics) module family. Intentionally
+// separate from the pre-existing `MarketingCampaign` (marketing_campaigns)
+// calendar model owned by the legacy `marketing` module - this is the richer
+// Campaign CRM entity with multi-select levers, versioned creatives, and
+// prediction upload history. `mkt_` table prefix avoids any collision.
+// ─────────────────────────────────────────────────────────────────────────
+
+/// A marketing campaign record (Campaign CRM).
+model MktCampaign {
+  id             String    @id @default(uuid()) @db.Uuid
+  name           String    @db.VarChar(300)
+  campaignDate   DateTime  @map("campaign_date") @db.Date
+  /// Duration in hours (fractional allowed, e.g. 1.5).
+  hours          Float?
+  ownerId        String?   @map("owner_id") @db.Uuid
+  /// 'planned' | 'scheduled' | 'live' | 'completed' | 'cancelled'
+  status         String    @default("planned") @db.VarChar(20)
+  country        String?   @db.VarChar(100)
+  /// Optional BNII telco-partner UUID this campaign targets (marketing-analytics
+  /// partner id). When set, DAU/MAU attribution links the campaign to exactly
+  /// this partner; when null, attribution falls back to a country match.
+  partnerId      String?   @map("partner_id") @db.Uuid
+  product        String?   @db.VarChar(150)
+  channel        String?   @db.VarChar(100)
+  campaignType   String?   @map("campaign_type") @db.VarChar(100)
+  objective      String?
+  targetAudience String?   @map("target_audience")
+  /// Free-text sequence of levers pulled, e.g. "1 Push at start, 1 Push 1h
+  /// before end, in-app banner for the full duration".
+  leversSequence String?   @map("levers_sequence")
+  /// Notification copy text (the "Copy" of "Copy & design"). Banner/design
+  /// assets live in the versioned creatives table.
+  copyText       String?   @map("copy_text")
+  expectedReach  Int?      @map("expected_reach")
+  actualReach    Int?      @map("actual_reach")
+  budget         Decimal?  @db.Decimal(15, 2)
+  currency       String    @default("USD") @db.VarChar(10)
+  notes          String?
+  createdById    String    @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  owner       User?              @relation("MktCampaignOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdBy   User               @relation("MktCampaignCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  levers      MktCampaignLever[]
+  creatives   MktCreative[]
+  predictions MktPrediction[]
+
+  archivedAt  DateTime? @map("archived_at")
+  @@index([campaignDate])
+  @@index([status])
+  @@index([ownerId])
+  @@index([partnerId])
+  // Reports commonly filter by status + campaign_date range and sort by date.
+  @@index([status, campaignDate])
+  @@index([archivedAt])
+  @@map("mkt_campaigns")
+}
+
+/// Admin-configurable lever (Push, Banner, SMS, Email, WhatsApp, Telegram, …).
+/// Multi-selected onto a campaign via the join table below.
+model MktLever {
+  id        String   @id @default(cuid())
+  name      String   @unique @db.VarChar(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  campaigns MktCampaignLever[]
+
+  @@index([isActive])
+  @@map("mkt_levers")
+}
+
+/// Campaign <-> Lever join (multi-select).
+model MktCampaignLever {
+  id         String   @id @default(uuid()) @db.Uuid
+  campaignId String   @map("campaign_id") @db.Uuid
+  leverId    String   @map("lever_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  campaign MktCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lever    MktLever    @relation(fields: [leverId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, leverId])
+  @@index([campaignId])
+  @@index([leverId])
+  @@map("mkt_campaign_levers")
+}
+
+/// Creative asset attached to a campaign. Every upload is kept as a new row
+/// (version history); `version` increments per campaign. `source` records
+/// whether it was an uploaded file or an external link (Drive/Canva/Figma).
+model MktCreative {
+  id           String   @id @default(uuid()) @db.Uuid
+  campaignId   String   @map("campaign_id") @db.Uuid
+  version      Int      @default(1)
+  /// 'image' | 'video' | 'pdf' | 'link'
+  kind         String   @db.VarChar(20)
+  /// 'upload' | 'drive' | 'canva' | 'figma' | 'other'
+  source       String   @default("upload") @db.VarChar(20)
+  name         String   @db.VarChar(300)
+  url          String
+  mimeType     String?  @map("mime_type") @db.VarChar(150)
+  size         Int?
+  uploadedById String   @map("uploaded_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  campaign   MktCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  uploadedBy User        @relation("MktCreativeUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, version])
+  @@map("mkt_creatives")
+}
+
+/// Prediction spreadsheet (xlsx/csv) attached to a campaign. Multiple uploads
+/// are retained as history.
+model MktPrediction {
+  id           String   @id @default(uuid()) @db.Uuid
+  campaignId   String   @map("campaign_id") @db.Uuid
+  /// 'xlsx' | 'csv'
+  format       String   @db.VarChar(10)
+  name         String   @db.VarChar(300)
+  url          String
+  mimeType     String?  @map("mime_type") @db.VarChar(150)
+  size         Int?
+  uploadedById String   @map("uploaded_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  campaign   MktCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  uploadedBy User        @relation("MktPredictionUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, createdAt])
+  @@map("mkt_predictions")
+}

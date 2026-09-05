@@ -66,17 +66,31 @@ router.put(
   asyncHandler(async (req, res) => {
     const id = getRequiredParam(req.params, "id");
     const input = updateVendorSchema.parse(req.body);
-    const result = await vendorsService.update(id, input);
+    const result = await vendorsService.update(id, input, req);
     res.json(result);
   }),
 );
 
+// Restore a soft-deleted vendor. Two-segment path — never shadowed by the
+// single-segment POST "/" create route above.
+router.post(
+  "/:id/restore",
+  requirePermission(PERMISSIONS.ACCOUNTING_ADMIN),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const result = await vendorsService.restore(id, req);
+    res.json(result);
+  }),
+);
+
+// Soft delete (blocked with a 409 when the vendor is referenced by any AR/AP
+// document — see vendors.service.remove).
 router.delete(
   "/:id",
   requirePermission(PERMISSIONS.ACCOUNTING_ADMIN),
   asyncHandler(async (req, res) => {
     const id = getRequiredParam(req.params, "id");
-    const result = await vendorsService.remove(id);
+    const result = await vendorsService.remove(id, req);
     res.json(result);
   }),
 );

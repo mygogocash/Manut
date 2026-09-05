@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { NotFoundException } from "@/common/exceptions/http-exception";
 import { companyDatesRepository } from "@/modules/company-dates/company-dates.repository";

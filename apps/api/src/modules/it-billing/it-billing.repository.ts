@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -160,6 +160,24 @@ export class ItBillingRepository {
   countActiveSubscriptions() {
     return prisma.itSubscription.count({
       where: { status: { not: "cancelled" } },
+    });
+  }
+
+  /**
+   * Every subscription, cancelled ones INCLUDED — deliberately not
+   * `activeSubscriptions()`.
+   *
+   * `status: { not: "cancelled" }` is the correct filter for a run-rate ("what
+   * do we pay now?") and the wrong one for a history ("what did we pay in
+   * March?"). Excluding cancelled rows is exactly what made cancelling a
+   * service erase it from the spend record instead of showing the saving, so the
+   * monthly series must see them. `activeSubscriptions()` is left untouched so
+   * the existing run-rate cards do not move.
+   */
+  subscriptionsForMonthlySeries() {
+    return prisma.itSubscription.findMany({
+      include: { vendor: { select: { id: true, name: true } } },
+      orderBy: { productName: "asc" },
     });
   }
 

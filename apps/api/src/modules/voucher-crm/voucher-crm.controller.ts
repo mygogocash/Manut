@@ -112,4 +112,26 @@ router.delete(
   }),
 );
 
+// Reversible archive/unarchive. Gated like update (read + write perms); the
+// module has no per-row owner scoping, so the permission gate is the guard.
+router.post(
+  "/:id/archive",
+  requirePermission(...READ_PERMS, ...WRITE_PERMS),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const data = await voucherCrmService.archive(id);
+    res.json({ data });
+  }),
+);
+
+router.post(
+  "/:id/unarchive",
+  requirePermission(...READ_PERMS, ...WRITE_PERMS),
+  asyncHandler(async (req, res) => {
+    const id = getRequiredParam(req.params, "id");
+    const data = await voucherCrmService.unarchive(id);
+    res.json({ data });
+  }),
+);
+
 export default router;

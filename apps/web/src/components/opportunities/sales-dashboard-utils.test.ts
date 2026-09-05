@@ -28,6 +28,7 @@ function row(overrides: Partial<SalesDashboardRow>): SalesDashboardRow {
     totalUsers: null,
     appUsers: null,
     engagementType: null,
+    businessUnits: [],
     ownerName: null,
     ...overrides,
   };

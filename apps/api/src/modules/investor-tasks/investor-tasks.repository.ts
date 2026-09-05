@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { prisma } from "@/infrastructure/database/prisma";
 
@@ -16,6 +16,7 @@ export interface ListInvestorTasksFilters {
   // so the repository stays a thin query layer.
   dueDateGte?: Date;
   dueDateLte?: Date;
+  fundraisingEntity?: string;
 }
 
 export class InvestorTaskRepository {
@@ -30,6 +31,9 @@ export class InvestorTaskRepository {
     if (filters.investorId) where.investorId = filters.investorId;
     if (filters.ownerId) where.ownerId = filters.ownerId;
     if (filters.ownerScope) where.ownerId = { in: filters.ownerScope };
+    if (filters.fundraisingEntity) {
+      where.investor = { fundraisingEntity: filters.fundraisingEntity };
+    }
     if (filters.dueDateGte || filters.dueDateLte) {
       where.dueDate = {
         ...(filters.dueDateGte && { gte: filters.dueDateGte }),

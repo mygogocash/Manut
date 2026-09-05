@@ -4,7 +4,7 @@ import { tracking } from "@/lib/tracking";
 /**
  * Central registry of every event name + a typed wrapper per event.
  *
- * Shared event contracts for server-side tracking. Every track call
+ * Generated from .telemetry/tracking-plan.yaml. Every server-side track call
  * MUST go through one of these wrappers — no raw event-name strings.
  *
  * Each wrapper takes `actor` (the user the event is attributed to) so the
@@ -31,6 +31,8 @@ export const EVENTS = {
 
   AGREEMENT_UPLOADED: "agreement.uploaded",
   AGREEMENT_DOWNLOADED: "agreement.downloaded",
+
+  ARIA_RESPONSE_RECEIVED: "aria.response_received",
 
   PROJECT_CREATED: "project.created",
   TASK_CREATED: "task.created",
@@ -222,6 +224,25 @@ export const trackAgreementDownloaded = (
     actor.entityId,
   );
 
+// ─── Aria ──────────────────────────────────────────────────────────────────
+
+export const trackAriaResponseReceivedServer = (
+  actor: Actor,
+  props: {
+    latency_ms: number;
+    tokens_in?: number;
+    tokens_out?: number;
+    streaming?: boolean;
+    error: boolean;
+  },
+) =>
+  tracking.capture(
+    actor.id,
+    EVENTS.ARIA_RESPONSE_RECEIVED,
+    props,
+    actor.entityId,
+  );
+
 // ─── Projects ──────────────────────────────────────────────────────────────
 
 export const trackProjectCreatedServer = (actor: Actor) =>
@@ -360,10 +381,7 @@ export const trackProfileUpdatedServer = (
 
 export const trackIntegrationConnectedServer = (
   actor: Actor,
-  props: {
-    provider:
-      "gmail" | "google_calendar" | "slack" | "workers_ai" | "ai_gateway";
-  },
+  props: { provider: "gmail" | "google_calendar" | "slack" | "gemini" },
 ) =>
   tracking.capture(
     actor.id,

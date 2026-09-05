@@ -13,7 +13,7 @@ export const DEFAULT_PREFS: LocalPreferences = {
 export function loadPreferences(): LocalPreferences {
   if (typeof window === "undefined") return DEFAULT_PREFS;
   try {
-    const raw = localStorage.getItem("manut_preferences");
+    const raw = localStorage.getItem("nexora_preferences");
     if (raw) return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
   } catch {
     // ignore
@@ -22,7 +22,7 @@ export function loadPreferences(): LocalPreferences {
 }
 
 export function savePreferences(prefs: LocalPreferences) {
-  localStorage.setItem("manut_preferences", JSON.stringify(prefs));
+  localStorage.setItem("nexora_preferences", JSON.stringify(prefs));
 }
 
 export const TABS_LIST = [
@@ -30,5 +30,6 @@ export const TABS_LIST = [
   { id: "preferences", label: "Preferences" },
   { id: "security", label: "Security" },
   { id: "integrations", label: "Integrations" },
+  { id: "aria-brief", label: "ARIA brief" },
   { id: "system", label: "System" },
 ];

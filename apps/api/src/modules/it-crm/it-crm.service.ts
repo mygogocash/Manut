@@ -1,4 +1,4 @@
-import type { Prisma } from "@manut/database";
+import type { Prisma } from "@nexora/database";
 
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
@@ -261,7 +261,7 @@ function computeHelpdeskBlock(input: {
   };
 }
 
-// ── Flow + SLA helpers ───────────────────────────────────
+// ── Flow + SLA helpers (dashboard redesign, 2026-05-30) ─────────────────
 function hoursBetween(a: Date, b: Date): number {
   return (b.getTime() - a.getTime()) / 3_600_000;
 }
@@ -347,7 +347,8 @@ export class ItCrmService {
       perms.includes(PERMISSIONS.PROJECTS_READ_ALL);
 
     const where: Parameters<typeof prisma.itProject.findMany>[0] extends
-      { where?: infer W } | undefined
+      | { where?: infer W }
+      | undefined
       ? W
       : never = {};
     // Search and owner-scope are SEPARATE disjunctions that must both hold —
@@ -1006,7 +1007,7 @@ export class ItCrmService {
         GROUP BY 1
         ORDER BY 1 ASC
       `,
-      // ── Dashboard analytics ────────────────────────────
+      // ── Dashboard-redesign analytics (2026-05-30) ──────────────────
       // Portfolio health RAG distribution.
       prisma.itProject.groupBy({
         by: ["healthStatus"],

@@ -1,7 +1,7 @@
 import { api } from "@/lib/api-client";
 import type { ApiSuccessResponse } from "@/types/api.type";
 
-// Workspace-admin lookup mirroring LeadSource.
+// PRD §11.7 follow-up — workspace-admin lookup mirroring LeadSource.
 
 export interface LostReason {
   id: string;

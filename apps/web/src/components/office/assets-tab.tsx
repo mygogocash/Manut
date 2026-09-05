@@ -17,7 +17,7 @@ import { AssetBulkImportDialog } from "@/components/office/asset-bulk-import-dia
 import { AssetFormDialog } from "@/components/office/asset-form-dialog";
 import { Badge } from "@/components/shared/badge";
 import { DataPagination } from "@/components/shared/data-pagination";
-import { DataTable } from "@/components/shared/data-table";
+import { type Column, DataTable } from "@/components/shared/data-table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -157,22 +157,39 @@ export function AssetsTab({ canManage = true }: { canManage?: boolean }) {
     header: string;
     render: (a: Asset) => ReactNode;
     className?: string;
+    mobileRole?: Column<Asset>["mobileRole"];
   };
   const nameCol: AssetCol = {
     key: "name",
     header: "Name",
     render: (a: Asset) => (
-      <div className="flex flex-col">
-        <span className="text-foreground font-medium">{a.name}</span>
-        {a.model && (
-          <span className="text-muted-foreground text-[11px]">{a.model}</span>
+      <div className="flex items-center gap-2.5">
+        {/* Thumbnail only when there is one — an empty placeholder on every
+            row would add a column of grey squares for no information. */}
+        {a.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={a.imageUrl}
+            alt=""
+            loading="lazy"
+            className={`
+              border-border size-8 shrink-0 rounded border object-cover
+            `}
+          />
         )}
+        <div className="flex flex-col">
+          <span className="text-foreground font-medium">{a.name}</span>
+          {a.model && (
+            <span className="text-muted-foreground text-[11px]">{a.model}</span>
+          )}
+        </div>
       </div>
     ),
   };
 
   const categoryCol: AssetCol = {
     key: "type",
+    mobileRole: "subtitle" as const,
     header: "Category",
     render: (a: Asset) => (
       <Badge variant="blue">{ASSET_CATEGORY_LABELS[a.type] ?? a.type}</Badge>
@@ -181,6 +198,7 @@ export function AssetsTab({ canManage = true }: { canManage?: boolean }) {
 
   const serialCol: AssetCol = {
     key: "serialNo",
+    mobileRole: "detail" as const,
     header: "Serial No.",
     render: (a: Asset) => (
       <span className="font-mono text-xs">{a.serialNo ?? "—"}</span>
@@ -189,12 +207,14 @@ export function AssetsTab({ canManage = true }: { canManage?: boolean }) {
 
   const officeCol: AssetCol = {
     key: "office",
+    mobileRole: "detail" as const,
     header: "Office",
     render: (a: Asset) => a.office?.name ?? "—",
   };
 
   const statusCol: AssetCol = {
     key: "status",
+    mobileRole: "badge" as const,
     header: "Status",
     render: (a: Asset) => (
       <Badge status={a.status}>
@@ -205,48 +225,56 @@ export function AssetsTab({ canManage = true }: { canManage?: boolean }) {
 
   const assigneeCol: AssetCol = {
     key: "assignee",
+    mobileRole: "field" as const,
     header: "Assigned to",
     render: (a: Asset) => a.assignee?.name ?? "—",
   };
 
   const manufacturerCol: AssetCol = {
     key: "manufacturer",
+    mobileRole: "detail" as const,
     header: "Manufacturer",
     render: (a: Asset) => a.manufacturer ?? "—",
   };
 
   const colourCol: AssetCol = {
     key: "colour",
+    mobileRole: "detail" as const,
     header: "Colour",
     render: (a: Asset) => a.colour ?? "—",
   };
 
   const osCol: AssetCol = {
     key: "os",
+    mobileRole: "detail" as const,
     header: "OS",
     render: (a: Asset) => a.operatingSystem ?? "—",
   };
 
   const versionCol: AssetCol = {
     key: "version",
+    mobileRole: "detail" as const,
     header: "Version",
     render: (a: Asset) => a.version ?? "—",
   };
 
   const subTypeCol: AssetCol = {
     key: "subType",
+    mobileRole: "detail" as const,
     header: "Sub-type",
     render: (a: Asset) => a.subType ?? "—",
   };
 
   const departmentCol: AssetCol = {
     key: "department",
+    mobileRole: "detail" as const,
     header: "Department",
     render: (a: Asset) => a.department ?? a.assignee?.name ?? "—",
   };
 
   const bookValueCol: AssetCol = {
     key: "bookValue",
+    mobileRole: "field" as const,
     header: "Book Value",
     render: (a: Asset) => formatCurrency(a.bookValue),
     className: "text-right",
@@ -316,6 +344,7 @@ export function AssetsTab({ canManage = true }: { canManage?: boolean }) {
       ? [
           {
             key: "actions",
+            mobileRole: "actions" as const,
             header: "",
             className: "w-10",
             render: (a: Asset) => (

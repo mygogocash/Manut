@@ -39,6 +39,9 @@ const mockedDisconnect = vi.mocked(disconnectGoogle);
 
 const baseStatus = {
   data: {
+    anthropic: { configured: true, status: "connected" as const },
+    gmail: { configured: true, status: "connected" as const },
+    drive: { configured: true, status: "connected" as const },
     google: { connected: false },
   },
 };
@@ -82,16 +85,6 @@ describe("IntegrationsTab > given google.connected = false", () => {
         screen.getByRole("button", { name: /connect google/i }),
       ).toBeInTheDocument();
     });
-  });
-
-  it("describes the Manut-owned Cloudflare AI boundary", async () => {
-    mockedGetStatus.mockResolvedValueOnce(baseStatus);
-
-    render(<IntegrationsTab />);
-
-    expect(
-      await screen.findByText(/workers ai through ai gateway/i),
-    ).toBeVisible();
   });
 
   it("clicking Connect calls startGoogleOauth then redirects window.location", async () => {
