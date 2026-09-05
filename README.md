@@ -1,15 +1,27 @@
-# Intranet — TBH Employee Platform
+# Intranet — employee platform ([`mygogocash/Manut`](https://github.com/mygogocash/Manut))
 
-Internal management platform for The Binary Holdings. One workspace for HR
-operations (leave, payroll, expenses, travel, visa, ESOP, agreements),
-finance (accounting, invoicing, revenue), CRM (partners, sales, leads,
-opportunities), and people ops (org directory, performance, learning,
-benefits, onboarding)
+Internal management platform. One workspace for HR operations (leave,
+payroll, expenses, travel, visa, ESOP, agreements), finance (accounting,
+invoicing, revenue), CRM (partners, sales, leads, opportunities), and
+people ops (org directory, performance, learning, benefits, onboarding).
 
-The codebase is a Turborepo monorepo with a TypeScript Express 5 API, a
-Next.js 16 App Router frontend, and a Prisma/PostgreSQL data layer. Auth
-is delegated to Supabase; per-request authorization is resolved against a
-permission table seeded from `apps/api/src/common/constants/permissions.ts`.
+**This repository** is [`mygogocash/Manut`](https://github.com/mygogocash/Manut).
+Product name is **Intranet**. Workspace packages stay `@nexora/*`.
+
+| Branch | Role |
+| --- | --- |
+| `main` | Default trunk. Feature PRs land here. Does not deploy Cloud Run or Vercel. |
+| `preview` | Staging: Cloud Run staging + Cloudflare edge staging. Schema via `pnpm db:push`. |
+| `production` | Prod: Cloud Run + Vercel. Schema via `prisma migrate deploy`. |
+
+Promote `main` → `preview` and `main` → `production` with a **merge commit**.
+See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
+
+The codebase is a Turborepo monorepo: TypeScript Express 5 + Next.js 16
+(Prisma/Supabase), a Hono Cloudflare Workers edge (Drizzle), and an Expo
+app. Auth on Express is Supabase JWT; per-request authorization is resolved
+against a permission table seeded from
+`apps/api/src/common/constants/permissions.ts`.
 
 ---
 
@@ -115,24 +127,31 @@ Request lifecycle:
 │   │       ├── modules/            <feature>/{controller,service,repository,validation}.ts
 │   │       │                       (99 modules — see Domain Modules below)
 │   │       └── lib/                events, portal-url, tracking
-│   └── web/                        Next.js 16 + React 19 frontend (port 3000)
-│       └── src/
-│           ├── app/
-│           │   ├── (dashboard)/    authenticated routes (Home, HRMS, …)
-│           │   ├── (auth)/         sign-in / sign-up
-│           │   └── my-portal/      employee-only landing
-│           ├── components/         feature-scoped React components
-│           ├── services/           one file per backend module — wraps `lib/api-client`
-│           ├── providers/          AuthProvider (user/roles/permissions)
-│           ├── hooks/              shared hooks (use-debounce, use-pagination, …)
-│           └── lib/                api-client, utils
+│   ├── web/                        Next.js 16 + React 19 frontend (port 3000)
+│   │   └── src/
+│   │       ├── app/
+│   │       │   ├── (dashboard)/    authenticated routes (Home, HRMS, …)
+│   │       │   ├── (auth)/         sign-in / sign-up
+│   │       │   └── my-portal/      employee-only landing
+│   │       ├── components/         feature-scoped React components
+│   │       ├── services/           one file per backend module — wraps `lib/api-client`
+│   │       ├── providers/          AuthProvider (user/roles/permissions)
+│   │       ├── hooks/              shared hooks (use-debounce, use-pagination, …)
+│   │       └── lib/                api-client, utils
+│   ├── edge/                       Hono on Cloudflare Workers
+│   ├── edge-jobs/                  Cron Triggers + Queue fan-out
+│   └── app/                        Expo Router client
 ├── packages/
 │   ├── database/                   Prisma schema, migrations, seed
 │   │   └── prisma/
 │   │       ├── schema/             sharded *.prisma files (core, hr, finance, …)
 │   │       ├── migrations/         timestamped folders, never edit committed ones
-│   │       ├── seed.ts             dev seed
+│   │       ├── seed.ts             local seed
 │   │       └── seed-prod.ts        prod-safe seed (roles + perms only, no fake users)
+│   ├── db/                         Drizzle schema for the edge
+│   ├── core/                       Shared domain services for the edge
+│   ├── auth/                       Better Auth helpers
+│   ├── contracts/                  Shared route / DTO contracts
 │   ├── types/                      shared TS types
 │   ├── ui/                         shared shadcn components
 │   ├── utils/                      shared helpers
@@ -141,13 +160,16 @@ Request lifecycle:
 ├── docs/                           human-curated PRDs + specs (PROJECT_OVERVIEW.md,
 │                                   MODULES_SPECIFICATION.md, AUTH_RBAC.md, …)
 ├── .github/workflows/
-│   ├── deploy.yml                  push-to-main → GCP Cloud Run
+│   ├── deploy.yml                  push-to-production → GCP Cloud Run
+│   ├── deploy-staging.yml          push-to-preview → staging Cloud Run
+│   ├── deploy-edge-staging.yml     push-to-preview → edge worker
+│   ├── deploy-vercel.yml           push-to-production → Vercel
 │   └── pr-checks.yml               PR gate: type-check + lint + test + brand-drift
 ├── turbo.json                      task pipeline & globalEnv
 └── pnpm-workspace.yaml             workspace package list
 ```
 
-Workspace package names: `@nexora/api`, `@nexora/web`, `@nexora/database`,
+Workspace package names: `@nexora/api`, `@nexora/web`, `@nexora/database`, `@nexora/edge`, `@nexora/app`, `@nexora/db`,
 `@nexora/types`, `@nexora/ui`, `@nexora/utils`, `@nexora/eslint-config`.
 The `@nexora/*` prefix is an implementation detail of the monorepo and
 is intentionally kept stable even though the user-facing product was
@@ -335,8 +357,8 @@ Helpers live in `apps/api/src/infrastructure/soft-delete.ts`.
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/The-Binary-Holdings/new-tbh-intranet.git
-cd new-tbh-intranet
+git clone https://github.com/mygogocash/Manut.git
+cd Manut
 pnpm install
 ```
 
@@ -455,11 +477,14 @@ Open <http://localhost:3000>, sign in with a seeded user (see
 pnpm dev               # run all apps (Turborepo)
 pnpm dev:api           # Express only
 pnpm dev:web           # Next.js only
+pnpm dev:edge          # Hono worker (wrangler)
+pnpm dev:app           # Expo
 
 # Database
 pnpm db:generate       # regen Prisma client
-pnpm db:migrate        # create + apply dev migration
-pnpm db:push           # push schema without migration (dev only)
+pnpm db:migrate        # create + apply local migration
+pnpm db:push           # push schema without migration (local / staging)
+pnpm route-parity      # Express vs Hono coverage
 pnpm db:seed           # run seed.ts
 pnpm db:studio         # Prisma Studio (port 5555)
 
@@ -506,8 +531,8 @@ checklist.
 
 ## Production Deploy
 
-`main` push → `Deploy to GCP Cloud Run` workflow
-(`.github/workflows/deploy.yml`):
+`production` push → `Deploy to GCP Cloud Run` workflow
+(`.github/workflows/deploy.yml`). A push to `main` does not deploy.
 
 1. **Resolve historically failed migrations** — `prisma migrate
    resolve --rolled-back <name> || true` for a hard-coded list of
@@ -526,20 +551,18 @@ checklist.
    - Web service: `nexora-web` on port 3000.
    - Env vars supplied via `--set-env-vars` from GitHub Secrets.
 
-### Staging (`dev` branch)
+### Staging (`preview` branch)
 
-`dev` push → `Deploy to Staging` workflow (`.github/workflows/deploy-staging.yml`):
-separate Cloud Run services `nexora-api-staging` / `nexora-web-staging` in the
-same `asia-southeast1` region, pointed at a **separate Supabase project** via
-`STAGING_*` secrets (`STAGING_DATABASE_URL`, `STAGING_DIRECT_URL`,
-`STAGING_NEXT_PUBLIC_SUPABASE_URL`, `STAGING_NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-`STAGING_SUPABASE_SERVICE_ROLE_KEY`).
+`preview` push → `Deploy to Staging` (`.github/workflows/deploy-staging.yml`)
+and `Deploy Edge Staging` (`.github/workflows/deploy-edge-staging.yml`):
+Cloud Run `nexora-api-staging` / `nexora-web-staging` plus the edge worker,
+pointed at a **separate Supabase project** via `STAGING_*` secrets.
 
 > **Schema on staging is synced with `pnpm db:push`, not `prisma migrate
 > deploy`.** Migrations are **not** applied on staging, so any data-migration
 > SQL embedded in a migration does not run there — a column that depends on a
 > backfill will be empty on staging until seeded by hand. `pr-checks.yml`
-> gates PRs targeting both `main` and `dev`.
+> gates PRs targeting `main`, `preview`, and `production`.
 
 Cron jobs hit `/api/cron/*` with `X-Cron-Secret: ${CRON_SECRET}`.
 Cloud Scheduler is provisioned manually — coordinate with infra
@@ -556,10 +579,9 @@ service** — staging has no scheduler jobs at all.
 | `marketing-drift-check` | 09:00 | Reconcile the two readers of the BNII API — **currently PAUSED** |
 | `expense-monthly-reminders` | 09:00 on the 22nd | Monthly expense submission reminders |
 
-`marketing-drift-check` is paused deliberately: the endpoint is on `dev`
-and production deploys from `main`, so an enabled job would 404 every
-morning until the release lands. Resume it after the next `dev` → `main`
-merge — do not re-create it. See CLAUDE.md for the exact command.
+`marketing-drift-check` is paused deliberately. Resume it after the next
+`production` deploy that contains the endpoint — do not re-create it.
+See CLAUDE.md for the exact command.
 
 Several documented cron endpoints have **no scheduler job yet**, including
 `ow-snapshot-refresh`, `accounting-status`, `it-billing-reminders`, the
@@ -675,7 +697,7 @@ inside `packages/database/`. The Prisma scripts cascade from the root.
 
 ```bash
 # Right
-cd new-tbh-intranet
+cd /path/to/Manut
 pnpm db:seed
 
 # Wrong
@@ -732,5 +754,4 @@ most common cause.
 
 ## License
 
-Private — The Binary Holdings internal use only.
-# Staging CI/CD test - Sat Jun 13 01:42:36 PM +07 2026
+See the GitHub repository: https://github.com/mygogocash/Manut

@@ -4,14 +4,25 @@ This file is the contract for any AI agent (Claude Code, Cursor, etc.) working i
 
 ---
 
+## This repository
+
+GitHub: [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Default branch is `main`. Long-lived env branches are `preview` (staging) and `production` (prod). Product name is **Intranet**; workspace packages stay `@nexora/*`.
+
 ## Repo layout
 
 ```
 apps/
   api/           Express 5 + TypeScript backend (port 3001)
   web/           Next.js 16 + React 19 frontend (port 3000)
+  edge/          Hono on Cloudflare Workers (Express port)
+  edge-jobs/     Cloudflare Cron Triggers + Queue fan-out
+  app/           Expo Router client (web / iOS / Android)
 packages/
-  database/      Prisma schema + migrations + seed
+  database/      Prisma schema + migrations + seed (Express / Cloud Run)
+  db/            Drizzle schema (edge)
+  core/          Shared domain services used by the edge
+  auth/          Better Auth helpers for the edge
+  contracts/     Shared route / DTO contracts
   ui/            Shared utils + re-exports. NOTE: the shadcn components
                  themselves live in apps/web/src/components/ui/ (56 files);
                  this package holds only index.ts + utils.ts.
@@ -20,19 +31,21 @@ packages/
 docker/          Cloud Run images
 docs/            PRDs + specs (human-curated)
 .github/
-  workflows/     deploy.yml, pr-checks.yml
+  workflows/     deploy.yml (production), deploy-staging.yml (preview),
+                 deploy-edge-staging.yml, deploy-vercel.yml, pr-checks.yml
 ```
 
-Monorepo: Turborepo + pnpm 10. Workspace package names: `@nexora/api`, `@nexora/web`, `@nexora/database`, etc.
+Monorepo: Turborepo + pnpm 10. Workspace package names: `@nexora/api`, `@nexora/web`, `@nexora/database`, `@nexora/edge`, `@nexora/app`, `@nexora/db`, etc.
 
 ---
 
 ## Tech stack
 
 - **Backend**: Express 5, TypeScript, Prisma 6, PostgreSQL (Supabase), Supabase Auth, Zod validation, Resend for email, Gemini for AI.
-- **Frontend**: Next.js 16 App Router, React 19, Tailwind v4, shadcn UI, base-ui primitives, react-hook-form + zod, sonner toasts, TipTap rich text.
-- **Infra**: GCP Cloud Run (API + Web), Artifact Registry, GitHub Actions, Workload Identity Federation. Database is Supabase Singapore (`aws-1-ap-southeast-1`).
-- **Auth**: Supabase Auth issues JWT; Express middleware resolves Prisma user + roles + permissions per request. Permission codes are `module:action` (e.g. `crm:read`).
+- **Edge**: Hono on Cloudflare Workers + Drizzle (`@nexora/db`) + Better Auth. Cron/queue work lives in `apps/edge-jobs`.
+- **Frontend**: Next.js 16 App Router, React 19, Tailwind v4, shadcn UI, base-ui primitives, react-hook-form + zod, sonner toasts, TipTap rich text. Expo app in `apps/app`.
+- **Infra**: GCP Cloud Run (API + Web) on `production`; staging Cloud Run + edge staging on `preview`. Artifact Registry, GitHub Actions, Workload Identity Federation. Database is Supabase Singapore (`aws-1-ap-southeast-1`).
+- **Auth**: Supabase Auth issues JWT; Express middleware resolves Prisma user + roles + permissions per request. Permission codes are `module:action` (e.g. `crm:read`). Edge uses Better Auth against the same user table.
 
 ---
 
@@ -52,14 +65,17 @@ All four `.env*` files are gitignored. Adding a new secret means: update root `.
 ```bash
 pnpm dev:api        # Express on :3001
 pnpm dev:web        # Next.js on :3000
+pnpm dev:edge       # wrangler dev for the Hono worker
+pnpm dev:app        # Expo
 pnpm db:generate    # regenerate Prisma client
-pnpm db:migrate     # create + apply dev migration
-pnpm db:push        # push schema without migration (dev only)
+pnpm db:migrate     # create + apply local migration
+pnpm db:push        # push schema without migration (local / staging only)
 pnpm db:seed        # run seed.ts
 pnpm db:studio      # Prisma Studio
 pnpm type-check     # all workspaces
 pnpm lint           # all workspaces
 pnpm test           # vitest, all workspaces
+pnpm route-parity   # Express vs Hono coverage
 ```
 
 `db:*` scripts cascade `.env.development` → `.env`. Prod variants live under `db:migrate:prod:*` and read `.env.production`.
@@ -116,9 +132,10 @@ Before opening a PR:
 
 ## Deployment
 
-- **Release `dev` → `main` with a MERGE COMMIT, never a squash** — see [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md). Squashing a long-lived branch into another long-lived branch discards the ancestry, so the next release re-proposes every commit since the last true merge and the conflicts grow forever. That is what stranded #991 and #986 (463 conflicting files), left prod without the Fixed Asset work, and let a `sanitize-html` security patch sit unmerged on `dev`. Back-merge `main` → `dev` the same day after any direct-on-main hotfix; cherry-picking copies content but does not restore ancestry.
-- `main` push → `Deploy to GCP Cloud Run` workflow (`nexora-api` / `nexora-web`).
-- `dev` push → `deploy-staging.yml` (`nexora-api-staging` / `nexora-web-staging`, separate Supabase via `STAGING_*` secrets). **Staging syncs schema with `pnpm db:push`, NOT `prisma migrate deploy`.** A *schema* change reaches staging, but **any data-migration SQL inside a migration file never runs on staging** — a column that depends on a backfill stays empty there until seeded by hand. Don't tell the user a data-migration-dependent feature is "working on staging." **"By hand" now has a mechanism**: put the statements in a `packages/database/scripts/*.mjs` script (idempotent, `--dry-run` supported) and run it through the `Database backfill (manual)` workflow (`db-backfill.yml`), which supplies `STAGING_DATABASE_URL` from secrets and defaults to a dry run. Reference: `backfill-advance-side-vendor.mjs`. `pr-checks.yml` gates PRs into both `main` and `dev`.
+- **Promote `main` → `preview` and `main` → `production` with a MERGE COMMIT, never a squash** — see [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md). Feature PRs into `main` may squash. Squashing one long-lived env branch into another discards ancestry, so the next promote re-proposes every commit since the last true merge. After a hotfix committed on `production`, back-merge `production` → `main` the same day; cherry-picking copies content but does not restore ancestry.
+- `main` is the default trunk. PRs land here. A push to `main` does **not** deploy Cloud Run or Vercel.
+- `preview` push → `deploy-staging.yml` (`nexora-api-staging` / `nexora-web-staging`) and `deploy-edge-staging.yml`. Separate Supabase via `STAGING_*` secrets. **Staging syncs schema with `pnpm db:push`, NOT `prisma migrate deploy`.** A *schema* change reaches staging, but **any data-migration SQL inside a migration file never runs on staging** — a column that depends on a backfill stays empty there until seeded by hand. Don't tell the user a data-migration-dependent feature is "working on staging." **"By hand" now has a mechanism**: put the statements in a `packages/database/scripts/*.mjs` script (idempotent, `--dry-run` supported) and run it through the `Database backfill (manual)` workflow (`db-backfill.yml`), which supplies `STAGING_DATABASE_URL` from secrets and defaults to a dry run. Reference: `backfill-advance-side-vendor.mjs`. `pr-checks.yml` gates PRs into `main`, `preview`, and `production`.
+- `production` push → `Deploy to GCP Cloud Run` (`nexora-api` / `nexora-web`) and `deploy-vercel.yml`.
 - `Apply Prisma migrations to prod DB` step runs **before** the Docker build. Failure here aborts the deploy. Watch P3009 (`failed migration`) — clear via the resolve step in `deploy.yml`, which runs `prisma migrate resolve --rolled-back` for known-stuck names with `|| true` (idempotent).
 - Cron jobs hit `/api/cron/*` with header `X-Cron-Secret: ${CRON_SECRET}`. Cloud Scheduler is provisioned manually; coordinate with infra before adding new cron endpoints.
 - **ARIA Cloud Scheduler entries** (provision after deploying #457 / #460 / this PR):
@@ -165,7 +182,7 @@ Before opening a PR:
     --headers="X-Cron-Secret=${CRON_SECRET},Content-Type=application/json" \
     --message-body="{}"
   ```
-  - **Current state: the prod job EXISTS and is PAUSED.** Created 2026-08-17 in project `tbh-nexora`, location `asia-southeast1`, targeting the prod Cloud Run URL. It is paused because the endpoint merged to `dev` and prod deploys from `main`, so an enabled job would 404 every morning until the release lands. **Resume it right after the next `dev` → `main` release** — do not re-create it:
+  - **Current state: the prod job EXISTS and is PAUSED.** Created 2026-08-17 in project `tbh-nexora`, location `asia-southeast1`, targeting the prod Cloud Run URL. It was paused while the endpoint lived only on the old `dev` line. **Resume it after the next `production` deploy that contains the endpoint** — do not re-create it:
   ```bash
   gcloud scheduler jobs resume marketing-drift-check \
     --project=tbh-nexora --location=asia-southeast1
