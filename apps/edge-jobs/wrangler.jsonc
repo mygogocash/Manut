@@ -25,7 +25,7 @@
       "name": "intranet-edge-jobs-staging",
       "vars": { "JOBS_TIMEZONE": "Asia/Bangkok", "JOBS_ENABLED": "true" },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_WITH_STAGING_HYPERDRIVE_ID" }],
-      "kv_namespaces": [{ "binding": "KV_CACHE", "id": "REPLACE_WITH_STAGING_KV_CACHE_ID" }],
+      "kv_namespaces": [{ "binding": "KV_CACHE", "id": "5d4fe4fa29b34b6b8fc1f1495b66c946" }],
       "queues": {
         "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-staging" }],
         "consumers": [{ "queue": "intranet-jobs-staging", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 3, "dead_letter_queue": "intranet-jobs-dlq-staging" }]
@@ -36,7 +36,7 @@
       // Stays disabled until cutover (Phase 9 step 2) so prod jobs never double-fire against Cloud Scheduler.
       "vars": { "JOBS_TIMEZONE": "Asia/Bangkok", "JOBS_ENABLED": "false" },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_WITH_PROD_HYPERDRIVE_ID" }],
-      "kv_namespaces": [{ "binding": "KV_CACHE", "id": "REPLACE_WITH_PROD_KV_CACHE_ID" }],
+      "kv_namespaces": [{ "binding": "KV_CACHE", "id": "fd822fca92e74c17a2b8a0655c97b1e5" }],
       "queues": {
         "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-prod" }],
         "consumers": [{ "queue": "intranet-jobs-prod", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 3, "dead_letter_queue": "intranet-jobs-dlq-prod" }]

@@ -75,7 +75,7 @@
         {
           "binding": "EDGE_DB",
           "database_name": "intranet-edge-staging",
-          "database_id": "REPLACE_WITH_STAGING_D1_ID",
+          "database_id": "3e867fd8-351a-4aa6-8a2e-28ee54c615ea",
           "migrations_dir": "../../packages/db/d1/migrations"
         }
       ],
@@ -83,8 +83,8 @@
         { "name": "leave-approval-staging", "binding": "LEAVE_APPROVAL", "class_name": "LeaveApprovalWorkflow" }
       ],
       "kv_namespaces": [
-        { "binding": "KV_SESSIONS", "id": "REPLACE_WITH_STAGING_KV_SESSIONS_ID" },
-        { "binding": "KV_CACHE", "id": "REPLACE_WITH_STAGING_KV_CACHE_ID" }
+        { "binding": "KV_SESSIONS", "id": "7974dc3228b14998888915b478220b83" },
+        { "binding": "KV_CACHE", "id": "5d4fe4fa29b34b6b8fc1f1495b66c946" }
       ],
       "r2_buckets": [
         { "binding": "R2_PUBLIC", "bucket_name": "intranet-staging-public" },
@@ -112,7 +112,7 @@
         {
           "binding": "EDGE_DB",
           "database_name": "intranet-edge-prod",
-          "database_id": "REPLACE_WITH_PROD_D1_ID",
+          "database_id": "937cd568-4171-4166-8b77-ad54e894c9da",
           "migrations_dir": "../../packages/db/d1/migrations"
         }
       ],
@@ -120,8 +120,8 @@
         { "name": "leave-approval", "binding": "LEAVE_APPROVAL", "class_name": "LeaveApprovalWorkflow" }
       ],
       "kv_namespaces": [
-        { "binding": "KV_SESSIONS", "id": "REPLACE_WITH_PROD_KV_SESSIONS_ID" },
-        { "binding": "KV_CACHE", "id": "REPLACE_WITH_PROD_KV_CACHE_ID" }
+        { "binding": "KV_SESSIONS", "id": "3e18755143314162bafc42a7e6e50694" },
+        { "binding": "KV_CACHE", "id": "fd822fca92e74c17a2b8a0655c97b1e5" }
       ],
       "r2_buckets": [
         { "binding": "R2_PUBLIC", "bucket_name": "intranet-prod-public" },
