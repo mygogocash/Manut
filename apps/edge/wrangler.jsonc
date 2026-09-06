@@ -61,15 +61,19 @@
     "staging": {
       "name": "intranet-edge-staging",
       "vars": {
-        "APP_URL": "https://next-staging.intranet.thebinaryholdings.com",
-        "TRUSTED_ORIGINS": "intranet://",
+        "APP_URL": "https://staging.manut.xyz",
+        // Legacy staging host kept trusted while DNS/certs cut over (2026-09).
+        "TRUSTED_ORIGINS": "intranet://,https://next-staging.intranet.thebinaryholdings.com",
         "POSTHOG_HOST": "https://us.i.posthog.com",
         "POSTHOG_ASSETS_HOST": "https://us-assets.i.posthog.com",
         "MAGIC_LINK_ALLOWED_ROLES": "",
         "CF_ACCESS_AUD": "",
         "CF_ACCESS_TEAM_DOMAIN": ""
       },
-      "routes": [{ "pattern": "next-staging.intranet.thebinaryholdings.com", "custom_domain": true }],
+      "routes": [
+        { "pattern": "staging.manut.xyz", "custom_domain": true },
+        { "pattern": "next-staging.intranet.thebinaryholdings.com", "custom_domain": true }
+      ],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_WITH_STAGING_HYPERDRIVE_ID" }],
       "d1_databases": [
         {
@@ -98,15 +102,19 @@
     "production": {
       "name": "intranet-edge",
       "vars": {
-        "APP_URL": "https://intranet.thebinaryholdings.com",
-        "TRUSTED_ORIGINS": "intranet://",
+        "APP_URL": "https://manut.xyz",
+        // Legacy prod host kept trusted while DNS/certs cut over (2026-09).
+        "TRUSTED_ORIGINS": "intranet://,https://intranet.thebinaryholdings.com",
         "POSTHOG_HOST": "https://us.i.posthog.com",
         "POSTHOG_ASSETS_HOST": "https://us-assets.i.posthog.com",
         "MAGIC_LINK_ALLOWED_ROLES": "",
         "CF_ACCESS_AUD": "",
         "CF_ACCESS_TEAM_DOMAIN": ""
       },
-      "routes": [{ "pattern": "intranet.thebinaryholdings.com", "custom_domain": true }],
+      "routes": [
+        { "pattern": "manut.xyz", "custom_domain": true },
+        { "pattern": "intranet.thebinaryholdings.com", "custom_domain": true }
+      ],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_WITH_PROD_HYPERDRIVE_ID" }],
       "d1_databases": [
         {
