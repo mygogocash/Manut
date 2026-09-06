@@ -1,0 +1,58 @@
+# =============================================================================
+# Manut - OKF bundle checks (Depot CI)
+# Runs on PRs that touch the knowledge bundle, its checker, or the CLAUDE.md
+# bullets the coverage gate freezes.
+#
+# This exists as a SEPARATE workflow because pr-checks.yml path-ignores
+# "docs/**" and "**/*.md" — a docs-only PR skips it entirely, which would skip
+# exactly the changes these gates guard.
+# =============================================================================
+
+name: OKF Checks
+
+on:
+  pull_request:
+    branches: [main, preview, production]
+    paths:
+      - "docs/okf/**"
+      - "CLAUDE.md"
+      - "AGENTS.md"
+      - "CONTEXT.md"
+      - "packages/okf/**"
+      - ".depot/workflows/okf-checks.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: okf-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  okf:
+    name: Bundle conformance, links, coverage
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: OKF bundle gates
+        # `pnpm --filter @nexora/okf test` exits 0 with "No projects matched
+        # the filters" if this package is ever deleted or renamed — a
+        # documentation-only PR would then report this gate green having run
+        # zero assertions. `pnpm -C` fails loudly (ENOENT) instead.
+        run: pnpm -C packages/okf test

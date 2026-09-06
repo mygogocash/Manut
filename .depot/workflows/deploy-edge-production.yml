@@ -1,0 +1,75 @@
+# Deploys the Cloudflare edge stack to production (manut.xyz) on push to
+# `production`. Runs on Depot CI. Mirrors deploy-edge-staging.yml with the
+# production wrangler env.
+#
+# edge-jobs keeps `JOBS_ENABLED: "false"` in its production vars until the
+# Phase 9 cutover decision (docs/ops/CUTOVER_RUNBOOK.md) — flip it there, not
+# here, when the cron jobs should start firing.
+name: Deploy Edge Production
+
+on:
+  push:
+    branches: [production]
+    paths:
+      - "apps/edge/**"
+      - "apps/edge-jobs/**"
+      - "apps/app/**"
+      - "packages/db/**"
+      - "packages/auth/**"
+      - "packages/contracts/**"
+      - "pnpm-lock.yaml"
+      - ".depot/workflows/deploy-edge-production.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-edge-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Migrate + export + wrangler deploy
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.depot/actions/setup-workspace
+        with:
+          turbo-cache-key: deploy-edge-production
+
+      - name: Drizzle migrate (production)
+        if: ${{ secrets.DATABASE_URL != '' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm --filter @nexora/db db:migrate
+
+      - name: Prisma migrate (production)
+        # Production is the migrate-deploy environment (staging uses db push).
+        if: ${{ secrets.DIRECT_URL != '' }}
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: pnpm --filter @nexora/database exec prisma migrate deploy
+
+      - name: Expo web export
+        run: pnpm --filter @nexora/app export:web
+
+      - name: Deploy edge Worker
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm --filter @nexora/edge deploy:production
+
+      - name: Deploy edge-jobs Worker
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm --filter @nexora/edge-jobs deploy:production
+
+      - name: Skip notice
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN == '' }}
+        run: |
+          echo "::notice::CLOUDFLARE_API_TOKEN unset — wrangler deploy skipped. See docs/ops/CLOUDFLARE_PROVISIONING.md."

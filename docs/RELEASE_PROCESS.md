@@ -2,11 +2,18 @@
 
 GitHub: [`mygogocash/Manut`](https://github.com/mygogocash/Manut).
 
+CI runs on **Depot CI** (`.depot/workflows/`), not GitHub Actions — the repo's
+GitHub Actions is disabled. Depot's GitHub App reports the same check names to
+GitHub, so branch protection keeps working. Deploys go to **Cloudflare
+Workers** only; the Cloud Run and Vercel pipelines were retired 2026-09
+(deleted: `deploy.yml`, `deploy-staging.yml`, `deploy-vercel.yml`,
+`cloudbuild.yaml`, `docker/`, Vercel configs).
+
 | Branch | Role | Deploy |
 | --- | --- | --- |
 | `main` | Default trunk. Feature PRs land here. | None (CI only) |
-| `preview` | Staging | Cloud Run staging + edge staging. Schema: `pnpm db:push` |
-| `production` | Prod | Cloud Run + Vercel. Schema: `prisma migrate deploy` |
+| `preview` | Staging | Edge + edge-jobs → `staging.manut.xyz`. Drizzle: `db:migrate`; Prisma: `db push` |
+| `production` | Prod | Edge + edge-jobs → `manut.xyz`. Schema: `prisma migrate deploy` |
 
 ## The rule
 
@@ -27,12 +34,12 @@ ancestry.
 ## How to promote
 
 ```bash
-# Staging
+# Staging (Depot CI: Deploy Edge Staging)
 git checkout preview && git pull
 git merge --no-ff origin/main
 git push origin preview
 
-# Production (starts Cloud Run + Vercel)
+# Production (Depot CI: Deploy Edge Production)
 git checkout production && git pull
 git merge --no-ff origin/main
 git push origin production
@@ -59,9 +66,9 @@ Then promote `main` → `preview` the same way if staging should match.
 - conversation resolution required
 - `enforce_admins: true`
 
-This tree's workflow is named **PR Checks**, not `Validate`. A required
-`Validate` check that never reports will block merges until protection is
-adjusted or a job is renamed.
+Depot CI reports its jobs as GitHub checks with the same names (the aggregate
+gate is `Validate`), so protection keeps working — provided the Depot GitHub
+App has repository access (organizations/mygogocash → GitHub installations).
 
 `preview` and `production` are not the default branch. Treat them as
 deploy targets, not feature branches.
@@ -70,12 +77,12 @@ deploy targets, not feature branches.
 
 | Branch | Schema sync |
 | --- | --- |
-| `preview` | `pnpm db:push` — **data-migration SQL never runs** |
-| `production` | `prisma migrate deploy` |
+| `preview` | Drizzle `db:migrate` (edge) + Prisma `db push` (ERP shape only — **data-migration SQL never runs**) |
+| `production` | Drizzle `db:migrate` + `prisma migrate deploy` |
 
 A backfill that lives only inside a migration file will be empty on
 staging until you run a `packages/database/scripts/*.mjs` script through
-`db-backfill.yml`.
+the Depot `db-backfill.yml` workflow.
 
 ## Checking for drift
 
@@ -91,3 +98,5 @@ Comparing PR numbers does not work. Always compare content.
 
 Older docs and the previous TBH remote used `dev` → `main` as the release
 line. That pairing is gone here. Do not recreate `dev` or `canary`.
+The GCP Cloud Run and Vercel pipelines were retired 2026-09 — see this
+file's header and `docs/ops/CLOUDFLARE_PROVISIONING.md`.

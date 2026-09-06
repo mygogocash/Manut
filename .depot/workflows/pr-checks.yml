@@ -1,5 +1,10 @@
 # =============================================================================
-# Intranet - PR Validation
+# Manut - PR Validation (Depot CI)
+#
+# Depot CI port of the GitHub Actions pr-checks.yml (kept at .github/workflows/
+# as a parity reference while GHA is disabled repo-wide). Runs on Depot
+# runners (`depot-ubuntu-latest`) and reports the same GitHub check names, so
+# branch protection's required "Validate" context keeps working.
 #
 # The gates run as PARALLEL jobs, not steps in one job. That shape is the whole
 # point of this file, so the reasoning is recorded here:
@@ -62,7 +67,7 @@ jobs:
   # ---------------------------------------------------------------------------
   changes:
     name: Detect changes
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 5
     outputs:
       api: ${{ steps.decide.outputs.api }}
@@ -89,8 +94,8 @@ jobs:
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'turbo.json'
-              - '.github/workflows/pr-checks.yml'
-              - '.github/actions/setup-workspace/**'
+              - '.depot/workflows/pr-checks.yml'
+              - '.depot/actions/setup-workspace/**'
             web:
               - 'apps/web/**'
               - 'packages/**'
@@ -98,8 +103,8 @@ jobs:
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'turbo.json'
-              - '.github/workflows/pr-checks.yml'
-              - '.github/actions/setup-workspace/**'
+              - '.depot/workflows/pr-checks.yml'
+              - '.depot/actions/setup-workspace/**'
             edge:
               - 'apps/edge/**'
               - 'apps/edge-jobs/**'
@@ -112,8 +117,8 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'turbo.json'
               - '.github/workflows/pr-checks.yml'
-              - '.github/workflows/deploy-edge-staging.yml'
-              - '.github/actions/setup-workspace/**'
+              - '.depot/workflows/deploy-edge-staging.yml'
+              - '.depot/actions/setup-workspace/**'
 
       - name: Decide
         id: decide
@@ -144,7 +149,7 @@ jobs:
     name: Type-check
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     # Stable at 79-89s across sampled runs. 10 leaves headroom without letting
     # a pathological run sit for a quarter of an hour.
     timeout-minutes: 10
@@ -152,7 +157,7 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-workspace
+      - uses: ./.depot/actions/setup-workspace
         with:
           turbo-cache-key: type-check
       - run: pnpm type-check
@@ -161,7 +166,7 @@ jobs:
     name: Lint (api)
     needs: changes
     if: needs.changes.outputs.api == 'true'
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     # `eslint src/` in apps/api is the unstable one — observed running 19+
     # minutes locally without finishing. Capping at 8 turns that into a lint
     # failure in 8 minutes instead of a cancelled run that also loses the test
@@ -169,7 +174,7 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-workspace
+      - uses: ./.depot/actions/setup-workspace
         with:
           turbo-cache-key: lint-api
       - run: pnpm --filter @nexora/api lint
@@ -178,13 +183,13 @@ jobs:
     name: Lint (web)
     needs: changes
     if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 8
     env:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-workspace
+      - uses: ./.depot/actions/setup-workspace
         with:
           turbo-cache-key: lint-web
       - run: pnpm --filter @nexora/web lint
@@ -193,11 +198,11 @@ jobs:
     name: Unit tests
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-workspace
+      - uses: ./.depot/actions/setup-workspace
         with:
           turbo-cache-key: test
       # Deliberately the full turbo run, NOT per-package filters. `packages/okf`
@@ -211,11 +216,11 @@ jobs:
     name: Edge (type-check + test + drizzle-check + dry-run)
     needs: changes
     if: needs.changes.outputs.edge == 'true'
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup-workspace
+      - uses: ./.depot/actions/setup-workspace
         with:
           turbo-cache-key: edge-check
       - name: Type-check edge packages
@@ -243,7 +248,7 @@ jobs:
     name: Brand colour drift guard
     needs: changes
     if: needs.changes.outputs.web == 'true' || needs.changes.outputs.edge == 'true'
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     # A grep — no install, no Node. It used to sit behind ~11 minutes of other
     # work and was skipped whenever anything upstream failed.
     timeout-minutes: 5
@@ -276,7 +281,7 @@ jobs:
     # files, which no path filter would reliably scope. It is a grep — the cost
     # of running it unconditionally is seconds.
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
@@ -286,8 +291,11 @@ jobs:
         # the structural tell; thresholds and rationale live in the script.
         run: bash scripts/check-line-length.sh
 
-  # deploy-gate was retired with the Cloud Run deploy workflows (2026-09).
   # ---------------------------------------------------------------------------
+  # deploy-gate was retired with the Cloud Run deploy workflows (2026-09): the
+  # freshness/atomicity rule it guarded lived in deploy.yml/deploy-staging.yml,
+  # which no longer exist. The edge deploy workflows carry their own guards.
+  #
   # One aggregate status, kept named "Validate" so existing history and any
   # future branch protection have a single stable context to require. Requiring
   # the individual gates directly would mean a legitimately skipped job reads as
@@ -308,7 +316,7 @@ jobs:
         long-lines,
       ]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Assess gate results

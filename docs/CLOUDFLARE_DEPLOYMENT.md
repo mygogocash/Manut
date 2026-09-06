@@ -1,10 +1,12 @@
-# Cloudflare deployment — Intranet edge rewrite
+# Cloudflare deployment — Manut edge
 
-Provisioning and deploy notes for `apps/edge` + `apps/edge-jobs`. Legacy GCP
-Cloud Run / Vercel stays live until Phase 9 cutover. Binding IDs in
-`wrangler.jsonc` are placeholders (`REPLACE_WITH_*`) until this checklist is
-run against the **company** Cloudflare account (not personal GoGoCash /
-homeseeker).
+Provisioning and deploy notes for `apps/edge` + `apps/edge-jobs`. **The GCP
+Cloud Run and Vercel pipelines were retired 2026-09** — the edge is the only
+deploy target, deployed by Depot CI (`.depot/workflows/deploy-edge-*`) to
+`staging.manut.xyz` / `manut.xyz`. Binding IDs in `wrangler.jsonc` are
+placeholders (`REPLACE_WITH_*`) until the one-time provisioning in
+`docs/ops/CLOUDFLARE_PROVISIONING.md` is run against the company Cloudflare
+account.
 
 ## Prerequisites (founder)
 
