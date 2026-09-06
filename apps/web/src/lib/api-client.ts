@@ -48,11 +48,14 @@ const authFlowPagePaths = [
   "/welcome",
 ];
 
-function isOnAuthFlowPage(): boolean {
-  if (typeof window === "undefined") return false;
-  const pathname = window.location.pathname;
+export function isOnAuthFlowPage(pathname?: string): boolean {
+  const currentPath =
+    pathname ?? (typeof window !== "undefined" ? window.location.pathname : "");
+  if (!currentPath) return false;
+  // Exact match for the root marketing page; do not prefix-match "/" or it would exempt all routes.
+  if (currentPath === "/") return true;
   return authFlowPagePaths.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
+    (p) => currentPath === p || currentPath.startsWith(`${p}/`),
   );
 }
 

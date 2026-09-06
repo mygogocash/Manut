@@ -4,26 +4,32 @@ import { ProductPreviewCluster } from "@/components/landing/product-preview-clus
 
 export function LandingHero() {
   return (
-    <section className="ml-hero ml-container">
+    <section className="ml-hero ml-container" aria-label="Introduction">
       <div className="ml-hero-copy">
-        <span className="ml-tag ml-animate-copy">For growing SMEs</span>
+        <span className="ml-tag ml-animate-copy">
+          Operations workspace for growing SMEs
+        </span>
         <h1 className="ml-display ml-animate-copy">
-          The operations desk for businesses that outgrew spreadsheets.
+          People, money, and work.
+          <br className="ml-br-desktop" /> Finally, together.
         </h1>
-        <p className="ml-body-lg ml-animate-copy-delay">
-          Manut brings people, money, and work into one calm workspace — so
-          teams stop stitching tools together and start shipping decisions.
+        <p className="ml-body-lg ml-hero-lead ml-animate-copy-delay">
+          Manut brings your team, approvals, and projects into one clear
+          workspace— so your business can grow with less busywork.
         </p>
         <div className="ml-hero-ctas ml-animate-ctas">
-          <Link href="/sign-in" className="ml-btn-primary">
-            Sign in
+          <Link href="/sign-in" className="ml-btn-primary ml-btn-large">
+            Open Manut
           </Link>
-          <a href="#modules" className="ml-link-ghost">
-            See modules
+          <a href="#product" className="ml-btn-secondary ml-btn-large">
+            Explore the product
           </a>
         </div>
       </div>
-      <ProductPreviewCluster />
+
+      <div className="ml-hero-visual ml-animate-stage">
+        <ProductPreviewCluster />
+      </div>
     </section>
   );
 }

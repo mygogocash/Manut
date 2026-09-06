@@ -4,6 +4,7 @@ import {
   DndContext,
   type DragEndEvent,
   DragOverlay,
+  type DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -899,7 +900,7 @@ export function InvestorPipelineKanban({
       ) : (
         <DndContext
           sensors={columnSensors}
-          onDragStart={(event) => {
+          onDragStart={(event: DragStartEvent) => {
             if (event.active.data.current?.type === "investor-stage-column") {
               setDraggingColKey(event.active.data.current.key as string);
             }
