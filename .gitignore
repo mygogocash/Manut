@@ -63,3 +63,6 @@ playwright/.auth/
 # `git add -A` from sweeping tool output into a feature branch.
 apps/web/AGENTS.md
 apps/web/CLAUDE.md
+
+# Mimosa security-scan local output (scanner working dirs, not source)
+.mimosa/

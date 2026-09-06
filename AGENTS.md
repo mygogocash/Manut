@@ -7,6 +7,7 @@ This is the orientation for any AI agent or new engineer picking up work in this
 - **`CLAUDE.md`** — the binding rules + conventions (route order, RBAC, migrations, the reusable-patterns catalogue). If AGENTS.md and CLAUDE.md ever disagree, CLAUDE.md wins.
 - **`CONTEXT.md`** — the map of the codebase (modules, schema files, where things live).
 - **`docs/`** — product contract (`PROJECT_OVERVIEW`, `MODULES_SPECIFICATION`, `AUTH_RBAC`, `DATABASE_SCHEMA`, `DESIGN_SYSTEM`).
+- Official local web is Expo (`apps/app`, `pnpm dev:web` on :8081): Expo Router, NativeWind v4, React Native Reusables, TanStack Query, TanStack Table v8, Expo DOM (`'use dom'`). Next.js (`apps/web`, `pnpm dev:web:next`) is the complete legacy UI and what Cloud Run / Vercel / Playwright still serve.
 
 ---
 
@@ -89,7 +90,7 @@ These are battle-tested here — reach for them before designing from scratch:
 **Universal layout** (holds for every module — learn it once, navigate all ~70):
 
 - **API**: `apps/api/src/modules/<name>/` → `<name>.controller.ts` (routes + `requirePermission`), `<name>.service.ts` (logic), `<name>.repository.ts` (Prisma), `<name>.validation.ts` (zod + inferred `*Input` types), `<name>.service.test.ts` (vitest), `index.ts` (exports the router). Registered in `apps/api/src/modules/index.ts` (`app.use("/api/<base>", <name>Routes)`).
-- **Web**: route page `apps/web/src/app/(dashboard)/<route>/page.tsx`; API calls via `apps/web/src/services/<name>.service.ts` (never `fetch` in components); dialogs/sheets in `apps/web/src/components/<name>/`.
+- **Web (Expo, official local)**: route files in `apps/app/app/(dashboard)/<route>/index.tsx`; API calls via `apps/app/src/lib/api-client.ts` + `useApiQuery`. UI primitives in `apps/app/src/components/ui`. Next.js pages in `apps/web` remain the complete legacy UI.
 - **Schema**: one `packages/database/prisma/schema/<domain>.prisma` per domain; migrations in `packages/database/prisma/migrations/`.
 - **Perms**: codes in `apps/api/src/common/constants/permissions.ts` (`module:action`); seeded to roles in `packages/database/prisma/seed.ts`.
 
@@ -108,7 +109,7 @@ To extend a module: read its `service.ts` + `validation.ts`, find the nearest si
 | **Content / Comms** | `blogs` `articles` `news` `wall` `messages` `survey` `survey-forms` `docs` `policies` `legal-announcements` | `/blog-management` `/pr-management` `/messages` `/survey` `/docs` `/policies` `/legal` | `content.prisma`, `comms.prisma` | rich-text (`sanitizeRichHtml`); signed-URL downloads |
 | **ARIA (AI)** | `aria` | `/aria` | (corpus tables) | eval-gated tools; see CLAUDE.md ARIA evals |
 | **Platform** | `auth` `admin` `integrations` `uploads` `dashboard` `cron` `company-dates` `validator-monitor` `telemetry` | `/admin` `/settings` `/gmail` `/drive` | `core.prisma`, `integrations.prisma`, `system.prisma` | Supabase auth; Google OAuth; SystemSetting key/value |
-| **Edge** | Hono routes in `apps/edge/src/routes/` (services from `@nexora/core`) | Worker, not Next | `@nexora/db` Drizzle | Express port; 501 for Node-only work; `pnpm route-parity` |
+| **Edge** | Hono routes in `apps/edge/src/routes/` (services from `@nexora/core`) | Worker, not Next | Hyperdrive Postgres via `@nexora/db`; D1 sidecar in `packages/db/src/edge` | Express port; 501 for Node-only work; `pnpm route-parity`. D1 is not the ERP DB. |
 
 Anything not listed still follows the universal layout above — open the folder and mirror its neighbours.
 

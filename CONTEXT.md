@@ -21,11 +21,11 @@ For product framing, read `docs/PROJECT_OVERVIEW.md`. For module-by-module scope
 | Layer    | Tech                                                                              |
 |----------|-----------------------------------------------------------------------------------|
 | Backend  | Express 5 + TypeScript, Prisma 6, PostgreSQL (Supabase SG `aws-1-ap-southeast-1`) |
-| Edge     | Hono on Cloudflare Workers + Drizzle (`@nexora/db`) + Better Auth + `apps/edge-jobs` |
+| Edge     | Hono + Hono RPC on Cloudflare Workers. Hyperdrive → Postgres is the ERP SoT. D1/DO/Queues/Workflows/R2/Vectorize/Access are sidecar primitives. Better Auth + `apps/edge-jobs` |
 | Auth     | Supabase Auth (JWT) on Express; Better Auth on the edge                           |
-| Frontend | Next.js 16 App Router + React 19 + Tailwind v4 + shadcn UI; Expo app in `apps/app` |
+| Frontend | Expo 54 + Expo Router + NativeWind v4 + Reusables + TanStack Query/Table (`apps/app`, official web on :8081); Next.js 16 (`apps/web`) is the legacy Cloud Run / Vercel / Playwright UI |
 | Forms    | react-hook-form + zod (`@hookform/resolvers/zod`) — shared validation shape       |
-| State    | React state + module-level caches (see `useLeadSources` for the pattern)          |
+| State    | Expo: TanStack Query + zustand auth. Next.js: React state + module-level caches (see `useLeadSources`) |
 | Email    | Resend (transactional)                                                            |
 | AI       | Anthropic (ARIA assistant) + Gemini for select flows                              |
 | Build    | Turborepo + pnpm 10                                                               |
@@ -39,10 +39,10 @@ For product framing, read `docs/PROJECT_OVERVIEW.md`. For module-by-module scope
 ```
 apps/
   api/         # Express server — :3001 locally, Cloud Run on production
-  web/         # Next.js app — :3000 locally
+  web/         # Next.js legacy UI — :3000 (`pnpm dev:web:next`)
   edge/        # Hono Cloudflare Worker (Express port)
   edge-jobs/   # Cron Triggers + Queue fan-out
-  app/         # Expo Router client
+  app/         # Expo official web — :8081 (`pnpm dev:web`)
 packages/
   database/      # Prisma schema (split per domain) + migrations + seed
   db/            # Drizzle schema for the edge
@@ -67,6 +67,8 @@ Workspace package names: `@nexora/api`, `@nexora/web`, `@nexora/database`, `@nex
 ---
 
 ## How a request flows
+
+Expo (`apps/app`) talks to Express `:3001` by default, or the Hono Worker `:8787` when `EXPO_PUBLIC_APP_URL` is set. Use `createEdgeClient()` for Hono RPC against the Worker. ERP reads/writes stay on Hyperdrive → Postgres; D1/DO/Workflows are sidecar only.
 
 ```
 Browser → apps/web (Next 16 App Router)
@@ -180,9 +182,10 @@ Adding a new secret: root `.env.development` → mirror in web if `NEXT_PUBLIC_*
 
 ```bash
 pnpm dev:api        # Express on :3001
-pnpm dev:web        # Next.js on :3000
+pnpm dev:web        # Expo official web on :8081
+pnpm dev:web:next   # Next.js legacy UI on :3000
 pnpm dev:edge       # wrangler dev
-pnpm dev:app        # Expo
+pnpm dev:app        # alias for Expo
 pnpm dev            # turbo
 
 pnpm db:generate    # regenerate Prisma client

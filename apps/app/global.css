@@ -1,0 +1,91 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Cream / bronze / gold — same HSL slots as apps/web/src/app/globals.css */
+    --background: 45 27% 94%;
+    --foreground: 36 33% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 36 33% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 36 33% 4%;
+    --primary: 33 39% 39%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 45 56% 54%;
+    --secondary: 47 22% 92%;
+    --secondary-foreground: 36 33% 4%;
+    --muted: 47 22% 92%;
+    --muted-foreground: 36 9% 41%;
+    --accent: 45 50% 92%;
+    --accent-foreground: 33 39% 39%;
+    --destructive: 6 64% 46%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 36 25% 88%;
+    --input: 36 25% 88%;
+    --ring: 33 39% 39%;
+    --radius: 0.625rem;
+    --sidebar-background: 36 33% 4%;
+    --sidebar-foreground: 36 12% 72%;
+    --sidebar-foreground-strong: 45 27% 94%;
+    --sidebar-primary: 45 56% 54%;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: "DM Sans", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #root > * {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Expo Router web wrappers between #root and the page must fill, or the sidebar collapses. */
+  #root > div,
+  #root > div > div {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  #root,
+  #root * {
+    box-sizing: border-box;
+  }
+
+  /* RN Web Text defaults to the system UI font and inline layout. */
+  #root [dir="auto"] {
+    font-family: "DM Sans", system-ui, sans-serif;
+  }
+}

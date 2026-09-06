@@ -8,3 +8,11 @@ allowBuilds:
   prisma: false
   sharp: false
   unrs-resolver: false
+# @expo/metro-runtime imports react/react-dom at runtime without declaring them,
+# so resolution falls through to pnpm's hoisted fallback, which can hold the
+# other workspace's react (19.2.8) and produce a duplicate-React crash on web.
+packageExtensions:
+  "@expo/metro-runtime@*":
+    peerDependencies:
+      react: "*"
+      react-dom: "*"

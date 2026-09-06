@@ -90,6 +90,7 @@ import { marketing } from "./marketing";
 import { push } from "./push";
 import { messages } from "./messages";
 import { uploads } from "./uploads";
+import { handbook } from "./handbook";
 
 /**
  * All `/api/*` routes. Modules are mounted here wave by wave; each module file
@@ -129,6 +130,7 @@ export const api = new Hono<AppEnv>()
   .route("/exchange-rates", exchangeRates)
   .route("/cash-advance", cashAdvance)
   .route("/expenses", expenses)
+  .route("/handbook", handbook)
   .route("/leave", leave)
   .route("/travel", travel)
   .route("/approval-chains", approvalChains)

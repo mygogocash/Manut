@@ -1,7 +1,11 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Link } from "expo-router";
-import { authClient } from "@/lib/auth-client";
+import { ActivityIndicator } from "react-native";
+import { AuthFrame, AuthLink } from "@/components/auth-frame";
+import { Field } from "@/components/field";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Text } from "@/components/ui/text";
+import { api, ApiError } from "@/lib/api-client";
 
 export default function ResetPasswordScreen() {
   const [email, setEmail] = useState("");
@@ -14,57 +18,34 @@ export default function ResetPasswordScreen() {
     setError(null);
     setMessage(null);
     try {
-      const res = await authClient.requestPasswordReset({ email: email.trim(), redirectTo: "/(auth)/login" });
-      if (res.error) {
-        setError(res.error.message ?? "Could not start reset");
-        return;
-      }
-      setMessage("If an account exists, a reset email is on its way.");
+      const res = await api.post<{ message?: string }>("/auth/forgot-password", { email: email.trim() });
+      setMessage(res.message ?? "If an account exists, a reset email is on its way.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not start reset");
+      setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Could not start reset");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <View style={styles.root}>
-      <Text style={styles.brand}>Reset password</Text>
-      <TextInput
-        autoCapitalize="none"
-        keyboardType="email-address"
-        placeholder="Email"
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {message ? <Text style={styles.ok}>{message}</Text> : null}
-      <Pressable disabled={busy} onPress={onSubmit} style={styles.button}>
-        {busy ? <ActivityIndicator color="#F7F3EB" /> : <Text style={styles.buttonText}>Send reset link</Text>}
-      </Pressable>
-      <Link href="/(auth)/login" style={styles.link}>
-        Back to sign-in
-      </Link>
-    </View>
+    <AuthFrame title="Forgot password" subtitle="We’ll email a reset link if that address has an account.">
+      <Field label="Email">
+        <Input
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          placeholder="you@company.com"
+          accessibilityLabel="Email"
+          value={email}
+          onChangeText={setEmail}
+        />
+      </Field>
+      {error ? <Text className="text-sm text-destructive">{error}</Text> : null}
+      {message ? <Text className="text-sm text-green-800">{message}</Text> : null}
+      <Button disabled={busy} onPress={onSubmit}>
+        {busy ? <ActivityIndicator color="#F7F3EB" /> : <Text>Send reset link</Text>}
+      </Button>
+      <AuthLink href="/(auth)/login">Back to sign-in</AuthLink>
+    </AuthFrame>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "#F7F3EB", gap: 12 },
-  brand: { fontSize: 32, fontWeight: "700", color: "#3D2B1F", marginBottom: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#D4C4B0",
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: "#FFFDF8",
-    fontSize: 16,
-  },
-  button: { backgroundColor: "#8B6914", borderRadius: 8, paddingVertical: 14, alignItems: "center" },
-  buttonText: { color: "#F7F3EB", fontWeight: "600", fontSize: 16 },
-  error: { color: "#B42318" },
-  ok: { color: "#3D6B4F" },
-  link: { color: "#8B6914", marginTop: 8 },
-});

@@ -37,8 +37,21 @@ npx wrangler r2 bucket create intranet-staging-private
 npx wrangler queues create intranet-jobs-staging
 npx wrangler queues create intranet-jobs-dlq-staging
 
+# D1 sidecar (NOT the ERP database — Hyperdrive → Postgres stays SoT)
+npx wrangler d1 create intranet-edge-staging
+npx wrangler d1 migrations apply EDGE_DB --local --env staging
+
 # Rate limiting namespaces are configured in wrangler `unsafe.bindings`
 # (RATE_LIMITER_LOGIN / RATE_LIMITER_GLOBAL). Confirm Workers Paid plan.
+
+# Durable Objects + Workflows are declared in wrangler.jsonc and created on first deploy.
+
+# Optional: Vectorize + Workers AI (no local simulator — omit from wrangler.dev)
+# npx wrangler vectorize create intranet-handbook --dimensions=768 --metric=cosine
+# Then bind HANDBOOK + AI with remote: true when the founder wants semantic search.
+
+# Optional: Cloudflare Access / Zero Trust
+# Set CF_ACCESS_AUD + CF_ACCESS_TEAM_DOMAIN on the Worker. Empty AUD = fail-open.
 ```
 
 ### Secrets (staging)
@@ -103,7 +116,8 @@ Last updated 2026-09-05 (branch `claude/cf-edge-migration`):
 - **Phase 4 (complete for code)** — `leave`, `cash-advance`, `travel`, `expenses`, `approval-chains`, `payroll` (encrypt stubbed), `hrms`, `exchange-rates`, `vendors`, `ninety-day`, `visa`, `visa-kb`, `visa-checklist`, `accounts`.
 - **Phase 5 (complete for code)** — `projects` (native-mirror heal), `helpdesk`, full Sales/Investor CRM family, team CRMs (`it-crm`, `legal-crm`, `product-crm`, `qa-crm`, `accounting-crm`, `voucher-crm`), `proposals`, `partners`, `validator-monitor`, `business-units`, IT ops modules.
 - **Phase 6 (phase-1 code)** — `/api/accounting` COA/journals/invoices/bills/quotes/fiscal periods; FA **read-only** behind fail-closed `ACCOUNTING_FIXED_ASSETS`. Many Express paths still 501; FA writes/reports deferred.
-- **Phase 7 (complete for code)** — `uploads` (R2), `messages` (REST; WS/typing noop), `push` (CRUD; send stubbed), marketing family (partial), `aria` (CRUD/tools; chat 501 without AI keys), `cron` + edge-jobs `http-cron.ts` fan-out.
+- **Phase 7 (complete for code)** — `uploads` (R2), `messages` (REST + `/ws/messages/:channelId` Presence DO + typing broadcast), `push` (CRUD; send stubbed), marketing family (partial), `aria` (CRUD/tools; chat 501 without AI keys), `cron` + edge-jobs `http-cron.ts` fan-out + sidecar queue names.
+- **Sidecar stack (templates)** — D1 Drizzle (`packages/db/src/edge`), leave Workflow reminders (does not approve), handbook search (`/api/handbook`) with Vectorize/AI optional, Access middleware fail-open, Expo `createEdgeClient` (`hono/client`).
 - **Phase 8 (tooling landed)** — `scripts/route-parity.mjs`, `packages/db/scripts/migrate-storage.mjs`, `docs/parity/`, ADR `docs/adr/0001-cloudflare-edge-rewrite.md`. Live staging UAT / load test / Logpush wait on founder CF provision.
 - **Phase 9 (runbook only)** — `docs/ops/CUTOVER_RUNBOOK.md`. No live cutover without founder sign-off. `docs/GCP_DEPLOYMENT.md` marked retired.
 

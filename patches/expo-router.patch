@@ -1,0 +1,21 @@
+diff --git a/build/views/Sitemap.js b/build/views/Sitemap.js
+index d5f2b4b3c655df0bb1ff5d695af16a76b29106cc..89b748ef4c9543b59fed8025b2cb856699684afb 100644
+--- a/build/views/Sitemap.js
++++ b/build/views/Sitemap.js
+@@ -152,13 +152,9 @@ const styles = react_native_1.StyleSheet.create({
+         paddingVertical: 16,
+         borderBottomWidth: 1,
+         borderColor: '#313538',
+-        shadowColor: '#000',
+-        shadowOffset: {
+-            width: 0,
+-            height: 3,
+-        },
+-        shadowOpacity: 0.33,
+-        shadowRadius: 3,
++        // boxShadow (not shadow*) so react-native-web doesn't log its
++        // deprecation warning on every page load.
++        boxShadow: '0 3px 3px rgba(0, 0, 0, 0.33)',
+         elevation: 8,
+     },
+     headerContent: {
