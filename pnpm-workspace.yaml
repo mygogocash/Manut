@@ -16,3 +16,9 @@ packageExtensions:
     peerDependencies:
       react: "*"
       react-dom: "*"
+# The Expo app and the Next.js app pin different react RUNTIME versions by
+# design (19.1.0 / ^19.2.8). Their hoisted TYPE fallback must not split the
+# same way — next's styled-jsx types resolved @types/react@19.1.17 while app
+# code used 19.2.18, producing 19 duplicate-type build errors. The override
+# lives in the root package.json `pnpm.overrides` (compile-time only; runtime
+# react versions are untouched).

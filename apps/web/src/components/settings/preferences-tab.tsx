@@ -52,7 +52,7 @@ export function PreferencesTab({
             Appearance
           </CardTitle>
           <CardDescription>
-            Customize how Intranet looks on your device
+            Customize how Manut looks on your device
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -202,7 +202,7 @@ export function PreferencesTab({
                   In-App Notifications
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  Show notification badges and toasts within Intranet
+                  Show notification badges and toasts within Manut
                 </p>
               </div>
             </div>

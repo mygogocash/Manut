@@ -196,7 +196,7 @@ export function SendForSignatureDialog({
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="inhouse">
-                        In-house (Intranet)
+                        In-house (Manut)
                       </SelectItem>
                       <SelectItem value="docusign" disabled={!docusignReady}>
                         DocuSign{docusignReady ? "" : " — not configured"}

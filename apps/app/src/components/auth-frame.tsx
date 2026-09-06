@@ -1,6 +1,7 @@
 import { Link, type Href } from "expo-router";
 import type { ReactNode } from "react";
 import { ScrollView, View } from "react-native";
+import { ManutSymbol } from "@/components/brand/manut-symbol";
 import { Text } from "@/components/ui/text";
 import { shadowMd } from "@/lib/shadow";
 
@@ -33,10 +34,10 @@ export function AuthFrame({
         style={shadowMd}
       >
         <View className="mb-6 flex-row items-center gap-3">
-          <View className="h-8 w-8 rounded-lg bg-primary" />
+          <ManutSymbol size={38} />
           <View>
-            <Text className="text-[15px] font-bold tracking-wide text-foreground">Intranet</Text>
-            <Text className="text-[10px] font-medium uppercase tracking-[1.4px] text-muted-foreground">GoGoCash</Text>
+            <Text className="text-[15px] font-bold tracking-wide text-foreground">Manut</Text>
+            <Text className="text-[10px] font-medium uppercase tracking-[1.4px] text-muted-foreground">The Binary Holdings</Text>
           </View>
         </View>
         <Text className="text-xl font-semibold text-foreground">{title}</Text>

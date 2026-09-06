@@ -66,3 +66,6 @@ apps/web/CLAUDE.md
 
 # Mimosa security-scan local output (scanner working dirs, not source)
 .mimosa/
+
+# ZCode local workspace state
+.zcode/

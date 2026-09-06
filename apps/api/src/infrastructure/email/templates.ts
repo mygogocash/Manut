@@ -1,12 +1,13 @@
 const BRAND = {
-  name: "Intranet",
+  name: "Manut",
   company: "The Binary Holdings",
-  primaryColor: "#2262F4",
-  primaryDark: "#1B4FC4",
-  bgColor: "#f4f6f9",
-  textColor: "#0d1b2a",
-  mutedColor: "#6b7990",
-  borderColor: "#e2e8f0",
+  // Manut Brand CI v1.0 email palette: Ink actions on Paper, Stone borders.
+  primaryColor: "#0B0B0A",
+  primaryDark: "#282826",
+  bgColor: "#F7F7F3",
+  textColor: "#0B0B0A",
+  mutedColor: "#555550",
+  borderColor: "#E3E2DC",
   logoUrl: "https://intranet.thebinaryholdings.com/tbh-circle-logo.ico",
   url: "https://intranet.thebinaryholdings.com",
 } as const;
@@ -1493,7 +1494,7 @@ export function welcomeEmail(data: {
 <tr><td style="padding:12px 16px;font-size:13px;"><strong>Password:</strong> <code style="background-color:${BRAND.bgColor};padding:2px 8px;border-radius:4px;font-size:14px;">${data.temporaryPassword}</code></td></tr>
 </table>
 <p style="margin:0 0 20px;">Please log in and let us know if you have any issues. If you have any feedback, please share it directly with <a href="mailto:sarah@thebinaryholdings.com" style="color:${BRAND.primaryColor};text-decoration:none;">sarah@thebinaryholdings.com</a>.</p>
-${actionButton("Sign In to Intranet", data.portalUrl)}
+${actionButton("Sign In to Manut", data.portalUrl)}
 `),
   };
 }

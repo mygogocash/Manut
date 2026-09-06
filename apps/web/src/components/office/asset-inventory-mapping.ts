@@ -10,7 +10,7 @@
  * Sheet shape:
  *   Asset ID | Vendor/Shop | Asset Name | Category | Purchase Date | Quantity |
  *   Unit Price (THB) | Total Value (THB) | Condition | Location / Owner |
- *   Intranet update
+ *   Manut update
  */
 
 import type { AssetImportRow } from "@/services/office.service";

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { api, ApiError } from "@/lib/api-client";
+import { BRAND } from "@/lib/brand";
 
 export default function ResetPasswordScreen() {
   const [email, setEmail] = useState("");
@@ -43,7 +44,7 @@ export default function ResetPasswordScreen() {
       {error ? <Text className="text-sm text-destructive">{error}</Text> : null}
       {message ? <Text className="text-sm text-green-800">{message}</Text> : null}
       <Button disabled={busy} onPress={onSubmit}>
-        {busy ? <ActivityIndicator color="#F7F3EB" /> : <Text>Send reset link</Text>}
+        {busy ? <ActivityIndicator color={BRAND.white} /> : <Text>Send reset link</Text>}
       </Button>
       <AuthLink href="/(auth)/login">Back to sign-in</AuthLink>
     </AuthFrame>

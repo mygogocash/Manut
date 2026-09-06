@@ -238,7 +238,7 @@ export const sendForSignatureSchema = z
     signers: z.array(baseSignerSchema).max(20).optional(),
     inviteMessage: z.string().max(5000).optional(),
     expiresAt: z.string().datetime({ offset: true }).optional(),
-    // 'inhouse' = Intranet's typed-name page; 'docusign' = create a DocuSign
+    // 'inhouse' = Manut's typed-name page; 'docusign' = create a DocuSign
     // envelope and let DocuSign drive the signing UX. Defaults to inhouse
     // so existing callers don't need to change.
     provider: z.enum(["inhouse", "docusign"]).default("inhouse"),

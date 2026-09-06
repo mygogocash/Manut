@@ -1,24 +1,27 @@
-import type { Metadata } from "next";
-import { Cormorant_Garamond, Inter, Manrope } from "next/font/google";
-
-import { ForceLightTheme } from "@/components/landing/force-light-theme";
 import "@/components/landing/landing.css";
 
-const manutDisplay = Cormorant_Garamond({
+import type { Metadata } from "next";
+import { Instrument_Serif, Inter } from "next/font/google";
+
+import { ForceLightTheme } from "@/components/landing/force-light-theme";
+
+// Brand CI §8: the editorial voice is Instrument Serif (400 only — the
+// landing's lighter weights resolve to 400), the UI face is Inter.
+const manutDisplay = Instrument_Serif({
   subsets: ["latin"],
-  weight: ["300", "400"],
+  weight: "400",
   variable: "--font-manut-display",
   display: "swap",
 });
 
 const manutSans = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-manut-sans",
   display: "swap",
 });
 
-const manutTag = Manrope({
+const manutTag = Inter({
   subsets: ["latin"],
   weight: ["700"],
   variable: "--font-manut-tag",
@@ -40,7 +43,12 @@ export default function WelcomeLayout({
 }) {
   return (
     <div
-      className={`manut-landing ${manutDisplay.variable} ${manutSans.variable} ${manutTag.variable}`}
+      className={`
+        manut-landing
+        ${manutDisplay.variable}
+        ${manutSans.variable}
+        ${manutTag.variable}
+      `}
       data-theme="light"
     >
       <ForceLightTheme />

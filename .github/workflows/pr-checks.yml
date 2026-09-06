@@ -242,7 +242,7 @@ jobs:
   brand-drift:
     name: Brand colour drift guard
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.edge == 'true'
     runs-on: ubuntu-latest
     # A grep — no install, no Node. It used to sit behind ~11 minutes of other
     # work and was skipped whenever anything upstream failed.
@@ -250,19 +250,24 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Check for legacy brand colours
-        # Phases 7-12 retired the legacy blue/teal palette across the workspace.
-        # Block any PR that reintroduces the literal hex codes in app source.
-        # If one of these ever needs to come back (e.g. a deliberate marketing
-        # page) update this list and the brand guidelines together.
+        # Two retired palettes are blocked:
+        #   1. The pre-2026 legacy blue/teal set (PR #75 migration).
+        #   2. The cream/bronze/gold set replaced by Manut Brand CI v1.0
+        #      (Manut Ink/Paper + Stone neutrals + Intelligence accent) —
+        #      see docs/DESIGN_SYSTEM.md and scripts/brand-contrast.mjs.
+        # Scans both surfaces: apps/web/src AND apps/app/src (the official
+        # Expo client, previously unscanned). If a colour ever needs to come
+        # back (e.g. a deliberate marketing page) update this list and
+        # docs/DESIGN_SYSTEM.md together.
         run: |
           set -euo pipefail
-          PATTERNS='1847f0|00d4b4|0f38d0|rgba\(24,71,240'
-          if grep -rEn "$PATTERNS" apps/web/src --include='*.ts' --include='*.tsx' --include='*.css'; then
+          PATTERNS='1847f0|00d4b4|0f38d0|rgba\(24,71,240|f7f3eb|8b6b3d|8b6914|c8a84b|0d0b07|3f3428|6b5e4e'
+          if grep -riEn "$PATTERNS" apps/web/src apps/app/src apps/app/app --include='*.ts' --include='*.tsx' --include='*.css'; then
             echo ""
-            echo "::error::Legacy brand colours detected. Use hsl(var(--primary)) / hsl(var(--primary-light)) tokens instead — see project_design_system_nexora memory and PR #75."
+            echo "::error::Retired brand colours detected. Use the Manut CI tokens (hsl(var(--primary)), --intelligence-*, etc.) — see docs/DESIGN_SYSTEM.md."
             exit 1
           fi
-          echo "No legacy brand colours found."
+          echo "No retired brand colours found."
 
   long-lines:
     name: Long-line guard

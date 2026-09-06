@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700&family=Instrument+Serif:ital@0;1&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,32 +6,131 @@
 
 @layer base {
   :root {
-    /* Cream / bronze / gold — same HSL slots as apps/web/src/app/globals.css */
-    --background: 45 27% 94%;
-    --foreground: 36 33% 4%;
+    /* Manut Brand CI v1.0 — light theme.
+       HSL triplets in the same slots as before, so components keep compiling.
+       Palette: Manut Ink/Paper + Stone neutrals + one Intelligence accent.
+       Target ratio 80% neutrals / 15% surface variation / 5% accent (CI §6).
+       Contrast pairs verified WCAG AA — see scripts/brand-contrast.mjs. */
+    --background: 60 20% 96%; /* Paper #F7F7F3 */
+    --foreground: 60 5% 4%; /* Manut Ink #0B0B0A */
     --card: 0 0% 100%;
-    --card-foreground: 36 33% 4%;
+    --card-foreground: 60 5% 4%;
     --popover: 0 0% 100%;
-    --popover-foreground: 36 33% 4%;
-    --primary: 33 39% 39%;
+    --popover-foreground: 60 5% 4%;
+    --primary: 60 5% 4%; /* Ink — primary action is black, not accent (CI §20) */
     --primary-foreground: 0 0% 100%;
-    --primary-light: 45 56% 54%;
-    --secondary: 47 22% 92%;
-    --secondary-foreground: 36 33% 4%;
-    --muted: 47 22% 92%;
-    --muted-foreground: 36 9% 41%;
-    --accent: 45 50% 92%;
-    --accent-foreground: 33 39% 39%;
-    --destructive: 6 64% 46%;
+    --primary-light: 60 3% 15%; /* Graphite — ink hover / monochrome gradient partner */
+    --secondary: 50 17% 93%; /* Stone 100 */
+    --secondary-foreground: 60 5% 4%;
+    --muted: 50 17% 93%;
+    /* Stone 700 #555550. Stone 500 (#85857E) is the CI "metadata" tone but
+       reads 3.46-3.71:1 on Paper/White — under the 4.5:1 AA floor for normal
+       text. Stone 700 is the lightest neutral that clears AA on every
+       background this token is read on (6.51-7.50:1). */
+    --muted-foreground: 60 3% 32%;
+    --accent: 50 17% 93%; /* neutral hover surface — accent stays calm (CI §6) */
+    --accent-foreground: 60 5% 4%;
+    --destructive: 2 57% 49%; /* Error #C53B36 */
     --destructive-foreground: 0 0% 100%;
-    --border: 36 25% 88%;
-    --input: 36 25% 88%;
-    --ring: 33 39% 39%;
-    --radius: 0.625rem;
-    --sidebar-background: 36 33% 4%;
-    --sidebar-foreground: 36 12% 72%;
-    --sidebar-foreground-strong: 45 27% 94%;
-    --sidebar-primary: 45 56% 54%;
+    --border: 51 11% 88%; /* Stone 200 — borders over shadows (CI §12) */
+    --input: 51 9% 84%; /* CI input border #DAD9D3 */
+    --ring: 240 60% 60%; /* Intelligence 500 */
+
+    /* Intelligence accent scale (CI §6). Use for AI status, active AI
+       surfaces, focus rings and AI actions — never as a full theme. */
+    --intelligence-50: 240 100% 97%;
+    --intelligence-100: 240 100% 95%;
+    --intelligence-200: 240 100% 90%;
+    --intelligence-300: 240 89% 82%;
+    --intelligence-400: 240 74% 70%;
+    --intelligence-500: 240 60% 60%;
+    --intelligence-600: 240 46% 51%;
+    --intelligence-700: 240 44% 41%;
+    --intelligence-800: 240 43% 33%;
+    --intelligence-900: 240 43% 27%;
+    --intelligence-foreground: 0 0% 100%;
+
+    /* Semantic state colors (CI §7) */
+    --success: 156 55% 31%; /* #237A57 */
+    --success-foreground: 0 0% 100%;
+    --warning: 34 83% 36%; /* #A86710 */
+    --warning-foreground: 0 0% 100%;
+    --error: 2 57% 49%; /* #C53B36 */
+    --error-foreground: 0 0% 100%;
+    --info: 215 55% 50%; /* #3973C6 */
+    --info-foreground: 0 0% 100%;
+
+    /* Sidebar — light editorial workspace (CI §15) */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 60 3% 32%; /* Stone 700 */
+    --sidebar-foreground-strong: 60 5% 4%; /* Ink */
+    --sidebar-primary: 240 60% 60%; /* Intelligence 500 */
+    --sidebar-border: 51 11% 88%; /* Stone 200 */
+
+    /* Radius scale (CI §11) */
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    /* shadcn bridge — components consume rounded-lg/md/sm via these */
+    --radius: var(--radius-md);
+
+    /* Elevation (CI §13) — extremely subtle; borders carry structure */
+    --shadow-xs: 0 1px 2px rgba(11, 11, 10, 0.04);
+    --shadow-sm: 0 2px 8px rgba(11, 11, 10, 0.06);
+    --shadow-md: 0 8px 24px rgba(11, 11, 10, 0.08);
+    --shadow-lg: 0 20px 48px rgba(11, 11, 10, 0.12);
+
+    /* Motion (CI §27) */
+    --motion-fast: 120ms;
+    --motion-normal: 180ms;
+    --motion-panel: 220ms;
+    --ease-manut: cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .dark {
+    /* Manut Brand CI v1.0 — dark theme (CI §26). True Manut, not OLED black.
+       Vars ship with this change; surfaces flip via the `dark` class and
+       per-page validation is a separate rollout. */
+    --background: 60 3% 6%; /* Canvas #111110 */
+    --foreground: 50 23% 95%; /* Primary text #F5F4EF */
+    --card: 60 2% 9%; /* Surface #181817 */
+    --card-foreground: 50 23% 95%;
+    --popover: 60 2% 9%;
+    --popover-foreground: 50 23% 95%;
+    --primary: 50 23% 95%; /* light action on dark */
+    --primary-foreground: 60 5% 4%;
+    --primary-light: 60 3% 18%;
+    --secondary: 60 3% 12%; /* Surface Raised #20201E */
+    --secondary-foreground: 50 23% 95%;
+    --muted: 60 3% 12%;
+    /* Secondary text #A8A7A0 — 7.36:1 on Surface, 7.83:1 on Canvas */
+    --muted-foreground: 53 4% 64%;
+    --accent: 60 3% 12%;
+    --accent-foreground: 50 23% 95%;
+    --destructive: 2 65% 60%;
+    --destructive-foreground: 60 5% 4%;
+    --border: 60 3% 18%; /* #30302D */
+    --input: 60 3% 18%;
+    --ring: 240 71% 69%; /* dark Intelligence #7777E8 */
+
+    --intelligence-500: 240 71% 69%; /* dark-mode Intelligence accent */
+
+    --success: 156 45% 50%;
+    --success-foreground: 60 5% 4%;
+    --warning: 34 80% 55%;
+    --warning-foreground: 60 5% 4%;
+    --error: 2 65% 62%;
+    --error-foreground: 60 5% 4%;
+    --info: 215 70% 65%;
+    --info-foreground: 60 5% 4%;
+
+    --sidebar-background: 60 2% 9%;
+    --sidebar-foreground: 53 4% 64%;
+    --sidebar-foreground-strong: 50 23% 95%;
+    --sidebar-primary: 240 71% 69%;
+    --sidebar-border: 60 3% 18%;
   }
 
   html,
@@ -49,7 +148,7 @@
     margin: 0;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: "DM Sans", system-ui, sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -86,6 +185,6 @@
 
   /* RN Web Text defaults to the system UI font and inline layout. */
   #root [dir="auto"] {
-    font-family: "DM Sans", system-ui, sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
   }
 }

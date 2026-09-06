@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Text } from "@/components/ui/text";
 import { ApiError } from "@/lib/api-client";
+import { BRAND } from "@/lib/brand";
 import { useAuth } from "@/store/auth";
 
 function loginErrorMessage(error: unknown): string {
@@ -96,7 +97,7 @@ export default function LoginScreen() {
         </Text>
       ) : null}
       <Button disabled={busy} onPress={onSubmit} className="mt-1">
-        {busy ? <ActivityIndicator color="#F7F3EB" /> : <Text>Sign in</Text>}
+        {busy ? <ActivityIndicator color={BRAND.white} /> : <Text>Sign in</Text>}
       </Button>
       <View className="mt-1 flex-row flex-wrap gap-x-4 gap-y-2">
         <AuthLink href="/(auth)/reset">Forgot password?</AuthLink>

@@ -47,19 +47,59 @@ module.exports = {
           foreground: "hsl(var(--sidebar-foreground))",
           strong: "hsl(var(--sidebar-foreground-strong))",
           primary: "hsl(var(--sidebar-primary))",
+          border: "hsl(var(--sidebar-border))",
         },
-        cream: "#F7F3EB",
-        bronze: "#8B6B3D",
-        gold: "#C8A84B",
-        ink: "#0D0B07",
+        // Manut Intelligence accent (Brand CI §6) — AI actions and status only.
+        intelligence: {
+          50: "hsl(var(--intelligence-50))",
+          100: "hsl(var(--intelligence-100))",
+          200: "hsl(var(--intelligence-200))",
+          300: "hsl(var(--intelligence-300))",
+          400: "hsl(var(--intelligence-400))",
+          500: "hsl(var(--intelligence-500))",
+          600: "hsl(var(--intelligence-600))",
+          700: "hsl(var(--intelligence-700))",
+          800: "hsl(var(--intelligence-800))",
+          900: "hsl(var(--intelligence-900))",
+          DEFAULT: "hsl(var(--intelligence-500))",
+          foreground: "hsl(var(--intelligence-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+        },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        // CI §11 scale: buttons 8-10, cards 12-14, dialogs 16, AI surfaces 16-20.
+        xs: "var(--radius-xs)",
+        sm: "calc(var(--radius) - 4px)", // 6px — shadcn bridge
+        md: "calc(var(--radius) - 0px)", // 10px — shadcn bridge (buttons)
+        lg: "calc(var(--radius) + 4px)", // 14px — shadcn bridge (cards)
+        xl: "var(--radius-xl)",
+        full: "999px",
       },
       borderWidth: {
         hairline: hairlineWidth(),
+      },
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
+        display: ["Instrument Serif", "Georgia", "serif"],
+      },
+      transitionTimingFunction: {
+        manut: "cubic-bezier(0.2, 0, 0, 1)",
+      },
+      transitionDuration: {
+        fast: "120ms",
+        normal: "180ms",
+        panel: "220ms",
       },
     },
   },

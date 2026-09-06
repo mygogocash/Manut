@@ -53,7 +53,7 @@ const DEFAULT_ANNOUNCEMENT: AnnouncementDefaults = {
   news: true,
   companyDate: true,
   messageTemplate:
-    'New survey: "{title}" is now open. Share your input on the Intranet.',
+    'New survey: "{title}" is now open. Share your input on the Manut.',
   newsCategory: "Survey",
 };
 

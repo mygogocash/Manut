@@ -1545,7 +1545,7 @@ export default function MyPortalPage() {
                   <div>
                     <CardTitle className="text-lg">Assigned roles</CardTitle>
                     <CardDescription className="mt-1 text-sm leading-relaxed">
-                      These roles control what you can see and do in Intranet.
+                      These roles control what you can see and do in Manut.
                     </CardDescription>
                   </div>
                 </div>

@@ -21,7 +21,7 @@ const parse = (key: string, value: unknown) =>
 
 describe("admin settings allowlist", () => {
   it("accepts the workspace-wide settings this endpoint owns", () => {
-    expect(parse("app.name", "Intranet").success).toBe(true);
+    expect(parse("app.name", "Manut").success).toBe(true);
     expect(parse("leave.require_approval", true).success).toBe(true);
     expect(parse("security.session_timeout_minutes", 480).success).toBe(true);
     expect(parse("storage.allowed_extensions", ["pdf", "png"]).success).toBe(

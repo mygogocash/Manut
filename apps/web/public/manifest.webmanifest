@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Intranet — The Binary Holdings",
-  "short_name": "Intranet",
-  "description": "Enterprise operations platform for The Binary Holdings",
+  "name": "Manut — The Binary Holdings",
+  "short_name": "Manut",
+  "description": "AI-driven intelligence workspace for The Binary Holdings",
   "lang": "en",
   "dir": "ltr",
   "start_url": "/",

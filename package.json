@@ -107,7 +107,9 @@
       "deepmerge-ts@<8.0.0": "8.0.1",
       "fast-uri@<3.1.6": "3.1.6",
       "qs@<6.16.0": "6.16.0",
-      "@xmldom/xmldom@<0.9.12": "0.9.12"
+      "@xmldom/xmldom@<0.9.12": "0.9.12",
+      "@types/react": "19.2.18",
+      "@types/react-dom": "19.2.4"
     },
     "patchedDependencies": {
       "expo-router": "patches/expo-router.patch"

@@ -1,4 +1,4 @@
-# CLAUDE.md — Intranet work rules
+# CLAUDE.md — Manut work rules
 
 This file is the contract for any AI agent (Claude Code, Cursor, etc.) working in this repo. Read it before changing code; update it when you change a rule.
 
@@ -6,7 +6,7 @@ This file is the contract for any AI agent (Claude Code, Cursor, etc.) working i
 
 ## This repository
 
-GitHub: [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Default branch is `main`. Long-lived env branches are `preview` (staging) and `production` (prod). Product name is **Intranet**; workspace packages stay `@nexora/*`.
+GitHub: [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Default branch is `main`. Long-lived env branches are `preview` (staging) and `production` (prod). Product name is **Manut**; workspace packages stay `@nexora/*`.
 
 ## Repo layout
 
@@ -90,7 +90,7 @@ PR Checks workflow blocks merge until all of these pass:
 1. **type-check** — `tsc --noEmit` across the monorepo.
 2. **lint** — `eslint` (api) + `next lint` (web). Warnings allowed; errors block.
 3. **test** — `vitest run` (api + web). All suites must pass.
-4. **brand-drift** — grep gate against forbidden brand strings.
+4. **brand-drift** — grep gate against retired brand palette hexes (legacy blues/teals and the retired cream/bronze/gold set) in `apps/web/src` and `apps/app/src`.
 
 Before opening a PR:
 
@@ -128,7 +128,7 @@ Before opening a PR:
 - Forms: react-hook-form + zodResolver + shadcn `Form` primitives. Reset the form via `useEffect(() => form.reset(…), [open, payload, form])` — and remember that `UserListItem` ≠ `UserDetail`. If a list-item lacks a field, fetch the detail before resetting (see `employee-form-dialog.tsx`).
 - Auth state: `useAuth()` exposes `user`, `roles`, `permissions`, `hasPermission`, `hasRole`, `refreshUser`. Call `refreshUser()` after any role / permission change that affects the current user.
 - Sidebar / route guards read from `state.permissions` only; do not gate UI on JWT claims directly.
-- Brand tokens: `cream`, `bronze`, `gold` (live design system on `tbh-intranet.web.app`). Local `globals.css` may differ — when in doubt, match the live site.
+- Brand tokens: **Manut Brand CI v1.0** (`docs/DESIGN_SYSTEM.md`) — Manut Ink `#0B0B0A` / Paper `#F7F7F3` / Stone neutrals / Intelligence accent `#5B5BD6`; Inter for UI, Instrument Serif for brand voice only. `scripts/brand-contrast.mjs` validates AA pairs. The retired `cream`/`bronze`/`gold` palette must not come back (CI blocks its hexes).
 
 ### Database (`packages/database`)
 
@@ -238,7 +238,7 @@ When a module needs "owner sees own / admin sees all" semantics, follow the patt
 - **xlsx imports** (payroll, agreements roster): incoming numeric cells often arrive as `" 300,000.00 "`. Always coerce via the `coerceNumber` helper (or equivalent) — strip whitespace incl. NBSP / thin-space, drop digit-group separators (`,` `'` `_`), then `Number(...)`. Plain `Number(v)` returns `NaN` for HR's templates.
 - **Two-row header xlsx** (payroll template): when row 2 holds sub-headers (e.g. `Meal` / `Transportation` under a merged `Allowances`), build composite keys: `row1[i] || row2[i]`. Skip data rows with no Employee Name so trailing reference rows don't get treated as data.
 - **Login redirect**: post-login goes to `/dashboard` for any non-employee-only account. Employee-only accounts go to `/my-portal`. Don't reintroduce a per-role `defaultRoute` lookup (#208 dropped that).
-- **Branding**: the platform is **Intranet** (#210). Workspace package names stay `@nexora/*` — implementation detail of the monorepo, never user-visible. Don't rename them.
+- **Branding**: the platform is **Manut** (Brand CI v1.0, `docs/DESIGN_SYSTEM.md`). Workspace package names stay `@nexora/*` — implementation detail of the monorepo, never user-visible. Don't rename them.
 - **ARIA evals** (`apps/api/src/modules/aria/__tests__/*.eval.test.ts`): three suites guard the assistant — tool registry (schema + RBAC), knowledge lookup (keyword Q→article, 80% hit-rate floor), and auto-sync workers (deterministic slugs + tag/perm shape). They run as part of `pnpm test` so a tool definition change or scoring regression blocks PR merge. When you add a new ARIA tool, add a happy-path + a permission-denied case to `aria-tools.eval.test.ts`. When you tune retrieval thresholds, add or update cases in `aria-retrieval.eval.test.ts` rather than relaxing the hit-rate floor.
 - **Configurable list (admin-editable enum)** — used by investor pipeline stages, investor types, cash-advance approval steps. When a hardcoded enum needs to become user-editable: (1) an id/key-keyed config table (`key` PK or `order @unique`, `label`, `sortOrder`, no FK from the consuming row — the row stores the key as an open string so the list stays freely editable); (2) an `/api/<x>` module with list/create/update/delete + a two-phase `reorder` (park at negative orders, then write 1..N to dodge the unique constraint); (3) gate writes on an EXISTING module perm (`investors:update`, `cash-advance:approve`) — don't mint new permission codes + a seed migration unless the access boundary genuinely differs; (4) web: a `use<X>` hook that fetches once + exposes a `label(key)` resolver (fallback: prettify the key), feeding every picker/filter/group-label; (5) a Manage dialog (add/rename/delete/reorder). Reference: `investor-pipeline-stages`, `investor-types`.
 - **Approval chain** (Travel is the canonical template; Cash Advance mirrors it). A `*ApprovalStep` config table (ordered, `approverType: manager|user`, conditional fields) + a per-request `*ApprovalDecision` snapshot + `currentStepOrder` on the request. On submit, evaluate each step's conditions against the request and snapshot the matching ones as decision rows; empty chain → fall back to a single manager step (submitter's `reportingTo`). Approve marks the current decision, advances to the next pending step (emailing that approver) or finalises (emailing applicant + an admin-managed recipient list stored in `SystemSetting`). Conditions seen: amount band, payout-mode / category filter, submitter `skipWhen`/`onlyWhen`. **Authz**: open the approve/reject route to any reader and enforce in `assertCanActOnStep` (HR-with-approve, or the step's manager/assigned user) — `requirePermission` alone can't express "the current step's manager." Reference: `travel`, `cash-advance`.

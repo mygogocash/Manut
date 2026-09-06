@@ -13,7 +13,7 @@ import type { Metadata } from "next";
 // docs/pwa/PHASE_3_PWA_FOUNDATION.md.
 
 export const metadata: Metadata = {
-  title: "Offline — Intranet",
+  title: "Offline — Manut",
   // Nothing here is useful in a search index, and it should never be surfaced
   // as if it were a real page.
   robots: { index: false, follow: false },
@@ -74,7 +74,7 @@ export default function OfflinePage() {
         </a>
 
         <p className="text-muted-foreground mt-8 text-xs">
-          The Intranet needs a connection to show live data. Reconnect and this
+          The Manut needs a connection to show live data. Reconnect and this
           page will let you straight back in.
         </p>
       </div>
