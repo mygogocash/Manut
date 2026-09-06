@@ -17,6 +17,7 @@ import {
 } from "@/lib/dashboard";
 import { DASHBOARD_HOME, EMPLOYEE_NAV_GROUPS, NAV_GROUPS, filterNavGroups } from "@/lib/nav";
 import { queryKeys } from "@/lib/query-keys";
+import { BRAND } from "@/lib/brand";
 import { shadowSm } from "@/lib/shadow";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
@@ -88,7 +89,7 @@ export default function DashboardHome() {
   if (query.isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color="#8B6B3D" />
+        <ActivityIndicator color={BRAND.ink} />
       </View>
     );
   }

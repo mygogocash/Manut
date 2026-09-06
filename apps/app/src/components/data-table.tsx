@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { ScrollView, View } from "react-native";
 import { EmptyState } from "@/components/empty-state";
 import { Text } from "@/components/ui/text";
+import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 function CellValue({ value }: { value: ReactNode }) {
@@ -63,7 +64,7 @@ export function DataTable<TData>({
                     {header.isPlaceholder ? null : (
                       <Text
                         className="text-[11px] font-semibold uppercase"
-                        style={{ color: "#3F3428", letterSpacing: 0.8 }}
+                        style={{ color: BRAND.stone700, letterSpacing: 0.8 }}
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                       </Text>

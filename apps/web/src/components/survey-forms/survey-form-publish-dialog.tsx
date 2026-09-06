@@ -85,7 +85,7 @@ export function SurveyFormPublishDialog({
     setNews(canNews);
     setCompanyDate(canDate);
     setMessage(
-      `New survey: "${formTitle}" is now open. Share your input on the Intranet.`,
+      `New survey: "${formTitle}" is now open. Share your input on the Manut.`,
     );
     setDeadline(undefined);
     getAnnouncementSettings()

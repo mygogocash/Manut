@@ -108,7 +108,7 @@ router.post(
     res.json({
       success: true,
       message:
-        "If this email belongs to an active Intranet account, a reset link will be sent shortly.",
+        "If this email belongs to an active Manut account, a reset link will be sent shortly.",
     });
   }),
 );
@@ -121,7 +121,7 @@ router.post(
     res.json({
       success: true,
       message:
-        "If this email belongs to an active Intranet account, a sign-in link will be sent shortly.",
+        "If this email belongs to an active Manut account, a sign-in link will be sent shortly.",
     });
   }),
 );

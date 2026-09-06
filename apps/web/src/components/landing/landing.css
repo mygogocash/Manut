@@ -14,10 +14,10 @@
   --ml-ash: #b3b3b3;
   --ml-smoke: #737373;
 
-  --ml-font-display: var(--font-manut-display), "Cormorant Garamond", Georgia,
+  --ml-font-display: var(--font-manut-display), "Instrument Serif", Georgia,
     serif;
   --ml-font-sans: var(--font-manut-sans), "Inter", system-ui, sans-serif;
-  --ml-font-tag: var(--font-manut-tag), "Manrope", system-ui, sans-serif;
+  --ml-font-tag: var(--font-manut-tag), "Inter", system-ui, sans-serif;
 
   --ml-text-caption: 11px;
   --ml-text-body: 16px;

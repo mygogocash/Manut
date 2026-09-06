@@ -6,6 +6,7 @@ import { PageScreen } from "@/components/page-screen";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { unwrapList } from "@/lib/list";
 import { queryKeys } from "@/lib/query-keys";
+import { BRAND } from "@/lib/brand";
 
 type LeaveRequest = {
   id: string;
@@ -32,7 +33,7 @@ export default function LeavePage() {
   if (query.isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color="#8B6B3D" />
+        <ActivityIndicator color={BRAND.ink} />
       </View>
     );
   }

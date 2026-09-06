@@ -15,7 +15,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: cn("bg-primary active:bg-primary/90", Platform.select({ web: "hover:bg-primary/90" })),
+        // Ink action (CI §20): black button, Graphite hover.
+        default: cn(
+          "bg-primary active:bg-primary/90",
+          Platform.select({ web: "hover:bg-primary-light" }),
+        ),
+        // Intelligence action (CI §20): violet, reserved for AI actions
+        // ("Ask Manut", "Analyze with Manut") — never a generic CTA.
+        ai: cn(
+          "bg-intelligence-500 active:bg-intelligence-600",
+          Platform.select({ web: "hover:bg-intelligence-600" }),
+        ),
         destructive: cn(
           "bg-destructive active:bg-destructive/90 dark:bg-destructive/60",
           Platform.select({
@@ -50,6 +60,7 @@ const buttonTextVariants = cva(
     variants: {
       variant: {
         default: "text-primary-foreground",
+        ai: "text-intelligence-foreground",
         destructive: "text-destructive-foreground",
         outline: cn("group-active:text-accent-foreground", Platform.select({ web: "group-hover:text-accent-foreground" })),
         secondary: "text-secondary-foreground",

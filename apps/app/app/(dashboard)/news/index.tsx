@@ -16,7 +16,7 @@ export default function NewsPage() {
       empty="No news yet."
       row={(item) => ({
         title: `${item.isPinned ? "📌 " : ""}${item.title}`,
-        meta: item.author?.name ?? "Intranet",
+        meta: item.author?.name ?? "Manut",
         body: item.content,
       })}
     />

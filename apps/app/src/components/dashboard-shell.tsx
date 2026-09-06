@@ -1,6 +1,7 @@
 import { usePathname, useRouter, type Href } from "expo-router";
 import { useMemo, useState, type ReactNode } from "react";
 import { Platform, Pressable, ScrollView, View } from "react-native";
+import { ManutSymbol } from "@/components/brand/manut-symbol";
 import { Text } from "@/components/ui/text";
 import { TABLET_MIN, useViewportWidth } from "@/hooks/use-viewport-width";
 import { cn } from "@/lib/utils";
@@ -30,13 +31,13 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   const sidebar = (
     <View
-      className="h-full shrink-0 overflow-hidden border-r border-white/10 bg-sidebar"
+      className="h-full shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar"
       style={{ width: sidebarWidth, maxWidth: sidebarWidth, flexBasis: sidebarWidth }}
     >
       <View className="flex-row items-center gap-3 px-5 pb-4 pt-6">
-        <View className="h-8 w-8 rounded-lg bg-sidebar-primary" />
+        <ManutSymbol size={38} />
         <View className="min-w-0 flex-1">
-          <Text className="text-[15px] font-bold text-sidebar-strong">Intranet</Text>
+          <Text className="text-[15px] font-bold text-sidebar-strong">Manut</Text>
           <Text className="text-[11px] text-sidebar-foreground" numberOfLines={1}>
             {user?.name ?? user?.email}
           </Text>
@@ -59,8 +60,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                     onPress={() => go(item.href)}
                     className={cn(
                       "rounded-md px-2.5 py-2",
-                      active ? "bg-white/10" : undefined,
-                      Platform.select({ web: active ? undefined : "hover:bg-white/5" }),
+                      active ? "bg-accent" : undefined,
+                      Platform.select({ web: active ? undefined : "hover:bg-accent/60" }),
                     )}
                   >
                     <Text
@@ -78,7 +79,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </View>
         ))}
       </ScrollView>
-      <View className="border-t border-white/10 px-3 py-3">
+      <View className="border-t border-sidebar-border px-3 py-3">
         <Pressable
           accessibilityRole="button"
           className={cn("rounded-md px-2.5 py-2", Platform.select({ web: "hover:bg-white/5" }))}
@@ -112,7 +113,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             >
               <Text className="text-sm font-medium text-foreground">{open ? "Close" : "Menu"}</Text>
             </Pressable>
-            <Text className="text-base font-bold text-foreground">Intranet</Text>
+            <ManutSymbol size={30} />
+            <Text className="text-base font-bold text-foreground">Manut</Text>
           </View>
         )}
         <View className="min-h-0 flex-1">{children}</View>

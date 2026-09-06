@@ -3,6 +3,7 @@ import { PageScreen } from "@/components/page-screen";
 import { Text } from "@/components/ui/text";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { queryKeys } from "@/lib/query-keys";
+import { BRAND } from "@/lib/brand";
 
 type Settings = {
   notifyEmails: string[];
@@ -27,7 +28,7 @@ export default function CrmSettingsPage() {
   if (query.isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color="#8B6B3D" />
+        <ActivityIndicator color={BRAND.ink} />
       </View>
     );
   }

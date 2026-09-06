@@ -4624,7 +4624,7 @@ async function main() {
   // ─── 37. SYSTEM SETTINGS ──────────────────
   console.log("=== 37. System Settings ===");
   const SETTINGS = [
-    { key: "app.name", value: "Intranet" },
+    { key: "app.name", value: "Manut" },
     { key: "app.version", value: "1.0.0" },
     { key: "app.timezone", value: "Asia/Bangkok" },
     { key: "app.locale", value: "en" },

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ProductPreviewCluster } from "./product-preview-cluster";
+import { ProductPreviewCluster } from "@/components/landing/product-preview-cluster";
 
 export function LandingHero() {
   return (

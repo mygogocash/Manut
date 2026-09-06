@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ManutLogo } from "./manut-logo";
+import { ManutLogo } from "@/components/landing/manut-logo";
 
 export function LandingClose() {
   return (

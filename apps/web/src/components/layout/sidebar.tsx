@@ -46,11 +46,11 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { ManutSymbol } from "@/components/brand/manut-symbol";
 import { IT_SURFACES } from "@/components/it/it-workspace-tabs";
 import { AccountMenuItems } from "@/components/layout/account-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -1014,14 +1014,10 @@ export function AppSidebar() {
                 href={isEmployeeOnly ? "/my-portal" : "/dashboard"}
                 aria-label="Go to home"
               >
-                <Image
-                  src="/tbh-circle-logo.ico"
-                  alt=""
-                  width={32}
-                  height={32}
-                  className="size-8 shrink-0 rounded-full object-cover"
-                  priority
-                  unoptimized
+                <ManutSymbol
+                  className="text-foreground w-8 shrink-0"
+                  title=""
+                  ariaHidden
                 />
                 <div className="flex flex-col gap-0.5">
                   <span
@@ -1030,7 +1026,7 @@ export function AppSidebar() {
                       font-normal tracking-tight
                     `}
                   >
-                    Intranet
+                    Manut
                   </span>
                   <span
                     className={`

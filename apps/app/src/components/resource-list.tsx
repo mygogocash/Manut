@@ -3,6 +3,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PageScreen } from "@/components/page-screen";
 import { Text } from "@/components/ui/text";
 import { useResourceList } from "@/hooks/use-resource-list";
+import { BRAND } from "@/lib/brand";
 import { defaultResourceRow, type ResourceRow } from "@/lib/resource-row";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +31,7 @@ export function ResourceList<T>({
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color="#8B6B3D" />
+        <ActivityIndicator color={BRAND.ink} />
       </View>
     );
   }

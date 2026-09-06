@@ -27,7 +27,7 @@ async function bootstrap() {
 
     server.listen(PORT, LISTEN_HOST, () => {
       logger.info(
-        `Intranet API listening on ${LISTEN_HOST}:${PORT} [${process.env.NODE_ENV || "development"}]`,
+        `Manut API listening on ${LISTEN_HOST}:${PORT} [${process.env.NODE_ENV || "development"}]`,
       );
       resolve();
     });

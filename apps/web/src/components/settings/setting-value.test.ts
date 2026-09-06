@@ -21,7 +21,7 @@ describe("settingKind", () => {
     expect(settingKind(90)).toBe("number");
     expect(settingKind(0)).toBe("number");
     expect(settingKind(["pdf", "png"])).toBe("list");
-    expect(settingKind("Intranet")).toBe("text");
+    expect(settingKind("Manut")).toBe("text");
     expect(settingKind(null)).toBe("text");
   });
 });
@@ -34,7 +34,7 @@ describe("formatSettingValue", () => {
   it("shows scalars plainly and null as empty", () => {
     expect(formatSettingValue(90)).toBe("90");
     expect(formatSettingValue(0)).toBe("0");
-    expect(formatSettingValue("Intranet")).toBe("Intranet");
+    expect(formatSettingValue("Manut")).toBe("Manut");
     expect(formatSettingValue(null)).toBe("");
   });
 });

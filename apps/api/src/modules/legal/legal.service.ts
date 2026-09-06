@@ -878,7 +878,7 @@ export class LegalService {
 
     // One LegalSignature row per recipient. They all share the same
     // envelopeId; per-recipient webhook events route via
-    // (envelopeId, signerEmail). Each row keeps its own Intranet token
+    // (envelopeId, signerEmail). Each row keeps its own Manut token
     // so /sign/:token is a usable status / fallback endpoint per
     // signer.
     const created: Awaited<

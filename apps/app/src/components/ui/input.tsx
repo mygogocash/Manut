@@ -1,12 +1,13 @@
 import type { ComponentProps } from "react";
 import { Platform, TextInput } from "react-native";
+import { BRAND } from "@/lib/brand";
 import { shadowSm } from "@/lib/shadow";
 import { cn } from "@/lib/utils";
 
 function Input({ className, style, ...props }: ComponentProps<typeof TextInput>) {
   return (
     <TextInput
-      placeholderTextColor="#6B5E4E"
+      placeholderTextColor={BRAND.stone500}
       className={cn(
         "flex h-11 w-full min-w-0 flex-row items-center rounded-md border border-input bg-card px-3 py-2 text-base leading-5 text-foreground",
         props.editable === false &&

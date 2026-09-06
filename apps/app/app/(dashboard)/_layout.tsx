@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Redirect, Slot } from "expo-router";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { BRAND } from "@/lib/brand";
 import { useAuth } from "@/store/auth";
 
 export default function DashboardLayout() {
@@ -24,8 +25,8 @@ export default function DashboardLayout() {
 
   if (!ready) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F7F3EB" }}>
-        <ActivityIndicator color="#8B6914" />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: BRAND.paper }}>
+        <ActivityIndicator color={BRAND.ink} />
       </View>
     );
   }

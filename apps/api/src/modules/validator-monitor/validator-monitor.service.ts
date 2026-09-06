@@ -74,7 +74,7 @@ async function fetchReportFromGitHub(): Promise<ValidatorReport> {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github.v3+json",
-        "User-Agent": "Intranet/validator-monitor",
+        "User-Agent": "Manut/validator-monitor",
       },
     });
   } catch (err) {

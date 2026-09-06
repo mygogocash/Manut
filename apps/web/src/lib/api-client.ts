@@ -152,7 +152,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 /**
- * Typed fetch wrapper for the Intranet API.
+ * Typed fetch wrapper for the Manut API.
  * - Uses httpOnly cookies for auth (credentials: 'include')
  * - Adds CSRF `X-Requested-With` header on mutations
  * - On 401, attempts a silent token refresh then retries once

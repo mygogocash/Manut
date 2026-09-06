@@ -32,7 +32,7 @@ export function EmptyState({
           leading-relaxed
         `}
       >
-        Your AI-powered assistant for Intranet. Ask a question below, start a
+        Your AI-powered assistant for Manut. Ask a question below, start a
         blank chat, or use a quick action.
       </p>
       <Button onClick={onNew} variant="secondary" className="mb-2 gap-2">

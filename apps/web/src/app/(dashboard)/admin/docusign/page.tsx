@@ -30,7 +30,7 @@ export default function DocusignAdminPage() {
     <div>
       <PageHeader
         title="DocuSign integration"
-        subtitle="Connect Intranet to DocuSign for envelope sending"
+        subtitle="Connect Manut to DocuSign for envelope sending"
       />
 
       <div className="flex flex-col gap-4">

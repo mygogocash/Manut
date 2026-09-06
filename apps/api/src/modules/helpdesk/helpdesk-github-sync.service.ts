@@ -92,7 +92,7 @@ function ticketBodyForGithub(ticket: {
   // raw corporate identifiers out of the long-term GitHub record.
   // Engineers click the portal link to get full reporter context.
   return [
-    `**Intranet ticket:** [IT-${ticket.ticketNumber}](${portalUrl})`,
+    `**Manut ticket:** [IT-${ticket.ticketNumber}](${portalUrl})`,
     `**Reporter:** ${ticket.createdBy.name}`,
     `**Category:** ${ticket.category}`,
     `**Priority:** ${ticket.priority}`,
@@ -102,7 +102,7 @@ function ticketBodyForGithub(ticket: {
       ? ["", "**Attachments:**", ...attachmentLines].join("\n")
       : "",
     "",
-    `_Synced from Intranet IT Helpdesk._`,
+    `_Synced from Manut IT Helpdesk._`,
   ]
     .filter(Boolean)
     .join("\n");
