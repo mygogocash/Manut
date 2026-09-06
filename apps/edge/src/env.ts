@@ -29,6 +29,8 @@ export type Bindings = {
   CF_ACCESS_TEAM_DOMAIN?: string;
   // secrets (wrangler secret put …)
   BETTER_AUTH_SECRET: string;
+  /** Better Auth Dash (dash.better-auth.com) API key. Unset = dash plugin off. */
+  BETTER_AUTH_API_KEY?: string;
   TURNSTILE_SECRET?: string;
   EMAIL_SERVICE_URL?: string;
   EMAIL_SERVICE_API_KEY?: string;

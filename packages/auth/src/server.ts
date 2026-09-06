@@ -1,3 +1,4 @@
+import { dash } from "@better-auth/infra";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createAuthMiddleware } from "better-auth/api";
@@ -11,6 +12,8 @@ import { isMagicLinkEligible } from "./magic-link";
 
 export type AuthEnv = {
   BETTER_AUTH_SECRET: string;
+  /** Better Auth Dash (dash.better-auth.com) API key. Unset = dash plugin off. */
+  BETTER_AUTH_API_KEY?: string;
   /** Public origin of the app, e.g. https://intranet.thebinaryholdings.com */
   APP_URL: string;
   /** Extra trusted origins (native app scheme, staging hosts). */
@@ -142,6 +145,11 @@ export function createAuth(
           await email.sendMagicLink({ email: to, url });
         },
       }),
+      // Better Auth Dash connection (dashboard analytics / user management).
+      // The key comes from the BETTER_AUTH_API_KEY binding — process.env does
+      // not exist on Workers, so it is passed explicitly. Off when unset so
+      // local dev without a dash project keeps working.
+      ...(env.BETTER_AUTH_API_KEY ? [dash({ apiKey: env.BETTER_AUTH_API_KEY })] : []),
     ],
     hooks: {
       after: createAuthMiddleware(async (ctx) => {
