@@ -12,13 +12,17 @@ GitHub: [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Default branc
 
 ```
 apps/
-  api/           Express 5 + TypeScript backend (port 3001)
-  web/           Next.js 16 + React 19 (legacy UI; Cloud Run / Vercel / Playwright)
-  edge/          Hono on Cloudflare Workers (Express port)
+  api/           Express 5 + TypeScript backend (port 3001) — legacy, being
+                 absorbed by the edge; not deployed anywhere since 2026-09
+  web/           Next.js 16 + React 19 (legacy UI; Playwright only — Cloud Run
+                 and Vercel retired 2026-09)
+  edge/          Hono on Cloudflare Workers — THE deployment target
+                 (manut.xyz, serves the Expo SPA + API)
   edge-jobs/     Cloudflare Cron Triggers + Queue fan-out
   app/           Expo Router — official web client (port 8081) + iOS / Android
 packages/
-  database/      Prisma schema + migrations + seed (Express / Cloud Run)
+  database/      Prisma schema + migrations + seed (migrate deploy runs from
+                 the production edge deploy)
   db/            Drizzle schema (edge)
   core/          Shared domain services used by the edge
   auth/          Better Auth helpers for the edge
@@ -28,11 +32,12 @@ packages/
                  this package holds only index.ts + utils.ts.
   types/         Shared TS types
   utils/         Shared helpers
-docker/          Cloud Run images
 docs/            PRDs + specs (human-curated)
-.github/
-  workflows/     deploy.yml (production), deploy-staging.yml (preview),
-                 deploy-edge-staging.yml, deploy-vercel.yml, pr-checks.yml
+.github/         inert (repo Actions disabled) — kept as a parity reference
+.depot/
+  workflows/     THE live CI: pr-checks.yml, okf-checks.yml,
+                 deploy-edge-staging.yml (preview), deploy-edge-production.yml
+                 (production), db-backfill.yml; actions/setup-workspace
 ```
 
 Monorepo: Turborepo + pnpm 10. Workspace package names: `@nexora/api`, `@nexora/web`, `@nexora/database`, `@nexora/edge`, `@nexora/app`, `@nexora/db`, etc.
@@ -41,10 +46,10 @@ Monorepo: Turborepo + pnpm 10. Workspace package names: `@nexora/api`, `@nexora/
 
 ## Tech stack
 
-- **Backend**: Express 5, TypeScript, Prisma 6, PostgreSQL (Supabase), Supabase Auth, Zod validation, Resend for email, Gemini for AI.
+- **Backend**: Express 5, TypeScript, Prisma 6, PostgreSQL (Supabase), Supabase Auth, Zod validation, Resend for email, Gemini for AI — the Express API is being absorbed by the edge; new endpoints land there first.
 - **Edge**: Hono on Cloudflare Workers + Hono RPC (`@nexora/edge/rpc`) + Drizzle (`@nexora/db`) over Hyperdrive → Postgres. Sidecar only: D1 + Durable Objects + Queues + Workflows + R2 + optional Vectorize/Workers AI. Access/Zero Trust fails open unless `CF_ACCESS_AUD` is set. Cron/queue work lives in `apps/edge-jobs`. Do **not** put ERP tables (users, leave, CRM) on D1.
-- **Frontend**: Expo 54 + Expo Router (`apps/app`) is the official web client (`pnpm dev:web`, port 8081). It talks to Express with `X-Client: expo` and Bearer JWTs. Next.js 16 (`apps/web`) remains the complete legacy UI served by Cloud Run, Vercel, and Playwright (`pnpm dev:web:next`, port 3000).
-- **Infra**: GCP Cloud Run (API + Web) on `production`; staging Cloud Run + edge staging on `preview`. Artifact Registry, GitHub Actions, Workload Identity Federation. Database is Supabase Singapore (`aws-1-ap-southeast-1`).
+- **Frontend**: Expo 54 + Expo Router (`apps/app`) is the official web client (`pnpm dev:web`, port 8081). It talks to Express with `X-Client: expo` and Bearer JWTs. Next.js 16 (`apps/web`) remains the complete legacy UI for Playwright (`pnpm dev:web:next`, port 3000) — not deployed.
+- **Infra**: Cloudflare Workers via **Depot CI** (`.depot/workflows/`): `preview` → `staging.manut.xyz`, `production` → `manut.xyz`. Database is Supabase Singapore (`aws-1-ap-southeast-1`) via Hyperdrive. GCP Cloud Run, Vercel and GitHub Actions were retired 2026-09.
 - **Auth**: Supabase Auth issues JWT; Express middleware resolves Prisma user + roles + permissions per request. Permission codes are `module:action` (e.g. `crm:read`). Edge uses Better Auth against the same user table.
 
 ---
@@ -53,10 +58,10 @@ Monorepo: Turborepo + pnpm 10. Workspace package names: `@nexora/api`, `@nexora/
 
 - `.env.development` (root) — local dev. Loaded by `apps/api/src/env.ts` when `NODE_ENV=development`. Also picked up by Prisma scripts via dotenv-cli cascade.
 - `apps/web/.env.development` — Next.js mirror of `NEXT_PUBLIC_*` + `API_URL`. Next.js does **not** read parent-dir env files; you must mirror.
-- `.env.production` (root) + `apps/web/.env.production` — production keys. **Never commit.** Cloud Run gets them via `--set-env-vars` from GitHub Secrets.
+- `.env.production` (root) + `apps/web/.env.production` — production keys. **Never commit.** Production Workers get theirs via `wrangler secret put`; CI reads them from Depot CI secrets.
 - `.env` — legacy fallback (currently holds `ANTHROPIC_API_KEY` only). Prefer `.env.development`.
 
-All four `.env*` files are gitignored. Adding a new secret means: update root `.env.development`, mirror in `apps/web/.env.development` if web-facing, add to `turbo.json` `globalEnv`, and add to GitHub Secrets + `deploy.yml` `--set-env-vars` for prod.
+All four `.env*` files are gitignored. Adding a new secret means: update root `.env.development`, mirror in `apps/web/.env.development` if web-facing, add to `turbo.json` `globalEnv`, and add to the edge Worker via `wrangler secret put` + Depot CI secrets where CI needs it.
 
 ---
 
@@ -119,7 +124,7 @@ Before opening a PR:
 - Expo Router on :8081. API calls go through `src/lib/api-client.ts` (`apiRequest` / `api`) with `X-Client: expo` and a Bearer token from `intranet.session.v1`. Never cookie `fetch`.
 - Default API origin is `http://localhost:3001`. Set `EXPO_PUBLIC_APP_URL=http://localhost:8787` to target the edge Worker instead.
 - Permission-gated nav lives in `src/lib/nav.ts`; the dashboard shell filters it the same way Express Admin bypasses gates.
-- Converted templates: login / magic-link / reset, dashboard shell, home, leave. Other module pages may still use StyleSheet + `apiRequest` — port them to Query + Reusables when you touch them. Next.js (`apps/web`) stays the complete Cloud Run / Vercel / Playwright UI.
+- Converted templates: login / magic-link / reset, dashboard shell, home, leave. Other module pages may still use StyleSheet + `apiRequest` — port them to Query + Reusables when you touch them. Next.js (`apps/web`) stays the complete legacy UI for Playwright; it is no longer deployed.
 
 ### Frontend (`apps/web` — legacy Next.js)
 
@@ -142,11 +147,11 @@ Before opening a PR:
 ## Deployment
 
 - **Promote `main` → `preview` and `main` → `production` with a MERGE COMMIT, never a squash** — see [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md). Feature PRs into `main` may squash. Squashing one long-lived env branch into another discards ancestry, so the next promote re-proposes every commit since the last true merge. After a hotfix committed on `production`, back-merge `production` → `main` the same day; cherry-picking copies content but does not restore ancestry.
-- `main` is the default trunk. PRs land here. A push to `main` does **not** deploy Cloud Run or Vercel.
-- `preview` push → `deploy-staging.yml` (`nexora-api-staging` / `nexora-web-staging`) and `deploy-edge-staging.yml`. Separate Supabase via `STAGING_*` secrets. **Staging syncs schema with `pnpm db:push`, NOT `prisma migrate deploy`.** A *schema* change reaches staging, but **any data-migration SQL inside a migration file never runs on staging** — a column that depends on a backfill stays empty there until seeded by hand. Don't tell the user a data-migration-dependent feature is "working on staging." **"By hand" now has a mechanism**: put the statements in a `packages/database/scripts/*.mjs` script (idempotent, `--dry-run` supported) and run it through the `Database backfill (manual)` workflow (`db-backfill.yml`), which supplies `STAGING_DATABASE_URL` from secrets and defaults to a dry run. Reference: `backfill-advance-side-vendor.mjs`. `pr-checks.yml` gates PRs into `main`, `preview`, and `production`.
-- `production` push → `Deploy to GCP Cloud Run` (`nexora-api` / `nexora-web`) and `deploy-vercel.yml`.
-- `Apply Prisma migrations to prod DB` step runs **before** the Docker build. Failure here aborts the deploy. Watch P3009 (`failed migration`) — clear via the resolve step in `deploy.yml`, which runs `prisma migrate resolve --rolled-back` for known-stuck names with `|| true` (idempotent).
-- Cron jobs hit `/api/cron/*` with header `X-Cron-Secret: ${CRON_SECRET}`. Cloud Scheduler is provisioned manually; coordinate with infra before adding new cron endpoints.
+- `main` is the default trunk. PRs land here. A push to `main` does **not** deploy.
+- `preview` push → Depot CI `Deploy Edge Staging` (`.depot/workflows/deploy-edge-staging.yml`): drizzle migrate + Expo export + `wrangler deploy --env staging` → `staging.manut.xyz`. Separate Supabase via `STAGING_*` secrets. **Staging syncs the ERP schema with `pnpm db:push`, NOT `prisma migrate deploy`.** A *schema* change reaches staging, but **any data-migration SQL inside a migration file never runs on staging** — a column that depends on a backfill stays empty there until seeded by hand. Don't tell the user a data-migration-dependent feature is "working on staging." **"By hand" now has a mechanism**: put the statements in a `packages/database/scripts/*.mjs` script (idempotent, `--dry-run` supported) and run it through the Depot `Database backfill (manual)` workflow (`.depot/workflows/db-backfill.yml`), which supplies `STAGING_DATABASE_URL` from secrets and defaults to a dry run. Reference: `backfill-advance-side-vendor.mjs`. The Depot `pr-checks.yml` gates PRs into `main`, `preview`, and `production`.
+- `production` push → Depot CI `Deploy Edge Production` (`.depot/workflows/deploy-edge-production.yml`): drizzle + `prisma migrate deploy` → `manut.xyz`.
+- The Prisma `migrate deploy` step runs **before** the Worker deploy. Failure here aborts it. Watch P3009 (`failed migration`) — clear via `prisma migrate resolve --rolled-back` (idempotent `|| true`) as `deploy.yml` did for the Cloud Run era.
+- Cron jobs hit `/api/cron/*` with header `X-Cron-Secret: ${CRON_SECRET}`. Cloud Scheduler provisioned manually for the Cloud Run era — with Cloud Run retired, the same endpoints are served by the edge; edge-jobs cron (`JOBS_ENABLED`) replaces Scheduler at the Phase 9 cutover.
 - **ARIA Cloud Scheduler entries** (provision after deploying #457 / #460 / this PR):
   - `POST /api/cron/aria-knowledge-sync` — daily 03:00 SGT. Pull-based auto-sync of operational tables into the knowledge corpus (Phase 4).
   - `POST /api/cron/aria-purge-pii` — daily 02:30 SGT. Redacts `aria_query_logs.user_message` older than `ARIA_PII_RETENTION_DAYS` (default 30, sentinel string).
@@ -191,7 +196,7 @@ Before opening a PR:
     --headers="X-Cron-Secret=${CRON_SECRET},Content-Type=application/json" \
     --message-body="{}"
   ```
-  - **Current state: the prod job EXISTS and is PAUSED.** Created 2026-08-17 in project `tbh-nexora`, location `asia-southeast1`, targeting the prod Cloud Run URL. It was paused while the endpoint lived only on the old `dev` line. **Resume it after the next `production` deploy that contains the endpoint** — do not re-create it:
+  - **Current state: the prod job EXISTS and is PAUSED.** Created 2026-08-17 in project `tbh-nexora`, location `asia-southeast1`, targeting the prod Cloud Run URL. **Cloud Run was retired 2026-09 — the scheduler entry is dead until it is re-pointed at the edge** (`https://manut.xyz/api/cron/…`) or replaced by edge-jobs cron at the Phase 9 cutover. Do not just resume it blindly:
   ```bash
   gcloud scheduler jobs resume marketing-drift-check \
     --project=tbh-nexora --location=asia-southeast1
@@ -199,8 +204,8 @@ Before opening a PR:
   - **Staging has no Cloud Scheduler jobs at all** — every one of the jobs in `tbh-nexora` targets the prod service. A staging job is viable if wanted: the first live dry-run there (2026-08-17) came back completely clean — 810 comparisons over 9 telcos × 30 days × 3 metrics, zero findings, zero cross-foot findings, no silent telcos — so `ow_daily_metrics` on staging is fully populated despite `ow-snapshot-refresh` never running there (the dashboard's on-read TTL refresh keeps it current).
   - **`dryRun: true` is the safe way to inspect a run.** It computes and returns the whole report without emailing. Note the run short-circuits on "no drift" *before* reading the recipient list, so `recipients: 0` on a clean report does NOT mean the list is unset.
 - **Ship-a-module-dark flag (technique).** When a module's branch must merge to `main` but the feature can't surface in prod yet, gate it with a **fail-closed env flag** instead of commit/migration surgery. Pattern: an API runtime flag (`process.env.X === "true"`) wraps the route mount in `modules/index.ts`; a web build-time `NEXT_PUBLIC_X` gates the nav filter in `sidebar.tsx` + a `notFound()` guard on the page. **Fail-closed (`=== "true"`)** — a forgotten var hides the module rather than leaking it; an env flag also hides it from Admin (permission gates don't — Admin bypasses them). `NEXT_PUBLIC_*` is inlined at `next build`, so the web flag travels `--build-arg` → `Dockerfile.web` `ARG`/`ENV`, NOT runtime `--set-env-vars`; the API flag is the reverse. **Migrations still run on prod regardless — the gate hides UI/routes, not schema.** (History: this gated the v2 Expenses overhaul via `EXPENSES_ENABLED` alongside an ungated `Expenses [v1]`. As of the expenses-consolidation PR the v2 module was **removed** and v1 **promoted to the sole `/expenses` module** — the gate is gone. There is now one Expenses module; no `expenses-v1` route/tables.)
-  - **Wiring a new flag is three files, not one.** Adding it to `turbo.json` `globalEnv` and the code is NOT enough to surface anything — the Fixed Asset tab stayed invisible on staging for exactly this reason. Checklist: (1) `docker/Dockerfile.web` — `ARG` + `ENV` for the `NEXT_PUBLIC_*` half; (2) the **web build step** of `deploy-staging.yml` / `deploy.yml` — `--build-arg`; (3) the **API deploy step** `--set-env-vars` for the runtime half. Miss (1) and the `--build-arg` is silently dropped by Docker with no error.
-  - **Current state of `ACCOUNTING_FIXED_ASSETS`:** staging is hardcoded **on** in `deploy-staging.yml` (both halves) so the module is available for UAT. Prod reads the repo variable `vars.ACCOUNTING_FIXED_ASSETS` in `deploy.yml` — unset ⇒ empty ⇒ fail-closed, so flipping prod is a GitHub *Variables* change plus a re-deploy, no code edit.
+  - **Wiring a new flag is three files, not one.** Adding it to `turbo.json` `globalEnv` and the code is NOT enough to surface anything — the Fixed Asset tab stayed invisible on staging for exactly this reason. Cloud Run-era checklist: (1) `docker/Dockerfile.web` — `ARG` + `ENV` for the `NEXT_PUBLIC_*` half; (2) the **web build step** of the (now deleted) deploy workflows — `--build-arg`; (3) the **API deploy step** `--set-env-vars` for the runtime half. **Edge-era equivalent (2026-09):** both halves are Worker config — build-time `NEXT_PUBLIC_*` via the Expo export env, runtime flags via `vars:` in `apps/edge/wrangler.jsonc` (env-scoped) or `wrangler secret put`. The Docker silent-drop failure mode is gone, but the "flag set in only one of two places" trap is not — check both the export env and the Worker vars. **Migrations still run on prod regardless — the gate hides UI/routes, not schema.** (History: this gated the v2 Expenses overhaul via `EXPENSES_ENABLED` alongside an ungated `Expenses [v1]`. As of the expenses-consolidation PR the v2 module was **removed** and v1 **promoted to the sole `/expenses` module** — the gate is gone. There is now one Expenses module; no `expenses-v1` route/tables.)
+  - **Current state of `ACCOUNTING_FIXED_ASSETS`:** the deploy workflows that set it were retired with Cloud Run (2026-09). On the edge, the flag is a Worker var — add it to `apps/edge/wrangler.jsonc` `vars` per env (staging on for UAT, prod fail-closed unless set).
 
 ---
 

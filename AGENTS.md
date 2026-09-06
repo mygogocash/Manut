@@ -23,7 +23,7 @@ This is the orientation for any AI agent or new engineer picking up work in this
    - `pnpm test` (api + web vitest)
    - `pnpm --filter @nexora/web build` (all pages)
    Run `eslint --fix` on touched files; it auto-sorts imports + fixes prettier/tailwind warnings. Restore `apps/web/tsconfig.tsbuildinfo` (`git checkout --`) before committing — it's generated.
-5. **CI is the source of truth.** Push, then watch the `Validate` job in `pr-checks.yml` (type-check + lint + test + brand-drift). A green Validate ≈ merge-ready.
+5. **CI is the source of truth.** Push, then watch the `Validate` check in Depot CI (`.depot/workflows/pr-checks.yml` — type-check + lint + test + brand-drift). A green Validate ≈ merge-ready.
 6. **Migrations: verify they apply.** See "Migrations" below — don't assume.
 7. **Combining PRs.** When asked to combine, check file overlap first (`git diff --name-only main <branch>`). Disjoint siblings → new branch off `main`, cherry-pick each PR's commits, `Closes #a #b`. If one branch was cut from another (stacked), the child already contains the parent — just relabel the child and close the parent. No redundant PR.
 
@@ -33,12 +33,15 @@ This is the orientation for any AI agent or new engineer picking up work in this
 
 This GitHub repo is [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Branches: `main` (trunk), `preview` (staging), `production` (prod).
 
-- `main` is the default integration branch. A push to `main` does **not** deploy Cloud Run or Vercel.
-- `preview` push → `deploy-staging.yml` (`nexora-api-staging` / `nexora-web-staging`) + `deploy-edge-staging.yml`. Separate Supabase via `STAGING_*` secrets. Staging syncs schema with **`pnpm db:push`** — it does NOT run `prisma migrate deploy`, so **data-migration SQL embedded in a migration never fires on staging**. If a change relies on a backfill/data migration, it shows up on prod (where `migrate deploy` runs) but not on staging — seed/patch staging by hand or expect the column empty there.
-- `production` push → `Deploy to GCP Cloud Run` (`nexora-api` / `nexora-web`) + `deploy-vercel.yml`. Cloud Run runs **`prisma migrate deploy`** (applies only *pending* migrations against prod) **before** the Docker build.
+CI runs on **Depot CI** (`.depot/workflows/`), not GitHub Actions — repo Actions is disabled. Deploys go **only to Cloudflare Workers** (`apps/edge` serving the Expo SPA + API, `apps/edge-jobs` cron) on the `manut.xyz` hosts. The GCP Cloud Run and Vercel pipelines were retired 2026-09.
+
+- `main` is the default integration branch. A push to `main` does **not** deploy.
+- `preview` push → `Deploy Edge Staging` (Depot CI): drizzle migrate + Expo export + `wrangler deploy --env staging` → `staging.manut.xyz`. Staging syncs the ERP schema with **`db push`** — it does NOT run `prisma migrate deploy`, so **data-migration SQL embedded in a migration never fires on staging**. If a change relies on a backfill/data migration, it shows up on prod (where `migrate deploy` runs) but not on staging — seed/patch staging by hand (or the Depot `db-backfill` workflow) or expect the column empty there.
+- `production` push → `Deploy Edge Production` (Depot CI): drizzle + `prisma migrate deploy` → `manut.xyz`. Production edge-jobs cron stays disabled (`JOBS_ENABLED: "false"`) until the Phase 9 cutover decision.
 - Promote `main` → `preview` and `main` → `production` with a **merge commit**, never a squash. See `docs/RELEASE_PROCESS.md`.
 - Do **not** claim a feature is live on a URL until a `production` (or `preview`) deploy has actually run. Merged-to-`main` + CI-green is not a deploy.
-- **CI (`pr-checks`, which gates `main`, `preview`, and `production`) is how we prove correctness** — it runs independently of deploy. Manut branch protection still requires a check named `Validate`; this tree's workflow is named `PR Checks`.
+- **CI (Depot `Validate`, which gates `main`, `preview`, and `production`) is how we prove correctness** — it runs independently of deploy. Branch protection requires a check named `Validate`; Depot's GitHub App reports that exact context.
+- One-time Cloudflare resources (Hyperdrive/KV/R2/Queues/D1) are provisioned per `docs/ops/CLOUDFLARE_PROVISIONING.md`; deploys fail loudly while any `REPLACE_WITH_*` placeholder remains.
 
 ---
 

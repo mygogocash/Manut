@@ -1,0 +1,65 @@
+# Deploys the Cloudflare edge stack to staging (staging.manut.xyz) on push to
+# `preview`. Runs on Depot CI; the Cloud Run staging pipeline was retired
+# 2026-09 — this is the only staging deploy.
+name: Deploy Edge Staging
+
+on:
+  push:
+    branches: [preview]
+    paths:
+      - "apps/edge/**"
+      - "apps/edge-jobs/**"
+      - "apps/app/**"
+      - "packages/db/**"
+      - "packages/auth/**"
+      - "packages/contracts/**"
+      - "pnpm-lock.yaml"
+      - ".depot/workflows/deploy-edge-staging.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-edge-staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Migrate + export + wrangler deploy
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.depot/actions/setup-workspace
+        with:
+          turbo-cache-key: deploy-edge-staging
+
+      - name: Drizzle migrate (staging)
+        if: ${{ secrets.STAGING_DIRECT_URL != '' }}
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DIRECT_URL }}
+        run: pnpm --filter @nexora/db db:migrate
+
+      - name: Expo web export
+        run: pnpm --filter @nexora/app export:web
+
+      - name: Deploy edge Worker
+        # Skips when CLOUDFLARE_API_TOKEN is unset (founder has not provisioned yet).
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm --filter @nexora/edge deploy:staging
+
+      - name: Deploy edge-jobs Worker
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm --filter @nexora/edge-jobs deploy:staging
+
+      - name: Skip notice
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN == '' }}
+        run: |
+          echo "::notice::CLOUDFLARE_API_TOKEN unset — wrangler deploy skipped. See docs/CLOUDFLARE_DEPLOYMENT.md."
