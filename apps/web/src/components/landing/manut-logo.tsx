@@ -27,8 +27,22 @@ export function ManutLogo({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <rect x="13" y="14.2" width="3.6" height="7.4" rx="1.8" fill="currentColor" />
-      <rect x="31.1" y="14.2" width="3.6" height="7.4" rx="1.8" fill="currentColor" />
+      <rect
+        x="13"
+        y="14.2"
+        width="3.6"
+        height="7.4"
+        rx="1.8"
+        fill="currentColor"
+      />
+      <rect
+        x="31.1"
+        y="14.2"
+        width="3.6"
+        height="7.4"
+        rx="1.8"
+        fill="currentColor"
+      />
       <path
         d="M23.5 16.9V23.4H20.3"
         stroke="currentColor"

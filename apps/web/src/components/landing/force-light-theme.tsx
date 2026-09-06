@@ -1,15 +1,9 @@
 "use client";
 
-import { useTheme } from "next-themes";
-import { useEffect } from "react";
-
-/** Landing is designed light-only; lock theme while /welcome is mounted. */
+/**
+ * @deprecated Removed global theme mutation side effect.
+ * The landing page is kept light through scoped CSS without modifying the user's saved theme.
+ */
 export function ForceLightTheme() {
-  const { setTheme } = useTheme();
-
-  useEffect(() => {
-    setTheme("light");
-  }, [setTheme]);
-
   return null;
 }

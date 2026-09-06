@@ -845,7 +845,7 @@ function SortablePartnerRow({
                     hover:text-primary
                     group block
                   `}
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 >
                   <span
                     className={`

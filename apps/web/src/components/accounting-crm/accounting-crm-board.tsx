@@ -4,6 +4,7 @@ import {
   DndContext,
   type DragEndEvent,
   DragOverlay,
+  type DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -485,7 +486,7 @@ export function AccountingCrmBoard({
       ) : (
         <DndContext
           sensors={columnSensors}
-          onDragStart={(event) => {
+          onDragStart={(event: DragStartEvent) => {
             if (event.active.data.current?.type === "accounting-board-column") {
               setDraggingColumnStatus(
                 event.active.data.current.status as string,

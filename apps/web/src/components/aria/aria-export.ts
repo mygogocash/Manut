@@ -90,8 +90,8 @@ export function exportConversationPDF(
 <title>${escapeHtml(title)}</title>
 <style>
   :root {
-    --bg: #f4f2ec; --surf: #ffffff; --tx: #0d0b07; --tx2: #3a3530;
-    --tx3: #ada89f; --acc: #8b6b3d; --brd: rgba(13,11,7,.085);
+    --bg: #fafaf7; --surf: #ffffff; --tx: #0b0b0a; --tx2: #3a3a3c;
+    --tx3: #8e8e93; --acc: #3738a7; --brd: rgba(11,11,10,.085);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--bg); color: var(--tx);
@@ -104,7 +104,7 @@ export function exportConversationPDF(
     text-transform: uppercase; letter-spacing: 0.08em; }
   .msg { background: var(--surf); border: 1px solid var(--brd);
     border-radius: 10px; padding: 14px 16px; margin: 0 0 12px; }
-  .msg--user { background: rgba(139,107,61,0.04); }
+  .msg--user { background: rgba(55,56,167,0.04); }
   .msg header { display: flex; justify-content: space-between; gap: 12px;
     margin-bottom: 8px; align-items: baseline; }
   .who { font-weight: 600; font-size: 12px; color: var(--tx); }
