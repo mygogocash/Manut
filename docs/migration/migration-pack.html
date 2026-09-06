@@ -1072,7 +1072,7 @@ td.id { font-family: var(--mono); font-size: .78rem; white-space: nowrap; }
       </p>
       <ul>
         <li><strong>DocuSign is entirely unwired.</strong> All nine <code>DOCUSIGN_*</code> vars are declared and read by code; none is set. The integration is dormant.</li>
-        <li><code>CORS_ALLOWED_ORIGINS</code> is unset, so the allowlist resolves from <code>PORTAL_URL</code> (<code>https://intranet.thebinaryholdings.com</code>). Socket.IO reads the same chain — through a <em>separate</em> code path that has broken independently before.</li>
+        <li><code>CORS_ALLOWED_ORIGINS</code> is unset, so the allowlist resolves from <code>PORTAL_URL</code> (<code>https://manut.xyz</code>). Socket.IO reads the same chain — through a <em>separate</em> code path that has broken independently before.</li>
         <li><code>TELEMETRY_ENABLED</code> is unset, but both trackers also enable on <code>NODE_ENV === "production"</code>, so <strong>PostHog is live in prod</strong>; the flags exist only to opt non-prod in.</li>
         <li><code>ARIA_PII_RETENTION_DAYS</code> is unset and defaults to 30 — the window in which raw user prompts are redacted from <code>aria_query_logs</code>.</li>
       </ul>
@@ -1253,7 +1253,7 @@ td.id { font-family: var(--mono); font-size: .78rem; white-space: nowrap; }
       <ul class="check">
         <li>Archive the real Cloud Scheduler job list — the repo documents 4 of 20 and its ops doc has drifted by three entries.</li>
         <li>Read the prod <code>DATABASE_URL</code> secret and record the actual Supabase region; repo sources disagree.</li>
-        <li>Enumerate live Cloud Run domain mappings, and any Firebase Hosting site (<code>tbh-intranet.web.app</code> is referenced in <code>CLAUDE.md</code>).</li>
+        <li>Enumerate live Cloud Run domain mappings, and any Firebase Hosting site (<code>manut.xyz</code> is referenced in <code>CLAUDE.md</code>).</li>
         <li>Confirm whether the Bank of Thailand FX client ID is IP-allowlisted.</li>
         <li>Decide the fate of <code>bnii-analytics-api</code> — a separate Cloud Run service in its own repo.</li>
         <li>Capture 30 days of request-count, p95-latency and memory metrics so Fargate sizing and cost are computed, not guessed.</li>

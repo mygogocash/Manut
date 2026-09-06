@@ -57,7 +57,7 @@ function BrandHeader() {
             uppercase
           `}
         >
-          The Binary Holdings
+          Manut
         </div>
       </div>
     </div>

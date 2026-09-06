@@ -777,7 +777,7 @@ export const ariaService = {
         model: ANTHROPIC_MODELS.TITLE,
         max_tokens: 1500,
         system: [
-          "You draft internal knowledge-base articles for ARIA, the assistant inside The Binary Holdings intranet.",
+          "You draft internal knowledge-base articles for ARIA, the assistant inside the Manut intranet.",
           "Input: a user question + the assistant reply that received thumbs-down + the user's optional reason.",
           'Output: a JSON object with shape {"title": string (<= 80 chars), "slug": string (lowercase a-z0-9 + hyphens, <= 60 chars), "category": one of "immigration" | "hr" | "finance" | "policy" | "other", "body": string (<= 4000 chars, markdown, written as a definitive policy / how-to — NOT as a chat reply), "keywords": string[] (3-8 short retrieval hints)}.',
           "Rules:",

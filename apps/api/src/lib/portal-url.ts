@@ -1,4 +1,4 @@
-const PRODUCTION_PORTAL_URL = "https://intranet.thebinaryholdings.com";
+const PRODUCTION_PORTAL_URL = "https://manut.xyz";
 
 // Resolves the public portal URL used in outbound emails and OAuth
 // redirects. Order: `PORTAL_URL` (explicit override), `NEXT_PUBLIC_APP_URL`

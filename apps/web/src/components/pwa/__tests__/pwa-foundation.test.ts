@@ -60,7 +60,7 @@ describe("web app manifest", () => {
   // The product is branded "Manut" (CLAUDE.md #210); `@nexora/*` is a
   // workspace detail and must never reach a user's home screen.
   it("uses the real product name, not the workspace name", () => {
-    expect(manifest.name).toBe("Manut — The Binary Holdings");
+    expect(manifest.name).toBe("Manut");
     expect(manifest.short_name).toBe("Manut");
     expect(JSON.stringify(manifest).toLowerCase()).not.toContain("nexora");
   });

@@ -15,7 +15,7 @@ can be split into its own PR if reviewers prefer.
 
 ### Issue
 
-Sign-in form on `intranet.thebinaryholdings.com/sign-in` shows
+Sign-in form on `manut.xyz/sign-in` shows
 `Server returned non-JSON response (429)` after repeated attempts.
 
 ### Root cause

@@ -357,7 +357,7 @@ export default function ExpenseApprovalConfigPage() {
         <ExpenseNotificationRecipientsCard
           title="Finance-desk notifications"
           description="Addresses that receive a long-form summary email when an expense report is fully approved. Choose `Every event` per recipient to also email at submit time — useful for finance staff who plan the next payroll batch before the approval chain finishes."
-          placeholder="finance-desk@thebinaryholdings.com"
+          placeholder="finance-desk@manut.xyz"
           fetcher={fetchExpenseRecipients}
           persister={saveExpenseRecipients}
         />

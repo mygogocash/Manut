@@ -197,7 +197,7 @@ export function CrmNotificationSettingsDialog({ open, onOpenChange }: Props) {
                   onBlur={commitDraft}
                   placeholder={
                     emails.length === 0
-                      ? "bd@thebinaryholdings.com"
+                      ? "bd@manut.xyz"
                       : "Add another…"
                   }
                   className={`

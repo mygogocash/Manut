@@ -120,7 +120,7 @@ function normaliseEmail(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const trimmed = raw.trim().toLowerCase();
   if (!trimmed) return null;
-  return trimmed.replace(/@thebinaryholding\.com$/, "@thebinaryholdings.com");
+  return trimmed.replace(/@thebinaryholding\.com$/, "@manut.xyz");
 }
 
 function joinName(

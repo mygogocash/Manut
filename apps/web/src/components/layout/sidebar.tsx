@@ -1034,7 +1034,7 @@ export function AppSidebar() {
                       uppercase
                     `}
                   >
-                    The Binary Holdings
+                    Intelligence Workspace
                   </span>
                 </div>
               </Link>

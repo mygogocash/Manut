@@ -257,7 +257,7 @@ The Phase 3 test asserting the worker had *no* push handler was replaced rather 
 
 ### Steps for a human
 
-Prerequisites: `npx web-push generate-vapid-keys`, put the pair in `.env.development` as `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT=mailto:it@thebinaryholdings.com`, restart the API, and run the **production** web build (the worker does not register in dev — Phase 3 §14).
+Prerequisites: `npx web-push generate-vapid-keys`, put the pair in `.env.development` as `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT=mailto:it@manut.xyz`, restart the API, and run the **production** web build (the worker does not register in dev — Phase 3 §14).
 
 1. Sign in, open the notification bell → an "Enable" row appears at the foot.
 2. Click **Enable** → the browser prompt appears (and not before).

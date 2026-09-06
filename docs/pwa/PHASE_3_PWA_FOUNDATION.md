@@ -36,7 +36,7 @@ Facts the decision rests on: **Next 16.3.1**, **App Router**, Turbopack in dev, 
 
 | Field | Value | Why |
 | --- | --- | --- |
-| `name` | `Intranet — The Binary Holdings` | The product name already in `metadata.title`. `@nexora/*` is a workspace detail and never user-visible (`CLAUDE.md` #210) — a test asserts the string never appears |
+| `name` | `Manut` | The product name already in `metadata.title`. `@nexora/*` is a workspace detail and never user-visible (`CLAUDE.md` #210) — a test asserts the string never appears |
 | `short_name` | `Intranet` | Fits under a launcher icon without truncation |
 | `id` | `/` | Stable app identity across renames |
 | `start_url` / `scope` | `/` | The canonical root. **Not** a `/mobile` route — none exists and none was created. `/` already routes correctly per role (`/dashboard`, or `/my-portal` for employee-only), so hardcoding a destination would be wrong for some users |

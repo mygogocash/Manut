@@ -21,7 +21,7 @@ export const DEFAULT_INVOICE_COMPANY: InvoiceCompany = {
     "Klongtan Nua, Wattana, Bangkok 10110 (Head Office)",
   ],
   taxId: "0-1055-6703-813-4",
-  email: "accounts@thebinaryholdings.com",
+  email: "accounts@manut.xyz",
   tel: "+66-2-059-0383",
   bankName: "Bank of Ayudhya PCL (Krungsri)",
   bankAccountType: "Savings Account",

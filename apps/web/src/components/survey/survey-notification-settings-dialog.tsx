@@ -169,7 +169,7 @@ export function SurveyNotificationSettingsDialog({
                 onBlur={commitDraft}
                 placeholder={
                   emails.length === 0
-                    ? "hr@thebinaryholdings.com"
+                    ? "hr@manut.xyz"
                     : "Add another…"
                 }
                 className={`

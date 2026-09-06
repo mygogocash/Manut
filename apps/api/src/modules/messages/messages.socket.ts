@@ -78,7 +78,7 @@ export interface MessagesSocketOptions {
 // errors. This now reads the same chain the Express middleware
 // uses, plus a hardcoded production fallback so a missing env var
 // never breaks the realtime channel.
-const PROD_FALLBACK_ORIGIN = "https://intranet.thebinaryholdings.com";
+const PROD_FALLBACK_ORIGIN = "https://manut.xyz";
 
 function allowedOrigins() {
   const raw =

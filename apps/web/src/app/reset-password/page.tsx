@@ -32,7 +32,7 @@ export default function ResetPasswordPage() {
                 uppercase
               `}
             >
-              The Binary Holdings
+              Manut
             </div>
           </div>
         </div>

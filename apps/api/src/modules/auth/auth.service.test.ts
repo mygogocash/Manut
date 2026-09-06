@@ -177,7 +177,7 @@ describe("AuthService", () => {
     it("sends a reset email only for active intranet users", async () => {
       (prisma.user.findFirst as Mock).mockResolvedValue({
         id: "user-123",
-        email: "user@thebinaryholdings.com",
+        email: "user@manut.xyz",
         isActive: true,
       });
       (supabaseAdmin.auth.resetPasswordForEmail as Mock).mockResolvedValue({
@@ -186,17 +186,17 @@ describe("AuthService", () => {
       });
 
       await authService.requestPasswordReset(
-        { email: " USER@TheBinaryHoldings.com " },
+        { email: " USER@Manut.xyz " },
         { ip: "203.0.113.10" },
       );
 
       expect(supabaseAdmin.auth.resetPasswordForEmail).toHaveBeenCalledWith(
-        "user@thebinaryholdings.com",
+        "user@manut.xyz",
         { redirectTo: expect.stringMatching(/\/reset-password$/) },
       );
       expect(prisma.authLog.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          email: "user@thebinaryholdings.com",
+          email: "user@manut.xyz",
           ip: "203.0.113.10",
           action: "forgot-password",
           success: true,
@@ -227,7 +227,7 @@ describe("AuthService", () => {
     it("rate limits recovery requests by email before sending", async () => {
       (prisma.user.findFirst as Mock).mockResolvedValue({
         id: "user-123",
-        email: "user@thebinaryholdings.com",
+        email: "user@manut.xyz",
         isActive: true,
       });
       (prisma.authLog.count as Mock)
@@ -235,7 +235,7 @@ describe("AuthService", () => {
         .mockResolvedValueOnce(0);
 
       await authService.requestPasswordReset({
-        email: "user@thebinaryholdings.com",
+        email: "user@manut.xyz",
       });
 
       expect(supabaseAdmin.auth.resetPasswordForEmail).not.toHaveBeenCalled();
@@ -253,7 +253,7 @@ describe("AuthService", () => {
     it("uses Supabase OTP without auto-creating users", async () => {
       (prisma.user.findFirst as Mock).mockResolvedValue({
         id: "user-123",
-        email: "user@thebinaryholdings.com",
+        email: "user@manut.xyz",
         isActive: true,
       });
       (supabaseAdmin.auth.signInWithOtp as Mock).mockResolvedValue({
@@ -262,11 +262,11 @@ describe("AuthService", () => {
       });
 
       await authService.requestMagicLink({
-        email: "user@thebinaryholdings.com",
+        email: "user@manut.xyz",
       });
 
       expect(supabaseAdmin.auth.signInWithOtp).toHaveBeenCalledWith({
-        email: "user@thebinaryholdings.com",
+        email: "user@manut.xyz",
         options: {
           shouldCreateUser: false,
           emailRedirectTo: expect.stringMatching(/\/auth\/callback$/),
@@ -277,7 +277,7 @@ describe("AuthService", () => {
     it("rejects users without the IT role and logs feature-not-enabled", async () => {
       (prisma.user.findFirst as Mock).mockResolvedValue({
         id: "user-456",
-        email: "marketer@thebinaryholdings.com",
+        email: "marketer@manut.xyz",
         isActive: true,
       });
       // Override the default IT membership for this case — user has
@@ -287,7 +287,7 @@ describe("AuthService", () => {
       ]);
 
       await authService.requestMagicLink({
-        email: "marketer@thebinaryholdings.com",
+        email: "marketer@manut.xyz",
       });
 
       expect(supabaseAdmin.auth.signInWithOtp).not.toHaveBeenCalled();
@@ -303,7 +303,7 @@ describe("AuthService", () => {
     it("allows the system Admin role even when not in the allowlist", async () => {
       (prisma.user.findFirst as Mock).mockResolvedValue({
         id: "user-789",
-        email: "admin@thebinaryholdings.com",
+        email: "admin@manut.xyz",
         isActive: true,
       });
       (prisma.userRole.findMany as Mock).mockResolvedValueOnce([
@@ -315,7 +315,7 @@ describe("AuthService", () => {
       });
 
       await authService.requestMagicLink({
-        email: "admin@thebinaryholdings.com",
+        email: "admin@manut.xyz",
       });
 
       expect(supabaseAdmin.auth.signInWithOtp).toHaveBeenCalled();
@@ -327,13 +327,13 @@ describe("AuthService", () => {
       (supabaseAdmin.auth.getUser as Mock)
         .mockResolvedValueOnce({
           data: {
-            user: { id: "user-123", email: "user@thebinaryholdings.com" },
+            user: { id: "user-123", email: "user@manut.xyz" },
           },
           error: null,
         })
         .mockResolvedValueOnce({
           data: {
-            user: { id: "user-123", email: "user@thebinaryholdings.com" },
+            user: { id: "user-123", email: "user@manut.xyz" },
           },
           error: null,
         });
@@ -355,12 +355,12 @@ describe("AuthService", () => {
       (prisma.user.findUnique as Mock)
         .mockResolvedValueOnce({
           id: "user-123",
-          email: "user@thebinaryholdings.com",
+          email: "user@manut.xyz",
           isActive: true,
         })
         .mockResolvedValueOnce({
           id: "user-123",
-          email: "user@thebinaryholdings.com",
+          email: "user@manut.xyz",
           name: "Test User",
           avatarUrl: null,
           department: "Engineering",
@@ -547,7 +547,7 @@ describe("AuthService", () => {
     it("grants every permission code when user has the system Admin role", async () => {
       const mockUser = {
         id: "admin-1",
-        email: "admin@thebinaryholdings.com",
+        email: "admin@manut.xyz",
         name: "Admin",
         avatarUrl: null,
         department: null,

@@ -199,7 +199,7 @@ const ESS_V2_FEEDBACK_COLUMNS_SEED: Prisma.InputJsonValue = [
    Static IDs (for cross-referencing)
    ──────────────────────────────────────────────── */
 
-const ADMIN_EMAIL = "admin@thebinaryholdings.com";
+const ADMIN_EMAIL = "admin@manut.xyz";
 
 /** Entity `code` values — DB assigns `Entity.id` (cuid). */
 const ENTITY_CODE_ORDER = ["TH", "AE", "SG", "PT", "ID", "VN", "IN"] as const;
@@ -1270,7 +1270,7 @@ async function main() {
       .replace(/[^a-z.]/g, "");
 
     employeeUsersData.push({
-      email: `${emailName}@thebinaryholdings.com`,
+      email: `${emailName}@manut.xyz`,
       name,
       entityId: entityIdByCode[ENTITY_CODE_ORDER[entityIdx]!]!,
       department: DEPARTMENTS[i % DEPARTMENTS.length]!,
@@ -4052,7 +4052,7 @@ async function main() {
     { title: "Partnership with Binance Ecosystem", category: "partnership" },
     { title: "Q1 2026 Financial Results", category: "financial" },
     { title: "Annual Company Retreat: December 2026", category: "event" },
-    { title: "New CTO Joins The Binary Holdings", category: "people" },
+    { title: "New CTO Joins Manut", category: "people" },
     { title: "Sustainability Report 2025 Published", category: "company" },
     { title: "Employee of the Quarter Announced", category: "people" },
     { title: "TBH Named Top 50 Web3 Companies", category: "awards" },
@@ -4075,20 +4075,20 @@ async function main() {
     "We are thrilled to announce the successful closing of our Series A funding round, raising $15 million led by Sequoia Capital with participation from Pantera Capital and Electric Capital. This investment will accelerate our product development and global expansion plans. The funds will be allocated towards engineering talent acquisition, market expansion in Southeast Asia and the Middle East, and scaling our infrastructure to support the growing user base.",
     "After months of development and rigorous testing, we are excited to announce the official launch date for the BNRY utility token. The token will go live on Ethereum and Polygon networks on July 15, 2026. Early supporters will be eligible for bonus allocation through our loyalty program. Full tokenomics and distribution details are available on our updated whitepaper.",
     "We are expanding our European presence with a new office in Lisbon, Portugal. The 2,500 sq ft space in the Parque das Nações district will serve as our European engineering hub, initially housing 15 team members with capacity to grow to 40. The office features modern co-working spaces, dedicated meeting rooms, and a rooftop terrace.",
-    "The Binary Holdings has entered into a strategic partnership with the Binance ecosystem to integrate our BNRY token into their exchange infrastructure. This collaboration includes listing support, liquidity programs, and joint marketing initiatives. The partnership is expected to significantly increase our token's visibility and trading volume across global markets.",
+    "Manut has entered into a strategic partnership with the Binance ecosystem to integrate our BNRY token into their exchange infrastructure. This collaboration includes listing support, liquidity programs, and joint marketing initiatives. The partnership is expected to significantly increase our token's visibility and trading volume across global markets.",
     "We are pleased to share our Q1 2026 financial results. Revenue grew 42% quarter-over-quarter to $3.2M, driven by strong demand for our enterprise solutions. Operating expenses remained flat at $2.1M, reflecting improved operational efficiency. Cash position stands at $18.5M following the Series A close, providing a runway of 24+ months.",
     "Save the date for our annual company retreat in Koh Samui, Thailand from December 8-12, 2026. The retreat will feature team-building activities, strategic planning sessions, a hackathon, and plenty of opportunities for cross-team bonding. Flights and accommodation will be covered for all full-time employees. Detailed itinerary and logistics will be shared in November.",
     "We are excited to welcome Dr. Sarah Chen as our new Chief Technology Officer. Sarah joins us from Google, where she led the Cloud AI division for 5 years. She holds a PhD in Computer Science from Stanford and brings deep expertise in distributed systems, blockchain architecture, and AI. Sarah will lead our engineering organization and drive our technical roadmap.",
     "Our 2025 Sustainability Report has been published, highlighting key achievements including a 35% reduction in carbon emissions from our data centers, 100% renewable energy usage in our Bangkok and Lisbon offices, and the launch of our Green Blockchain initiative. We remain committed to building technology responsibly and minimizing our environmental footprint.",
     "Congratulations to Somchai Prasert from the Engineering team for being named Employee of the Quarter! Somchai led the migration of our core API to the new microservices architecture, reducing average response times by 60% and improving system reliability to 99.97% uptime. His dedication and technical excellence exemplify our company values.",
-    "The Binary Holdings has been recognized in CoinDesk's annual ranking of the Top 50 Web3 Companies to Watch in 2026. The recognition highlights our innovative approach to enterprise blockchain solutions, our growing global team, and the strong traction of the BNRY ecosystem. We are honored to be listed alongside industry leaders.",
+    "Manut has been recognized in CoinDesk's annual ranking of the Top 50 Web3 Companies to Watch in 2026. The recognition highlights our innovative approach to enterprise blockchain solutions, our growing global team, and the strong traction of the BNRY ecosystem. We are honored to be listed alongside industry leaders.",
     "We are upgrading our health insurance benefits package effective July 1, 2026. Key improvements include: expanded dental and vision coverage, mental health support with unlimited therapy sessions through Spring Health, increased annual checkup allowance to 15,000 THB, and new family coverage options. Visit the Benefits portal for full details and enrollment.",
     "Our comprehensive security audit by CertiK has been completed with zero critical vulnerabilities found. The audit covered all smart contracts, API endpoints, and infrastructure components. Two medium-severity findings were identified and promptly remediated. The full audit report is available in the Data Room for investors and stakeholders.",
     "Version 2.0 of the TBH Mobile App is now available on both iOS and Android. Key features include: biometric authentication, push notifications for approvals, offline mode for travel requests, improved UX with dark mode support, and integration with the BNRY wallet. Download from the App Store or Google Play and share your feedback.",
     "Our community has officially crossed the 100,000 member milestone across all platforms. Discord leads with 45K members, followed by Telegram at 32K, and Twitter/X at 23K. To celebrate, we are launching a community rewards program with exclusive NFT drops and governance token allocations for our most active contributors.",
     "The new TBH Learning Platform is live, featuring 200+ courses across technical, leadership, and compliance categories. All employees get unlimited access to courses from Coursera, Udemy Business, and our custom internal curriculum. Mandatory compliance training must be completed by end of Q2. Track your progress through the Learning tab in Intranet.",
     "The BNRY cross-chain bridge is now live, enabling seamless token transfers between Ethereum, Polygon, and BSC networks. The bridge supports fast finality with an average transfer time of 3 minutes and competitive gas fees. Over $2M in volume was processed during the beta period with zero security incidents.",
-    "The Binary Holdings was featured in a Bloomberg Technology segment discussing the future of enterprise blockchain adoption in Southeast Asia. CEO James Chen highlighted our unique position bridging traditional enterprise operations with Web3 infrastructure. The segment reached an estimated audience of 2.5 million viewers globally.",
+    "Manut was featured in a Bloomberg Technology segment discussing the future of enterprise blockchain adoption in Southeast Asia. CEO James Chen highlighted our unique position bridging traditional enterprise operations with Web3 infrastructure. The segment reached an estimated audience of 2.5 million viewers globally.",
     "We have achieved ISO 27001 certification for our Information Security Management System. The certification covers all our operations across Bangkok, Dubai, Singapore, and Lisbon offices. This milestone demonstrates our commitment to the highest standards of data protection and security practices for our clients and partners.",
     "Our Singapore regional office is now fully operational, located in the One Raffles Place tower in the CBD. The 3,000 sq ft space accommodates 25 team members across Engineering, Business Development, and Operations. Singapore serves as our gateway to the broader APAC market and strengthens our regulatory presence in a key financial hub.",
     "The results of Hackathon 2026 are in! First place goes to Team Phoenix with their AI-powered document processing tool that reduces invoice processing time by 80%. Second place goes to Team Quantum for their cross-chain analytics dashboard, and third place to Team Aurora for their gamified onboarding experience. All winning projects will be evaluated for production deployment.",
@@ -4646,7 +4646,7 @@ async function main() {
     },
     { key: "company.founded_year", value: 2022 },
     { key: "company.headquarters", value: "Bangkok, Thailand" },
-    { key: "company.website", value: "https://thebinaryholdings.com" },
+    { key: "company.website", value: "https://manut.xyz" },
   ];
 
   await prisma.systemSetting.deleteMany({
@@ -5559,9 +5559,9 @@ async function main() {
   }[] = [
     {
       title:
-        "The Binary Holdings Raises $15M Series A to Expand Web3 Enterprise Platform",
+        "Manut Raises $15M Series A to Expand Web3 Enterprise Platform",
       date: "2026-04-15",
-      link: "https://techcrunch.com/2026/04/15/the-binary-holdings-series-a",
+      link: "https://techcrunch.com/2026/04/15/manut-series-a",
       img: "https://images.unsplash.com/photo-1639762681057-408e52192e55?w=600&h=400&fit=crop",
     },
     {
@@ -5580,7 +5580,7 @@ async function main() {
     },
     {
       title:
-        "CoinDesk Names The Binary Holdings in Top 50 Web3 Companies to Watch",
+        "CoinDesk Names Manut in Top 50 Web3 Companies to Watch",
       date: "2026-02-28",
       link: "https://coindesk.com/consensus-magazine/2026/02/28/top-50-web3-companies",
       img: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&h=400&fit=crop",
@@ -5593,15 +5593,15 @@ async function main() {
       img: "https://images.unsplash.com/photo-1516245834210-c4c142787335?w=600&h=400&fit=crop",
     },
     {
-      title: "Inside the Engineering Culture at The Binary Holdings",
+      title: "Inside the Engineering Culture at Manut",
       date: "2026-02-01",
       link: "https://hackernoon.com/inside-the-engineering-culture-at-tbh",
       img: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&h=400&fit=crop",
     },
     {
-      title: "The Binary Holdings Opens Singapore Office as Regional Hub",
+      title: "Manut Opens Singapore Office as Regional Hub",
       date: "2026-01-20",
-      link: "https://techinasia.com/the-binary-holdings-singapore-office",
+      link: "https://techinasia.com/manut-singapore-office",
       img: "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=600&h=400&fit=crop",
     },
     {
@@ -5626,11 +5626,11 @@ async function main() {
     {
       title: "TBH Smart Contracts Pass CertiK Security Audit with Clean Report",
       date: "2025-11-20",
-      link: "https://certik.com/projects/the-binary-holdings",
+      link: "https://certik.com/projects/manut",
       img: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&h=400&fit=crop",
     },
     {
-      title: "How The Binary Holdings Built a 100K Community in 12 Months",
+      title: "How Manut Built a 100K Community in 12 Months",
       date: "2025-11-05",
       link: "https://decrypt.co/tbh-community-growth-story",
       img: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&h=400&fit=crop",
@@ -5649,16 +5649,16 @@ async function main() {
     },
     {
       title:
-        "The Binary Holdings Announces $250K Bug Bounty Program on Immunefi",
+        "Manut Announces $250K Bug Bounty Program on Immunefi",
       date: "2025-09-28",
-      link: "https://immunefi.com/bounty/thebinaryholdings",
+      link: "https://immunefi.com/bounty/manut",
       img: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=600&h=400&fit=crop",
     },
     {
       title:
-        "From Bangkok to the World: The Binary Holdings' Global Expansion Story",
+        "From Bangkok to the World: Manut's Global Expansion Story",
       date: "2025-09-15",
-      link: "https://restofworld.org/2025/the-binary-holdings-global-expansion",
+      link: "https://restofworld.org/2025/manut-global-expansion",
       img: "https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=600&h=400&fit=crop",
     },
     {
@@ -5674,7 +5674,7 @@ async function main() {
       img: "https://images.unsplash.com/photo-1620321023374-d1a68fbc720d?w=600&h=400&fit=crop",
     },
     {
-      title: "The Binary Holdings Joins Polygon Ecosystem as Official Partner",
+      title: "Manut Joins Polygon Ecosystem as Official Partner",
       date: "2025-08-05",
       link: "https://polygon.technology/blog/tbh-partnership",
       img: "https://images.unsplash.com/photo-1639322537228-f710d846310a?w=600&h=400&fit=crop",

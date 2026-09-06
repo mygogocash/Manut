@@ -2,7 +2,7 @@
 
 > **Created:** 2026-04-28  
 > **Target repo:** `new-tbh-intranet` (Turborepo monorepo)  
-> **Source:** Audit against 13 planning docs from `crm.thebinaryholdings.com/docs/features-planning/`  
+> **Source:** Audit against 13 planning docs from `crm.manut.xyz/docs/features-planning/`  
 > **Total gaps:** ~42 features across 5 waves
 
 ---
@@ -77,7 +77,7 @@ After auditing `new-tbh-intranet` against all 13 planning documents, the followi
 | Font                        | `system-ui, -apple-system, 'Segoe UI', sans-serif` |
 | Border radius               | `10px`                                             |
 | Logo                        | `tbh-circle-logo.ico` at app domain                |
-| Footer                      | `— Intranet \| The Binary Holdings`                  |
+| Footer                      | `— Intranet \| Manut`                  |
 | Max-width                   | `520px`, centered                                  |
 
 **Email Events:**

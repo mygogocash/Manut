@@ -8,8 +8,8 @@ homeseeker).
 
 ## Prerequisites (founder)
 
-1. Workers Paid on the Binary Holdings Cloudflare account.
-2. Zone `thebinaryholdings.com` on Cloudflare (import GoDaddy DNS first; keep
+1. Workers Paid on the Manut Cloudflare account.
+2. Zone `manut.xyz` on Cloudflare (import GoDaddy DNS first; keep
    Vercel CNAMEs for `intranet.` / `staging-intranet.` until cutover).
 3. `wrangler login` against that account.
 4. Staging Supabase Postgres reachable for Hyperdrive (direct `5432` or
@@ -65,7 +65,7 @@ npx wrangler secret put EMAIL_SERVICE_API_KEY --env staging
 
 ### Custom domain (staging)
 
-`next-staging.intranet.thebinaryholdings.com` is declared in
+`staging.manut.xyz` is declared in
 `apps/edge/wrangler.jsonc` `env.staging.routes`. After the zone is on Cloudflare:
 
 ```bash

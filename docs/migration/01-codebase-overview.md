@@ -14,7 +14,7 @@ Prepared for the GCP → AWS migration assessment.
 
 ## 1. What the system is
 
-A single-tenant internal business platform for The Binary Holdings: HR/HRMS,
+A single-tenant internal business platform for Manut: HR/HRMS,
 payroll, leave, attendance, visa/immigration, accounting (Thai statutory,
 including a fixed-asset register), expenses, travel, cash advance, five separate
 CRMs (Sales, Sales Revenue, IT, Legal, Product/QA/Voucher boards), investor

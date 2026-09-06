@@ -30,9 +30,9 @@ describe("survey notification recipients", () => {
     db.systemSetting.findUnique.mockResolvedValue({
       value: {
         recipients: [
-          "  HR@thebinaryholdings.com ",
-          "hr@thebinaryholdings.com",
-          "Ops@thebinaryholdings.com",
+          "  HR@manut.xyz ",
+          "hr@manut.xyz",
+          "Ops@manut.xyz",
           42,
           "",
         ],
@@ -40,8 +40,8 @@ describe("survey notification recipients", () => {
     });
     const res = await surveyService.getNotificationRecipients();
     expect(res.recipients).toEqual([
-      "hr@thebinaryholdings.com",
-      "ops@thebinaryholdings.com",
+      "hr@manut.xyz",
+      "ops@manut.xyz",
     ]);
   });
 

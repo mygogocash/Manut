@@ -1054,7 +1054,7 @@ modules/{module-name}/
 - [-] **[M]** Setup Cloud SQL _(not used — DB is Supabase Postgres, Singapore)_
 - [x] **[S]** Setup Cloud Storage bucket _(Supabase Storage buckets; see CLAUDE.md)_
 - [-] **[M]** Configure Nginx/Load Balancer _(Cloud Run serves directly; not needed)_
-- [x] **[M]** Setup domain and SSL (`intranet.thebinaryholdings.com`)
+- [x] **[M]** Setup domain and SSL (`manut.xyz`)
 - [x] **[S]** Configure environment variables (`--set-env-vars` from GitHub Secrets)
 
 ### 11.4 Monitoring

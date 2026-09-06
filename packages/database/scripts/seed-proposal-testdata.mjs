@@ -40,10 +40,10 @@ const S = {
 /** Resolve people by email so the script survives a reseeded database. */
 async function people() {
   const wanted = [
-    "admin@thebinaryholdings.com",
-    "bhavin@thebinaryholdings.com",
-    "priya.sharma@thebinaryholdings.com",
-    "ava.davis@thebinaryholdings.com",
+    "admin@manut.xyz",
+    "bhavin@manut.xyz",
+    "priya.sharma@manut.xyz",
+    "ava.davis@manut.xyz",
   ];
   const rows = await prisma.user.findMany({
     where: { email: { in: wanted } },

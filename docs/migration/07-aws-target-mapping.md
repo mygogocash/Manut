@@ -206,7 +206,7 @@ loudly.
 
 - [ ] `gcloud scheduler jobs list --project=tbh-nexora --location=asia-southeast1` — archive the real job list; the repo documents only 4 of 20 and `docs/ops/cloud-scheduler-cron-jobs.md` has drifted by three entries
 - [ ] Read the prod `DATABASE_URL` secret and record the actual Supabase region (repo sources disagree: `ap-southeast-1` vs `ap-southeast-2`)
-- [ ] Enumerate live Cloud Run domain mappings and any Firebase Hosting site (`tbh-intranet.web.app`)
+- [ ] Enumerate live Cloud Run domain mappings and any Firebase Hosting site (`manut.xyz`)
 - [ ] Confirm whether `BOT_API_CLIENT_ID` (Bank of Thailand FX) is IP-allowlisted — a new NAT egress IP would silently break `/fx-sync`
 - [ ] Decide the fate of `bnii-analytics-api` (a separate Cloud Run service in its own repo, hardcoded as a default in two files)
 - [ ] Capture 30 days of request-count / p95-latency / memory metrics from Cloud Monitoring, so Fargate sizing and cost are computed rather than guessed

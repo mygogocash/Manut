@@ -72,7 +72,7 @@ beforeEach(() => {
   __resetPushConfigForTests();
   process.env.VAPID_PUBLIC_KEY = "test-public";
   process.env.VAPID_PRIVATE_KEY = "test-private";
-  process.env.VAPID_SUBJECT = "mailto:it@thebinaryholdings.com";
+  process.env.VAPID_SUBJECT = "mailto:it@manut.xyz";
   db.pushSubscription.upsert.mockResolvedValue({ id: "sub-1" });
   db.pushSubscription.findMany.mockResolvedValue([]);
   db.pushSubscription.deleteMany.mockResolvedValue({ count: 1 });

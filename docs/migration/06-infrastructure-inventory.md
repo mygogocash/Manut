@@ -37,13 +37,13 @@ their current state.
 
 ### Custom domains **[confirm live]**
 
-`PORTAL_URL` is hardcoded to `https://intranet.thebinaryholdings.com` in
+`PORTAL_URL` is hardcoded to `https://manut.xyz` in
 `deploy.yml`, and staging's CORS allowlist names
-`https://staging-intranet.thebinaryholdings.com`, so both are live Cloud Run
+`https://staging.manut.xyz`, so both are live Cloud Run
 domain mappings. `docs/GCP_DEPLOYMENT.md` documents the mapping procedure with
 placeholder domains only — the actual mapping records are not in the repo.
 
-`CLAUDE.md` also refers to a live design system at `tbh-intranet.web.app`, which
+`CLAUDE.md` also refers to a live design system at `manut.xyz`, which
 is a **Firebase Hosting** domain. Confirm whether that site is still served and
 whether it is in scope.
 
@@ -251,7 +251,7 @@ migration rather than blindly re-creating:
   `deploy.yml`. The integration is dormant.
 - `CORS_ALLOWED_ORIGINS` and `ALLOWED_ORIGINS` are unset, so the API's CORS
   allowlist resolves from `PORTAL_URL`
-  (`https://intranet.thebinaryholdings.com`). Socket.IO reads the same chain.
+  (`https://manut.xyz`). Socket.IO reads the same chain.
 - `NEXT_PUBLIC_SOCKET_URL` is unset, so the web build falls back to the
   `API_URL` build arg — the browser opens the WebSocket straight at the Cloud
   Run API hostname.

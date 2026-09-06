@@ -29,7 +29,7 @@ import { issueActionToken } from "@/modules/projects/workflow/workflow-token";
 //    has already committed and every path is caught.
 
 const PORTAL_URL = (
-  process.env.PORTAL_URL ?? "https://intranet.thebinaryholdings.com"
+  process.env.PORTAL_URL ?? "https://manut.xyz"
 ).replace(/\/+$/, "");
 const API_URL = (process.env.PUBLIC_API_URL ?? PORTAL_URL).replace(/\/+$/, "");
 

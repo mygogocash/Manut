@@ -149,7 +149,7 @@ router.get(
     // One-row sample so admins see the expected shape without opening
     // a separate doc.
     const sample = {
-      email: "jane.doe@thebinaryholdings.com",
+      email: "jane.doe@manut.xyz",
       name: "Jane Doe",
       phone: "+971 50 000 0000",
       entityCode: "AE",

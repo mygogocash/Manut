@@ -45,7 +45,7 @@ app.use(
 //   2. `PORTAL_URL` if set (the canonical web origin).
 //   3. Dev fallback list — covers local Next.js + a couple of common
 //      tunnels. NEVER reached when `NODE_ENV === "production"`.
-const PROD_FALLBACK_ORIGIN = "https://intranet.thebinaryholdings.com";
+const PROD_FALLBACK_ORIGIN = "https://manut.xyz";
 
 function resolveCorsOrigins(): string[] {
   const raw = process.env.CORS_ALLOWED_ORIGINS ?? "";
@@ -178,7 +178,7 @@ app.get("/", (_req, res) => {
   res.json({
     app: "Manut API",
     version: "1.0.0",
-    company: "The Binary Holdings",
+    company: "Manut",
   });
 });
 

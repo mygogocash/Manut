@@ -14,7 +14,7 @@ export type AuthEnv = {
   BETTER_AUTH_SECRET: string;
   /** Better Auth Dash (dash.better-auth.com) API key. Unset = dash plugin off. */
   BETTER_AUTH_API_KEY?: string;
-  /** Public origin of the app, e.g. https://intranet.thebinaryholdings.com */
+  /** Public origin of the app, e.g. https://manut.xyz */
   APP_URL: string;
   /** Extra trusted origins (native app scheme, staging hosts). */
   TRUSTED_ORIGINS?: string;

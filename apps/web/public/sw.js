@@ -116,8 +116,7 @@ function isHashedStatic(url) {
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname === "/manifest.webmanifest" ||
-    url.pathname === "/favicon.ico" ||
-    url.pathname === "/tbh-circle-logo.ico"
+    url.pathname === "/favicon.ico"
   );
 }
 

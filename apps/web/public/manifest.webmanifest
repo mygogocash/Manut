@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Manut — The Binary Holdings",
+  "name": "Manut",
   "short_name": "Manut",
-  "description": "AI-driven intelligence workspace for The Binary Holdings",
+  "description": "AI-driven intelligence workspace",
   "lang": "en",
   "dir": "ltr",
   "start_url": "/",
