@@ -1,12 +1,9 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Slot } from "expo-router";
+import { DashboardShell } from "@/components/dashboard-shell";
 import { useAuth } from "@/store/auth";
 
-/**
- * Full sidebar + ROUTE_PERMISSIONS port lands as modules arrive.
- * This layout refreshes /api/auth/me and bounces unauthenticated users.
- */
 export default function DashboardLayout() {
   const { user, refreshUser } = useAuth();
   const [ready, setReady] = useState(false);
@@ -35,5 +32,11 @@ export default function DashboardLayout() {
 
   if (!user) return <Redirect href="/(auth)/login" />;
 
-  return <Stack screenOptions={{ headerShown: true, title: "Intranet" }} />;
+  return (
+    <DashboardShell>
+      <View style={{ flex: 1, minHeight: 0, minWidth: 0 }}>
+        <Slot />
+      </View>
+    </DashboardShell>
+  );
 }

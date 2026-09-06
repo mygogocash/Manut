@@ -1,14 +1,31 @@
+import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Link, useRouter } from "expo-router";
-import { authClient } from "@/lib/auth-client";
+import { ActivityIndicator, Pressable, View } from "react-native";
+import { AuthFrame, AuthLink } from "@/components/auth-frame";
+import { Field } from "@/components/field";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Text } from "@/components/ui/text";
+import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/store/auth";
+
+function loginErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return "Email or password is incorrect. Check both and try again.";
+    if (error.status === 403) return error.message || "You don't have access to this portal.";
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return "Sign-in failed. Try again.";
+}
 
 export default function LoginScreen() {
   const router = useRouter();
-  const refreshUser = useAuth((s) => s.refreshUser);
+  const login = useAuth((s) => s.login);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -16,76 +33,75 @@ export default function LoginScreen() {
     setBusy(true);
     setError(null);
     try {
-      const res = await authClient.signIn.email({ email: email.trim(), password });
-      if (res.error) {
-        setError(res.error.message ?? "Sign-in failed");
-        return;
-      }
-      await refreshUser();
-      router.replace("/(dashboard)");
+      await login(email.trim(), password, remember);
+      router.replace("/dashboard");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Sign-in failed");
+      setError(loginErrorMessage(e));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <View style={styles.root}>
-      <Text style={styles.brand}>Intranet</Text>
-      <Text style={styles.sub}>Sign in with your work email</Text>
-      <TextInput
-        autoCapitalize="none"
-        autoComplete="email"
-        keyboardType="email-address"
-        placeholder="Email"
-        style={styles.input}
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        placeholder="Password"
-        secureTextEntry
-        style={styles.input}
-        value={password}
-        onChangeText={setPassword}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Pressable disabled={busy} onPress={onSubmit} style={[styles.button, busy && styles.buttonDisabled]}>
-        {busy ? <ActivityIndicator color="#F7F3EB" /> : <Text style={styles.buttonText}>Sign in</Text>}
+    <AuthFrame title="Sign in" subtitle="Enter your work email and password to open the portal.">
+      <Field label="Email">
+        <Input
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          placeholder="you@company.com"
+          accessibilityLabel="Email"
+          value={email}
+          onChangeText={setEmail}
+        />
+      </Field>
+      <Field label="Password">
+        <View className="relative">
+          <Input
+            autoComplete="password"
+            placeholder="Password"
+            accessibilityLabel="Password"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+            className="pr-16"
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+            onPress={() => setShowPassword((v) => !v)}
+            className="absolute right-2 top-1.5 h-8 items-center justify-center px-2"
+          >
+            <Text className="text-sm font-medium text-primary">{showPassword ? "Hide" : "Show"}</Text>
+          </Pressable>
+        </View>
+      </Field>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: remember }}
+        onPress={() => setRemember((v) => !v)}
+        className="flex-row items-center gap-2 py-1"
+      >
+        <View
+          className={remember ? "items-center justify-center border border-primary bg-primary" : "border border-input bg-card"}
+          style={{ width: 16, height: 16, borderRadius: 3 }}
+        >
+          {remember ? <Text className="text-[10px] leading-3 text-primary-foreground">✓</Text> : null}
+        </View>
+        <Text className="text-sm text-foreground">Remember me on this device</Text>
       </Pressable>
-      <Link href="/(auth)/magic-link" style={styles.link}>
-        Magic link
-      </Link>
-      <Link href="/(auth)/reset" style={styles.link}>
-        Reset password
-      </Link>
-    </View>
+      {error ? (
+        <Text accessibilityLiveRegion="polite" className="text-sm text-destructive">
+          {error}
+        </Text>
+      ) : null}
+      <Button disabled={busy} onPress={onSubmit} className="mt-1">
+        {busy ? <ActivityIndicator color="#F7F3EB" /> : <Text>Sign in</Text>}
+      </Button>
+      <View className="mt-1 flex-row flex-wrap gap-x-4 gap-y-2">
+        <AuthLink href="/(auth)/reset">Forgot password?</AuthLink>
+        <AuthLink href="/(auth)/magic-link">Use a magic link</AuthLink>
+      </View>
+    </AuthFrame>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "#F7F3EB", gap: 12 },
-  brand: { fontSize: 36, fontWeight: "700", color: "#3D2B1F" },
-  sub: { color: "#8B7355", marginBottom: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: "#D4C4B0",
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: "#FFFDF8",
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: "#8B6914",
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "#F7F3EB", fontWeight: "600", fontSize: 16 },
-  error: { color: "#B42318" },
-  link: { color: "#8B6914", marginTop: 8 },
-});

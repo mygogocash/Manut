@@ -17,11 +17,11 @@ Product name is **Intranet**. Workspace packages stay `@nexora/*`.
 Promote `main` → `preview` and `main` → `production` with a **merge commit**.
 See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
 
-The codebase is a Turborepo monorepo: TypeScript Express 5 + Next.js 16
-(Prisma/Supabase), a Hono Cloudflare Workers edge (Drizzle), and an Expo
-app. Auth on Express is Supabase JWT; per-request authorization is resolved
-against a permission table seeded from
-`apps/api/src/common/constants/permissions.ts`.
+The codebase is a Turborepo monorepo: TypeScript Express 5 (Prisma/Supabase),
+an Expo official web client, a Next.js 16 legacy UI (Cloud Run / Vercel /
+Playwright), and a Hono Cloudflare Workers edge (Drizzle). Auth on Express is
+Supabase JWT; per-request authorization is resolved against a permission table
+seeded from `apps/api/src/common/constants/permissions.ts`.
 
 ---
 
@@ -48,18 +48,18 @@ against a permission table seeded from
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                         Browser (Next.js client)                       │
-│  React 19 · Tailwind v4 · shadcn UI · base-ui · TipTap · sonner       │
+│              Browser (Expo official web — apps/app, :8081)             │
+│  Expo Router · React 19 · Bearer JWT + `X-Client: expo`                │
 └──────────────────────────────┬─────────────────────────────────────────┘
-                               │  HTTPS (cookie-bound JWT)
+                               │  HTTPS (Authorization: Bearer)
                                ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                       Next.js 16 (apps/web, port 3000)                 │
-│  Server components fetch via `services/*.service.ts` → `lib/api-client`│
-│  Auth provider holds `user / roles / permissions`; route guards read   │
-│  the in-memory state. No direct DB access from the web app.            │
+│                    Expo SPA (apps/app)                                 │
+│  Dashboard shell + module lists via `src/lib/api-client.ts`.           │
+│  Next.js (`apps/web`, :3000) stays the Cloud Run / Vercel / Playwright │
+│  client (`pnpm dev:web:next`) until screens are ported.                │
 └──────────────────────────────┬─────────────────────────────────────────┘
-                               │  /api/* (cookies forwarded)
+                               │  /api/* (Bearer or cookies)
                                ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                    Express 5 (apps/api, port 3001)                     │
@@ -127,7 +127,7 @@ Request lifecycle:
 │   │       ├── modules/            <feature>/{controller,service,repository,validation}.ts
 │   │       │                       (99 modules — see Domain Modules below)
 │   │       └── lib/                events, portal-url, tracking
-│   ├── web/                        Next.js 16 + React 19 frontend (port 3000)
+│   ├── web/                        Next.js 16 legacy UI (port 3000)
 │   │   └── src/
 │   │       ├── app/
 │   │       │   ├── (dashboard)/    authenticated routes (Home, HRMS, …)
@@ -140,7 +140,7 @@ Request lifecycle:
 │   │       └── lib/                api-client, utils
 │   ├── edge/                       Hono on Cloudflare Workers
 │   ├── edge-jobs/                  Cron Triggers + Queue fan-out
-│   └── app/                        Expo Router client
+│   └── app/                        Expo official web (port 8081) + native
 ├── packages/
 │   ├── database/                   Prisma schema, migrations, seed
 │   │   └── prisma/
@@ -181,7 +181,7 @@ renamed from "Nexora" to "Intranet" — don't rename it.
 
 | Layer | Tech |
 |------|------|
-| Frontend | Next.js 16 (App Router), React 19, Tailwind v4, shadcn/ui, base-ui primitives, react-hook-form + zod, sonner toasts, TipTap rich text, lucide icons |
+| Frontend | Expo 54 + Expo Router + NativeWind v4 + Reusables + TanStack Query/Table (`apps/app`, official web on :8081). Next.js 16 (`apps/web`) is the legacy Cloud Run / Vercel / Playwright UI |
 | Backend | Express 5, TypeScript 5, Zod, winston logger, multer (uploads), helmet, cors, cookie-parser, compression, express-rate-limit |
 | Database | PostgreSQL 15+ (Supabase, `aws-1-ap-southeast-1`), Prisma 6 |
 | Auth | Supabase Auth (JWT in HTTP-only cookie); permissions resolved server-side per request |
@@ -189,6 +189,7 @@ renamed from "Nexora" to "Intranet" — don't rename it.
 | Email | External email service (`EMAIL_SERVICE_URL` + template IDs) |
 | AI | Gemini (default), Anthropic (optional) — feeds the ARIA assistant |
 | Analytics | PostHog (server + client) |
+| Edge | Hono + Hono RPC on Cloudflare Workers. Hyperdrive → Postgres (ERP SoT). Sidecar: D1, Durable Objects, Queues, Workflows, R2, optional Vectorize + Workers AI, Cloudflare Access |
 | Infra | GCP Cloud Run (API + Web), Artifact Registry, Workload Identity Federation |
 | CI/CD | GitHub Actions: `pr-checks.yml` (PR gate), `deploy.yml` (push-to-main) |
 | Build | Turborepo + pnpm 10 |
@@ -429,12 +430,13 @@ under `db:migrate:prod:*` and read `.env.production`.
 
 ```bash
 pnpm dev:api        # Express on :3001
-pnpm dev:web        # Next.js on :3000
+pnpm dev:web        # Expo official web on :8081
+pnpm dev:web:next   # Next.js legacy UI on :3000
 ```
 
 Or run both at once with `pnpm dev` (Turborepo parallelises).
 
-Open <http://localhost:3000>, sign in with a seeded user (see
+Open <http://localhost:8081>, sign in with a seeded user (see
 `packages/database/prisma/seed.ts` for default emails / passwords).
 
 ---
@@ -448,6 +450,7 @@ Open <http://localhost:3000>, sign in with a seeded user (see
 | `NEXT_PUBLIC_SUPABASE_URL` | Web + API | Public Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Web + API | Public anon key (RLS-bounded) |
 | `SUPABASE_SERVICE_ROLE_KEY` | API only | Bypasses RLS; never expose to client |
+| `EXPO_PUBLIC_APP_URL` | Expo (`apps/app`) | API origin. Defaults to `http://localhost:3001`. Set `http://localhost:8787` for the edge Worker |
 | `NEXT_PUBLIC_API_URL` | Web | Base URL for browser fetches |
 | `API_URL` | Web (server) | Base URL for server-side fetches |
 | `PORT` | API | Defaults to 3001 |
@@ -476,9 +479,10 @@ Open <http://localhost:3000>, sign in with a seeded user (see
 # Dev
 pnpm dev               # run all apps (Turborepo)
 pnpm dev:api           # Express only
-pnpm dev:web           # Next.js only
+pnpm dev:web           # Expo official web on :8081
+pnpm dev:web:next      # Next.js legacy UI on :3000
 pnpm dev:edge          # Hono worker (wrangler)
-pnpm dev:app           # Expo
+pnpm dev:app           # alias for Expo
 
 # Database
 pnpm db:generate       # regen Prisma client
@@ -651,6 +655,14 @@ pnpm --filter @nexora/database exec prisma migrate deploy
   replicate that bypass in route guards — the resolver handles it.
 - Logger is winston (`apps/api/src/common/utils/logger.ts`). Use
   `logger.info("msg", { … })` with object metadata. Don't log secrets.
+
+### Frontend (`apps/app` — official local web)
+
+- Expo Router + NativeWind v4 + React Native Reusables + TanStack Query
+  + TanStack Table v8. `'use dom'` lives in `src/components/dom` for
+  web-only HTML (sanitize first). Do not run Reusables `init` here.
+- API calls go through `src/lib/api-client.ts` (`api` / `useApiQuery`)
+  with `X-Client: expo` and a Bearer token. Never cookie `fetch`.
 
 ### Frontend (`apps/web`)
 

@@ -27,6 +27,7 @@ import {
 import { leaveService } from "@nexora/core";
 import type { AppEnv } from "../lib/context";
 import { requirePermission } from "../middleware/rbac";
+import { signalLeaveDecision, startLeaveApprovalWorkflow } from "../lib/leave-workflow";
 
 const leaveRead = [PERMISSIONS.LEAVE_READ, PERMISSIONS.LEAVE_HR_READ] as const;
 const leaveApprove = [PERMISSIONS.LEAVE_APPROVE, PERMISSIONS.LEAVE_HR_READ] as const;
@@ -175,6 +176,7 @@ export const leave = new Hono<AppEnv>()
   .post("/requests", requirePermission(...leaveRequestPerm), zValidator("json", createLeaveRequestSchema), async (c) => {
     const user = c.var.user!;
     const data = await leaveService.createRequest(c.var.db, user.id, user.permissions, c.req.valid("json"));
+    c.executionCtx.waitUntil(startLeaveApprovalWorkflow(c.env, { requestId: data.id, employeeId: data.employeeId ?? user.id }));
     return c.json({ data }, 201);
   })
   .post(
@@ -201,16 +203,19 @@ export const leave = new Hono<AppEnv>()
   .put("/requests/:id/approve", requirePermission(...leaveApprove), async (c) => {
     const user = c.var.user!;
     const data = await leaveService.approveRequest(c.var.db, c.req.param("id"), user.id, user.permissions);
+    c.executionCtx.waitUntil(signalLeaveDecision(c.env, c.req.param("id"), "approved"));
     return c.json({ data });
   })
   .put("/requests/:id/reject", requirePermission(...leaveApprove), zValidator("json", rejectLeaveRequestSchema), async (c) => {
     const user = c.var.user!;
     const { reason } = c.req.valid("json");
     const data = await leaveService.rejectRequest(c.var.db, c.req.param("id"), user.id, reason, user.permissions);
+    c.executionCtx.waitUntil(signalLeaveDecision(c.env, c.req.param("id"), "rejected"));
     return c.json({ data });
   })
   .put("/requests/:id/cancel", requirePermission(PERMISSIONS.LEAVE_REQUEST), async (c) => {
     const data = await leaveService.cancelRequest(c.var.db, c.req.param("id"), c.var.user!.id);
+    c.executionCtx.waitUntil(signalLeaveDecision(c.env, c.req.param("id"), "cancelled"));
     return c.json({ data });
   })
   .put("/requests/:id/approve-cancellation", requirePermission(...leaveApprove), async (c) => {

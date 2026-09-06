@@ -11,6 +11,7 @@ import {
 import { prisma } from "@/infrastructure/database/prisma";
 import { supabaseAdmin } from "@/infrastructure/supabase/admin";
 import { trackPermissionDenied } from "@/lib/events";
+import { isLocalDevToken, verifyLocalDevAccessToken } from "@/modules/auth/local-dev-auth";
 import {
   applyManagerImplicitPerms,
   countActiveDirectReports,
@@ -44,6 +45,27 @@ export async function resolveAuthUserFromToken(
 ): Promise<AuthUser> {
   if (!token) {
     throw new UnauthorizedException();
+  }
+
+  if (isLocalDevToken(token)) {
+    const userId = verifyLocalDevAccessToken(token);
+    if (!userId) {
+      throw new UnauthorizedException();
+    }
+    const localProfile = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isActive: true,
+        entityId: true,
+      },
+    });
+    if (!localProfile) {
+      throw new UnauthorizedException("User not found");
+    }
+    return { ...localProfile, permissions: [] };
   }
 
   const {

@@ -21,6 +21,10 @@ import type {
   RecoverPasswordInput,
 } from "@/modules/auth/auth.validation";
 import {
+  isSupabaseNotConfiguredError,
+  loginWithLocalCredentials,
+} from "@/modules/auth/local-dev-auth";
+import {
   applyManagerImplicitPerms,
   countActiveDirectReports,
 } from "@/modules/auth/manager-implicit-perms";
@@ -144,29 +148,46 @@ function mapMemberships(rows: MembershipWithEntity[]): EntityMembershipDto[] {
 export class AuthService {
   async login(input: LoginInput) {
     logger.debug("AuthService.login called", { email: input.email });
-    const { data, error } = await supabaseAdmin.auth.signInWithPassword({
-      email: input.email,
-      password: input.password,
-    });
-
-    if (error) {
-      logger.warn("Supabase auth error", {
-        message: error.message,
-        status: error.status,
+    try {
+      const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+        email: input.email,
+        password: input.password,
       });
-      throw new UnauthorizedException("Invalid credentials");
-    }
 
-    if (!data.session) {
-      throw new UnauthorizedException("Invalid credentials");
-    }
+      if (error) {
+        logger.warn("Supabase auth error", {
+          message: error.message,
+          status: error.status,
+        });
+        throw new UnauthorizedException("Invalid credentials");
+      }
 
-    return this.buildAuthenticatedResponse(data.user.id, {
-      accessToken: data.session.access_token,
-      refreshToken: data.session.refresh_token,
-      expiresIn: data.session.expires_in,
-      expiresAt: data.session.expires_at,
-    });
+      if (!data.session) {
+        throw new UnauthorizedException("Invalid credentials");
+      }
+
+      return this.buildAuthenticatedResponse(data.user.id, {
+        accessToken: data.session.access_token,
+        refreshToken: data.session.refresh_token,
+        expiresIn: data.session.expires_in,
+        expiresAt: data.session.expires_at,
+      });
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      if (isSupabaseNotConfiguredError(err)) {
+        // zod's inferred LoginInput widens these to optional under the current
+        // zod/TS combo, but the controller schema guarantees both are present.
+        if (!input.email || !input.password) {
+          throw new UnauthorizedException("Invalid credentials");
+        }
+        const local = await loginWithLocalCredentials({
+          email: input.email,
+          password: input.password,
+        });
+        return this.buildAuthenticatedResponse(local.userId, local.session);
+      }
+      throw err;
+    }
   }
 
   async requestPasswordReset(

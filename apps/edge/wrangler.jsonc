@@ -19,7 +19,9 @@
     "TRUSTED_ORIGINS": "intranet://,http://localhost:8081",
     "POSTHOG_HOST": "https://us.i.posthog.com",
     "POSTHOG_ASSETS_HOST": "https://us-assets.i.posthog.com",
-    "MAGIC_LINK_ALLOWED_ROLES": ""
+    "MAGIC_LINK_ALLOWED_ROLES": "",
+    "CF_ACCESS_AUD": "",
+    "CF_ACCESS_TEAM_DOMAIN": ""
   },
   "hyperdrive": [
     { "binding": "HYPERDRIVE", "id": "00000000000000000000000000000000", "localConnectionString": "postgresql://postgres:dev@localhost:54330/intranet" }
@@ -33,6 +35,22 @@
     { "binding": "R2_PRIVATE", "bucket_name": "intranet-local-private" }
   ],
   "queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-local" }] },
+  // D1 is Worker-local sidecar state. Hyperdrive → Postgres remains the ERP SoT.
+  "d1_databases": [
+    {
+      "binding": "EDGE_DB",
+      "database_name": "intranet-edge-local",
+      "database_id": "00000000-0000-0000-0000-0000000000d1",
+      "migrations_dir": "../../packages/db/d1/migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "PRESENCE", "class_name": "PresenceRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PresenceRoom"] }],
+  "workflows": [
+    { "name": "leave-approval", "binding": "LEAVE_APPROVAL", "class_name": "LeaveApprovalWorkflow" }
+  ],
   "unsafe": {
     "bindings": [
       { "name": "RATE_LIMITER_LOGIN", "type": "ratelimit", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
@@ -47,10 +65,23 @@
         "TRUSTED_ORIGINS": "intranet://",
         "POSTHOG_HOST": "https://us.i.posthog.com",
         "POSTHOG_ASSETS_HOST": "https://us-assets.i.posthog.com",
-        "MAGIC_LINK_ALLOWED_ROLES": ""
+        "MAGIC_LINK_ALLOWED_ROLES": "",
+        "CF_ACCESS_AUD": "",
+        "CF_ACCESS_TEAM_DOMAIN": ""
       },
       "routes": [{ "pattern": "next-staging.intranet.thebinaryholdings.com", "custom_domain": true }],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_WITH_STAGING_HYPERDRIVE_ID" }],
+      "d1_databases": [
+        {
+          "binding": "EDGE_DB",
+          "database_name": "intranet-edge-staging",
+          "database_id": "REPLACE_WITH_STAGING_D1_ID",
+          "migrations_dir": "../../packages/db/d1/migrations"
+        }
+      ],
+      "workflows": [
+        { "name": "leave-approval-staging", "binding": "LEAVE_APPROVAL", "class_name": "LeaveApprovalWorkflow" }
+      ],
       "kv_namespaces": [
         { "binding": "KV_SESSIONS", "id": "REPLACE_WITH_STAGING_KV_SESSIONS_ID" },
         { "binding": "KV_CACHE", "id": "REPLACE_WITH_STAGING_KV_CACHE_ID" }
@@ -59,7 +90,10 @@
         { "binding": "R2_PUBLIC", "bucket_name": "intranet-staging-public" },
         { "binding": "R2_PRIVATE", "bucket_name": "intranet-staging-private" }
       ],
-      "queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-staging" }] }
+      "queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-staging" }] },
+      "durable_objects": {
+        "bindings": [{ "name": "PRESENCE", "class_name": "PresenceRoom" }]
+      }
     },
     "production": {
       "name": "intranet-edge",
@@ -68,10 +102,23 @@
         "TRUSTED_ORIGINS": "intranet://",
         "POSTHOG_HOST": "https://us.i.posthog.com",
         "POSTHOG_ASSETS_HOST": "https://us-assets.i.posthog.com",
-        "MAGIC_LINK_ALLOWED_ROLES": ""
+        "MAGIC_LINK_ALLOWED_ROLES": "",
+        "CF_ACCESS_AUD": "",
+        "CF_ACCESS_TEAM_DOMAIN": ""
       },
       "routes": [{ "pattern": "intranet.thebinaryholdings.com", "custom_domain": true }],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_WITH_PROD_HYPERDRIVE_ID" }],
+      "d1_databases": [
+        {
+          "binding": "EDGE_DB",
+          "database_name": "intranet-edge-prod",
+          "database_id": "REPLACE_WITH_PROD_D1_ID",
+          "migrations_dir": "../../packages/db/d1/migrations"
+        }
+      ],
+      "workflows": [
+        { "name": "leave-approval", "binding": "LEAVE_APPROVAL", "class_name": "LeaveApprovalWorkflow" }
+      ],
       "kv_namespaces": [
         { "binding": "KV_SESSIONS", "id": "REPLACE_WITH_PROD_KV_SESSIONS_ID" },
         { "binding": "KV_CACHE", "id": "REPLACE_WITH_PROD_KV_CACHE_ID" }
@@ -80,7 +127,10 @@
         { "binding": "R2_PUBLIC", "bucket_name": "intranet-prod-public" },
         { "binding": "R2_PRIVATE", "bucket_name": "intranet-prod-private" }
       ],
-      "queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-prod" }] }
+      "queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-prod" }] },
+      "durable_objects": {
+        "bindings": [{ "name": "PRESENCE", "class_name": "PresenceRoom" }]
+      }
     }
   }
 }

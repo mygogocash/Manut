@@ -13,10 +13,10 @@ GitHub: [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Default branc
 ```
 apps/
   api/           Express 5 + TypeScript backend (port 3001)
-  web/           Next.js 16 + React 19 frontend (port 3000)
+  web/           Next.js 16 + React 19 (legacy UI; Cloud Run / Vercel / Playwright)
   edge/          Hono on Cloudflare Workers (Express port)
   edge-jobs/     Cloudflare Cron Triggers + Queue fan-out
-  app/           Expo Router client (web / iOS / Android)
+  app/           Expo Router — official web client (port 8081) + iOS / Android
 packages/
   database/      Prisma schema + migrations + seed (Express / Cloud Run)
   db/            Drizzle schema (edge)
@@ -42,8 +42,8 @@ Monorepo: Turborepo + pnpm 10. Workspace package names: `@nexora/api`, `@nexora/
 ## Tech stack
 
 - **Backend**: Express 5, TypeScript, Prisma 6, PostgreSQL (Supabase), Supabase Auth, Zod validation, Resend for email, Gemini for AI.
-- **Edge**: Hono on Cloudflare Workers + Drizzle (`@nexora/db`) + Better Auth. Cron/queue work lives in `apps/edge-jobs`.
-- **Frontend**: Next.js 16 App Router, React 19, Tailwind v4, shadcn UI, base-ui primitives, react-hook-form + zod, sonner toasts, TipTap rich text. Expo app in `apps/app`.
+- **Edge**: Hono on Cloudflare Workers + Hono RPC (`@nexora/edge/rpc`) + Drizzle (`@nexora/db`) over Hyperdrive → Postgres. Sidecar only: D1 + Durable Objects + Queues + Workflows + R2 + optional Vectorize/Workers AI. Access/Zero Trust fails open unless `CF_ACCESS_AUD` is set. Cron/queue work lives in `apps/edge-jobs`. Do **not** put ERP tables (users, leave, CRM) on D1.
+- **Frontend**: Expo 54 + Expo Router (`apps/app`) is the official web client (`pnpm dev:web`, port 8081). It talks to Express with `X-Client: expo` and Bearer JWTs. Next.js 16 (`apps/web`) remains the complete legacy UI served by Cloud Run, Vercel, and Playwright (`pnpm dev:web:next`, port 3000).
 - **Infra**: GCP Cloud Run (API + Web) on `production`; staging Cloud Run + edge staging on `preview`. Artifact Registry, GitHub Actions, Workload Identity Federation. Database is Supabase Singapore (`aws-1-ap-southeast-1`).
 - **Auth**: Supabase Auth issues JWT; Express middleware resolves Prisma user + roles + permissions per request. Permission codes are `module:action` (e.g. `crm:read`). Edge uses Better Auth against the same user table.
 
@@ -64,9 +64,10 @@ All four `.env*` files are gitignored. Adding a new secret means: update root `.
 
 ```bash
 pnpm dev:api        # Express on :3001
-pnpm dev:web        # Next.js on :3000
+pnpm dev:web        # Expo official web on :8081
+pnpm dev:web:next   # Next.js legacy UI on :3000
 pnpm dev:edge       # wrangler dev for the Hono worker
-pnpm dev:app        # Expo
+pnpm dev:app        # alias for Expo (`@nexora/app`)
 pnpm db:generate    # regenerate Prisma client
 pnpm db:migrate     # create + apply local migration
 pnpm db:push        # push schema without migration (local / staging only)
@@ -112,7 +113,15 @@ Before opening a PR:
 - Permission gates: `requirePermission("scope:action")`. Admin role bypasses every gate via `auth.service.resolvePermissions`. Don't replicate that bypass in route guards — the resolver handles it.
 - Don't log secrets. Logger is winston (`apps/api/src/common/utils/logger.ts`); use `logger.info("msg", { … })` with object metadata.
 
-### Frontend (`apps/web`)
+### Frontend (`apps/app` — official local web)
+
+- Universal stack: Expo Router, NativeWind v4, React Native Reusables (`src/components/ui`), TanStack Query (`useApiQuery`), TanStack Table v8 (`DataTable`), Expo DOM (`src/components/dom`, `'use dom'`) for web-only HTML. Do not run Reusables `init` on this repo — add primitives under `src/components/ui` and keep `components.json` for `pnpm dlx @react-native-reusables/cli add`.
+- Expo Router on :8081. API calls go through `src/lib/api-client.ts` (`apiRequest` / `api`) with `X-Client: expo` and a Bearer token from `intranet.session.v1`. Never cookie `fetch`.
+- Default API origin is `http://localhost:3001`. Set `EXPO_PUBLIC_APP_URL=http://localhost:8787` to target the edge Worker instead.
+- Permission-gated nav lives in `src/lib/nav.ts`; the dashboard shell filters it the same way Express Admin bypasses gates.
+- Converted templates: login / magic-link / reset, dashboard shell, home, leave. Other module pages may still use StyleSheet + `apiRequest` — port them to Query + Reusables when you touch them. Next.js (`apps/web`) stays the complete Cloud Run / Vercel / Playwright UI.
+
+### Frontend (`apps/web` — legacy Next.js)
 
 - Routes live in `src/app/(dashboard)/…`. Server components only when the data is server-fetchable; otherwise `"use client"`.
 - API calls go through `src/services/<module>.service.ts` using the shared `api` helper from `@/lib/api-client`. Never `fetch` directly in components.

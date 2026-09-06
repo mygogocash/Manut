@@ -39,3 +39,20 @@ Legacy `apps/api` / `apps/web` / `packages/database` remain until Phase 9 decomm
 1. Keep Express on Workers via node compatibility — rejected (cold start + incomplete Node APIs).
 2. Next.js on Cloudflare OpenNext only — rejected (no shared native client path).
 3. Dual-run Prisma + Drizzle indefinitely — rejected (schema drift); Drizzle is source of truth post-cutover.
+4. Cloudflare D1 as the ERP database — rejected. Leave, users, and CRM stay on Hyperdrive → Postgres. D1 is a Worker-local sidecar (presence, workflow instance ids, handbook chunk metadata) only.
+
+## Addendum — recommended Cloudflare primitives (2026-09-05)
+
+The Worker now wires the recommended edge stack as **templates**, not a production cutover:
+
+| Primitive | Binding / package | Role |
+|---|---|---|
+| Workers + Hono | `apps/edge` | Sub-millisecond API + routing |
+| Hono RPC | `@nexora/edge/rpc` + Expo `createEdgeClient` | End-to-end types. Expo does not import the Worker runtime |
+| D1 + Drizzle | `EDGE_DB` / `packages/db/src/edge` | Sidecar SQLite only |
+| Durable Objects | `PRESENCE` / `PresenceRoom` | `/ws/messages/:channelId` presence + chat |
+| Queues | `JOBS_QUEUE` + `apps/edge-jobs` sidecar handlers | Reminders, audit, handbook ingest |
+| Workflows | `LEAVE_APPROVAL` | Multi-day leave **reminders**. Postgres still approves |
+| R2 | `R2_PUBLIC` / `R2_PRIVATE` | Documents and attachments |
+| Vectorize + Workers AI | optional `HANDBOOK` / `AI` | Semantic handbook search; D1 LIKE fallback locally |
+| Zero Trust / Access | `CF_ACCESS_AUD` | Fail-open when empty |
