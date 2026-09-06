@@ -28,7 +28,7 @@ import {
 // are recorded and swallowed.
 
 const PORTAL_URL = (
-  process.env.PORTAL_URL ?? "https://intranet.thebinaryholdings.com"
+  process.env.PORTAL_URL ?? "https://manut.xyz"
 ).replace(/\/+$/, "");
 
 const MAX_ATTEMPTS = 3;

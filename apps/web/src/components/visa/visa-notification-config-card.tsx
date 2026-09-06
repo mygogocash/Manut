@@ -252,7 +252,7 @@ export function VisaNotificationConfigCard() {
         <div className="flex gap-2">
           <Input
             type="email"
-            placeholder="hr@thebinaryholdings.com"
+            placeholder="hr@manut.xyz"
             value={emailInput}
             onChange={(e) => setEmailInput(e.target.value)}
             onKeyDown={(e) => {

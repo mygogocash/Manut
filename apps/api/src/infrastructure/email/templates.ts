@@ -1,6 +1,5 @@
 const BRAND = {
   name: "Manut",
-  company: "The Binary Holdings",
   // Manut Brand CI v1.0 email palette: Ink actions on Paper, Stone borders.
   primaryColor: "#0B0B0A",
   primaryDark: "#282826",
@@ -8,8 +7,8 @@ const BRAND = {
   textColor: "#0B0B0A",
   mutedColor: "#555550",
   borderColor: "#E3E2DC",
-  logoUrl: "https://intranet.thebinaryholdings.com/tbh-circle-logo.ico",
-  url: "https://intranet.thebinaryholdings.com",
+  logoUrl: "https://manut.xyz/favicon.ico",
+  url: "https://manut.xyz",
 } as const;
 
 type TemplateVariables = Record<
@@ -53,7 +52,7 @@ ${body}
 <tr>
 <td style="padding:20px 32px;border-top:1px solid ${BRAND.borderColor};text-align:center;">
 <p style="margin:0;font-size:12px;color:${BRAND.mutedColor};line-height:1.5;">
-${BRAND.company} &middot; <a href="${BRAND.url}" style="color:${BRAND.primaryColor};text-decoration:none;">${BRAND.name} Portal</a>
+${BRAND.name} &middot; <a href="${BRAND.url}" style="color:${BRAND.primaryColor};text-decoration:none;">${BRAND.name} Portal</a>
 </p>
 <p style="margin:6px 0 0;font-size:11px;color:${BRAND.mutedColor};">
 This is an automated message. Please do not reply directly to this email.
@@ -1493,7 +1492,7 @@ export function welcomeEmail(data: {
 <tr><td style="padding:12px 16px;border-bottom:1px solid ${BRAND.borderColor};font-size:13px;"><strong>Email:</strong> ${data.email}</td></tr>
 <tr><td style="padding:12px 16px;font-size:13px;"><strong>Password:</strong> <code style="background-color:${BRAND.bgColor};padding:2px 8px;border-radius:4px;font-size:14px;">${data.temporaryPassword}</code></td></tr>
 </table>
-<p style="margin:0 0 20px;">Please log in and let us know if you have any issues. If you have any feedback, please share it directly with <a href="mailto:sarah@thebinaryholdings.com" style="color:${BRAND.primaryColor};text-decoration:none;">sarah@thebinaryholdings.com</a>.</p>
+<p style="margin:0 0 20px;">Please log in and let us know if you have any issues.</p>
 ${actionButton("Sign In to Manut", data.portalUrl)}
 `),
   };

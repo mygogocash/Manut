@@ -163,7 +163,7 @@ function readBreakdown(input: PayslipExportInput) {
 /**
  * HR-supplied template ("Payslips Testing.xlsx") — shipped as a binary
  * asset so the generated workbook keeps every merged range, formula,
- * styling, and the constant "The Binary Holdings" company header
+ * styling, and the constant "Manut" company header
  * intact. The generator only mutates the per-payslip data cells.
  *
  * Cached on first read; the file is small (~75 KB) and the buffer is
@@ -371,10 +371,10 @@ export async function buildPayslipPdfBuffer(
 
   // Title
   drawText(ctx, "P A Y S L I P", MID - 70, 60, { bold: true, size: 18 });
-  // Company header — matches the constant "The Binary Holdings"
+  // Company header — matches the constant "Manut"
   // header on the HR-supplied template. `entityName` is no longer used
   // here (the parent brand is the legal payer, not the sub-entity).
-  drawText(ctx, "The Binary Holdings", LEFT, 100, { bold: true, size: 13 });
+  drawText(ctx, "Manut", LEFT, 100, { bold: true, size: 13 });
   drawLine(ctx, LEFT, 110, RIGHT, 110);
 
   // Net Pay headline (right side)

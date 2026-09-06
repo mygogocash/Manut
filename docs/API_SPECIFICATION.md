@@ -54,7 +54,7 @@
 ### Base URL
 
 ```
-Production: https://api.nexora.thebinaryholdings.com
+Production: https://api.manut.xyz
 Development: http://localhost:3001
 ```
 

@@ -192,7 +192,7 @@ export function NotificationSettingsDialog({ open, onOpenChange }: Props) {
                   onBlur={commitDraft}
                   placeholder={
                     emails.length === 0
-                      ? "it@thebinaryholdings.com"
+                      ? "it@manut.xyz"
                       : "Add another…"
                   }
                   className={`

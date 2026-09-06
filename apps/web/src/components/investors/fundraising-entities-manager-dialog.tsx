@@ -106,7 +106,7 @@ export function FundraisingEntitiesManagerDialog({
   async function remove(e: FundraisingEntity) {
     if (
       !window.confirm(
-        `Delete "${e.label}"? Investors on it move to The Binary Holdings (or the first remaining entity).`,
+        `Delete "${e.label}"? Investors on it move to Manut (or the first remaining entity).`,
       )
     ) {
       return;

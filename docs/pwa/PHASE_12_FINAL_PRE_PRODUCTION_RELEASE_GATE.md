@@ -272,7 +272,7 @@ Asset probes against the running server:
 PWA:      {"scope":"http://localhost:3002/","active":"activated",
            "cacheNames":["tbh-shell-v1"],"cached":3,"forbidden":[]}
 OFFLINE:  {"body":"Intranet … Sign in … Enter your credentials","forbidden":[]}
-MANIFEST: {"name":"Intranet — The Binary Holdings","display":"standalone",
+MANIFEST: {"name":"Manut","display":"standalone",
            "icons":4,"start_url":"/","scope":"/"}
 ```
 

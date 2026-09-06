@@ -87,7 +87,7 @@ export function LoginForm() {
                 <Input
                   {...field}
                   type="email"
-                  placeholder="you@thebinaryholdings.com"
+                  placeholder="you@manut.xyz"
                   autoComplete="email"
                   className={`
                     bg-background-secondary h-10

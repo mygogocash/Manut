@@ -2,7 +2,7 @@ import { createAuthClient } from "better-auth/client";
 import { magicLinkClient } from "better-auth/client/plugins";
 
 export type AuthClientOptions = {
-  /** Origin of the Worker, e.g. https://intranet.thebinaryholdings.com */
+  /** Origin of the Worker, e.g. https://manut.xyz */
   baseURL: string;
 };
 

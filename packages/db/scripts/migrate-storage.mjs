@@ -26,7 +26,7 @@ if (!url) {
   process.exit(1);
 }
 
-const PUBLIC_PREFIX = process.env.R2_REWRITE_PREFIX_PUBLIC ?? "https://cdn.intranet.thebinaryholdings.com/public/";
+const PUBLIC_PREFIX = process.env.R2_REWRITE_PREFIX_PUBLIC ?? "https://cdn.manut.xyz/public/";
 const PRIVATE_PREFIX = process.env.R2_REWRITE_PREFIX_PRIVATE ?? "r2:private:";
 
 /** Tables/columns known to hold storage URLs (extend as ports land). */

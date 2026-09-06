@@ -105,7 +105,7 @@ export function buildOffboardingHtml(run: OffboardingRun): string {
 <body>
   <div class="noprint"><button onclick="window.print()">Print / Save as PDF</button></div>
   <h1>Employee Offboarding Checklist</h1>
-  <div class="subtitle">The Binary Holdings</div>
+  <div class="subtitle">Manut</div>
 
   <table class="meta">
     <tr>

@@ -130,7 +130,7 @@ skipped cases now pass with evidence:**
 PWA:      {"scope":"http://localhost:3002/","active":"activated",
            "cacheNames":["tbh-shell-v1"],"cached":3,"forbidden":[]}
 OFFLINE:  {"body":"Intranet … Sign in …","forbidden":[]}
-MANIFEST: {"name":"Intranet — The Binary Holdings","display":"standalone",
+MANIFEST: {"name":"Manut","display":"standalone",
            "icons":4,"start_url":"/","scope":"/"}
 AXE:      {"token":"36 9% 41%","violations":[landmark-one-main, region],"passes":33}
 ```

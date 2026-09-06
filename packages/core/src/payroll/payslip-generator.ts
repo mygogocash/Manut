@@ -202,7 +202,7 @@ export async function buildPayslipPdfBuffer(
   };
 
   draw("P A Y S L I P", MID - 70, 60, { bold: true, size: 18 });
-  draw("The Binary Holdings", LEFT, 100, { bold: true, size: 13 });
+  draw("Manut", LEFT, 100, { bold: true, size: 13 });
   line(LEFT, 110, RIGHT, 110);
 
   draw("Employee Details", LEFT, 135, { bold: true, size: 11 });

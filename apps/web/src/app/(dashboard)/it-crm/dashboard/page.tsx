@@ -339,7 +339,7 @@ function buildHtmlReport(
 <body>
 <header>
   <h1>IT CRM Intelligence Report</h1>
-  <div class="subtitle">Generated ${escapeHtml(stamp)} · intranet.thebinaryholdings.com</div>
+  <div class="subtitle">Generated ${escapeHtml(stamp)} · manut.xyz</div>
 </header>
 
 <div class="kpis">
@@ -560,7 +560,7 @@ function buildHtmlReport(
   }</tbody></table>
 </section>
 
-<footer>The Binary Holdings · Internal use only · Generated from the live IT CRM workspace.</footer>
+<footer>Manut · Internal use only · Generated from the live IT CRM workspace.</footer>
 </body>
 </html>`;
 }

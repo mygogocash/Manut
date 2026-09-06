@@ -27,7 +27,7 @@ import { PrismaClient } from "../../src/generated/prisma";
 //                  in place. Subsequent rows with the same serial insert
 //                  fresh.
 //   - Email:       `thebinaryholding.com` typo is treated as
-//                  `thebinaryholdings.com` for user lookup. Rows whose email /
+//                  `manut.xyz` for user lookup. Rows whose email /
 //                  name don't resolve to a User keep `assignedTo = null` —
 //                  HR can wire them up later from the UI.
 //
@@ -101,7 +101,7 @@ function normaliseEmail(raw: string | null): string | null {
   return raw
     .trim()
     .toLowerCase()
-    .replace(/@thebinaryholding\.com$/, "@thebinaryholdings.com");
+    .replace(/@thebinaryholding\.com$/, "@manut.xyz");
 }
 
 function normaliseStatus(raw: string | null): string {

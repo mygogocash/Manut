@@ -155,7 +155,7 @@ function buildDashboardHtml(
 </head>
 <body>
 <h1>Integration CRM Dashboard</h1>
-<p class="subtitle">Generated ${escapeHtml(stamp)} · Source: intranet.thebinaryholdings.com</p>
+<p class="subtitle">Generated ${escapeHtml(stamp)} · Source: manut.xyz</p>
 
 <div class="kpis">
   <div class="kpi"><div class="label">Total projects</div><div class="value">${snapshot.total}</div></div>

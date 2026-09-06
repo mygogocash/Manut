@@ -1,7 +1,7 @@
 # Handoff — IT-15 · Expense (Allowance) approval chain
 
 Last updated: 2026-05-20
-Owner: Kunanon (kunanon@thebinaryholdings.com)
+Owner: Kunanon (kunanon@manut.xyz)
 Ticket: IT-15 (Expense / Allowance approval — Kanban "IT team" / Open)
 
 Branch suggestion: `feat/it-15-allowance-approval-chain`

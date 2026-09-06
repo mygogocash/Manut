@@ -393,7 +393,7 @@ export default function CashAdvanceApprovalConfigPage() {
         <div className="flex gap-2">
           <Input
             type="email"
-            placeholder="finance@thebinaryholdings.com"
+            placeholder="finance@manut.xyz"
             value={recipientInput}
             onChange={(e) => setRecipientInput(e.target.value)}
             onKeyDown={(e) => {

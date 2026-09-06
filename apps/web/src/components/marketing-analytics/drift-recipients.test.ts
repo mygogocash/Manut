@@ -46,7 +46,7 @@ describe("parseRecipients", () => {
 
   it("keeps plus-tags and subdomains, which stricter patterns reject", () => {
     const r = parseRecipients(
-      "ops+drift@thebinaryholdings.com\nx@mail.corp.thebinaryholdings.com",
+      "ops+drift@manut.xyz\nx@mail.corp.manut.xyz",
     );
     expect(r.invalid).toEqual([]);
     expect(r.valid).toHaveLength(2);

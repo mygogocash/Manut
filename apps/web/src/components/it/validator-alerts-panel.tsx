@@ -488,7 +488,7 @@ export function ValidatorAlertsPanel({
                   onChange={(e) =>
                     setForm((f) => ({ ...f, email: e.target.value }))
                   }
-                  placeholder="ops@thebinaryholdings.com"
+                  placeholder="ops@manut.xyz"
                 />
               </div>
             </FormSection>

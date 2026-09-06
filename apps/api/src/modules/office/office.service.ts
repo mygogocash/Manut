@@ -182,14 +182,15 @@ function joinAmenities(value: string[] | undefined): string | undefined {
     .join(", ");
 }
 
-// HR's spreadsheet predates the move to thebinaryholdings.com, so a
-// handful of rows still reference the old single-s domain. Treat both
-// forms as the same address when looking up users.
+// HR's spreadsheet predates the current email domain, so a handful of rows
+// still carry stale addresses. The old normalization (retired 2026-09) mapped
+// them onto a domain that no longer belongs to this product; the lookup now
+// matches whatever the sheet says, verbatim.
 function normaliseEmail(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const trimmed = raw.trim().toLowerCase();
   if (!trimmed) return null;
-  return trimmed.replace(/@thebinaryholding\.com$/, "@thebinaryholdings.com");
+  return trimmed;
 }
 
 function joinName(

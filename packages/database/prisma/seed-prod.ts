@@ -23,7 +23,7 @@ async function promptPassword(question: string): Promise<string> {
   });
 }
 
-const ADMIN_EMAIL = "admin@thebinaryholdings.com";
+const ADMIN_EMAIL = "admin@manut.xyz";
 
 const ADMIN_PERMISSIONS = [
   "home:read",

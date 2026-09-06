@@ -166,7 +166,7 @@ export function ItCrmReminderSettingsDialog({ open, onOpenChange }: Props) {
                 onBlur={commitDraft}
                 placeholder={
                   emails.length === 0
-                    ? "it-lead@thebinaryholdings.com"
+                    ? "it-lead@manut.xyz"
                     : "Add another…"
                 }
                 className={`

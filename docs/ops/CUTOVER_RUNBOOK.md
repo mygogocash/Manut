@@ -27,7 +27,7 @@ Same Postgres stays; session model changes (users re-login once).
 
 ## T (cutover)
 
-1. Attach Workers custom domain: `intranet.thebinaryholdings.com` → prod edge Worker  
+1. Attach Workers custom domain: `manut.xyz` → prod edge Worker  
    (zone already on Cloudflare; remove Vercel CNAME).
 2. `staging-intranet.` → staging Worker (if not already).
 3. Smoke: login (magic-link + password), `/api/auth/me`, one leave list, one upload, one cron forced tick.

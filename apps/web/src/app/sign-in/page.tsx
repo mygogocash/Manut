@@ -31,7 +31,7 @@ export default function SignInPage() {
                 uppercase
               `}
             >
-              The Binary Holdings
+              Manut
             </div>
           </div>
         </div>

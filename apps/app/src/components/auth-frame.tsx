@@ -37,7 +37,7 @@ export function AuthFrame({
           <ManutSymbol size={38} />
           <View>
             <Text className="text-[15px] font-bold tracking-wide text-foreground">Manut</Text>
-            <Text className="text-[10px] font-medium uppercase tracking-[1.4px] text-muted-foreground">The Binary Holdings</Text>
+            <Text className="text-[10px] font-medium uppercase tracking-[1.4px] text-muted-foreground">Manut</Text>
           </View>
         </View>
         <Text className="text-xl font-semibold text-foreground">{title}</Text>

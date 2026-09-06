@@ -209,7 +209,7 @@ Stated plainly, because it was one of the four objectives.
 
 ### What a human needs to do
 
-Prerequisites: `npx web-push generate-vapid-keys`; add `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:it@thebinaryholdings.com` to `.env`; restart the API; run a **production** web build (the worker does not register in dev).
+Prerequisites: `npx web-push generate-vapid-keys`; add `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:it@manut.xyz` to `.env`; restart the API; run a **production** web build (the worker does not register in dev).
 
 1. Sign in as an approver. Open the bell → **Enable** → accept the prompt.
 2. Confirm a row appears: `select count(*) from push_subscriptions;`

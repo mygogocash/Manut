@@ -9,7 +9,7 @@ meta:
   pii_policy: traits_only
   internal_user_policy: exclude_non_prod
   notes: |
-    Internal HR + CRM suite for The Binary Holdings. Single-tenant.
+    Internal HR + CRM suite for Manut. Single-tenant.
     Recommended destination: PostHog (self-host or Cloud free tier).
     ~50 users → event volume is trivial; minimalism is for signal quality, not cost.
 

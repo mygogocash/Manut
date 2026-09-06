@@ -18,6 +18,10 @@ out/
 .env.production
 .env.development
 
+# Wrangler local secrets (apps/edge)
+.dev.vars
+.dev.vars.*
+
 # IDE
 .vscode/
 .idea/

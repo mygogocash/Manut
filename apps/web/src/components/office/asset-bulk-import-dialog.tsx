@@ -317,7 +317,7 @@ function buildAssetTemplate(): XLSX.WorkBook {
       "Jane Doe",
       "",
       "",
-      "jane@thebinaryholdings.com",
+      "jane@manut.xyz",
       "Management",
       "",
     ],

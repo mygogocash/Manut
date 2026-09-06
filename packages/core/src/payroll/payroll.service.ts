@@ -160,7 +160,7 @@ export interface PayslipCompany {
   phone: string;
 }
 const DEFAULT_PAYSLIP_COMPANY: PayslipCompany = {
-  legalName: "The Binary Holdings (Thailand) Co., Ltd.",
+  legalName: "Manut Co., Ltd.",
   address:
     "150 T-Place Building, 7th Floor, Rooms 702-703, Soi Sukhumvit 55 " +
     "(Thong Lo), Khlong Tan Nuea, Watthana, Bangkok, 10110, Thailand",

@@ -40,8 +40,8 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Manut — The Binary Holdings",
-  description: "AI-driven intelligence workspace for The Binary Holdings",
+  title: "Manut — Think better with AI",
+  description: "AI-driven intelligence workspace",
   applicationName: "Manut",
   // Declared once, here, for every route — Next merges metadata down the tree,
   // so repeating any of this in a nested layout would only risk divergence.

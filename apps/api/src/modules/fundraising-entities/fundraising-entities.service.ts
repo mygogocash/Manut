@@ -27,7 +27,7 @@ import {
  * repopulated.
  */
 export const DEFAULT_FUNDRAISING_ENTITIES = [
-  { key: "tbh", label: "The Binary Holdings", sortOrder: 0 },
+  { key: "tbh", label: "Manut", sortOrder: 0 },
   { key: "tbl", label: "The Binary Labs", sortOrder: 1 },
 ] as const;
 
