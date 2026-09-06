@@ -695,7 +695,7 @@ pnpm --filter @nexora/database exec prisma migrate deploy
 - Product name: **Intranet** (#210). Don't rename `@nexora/*`
   workspace packages — that's an implementation detail.
 - Design tokens: cream / bronze / gold (live on
-  `tbh-intranet.web.app`). Local `globals.css` may differ — when in
+  `manut.xyz`). Local `globals.css` may differ — when in
   doubt, match the live site.
 
 ---
