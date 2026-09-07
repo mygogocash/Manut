@@ -3,8 +3,8 @@
  * + deploy.yml). ONE Cron Trigger fires every 10 minutes; `dueJobs()` returns the jobs
  * whose local (Asia/Bangkok) wall-clock schedule matches that tick.
  *
- * TODO(founder): verify hours/minutes against the live snapshot:
- *   gcloud scheduler jobs list --project=tbh-nexora --location=asia-southeast1 --format=json
+ * The GCP Cloud Scheduler project these were migrated from has been retired;
+ * this list is now the source of truth for the schedule.
  */
 export type JobName =
   | "expense-monthly-reminders" | "accounting-status" | "it-billing-reminders" | "crm-deadline-reminders"
