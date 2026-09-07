@@ -33,9 +33,9 @@ DATABASE_URL="$STAGING_DIRECT_URL" pnpm --filter @nexora/db db:migrate
 npx wrangler kv namespace create KV_SESSIONS --env staging
 npx wrangler kv namespace create KV_CACHE --env staging
 
-# R2
-npx wrangler r2 bucket create manut-staging-public
-npx wrangler r2 bucket create manut-staging-private
+# R2 — names must match apps/edge/wrangler.jsonc env.staging.r2_buckets
+npx wrangler r2 bucket create intranet-staging-public
+npx wrangler r2 bucket create intranet-staging-private
 
 # Queues (producer + consumer + DLQ)
 npx wrangler queues create intranet-jobs-staging
