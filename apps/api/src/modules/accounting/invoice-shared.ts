@@ -19,7 +19,7 @@ export interface InvoiceCompany {
   footerNote: string;
 }
 
-// Default is TBH Thailand (from the invoice template) until edited in
+// Default is the Thailand entity (from the invoice template) until edited in
 // Accounting → Invoices → company settings and stored as a SystemSetting.
 export const DEFAULT_INVOICE_COMPANY: InvoiceCompany = {
   name: "The Binary Holding (Thailand) Co., Ltd.",
