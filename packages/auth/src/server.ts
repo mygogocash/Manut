@@ -96,6 +96,17 @@ export function createAuth(
     basePath: "/api/auth",
     trustedOrigins: [env.APP_URL, ...trusted],
     secondaryStorage,
+    // Better Auth omits `session` / `verification` from its internal schema when
+    // secondaryStorage is set and these flags are false — then sign-in / magic-link
+    // / dash hooks that still touch the adapter throw
+    // `Model "session" not found in schema` (better-auth#9370). Dual-write to
+    // Postgres + KV keeps the schema intact; KV remains the fast path.
+    session: {
+      storeSessionInDatabase: true,
+    },
+    verification: {
+      storeInDatabase: true,
+    },
     user: {
       modelName: "users",
       fields: {
