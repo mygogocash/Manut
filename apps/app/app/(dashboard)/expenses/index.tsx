@@ -53,16 +53,17 @@ function statusVariant(status: string): "secondary" | "success" | "warning" | "d
 
 const columns: ColumnDef<ExpenseReport>[] = [
   { accessorKey: "title", header: "Title" },
-  { accessorKey: "period", header: "Period" },
-  { accessorFn: (row) => row.category ?? "general", header: "Category" },
-  { accessorFn: (row) => row.employee?.name ?? "—", header: "Employee" },
   {
     id: "status",
     header: "Status",
+    size: 120,
     cell: ({ row }) => (
       <Badge variant={statusVariant(row.original.status)}>{row.original.status}</Badge>
     ),
   },
+  { accessorKey: "period", header: "Period", size: 100 },
+  { accessorFn: (row) => row.category ?? "general", header: "Category" },
+  { accessorFn: (row) => row.employee?.name ?? "—", header: "Employee" },
 ];
 
 function CreateExpenseReportDialog({

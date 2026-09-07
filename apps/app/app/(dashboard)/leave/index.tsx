@@ -50,16 +50,17 @@ function statusVariant(
 
 const columns: ColumnDef<LeaveRequest>[] = [
   { accessorFn: (row) => row.leaveType?.name ?? "Leave", header: "Type" },
-  { accessorFn: (row) => row.employee?.name ?? "—", header: "Employee" },
-  { accessorFn: (row) => `${row.startDate} – ${row.endDate}`, header: "Dates" },
-  { accessorKey: "days", header: "Days" },
   {
     id: "status",
     header: "Status",
+    size: 120,
     cell: ({ row }) => (
       <Badge variant={statusVariant(row.original.status)}>{row.original.status}</Badge>
     ),
   },
+  { accessorFn: (row) => row.employee?.name ?? "—", header: "Employee" },
+  { accessorFn: (row) => `${row.startDate} – ${row.endDate}`, header: "Dates" },
+  { accessorKey: "days", header: "Days", size: 72 },
 ];
 
 function todayIso(): string {

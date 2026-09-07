@@ -46,7 +46,15 @@ function statusVariant(status: string): "secondary" | "success" | "warning" | "d
 }
 
 const columns: ColumnDef<TravelRequest>[] = [
-  { accessorKey: "requestCode", header: "Code" },
+  { accessorKey: "requestCode", header: "Code", size: 100 },
+  {
+    id: "status",
+    header: "Status",
+    size: 120,
+    cell: ({ row }) => (
+      <Badge variant={statusVariant(row.original.status)}>{row.original.status}</Badge>
+    ),
+  },
   {
     accessorFn: (row) => `${row.origin} → ${row.destination}`,
     header: "Route",
@@ -56,13 +64,6 @@ const columns: ColumnDef<TravelRequest>[] = [
     header: "Dates",
   },
   { accessorFn: (row) => row.employee?.name ?? "—", header: "Employee" },
-  {
-    id: "status",
-    header: "Status",
-    cell: ({ row }) => (
-      <Badge variant={statusVariant(row.original.status)}>{row.original.status}</Badge>
-    ),
-  },
 ];
 
 function RequestTravelDialog({
