@@ -1,9 +1,19 @@
 # Plan: Neon (Hyperdrive) + Databricks ERP lakehouse
 
 **Date:** 2026-09-07  
-**Status:** Draft — implement after founder sign-off on phases below  
+**Status:** Phase 0 locked — ready for PR2 (Neon staging provision)  
 **Credits:** ~$1k Neon + ~$1k Databricks  
 **Out of scope:** Marketing / BNII / OneWave analytics (explicitly excluded)
+
+### Locked founder decisions (2026-09-07)
+
+| Topic | Decision |
+|---|---|
+| Neon region | **APAC** |
+| Staging data | **Greenfield** — Drizzle migrate on empty Neon + seed (no staging Supabase restore) |
+| Databricks cloud | **AWS** (cheapest for v1 Jobs Compute; avoid Azure 2× Jobs DBU) |
+| Databricks region | Prefer **`ap-southeast-1`** if credit/workspace allows (near Neon APAC); else **`us-east-1`** for lowest list rates — document whichever the credit unlocks |
+| Export v1 | **Depot workflow** (not edge-jobs) |
 
 ---
 
@@ -51,24 +61,26 @@ Expo SPA → Workers (Hono)
               ├─ KV / DO / Queues / Workflows / R2
               └─ (no Databricks binding)
 
-edge-jobs / Depot batch ──► Neon (read) ──► Databricks (Delta)
-                                              └─ SQL warehouse / notebooks
+Depot workflow (v1) ──► Neon (read) ──► S3 / UC volume ──► Databricks AWS (Delta)
+                                                              └─ SQL warehouse (auto-stop)
 ```
 
 **Rule:** Neon = transactional truth for the app. Databricks = derived, rebuildable analytics.
 
 ---
 
-## Phase 0 — Decisions (sign-off before coding)
+## Phase 0 — Decisions (LOCKED)
 
-| # | Decision | Recommendation | Owner |
+| # | Decision | Choice | Status |
 |---|---|---|---|
-| D1 | Neon region | Closest to Workers + Hyperdrive (APAC / Singapore-class) | Founder |
-| D2 | Staging ledger | **Drizzle-only** on Neon staging (`drizzle.__drizzle_migrations`). Do not also run Prisma history on the same Neon DB. | Eng |
-| D3 | Prod Neon timing | After Better Auth cutover rehearsal is green on staging | Founder |
-| D4 | First Databricks domain slice | `core` + `rbac` + leave/travel/expense/cash-advance + sales-crm + shared projects | Eng |
-| D5 | CDC mechanism v1 | Nightly **snapshot export** (SQL → Parquet/CSV → volume) before true logical CDC | Eng |
-| D6 | pgvector on Neon | Enable if ARIA embedding tables are restored to staging | Eng |
+| D1 | Neon region | **APAC** | Locked |
+| D2 | Staging ledger | **Drizzle-only** on Neon (`drizzle.__drizzle_migrations`). Never Prisma history on this DB. | Locked |
+| D3 | Staging data | **Greenfield seed** — empty Neon → `db:migrate` → seed Better Auth users / catalogs. No Supabase dump. | Locked |
+| D4 | First Databricks domain slice | `core` + `rbac` + leave/travel/expense/cash-advance + sales-crm + shared projects | Locked |
+| D5 | CDC mechanism v1 | Nightly **snapshot export** via **Depot workflow** (SQL → Parquet/CSV → volume) | Locked |
+| D6 | Databricks cloud | **AWS** — Jobs Compute list ~$0.15/DBU vs Azure ~$0.30/DBU; stretch $1k on scheduled jobs + auto-stop SQL warehouse. Prefer Serverless Jobs / 2X-Small SQL with aggressive auto-stop; avoid always-on all-purpose clusters. | Locked |
+| D7 | pgvector on Neon | Enable on greenfield if Drizzle `0000` / ARIA tables require it; otherwise skip until ARIA staging is needed | Eng at provision |
+| D8 | Prod Neon timing | After Better Auth cutover rehearsal is green on staging | Still founder gate |
 
 ---
 
@@ -93,11 +105,11 @@ npx wrangler hyperdrive create staging-manut-edge-neon \
 4. Paste Hyperdrive id into `apps/edge/wrangler.jsonc` and `apps/edge-jobs/wrangler.jsonc` staging env (replace `REPLACE_WITH_STAGING_HYPERDRIVE_ID`).
 5. Set Depot secrets: `STAGING_DIRECT_URL` (Neon direct). Optionally keep `STAGING_DATABASE_URL` for backfill workflow aligned to same Neon.
 
-### 1.2 Schema bootstrap
+### 1.2 Schema bootstrap (greenfield — locked)
 
-1. Prefer: dump/restore **public** schema from current staging Supabase **or** fresh Drizzle migrate against empty Neon + seed.
-2. If restore: baseline Drizzle migrations (`packages/db` baseline script) so `db:migrate` is a no-op for already-applied SQL.
-3. Do **not** rely on `migrate-supabase-auth.mjs` on Neon (no `auth.users`). Seed Better Auth users via existing seed / admin create path.
+1. Empty Neon database → `pnpm --filter @nexora/db db:migrate` via `STAGING_DIRECT_URL`.
+2. Seed Better Auth users + required catalogs (existing seed / admin create). **Do not** run `migrate-supabase-auth.mjs` (no Supabase `auth.users` on Neon).
+3. Expect empty business data on first cut — that is intentional; UAT fills via app or targeted seed scripts.
 4. Apply D1 migrations separately (unchanged): `wrangler d1 migrations apply …`.
 
 ### 1.3 Verify
@@ -151,12 +163,14 @@ Update in the same PR as wiring:
 
 **Outcome:** Nightly (or on-demand) export of a first ERP slice into Delta; queryable via SQL warehouse. No Worker binding.
 
-### 3.1 Workspace setup (manual)
+### 3.1 Workspace setup (manual) — AWS locked
 
-1. Databricks workspace (region near Neon or cheap storage region — document choice).
-2. Unity Catalog schema: `manut_erp` (or `manut_staging_erp`).
-3. Storage: UC volume or external location for raw landing.
-4. SQL warehouse starter (auto-stop aggressive to stretch $1k).
+1. Create **Databricks on AWS** workspace (use the cloud the $1k credit unlocks).
+2. Region: `ap-southeast-1` if available under the credit; otherwise `us-east-1` and note cross-region egress from Neon APAC (acceptable for nightly P0 snapshots).
+3. Unity Catalog schema: `manut_staging_erp`.
+4. Landing: UC volume or S3 external location for Depot-uploaded Parquet/CSV.
+5. SQL warehouse: **2X-Small**, auto-stop **≤10 min**; no always-on all-purpose cluster for v1.
+6. Prefer **Jobs compute** (or serverless jobs) for ingest notebooks — not interactive clusters left running.
 
 ### 3.2 First table slice (no marketing)
 
@@ -178,19 +192,14 @@ Explicitly **excluded:** marketing-crm, BNII, `ow_*` metrics.
 
 Prefer one of:
 
-**A. Depot workflow** (simplest for credits burn / control)  
-- Manual + scheduled workflow (like `db-backfill.yml`)  
+**A. Depot workflow — LOCKED for v1**  
+- Manual + scheduled workflow (mirror `db-backfill.yml`)  
 - Reads Neon via `STAGING_DIRECT_URL`  
-- Writes Parquet/CSV to a landing path Databricks picks up  
+- Writes Parquet/CSV to S3 / UC landing path  
 - Idempotent by `as_of_date` partition  
 
-**B. edge-jobs cron** (fits runtime)  
-- New job name in `apps/edge-jobs` schedule  
-- Handler in `apps/edge` `/api/cron/…` → `@nexora/core` exporter  
-- Staging only until `JOBS_ENABLED` prod gate  
-- Must stay under Worker CPU/time limits — chunked exports  
-
-**Recommendation:** start with **A (Depot)** for bulk; move hot incremental pieces to **B** only if needed.
+**B. edge-jobs cron** — deferred (Phase 5 / only if Depot timing is insufficient)  
+- Worker CPU/time limits make bulk ERP dumps a poor first fit
 
 ### 3.4 Lakehouse objects
 
@@ -274,12 +283,18 @@ Only after Phase 1–2 are boring:
 
 ---
 
-## Open questions for founder
+## Open questions (remaining)
 
-1. Neon region preference (APAC vs US for credit pricing)?
-2. Restore existing staging data into Neon, or greenfield seed?
-3. Databricks cloud (Azure / AWS / GCP) already chosen with the $1k credit?
-4. OK to start exports via Depot workflow (not edge-jobs) for v1?
+1. Does the Databricks $1k credit unlock **AWS `ap-southeast-1`**, or only certain regions? (Affects workspace region only — cloud stays AWS.)
+2. Confirm Neon APAC project create + Hyperdrive id paste owner (founder vs eng with wrangler token).
+
+---
+
+## Next action
+
+**PR2:** provision Neon APAC greenfield → Hyperdrive → paste staging ids → point `STAGING_DIRECT_URL` at Neon direct → migrate + seed → verify staging auth/list.
+
+Databricks AWS workspace can be provisioned in parallel but code lands in **PR5**.
 
 ---
 
