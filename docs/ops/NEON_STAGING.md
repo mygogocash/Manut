@@ -77,11 +77,11 @@ Parent is the Neon project primary (already bootstrapped). Do **not** run `db:bo
 
 | Name | Kind | Notes |
 |---|---|---|
-| `NEON_API_KEY` | secret | Neon console → Account → API keys |
+| `NEON_API_KEY` | secret | Set 2026-09-07 (org `rf185j2sr5`, repo-scoped `mygogocash/Manut`) |
 | `NEON_PROJECT_ID` | variable | `patient-mode-86465099` |
-| `STAGING_DIRECT_URL` | secret | Unpooled Neon URL after password rotate (deploy migrate + Hyperdrive origin) |
+| `STAGING_DIRECT_URL` | secret | Unpooled Neon URL (post password-rotate; deploy migrate + Hyperdrive origin) |
 
-Parent is always the Neon project primary. If you need a non-default parent, add `parent_branch` to the create step in the workflow.
+Parent is always the Neon project primary (`production`). If you need a non-default parent, add `parent_branch` to the create step in the workflow.
 
 If either `NEON_PROJECT_ID` or `NEON_API_KEY` is missing, the workflow no-ops with a notice (same pattern as unset `CLOUDFLARE_API_TOKEN` on staging deploy).
 
