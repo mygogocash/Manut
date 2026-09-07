@@ -1,17 +1,13 @@
-import { MessageSquarePlus, Send, Sparkles, Trash2 } from "lucide-react-native";
+import { MessageSquarePlus, Send, Sparkles, Square, Trash2 } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { EmptyState } from "@/components/empty-state";
 import { PageScreen } from "@/components/page-screen";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Text } from "@/components/ui/text";
+import { Textarea } from "@/components/ui/textarea";
 import { TABLET_MIN, useViewportWidth } from "@/hooks/use-viewport-width";
 import {
   confirmAriaAction,
@@ -28,6 +24,7 @@ import {
 import { ApiError } from "@/lib/api-client";
 import { ASSISTANT_DISPLAY_NAME, BRAND } from "@/lib/brand";
 import { MANUT_AI_GREETING, MANUT_AI_PRESETS } from "@/lib/manut-ai-presets";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
 
@@ -134,6 +131,8 @@ export default function ManutAiPage() {
   const [sending, setSending] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(!compact);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -196,21 +195,33 @@ export default function ManutAiPage() {
     [compact, scrollToBottom],
   );
 
-  const handleDelete = useCallback(
-    async (id: string) => {
-      try {
-        await deleteConversation(id);
-        setConversations((prev) => prev.filter((c) => c.id !== id));
-        if (activeId === id) {
-          setActiveId(null);
-          setMessages([]);
-        }
-      } catch {
-        setListError("Failed to delete conversation");
+  const stopStreaming = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setSending(false);
+    setMessages((prev) =>
+      prev.map((m) => (m.pending ? { ...m, pending: false, content: m.content || "(Stopped)" } : m)),
+    );
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await deleteConversation(deleteId);
+      setConversations((prev) => prev.filter((c) => c.id !== deleteId));
+      if (activeId === deleteId) {
+        setActiveId(null);
+        setMessages([]);
       }
-    },
-    [activeId],
-  );
+      setDeleteId(null);
+      toast("Conversation deleted", "success");
+    } catch {
+      setListError("Failed to delete conversation");
+    } finally {
+      setDeleting(false);
+    }
+  }, [activeId, deleteId]);
 
   const send = useCallback(
     async (raw: string) => {
@@ -420,7 +431,7 @@ export default function ManutAiPage() {
                   <Pressable
                     accessibilityLabel="Delete conversation"
                     className="px-2 py-2"
-                    onPress={() => void handleDelete(c.id)}
+                    onPress={() => setDeleteId(c.id)}
                   >
                     <Trash2 size={14} color={BRAND.stone700} />
                   </Pressable>
@@ -513,22 +524,25 @@ export default function ManutAiPage() {
 
           <View className="border-t border-border bg-card px-3 py-3">
             {sending ? (
-              <View className="mb-2 flex-row items-center gap-2">
-                <Badge variant="intelligence">Thinking</Badge>
-                <Text className="text-[12px] text-muted-foreground">Manut AI is working…</Text>
+              <View className="mb-2 flex-row items-center justify-between gap-2">
+                <View className="flex-row items-center gap-2">
+                  <Badge variant="intelligence">Thinking</Badge>
+                  <Text className="text-[12px] text-muted-foreground">Manut AI is working…</Text>
+                </View>
+                <Button size="sm" variant="outline" onPress={stopStreaming} accessibilityLabel="Stop generating">
+                  <Square size={12} color={BRAND.ink} />
+                  <Text>Stop</Text>
+                </Button>
               </View>
             ) : null}
             <View className="flex-row items-end gap-2">
-              <TextInput
+              <Textarea
                 accessibilityLabel="Message Manut AI"
                 value={input}
                 onChangeText={setInput}
                 placeholder="Ask Manut AI…"
-                placeholderTextColor={BRAND.stone500}
                 editable={!sending}
-                multiline
-                className="max-h-28 min-h-11 flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-[15px] text-foreground"
-                onSubmitEditing={() => void send(input)}
+                className="max-h-28 min-h-11 flex-1 rounded-xl bg-background"
               />
               <Button
                 size="icon"
@@ -543,6 +557,27 @@ export default function ManutAiPage() {
           </View>
         </View>
       </View>
+
+      <Dialog open={Boolean(deleteId)} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <DialogContent
+          title="Delete conversation?"
+          description="This removes the chat from your history. You can’t undo this."
+          footer={
+            <DialogFooter>
+              <Button variant="outline" disabled={deleting} onPress={() => setDeleteId(null)}>
+                <Text>Cancel</Text>
+              </Button>
+              <Button variant="destructive" disabled={deleting} onPress={() => void confirmDelete()}>
+                <Text>{deleting ? "Deleting…" : "Delete"}</Text>
+              </Button>
+            </DialogFooter>
+          }
+        >
+          <Text className="text-[13px] text-muted-foreground">
+            {conversations.find((c) => c.id === deleteId)?.title?.trim() || "Untitled chat"}
+          </Text>
+        </DialogContent>
+      </Dialog>
     </PageScreen>
   );
 }

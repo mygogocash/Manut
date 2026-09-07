@@ -18,7 +18,6 @@ import {
 import { DASHBOARD_HOME, EMPLOYEE_NAV_GROUPS, NAV_GROUPS, filterNavGroups } from "@/lib/nav";
 import { queryKeys } from "@/lib/query-keys";
 import { BRAND } from "@/lib/brand";
-import { shadowSm } from "@/lib/shadow";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
 
@@ -47,7 +46,7 @@ function CardLink({
     <Pressable
       accessibilityRole="link"
       onPress={() => router.push(href as Href)}
-      style={[shadowSm, { width, minWidth: width, flexGrow: 1 }]}
+      style={{ width, minWidth: width, flexGrow: 1 }}
       className="rounded-xl border border-border bg-card px-4 py-3.5 active:bg-accent"
     >
       <Text className="text-[22px] font-bold tracking-tight text-foreground">{title}</Text>

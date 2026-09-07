@@ -1,8 +1,9 @@
 import { usePathname, useRouter, type Href } from "expo-router";
 import { ChevronDown, LogOut, Menu, Search, X } from "lucide-react-native";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Platform, Pressable, ScrollView, View } from "react-native";
+import { Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { ManutSymbol } from "@/components/brand/manut-symbol";
+import { ToastHost } from "@/components/toast-host";
 import { Text } from "@/components/ui/text";
 import { TABLET_MIN, useViewportWidth } from "@/hooks/use-viewport-width";
 import { BRAND } from "@/lib/brand";
@@ -17,6 +18,49 @@ import {
 import { useAuth } from "@/store/auth";
 
 const SIDEBAR_WIDTH = 264;
+const COLLAPSE_STORAGE_KEY = "manut.nav.collapsed.v1";
+
+function readStoredCollapse(): Record<string, boolean> {
+  if (Platform.OS !== "web" || typeof localStorage === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(COLLAPSE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v === "boolean") out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredCollapse(value: Record<string, boolean>) {
+  if (Platform.OS !== "web" || typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function filterGroupsByQuery(groups: NavGroup[], query: string): NavGroup[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return groups;
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) =>
+          item.label.toLowerCase().includes(q) ||
+          item.href.toLowerCase().includes(q) ||
+          group.label.toLowerCase().includes(q),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 function NavGroupBlock({
   group,
@@ -109,6 +153,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const isWide = viewportWidth >= TABLET_MIN;
   const sidebarWidth = isWide ? SIDEBAR_WIDTH : Math.min(280, Math.max(240, viewportWidth - 56));
   const [open, setOpen] = useState(false);
+  const [navQuery, setNavQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const { user, hasPermission, isEmployeeOnly, logout } = useAuth();
 
   const groups = useMemo(
@@ -116,24 +162,38 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     [hasPermission, isEmployeeOnly],
   );
 
-  const [collapsedByLabel, setCollapsedByLabel] = useState<Record<string, boolean>>({});
+  const visibleGroups = useMemo(() => filterGroupsByQuery(groups, navQuery), [groups, navQuery]);
+
+  const [collapsedByLabel, setCollapsedByLabel] = useState<Record<string, boolean>>(() =>
+    readStoredCollapse(),
+  );
 
   useEffect(() => {
     setCollapsedByLabel((prev) => {
       const next = { ...prev };
+      let changed = false;
       for (const group of groups) {
         if (next[group.label] === undefined) {
           next[group.label] = Boolean(group.defaultCollapsed);
+          changed = true;
         }
       }
-      return next;
+      return changed ? next : prev;
     });
   }, [groups]);
 
+  useEffect(() => {
+    writeStoredCollapse(collapsedByLabel);
+  }, [collapsedByLabel]);
+
   function go(href: string) {
     setOpen(false);
+    setSearchOpen(false);
+    setNavQuery("");
     router.push(href as Href);
   }
+
+  const searching = navQuery.trim().length > 0;
 
   const sidebar = (
     <View
@@ -142,7 +202,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       style={{ width: sidebarWidth, maxWidth: sidebarWidth, flexBasis: sidebarWidth }}
       {...(Platform.OS === "web" ? ({ role: "navigation" } as object) : {})}
     >
-      <View className="flex-row items-center gap-3 px-5 pb-4 pt-6">
+      <View className="flex-row items-center gap-3 px-5 pb-3 pt-6">
         <ManutSymbol size={36} />
         <View className="min-w-0 flex-1">
           <Text className="font-display text-[22px] leading-6 text-sidebar-strong">Manut</Text>
@@ -151,22 +211,45 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </Text>
         </View>
       </View>
-      <ScrollView className="min-h-0 flex-1" contentContainerClassName="px-3 pb-6">
-        {groups.map((group) => (
-          <NavGroupBlock
-            key={group.label}
-            group={group}
-            pathname={pathname}
-            collapsed={Boolean(collapsedByLabel[group.label])}
-            onToggle={() =>
-              setCollapsedByLabel((prev) => ({
-                ...prev,
-                [group.label]: !prev[group.label],
-              }))
-            }
-            onNavigate={go}
+      <View className="mb-2 px-3">
+        <View className="flex-row items-center gap-2 rounded-md border border-sidebar-border bg-background/60 px-2.5 py-1.5">
+          <Search size={14} color={BRAND.stone700} />
+          <TextInput
+            accessibilityLabel="Filter navigation"
+            value={navQuery}
+            onChangeText={setNavQuery}
+            placeholder="Filter nav…"
+            placeholderTextColor={BRAND.stone500}
+            className="min-h-8 flex-1 text-[13px] text-sidebar-strong"
+            {...(Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : {})}
           />
-        ))}
+          {navQuery ? (
+            <Pressable accessibilityLabel="Clear nav filter" onPress={() => setNavQuery("")}>
+              <X size={14} color={BRAND.stone700} />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+      <ScrollView className="min-h-0 flex-1" contentContainerClassName="px-3 pb-6">
+        {visibleGroups.length === 0 ? (
+          <Text className="px-2 py-4 text-[13px] text-sidebar-foreground">No matching pages</Text>
+        ) : (
+          visibleGroups.map((group) => (
+            <NavGroupBlock
+              key={group.label}
+              group={group}
+              pathname={pathname}
+              collapsed={searching ? false : Boolean(collapsedByLabel[group.label])}
+              onToggle={() =>
+                setCollapsedByLabel((prev) => ({
+                  ...prev,
+                  [group.label]: !prev[group.label],
+                }))
+              }
+              onNavigate={go}
+            />
+          ))
+        )}
       </ScrollView>
       <View className="border-t border-sidebar-border px-3 py-3">
         <View className="mb-2 px-2.5">
@@ -233,17 +316,48 @@ export function DashboardShell({ children }: { children: ReactNode }) {
               Stay clear. Act with confidence.
             </Text>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Search (coming soon)"
-            disabled
-            className="h-10 flex-row items-center gap-2 rounded-md border border-border bg-background px-3 opacity-60"
-          >
-            <Search size={16} color={BRAND.stone700} />
-            {isWide ? (
-              <Text className="text-[13px] text-muted-foreground">Search</Text>
-            ) : null}
-          </Pressable>
+          {searchOpen && isWide ? (
+            <View className="h-10 w-56 flex-row items-center gap-2 rounded-md border border-border bg-background px-3">
+              <Search size={16} color={BRAND.stone700} />
+              <TextInput
+                accessibilityLabel="Filter navigation"
+                autoFocus
+                value={navQuery}
+                onChangeText={setNavQuery}
+                placeholder="Filter nav…"
+                placeholderTextColor={BRAND.stone500}
+                className="min-h-8 flex-1 text-[13px] text-foreground"
+                {...(Platform.OS === "web" ? ({ outlineStyle: "none" } as object) : {})}
+              />
+              <Pressable
+                accessibilityLabel="Close search"
+                onPress={() => {
+                  setSearchOpen(false);
+                  setNavQuery("");
+                }}
+              >
+                <X size={14} color={BRAND.stone700} />
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Search navigation"
+              onPress={() => {
+                if (!isWide) {
+                  setOpen(true);
+                  return;
+                }
+                setSearchOpen(true);
+              }}
+              className="h-10 flex-row items-center gap-2 rounded-md border border-border bg-background px-3"
+            >
+              <Search size={16} color={BRAND.stone700} />
+              {isWide ? (
+                <Text className="text-[13px] text-muted-foreground">Search</Text>
+              ) : null}
+            </Pressable>
+          )}
         </View>
         <View
           className="min-h-0 flex-1"
@@ -251,6 +365,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         >
           {children}
         </View>
+        <ToastHost />
         {!isWide && open ? (
           <View className="absolute inset-0 z-20 flex-row">
             {sidebar}

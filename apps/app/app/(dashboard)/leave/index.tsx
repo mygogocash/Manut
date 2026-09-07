@@ -1,22 +1,25 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react-native";
-import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
 import { DataTable } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Field } from "@/components/field";
 import { PageScreen } from "@/components/page-screen";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { SelectChips, SelectEmpty } from "@/components/ui/select";
 import { Text } from "@/components/ui/text";
+import { Textarea } from "@/components/ui/textarea";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { api, ApiError } from "@/lib/api-client";
 import { BRAND } from "@/lib/brand";
 import { unwrapList } from "@/lib/list";
 import { queryKeys } from "@/lib/query-keys";
-import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 
 type LeaveRequest = {
   id: string;
@@ -35,12 +38,28 @@ type LeaveType = {
   isActive?: boolean;
 };
 
+function statusVariant(
+  status: string,
+): "secondary" | "success" | "warning" | "destructive" | "outline" {
+  const s = status.toLowerCase();
+  if (s.includes("approved") || s.includes("taken")) return "success";
+  if (s.includes("reject") || s.includes("cancel")) return "destructive";
+  if (s.includes("pending") || s.includes("submitted")) return "warning";
+  return "outline";
+}
+
 const columns: ColumnDef<LeaveRequest>[] = [
   { accessorFn: (row) => row.leaveType?.name ?? "Leave", header: "Type" },
   { accessorFn: (row) => row.employee?.name ?? "—", header: "Employee" },
   { accessorFn: (row) => `${row.startDate} – ${row.endDate}`, header: "Dates" },
   { accessorKey: "days", header: "Days" },
-  { accessorKey: "status", header: "Status" },
+  {
+    id: "status",
+    header: "Status",
+    cell: ({ row }) => (
+      <Badge variant={statusVariant(row.original.status)}>{row.original.status}</Badge>
+    ),
+  },
 ];
 
 function todayIso(): string {
@@ -63,6 +82,10 @@ function RequestLeaveDialog({
     () => unwrapList<LeaveType>(typesQuery.data).filter((t) => t.isActive !== false),
     [typesQuery.data],
   );
+  const typeOptions = useMemo(
+    () => types.map((t) => ({ value: t.id, label: t.name })),
+    [types],
+  );
 
   const [leaveTypeId, setLeaveTypeId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(todayIso);
@@ -71,18 +94,14 @@ function RequestLeaveDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset fields whenever the dialog opens so reopen never carries stale values.
-  if (open && !busy && error === null && leaveTypeId === null && reason === "" && startDate === todayIso() && endDate === todayIso()) {
-    // no-op sentinel — actual reset happens in onOpenChange below
-  }
-
-  function resetForm() {
+  useEffect(() => {
+    if (!open) return;
     setLeaveTypeId(null);
     setReason("");
     setStartDate(todayIso());
     setEndDate(todayIso());
     setError(null);
-  }
+  }, [open]);
 
   async function submit() {
     if (!leaveTypeId) {
@@ -104,10 +123,7 @@ function RequestLeaveDialog({
         reason: reason.trim() || undefined,
       });
       onOpenChange(false);
-      setLeaveTypeId(null);
-      setReason("");
-      setStartDate(todayIso());
-      setEndDate(todayIso());
+      toast("Leave request submitted", "success");
       onCreated();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Request failed");
@@ -138,35 +154,11 @@ function RequestLeaveDialog({
           <Text className="text-[13px] text-destructive">{typesQuery.error.message}</Text>
         ) : (
           <Field label="Leave type">
-            <View className="flex-row flex-wrap gap-2">
-              {types.map((t) => {
-                const selected = t.id === leaveTypeId;
-                return (
-                  <Pressable
-                    key={t.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => setLeaveTypeId(t.id)}
-                    className={cn(
-                      "rounded-full border px-3 py-1.5",
-                      selected ? "border-primary bg-primary" : "border-border bg-card",
-                    )}
-                  >
-                    <Text
-                      className={cn(
-                        "text-[13px] font-medium",
-                        selected ? "text-primary-foreground" : "text-foreground",
-                      )}
-                    >
-                      {t.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-              {types.length === 0 ? (
-                <Text className="text-[13px] text-muted-foreground">No leave types available.</Text>
-              ) : null}
-            </View>
+            {typeOptions.length === 0 ? (
+              <SelectEmpty>No leave types available.</SelectEmpty>
+            ) : (
+              <SelectChips value={leaveTypeId} onValueChange={setLeaveTypeId} options={typeOptions} />
+            )}
           </Field>
         )}
         <Field label="Start date">
@@ -188,7 +180,7 @@ function RequestLeaveDialog({
           />
         </Field>
         <Field label="Reason (optional)">
-          <Input
+          <Textarea
             accessibilityLabel="Reason"
             placeholder="Brief reason for your request"
             value={reason}
