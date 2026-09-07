@@ -7,6 +7,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from "@/common/exceptions/http-exception";
+import { isValidEmail } from "@/common/utils/email";
 import { logger } from "@/common/utils/logger";
 import { prisma } from "@/infrastructure/database/prisma";
 import { sendEmail } from "@/infrastructure/email/email.service";
@@ -964,7 +965,7 @@ export class VisaService {
     for (const raw of rawEmails) {
       const trimmed = raw.trim().toLowerCase();
       if (!trimmed) continue;
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      if (!isValidEmail(trimmed)) {
         throw new BadRequestException(`Invalid email: ${raw}`);
       }
       if (seen.has(trimmed)) continue;

@@ -209,7 +209,7 @@ model AriaConversationSummary {
 
 // Pinned key/value facts extracted from a conversation. Injected into
 // the system prompt every turn so ARIA "remembers" persistent details
-// (e.g. "user is reviewing Q2 expenses for TBH-TH"). Background
+// (e.g. "user is reviewing Q2 expenses for Manut-TH"). Background
 // extractor runs after each assistant reply.
 model AriaConversationMemory {
   id             String   @id @default(uuid()) @db.Uuid

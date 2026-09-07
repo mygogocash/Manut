@@ -14,7 +14,7 @@
  *   DATABASE_URL | DIRECT_URL | STAGING_DIRECT_URL — Postgres URL (unpooled preferred)
  *   SEED_ADMIN_PASSWORD — required (min 12 chars); never commit
  *   SEED_ADMIN_EMAIL — default admin@manut.xyz
- *   SEED_ADMIN_NAME — default TBH Admin
+ *   SEED_ADMIN_NAME — default Manut Admin
  */
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -31,7 +31,7 @@ if (!url) {
 }
 
 const email = (process.env.SEED_ADMIN_EMAIL ?? "admin@manut.xyz").toLowerCase();
-const name = process.env.SEED_ADMIN_NAME ?? "TBH Admin";
+const name = process.env.SEED_ADMIN_NAME ?? "Manut Admin";
 const password = process.env.SEED_ADMIN_PASSWORD;
 if (!password || password.length < 12) {
   console.error("SEED_ADMIN_PASSWORD required (min 12 characters)");
@@ -81,7 +81,7 @@ try {
         is_active, fiscal_year_start_month, default_rate_source,
         enabled_currencies, setup_state, created_at, updated_at
       ) VALUES (
-        ${entityId}, 'TBH Thailand', 'TH', 'Thailand', 'THB', 'TFRS for NPAEs',
+        ${entityId}, 'Manut Thailand', 'TH', 'Thailand', 'THB', 'TFRS for NPAEs',
         true, 1, 'bot',
         ARRAY['THB']::text[], 'active', ${now}::timestamptz, ${now}::timestamptz
       )
