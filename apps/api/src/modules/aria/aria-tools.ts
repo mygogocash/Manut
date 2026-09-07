@@ -54,7 +54,7 @@ function visaTypeLabel(raw: string): string {
  * etc.) into the set of canonical `visa_type` values it should match.
  *
  * Thailand-specific note: a Thai "Non-Immigrant B" is informally
- * called a "business visa" by HR but TBH usually catalogues it under
+ * called a "business visa" by HR but Manut usually catalogues it under
  * `work_visa` because the same row also carries the work-permit
  * fields. We deliberately expand "business" → `business_visa` +
  * `work_visa` so HR queries like "Manit's Thailand business visa"
@@ -258,7 +258,7 @@ const lookupVisa: ToolEntry<{
       "Each record carries the raw `visaType` (one of: work_visa | residence_visa | tourist_visa | business_visa | transit_visa | other) plus a human `visaTypeLabel`, country, issue/expiry dates, work-permit fields, and holder info.",
       'Defaults: holderType="employee" (only the employee\'s own visas; pass "dependent" or "all" to include family). Empty filters return every active employee row.',
       'Country filter is case-insensitive substring match ("thailand" matches "Thailand").',
-      'visaTypeQuery accepts natural language ("business", "non-b", "work permit", "tourist"). A Thai Non-Immigrant B is informally a "business visa" but TBH usually catalogues it under work_visa — passing visaTypeQuery="business" matches both business_visa and work_visa rows so HR-style questions surface the Non-B record.',
+      'visaTypeQuery accepts natural language ("business", "non-b", "work permit", "tourist"). A Thai Non-Immigrant B is informally a "business visa" but Manut usually catalogues it under work_visa — passing visaTypeQuery="business" matches both business_visa and work_visa rows so HR-style questions surface the Non-B record.',
       "Caller's own visa is always accessible; others require visa:read or visa:hr-read.",
     ].join(" "),
     input_schema: {
@@ -1644,7 +1644,7 @@ const ariaMemoryForget: ToolEntry<{ matching: string }> = {
         matching: {
           type: "string",
           description:
-            "Substring to match against memory key or value (e.g. 'meal preference', 'TBH Vietnam').",
+            "Substring to match against memory key or value (e.g. 'meal preference', 'Manut Vietnam').",
         },
       },
       required: ["matching"],

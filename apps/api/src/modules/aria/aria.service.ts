@@ -144,7 +144,7 @@ interface RetrievalResult {
 
 // Hybrid retrieval weights. 0.7/0.3 favours semantic similarity but
 // keeps a strong keyword signal so acronyms / policy codes ("IT-15",
-// "SSF", "TBH") that vectors gloss over still surface.
+// "SSF", "Manut") that vectors gloss over still surface.
 const HYBRID_VECTOR_WEIGHT = 0.7;
 const HYBRID_KEYWORD_WEIGHT = 0.3;
 // Combined-score threshold (higher is better). Calibrated against the
@@ -781,7 +781,7 @@ export const ariaService = {
           "Input: a user question + the assistant reply that received thumbs-down + the user's optional reason.",
           'Output: a JSON object with shape {"title": string (<= 80 chars), "slug": string (lowercase a-z0-9 + hyphens, <= 60 chars), "category": one of "immigration" | "hr" | "finance" | "policy" | "other", "body": string (<= 4000 chars, markdown, written as a definitive policy / how-to — NOT as a chat reply), "keywords": string[] (3-8 short retrieval hints)}.',
           "Rules:",
-          "- Do not echo the chat conversation. Write the article from a TBH HR / Ops voice, present tense, third person.",
+          "- Do not echo the chat conversation. Write the article from a Manut HR / Ops voice, present tense, third person.",
           "- If the input is ambiguous or you would have to invent facts, set `body` to a one-line note asking the admin to supply the source data, and keep the other fields as best-effort scaffolding.",
           "- Output JSON only. No markdown fences, no prose around the object.",
         ].join("\n"),
