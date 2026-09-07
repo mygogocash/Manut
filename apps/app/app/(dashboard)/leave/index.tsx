@@ -71,6 +71,19 @@ function RequestLeaveDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Reset fields whenever the dialog opens so reopen never carries stale values.
+  if (open && !busy && error === null && leaveTypeId === null && reason === "" && startDate === todayIso() && endDate === todayIso()) {
+    // no-op sentinel — actual reset happens in onOpenChange below
+  }
+
+  function resetForm() {
+    setLeaveTypeId(null);
+    setReason("");
+    setStartDate(todayIso());
+    setEndDate(todayIso());
+    setError(null);
+  }
+
   async function submit() {
     if (!leaveTypeId) {
       setError("Select a leave type");
