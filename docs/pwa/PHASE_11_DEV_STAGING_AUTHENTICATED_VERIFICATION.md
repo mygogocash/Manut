@@ -141,7 +141,7 @@ Blocked in full, with nothing partially claimed:
 | Y | short viewports on authenticated surfaces | **BLOCKED** |
 | Z–AB | network, error states, console on authenticated routes | **BLOCKED** |
 
-Staging **is** reachable (`https://staging-intranet.thebinaryholdings.com` → 307 to sign-in), so
+Staging **is** reachable (`https://staging.manut.xyz` → 307 to sign-in), so
 the environment is healthy. It was deliberately **not** measured: it runs pre-programme code, so
 any result would describe the old application and would be misleading in a report about this
 programme.

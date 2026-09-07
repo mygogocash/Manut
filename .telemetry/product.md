@@ -1,11 +1,11 @@
-# Product model — Intranet (TBH)
+# Product model — Intranet (Manut)
 
 ## Identity
 
 - **Product**: Intranet (formerly "Nexora"; rebrand landed in #210)
-- **URL**: intranet.thebinaryholdings.com
+- **URL**: manut.xyz
 - **Category**: Internal B2B back-office suite (HR + CRM + ops)
-- **Audience**: ~50 staff across The Binary Holdings entities (TBH Thailand, TBH India, TBH Vietnam, TBH Indonesia)
+- **Audience**: ~50 staff across Manut entities (Manut Thailand, Manut India, Manut Vietnam, Manut Indonesia)
 - **Stack**: Next.js 16 + Express 5 + Prisma + Supabase (Singapore)
 
 ## Tenancy model

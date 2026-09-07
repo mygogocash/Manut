@@ -18,6 +18,10 @@ out/
 .env.production
 .env.development
 
+# Wrangler local secrets (apps/edge)
+.dev.vars
+.dev.vars.*
+
 # IDE
 .vscode/
 .idea/
@@ -63,3 +67,9 @@ playwright/.auth/
 # `git add -A` from sweeping tool output into a feature branch.
 apps/web/AGENTS.md
 apps/web/CLAUDE.md
+
+# Mimosa security-scan local output (scanner working dirs, not source)
+.mimosa/
+
+# ZCode local workspace state
+.zcode/

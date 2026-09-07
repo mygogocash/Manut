@@ -1022,7 +1022,7 @@ export function PayslipBulkImportDialog({
                   onChange={(e) =>
                     setQuickCreate({ ...quickCreate, email: e.target.value })
                   }
-                  placeholder="name@thebinaryholdings.com"
+                  placeholder="name@manut.xyz"
                 />
                 <p className="text-muted-foreground text-xs">
                   Leave blank if you don&apos;t have one yet — we&apos;ll attach

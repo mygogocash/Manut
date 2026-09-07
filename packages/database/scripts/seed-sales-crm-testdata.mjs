@@ -178,9 +178,9 @@ async function ensureCatalogs() {
  */
 async function owners() {
   const preferred = [
-    "admin@thebinaryholdings.com",
-    "bhavin@thebinaryholdings.com",
-    "priya.sharma@thebinaryholdings.com",
+    "admin@manut.xyz",
+    "bhavin@manut.xyz",
+    "priya.sharma@manut.xyz",
   ];
   const wanted = await prisma.user.findMany({
     where: { email: { in: preferred }, deletedAt: null },

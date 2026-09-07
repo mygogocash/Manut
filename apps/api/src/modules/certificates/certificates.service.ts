@@ -208,7 +208,7 @@ export class CertificatesService {
         recipientName: recipient.name,
         title: input.title,
         message: input.message ?? "",
-        issuerName: issuer?.name ?? "The Binary Holdings",
+        issuerName: issuer?.name ?? "Manut",
         downloadUrl,
       });
       void sendEmail({ to: recipient.email, ...email });

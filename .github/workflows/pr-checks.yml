@@ -194,12 +194,17 @@ jobs:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    # 12 min base + the SPA export the edge vitest pool requires (it serves
+    # apps/app/dist via the wrangler assets binding — without it the edge
+    # tests fail at config time with "assets.directory does not exist").
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-workspace
         with:
           turbo-cache-key: test
+      - name: Expo web export (edge vitest pool serves apps/app/dist)
+        run: pnpm --filter @nexora/app export:web
       # Deliberately the full turbo run, NOT per-package filters. `packages/okf`
       # carries the CLAUDE.md coverage gates and exists on some branches only;
       # filtering by app would silently stop running it. Verifying #1125 with
@@ -227,13 +232,16 @@ jobs:
           pnpm --filter @nexora/edge-jobs type-check
       - name: Drizzle kit check
         run: pnpm --filter @nexora/db db:check
+      # Must run BEFORE the workers tests: the edge vitest pool serves
+      # apps/app/dist through the wrangler assets binding and fails at config
+      # time when the directory is missing.
+      - name: Expo web export (SPA shell)
+        run: pnpm --filter @nexora/app export:web
       - name: Workers unit tests
         run: |
           pnpm --filter @nexora/edge test
           pnpm --filter @nexora/edge-jobs test
           pnpm --filter @nexora/auth test
-      - name: Expo web export (SPA shell)
-        run: pnpm --filter @nexora/app export:web
       - name: Wrangler dry-run (edge)
         run: pnpm --filter @nexora/edge exec wrangler deploy --env="" --dry-run --outdir /tmp/edge-dry-run
       - name: Wrangler dry-run (edge-jobs)
@@ -242,7 +250,7 @@ jobs:
   brand-drift:
     name: Brand colour drift guard
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.edge == 'true'
     runs-on: ubuntu-latest
     # A grep — no install, no Node. It used to sit behind ~11 minutes of other
     # work and was skipped whenever anything upstream failed.
@@ -250,19 +258,24 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Check for legacy brand colours
-        # Phases 7-12 retired the legacy blue/teal palette across the workspace.
-        # Block any PR that reintroduces the literal hex codes in app source.
-        # If one of these ever needs to come back (e.g. a deliberate marketing
-        # page) update this list and the brand guidelines together.
+        # Two retired palettes are blocked:
+        #   1. The pre-2026 legacy blue/teal set (PR #75 migration).
+        #   2. The cream/bronze/gold set replaced by Manut Brand CI v1.0
+        #      (Manut Ink/Paper + Stone neutrals + Intelligence accent) —
+        #      see docs/DESIGN_SYSTEM.md and scripts/brand-contrast.mjs.
+        # Scans both surfaces: apps/web/src AND apps/app/src (the official
+        # Expo client, previously unscanned). If a colour ever needs to come
+        # back (e.g. a deliberate marketing page) update this list and
+        # docs/DESIGN_SYSTEM.md together.
         run: |
           set -euo pipefail
-          PATTERNS='1847f0|00d4b4|0f38d0|rgba\(24,71,240'
-          if grep -rEn "$PATTERNS" apps/web/src --include='*.ts' --include='*.tsx' --include='*.css'; then
+          PATTERNS='1847f0|00d4b4|0f38d0|rgba\(24,71,240|f7f3eb|8b6b3d|8b6914|c8a84b|0d0b07|3f3428|6b5e4e'
+          if grep -riEn "$PATTERNS" apps/web/src apps/app/src apps/app/app --include='*.ts' --include='*.tsx' --include='*.css'; then
             echo ""
-            echo "::error::Legacy brand colours detected. Use hsl(var(--primary)) / hsl(var(--primary-light)) tokens instead — see project_design_system_nexora memory and PR #75."
+            echo "::error::Retired brand colours detected. Use the Manut CI tokens (hsl(var(--primary)), --intelligence-*, etc.) — see docs/DESIGN_SYSTEM.md."
             exit 1
           fi
-          echo "No legacy brand colours found."
+          echo "No retired brand colours found."
 
   long-lines:
     name: Long-line guard
@@ -281,23 +294,7 @@ jobs:
         # the structural tell; thresholds and rationale live in the script.
         run: bash scripts/check-line-length.sh
 
-  deploy-gate:
-    name: Deploy gate guard
-    needs: changes
-    # Always runs. What it guards is a two-part rule in the DEPLOY workflows,
-    # which a PR can revert without touching anything a path filter would
-    # notice — and the resulting outage (new api served against old web) is
-    # invisible until somebody opens an affected page.
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v6
-      - name: Check the deploy freshness + atomicity gate is intact
-        # Rationale, and the 2026-08-26 incident it comes from, live in the
-        # script and in the "Deploy gate" step of each deploy workflow.
-        run: bash scripts/check-deploy-gate.sh
-
+  # deploy-gate was retired with the Cloud Run deploy workflows (2026-09).
   # ---------------------------------------------------------------------------
   # One aggregate status, kept named "Validate" so existing history and any
   # future branch protection have a single stable context to require. Requiring
@@ -317,7 +314,6 @@ jobs:
         edge-check,
         brand-drift,
         long-lines,
-        deploy-gate,
       ]
     if: always()
     runs-on: ubuntu-latest
@@ -352,7 +348,6 @@ jobs:
           assess "edge-check"  "${{ needs.edge-check.result }}"
           assess "brand-drift" "${{ needs.brand-drift.result }}"
           assess "long-lines"  "${{ needs.long-lines.result }}"
-          assess "deploy-gate" "${{ needs.deploy-gate.result }}"
           if [ "$failed" = "1" ]; then
             echo "::error::One or more gates failed. A 'cancelled' gate hit its own timeout — open that job, not this one."
             exit 1

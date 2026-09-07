@@ -673,10 +673,10 @@ export default function AriaPage() {
             <div
               className={cn(
                 "flex size-7 shrink-0 items-center justify-center rounded-lg",
-                "bg-linear-to-br from-violet-500/10 to-indigo-600/10",
+                "bg-linear-to-br from-intelligence-500/10 to-intelligence-700/10",
               )}
             >
-              <Sparkles className="size-3.5 text-violet-500" />
+              <Sparkles className="size-3.5 text-intelligence-500" />
             </div>
             <div className="min-w-0">
               <h1 className="text-foreground text-sm font-semibold">ARIA</h1>

@@ -808,7 +808,7 @@ function escapeAttr(s: string): string {
 function absoluteUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;
   const base =
-    process.env.WEB_BASE_URL ?? "https://intranet.thebinaryholdings.com";
+    process.env.WEB_BASE_URL ?? "https://manut.xyz";
   return `${base.replace(/\/$/, "")}${path}`;
 }
 

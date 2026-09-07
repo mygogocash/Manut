@@ -25,14 +25,14 @@ export default function AuthCallbackPage() {
             }}
           />
           <div>
-            <div className="text-[15px] font-bold tracking-wide">Intranet</div>
+            <div className="text-[15px] font-bold tracking-wide">Manut</div>
             <div
               className={`
                 text-muted-foreground text-[9px] font-normal tracking-[0.12em]
                 uppercase
               `}
             >
-              The Binary Holdings
+              Manut
             </div>
           </div>
         </div>

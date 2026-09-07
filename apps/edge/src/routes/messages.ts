@@ -11,6 +11,7 @@ import {
 import { messagesService } from "@nexora/core";
 import type { AppEnv } from "../lib/context";
 import { requirePermission } from "../middleware/rbac";
+import { broadcastChannelEvent } from "../lib/realtime";
 
 const actor = (c: { var: AppEnv["Variables"] }) => ({
   id: c.var.user!.id,
@@ -76,5 +77,12 @@ export const messages = new Hono<AppEnv>()
       userName: c.var.user!.name,
       permissions: c.var.user!.permissions,
     });
+    c.executionCtx.waitUntil(
+      broadcastChannelEvent(c.env, c.req.param("id"), {
+        type: "typing",
+        userId: c.var.user!.id,
+        userName: c.var.user!.name,
+      }),
+    );
     return c.json({ data: { success: true } });
   });

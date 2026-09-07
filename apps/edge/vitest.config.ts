@@ -5,6 +5,7 @@ export default defineWorkersConfig({
     include: ["test/**/*.test.ts", "src/**/*.test.ts"],
     poolOptions: {
       workers: {
+        isolatedStorage: false,
         // Tests run inside workerd with the same bindings as `wrangler dev`.
         wrangler: { configPath: "./wrangler.jsonc" },
         miniflare: {

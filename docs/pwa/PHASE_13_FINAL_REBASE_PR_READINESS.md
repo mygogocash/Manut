@@ -44,7 +44,7 @@ No force-push. No history rewrite. `0d777412` untouched on the remote.
 
 ## 2. Latest dev commit
 
-`097df257` — *Merge pull request #1184 from The-Binary-Holdings/claude/staging-advance-backfill*
+`097df257` — *Merge pull request #1184 from mygogocash/claude/staging-advance-backfill*
 
 ---
 
@@ -338,7 +338,7 @@ tip. GitHub independently agrees — the PR reports `MERGEABLE`.
 | | |
 |---|---|
 | PR | **#1188** |
-| URL | https://github.com/The-Binary-Holdings/new-tbh-intranet/pull/1188 |
+| URL | https://github.com/mygogocash/Manut/pull/1188 |
 | Base | **`dev`** |
 | Head | `claude/responsive-pwa-release` |
 | State | OPEN, not draft, **MERGEABLE** |

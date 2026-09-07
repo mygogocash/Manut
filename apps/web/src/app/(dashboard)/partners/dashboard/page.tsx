@@ -246,7 +246,7 @@ function buildHtmlReport(d: MarketingDashboard, asOf: string): string {
 <body>
   <div class="noprint" style="margin-bottom:16px"><button onclick="window.print()">Print / Save as PDF</button></div>
   <h1>OneWave Traction Dashboard</h1>
-  <div class="sub">The Binary Holdings · Marketing CRM · As of ${esc(asOf)}</div>
+  <div class="sub">Manut · Marketing CRM · As of ${esc(asOf)}</div>
   <div class="kpis">${kpis
     .map(
       ([l, v]) =>

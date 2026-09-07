@@ -240,7 +240,7 @@ export function LegalNotificationSettingsDialog({ open, onOpenChange }: Props) {
                   onBlur={commitDraft}
                   placeholder={
                     emails.length === 0
-                      ? "legal@thebinaryholdings.com"
+                      ? "legal@manut.xyz"
                       : "Add another…"
                   }
                   className={`

@@ -119,7 +119,7 @@ export function DriftRecipientsDialog({
             onChange={(e) => setText(e.target.value)}
             disabled={!canEdit || loading || saving}
             rows={6}
-            placeholder={loading ? "Loading…" : "name@thebinaryholdings.com"}
+            placeholder={loading ? "Loading…" : "name@manut.xyz"}
             className="font-mono text-xs"
           />
           <p className="text-muted-foreground text-xs">

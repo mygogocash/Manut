@@ -139,7 +139,7 @@ export default function PublicSignPage() {
         <header className="mb-4 flex items-center gap-2">
           <FileText className="text-primary size-5" />
           <span className="text-sm font-semibold tracking-wide">
-            Intranet · Sign
+            Manut · Sign
           </span>
         </header>
 

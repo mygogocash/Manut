@@ -108,7 +108,7 @@ describe("fundraising entity catalog lazy seeding", () => {
   // migration INSERT — the catalog was empty there and the switcher hid itself.
   it("backfills the shipped catalog when the table is empty", async () => {
     const seeded = [
-      { key: "tbh", label: "The Binary Holdings", sortOrder: 0 },
+      { key: "tbh", label: "Manut", sortOrder: 0 },
       { key: "tbl", label: "The Binary Labs", sortOrder: 1 },
     ];
     findAll.mockResolvedValueOnce([]).mockResolvedValueOnce(seeded);
@@ -117,7 +117,7 @@ describe("fundraising entity catalog lazy seeding", () => {
     const res = await new FundraisingEntityService().list();
 
     expect(createManyIfMissing).toHaveBeenCalledWith([
-      { key: "tbh", label: "The Binary Holdings", sortOrder: 0 },
+      { key: "tbh", label: "Manut", sortOrder: 0 },
       { key: "tbl", label: "The Binary Labs", sortOrder: 1 },
     ]);
     expect(res).toEqual(seeded);
@@ -138,7 +138,7 @@ describe("fundraising entity catalog lazy seeding", () => {
   it("resolves a default key on a fresh database instead of 400ing", async () => {
     findByKey.mockResolvedValue(null);
     findAll.mockResolvedValueOnce([]).mockResolvedValueOnce([
-      { key: "tbh", label: "The Binary Holdings", sortOrder: 0 },
+      { key: "tbh", label: "Manut", sortOrder: 0 },
       { key: "tbl", label: "The Binary Labs", sortOrder: 1 },
     ]);
     createManyIfMissing.mockResolvedValue({ count: 2 });
@@ -151,7 +151,7 @@ describe("fundraising entity catalog lazy seeding", () => {
     findAll
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([
-        { key: "tbh", label: "The Binary Holdings", sortOrder: 0 },
+        { key: "tbh", label: "Manut", sortOrder: 0 },
       ]);
     createManyIfMissing.mockResolvedValue({ count: 1 });
 

@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
-import { getAppUrl } from "@/lib/env";
+import type { ColumnDef } from "@tanstack/react-table";
+import { ActivityIndicator, View } from "react-native";
+import { DataTable } from "@/components/data-table";
+import { EmptyState } from "@/components/empty-state";
+import { PageScreen } from "@/components/page-screen";
+import { useApiQuery } from "@/hooks/use-api-query";
+import { unwrapList } from "@/lib/list";
+import { queryKeys } from "@/lib/query-keys";
+import { BRAND } from "@/lib/brand";
 
 type LeaveRequest = {
   id: string;
@@ -12,67 +18,52 @@ type LeaveRequest = {
   employee?: { name: string };
 };
 
+const columns: ColumnDef<LeaveRequest>[] = [
+  { accessorFn: (row) => row.leaveType?.name ?? "Leave", header: "Type" },
+  { accessorFn: (row) => row.employee?.name ?? "—", header: "Employee" },
+  { accessorFn: (row) => `${row.startDate} – ${row.endDate}`, header: "Dates" },
+  { accessorKey: "days", header: "Days" },
+  { accessorKey: "status", header: "Status" },
+];
+
 export default function LeavePage() {
-  const [items, setItems] = useState<LeaveRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const query = useApiQuery<{ data: LeaveRequest[] }>(queryKeys.leave.requests(), "/leave/requests");
+  const items = unwrapList<LeaveRequest>(query.data);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${getAppUrl()}/api/leave/requests`, { credentials: "include" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = (await res.json()) as { data: LeaveRequest[] };
-        if (!cancelled) setItems(json.data ?? []);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (loading) {
+  if (query.isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#8B6914" />
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator color={BRAND.ink} />
       </View>
     );
   }
 
+  if (query.error) {
+    return (
+      <PageScreen title="Leave requests">
+        <View className="overflow-hidden rounded-xl border border-border bg-card">
+          <EmptyState
+            variant="error"
+            heading="Couldn't load leave requests"
+            description={query.error.message}
+            actionLabel="Try again"
+            onAction={() => {
+              void query.refetch();
+            }}
+          />
+        </View>
+      </PageScreen>
+    );
+  }
+
   return (
-    <View style={styles.root}>
-      <Text style={styles.title}>Leave requests</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <FlatList
+    <PageScreen title="Leave requests" scroll={false}>
+      <DataTable
+        columns={columns}
         data={items}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={<Text style={styles.sub}>No leave requests yet.</Text>}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.headline}>{item.leaveType?.name ?? "Leave"}</Text>
-            <Text style={styles.meta}>
-              {item.startDate} – {item.endDate} · {item.days} day{item.days === 1 ? "" : "s"} · {item.status}
-            </Text>
-            {item.employee?.name ? <Text style={styles.meta}>{item.employee.name}</Text> : null}
-          </View>
-        )}
+        empty="No leave requests yet"
+        emptyDescription="Requests you submit or need to approve will show up here."
       />
-    </View>
+    </PageScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, padding: 24, backgroundColor: "#F7F3EB" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F7F3EB" },
-  title: { fontSize: 28, fontWeight: "700", color: "#3D2B1F", marginBottom: 16 },
-  sub: { color: "#8B7355" },
-  error: { color: "#B42318", marginBottom: 12 },
-  card: { borderBottomWidth: 1, borderBottomColor: "#E8DFD2", paddingVertical: 14, gap: 4 },
-  headline: { fontSize: 18, fontWeight: "600", color: "#3D2B1F" },
-  meta: { color: "#8B7355", fontSize: 13 },
-});

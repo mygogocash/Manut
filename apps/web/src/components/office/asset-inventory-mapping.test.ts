@@ -24,7 +24,7 @@ const HEADER = [
   "Total Value (THB)",
   "Condition",
   "Location / Owner",
-  "Intranet update",
+  "Manut update",
 ];
 
 /** The real sheet's title + totals block sits above the header. */

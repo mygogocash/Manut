@@ -1,6 +1,6 @@
 # Intranet - Project Overview
 
-> **Intranet** is an enterprise resource planning (ERP) and internal operations platform for The Binary Holdings (TBH). This document describes the production rebuild of the demo portal into a scalable, maintainable system.
+> **Intranet** is an enterprise resource planning (ERP) and internal operations platform for Manut. This document describes the production rebuild of the demo portal into a scalable, maintainable system.
 
 ---
 

@@ -137,7 +137,7 @@ export async function buildCertificatePdf(
   });
 
   // Presentation line + recipient.
-  const company = (data.companyName ?? "The Binary Holdings").toUpperCase();
+  const company = (data.companyName ?? "Manut").toUpperCase();
   centerText(
     page,
     helv,

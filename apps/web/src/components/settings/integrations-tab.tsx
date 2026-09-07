@@ -150,7 +150,7 @@ function GoogleCard({
             ) : (
               <p className="text-muted-foreground text-xs">
                 Connect your Google Workspace account to enable Gmail and Drive
-                in Intranet.
+                in Manut.
               </p>
             )}
           </div>

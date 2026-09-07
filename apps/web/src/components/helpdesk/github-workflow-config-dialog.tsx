@@ -172,7 +172,7 @@ export function GithubWorkflowConfigDialog({ open, onOpenChange }: Props) {
                 </Label>
                 <Input
                   id="gh-owner"
-                  placeholder="The-Binary-Holdings"
+                  placeholder="mygogocash"
                   value={repoOwner}
                   onChange={(e) => setRepoOwner(e.target.value)}
                   disabled={saving}

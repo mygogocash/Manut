@@ -1,6 +1,6 @@
 # Intranet - Authentication & RBAC
 
-> Complete specification for authentication using Supabase Auth and Role-Based Access Control (RBAC) system, cloned from crm.thebinaryholdings.com architecture.
+> Complete specification for authentication using Supabase Auth and Role-Based Access Control (RBAC) system, cloned from crm.manut.xyz architecture.
 
 ---
 

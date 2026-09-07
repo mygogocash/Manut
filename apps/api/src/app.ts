@@ -45,7 +45,7 @@ app.use(
 //   2. `PORTAL_URL` if set (the canonical web origin).
 //   3. Dev fallback list — covers local Next.js + a couple of common
 //      tunnels. NEVER reached when `NODE_ENV === "production"`.
-const PROD_FALLBACK_ORIGIN = "https://intranet.thebinaryholdings.com";
+const PROD_FALLBACK_ORIGIN = "https://manut.xyz";
 
 function resolveCorsOrigins(): string[] {
   const raw = process.env.CORS_ALLOWED_ORIGINS ?? "";
@@ -77,6 +77,12 @@ function resolveCorsOrigins(): string[] {
     "http://localhost:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3000",
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "http://localhost:8082",
+    "http://127.0.0.1:8082",
+    "http://localhost:19006",
+    "http://127.0.0.1:19006",
   ];
 }
 
@@ -98,6 +104,7 @@ app.use(
       "Content-Type",
       "Authorization",
       "X-Requested-With",
+      "X-Client",
       "Cookie",
     ],
   }),
@@ -169,9 +176,9 @@ app.get("/health", (_req, res) => {
 
 app.get("/", (_req, res) => {
   res.json({
-    app: "Intranet API",
+    app: "Manut API",
     version: "1.0.0",
-    company: "The Binary Holdings",
+    company: "Manut",
   });
 });
 

@@ -39,13 +39,13 @@ const copy = {
     button: "Send reset link",
     pending: "Sending reset link",
     success:
-      "If this email belongs to an active Intranet account, a reset link will arrive shortly.",
+      "If this email belongs to an active Manut account, a reset link will arrive shortly.",
   },
   "magic-link": {
     button: "Send sign-in link",
     pending: "Sending sign-in link",
     success:
-      "If this email belongs to an active Intranet account, a sign-in link will arrive shortly.",
+      "If this email belongs to an active Manut account, a sign-in link will arrive shortly.",
   },
 } satisfies Record<AuthEmailFormProps["mode"], Record<string, string>>;
 
@@ -104,7 +104,7 @@ export function AuthEmailForm({ mode }: AuthEmailFormProps) {
                 <Input
                   {...field}
                   type="email"
-                  placeholder="you@thebinaryholdings.com"
+                  placeholder="you@manut.xyz"
                   autoComplete="email"
                   className={`
                     bg-background-secondary h-10

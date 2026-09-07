@@ -45,13 +45,17 @@ const authFlowPagePaths = [
   "/magic-link",
   "/forgot-password",
   "/reset-password",
+  "/welcome",
 ];
 
-function isOnAuthFlowPage(): boolean {
-  if (typeof window === "undefined") return false;
-  const pathname = window.location.pathname;
+export function isOnAuthFlowPage(pathname?: string): boolean {
+  const currentPath =
+    pathname ?? (typeof window !== "undefined" ? window.location.pathname : "");
+  if (!currentPath) return false;
+  // Exact match for the root marketing page; do not prefix-match "/" or it would exempt all routes.
+  if (currentPath === "/") return true;
   return authFlowPagePaths.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
+    (p) => currentPath === p || currentPath.startsWith(`${p}/`),
   );
 }
 
@@ -151,7 +155,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 /**
- * Typed fetch wrapper for the Intranet API.
+ * Typed fetch wrapper for the Manut API.
  * - Uses httpOnly cookies for auth (credentials: 'include')
  * - Adds CSRF `X-Requested-With` header on mutations
  * - On 401, attempts a silent token refresh then retries once

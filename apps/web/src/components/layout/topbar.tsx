@@ -50,7 +50,7 @@ const PAGE_TITLES: Record<string, string> = {
  * Longest-prefix title lookup, sourced from the sidebar.
  *
  * `PAGE_TITLES` above covers 23 paths; there are 53 route segments, so every
- * other page rendered the header as a bare "Intranet" — tolerable beside a
+ * other page rendered the header as a bare "Manut" — tolerable beside a
  * sidebar that showed you where you were, useless on a phone where the drawer
  * is closed and the header is the only orientation you have.
  *
@@ -82,7 +82,7 @@ function resolveTitle(pathname: string): string {
     }
   }
 
-  if (!bestHref) return "Intranet";
+  if (!bestHref) return "Manut";
   // A matched route may still have a friendlier name in the explicit map.
   return PAGE_TITLES[bestHref] ?? bestLabel;
 }
@@ -120,8 +120,8 @@ function ThemeToggle() {
 export function Topbar() {
   // `?? ""` is main's guard (#1189, nullable Next navigation hooks) and is
   // still required: dev's resolveTitle takes a non-nullable string. Empty
-  // matches no route, so it falls through to "Intranet" — the same fallback
-  // main's `PAGE_TITLES[pathname] || "Intranet"` gave.
+  // matches no route, so it falls through to "Manut" — the same fallback
+  // main's `PAGE_TITLES[pathname] || "Manut"` gave.
   const pathname = usePathname() ?? "";
   const { user, logout } = useAuth();
   const title = resolveTitle(pathname);

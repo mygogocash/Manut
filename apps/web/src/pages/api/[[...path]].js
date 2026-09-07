@@ -38,7 +38,7 @@ function getApp() {
 
   if (!bundleEntry) {
     cachedLoadError = new Error(
-      `Intranet API bundle not found. Run scripts/bundle-api-for-vercel.mjs. Tried:\n${BUNDLE_CANDIDATES.join("\n")}`,
+      `Manut API bundle not found. Run scripts/bundle-api-for-vercel.mjs. Tried:\n${BUNDLE_CANDIDATES.join("\n")}`,
     );
     throw cachedLoadError;
   }

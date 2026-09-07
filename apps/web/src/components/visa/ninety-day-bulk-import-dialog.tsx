@@ -33,7 +33,7 @@ const TEMPLATE_HEADERS = [
 const TEMPLATE_SAMPLE_ROWS = [
   [
     "Kunanon Jarat",
-    "kunanon@thebinaryholdings.com",
+    "kunanon@manut.xyz",
     "TBH-001",
     "2026-02-14",
     "pending",

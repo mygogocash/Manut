@@ -23,7 +23,7 @@ import { verifyActionToken } from "@/modules/projects/workflow/workflow-token";
 const router = Router();
 
 const PORTAL_URL = (
-  process.env.PORTAL_URL ?? "https://intranet.thebinaryholdings.com"
+  process.env.PORTAL_URL ?? "https://manut.xyz"
 ).replace(/\/+$/, "");
 
 /** Mirrors auth.service.resolvePermissions (incl. system-Admin bypass). */

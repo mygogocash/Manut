@@ -1,18 +1,21 @@
 import type { JobName } from "../schedule";
 import type { Bindings } from "../index";
 import { registerHttpCronHandlers } from "./http-cron";
+import { registerSidecarHandlers, type SidecarJobName } from "./sidecar";
 
-export type JobMessage = { name: JobName; scheduledAt: string; tickKey: string; item?: string };
+export type QueueJobName = JobName | SidecarJobName;
+export type JobMessage = { name: QueueJobName; scheduledAt: string; tickKey: string; item?: string };
 
 export type JobHandler = (msg: JobMessage, env: Bindings) => Promise<void>;
 
-const handlers: Partial<Record<JobName, JobHandler>> = {};
+const handlers: Partial<Record<QueueJobName, JobHandler>> = {};
 
-export function registerJob(name: JobName, handler: JobHandler) {
+export function registerJob(name: QueueJobName, handler: JobHandler) {
   handlers[name] = handler;
 }
 
 registerHttpCronHandlers();
+registerSidecarHandlers();
 
 export async function runJob(msg: JobMessage, env: Bindings): Promise<void> {
   const handler = handlers[msg.name];

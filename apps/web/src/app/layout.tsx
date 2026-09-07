@@ -1,7 +1,7 @@
 import "@/app/globals.css";
 
 import type { Metadata, Viewport } from "next";
-import { DM_Mono, DM_Sans, DM_Serif_Display } from "next/font/google";
+import { DM_Mono, Instrument_Serif, Inter } from "next/font/google";
 import NextTopLoader from "nextjs-toploader";
 
 import { ServiceWorkerManager } from "@/components/pwa/service-worker-manager";
@@ -11,17 +11,21 @@ import { cn } from "@/lib/utils";
 import { AuthProvider } from "@/providers/auth-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 
-// `DM_Sans` is the body font on every page so it stays preloaded.
-// `DM_Serif_Display` (headings on a handful of pages) and `DM_Mono`
+// Manut Brand CI §8: Inter is the product UI face; Instrument Serif is the
+// brand/editorial voice (brand statements, empty-state headlines) and must
+// stay out of buttons and form controls.
+//
+// `Inter` is the body font on every page so it stays preloaded.
+// `Instrument_Serif` (brand statements on a handful of pages) and `DM_Mono`
 // (small tabular cells, code) only render on a subset of routes —
 // keeping them in the preload list triggered the "preloaded using
 // link preload but not used within a few seconds" console warning on
 // pages that don't render them (e.g. /hr-crm). Next.js still loads
 // the font when its CSS variable is used; `preload: false` only
 // suppresses the `<link rel="preload">` hint.
-const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
-const dmSerif = DM_Serif_Display({
+const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   variable: "--font-serif",
   weight: "400",
@@ -36,21 +40,21 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Intranet — The Binary Holdings",
-  description: "Enterprise operations platform for The Binary Holdings",
-  applicationName: "Intranet",
+  title: "Manut — Think better with AI",
+  description: "AI-driven intelligence workspace",
+  applicationName: "Manut",
   // Declared once, here, for every route — Next merges metadata down the tree,
   // so repeating any of this in a nested layout would only risk divergence.
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: [{ url: "/tbh-circle-logo.ico", type: "image/x-icon" }],
+    icon: [{ url: "/favicon.ico", type: "image/x-icon" }],
     // iOS ignores the manifest's icon list and reads this instead.
     apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
   appleWebApp: {
     capable: true,
-    title: "Intranet",
-    // `default` keeps the iOS status bar readable against the cream/white
+    title: "Manut",
+    // `default` keeps the iOS status bar readable against the paper/white
     // surface. `black-translucent` would paint the page under the status bar,
     // which needs a per-page safe-area treatment the app does not have yet.
     statusBarStyle: "default",
@@ -97,7 +101,7 @@ export const viewport: Viewport = {
    */
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#1f1c19" },
+    { media: "(prefers-color-scheme: dark)", color: "#181817" },
   ],
 };
 
@@ -111,15 +115,15 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       className={cn(
-        dmSerif.variable,
+        instrumentSerif.variable,
         dmMono.variable,
         "font-sans",
-        dmSans.variable,
+        inter.variable,
       )}
     >
       <body>
         <NextTopLoader
-          color="#8B6B3D"
+          color="#5B5BD6"
           initialPosition={0.08}
           crawlSpeed={200}
           height={3}
@@ -127,7 +131,7 @@ export default function RootLayout({
           showSpinner={false}
           easing="ease"
           speed={200}
-          shadow="0 0 10px #8B6B3D, 0 0 5px #8B6B3D"
+          shadow="0 0 10px rgba(91, 91, 214, 0.5), 0 0 5px rgba(91, 91, 214, 0.5)"
         />
         <ThemeProvider>
           <TooltipProvider>

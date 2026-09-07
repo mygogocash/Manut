@@ -1,0 +1,363 @@
+# =============================================================================
+# Manut - PR Validation (Depot CI)
+#
+# Depot CI port of the GitHub Actions pr-checks.yml (kept at .github/workflows/
+# as a parity reference while GHA is disabled repo-wide). Runs on Depot
+# runners (`depot-ubuntu-latest`) and reports the same GitHub check names, so
+# branch protection's required "Validate" context keeps working.
+#
+# The gates run as PARALLEL jobs, not steps in one job. That shape is the whole
+# point of this file, so the reasoning is recorded here:
+#
+# Measured across three consecutive green runs of the old single-job version,
+# type-check was 79-89s and unit tests 89-105s — both stable — while Lint came
+# in at 93s, 136s and 466s. All the variance is Lint, and `apps/api` eslint can
+# hang outright (reproduced locally at 19+ minutes without finishing). In a
+# sequential job that hang consumed the 15-minute job budget and the run was
+# cancelled BEFORE unit tests and the brand guard ran, so a red "Validate"
+# meant "nothing after Lint executed" rather than "a check failed". That
+# happened three times on 2026-08-24 and cost four re-runs.
+#
+# Split into jobs, a hung lint fails its own job at its own timeout while every
+# other gate still reports. Wall clock also drops from the sum of the steps to
+# the slowest single gate.
+#
+# Docs-only changes stay path-ignored here; okf-checks.yml deliberately covers
+# `docs/**` and `CLAUDE.md` so those changes still meet their own gates.
+# =============================================================================
+
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main, preview, production]
+    # Markdown/docs-only PRs don't affect type-check, lint, or test.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".agents/**"
+  # Also run on the branch itself. A squash merge can land a red commit when no
+  # required status check blocks it (this repo has none configured), and without
+  # a push run there is no branch-level signal that main went red — which is
+  # exactly how the okf coverage break sat unnoticed on main on 2026-08-24.
+  push:
+    branches: [main, preview, production]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".agents/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # dorny/paths-filter reads the changed-file list through the PR API on
+  # pull_request events (on push it diffs git instead, which is why
+  # deploy.yml never needed this). Without it the filter step fails with
+  # "Resource not accessible by integration".
+  pull-requests: read
+
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Which halves of the monorepo did this change touch? Filters mirror
+  # deploy.yml so CI and deploy agree on what "the api changed" means.
+  # ---------------------------------------------------------------------------
+  changes:
+    name: Detect changes
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      api: ${{ steps.decide.outputs.api }}
+      web: ${{ steps.decide.outputs.web }}
+      edge: ${{ steps.decide.outputs.edge }}
+      code: ${{ steps.decide.outputs.code }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Path filter
+        # v4 runs on Node 24; v3 was Node 20 and deprecated on the runner
+        # 2026-06-16. Same filters/outputs API. dorny/paths-filter#294.
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - '.depot/workflows/pr-checks.yml'
+              - '.depot/actions/setup-workspace/**'
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - '.depot/workflows/pr-checks.yml'
+              - '.depot/actions/setup-workspace/**'
+            edge:
+              - 'apps/edge/**'
+              - 'apps/edge-jobs/**'
+              - 'apps/app/**'
+              - 'packages/db/**'
+              - 'packages/auth/**'
+              - 'packages/contracts/**'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - '.github/workflows/pr-checks.yml'
+              - '.depot/workflows/deploy-edge-staging.yml'
+              - '.depot/actions/setup-workspace/**'
+
+      - name: Decide
+        id: decide
+        # A push to main/preview/production, or a manual run, always gets the full set — a
+        # branch-health signal that skipped half its gates is not a signal.
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "api=true"  >> "$GITHUB_OUTPUT"
+            echo "web=true"  >> "$GITHUB_OUTPUT"
+            echo "edge=true" >> "$GITHUB_OUTPUT"
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            api='${{ steps.filter.outputs.api }}'
+            web='${{ steps.filter.outputs.web }}'
+            edge='${{ steps.filter.outputs.edge }}'
+            echo "api=$api" >> "$GITHUB_OUTPUT"
+            echo "web=$web" >> "$GITHUB_OUTPUT"
+            echo "edge=$edge" >> "$GITHUB_OUTPUT"
+            if [ "$api" = "true" ] || [ "$web" = "true" ] || [ "$edge" = "true" ]; then
+              echo "code=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "code=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+  type-check:
+    name: Type-check
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: depot-ubuntu-latest
+    # Stable at 79-89s across sampled runs. 10 leaves headroom without letting
+    # a pathological run sit for a quarter of an hour.
+    timeout-minutes: 10
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.depot/actions/setup-workspace
+        with:
+          turbo-cache-key: type-check
+      - run: pnpm type-check
+
+  lint-api:
+    name: Lint (api)
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: depot-ubuntu-latest
+    # `eslint src/` in apps/api is the unstable one — observed running 19+
+    # minutes locally without finishing. Capping at 8 turns that into a lint
+    # failure in 8 minutes instead of a cancelled run that also loses the test
+    # and brand-guard signal.
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.depot/actions/setup-workspace
+        with:
+          turbo-cache-key: lint-api
+      - run: pnpm --filter @nexora/api lint
+
+  lint-web:
+    name: Lint (web)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 8
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.depot/actions/setup-workspace
+        with:
+          turbo-cache-key: lint-web
+      - run: pnpm --filter @nexora/web lint
+
+  test:
+    name: Unit tests
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: depot-ubuntu-latest
+    # 12 min base + the SPA export the edge vitest pool requires (it serves
+    # apps/app/dist via the wrangler assets binding — without it the edge
+    # tests fail at config time with "assets.directory does not exist").
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.depot/actions/setup-workspace
+        with:
+          turbo-cache-key: test
+      - name: Expo web export (edge vitest pool serves apps/app/dist)
+        run: pnpm --filter @nexora/app export:web
+      # Deliberately the full turbo run, NOT per-package filters. `packages/okf`
+      # carries the CLAUDE.md coverage gates and exists on some branches only;
+      # filtering by app would silently stop running it. Verifying #1125 with
+      # per-package filters is exactly how that gate reached main red.
+      - run: pnpm test
+
+
+  edge-check:
+    name: Edge (type-check + test + drizzle-check + dry-run)
+    needs: changes
+    if: needs.changes.outputs.edge == 'true'
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.depot/actions/setup-workspace
+        with:
+          turbo-cache-key: edge-check
+      - name: Type-check edge packages
+        run: |
+          pnpm --filter @nexora/db type-check
+          pnpm --filter @nexora/contracts type-check
+          pnpm --filter @nexora/auth type-check
+          pnpm --filter @nexora/edge type-check
+          pnpm --filter @nexora/edge-jobs type-check
+      - name: Drizzle kit check
+        run: pnpm --filter @nexora/db db:check
+      # Must run BEFORE the workers tests: the edge vitest pool serves
+      # apps/app/dist through the wrangler assets binding and fails at config
+      # time when the directory is missing.
+      - name: Expo web export (SPA shell)
+        run: pnpm --filter @nexora/app export:web
+      - name: Workers unit tests
+        run: |
+          pnpm --filter @nexora/edge test
+          pnpm --filter @nexora/edge-jobs test
+          pnpm --filter @nexora/auth test
+      - name: Wrangler dry-run (edge)
+        run: pnpm --filter @nexora/edge exec wrangler deploy --env="" --dry-run --outdir /tmp/edge-dry-run
+      - name: Wrangler dry-run (edge-jobs)
+        run: pnpm --filter @nexora/edge-jobs exec wrangler deploy --env="" --dry-run --outdir /tmp/edge-jobs-dry-run
+
+  brand-drift:
+    name: Brand colour drift guard
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.edge == 'true'
+    runs-on: depot-ubuntu-latest
+    # A grep — no install, no Node. It used to sit behind ~11 minutes of other
+    # work and was skipped whenever anything upstream failed.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check for legacy brand colours
+        # Two retired palettes are blocked:
+        #   1. The pre-2026 legacy blue/teal set (PR #75 migration).
+        #   2. The cream/bronze/gold set replaced by Manut Brand CI v1.0
+        #      (Manut Ink/Paper + Stone neutrals + Intelligence accent) —
+        #      see docs/DESIGN_SYSTEM.md and scripts/brand-contrast.mjs.
+        # Scans both surfaces: apps/web/src AND apps/app/src (the official
+        # Expo client, previously unscanned). If a colour ever needs to come
+        # back (e.g. a deliberate marketing page) update this list and
+        # docs/DESIGN_SYSTEM.md together.
+        run: |
+          set -euo pipefail
+          PATTERNS='1847f0|00d4b4|0f38d0|rgba\(24,71,240|f7f3eb|8b6b3d|8b6914|c8a84b|0d0b07|3f3428|6b5e4e'
+          if grep -riEn "$PATTERNS" apps/web/src apps/app/src apps/app/app --include='*.ts' --include='*.tsx' --include='*.css'; then
+            echo ""
+            echo "::error::Retired brand colours detected. Use the Manut CI tokens (hsl(var(--primary)), --intelligence-*, etc.) — see docs/DESIGN_SYSTEM.md."
+            exit 1
+          fi
+          echo "No retired brand colours found."
+
+  long-lines:
+    name: Long-line guard
+    needs: changes
+    # Always runs: the payload this guards against was injected into config
+    # files, which no path filter would reliably scope. It is a grep — the cost
+    # of running it unconditionally is seconds.
+    if: always()
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check for over-long lines
+        # An obfuscated payload sat on the last line of three config files for
+        # seven weeks from 2026-07-03, hidden behind a run of spaces. Length is
+        # the structural tell; thresholds and rationale live in the script.
+        run: bash scripts/check-line-length.sh
+
+  # ---------------------------------------------------------------------------
+  # deploy-gate was retired with the Cloud Run deploy workflows (2026-09): the
+  # freshness/atomicity rule it guarded lived in deploy.yml/deploy-staging.yml,
+  # which no longer exist. The edge deploy workflows carry their own guards.
+  #
+  # One aggregate status, kept named "Validate" so existing history and any
+  # future branch protection have a single stable context to require. Requiring
+  # the individual gates directly would mean a legitimately skipped job reads as
+  # "never reported" and blocks the PR forever; this job always runs and fails
+  # only when a gate actually failed.
+  # ---------------------------------------------------------------------------
+  validate:
+    name: Validate
+    needs:
+      [
+        changes,
+        type-check,
+        lint-api,
+        lint-web,
+        test,
+        edge-check,
+        brand-drift,
+        long-lines,
+      ]
+    if: always()
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Assess gate results
+        run: |
+          set -euo pipefail
+          failed=0
+          # `changes` gates every other job. If it did not succeed, the gates
+          # below are "skipped" because nothing ran — NOT because they were
+          # inapplicable. Treating that as a pass reports green on a pipeline
+          # that never executed, which is exactly what the first run of this
+          # workflow did.
+          changes_result="${{ needs.changes.result }}"
+          if [ "$changes_result" != "success" ]; then
+            echo "  FAIL   detect-changes ($changes_result)"
+            echo "::error::Detect changes did not succeed, so no gate ran. Failing rather than reporting a green Validate."
+            exit 1
+          fi
+          assess() {
+            case "$2" in
+              success) printf '  pass   %s\n' "$1" ;;
+              skipped) printf '  n/a    %s (not affected by this change)\n' "$1" ;;
+              *)       printf '  FAIL   %s (%s)\n' "$1" "$2"; failed=1 ;;
+            esac
+          }
+          assess "type-check"  "${{ needs.type-check.result }}"
+          assess "lint-api"    "${{ needs.lint-api.result }}"
+          assess "lint-web"    "${{ needs.lint-web.result }}"
+          assess "test"        "${{ needs.test.result }}"
+          assess "edge-check"  "${{ needs.edge-check.result }}"
+          assess "brand-drift" "${{ needs.brand-drift.result }}"
+          assess "long-lines"  "${{ needs.long-lines.result }}"
+          if [ "$failed" = "1" ]; then
+            echo "::error::One or more gates failed. A 'cancelled' gate hit its own timeout — open that job, not this one."
+            exit 1
+          fi
+          echo "All applicable gates passed."

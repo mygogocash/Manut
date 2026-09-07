@@ -1,3 +1,5 @@
+import type { LeaveApprovalParams } from "./workflows/leave-approval";
+
 /** Worker bindings + vars. Keep in sync with wrangler.jsonc. */
 export type Bindings = {
   ASSETS: Fetcher;
@@ -7,6 +9,13 @@ export type Bindings = {
   R2_PUBLIC: R2Bucket;
   R2_PRIVATE: R2Bucket;
   JOBS_QUEUE: Queue;
+  /** D1 sidecar (presence / workflow ids / handbook chunks). Not the ERP DB. */
+  EDGE_DB?: D1Database;
+  PRESENCE?: DurableObjectNamespace;
+  LEAVE_APPROVAL?: Workflow<LeaveApprovalParams>;
+  /** Optional — Vectorize has no local simulator; omit in wrangler.dev. */
+  HANDBOOK?: VectorizeIndex;
+  AI?: Ai;
   RATE_LIMITER_LOGIN?: RateLimit;
   RATE_LIMITER_GLOBAL?: RateLimit;
   // vars
@@ -15,8 +24,13 @@ export type Bindings = {
   POSTHOG_HOST: string;
   POSTHOG_ASSETS_HOST: string;
   MAGIC_LINK_ALLOWED_ROLES?: string;
+  /** Empty = fail-open. Set both to enforce Cloudflare Access on /api/*. */
+  CF_ACCESS_AUD?: string;
+  CF_ACCESS_TEAM_DOMAIN?: string;
   // secrets (wrangler secret put …)
   BETTER_AUTH_SECRET: string;
+  /** Better Auth Dash (dash.better-auth.com) API key. Unset = dash plugin off. */
+  BETTER_AUTH_API_KEY?: string;
   TURNSTILE_SECRET?: string;
   EMAIL_SERVICE_URL?: string;
   EMAIL_SERVICE_API_KEY?: string;

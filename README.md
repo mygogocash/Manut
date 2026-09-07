@@ -1,15 +1,27 @@
-# Intranet — TBH Employee Platform
+# Intranet — employee platform ([`mygogocash/Manut`](https://github.com/mygogocash/Manut))
 
-Internal management platform for The Binary Holdings. One workspace for HR
-operations (leave, payroll, expenses, travel, visa, ESOP, agreements),
-finance (accounting, invoicing, revenue), CRM (partners, sales, leads,
-opportunities), and people ops (org directory, performance, learning,
-benefits, onboarding)
+Internal management platform. One workspace for HR operations (leave,
+payroll, expenses, travel, visa, ESOP, agreements), finance (accounting,
+invoicing, revenue), CRM (partners, sales, leads, opportunities), and
+people ops (org directory, performance, learning, benefits, onboarding).
 
-The codebase is a Turborepo monorepo with a TypeScript Express 5 API, a
-Next.js 16 App Router frontend, and a Prisma/PostgreSQL data layer. Auth
-is delegated to Supabase; per-request authorization is resolved against a
-permission table seeded from `apps/api/src/common/constants/permissions.ts`.
+**This repository** is [`mygogocash/Manut`](https://github.com/mygogocash/Manut).
+Product name is **Intranet**. Workspace packages stay `@nexora/*`.
+
+| Branch | Role |
+| --- | --- |
+| `main` | Default trunk. Feature PRs land here. Does not deploy Cloud Run or Vercel. |
+| `preview` | Staging: Cloud Run staging + Cloudflare edge staging. Schema via `pnpm db:push`. |
+| `production` | Prod: Cloud Run + Vercel. Schema via `prisma migrate deploy`. |
+
+Promote `main` → `preview` and `main` → `production` with a **merge commit**.
+See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
+
+The codebase is a Turborepo monorepo: TypeScript Express 5 (Prisma/Supabase),
+an Expo official web client, a Next.js 16 legacy UI (Cloud Run / Vercel /
+Playwright), and a Hono Cloudflare Workers edge (Drizzle). Auth on Express is
+Supabase JWT; per-request authorization is resolved against a permission table
+seeded from `apps/api/src/common/constants/permissions.ts`.
 
 ---
 
@@ -36,18 +48,18 @@ permission table seeded from `apps/api/src/common/constants/permissions.ts`.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                         Browser (Next.js client)                       │
-│  React 19 · Tailwind v4 · shadcn UI · base-ui · TipTap · sonner       │
+│              Browser (Expo official web — apps/app, :8081)             │
+│  Expo Router · React 19 · Bearer JWT + `X-Client: expo`                │
 └──────────────────────────────┬─────────────────────────────────────────┘
-                               │  HTTPS (cookie-bound JWT)
+                               │  HTTPS (Authorization: Bearer)
                                ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                       Next.js 16 (apps/web, port 3000)                 │
-│  Server components fetch via `services/*.service.ts` → `lib/api-client`│
-│  Auth provider holds `user / roles / permissions`; route guards read   │
-│  the in-memory state. No direct DB access from the web app.            │
+│                    Expo SPA (apps/app)                                 │
+│  Dashboard shell + module lists via `src/lib/api-client.ts`.           │
+│  Next.js (`apps/web`, :3000) stays the Cloud Run / Vercel / Playwright │
+│  client (`pnpm dev:web:next`) until screens are ported.                │
 └──────────────────────────────┬─────────────────────────────────────────┘
-                               │  /api/* (cookies forwarded)
+                               │  /api/* (Bearer or cookies)
                                ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                    Express 5 (apps/api, port 3001)                     │
@@ -115,24 +127,31 @@ Request lifecycle:
 │   │       ├── modules/            <feature>/{controller,service,repository,validation}.ts
 │   │       │                       (99 modules — see Domain Modules below)
 │   │       └── lib/                events, portal-url, tracking
-│   └── web/                        Next.js 16 + React 19 frontend (port 3000)
-│       └── src/
-│           ├── app/
-│           │   ├── (dashboard)/    authenticated routes (Home, HRMS, …)
-│           │   ├── (auth)/         sign-in / sign-up
-│           │   └── my-portal/      employee-only landing
-│           ├── components/         feature-scoped React components
-│           ├── services/           one file per backend module — wraps `lib/api-client`
-│           ├── providers/          AuthProvider (user/roles/permissions)
-│           ├── hooks/              shared hooks (use-debounce, use-pagination, …)
-│           └── lib/                api-client, utils
+│   ├── web/                        Next.js 16 legacy UI (port 3000)
+│   │   └── src/
+│   │       ├── app/
+│   │       │   ├── (dashboard)/    authenticated routes (Home, HRMS, …)
+│   │       │   ├── (auth)/         sign-in / sign-up
+│   │       │   └── my-portal/      employee-only landing
+│   │       ├── components/         feature-scoped React components
+│   │       ├── services/           one file per backend module — wraps `lib/api-client`
+│   │       ├── providers/          AuthProvider (user/roles/permissions)
+│   │       ├── hooks/              shared hooks (use-debounce, use-pagination, …)
+│   │       └── lib/                api-client, utils
+│   ├── edge/                       Hono on Cloudflare Workers
+│   ├── edge-jobs/                  Cron Triggers + Queue fan-out
+│   └── app/                        Expo official web (port 8081) + native
 ├── packages/
 │   ├── database/                   Prisma schema, migrations, seed
 │   │   └── prisma/
 │   │       ├── schema/             sharded *.prisma files (core, hr, finance, …)
 │   │       ├── migrations/         timestamped folders, never edit committed ones
-│   │       ├── seed.ts             dev seed
+│   │       ├── seed.ts             local seed
 │   │       └── seed-prod.ts        prod-safe seed (roles + perms only, no fake users)
+│   ├── db/                         Drizzle schema for the edge
+│   ├── core/                       Shared domain services for the edge
+│   ├── auth/                       Better Auth helpers
+│   ├── contracts/                  Shared route / DTO contracts
 │   ├── types/                      shared TS types
 │   ├── ui/                         shared shadcn components
 │   ├── utils/                      shared helpers
@@ -141,13 +160,16 @@ Request lifecycle:
 ├── docs/                           human-curated PRDs + specs (PROJECT_OVERVIEW.md,
 │                                   MODULES_SPECIFICATION.md, AUTH_RBAC.md, …)
 ├── .github/workflows/
-│   ├── deploy.yml                  push-to-main → GCP Cloud Run
+│   ├── deploy.yml                  push-to-production → GCP Cloud Run
+│   ├── deploy-staging.yml          push-to-preview → staging Cloud Run
+│   ├── deploy-edge-staging.yml     push-to-preview → edge worker
+│   ├── deploy-vercel.yml           push-to-production → Vercel
 │   └── pr-checks.yml               PR gate: type-check + lint + test + brand-drift
 ├── turbo.json                      task pipeline & globalEnv
 └── pnpm-workspace.yaml             workspace package list
 ```
 
-Workspace package names: `@nexora/api`, `@nexora/web`, `@nexora/database`,
+Workspace package names: `@nexora/api`, `@nexora/web`, `@nexora/database`, `@nexora/edge`, `@nexora/app`, `@nexora/db`,
 `@nexora/types`, `@nexora/ui`, `@nexora/utils`, `@nexora/eslint-config`.
 The `@nexora/*` prefix is an implementation detail of the monorepo and
 is intentionally kept stable even though the user-facing product was
@@ -159,7 +181,7 @@ renamed from "Nexora" to "Intranet" — don't rename it.
 
 | Layer | Tech |
 |------|------|
-| Frontend | Next.js 16 (App Router), React 19, Tailwind v4, shadcn/ui, base-ui primitives, react-hook-form + zod, sonner toasts, TipTap rich text, lucide icons |
+| Frontend | Expo 54 + Expo Router + NativeWind v4 + Reusables + TanStack Query/Table (`apps/app`, official web on :8081). Next.js 16 (`apps/web`) is the legacy Cloud Run / Vercel / Playwright UI |
 | Backend | Express 5, TypeScript 5, Zod, winston logger, multer (uploads), helmet, cors, cookie-parser, compression, express-rate-limit |
 | Database | PostgreSQL 15+ (Supabase, `aws-1-ap-southeast-1`), Prisma 6 |
 | Auth | Supabase Auth (JWT in HTTP-only cookie); permissions resolved server-side per request |
@@ -167,6 +189,7 @@ renamed from "Nexora" to "Intranet" — don't rename it.
 | Email | External email service (`EMAIL_SERVICE_URL` + template IDs) |
 | AI | Gemini (default), Anthropic (optional) — feeds the ARIA assistant |
 | Analytics | PostHog (server + client) |
+| Edge | Hono + Hono RPC on Cloudflare Workers. Hyperdrive → Postgres (ERP SoT). Sidecar: D1, Durable Objects, Queues, Workflows, R2, optional Vectorize + Workers AI, Cloudflare Access |
 | Infra | GCP Cloud Run (API + Web), Artifact Registry, Workload Identity Federation |
 | CI/CD | GitHub Actions: `pr-checks.yml` (PR gate), `deploy.yml` (push-to-main) |
 | Build | Turborepo + pnpm 10 |
@@ -335,8 +358,8 @@ Helpers live in `apps/api/src/infrastructure/soft-delete.ts`.
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/The-Binary-Holdings/new-tbh-intranet.git
-cd new-tbh-intranet
+git clone https://github.com/mygogocash/Manut.git
+cd Manut
 pnpm install
 ```
 
@@ -407,12 +430,13 @@ under `db:migrate:prod:*` and read `.env.production`.
 
 ```bash
 pnpm dev:api        # Express on :3001
-pnpm dev:web        # Next.js on :3000
+pnpm dev:web        # Expo official web on :8081
+pnpm dev:web:next   # Next.js legacy UI on :3000
 ```
 
 Or run both at once with `pnpm dev` (Turborepo parallelises).
 
-Open <http://localhost:3000>, sign in with a seeded user (see
+Open <http://localhost:8081>, sign in with a seeded user (see
 `packages/database/prisma/seed.ts` for default emails / passwords).
 
 ---
@@ -426,6 +450,7 @@ Open <http://localhost:3000>, sign in with a seeded user (see
 | `NEXT_PUBLIC_SUPABASE_URL` | Web + API | Public Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Web + API | Public anon key (RLS-bounded) |
 | `SUPABASE_SERVICE_ROLE_KEY` | API only | Bypasses RLS; never expose to client |
+| `EXPO_PUBLIC_APP_URL` | Expo (`apps/app`) | API origin. Defaults to `http://localhost:3001`. Set `http://localhost:8787` for the edge Worker |
 | `NEXT_PUBLIC_API_URL` | Web | Base URL for browser fetches |
 | `API_URL` | Web (server) | Base URL for server-side fetches |
 | `PORT` | API | Defaults to 3001 |
@@ -454,12 +479,16 @@ Open <http://localhost:3000>, sign in with a seeded user (see
 # Dev
 pnpm dev               # run all apps (Turborepo)
 pnpm dev:api           # Express only
-pnpm dev:web           # Next.js only
+pnpm dev:web           # Expo official web on :8081
+pnpm dev:web:next      # Next.js legacy UI on :3000
+pnpm dev:edge          # Hono worker (wrangler)
+pnpm dev:app           # alias for Expo
 
 # Database
 pnpm db:generate       # regen Prisma client
-pnpm db:migrate        # create + apply dev migration
-pnpm db:push           # push schema without migration (dev only)
+pnpm db:migrate        # create + apply local migration
+pnpm db:push           # push schema without migration (local / staging)
+pnpm route-parity      # Express vs Hono coverage
 pnpm db:seed           # run seed.ts
 pnpm db:studio         # Prisma Studio (port 5555)
 
@@ -506,8 +535,8 @@ checklist.
 
 ## Production Deploy
 
-`main` push → `Deploy to GCP Cloud Run` workflow
-(`.github/workflows/deploy.yml`):
+`production` push → `Deploy to GCP Cloud Run` workflow
+(`.github/workflows/deploy.yml`). A push to `main` does not deploy.
 
 1. **Resolve historically failed migrations** — `prisma migrate
    resolve --rolled-back <name> || true` for a hard-coded list of
@@ -526,20 +555,18 @@ checklist.
    - Web service: `nexora-web` on port 3000.
    - Env vars supplied via `--set-env-vars` from GitHub Secrets.
 
-### Staging (`dev` branch)
+### Staging (`preview` branch)
 
-`dev` push → `Deploy to Staging` workflow (`.github/workflows/deploy-staging.yml`):
-separate Cloud Run services `nexora-api-staging` / `nexora-web-staging` in the
-same `asia-southeast1` region, pointed at a **separate Supabase project** via
-`STAGING_*` secrets (`STAGING_DATABASE_URL`, `STAGING_DIRECT_URL`,
-`STAGING_NEXT_PUBLIC_SUPABASE_URL`, `STAGING_NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-`STAGING_SUPABASE_SERVICE_ROLE_KEY`).
+`preview` push → `Deploy to Staging` (`.github/workflows/deploy-staging.yml`)
+and `Deploy Edge Staging` (`.github/workflows/deploy-edge-staging.yml`):
+Cloud Run `nexora-api-staging` / `nexora-web-staging` plus the edge worker,
+pointed at a **separate Supabase project** via `STAGING_*` secrets.
 
 > **Schema on staging is synced with `pnpm db:push`, not `prisma migrate
 > deploy`.** Migrations are **not** applied on staging, so any data-migration
 > SQL embedded in a migration does not run there — a column that depends on a
 > backfill will be empty on staging until seeded by hand. `pr-checks.yml`
-> gates PRs targeting both `main` and `dev`.
+> gates PRs targeting `main`, `preview`, and `production`.
 
 Cron jobs hit `/api/cron/*` with `X-Cron-Secret: ${CRON_SECRET}`.
 Cloud Scheduler is provisioned manually — coordinate with infra
@@ -556,10 +583,9 @@ service** — staging has no scheduler jobs at all.
 | `marketing-drift-check` | 09:00 | Reconcile the two readers of the BNII API — **currently PAUSED** |
 | `expense-monthly-reminders` | 09:00 on the 22nd | Monthly expense submission reminders |
 
-`marketing-drift-check` is paused deliberately: the endpoint is on `dev`
-and production deploys from `main`, so an enabled job would 404 every
-morning until the release lands. Resume it after the next `dev` → `main`
-merge — do not re-create it. See CLAUDE.md for the exact command.
+`marketing-drift-check` is paused deliberately. Resume it after the next
+`production` deploy that contains the endpoint — do not re-create it.
+See CLAUDE.md for the exact command.
 
 Several documented cron endpoints have **no scheduler job yet**, including
 `ow-snapshot-refresh`, `accounting-status`, `it-billing-reminders`, the
@@ -630,6 +656,14 @@ pnpm --filter @nexora/database exec prisma migrate deploy
 - Logger is winston (`apps/api/src/common/utils/logger.ts`). Use
   `logger.info("msg", { … })` with object metadata. Don't log secrets.
 
+### Frontend (`apps/app` — official local web)
+
+- Expo Router + NativeWind v4 + React Native Reusables + TanStack Query
+  + TanStack Table v8. `'use dom'` lives in `src/components/dom` for
+  web-only HTML (sanitize first). Do not run Reusables `init` here.
+- API calls go through `src/lib/api-client.ts` (`api` / `useApiQuery`)
+  with `X-Client: expo` and a Bearer token. Never cookie `fetch`.
+
 ### Frontend (`apps/web`)
 
 - Routes in `src/app/(dashboard)/…`. Server components only when the
@@ -661,7 +695,7 @@ pnpm --filter @nexora/database exec prisma migrate deploy
 - Product name: **Intranet** (#210). Don't rename `@nexora/*`
   workspace packages — that's an implementation detail.
 - Design tokens: cream / bronze / gold (live on
-  `tbh-intranet.web.app`). Local `globals.css` may differ — when in
+  `manut.xyz`). Local `globals.css` may differ — when in
   doubt, match the live site.
 
 ---
@@ -675,7 +709,7 @@ inside `packages/database/`. The Prisma scripts cascade from the root.
 
 ```bash
 # Right
-cd new-tbh-intranet
+cd /path/to/Manut
 pnpm db:seed
 
 # Wrong
@@ -732,5 +766,4 @@ most common cause.
 
 ## License
 
-Private — The Binary Holdings internal use only.
-# Staging CI/CD test - Sat Jun 13 01:42:36 PM +07 2026
+See the GitHub repository: https://github.com/mygogocash/Manut

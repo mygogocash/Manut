@@ -1,10 +1,13 @@
-# AGENTS.md — how we build on the Intranet
+# AGENTS.md — how we build on Manut
+
+This GitHub repository is [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Trunk is `main`; `preview` is staging; `production` is prod.
 
 This is the orientation for any AI agent or new engineer picking up work in this repo. It captures **how we work** and **the patterns we've learned**, distilled from real shipped features. Read it once, then lean on:
 
 - **`CLAUDE.md`** — the binding rules + conventions (route order, RBAC, migrations, the reusable-patterns catalogue). If AGENTS.md and CLAUDE.md ever disagree, CLAUDE.md wins.
 - **`CONTEXT.md`** — the map of the codebase (modules, schema files, where things live).
 - **`docs/`** — product contract (`PROJECT_OVERVIEW`, `MODULES_SPECIFICATION`, `AUTH_RBAC`, `DATABASE_SCHEMA`, `DESIGN_SYSTEM`).
+- Official local web is Expo (`apps/app`, `pnpm dev:web` on :8081): Expo Router, NativeWind v4, React Native Reusables, TanStack Query, TanStack Table v8, Expo DOM (`'use dom'`). Next.js (`apps/web`, `pnpm dev:web:next`) is the complete legacy UI and what Cloud Run / Vercel / Playwright still serve.
 
 ---
 
@@ -15,12 +18,12 @@ This is the orientation for any AI agent or new engineer picking up work in this
 3. **Branch + PR per feature.** Branch `claude/<slug>` off `main`. Conventional-commit titles (`feat(scope):`, `fix(scope):`). PR body = Summary + Test plan checklist.
 4. **Verify locally before pushing — every gate:**
    - `pnpm db:generate` (if schema changed)
-   - `pnpm type-check` (10/10 workspaces)
+   - `pnpm type-check` (all workspaces)
    - `pnpm lint` (api + web; warnings allowed, errors block)
    - `pnpm test` (api + web vitest)
    - `pnpm --filter @nexora/web build` (all pages)
    Run `eslint --fix` on touched files; it auto-sorts imports + fixes prettier/tailwind warnings. Restore `apps/web/tsconfig.tsbuildinfo` (`git checkout --`) before committing — it's generated.
-5. **CI is the source of truth.** Push, then watch the `Validate` job in `pr-checks.yml` (type-check + lint + test + brand-drift). A green Validate ≈ merge-ready.
+5. **CI is the source of truth.** Push, then watch the `Validate` check in Depot CI (`.depot/workflows/pr-checks.yml` — type-check + lint + test + brand-drift). A green Validate ≈ merge-ready.
 6. **Migrations: verify they apply.** See "Migrations" below — don't assume.
 7. **Combining PRs.** When asked to combine, check file overlap first (`git diff --name-only main <branch>`). Disjoint siblings → new branch off `main`, cherry-pick each PR's commits, `Closes #a #b`. If one branch was cut from another (stacked), the child already contains the parent — just relabel the child and close the parent. No redundant PR.
 
@@ -28,10 +31,17 @@ This is the orientation for any AI agent or new engineer picking up work in this
 
 ## Deploy reality (read this)
 
-- `main` push → `Deploy to GCP Cloud Run` (`nexora-api` / `nexora-web`), which runs **`prisma migrate deploy`** (applies only *pending* migrations against prod, which already holds the prior history) **before** the Docker build.
-- `dev` push → `deploy-staging.yml` (`nexora-api-staging` / `nexora-web-staging`, separate Supabase via `STAGING_*` secrets). Staging syncs schema with **`pnpm db:push`** — it does NOT run `prisma migrate deploy`, so **data-migration SQL embedded in a migration never fires on staging**. If a change relies on a backfill/data migration, it shows up on prod (where `migrate deploy` runs) but not on staging — seed/patch staging by hand or expect the column empty there.
-- **The prod deploy has been billing-blocked.** Merged-to-`main` code + CI-green does NOT mean it's live on `tbh-intranet...`. Always tell the user a feature is "live after the billing-blocked deploy runs," and that any migration applies on that deploy. Don't claim something is visible in the deployed app.
-- Because the prod deploy is blocked, **CI (`pr-checks`, which gates both `main` and `dev`) is how we prove correctness** — it runs independently of the deploy.
+This GitHub repo is [`mygogocash/Manut`](https://github.com/mygogocash/Manut). Branches: `main` (trunk), `preview` (staging), `production` (prod).
+
+CI runs on **Depot CI** (`.depot/workflows/`), not GitHub Actions — repo Actions is disabled. Deploys go **only to Cloudflare Workers** (`apps/edge` serving the Expo SPA + API, `apps/edge-jobs` cron) on the `manut.xyz` hosts. The GCP Cloud Run and Vercel pipelines were retired 2026-09.
+
+- `main` is the default integration branch. A push to `main` does **not** deploy.
+- `preview` push → `Deploy Edge Staging` (Depot CI): drizzle migrate + Expo export + `wrangler deploy --env staging` → `staging.manut.xyz`. Staging syncs the ERP schema with **`db push`** — it does NOT run `prisma migrate deploy`, so **data-migration SQL embedded in a migration never fires on staging**. If a change relies on a backfill/data migration, it shows up on prod (where `migrate deploy` runs) but not on staging — seed/patch staging by hand (or the Depot `db-backfill` workflow) or expect the column empty there.
+- `production` push → `Deploy Edge Production` (Depot CI): drizzle + `prisma migrate deploy` → `manut.xyz`. Production edge-jobs cron stays disabled (`JOBS_ENABLED: "false"`) until the Phase 9 cutover decision.
+- Promote `main` → `preview` and `main` → `production` with a **merge commit**, never a squash. See `docs/RELEASE_PROCESS.md`.
+- Do **not** claim a feature is live on a URL until a `production` (or `preview`) deploy has actually run. Merged-to-`main` + CI-green is not a deploy.
+- **CI (Depot `Validate`, which gates `main`, `preview`, and `production`) is how we prove correctness** — it runs independently of deploy. Branch protection requires a check named `Validate`; Depot's GitHub App reports that exact context.
+- One-time Cloudflare resources (Hyperdrive/KV/R2/Queues/D1) are provisioned per `docs/ops/CLOUDFLARE_PROVISIONING.md`; deploys fail loudly while any `REPLACE_WITH_*` placeholder remains.
 
 ---
 
@@ -83,7 +93,7 @@ These are battle-tested here — reach for them before designing from scratch:
 **Universal layout** (holds for every module — learn it once, navigate all ~70):
 
 - **API**: `apps/api/src/modules/<name>/` → `<name>.controller.ts` (routes + `requirePermission`), `<name>.service.ts` (logic), `<name>.repository.ts` (Prisma), `<name>.validation.ts` (zod + inferred `*Input` types), `<name>.service.test.ts` (vitest), `index.ts` (exports the router). Registered in `apps/api/src/modules/index.ts` (`app.use("/api/<base>", <name>Routes)`).
-- **Web**: route page `apps/web/src/app/(dashboard)/<route>/page.tsx`; API calls via `apps/web/src/services/<name>.service.ts` (never `fetch` in components); dialogs/sheets in `apps/web/src/components/<name>/`.
+- **Web (Expo, official local)**: route files in `apps/app/app/(dashboard)/<route>/index.tsx`; API calls via `apps/app/src/lib/api-client.ts` + `useApiQuery`. UI primitives in `apps/app/src/components/ui`. Next.js pages in `apps/web` remain the complete legacy UI.
 - **Schema**: one `packages/database/prisma/schema/<domain>.prisma` per domain; migrations in `packages/database/prisma/migrations/`.
 - **Perms**: codes in `apps/api/src/common/constants/permissions.ts` (`module:action`); seeded to roles in `packages/database/prisma/seed.ts`.
 
@@ -102,6 +112,7 @@ To extend a module: read its `service.ts` + `validation.ts`, find the nearest si
 | **Content / Comms** | `blogs` `articles` `news` `wall` `messages` `survey` `survey-forms` `docs` `policies` `legal-announcements` | `/blog-management` `/pr-management` `/messages` `/survey` `/docs` `/policies` `/legal` | `content.prisma`, `comms.prisma` | rich-text (`sanitizeRichHtml`); signed-URL downloads |
 | **ARIA (AI)** | `aria` | `/aria` | (corpus tables) | eval-gated tools; see CLAUDE.md ARIA evals |
 | **Platform** | `auth` `admin` `integrations` `uploads` `dashboard` `cron` `company-dates` `validator-monitor` `telemetry` | `/admin` `/settings` `/gmail` `/drive` | `core.prisma`, `integrations.prisma`, `system.prisma` | Supabase auth; Google OAuth; SystemSetting key/value |
+| **Edge** | Hono routes in `apps/edge/src/routes/` (services from `@nexora/core`) | Worker, not Next | Hyperdrive Postgres via `@nexora/db`; D1 sidecar in `packages/db/src/edge` | Express port; 501 for Node-only work; `pnpm route-parity`. D1 is not the ERP DB. |
 
 Anything not listed still follows the universal layout above — open the folder and mirror its neighbours.
 
@@ -112,4 +123,4 @@ Anything not listed still follows the universal layout above — open the folder
 - TS strict; no `any` leaking across boundaries. Validate inputs with zod in `<module>.validation.ts`; export inferred `*Input` types.
 - Comments explain **why**, not what. Match the surrounding density.
 - Tests: vitest, mock the repository layer, assert the service's scoping/branching (not Prisma). Add a happy path + the auth/condition edge for anything with an access rule.
-- Brand: the product is **Intranet**; `@nexora/*` package names are internal and never user-visible. The brand-drift CI gate scans `apps/web/src` only.
+- Brand: the product is **Manut** ("Manut"), defined by **Manut Brand CI v1.0** in `docs/DESIGN_SYSTEM.md` (Ink/Paper neutrals + Intelligence accent, Inter UI + Instrument Serif brand voice). `@nexora/*` package names are internal and never user-visible. The brand-drift CI gate scans `apps/web/src` and `apps/app/src` for retired palette hexes; `scripts/brand-contrast.mjs` validates AA.

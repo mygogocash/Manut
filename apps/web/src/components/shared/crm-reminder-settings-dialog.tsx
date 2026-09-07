@@ -179,7 +179,7 @@ export function CrmReminderSettingsDialog({
                 onBlur={commitDraft}
                 placeholder={
                   emails.length === 0
-                    ? "team-lead@thebinaryholdings.com"
+                    ? "team-lead@manut.xyz"
                     : "Add another…"
                 }
                 className={`

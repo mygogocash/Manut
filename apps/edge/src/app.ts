@@ -10,6 +10,7 @@ import { requireTurnstile } from "./middleware/turnstile";
 import { posthogProxy } from "./proxy/posthog";
 import { api } from "./routes";
 import { NotFoundException } from "./lib/errors";
+import { requireAccess } from "./middleware/access";
 
 export function createApp() {
   const app = new Hono<AppEnv>();
@@ -22,6 +23,7 @@ export function createApp() {
 
   // API middleware order (plan): requestId → logger → rateLimit → auth session → rbac-on-route.
   // requestId is set inside requestContext (needs Hyperdrive); logger runs after so requestId is present.
+  app.use("/api/*", requireAccess);
   app.use("/api/*", requestContext);
   app.use("/api/*", requestLogger);
   app.use("/api/*", rateLimit((env) => env.RATE_LIMITER_GLOBAL));

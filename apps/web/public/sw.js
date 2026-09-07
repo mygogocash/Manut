@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// <reference lib="webworker" />
 
-// Intranet service worker.
+// Manut service worker.
 //
 // This is an internal business application, so the governing rule is:
 // CACHE THE SHELL, NEVER THE DATA. Offline capability is worth having, but not
@@ -116,8 +116,7 @@ function isHashedStatic(url) {
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname === "/manifest.webmanifest" ||
-    url.pathname === "/favicon.ico" ||
-    url.pathname === "/tbh-circle-logo.ico"
+    url.pathname === "/favicon.ico"
   );
 }
 
@@ -224,7 +223,7 @@ self.addEventListener("fetch", (event) => {
 /** The shape we send. Anything else is treated as absent. */
 function readPushPayload(event) {
   const fallback = {
-    title: "Intranet",
+    title: "Manut",
     body: "You have a new notification.",
     url: "/dashboard",
     tag: undefined,

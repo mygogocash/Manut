@@ -317,7 +317,7 @@ export default function LeaveApprovalConfigPage() {
         <NotificationRecipientsCard
           title="HR-desk notifications"
           description="These addresses receive a long-form summary email every time a leave request is fully approved. Use it to route the brief to HR / the people-ops admin."
-          placeholder="hr-desk@thebinaryholdings.com"
+          placeholder="hr-desk@manut.xyz"
           fetcher={fetchLeaveRecipients}
           persister={saveLeaveRecipients}
         />

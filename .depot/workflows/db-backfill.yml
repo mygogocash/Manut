@@ -1,0 +1,112 @@
+# =============================================================================
+# One-off data backfills against staging or production (Depot CI)
+#
+# WHY THIS EXISTS
+#
+# Staging syncs schema with `prisma db push`, not `prisma migrate deploy`. Push
+# reconciles the SHAPE of the database and never executes a migration file, so
+# any DATA statement inside one is silently skipped on staging: the columns
+# appear, the values do not. Prod runs the migrations properly and does not need
+# this — but the same script is the repair tool if a prod migration is ever
+# resolved past, so both targets are offered.
+#
+# Manual dispatch only (depot ci dispatch --workflow db-backfill.yml ...).
+# Nothing here runs on push, because a data write is a decision someone takes
+# deliberately, not a side effect of merging.
+#
+# The default is a DRY RUN. It reports what it would change and writes nothing,
+# so the safe action is also the default action.
+#
+# Depot CI note: the GitHub Actions version gated production writes behind a
+# GitHub Environment; Depot CI has no environments yet, so the guard here is
+# the dry-run default + the concurrency group. Require a human dispatch.
+# =============================================================================
+name: Database backfill (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: "Script in packages/database/scripts/ to run"
+        required: true
+        type: choice
+        options:
+          - backfill-advance-side-vendor.mjs
+      target:
+        description: "Which database"
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+      dry_run:
+        description: "Report only, write nothing"
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  # Never two writers on one database at once.
+  group: db-backfill-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    name: ${{ inputs.dry_run && 'Dry run' || 'WRITE' }} ${{ inputs.script }} on ${{ inputs.target }}
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Fail fast when the target's DATABASE_URL secret is missing
+        env:
+          URL: ${{ inputs.target == 'production' && secrets.DATABASE_URL || secrets.STAGING_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${URL:-}" ]; then
+            echo "::error::No DATABASE_URL secret configured for target '${{ inputs.target }}'."
+            exit 1
+          fi
+          echo "Secret present for ${{ inputs.target }} (value not printed)."
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The scripts import the generated client directly, so it has to exist.
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Run backfill
+        env:
+          DATABASE_URL: ${{ inputs.target == 'production' && secrets.DATABASE_URL || secrets.STAGING_DATABASE_URL }}
+          DIRECT_URL: ${{ inputs.target == 'production' && secrets.DIRECT_URL || secrets.STAGING_DIRECT_URL }}
+        run: |
+          set -euo pipefail
+          ARGS=""
+          if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="--dry-run"; fi
+          echo "Running ${{ inputs.script }} against ${{ inputs.target }} ${ARGS:-(writing)}"
+          node "packages/database/scripts/${{ inputs.script }}" $ARGS
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Database backfill"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Script | \`${{ inputs.script }}\` |"
+            echo "| Target | **${{ inputs.target }}** |"
+            echo "| Mode | ${{ inputs.dry_run && 'dry run (nothing written)' || 'WRITE' }} |"
+            echo "| Result | ${{ job.status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

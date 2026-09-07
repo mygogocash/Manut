@@ -1,4 +1,4 @@
-import type { CookieOptions, Response } from "express";
+import type { CookieOptions, Request, Response } from "express";
 import { Router } from "express";
 
 import { logger } from "@/common/utils/logger";
@@ -15,6 +15,11 @@ import {
   setActiveEntitySchema,
   updateMyProfileSchema,
 } from "@/modules/auth/auth.validation";
+import { isExpoClient } from "@/modules/auth/expo-client";
+import {
+  isLocalDevToken,
+  refreshLocalDevSession,
+} from "@/modules/auth/local-dev-auth";
 
 const IS_PROD = process.env.NODE_ENV === "production";
 
@@ -59,12 +64,26 @@ function requestIp(req: { ip?: string; socket?: { remoteAddress?: string } }) {
   return req.ip ?? req.socket?.remoteAddress ?? null;
 }
 
+function readRefreshToken(req: Request): string | undefined {
+  const cookie = req.cookies?.nexora_refresh_token;
+  if (typeof cookie === "string" && cookie.length > 0) return cookie;
+  const body = req.body as { refreshToken?: unknown } | undefined;
+  return typeof body?.refreshToken === "string" ? body.refreshToken : undefined;
+}
+
 function sendAuthenticatedPayload(
+  req: Request,
   res: Response,
   result: Awaited<ReturnType<typeof authService.login>>,
 ) {
   setAuthCookies(res, result.session);
-  const { session: _session, ...payload } = result;
+  const { session, ...payload } = result;
+  // Next.js stays cookie-only. Expo is cross-origin / native, so it needs
+  // the JWTs in the body and sends them back as Authorization: Bearer.
+  if (isExpoClient(req)) {
+    res.json({ ...payload, session });
+    return;
+  }
   res.json(payload);
 }
 
@@ -77,7 +96,7 @@ router.post(
     const result = await authService.login(input);
     logger.info(`User logged in: ${input.email}`);
 
-    sendAuthenticatedPayload(res, result);
+    sendAuthenticatedPayload(req, res, result);
   }),
 );
 
@@ -89,7 +108,7 @@ router.post(
     res.json({
       success: true,
       message:
-        "If this email belongs to an active Intranet account, a reset link will be sent shortly.",
+        "If this email belongs to an active Manut account, a reset link will be sent shortly.",
     });
   }),
 );
@@ -102,7 +121,7 @@ router.post(
     res.json({
       success: true,
       message:
-        "If this email belongs to an active Intranet account, a sign-in link will be sent shortly.",
+        "If this email belongs to an active Manut account, a sign-in link will be sent shortly.",
     });
   }),
 );
@@ -114,7 +133,7 @@ router.post(
     const result = await authService.recoverPassword(input, {
       ip: requestIp(req),
     });
-    sendAuthenticatedPayload(res, result);
+    sendAuthenticatedPayload(req, res, result);
   }),
 );
 
@@ -125,7 +144,7 @@ router.post(
     const result = await authService.exchangeSession(input, {
       ip: requestIp(req),
     });
-    sendAuthenticatedPayload(res, result);
+    sendAuthenticatedPayload(req, res, result);
   }),
 );
 
@@ -138,11 +157,34 @@ router.post("/logout", authenticate, async (req, res) => {
 router.post(
   "/refresh",
   asyncHandler(async (req, res) => {
-    const refreshToken = req.cookies?.nexora_refresh_token;
+    const refreshToken = readRefreshToken(req);
     if (!refreshToken) {
       res.status(401).json({
         error: { code: "NO_REFRESH_TOKEN", message: "No refresh token" },
       });
+      return;
+    }
+
+    if (isLocalDevToken(refreshToken)) {
+      const local = refreshLocalDevSession(refreshToken);
+      if (!local) {
+        clearAuthCookies(res);
+        res.status(401).json({
+          error: { code: "REFRESH_FAILED", message: "Session expired" },
+        });
+        return;
+      }
+      const session = {
+        accessToken: local.accessToken,
+        refreshToken: local.refreshToken,
+        expiresIn: local.expiresIn,
+      };
+      setAuthCookies(res, session);
+      if (isExpoClient(req)) {
+        res.json({ success: true, session });
+        return;
+      }
+      res.json({ success: true });
       return;
     }
 
@@ -158,12 +200,17 @@ router.post(
       return;
     }
 
-    setAuthCookies(res, {
+    const session = {
       accessToken: data.session.access_token,
       refreshToken: data.session.refresh_token,
       expiresIn: data.session.expires_in,
-    });
+    };
+    setAuthCookies(res, session);
 
+    if (isExpoClient(req)) {
+      res.json({ success: true, session });
+      return;
+    }
     res.json({ success: true });
   }),
 );

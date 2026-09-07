@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "turbo dev",
     "dev:api": "pnpm --filter @nexora/api dev",
-    "dev:web": "pnpm --filter @nexora/web dev",
+    "dev:web": "pnpm --filter @nexora/app dev",
+    "dev:web:next": "pnpm --filter @nexora/web dev",
     "build": "turbo build",
     "lint": "turbo lint",
     "check:lines": "bash scripts/check-line-length.sh",
@@ -106,7 +107,12 @@
       "deepmerge-ts@<8.0.0": "8.0.1",
       "fast-uri@<3.1.6": "3.1.6",
       "qs@<6.16.0": "6.16.0",
-      "@xmldom/xmldom@<0.9.12": "0.9.12"
+      "@xmldom/xmldom@<0.9.12": "0.9.12",
+      "@types/react": "19.2.18",
+      "@types/react-dom": "19.2.4"
+    },
+    "patchedDependencies": {
+      "expo-router": "patches/expo-router.patch"
     }
   },
   "dependencies": {

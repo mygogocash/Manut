@@ -27,6 +27,13 @@ const buttonVariants = cva(
           bg-primary text-primary-foreground
           [a]:hover:bg-primary/80
         `,
+        // Intelligence action (Brand CI §20): violet, reserved for AI actions
+        // ("Ask Manut", "Analyze with Manut") — never a generic CTA.
+        ai: `
+          bg-intelligence text-intelligence-foreground
+          [a]:hover:bg-intelligence-600
+          dark:[a]:hover:bg-intelligence-400
+        `,
         accent: `
           bg-primary-light text-foreground
           [a]:hover:bg-primary-light/90

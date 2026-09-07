@@ -3,6 +3,12 @@
 Weekend window. **Do not execute** until Phase 8 gates pass and founder signs off.
 Same Postgres stays; session model changes (users re-login once).
 
+> 2026-09 update: the GCP Cloud Run and Vercel pipelines were **retired** —
+> this runbook's "disable Cloud Run / Vercel workflows" steps are done
+> (workflows deleted) and the legacy Cloud Scheduler entries are dead. What
+> remains of the cutover: production Cloudflare provisioning, DNS cutover of
+> any legacy hosts, and flipping `JOBS_ENABLED` for edge-jobs.
+
 ## Pre-flight (T−7d)
 
 1. Staging UAT green on `next-staging.intranet…` Worker.
@@ -27,7 +33,7 @@ Same Postgres stays; session model changes (users re-login once).
 
 ## T (cutover)
 
-1. Attach Workers custom domain: `intranet.thebinaryholdings.com` → prod edge Worker  
+1. Attach Workers custom domain: `manut.xyz` → prod edge Worker  
    (zone already on Cloudflare; remove Vercel CNAME).
 2. `staging-intranet.` → staging Worker (if not already).
 3. Smoke: login (magic-link + password), `/api/auth/me`, one leave list, one upload, one cron forced tick.

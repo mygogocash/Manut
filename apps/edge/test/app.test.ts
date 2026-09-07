@@ -28,4 +28,9 @@ describe("intranet-edge", () => {
     const res = await run("/health");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
+
+  it("rejects /ws upgrades without the WebSocket header", async () => {
+    const res = await run("/ws/messages/general");
+    expect(res.status).toBe(426);
+  });
 });
