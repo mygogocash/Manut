@@ -1,3 +1,5 @@
+import { ASSISTANT_DISPLAY_NAME } from "@/lib/brand";
+
 export type NavItem = {
   href: string;
   label: string;
@@ -18,7 +20,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Workspace",
     items: [
       { href: DASHBOARD_HOME, label: "Home", permissions: ["home:read"] },
-      { href: "/aria", label: "ARIA", permissions: ["aria:use"] },
+      { href: "/aria", label: ASSISTANT_DISPLAY_NAME, permissions: ["aria:use"] },
       { href: "/messages", label: "Messaging", permissions: ["messages:read"] },
       { href: "/docs", label: "Repository", permissions: ["docs:read"] },
       { href: "/projects", label: "Projects", permissions: ["projects:read"] },

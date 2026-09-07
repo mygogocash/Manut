@@ -22,7 +22,7 @@ export const ARIA_TOOLS_REGISTRY: AriaToolMeta[] = [
   { name: "account_email_summary", description: "Summarise recent emails for an account", requiredPermissions: ["sales:read"] },
   { name: "lookup_my_calendar", description: "Look up calendar events for the caller", requiredPermissions: [] },
   { name: "submit_leave_request", description: "Submit a leave request on behalf of the caller", requiredPermissions: ["leave:request"] },
-  { name: "aria_memory_forget", description: "Forget a stored ARIA memory item", requiredPermissions: ["aria:use"] },
+  { name: "aria_memory_forget", description: "Forget a stored Manut AI memory item", requiredPermissions: ["aria:use"] },
 ];
 
 export function listToolsForPermissions(permissions: string[], isSystemAdmin: boolean) {

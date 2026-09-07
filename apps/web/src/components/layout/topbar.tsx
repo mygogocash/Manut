@@ -43,7 +43,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/investor-updates": "Investor Updates",
   "/admin": "Administration",
   "/settings": "Settings",
-  "/aria": "ARIA",
+  "/aria": "Manut AI",
 };
 
 /**

@@ -192,7 +192,7 @@ const lookupEmployee: ToolEntry<{ query: string }> = {
   definition: {
     name: "lookup_employee",
     description:
-      "Find one or more employees by name, email, or employee ID. Returns up to 5 matches with name, email, job title, department, entity, and manager. Use this whenever the user names a person ARIA does not already know about. Returns JSON string {results: [...]} (empty array when no match).",
+      "Find one or more employees by name, email, or employee ID. Returns up to 5 matches with name, email, job title, department, entity, and manager. Use this whenever the user names a person Manut AI does not already know about. Returns JSON string {results: [...]} (empty array when no match).",
     input_schema: {
       type: "object",
       properties: {
@@ -1537,7 +1537,7 @@ const submitLeaveRequest: ToolEntry<{
   definition: {
     name: "submit_leave_request",
     description:
-      "Draft a leave request for the requesting officer (e.g. annual, sick, personal). DOES NOT submit immediately — emits a signed `aria-confirm` block that the user must Approve in the chat UI before the request is filed. Use this when the user clearly asks ARIA to file leave on their behalf.",
+      "Draft a leave request for the requesting officer (e.g. annual, sick, personal). DOES NOT submit immediately — emits a signed `aria-confirm` block that the user must Approve in the chat UI before the request is filed. Use this when the user clearly asks Manut AI to file leave on their behalf.",
     input_schema: {
       type: "object",
       properties: {
@@ -1637,7 +1637,7 @@ const ariaMemoryForget: ToolEntry<{ matching: string }> = {
   definition: {
     name: "aria_memory_forget",
     description:
-      "Delete pinned memory entries on this conversation whose key or value contains the given fragment (case-insensitive). Use this when the requesting officer says 'forget …' or asks ARIA to drop a previously-remembered fact. Returns the deleted entries so the response can acknowledge what was forgotten.",
+      "Delete pinned memory entries on this conversation whose key or value contains the given fragment (case-insensitive). Use this when the requesting officer says 'forget …' or asks Manut AI to drop a previously-remembered fact. Returns the deleted entries so the response can acknowledge what was forgotten.",
     input_schema: {
       type: "object",
       properties: {
@@ -1657,7 +1657,7 @@ const ariaMemoryForget: ToolEntry<{ matching: string }> = {
       if (!conversationId) {
         return {
           error: "no_conversation",
-          message: "This tool only runs inside an active ARIA conversation.",
+          message: "This tool only runs inside an active Manut AI conversation.",
         };
       }
       const deleted = await ariaRepository.deleteMemoryEntriesMatching(
