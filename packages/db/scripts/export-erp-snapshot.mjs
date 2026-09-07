@@ -38,8 +38,9 @@ if (!url) {
   process.exit(1);
 }
 
-const asOf =
-  process.env.AS_OF_DATE ?? new Date().toISOString().slice(0, 10);
+// Depot workflow_dispatch may pass AS_OF_DATE="" — treat blank as unset.
+const asOfRaw = (process.env.AS_OF_DATE ?? "").trim();
+const asOf = asOfRaw || new Date().toISOString().slice(0, 10);
 if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
   console.error(`AS_OF_DATE must be YYYY-MM-DD, got '${asOf}'`);
   process.exit(1);
