@@ -204,10 +204,87 @@ function RequestLeaveDialog({
   );
 }
 
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="gap-0.5">
+      <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</Text>
+      <Text className="text-[14px] text-foreground">{value}</Text>
+    </View>
+  );
+}
+
+function LeaveDetailDialog({
+  request,
+  open,
+  onOpenChange,
+  canCancel,
+  onCancelled,
+}: {
+  request: LeaveRequest | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  canCancel: boolean;
+  onCancelled: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = request?.status.toLowerCase().includes("pending") ?? false;
+
+  async function cancel() {
+    if (!request || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.put(`/leave/requests/${request.id}/cancel`, {});
+      toast("Leave request cancelled", "success");
+      onOpenChange(false);
+      onCancelled();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Cancel failed";
+      setError(msg);
+      toast(msg, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} dismissible={!busy} onOpenChange={onOpenChange}>
+      <DialogContent
+        title={request?.leaveType?.name ?? "Leave request"}
+        description="Review this request."
+        footer={
+          <DialogFooter>
+            <Button variant="outline" disabled={busy} onPress={() => onOpenChange(false)}>
+              <Text>Close</Text>
+            </Button>
+            {canCancel && pending ? (
+              <Button variant="destructive" disabled={busy} onPress={() => void cancel()}>
+                <Text>{busy ? "Cancelling…" : "Cancel request"}</Text>
+              </Button>
+            ) : null}
+          </DialogFooter>
+        }
+      >
+        {request ? (
+          <View className="gap-3">
+            <DetailRow label="Status" value={request.status} />
+            <DetailRow label="Employee" value={request.employee?.name ?? "—"} />
+            <DetailRow label="Dates" value={`${request.startDate} – ${request.endDate}`} />
+            <DetailRow label="Days" value={String(request.days)} />
+            {error ? <Text className="text-[13px] text-destructive">{error}</Text> : null}
+          </View>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function LeavePage() {
   const queryClient = useQueryClient();
   const canRequest = useAuth((s) => s.hasPermission("leave:request"));
   const [requestOpen, setRequestOpen] = useState(false);
+  const [selected, setSelected] = useState<LeaveRequest | null>(null);
   const query = useApiQuery<{ data: LeaveRequest[] }>(queryKeys.leave.requests(), "/leave/requests");
   const items = unwrapList<LeaveRequest>(query.data);
 
@@ -257,6 +334,7 @@ export default function LeavePage() {
               ? "Tap Request leave to submit your first request."
               : "No leave requests to show."
           }
+          onRowPress={setSelected}
         />
       </PageScreen>
       {canRequest ? (
@@ -274,6 +352,23 @@ export default function LeavePage() {
           }}
         />
       ) : null}
+      <LeaveDetailDialog
+        request={selected}
+        open={selected != null}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+        canCancel={canRequest}
+        onCancelled={() => {
+          void (async () => {
+            try {
+              await queryClient.invalidateQueries({ queryKey: queryKeys.leave.requests() });
+            } catch {
+              toast("Cancelled, but the list failed to refresh", "error");
+            }
+          })();
+        }}
+      />
     </>
   );
 }

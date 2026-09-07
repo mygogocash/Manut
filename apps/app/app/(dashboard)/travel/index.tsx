@@ -187,10 +187,90 @@ function RequestTravelDialog({
   );
 }
 
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="gap-0.5">
+      <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</Text>
+      <Text className="text-[14px] text-foreground">{value}</Text>
+    </View>
+  );
+}
+
+function TravelDetailDialog({
+  request,
+  open,
+  onOpenChange,
+  canCancel,
+  onCancelled,
+}: {
+  request: TravelRequest | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  canCancel: boolean;
+  onCancelled: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending =
+    request != null &&
+    (request.status.toLowerCase().includes("pending") ||
+      request.status.toLowerCase().includes("submitted"));
+
+  async function cancel() {
+    if (!request || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.put(`/travel/requests/${request.id}/cancel`, {});
+      toast("Travel request cancelled", "success");
+      onOpenChange(false);
+      onCancelled();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Cancel failed";
+      setError(msg);
+      toast(msg, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} dismissible={!busy} onOpenChange={onOpenChange}>
+      <DialogContent
+        title={request ? `${request.origin} → ${request.destination}` : "Travel request"}
+        description={request?.requestCode ? `Code ${request.requestCode}` : "Review this trip."}
+        footer={
+          <DialogFooter>
+            <Button variant="outline" disabled={busy} onPress={() => onOpenChange(false)}>
+              <Text>Close</Text>
+            </Button>
+            {canCancel && pending ? (
+              <Button variant="destructive" disabled={busy} onPress={() => void cancel()}>
+                <Text>{busy ? "Cancelling…" : "Cancel request"}</Text>
+              </Button>
+            ) : null}
+          </DialogFooter>
+        }
+      >
+        {request ? (
+          <View className="gap-3">
+            <DetailRow label="Status" value={request.status} />
+            <DetailRow label="Employee" value={request.employee?.name ?? "—"} />
+            <DetailRow label="Dates" value={`${request.departureDate} – ${request.returnDate}`} />
+            {request.purpose ? <DetailRow label="Purpose" value={request.purpose} /> : null}
+            {error ? <Text className="text-[13px] text-destructive">{error}</Text> : null}
+          </View>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function TravelPage() {
   const queryClient = useQueryClient();
   const canRequest = useAuth((s) => s.hasPermission("travel:request"));
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<TravelRequest | null>(null);
   const query = useApiQuery<{ data: TravelRequest[] }>(queryKeys.travel.requests(), "/travel/requests");
   const items = unwrapList<TravelRequest>(query.data);
 
@@ -238,6 +318,7 @@ export default function TravelPage() {
           emptyDescription={
             canRequest ? "Tap Request travel to file your first trip." : "No travel requests to show."
           }
+          onRowPress={setSelected}
         />
       </PageScreen>
       {canRequest ? (
@@ -255,6 +336,23 @@ export default function TravelPage() {
           }}
         />
       ) : null}
+      <TravelDetailDialog
+        request={selected}
+        open={selected != null}
+        onOpenChange={(next) => {
+          if (!next) setSelected(null);
+        }}
+        canCancel={canRequest}
+        onCancelled={() => {
+          void (async () => {
+            try {
+              await queryClient.invalidateQueries({ queryKey: queryKeys.travel.requests() });
+            } catch {
+              toast("Cancelled, but the list failed to refresh", "error");
+            }
+          })();
+        }}
+      />
     </>
   );
 }

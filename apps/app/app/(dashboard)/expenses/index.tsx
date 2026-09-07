@@ -199,10 +199,55 @@ function CreateExpenseReportDialog({
   );
 }
 
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="gap-0.5">
+      <Text className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</Text>
+      <Text className="text-[14px] text-foreground">{value}</Text>
+    </View>
+  );
+}
+
+function ExpenseDetailDialog({
+  report,
+  open,
+  onOpenChange,
+}: {
+  report: ExpenseReport | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        title={report?.title ?? "Expense report"}
+        description="Report summary. Line items stay on the full expense portal for now."
+        footer={
+          <DialogFooter>
+            <Button variant="outline" onPress={() => onOpenChange(false)}>
+              <Text>Close</Text>
+            </Button>
+          </DialogFooter>
+        }
+      >
+        {report ? (
+          <View className="gap-3">
+            <DetailRow label="Status" value={report.status} />
+            <DetailRow label="Period" value={report.period} />
+            <DetailRow label="Category" value={report.category ?? "general"} />
+            <DetailRow label="Employee" value={report.employee?.name ?? "—"} />
+          </View>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ExpensesPage() {
   const queryClient = useQueryClient();
   const canCreate = useAuth((s) => s.hasPermission("expense:create"));
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<ExpenseReport | null>(null);
   const query = useApiQuery<{ data: ExpenseReport[] }>(
     queryKeys.expenses.reports(),
     "/expenses/reports",
@@ -253,6 +298,7 @@ export default function ExpensesPage() {
           emptyDescription={
             canCreate ? "Tap New report to start your first period." : "No expense reports to show."
           }
+          onRowPress={setSelected}
         />
       </PageScreen>
       {canCreate ? (
@@ -270,6 +316,13 @@ export default function ExpensesPage() {
           }}
         />
       ) : null}
+      <ExpenseDetailDialog
+        report={selected}
+        open={selected != null}
+        onOpenChange={(next) => {
+          if (!next) setSelected(null);
+        }}
+      />
     </>
   );
 }

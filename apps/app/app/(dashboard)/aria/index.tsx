@@ -6,6 +6,7 @@ import { PageScreen } from "@/components/page-screen";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
 import { TABLET_MIN, useViewportWidth } from "@/hooks/use-viewport-width";
@@ -174,7 +175,10 @@ function MessageBubble({
             {display}
           </Text>
         ) : message.pending ? (
-          <ActivityIndicator color={isUser ? BRAND.paper : BRAND.intelligence} />
+          <View className="gap-2 py-0.5">
+            <Skeleton className="h-3 w-40" />
+            <Skeleton className="h-3 w-28" />
+          </View>
         ) : null}
         {message.error ? (
           <Text className="mt-1 text-[13px] text-destructive">{message.error}</Text>
@@ -541,8 +545,13 @@ export default function ManutAiPage() {
         </Button>
       </View>
       {loadingList ? (
-        <View className="flex-1 items-center justify-center py-8">
-          <ActivityIndicator color={BRAND.ink} />
+        <View className="gap-2 p-3">
+          {Array.from({ length: 6 }, (_, index) => (
+            <View key={index} className="gap-1.5 rounded-lg px-2.5 py-2">
+              <Skeleton className="h-3.5 w-36" />
+              <Skeleton className="h-2.5 w-20" />
+            </View>
+          ))}
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerClassName="gap-0.5 p-2">
