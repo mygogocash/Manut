@@ -19,6 +19,7 @@ import { BRAND } from "@/lib/brand";
 import { unwrapList } from "@/lib/list";
 import { queryKeys } from "@/lib/query-keys";
 import { toast } from "@/lib/toast";
+import { useAuth } from "@/store/auth";
 
 type TravelRequest = {
   id: string;
@@ -116,14 +117,16 @@ function RequestTravelDialog({
       toast("Travel request submitted", "success");
       onCreated();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Request failed");
+      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Request failed";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} dismissible={!busy} onOpenChange={onOpenChange}>
       <DialogContent
         title="Request travel"
         description="File a trip for approval. You can refine details after submitting."
@@ -183,6 +186,7 @@ function RequestTravelDialog({
 
 export default function TravelPage() {
   const queryClient = useQueryClient();
+  const canRequest = useAuth((s) => s.hasPermission("travel:request"));
   const [open, setOpen] = useState(false);
   const query = useApiQuery<{ data: TravelRequest[] }>(queryKeys.travel.requests(), "/travel/requests");
   const items = unwrapList<TravelRequest>(query.data);
@@ -220,26 +224,38 @@ export default function TravelPage() {
         subtitle="Request trips and track approvals."
         scroll={false}
         actions={
-          <Button size="sm" onPress={() => setOpen(true)}>
-            <Plus size={14} color={BRAND.paper} />
-            <Text>Request travel</Text>
-          </Button>
+          canRequest ? (
+            <Button size="sm" onPress={() => setOpen(true)}>
+              <Plus size={14} color={BRAND.paper} />
+              <Text>Request travel</Text>
+            </Button>
+          ) : undefined
         }
       >
         <DataTable
           columns={columns}
           data={items}
           empty="No travel requests yet"
-          emptyDescription="Tap Request travel to file your first trip."
+          emptyDescription={
+            canRequest ? "Tap Request travel to file your first trip." : "No travel requests to show."
+          }
         />
       </PageScreen>
-      <RequestTravelDialog
-        open={open}
-        onOpenChange={setOpen}
-        onCreated={() => {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.travel.requests() });
-        }}
-      />
+      {canRequest ? (
+        <RequestTravelDialog
+          open={open}
+          onOpenChange={setOpen}
+          onCreated={() => {
+            void (async () => {
+              try {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.travel.requests() });
+              } catch {
+                toast("Submitted, but the list failed to refresh", "error");
+              }
+            })();
+          }}
+        />
+      ) : null}
     </>
   );
 }

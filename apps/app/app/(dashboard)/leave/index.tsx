@@ -20,6 +20,7 @@ import { BRAND } from "@/lib/brand";
 import { unwrapList } from "@/lib/list";
 import { queryKeys } from "@/lib/query-keys";
 import { toast } from "@/lib/toast";
+import { useAuth } from "@/store/auth";
 
 type LeaveRequest = {
   id: string;
@@ -127,14 +128,16 @@ function RequestLeaveDialog({
       toast("Leave request submitted", "success");
       onCreated();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Request failed");
+      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Request failed";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} dismissible={!busy} onOpenChange={onOpenChange}>
       <DialogContent
         title="Request leave"
         description="Choose a leave type and the dates you need off."
@@ -196,6 +199,7 @@ function RequestLeaveDialog({
 
 export default function LeavePage() {
   const queryClient = useQueryClient();
+  const canRequest = useAuth((s) => s.hasPermission("leave:request"));
   const [requestOpen, setRequestOpen] = useState(false);
   const query = useApiQuery<{ data: LeaveRequest[] }>(queryKeys.leave.requests(), "/leave/requests");
   const items = unwrapList<LeaveRequest>(query.data);
@@ -233,26 +237,40 @@ export default function LeavePage() {
         subtitle="Submit time off and track requests awaiting approval."
         scroll={false}
         actions={
-          <Button size="sm" onPress={() => setRequestOpen(true)}>
-            <Plus size={14} color={BRAND.paper} />
-            <Text>Request leave</Text>
-          </Button>
+          canRequest ? (
+            <Button size="sm" onPress={() => setRequestOpen(true)}>
+              <Plus size={14} color={BRAND.paper} />
+              <Text>Request leave</Text>
+            </Button>
+          ) : undefined
         }
       >
         <DataTable
           columns={columns}
           data={items}
           empty="No leave requests yet"
-          emptyDescription="Tap Request leave to submit your first request."
+          emptyDescription={
+            canRequest
+              ? "Tap Request leave to submit your first request."
+              : "No leave requests to show."
+          }
         />
       </PageScreen>
-      <RequestLeaveDialog
-        open={requestOpen}
-        onOpenChange={setRequestOpen}
-        onCreated={() => {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.leave.requests() });
-        }}
-      />
+      {canRequest ? (
+        <RequestLeaveDialog
+          open={requestOpen}
+          onOpenChange={setRequestOpen}
+          onCreated={() => {
+            void (async () => {
+              try {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.leave.requests() });
+              } catch {
+                toast("Submitted, but the list failed to refresh", "error");
+              }
+            })();
+          }}
+        />
+      ) : null}
     </>
   );
 }

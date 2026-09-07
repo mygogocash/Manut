@@ -131,14 +131,16 @@ function CreateExpenseReportDialog({
       toast("Expense report created", "success");
       onCreated();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Create failed");
+      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Create failed";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} dismissible={!busy} onOpenChange={onOpenChange}>
       <DialogContent
         title="New expense report"
         description="Create a report for this period, then add line items from the web portal or a follow-up."
@@ -197,6 +199,7 @@ function CreateExpenseReportDialog({
 
 export default function ExpensesPage() {
   const queryClient = useQueryClient();
+  const canCreate = useAuth((s) => s.hasPermission("expense:create"));
   const [open, setOpen] = useState(false);
   const query = useApiQuery<{ data: ExpenseReport[] }>(
     queryKeys.expenses.reports(),
@@ -237,26 +240,38 @@ export default function ExpensesPage() {
         subtitle="Create reports and track reimbursement status."
         scroll={false}
         actions={
-          <Button size="sm" onPress={() => setOpen(true)}>
-            <Plus size={14} color={BRAND.paper} />
-            <Text>New report</Text>
-          </Button>
+          canCreate ? (
+            <Button size="sm" onPress={() => setOpen(true)}>
+              <Plus size={14} color={BRAND.paper} />
+              <Text>New report</Text>
+            </Button>
+          ) : undefined
         }
       >
         <DataTable
           columns={columns}
           data={items}
           empty="No expense reports yet"
-          emptyDescription="Tap New report to start your first period."
+          emptyDescription={
+            canCreate ? "Tap New report to start your first period." : "No expense reports to show."
+          }
         />
       </PageScreen>
-      <CreateExpenseReportDialog
-        open={open}
-        onOpenChange={setOpen}
-        onCreated={() => {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.expenses.reports() });
-        }}
-      />
+      {canCreate ? (
+        <CreateExpenseReportDialog
+          open={open}
+          onOpenChange={setOpen}
+          onCreated={() => {
+            void (async () => {
+              try {
+                await queryClient.invalidateQueries({ queryKey: queryKeys.expenses.reports() });
+              } catch {
+                toast("Created, but the list failed to refresh", "error");
+              }
+            })();
+          }}
+        />
+      ) : null}
     </>
   );
 }
