@@ -112,6 +112,27 @@ If either `NEON_PROJECT_ID` or `NEON_API_KEY` is missing, the workflow no-ops wi
 
 Schema-diff PR comments (`neondatabase/schema-diff-action`) are commented out in the workflow; enable when you want review noise and add `pull-requests: write`.
 
+## Staging go-live checklist (remaining)
+
+Infra on Neon + Hyperdrive is done. Workers are **not** deployed yet (`intranet-edge-staging` absent on CF account). Finish in order:
+
+1. **Depot secret `CLOUDFLARE_API_TOKEN`** for repo `mygogocash/Manut`  
+   - Scope: Workers Scripts Edit, D1, R2, Hyperdrive, Account read  
+   - Org secret `CF_STAGING_API_TOKEN` is locked to `gogocash-doc` and will **not** inject here  
+2. **Promote `main` → `preview` with a merge commit** (or `workflow_dispatch` Deploy Edge Staging after preview catches up)  
+   - Path filters skip docs-only pushes; Neon/edge package changes are covered  
+3. **Worker secrets** (after first wrangler deploy creates the script):  
+   ```bash
+   cd apps/edge
+   npx wrangler secret put BETTER_AUTH_SECRET --env staging
+   # plus EMAIL_* / Turnstile / AI keys as needed — see CLOUDFLARE_PROVISIONING.md
+   ```
+4. **Re-seed admin password** if the bootstrap password is unknown:  
+   `SEED_ADMIN_PASSWORD=… DATABASE_URL="$STAGING_DIRECT_URL" pnpm --filter @nexora/db db:seed-better-auth-admin`
+5. **Smoke** `https://staging.manut.xyz` — Better Auth login as `admin@manut.xyz` + one ERP list read  
+
+Parallel (does not unblock login): Databricks AWS workspace + `.depot/workflows/erp-snapshot-export.yml` (see `docs/ops/DATABRICKS_ERP_EXPORT.md`).
+
 ## Security
 
 If a Neon password was pasted into chat or a ticket, **rotate it in the Neon console** and update Hyperdrive + Depot secrets.
