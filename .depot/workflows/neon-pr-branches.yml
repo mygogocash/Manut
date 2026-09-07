@@ -133,20 +133,38 @@ jobs:
             "${API}/projects/${PROJECT_ID}/connection_uri?branch_id=${branch_id}&database_name=neondb&role_name=neondb_owner&pooled=false")"
           db_url="$(echo "$uri_json" | python3 -c '
           import json,sys
+          from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
           data=json.load(sys.stdin)
-          print(data.get("uri") or data.get("connection_uri") or "")
+          raw=data.get("uri") or data.get("connection_uri") or ""
+          if not raw:
+            print(""); raise SystemExit(0)
+          # Neon often returns ?channel_binding=require&sslmode=require.
+          # sed stripping of "?channel_binding=require" leaves
+          # ".../neondb&sslmode=require" which postgres.js treats as the
+          # database name — migrate then fails with 3D000.
+          parts=urlsplit(raw)
+          q=[(k,v) for k,v in parse_qsl(parts.query, keep_blank_values=True)
+             if k != "channel_binding"]
+          print(urlunsplit(parts._replace(query=urlencode(q))))
           ')"
           if [ -z "$db_url" ]; then
             echo "::error::Neon connection_uri empty for branch ${branch_id}"
             echo "$uri_json" | head -c 500
             exit 1
           fi
-          # Strip channel_binding for postgres.js / migrate
-          db_url="$(echo "$db_url" | sed -E 's/[?&]channel_binding=require//g' | sed -E 's/\?&/?/g' | sed -E 's/\?$//')"
+          # Sanity: path must be /neondb (not /neondb&sslmode=…)
+          db_path="$(python3 -c 'from urllib.parse import urlsplit; import sys; print(urlsplit(sys.argv[1]).path)' "$db_url")"
+          if [ "$db_path" != "/neondb" ]; then
+            echo "::error::Unexpected Neon DB path after URL normalize: ${db_path}"
+            exit 1
+          fi
 
           {
             echo "branch_id=${branch_id}"
-            echo "db_url=${db_url}"
+            # Delimiter form — URLs contain &/=
+            echo "db_url<<NEON_EOF"
+            echo "$db_url"
+            echo "NEON_EOF"
           } >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v6

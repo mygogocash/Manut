@@ -17,7 +17,7 @@ Neon gives two URLs. Map them like this:
 | **Unpooled** (`ep-….aws.neon.tech`, no `-pooler`) | Drizzle migrate, bootstrap, Hyperdrive origin | `STAGING_DIRECT_URL` / `DIRECT_URL` |
 | **Pooled** (`ep-…-pooler.…`) | Optional direct app use (not Hyperdrive) | `STAGING_DATABASE_URL` if needed |
 
-Strip `channel_binding=require` for Workers / `postgres.js` / Hyperdrive. Keep `sslmode=require`.
+Strip `channel_binding=require` for Workers / `postgres.js` / Hyperdrive. Keep `sslmode=require`. Use a real query-string parser (Python `urllib.parse`) — naive sed that deletes `?channel_binding=require` leaves `…/neondb&sslmode=require`, which `postgres.js` treats as the database name and migrate fails with `3D000`.
 
 Hyperdrive already pools — point it at the **unpooled** Neon URL so you do not double-pool.
 
