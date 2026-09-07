@@ -9,7 +9,7 @@
 
 | Topic | Decision |
 |---|---|
-| Neon region | **APAC** (`ap-southeast-1`) — project `ep-restless-truth-b3te5bwz` |
+| Neon region | **APAC** (`aws-ap-southeast-1`) — project `patient-mode-86465099` (unpooled `ep-restless-truth-b3te5bwz`) |
 | Staging data | **Greenfield** — `db:bootstrap-greenfield` + `db:migrate` (done on Neon) |
 | Databricks cloud | **AWS** (cheapest for v1 Jobs Compute; avoid Azure 2× Jobs DBU) |
 | Databricks region | Prefer **`ap-southeast-1`** if credit/workspace allows (near Neon APAC); else **`us-east-1`** for lowest list rates — document whichever the credit unlocks |
@@ -152,7 +152,7 @@ Update in the same PR as wiring:
 
 ### 2.3 Automation
 
-- Live: `.depot/workflows/neon-pr-branches.yml` (Neon create/delete-branch actions + Drizzle migrate ×2 on unpooled URL).
+- Live: `.depot/workflows/neon-pr-branches.yml` (Neon REST API via curl for create/delete — not `neondatabase/*` Actions — + Drizzle migrate ×2 on unpooled URL; `channel_binding` stripped via `urllib.parse`).
 - Needs Depot `NEON_API_KEY` + `NEON_PROJECT_ID` (see `docs/ops/NEON_STAGING.md`).
 - Do **not** block Phase 1 Hyperdrive paste on this.
 
