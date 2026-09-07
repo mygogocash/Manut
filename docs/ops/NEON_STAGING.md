@@ -87,12 +87,12 @@ Staging Worker still needs `BETTER_AUTH_SECRET` (`wrangler secret put --env stag
 
 ## PR database branches (Depot)
 
-Workflow: `.depot/workflows/neon-pr-branches.yml` (Neon’s Create/Delete Branch template, Depot runners).
+Workflow: `.depot/workflows/neon-pr-branches.yml` (Neon REST API via curl on Depot runners — **not** `neondatabase/*` GitHub Actions; those fail to download on Depot because Neon’s GitHub org IP-allowlists releases).
 
 | Event | Action |
 |---|---|
-| PR opened / reopened / synchronize | Create (or reuse) Neon branch `preview-pr-<n>-<git-branch>` (≤63 chars), expire +14d, run `pnpm --filter @nexora/db db:migrate` **twice** on the **unpooled** URL |
-| PR closed | Delete that Neon branch |
+| PR opened / reopened / synchronize | Create (or reuse) Neon branch `preview-pr-<n>-<git-branch>` (≤63 chars), expire +14d, run `pnpm --filter @nexora/db db:migrate` **twice** on the **unpooled** URL from `GET …/connection_uri?pooled=false` |
+| PR closed | Delete that Neon branch (`DELETE …/branches/{id}`; 404 = already gone) |
 
 Parent is the Neon project primary (already bootstrapped). Do **not** run `db:bootstrap-greenfield` on PR branches.
 
