@@ -103,7 +103,8 @@ export function unwrapDashboardStats(body: unknown): DashboardStats | null {
   const raw = data as Partial<DashboardStats> & { kpis?: Partial<DashboardKpis> };
   // Missing `kpis` used to blank the whole home screen. Treat absent KPIs as
   // zeros so a partial edge payload still renders.
-  const kpis = raw.kpis && typeof raw.kpis === "object" ? raw.kpis : {};
+  const kpis: Partial<DashboardKpis> =
+    raw.kpis && typeof raw.kpis === "object" ? raw.kpis : {};
   return {
     kpis: {
       totalEmployees: Number(kpis.totalEmployees) || 0,
