@@ -80,10 +80,14 @@ function csvCell(value) {
 
 /**
  * @param {Record<string, unknown>[]} rows
+ * @param {string[]} [fallbackCols] — when rows are empty, still emit a header if known
  * @returns {string}
  */
-function toCsv(rows) {
-  if (!rows.length) return "";
+function toCsv(rows, fallbackCols = []) {
+  if (!rows.length) {
+    if (!fallbackCols.length) return "";
+    return fallbackCols.join(",") + "\n";
+  }
   const cols = Object.keys(rows[0]);
   const lines = [cols.join(",")];
   for (const row of rows) {
@@ -114,7 +118,18 @@ async function exportOne(table) {
   const partitionDir = join(outDir, `as_of_date=${asOf}`);
   await mkdir(partitionDir, { recursive: true });
   const path = join(partitionDir, `${table}.csv`);
-  await writeFile(path, toCsv(rows), "utf8");
+  // Empty tables still need a header for Databricks bronze.
+  let headerCols = /** @type {string[]} */ ([]);
+  if (!rows.length) {
+    const colRows = await sql`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = ${table}
+      ORDER BY ordinal_position
+    `;
+    headerCols = colRows.map((r) => String(r.column_name));
+  }
+  await writeFile(path, toCsv(rows, headerCols), "utf8");
   return { table, count, path };
 }
 
@@ -142,6 +157,7 @@ try {
   console.log(`total_rows\t${total}`);
 
   const bucket = process.env.S3_BUCKET;
+  const requireS3 = process.env.ERP_SNAPSHOT_REQUIRE_S3 === "true";
   if (!dryRun && bucket) {
     const prefix = (process.env.S3_PREFIX ?? "manut/staging/erp").replace(
       /\/$/,
@@ -169,6 +185,10 @@ try {
     }
     console.log("s3_upload\tok");
   } else if (!dryRun && !bucket) {
+    if (requireS3) {
+      console.error("S3_BUCKET required when ERP_SNAPSHOT_REQUIRE_S3=true (write mode in CI)");
+      process.exit(1);
+    }
     console.log("s3_upload\tskipped (S3_BUCKET unset)");
   }
 } finally {
