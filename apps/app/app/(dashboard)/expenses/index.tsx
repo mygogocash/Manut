@@ -2,10 +2,11 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { Platform, View } from "react-native";
 import { DataTable } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Field } from "@/components/field";
+import { PageListSkeleton } from "@/components/page-list-skeleton";
 import { PageScreen } from "@/components/page-screen";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,6 +174,7 @@ function CreateExpenseReportDialog({
             accessibilityLabel="Period"
             autoCapitalize="none"
             placeholder="2026-09"
+            {...Platform.select({ web: { type: "month" as const } })}
             value={period}
             onChangeText={setPeriod}
           />
@@ -208,11 +210,7 @@ export default function ExpensesPage() {
   const items = unwrapList<ExpenseReport>(query.data);
 
   if (query.isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color={BRAND.ink} />
-      </View>
-    );
+    return <PageListSkeleton title="Expenses" />;
   }
 
   if (query.error) {

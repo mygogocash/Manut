@@ -677,8 +677,8 @@ export default function ManutAiPage() {
             {sending ? (
               <View className="mb-2 flex-row items-center justify-between gap-2">
                 <View className="flex-row items-center gap-2">
-                  <Badge variant="intelligence">Thinking</Badge>
-                  <Text className="text-[12px] text-muted-foreground">Manut AI is working…</Text>
+                  <Badge variant="intelligence">Responding</Badge>
+                  <Text className="text-[12px] text-muted-foreground">Composing a reply…</Text>
                 </View>
                 <Button size="sm" variant="outline" onPress={stopStreaming} accessibilityLabel="Stop generating">
                   <Square size={12} color={BRAND.ink} />

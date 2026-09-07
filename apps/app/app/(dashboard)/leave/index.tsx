@@ -2,16 +2,18 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { Platform, View } from "react-native";
 import { DataTable } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Field } from "@/components/field";
+import { PageListSkeleton } from "@/components/page-list-skeleton";
 import { PageScreen } from "@/components/page-screen";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SelectChips, SelectEmpty } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { Textarea } from "@/components/ui/textarea";
 import { useApiQuery } from "@/hooks/use-api-query";
@@ -153,7 +155,10 @@ function RequestLeaveDialog({
         }
       >
         {typesQuery.isLoading ? (
-          <ActivityIndicator color={BRAND.ink} />
+          <View className="gap-2">
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-56" />
+          </View>
         ) : typesQuery.error ? (
           <Text className="text-[13px] text-destructive">{typesQuery.error.message}</Text>
         ) : (
@@ -170,6 +175,7 @@ function RequestLeaveDialog({
             accessibilityLabel="Start date"
             autoCapitalize="none"
             placeholder="YYYY-MM-DD"
+            {...Platform.select({ web: { type: "date" as const } })}
             value={startDate}
             onChangeText={setStartDate}
           />
@@ -179,6 +185,7 @@ function RequestLeaveDialog({
             accessibilityLabel="End date"
             autoCapitalize="none"
             placeholder="YYYY-MM-DD"
+            {...Platform.select({ web: { type: "date" as const } })}
             value={endDate}
             onChangeText={setEndDate}
           />
@@ -205,11 +212,7 @@ export default function LeavePage() {
   const items = unwrapList<LeaveRequest>(query.data);
 
   if (query.isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color={BRAND.ink} />
-      </View>
-    );
+    return <PageListSkeleton title="Leave" />;
   }
 
   if (query.error) {
