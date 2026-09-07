@@ -106,7 +106,7 @@ Parent is the Neon project primary (already bootstrapped). Do **not** run `db:bo
 | `CLOUDFLARE_API_TOKEN` | secret | **Still required for Worker deploy** — Manut-scoped; existing org `CF_STAGING_API_TOKEN` is locked to `mygogocash/gogocash-doc` + `staging.yml` and will not inject into this repo |
 | `CLOUDFLARE_ACCOUNT_ID` | secret | GoGoCash `187ab61ed9dbc6e616cb23e6b95aa8f1` (already present as default variant) |
 | `BETTER_AUTH_API_KEY` | secret | Better Auth Dash key — Depot holds it; `deploy-edge-staging.yml` runs `wrangler secret put` after the first Worker deploy |
-| `BETTER_AUTH_SECRET` | secret | Session signing secret — **still required** for login; same post-deploy `wrangler secret put` path |
+| `BETTER_AUTH_SECRET` | secret | Session signing secret — set 2026-09-07; deploy fails closed if unset and puts it on the Worker after wrangler deploy |
 
 Parent is always the Neon project primary (`production`). If you need a non-default parent, add `parent_branch` to the create step in the workflow.
 
@@ -116,25 +116,15 @@ Schema-diff PR comments (`neondatabase/schema-diff-action`) are commented out in
 
 ## Staging go-live checklist (remaining)
 
-Infra on Neon + Hyperdrive is done. Workers are **not** deployed yet (`intranet-edge-staging` absent on CF account). Finish in order:
+Infra on Neon + Hyperdrive is done; Workers deploy via Depot on `preview`. Remaining:
 
-1. **Depot secret `CLOUDFLARE_API_TOKEN`** for repo `mygogocash/Manut`  
-   - Scope: Workers Scripts Edit, D1, R2, Hyperdrive, Account read  
-   - Org secret `CF_STAGING_API_TOKEN` is locked to `gogocash-doc` and will **not** inject here  
-2. **Promote `main` → `preview` with a merge commit** (or `workflow_dispatch` Deploy Edge Staging after preview catches up)  
-   - Path filters skip docs-only pushes; Neon/edge package changes are covered  
-3. **Worker secrets** (auto-applied from Depot after first wrangler deploy once `CLOUDFLARE_API_TOKEN` is set):  
-   - `BETTER_AUTH_API_KEY` — **set in Depot** (2026-09-07)  
-   - `BETTER_AUTH_SECRET` — still needed in Depot (session signing; different from the Dash API key)  
-   Manual fallback:  
-   ```bash
-   cd apps/edge
-   npx wrangler secret put BETTER_AUTH_SECRET --env staging
-   npx wrangler secret put BETTER_AUTH_API_KEY --env staging
-   ```
-4. **Re-seed admin password** if the bootstrap password is unknown:  
-   `SEED_ADMIN_PASSWORD=… DATABASE_URL="$STAGING_DIRECT_URL" pnpm --filter @nexora/db db:seed-better-auth-admin`
-5. **Smoke** `https://staging.manut.xyz` — Better Auth login as `admin@manut.xyz` + one ERP list read  
+1. **Promote `main` → `preview` with a merge commit** (or `workflow_dispatch` Deploy Edge Staging) so this PR's auth + secret fail-closed land  
+2. Confirm deploy put `BETTER_AUTH_SECRET` on `intranet-edge-staging` (Depot secret is set; workflow fails closed if missing)  
+3. **Re-seed admin password** if unknown:  
+   `SEED_ADMIN_PASSWORD=… DATABASE_URL="$STAGING_DIRECT_URL" pnpm --filter @nexora/db db:seed-better-auth-admin`  
+4. **Smoke in a browser** `https://staging.manut.xyz` — password login as `admin@manut.xyz` (Bot Fight Mode challenges bare curl)  
+5. Optional: `EMAIL_SERVICE_API_KEY` Worker secret before magic-link / reset email works  
+6. Optional: set `EDGE_API_URL` + `CRON_SECRET` on edge-jobs, then flip staging `JOBS_ENABLED` to `"true"`
 
 Parallel (does not unblock login): Databricks AWS workspace + `.depot/workflows/erp-snapshot-export.yml` (see `docs/ops/DATABRICKS_ERP_EXPORT.md`).
 

@@ -58,7 +58,7 @@ function hashPassword(plain) {
   return hash;
 }
 
-const sql = postgres(url, { max: 1, prepare: false });
+const sql = postgres(url, { max: 1, prepare: false, ssl: "require" });
 const now = new Date().toISOString();
 
 try {
