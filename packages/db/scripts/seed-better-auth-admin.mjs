@@ -137,7 +137,7 @@ try {
           active_entity_id = ${entityId},
           department = COALESCE(department, 'Operations'),
           job_title = COALESCE(job_title, 'System Administrator'),
-          employee_id = COALESCE(employee_id, 'TBH-001'),
+          employee_id = COALESCE(employee_id, 'MNT-001'),
           country = COALESCE(country, 'Thailand'),
           timezone = COALESCE(timezone, 'Asia/Bangkok'),
           deleted_at = NULL,
@@ -159,7 +159,7 @@ try {
         created_at, updated_at
       ) VALUES (
         ${userId}::uuid, ${email}, ${name}, true, ${entityId}, ${entityId},
-        'Operations', 'System Administrator', 'TBH-001', 'full_time',
+        'Operations', 'System Administrator', 'MNT-001', 'full_time',
         'Thailand', 'Asia/Bangkok', true, false,
         ${now}::timestamptz, ${now}::timestamptz
       )

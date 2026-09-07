@@ -402,7 +402,7 @@ async function main() {
       entityId: entity.id,
       department: "Management",
       jobTitle: "System Administrator",
-      employeeId: "TBH-001",
+      employeeId: "MNT-001",
       employmentType: "full_time",
       startDate: new Date("2023-01-01"),
       salary: 150000,
