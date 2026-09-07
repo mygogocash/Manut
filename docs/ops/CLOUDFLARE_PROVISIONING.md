@@ -14,10 +14,20 @@ logged in (`npx wrangler login`) or `CLOUDFLARE_API_TOKEN` exported. Do it for
 ## 1. Staging (`--env staging`)
 
 ```bash
-# Hyperdrive (ERP Postgres via Supabase — use the STAGING pooled/direct string)
-npx wrangler hyperdrive create staging-manut-edge \
-  --connection-string "postgresql://…staging…"
+# Hyperdrive → Neon APAC (staging). Use the UNPOOLED Neon URL — Hyperdrive pools.
+# See docs/ops/NEON_STAGING.md. Do not use the -pooler hostname here.
+npx wrangler hyperdrive create staging-manut-edge-neon \
+  --connection-string "$STAGING_DIRECT_URL"
+```
 
+Greenfield Neon schema (once per empty DB):
+
+```bash
+DATABASE_URL="$STAGING_DIRECT_URL" pnpm --filter @nexora/db db:bootstrap-greenfield
+DATABASE_URL="$STAGING_DIRECT_URL" pnpm --filter @nexora/db db:migrate
+```
+
+```bash
 # KV
 npx wrangler kv namespace create KV_SESSIONS --env staging
 npx wrangler kv namespace create KV_CACHE --env staging
@@ -67,7 +77,7 @@ npx wrangler secret put GEMINI_API_KEY --env staging        # ARIA
 Either promote `main` → `preview` (Depot CI deploys) or run manually:
 
 ```bash
-pnpm --filter @nexora/db db:migrate          # uses STAGING_DATABASE_URL
+pnpm --filter @nexora/db db:migrate          # uses STAGING_DIRECT_URL (Neon unpooled)
 pnpm --filter @nexora/app export:web
 pnpm --filter @nexora/edge deploy:staging
 pnpm --filter @nexora/edge-jobs deploy:staging
