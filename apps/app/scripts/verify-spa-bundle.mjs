@@ -18,7 +18,7 @@ function fail(msg) {
   process.exit(1);
 }
 
-/** Metro minifies React as `e.version="19.x.y"` — one unique version per copy. */
+/** Keep in sync with `src/lib/spa-react-versions.ts` (tests import the TS copy). */
 export function collectReactVersions(body) {
   const versions = new Set();
   for (const m of body.matchAll(/\.version\s*=\s*["'](19\.\d+\.\d+)["']/g)) {
