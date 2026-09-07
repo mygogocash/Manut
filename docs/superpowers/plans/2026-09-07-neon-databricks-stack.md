@@ -1,7 +1,7 @@
 # Plan: Neon (Hyperdrive) + Databricks ERP lakehouse
 
 **Date:** 2026-09-07  
-**Status:** Phase 0 locked — ready for PR2 (Neon staging provision)  
+**Status:** Phase 1 infra done on Neon (bootstrap + migrate + Hyperdrive + Depot `NEON_*`/`STAGING_DIRECT_URL` + Better Auth admin seed). **Blocked on deploy:** Manut-scoped `CLOUDFLARE_API_TOKEN` + staging Worker `BETTER_AUTH_SECRET` still needed before `staging.manut.xyz` smoke.  
 **Credits:** ~$1k Neon + ~$1k Databricks  
 **Out of scope:** Marketing / BNII / OneWave analytics (explicitly excluded)
 
@@ -9,8 +9,8 @@
 
 | Topic | Decision |
 |---|---|
-| Neon region | **APAC** |
-| Staging data | **Greenfield** — Drizzle migrate on empty Neon + seed (no staging Supabase restore) |
+| Neon region | **APAC** (`aws-ap-southeast-1`) — project `patient-mode-86465099` (unpooled `ep-restless-truth-b3te5bwz`) |
+| Staging data | **Greenfield** — `db:bootstrap-greenfield` + `db:migrate` (done on Neon) |
 | Databricks cloud | **AWS** (cheapest for v1 Jobs Compute; avoid Azure 2× Jobs DBU) |
 | Databricks region | Prefer **`ap-southeast-1`** if credit/workspace allows (near Neon APAC); else **`us-east-1`** for lowest list rates — document whichever the credit unlocks |
 | Export v1 | **Depot workflow** (not edge-jobs) |
@@ -150,12 +150,13 @@ Update in the same PR as wiring:
 3. Apply pending Drizzle migration(s) twice (idempotency).
 4. Merge migration to `main` → promote → staging Neon primary migrates via Depot.
 
-### 2.3 Optional automation (later)
+### 2.3 Automation
 
-- Depot workflow: create branch → migrate → destroy on PR close.
-- Do **not** block Phase 1 on this.
+- Live: `.depot/workflows/neon-pr-branches.yml` (Neon REST API via curl for create/delete — not `neondatabase/*` Actions — + Drizzle migrate ×2 on unpooled URL; `channel_binding` stripped via `urllib.parse`).
+- Needs Depot `NEON_API_KEY` + `NEON_PROJECT_ID` (see `docs/ops/NEON_STAGING.md`).
+- Do **not** block Phase 1 Hyperdrive paste on this.
 
-**Exit criteria:** Documented branch recipe used for at least one real migration PR.
+**Exit criteria:** Documented branch recipe used for at least one real migration PR; workflow green once secrets are set.
 
 ---
 
@@ -270,10 +271,11 @@ Only after Phase 1–2 are boring:
 ## Test plan (definition of done per phase)
 
 ### Phase 1
-- [ ] Staging Hyperdrive id real (not placeholder)
-- [ ] Drizzle migrate ×2 against Neon direct succeeds
-- [ ] Staging login + one module list works
-- [ ] D1 handbook/presence paths unchanged
+- [x] Staging Hyperdrive id real (not placeholder) — `2531da29a59f4890bf8817697f5d350d`
+- [x] Drizzle migrate ×2 against Neon direct succeeds
+- [x] Better Auth admin seed (`pnpm db:seed-better-auth-admin`) on Neon
+- [ ] Staging Worker deploy + login + one module list (needs `CLOUDFLARE_API_TOKEN` + `BETTER_AUTH_SECRET`)
+- [ ] D1 handbook/presence paths unchanged (verify after deploy)
 
 ### Phase 3
 - [ ] P0 tables present in Databricks silver/bronze
@@ -292,7 +294,10 @@ Only after Phase 1–2 are boring:
 
 ## Next action
 
-**PR2:** provision Neon APAC greenfield → Hyperdrive → paste staging ids → point `STAGING_DIRECT_URL` at Neon direct → migrate + seed → verify staging auth/list.
+1. Set Depot secret `CLOUDFLARE_API_TOKEN` (Manut-scoped; org `CF_STAGING_API_TOKEN` does not apply to this repo).
+2. `wrangler secret put BETTER_AUTH_SECRET --env staging` (and deploy edge + edge-jobs).
+3. Re-seed admin password if needed: `SEED_ADMIN_PASSWORD=… pnpm --filter @nexora/db db:seed-better-auth-admin`.
+4. Smoke `https://staging.manut.xyz` login as `admin@manut.xyz`.
 
 Databricks AWS workspace can be provisioned in parallel but code lands in **PR5**.
 

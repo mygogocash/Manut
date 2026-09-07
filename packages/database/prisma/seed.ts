@@ -695,7 +695,6 @@ async function main() {
   // Phase 1: Delete leaf tables (no FK dependencies) in parallel
   await Promise.all([
     prisma.surveyResponse.deleteMany({}),
-    prisma.uploadJob.deleteMany({}),
     prisma.goal.deleteMany({}),
     prisma.appraisalRating.deleteMany({}),
     prisma.appraisalComment.deleteMany({}),
@@ -740,7 +739,6 @@ async function main() {
 
   // Phase 2: Delete mid-level tables
   await Promise.all([
-    prisma.surveyWave.deleteMany({}),
     prisma.appraisal.deleteMany({}),
     prisma.ariaConversation.deleteMany({}),
     prisma.wallPost.deleteMany({}),
@@ -758,7 +756,6 @@ async function main() {
 
   // Phase 3: Delete top-level tables
   await Promise.all([
-    prisma.surveyDefinition.deleteMany({}),
     prisma.appraisalCycle.deleteMany({}),
     prisma.kRATemplate.deleteMany({}),
     prisma.office.deleteMany({}),
@@ -4744,68 +4741,12 @@ async function main() {
     })),
   });
 
-  const surveyDefRows = await prisma.$transaction(
-    Array.from({ length: SEED_MIN }, (_, i) =>
-      prisma.surveyDefinition.create({
-        data: {
-          versionName: `Pulse engagement ${year}-v${i + 1}`,
-          description: "Sample engagement survey definition for local testing",
-          sectionsSchema: ESS_V2_SECTIONS_SEED,
-          demographicsSchema: {},
-          feedbackColumns: ESS_V2_FEEDBACK_COLUMNS_SEED,
-          totalQuestions: 35,
-          isActive: true,
-        },
-      }),
-    ),
-  );
-  const waveIdsSeed: string[] = [];
-  const waveRows = await prisma.$transaction(
-    surveyDefRows.map((def, i) =>
-      prisma.surveyWave.create({
-        data: {
-          name: `${year} pulse wave ${i + 1}`,
-          definitionId: def.id,
-          status: i % 3 === 0 ? "active" : "closed",
-          startDate: pastDate(60),
-          endDate: futureDate(30),
-          createdBy: adminUserId,
-        },
-      }),
-    ),
-  );
-  waveIdsSeed.push(...waveRows.map((w) => w.id));
-
-  const surveyResponsesBulk: Prisma.SurveyResponseUncheckedCreateInput[] = [];
-  for (let i = 0; i < SEED_MIN; i++) {
-    surveyResponsesBulk.push({
-      waveId: waveIdsSeed[i]!,
-      department: DEPARTMENTS[i % DEPARTMENTS.length]!,
-      tenure: "2-3y",
-      roleLevel: "IC",
-      workSetup: "hybrid",
-      sections: {},
-      feedbackStartDoing: "Keep mentoring juniors",
-      feedbackStopDoing: "Late night pings",
-      feedbackContinueDoing: "Clear documentation",
-    });
-  }
-  await prisma.surveyResponse.createMany({ data: surveyResponsesBulk });
-
-  const uploadJobsBulk: Prisma.UploadJobUncheckedCreateInput[] = [];
-  for (let i = 0; i < SEED_MIN; i++) {
-    uploadJobsBulk.push({
-      waveId: waveIdsSeed[i]!,
-      fileName: `responses_batch_${i + 1}.csv`,
-      fileSize: 2000 + i * 100,
-      rowCount: 42,
-      validRows: 40,
-      errorCount: 2,
-      status: "completed",
-      createdBy: adminUserId,
-    });
-  }
-  await prisma.uploadJob.createMany({ data: uploadJobsBulk });
+  // NOTE: The ESS engagement-survey seed block (surveyDefinition / surveyWave
+  // / wave-based surveyResponse / uploadJob) was removed — those Prisma models
+  // no longer exist in the schema (packages/database/prisma/schema/hr.prisma
+  // now models Survey/SurveyQuestion/SurveyResponse/SurveyAnswer instead), so
+  // the block threw `Cannot read properties of undefined (reading 'create')`
+  // and blocked the entire seed. See ESS_V2_* constants above (now unused).
 
   const kraTemplateRows = await prisma.$transaction(
     Array.from({ length: SEED_MIN }, (_, i) =>
