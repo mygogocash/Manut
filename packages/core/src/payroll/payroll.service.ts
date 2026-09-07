@@ -151,7 +151,7 @@ function matchImportRowToUser<
 }
 
 // Admin-managed company legal block printed in the payslip footer.
-// Stored as a single global SystemSetting; the default is TBH Thailand
+// Stored as a single global SystemSetting; the default is the Thailand entity
 // (HR feedback 2026-06-04) until edited in Payslip Management.
 const PAYSLIP_COMPANY_KEY = "payslip.company";
 export interface PayslipCompany {
@@ -439,7 +439,7 @@ export async function createRun(db: Db, userId: string, input: CreatePayrollRunI
     // createRunWithPayslips stores a raw mixed-currency sum on the run
     // row. Re-aggregate with FX so the headline totals match the
     // entity currency across every payslip (THB + converted USD/INR
-    // for a TBH-Thailand run, etc.).
+    // for a Thailand-entity run, etc.).
     const recalc = await repo.sumPayslipTotalsForRun(db, result.id);
     await repo.setRunTotals(db, result.id, recalc);
 
@@ -890,7 +890,7 @@ export async function previewPayslipImport(db: Db,
 
       // HR template stores the row's net-payout-in-entity-currency under a
       // header that depends on the run's entity (e.g. "Total Payout THB"
-      // for TBH Thailand). Read just that one cell — the other currency
+      // for the Thailand entity). Read just that one cell — the other currency
       // columns are informational only and never feed the headline.
       const totalPayoutBaseRaw = pickNumber(
         row,
@@ -1055,7 +1055,7 @@ export async function previewPayslipImport(db: Db,
       //     the schema's `@@unique([run, employee, currency])` lets both
       //     land. Merging across currencies would mix units (50k THB +
       //     7k USD ≠ 57k of anything) and was the source of the by-currency
-      //     rollup corruption we hit on the Jan-2026 TBH-Thailand run.
+      //     rollup corruption we hit on the Jan-2026 Thailand-entity run.
       const indexByEmployeeCurrency = new Map<string, number>();
       const employeeCurrencyKey = (employeeId: string, currency: string) =>
         `${employeeId}|${currency}`;
@@ -1256,7 +1256,7 @@ export async function commitPayslipImport(db: Db,
     // re-insert the canonical set. Lets HR re-upload a corrected file
     // without hitting the @@unique([payrollRunId, employeeId]) constraint.
     //
-    // Bucket totals by currency: a TBH-Thailand run that pays a USD
+    // Bucket totals by currency: a Thailand-entity run that pays a USD
     // contractor + an INR contractor used to sum 100,000 THB + 8,000
     // USD + 40,000 INR into a single `totalNet` cell. Now we split:
     // `currencyTotals` keeps the full per-currency rollup, and the
