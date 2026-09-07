@@ -92,6 +92,12 @@ jobs:
           else
             ARGS="$ARGS --write"
             mkdir -p "$OUT_DIR"
+            # Write mode in CI must land in S3 — local-only is a false green.
+            if [ -z "${S3_BUCKET:-}" ]; then
+              echo "::error::ERP_SNAPSHOT_S3_BUCKET unset — refusing write without S3 destination."
+              exit 1
+            fi
+            export ERP_SNAPSHOT_REQUIRE_S3=true
           fi
           pnpm --filter @nexora/db db:export-erp-snapshot -- $ARGS
 

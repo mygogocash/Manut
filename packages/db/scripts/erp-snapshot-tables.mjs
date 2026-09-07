@@ -20,6 +20,7 @@ export const SLICE_TABLES = {
     "travel_approval_steps",
     "travel_approval_decisions",
     "expenses",
+    "expense_reports",
     "expense_approval_steps",
     "expense_approval_decisions",
     "cash_advance_requests",

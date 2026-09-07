@@ -93,6 +93,13 @@
       "queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-staging" }] },
       "durable_objects": {
         "bindings": [{ "name": "PRESENCE", "class_name": "PresenceRoom" }]
+      },
+      // env.* does not inherit top-level `unsafe` — repeat rate-limit bindings per env.
+      "unsafe": {
+        "bindings": [
+          { "name": "RATE_LIMITER_LOGIN", "type": "ratelimit", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+          { "name": "RATE_LIMITER_GLOBAL", "type": "ratelimit", "namespace_id": "1002", "simple": { "limit": 2000, "period": 60 } }
+        ]
       }
     },
     "production": {
@@ -130,6 +137,12 @@
       "queues": { "producers": [{ "binding": "JOBS_QUEUE", "queue": "intranet-jobs-prod" }] },
       "durable_objects": {
         "bindings": [{ "name": "PRESENCE", "class_name": "PresenceRoom" }]
+      },
+      "unsafe": {
+        "bindings": [
+          { "name": "RATE_LIMITER_LOGIN", "type": "ratelimit", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+          { "name": "RATE_LIMITER_GLOBAL", "type": "ratelimit", "namespace_id": "1002", "simple": { "limit": 2000, "period": 60 } }
+        ]
       }
     }
   }
