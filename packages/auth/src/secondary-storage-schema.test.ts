@@ -10,6 +10,8 @@ import { describe, expect, it } from "vitest";
 describe("secondaryStorage auth table schema", () => {
   const secondaryStorage = {
     get: async () => null,
+    getAndDelete: async () => null,
+    increment: async () => 1,
     set: async () => undefined,
     delete: async () => undefined,
   };
