@@ -10,6 +10,21 @@ import i18n from "@/i18n/config";
 export const LOCALE_STORAGE_KEY = "manut.locale";
 
 /**
+ * Apply a locale (e.g. from the authenticated user's `User.locale`) if it is
+ * supported and not already active, mirroring it into localStorage so the
+ * choice survives a logged-out reload. Safe to call with null/unknown values.
+ */
+export function applyUserLocale(locale: string | null | undefined): void {
+  if (!isLocale(locale) || locale === i18n.language) return;
+  void i18n.changeLanguage(locale);
+  try {
+    localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  } catch {
+    // Non-fatal.
+  }
+}
+
+/**
  * Applies the stored language preference on the client after mount (so the
  * first paint still matches the server's DEFAULT_LOCALE render), and keeps
  * <html lang> in sync so screen readers and hyphenation follow the language.

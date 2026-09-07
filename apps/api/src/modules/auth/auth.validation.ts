@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { SUPPORTED_LOCALES } from "@nexora/i18n";
+
 export const loginSchema = z.object({
   email: z.string().email("Invalid email"),
   password: z.string().min(1, "Password is required"),
@@ -57,6 +59,9 @@ export const updateMyProfileSchema = z.object({
   location: z.string().max(100).optional(),
   country: z.string().max(100).optional(),
   timezone: z.string().max(100).optional(),
+  // Preferred UI language. Restricted to the locales the product ships, so a
+  // client can't persist an unsupported tag that the resolver would ignore.
+  locale: z.enum(SUPPORTED_LOCALES).optional(),
   // Stored on `User.avatarUrl` — keep generous so signed-URL formats
   // with long query strings round-trip cleanly.
   avatarUrl: z.string().max(2000).optional(),
