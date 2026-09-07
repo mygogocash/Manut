@@ -143,7 +143,7 @@ Infra on Neon + Hyperdrive is done; Workers deploy via Depot on `preview`. Remai
 3. **Re-seed admin password** if unknown:  
    `SEED_ADMIN_PASSWORD=… DATABASE_URL="$STAGING_DIRECT_URL" pnpm --filter @nexora/db db:seed-better-auth-admin`  
 4. **Smoke in a browser** `https://staging.manut.xyz` — password login as `admin@manut.xyz` (Bot Fight Mode challenges bare curl)  
-5. Optional: `EMAIL_SERVICE_API_KEY` Worker secret before magic-link / reset email works  
+5. Optional: `RESEND_API_KEY` Worker secret before magic-link / reset email works  
 6. Optional: set `EDGE_API_URL` + `CRON_SECRET` on edge-jobs, then flip staging `JOBS_ENABLED` to `"true"`
 
 Parallel (does not unblock login): Databricks AWS workspace + `.depot/workflows/erp-snapshot-export.yml` (see `docs/ops/DATABRICKS_ERP_EXPORT.md`).
