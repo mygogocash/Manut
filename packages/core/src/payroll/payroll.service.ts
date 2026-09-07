@@ -18,6 +18,7 @@ import {
   NotFoundException,
 } from "../http-exception";
 import { rowsToCsv } from "../lib/csv";
+import { APP_NAME_SETTING_KEY, orgNameFromSetting } from "../lib/org";
 import { getSetting, upsertSetting } from "../survey/system-settings.repository";
 import {
   R2_PRIVATE_PREFIX,
@@ -150,44 +151,40 @@ function matchImportRowToUser<
   return undefined;
 }
 
-// Admin-managed company legal block printed in the payslip footer.
-// Stored as a single global SystemSetting; the default is the Thailand entity
-// (HR feedback 2026-06-04) until edited in Payslip Management.
+// Admin-managed company legal block printed in the payslip footer. Stored as a
+// single global SystemSetting; the legal name defaults to the organization name
+// from admin setup (`app.name`) and the address / phone are left blank until
+// entered in Payslip Management, so the footer follows the org rather than a
+// hardcoded legal entity.
 const PAYSLIP_COMPANY_KEY = "payslip.company";
 export interface PayslipCompany {
   legalName: string;
   address: string;
   phone: string;
 }
-const DEFAULT_PAYSLIP_COMPANY: PayslipCompany = {
-  legalName: "Manut Co., Ltd.",
-  address:
-    "150 T-Place Building, 7th Floor, Rooms 702-703, Soi Sukhumvit 55 " +
-    "(Thong Lo), Khlong Tan Nuea, Watthana, Bangkok, 10110, Thailand",
-  phone: "+6620590383",
-};
+function buildDefaultPayslipCompany(orgName: string): PayslipCompany {
+  return { legalName: orgName, address: "", phone: "" };
+}
 
 
 
-  /** Read the global payslip company block (falls back to the default). */
+  /** Read the global payslip company block (falls back to the org default). */
 export async function getPayslipCompany(db: Db): Promise<PayslipCompany> {
-    const value = await getSetting(db, PAYSLIP_COMPANY_KEY);
+    const [value, appName] = await Promise.all([
+      getSetting(db, PAYSLIP_COMPANY_KEY),
+      getSetting(db, APP_NAME_SETTING_KEY),
+    ]);
+    const fallback = buildDefaultPayslipCompany(orgNameFromSetting(appName));
     if (value && typeof value === "object" && !Array.isArray(value)) {
       const v = value as Record<string, unknown>;
       return {
         legalName:
-          typeof v.legalName === "string"
-            ? v.legalName
-            : DEFAULT_PAYSLIP_COMPANY.legalName,
-        address:
-          typeof v.address === "string"
-            ? v.address
-            : DEFAULT_PAYSLIP_COMPANY.address,
-        phone:
-          typeof v.phone === "string" ? v.phone : DEFAULT_PAYSLIP_COMPANY.phone,
+          typeof v.legalName === "string" ? v.legalName : fallback.legalName,
+        address: typeof v.address === "string" ? v.address : fallback.address,
+        phone: typeof v.phone === "string" ? v.phone : fallback.phone,
       };
     }
-    return DEFAULT_PAYSLIP_COMPANY;
+    return fallback;
   }
 
   /** Admin upsert of the global payslip company block. */

@@ -1,6 +1,10 @@
 import type { InputJsonValue } from "@nexora/database";
 import * as XLSX from "xlsx";
 
+import {
+  APP_NAME_SETTING_KEY,
+  orgNameFromSetting,
+} from "@/common/constants/org";
 import { PERMISSIONS } from "@/common/constants/permissions";
 import {
   BadRequestException,
@@ -157,46 +161,42 @@ function matchImportRowToUser<
   return undefined;
 }
 
-// Admin-managed company legal block printed in the payslip footer.
-// Stored as a single global SystemSetting; the default is the Thailand entity
-// (HR feedback 2026-06-04) until edited in Payslip Management.
+// Admin-managed company legal block printed in the payslip footer. Stored as a
+// single global SystemSetting; the legal name defaults to the organization name
+// from admin setup (`app.name`) and the address / phone are left blank until
+// entered in Payslip Management, so the footer follows the org rather than a
+// hardcoded legal entity.
 const PAYSLIP_COMPANY_KEY = "payslip.company";
 export interface PayslipCompany {
   legalName: string;
   address: string;
   phone: string;
 }
-const DEFAULT_PAYSLIP_COMPANY: PayslipCompany = {
-  legalName: "Manut",
-  address:
-    "150 T-Place Building, 7th Floor, Rooms 702-703, Soi Sukhumvit 55 " +
-    "(Thong Lo), Khlong Tan Nuea, Watthana, Bangkok, 10110, Thailand",
-  phone: "+6620590383",
-};
+function buildDefaultPayslipCompany(orgName: string): PayslipCompany {
+  return { legalName: orgName, address: "", phone: "" };
+}
 
 export class PayrollService {
-  /** Read the global payslip company block (falls back to the default). */
+  /** Read the global payslip company block (falls back to the org default). */
   async getPayslipCompany(): Promise<PayslipCompany> {
-    const row = await prisma.systemSetting.findUnique({
-      where: { key: PAYSLIP_COMPANY_KEY },
-    });
+    const [row, appNameRow] = await Promise.all([
+      prisma.systemSetting.findUnique({ where: { key: PAYSLIP_COMPANY_KEY } }),
+      prisma.systemSetting.findUnique({ where: { key: APP_NAME_SETTING_KEY } }),
+    ]);
+    const fallback = buildDefaultPayslipCompany(
+      orgNameFromSetting(appNameRow?.value),
+    );
     const value = row?.value;
     if (value && typeof value === "object" && !Array.isArray(value)) {
       const v = value as Record<string, unknown>;
       return {
         legalName:
-          typeof v.legalName === "string"
-            ? v.legalName
-            : DEFAULT_PAYSLIP_COMPANY.legalName,
-        address:
-          typeof v.address === "string"
-            ? v.address
-            : DEFAULT_PAYSLIP_COMPANY.address,
-        phone:
-          typeof v.phone === "string" ? v.phone : DEFAULT_PAYSLIP_COMPANY.phone,
+          typeof v.legalName === "string" ? v.legalName : fallback.legalName,
+        address: typeof v.address === "string" ? v.address : fallback.address,
+        phone: typeof v.phone === "string" ? v.phone : fallback.phone,
       };
     }
-    return DEFAULT_PAYSLIP_COMPANY;
+    return fallback;
   }
 
   /** Admin upsert of the global payslip company block. */
