@@ -584,7 +584,7 @@ export class VisaService {
         "name",
       );
       // employeeIdRaw may be either a UUID or the User.employeeId code
-      // (e.g. "TBH-001"). Treat anything non-UUID as a code.
+      // (e.g. "MNT-001"). Treat anything non-UUID as a code.
       const employeeCode =
         employeeIdRaw && !UUID_REGEX.test(employeeIdRaw) ? employeeIdRaw : "";
 
