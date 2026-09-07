@@ -41,7 +41,7 @@ import { runAllSyncs } from "@/modules/aria/aria-sync.service";
 import {
   executeTool,
   loadToolContext,
-  toolDefinitions,
+  toolDefinitionsFor,
 } from "@/modules/aria/aria-tools";
 
 type NdjsonLine =
@@ -1148,13 +1148,13 @@ export const ariaService = {
         }),
       );
 
-      // Tool-use loop. We allow up to MAX_TOOL_ITERATIONS round-trips
-      // so the model can chain (e.g. lookup_employee → lookup_visa).
-      // Each iteration streams text to the user; the final iteration
-      // ends with stop_reason="end_turn" or "stop_sequence" and writes
-      // the assistant message to the database.
-      const MAX_TOOL_ITERATIONS = 5;
+      // Tool-use loop. Cap room enough for multi-person chains
+      // (employee → visa → leave) plus one forced synthesis turn.
+      const MAX_TOOL_ITERATIONS = 8;
+      /** Output budget for board memos / multi-tool answers (was 2048). */
+      const CHAT_MAX_TOKENS = 8192;
       const toolContext = await loadToolContext(userId, conversationId);
+      const allowedTools = toolDefinitionsFor(toolContext.perms);
       let iterations = 0;
       let lastStopReason: string | null = null;
 
@@ -1168,12 +1168,25 @@ export const ariaService = {
       while (iterations < MAX_TOOL_ITERATIONS) {
         iterations += 1;
 
+        // On the final allowed iteration, disable tools so the model
+        // must synthesise from tool results already in the transcript
+        // instead of burning another tool_use and leaving an empty reply.
+        const atCeiling = iterations >= MAX_TOOL_ITERATIONS;
+        const toolsThisTurn =
+          atCeiling || allowedTools.length === 0 ? undefined : allowedTools;
+
+        // Per-iteration buffer: intermediate "looking that up…" prose from
+        // tool_use turns must not pollute the persisted assistant message.
+        // The FE replaces streamed text with the `done` payload, so clearing
+        // `accumulated` on tool_use keeps the saved answer clean.
+        let iterationText = "";
+
         const stream = anthropic.messages.stream(
           {
             model: ANTHROPIC_MODELS.CHAT,
-            max_tokens: 2048,
+            max_tokens: CHAT_MAX_TOKENS,
             system: systemBlocks,
-            tools: toolDefinitions(),
+            ...(toolsThisTurn ? { tools: toolsThisTurn } : {}),
             messages: messages as Anthropic.MessageParam[],
           },
           { signal: ac.signal },
@@ -1181,6 +1194,7 @@ export const ariaService = {
 
         stream.on("text", (delta) => {
           if (res.writableEnded || !delta) return;
+          iterationText += delta;
           accumulated += delta;
           writeNdjson(res, { t: "delta", text: delta });
         });
@@ -1204,6 +1218,13 @@ export const ariaService = {
 
         if (lastStopReason !== "tool_use") {
           break;
+        }
+
+        // Drop tool-turn narration from the final answer buffer.
+        if (iterationText.length > 0 && accumulated.endsWith(iterationText)) {
+          accumulated = accumulated.slice(0, -iterationText.length);
+        } else {
+          accumulated = "";
         }
 
         // Tool-use turn — execute each tool_use block, then append the

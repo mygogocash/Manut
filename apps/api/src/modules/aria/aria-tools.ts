@@ -1696,6 +1696,53 @@ export function toolDefinitions(): ToolDefinition[] {
 }
 
 /**
+ * Permission gates for advertising tools to the model. Empty = always
+ * exposed (tool still enforces ownership / finer gates in the handler).
+ * Values are OR'd — any matching code is enough to advertise the tool.
+ */
+const TOOL_REQUIRED_ANY_OF: Record<string, readonly string[]> = {
+  lookup_employee: [PERMISSIONS.DIRECTORY_READ],
+  lookup_visa: [
+    PERMISSIONS.VISA_READ,
+    PERMISSIONS.VISA_HR_READ,
+    PERMISSIONS.VISA_MANAGE,
+  ],
+  list_expiring_visas: [
+    PERMISSIONS.VISA_READ,
+    PERMISSIONS.VISA_HR_READ,
+    PERMISSIONS.VISA_MANAGE,
+  ],
+  lookup_leave_balance: [],
+  list_my_pending_approvals: [],
+  lookup_expense_report: [],
+  lookup_helpdesk_ticket: [],
+  lookup_partner: [PERMISSIONS.PARTNERS_READ],
+  lookup_project: [PERMISSIONS.PROJECTS_READ],
+  search_policy: [],
+  lookup_account: [PERMISSIONS.CRM_READ],
+  lookup_opportunity: [PERMISSIONS.CRM_READ],
+  list_my_pipeline: [PERMISSIONS.CRM_READ],
+  account_email_summary: [PERMISSIONS.CRM_READ],
+  lookup_my_calendar: [PERMISSIONS.INTEGRATIONS_USE],
+  aria_memory_forget: [],
+  submit_leave_request: [PERMISSIONS.LEAVE_REQUEST],
+};
+
+/**
+ * Tools the model may call for this caller. Forbidden tools are omitted
+ * so they cannot burn a tool-loop iteration on a known permission deny.
+ */
+export function toolDefinitionsFor(perms: Set<string>): ToolDefinition[] {
+  return Object.entries(REGISTRY)
+    .filter(([name]) => {
+      const need = TOOL_REQUIRED_ANY_OF[name] ?? [];
+      if (need.length === 0) return true;
+      return need.some((p) => perms.has(p));
+    })
+    .map(([, entry]) => entry.definition);
+}
+
+/**
  * Test-friendly: list the tool names currently exposed to Anthropic.
  * Lets evals enforce a stable set without importing the full registry.
  */
