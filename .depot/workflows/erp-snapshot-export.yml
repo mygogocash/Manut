@@ -73,7 +73,6 @@ jobs:
       - name: Export ERP snapshot
         env:
           STAGING_DIRECT_URL: ${{ secrets.STAGING_DIRECT_URL }}
-          AS_OF_DATE: ${{ inputs.as_of_date }}
           OUT_DIR: ${{ runner.temp }}/erp-snapshot
           S3_BUCKET: ${{ secrets.ERP_SNAPSHOT_S3_BUCKET }}
           S3_PREFIX: ${{ secrets.ERP_SNAPSHOT_S3_PREFIX }}
@@ -82,6 +81,11 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           set -euo pipefail
+          # Only export AS_OF_DATE when the dispatcher typed a real date —
+          # an empty workflow_dispatch string must not override "today UTC".
+          if [ -n "${{ inputs.as_of_date }}" ]; then
+            export AS_OF_DATE="${{ inputs.as_of_date }}"
+          fi
           ARGS="--slice=${{ inputs.slice }}"
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             ARGS="$ARGS --dry-run"
