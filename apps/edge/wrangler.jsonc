@@ -70,7 +70,7 @@
         "CF_ACCESS_TEAM_DOMAIN": ""
       },
       "routes": [{ "pattern": "staging.manut.xyz", "custom_domain": true }],
-      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "REPLACE_WITH_STAGING_HYPERDRIVE_ID" }],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "2531da29a59f4890bf8817697f5d350d" }],
       "d1_databases": [
         {
           "binding": "EDGE_DB",

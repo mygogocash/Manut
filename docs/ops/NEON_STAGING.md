@@ -1,7 +1,10 @@
 # Neon staging (APAC) — greenfield Hyperdrive
 
-**Region:** `ap-southeast-1` (AWS)  
+**Project ID:** `patient-mode-86465099` (Depot var `NEON_PROJECT_ID`)  
+**Primary branch:** `production` (`br-billowing-shadow-b35zxukk`)  
+**Region:** `aws-ap-southeast-1`  
 **DB name:** `neondb`  
+**Hyperdrive (staging):** `2531da29a59f4890bf8817697f5d350d` (`staging-manut-edge-neon`, GoGoCash account)  
 **Ledger:** Drizzle-only (`drizzle.__drizzle_migrations`) — do **not** run Prisma migrate on this database.  
 **Data:** greenfield (empty business data; seed Better Auth users separately).
 
@@ -34,7 +37,16 @@ DATABASE_URL="$STAGING_DIRECT_URL" pnpm db:migrate
 
 Do **not** run `db:migrate-auth` / `migrate-supabase-auth.mjs` — Neon has no `auth.users`.
 
-## Hyperdrive (founder — needs `CLOUDFLARE_API_TOKEN`)
+## Hyperdrive (done)
+
+Created via Cloudflare API on account GoGoCash:
+
+- name: `staging-manut-edge-neon`
+- id: `2531da29a59f4890bf8817697f5d350d` (committed in `apps/edge` + `apps/edge-jobs` wrangler staging)
+
+Origin is the **unpooled** Neon host. Caching disabled (OLTP).
+
+Re-create only if the origin password rotates again:
 
 ```bash
 cd apps/edge
@@ -42,14 +54,9 @@ npx wrangler hyperdrive create staging-manut-edge-neon \
   --connection-string "$STAGING_DIRECT_URL"
 ```
 
-Paste the returned `id` into:
+Then paste the new id into both wrangler staging `hyperdrive` bindings.
 
-- `apps/edge/wrangler.jsonc` → `env.staging.hyperdrive[0].id`
-- `apps/edge-jobs/wrangler.jsonc` → same
-
-Replace `REPLACE_WITH_STAGING_HYPERDRIVE_ID`.
-
-Set Depot secret `STAGING_DIRECT_URL` to the same unpooled Neon URL (CI migrate step in `deploy-edge-staging.yml`).
+Set Depot secret `STAGING_DIRECT_URL` to the current unpooled Neon URL (password was rotated 2026-09-07 — update the secret if it still has the old password).
 
 ## Seed users
 
@@ -71,7 +78,8 @@ Parent is the Neon project primary (already bootstrapped). Do **not** run `db:bo
 | Name | Kind | Notes |
 |---|---|---|
 | `NEON_API_KEY` | secret | Neon console → Account → API keys |
-| `NEON_PROJECT_ID` | variable | Neon console → Project settings → Project ID (`proj_…`) |
+| `NEON_PROJECT_ID` | variable | `patient-mode-86465099` |
+| `STAGING_DIRECT_URL` | secret | Unpooled Neon URL after password rotate (deploy migrate + Hyperdrive origin) |
 
 Parent is always the Neon project primary. If you need a non-default parent, add `parent_branch` to the create step in the workflow.
 

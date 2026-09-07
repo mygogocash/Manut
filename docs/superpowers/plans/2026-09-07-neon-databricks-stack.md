@@ -1,7 +1,7 @@
 # Plan: Neon (Hyperdrive) + Databricks ERP lakehouse
 
 **Date:** 2026-09-07  
-**Status:** Phase 0 locked; Neon APAC greenfield schema applied — awaiting Hyperdrive id paste  
+**Status:** Phase 1 mostly done — Neon APAC greenfield + Hyperdrive id committed; Depot `STAGING_DIRECT_URL` + `NEON_*` still need founder paste after password rotate  
 **Credits:** ~$1k Neon + ~$1k Databricks  
 **Out of scope:** Marketing / BNII / OneWave analytics (explicitly excluded)
 

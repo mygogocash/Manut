@@ -14,7 +14,8 @@ logged in (`npx wrangler login`) or `CLOUDFLARE_API_TOKEN` exported. Do it for
 ## 1. Staging (`--env staging`)
 
 ```bash
-# Hyperdrive → Neon APAC (staging). Use the UNPOOLED Neon URL — Hyperdrive pools.
+# Hyperdrive → Neon APAC (staging). DONE: id 2531da29a59f4890bf8817697f5d350d
+# Recreate only after a password rotate (unpooled URL — Hyperdrive pools).
 # See docs/ops/NEON_STAGING.md. Do not use the -pooler hostname here.
 npx wrangler hyperdrive create staging-manut-edge-neon \
   --connection-string "$STAGING_DIRECT_URL"
