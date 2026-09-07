@@ -10,21 +10,27 @@ export function PageScreen({
   children,
   scroll = true,
   className,
+  actions,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   scroll?: boolean;
   className?: string;
+  /** Primary page actions rendered beside the title. */
+  actions?: ReactNode;
 }) {
   const compact = useViewportWidth() < TABLET_MIN;
   const pad = compact ? "px-4 py-5" : "px-6 py-6";
   const header = (
-    <View className="mb-5 gap-1">
-      <Text className={cn("font-bold tracking-tight text-foreground", compact ? "text-[22px]" : "text-[26px]")}>
-        {title}
-      </Text>
-      {subtitle ? <Text className="max-w-[42rem] text-[15px] leading-6 text-muted-foreground">{subtitle}</Text> : null}
+    <View className="mb-5 flex-row items-start justify-between gap-3">
+      <View className="min-w-0 flex-1 gap-1">
+        <Text className={cn("font-bold tracking-tight text-foreground", compact ? "text-[22px]" : "text-[26px]")}>
+          {title}
+        </Text>
+        {subtitle ? <Text className="max-w-[42rem] text-[15px] leading-6 text-muted-foreground">{subtitle}</Text> : null}
+      </View>
+      {actions ? <View className="shrink-0 pt-0.5">{actions}</View> : null}
     </View>
   );
 

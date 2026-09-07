@@ -1,12 +1,22 @@
 import type { ColumnDef } from "@tanstack/react-table";
-import { ActivityIndicator, View } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
+import { Plus } from "lucide-react-native";
+import { useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { DataTable } from "@/components/data-table";
 import { EmptyState } from "@/components/empty-state";
+import { Field } from "@/components/field";
 import { PageScreen } from "@/components/page-screen";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Text } from "@/components/ui/text";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { api, ApiError } from "@/lib/api-client";
+import { BRAND } from "@/lib/brand";
 import { unwrapList } from "@/lib/list";
 import { queryKeys } from "@/lib/query-keys";
-import { BRAND } from "@/lib/brand";
+import { cn } from "@/lib/utils";
 
 type LeaveRequest = {
   id: string;
@@ -18,6 +28,13 @@ type LeaveRequest = {
   employee?: { name: string };
 };
 
+type LeaveType = {
+  id: string;
+  name: string;
+  code?: string;
+  isActive?: boolean;
+};
+
 const columns: ColumnDef<LeaveRequest>[] = [
   { accessorFn: (row) => row.leaveType?.name ?? "Leave", header: "Type" },
   { accessorFn: (row) => row.employee?.name ?? "—", header: "Employee" },
@@ -26,7 +43,154 @@ const columns: ColumnDef<LeaveRequest>[] = [
   { accessorKey: "status", header: "Status" },
 ];
 
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function RequestLeaveDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: () => void;
+}) {
+  const typesQuery = useApiQuery<{ data: LeaveType[] }>(queryKeys.leave.types(), "/leave/types", {
+    enabled: open,
+  });
+  const types = useMemo(
+    () => unwrapList<LeaveType>(typesQuery.data).filter((t) => t.isActive !== false),
+    [typesQuery.data],
+  );
+
+  const [leaveTypeId, setLeaveTypeId] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState(todayIso);
+  const [endDate, setEndDate] = useState(todayIso);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    if (!leaveTypeId) {
+      setError("Select a leave type");
+      return;
+    }
+    if (endDate < startDate) {
+      setError("End date must not be before start date");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post("/leave/requests", {
+        leaveTypeId,
+        startDate,
+        endDate,
+        durationType: "full_day",
+        reason: reason.trim() || undefined,
+      });
+      onOpenChange(false);
+      setLeaveTypeId(null);
+      setReason("");
+      setStartDate(todayIso());
+      setEndDate(todayIso());
+      onCreated();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        title="Request leave"
+        description="Choose a leave type and the dates you need off."
+        footer={
+          <DialogFooter>
+            <Button variant="outline" disabled={busy} onPress={() => onOpenChange(false)}>
+              <Text>Cancel</Text>
+            </Button>
+            <Button disabled={busy || typesQuery.isLoading} onPress={() => void submit()}>
+              <Text>{busy ? "Submitting…" : "Submit request"}</Text>
+            </Button>
+          </DialogFooter>
+        }
+      >
+        {typesQuery.isLoading ? (
+          <ActivityIndicator color={BRAND.ink} />
+        ) : typesQuery.error ? (
+          <Text className="text-[13px] text-destructive">{typesQuery.error.message}</Text>
+        ) : (
+          <Field label="Leave type">
+            <View className="flex-row flex-wrap gap-2">
+              {types.map((t) => {
+                const selected = t.id === leaveTypeId;
+                return (
+                  <Pressable
+                    key={t.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => setLeaveTypeId(t.id)}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5",
+                      selected ? "border-primary bg-primary" : "border-border bg-card",
+                    )}
+                  >
+                    <Text
+                      className={cn(
+                        "text-[13px] font-medium",
+                        selected ? "text-primary-foreground" : "text-foreground",
+                      )}
+                    >
+                      {t.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {types.length === 0 ? (
+                <Text className="text-[13px] text-muted-foreground">No leave types available.</Text>
+              ) : null}
+            </View>
+          </Field>
+        )}
+        <Field label="Start date">
+          <Input
+            accessibilityLabel="Start date"
+            autoCapitalize="none"
+            placeholder="YYYY-MM-DD"
+            value={startDate}
+            onChangeText={setStartDate}
+          />
+        </Field>
+        <Field label="End date">
+          <Input
+            accessibilityLabel="End date"
+            autoCapitalize="none"
+            placeholder="YYYY-MM-DD"
+            value={endDate}
+            onChangeText={setEndDate}
+          />
+        </Field>
+        <Field label="Reason (optional)">
+          <Input
+            accessibilityLabel="Reason"
+            placeholder="Brief reason for your request"
+            value={reason}
+            onChangeText={setReason}
+          />
+        </Field>
+        {error ? <Text className="text-[13px] text-destructive">{error}</Text> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function LeavePage() {
+  const queryClient = useQueryClient();
+  const [requestOpen, setRequestOpen] = useState(false);
   const query = useApiQuery<{ data: LeaveRequest[] }>(queryKeys.leave.requests(), "/leave/requests");
   const items = unwrapList<LeaveRequest>(query.data);
 
@@ -40,7 +204,7 @@ export default function LeavePage() {
 
   if (query.error) {
     return (
-      <PageScreen title="Leave requests">
+      <PageScreen title="Leave">
         <View className="overflow-hidden rounded-xl border border-border bg-card">
           <EmptyState
             variant="error"
@@ -57,13 +221,32 @@ export default function LeavePage() {
   }
 
   return (
-    <PageScreen title="Leave requests" scroll={false}>
-      <DataTable
-        columns={columns}
-        data={items}
-        empty="No leave requests yet"
-        emptyDescription="Requests you submit or need to approve will show up here."
+    <>
+      <PageScreen
+        title="Leave"
+        subtitle="Submit time off and track requests awaiting approval."
+        scroll={false}
+        actions={
+          <Button size="sm" onPress={() => setRequestOpen(true)}>
+            <Plus size={14} color={BRAND.paper} />
+            <Text>Request leave</Text>
+          </Button>
+        }
+      >
+        <DataTable
+          columns={columns}
+          data={items}
+          empty="No leave requests yet"
+          emptyDescription="Tap Request leave to submit your first request."
+        />
+      </PageScreen>
+      <RequestLeaveDialog
+        open={requestOpen}
+        onOpenChange={setRequestOpen}
+        onCreated={() => {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.leave.requests() });
+        }}
       />
-    </PageScreen>
+    </>
   );
 }
