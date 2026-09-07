@@ -1,6 +1,5 @@
-import { z } from "zod";
-
 import { SUPPORTED_LOCALES } from "@nexora/i18n";
+import { z } from "zod";
 
 export const loginSchema = z.object({
   email: z.string().email("Invalid email"),
