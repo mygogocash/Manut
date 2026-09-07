@@ -45,8 +45,8 @@
 | Auth (edge) | Better Auth + KV sessions | Unchanged; staging users seeded without Supabase `auth.users` |
 | Auth (Express legacy) | Supabase JWT | Leave alone until Phase 9 decommission |
 | D1 | Sidecar 3 tables | Unchanged |
-| Analytics warehouse | None in-repo | Databricks Delta + SQL warehouse |
-| Jobs | `apps/edge-jobs` cron → `/api/cron/*` | Add export/CDC job(s) behind same pattern |
+| Analytics warehouse | None in-repo | Databricks **AWS** Delta + SQL warehouse (auto-stop) |
+| Jobs | `apps/edge-jobs` cron → `/api/cron/*` | ERP export v1 = **Depot workflow**; edge-jobs unchanged for reminders |
 
 Authoritative wiring: `apps/edge/wrangler.jsonc`, `.depot/workflows/deploy-edge-staging.yml`, `docs/ops/CLOUDFLARE_PROVISIONING.md`, ADR `docs/adr/0001-cloudflare-edge-rewrite.md`.
 
