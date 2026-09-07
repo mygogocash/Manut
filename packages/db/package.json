@@ -18,6 +18,7 @@
     "db:check": "DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:5432/postgres} drizzle-kit check",
     "db:baseline": "node scripts/baseline.mjs",
     "db:bootstrap-greenfield": "node scripts/bootstrap-greenfield.mjs",
+    "db:seed-better-auth-admin": "node scripts/seed-better-auth-admin.mjs",
     "db:parity": "node scripts/schema-parity.mjs",
     "test": "vitest run --passWithNoTests",
     "db:migrate-auth": "node scripts/migrate-supabase-auth.mjs"

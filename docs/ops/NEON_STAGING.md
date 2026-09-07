@@ -58,9 +58,32 @@ Then paste the new id into both wrangler staging `hyperdrive` bindings.
 
 Set Depot secret `STAGING_DIRECT_URL` to the current unpooled Neon URL (password was rotated 2026-09-07 — update the secret if it still has the old password).
 
-## Seed users
+## Seed users (Better Auth admin)
 
-Create Better Auth users via seed / admin after Hyperdrive is wired — no Supabase Auth import.
+Greenfield Neon has no `auth.users`. After schema bootstrap + migrate:
+
+```bash
+cd packages/db
+SEED_ADMIN_PASSWORD='…min 12 chars…' \
+  DATABASE_URL="$STAGING_DIRECT_URL" \
+  pnpm db:seed-better-auth-admin
+# second run is idempotent (rotates credential password hash)
+SEED_ADMIN_PASSWORD='…' DATABASE_URL="$STAGING_DIRECT_URL" pnpm db:seed-better-auth-admin
+```
+
+Creates (or updates):
+
+| Row | Notes |
+|---|---|
+| `entities` code `TH` | TBH Thailand |
+| `roles` name `Admin` | `is_system=true` (Admin bypass) |
+| `users` `admin@manut.xyz` | TBH Admin, email verified, active |
+| `user_roles` | Admin ↔ user |
+| `account` | `providerId=credential`, `issuer=local:credential`, bcrypt password |
+
+Override email/name with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_NAME`. Do **not** commit the password. First successful edge sign-in re-hashes bcrypt → Better Auth scrypt.
+
+Staging Worker still needs `BETTER_AUTH_SECRET` (`wrangler secret put --env staging`) before login works on `https://staging.manut.xyz`.
 
 ## PR database branches (Depot)
 
@@ -80,6 +103,8 @@ Parent is the Neon project primary (already bootstrapped). Do **not** run `db:bo
 | `NEON_API_KEY` | secret | Set 2026-09-07 (org `rf185j2sr5`, repo-scoped `mygogocash/Manut`) |
 | `NEON_PROJECT_ID` | variable | `patient-mode-86465099` |
 | `STAGING_DIRECT_URL` | secret | Unpooled Neon URL (post password-rotate; deploy migrate + Hyperdrive origin) |
+| `CLOUDFLARE_API_TOKEN` | secret | **Still required for Worker deploy** — Manut-scoped; existing org `CF_STAGING_API_TOKEN` is locked to `mygogocash/gogocash-doc` + `staging.yml` and will not inject into this repo |
+| `CLOUDFLARE_ACCOUNT_ID` | secret | GoGoCash `187ab61ed9dbc6e616cb23e6b95aa8f1` (already present as default variant) |
 
 Parent is always the Neon project primary (`production`). If you need a non-default parent, add `parent_branch` to the create step in the workflow.
 
