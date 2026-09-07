@@ -150,12 +150,13 @@ Update in the same PR as wiring:
 3. Apply pending Drizzle migration(s) twice (idempotency).
 4. Merge migration to `main` → promote → staging Neon primary migrates via Depot.
 
-### 2.3 Optional automation (later)
+### 2.3 Automation
 
-- Depot workflow: create branch → migrate → destroy on PR close.
-- Do **not** block Phase 1 on this.
+- Live: `.depot/workflows/neon-pr-branches.yml` (Neon create/delete-branch actions + Drizzle migrate ×2 on unpooled URL).
+- Needs Depot `NEON_API_KEY` + `NEON_PROJECT_ID` (see `docs/ops/NEON_STAGING.md`).
+- Do **not** block Phase 1 Hyperdrive paste on this.
 
-**Exit criteria:** Documented branch recipe used for at least one real migration PR.
+**Exit criteria:** Documented branch recipe used for at least one real migration PR; workflow green once secrets are set.
 
 ---
 

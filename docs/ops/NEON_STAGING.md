@@ -55,6 +55,30 @@ Set Depot secret `STAGING_DIRECT_URL` to the same unpooled Neon URL (CI migrate 
 
 Create Better Auth users via seed / admin after Hyperdrive is wired — no Supabase Auth import.
 
+## PR database branches (Depot)
+
+Workflow: `.depot/workflows/neon-pr-branches.yml` (Neon’s Create/Delete Branch template, Depot runners).
+
+| Event | Action |
+|---|---|
+| PR opened / reopened / synchronize | Create (or reuse) Neon branch `preview-pr-<n>-<git-branch>` (≤63 chars), expire +14d, run `pnpm --filter @nexora/db db:migrate` **twice** on the **unpooled** URL |
+| PR closed | Delete that Neon branch |
+
+Parent is the Neon project primary (already bootstrapped). Do **not** run `db:bootstrap-greenfield` on PR branches.
+
+### Depot secrets / vars
+
+| Name | Kind | Notes |
+|---|---|---|
+| `NEON_API_KEY` | secret | Neon console → Account → API keys |
+| `NEON_PROJECT_ID` | variable | Neon console → Project settings → Project ID (`proj_…`) |
+
+Parent is always the Neon project primary. If you need a non-default parent, add `parent_branch` to the create step in the workflow.
+
+If either `NEON_PROJECT_ID` or `NEON_API_KEY` is missing, the workflow no-ops with a notice (same pattern as unset `CLOUDFLARE_API_TOKEN` on staging deploy).
+
+Schema-diff PR comments (`neondatabase/schema-diff-action`) are commented out in the workflow; enable when you want review noise and add `pull-requests: write`.
+
 ## Security
 
 If a Neon password was pasted into chat or a ticket, **rotate it in the Neon console** and update Hyperdrive + Depot secrets.
