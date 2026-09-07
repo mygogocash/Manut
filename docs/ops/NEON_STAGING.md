@@ -105,6 +105,8 @@ Parent is the Neon project primary (already bootstrapped). Do **not** run `db:bo
 | `STAGING_DIRECT_URL` | secret | Unpooled Neon URL (post password-rotate; deploy migrate + Hyperdrive origin) |
 | `CLOUDFLARE_API_TOKEN` | secret | **Still required for Worker deploy** — Manut-scoped; existing org `CF_STAGING_API_TOKEN` is locked to `mygogocash/gogocash-doc` + `staging.yml` and will not inject into this repo |
 | `CLOUDFLARE_ACCOUNT_ID` | secret | GoGoCash `187ab61ed9dbc6e616cb23e6b95aa8f1` (already present as default variant) |
+| `BETTER_AUTH_API_KEY` | secret | Better Auth Dash key — Depot holds it; `deploy-edge-staging.yml` runs `wrangler secret put` after the first Worker deploy |
+| `BETTER_AUTH_SECRET` | secret | Session signing secret — **still required** for login; same post-deploy `wrangler secret put` path |
 
 Parent is always the Neon project primary (`production`). If you need a non-default parent, add `parent_branch` to the create step in the workflow.
 
@@ -121,11 +123,14 @@ Infra on Neon + Hyperdrive is done. Workers are **not** deployed yet (`intranet-
    - Org secret `CF_STAGING_API_TOKEN` is locked to `gogocash-doc` and will **not** inject here  
 2. **Promote `main` → `preview` with a merge commit** (or `workflow_dispatch` Deploy Edge Staging after preview catches up)  
    - Path filters skip docs-only pushes; Neon/edge package changes are covered  
-3. **Worker secrets** (after first wrangler deploy creates the script):  
+3. **Worker secrets** (auto-applied from Depot after first wrangler deploy once `CLOUDFLARE_API_TOKEN` is set):  
+   - `BETTER_AUTH_API_KEY` — **set in Depot** (2026-09-07)  
+   - `BETTER_AUTH_SECRET` — still needed in Depot (session signing; different from the Dash API key)  
+   Manual fallback:  
    ```bash
    cd apps/edge
    npx wrangler secret put BETTER_AUTH_SECRET --env staging
-   # plus EMAIL_* / Turnstile / AI keys as needed — see CLOUDFLARE_PROVISIONING.md
+   npx wrangler secret put BETTER_AUTH_API_KEY --env staging
    ```
 4. **Re-seed admin password** if the bootstrap password is unknown:  
    `SEED_ADMIN_PASSWORD=… DATABASE_URL="$STAGING_DIRECT_URL" pnpm --filter @nexora/db db:seed-better-auth-admin`
