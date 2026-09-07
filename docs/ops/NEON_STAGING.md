@@ -83,6 +83,26 @@ Creates (or updates):
 
 Override email/name with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_NAME`. Do **not** commit the password. First successful edge sign-in re-hashes bcrypt → Better Auth scrypt.
 
+### Project CRM chains + demo proposals
+
+Prisma migration seed SQL does **not** run on this Neon DB (Drizzle ledger only). After the admin user exists:
+
+```bash
+cd packages/db
+DATABASE_URL="$STAGING_DIRECT_URL" pnpm db:seed-project-crm-chains
+DATABASE_URL="$STAGING_DIRECT_URL" pnpm db:seed-staging-proposals
+```
+
+Creates (or updates):
+
+| Row | Notes |
+|---|---|
+| `system_settings` `proposals.first_reviewer` / `proposals.final_approver` / `project-workflow.default_approver` | Point at the admin user |
+| `approval_chains` scopes `proposal` + `project_request` | Stages named + `is_system` |
+| `proposals` titled `[STAGING] …` | Two in-flight rows so `/proposals` is not empty |
+
+Without the chain seed, `GET /api/approval-chains/proposal` returns 404 and proposal create cannot snapshot decisions.
+
 Staging Worker still needs `BETTER_AUTH_SECRET` (`wrangler secret put --env staging`) before login works on `https://staging.manut.xyz`.
 
 ## PR database branches (Depot)

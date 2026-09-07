@@ -49,6 +49,15 @@ describe("dashboard helpers", () => {
     });
     expect(stats?.kpis.pendingLeaves).toBe(3);
     expect(stats?.pendingActions).toEqual([]);
-    expect(unwrapDashboardStats({})).toBeNull();
+  });
+
+  it("defaults missing kpis instead of blanking the dashboard", () => {
+    const stats = unwrapDashboardStats({
+      pendingActions: [],
+      urgentItems: [],
+    });
+    expect(stats?.kpis.totalEmployees).toBe(0);
+    expect(stats?.pendingActions).toEqual([]);
+    expect(unwrapDashboardStats(null)).toBeNull();
   });
 });
